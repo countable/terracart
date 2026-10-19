@@ -235,6 +235,13 @@
     const historicalResponse=await fetch('art-candidates/historical-rocks/alternatives.json',{cache:'no-store'});
     if(!historicalResponse.ok)throw new Error('Could not load previous rock art');
     alternatives.entries.push(...(await historicalResponse.json()).entries);
+    const indexedResponse=await fetch('art-candidates/indexed/alternatives.json',{cache:'no-store'});
+    if(!indexedResponse.ok)throw new Error('Could not load indexed art alternatives');
+    for(const entry of (await indexedResponse.json()).entries) {
+      const targets=entry.targets.filter(target=>!alternatives.entries.some(existing=>
+        existing.targets.includes(target)&&existing.source===entry.source&&JSON.stringify(existing.crop)===JSON.stringify(entry.crop)));
+      if(targets.length)alternatives.entries.push({...entry,targets});
+    }
     await Promise.all(alternatives.entries.map(async candidate=>{candidate.previewImage=await ArtPreviewFit.load(candidate.image);}));
     for(const row of rows)row.alternatives=alternatives.entries.filter(candidate=>candidate.targets.includes(row.id));
     const query=new URLSearchParams(location.search);
@@ -246,7 +253,7 @@
     const zoneVariantsText=row=>(row.approved?'Approved for placement: ':'')+([...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use');
     const sandboxZoneKind = id => ZoneVariantData.variants.find(z=>z.id===id)?.zone || id;
     const art=(row,limit)=>row.images.slice(0,limit).map((src,i)=>`<img class="sprite" src="${src}" alt="${esc(row.name+(row.stateLabels?.[i]?' · '+row.stateLabels[i]:''))}" title="${esc(row.stateLabels?.[i]||row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
-    const candidateArt=c=>`<figure class="candidate"><img class="sprite" src="${esc(c.previewImage||c.image)}" alt="${esc(c.name)}" loading="lazy"><figcaption><strong>${esc(c.name)}</strong><br><small>${esc(c.pack)} · native ${c.nativeTileSize}px grid<br>${c.crop[2]}×${c.crop[3]} px crop${c.sizeException?' · tall object':''}</small></figcaption></figure>`;
+    const candidateArt=c=>`<figure class="candidate"><img class="sprite" src="${esc(c.previewImage||c.image)}" alt="${esc(c.name)}" loading="lazy"><figcaption><strong>${esc(c.name)}</strong><br><small>${esc(c.pack)}${c.status?` · ${esc(c.status)}`:''} · native ${c.nativeTileSize}px grid<br>${c.crop[2]}×${c.crop[3]} px crop${c.sizeException?' · tall object':''}</small></figcaption></figure>`;
     const filteredAlternatives=row=>row.alternatives.filter(c=>{
       const choice=$('alternatives').value;
       return choice==='smaller'?c.group==='smaller':['','any','none'].includes(choice)||c.pack===choice;

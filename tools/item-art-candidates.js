@@ -25,8 +25,8 @@ const ItemArtCandidates = (() => {
   const food = 'Readable food silhouette and warm colour. Compare its coarser 16px clusters with current art.';
   for (const [id,col,row] of [
     ['apple',22,26],['cherry',23,26],['banana',26,26],['orange',22,27],
-    ['mushroom',17,26],['onion',25,27],
-    ['egg',16,27],['meat',17,28],['grilled_meat',17,29],
+    ['mushroom',17,26],
+    ['egg',16,27],['meat',17,28],
     ['minnow',16,25],['bass',17,25],['salmon',18,25],['goldenfish',19,25],
   ]) add(id,'rogue',col,row,food);
   for (const [id,col,row] of [
@@ -40,13 +40,11 @@ const ItemArtCandidates = (() => {
   for (const [id,col,row,note] of [
     ['book',16,23,'Closed book with warm cover; clear inventory silhouette.'],
     ['tome_healing',25,23,'Cross-marked cover suggests healing; retains a distinct spell emblem.'],
-    ['tome_shielding',16,24,'Shield-marked cover offers a direct protection cue.'],
     ['lucky_key',17,14,'Warm gold key with a clear bow and teeth.'],
     ['wood_shield',16,0,'Wood-grain round shield reads as low-tier protection.'],
     ['metal_shield',19,0,'Broad silver face reads well at inventory scale.'],
     ['gold_shield',19,2,'Warm metal distinguishes the gold shield.'],
     ['old_boot',24,4,'Single brown boot; would need wear or damage for the discarded-item story.'],
-    ['crow_feather',29,28,'Clear feather shape; needs a dark recolour to read as crow.'],
     ['renovation_permit',23,28,'Document silhouette; needs a distinct permit seal.'],
   ]) add(id,'rogue',col,row,note);
   // One representative tier per equipment family. These are silhouette studies,
@@ -60,7 +58,7 @@ const ItemArtCandidates = (() => {
   // Dungeon Gathering and Pixel Plains share many silhouettes. Their 16px
   // artwork occupies padded 32px source cells; preserve that source geometry.
   for (const [id,col,row] of [
-    ['relic:sword:1',0,0],['relic:axe:1',0,1],['relic:bow:1',0,2],
+    ['relic:sword:1',0,0],['relic:bow:1',0,2],
     ['relic:dagger:1',0,3],['relic:lance:1',0,4],['relic:staff:1',0,6],
     ['wood_shield',0,5],['metal_shield',2,5],['gold_shield',3,5],
     ['book',0,7],['tome_healing',4,7],['armor:boots:1',0,12],
@@ -140,7 +138,6 @@ const ItemArtCandidates = (() => {
     ['tome_raven',20,13,'Purple framed book; needs a raven emblem.'],
     ['treasure_map',14,9,'Marked parchment map with irregular edges.'],
     ['treasure_map',21,9,'Rolled marked parchment map.'],
-    ['blank_scroll',31,10,'Unrolled parchment with small marks; remove marks for a blank scroll.'],
     ['fireball_scroll',32,16,'Gold-marked scroll; needs a fireball emblem.'],
     ['bones_scroll',31,11,'Parchment with a dark circular mark; needs the bones emblem.'],
     ['fear_scroll',32,14,'Parchment with a dark mask-like mark.'],
@@ -201,7 +198,6 @@ const ItemArtCandidates = (() => {
     'Complete native16 coloured potion. Bottle and liquid are a visual option; review effect colour/emblem conventions before adoption. Some effects intentionally share a source while comparing bottle shapes.');
   for (const [id,col,row,note] of [
     ['relic:sword:1',0,0,'Brown-hilt blade with a clear diagonal silhouette.'],
-    ['relic:axe:1',0,1,'Compact brown axe from the native16 unoutlined sheet.'],
     ['relic:bow:1',0,2,'Curved wooden bow with a thin string.'],
     ['relic:dagger:1',0,3,'Small brown dagger without the v2 white outline.'],
     ['relic:lance:1',0,4,'Long spear with a short brown shaft.'],

@@ -73,6 +73,22 @@ async function loadFurnitureCandidates() {
     }
   }
 }
+async function loadIndexedCandidates() {
+  const response = await fetch('art-candidates/indexed/alternatives.json', { cache: 'no-store' });
+  if (!response.ok) throw new Error('Could not load indexed art alternatives');
+  const manifest = await response.json();
+  for (const entry of manifest.entries) {
+    if (!entry.itemIds.length) continue;
+    ItemArtCandidates.packs[entry.itemPack] ||= { name: entry.pack, group: 'smaller' };
+    for (const id of entry.itemIds) {
+      if (!catalogue.some(row => row.id === id)) throw new Error('Unknown indexed item: ' + id);
+      const options = ((ItemArtCandidates.rows[id] ||= {})[entry.itemPack] ||= []);
+      if (options.some(option => option.source === entry.source && JSON.stringify(option.crop) === JSON.stringify(entry.crop))) continue;
+      options.push({ image: entry.image, source: entry.source, crop: entry.crop,
+        file: entry.source.split('/').pop(), name: entry.pack, note: entry.note, status: entry.status });
+    }
+  }
+}
 async function prepareCandidatePreviews() {
   const images = new Map();
   const load = url => {
@@ -198,6 +214,7 @@ async function preparePreviewIcons(rows) {
     await prepareWorldIcons();
     catalogue = ItemCatalog.build();
     await loadFurnitureCandidates();
+    await loadIndexedCandidates();
     await Promise.all([preparePreviewIcons(catalogue), prepareCandidatePreviews()]);
     const fill = (id, values, label = value => value) => values.forEach(value => el(id).add(new Option(label(value), value)));
     fill('category', [...new Set(catalogue.map(row => row.category))].sort());

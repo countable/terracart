@@ -60,47 +60,6 @@
       "nativeTileSize": 16
     },
     {
-      "id": "ra-stalagmite",
-      "pack": "Rogue Adventure World",
-      "name": "Cave stalagmites",
-      "targets": [
-        "cave_props:stalagmites"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
-      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
-      "crop": [
-        448,
-        96,
-        16,
-        32
-      ],
-      "image": "art-candidates/world/ra-stalagmite.png",
-      "note": "Muted stone fits dangerous caves. Keep the upright silhouette distinct from mineable rock.",
-      "nativeTileSize": 16,
-      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
-    },
-    {
-      "id": "ra-house",
-      "pack": "Rogue Adventure World",
-      "name": "Thatched cottage study",
-      "targets": [
-        "house",
-        "house_trader"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
-      "sourceSHA256": "b5e285b3751757afc75e803487908643e3492ce0a68bf76ee4a16892596152f4",
-      "crop": [
-        176,
-        384,
-        64,
-        80
-      ],
-      "image": "art-candidates/world/ra-house.png",
-      "note": "Warm weathered palette. Source is 64\u00d780 and front-heavy: shorten its wall/roof before meeting the 64\u00d764 house brief. Role emblems are absent.",
-      "nativeTileSize": 16,
-      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
-    },
-    {
       "id": "ra-grass",
       "pack": "Rogue Adventure World",
       "name": "Olive grass patch",
@@ -131,7 +90,6 @@
       "pack": "Rogue Adventure World",
       "name": "Weathered earth patch",
       "targets": [
-        "tilled",
         "ground:4"
       ],
       "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
@@ -143,7 +101,7 @@
         16
       ],
       "image": "art-candidates/world/ra-earth.png",
-      "note": "Restrained brown suits neglected farmland. Needs a shallow depression lip and crop rows for tilled plots.",
+      "note": "Plain earth material; no visible furrows establish a tilled state.",
       "nativeTileSize": 16
     },
     {
@@ -617,84 +575,6 @@
       "nativeTileSize": 16
     },
     {
-      "id": "ra-grave-marker",
-      "pack": "Rogue Adventure World",
-      "name": "Carved grave marker",
-      "targets": [
-        "zone_objects:1"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Graveyard.png",
-      "sourceSHA256": "5ef8216023ffd7b368260dba9b7ae38856ec6fe8a6c49e4e5e279b0b5cc7c569",
-      "crop": [
-        256,
-        0,
-        16,
-        32
-      ],
-      "image": "art-candidates/world/ra-grave-marker.png",
-      "note": "Muted grey and a clear burial emblem suit churchyards. Tall upright marker; compare crown perspective and worn-state readability.",
-      "nativeTileSize": 16,
-      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
-    },
-    {
-      "id": "ra-grave-marker-broken",
-      "pack": "Rogue Adventure World",
-      "name": "Broken grave marker",
-      "targets": [
-        "zone_objects:1"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Graveyard.png",
-      "sourceSHA256": "5ef8216023ffd7b368260dba9b7ae38856ec6fe8a6c49e4e5e279b0b5cc7c569",
-      "crop": [
-        256,
-        32,
-        16,
-        32
-      ],
-      "image": "art-candidates/world/ra-grave-marker-broken.png",
-      "note": "Damaged companion with the same palette. Good neglected-state option, but should keep the same base anchor as an intact marker.",
-      "nativeTileSize": 16,
-      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
-    },
-    {
-      "id": "ra-rune-cyan",
-      "pack": "Rogue Adventure World",
-      "name": "Cyan rune tile",
-      "targets": [
-        "cave_props:rune_cyan"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Sanctuary.png",
-      "sourceSHA256": "22b42820dd73a008b334df90a6bf02520389b9f99d4fd63c982c184a623afb1c",
-      "crop": [
-        0,
-        48,
-        16,
-        16
-      ],
-      "image": "art-candidates/world/ra-rune-cyan.png",
-      "note": "Pale cyan geometric floor symbol. Square tile instead of a rune circle; compare readability and preserve activation-state contrast.",
-      "nativeTileSize": 16
-    },
-    {
-      "id": "ra-rune-dark",
-      "pack": "Rogue Adventure World",
-      "name": "Dormant rune tile",
-      "targets": [
-        "cave_props:rune_cyan"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Sanctuary.png",
-      "sourceSHA256": "22b42820dd73a008b334df90a6bf02520389b9f99d4fd63c982c184a623afb1c",
-      "crop": [
-        256,
-        48,
-        16,
-        16
-      ],
-      "image": "art-candidates/world/ra-rune-dark.png",
-      "note": "Dark companion to the cyan symbol supports an inactive state. Symbol and floor material should remain distinct from pressure plates.",
-      "nativeTileSize": 16
-    },
-    {
       "id": "fd-switch-blue",
       "pack": "Fantasy Dreamland",
       "name": "Blue inset switch",
@@ -1117,26 +997,6 @@
       "image": "art-candidates/world/fd-wood-pole.png",
       "note": "Small timber fence cell rather than sharpened stakes. Material study only; hazard silhouettes and charred treatment would need reauthoring.",
       "nativeTileSize": 16
-    },
-    {
-      "id": "ra-stalagmite-second",
-      "pack": "Rogue Adventure World",
-      "name": "Cave stalagmites \u00b7 narrow",
-      "targets": [
-        "cave_props:stalagmites"
-      ],
-      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
-      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
-      "crop": [
-        464,
-        96,
-        16,
-        32
-      ],
-      "image": "art-candidates/world/ra-stalagmite-second.png",
-      "note": "Muted stone fits dangerous caves. Keep the upright silhouette distinct from mineable rock.",
-      "nativeTileSize": 16,
-      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
     },
     {
       "id": "fd-stalagmites-second",
