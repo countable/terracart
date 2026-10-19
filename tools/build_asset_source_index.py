@@ -126,14 +126,16 @@ def render_review(packs, paths, plan, counts, index, output):
     index.write_text('\n'.join(md))
     page = """<!doctype html><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Asset source systems</title>
 <style>body{font:16px system-ui;background:#16202a;color:#e6ecf1;margin:24px}a{color:#9cd5ff;overflow-wrap:anywhere}header{position:sticky;top:0;background:#16202a;padding:12px 0;z-index:1}input,select{font:inherit;padding:9px;max-width:90%}.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:16px}article{background:#263440;padding:12px}img{display:block;width:100%;height:200px;object-fit:contain;image-rendering:pixelated;background:repeating-conic-gradient(#35424d 0% 25%,#29353e 0% 50%) 50%/16px 16px;margin-bottom:12px}section{border-top:1px solid #576774;padding:20px 0}small{color:#b5c3ce}h2,summary{overflow-wrap:anywhere}summary{cursor:pointer;padding:12px;background:#22313d}.pack{margin:10px 0}[hidden]{display:none!important}</style>
-<h1>Asset source systems</h1><p>RULES</p><p>Start with these consolidated original sheets. Expand a system for its complete inventory. A smaller review set is not permission to delete unique source files. Coverage limits appear beside each selection.</p><p>COUNTS</p><p><a href="source-inventory.json">Full inventory</a> · <a href="review-plan.json">Reduced review plan</a> · <a href="duplicate-cleanup.json">Duplicate-folder cleanup proof</a> · <a href="modern-removals.json">Modern pack removals</a> · <a href="/tools/world-art.html?alternatives=any">World comparisons</a> · <a href="/tools/items.html?alternatives=any">Item comparisons</a></p>
+<h1>Asset source systems</h1><p>RULES</p><p>Start with these consolidated original sheets. Expand a system for its complete inventory. A smaller review set is not permission to delete unique source files. Coverage limits appear beside each selection.</p><p>COUNTS</p><p><a href="source-inventory.json">Full inventory</a> · <a href="review-plan.json">Reduced review plan</a> · <a href="duplicate-cleanup.json">Duplicate-folder cleanup proof</a> · <a href="modern-removals.json">Modern pack removals</a> · <a href="artifact-imports.json">Recovered artifact packs</a> · <a href="/tools/world-art.html?alternatives=any">World comparisons</a> · <a href="/tools/items.html?alternatives=any">Item comparisons</a></p>
 <header><input id="search" placeholder="Search art systems, subjects or sheets" aria-label="Search sources"> <select id="scope" aria-label="Source eligibility"><option value="native16">Native16 systems</option><option value="all">All art systems</option><option value="non16">Larger-format references</option><option value="excluded-user">Excluded by request</option><option value="unknown">Unverified</option><option value="out-of-scope">Outside object scope</option></select> <span id="count"></span></header>
 BLOCKS
-<script>const sections=[...document.querySelectorAll('section')];const search=document.getElementById('search'),scope=document.getElementById('scope'),count=document.getElementById('count');function filter(){let n=0;for(const s of sections){s.hidden=(scope.value!=='all'&&s.dataset.status!==scope.value)||!s.textContent.toLowerCase().includes(search.value.toLowerCase());if(!s.hidden)n++}count.textContent=n+' art systems shown'}search.oninput=scope.onchange=filter;filter();</script>"""
+<script>const sections=[...document.querySelectorAll('section')];const search=document.getElementById('search'),scope=document.getElementById('scope'),count=document.getElementById('count');function filter(){let n=0;for(const s of sections){s.hidden=(scope.value!=='all'&&s.dataset.status!==scope.value)||!s.textContent.toLowerCase().includes(search.value.toLowerCase());if(!s.hidden)n++}count.textContent=n+' art systems shown'}search.value=new URLSearchParams(location.search).get('search')||'';search.oninput=scope.onchange=filter;filter();</script>"""
     if not (output / 'duplicate-cleanup.json').exists():
         page = page.replace('<a href="duplicate-cleanup.json">Duplicate-folder cleanup proof</a> · ', '')
     if not (output / 'modern-removals.json').exists():
         page = page.replace('<a href="modern-removals.json">Modern pack removals</a> · ', '')
+    if not (output / 'artifact-imports.json').exists():
+        page = page.replace('<a href="artifact-imports.json">Recovered artifact packs</a> · ', '')
     page = page.replace('RULES', esc(RULES)).replace('COUNTS', esc(str(counts))).replace('BLOCKS', '\n'.join(blocks))
     (output / 'index.html').write_text(page)
     (output / 'review-plan.json').write_text(json.dumps(plan, ensure_ascii=False, indent=2))
@@ -198,6 +200,9 @@ def main():
     exclusions = ROOT / 'extra_assets/index/modern-removals.json'
     if exclusions.exists():
         shutil.copyfile(exclusions, output / exclusions.name)
+    imports = ROOT / 'extra_assets/index/artifact-imports.json'
+    if imports.exists():
+        shutil.copyfile(imports, output / imports.name)
     render_review(packs, paths, plan, data['counts'], index, output)
     print(json.dumps(data['counts']))
 
