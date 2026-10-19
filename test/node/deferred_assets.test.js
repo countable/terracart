@@ -39,10 +39,15 @@
     const { scene, assets, textures, requests, starts } = fixture();
     textures.set('trees', {});
     scene.preload();
-    const expected = Object.keys(assets).filter((key) => !assets[key].deferred && key !== 'trees').sort();
+    const expected = Object.keys(assets).filter((key) => !assets[key].deferred && assets[key].kind !== 'atlas-alias' && key !== 'trees').sort();
     assert.eq(requests.map((r) => r.key).sort().join(','), expected.join(','));
     assert.eq(new Set(requests.map((r) => r.key)).size, requests.length, 'each catalog key loads once');
     assert.eq(starts(), 0, 'Phaser starts the normal preload lifecycle');
+    for (const [key, asset] of Object.entries(assets)) {
+      if (asset.kind !== 'atlas-alias') continue;
+      assert.falsy(requests.some(request => request.key === key), `${key} has no separate fetch`);
+      assert.eq(requests.filter(request => request.key === asset.atlasKey).length, 1, `${key} master loads once`);
+    }
     assert.falsy(scene._ensureAsset('missing-catalog-key'));
     assert.falsy(scene._ensureAsset('house'), 'core assets are not requeued by lazy consumers');
     assert.eq(starts(), 0);

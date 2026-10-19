@@ -39,10 +39,12 @@
   // Trimmed opaque bounds per "<textureKey>:<frameIndex>" (max EXCLUSIVE).
   // GENERATED — see `node tools/sprite_audit.js --emit-bounds`.
   const ART_BOUNDS = {
+    'wood:0': { fw: 16, fh: 16, minX: 2, minY: 2, maxX: 14, maxY: 14 },
+    'selected_rubble:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 12 },
+    'torch:0': { fw: 16, fh: 16, minX: 1, minY: 1, maxX: 14, maxY: 15 },
     'zone_berry_bush:1': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'zone_berry_bush:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'selected_shrub:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
-    'selected_rubble:0': { fw: 16, fh: 16, minX: 3, minY: 4, maxX: 15, maxY: 13 },
     'selected_mushroom:3': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 16, maxY: 15 },
     'selected_mushroom:2': { fw: 16, fh: 16, minX: 3, minY: 4, maxX: 14, maxY: 15 },
     'selected_mushroom:1': { fw: 16, fh: 16, minX: 2, minY: 2, maxX: 15, maxY: 14 },
@@ -70,7 +72,6 @@
     'cave_mechanisms:1': { fw: 24, fh: 24, minX: 4, minY: 4, maxX: 20, maxY: 20 },
     'cave_mechanisms:0': { fw: 24, fh: 24, minX: 4, minY: 4, maxX: 20, maxY: 20 },
     'selected_grave_pillar:0': { fw: 16, fh: 32, minX: 2, minY: 9, maxX: 14, maxY: 32 },
-    'torch:0': { fw: 16, fh: 16, minX: 5, minY: 0, maxX: 11, maxY: 14 },
     'signpost:0': { fw: 16, fh: 16, minX: 1, minY: 1, maxX: 15, maxY: 16 },
     'gas_mushroom_small:1': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'gas_mushroom_small:0': { fw: 16, fh: 16, minX: 1, minY: 4, maxX: 11, maxY: 16 },

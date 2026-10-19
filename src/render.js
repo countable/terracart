@@ -6578,12 +6578,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from inventoryIconSource(itemId) so any item with an
     // inventory icon can sit on the ground without per-kind plumbing.
-    // Fallen wood always uses the grey log artwork (look 2).
+    // World stacks use the same selected sprite as inventory and shops.
     groundstack: {
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
-        if (o.itemId === 'wood') return 1;
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
       // Centred in the cell (origin y 0.5), NOT foot-anchored: ground stacks are

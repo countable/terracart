@@ -85,7 +85,7 @@ const CROP_SPRITE = {
   shell: { sheet: 'shell_sheet', custom: true, frames: [0], scale: 4 / 3 },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches); the floor pickup uses the shared crop renderer.
-  torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
+  torch: { sheet: 'torch', custom: true, frame: 0, scale: 1.36 },
   // Ordinary wild blooms use the same pink blossom as their inventory icon.
   flowers: { sheet: 'props', custom: true, frame: 12, scale: 1.13 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct
@@ -738,6 +738,11 @@ const MINERAL_ICON_SHEET = {
   memory:        { sheet: 'pickup',     frame: 116 },
 };
 
+// Inventory, drops, projectiles and world pickups share the approved source.
+Object.assign(MINERAL_ICON_SHEET, SelectedItemArt.icons);
+MINERAL_ICON_SHEET.flint_shard = { sheet: 'flint', frame: 0 };
+MINERAL_ICON_SHEET.evertorch = { ...SelectedItemArt.icons.torch, filter: 'hue-rotate(180deg) saturate(1.4)' };
+
 function inventoryIconSource(itemId) {
   // Minerals + gems use the dedicated sheet table above. Read BEFORE the item
   // lookup: the memory star has a row there and no ITEMS entry.
@@ -780,7 +785,11 @@ function inventoryIconSource(itemId) {
 // plain tree (`plants`) badges what the tree is cut for. Null when the art
 // already says it — the Spring Crops seeds have seed art of their own.
 const PLANTS_YIELD = { tree: 'wood' };
+// Both potions use the approved ALT-0603 flask. Their pet and renewal charms
+// distinguish the effects without recolouring or replacing that shared artwork.
+const SHARED_ICON_BADGES = { taming_potion: 'pet_fang_charm', resurrection_potion: 'regeneration_amulet' };
 function iconBadgeItem(itemId) {
+  if (Object.hasOwn(SHARED_ICON_BADGES, itemId)) return SHARED_ICON_BADGES[itemId];
   const item = ITEM_BY_ID[itemId];
   if (!item) return null;
   if (item.kind !== 'seed') return null;

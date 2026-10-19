@@ -36,7 +36,7 @@ function inventory() {
   const context = { console, addEventListener() {} };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/items.js', 'src/assets.js', 'src/street_variants.js']) {
+  for (const file of ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/selected_item_art.js', 'src/items.js', 'src/art_atlas.js', 'src/selected_world_atlas.js', 'src/assets.js', 'src/street_variants.js']) {
     vm.runInContext(read(file), context, { filename: file });
   }
   for (const [key, asset] of Object.entries(context.ASSETS)) {

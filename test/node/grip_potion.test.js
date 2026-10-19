@@ -43,8 +43,8 @@ test('grip potion: a T1 magic item, drunk and never thrown, with its own icon', 
   assert.gt(PRICES[ID], 0);
   assert.truthy(ITEM_EFFECTS[ID]);
   const src = MINERAL_ICON_SHEET[ID];
-  assert.eq(src.sheet, 'icon_grip_potion');
-  assert.truthy(new RegExp("icon_grip_potion: \\{ url: 'assets/Icons/Items/GripPotion\\.png'").test(app), 'ICON_SHEETS row');
+  assert.eq(src.sheet, SelectedItemArt.icons[ID].sheet);
+  assert.eq(src.frame, SelectedItemArt.icons[ID].frame);
   const row = CONSUMABLE_SPEC[ID];
   assert.eq(row.verb, 'Drink'); assert.eq(row.buff, 'melee');
   assert.eq(Shrines.LEVERS[Shrines.SHRINE_KINDS.rust_totem.lever], row.buff, 'the totem\'s own lever');

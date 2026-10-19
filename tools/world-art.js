@@ -115,7 +115,8 @@
     }
     for(const spec of Object.values(FURNITURE))for(const frame of [spec.frame,...Object.values(spec.tierSheetFrame||{})])want('furniture',frame);
     // Decode selected world textures and matching inventory icons for deposits.
-    await Promise.all([...wanted.keys()].map(async key=>{
+    const loadKeys=[...new Set([...wanted.keys()].map(key=>ASSETS[key]?.atlasKey||key))];
+    await Promise.all(loadKeys.map(async key=>{
       const iconSheet=ICON_SHEETS[key];
       const asset=ASSETS[key] || (iconSheet && {path:iconSheet.url,kind:'spritesheet',
         frameWidth:iconSheet.srcW/iconSheet.cols,frameHeight:iconSheet.srcW/iconSheet.cols});if(!asset)return;
@@ -138,7 +139,7 @@
     const plantFrames=new Set(plantRows.flatMap(r=>[...r.frames.map(f=>`${r.key}:${f}`),...(r.growthStages||[]).map(sample=>`${sample.key}:${sample.frame}`)]));
     function category(key){return /house|tower|macro_|market_stand|shrine|well/.test(key)?'Buildings & landmarks':/tree|bush|mushroom/.test(key)?'Trees & foliage':/rock|ore/.test(key)?'Stone & minerals':/trap|tar/.test(key)?'Hazards':'Objects & props';}
     for(const [key,wantedFrames] of wanted) {
-      if(key==='gems'||key==='furniture'||key==='mineralrock'||key==='selected_grave_pillar'||key==='selected_terrain')continue; // Inventory icons accompany their world deposits below.
+      if(key==='selected_items'||key==='selected_world_atlas'||key==='gems'||key==='furniture'||key==='mineralrock'||key==='selected_grave_pillar'||key==='selected_terrain')continue; // Inventory icons accompany their world deposits below.
       if(approvedSheets[key]) {
         for(const entry of approvedSheets[key].entries)rows.push({
           ...entry,id:`${key}:${entry.id}`,key,approved:true,

@@ -101,8 +101,18 @@ test('floor torches: rolled LAST, so no level already walked rearranges', () => 
 test('floor torches: drawn with the Torch\'s own icon, off a sheet the renderer loads', () => {
   const ov = CROP_SPRITE.torch;
   assert.truthy(ov && ov.custom, 'a custom-sheet crop');
-  assert.eq(ov.sheet, MINERAL_ICON_SHEET.torch.sheet, 'the same art the inventory shows');
-  assert.eq(wildplantFrame({ crop: 'torch', id: 'ctorch_1_0_0_1_1' }), MINERAL_ICON_SHEET.torch.frame, 'its frame');
+  const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
+  const alias = assets[ov.sheet];
+  const frame = wildplantFrame({ crop: 'torch', id: 'ctorch_1_0_0_1_1' });
+  const icon = inventoryIconSource('torch');
+  assert.eq(alias.kind, 'atlas-alias');
+  assert.eq(alias.atlasKey, icon.sheet, 'world alias shares the inventory master');
+  assert.eq(alias.path, SelectedItemArt.url);
+  const rect = alias.frameRects[frame];
+  assert.eq(rect.x, icon.frame % SelectedItemArt.cols * 16);
+  assert.eq(rect.y, Math.floor(icon.frame / SelectedItemArt.cols) * 16);
+  assert.eq(rect.width, 16);
+  assert.eq(rect.height, 16);
 });
 
 // ── The lowtier roadside box ───────────────────────────────────────────────

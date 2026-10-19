@@ -32,7 +32,8 @@ test('stoneskin: drinking uses the shared timer, survives reload and extends one
   assert.eq(ITEM_BY_ID[ID].kind, 'magic');
   assert.eq(BASE_TIER[ID], 2);
   assert.includes(Shops.themedStock('potion', 2), ID);
-  assert.eq(MINERAL_ICON_SHEET[ID].sheet, 'icon_potions');
+  assert.eq(MINERAL_ICON_SHEET[ID].sheet, SelectedItemArt.icons[ID].sheet);
+  assert.eq(MINERAL_ICON_SHEET[ID].frame, SelectedItemArt.icons[ID].frame);
   assert.truthy(ITEM_EFFECTS[ID]);
   assert.eq(method('_useTimedBuff').call(s, ID), true);
   assert.eq(Inventory.count(s.save, ID), 1);

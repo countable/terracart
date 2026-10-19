@@ -6,15 +6,6 @@
 // mined from the T7 rock as its headline gem, and what every T7 piece of
 // jewelry (ring / staff / amulet) is cut around instead of the slot's own gem.
 //
-// Registering it also surfaced that the three older gem rows pointed at the
-// wrong stones: Gemstones.png row 0 runs cyan diamond, red ruby, purple shard,
-// blue sapphire, orange topaz, green emerald, pink quartz (frames 0..6 —
-// checked against the decoded pixels: frame 0's body is rgb(0,205,249),
-// frame 1's rgb(235,38,46), frame 3's rgb(0,146,221), frame 5's
-// rgb(126,196,51)), and the rows read ruby 0 / emerald 3 / sapphire 4. The
-// diamond wanting frame 0 is what made the collision visible, so the four
-// frames are pinned together here.
-
 (function () {
 const app = SCENE_SRC;
 const inter = INTERACTABLES_SRC;
@@ -38,40 +29,22 @@ test('diamond: is the T7 mineral at the top of the gem ladder, with a price and 
 
 });
 
-test('diamond: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → the real 112×64 gem sheet', () => {
+test('diamond: selected art reaches the shared inventory resolver', () => {
   const src = MINERAL_ICON_SHEET.diamond;
-  assert.truthy(src, 'MINERAL_ICON_SHEET.diamond');
-  assert.eq(src.sheet, 'gems', 'on the shared gem sheet');
-  assert.eq(src.frame, 0, 'frame 0 — the cut cyan-white diamond at the head of row 0');
-  const row = app.match(new RegExp(`\\n  ${src.sheet}:\\s*\\{ url: '([^']+)',\\s*cols: (\\d+),\\s*srcW: (\\d+),\\s*srcH: (\\d+)\\s*\\}`));
-  assert.truthy(row, `ICON_SHEETS has a '${src.sheet}' row (else the icon falls through to Crops.png)`);
-  const cols = Number(row[2]), srcW = Number(row[3]), srcH = Number(row[4]);
-  const dims = pngDims(row[1]);
-  assert.truthy(dims, `${row[1]} exists and is a PNG`);
-  assert.eq(dims.w, srcW, 'srcW matches the file');
-  assert.eq(dims.h, srcH, 'srcH matches the file');
-  assert.eq(srcW / cols, 16, '16px columns');
-  const frames = cols * (srcH / 16);
-  assert.truthy(src.frame >= 0 && src.frame < frames, `frame ${src.frame} is inside the ${frames}-frame sheet`);
-  // inventoryIconSource is the lookup every surface goes through.
+  assert.eq(src.sheet, SelectedItemArt.icons.diamond.sheet);
+  assert.eq(src.frame, SelectedItemArt.icons.diamond.frame);
   const via = inventoryIconSource('diamond');
-  assert.truthy(via && via.sheet === 'gems' && via.frame === 0, 'inventoryIconSource resolves the same row');
+  assert.eq(via.sheet, src.sheet);
+  assert.eq(via.frame, src.frame);
 });
 
-test('diamond: the four gems are four DIFFERENT stones on row 0 of the sheet', () => {
-  // Row 0 order (pixel-verified, see the header): 0 diamond, 1 ruby, 3
-  // sapphire, 5 emerald. Frames 2 / 4 / 6 are a purple shard, an orange
-  // topaz and a pink quartz — registered as their own minerals.
-  const expect = { diamond: 0, ruby: 1, sapphire: 3, emerald: 5 };
-  const cols = 7;
+test('diamond: gems retain distinct artwork after selected replacements', () => {
   const seen = new Set();
-  for (const [id, frame] of Object.entries(expect)) {
-    const src = MINERAL_ICON_SHEET[id];
-    assert.eq(src.sheet, 'gems', `${id} on the gem sheet`);
-    assert.eq(src.frame, frame, `${id} is frame ${frame}`);
-    assert.truthy(src.frame < cols, `${id} is on row 0 (the plain stones, not an outlined or mask duplicate)`);
-    assert.truthy(!seen.has(src.frame), `${id} does not share a frame with another gem`);
-    seen.add(src.frame);
+  for (const id of ['diamond', 'ruby', 'sapphire', 'emerald']) {
+    const src = inventoryIconSource(id);
+    const key = `${src.sheet}:${src.frame}`;
+    assert.falsy(seen.has(key), `${id} does not share another gem's art`);
+    seen.add(key);
   }
 });
 

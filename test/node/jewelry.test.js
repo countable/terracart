@@ -28,8 +28,10 @@
     }
     assert.eq(MINERAL_ICON_SHEET.stealth_ring.frame, 8);
     assert.eq(MINERAL_ICON_SHEET.invisibility_ring.frame, 11);
-    assert.eq(MINERAL_ICON_SHEET.regeneration_amulet.frame, 10);
-    assert.eq(MINERAL_ICON_SHEET.vigor_amulet.frame, 17);
+    for (const id of ['regeneration_amulet', 'vigor_amulet']) {
+      assert.eq(inventoryIconSource(id).sheet, SelectedItemArt.icons[id].sheet);
+      assert.eq(inventoryIconSource(id).frame, SelectedItemArt.icons[id].frame);
+    }
   });
 
   test('unique rings: strongest carried ring shortens sight without stacking', () => {

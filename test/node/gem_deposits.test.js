@@ -19,7 +19,9 @@
       assert.eq(BASE_TIER[id],tier);assert.eq(PRICES[id],price);
       assert.truthy(ITEM_EFFECTS[id],`${id} has a description`);
       const source=inventoryIconSource(id);
-      assert.eq(source.sheet,'gems');assert.eq(source.frame,icon);
+      const selected = SelectedItemArt.icons[id];
+      assert.eq(source.sheet,selected?.sheet || 'gems');
+      assert.eq(source.frame,selected?.frame ?? icon);
       assert.eq(deposit,GEM_DEPOSITS[id]);assert.eq(deposit.item,id);assert.eq(deposit.quantity,1);
       assert.eq(deposit.yieldTier,tier);assert.eq(deposit.requiredTier,requiredTier);
       assert.eq(deposit.art.sheet,'cave_props');assert.eq(deposit.art.frame,frame);

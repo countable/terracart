@@ -31,7 +31,10 @@
       assert.eq(BASE_TIER[id], tier, `${id}: tier`);
       assert.eq(PRICES[id], price, `${id}: price`);
 
-      assert.truthy(MINERAL_ICON_SHEET[id]?.sheet === 'icon_book', `${id}: a Books.png frame`);
+      const icon = inventoryIconSource(id);
+      assert.truthy(icon, `${id}: has item art`);
+      assert.eq(icon.sheet, SelectedItemArt.icons[id]?.sheet || 'icon_book', `${id}: selected or original book art`);
+      if (SelectedItemArt.icons[id]) assert.eq(icon.frame, SelectedItemArt.icons[id].frame);
       assert.eq(CONSUMABLE_SPEC[id].cooldownMs, cd, `${id}: the one-hour default cooldown`);
       assert.truthy(ITEM_EFFECTS[id], `${id}: a description`);
     }

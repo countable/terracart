@@ -27,12 +27,14 @@
       assert.eq(scene.invCount(id), 1, 'spent deposit pays once');
     }
   });
-  test('cave gems: low gems use the existing gemstone icon sheet on every item surface', () => {
-    for (const [id, frame] of Object.entries({ quartz: 6, amethyst: 2, topaz: 4 })) {
+  test('cave gems: low gems resolve selected or retained art on every item surface', () => {
+    for (const [id, frame] of Object.entries({ quartz: 6, topaz: 4 })) {
       const icon = inventoryIconSource(id);
       assert.eq(icon.sheet, 'gems');
       assert.eq(icon.frame, frame);
     }
+    assert.eq(inventoryIconSource('amethyst').sheet, SelectedItemArt.icons.amethyst.sheet);
+    assert.eq(inventoryIconSource('amethyst').frame, SelectedItemArt.icons.amethyst.frame);
     assert.truthy(SCENE_SRC.includes("gems:        { url: 'assets/Icons/RPG icons/Extras/Gemstones.png'"));
     assert.eq(pngDims('assets/Objects/Cave/props.png').w, 144);
     assert.eq(pngDims('assets/Objects/Cave/poison_vent_inactive.png').w, 24);

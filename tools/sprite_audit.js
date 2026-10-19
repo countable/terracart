@@ -142,8 +142,8 @@ function frameRowGap(img, fx, fy, fw, fh) {
   }
   return gap;
 }
-function sheetFrameRowGap(file, fw, fh, frameIdx) {
-  const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w);
+function sheetFrameRowGap(file, fw, fh, frameIdx, textureKey) {
+  const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w, textureKey);
   return frameRowGap(img, r.x, r.y, r.width, r.height);
 }
 // A run of empty rows this long inside one frame is another sprite, not a
@@ -193,14 +193,18 @@ function crownBox(file, fw, fh, frameIdx) {
 }
 
 // Trim a sheet by (textureKey, frameIndex) using the sheet metadata table.
-function sourceFrameRect(file, fw, fh, frameIdx, imageWidth) {
-  const asset = Object.values(ASSETS).find(row => row.path === file);
+function sourceFrameRect(file, fw, fh, frameIdx, imageWidth, textureKey) {
+  const candidates = Object.values(ASSETS).filter(row => row.path === file);
+  const asset = textureKey ? ASSETS[textureKey] : candidates.length === 1 ? candidates[0] : null;
+  if (!textureKey && candidates.some(row => row.kind === 'atlas-alias')) {
+    throw new Error(`Atlas frame lookup requires a texture key: ${file}`);
+  }
   const rect = asset?.frameRects?.[frameIdx];
   const cols = Math.floor(imageWidth / fw);
   return rect || { x: frameIdx % cols * fw, y: Math.floor(frameIdx / cols) * fh, width: fw, height: fh };
 }
-function trimSheetFrame(file, fw, fh, frameIdx) {
-  const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w);
+function trimSheetFrame(file, fw, fh, frameIdx, textureKey) {
+  const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w, textureKey);
   const bounds = trimFrame(img, r.x, r.y, r.width, r.height);
   return bounds && { ...bounds, fw: r.width, fh: r.height };
 }
@@ -219,6 +223,7 @@ const treeScale = treeCtx.treeScale;
 // (unlike a `function`, hence no bridge for treeScale above), so hand it over.
 const itemsCtx = { Math, console, EnemyRoster: require('../src/enemy_roster.js') };
 vm.createContext(itemsCtx);
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'src/selected_item_art.js'), 'utf8'), itemsCtx);
 // util.js first, as index.html orders them (the catalog uses shortDuration at load).
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'util.js'), 'utf8'),
   itemsCtx, { filename: 'util.js' });
@@ -233,6 +238,9 @@ const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 const assetsCtx = { Math, console, window: {}, EnemyRoster: require('../src/enemy_roster.js'),
   SpriteLayout: require('../src/sprite_layout.js') };
 vm.createContext(assetsCtx);
+for (const file of ['art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js']) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', file), 'utf8'), assetsCtx, { filename: file });
+}
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'assets.js'), 'utf8'),
   assetsCtx, { filename: 'assets.js' });
 const ASSETS = assetsCtx.window.ASSETS;
@@ -272,7 +280,7 @@ const SHEETS = {
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
-  torch:         { file: ASSETS.torch.path, fw: 16, fh: 16, frames: [0] },
+  torch: { file: ASSETS.torch.path, fw: 16, fh: 16, frames: [0] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
@@ -348,7 +356,7 @@ const SCENARIOS = [
   { name: 'pole (pillar)',   key: 'pillar',        frameIdx: 0, scale: 4 / 3 },
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
-  { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
+  { name: 'torch', key: 'torch', frameIdx: 0, scale: 1.1 },
   { name: 'waystone',        key: 'rock_variants', frameIdx: 0, scale: 16 / 15 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
@@ -375,7 +383,7 @@ const SCENARIOS = [
 // ── Evaluate one scenario against the rule ─────────────────────────────────
 function evaluate(s) {
   const sheet = SHEETS[s.key];
-  const fresh = trimSheetFrame(sheet.file, sheet.fw, sheet.fh, sheet.sourceFrame ?? s.frameIdx);
+  const fresh = trimSheetFrame(sheet.file, sheet.fw, sheet.fh, sheet.sourceFrame ?? s.frameIdx, s.key);
   if (!fresh) return { ...s, error: 'frame is fully transparent' };
   const lookup = `${s.key}:${s.frameIdx}`;
   const table = ART_BOUNDS[lookup];
@@ -398,7 +406,7 @@ function evaluate(s) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
   // One frame, one piece of art (see frameRowGap).
-  const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, sheet.sourceFrame ?? s.frameIdx);
+  const gap = sheetFrameRowGap(sheet.file, sheet.fw, sheet.fh, sheet.sourceFrame ?? s.frameIdx, s.key);
   if (gap > MAX_ROW_GAP) {
     violations.push(`frame holds two pieces of art (${gap} empty rows between opaque rows) — ` +
       `the ${sheet.fw}×${sheet.fh} slice reaches into a neighbour on the sheet`);
@@ -498,7 +506,7 @@ function emitBounds() {
   const lines = [];
   for (const [key, sh] of Object.entries(SHEETS)) {
     for (const fi of sh.frames) {
-      const b = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.sourceFrame ?? fi);
+      const b = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.sourceFrame ?? fi, key);
       lines.push(`    '${key}:${fi}': { fw: ${b.fw}, fh: ${b.fh}, ` +
         `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY}${key === 'furniture' ? `, baseX: ${b.baseX}` : ''} },`);
     }
@@ -522,10 +530,12 @@ function emitBounds() {
 // blanks and 5 duplicate/mask cells). This decodes the PNG behind each declared
 // frame and fails if it is off the sheet, transparent, or one flat colour (a
 // mask silhouette, not art).
-function frameInk(img, fw, fh, frameIdx) {
+function frameInk(img, fw, fh, frameIdx, rect) {
   const cols = Math.floor(img.w / fw), rows = Math.floor(img.h / fh);
-  if (frameIdx < 0 || frameIdx >= cols * rows) return null;   // off the sheet
-  const fx = (frameIdx % cols) * fw, fy = Math.floor(frameIdx / cols) * fh;
+  if (!rect && (frameIdx < 0 || frameIdx >= cols * rows)) return null;
+  const fx = rect ? rect.x : (frameIdx % cols) * fw, fy = rect ? rect.y : Math.floor(frameIdx / cols) * fh;
+  if (rect) { fw = rect.width; fh = rect.height; }
+  if (fx < 0 || fy < 0 || fx + fw > img.w || fy + fh > img.h) return null;
   const colours = new Set();
   let opaque = 0;
   for (let y = 0; y < fh; y++) {
@@ -563,7 +573,8 @@ function wildFrameRows() {
       if (!asset) violations.push(`no ASSETS entry for sheet "${ov.sheet}"`);
       else {
         const fw = asset.frameWidth || 16, fh = asset.frameHeight || 16;
-        const ink = frameInk(loadPng(asset.path), fw, fh, frameIdx);
+        const ink = asset.kind === 'atlas-alias' && !asset.frameRects[frameIdx] ? null
+          : frameInk(loadPng(asset.path), fw, fh, frameIdx, asset.frameRects?.[frameIdx]);
         if (!ink) violations.push(`frame ${frameIdx} is off the end of ${ov.sheet}`);
         else if (!ink.opaque) violations.push(`frame ${frameIdx} of ${ov.sheet} is blank`);
         else if (ink.colours < 2) {

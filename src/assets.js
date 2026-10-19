@@ -2,6 +2,7 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  selected_items: { kind: 'spritesheet', path: 'assets/Icons/SelectedItems/items.png', frameWidth: 16, frameHeight: 16 },
   selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
   selected_shrub: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_shrub.png', 'frameWidth': 16, 'frameHeight': 16},
   selected_rubble: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_rubble.png', 'frameWidth': 16, 'frameHeight': 16},
@@ -592,4 +593,17 @@ if (typeof EnemyRoster !== 'undefined') {
   }
 }
 window.recolorEnemyPixels = recolorEnemyPixels;
+ArtAtlas.install(ASSETS, SelectedWorldAtlas);
+// Keep world texture identities while sharing the item atlas's exact pixels.
+const selectedItemWorld = { key: 'selected_items', entries: {} };
+for (const [key, item] of Object.entries({ torch: 'torch', icon_torch: 'torch', selected_rubble: 'rubble', wood: 'wood', icon_sugar_potion: 'sugar_potion' })) {
+  const frame = SelectedItemArt.icons[item].frame;
+  const rect = { x: (frame % SelectedItemArt.cols) * 16,
+    y: Math.floor(frame / SelectedItemArt.cols) * 16, width: 16, height: 16 };
+  selectedItemWorld.entries[key] = { kind: 'atlas-alias', path: SelectedItemArt.url,
+    atlasKey: 'selected_items', frameWidth: 16, frameHeight: 16,
+    sheetRect: rect, frameRects: { 0: rect } };
+}
+Object.assign(ASSETS, selectedItemWorld.entries);
+ASSETS.selected_items.onLoad = scene => ArtAtlas.register(scene, selectedItemWorld);
 window.ASSETS = ASSETS;

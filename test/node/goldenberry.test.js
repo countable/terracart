@@ -41,7 +41,9 @@ test('golden berry: a rare produce item on the shared bush frame, gold berries a
   assert.eq(CROP_SPRITE[ID].sheet, 'bushes'); assert.eq(CROP_SPRITE[ID].texture, 'bushes_goldenberry');
   assert.eq(wildplantSprite({ crop: ID, kind: 'wildplant' }).texture, 'bushes_goldenberry');
   assert.truthy(/bushes_goldenberry/.test(TEXTURES_SRC), 'baked with the other berry bushes (BERRY_BUSH_INKS)');
-  assert.truthy(/hue-rotate/.test(inventoryIconSource(ID).filter), 'the berry icon, turned gold');
+  assert.eq(inventoryIconSource(ID).sheet, SelectedItemArt.icons[ID].sheet);
+  assert.eq(inventoryIconSource(ID).frame, SelectedItemArt.icons[ID].frame);
+  assert.falsy(inventoryIconSource(ID).filter, 'approved golden berry keeps its authored colours');
   assert.truthy(ObstacleStep.profile({ kind: 'wildplant', crop: ID }) === ObstacleStep.PROFILES.bush, 'a bush underfoot');
   assert.eq(WILDPLANT_RULES[ID].pickedCrop, 'shrub', 'picked, the bush stays');
 });

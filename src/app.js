@@ -1567,8 +1567,10 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
-  selected_mushroom: { url: 'assets/Objects/SelectedFlora/selected_mushroom.png', cols: 4, srcW: 64, srcH: 16 },
-  selected_longgrass: { url: 'assets/Objects/SelectedFlora/selected_longgrass.png', cols: 1, srcW: 16, srcH: 16 },
+  flint: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.flint.frameRects },
+  selected_items: { url: SelectedItemArt.url, cols: SelectedItemArt.cols, srcW: SelectedItemArt.width, srcH: SelectedItemArt.height },
+  selected_mushroom: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_mushroom.frameRects },
+  selected_longgrass: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_longgrass.frameRects },
   furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 432 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
@@ -1929,7 +1931,7 @@ class MapScene extends Phaser.Scene {
 
   _queueAsset(key) {
     const asset = ASSETS[key];
-    if (!asset || this.textures.exists(key)) return;
+    if (!asset || asset.kind === 'atlas-alias' || this.textures.exists(key)) return;
     if (asset.onLoad) {
       this.load.once(`filecomplete-${asset.kind}-${key}`, () => asset.onLoad(this));
     }
@@ -5173,7 +5175,9 @@ class MapScene extends Phaser.Scene {
       const d = Math.hypot(dx, dy);
       this._swing = { startT: now, dir: d ? { x: dx / d, y: dy / d } : { x: 0, y: 1 },
         weapon: equipped ? weapon : 'sword', reachCells: Combat.meleeReachM(1, weapon),
-        texture: equipped ? this._toolTexture(weapon, equipped.tier) : null };
+        texture: equipped ? this._toolTexture(weapon, equipped.tier) : null,
+        frame: equipped && typeof SelectedItemArt !== 'undefined'
+          ? (SelectedItemArt.relics[weapon]?.[equipped.tier]?.frame ?? 0) : 0 };
       const blow = (Combat.meleeSwingDamage(this.save.relics, this._attackMul(), this.save.playerClass, Gear.activeWeapon(this.save), isRiding(this.save))
         + this._attackFlat('melee')) * PotionEffects.meleeMul(this.save);
       const hpBefore = Combat.hp(c);
@@ -5386,6 +5390,10 @@ class MapScene extends Phaser.Scene {
   // sheet is 16 px frames with the plain icon on frame 0 — the 32×16 tool
   // sheets and the net's single 16×16 alike — so one framing covers them.
   _toolTexture(slot, tier) {
+    // Selected gear shares the preloaded item sheet; its frame travels with
+    // the swing, avoiding one texture/load per material tier.
+    const selected = typeof SelectedItemArt !== 'undefined' && SelectedItemArt.relics[slot]?.[tier];
+    if (selected) return selected.sheet;
     const path = gearAssetPath('relic', slot, tier);
     if (!path) return null;
     const key = `wheeltool:${path}`;
@@ -5472,13 +5480,13 @@ class MapScene extends Phaser.Scene {
     Render.drawMelee(g, pose, cx, cy);
     if (sw.texture && this.textures.exists(sw.texture)) {
       if (!this._meleeWeaponSprite) {
-        this._meleeWeaponSprite = this.add.image(0, 0, sw.texture, 0).setDepth(12);
+        this._meleeWeaponSprite = this.add.image(0, 0, sw.texture, sw.frame ?? 0).setDepth(12);
         this.playerWorldContainer.add(this._meleeWeaponSprite);
         this.playerWorldContainer.sort('depth');
       }
       // The existing icons point northeast, with the grip at bottom-left.
       const { handRadius, grip, scale } = Render.meleeWeaponPose(pose);
-      this._meleeWeaponSprite.setTexture(sw.texture, 0).setVisible(true)
+      this._meleeWeaponSprite.setTexture(sw.texture, sw.frame ?? 0).setVisible(true)
         .setOrigin(grip, 1 - grip).setScale(scale)
         .setPosition(cx + Math.cos(pose.angle) * handRadius,
           cy + Math.sin(pose.angle) * handRadius)
@@ -9812,13 +9820,14 @@ class MapScene extends Phaser.Scene {
       // Sheet table — ICON_SHEETS, module scope above the class: shared with
       // IconNet's prewarmer, and not rebuilt on every icon render.
       const sheet = ICON_SHEETS[src.sheet] || ICON_SHEETS.crops;
-      const col = src.frame % sheet.cols;
-      const row = Math.floor(src.frame / sheet.cols);
+      const rect = sheet.frames?.[src.frame];
+      const sourceX = rect?.x ?? (src.frame % sheet.cols) * 16;
+      const sourceY = rect?.y ?? Math.floor(src.frame / sheet.cols) * 16;
       const scale = sizePx / 16;
       const image = domIconSheet(sheet.url, sheet.srcW, sheet.srcH);
       css = base + `background-image:url('${image.url}');`
         + `background-size:${image.width * scale}px ${image.height * scale}px;`
-        + `background-position:-${image.x * scale + col * sizePx}px -${image.y * scale + row * sizePx}px;`;
+        + `background-position:-${(image.x + sourceX) * scale}px -${(image.y + sourceY) * scale}px;`;
       if (!IconNet.ready(image.url)) netUrl = image.url;
     }
     if (css && src?.filter) css += `filter:${src.filter};`;
@@ -10504,7 +10513,10 @@ class MapScene extends Phaser.Scene {
     }
   }
   gearIconHTML(kind, slot, tier, sizePx = 20) {
-    const path = gearAssetPath(kind, slot, tier);
+    const selected = kind === 'relic' && typeof SelectedItemArt !== 'undefined'
+      && SelectedItemArt.relics[slot]?.[tier];
+    const selectedSheet = selected && ICON_SHEETS[selected.sheet];
+    const path = selectedSheet ? selectedSheet.url : gearAssetPath(kind, slot, tier);
     if (!path) return '';
     // Each gear asset has its own sprite-sheet layout. Pick [cols, rows] + the
     // frame to show so we never squish a multi-frame strip into one cell or
@@ -10514,7 +10526,9 @@ class MapScene extends Phaser.Scene {
     //   bug net     — single 16×16 icon
     //   everything else (tools/armor) — 32×16 two-frame sheet, show frame 0
     let sheetCols, sheetRows, frame;
-    if (kind === 'relic' && slot === 'bag') {
+    if (selectedSheet) {
+      sheetCols = selectedSheet.cols; sheetRows = selectedSheet.srcH / 16; frame = selected.frame;
+    } else if (kind === 'relic' && slot === 'bag') {
       sheetCols = 7; sheetRows = 1; frame = tier - 1;
     } else if (kind === 'relic' && slot === 'amulet') {
       sheetCols = 6; sheetRows = 4; frame = AMULET_FRAME_BY_TIER[tier];

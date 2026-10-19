@@ -26,7 +26,8 @@ test('poison flask: a T2 potion, thrown or drunk, whose minute is the poison row
   assert.eq(it.baseTier, 2); assert.gt(PRICES[ID], 0); assert.lt(PRICES[ID], PRICES.explosive_flask);
   assert.truthy(ITEM_EFFECTS[ID]);
   const src = MINERAL_ICON_SHEET[ID];
-  assert.eq(src.sheet, 'icon_potions'); assert.eq(src.frame, 23);
+  assert.eq(src.sheet, SelectedItemArt.icons[ID].sheet);
+  assert.eq(src.frame, SelectedItemArt.icons[ID].frame);
   assert.falsy(Object.entries(MINERAL_ICON_SHEET).some(([id, r]) => id !== ID && r.sheet === src.sheet && r.frame === src.frame), 'its own frame');
   const row = CONSUMABLE_SPEC[ID];
   assert.eq(row.verb, 'Drink'); assert.eq(row.method, 'drinkPoisonFlask');

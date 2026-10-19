@@ -55,29 +55,18 @@ test('MINERAL_ICON_SHEET: bar frames differ from the old broken consecutive run 
 
 // ── MINERAL_ICON_SHEET: non-bar entries ────────────────────────────────────
 
-test('MINERAL_ICON_SHEET: wood uses the wood sheet, frame 2', () => {
-  assert.eq(MINERAL_ICON_SHEET['wood'].sheet, 'wood');
-  assert.eq(MINERAL_ICON_SHEET['wood'].frame, 2);
+test('MINERAL_ICON_SHEET: selected wood and gems use their packed item frames', () => {
+  for (const id of ['wood', 'diamond', 'sapphire', 'emerald']) {
+    assert.eq(MINERAL_ICON_SHEET[id].sheet, SelectedItemArt.icons[id].sheet);
+    assert.eq(MINERAL_ICON_SHEET[id].frame, SelectedItemArt.icons[id].frame);
+  }
+  assert.eq(MINERAL_ICON_SHEET.ruby.sheet, 'gems');
+  assert.eq(MINERAL_ICON_SHEET.ruby.frame, 1);
 });
 
-test('MINERAL_ICON_SHEET: flint_shard uses icon_flint_shard sheet, frame 0', () => {
-  assert.eq(MINERAL_ICON_SHEET['flint_shard'].sheet, 'icon_flint_shard');
-  assert.eq(MINERAL_ICON_SHEET['flint_shard'].frame, 0);
-});
-
-test('MINERAL_ICON_SHEET: gem frames — diamond 0, ruby 1, sapphire 3, emerald 5 (all on gems sheet)', () => {
-  // Gemstones.png row 0, left to right: cyan diamond, red ruby, purple shard,
-  // blue sapphire, orange topaz, green emerald, pink quartz. The old pins
-  // (sapphire 4 / ruby 0 / emerald 3) drew a topaz, a diamond and a sapphire.
-  // test/node/diamond.test.js pins the four together (pixel-verified order).
-  assert.eq(MINERAL_ICON_SHEET['diamond'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['diamond'].frame, 0);
-  assert.eq(MINERAL_ICON_SHEET['sapphire'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['sapphire'].frame, 3);
-  assert.eq(MINERAL_ICON_SHEET['ruby'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['ruby'].frame, 1);
-  assert.eq(MINERAL_ICON_SHEET['emerald'].sheet, 'gems');
-  assert.eq(MINERAL_ICON_SHEET['emerald'].frame, 5);
+test('MINERAL_ICON_SHEET: flint shard shares the world flint art', () => {
+  assert.eq(MINERAL_ICON_SHEET.flint_shard.sheet, 'flint');
+  assert.eq(MINERAL_ICON_SHEET.flint_shard.frame, 0);
 });
 
 test('MINERAL_ICON_SHEET: fruit-tree saplings use the species tree sheet at frame 2', () => {
@@ -297,12 +286,11 @@ test('inventoryIconSource: spring crop seed frame = row*14 + 7', () => {
   assert.eq(src.frame, 1 * 14 + 7, 'berry_seed frame = 1*14+7 = 21');
 });
 
-test('inventoryIconSource: spring crop produce frame = row*14 + 8', () => {
-  // berry produce: CROP_SPRITE berry row=1, produce col=8 → frame = 1*14 + 8 = 22
+test('inventoryIconSource: berry produce uses selected item art', () => {
   const src = inventoryIconSource('berry');
   assert.truthy(src, 'berry produce has a source');
-  assert.eq(src.sheet, 'springcrops');
-  assert.eq(src.frame, 1 * 14 + 8, 'berry produce frame = 1*14+8 = 22');
+  assert.eq(src.sheet, SelectedItemArt.icons.berry.sheet);
+  assert.eq(src.frame, SelectedItemArt.icons.berry.frame);
 });
 
 test('inventoryIconSource: onion produce frame = 7*14 + 8 = 106', () => {
@@ -491,16 +479,16 @@ test('Pirate Cove shipwreck fits the reserved extent and beach looks preserve pi
   assert.eq(wildplantSprite({crop:'driftwood',_plantArt:'beach'}).sheet, 'driftwood', 'retired beach look falls back to standard driftwood');
   assert.eq(wildplantSprite({crop:'rubble',_plantArt:'beach'})?.sheet, undefined, 'planted rock keeps its growing crop art');
   assert.eq(wildplantSprite({crop:'driftwood'}).sheet, 'driftwood');
-  assert.eq(inventoryIconSource('rubble').sheet, 'crops');
+  assert.eq(inventoryIconSource('rubble').sheet, SelectedItemArt.icons.rubble.sheet);
   assert.eq(iconBadgeItem('rubble_seed'), 'rubble');
 });
 
 
-test('fallen wood uses look 2 for every quantity without changing the stack', () => {
+test('fallen wood shares inventory art for every quantity without changing the stack', () => {
   const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.groundstack;
   for (const qty of [1,2,3,12]) {
     const stack={kind:'groundstack',itemId:'wood',qty};
-    assert.eq(spec.frame(stack),1);
+    assert.eq(spec.frame(stack),inventoryIconSource('wood').frame);
     assert.eq(stack.qty,qty);
   }
 });
@@ -637,7 +625,7 @@ test('berry bush: mature map art replaces wild and farmed berries while growth a
     assert.eq(wildplantSprite({crop:'berry',stage}).sheet, 'springcrops');
   }
   assert.eq(inventoryIconSource('berry_seed').frame, 21);
-  assert.eq(inventoryIconSource('berry').frame, 22);
+  assert.eq(inventoryIconSource('berry').frame, SelectedItemArt.icons.berry.frame);
   assert.eq(wildplantOutput('berry'), 'berry');
   assert.eq(wildplantRewards('berry')[0].qty, 1);
 });

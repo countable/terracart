@@ -43,7 +43,8 @@ test('hardworking potion: a T1 magic item, drunk and never thrown', () => {
   assert.gt(PRICES[ID], 0);
   assert.truthy(ITEM_EFFECTS[ID]);
   const src = MINERAL_ICON_SHEET[ID];
-  assert.eq(src.sheet, 'icon_potions'); assert.eq(src.frame, 14);
+  assert.eq(src.sheet, SelectedItemArt.icons[ID].sheet);
+  assert.eq(src.frame, SelectedItemArt.icons[ID].frame);
   assert.falsy(Object.entries(MINERAL_ICON_SHEET).some(([id, r]) => id !== ID && r.sheet === src.sheet && r.frame === src.frame), 'its own frame');
   const row = CONSUMABLE_SPEC[ID];
   assert.eq(row.verb, 'Drink'); assert.eq(row.buff, 'work');

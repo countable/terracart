@@ -35,7 +35,7 @@ const CRUST = '#2a1208';
 // items.js leans on util.js; load the pair the way index.html does.
 const ctx = { console };
 vm.createContext(ctx);
-for (const f of ['src/util.js', 'src/sprite_layout.js', 'src/items.js']) {
+for (const f of ['src/util.js', 'src/sprite_layout.js', 'src/selected_item_art.js', 'src/selected_world_atlas.js', 'src/items.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, { filename: f });
 }
 const { COOKED_FOODS, inventoryIconSource } =
@@ -44,8 +44,8 @@ const { COOKED_FOODS, inventoryIconSource } =
 // ICON_SHEETS lives in app.js, which needs Phaser — lift just the literal.
 const app = fs.readFileSync(path.join(ROOT, 'src', 'app.js'), 'utf8');
 const start = app.indexOf('const ICON_SHEETS = {');
-const ICON_SHEETS = vm.runInNewContext(
-  '(' + app.slice(start + 'const ICON_SHEETS = '.length, app.indexOf('\n};', start) + 2) + ')');
+const ICON_SHEETS = vm.runInContext(
+  '(' + app.slice(start + 'const ICON_SHEETS = '.length, app.indexOf('\n};', start) + 2) + ')', ctx);
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cook-'));
 const frames = Object.keys(COOKED_FOODS).map((raw, i) => {
@@ -54,8 +54,8 @@ const frames = Object.keys(COOKED_FOODS).map((raw, i) => {
   if (!sheet) throw new Error(`${raw}: no icon source`);
   const fw = sheet.srcW / sheet.cols;
   if (fw !== FRAME) throw new Error(`${raw}: ${src.sheet} frames are ${fw}px, not ${FRAME}`);
-  const x = (src.frame % sheet.cols) * fw;
-  const y = Math.floor(src.frame / sheet.cols) * fw;
+  const x = sheet.frames?.[src.frame]?.x ?? (src.frame % sheet.cols) * fw;
+  const y = sheet.frames?.[src.frame]?.y ?? Math.floor(src.frame / sheet.cols) * fw;
   const file = path.join(ROOT, sheet.url.replace(/\?.*$/, ''));
   const out = path.join(tmp, `${i}.png`);
   const tinted = path.join(tmp, `${i}_t.png`);

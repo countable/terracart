@@ -32,6 +32,21 @@ underground mushroom art, crop growth stages, berry-bush remnants and loot
 behavior remain separate from the new standing artwork. Retired reference
 assets and planned cave mechanisms do not gain placement merely by changing art.
 
+Runtime loads selected art from local spritesheets: `SelectedWorld/world.png`
+for world props and flora, `Icons/SelectedItems/items.png` for item choices,
+and the existing `selected-terrain` strip for terrain. Rebuild the world atlas
+with `tools/build_selected_world_atlas.py` after changing its source exports;
+`tools/build_selected_items.py` owns selected item crops and frame metadata.
+The exporters preserve native pixels and record their source ALT IDs.
+
+`ArtAtlas` registers logical texture aliases using the master sheet's shared
+Phaser `TextureSource`, so aliases add neither image requests nor GPU uploads.
+Their generated `frameRects` preserve local frame numbers and dimensions;
+the master alone owns source destruction. World objects that are also items
+(such as torch, rubble and wood) point at the selected item's exact rectangle.
+DOM icons, dashboard previews and sprite audits resolve those same rectangles
+rather than inferring frame positions from the packed sheet width.
+
 Trees and water remain opt-in through `artTrial=trees-water` (or `trees` /
 `water`); `artTree=ALT-0038`, `ALT-0176`, or `ALT-0245` fixes the broadleaf
 comparison. The trial registers native textures only for that page load,

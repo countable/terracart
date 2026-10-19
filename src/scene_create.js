@@ -283,24 +283,24 @@ class SceneCreate {
     // Key = item id; value = a data URL of the chosen representative frame.
     window.ITEM_DATA_URLS = window.ITEM_DATA_URLS || {};
     const bakeSheetFrame = (key, frameIdx, frameW, frameH) => {
-      const src = this.textures.get(key)?.getSourceImage();
+      const texture = this.textures.get(key);
+      const frame = texture?.get(frameIdx);
+      const src = frame?.source?.image;
       if (!src) return null;
       const c = document.createElement('canvas');
       c.width = frameW; c.height = frameH;
       const cx = c.getContext('2d');
-      const cols = Math.max(1, Math.floor(src.width / frameW));
-      const fx = (frameIdx % cols) * frameW;
-      const fy = Math.floor(frameIdx / cols) * frameH;
-      cx.drawImage(src, fx, fy, frameW, frameH, 0, 0, frameW, frameH);
+      // Alias textures share an atlas image: their frame rectangle, not the
+      // raw source's column count, identifies the displayed sprite.
+      cx.drawImage(src, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
+        0, 0, frameW, frameH);
       return c.toDataURL();
     };
-    // Longgrass (display name "Long grass") — bake frame 10 of the 'props'
-    // sheet (col 11 row 1 in 1-indexed coords = leafy green frond). Same
-    // sprite as the in-world wildplant via CROP_SPRITE.longgrass.frame.
     // The Javelin's steel palette is applied by ASSETS before create. Bake
     // that same texture for inventory, shop offers and pickup toasts.
     window.ITEM_DATA_URLS.javelin = bakeSheetFrame('icon_javelin', 0, 16, 16);
-    window.ITEM_DATA_URLS.longgrass = bakeSheetFrame('props', 10, 16, 16);
+    window.ITEM_DATA_URLS.longgrass = bakeSheetFrame(
+      CROP_SPRITE.longgrass.sheet, CROP_SPRITE.longgrass.frame ?? CROP_SPRITE.longgrass.frames?.[0] ?? 0, 16, 16);
     for (const kind of ['slime', 'cave_slime', 'purple_slime', 'fire_slime']) {
       const art = SpriteLayout.creatureArt(kind);
       window.ITEM_DATA_URLS[kind] = bakeSheetFrame(art.sheet, 0, 32, 32);
@@ -329,11 +329,10 @@ class SceneCreate {
     // glued to whatever the world renderer is drawing.
     window.ITEM_DATA_URLS.mushroom  = bakeSheetFrame(
       CROP_SPRITE.mushroom.sheet,
-      CROP_SPRITE.mushroom.frame, 16, 16);
-    // Wood — inventory uses frame 2 (the third / "amber" log variant
-    // of the three). Ground stacks pick a frame based on the stack's
-    // qty (see render.js groundstack branch).
-    window.ITEM_DATA_URLS.wood      = bakeSheetFrame('wood', 2, 16, 16);
+      CROP_SPRITE.mushroom.frame ?? CROP_SPRITE.mushroom.frames?.[0] ?? 0, 16, 16);
+    // Wood shares the selected item's representative frame across surfaces.
+    const woodIcon = inventoryIconSource('wood');
+    window.ITEM_DATA_URLS.wood = bakeSheetFrame(woodIcon.sheet, woodIcon.frame, 16, 16);
     // Scarecrow — the placeable item shares the world sprite (32×32 single
     // image). Without this bake its inventory / shop / pickup-toast icon fell
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked

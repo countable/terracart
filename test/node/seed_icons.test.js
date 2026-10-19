@@ -35,6 +35,13 @@ test('icon badges: every item sharing its base art is told apart by its badge', 
   assert.truthy(shared >= 1, 'the Crops.png seed bag is shared');
 });
 
+test('icon badges: shared selected potion keeps its base art and distinct effect badges', () => {
+  assert.eq(iconKey('taming_potion'), iconKey('resurrection_potion'), 'the requested flask remains shared');
+  const badges = ['taming_potion', 'resurrection_potion'].map(iconBadgeItem);
+  assert.eq(new Set(badges).size, 2, 'pet and renewal effects stay distinguishable');
+  for (const badge of badges) assert.truthy(inventoryIconSource(badge), 'badge has loadable item art');
+});
+
 test('icon badges: the three saplings are told apart', () => {
   // Three sheets, one picture: their young-tree frames are the same pixels,
   // which a sheet-key comparison can't see — so the trio is pinned by name.

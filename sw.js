@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-d0e686ff';
+const SHELL_VERSION = 'shell-da9ed859';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -273,6 +273,7 @@ const ASSET_HASHES = {
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Pickaxe.png": "c60441ea",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png": "b2484a06",
   "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png": "232136a0",
+  "assets/Icons/SelectedItems/items.png": "5aa36f2f",
   "assets/Icons/coin.png": "4c9e7ebc",
   "assets/Icons/dom-atlas.png": "124794ca",
   "assets/NPC/Ayo_human_idle.png": "39297eca",
@@ -630,6 +631,7 @@ const ASSET_HASHES = {
   "assets/Objects/SelectedProps/selected_grave_pillar.png": "2a1f2e6f",
   "assets/Objects/SelectedProps/signpost.png": "84aadac3",
   "assets/Objects/SelectedProps/torch.png": "f2746f29",
+  "assets/Objects/SelectedWorld/world.png": "4ff29513",
   "assets/Objects/Signs.png": "894aada0",
   "assets/Objects/SpikeTraps/spike-wall-source.png": "03908a97",
   "assets/Objects/SpikeTraps/spike-wall.png": "d1726c2b",

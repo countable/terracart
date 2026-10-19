@@ -1,0 +1,904 @@
+{
+  "schemaVersion": 1,
+  "sheet": "assets/Icons/SelectedItems/items.png",
+  "frameWidth": 16,
+  "frameHeight": 16,
+  "cols": 8,
+  "width": 128,
+  "height": 112,
+  "note": "First listed selection is the default; additional selections are retained for review. Identical ALT IDs share a frame.",
+  "frames": [
+    {
+      "frame": 0,
+      "id": "ALT-0599",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 1,
+      "id": "ALT-0700",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        32,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 2,
+      "id": "ALT-0739",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        672,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 3,
+      "id": "ALT-0740",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        656,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 4,
+      "id": "ALT-0611",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 5,
+      "id": "ALT-0492",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        352,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 6,
+      "id": "ALT-0486",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        416,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 7,
+      "id": "ALT-0540",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        368,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 8,
+      "id": "ALT-0487",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        368,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 9,
+      "id": "ALT-0594",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 10,
+      "id": "ALT-0387",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        200,
+        680,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 11,
+      "id": "ALT-0614",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 12,
+      "id": "ALT-0371",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        200,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 13,
+      "id": "ALT-0758",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 14,
+      "id": "ALT-0276",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        80,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 15,
+      "id": "ALT-0741",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        640,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 16,
+      "id": "ALT-0698",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        128,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 17,
+      "id": "ALT-0609",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        160,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 18,
+      "id": "ALT-0284",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        144,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 19,
+      "id": "ALT-0274",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        32,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 20,
+      "id": "ALT-0755",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        112,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 21,
+      "id": "ALT-0327",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        0,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 22,
+      "id": "ALT-0601",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 23,
+      "id": "ALT-0323",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 24,
+      "id": "ALT-0605",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 25,
+      "id": "ALT-0222",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        336,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 26,
+      "id": "ALT-0281",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 27,
+      "id": "ALT-0287",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        192,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 28,
+      "id": "ALT-0603",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 29,
+      "id": "ALT-0602",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 30,
+      "id": "ALT-0228",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        400,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 31,
+      "id": "ALT-0747",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 32,
+      "id": "ALT-0759",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        64,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 33,
+      "id": "ALT-0282",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        112,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 34,
+      "id": "ALT-0742",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        672,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 35,
+      "id": "ALT-0400",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        496,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 36,
+      "id": "ALT-0495",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 37,
+      "id": "ALT-0497",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 38,
+      "id": "ALT-0541",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        352,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 39,
+      "id": "ALT-0709",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        288,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 40,
+      "id": "ALT-0708",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 41,
+      "id": "ALT-0617",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        136,
+        232,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 42,
+      "id": "ALT-0714",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        48,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 43,
+      "id": "ALT-0279",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 44,
+      "id": "ALT-0711",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        112,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 45,
+      "id": "ALT-0341",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        272,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 46,
+      "id": "ALT-0631",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 47,
+      "id": "ALT-0657",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 48,
+      "id": "ALT-0668",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 49,
+      "id": "ALT-0680",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 50,
+      "id": "ALT-0686",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        64,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "frame": 51,
+      "id": "ALT-0640",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        136,
+        16,
+        16
+      ]
+    }
+  ],
+  "selections": [
+    {
+      "target": "amethyst",
+      "alternativeId": "ALT-0599",
+      "frame": 0,
+      "default": true
+    },
+    {
+      "target": "acorn",
+      "alternativeId": "ALT-0700",
+      "frame": 1,
+      "default": true
+    },
+    {
+      "target": "regeneration_amulet",
+      "alternativeId": "ALT-0739",
+      "frame": 2,
+      "default": true
+    },
+    {
+      "target": "vigor_amulet",
+      "alternativeId": "ALT-0740",
+      "frame": 3,
+      "default": true
+    },
+    {
+      "target": "antidote",
+      "alternativeId": "ALT-0611",
+      "frame": 4,
+      "default": true
+    },
+    {
+      "target": "apple",
+      "alternativeId": "ALT-0492",
+      "frame": 5,
+      "default": true
+    },
+    {
+      "target": "banana",
+      "alternativeId": "ALT-0486",
+      "frame": 6,
+      "default": true
+    },
+    {
+      "target": "berry",
+      "alternativeId": "ALT-0540",
+      "frame": 7,
+      "default": true
+    },
+    {
+      "target": "cherry",
+      "alternativeId": "ALT-0487",
+      "frame": 8,
+      "default": true
+    },
+    {
+      "target": "diamond",
+      "alternativeId": "ALT-0594",
+      "frame": 9,
+      "default": true
+    },
+    {
+      "target": "egg",
+      "alternativeId": "ALT-0387",
+      "frame": 10,
+      "default": true
+    },
+    {
+      "target": "elixir",
+      "alternativeId": "ALT-0614",
+      "frame": 11,
+      "default": true
+    },
+    {
+      "target": "emerald",
+      "alternativeId": "ALT-0371",
+      "frame": 12,
+      "default": true
+    },
+    {
+      "target": "explosive_flask",
+      "alternativeId": "ALT-0758",
+      "frame": 13,
+      "default": true
+    },
+    {
+      "target": "explosive_flask",
+      "alternativeId": "ALT-0276",
+      "frame": 14,
+      "default": false
+    },
+    {
+      "target": "pet_fang_charm",
+      "alternativeId": "ALT-0741",
+      "frame": 15,
+      "default": true
+    },
+    {
+      "target": "goldenberry",
+      "alternativeId": "ALT-0698",
+      "frame": 16,
+      "default": true
+    },
+    {
+      "target": "poison_flask",
+      "alternativeId": "ALT-0609",
+      "frame": 17,
+      "default": true
+    },
+    {
+      "target": "poison_flask",
+      "alternativeId": "ALT-0284",
+      "frame": 18,
+      "default": false
+    },
+    {
+      "target": "blight_potion",
+      "alternativeId": "ALT-0274",
+      "frame": 19,
+      "default": true
+    },
+    {
+      "target": "fire_resistance_potion",
+      "alternativeId": "ALT-0755",
+      "frame": 20,
+      "default": true
+    },
+    {
+      "target": "giant_potion",
+      "alternativeId": "ALT-0327",
+      "frame": 21,
+      "default": true
+    },
+    {
+      "target": "grip_potion",
+      "alternativeId": "ALT-0601",
+      "frame": 22,
+      "default": true
+    },
+    {
+      "target": "hardworking_potion",
+      "alternativeId": "ALT-0323",
+      "frame": 23,
+      "default": true
+    },
+    {
+      "target": "healing_potion",
+      "alternativeId": "ALT-0605",
+      "frame": 24,
+      "default": true
+    },
+    {
+      "target": "immortal_potion",
+      "alternativeId": "ALT-0222",
+      "frame": 25,
+      "default": true
+    },
+    {
+      "target": "protection_potion",
+      "alternativeId": "ALT-0281",
+      "frame": 26,
+      "default": true
+    },
+    {
+      "target": "reach_potion",
+      "alternativeId": "ALT-0287",
+      "frame": 27,
+      "default": true
+    },
+    {
+      "target": "resurrection_potion",
+      "alternativeId": "ALT-0603",
+      "frame": 28,
+      "default": true
+    },
+    {
+      "target": "revival_potion",
+      "alternativeId": "ALT-0602",
+      "frame": 29,
+      "default": true
+    },
+    {
+      "target": "shielding_potion",
+      "alternativeId": "ALT-0228",
+      "frame": 30,
+      "default": true
+    },
+    {
+      "target": "speed_potion",
+      "alternativeId": "ALT-0747",
+      "frame": 31,
+      "default": true
+    },
+    {
+      "target": "stoneskin_potion",
+      "alternativeId": "ALT-0759",
+      "frame": 32,
+      "default": true
+    },
+    {
+      "target": "taming_potion",
+      "alternativeId": "ALT-0603",
+      "frame": 28,
+      "default": true
+    },
+    {
+      "target": "time_potion",
+      "alternativeId": "ALT-0282",
+      "frame": 33,
+      "default": true
+    },
+    {
+      "target": "pet_rest_charm",
+      "alternativeId": "ALT-0742",
+      "frame": 34,
+      "default": true
+    },
+    {
+      "target": "rubble",
+      "alternativeId": "ALT-0400",
+      "frame": 35,
+      "default": true
+    },
+    {
+      "target": "salmon",
+      "alternativeId": "ALT-0495",
+      "frame": 36,
+      "default": true
+    },
+    {
+      "target": "sapphire",
+      "alternativeId": "ALT-0497",
+      "frame": 37,
+      "default": true
+    },
+    {
+      "target": "sugar_potion",
+      "alternativeId": "ALT-0541",
+      "frame": 38,
+      "default": true
+    },
+    {
+      "target": "tome_blight",
+      "alternativeId": "ALT-0709",
+      "frame": 39,
+      "default": true
+    },
+    {
+      "target": "tome_frost_aura",
+      "alternativeId": "ALT-0708",
+      "frame": 40,
+      "default": true
+    },
+    {
+      "target": "tome_healing",
+      "alternativeId": "ALT-0617",
+      "frame": 41,
+      "default": true
+    },
+    {
+      "target": "tome_thunder",
+      "alternativeId": "ALT-0714",
+      "frame": 42,
+      "default": true
+    },
+    {
+      "target": "torch",
+      "alternativeId": "ALT-0279",
+      "frame": 43,
+      "default": true
+    },
+    {
+      "target": "tome_fire_wall",
+      "alternativeId": "ALT-0711",
+      "frame": 44,
+      "default": true
+    },
+    {
+      "target": "wood",
+      "alternativeId": "ALT-0341",
+      "frame": 45,
+      "default": true
+    },
+    {
+      "target": "relic:dagger:1",
+      "alternativeId": "ALT-0631",
+      "frame": 46,
+      "default": true
+    },
+    {
+      "target": "relic:dagger:2",
+      "alternativeId": "ALT-0657",
+      "frame": 47,
+      "default": true
+    },
+    {
+      "target": "relic:dagger:4",
+      "alternativeId": "ALT-0668",
+      "frame": 48,
+      "default": true
+    },
+    {
+      "target": "relic:dagger:6",
+      "alternativeId": "ALT-0680",
+      "frame": 49,
+      "default": true
+    },
+    {
+      "target": "relic:dagger:7",
+      "alternativeId": "ALT-0686",
+      "frame": 50,
+      "default": true
+    },
+    {
+      "target": "relic:lance:1",
+      "alternativeId": "ALT-0640",
+      "frame": 51,
+      "default": true
+    }
+  ]
+}

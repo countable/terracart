@@ -52,21 +52,10 @@ test('torch: a T1 consumable with a price, an effect line and a Book tip', () =>
   assert.falsy(PLAY_TIPS.some(t => /\bTorch\b/.test(t)), 'no Book tip restates the item');
 });
 
-test('torch: two-table icon rule — MINERAL_ICON_SHEET → ICON_SHEETS → a real 16×16 PNG', () => {
-  const src = MINERAL_ICON_SHEET.torch;
-  assert.truthy(src, 'MINERAL_ICON_SHEET.torch');
-  assert.eq(src.sheet, 'icon_torch');
-  assert.eq(src.frame, 0, 'single-frame icon');
-  const row = app.match(new RegExp(`\\n  ${src.sheet}:\\s*\\{ url: '([^']+)',\\s*cols: (\\d+),\\s*srcW: (\\d+),\\s*srcH: (\\d+) \\}`));
-  assert.truthy(row, `ICON_SHEETS has a '${src.sheet}' row (else the icon falls through to Crops.png)`);
-  assert.eq(row[1], 'assets/Icons/Items/Torch.png');
-  const dims = pngDims(row[1]);
-  assert.truthy(dims, `${row[1]} exists and is a PNG`);
-  assert.eq(dims.w, 16, 'a 16px frame');
-  assert.eq(dims.h, 16);
-  assert.eq(dims.w, Number(row[3]), 'srcW matches the file');
-  assert.eq(dims.h, Number(row[4]), 'srcH matches the file');
-  assert.eq(Number(row[2]), 1, 'one column');
+test('torch: selected art reaches the shared inventory resolver', () => {
+  const src = inventoryIconSource('torch');
+  assert.eq(src.sheet, SelectedItemArt.icons.torch.sheet);
+  assert.eq(src.frame, SelectedItemArt.icons.torch.frame);
 });
 
 // ── The light row: derived from the player's ──────────────────────────────
@@ -296,8 +285,7 @@ test('evertorch: Light spends a T6 supply, banks two hours and survives scene re
 test('evertorch: shared inventory, offer and pickup icon renderer applies its blue palette', () => {
   const start = app.indexOf('\n  renderItemIcon('), end = app.indexOf('\n  }\n', start);
   const doc = { createElement: () => ({ style: {}, dataset: {} }) };
-  const sheetRow = app.match(/\n  icon_torch:\s*(\{ url: '[^']+',\s*cols: \d+,\s*srcW: \d+,\s*srcH: \d+ \})/);
-  const sheets = { icon_torch: new Function('return (' + sheetRow[1] + ');')() };
+  const sheets = selectedIconSheetsForTest();
   const render = new Function('document', 'IconNet', 'ICON_SHEETS', 'domIconSheet',
     'return ({' + app.slice(start, end + 4) + '}).renderItemIcon;')(doc, { ready: () => true }, sheets,
       (url, width, height) => ({ url, width, height, x: 0, y: 0 }));

@@ -532,7 +532,7 @@
     assert.eq(wildplantSprite({crop:'shrub',_plantArt:'zone_rock_stone_garden'}).sheet, 'selected_shrub', 'rock context cannot replace another crop');
     assert.eq(wildplantSprite({crop:'rubble',_plantArt:'masonry'})?.sheet, undefined, 'legacy masonry tags use ordinary loose stones');
     assert.eq(wildplantSprite({crop:'rubble'})?.sheet, undefined, 'ordinary stone keeps the crop sheet despite its placement-specific looks');
-    assert.eq(inventoryIconSource('rubble').sheet, 'crops', 'harvest remains the same inventory item');
+    assert.eq(inventoryIconSource('rubble').sheet, SelectedItemArt.icons.rubble.sheet, 'harvest remains the same inventory item');
     for (const o of masonry) assert.eq(o.id, WorldGen.cellId(o.zoneLayer === 'background' ? 'wpf' : 'wz', 0, 0, o._ix, o._iy));
     const hedges = ZoneDressing.dress(context('formal_garden')).wildplants.filter(o => o.crop === 'shrub');
     assert.gt(hedges.length, 0);
