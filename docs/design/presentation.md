@@ -319,13 +319,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
 - Home, workbenches and brewing share `_presentRecipePicker` for discovery,
-  selection, capacity and paging, above `_presentRecipeOffer` transactions.
+  selection and capacity, above `_presentRecipeOffer` transactions.
   `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
   workbench (three Wood and one Rubble). Every former Home recipe, including
   the starter-known Spear, belongs at a placed workbench. Tapping a workbench
   opens its recipe picker directly, indoors or outdoors, with a ghost Pick up
   control at the top right and no Home Sell tab. Recheck the station before
   spending and reopen the same workbench and selected recipe after crafting.
+  A `craft` dialog never turns pages: its picker scrolls above a pinned
+  ingredient list and Craft row, so a short phone shows both together.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh

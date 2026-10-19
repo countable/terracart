@@ -401,7 +401,7 @@ class SceneModals {
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
-      // Build cards stay in one scrollable grid; price and actions remain visible.
+      // Build cards and recipes scroll; price and actions remain visible.
       if (scrollContent) {
         wrap.classList.add('modal-scroll-content');
         viewport.style.overflowY = 'auto';
@@ -877,7 +877,9 @@ class SceneModals {
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
       { onClose: repeat ? undefined : () => close(), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
-        scrollContent: kind === 'build' && choices?.length > 0 });
+        // Build cards and crafting recipes scroll above a pinned cost and
+        // actions; turning pages split the ingredients from Craft.
+        scrollContent: (kind === 'build' && choices?.length > 0) || kind === 'craft' });
     // Transitions and acceptance retain pending work; leaving or interruption
     // releases it exactly once, after the wrapper is out of the document.
     wrap.closeModal = close;

@@ -1187,7 +1187,7 @@ class SceneShops {
     });
   }
 
-  // Home, workbenches and brewing share discovery, selection, paging and capacity.
+  // Home, workbenches and brewing share discovery, selection and capacity.
   // Venues supply navigation, copy, fees on recipe rows, and completion effects.
   _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, ...modal }) {
     recipes = recipes.filter(r => !homeRecipeLocked(this.save, r.id));
