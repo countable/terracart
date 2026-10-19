@@ -285,7 +285,7 @@
       "approval": "approved"
     }
   ],
-  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared.",
+  "tierArt": "Approved native-24 overrides take precedence; other frames retain their existing tier-sheet art.",
   "worldFrameHeight": 64,
   "tierSheet": {
     "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
@@ -316,5 +316,53 @@
       "Ancient"
     ],
     "provenance": "Approved Pixel Plains-reference generated furniture, pixel-plains-transparent-r1. Exact 32px exported frames; original alpha retained."
-  }
+  },
+  "approvedOverrides": {
+    "rug:Crude": "assets/Objects/Furniture/source/approved/rug-crude.png",
+    "rug:Simple": "assets/Objects/Furniture/source/approved/rug-simple.png",
+    "rug:Fine": "assets/Objects/Furniture/source/approved/rug-fine.png",
+    "rug:Veblen": "assets/Objects/Furniture/source/approved/rug-veblen.png",
+    "rug:Masterwork": "assets/Objects/Furniture/source/approved/rug-masterwork.png",
+    "rug:Royal": "assets/Objects/Furniture/source/approved/rug-royal.png",
+    "rug:Ancient": "assets/Objects/Furniture/source/approved/rug-ancient.png",
+    "tub:Crude": "assets/Objects/Furniture/source/approved/tub-crude.png",
+    "tub:Simple": "assets/Objects/Furniture/source/approved/tub-simple.png",
+    "tub:Fine": "assets/Objects/Furniture/source/approved/tub-fine.png",
+    "tub:Veblen": "assets/Objects/Furniture/source/approved/tub-veblen.png",
+    "tub:Masterwork": "assets/Objects/Furniture/source/approved/tub-masterwork.png",
+    "tub:Royal": "assets/Objects/Furniture/source/approved/tub-royal.png",
+    "tub:Ancient": "assets/Objects/Furniture/source/approved/tub-ancient.png",
+    "table:Crude": "assets/Objects/Furniture/source/approved/table-crude.png",
+    "table:Simple": "assets/Objects/Furniture/source/approved/table-simple.png",
+    "table:Fine": "assets/Objects/Furniture/source/approved/table-fine.png",
+    "table:Veblen": "assets/Objects/Furniture/source/approved/table-veblen.png",
+    "table:Masterwork": "assets/Objects/Furniture/source/approved/table-masterwork.png",
+    "table:Royal": "assets/Objects/Furniture/source/approved/table-royal.png",
+    "table:Ancient": "assets/Objects/Furniture/source/approved/table-ancient.png",
+    "dresser:Crude": "assets/Objects/Furniture/source/approved/dresser-crude.png",
+    "dresser:Simple": "assets/Objects/Furniture/source/approved/dresser-simple.png",
+    "dresser:Fine": "assets/Objects/Furniture/source/approved/dresser-fine.png",
+    "dresser:Veblen": "assets/Objects/Furniture/source/approved/dresser-veblen.png",
+    "dresser:Masterwork": "assets/Objects/Furniture/source/approved/dresser-masterwork.png",
+    "dresser:Royal": "assets/Objects/Furniture/source/approved/dresser-royal.png",
+    "dresser:Ancient": "assets/Objects/Furniture/source/approved/dresser-ancient.png",
+    "globe:Crude": "assets/Objects/Furniture/source/approved/globe-crude.png",
+    "globe:Fine": "assets/Objects/Furniture/source/approved/globe-fine.png",
+    "globe:Veblen": "assets/Objects/Furniture/source/approved/globe-veblen.png",
+    "bed:Crude": "assets/Objects/Furniture/source/approved/bed-crude.png",
+    "bookshelf:Crude": "assets/Objects/Furniture/source/approved/bookshelf-crude.png",
+    "bed:Simple": "assets/Objects/Furniture/source/approved/bed-simple.png",
+    "bookshelf:Simple": "assets/Objects/Furniture/source/approved/bookshelf-simple.png",
+    "bed:Fine": "assets/Objects/Furniture/source/approved/bed-fine.png",
+    "bookshelf:Fine": "assets/Objects/Furniture/source/approved/bookshelf-fine.png",
+    "bed:Veblen": "assets/Objects/Furniture/source/approved/bed-veblen.png",
+    "bookshelf:Veblen": "assets/Objects/Furniture/source/approved/bookshelf-veblen.png",
+    "bed:Masterwork": "assets/Objects/Furniture/source/approved/bed-masterwork.png",
+    "bookshelf:Masterwork": "assets/Objects/Furniture/source/approved/bookshelf-masterwork.png",
+    "bed:Royal": "assets/Objects/Furniture/source/approved/bed-royal.png",
+    "bookshelf:Royal": "assets/Objects/Furniture/source/approved/bookshelf-royal.png",
+    "bed:Ancient": "assets/Objects/Furniture/source/approved/bed-ancient.png",
+    "bookshelf:Ancient": "assets/Objects/Furniture/source/approved/bookshelf-ancient.png"
+  },
+  "nativeCell": 24
 }

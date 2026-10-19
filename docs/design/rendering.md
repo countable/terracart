@@ -46,7 +46,8 @@ flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
 for continuous support. Basins are walkable ground decals with no step lift;
 they draw under the player, whose submersion crop hides only the lower body.
 `RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
-`FURNITURE_SCALE` (1: large and tall pieces use up to 31px of a 32px cell).
+`FURNITURE_SCALE` (1: approved 24px art cells map to 32px runtime cells;
+24×32 beds/bookcases can extend above the cell).
 New furniture bases sit horizontally centred, one-third of a cell up from its
 bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Beds, rugs
 and bookshelves retain centred art. Mirrored bounds keep asymmetric pieces
@@ -67,10 +68,13 @@ shares its planter's ground depth and sorts immediately above it, preserving
 Home wall occlusion.
 
 `python3 tools/build_furniture_sheets.py` rebuilds both sheets from
-`assets/Objects/Furniture/manifest.json`. The approved seven-tier source atlas
-contains 32×32 frames and preserves its generated alpha. Its crops are copied
-without resizing into the bottom half of uniform 32×64 world slots; icons use
-nearest-neighbour reduction. Roster frames occupy 0–15 and the 91 tier frames
+`assets/Objects/Furniture/manifest.json`. Approved overrides use a 24px native cell: small pieces are 16×16,
+and beds/bookcases are 24×32. The builder scales these by 32/24 with nearest
+neighbour sampling into the existing 32×64 slots. The manifest selects only
+approved kind/tier pairs; all other art remains in the legacy 32×32 atlas.
+`source/approved/approvals.json` records provenance, source/export hashes and
+backdrop removal. Both roster and tier frames use the same approved source.
+Icons fit the complete piece proportionally. Roster frames occupy 0–15 and the 91 tier frames
 follow them. The original workbench and candelabra source crops still use their
 existing fit rules. The sprite audit covers every frame and permitted flip.
 After rebuilding art, regenerate `ART_BOUNDS` and the DOM icon atlas so map,

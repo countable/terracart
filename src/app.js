@@ -1667,7 +1667,7 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=124794ca",
+  "url": "assets/Icons/dom-atlas.png?v=7ffe2319",
   "width": 1024,
   "height": 992,
   "rects": {
@@ -1821,9 +1821,10 @@ const DOM_ICON_ATLAS = {
     "assets/Objects/Approved/props.png": [520, 304, 352, 192],
     "assets/Objects/Approved/springcrops.png": [0, 560, 224, 128],
     "assets/Objects/Furniture/furniture-icons-16.png": [224, 560, 64, 432],
-    "assets/Objects/Pickup_Items.png": [288, 560, 224, 160],
-    "assets/Objects/Progression/icons.png": [512, 560, 32, 16],
-    "assets/Objects/Wilderness/wood.png": [544, 560, 48, 16]
+    "assets/Objects/Handmade/petnip.png": [288, 560, 16, 16],
+    "assets/Objects/Pickup_Items.png": [304, 560, 224, 160],
+    "assets/Objects/Progression/icons.png": [528, 560, 32, 16],
+    "assets/Objects/Wilderness/wood.png": [560, 560, 48, 16]
   }
 };
 // END GENERATED DOM ICON ATLAS
