@@ -137,7 +137,8 @@ the map's turn reaches their runes or ticks as a frame of their rotation strip
 ellipse on its end.
 
 The home firepit is centred two cells due south of the house's centre after the
-first device-compass reading (see [Home](combat.md)), without an inward artwork
+first device-compass reading, or out front toward a street facing the door
+(see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 

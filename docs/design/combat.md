@@ -336,7 +336,14 @@ mechanics.
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty
   firepit two cells due south of its centre (one behind the player)
-  (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it). The first
+  (`FIREPIT_OFFSET`, `save.homeFirepit`; flint lights a fire in it). When a
+  street faces the door (`_homeNearestStreet`), the pit instead stands out
+  front between the door and that street, the same two cells past the
+  doorstep or closer, never on the road (`HomeArea.firepitCellsToward`). With
+  no street there and the player outside the house when the pit is placed, it
+  goes between them and the house, else behind them on that side
+  (`HomeArea.playerSideFirepitCells`); it is never placed on the player's own
+  cell. The first
   valid device-compass reading unlocks placement once per save
   (`homeCompassDetected`); `homeFirepitPending` waits for Home and the surface
   if the reading arrives earlier. With no reading after
