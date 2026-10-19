@@ -16,7 +16,15 @@ COLUMNS = 16
 def main():
     sources = sorted(p for p in PACK.glob('*.png') if p != ATLAS)
     if not sources:
-        raise ValueError('No source icons found')
+        metadata = json.loads(MAP.read_text())
+        with Image.open(ATLAS) as packed:
+            packed = packed.convert('RGBA')
+            assert packed.size == (metadata['width'], metadata['height'])
+            for entry in metadata['items']:
+                x, y, w, h = entry['rect']
+                assert hashlib.sha256(packed.crop((x, y, x + w, y + h)).tobytes()).hexdigest() == entry['rgbaSha256']
+        print(f"{len(metadata['items'])} atlas cells verified; individual files already removed")
+        return
     atlas = Image.new('RGBA', (COLUMNS * CELL, ((len(sources) + COLUMNS - 1) // COLUMNS) * CELL))
     entries = []
     for i, path in enumerate(sources):
@@ -27,7 +35,8 @@ def main():
         x, y = (i % COLUMNS) * CELL, (i // COLUMNS) * CELL
         atlas.paste(icon, (x, y))
         entries.append({'source': path.name, 'rect': [x, y, CELL, CELL],
-                        'sha256': hashlib.sha256(path.read_bytes()).hexdigest()})
+                        'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                        'rgbaSha256': hashlib.sha256(icon.tobytes()).hexdigest()})
     atlas.save(ATLAS)
     with Image.open(ATLAS) as packed:
         for entry in entries:
