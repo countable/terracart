@@ -1,0 +1,7685 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "ALT-0001",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        176,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0002",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        128,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0003",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "crop": [
+        272,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0004",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        32,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0005",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        224,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0006",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        32,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0007",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        192,
+        16,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0008",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        384,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0009",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        192,
+        272,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0010",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        240,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0011",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        240,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0012",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        448,
+        0,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0013",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Village.png",
+      "crop": [
+        256,
+        128,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0014",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0015",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0016",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0017",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0018",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Chests/Chest 1 Sheet.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0019",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Torch/Torch Yellow.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0020",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes).png",
+      "crop": [
+        336,
+        0,
+        48,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0021",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes).png",
+      "crop": [
+        288,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0022",
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "crop": [
+        128,
+        176,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0023",
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "crop": [
+        0,
+        48,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0024",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Break Update/All Vase Shine 16x16.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0025",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 2.png",
+      "crop": [
+        416,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0026",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 1.png",
+      "crop": [
+        112,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0027",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "crop": [
+        208,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0028",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0029",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        432,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0030",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        304,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0031",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        464,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0032",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0033",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        496,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0034",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        288,
+        496,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0035",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        288,
+        480,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0036",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "crop": [
+        0,
+        16,
+        112,
+        96
+      ]
+    },
+    {
+      "id": "ALT-0037",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        32,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0038",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        256,
+        256,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0039",
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "crop": [
+        352,
+        0,
+        16,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0040",
+      "source": "extra_assets/Pixel Plains/mushrooms.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0041",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Animated_Water.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0042",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Animated_Lava.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0043",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Ground.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0044",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Ground.png",
+      "crop": [
+        144,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0045",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0046",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0047",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "crop": [
+        16,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0048",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Sanctuary.png",
+      "crop": [
+        0,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0049",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        32,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0050",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        464,
+        0,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0051",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        192,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0052",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        208,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0053",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0054",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0055",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0056",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        112,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0057",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        192,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0058",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        800,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0059",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        592,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0060",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        688,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0061",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        720,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0062",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        880,
+        352,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0063",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        880,
+        384,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0064",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        880,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0065",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        576,
+        480,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0066",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        592,
+        480,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0067",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        784,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0068",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        800,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0069",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        800,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0070",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        752,
+        576,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0071",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        784,
+        536,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0072",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        832,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0073",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        672,
+        528,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0074",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        704,
+        528,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0075",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_01_strip4.png",
+      "crop": [
+        0,
+        0,
+        32,
+        34
+      ]
+    },
+    {
+      "id": "ALT-0076",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_02_strip4.png",
+      "crop": [
+        0,
+        0,
+        28,
+        43
+      ]
+    },
+    {
+      "id": "ALT-0077",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_red_01_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0078",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_01_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0079",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_02_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0080",
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_03_strip4.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0081",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        48,
+        160,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0082",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        0,
+        192,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0083",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "crop": [
+        96,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0084",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "crop": [
+        112,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0085",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "crop": [
+        16,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0086",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "crop": [
+        112,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0087",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "crop": [
+        16,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0088",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "crop": [
+        304,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0089",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0090",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0091",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0092",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0093",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        80,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0094",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0095",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        48,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0096",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        64,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0097",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        80,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0098",
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "crop": [
+        96,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0099",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Ground_Tiles.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0100",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Ground_Tiles.png",
+      "crop": [
+        16,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0101",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Ground_Tiles.png",
+      "crop": [
+        208,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0102",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        288,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0103",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        48,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0104",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        272,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0105",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0106",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "crop": [
+        80,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0107",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Grounds_Blue.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0108",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Grounds_Blue.png",
+      "crop": [
+        16,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0109",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Grounds_Blue.png",
+      "crop": [
+        208,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0110",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert.png",
+      "crop": [
+        336,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0111",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0112",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert.png",
+      "crop": [
+        208,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0113",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0114",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands_Waters.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0115",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Ground_Tiles.png",
+      "crop": [
+        80,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0116",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Ground_Tiles.png",
+      "crop": [
+        16,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0117",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Ground_Tiles.png",
+      "crop": [
+        336,
+        720,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0118",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/u_fd_interior.png",
+      "crop": [
+        272,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0119",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/u_fd_interior.png",
+      "crop": [
+        400,
+        40,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "ALT-0120",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands_Animations.png",
+      "crop": [
+        0,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0121",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Interior.png",
+      "crop": [
+        256,
+        136,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0122",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Interior.png",
+      "crop": [
+        272,
+        96,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "ALT-0123",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_desert_houses.png",
+      "crop": [
+        224,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0124",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_desert_houses.png",
+      "crop": [
+        192,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0125",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_desert_houses.png",
+      "crop": [
+        240,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0126",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Halloween.png",
+      "crop": [
+        16,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0127",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Mountains.png",
+      "crop": [
+        304,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0128",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Mountains.png",
+      "crop": [
+        112,
+        528,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0129",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Mountains.png",
+      "crop": [
+        112,
+        544,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0130",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Mountains.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0131",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Water_Tiles.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0132",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "crop": [
+        16,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0133",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Laboratory.png",
+      "crop": [
+        224,
+        352,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0134",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Laboratory.png",
+      "crop": [
+        112,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0135",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Winter_Village.png",
+      "crop": [
+        0,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0136",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Winter_Village.png",
+      "crop": [
+        192,
+        432,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0137",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Winter_Village.png",
+      "crop": [
+        224,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0138",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Winter_Village.png",
+      "crop": [
+        192,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0139",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Winter_Village.png",
+      "crop": [
+        208,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0140",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Animations.png",
+      "crop": [
+        16,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0141",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest_Blue.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0142",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest_Blue.png",
+      "crop": [
+        176,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0143",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Water.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0144",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        112,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0145",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        80,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0146",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        16,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0147",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        128,
+        0,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0148",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0149",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+      "crop": [
+        32,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0150",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+      "crop": [
+        0,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0151",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+      "crop": [
+        0,
+        352,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0152",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
+      "crop": [
+        96,
+        256,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "ALT-0153",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon_Lava.png",
+      "crop": [
+        16,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0154",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0155",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0156",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+      "crop": [
+        240,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0157",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+      "crop": [
+        128,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0158",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+      "crop": [
+        0,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0159",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Animated_Water_City.png",
+      "crop": [
+        16,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0160",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        144,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0161",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        256,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0162",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        160,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0163",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0164",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest.png",
+      "crop": [
+        176,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0165",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        352,
+        624,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0166",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        272,
+        352,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0167",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        96,
+        536,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "ALT-0168",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/fd_christmas.png",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0169",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        160,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0170",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        320,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0171",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        256,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0172",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        352,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0173",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        352,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0174",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        432,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0175",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+      "crop": [
+        64,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0176",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Halloween.png",
+      "crop": [
+        160,
+        16,
+        48,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0177",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Blacksmith.png",
+      "crop": [
+        464,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0178",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Blacksmith.png",
+      "crop": [
+        368,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0179",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Blacksmith.png",
+      "crop": [
+        368,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0180",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Blacksmith.png",
+      "crop": [
+        336,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0181",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Blacksmith.png",
+      "crop": [
+        368,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0182",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        272,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0183",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        208,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0184",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        224,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0185",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Castle_Animations.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0186",
+      "source": "extra_assets/MiniWorldSprites/AllAssetsPreview.png",
+      "crop": [
+        64,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0187",
+      "source": "extra_assets/MiniWorldSprites/AllAssetsPreview.png",
+      "crop": [
+        144,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0188",
+      "source": "extra_assets/MiniWorldSprites/AllAssetsPreview.png",
+      "crop": [
+        16,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0189",
+      "source": "extra_assets/MiniWorldSprites/AllAssetsPreview.png",
+      "crop": [
+        704,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0190",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 3 (Water).png",
+      "crop": [
+        176,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0191",
+      "source": "extra_assets/MiniWorldSprites/Buildings/Wood/Resources.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0192",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Chicken Update/All Sprites Sheet 0.png",
+      "crop": [
+        8,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0193",
+      "source": "extra_assets/Tiny Farm RPG - Free/Farm Animals/Baby Chicken Yellow.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0194",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0195",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        16,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0196",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        48,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0197",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0198",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0199",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        48,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0200",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0201",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        64,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0202",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        96,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0203",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0204",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0205",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0206",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0207",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0208",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        48,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0209",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Tilesets/Set 1.2.png",
+      "crop": [
+        112,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0210",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Tilesets/Set 1.2.png",
+      "crop": [
+        16,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0211",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Tilesets/Set 1.2.png",
+      "crop": [
+        144,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0212",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        192,
+        424,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0213",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        96,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0214",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        32,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0215",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 1.5.png",
+      "crop": [
+        8,
+        8,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0216",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 1.5.png",
+      "crop": [
+        136,
+        40,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0217",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        80,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0218",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        416,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0219",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0220",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0221",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        304,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0222",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        336,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0223",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        352,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0224",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        368,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0225",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        368,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0226",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        368,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0227",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        384,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0228",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        400,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0229",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        416,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0230",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        96,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0231",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        112,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0232",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0233",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        224,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0234",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        160,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0235",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        176,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0236",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        96,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0237",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        48,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0238",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        112,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0239",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Interior/Props.png",
+      "crop": [
+        240,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0240",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Potato set.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0241",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Potato set.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0242",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Potato set.png",
+      "crop": [
+        128,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0243",
+      "source": "extra_assets/Tiny Farm RPG - Free/Objects/Spring Crops.png",
+      "crop": [
+        96,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0244",
+      "source": "extra_assets/Tiny Farm RPG - Free/Objects/Spring Crops.png",
+      "crop": [
+        128,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0245",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees 1.png",
+      "crop": [
+        112,
+        128,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0246",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 3.1.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0247",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 3.1.png",
+      "crop": [
+        0,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0248",
+      "source": "extra_assets/Pixel Plains/Fall/Sunflowers.png",
+      "crop": [
+        64,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0249",
+      "source": "extra_assets/Pixel Plains/PP Interiors Pack/Dungeon set 3.png",
+      "crop": [
+        48,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0250",
+      "source": "extra_assets/Pixel Plains/All tiles Spring.png",
+      "crop": [
+        192,
+        672,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0251",
+      "source": "extra_assets/Pixel Plains/All tiles Spring.png",
+      "crop": [
+        304,
+        672,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0252",
+      "source": "extra_assets/Pixel Plains/All tiles Spring.png",
+      "crop": [
+        672,
+        704,
+        48,
+        64
+      ]
+    },
+    {
+      "id": "ALT-0253",
+      "source": "extra_assets/Pixel Plains/All tiles Spring.png",
+      "crop": [
+        16,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0254",
+      "source": "extra_assets/Pixel Plains/All tiles Spring.png",
+      "crop": [
+        326,
+        70,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0255",
+      "source": "extra_assets/Pixel Plains/All tiles Spring.png",
+      "crop": [
+        1584,
+        80,
+        16,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0256",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Above.png",
+      "crop": [
+        184,
+        256,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0257",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Above.png",
+      "crop": [
+        320,
+        328,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0258",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Above.png",
+      "crop": [
+        80,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0259",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Above.png",
+      "crop": [
+        336,
+        288,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0260",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Chests/All Chest Sheet.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0261",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        64,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0262",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        64,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0263",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0264",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        208,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0265",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        64,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0266",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        80,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0267",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0268",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        128,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0269",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        224,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0270",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        192,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0271",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        144,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0272",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        224,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0273",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        208,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0274",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        32,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0275",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        48,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0276",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        80,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0277",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        32,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0278",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0279",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0280",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        240,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0281",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0282",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        112,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0283",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        128,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0284",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        144,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0285",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        160,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0286",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        176,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0287",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        192,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0288",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0289",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        240,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0290",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0291",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        224,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0292",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        208,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0293",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        240,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0294",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        80,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0295",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0296",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        224,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0297",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0298",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0299",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        64,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0300",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        80,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0301",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        160,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0302",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        64,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0303",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        48,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0304",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        80,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0305",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0306",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        128,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0307",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0308",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0309",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0310",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0311",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0312",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        224,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0313",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        32,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0314",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        128,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0315",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0316",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0317",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        160,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0318",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0319",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        176,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0320",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0321",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0322",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0323",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0324",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0325",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0326",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        16,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0327",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        0,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0328",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        16,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0329",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        32,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0330",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        48,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0331",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        64,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0332",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        80,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0333",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/DG Fire Zone Expansion Full Ver./All Tiles.png",
+      "crop": [
+        144,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0334",
+      "source": "extra_assets/Tiny Farm RPG - Free/Farm Animals/Chicken Blonde  Green.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0335",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 2.5.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0336",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 2.5.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0337",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        160,
+        64,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0338",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        272,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0339",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        272,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0340",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        272,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0341",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        272,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0342",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 1.png",
+      "crop": [
+        136,
+        40,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0343",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0344",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0345",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0346",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0347",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0348",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0349",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        160,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0350",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        96,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0351",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        160,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0352",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        128,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0353",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0354",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        64,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0355",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0356",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0357",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 4.0.png",
+      "crop": [
+        48,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0358",
+      "source": "extra_assets/Tiny Farm RPG - Free/Farm Animals/Chicken Red.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0359",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/All Orbs anim 16x16.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0360",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./PP Crops-Sheet 1.png",
+      "crop": [
+        160,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0361",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 2.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0362",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 2.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0363",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        8,
+        200,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0364",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        40,
+        200,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0365",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        104,
+        200,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0366",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        72,
+        296,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0367",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        8,
+        264,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0368",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        104,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0369",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        72,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0370",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        136,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0371",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        200,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0372",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        8,
+        40,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0373",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        8,
+        104,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0374",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        8,
+        232,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0375",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        72,
+        136,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0376",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        72,
+        168,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0377",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        104,
+        424,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0378",
+      "source": "extra_assets/Tiny Farm RPG - Free/Objects/Maple Tree.png",
+      "crop": [
+        64,
+        0,
+        32,
+        48
+      ]
+    },
+    {
+      "id": "ALT-0379",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v1.png",
+      "crop": [
+        912,
+        496,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0380",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v1.png",
+      "crop": [
+        112,
+        672,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0381",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v1.png",
+      "crop": [
+        112,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0382",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        168,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0383",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        40,
+        168,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0384",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        104,
+        168,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0385",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        72,
+        264,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0386",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        232,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0387",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        200,
+        680,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0388",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        104,
+        360,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0389",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        72,
+        360,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0390",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        136,
+        360,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0391",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        200,
+        360,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0392",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        8,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0393",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        72,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0394",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        200,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0395",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        72,
+        104,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0396",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        72,
+        136,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0397",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        104,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0398",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All tiles v2.png",
+      "crop": [
+        584,
+        648,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0399",
+      "source": "extra_assets/Tiny Farm RPG - Free/Objects/chest.png",
+      "crop": [
+        8,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0400",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        496,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0401",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        432,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0402",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        528,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0403",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        624,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0404",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        624,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0405",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        656,
+        480,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0406",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0407",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0408",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        672,
+        528,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "ALT-0409",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        864,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0410",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        800,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0411",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        800,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0412",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        784,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0413",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        672,
+        720,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0414",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        656,
+        768,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0415",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        672,
+        752,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0416",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        672,
+        704,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0417",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        656,
+        784,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0418",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 1.5.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0419",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 1.5.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0420",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 1.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0421",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Mini Crops 1.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0422",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 2.5.png",
+      "crop": [
+        8,
+        8,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0423",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 2.5.png",
+      "crop": [
+        136,
+        40,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0424",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Interior/Items.png",
+      "crop": [
+        96,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0425",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes, no shadow).png",
+      "crop": [
+        288,
+        48,
+        48,
+        64
+      ]
+    },
+    {
+      "id": "ALT-0426",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Objects.png",
+      "crop": [
+        48,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0427",
+      "source": "extra_assets/Pixel Plains/Items.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0428",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 2.png",
+      "crop": [
+        8,
+        8,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0429",
+      "source": "extra_assets/Pixel Plains/PP Crops Pack Full Ver./Crops Sprites 2.png",
+      "crop": [
+        136,
+        40,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0430",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld.png",
+      "crop": [
+        256,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0431",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld.png",
+      "crop": [
+        256,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0432",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld.png",
+      "crop": [
+        96,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0433",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld.png",
+      "crop": [
+        112,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0434",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree01_s_01_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0435",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree01_s_02_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0436",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree02_s_02_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0437",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Ground.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0438",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Ground.png",
+      "crop": [
+        160,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0439",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Ground.png",
+      "crop": [
+        400,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0440",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Ground.png",
+      "crop": [
+        448,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0441",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree01_s_03_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0442",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree04_s_03_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0443",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Full.png",
+      "crop": [
+        104,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0444",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Wasteland.png",
+      "crop": [
+        368,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0445",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Wasteland.png",
+      "crop": [
+        256,
+        64,
+        64,
+        64
+      ]
+    },
+    {
+      "id": "ALT-0446",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree06_s_02_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0447",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree04_s_01_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0448",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ship.png",
+      "crop": [
+        112,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0449",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ship.png",
+      "crop": [
+        112,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0450",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ship.png",
+      "crop": [
+        80,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0451",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Graveyard.png",
+      "crop": [
+        96,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0452",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        80,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0453",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        368,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0454",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        112,
+        384,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0455",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0456",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        256,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0457",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree06_s_03_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0458",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree03_s_02_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0459",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree02_s_03_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0460",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple_Animations.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0461",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        704,
+        108,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0462",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        80,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0463",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        384,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0464",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "crop": [
+        0,
+        200,
+        16,
+        24
+      ]
+    },
+    {
+      "id": "ALT-0465",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree05_s_02_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0466",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        256,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0467",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        320,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0468",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        320,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0469",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        272,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0470",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        256,
+        368,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0471",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        256,
+        432,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0472",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        400,
+        368,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0473",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        416,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0474",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        352,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0475",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0476",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        272,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0477",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        368,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0478",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0479",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0480",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0481",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        480,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0482",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0483",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        256,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0484",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        256,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0485",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        272,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0486",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        416,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0487",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        368,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0488",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        352,
+        432,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0489",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        352,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0490",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0491",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0492",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        352,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0493",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        256,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0494",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        272,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0495",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0496",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0497",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0498",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        352,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0499",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        480,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0500",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        480,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0501",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        448,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0502",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        416,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0503",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0504",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        384,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0505",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        96,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0506",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0507",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0508",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0509",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        64,
+        384,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0510",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        64,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0511",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0512",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        480,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0513",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Hell.png",
+      "crop": [
+        80,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0514",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree06_s_01_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0515",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village_Animation02.png",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0516",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village_Animation02.png",
+      "crop": [
+        160,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0517",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree04_s_02_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0518",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior_Animations.png",
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0519",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior_Animations.png",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0520",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree05_s_03_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0521",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree05_s_01_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0522",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        128,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0523",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        16,
+        536,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0524",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree03_s_03_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0525",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree03_s_01_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0526",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Lost_City.png",
+      "crop": [
+        448,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0527",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Lost_City.png",
+      "crop": [
+        384,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0528",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/tree02_s_01_animation.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ]
+    },
+    {
+      "id": "ALT-0529",
+      "source": "extra_assets/16x16/Graveyard Tileset 16x16 Pixelart [Rogue Adventure]/Graveyard Tilesets/RA_Graveyard.png",
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0530",
+      "source": "extra_assets/16x16/Hell Tileset 16x16 Pixelart [Rogue Adventure]/Hell Tileset/RA_Hell_Animations.png",
+      "crop": [
+        48,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0531",
+      "source": "extra_assets/16x16/Hell Tileset 16x16 Pixelart [Rogue Adventure]/Hell Tileset/RA_Hell_Animations.png",
+      "crop": [
+        16,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0532",
+      "source": "extra_assets/16x16/Wastelands Tileset 16x16 Pixelart [Rogue Adventure]/Wastelands Tilesets/RA_Water_Tiles.png",
+      "crop": [
+        16,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0533",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        288,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0534",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        128,
+        576,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0535",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        192,
+        576,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0536",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        176,
+        608,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0537",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        400,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0538",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        256,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0539",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        384,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0540",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        368,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0541",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        352,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0542",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        480,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0543",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        272,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0544",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        288,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0545",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0546",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        256,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0547",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        272,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0548",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        464,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0549",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        448,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0550",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        400,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0551",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        288,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0552",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        336,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0553",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        432,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0554",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        448,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0555",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        352,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0556",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        352,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0557",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        352,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0558",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0559",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        656,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0560",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        640,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0561",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        320,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0562",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        448,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0563",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        320,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0564",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        448,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0565",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        464,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0566",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        320,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0567",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        464,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0568",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        256,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0569",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        272,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0570",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        288,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0571",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        368,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0572",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0573",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0574",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0575",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0576",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        32,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0577",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        96,
+        384,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0578",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        128,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0579",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        160,
+        464,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0580",
+      "source": "extra_assets/16x16/Free Dungeon - Fantasy Dreamland/16x16/FD_Dungeon_Free.png",
+      "crop": [
+        368,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0581",
+      "source": "extra_assets/16x16/Free Dungeon - Fantasy Dreamland/16x16/FD_Dungeon_Free.png",
+      "crop": [
+        160,
+        368,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0582",
+      "source": "extra_assets/16x16/Free Dungeon - Fantasy Dreamland/16x16/FD_Dungeon_Free.png",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0583",
+      "source": "extra_assets/16x16/Free Dungeon - Fantasy Dreamland/16x16/FD_Dungeon_Free.png",
+      "crop": [
+        96,
+        256,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0584",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        240,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0585",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        96,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0586",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        784,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0587",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        336,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0588",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v2.png",
+      "crop": [
+        136,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0589",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0590",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        480,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0591",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0592",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v2.png",
+      "crop": [
+        200,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0593",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0594",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0595",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v2.png",
+      "crop": [
+        168,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0596",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        80,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0597",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        168,
+        360,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0598",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v2.png",
+      "crop": [
+        104,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0599",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0600",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        80,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0601",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0602",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0603",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0604",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        176,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0605",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0606",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        16,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0607",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        128,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0608",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0609",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        160,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0610",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        384,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0611",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0612",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        32,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0613",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        0,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0614",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0615",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        288,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0616",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        288,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0617",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        136,
+        232,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0618",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        304,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0619",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        64,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0620",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0621",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0622",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        72,
+        168,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0623",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        432,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0624",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0625",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        304,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0626",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        464,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0627",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        16,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0628",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0629",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0630",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v2.png",
+      "crop": [
+        8,
+        136,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0631",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0632",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        104,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0633",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        64,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0634",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        0,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0635",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        48,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0636",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        16,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0637",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0638",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        0,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0639",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        560,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0640",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        136,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0641",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        0,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0642",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0643",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0644",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        16,
+        384,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0645",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        128,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0646",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        400,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0647",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        392,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0648",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0649",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "crop": [
+        224,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0650",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        864,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0651",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        320,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0652",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        192,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0653",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        784,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0654",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        144,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0655",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        160,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0656",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        192,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0657",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0658",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        240,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0659",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        272,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0660",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        144,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0661",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        192,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0662",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0663",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        240,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0664",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        272,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0665",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        144,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0666",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        160,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0667",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        192,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0668",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0669",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        240,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0670",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        272,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0671",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        144,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0672",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        160,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0673",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        192,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0674",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0675",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        240,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0676",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        272,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0677",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        144,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0678",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        160,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0679",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        192,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0680",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0681",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        240,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0682",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        272,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0683",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        0,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0684",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        16,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0685",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        48,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0686",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        64,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0687",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        96,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0688",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        128,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0689",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        368,
+        320,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0690",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        576,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0691",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        592,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0692",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        608,
+        288,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0693",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        608,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0694",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        608,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0695",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        560,
+        304,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0696",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0697",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0698",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        128,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0699",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0700",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        32,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0701",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        160,
+        368,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0702",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        912,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0703",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0704",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        16,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0705",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        256,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0706",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        272,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0707",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        336,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0708",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0709",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        288,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0710",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        96,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0711",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        112,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0712",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        320,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0713",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        320,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0714",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        48,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0715",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        304,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0716",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        320,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0717",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        80,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0718",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        224,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0719",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        336,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0720",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0721",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        112,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0722",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0723",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        16,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0724",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0725",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0726",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0727",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0728",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0729",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0730",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        224,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0731",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        512,
+        144,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0732",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        544,
+        128,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0733",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        576,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0734",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        576,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0735",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        592,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0736",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        464,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0737",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        624,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0738",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        576,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0739",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        672,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0740",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        656,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0741",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        640,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0742",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        672,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0743",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        32,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0744",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        16,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0745",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        32,
+        336,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0746",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        176,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0747",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0748",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0749",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        336,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0750",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        48,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0751",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        352,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0752",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0753",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        368,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0754",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        400,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0755",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        112,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0756",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        416,
+        256,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0757",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        160,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0758",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0759",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        64,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0760",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        64,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0761",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        48,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0762",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        16,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0763",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/All Orbs anim 16x16.png",
+      "crop": [
+        0,
+        48,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0764",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/All Orbs anim 16x16.png",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0765",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/All Orbs anim 16x16.png",
+      "crop": [
+        0,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0766",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        912,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0767",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        864,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0768",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        784,
+        208,
+        16,
+        16
+      ]
+    }
+  ]
+}

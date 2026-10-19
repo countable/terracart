@@ -242,7 +242,8 @@
         existing.targets.includes(target)&&existing.source===entry.source&&JSON.stringify(existing.crop)===JSON.stringify(entry.crop)));
       if(targets.length)alternatives.entries.push({...entry,targets});
     }
-    await Promise.all(alternatives.entries.map(async candidate=>{candidate.previewImage=await ArtPreviewFit.load(candidate.image);}));
+    await ArtAlternativeIds.load();
+    await Promise.all(alternatives.entries.map(async candidate=>{candidate.alternativeId=ArtAlternativeIds.get(candidate);candidate.previewImage=await ArtPreviewFit.load(candidate.image);}));
     for(const row of rows)row.alternatives=alternatives.entries.filter(candidate=>candidate.targets.includes(row.id));
     const query=new URLSearchParams(location.search);
     $('search').value=query.get('search')||'';
@@ -253,7 +254,7 @@
     const zoneVariantsText=row=>(row.approved?'Approved for placement: ':'')+([...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use');
     const sandboxZoneKind = id => ZoneVariantData.variants.find(z=>z.id===id)?.zone || id;
     const art=(row,limit)=>row.images.slice(0,limit).map((src,i)=>`<img class="sprite" src="${src}" alt="${esc(row.name+(row.stateLabels?.[i]?' · '+row.stateLabels[i]:''))}" title="${esc(row.stateLabels?.[i]||row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
-    const candidateArt=c=>`<figure class="candidate"><img class="sprite" src="${esc(c.previewImage||c.image)}" alt="${esc(c.name)}" loading="lazy"><figcaption><strong>${esc(c.name)}</strong><br><small>${esc(c.pack)}${c.status?` · ${esc(c.status)}`:''} · native ${c.nativeTileSize}px grid<br>${c.crop[2]}×${c.crop[3]} px crop${c.sizeException?' · tall object':''}</small></figcaption></figure>`;
+    const candidateArt=c=>`<figure class="candidate"><img class="sprite" src="${esc(c.previewImage||c.image)}" alt="${esc(c.name)}" loading="lazy"><figcaption><code data-alternative-id="${c.alternativeId}">${c.alternativeId}</code><br><strong>${esc(c.name)}</strong><br><small>${esc(c.pack)}${c.status?` · ${esc(c.status)}`:''} · native ${c.nativeTileSize}px grid<br>${c.crop[2]}×${c.crop[3]} px crop${c.sizeException?' · tall object':''}</small></figcaption></figure>`;
     const filteredAlternatives=row=>row.alternatives.filter(c=>{
       const choice=$('alternatives').value;
       return choice==='smaller'?c.group==='smaller':['','any','none'].includes(choice)||c.pack===choice;
@@ -262,7 +263,7 @@
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zoneVariant=$('zone').value,cat=$('category').value,sort=$('sort').value;
       const choice=$('alternatives').value;
-      const visible=rows.filter(r=>(!choice||(choice==='none'?!r.alternatives.length:filteredAlternatives(r).length))&&(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,...r.alternatives.map(c=>c.name+' '+c.pack),zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
+      const visible=rows.filter(r=>(!choice||(choice==='none'?!r.alternatives.length:filteredAlternatives(r).length))&&(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,...r.alternatives.map(c=>c.name+' '+c.pack+' '+c.alternativeId),zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
       const value=r=>sort==='zone'?zoneVariantsText(r):r[sort];visible.sort((a,b)=>((sort==='reference'?(a.reference??Infinity)-(b.reference??Infinity):String(value(a)).localeCompare(String(value(b))))||a.name.localeCompare(b.name))*(descending?-1:1));
       if(!visible.some(r=>r.id===selected))selected=visible[0]?.id;
       $('sandbox-zone').innerHTML=zoneVariant && zoneVariant !== 'shared' ? SandboxLinks.link(sandboxZoneKind(zoneVariant)) : '';

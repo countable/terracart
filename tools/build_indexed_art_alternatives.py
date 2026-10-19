@@ -8,6 +8,7 @@ import argparse
 import hashlib
 import json
 import re
+import subprocess
 from collections import Counter
 from pathlib import Path
 
@@ -136,3 +137,5 @@ if __name__ == '__main__':
     parser.add_argument('--output', type=Path, default=ROOT / 'tools/art-candidates/indexed')
     args = parser.parse_args()
     build(args.review_dir, args.output)
+    if args.output.resolve() == ROOT / 'tools/art-candidates/indexed':
+        subprocess.run(['node', str(ROOT / 'tools/build-art-alternative-ids.js')], check=True)
