@@ -3721,15 +3721,20 @@ class MapScene extends Phaser.Scene {
       const g = this.facingChevronGfx;
       // Graphics has no round caps or joins, so a dot of the stroke's width
       // at each vertex rounds the ends and closes the apex.
-      const stroke = (w, color, alpha, dy) => {
+      // The drop shadow falls toward the bottom of the SCREEN: this graphic
+      // turns with the map under heading-up, so a fixed +y offset swung the
+      // shadow round to the side or above the caret.
+      const down = HeadingUp.toWorldVec(this, 0, 1);
+      const stroke = (w, color, alpha, d) => {
+        const ox = down.x * d, oy = down.y * d;
         g.lineStyle(w, color, alpha);
         g.beginPath();
-        g.moveTo(pts[0].x, pts[0].y + dy);
-        g.lineTo(pts[1].x, pts[1].y + dy);
-        g.lineTo(pts[2].x, pts[2].y + dy);
+        g.moveTo(pts[0].x + ox, pts[0].y + oy);
+        g.lineTo(pts[1].x + ox, pts[1].y + oy);
+        g.lineTo(pts[2].x + ox, pts[2].y + oy);
         g.strokePath();
         g.fillStyle(color, alpha);
-        for (const p of pts) g.fillCircle(p.x, p.y + dy, w / 2);
+        for (const p of pts) g.fillCircle(p.x + ox, p.y + oy, w / 2);
       };
       stroke(FACING_CHEVRON.outlineW, 0x000000, 0.45, 1);   // drop shadow
       stroke(FACING_CHEVRON.outlineW, 0x1a1208, 1, 0);      // dark outline

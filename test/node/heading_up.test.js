@@ -370,3 +370,24 @@ test('heading up: the direction caret is pushed clear of the body, never behind 
   const side = paint(1, 0);
   assert.lt(Math.max(...side.map(p => p.x)), feet.x + 17, 'pointing sideways it is not pushed out');
 });
+
+test('heading up: the caret\'s drop shadow falls down the screen at any map turn', () => {
+  // The caret's graphic turns with the map, so a fixed +y shadow offset swung
+  // above the caret once the map was turned round.
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const starts = [];
+  const gfx = { clear() { starts.length = 0; }, lineStyle() {}, beginPath() {}, moveTo(x, y) { starts.push({ x, y }); },
+    lineTo() {}, strokePath() {}, fillStyle() {}, fillCircle() {} };
+  const chevron = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+  for (const rot of [0, Math.PI / 2, Math.PI, -Math.PI / 3]) {
+    const scene = { _headingUp: true, mapRot: rot, _compassDirectionLocked: true, gpsM: { x: 0, y: 0 },
+      facing: { x: 1, y: 0 }, facingChevronGfx: gfx };
+    draw.call(scene, { x: 50, y: 50 }, 0.6, chevron);
+    const [shadow, outline] = starts;
+    const s = HeadingUp.toScreenVec(scene, shadow.x - outline.x, shadow.y - outline.y);
+    assert.lt(Math.abs(s.x), 1e-9, `no sideways shadow at ${rot}`);
+    assert.lt(Math.abs(s.y - 1), 1e-9, `the shadow sits 1px below on screen at ${rot}`);
+  }
+});
