@@ -433,7 +433,7 @@
       "targets": [
         "trees"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Basic Tiles 4 (Trees & Bushes).png",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes).png",
       "sourceSHA256": "72a5c383db3eabed275b6ab2575f106c0d28357bc54b704ba1e3e6a3b55f9aa6",
       "crop": [
         336,
@@ -457,7 +457,7 @@
         "look:zone_hedge_single",
         "zone_hedge:0"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Basic Tiles 4 (Trees & Bushes).png",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes).png",
       "sourceSHA256": "72a5c383db3eabed275b6ab2575f106c0d28357bc54b704ba1e3e6a3b55f9aa6",
       "crop": [
         288,
@@ -477,7 +477,7 @@
       "targets": [
         "zone_objects:1"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Props.png",
+      "source": "extra_assets/Pixel Plains/Props.png",
       "sourceSHA256": "d8f8e5d65f43ddd10bcb58eefe0a6e0d45044b40ee54e478cff4b5bb671e219c",
       "crop": [
         128,
@@ -498,7 +498,7 @@
       "targets": [
         "signpost"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Props.png",
+      "source": "extra_assets/Pixel Plains/Props.png",
       "sourceSHA256": "d8f8e5d65f43ddd10bcb58eefe0a6e0d45044b40ee54e478cff4b5bb671e219c",
       "crop": [
         0,
@@ -545,7 +545,7 @@
         "ground:28",
         "ground:29"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Basic Tiles 2.png",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 2.png",
       "sourceSHA256": "f0102e433a01b407c2f7b75f83bf3ba937721d363fac847592f81bc38d42f921",
       "crop": [
         416,
@@ -565,7 +565,7 @@
       "targets": [
         "plant:longgrass"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Basic Tiles 1.png",
+      "source": "extra_assets/Pixel Plains/Basic Tiles 1.png",
       "sourceSHA256": "b015597afbf9b86dcc9b7a362cf8e0200c3010bd3070f339f6f7aa59feab2094",
       "crop": [
         112,
@@ -899,7 +899,7 @@
       "targets": [
         "lamp"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/Props.png",
+      "source": "extra_assets/Pixel Plains/Props.png",
       "sourceSHA256": "d8f8e5d65f43ddd10bcb58eefe0a6e0d45044b40ee54e478cff4b5bb671e219c",
       "crop": [
         352,
@@ -920,7 +920,7 @@
       "targets": [
         "plant:mushroom"
       ],
-      "source": "extra_assets/Pixel Plains Premium Pack/mushrooms.png",
+      "source": "extra_assets/Pixel Plains/mushrooms.png",
       "sourceSHA256": "7ccc58b4cbf0e5436678fdb7cd2d7fd49fe9b9360d198f18dc6ef1b7b256058d",
       "crop": [
         16,
@@ -1157,6 +1157,753 @@
       "note": "Readable upright peaks with warm highlights. More saturated than Rogue; palette adjustment may be needed for bleak caves.",
       "nativeTileSize": 16,
       "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-marsh-chest-0",
+      "pack": "Fantasy Dreamland",
+      "name": "Closed marsh chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "sourceSHA256": "fca8711a653f98090ff6221a1b5ef2e2242b1a47984ec8336d835dec2d0b3183",
+      "sourceSize": [
+        512,
+        448
+      ],
+      "crop": [
+        192,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-marsh-chest-0.png",
+      "note": "Native16 complete chest with restrained brown wood and gold latch. Closed/open companions are separately shown; match the game\u2019s chest state mapping before adoption.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-marsh-chest-1",
+      "pack": "Fantasy Dreamland",
+      "name": "Open marsh chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "sourceSHA256": "fca8711a653f98090ff6221a1b5ef2e2242b1a47984ec8336d835dec2d0b3183",
+      "sourceSize": [
+        512,
+        448
+      ],
+      "crop": [
+        208,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-marsh-chest-1.png",
+      "note": "Native16 complete chest with restrained brown wood and gold latch. Closed/open companions are separately shown; match the game\u2019s chest state mapping before adoption.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "sunny-grass-flat",
+      "pack": "Sunnyside World",
+      "name": "Flat green grass",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:15",
+        "ground:19",
+        "ground:21",
+        "ground:22",
+        "ground:28"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grass-flat.png",
+      "note": "Clean saturated green suits restored ground. For pitch/golf/school this is base grass only; retain functional markings and texture overlays.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grass-clover",
+      "pack": "Sunnyside World",
+      "name": "Clover grass",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:1",
+        "ground:22",
+        "ground:28"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grass-clover.png",
+      "note": "Small light-green leaf clusters add a welcoming grass texture. Brighter than the muted current world; review repetition and density.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grass-dark",
+      "pack": "Sunnyside World",
+      "name": "Mottled grass",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:20",
+        "ground:29"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grass-dark.png",
+      "note": "Dark scattered clumps distinguish the surface from flat grass. It lacks wetland water sheen; a ground material study only.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-sand",
+      "pack": "Sunnyside World",
+      "name": "Warm sand grain",
+      "targets": [
+        "ground:2",
+        "ground:8",
+        "road:true:true"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        112,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-sand.png",
+      "note": "Small ochre flecks on pale sand. Interior material sample; preserve continuous road geometry and soft path edges.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-water",
+      "pack": "Sunnyside World",
+      "name": "Soft cyan water",
+      "targets": [
+        "ground:3",
+        "ground:23"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        192,
+        304,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-water.png",
+      "note": "Gentle broad water ripples. One surface sample only; animation and pier overlays still need matching.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-soil",
+      "pack": "Sunnyside World",
+      "name": "Circular tilled soil",
+      "targets": [
+        "tilled"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        800,
+        272,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-soil.png",
+      "note": "Small dark soil depression with a rim. Compare plot shape with the current square planting layout before adoption.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-barrel",
+      "pack": "Sunnyside World",
+      "name": "Small timber barrel",
+      "targets": [
+        "barrel"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        592,
+        256,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-barrel.png",
+      "note": "Compact complete barrel with pale bands. Larger barrels on this sheet exceed16px and were not used; break state still needs a companion.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grave-cross",
+      "pack": "Sunnyside World",
+      "name": "Stone grave cross",
+      "targets": [
+        "zone_objects:1"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        688,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grave-cross.png",
+      "note": "Clear tiny grave cross with cool shading. Shape alternative to the mossy grave marker; add moss or neglect treatment if needed.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grave-round",
+      "pack": "Sunnyside World",
+      "name": "Rounded gravestone",
+      "targets": [
+        "zone_objects:1"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        720,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grave-round.png",
+      "note": "Compact cool-grey tombstone with an inset marking. One complete16px object; worn and mossy versions are not selected.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rock-pale",
+      "pack": "Sunnyside World",
+      "name": "Pale small stone",
+      "targets": [
+        "plant:rubble",
+        "mineralrock",
+        "zone_objects:64"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        880,
+        352,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rock-pale.png",
+      "note": "A complete loose stone with a broad lit top. Strong highlight suits restored areas; no embedded ore markings.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rock-dark",
+      "pack": "Sunnyside World",
+      "name": "Dark small stone",
+      "targets": [
+        "plant:flint",
+        "mineralrock",
+        "zone_objects:66"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        880,
+        384,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rock-dark.png",
+      "note": "Tiny blue-grey stone offers a flint colour study. Species/material identity needs matching before adopting for mineable flint.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rock-cyan",
+      "pack": "Sunnyside World",
+      "name": "Cyan crystal stone",
+      "targets": [
+        "crystal_cluster",
+        "zone_objects:37"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        880,
+        416,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rock-cyan.png",
+      "note": "Small cyan rock with a bright face. A single stone differs from a cluster; no automatic gem reward identity is implied.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-chest",
+      "pack": "Sunnyside World",
+      "name": "Gold-edged chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        576,
+        480,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-chest.png",
+      "note": "Compact complete chest with bright gold bands. Strong reward visibility; source also provides opening companions.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-chest-open",
+      "pack": "Sunnyside World",
+      "name": "Open gold-edged chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        592,
+        480,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-chest-open.png",
+      "note": "Open-state companion to the closed chest. A complete16px sprite; verify frame order against current loot state.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-bottle",
+      "pack": "Sunnyside World",
+      "name": "Blue ceramic bottle",
+      "targets": [
+        "bottle"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        784,
+        304,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-bottle.png",
+      "note": "Complete blue vessel with a small lip. More ceramic than glass; use only if the item material and world silhouette remain coherent.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-pot",
+      "pack": "Sunnyside World",
+      "name": "Orange clay pot",
+      "targets": [
+        "clay_pot"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        800,
+        304,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-pot.png",
+      "note": "Small rounded pot with a bright rim. Broad warm colour reads well; matching broken-state art is not selected.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-pot-small",
+      "pack": "Sunnyside World",
+      "name": "Round orange pot",
+      "targets": [
+        "clay_pot"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        800,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-pot-small.png",
+      "note": "Second complete pottery silhouette from the same sheet. Compare size and contents with the current intact pot.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rug",
+      "pack": "Sunnyside World",
+      "name": "Small red rug",
+      "targets": [
+        "furniture:rug_burgundy"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        752,
+        576,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rug.png",
+      "note": "A complete small square rug, not a crop of a larger carpet. Red diagonal weave is a close colour-family match.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-table",
+      "pack": "Sunnyside World",
+      "name": "Small wooden table",
+      "targets": [
+        "furniture:table_oak"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        784,
+        536,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-table.png",
+      "note": "Complete tiny table with short legs. A compact alternative without trimming the larger tables on the sheet.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-planter",
+      "pack": "Sunnyside World",
+      "name": "Sunflower in blue pot",
+      "targets": [
+        "furniture:planter_clay",
+        "furniture:planter_copper"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        832,
+        512,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-planter.png",
+      "note": "Complete sunflower in a blue pot. A planted-state silhouette study rather than a copper/clay material match; keep empty and planted game states separate.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-bookshelf",
+      "pack": "Sunnyside World",
+      "name": "Tall red-book shelf",
+      "targets": [
+        "furniture:bookshelf_frontier"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        672,
+        528,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/sunny-bookshelf.png",
+      "note": "Complete single16px-wide cabinet. Warm wood and short front surfaces fit interior furniture; compare at current placement scale.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Genuinely tall cabinet spans two vertical16px cells; full original sprite retained."
+    },
+    {
+      "id": "sunny-dresser",
+      "pack": "Sunnyside World",
+      "name": "Tall wood dresser",
+      "targets": [
+        "furniture:dresser_oak"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        704,
+        528,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/sunny-dresser.png",
+      "note": "Complete single16px-wide cabinet. Warm wood and short front surfaces fit interior furniture; compare at current placement scale.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Genuinely tall cabinet spans two vertical16px cells; full original sprite retained."
+    },
+    {
+      "id": "sunny-tree",
+      "pack": "Sunnyside World",
+      "name": "Rounded broadleaf tree",
+      "targets": [
+        "trees"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_01_strip4.png",
+      "sourceSHA256": "8b18dd6916ac7766dbfc99a75075ac2810e3acaf65376b23490e0623b4b21d3d",
+      "sourceSize": [
+        128,
+        34
+      ],
+      "crop": [
+        0,
+        0,
+        32,
+        34
+      ],
+      "image": "art-candidates/world/sunny-tree.png",
+      "note": "Muted green crown and visible top suit restored forests. First animation pose shown; source contains four poses.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Tree taller than one16px world cell; complete native sprite without rescaling."
+    },
+    {
+      "id": "sunny-pine",
+      "pack": "Sunnyside World",
+      "name": "Tiered evergreen",
+      "targets": [
+        "pine_tree"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_02_strip4.png",
+      "sourceSHA256": "9380607e0ca1ab3c021156f0ed28b5d23ef16d32f360a7a822d73903c80bb0aa",
+      "sourceSize": [
+        112,
+        43
+      ],
+      "crop": [
+        0,
+        0,
+        28,
+        43
+      ],
+      "image": "art-candidates/world/sunny-pine.png",
+      "note": "Slim conical crown makes a clear pine silhouette. First animation pose shown, full tree retained; not from the excluded32px forest tileset.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Tree taller than one16px world cell; complete native sprite without rescaling."
+    },
+    {
+      "id": "sunny-red-mushroom",
+      "pack": "Sunnyside World",
+      "name": "Red cap mushroom",
+      "targets": [
+        "plant:mushroom"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_red_01_strip4.png",
+      "sourceSHA256": "71185a5280746ded3e5d8979b6949ea24bb944546226136d35416ae484e3ea1c",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-red-mushroom.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-blue-mushroom",
+      "pack": "Sunnyside World",
+      "name": "Blue cap mushroom",
+      "targets": [
+        "plant:mushroom",
+        "gas_mushroom_small"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_01_strip4.png",
+      "sourceSHA256": "ac54fbde810a274a65535237f8b26ce06fc355d43aeacac53b86595a4643ef1f",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-blue-mushroom.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-blue-mushroom-two",
+      "pack": "Sunnyside World",
+      "name": "Blue mushroom cluster",
+      "targets": [
+        "plant:mushroom",
+        "gas_mushroom_small"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_02_strip4.png",
+      "sourceSHA256": "542e1011e48d2d72790f7b925ef9ede7662c66c60c37b07af4a45410f3ade5c9",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-blue-mushroom-two.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-blue-mushroom-three",
+      "pack": "Sunnyside World",
+      "name": "Small blue mushroom",
+      "targets": [
+        "plant:mushroom",
+        "gas_mushroom_small"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_03_strip4.png",
+      "sourceSHA256": "e882a6d71f2df308fd2c096d7c7fdc071f9c6ebb7b6b4deaa789d86ed119da29",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-blue-mushroom-three.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
     }
   ]
 }

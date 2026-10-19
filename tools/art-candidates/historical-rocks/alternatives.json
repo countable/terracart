@@ -1,0 +1,225 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "previous-mineralrock-0",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous copper seam",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 0,
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-0.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-1",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous iron seam",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 1,
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-1.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-2",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous gold seam",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 2,
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-2.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-3",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous platinum seam",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 3,
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-3.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-5",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous crimson seam",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 5,
+      "crop": [
+        80,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-5.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-7",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous frost seam",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 7,
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-7.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-168",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous plain rubble a",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 168,
+      "crop": [
+        48,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-168.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-169",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous plain rubble b",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 169,
+      "crop": [
+        64,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-169.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-170",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous plain rubble c",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 170,
+      "crop": [
+        80,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-170.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    },
+    {
+      "id": "previous-mineralrock-171",
+      "pack": "Previous game art",
+      "group": "smaller",
+      "historical": true,
+      "name": "Previous plain rubble d",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "assets/Objects/Approved/mineralrock.png",
+      "sourceSHA256": "f2aeac9050543d8e33522eee1c107a379c826e89c4963d01bc8b5692c9d5b5f5",
+      "sourceFrame": 171,
+      "crop": [
+        96,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/historical-rocks/mineralrock-171.png",
+      "nativeTileSize": 16,
+      "note": "Former mineral-rock artwork, preserved from the old WA-079 preview. Native16 frame copied unchanged; the current renderer now resolves the rock_variants atlas."
+    }
+  ]
+}

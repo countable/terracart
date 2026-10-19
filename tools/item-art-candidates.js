@@ -12,10 +12,12 @@ const ItemArtCandidates = (() => {
     dungeon: { name: 'Dungeon Gathering', file: 'dungeon-gathering-items.png', cell: 32, inset: 8, group: 'smaller',
       source: 'extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v2.png' },
     plains: { name: 'Pixel Plains', file: 'pixel-plains-items.png', cell: 32, inset: 8, group: 'smaller',
-      source: 'extra_assets/Pixel Plains Premium Pack/Items/16x16 All Items v1.png' },
+      source: 'extra_assets/Pixel Plains/Items/16x16 All Items v1.png' },
     rpg: { name: '16×16 RPG Pack v3', file: 'rpg-pack-v3-items.png', group: 'smaller',
       source: 'extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png' },
   });
+  packs.sunnyside = { name: 'Sunnyside World', file: 'sunnyside-native16.png', group: 'smaller',
+    source: 'extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png' };
   const rows = {};
   const add = (id, pack, col, row, note) => {
     ((rows[id] ||= {})[pack] ||= []).push({ col, row, note });
@@ -231,5 +233,38 @@ const ItemArtCandidates = (() => {
   for (const row of [2,3,4,5]) dungeonSource('orb',0,row,'dungeon-gathering-orbs.png',
     'New Items [Update]/All Orbs anim 16x16.png',
     'First animation frame of a complete16px coloured orb. Blue-grey, gold, cyan and purple are palette alternatives; animation timing is not adopted.');
+  // Sheet-first Sunnyside review: the readable native16 master contains the
+  // crops/resources also distributed as currently unreadable standalone files.
+  // 32px livestock and wide ordinary furniture are excluded, not downscaled.
+  for (const [id,col,row,note] of [
+    ['potato',57,10,'Harvested brown potato with a compact shaded silhouette.'],
+    ['potato_seed',57,11,'Small potato seed sprite from the matching crop column; compare readability at inventory scale.'],
+    ['sunflower',54,10,'Harvested sunflower head with bright yellow petals.'],
+    ['sunflower_seed',54,11,'Sunflower seed from the matching crop column.'],
+    ['egg',50,11,'Warm cream egg with a broad highlight.'],
+    ['milk',50,10,'Opaque white milk bottle with a pale blue rim.'],
+    ['minnow',49,12,'Small blue fish with a clear eye and tail; generic fish rather than species-specific markings.'],
+    ['wood',49,11,'Single cut log; compact inventory silhouette.'],
+    ['wood',49,13,'Small cluster of chopped wood; an alternative quantity silhouette.'],
+    ['rubble',49,10,'Compact grey rock with a bright top plane.'],
+    ['flowers',54,32,'Small white flowering plant with green leaves; a plant rather than a picked bouquet.'],
+  ]) add(id,'sunnyside',col,row,note);
+  for (const stem of ['red_01','blue_01','blue_02','blue_03']) {
+    add('mushroom','sunnyside',0,0,'First native16 animation frame. '+(stem.startsWith('red') ? 'Red-cap mushroom with a pale stem.' : 'Blue-cap mushroom style option; review whether blue implies a different species.'));
+    Object.assign(rows.mushroom.sunnyside.at(-1), {
+      file: 'sunnyside-mushroom-'+stem+'.png',
+      source: 'extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_'+stem+'_strip4.png',
+    });
+  }
+  for (const [id,name,crop,note] of [
+    ['bookshelf_frontier','bookshelf',[672,528,16,32],'Complete tall wooden bookcase with coloured books; native16-wide footprint.'],
+    ['dresser_oak','dresser',[704,528,16,32],'Complete tall drawer cabinet; compare its simpler trim with current furniture.'],
+    ['table_oak','table',[784,536,16,16],'Complete compact wooden side table.'],
+    ['rug_burgundy','rug',[752,576,16,16],'Complete small red patterned rug; clear diamond motif at native16.'],
+  ]) {
+    add(id,'sunnyside',0,0,note);
+    Object.assign(rows[id].sunnyside.at(-1), { image:'art-candidates/items/sunnyside-'+name+'.png', crop,
+      source:packs.sunnyside.source, status:crop[3]>16 ? 'Tall furniture · 16×32 source' : 'Coloured world prop' });
+  }
   return { packs, rows };
 })();
