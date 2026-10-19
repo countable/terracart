@@ -49,8 +49,8 @@ they draw under the player, whose submersion crop hides only the lower body.
 `FURNITURE_SCALE` (1: approved 24px art cells map to 32px runtime cells;
 24×32 beds/bookcases can extend above the cell).
 New furniture bases sit horizontally centred, one-third of a cell up from its
-bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Beds, rugs
-and bookshelves retain centred art. Mirrored bounds keep asymmetric pieces
+bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Rugs retain centred art. Tall beds and bookshelves use the shared tall-art
+seat, with their bottom one pixel above the cell edge. Mirrored bounds keep asymmetric pieces
 centred when flipped. The base center comes from the bottom three opaque
 rows, so an overhanging lamp shade does not displace its stand. Depth and lamp
 emitters follow the same base. Mutable furniture
