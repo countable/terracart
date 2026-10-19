@@ -133,7 +133,16 @@ changing dialogue, story panels, books, toasts or status presentation.
   smaller icons/numerals and an unused-memory badge on the star. Each half
   retains its own tap action, accessible name, and independent dormant shutter.
   `css/compass_inventory.css` seats eight square keys with small stamped-in category symbols on
-  plungers above a shared rail. The selected key and detent glow gold. Small
+  plungers above a shared rail. Category page one has Seeds, Produce, Pets,
+  Relics, Magic and Supplies, then a spacer and Next at the right edge. Page
+  two has Previous at the left edge, Furniture, Armour and Ores, then four
+  inert spacers. Navigation uses ordinary silver keys; only the selected
+  category and detent glow gold. Category paging is scene-local and leaves
+  the selected category, held stack and five-item page unchanged. Selecting
+  a category, boot settlement, a new-stack pickup and first acquisition of an
+  armour slot reveal its category page.
+  Mirrorable furniture exposes a contextual Flip control; held orientation is
+  transient and resets when the selected item changes. Small
   square item controls share one dark-glass window fitted to five slots and their
   gaps; the window stays snug when sort or paging controls are absent. It retains a physical sort lever,
   a mechanical pager rocker with broad upper/lower touch faces around an ivory count
@@ -305,9 +314,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
-- Home crafting and brewing share `_presentRecipePicker` for discovery,
+- Home, workbenches and brewing share `_presentRecipePicker` for discovery,
   selection, capacity and paging, above `_presentRecipeOffer` transactions.
-  Home crafting uses a direct picker of learned recipes. Show each ingredient's
+  `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
+  workbench (three Wood and one Rubble). Every former Home recipe, including
+  the starter-known Spear, belongs at a placed workbench. Tapping a workbench
+  opens its recipe picker directly, indoors or outdoors, with a ghost Pick up
+  control at the top right and no Home Sell tab. Recheck the station before
+  spending and reopen the same workbench and selected recipe after crafting.
+  Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
@@ -320,7 +335,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   no confirmation chain or auto-selection of a spell. Inventory labels mark
   borrowed quantities. Returns at any Book Club preserve spell cooldowns.
 - Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
-  recipes, using the same ingredient counts and picker as Home crafting, plus a
+  recipes, using the same ingredient counts and picker as workbench crafting, plus a
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
@@ -432,7 +447,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
 - A repeat offer (an offer with `repeat`: a stall counter, the smelter,
-  Home Sell / Craft) reopens over the map, hiding its own toasts. The
+  Home Sell / Craft, a workbench) reopens over the map, hiding its own toasts. The
   confirmation lives in the dialog: an explicit `receipt` line, or else
   the `flashLoot` / `flash` toasts its accept raised, captured by
   `showOfferModal` and reprinted as the reopened dialog's status line.
@@ -529,6 +544,40 @@ changing dialogue, story panels, books, toasts or status presentation.
 Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`,
 `item_descriptions`, `books`, `story_neighbours`, `stranger`, `buffs`.
 
+## Furniture
+
+Placed furniture opens a dismissible `makeModalShell` panel with its world
+sheet slot shown at exactly 4× above its name, rarity badge and description.
+Slots are 32×64 with bottom-seated 32×32 pieces, including both lamps; only
+the Grandfather Clock uses the full height. The
+portrait preserves the placed orientation; the category badge keeps the item icon.
+The main action uses the catalog ability label: Wash, Sleep, Reflect or Plant.
+Wash clears harmful conditions; Reflect opens a compact ten-swatch colour picker;
+Plant explains how to select a seed and tap the pot. Abilities recheck the owned
+Home cell at commitment; outdoor use refuses. Mirrorable pieces also offer Flip there; Pick up is a
+ghost control in a separate top-right row. Flip saves the placed orientation and
+updates the map and portrait. Pickup checks bag capacity and accepted quantity
+before removing the placement, then refreshes inventory and persists explicitly.
+
+Indoors, Home shows its current luxury as a white number above its sign. The
+score updates immediately, separately from Home's introductory typing, and
+fades when it overlaps the player.
+
+Old Archive Court's existing style deterministically selects delivery or luxury
+jobs without changing castle style assignment. The luxury card is titled
+“A respectable address”, with “We don't admit rabble here!” beneath it: reach
+16 luxury in the active Home for 60 coins. Opening, progress events and claiming
+reread current luxury; placement does not accumulate quest progress. A decrease
+before claiming blocks completion. Castle ownership stays permanent after claim.
+
+Bed and Inn share `_presentSleep`: show the furniture frame or Inn booth art,
+fade the camera to black, run the source transaction exactly once, then fade
+back. `cameraBlackout` also supplies teleport's camera transition, without owning
+its particles or movement guard. Headless scenes commit immediately. Bed sleep
+rechecks the placed record, owned Home cell, lockout and missing energy at black.
+Inn sleep retains payment, daily-use and failure checks; only success queues its
+receipt. Both persist after the transaction.
+
 ## Schoolyard tile game
 
 Schoolyard field flags start a round when walked onto. The HUD shows score,
@@ -550,6 +599,13 @@ reload and are consumed only when acknowledged. The story badge counts them
 only inside that ring (`_pendingStoryCount` asks `MemoryStory.atHome`), so it
 never offers a panel the drain would refuse. Deliberately opened NPC and
 wizard conversations remain tied to their own locations.
+
+Home luxury thresholds 4/16/36/64/100 each bank one real memory once per save,
+titled Living like a Neighbour / Craftsperson / Merchant / Noble / Monarch.
+These domestic panels use the same Home ring, story hold and acknowledgement
+queue as other memories. If the reward reaches a numbered story scene, its
+domestic panel is followed by that scene without a second memory reward;
+tower gates remain unchanged. Pickup and Home moves never remove earned milestones.
 
 Maud's rescue unlocks at six lifetime memories, then waits for a home visit.
 Her encounter is seated around Home, never around the travelling player; her

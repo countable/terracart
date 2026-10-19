@@ -142,8 +142,8 @@ test('chest themes: cooked meals, spears and minerals are reachable at their qua
 });
 
 test('chest themes: high-tier weights use the chest tier, not jackpot quality', () => {
-  assert.eq(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 45);
-  assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 45);
+  assert.eq(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 40.5);
+  assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 40.5);
   assert.eq(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 50);
   assert.eq(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 50);
   assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).food, 95,
@@ -316,9 +316,9 @@ test('chest themes: a high-tier venue does not force starter food', () => {
   }
 });
 
-test('chest themes: commerce holds its identity underground - coins and gems only', () => {
+test('chest themes: commerce holds its identity underground - coins, gems and furniture', () => {
   const w = ChestThemes.weights('commerce', 5, { depth: 1 });
-  assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'gems'].sort().join(),
+  assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'furniture', 'gems'].sort().join(),
     'no field supplies, no magic pools, no traps at depth');
 });
 
@@ -384,4 +384,64 @@ test('chest themes: materials spend the same price-based budget at every tier', 
     assert.eq(ChestThemes.quantityForBudget(id, price * 5), 5, 'five units of price buy five items');
     assert.eq(ChestThemes.quantityForBudget(id, price * 100), 12, 'surplus budget respects stack cap');
   }
+});
+
+
+test('chest themes: furniture keeps a ten percent lane through tier and cave overlays', () => {
+  const catalog = ITEMS.filter(item => item.kind === 'furniture').map(item => item.id).sort();
+  assert.eq(Object.keys(ChestThemes.members('furniture')).sort().join(), catalog.join());
+  for (const theme of ['culture', 'commerce', 'roadside']) {
+    assert.eq(ChestThemes.themes[theme].weights.furniture, 10);
+    assert.eq(ChestThemes.highTierWeights[theme].furniture, 10);
+    for (let tier = 1; tier <= 7; tier++) for (const depth of [0, 1]) {
+      const weights = ChestThemes.weights(theme, tier, { tier, depth });
+      assert.eq(weights.furniture, 10, `${theme}/${tier}/${depth}`);
+      assert.inRange(Object.values(weights).reduce((a, b) => a + b, 0), 99.999999, 100.000001);
+      const pool = ChestThemes.resolve('furniture', tier, { theme, depth, chestTier: tier });
+      assert.eq(pool.group, 'furniture', 'every rung terminates in a furnishing');
+      assert.gt(pool.ids.length, 0);
+      for (const id of pool.ids) {
+        assert.eq(ITEM_BY_ID[id].kind, 'furniture');
+        assert.lte(ITEM_BY_ID[id].baseTier, tier);
+        assert.eq(ChestThemes.cap(id), 1);
+        assert.eq(ChestThemes.quantity(id, tier, 100), 1, 'a jackpot never duplicates the furnishing');
+      }
+    }
+  }
+  assert.eq(LOOT_CONTEXTS['treasure:default'].classBias.furniture, LOOT_CONTEXTS['treasure:default'].classBias.supply);
+});
+
+test('chest themes: boss and vista paths never award furniture', () => {
+  for (const theme of ['boss', 'vista']) for (let tier = 1; tier <= 7; tier++) for (const depth of [0, 1]) {
+    const opts = { theme, tier, depth, chestTier: tier };
+    const weights = ChestThemes.weights(theme, tier, opts);
+    assert.falsy(weights.furniture);
+    for (const group of Object.keys(weights)) {
+      const pool = ChestThemes.resolve(group, tier, opts);
+      for (const id of pool.ids || []) assert.falsy(ITEM_BY_ID[id].kind === 'furniture');
+    }
+  }
+  assert.falsy(LOOT_CONTEXTS['treasure:vista'].classBias.furniture);
+});
+
+test('chest themes: furniture rolls remain ordinary one-item rewards', () => {
+  const rng = makeRng32(714);
+  for (const theme of ['culture', 'commerce', 'roadside']) {
+    let found = 0;
+    for (let i = 0; i < 300; i++) {
+      const reward = resolveChestReward(theme, { tier: 3, bracket: 10 }, {}, rng, { tier: 3 });
+      if (reward.group !== 'furniture') continue;
+      assert.eq(reward.kind, 'item'); assert.eq(reward.qty, 1);
+      assert.eq(ITEM_BY_ID[reward.id].kind, 'furniture'); found++;
+    }
+    assert.gt(found, 0, theme + ' reaches the lane');
+  }
+  let found = 0;
+  for (let i = 0; i < 500; i++) {
+    const reward = pickReward('treasure:default', {}, rng);
+    if (reward.kind === 'item' && ITEM_BY_ID[reward.id].kind === 'furniture') {
+      assert.eq(reward.qty, 1); found++;
+    }
+  }
+  assert.gt(found, 0, 'ordinary buried treasure reaches furniture');
 });

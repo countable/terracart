@@ -125,7 +125,7 @@
   // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
   // objects carrying a `fixedLoot` payload, so they open through the
   // standard chest path (the ceremony modal + one-time save.opened) instead
-  // of the rarity picker. (No free scarecrow — Home crafts one for wood,
+  // of the rarity picker. (No free scarecrow — a workbench crafts one for wood,
   // HOME_RECIPES.)
   //
   // The crates are a TRAIL, and where they lie depends on the ground:
@@ -1247,6 +1247,7 @@
     for (const w of (entry.wildplants || [])) if (w.id) present.add(w.id);
     const playerClaims = [
       ...(Array.isArray(scene.save.fruittrees) ? scene.save.fruittrees : []),
+      ...PlacedFloor.forDepth(scene.save.furniture, scene.depth),
       ...(Array.isArray(scene.save.planted) ? scene.save.planted : []),
     ];
     for (const e of [entry, ...WorldGen.tileCache.values()]) {
@@ -1439,6 +1440,7 @@
     // Plantings may be restored after this pass; their saved cells already
     // belong to the player when a generated starter story seat is chosen.
     for (const o of (Array.isArray(scene.save.fruittrees) ? scene.save.fruittrees : [])) mark(o.x, o.y);
+    for (const o of PlacedFloor.forDepth(scene.save.furniture, scene.depth)) mark(o.x, o.y);
     for (const o of (Array.isArray(scene.save.planted) ? scene.save.planted : [])) mark(o.x, o.y);
     // Terrain lookup that CROSSES TILE SEAMS, in cells relative to the anchor
     // tile, so a spawn near a seam keeps its whole

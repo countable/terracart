@@ -269,7 +269,7 @@ access or tile lifecycle mechanics.
   Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
   surface-only tilled cells must not block placements on other floors.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
-  Finding one unlocks its Home recipe: three wood makes one barricade. Select
+  Finding one unlocks its workbench recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved
   barricades reuse the wild obstacle's art, slowing, damage and axe/fire/kit
   clearing rules; floor-tagged records survive reloads without reappearing
@@ -879,6 +879,58 @@ Higher-priority placements and their access space take precedence in this order:
   Apply saved-player changes as overlays without rerolling the generated world.
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
+
+### Furniture
+
+Furniture is durable player property in `save.furniture`, exempt from history
+trimming. Each one-cell record stores item identity, a cell-derived id, world
+position, `PlacedFloor.stampDepth` depth, flip and optional Home `houseKey`.
+Both floor lamps have 1×1 art; the Grandfather Clock retains 32×64 art while
+still occupying one floor cell.
+`PlacedFloor.restoreFurniture` overlays it into normal `entry.objects` after
+saved barricades on both surface and cave loads. Surface loading first calls
+`ensureStarterTrailerObject` to stamp synthetic Home ownership, then derives
+`houseKey` from `PlacedFloor.homeCell` during reconciliation. Missing ownership
+grids never authorize indoor abilities. Saved claims remove generated
+clutter, preserve the containing house, and survive Home's footing sweep.
+Generated snapshots remain unchanged. Live `spawnCells` join `spawnOptsOf`
+occupancy without changing its generated set, so pickup releases only the
+furniture claim. Starter story seating and reward seats also respect saved pieces.
+
+`Furniture.recompute` is the sole writer of `save.houseLuxury`, a map from
+Home key to `{ score, footprintKey }`. Consumers use `Furniture.luxuryOf`.
+Saved indoor furniture contributes catalog tier squared (1/4/9/16/25), or its
+metadata `luxury` override. Outdoor and cave furniture contributes zero;
+one record counts once even when its future footprint spans several cells.
+Placement, successful pickup, Home move/adoption and load recompute the cache
+through `PlacedFloor.furnitureIndoors`. Tile overlays validate ownership after
+Home stamping. Each record retains its validated `houseFootprintKey` so tile
+eviction does not erase luxury; unloaded geometry cannot authorize an ability.
+A new Home location invalidates that association even when its synthetic id
+is reused. Inactive Homes score zero. Reconciliation also refreshes luxury
+quests and banks newly reached milestone memories through the discovery ledger.
+
+Placement uses `placeOnEmptyCell`: any owned Home floor cell, including its
+anchor and doorway, or ordinary open ground accepted by `isSpawnCell` with
+`spawnOptsOf` and the `minor` class. `homeInside(x,y)` shares the exact building
+ownership lookup with the default player-feet query. Other buildings, roads,
+water, planted/tilled cells, traps, the Home firepit and occupied footprints
+refuse placement. `SpawnOwnership.footprintCells` owns overlaps; fires, traps,
+barricades and reward seats cannot reuse a furniture cell. A planter is the
+sole crop exception: it supplies tilled soil on an owned Home building cell,
+without adding the building floor to the tilled set. `save.planted` holds the
+normal crop record plus `planter: furnitureId`; watering, growth, pests and
+harvest use the ordinary Crops paths. Held crop or flower seeds plant directly;
+empty hands open the planter dialog. Tree saplings still require field soil.
+Planting rechecks Home ownership and refuses outdoors. Harvest leaves the pot;
+pickup refuses until its crop has been harvested.
+
+While the player is inside Home, its building tap handlers defer to held or
+placed furniture on Home floor cells. Exterior roofs/walls and other buildings
+keep architectural priority. Furniture stays in the normal render list so
+near walls can occlude it. Pickup grants and verifies one inventory item before
+removing property; dialog pickup and flip callbacks explicitly persist.
+Multi-cell footprints and per-tier sheet frames remain later phases.
 
 ### Initial Home orientation
 

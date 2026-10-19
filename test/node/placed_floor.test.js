@@ -86,3 +86,29 @@ test('isSurface: true only on the surface', () => {
   assert.falsy(PlacedFloor.isSurface(1), 'depth 1 is not surface');
   assert.falsy(PlacedFloor.isSurface(5), 'depth 5 is not surface');
 });
+
+test('restoreFurniture: restores only valid catalog pieces on this tile and depth', () => {
+  const records = [
+    { id: 'legacy', itemId: 'bed_quilted', x: 2.5, y: 2.5, flip: true, houseKey: null },
+    { id: 'cave', itemId: 'table_oak', x: 2.5, y: 2.5, depth: 2, flip: false },
+    { id: 'west', itemId: 'rug_burgundy', x: -2.5, y: 2.5, depth: 0 },
+    { id: 'next', itemId: 'table_oak', x: 162.5, y: 2.5, depth: 0 },
+    { id: 'invalid', itemId: 'rubble', x: 7.5, y: 2.5, depth: 0 },
+  ];
+  const scene = { save: { furniture: records }, depth: 0, tileEdgeM: 160,
+    cellsPerTile: 32, mPerPx: 5 / (WorldGen.TILE_PX / 32),
+    originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 } };
+  for (const [tx, depth, expected] of [[0, 0, 'legacy'], [0, 2, 'cave'], [-1, 0, 'west'], [1, 0, 'next']]) {
+    const entry = { cellsPerEdge: 32, objects: [] };
+    PlacedFloor.restoreFurniture(scene, entry, tx, 0, depth);
+    PlacedFloor.restoreFurniture(scene, entry, tx, 0, depth);
+    assert.eq(entry.objects.length, 1, 'only one live copy after repeated restore');
+    const object = entry.objects[0], record = records.find(r => r.id === expected);
+    assert.eq(object.id, expected); assert.eq(object.kind, 'furniture');
+    assert.truthy(object.placed && object.playerOwned);
+    assert.eq(object.flip, record.flip); assert.eq(object.houseKey, record.houseKey);
+    assert.eq(object.spawnCells.length, 1);
+    assert.falsy(object === record, 'runtime metadata does not mutate the save');
+  }
+  assert.falsy(records.some(r => r.spawnCells || r.playerOwned), 'saved schema stays durable-only');
+});

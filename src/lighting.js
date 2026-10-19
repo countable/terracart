@@ -87,8 +87,8 @@
   //
   // The campfire's radius is FIRE_REST_R — the same ring that warms the player
   // and repels slimes (app.js) — so "stand in the light" and "stand in the
-  // warmth" are one rule. HOME's radius is HOME_R by the same rule, and it
-  // carries a third effect on the same ring: nothing hostile stays inside it.
+  // warmth" are one rule. HOME's light and ward keep HOME_R; healing uses
+  // the owned Home cells and their edge-sharing neighbours.
   // Both are resolved at call time because app.js defines them after this file
   // loads; lighting.test.js pins each against its constant.
   //
@@ -143,14 +143,16 @@
     // Home: the starter trailer, or the house adopted as Home in its place
     // (both are save.starterShopId). Wider and warmer than a plain restored
     // house — it is the one light the player always comes back to, and the lit
-    // circle is literally the safe circle: HOME_R is also the ring that rests
-    // the player (HOME_FULL_REST_S) and turns enemies around.
+    // circle is the safe circle: HOME_R turns enemies around. Healing uses
+    // the owned Home cells and their edge-sharing neighbours.
     trailer:  { radiusCells: () => (typeof HOME_R !== 'undefined' ? HOME_R : 4),
                 colour: 0xffd28a, peak: 1.00, flicker: 0 },
     // A building the player has taken back: a restored wreck, an unsealed
     // fort, the turrets of a claimed castle. Keyed on the SAME test the
     // derelict wash uses (scene.isClaimedKey), so a house lights the frame its
     // wash lifts.
+    furniture_lamp: { radiusCells: 2, colour: 0xffd28a, peak: 0.85, flicker: 0 },
+    furniture_candle: { radiusCells: 1.5, colour: 0xffc46a, peak: 0.75, flicker: 0.035 },
     building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
     temple:   { radiusCells: 4, colour: 0x65dfff, peak: 0.95, flicker: 0.035 },
     // A placed campfire (burned from a coal). Breathes.
@@ -716,6 +718,11 @@
   function sourceKind(scene, o) {
     if (!o) return null;
     if (o.kind === 'player') return playerKind(scene);
+    if (o.kind === 'furniture') {
+      const kind = furnitureSpec(o)?.light;
+      return kind && KINDS[kind] && PlacedFloor.onDepth(o, scene.depth)
+        && PlacedFloor.furnitureIndoors(scene, o) ? kind : null;
+    }
     if (o.kind === 'house') {
       if (scene.save && scene.save.starterShopId && scene.save.starterShopId === o.id) return 'trailer';
       return (scene.isClaimedKey && scene.isClaimedKey(o.id)) ? 'building' : null;
@@ -897,7 +904,18 @@
   function consider(scene, o, dx, dy, halfM) {
     const kind = sourceKind(scene, o);
     if (!kind || !inRange(scene, dx, dy, kind, halfM)) return false;
-    scene._lights.push({ kind, dx, dy, id: o.id });
+    const light = { kind, dx, dy, id: o.id };
+    if (o.kind === 'furniture') {
+      // The emitter follows the same trimmed-frame seating as the sprite.
+      // dyPx passes through liftPx, so the upright fixture stays lit when the map turns.
+      const spec = furnitureSpec(o), bounds = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(o)}`];
+      if (bounds && Number.isFinite(spec.lightFrameY)) {
+        const seat = SpriteLayout.seatInCell(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE,
+          SpriteLayout.CELL_PX, spec.seatFoot);
+        light.dyPx = seat.dyPx + (spec.lightFrameY - bounds.fh * 0.5) * FURNITURE_SCALE;
+      }
+    }
+    scene._lights.push(light);
     return true;
   }
 

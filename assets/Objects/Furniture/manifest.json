@@ -1,0 +1,320 @@
+{
+  "columns": 4,
+  "worldCell": 32,
+  "iconCell": 16,
+  "items": [
+    {
+      "itemId": "workbench",
+      "frame": 0,
+      "source": "assets/Objects/Furniture/source/concept_workbench.png",
+      "box": null,
+      "mode": "concept",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "itemId": "bed_quilted",
+      "frame": 1,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        0,
+        0,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "washtub",
+      "frame": 2,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        0,
+        32,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "approval": "approved",
+      "frameSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "itemId": "mirror_brass",
+      "frame": 3,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        32,
+        160,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "table_oak",
+      "frame": 4,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        0,
+        64,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "dresser_oak",
+      "frame": 5,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        0,
+        96,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "planter_clay",
+      "frame": 6,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        0,
+        192,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "rug_burgundy",
+      "frame": 7,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        32,
+        224,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "bookshelf_frontier",
+      "frame": 8,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        32,
+        128,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "lamp_floor",
+      "frame": 9,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        64,
+        256,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "clock_grandfather",
+      "frame": 10,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        64,
+        288,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "statue_pedestal",
+      "frame": 11,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        32,
+        320,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "approval": "approved",
+      "frameSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "itemId": "planter_copper",
+      "frame": 12,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        32,
+        192,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "candelabra_floor",
+      "frame": 13,
+      "source": "assets/Objects/Furniture/source/floorlamp_T1.png",
+      "box": null,
+      "mode": "concept",
+      "pick": null,
+      "fit": [
+        30,
+        30
+      ],
+      "approval": "pending",
+      "frameSize": [
+        32,
+        32
+      ]
+    },
+    {
+      "itemId": "globe_brass",
+      "frame": 14,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        64,
+        352,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    },
+    {
+      "itemId": "telescope_brass",
+      "frame": 15,
+      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "box": [
+        64,
+        384,
+        32,
+        32
+      ],
+      "mode": "native32",
+      "pick": null,
+      "frameSize": [
+        32,
+        32
+      ],
+      "approval": "approved"
+    }
+  ],
+  "tierArt": "TODO: add redrawn per-tier frames and select them through FURNITURE.tierSheetFrame; luxury remains tier squared.",
+  "worldFrameHeight": 64,
+  "tierSheet": {
+    "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+    "columns": 7,
+    "firstFrame": 16,
+    "rows": [
+      "bed",
+      "tub",
+      "table",
+      "dresser",
+      "bookshelf",
+      "mirror",
+      "planter",
+      "rug",
+      "floorlamp",
+      "clock",
+      "statue",
+      "globe",
+      "telescope"
+    ],
+    "tiers": [
+      "Crude",
+      "Simple",
+      "Fine",
+      "Veblen",
+      "Masterwork",
+      "Royal",
+      "Ancient"
+    ],
+    "provenance": "Approved Pixel Plains-reference generated furniture, pixel-plains-transparent-r1. Exact 32px exported frames; original alpha retained."
+  }
+}

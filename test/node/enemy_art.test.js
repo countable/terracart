@@ -157,3 +157,11 @@ test('enemy art: imported directional frames fit their real sheets and retain au
     }
   }
 });
+
+test('enemy art: exact palette mode leaves every unmapped detail and alpha unchanged', () => {
+  const window = {};
+  new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC)(window, EnemyRoster, SpriteLayout);
+  const pixels = [78, 188, 185, 255, 211, 160, 97, 255, 78, 188, 185, 0];
+  window.recolorEnemyPixels(pixels, { colors: { '#4ebcb9': '#ffd28a' }, preserveUnmapped: true });
+  assert.eq(pixels.join(), '255,210,138,255,211,160,97,255,78,188,185,0');
+});

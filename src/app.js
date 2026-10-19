@@ -1248,16 +1248,13 @@ const COLORS = {
 
 // Which ground takes a hoe — NON_TILLABLE / isTillable / isTillableCell — is
 // a terrain-code table, and lives with the catalog in items.js.
-// Building interior cells — small house, fort, civic slab. Not a rest spot:
-// resting is Home's ring (HOME_R) or a campfire's, and nothing else. Read by
-// interact.js; Home stopped needing it when its rest became a radius.
+// Building terrain alone does not grant rest: ownership belongs to Home.
 const BUILDING_TYPES = new Set([9, 11, 12]);
 // Resting AT Home (the starter trailer / adopted home shop) fills the bar in
 // this many seconds. YOUR OWN PLACE IS THE ONLY BUILDING THAT RESTS YOU: every
 // building cell would otherwise make a town one continuous rest spot. A campfire (FIRE_FULL_REST_S)
-// covers the out-in-the-wild case; going home covers the rest. Like the fire,
-// it rests you anywhere inside its ring (HOME_R) — the doorstep is where the
-// player actually stands.
+// covers the out-in-the-wild case; Home rests you on its owned footprint
+// and the cells sharing an edge with it.
 // Both rates PAUSE while a work wheel runs (see the `working` gate in
 // update()): a job done from the doorstep costs its energy on the bar, and
 // the rest earns it back only once the wheel has cleared.
@@ -1313,18 +1310,9 @@ const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
 // _tickFireTouch here and SceneFire._tickUnitFire for other units). Under a cell,
 // so the warmth ring (FIRE_REST_R) stays safe ground.
 const FIRE_TOUCH_CELLS = 0.6;
-// HOME IS A CAMPFIRE YOU OWN, and this is its ONE radius — the light it
-// throws, the ring it rests you in, and the ring an enemy turns and walks out
-// of. Three effects, one number, for the reason the campfire's warmth and the
-// campfire's light are one number: Lighting.KINDS.trailer resolves its
-// radiusCells to HOME_R at call time exactly as the fire's row resolves to
-// FIRE_REST_R, so "stand in the light" is "stand in the warmth" is "stand
-// where nothing will bite you", and no two of them can drift apart.
-// It is WIDER than the fire's ring (and rests far faster, HOME_FULL_REST_S)
-// because a fire is the field expedient and Home is the place you built.
-// What Home has that a fire hasn't is the shop: the trade panel is a TAP on
-// the building, not an effect of the ring, and is untouched by any of this.
-const HOME_R = 4;   // cells — Home's light / rest / ward ring
+// Home's light, ward and story delivery retain the broad ring. Passive rest
+// uses owned building cells and edge neighbours (isRestingAtHome).
+const HOME_R = 4;   // cells — Home's light / ward / story ring
 
 // Time-since-tab-close that grants the FULL energy bar back (1h, pro-rated
 // linearly) now lives with the offline-rest formula in energy.js as
@@ -1579,6 +1567,7 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 432 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_field_scope: { url: 'assets/Icons/Items/field_scope.png', cols: 1, srcW: 16, srcH: 16 },
   icon_compass: { url: 'assets/Icons/Items/compass.png', cols: 1, srcW: 16, srcH: 16 },
@@ -1677,9 +1666,9 @@ const ICON_SHEETS = {
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {
-  "url": "assets/Icons/dom-atlas.png?v=e077cb1b",
+  "url": "assets/Icons/dom-atlas.png?v=124794ca",
   "width": 1024,
-  "height": 720,
+  "height": 992,
   "rects": {
     "assets/Icons/AltWeapons/1/Dagger.png": [0, 0, 32, 16],
     "assets/Icons/AltWeapons/1/Lance.png": [32, 0, 32, 16],
@@ -1830,9 +1819,10 @@ const DOM_ICON_ATLAS = {
     "assets/Objects/Approved/crops.png": [376, 304, 144, 256],
     "assets/Objects/Approved/props.png": [520, 304, 352, 192],
     "assets/Objects/Approved/springcrops.png": [0, 560, 224, 128],
-    "assets/Objects/Pickup_Items.png": [224, 560, 224, 160],
-    "assets/Objects/Progression/icons.png": [448, 560, 32, 16],
-    "assets/Objects/Wilderness/wood.png": [480, 560, 48, 16]
+    "assets/Objects/Furniture/furniture-icons-16.png": [224, 560, 64, 432],
+    "assets/Objects/Pickup_Items.png": [288, 560, 224, 160],
+    "assets/Objects/Progression/icons.png": [512, 560, 32, 16],
+    "assets/Objects/Wilderness/wood.png": [544, 560, 48, 16]
   }
 };
 // END GENERATED DOM ICON ATLAS
@@ -3588,12 +3578,10 @@ class MapScene extends Phaser.Scene {
     // pip has accrued. Test mode skips this so deterministic test runs don't
     // see energy creep.
     //
-    // HOME ONLY: Home is a ring (HOME_R), the same shape as the campfire's below.
+    // HOME ONLY: owned cells and their edge neighbours grant Home recovery.
     if (!window.__TEST_MODE) {
       const { x: pWX, y: pWY } = playerWorldM(this);
-      // Home rests you anywhere inside its ring, the way a campfire does —
-      // no building-cell test, so the synthetic trailer (which paints no cell
-      // at all) and an adopted house work by the one rule. See HOME_R.
+      // Synthetic and adopted Homes share the same owned-cell rest rule.
       const atHome = this.isRestingAtHome(pWX, pWY);
       const maxE = this.getMaxEnergy();
       // WORKING IS NOT RESTING. A work wheel (till / chop / mine / cast / a
@@ -3647,7 +3635,8 @@ class MapScene extends Phaser.Scene {
         // Feather or a revival potion is the player's own doing.
         if (gainedE > 0) this._reviveStoryboard();
       } else if (atHome && !working && (this.save.energy ?? 0) < maxE) {
-        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S), maxE, !settledHome);
+        const bonus = Furniture.restBonus(Furniture.luxuryOf(this.save), dt, this._restRng);
+        this._accrueRestEnergy('_restAccrueE', maxE * (dt / HOME_FULL_REST_S) + bonus, maxE, !settledHome);
       } else {
         // Stopped resting: the last few points of a short rest are already in
         // the drain roll-up and pop at its next window. (A quiet pass through
@@ -5949,10 +5938,13 @@ class MapScene extends Phaser.Scene {
         && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
       if (cell.loaded) {
+        const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+        const at = cellOccupants(this, this.save, centre.x, centre.y);
+        const basin = furnitureSpec(this.save.furniture?.[at.furnitureIdx])?.height === 'basin';
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
         const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
-        submerged = cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+        submerged = basin || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
@@ -6676,11 +6668,9 @@ class MapScene extends Phaser.Scene {
     this._teleporting = true;
     const p = this.playerScreen();
     this._burstAt('shiny', p.x, p.y);
-    cam.fadeOut(TELEPORT_FADE_OUT_MS, 0, 0, 0);
-    cam.once('camerafadeoutcomplete', () => {
-      place();
-      cam.fadeIn(TELEPORT_FADE_IN_MS, 0, 0, 0);
-      this._teleporting = false;
+    cameraBlackout(this, place, {
+      outMs: TELEPORT_FADE_OUT_MS, inMs: TELEPORT_FADE_IN_MS,
+      onDone: () => { this._teleporting = false; },
     });
   }
   // Dig out the cave-wall cell under the player's feet, if that is what they
@@ -7145,7 +7135,7 @@ class MapScene extends Phaser.Scene {
         const v = Math.round(255 * (1 - (1 - DIM_FLOOR) * k));
         tint = (v << 16) | (v << 8) | v;
       }
-      this.player.setTint(mulTint(tint, (this._dragonActive || this._playerArt) ? null : this.save.playerColor));
+      this.player.setTint(mulTint(tint, (this._dragonActive || this._playerArt?.robeColor != null) ? null : this.save.playerColor));
       const key = (hit || spent) ? 'halo_red' : 'halo_dark';
       if (this.playerHalo.texture.key !== key) this.playerHalo.setTexture(key);
       // Strength follows the same k as the tint for the far case, so a halo
@@ -7169,7 +7159,7 @@ class MapScene extends Phaser.Scene {
     } else {
       // At rest the farmer wears the save's own colour — the same tint other
       // players see on them (multiplayer.js), so you can spot yourself.
-      this.player.setTint((!this._dragonActive && !this._playerArt && this.save.playerColor) || 0xffffff);
+      this.player.setTint((!this._dragonActive && this._playerArt?.robeColor == null && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
     // THE GHOST. While nothing can perceive the player — a Shadow Powder's
@@ -8643,7 +8633,7 @@ class MapScene extends Phaser.Scene {
     }
     if (this.updateEnergyDOM) this.updateEnergyDOM();
     if (this.updateMemoriesDOM) this.updateMemoriesDOM();
-    MemoryStory.enqueue(this.save, this.memoriesTotal(), label);
+    MemoryStory.enqueue(this.save, this.memoriesTotal(), label, key);
     this._seatStoryNeighbours();   // a neighbour this memory brings to the trailer
     this.updateObjectiveDOM?.();
     persistSave(this.save);
@@ -8971,7 +8961,9 @@ class MapScene extends Phaser.Scene {
   // recomputes max energy and grants the freshly-unlocked headroom (captured
   // BEFORE mutating armor so the bump is the delta, not the whole new max).
   _equipGear(kind, slot, tier) {
+    const newArmor = kind === 'armor' && !this.save.armor?.[slot];
     Gear.equip(this.save, kind, slot, tier);
+    if (newArmor && this.save.armor?.[slot]) this.selectInvCat('armour');
   }
 
   // Convert a wall-time gap (since the previous lastSeenAt) into energy and
@@ -9912,14 +9904,15 @@ class MapScene extends Phaser.Scene {
   // not in the catalog — the chest or crate a treasure ceremony came out of.
   // A data URL paints instantly, so there is no IconNet hole to cover. Returns
   // '' for a key with no bake, which every caller reads as "use the emoji".
-  worldIconHTML(texKey, sizePx = 26, frame = 0) {
+  // A separate height preserves integer scaling for tall furniture frames.
+  worldIconHTML(texKey, sizePx = 26, frame = 0, heightPx = sizePx) {
     // The boot bake first; a frame it never baked (a building's) is cut on
     // demand by _worldIconUrl.
     const urls = window.WORLD_ICON_URLS;
     const url = (urls && (urls[texKey + ':' + frame] || (frame === 0 ? urls[texKey] : null)))
       || this._worldIconUrl?.(texKey, frame);
     if (!url) return '';
-    return `<span style="display:inline-block;width:${sizePx}px;height:${sizePx}px;`
+    return `<span style="display:inline-block;width:${sizePx}px;height:${heightPx}px;`
       + `background:url('${url}') center/contain no-repeat;image-rendering:pixelated;`
       + `vertical-align:middle"></span>`;
   }
@@ -10047,7 +10040,9 @@ class MapScene extends Phaser.Scene {
       this.playerFeetNudgeY = -PLAYER_FEET_DROP_PX * this.playerScale * giantScale;
       return;
     }
-    const desired = SpriteLayout.playerArt(this.save);
+    const baseArt = SpriteLayout.playerArt(this.save);
+    const desired = typeof PlayerRobeArt !== 'undefined'
+      ? PlayerRobeArt.resolve(this, baseArt, this.save.playerColor) : baseArt;
     // Is the desired skin's sheet loaded and every directional anim built?
     // Runs every step, so a YES is remembered per skin (`_skinReady`): the
     // answer only ever turns from no to yes as the lazy sheets arrive, and
@@ -10619,6 +10614,7 @@ class MapScene extends Phaser.Scene {
       // Topping up an existing stack leaves the tab alone.
       if (r.isNewStack && r.accepted > 0) {
         this.save.invCat = invCatForItem(id);
+        this._invCatPage = INV_CAT_BY_KEY[this.save.invCat].page;
         const newIdx = this.save.inv.findIndex(s => s && s.id === id);
         const pos = this.invDisplayEntriesForCat(this.save.invCat).findIndex(e => e.idx === newIdx);
         this.save.invPage = pos >= 0 ? Math.floor(pos / 5) : 0;
@@ -10708,7 +10704,8 @@ class MapScene extends Phaser.Scene {
   // its own tab forward.
   _settleInvCatOnBoot() {
     const has = (c) => this.invDisplayEntriesForCat(c.key).length > 0;
-    const cur = INV_CAT_BY_KEY[this.save.invCat];
+    const cur = INV_CAT_BY_KEY[normalizeInventoryCategory(this.save.invCat)];
+    this._invCatPage = cur.page;
     if (cur && has(cur)) return;               // already showing something
     const stocked = INV_CATS.find(has);
     if (stocked) this.selectInvCat(stocked.key);   // persists + reconciles selection
@@ -10717,6 +10714,7 @@ class MapScene extends Phaser.Scene {
   selectInvCat(catKey) {
     if (!INV_CAT_BY_KEY[catKey]) return;
     this.save.invCat = catKey;
+    this._invCatPage = INV_CAT_BY_KEY[catKey].page;
     this.save.invPage = 0;
     const cat = INV_CAT_BY_KEY[catKey];
     if (cat.gear) {
@@ -10737,6 +10735,9 @@ class MapScene extends Phaser.Scene {
     this.save.invCat = normalizeInventoryCategory(this.save.invCat);
     if (this.save.invPage == null) this.save.invPage = 0;
     const cat = INV_CAT_BY_KEY[this.save.invCat];
+    if (this._invCatPage == null || this._invCatShown !== cat.key) this._invCatPage = cat.page;
+    this._invCatShown = cat.key;
+    const arrowHTML = '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
     const gearList = this.gearEntriesForCat(cat.key);
     const itemList = this.invEntriesForCat(cat.key);
     const displayList = this.invDisplayEntriesForCat(cat.key);
@@ -10772,8 +10773,29 @@ class MapScene extends Phaser.Scene {
     tabs.id = 'inv-tabs';
     // position:fixed + appended to <body> for the same containing-block reason
     // as the item bar below. Sits just above the item bar.
-    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:flex;justify-content:flex-start;align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;';
-    for (const c of INV_CATS) {
+    // Equal grid tracks keep inert spacers at the same pitch as bordered keys.
+    tabs.style.cssText = 'position:fixed;bottom:calc(118px + env(safe-area-inset-bottom, 0px));left:var(--phone-left, 0px);right:var(--phone-right, 0px);display:grid;grid-template-columns:repeat(8,minmax(0,1fr));align-items:stretch;gap:2px;padding:0 6px;z-index:6;pointer-events:auto;overflow:hidden;';
+    const pageCats = INV_CATS.filter(c => c.page === this._invCatPage);
+    for (let keySlot = 0; keySlot < 8; keySlot++) {
+      const c = pageCats.find(c => c.keySlot === keySlot);
+      if (!c) {
+        const navigation = keySlot === (this._invCatPage === 0 ? 7 : 0);
+        const key = document.createElement(navigation ? 'button' : 'span');
+        key.className = navigation ? 'hud-tab inventory-category-nav' : 'inventory-category-spacer';
+        if (navigation) {
+          const next = this._invCatPage === 0;
+          key.dataset.control = next ? 'next-categories' : 'previous-categories';
+          key.ariaLabel = key.title = next ? 'Next categories' : 'Previous categories';
+          key.innerHTML = arrowHTML;
+          key.addEventListener('click', e => {
+            e.stopPropagation();
+            this._invCatPage = next ? 1 : 0;
+            this.buildInventoryDOM();
+          });
+        } else key.ariaHidden = 'true';
+        tabs.appendChild(key);
+        continue;
+      }
       const active = c.key === this.save.invCat;
       const count = this.invDisplayEntriesForCat(c.key).length;
       const tab = document.createElement('button');
@@ -10784,7 +10806,7 @@ class MapScene extends Phaser.Scene {
       // Layout inline, paint from .hud-tab / .hud-tab.sel (index.html).
       tab.className = active ? 'hud-tab sel' : 'hud-tab';
       tab.style.cssText =
-        'position:relative;flex:1 0 44px;min-width:44px;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
+        'position:relative;flex:1 1 0;min-width:0;height:44px;border-radius:7px 7px 0 0;cursor:pointer;' +
         'font-size:16px;line-height:1;display:flex;flex-direction:column;align-items:center;' +
         'justify-content:center;gap:1px;padding:0;overflow:hidden;';
       // Pixel icon in its own span, tinted through currentColor: the active
@@ -10844,7 +10866,7 @@ class MapScene extends Phaser.Scene {
       mark.ariaHidden = 'true';
       mark.innerHTML = txt === '⇅'
         ? '<svg viewBox="0 0 24 56"><defs><linearGradient id="inventory-lever-gold"><stop stop-color="#815411"/><stop offset=".45" stop-color="#fff3b2"/><stop offset=".7" stop-color="#e8b447"/><stop offset="1" stop-color="#956314"/></linearGradient><radialGradient id="inventory-lever-knob" cx="35%" cy="25%"><stop stop-color="#fff6c6"/><stop offset=".45" stop-color="#f9d15f"/><stop offset="1" stop-color="#a46d15"/></radialGradient></defs><rect x="8" y="15" width="8" height="27" rx="3" fill="url(#inventory-lever-gold)" stroke="#674515"/><path d="M3 37H21L12 54Z" fill="url(#inventory-lever-gold)" stroke="#f2d27b" stroke-width="1.3"/><circle cx="12" cy="10" r="8" fill="url(#inventory-lever-knob)" stroke="#ffdfa0" stroke-width="1.5"/><path d="M3 21H21" stroke="#f4d176" stroke-width="3" stroke-linecap="round"/></svg>'
-        : '<svg viewBox="0 0 20 40"><path class="arrow-dark" d="M18 3 1 20l17 17Z"/><path class="arrow-light" d="M17 5 3 20h14Z"/><path class="arrow-face" d="M3 20h14v15Z"/></svg>';
+        : arrowHTML;
       b.appendChild(mark);
       b.style.cssText = `width:${w}px;height:44px;border-radius:6px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;`;
       b.addEventListener('click', (e) => { e.stopPropagation(); onclick(); });
@@ -11134,6 +11156,28 @@ class MapScene extends Phaser.Scene {
     this.syncEatButton();
     this.syncConsumableButton();
     this.syncEquipButton();
+    this.syncFurnitureFlipButton();
+  }
+
+  // Facing belongs to the held preview, never to a fungible inventory stack.
+  syncFurnitureFlipButton() {
+    const sel = getSelectedSlot(this.save);
+    const existing = document.getElementById('furniture-flip-btn');
+    if (this._furnitureFlipItem !== sel?.id) {
+      this._furnitureFlipItem = sel?.id;
+      this._furnitureFlip = false;
+    }
+    if (!furnitureSpec(sel?.id)?.flip) { existing?.remove(); return; }
+    const btn = existing || this._hudActionButton('furniture-flip-btn', { onClick: () => {
+      if (!furnitureSpec(getSelectedSlot(this.save)?.id)?.flip) return;
+      this._furnitureFlip = !this._furnitureFlip;
+      this.refreshInventoryHighlight();
+    } });
+    btn.textContent = 'Flip';
+    btn.ariaPressed = String(!!this._furnitureFlip);
+    const name = document.getElementById('inv-name');
+    const icon = name?.querySelector('.inventory-name-icon');
+    if (icon) icon.style.transform = this._furnitureFlip ? 'scaleX(-1)' : '';
   }
 
   // Equip / Unequip button — the Eat button's slot, shown while a WEAPON is
@@ -11483,6 +11527,7 @@ installSceneMixin(MapScene, SceneArena);
 installSceneMixin(MapScene, SceneSchoolyard);
 installSceneMixin(MapScene, SceneSky);
 installSceneMixin(MapScene, SceneVenues);
+installSceneMixin(MapScene, SceneFurniture);
 installSceneMixin(MapScene, SceneStreets);
 installSceneMixin(MapScene, SceneBoss);
 

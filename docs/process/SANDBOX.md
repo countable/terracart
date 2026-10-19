@@ -301,7 +301,7 @@ whose stable ID passes the real nest roll. The beach has a readable bottle.
 cells hold poisonberries, nettle, PetNip, wild grass and player-owned grass
 (the non-regrowing control). A skeleton and deer compare hostile feeding with
 neutral refusal. Harvest through normal taps; use Eat to test self-poison,
-craft Growth Powder at Home, and feed PetNip to a bonded paddock pet.
+craft a workbench at Home, place it, craft Growth Powder there, and feed PetNip to a bonded paddock pet.
 `brewing` goes directly to the ranked Magic Shop. Reload clears authored
 harvest/burn history and grass recovery deadlines, preserving other-world entries.
 
@@ -351,7 +351,7 @@ attack range even after the movement stick returns to its anchor.
   starts fresh for flasks, Fireball and the Wall of Fire Tome.
 - All new potions, scrolls, blank scrolls, the tome, Ember Ring and weapon
   supplies are in the bag. Dagger, lance and musket relics join the T3 kit.
-  Use a scroll, then return Home to check its newly learned crafting recipe.
+  Use a scroll, then check its newly learned recipe at a placed workbench (Home crafts only the workbench itself).
 - Reload resets fire history, creature potion effects and shared and per-tome cooldowns, so
   the same fuel can burn again. Scroll learning is retained for crafting checks.
 

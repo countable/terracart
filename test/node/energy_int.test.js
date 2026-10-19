@@ -51,3 +51,43 @@ test('Energy.set is the only writer of save.energy in src/', () => {
   }
   assert.eq(bad.length, 0, 'raw energy writes (use Energy.set):\n  ' + bad.join('\n  '));
 });
+
+test('bed Sleep restores through the shared integer energy writer and preserves other state', () => {
+  const record = { id: 'bed', itemId: 'bed_quilted' };
+  const save = { furniture: [record], energy: 13, money: 25, eatReadyAt: 12345 };
+  const scene = Object.assign(Object.create(SceneFurniture.prototype), {
+    save, depth: 0, _furnitureAbilityAllowed: () => true, _zeroEnergyLocked: () => false,
+    getMaxEnergy: () => 117, _popEnergy(gain) { this.gain = gain; },
+    _restoreEnergy: liftSceneMethod('_restoreEnergy'),
+  });
+  assert.truthy(scene.useFurniture(record));
+  assert.eq(save.energy, 117); assert.eq(scene.gain, 104);
+  assert.eq(save.money, 25); assert.eq(save.eatReadyAt, 12345);
+});
+
+test('luxury rest: stochastic rounding is integer, time-scaled and unbiased with a seeded RNG', () => {
+  const rng = makeRng32(1903);
+  let total = 0;
+  for (let i=0;i<10000;i++) {
+    const gain = Furniture.restBonus(16,0.25,rng);
+    assert.truthy(gain === 0 || gain === 1);
+    total += gain;
+  }
+  assert.inRange(total,3800,4200,'expected 0.4 energy per quarter second');
+  assert.eq(Furniture.restBonus(16,2,()=>0.1),4,'floor plus winning fractional draw');
+  assert.eq(Furniture.restBonus(16,2,()=>0.9),3,'floor plus losing fractional draw');
+  const noDraw = () => { throw new Error('integer or zero mean must not draw'); };
+  assert.eq(Furniture.restBonus(0,1,noDraw),0);
+  assert.eq(Furniture.restBonus(100,1,noDraw),10);
+  assert.eq(Furniture.restBonus(16,0,noDraw),0);
+});
+
+test('luxury rest: the existing accrual caps the whole bonus and preserves fractional base healing', () => {
+  const scene = {save:{energy:98},_bankDrain(){},_accrueRestEnergy:liftSceneMethod('_accrueRestEnergy')};
+  scene._accrueRestEnergy('_restAccrueE',0.2+Furniture.restBonus(100,1),100);
+  assert.eq(scene.save.energy,100);
+  Energy.set(scene.save,50);
+  scene._restAccrueE=0;
+  for (let i=0;i<5;i++) scene._accrueRestEnergy('_restAccrueE',0.2+Furniture.restBonus(0,0.1),100);
+  assert.eq(scene.save.energy,51,'zero luxury retains the base fractional bank');
+});

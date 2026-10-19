@@ -86,3 +86,16 @@ test('lockout: time away does not revive you either', () => {
     'offline/background rest refuses while the lockout holds');
 });
 })();
+
+test('lockout: bed refuses zero-energy hard lockout and full energy before presentation', () => {
+  for (const locked of [true, false]) {
+    const record = { id: 'bed', itemId: 'bed_quilted' };
+    const scene = Object.assign(Object.create(SceneFurniture.prototype), {
+      save: { furniture: [record], energy: locked ? 0 : 100 }, depth: 0,
+      _furnitureAbilityAllowed: () => true, _zeroEnergyLocked: () => locked,
+      getMaxEnergy: () => 100, flashAtPlayer() {},
+      _presentSleep() { throw new Error('refused bed must not present sleep'); },
+    });
+    assert.falsy(scene.useFurniture(record));
+  }
+});

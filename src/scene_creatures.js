@@ -791,6 +791,10 @@ class SceneCreatures {
     // Saved plantings win against generated static scenery after shared RNG draws.
     if (savedPlantings.length) SpawnOwnership.reconcileEntry(this, entry, savedPlantings);
     PlacedFloor.restoreBarricades(this, entry, tx, ty, 0);
+    // Reconcile furniture only after the synthetic Home has stamped its owned
+    // building cells. Otherwise its first load would read bare generated ground.
+    this.ensureStarterTrailerObject?.();
+    PlacedFloor.restoreFurniture(this, entry, tx, ty, 0);
     // THE SHORE'S OWN FAUNA (biome_profiles.js SHORE_FAUNA): crabs on the
     // shore sand, gulls and turtles along the shore (the shore and pier cells
     // come out of the bonus-X block's one grid pass). Each species on its OWN
@@ -1081,6 +1085,7 @@ class SceneCreatures {
   // like surface fauna.
   spawnCaveCreatures(entry, tx, ty, depth) {
     PlacedFloor.restoreBarricades(this, entry, tx, ty, depth);
+    PlacedFloor.restoreFurniture(this, entry, tx, ty, depth);
     const rng = WorldGen.makeRng((tx * 0x2c1b3a5f ^ ty * 0x9e3779b1 ^ depth * 0x85ebca77) >>> 0);
     const N = entry.cellsPerEdge;
     const creatures = [];

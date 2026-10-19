@@ -88,7 +88,7 @@
     assert.eq(Starter.seatStoryNeighbours(ls), 3, 'a banked memory seats whoever is due');
     ls._starterTileEntry = () => null;
     assert.eq(Starter.seatStoryNeighbours(ls), 0, 'underground or before the tile is up: a no-op');
-    assert.truthy(/MemoryStory\.enqueue\(this\.save, this\.memoriesTotal\(\), label\);\n\s*this\._seatStoryNeighbours\(\);/.test(SCENE_SRC), 'the one memory writer seats the arrival');
+    assert.truthy(/MemoryStory\.enqueue\(this\.save, this\.memoriesTotal\(\), label, key\);\n\s*this\._seatStoryNeighbours\(\);/.test(SCENE_SRC), 'the one memory writer seats the arrival');
     assert.truthy(/_seatStoryNeighbours\(\) \{ return Starter\.seatStoryNeighbours\(this\); \}/.test(SCENE_SRC), 'through the scene wrapper');
   });
 

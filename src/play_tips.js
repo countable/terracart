@@ -141,7 +141,7 @@ const PLAY_TIPS = [
   // Appended (Sep 2026): the road's bargain — each stretch it asks for runs
   // longer than the last, and pays finer (trail.js goalFor / rollBonusFor).
   "Each stretch of road they ask me to mend runs longer than the last. What waits at the end of it is finer, too. I have stopped asking who set the terms.",
-  // Appended (Oct 2026): the spear, made at Home from a stone and a branch
+  // Appended (Oct 2026): the spear, made at a workbench from a stone and a branch
   // (items.js HOME_RECIPES) — every craftable has its page in the Book.
   ITEM_GUIDE_TIPS.throwing_spear,
   ITEM_GUIDE_TIPS.sugar_potion,
@@ -163,6 +163,7 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.wind_scroll,
   ITEM_GUIDE_TIPS.moonbeam_scroll,
   ITEM_GUIDE_TIPS.growth_powder,
+  ITEM_GUIDE_TIPS.workbench,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -413,6 +414,7 @@ const PLAY_TIP_VOLUMES = [
   "wizard",
   "wizard",
   "garden",
+  "builder",
 ];
 
 // Narrator observations sit outside the quoted excerpt.
