@@ -29,7 +29,7 @@
   // restoredRoles lists the RESTORED_ROLES whose look is live; null makes all of them live.
   const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',facadeVariant:'A',restoredRoles:['relic'],eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
-    wreck:{tint:0xb3a89e,roofTint:0xffffff,debris:0x8f857a,beam:0x523b28,top:0x6b6059}};
+    wreck:{tint:0xb3a89e,roofTint:0xffffff,debris:0x8f857a,beam:0x807368,top:0x9b9084,ink:0x625b55}};
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.
   const WRECK_INSIDE_LIGHT=.7;
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -491,10 +491,9 @@
       // footprint with one section fallen entirely (the gap sits on the longest
       // edge, so a tiny return never opens a whole side), a few patches of roof
       // still up on bare rafters, and dark rubble with fallen roof slabs inside.
-      // Crumbling walls: sections every half cell step up and down between the
-      // ground and H, half the shortest building (one storey plus eave rise).
-      // A shallow pitch keeps the surviving roof patches near the wall tops.
-      const H=(FLOOR_HEIGHT+EAVE_RISE)/2,SECTION=16,base=geometry(points,'shallow',H,0),faces=[],W=LOOK.wreck;
+      // A few walls and roof remnants retain the original one-storey height.
+      // Most of the shell is missing or collapsed into the footprint.
+      const H=FLOOR_HEIGHT+EAVE_RISE,SECTION=16,base=geometry(points,'ridge',H,0),faces=[],W=LOOK.wreck;
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
       const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,2)))||null;
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,...extra});return faces.at(-1);};
@@ -515,11 +514,13 @@
             return {x:ai.x+dx*u,y:ai.y+dy*u};
           };
           for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count,r=hash(i*7+k,11);
-            // A fifth of the sections are down to the ground; the rest stand at
-            // uneven heights (never below a knee, so a stub still reads as wall).
-            parts.push({edge:i,len,dir,t0,t1,h:r<.2?0:H*(.3+.7*(r-.2)/.8),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
+            // Broad missing sections alternate with low stubs and tall remnants.
+            parts.push({edge:i,len,dir,t0,t1,h:r<.38?0:H*(.22+.78*(r-.38)/.62),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
         const longest=parts.reduce((a,b)=>b.len>a.len?b:a,parts[0]).edge,span=parts.filter(p=>p.edge===longest);
-        const gone=span[Math.floor(hash(longest,23)*span.length)];gone.h=0;gap={o0:gone.o0,o1:gone.o1,i0:gone.i0,i1:gone.i1};
+        const start=Math.min(span.length-1,Math.floor(hash(longest,23)*Math.max(1,span.length-1))),gone=span[start],last=span[Math.min(start+1,span.length-1)];
+        gone.h=0;last.h=0;gap={o0:gone.o0,o1:last.o1,i0:gone.i0,i1:last.i1};
+        const standing=parts.filter(p=>p.h>0);
+        if(standing.length)standing.reduce((a,b)=>a.h>b.h?a:b).h=H;
         for(const p of parts)p.gone=p.h<.5;
         parts.forEach((p,k)=>{const {dir,len,t0,t1,h,o0,o1,i0,i1}=p;
           const next=parts[(k+1)%parts.length];
@@ -533,6 +534,17 @@
           quad({...i1,z:0,u:0,v:0},{...i0,z:0,u:0,v:0},{...i0,z:h,u:0,v:0},{...i1,z:h,u:0,v:0},'wall',{wallDirection:{x:-dir.x,y:-dir.y},interior:true,light:WRECK_INSIDE_LIGHT});
           const top=[o0,o1,i1,i0].map(q=>({...q,z:h,u:0,v:0}));
           quad(top[0],top[1],top[2],top[3],'trim',{color:W.top,layer:2.4,wallTop:true});
+          // Mortar bed with chipped brick crowns. Joints cross the full wall
+          // thickness; small height and colour changes keep the broken edge rough.
+          const bricks=Math.max(1,Math.round(len*(t1-t0)/7));
+          const at=(t,d,z)=>{const outer={x:o0.x+(o1.x-o0.x)*t,y:o0.y+(o1.y-o0.y)*t},inner={x:i0.x+(i1.x-i0.x)*t,y:i0.y+(i1.y-i0.y)*t};
+            return {x:outer.x+(inner.x-outer.x)*d,y:outer.y+(inner.y-outer.y)*d,z,u:0,v:0};};
+          for(let j=0;j<bricks;j++){
+            const n=hash(k*19+j,53),lo=(j+.08)/bricks,hi=(j+.9)/bricks,z=h+.12+n*.48;
+            const crown=[at(lo,.08,z),at(hi,.06,z),at(hi,.72+n*.2,z),at(hi-.12/bricks,.94,z),at(lo,.9,z)];
+            const color=mix(0x9b8372,0xb1a393,n*.65);
+            for(let t=1;t<crown.length-1;t++)tri([crown[0],crown[t],crown[t+1]],'trim',{color,layer:2.42,brokenBrick:true});
+          }
           // The step up to a taller neighbour shows its end above this top.
           if(next.h-h>.5){const e=[{...o1,z:h},{...i1,z:h},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
             quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}
@@ -548,27 +560,28 @@
         });return out;
       };
       const roofPatches=[];
-      for(let k=0;k<3;k++){const n=hash(k,13),m=hash(k,17),w=(xhi-xlo)*(.22+.14*n),h=(yhi-ylo)*(.3+.3*m);
-        const x0=xlo+(xhi-xlo-w)*(k/2.2+n*.2),y0=ylo+(yhi-ylo-h)*m;roofPatches.push({x0,x1:x0+w,y0,y1:y0+h});}
+      for(let k=0;k<2;k++){const n=hash(k,13),m=hash(k,17),w=(xhi-xlo)*(.18+.08*n),h=(yhi-ylo)*(.22+.12*m);
+        const x0=xlo+(xhi-xlo-w)*(k*.8+n*.1),y0=ylo+(yhi-ylo-h)*m;roofPatches.push({x0,x1:x0+w,y0,y1:y0+h});}
       const inPatch=p=>roofPatches.some(b=>p.x>b.x0&&p.x<b.x1&&p.y>b.y0&&p.y<b.y1);
       for(const f of base.faces.filter(f=>f.kind==='roof'))for(const b of roofPatches){
         let inside=f.points;
         for(const [axis,bound,side] of [['x',b.x0,1],['x',b.x1,-1],['y',b.y0,1],['y',b.y1,-1]]){inside=cut(inside,axis,bound,side);if(!inside.length)break;}
         for(let i=1;i<inside.length-1;i++)if(Math.abs(cross(inside[0],inside[i],inside[i+1]))>1e-8)faces.push({...f,points:[inside[0],inside[i],inside[i+1]]});
       }
-      for(const f of base.faces.filter(f=>f.beam))faces.push(f);
+      // Ridge timber survives only beside the remaining roof, not as an intact frame.
+      for(const f of base.faces.filter(f=>f.beam))if(f.points.some(inPatch))faces.push(f);
       // Bare rafters across the lost roof, perpendicular to the ridge.
       const along=base.ridge,across={x:-along.y,y:along.x},inside=p=>{let hit=false;
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       const span=v=>points.map(p=>p.x*v.x+p.y*v.y),[alo,ahi]=[Math.min(...span(along)),Math.max(...span(along))],[clo,chi]=[Math.min(...span(across)),Math.max(...span(across))];
-      // Two of the six rafters have fallen (hash picks which).
+      // Only two short, broken rafter runs remain near surviving roof patches.
       for(let k=1;k<7;k++){if(hash(k,19)<.65)continue;const o=alo+(ahi-alo)*k/7;let run=[];
         const flush=()=>{for(let i=1;i<run.length;i++){const a=run[i-1],b=run[i],w=1.1;
           let q=[{x:a.x-along.x*w,y:a.y-along.y*w,z:a.z},{x:b.x-along.x*w,y:b.y-along.y*w,z:b.z},{x:b.x+along.x*w,y:b.y+along.y*w,z:b.z},{x:a.x+along.x*w,y:a.y+along.y*w,z:a.z}].map(p=>({...p,u:0,v:0}));
           if(cross(q[0],q[1],q[2])<0)q=q.reverse();
           for(const t of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:t,kind:'trim',color:W.beam,light:1,layer:2.5});}run=[];};
         for(let c=clo+.5;c<=chi-.5;c+=1){const p={x:along.x*o+across.x*c,y:along.y*o+across.y*c};
-          if(!inPatch(p)&&inside(p)){p.z=base.roofZ(p);
+          if(!inPatch(p)&&inside(p)&&roofPatches.some(b=>p.x>b.x0-5&&p.x<b.x1+5&&p.y>b.y0-5&&p.y<b.y1+5)){p.z=base.roofZ(p);
             if(run.length>1){const q=run.at(-1),r=run.at(-2);if(Math.abs((q.z-r.z)-(p.z-q.z)*Math.hypot(q.x-r.x,q.y-r.y)/Math.hypot(p.x-q.x,p.y-q.y))<1e-6)run.pop();}
             run.push(p);}else flush();}
         flush();
@@ -577,12 +590,12 @@
       // W.debris (the trim faces' texel at 0,0) — sampled across the charred
       // sheet it caught soot and boarded windows — and it and the inner wall
       // faces take the middle cel step: the darkest made the interior a hole.
-      for(const t of triangulate(points).triangles)faces.push({kind:'roof',debris:true,layer:-1,color:W.debris,light:WRECK_INSIDE_LIGHT,points:t.map(p=>({...p,z:0,u:0,v:0}))});
+      for(const t of triangulate(points).triangles)faces.push({kind:'roof',debris:true,layer:-1,color:W.debris,light:WRECK_INSIDE_LIGHT,solid:true,points:(cross(...t)<0?[...t].reverse():t).map(p=>({...p,z:0,u:0,v:0}))});
       const fallen=(k,kind,color,L,w,lift)=>{const n=hash(k,3),m=hash(k,5),x=xlo+8+(xhi-xlo-16)*n,y=ylo+8+(yhi-ylo-16)*m,a=n*Math.PI,dx=Math.cos(a),dy=Math.sin(a);
         let q=[{x:x-dy*w,y:y+dx*w,z:1},{x:x+dx*L-dy*w,y:y+dy*L+dx*w,z:1},{x:x+dx*L+dy*w,y:y+dy*L-dx*w,z:1+lift},{x:x+dy*w,y:y-dx*w,z:1+lift}];if(cross(q[0],q[1],q[2])<0)q=q.reverse();
         q=q.map((p,i)=>({...p,u:i<2?0:L,v:i===1||i===2?w*2:0}));
         for(const t of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:t,kind,color,light:1,layer:-.5});};
-      for(let k=0;k<3;k++)fallen(k,'roof',undefined,14+hash(k,3)*10,5,2);
+      for(let k=0;k<7;k++)fallen(k,'roof',undefined,18+hash(k,3)*14,7,3+hash(k,7)*5);
       for(let k=3;k<6;k++)fallen(k,'trim',W.beam,14+hash(k,3)*10,1.4,0);
       // Chunks of fallen wall: low turned blocks with wall-top lids and end-face
       // sides. Two spill out through the gap; the rest lie inside along the
@@ -999,6 +1012,18 @@
   // With the tilesets loaded the sheet is cut from them; the generated
   // marks below remain the fallback (forts, headless review, missing art).
   function material(scene,recipe){
+    const tex=baseMaterial(scene,recipe);
+    if(recipe.shape==='wreck'&&!tex._wreckSoftened){
+      // Reduce painted detail contrast; geometry supplies the depth shading.
+      const ctx=tex.getContext(),size=tex.getSourceImage().width;
+      ctx.fillStyle='rgba(151,142,130,0.38)';ctx.fillRect(0,0,size,size);
+      // Keep the atlas solid texel white for tint-only faces and the silhouette.
+      ctx.fillStyle='#ffffff';ctx.fillRect(508/512*size,124/512*size,4/512*size,4/512*size);
+      tex.refresh();tex._wreckSoftened=true;
+    }
+    return tex;
+  }
+  function baseMaterial(scene,recipe){
     if(recipe.shape==='wizard')return wizardSheet(scene,recipe);
     if(recipe.role!=='fort'&&LOOK.facade==='cel')return celSheet(scene,recipe);
     if(recipe.role!=='fort'&&tilesetReady(scene))return tilesetSheet(scene,recipe);
@@ -1230,7 +1255,7 @@
         // is a contiguous sorted run; its ink groups (body, flat deck, chimney)
         // draw in layer order so each gets a line where it meets the surface below.
         const ink=(group)=>{
-          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(LOOK.ink,camera.alpha*src.alpha);
+          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(src._wreck?LOOK.wreck.ink:LOOK.ink,camera.alpha*src.alpha);
           for(const [ox,oy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])for(const f of group){
             if(pipeline.shouldFlush(3))pipeline.flush();
             const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
@@ -1241,7 +1266,7 @@
           if(pipeline.shouldFlush(3))pipeline.flush();
           const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
           // Flat, three-step cel lighting keeps gradients off the pixel palette.
-          let shade=f.light<.65?140:f.light<.88?199:255;
+          let shade=src._wreck?Math.round(255*(.62+.38*f.light)):f.light<.65?140:f.light<.88?199:255;
           if(f.eaveShadow)shade=Math.round(shade*LOOK.eaveShade);
           const textured=LOOK.textured||f.solid||f.kind==='trim';
           const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
@@ -1260,7 +1285,7 @@
         const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(group);paint(group);group=[];};
         for(const f of src._lowpolyFaces){
           if(!f.visible)continue;
-          const g=f.inkGroup||0;
+          const g=src._wreck?0:f.inkGroup||0;
           if(f.support!==support||g!==groupId){flush();support=f.support;groupId=g;}
           group.push(f);
         }
@@ -1442,11 +1467,11 @@
     const index=state.buildings.length-1;
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
-    obj._noInk=!!cached.noInk;
+    obj._noInk=!!cached.noInk;obj._wreck=recipe.shape==='wreck';
     for(const face of mesh.faces){
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
-      if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
-      else if(face.wallTop)face.color=0xffffff;
+      if(face.debris)face.color=LOOK.wreck.debris;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
+      else if(face.wallTop)face.color=recipe.shape==='wreck'?LOOK.wreck.top:0xffffff;
       else if(face.rubbleTop)face.color=mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=face.kind==='roof'?LOOK.wreck.roofTint:LOOK.wreck.tint;

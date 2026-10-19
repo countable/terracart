@@ -207,22 +207,16 @@ review is published as a Claude artifact.
   ridge; every role, the smithy included, takes the default one at 28%. The smithy shaft widens slightly toward the roof (`chimneyFlare`), meeting its cap without an overhanging lip. A role
   with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
-- Wreck: crumbling wall. Thick sections (the ring inset by 4 units, 2 where a
-  notch forbids) run around the whole footprint every half cell (16 units);
-  each stands at its own height between a knee and `H`, half the shortest
-  building (one storey plus eave rise), a fifth of them down to the ground, and
-  one section of the longest edge always fallen (`mesh.gap`). Standing
-  sections carry a flat `wallTop`, and the step up to a taller neighbour shows
-  as an end face. Three axis-aligned `roofPatches` keep their tiles over bare
-  rafters, two of the six fallen (`hash` picks which); inside, a rubble
-  floor, fallen roof slabs and beams, and up to five low chunks of fallen wall
-  (two spilled out through `mesh.gap`, the rest inside, seeded by the
-  footprint's centre). The floor and the inner wall faces are flat colour (the
-  0,0 texel: sampled, the charred sheet put soot and boarded windows inside)
-  at the middle cel step (`WRECK_INSIDE_LIGHT`). Walls are tinted
-  `LOOK.wreck.tint`, roof patches and slabs `roofTint`; the roof chars less
-  (×0.82) than the walls (×0.65). The sheet boards the windows and adds soot,
-  moss and missing tiles.
+- Wreck: thick broken wall sections follow the inset footprint at roughly
+  16-unit intervals. Heights range from low stubs to the original one-storey
+  eave; about 38% are missing, with a guaranteed two-section breach on the
+  longest edge. Exposed tops have a mortar bed and individually chipped brick
+  crowns, with transverse joints and restrained colour/height variation.
+  Two small roof patches remain on the original ridge planes, with short
+  surviving rafters; seven tilted fallen roof slabs and broken beams fill the
+  interior. Low masonry chunks spill through the breach. Muted material colour,
+  continuous directional shading and contact shading describe the depth; all
+  faces share one softened silhouette outline, without internal ink groups.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on
   every face at every heading; ridge and hip beams cover the seams, and a
