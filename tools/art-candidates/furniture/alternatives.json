@@ -1,0 +1,301 @@
+{
+  "schemaVersion": 1,
+  "entries": [
+    {
+      "id": "furniture-rogue-drawer",
+      "pack": "Rogue Adventure World",
+      "itemPack": "rogue",
+      "group": "rogue",
+      "name": "Drawer",
+      "targets": [
+        "furniture:dresser_oak"
+      ],
+      "itemIds": [
+        "dresser_oak"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        48,
+        160,
+        16,
+        32
+      ],
+      "image": "art-candidates/furniture/rogue-drawer.png",
+      "note": "Small wooden drawer cabinet; tall 16px-wide cabinet.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall cabinet or bookcase occupies more than one vertical tile; footprint remains one 16px tile wide."
+    },
+    {
+      "id": "furniture-rogue-bookshelf",
+      "pack": "Rogue Adventure World",
+      "itemPack": "rogue",
+      "group": "rogue",
+      "name": "Bookshelf",
+      "targets": [
+        "furniture:bookshelf_frontier"
+      ],
+      "itemIds": [
+        "bookshelf_frontier"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        0,
+        192,
+        16,
+        32
+      ],
+      "image": "art-candidates/furniture/rogue-bookshelf.png",
+      "note": "Coloured books in a tall wooden bookcase.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall cabinet or bookcase occupies more than one vertical tile; footprint remains one 16px tile wide."
+    },
+    {
+      "id": "furniture-dreamland-drawer",
+      "pack": "Fantasy Dreamland",
+      "itemPack": "dreamland",
+      "group": "dreamland",
+      "name": "Drawer",
+      "targets": [
+        "furniture:dresser_oak"
+      ],
+      "itemIds": [
+        "dresser_oak"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "sourceSHA256": "3adc1b463c95b56705a0b08735e5af5baa184a8d5bd8876a44d83a63290a2b13",
+      "crop": [
+        96,
+        128,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/dreamland-drawer.png",
+      "note": "Warm wooden drawer cabinet.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-dreamland-bookshelf",
+      "pack": "Fantasy Dreamland",
+      "itemPack": "dreamland",
+      "group": "dreamland",
+      "name": "Bookshelf",
+      "targets": [
+        "furniture:bookshelf_frontier"
+      ],
+      "itemIds": [
+        "bookshelf_frontier"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "sourceSHA256": "3adc1b463c95b56705a0b08735e5af5baa184a8d5bd8876a44d83a63290a2b13",
+      "crop": [
+        112,
+        128,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/dreamland-bookshelf.png",
+      "note": "Warm wooden cabinet with books.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-dreamland-planter",
+      "pack": "Fantasy Dreamland",
+      "itemPack": "dreamland",
+      "group": "dreamland",
+      "name": "Planter",
+      "targets": [
+        "furniture:planter_clay",
+        "furniture:planter_copper"
+      ],
+      "itemIds": [
+        "planter_clay",
+        "planter_copper"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "sourceSHA256": "3adc1b463c95b56705a0b08735e5af5baa184a8d5bd8876a44d83a63290a2b13",
+      "crop": [
+        16,
+        128,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/dreamland-planter.png",
+      "note": "Small planted pot; foliage is included, unlike the empty current planter.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-dreamland-mirror",
+      "pack": "Fantasy Dreamland",
+      "itemPack": "dreamland",
+      "group": "dreamland",
+      "name": "Mirror",
+      "targets": [
+        "furniture:mirror_brass"
+      ],
+      "itemIds": [
+        "mirror_brass"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "sourceSHA256": "3adc1b463c95b56705a0b08735e5af5baa184a8d5bd8876a44d83a63290a2b13",
+      "crop": [
+        112,
+        288,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/dreamland-mirror.png",
+      "note": "Small freestanding mirror in a warm frame.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-dreamland-globe",
+      "pack": "Fantasy Dreamland",
+      "itemPack": "dreamland",
+      "group": "dreamland",
+      "name": "Globe",
+      "targets": [
+        "furniture:globe_brass"
+      ],
+      "itemIds": [
+        "globe_brass"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "sourceSHA256": "3adc1b463c95b56705a0b08735e5af5baa184a8d5bd8876a44d83a63290a2b13",
+      "crop": [
+        16,
+        288,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/dreamland-globe.png",
+      "note": "Blue globe on a compact tripod stand.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-dreamland-rug",
+      "pack": "Fantasy Dreamland",
+      "itemPack": "dreamland",
+      "group": "dreamland",
+      "name": "Rug",
+      "targets": [
+        "furniture:rug_burgundy"
+      ],
+      "itemIds": [
+        "rug_burgundy"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/spr_fd_interior.png",
+      "sourceSHA256": "3adc1b463c95b56705a0b08735e5af5baa184a8d5bd8876a44d83a63290a2b13",
+      "crop": [
+        304,
+        448,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/dreamland-rug.png",
+      "note": "Complete small blue square rug; recolour needed for burgundy.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-farm-bookshelf",
+      "pack": "Farm Game",
+      "itemPack": "farm",
+      "group": "smaller",
+      "name": "Bookshelf",
+      "targets": [
+        "furniture:bookshelf_frontier"
+      ],
+      "itemIds": [
+        "bookshelf_frontier"
+      ],
+      "source": "extra_assets/16x16/Farm Game Interior TIleset/Tilesets/FG_Interior.png",
+      "sourceSHA256": "04643bd00ec20493bb2c72449a6b898ab8ed2c936df799a8f5975d6ad7db8fbb",
+      "crop": [
+        16,
+        256,
+        16,
+        32
+      ],
+      "image": "art-candidates/furniture/farm-bookshelf.png",
+      "note": "Compact tall bookcase with colourful books.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall cabinet or bookcase occupies more than one vertical tile; footprint remains one 16px tile wide."
+    },
+    {
+      "id": "furniture-farm-drawer",
+      "pack": "Farm Game",
+      "itemPack": "farm",
+      "group": "smaller",
+      "name": "Drawer",
+      "targets": [
+        "furniture:dresser_oak"
+      ],
+      "itemIds": [
+        "dresser_oak"
+      ],
+      "source": "extra_assets/16x16/Farm Game Interior TIleset/Tilesets/FG_Interior.png",
+      "sourceSHA256": "04643bd00ec20493bb2c72449a6b898ab8ed2c936df799a8f5975d6ad7db8fbb",
+      "crop": [
+        80,
+        256,
+        16,
+        32
+      ],
+      "image": "art-candidates/furniture/farm-drawer.png",
+      "note": "Compact tall wooden drawer cabinet.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall cabinet or bookcase occupies more than one vertical tile; footprint remains one 16px tile wide."
+    },
+    {
+      "id": "furniture-farm-planter",
+      "pack": "Farm Game",
+      "itemPack": "farm",
+      "group": "smaller",
+      "name": "Planter",
+      "targets": [
+        "furniture:planter_clay",
+        "furniture:planter_copper"
+      ],
+      "itemIds": [
+        "planter_clay",
+        "planter_copper"
+      ],
+      "source": "extra_assets/16x16/Farm Game Interior TIleset/Tilesets/FG_Interior.png",
+      "sourceSHA256": "04643bd00ec20493bb2c72449a6b898ab8ed2c936df799a8f5975d6ad7db8fbb",
+      "crop": [
+        384,
+        480,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/farm-planter.png",
+      "note": "Small pot with a leafy plant; a planted rather than empty-container option.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "furniture-farm-washtub",
+      "pack": "Farm Game",
+      "itemPack": "farm",
+      "group": "smaller",
+      "name": "Washtub",
+      "targets": [
+        "furniture:washtub"
+      ],
+      "itemIds": [
+        "washtub"
+      ],
+      "source": "extra_assets/16x16/Farm Game Interior TIleset/Tilesets/FG_Interior.png",
+      "sourceSHA256": "04643bd00ec20493bb2c72449a6b898ab8ed2c936df799a8f5975d6ad7db8fbb",
+      "crop": [
+        32,
+        360,
+        16,
+        16
+      ],
+      "image": "art-candidates/furniture/farm-washtub.png",
+      "note": "Small open wooden tub; compact washing-tub alternative.",
+      "nativeTileSize": 16
+    }
+  ]
+}
