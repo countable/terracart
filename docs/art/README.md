@@ -380,3 +380,12 @@ retaining coarse geometry at close range. Alpha-cutout crowns could reduce
 farther walls, with view-angle and thin-edge checks before replacing the prisms.
 This change leaves both established perimeter renderers intact; it measures
 their costs rather than silently flattening their silhouettes.
+
+## Third-party building art credit
+
+Restored low-poly facade textures include processed crops from **Pixel Plains
+Interiors Pack**, by **Jose Javier (SnowHex)**:
+<https://snowhex.itch.io/pp-interior-and-houses-pack>. Used and modified under
+the acquired pack licence. Raw assets are not included. Exact crops, processing
+and licence terms are recorded in
+[BuildingMaterials/README.md](../../assets/Objects/BuildingMaterials/README.md).

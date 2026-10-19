@@ -494,9 +494,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and flint when marked `rockMaterial: 'flint'`, including flint-bearing L1
   cave rubble. The flint mark takes precedence over the generic cave variant. Partial
   cover (`sightBlocking: true`) selects the taller boulder silhouette.
-  Regular rocks and boulders both use 24px frames at 80.96% of scale 16/15 (`ROCK_WORLD_SCALE`; placed
+  Regular rocks and boulders both use native 16px frames at 80.96% of scale 1.6 (`ROCK_WORLD_SCALE`; placed
   stones 1.408, the produce icon); their height
-  difference is authored into the graphic-storybook atlas (8 columns, 9 rows).
+  difference is authored into the DG-style atlas (8 columns, 9 rows).
   Outside authored rock zones, wild rubble shares
   the four generic plain small shapes and skips biome tint; planted crop stages
   and inventory icons retain their existing art. A stable id hash selects plain
@@ -508,7 +508,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
   seam painted into the sprite. These contain no collectible mineral inclusions.
-  The same 24px
+  The same 16px
   frame uses the same `ROCK_WORLD_SCALE` for small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
   frame at 1.408×, comfortably inside a cell.
@@ -744,7 +744,14 @@ role and shop-line style tables: plaster terraces for residences, brick for the
 blacksmith, Japanese roofs for traders and book/pet shops, stepped pyramid roofs
 for the wizard and potion/relic shops, and low broken walls for wrecks.
 Forts take no footprint style: see the fort paragraph under World layers.
-Restoring a building changes its material and geometry together.
+Restoring a building changes its material and geometry together. On the retained
+WebGL path, the overlay passes its claim result into `BuildingLowPoly.recipeFor`.
+`RESTORED_ROLES` holds every restored design; `LOOK.restoredRoles` lists the live
+ones, currently only the relic shop. It uses straight Pixel Plains walls, door
+and windows (`LOOK.facadeVariant='A'`) under a red roof, and its chimney samples
+the ground-wall texture. The shared cel atlas is built once per material recipe
+with no pixel readback. See the [low-poly styles](../art/lowpoly-building-styles.md)
+for cell and cache rules.
 
 `BuildingOverlay` emits retained prisms only when footprint inputs or restoration
 state change. Roof insets stop when narrow or concave wings cannot support another

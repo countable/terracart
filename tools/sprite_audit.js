@@ -267,7 +267,7 @@ const SHEETS = {
   ...Object.fromEntries(['gas_mushroom_small', 'gas_mushroom_large'].map(key => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [0],
   }])),
-  rock_variants: { file: ASSETS.rock_variants.path, fw: 24, fh: 24, frames: Array.from({ length: 65 }, (_, i) => i) },
+  rock_variants: { file: ASSETS.rock_variants.path, fw: 16, fh: 16, frames: Array.from({ length: 65 }, (_, i) => i) },
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
   zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 24, fh: 24, frames: [0] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },

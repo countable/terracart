@@ -4,519 +4,519 @@
     "sourceFrame": 0,
     "identity": "plain",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 9
   },
   {
     "frame": 1,
     "sourceFrame": 1,
     "identity": "plain",
     "kind": "boulder",
-    "width": 22,
-    "height": 18
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 2,
     "sourceFrame": 2,
     "identity": "flint",
     "kind": "regular",
-    "width": 22,
-    "height": 17
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 3,
     "sourceFrame": 3,
     "identity": "flint",
     "kind": "boulder",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 4,
     "sourceFrame": 4,
     "identity": "quartz",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 5,
     "sourceFrame": 5,
     "identity": "quartz",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 6,
     "sourceFrame": 6,
     "identity": "topaz",
     "kind": "regular",
-    "width": 22,
-    "height": 17
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 7,
     "sourceFrame": 7,
     "identity": "topaz",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 8,
     "sourceFrame": 8,
     "identity": "amethyst",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 9,
     "sourceFrame": 9,
     "identity": "amethyst",
     "kind": "boulder",
-    "width": 22,
-    "height": 18
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 10,
     "sourceFrame": 10,
     "identity": "sapphire",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 11,
     "sourceFrame": 11,
     "identity": "sapphire",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 12,
     "sourceFrame": 12,
     "identity": "ruby",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 13,
     "sourceFrame": 13,
     "identity": "ruby",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 14,
     "sourceFrame": 14,
     "identity": "emerald",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 15,
     "sourceFrame": 15,
     "identity": "emerald",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 16,
     "sourceFrame": 16,
     "identity": "diamond",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 17,
     "sourceFrame": 17,
     "identity": "diamond",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 18,
     "sourceFrame": 18,
     "identity": "copper",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 19,
     "sourceFrame": 19,
     "identity": "copper",
     "kind": "boulder",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 20,
     "sourceFrame": 20,
     "identity": "iron",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 21,
     "sourceFrame": 21,
     "identity": "iron",
     "kind": "boulder",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 22,
     "sourceFrame": 22,
     "identity": "gold",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 23,
     "sourceFrame": 23,
     "identity": "gold",
     "kind": "boulder",
-    "width": 22,
-    "height": 21
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 24,
     "sourceFrame": 24,
     "identity": "platinum",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 25,
     "sourceFrame": 25,
     "identity": "platinum",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 26,
     "sourceFrame": 26,
     "identity": "crimson",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 27,
     "sourceFrame": 27,
     "identity": "crimson",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 28,
     "sourceFrame": 28,
     "identity": "frost",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 29,
     "sourceFrame": 29,
     "identity": "frost",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 30,
     "sourceFrame": 30,
     "identity": "plain broad",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 11
   },
   {
     "frame": 31,
     "sourceFrame": 31,
     "identity": "plain broad",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 14
   },
   {
     "frame": 32,
     "sourceFrame": 32,
     "identity": "plain chipped",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 33,
     "sourceFrame": 33,
     "identity": "plain chipped",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 15,
+    "height": 13
   },
   {
     "frame": 34,
     "sourceFrame": 36,
     "identity": "plain cracked",
     "kind": "regular",
-    "width": 22,
-    "height": 17
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 35,
     "sourceFrame": 37,
     "identity": "plain cracked",
     "kind": "boulder",
-    "width": 22,
-    "height": 18
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 36,
     "sourceFrame": 34,
     "identity": "stone_garden",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 37,
     "sourceFrame": 35,
     "identity": "stone_garden",
     "kind": "boulder",
-    "width": 22,
-    "height": 18
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 38,
     "sourceFrame": 40,
     "identity": "broken_masonry",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 12,
+    "height": 10
   },
   {
     "frame": 39,
     "sourceFrame": 41,
     "identity": "broken_masonry",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 15,
+    "height": 13
   },
   {
     "frame": 40,
     "sourceFrame": 38,
     "identity": "flint_field",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 41,
     "sourceFrame": 39,
     "identity": "flint_field",
     "kind": "boulder",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 42,
     "sourceFrame": 40,
     "identity": "broken_depot",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 12,
+    "height": 10
   },
   {
     "frame": 43,
     "sourceFrame": 41,
     "identity": "broken_depot",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 15,
+    "height": 13
   },
   {
     "frame": 44,
     "sourceFrame": 42,
     "identity": "seep",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 45,
     "sourceFrame": 43,
     "identity": "seep",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 46,
     "sourceFrame": 44,
     "identity": "work_yard",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 12,
+    "height": 10
   },
   {
     "frame": 47,
     "sourceFrame": 45,
     "identity": "work_yard",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 48,
     "sourceFrame": 46,
     "identity": "black_ring",
     "kind": "regular",
-    "width": 22,
-    "height": 18
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 49,
     "sourceFrame": 47,
     "identity": "black_ring",
     "kind": "boulder",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 50,
     "sourceFrame": 48,
     "identity": "pirate_cove",
     "kind": "regular",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 51,
     "sourceFrame": 49,
     "identity": "pirate_cove",
     "kind": "boulder",
-    "width": 22,
-    "height": 19
+    "width": 15,
+    "height": 13
   },
   {
     "frame": 52,
     "sourceFrame": 34,
     "identity": "stone_garden",
     "kind": "signature",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 53,
     "sourceFrame": 40,
     "identity": "broken_masonry",
     "kind": "signature",
-    "width": 22,
-    "height": 18
+    "width": 12,
+    "height": 10
   },
   {
     "frame": 54,
     "sourceFrame": 2,
     "identity": "flint_field",
     "kind": "signature",
-    "width": 22,
-    "height": 17
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 55,
     "sourceFrame": 40,
     "identity": "broken_depot",
     "kind": "signature",
-    "width": 22,
-    "height": 18
+    "width": 12,
+    "height": 10
   },
   {
     "frame": 56,
     "sourceFrame": 56,
     "identity": "seep",
     "kind": "signature",
-    "width": 22,
-    "height": 19
+    "width": 13,
+    "height": 11
   },
   {
     "frame": 57,
     "sourceFrame": 57,
     "identity": "work_yard",
     "kind": "signature",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 11
   },
   {
     "frame": 58,
     "sourceFrame": 63,
     "identity": "black_ring",
     "kind": "signature",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 12
   },
   {
     "frame": 59,
     "sourceFrame": 48,
     "identity": "pirate_cove",
     "kind": "signature",
-    "width": 22,
-    "height": 19
+    "width": 11,
+    "height": 10
   },
   {
     "frame": 60,
     "sourceFrame": 58,
     "identity": "quarry-strip-mine",
     "kind": "signature",
-    "width": 22,
-    "height": 19
+    "width": 12,
+    "height": 12
   },
   {
     "frame": 61,
     "sourceFrame": 40,
     "identity": "quarry-stronghold",
     "kind": "signature",
-    "width": 22,
-    "height": 18
+    "width": 12,
+    "height": 10
   },
   {
     "frame": 62,
     "sourceFrame": 59,
     "identity": "quarry-crater",
     "kind": "signature",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 13
   },
   {
     "frame": 63,
     "sourceFrame": 60,
     "identity": "quarry-abandoned",
     "kind": "signature",
-    "width": 22,
-    "height": 18
+    "width": 13,
+    "height": 11
   },
   {
     "frame": 64,
     "sourceFrame": 61,
     "identity": "mystic_reef",
     "kind": "signature",
-    "width": 22,
-    "height": 20
+    "width": 14,
+    "height": 13
   }
 ]
