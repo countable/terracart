@@ -5,7 +5,15 @@
     encounterCooldownMs: 90000, contactMs: 1100, damage: 8,
     speedCellsPerSecond: .65, contactRadiusCells: .7, pushCells: 1.5,
     pushMs: 350, turnMs: 1800, leashCells: 5, spawnDistanceCells: 2,
-    activeFrameMs: 110, frameSize: 48, anchor: [24, 44] });
+    activeFrameMs: 110, frameSize: 48, anchor: [24, 44],
+    // GUSTY HOURS: dust devils rise on hot afternoons. Between these local
+    // hours an encounter roll is chanceMul times likelier, raises up to
+    // maxActive whirlwinds at once, and the next can come after cooldownMs.
+    gust: Object.freeze({ fromHour: 14, toHour: 17, chanceMul: 4, maxActive: 3, cooldownMs: 30000 }) });
+  function gusty(wall = Date.now()) {
+    const h = new Date(wall).getHours();
+    return h >= CONFIG.gust.fromHour && h < CONFIG.gust.toHour;
+  }
 
   // Open turf only: grass landcover, sports pitches and schoolyards — never
   // park or playground cells, nor a Nexus zone's own terrain. Never the
@@ -14,13 +22,20 @@
     const T = root.WorldGen.T;
     return [T.GRASS, T.PITCH, T.SCHOOL].includes(type);
   }
+  // Unmapped ground is the grid's default GRASS — mostly the gaps between
+  // houses — so grass must also come from a mapped polygon
+  // (entry.mappedLand, worldgen.js). A tile without the mask (the sandbox's
+  // hand-built world) counts as mapped.
+  function openTurf(entry, p) {
+    return terrain(p.type) && (!entry.mappedLand || !!entry.mappedLand[p.iy * entry.cellsPerEdge + p.ix]);
+  }
   // `anyGround` drops the whirlwind's own grassy-terrain rule — a Scroll of
   // Wind's gust blows a foe across any ground the enemy gate allows.
   function ground(scene, x, y, from = null, anyGround = false) {
     const p = scene.cellAt(x, y);
     if (!p.loaded) return false;
     const W = root.WorldGen, entry = W.tileCache.get(W.tileKey(p.tx, p.ty));
-    if (!entry?._spawnOpts || (!anyGround && !terrain(p.type))) return false;
+    if (!entry?._spawnOpts || (!anyGround && !openTurf(entry, p))) return false;
     if (!anyGround && typeof HomeArea !== 'undefined' && HomeArea.isNear(x, y)) return false;
     // The shared gate keeps roads, restricted land and KINDERGARTEN out;
     // SCHOOL is deliberately allowed, just as ordinary school fields are.
@@ -43,7 +58,7 @@
       born: now, phase: 'warning', frame: 0, heading: rng() * Math.PI * 2,
       nextTurn: now + CONFIG.warningMs, rng, contacts: new Map() };
   }
-  function observe(scene, now) {
+  function observe(scene, now, wall = Date.now()) {
     const x = scene.startWorldM.x + scene.playerM.x, y = scene.startWorldM.y + scene.playerM.y;
     const p = scene.cellAt(x, y);
     if (!p.loaded) return;
@@ -53,15 +68,23 @@
     const seen = scene._whirlwindVisits ||= new Set();
     if (seen.has(key)) return;
     seen.add(key);
-    if (scene._whirlwinds.length || now < (scene._whirlwindNextEncounter || 0)
+    const gust = gusty(wall), max = gust ? CONFIG.gust.maxActive : 1;
+    if (scene._whirlwinds.length >= max || now < (scene._whirlwindNextEncounter || 0)
         || !ground(scene, x, y)) return;
     const rng = root.WorldGen.makeRng(fnv1a(`whirlwind:${key}`));
-    if (rng() >= CONFIG.chance) return;
-    const point = scene.findWalkableDestination(CONFIG.spawnDistanceCells,
-      { seed: `whirlwind:${key}`, cls: 'enemy', accept: (wx, wy) => ground(scene, wx, wy) });
-    if (!point) return;
-    scene._whirlwinds.push(create(point, now, rng, `whirlwind:${key}`));
-    scene._whirlwindNextEncounter = now + CONFIG.encounterCooldownMs;
+    if (rng() >= CONFIG.chance * (gust ? CONFIG.gust.chanceMul : 1)) return;
+    // One roll raises the whole gusty-hour group; each member is seated on
+    // its own seed, and never on top of another.
+    const apart = scene.cellM;
+    for (let n = 0; n < max && scene._whirlwinds.length < max; n++) {
+      const id = n ? `whirlwind:${key}:${n}` : `whirlwind:${key}`;
+      const point = scene.findWalkableDestination(CONFIG.spawnDistanceCells,
+        { seed: id, cls: 'enemy', accept: (wx, wy) => ground(scene, wx, wy)
+          && scene._whirlwinds.every(h => Math.hypot(h.x - wx, h.y - wy) >= apart) });
+      if (!point) continue;
+      scene._whirlwinds.push(create(point, now, n ? root.WorldGen.makeRng(fnv1a(id)) : rng, id));
+    }
+    scene._whirlwindNextEncounter = now + (gust ? CONFIG.gust.cooldownMs : CONFIG.encounterCooldownMs);
   }
 
   // A forced move may not cross a road, building, private area or unloaded cell.
@@ -162,7 +185,7 @@
     }
     impulse(scene, unit, hazard, now, player);
   }
-  function tick(scene, dt, now = performance.now()) {
+  function tick(scene, dt, now = performance.now(), wall = Date.now()) {
     scene._whirlwinds ||= [];
     // A depth change cancels every push still under way (its epoch).
     if (scene._whirlwindDepth !== scene.depth) {
@@ -183,7 +206,7 @@
       return;
     }
     dt = Math.min(.1, Math.max(0, dt));
-    observe(scene, now);
+    observe(scene, now, wall);
     if (!scene._whirlwinds.length && !scene._whirlwindPushUntil) return;
     const live = units(scene);
     scene._whirlwinds = scene._whirlwinds.filter(h => now - h.born < CONFIG.warningMs + CONFIG.activeMs);
@@ -208,5 +231,5 @@
     for (const c of live) pushStep(scene, c, dt, now);
     if (now >= (scene._whirlwindPushUntil || 0)) scene._whirlwindPushUntil = 0;
   }
-  root.Whirlwinds = { CONFIG, terrain, ground, frame, create, observe, sweep, impulse, displacePlayer, pushStep, contact, tick };
+  root.Whirlwinds = { CONFIG, gusty, terrain, openTurf, ground, frame, create, observe, sweep, impulse, displacePlayer, pushStep, contact, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

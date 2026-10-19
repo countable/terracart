@@ -1,4 +1,6 @@
 (function () {
+  // Wall clocks either side of Whirlwinds.CONFIG.gust's local hours.
+  const CALM = new Date(2026, 0, 1, 9).getTime(), GUST = new Date(2026, 0, 1, 15).getTime();
   function fixture(run) {
     const W = WorldGen, key = W.tileKey(0, 0), previous = W.tileCache.get(key);
     const rng = W.makeRng, nearby = W.forEachItemNear, veto = W.privateVetoAt, home = HomeArea.worldM;
@@ -30,21 +32,43 @@
       W.makeRng = rng; W.forEachItemNear = nearby; W.privateVetoAt = veto; HomeArea.worldM = home;
     }
   }
+  test('whirlwind: gusty afternoons raise a group, spaced apart, on a likelier roll', () => fixture((s, e) => {
+    const G = Whirlwinds.CONFIG.gust;
+    assert.falsy(Whirlwinds.gusty(CALM)); assert.truthy(Whirlwinds.gusty(GUST));
+    const seats = [{ x: 40, y: 24 }, { x: 40, y: 32 }, { x: 40, y: 25 }, { x: 48, y: 24 }];
+    s.findWalkableDestination = (d, opts) => seats.find(p => opts.accept(p.x, p.y)) || null;
+    WorldGen.makeRng = () => () => Whirlwinds.CONFIG.chance * 2;   // misses a calm roll
+    Whirlwinds.observe(s, 0, CALM); assert.eq(s._whirlwinds.length, 0, 'calm hours keep the plain chance');
+    s.playerM = { x: 16, y: 24 };
+    Whirlwinds.observe(s, 0, GUST);
+    assert.eq(s._whirlwinds.length, G.maxActive, 'one gusty roll raises the whole group');
+    for (const a of s._whirlwinds) for (const b of s._whirlwinds)
+      if (a !== b) assert.gte(Math.hypot(a.x - b.x, a.y - b.y), s.cellM, 'never stacked');
+    assert.eq(s._whirlwindNextEncounter, G.cooldownMs);
+  }));
+  test('whirlwind: unmapped default grass (between houses) is not open turf', () => fixture((s, e) => {
+    e.mappedLand = new Uint8Array(64);
+    assert.falsy(Whirlwinds.ground(s, 24, 24), 'unmapped grass');
+    assert.truthy(Whirlwinds.ground(s, 24, 24, null, true), 'a wind gust still crosses it');
+    Whirlwinds.observe(s, 0, GUST); assert.eq(s._whirlwinds.length, 0);
+    e.mappedLand.fill(1);
+    assert.truthy(Whirlwinds.ground(s, 24, 24), 'a mapped lawn or field');
+  }));
   test('whirlwind: never in the starting area; a wind gust still may', () => fixture((s, e) => {
     HomeArea.setOrigin(0, 0);
     const edge = HomeArea.NEAR_M;
     assert.falsy(Whirlwinds.ground(s, 24, 24), 'home turf is calm');
     assert.truthy(Whirlwinds.ground(s, 24, 24, null, true), 'a gust ignores the whirlwind rule');
-    Whirlwinds.observe(s, 0); assert.eq(s._whirlwinds.length, 0, 'no encounter at the start');
+    Whirlwinds.observe(s, 0, CALM); assert.eq(s._whirlwinds.length, 0, 'no encounter at the start');
     HomeArea.setOrigin(-edge, 24);
     assert.truthy(Whirlwinds.ground(s, 24, 24), 'open grass beyond the starting area');
   }));
   test('whirlwind: one visit roll, school permitted, kindergarten and road excluded', () => fixture((s, e) => {
     e.grid.fill(WorldGen.T.SCHOOL);
     assert.truthy(Whirlwinds.ground(s, 24, 24));
-    Whirlwinds.observe(s, 0); assert.eq(s._whirlwinds.length, 1);
+    Whirlwinds.observe(s, 0, CALM); assert.eq(s._whirlwinds.length, 1);
     s._whirlwinds = []; s._whirlwindNextEncounter = 0;
-    Whirlwinds.observe(s, 100000); assert.eq(s._whirlwinds.length, 0, 'standing does not reroll');
+    Whirlwinds.observe(s, 100000, CALM); assert.eq(s._whirlwinds.length, 0, 'standing does not reroll');
     e._spawnOpts.spawnWhy[27] = WorldGen.SPAWN_WHY.KINDERGARTEN;
     assert.falsy(Whirlwinds.ground(s, 24, 24));
     e._spawnOpts.spawnWhy[27] = 0; e._spawnOpts.roadMask[27] = 1;
@@ -68,11 +92,11 @@
   test('whirlwind: warning is harmless, active contact damages once per cooldown', () => fixture(s => {
     const h = Whirlwinds.create({ x: 24, y: 24 }, 0, () => .5, 'test');
     s._whirlwinds = [h];
-    Whirlwinds.tick(s, 0, 1799); assert.eq(s.save.energy, 100); assert.eq(h.frame, 3);
-    Whirlwinds.tick(s, 0, 1800); assert.lt(s.save.energy, 100); assert.eq(h.frame, 4);
+    Whirlwinds.tick(s, 0, 1799, CALM); assert.eq(s.save.energy, 100); assert.eq(h.frame, 3);
+    Whirlwinds.tick(s, 0, 1800, CALM); assert.lt(s.save.energy, 100); assert.eq(h.frame, 4);
     const after = s.save.energy;
-    Whirlwinds.tick(s, 0, 1801); assert.eq(s.save.energy, after);
-    Whirlwinds.tick(s, 0, 2900); assert.lt(s.save.energy, after);
+    Whirlwinds.tick(s, 0, 1801, CALM); assert.eq(s.save.energy, after);
+    Whirlwinds.tick(s, 0, 2900, CALM); assert.lt(s.save.energy, after);
   }));
   test('whirlwind: knockback preserves raw GPS and world anchor while shifting body and offset', () => fixture(s => {
     const h = Whirlwinds.create({ x: 20, y: 24 }, 0, () => 0, 'test');
@@ -97,10 +121,10 @@
     e.creatures.push(fauna); s._mercenary = ally;
     s.playerM = { x: 56, y: 56 };
     s._whirlwinds = [Whirlwinds.create({ x: 24, y: 24 }, 0, () => 0, 'test')];
-    Whirlwinds.tick(s, .1, 1800);
+    Whirlwinds.tick(s, .1, 1800, CALM);
     assert.eq(s.hits.length, 2);
     assert.truthy(s.hits.every(hit => hit.source === 'obstacle'));
-    Whirlwinds.tick(s, .1, 1900);
+    Whirlwinds.tick(s, .1, 1900, CALM);
     assert.gt(Math.hypot(fauna.x - 24, fauna.y - 24), 0);
     assert.gt(Math.hypot(ally.x - 24, ally.y - 24), 0);
   }));
@@ -124,9 +148,9 @@
   }));
   test('whirlwind: expires and clears on changing depth', () => fixture(s => {
     s._whirlwinds = [Whirlwinds.create({ x: 24, y: 24 }, 0, () => 0, 'test')];
-    Whirlwinds.tick(s, 0, Whirlwinds.CONFIG.warningMs + Whirlwinds.CONFIG.activeMs);
+    Whirlwinds.tick(s, 0, Whirlwinds.CONFIG.warningMs + Whirlwinds.CONFIG.activeMs, CALM);
     assert.eq(s._whirlwinds.length, 0);
     s._whirlwinds = [Whirlwinds.create({ x: 24, y: 24 }, 0, () => 0, 'test')];
-    s.depth = 1; Whirlwinds.tick(s, 0, 1); assert.eq(s._whirlwinds.length, 0);
+    s.depth = 1; Whirlwinds.tick(s, 0, 1, CALM); assert.eq(s._whirlwinds.length, 0);
   }));
 })();
