@@ -163,6 +163,20 @@
     assert.eq(api.interiorGeometry(base, T), room, 'built once per house');
   });
 
+  depthTest('low-poly: styled interior triangles stay on their own wall at corners', () => {
+    const ring = [{ x: 0, y: 0 }, { x: 170, y: 0 }, { x: 170, y: 160 }, { x: 0, y: 160 }];
+    const recipe = { ...api.recipeFor('trader'), stories: 1 };
+    const base = api.styleGeometry(ring, recipe.style, recipe);
+    const room = api.interiorGeometry(base, api.LOOK.wallThickness);
+    for (let edge = 0; edge < ring.length; edge++) {
+      const a = ring[edge], b = ring[(edge + 1) % ring.length], dx = b.x - a.x, dy = b.y - a.y;
+      const walls = room.faces.filter(f => f.interior && f.edge === edge);
+      assert.eq(walls.length, 2, 'both triangles survive on every wall');
+      assert.truthy(walls.every(f => f.points.every(p => Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) < 1e-6)),
+        'each triangle belongs to the edge that contains it');
+    }
+  });
+
   depthTest('building depth: a wall sorts at its baseline point in the player\'s screen column, re-asked as they move', () => {
     const s = scene(); BuildingLowPoly.begin(s);
     s.textures = { exists: (k) => k.startsWith('fallback:lowpoly:') || k.startsWith('lowpoly:cel'), get: (k) => ({ key: k }) };
