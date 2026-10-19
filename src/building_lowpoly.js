@@ -295,9 +295,9 @@
   // where the outer faces are culled, and a band across the wall tops between
   // the two, which is the walls' thickness seen from above. No trim, no
   // chimney, no beams: nothing stands above the eaves. The inner faces wear
-  // the same facade sheet as the outer ones.
+  // a shared interior sheet with the exterior opening UVs.
   function interiorGeometry(base,thickness){
-    const key='interior:'+thickness+':'+base.height+':'+base.ring.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+    const key='interior:'+thickness+':'+JSON.stringify(base.faces);
     if(meshCache.has(key))return meshCache.get(key);
     const H=base.height,ring=base.ring,faces=[];
     // THE WALL EACH FACE STANDS ON (`edge`: the ring edge's index). Inside
@@ -314,24 +314,33 @@
     const cutZ=(poly,bound)=>{const out=[];poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length],da=bound-a.z,db=bound-b.z;
       if(da>=-1e-8)out.push(a);
       if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v'])p[k]=a[k]+(b[k]-a[k])*t;out.push(p);}});return out;};
+    // Put the entire thickness outside the playable footprint. Preserve the
+    // original edge parameter and UVs on both sides, including entrance bays.
+    const outer=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,-thickness):null;
+    const shell=outer||ring;
     for(const f of base.faces){
       if(f.kind!=='wall'||f.chimney)continue;
-      const poly=cutZ(f.points,H);
-      for(let i=1;i<poly.length-1;i++)faces.push({...f,points:[poly[0],poly[i],poly[i+1]],edge:edgeOf(f.points)});
+      const poly=cutZ(f.points,H),edge=edgeOf(f.points),a=ring[edge],b=ring[(edge+1)%ring.length];
+      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1;
+      const move=p=>{const t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
+        return {...p,x:shell[edge].x+(shell[(edge+1)%ring.length].x-shell[edge].x)*t,
+          y:shell[edge].y+(shell[(edge+1)%ring.length].y-shell[edge].y)*t};};
+      for(let i=1;i<poly.length-1;i++){
+        const tri=[poly[0],poly[i],poly[i+1]];
+        const along=p=>((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.sqrt(len2);
+        if(Math.abs((along(tri[1])-along(tri[0]))*(tri[2].z-tri[0].z)-(along(tri[2])-along(tri[0]))*(tri[1].z-tri[0].z))<1e-8)continue;
+        faces.push({...f,points:tri.map(move),edge});
+        faces.push({...f,points:[...tri].reverse(),interior:true,edge,wallDirection:{x:-dx,y:-dy}});
+      }
     }
-    const inner=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,thickness):null;
-    if(inner&&inner.length===ring.length){
-      ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],c=inner[(i+1)%ring.length],d=inner[i];
-        // The inner face runs c→d, against the ring, so its normal points in.
-        const length=Math.hypot(d.x-c.x,d.y-c.y);if(!length)return;
-        const at=(t,z)=>({x:c.x+(d.x-c.x)*t,y:c.y+(d.y-c.y)*t,z,u:t*length/DETAIL_SCALE,v:H+28-z});
-        for(const tri of [[at(0,0),at(1,0),at(1,H)],[at(0,0),at(1,H),at(0,H)]])
-          faces.push({points:tri,kind:'wall',light:.9,layer:0,interior:true,edge:i,wallDirection:{x:d.x-c.x,y:d.y-c.y}});
-        // The top band, wound with the ring, so it faces up like a roof.
-        for(const tri of [[a,b,c],[a,c,d]])
-          faces.push({points:tri.map(p=>({x:p.x,y:p.y,z:H,u:0,v:0})),kind:'trim',light:1,layer:1,wallTop:true,edge:i});
-      });
-    }
+    if(outer)ring.forEach((d,i)=>{const c=ring[(i+1)%ring.length],a=outer[i],b=outer[(i+1)%ring.length];
+      const length=Math.hypot(c.x-d.x,c.y-d.y);
+      // A timber strip in the shared interior atlas wraps over the cut edge.
+      const top=[{...a,u:0,v:112},{...b,u:Math.min(507,length/DETAIL_SCALE),v:112},
+        {...c,u:Math.min(507,length/DETAIL_SCALE),v:116},{...d,u:0,v:116}];
+      for(const tri of [[top[0],top[1],top[2]],[top[0],top[2],top[3]]])
+        faces.push({points:tri.map(p=>({...p,z:H})),kind:'trim',rawUV:true,light:1,layer:1,wallTop:true,edge:i});
+    });
     const mesh={...base,faces,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
       edges:ring.map((a,i)=>({a,b:ring[(i+1)%ring.length],index:i}))};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
@@ -1156,6 +1165,52 @@
     rect(508,124,4,4,'#ffffff'); // Shared solid texel for silhouette trim.
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
+  // One interior atlas per exterior material, shared by every room. Copying
+  // opening rectangles keeps shutters, panes and entrance dressing identical.
+  function interiorSheet(scene,exterior,recipe){
+    if(!scene.textures.createCanvas)return exterior;
+    const key='interior-v2:'+exterior.key;
+    if(scene.textures.exists(key))return scene.textures.get(key);
+    const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
+    ctx.imageSmoothingEnabled=false;
+    ctx.drawImage(exterior.getSourceImage(),0,0,512,512);
+    if(scene.textures.exists('interior_walls')){
+      const wall=scene.textures.get('interior_walls').getSourceImage();
+      for(let y=9;y<105;y+=24)for(let x=0;x<512;x+=30)
+        ctx.drawImage(wall,113,576,30,32,x,y,30,24);
+      for(let x=0;x<512;x+=30)for(let y=9;y<105;y+=24)
+        ctx.drawImage(wall,113,560,30,16,x,y,30,3);
+      // Copy the same dressed opening, including its sill and lintel. The
+      // exterior atlas owns their placement; both faces retain the same UVs.
+      const source=exterior.getSourceImage(),scale=source.width/512;
+      const copy=(x,y,w,h)=>ctx.drawImage(source,x*scale,y*scale,w*scale,h*scale,x,y,w,h);
+      if(!recipe.blank)for(let f=0;f<4;f++){
+        const y=105-24*(f+1);
+        if(exterior.key.startsWith('lowpoly:cel')){
+          for(let k=0;k<=12;k+=2){const bx=2+39*k;
+            if(f===0&&k===6)copy(bx+2,y,32,24);
+            else {const shutters=['woodShutters','slateShutters'].includes(recipe.window),shop=recipe.window==='shop';
+              copy(bx+(shutters?8:shop?9:12),y+2,shutters?24:shop?21:15,17);}
+          }
+        }else if(exterior.key.startsWith('lowpoly:tileset')){
+          for(let k=0;k<=12;k+=2)copy(2+39*k,y,39,24);
+        }else{
+          for(let x=14;x<508;x+=39)copy(x-2,y+5,12,12);
+          if(f===0)copy(245,83,17,22);
+        }
+      }
+      // The same wood continues from the upper wall rail over the cut top.
+      for(let x=0;x<512;x+=30){
+        ctx.drawImage(wall,113,560,30,16,x,110,30,8);
+      }
+    }else{
+      ctx.fillStyle='#954a39';ctx.fillRect(0,110,508,10);
+      ctx.fillStyle='#b45c3a';ctx.fillRect(0,112,508,1);
+      ctx.fillStyle='#4a2123';ctx.fillRect(0,116,508,2);
+      for(let x=3;x<508;x+=13){ctx.fillStyle='#7e210d';ctx.fillRect(x,114,8,1);}
+    }
+    tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
+  }
   function active(scene){return !!scene._headingUp&&scene.game?.renderer?.type===2;}
   function renderObject(scene){
       const obj=scene.add.graphics();
@@ -1192,7 +1247,7 @@
           const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade/255),camera.alpha*src.alpha);
           for(let i=0;i<3;i++){
             const p=f.projected[i];
-            const contact=f.kind==='wall'&&!f.preserveWalls?1-.22*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
+            const contact=f.kind==='wall'&&!f.preserveWalls?.72+.28*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
             const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade*contact/255),camera.alpha*src.alpha);
             pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,wallTint);
           }
@@ -1260,7 +1315,7 @@
       }return pieces;
     });
     for(const face of eaveSplit(mesh)){
-      const roof=face.kind==='roof',trim=face.kind==='trim'||!!face.solid,raw=!!face.rawUV;
+      const roof=face.kind==='roof',trim=(face.kind==='trim'&&!face.rawUV)||!!face.solid,raw=!!face.rawUV;
       const points=face.points.map(p=>({...p,
         tu:trim?510:raw?p.u:roof?p.u/DETAIL_SCALE:p.u,
         tv:trim?126:raw?p.v:roof?p.v/DETAIL_SCALE:105-(105-p.v-vOffset)/DETAIL_SCALE}));
@@ -1353,7 +1408,8 @@
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    const texture=material(scene,recipe);(state.textures||=new Set()).add(texture.key);
+    const texture=material(scene,recipe),insideTexture=recipe.interior?interiorSheet(scene,texture,recipe):texture;
+    (state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
@@ -1388,7 +1444,8 @@
     for(const face of mesh.faces){
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
-      else if(face.wallTop||face.rubbleTop)face.color=mix(recipe.body,0xf3e6c8,.35);
+      else if(face.wallTop)face.color=0xffffff;
+      else if(face.rubbleTop)face.color=mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
       else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=face.kind==='roof'?LOOK.wreck.roofTint:LOOK.wreck.tint;
       // Fit complete opening bays onto each restored side wall, using the
@@ -1426,7 +1483,7 @@
         face.color=face.kind==='wall'?0xffffff:recipe.body;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
       face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney&&recipe.role!=='blacksmith'?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
-      face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
+      face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=face.interior||face.wallTop?insideTexture:texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
     }
   }
@@ -1465,10 +1522,10 @@
     for(const face of state.faces){let depth=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
       face.points.forEach((p,i)=>{const v=face.projected[i];v.x=face.x+p.x-s*p.z*LOOK.heightScale;v.y=face.y+p.y-c*p.z*LOOK.heightScale;v.u=p.tu;v.v=p.tv;depth+=s*(face.x+p.x)+c*(face.y+p.y);});
-      if((face.kind==='trim'&&!face.facadeDoor)||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
+      if((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
       face.support.depth=s*face.support.x+c*face.support.y;
       face.depth=depth/3;
-      if((face.kind==='wall'&&!face.interior)||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
+      if(face.kind==='wall'||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
       const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
     }
     for(const mesh of state.buildings){
