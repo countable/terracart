@@ -414,9 +414,9 @@ test('falloff: under a peek in any direction the corner still sits on the ambien
 
 // ── The pinch zoom ──────────────────────────────────────────────────────────
 // Two fingers magnify the map about the viewport centre, never past
-// PINCH_VIEW_CELLS across and never below the full view, and spring back like
-// the drag the moment a pinching finger lifts. Like the drag, it is a LOOK:
-// it taps nothing, and a tap during the spring-back lands where it is drawn.
+// PINCH_VIEW_CELLS across and never below the full view, and the zoom it
+// leaves becomes the resting zoom. Like the drag, it taps nothing, and a tap
+// while zoomed lands where it is drawn.
 
 const finger = (id, x, y) => ({ id, x, y, isDown: true });
 
@@ -450,22 +450,19 @@ test('pinch: neither finger taps anything', () => {
   assert.eq(s._peekPointerId, null, 'and the drag is released');
 });
 
-test('pinch: letting go springs the zoom home, as fast as the drag', () => {
+test('pinch: letting go keeps the zoom the fingers left', () => {
+  // It used to spring back to the resting zoom, so a pinch was only a glance.
   const s = tapScene({ _peekDragging: false });
   const a = finger(1, 100, 200), b = finger(2, 200, 200);
   s._pinchStart(a, b);
-  b.x = 400;
+  b.x = 250;
   s._pinchMove(a, b);
+  const pinched = s.mapZoom;
   s._pinchEnd();
-  let frames = 0, last = s.mapZoom;
-  while (s.mapZoom !== 1 && frames < 600) {
-    s._tickMapZoom(1 / 60);
-    assert.lte(s.mapZoom, last, 'the zoom only ever eases out');
-    last = s.mapZoom;
-    frames++;
-  }
-  assert.eq(s.mapZoom, 1, 'it lands exactly on the full view');
-  assert.lt(frames / 60, 0.6, 'a zoom that hangs about would read as stuck');
+  for (let i = 0; i < 120; i++) s._tickMapZoom(1 / 60);
+  near(s.mapZoom, pinched, 1e-9, 'the view stays where the pinch left it');
+  near(s._mapZoomRest, pinched, 1e-9, 'it is the new resting zoom');
+  assert.falsy(s._mapZoomReturning, 'nothing eases it anywhere');
 });
 
 test('pinch: the finger left down keeps dragging from where it is, with no jump', () => {
@@ -559,14 +556,15 @@ test('home zoom: stepping inside Home eases to the closest view, stepping out re
   near(s._mapZoomRest, nine, 1e-9, 'a cellar does not zoom');
 });
 
-test('zoom selection survives pinch release from either side and clearing a peek', () => {
+test('a pinch released at either end becomes the selection, and clearing a peek keeps it', () => {
   for (const start of [1, PINCH_MAX_ZOOM]) {
     const s = peekScene({ _mapZoomRest: MAP_DEFAULT_ZOOM, mapZoom: start });
     s._pinchEnd();
     for (let i = 0; i < 120; i++) s._tickMapZoom(1 / 60);
-    assert.eq(s.mapZoom, MAP_DEFAULT_ZOOM);
-    s.mapZoom = PINCH_MAX_ZOOM;
+    assert.eq(s.mapZoom, start, 'no snap back to the old selection');
+    assert.eq(s._mapZoomRest, start);
+    s.mapZoom = 1.3;
     s.clearPeek();
-    assert.eq(s.mapZoom, MAP_DEFAULT_ZOOM);
+    assert.eq(s.mapZoom, start, 'a warp returns to the pinched selection');
   }
 });

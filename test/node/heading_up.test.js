@@ -391,3 +391,50 @@ test('heading up: the caret\'s drop shadow falls down the screen at any map turn
     assert.lt(Math.abs(s.y - 1), 1e-9, `the shadow sits 1px below on screen at ${rot}`);
   }
 });
+
+test('heading up: the direction caret never lands on the GPS ring', () => {
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const pts = [];
+  const gfx = { clear() { pts.length = 0; }, lineStyle() {}, beginPath() {}, moveTo(x, y) { pts.push({ x, y }); },
+    lineTo(x, y) { pts.push({ x, y }); }, strokePath() {}, fillStyle() {}, fillCircle() {} };
+  const feet = { x: 100, y: 100 };
+  const ring = { visible: true, x: feet.x, y: feet.y, displayWidth: GPS_RING.px };
+  const scene = { _headingUp: false, facingChevronGfx: gfx, gpsGhost: ring,
+    player: { displayWidth: 24, displayHeight: 24 }, playerBodyDy: () => -9 };
+  const chevron = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+  const rx = GPS_RING.px * GPS_RING.r / GROUND_MARK.bakePx, ry = rx * GPS_RING.tilt;
+  for (let deg = 0; deg < 360; deg += 15) {
+    const a = deg * Math.PI / 180;
+    scene.facing = { x: Math.sin(a), y: -Math.cos(a) };
+    draw.call(scene, feet, 0.6, chevron);
+    for (const p of pts.slice(0, 3)) {
+      const d = ((p.x - ring.x) / rx) ** 2 + ((p.y - ring.y) / ry) ** 2;
+      assert.gt(d, 1, `facing ${deg}°, the caret sits outside the ring`);
+    }
+  }
+});
+
+test('heading up: burning-ground flames rise up the screen at any map turn', () => {
+  // The flames are map graphics, so they turn with the map; drawn toward map
+  // north they leaned sideways (or hung upside down) once the compass turned it.
+  const start = RENDER_SRC.indexOf("          const up = typeof HeadingUp !== 'undefined'");
+  const loop = RENDER_SRC.indexOf('for (let n = 0; n < 3; n++) {', start);
+  const end = RENDER_SRC.indexOf('\n          }\n', loop) + '\n          }\n'.length;
+  assert.truthy(start > 0 && end > loop, 'found the flame tongues');
+  const draw = new Function('scene', 'fg', 'sx', 'sy', 'texNow', '_absIX', '_absIY', 'CELL_PX',
+    RENDER_SRC.slice(start, end));
+  for (const rot of [0, Math.PI / 2, Math.PI, -Math.PI / 3]) {
+    const scene = { _headingUp: true, mapRot: rot };
+    const tris = [];
+    const fg = { fillStyle() {}, fillTriangle(...p) { tris.push(p); } };
+    draw(scene, fg, 0, 0, 0, 0, 0, 32);
+    for (const [ax, ay, bx, by, tx, ty] of tris) {
+      const base = HeadingUp.toScreenVec(scene, (ax + bx) / 2, (ay + by) / 2);
+      const tip = HeadingUp.toScreenVec(scene, tx, ty);
+      assert.lt(tip.y, base.y - 3, `at ${rot} the tongue points up the screen`);
+      assert.lt(Math.abs(tip.x - base.x), 4, `at ${rot} it barely sways sideways`);
+    }
+  }
+});
