@@ -47,7 +47,12 @@ for continuous support. Basins are walkable ground decals with no step lift;
 they draw under the player, whose submersion crop hides only the lower body.
 `RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
 `FURNITURE_SCALE` (1: large and tall pieces use up to 31px of a 32px cell).
-Mirrored bounds keep asymmetric pieces centred when flipped. Mutable furniture
+New furniture bases sit horizontally centred, one-third of a cell up from its
+bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Beds, rugs
+and bookshelves retain centred art. Mirrored bounds keep asymmetric pieces
+centred when flipped. The base center comes from the bottom three opaque
+rows, so an overhanging lamp shade does not displace its stand. Depth and lamp
+emitters follow the same base. Mutable furniture
 appearances are not cached. The complete piece is fitted proportionally into a
 16×16 icon for item surfaces. `tierSheetFrame` maps catalog tiers to the seven
 styles: Crude, Simple, Fine, Veblen, Masterwork, Royal and Ancient. The shared
@@ -56,7 +61,8 @@ and candelabras retain their roster art. Existing catalog tiers select the style
 these images do not introduce per-instance tiers or alter item progression.
 Crops carrying a `planter` furniture id use
 `RENDER_SPEC.furniture.planterCrop`: a 16px frame starting 3px below
-the cell's top edge, with its roots on the soil. Their normal growth art is unchanged. The crop
+the cell's top edge before applying the planter's seating offset, so its roots
+move with the soil. Their normal growth art is unchanged. The crop
 shares its planter's ground depth and sorts immediately above it, preserving
 Home wall occlusion.
 

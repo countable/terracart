@@ -449,7 +449,11 @@ test('lighting: furniture emits indoors, across the sprite cull, and stops after
       assert.eq(s._lights.length, 1, 'off-screen art still lights the visible room edge');
       const light = s._lights[0];
       assert.eq(light.kind, kind);
-      assert.inRange(light.dyPx, -13, -7, 'glow sits near the top of the 1×1 lamp');
+      const b = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(lamp)}`];
+      const spec = furnitureSpec(lamp);
+      const baseY = Number.isFinite(spec.seatFoot) ? 32 / 6 : (b.maxY - b.minY) / 2;
+      assert.inRange(Math.abs(light.dyPx - (baseY + spec.lightFrameY - b.maxY)), 0, 1e-8,
+        'glow follows the placed lamp base');
       assert.eq(Lighting.liftPx(s, light).y, light.dyPx, 'existing lift mechanism places the glow');
       assert.falsy(Lighting.consider(s, lamp, HALF_M + radius * s.cellM + 1, 0, HALF_M), 'own radius culls distant fixtures');
       assert.eq(Lighting.sourceKind(s, { ...lamp, x: 7.5, houseKey: 'furniture-home' }), null, 'stale Home association cannot light outdoors');

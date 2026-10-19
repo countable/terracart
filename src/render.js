@@ -5577,7 +5577,7 @@ Render.drawObjects = function drawObjects(scene) {
     }
     // Scale, origin row and seat offsets are the one placement rule the
     // contact shadow reads too (Render.plantPlacement), so neither can drift.
-    const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);
+    const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage, scene);
     s.setOrigin(0.5, placement.oy).setScale(placement.scl).setPosition(Math.round(sx) + placement.dxPx, Math.round(sy) + placement.dyPx);
     // A bush being logged sways about its foot, as a tree under the axe does
     // (the pool reset its rotation before this configure).
@@ -6092,10 +6092,24 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
 // pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
 // than the shared crop art. Tall authored plants (`seat: true`) follow the
 // same cell-foot rule as trees and props off their trimmed ART_BOUNDS.
-Render.plantPlacement = function (plant, art, frame, stage) {
+Render.plantPlacement = function (plant, art, frame, stage, scene) {
   if (plant?.planter) {
     const seat = RENDER_SPEC.furniture.planterCrop;
-    return { scl: seat.scale, oy: seat.originY, dxPx: 0, dyPx: seat.dyPx() };
+    const planter = scene?.save?.furniture?.find(o => o.id === plant.planter);
+    const bounds = planter && SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(planter)}`];
+    let lift = 0, shiftX = 0;
+    if (bounds) {
+      const normal = SpriteLayout.seatInCell(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE);
+      const flipped = furnitureSpec(planter)?.flip && planter.flip;
+      const base = flipped ? { ...bounds, baseX: bounds.fw - bounds.baseX,
+        minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX } : bounds;
+      const placed = SpriteLayout.seatInCell(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE,
+        CELL_PX, furnitureSpec(planter)?.seatFoot);
+      lift = placed.dyPx - normal.dyPx;
+      const centred = SpriteLayout.seatInCell(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE);
+      shiftX = placed.dxPx - centred.dxPx;
+    }
+    return { scl: seat.scale, oy: seat.originY, dxPx: shiftX, dyPx: seat.dyPx() + lift };
   }
   const isCropsSheet = !art || (!art.custom && art.sheet !== 'springcrops');
   const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
@@ -6262,6 +6276,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // The 16px crop starts near the north edge and roots in the pot's soil.
       planterCrop: { scale: 1, originY: 0, dyPx: () => -CELL_PX * 0.5 + 3 },
       origin: [0.5, 0.5], scale: FURNITURE_SCALE, seat: true,
+      seatFoot: o => furnitureSpec(o)?.seatFoot,
       layer: o => ['flat', 'basin'].includes(furnitureSpec(o)?.height) ? WorldLayers.GROUND_DECAL : null,
       flipX: o => !!(furnitureSpec(o)?.flip && o.flip),
       after: (sprite, o) => sprite.setFlipX(!!(furnitureSpec(o)?.flip && o.flip)),
@@ -6565,13 +6580,15 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // Mirror the seating bounds with the art so asymmetric frames stay in
       // their own cell after a placed object's orientation changes.
       const flipped = typeof spec.flipX === 'function' ? spec.flipX(o) : spec.flipX;
-      const bb = bounds && flipped ? { ...bounds, minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX } : bounds;
+      const bb = bounds && flipped ? { ...bounds, minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX, baseX: bounds.fw - bounds.baseX } : bounds;
       if (bb) {
-        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul);
+        const seatFoot = typeof spec.seatFoot === 'function' ? spec.seatFoot(o) : spec.seatFoot;
+        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul, CELL_PX, seatFoot);
         dxPx = seat.dxPx; dyPx = seat.dyPx;
         const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
         foot = { w: (bb.maxX - bb.minX) * scl,
-          footFromCentre: artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
+          footFromCentre: Number.isFinite(seatFoot) ? (seatFoot - 0.5) * CELL_PX
+            : artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
         // Low rocks rest over their contact ellipse. Centering the ellipse
         // on the bottom edge makes it protrude below the stone like a gap.
         // Keep the true art foot for depth sorting; inset only the shadow.

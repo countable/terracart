@@ -910,7 +910,8 @@
       // dyPx passes through liftPx, so the upright fixture stays lit when the map turns.
       const spec = furnitureSpec(o), bounds = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(o)}`];
       if (bounds && Number.isFinite(spec.lightFrameY)) {
-        const seat = SpriteLayout.seatInCell(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE);
+        const seat = SpriteLayout.seatInCell(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE,
+          SpriteLayout.CELL_PX, spec.seatFoot);
         light.dyPx = seat.dyPx + (spec.lightFrameY - bounds.fh * 0.5) * FURNITURE_SCALE;
       }
     }

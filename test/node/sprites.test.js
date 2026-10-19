@@ -453,7 +453,7 @@ test('Mushroom Grove giant caps fit centered inside the cell and have distinct r
   assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
   assert.eq(itemName(p.crop),'Giant mushroom');
   assert.eq(inventoryIconSource(p.crop).sheet,'giant_mushroom');
-  assert.truthy(RENDER_SRC.includes('const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);'),
+  assert.truthy(RENDER_SRC.includes('const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage, scene);'),
     'the planted pass seats through the shared placement rule');
   assert.truthy(RENDER_SRC.includes('const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];'),
     'which seats a `seat: true` look off its trimmed bounds');
@@ -899,14 +899,22 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       assert.eq(p.layer, layers[metadata.height]);
       const b = SpriteLayout.ART_BOUNDS[`furniture:${p.frameVal}`];
       const mirrored = metadata.flip && flip;
+      if (Number.isFinite(metadata.seatFoot)) {
+        assert.inRange(Math.abs(p.foot.footFromCentre - 32 / 6), 0, 1e-8,
+          item.id + ': base and depth sit one third up the cell');
+      } else if (['bed_quilted', 'bookshelf_frontier', 'rug_burgundy'].includes(item.id)) {
+        assert.inRange(Math.abs(p.dyPx + ((b.minY + b.maxY) / 2 - b.fh / 2) * p.scl), 0, 1e-8,
+          item.id + ': art stays vertically centred');
+      }
       const minX = mirrored ? b.fw - b.maxX : b.minX;
       const maxX = mirrored ? b.fw - b.minX : b.maxX;
-      assert.inRange(Math.abs(p.dxPx + ((minX + maxX) / 2 - b.fw / 2) * p.scl), 0, 1e-8);
+      const centreX = Number.isFinite(metadata.seatFoot) ? (mirrored ? b.fw - b.baseX : b.baseX) : (minX + maxX) / 2;
+      assert.inRange(Math.abs(p.dxPx + (centreX - b.fw / 2) * p.scl), 0, 1e-8);
       assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
       if (item.id === 'clock_grandfather') {
         assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
         assert.lte((b.maxY - b.minY) * p.scl, 32, 'approved upright fits one cell');
-        assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 15, 16, 'clock feet stay inside the cell edge');
+        assert.inRange(Math.abs(p.dyPx + (b.maxY - b.fh / 2) * p.scl - 32 / 6), 0, 1e-8, 'clock base sits one third up the cell');
       }
       if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
         assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 32, 'lamp fills its cell');

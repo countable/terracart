@@ -114,7 +114,17 @@ function trimFrame(img, fx, fy, fw, fh) {
       }
     }
   }
-  return any ? { minX, minY, maxX, maxY } : null;
+  if (!any) return null;
+  // Bottom three opaque rows describe the support/base, not the overhanging crown.
+  let baseMinX = fw, baseMaxX = 0;
+  for (let y = Math.max(minY, maxY - 3); y < maxY; y++) {
+    for (let x = minX; x < maxX; x++) {
+      if (img.data[((fy + y) * img.w + fx + x) * 4 + 3] >= ALPHA_MIN) {
+        baseMinX = Math.min(baseMinX, x); baseMaxX = Math.max(baseMaxX, x + 1);
+      }
+    }
+  }
+  return { minX, minY, maxX, maxY, baseX: (baseMinX + baseMaxX) / 2 };
 }
 
 // Longest run of fully transparent rows BETWEEN opaque rows of one frame. A
@@ -296,7 +306,7 @@ const SCENARIOS = [
   ...Object.entries(itemsCtx.FURNITURE).flatMap(([id, row]) =>
     [row.frame, ...Object.values(row.tierSheetFrame || {})].flatMap(frameIdx =>
       [false, ...(row.flip ? [true] : [])].map(flipX => ({
-        name: `${id}:${frameIdx}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx, scale: itemsCtx.FURNITURE_SCALE, flipX,
+        name: `${id}:${frameIdx}${flipX ? ' flipped' : ''}`, key: 'furniture', frameIdx, scale: itemsCtx.FURNITURE_SCALE, flipX, seatFoot: row.seatFoot,
         frameSize: furnitureManifest.items.find(entry => entry.itemId === id).frameSize,
       })))),
   ...['gas_mushroom_small', 'gas_mushroom_large'].map(key => ({
@@ -380,7 +390,8 @@ function evaluate(s) {
     violations.push(`ART_BOUNDS missing "${lookup}" (run --emit-bounds)`);
   } else if (table.minX !== fresh.minX || table.minY !== fresh.minY ||
              table.maxX !== fresh.maxX || table.maxY !== fresh.maxY ||
-             table.fw !== fresh.fw || table.fh !== fresh.fh) {
+             table.fw !== fresh.fw || table.fh !== fresh.fh ||
+             (s.key === 'furniture' && table.baseX !== fresh.baseX)) {
     violations.push(`ART_BOUNDS "${lookup}" stale (run --emit-bounds)`);
   }
   // One frame, one piece of art (see frameRowGap).
@@ -391,19 +402,21 @@ function evaluate(s) {
   }
 
   // Seat with the SAME maths the renderer uses, then measure the real art box.
-  const mirror = box => s.flipX ? { ...box, minX: box.fw - box.maxX, maxX: box.fw - box.minX } : box;
+  const mirror = box => s.flipX ? { ...box, minX: box.fw - box.maxX, maxX: box.fw - box.minX, baseX: box.fw - box.baseX } : box;
   const box = mirror(table || fresh);
   const shown = mirror(fresh);
   const scaleX = s.scale, scaleY = s.scale * (s.scaleYMul || 1);
   const [ox, oy] = SEAT_ANCHOR;
-  const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY);
+  const { dxPx, dyPx, fits } = seatInCell(box, ox, oy, scaleX, scaleY, undefined, s.seatFoot);
   const tlx = dxPx - ox * fresh.fw * scaleX;
   const tly = dyPx - oy * fresh.fh * scaleY;
   const left = tlx + shown.minX * scaleX, right = tlx + shown.maxX * scaleX;
   const top = tly + fresh.minY * scaleY, bottom = tly + fresh.maxY * scaleY;
-  const artH = bottom - top, centerX = (left + right) / 2;
+  const artH = bottom - top, centerX = Number.isFinite(s.seatFoot)
+    ? tlx + shown.baseX * scaleX : (left + right) / 2;
   const overlap = bottom - CELL_BOTTOM;
-  const targetBottom = fits ? artH / 2 : CELL_BOTTOM - 1;
+  const targetBottom = Number.isFinite(s.seatFoot) ? (s.seatFoot - 0.5) * 32
+    : fits ? artH / 2 : CELL_BOTTOM - 1;
 
   if (overlap > TOL_OVERLAP) violations.push(`overlaps cell below by ${overlap.toFixed(1)}px`);
   if (Math.abs(centerX) > TOL_CENTER) violations.push(`off-centre X by ${centerX.toFixed(1)}px`);
@@ -484,7 +497,7 @@ function emitBounds() {
     for (const fi of sh.frames) {
       const b = trimSheetFrame(sh.file, sh.fw, sh.fh, sh.sourceFrame ?? fi);
       lines.push(`    '${key}:${fi}': { fw: ${b.fw}, fh: ${b.fh}, ` +
-        `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY} },`);
+        `minX: ${b.minX}, minY: ${b.minY}, maxX: ${b.maxX}, maxY: ${b.maxY}${key === 'furniture' ? `, baseX: ${b.baseX}` : ''} },`);
     }
   }
   console.log('  const ART_BOUNDS = {\n' + lines.join('\n') + '\n  };');

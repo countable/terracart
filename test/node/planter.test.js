@@ -111,6 +111,13 @@
       const seat = Render.plantPlacement({ planter: 'pot' }, null, stage, stage);
       assert.eq(seat.scl, 1); assert.eq(seat.oy, 0); assert.eq(seat.dyPx, -13);
     }
+    for (const itemId of ['planter_clay', 'planter_copper']) {
+      const b = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(itemId)}`];
+      const scene = { save: { furniture: [{ id: 'pot', itemId }] } };
+      const seat = Render.plantPlacement({ planter: 'pot' }, null, 1, 1, scene);
+      assert.inRange(Math.abs(seat.dyPx - (-13 + 32 / 6 - (b.maxY - b.minY) / 2)), 0, 1e-8,
+        'crop moves with its planter soil');
+    }
     assert.eq(Render.plantPlacement({ crop: 'potato' }, null, 1, 1).scl, 1.6,
       'ordinary field crop presentation stays unchanged');
   });
