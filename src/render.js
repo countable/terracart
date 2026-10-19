@@ -2592,14 +2592,22 @@ Render.drawCells = function drawCells(scene) {
         }
         if (GroundFire.active(fire, fireNow)) {
           // Three tongues stay within their cell and flicker out of phase.
+          // Flames rise up the SCREEN, not toward map north: this graphic
+          // turns with the map under heading-up, so the tongues are laid out
+          // along the turned screen's right (rx, ry) and up (ux, uy) about
+          // the cell centre.
+          const up = typeof HeadingUp !== 'undefined' ? HeadingUp.toWorldVec(scene, 0, -1) : { x: 0, y: -1 };
+          const ux = up.x, uy = up.y, rx = -uy, ry = ux;
+          const cx = sx + CELL_PX / 2, cy = sy + CELL_PX / 2;
+          const at = (r, u) => [cx + rx * r + ux * u, cy + ry * r + uy * u];
           for (let n = 0; n < 3; n++) {
-            const fx = sx + 7 + n * 9;
-            const fy = sy + 24 - (n % 2) * 4;
+            const br = (n - 1) * 9, bu = -8 + (n % 2) * 4;   // the tongue's base
             const height = 12 + 4 * Math.sin(texNow / 120 + n * 2 + _absIX + _absIY);
             fg.fillStyle(0xed591a, 0.95);
-            fg.fillTriangle(fx - 5, fy, fx + 5, fy, fx + Math.sin(texNow / 170 + n) * 3, fy - height);
+            fg.fillTriangle(...at(br - 5, bu), ...at(br + 5, bu),
+              ...at(br + Math.sin(texNow / 170 + n) * 3, bu + height));
             fg.fillStyle(0xffd45b, 1);
-            fg.fillTriangle(fx - 2, fy, fx + 2, fy, fx, fy - height * 0.55);
+            fg.fillTriangle(...at(br - 2, bu), ...at(br + 2, bu), ...at(br, bu + height * 0.55));
           }
         }
       }
