@@ -54,7 +54,7 @@
       }
     }
   });
-  test('sewer wall curves stay inside every footprint and keep the complete crown', () => {
+  test('sewer wall curves stay inside every footprint with a crown matching the recessed face', () => {
     const points = [{x: 0, y: 0}, {x: 32, y: 0}, {x: 32, y: 32}, {x: 0, y: 32}];
     for (let mask = 0; mask < 16; mask++) for (let diagonal = 0; diagonal < 16; diagonal++) {
       const faces = FloorWallMaterials.geometry(points, mask, 0, 1, diagonal);
@@ -68,15 +68,19 @@
         if (shared.has(key)) assert.eq(shared.get(key), [p.u, p.v].join(','), 'subdivision UVs meet exactly');
         else shared.set(key, [p.u, p.v].join(','));
       }
-      assert.eq(JSON.stringify(faces.filter(f => !f.normal)),
-        JSON.stringify(FloorWallMaterials.geometry(points, mask, 0, 2).filter(f => !f.normal)));
+      const crown = faces.filter(f => !f.normal).flatMap(f => f.points);
+      for (const p of faces.filter(f => f.normal).flatMap(f => f.points).filter(p => p.z === 19))
+        assert.truthy(crown.some(q => q.x === p.x && q.y === p.y), 'crown meets the recessed face');
+      if (mask === 15) for (const p of crown) {
+        assert.inRange(p.x, 4, 28); assert.inRange(p.y, 4, 28);
+      }
     }
     const faces = FloorWallMaterials.geometry(points, 15, 0, 1);
-    assert.eq(faces.length, 42, 'shoulder, upright and three curve strips per exposed side, plus crown');
+    assert.eq(faces.length, 36, 'upright and three curve strips per side, plus inset crown');
     // Every outer-corner profile joins exactly with its adjoining face.
     const south = faces.filter(f => f.normal?.y === 1).flatMap(f => f.points);
     const east = faces.filter(f => f.normal?.x === 1).flatMap(f => f.points);
-    for (const p of south.filter(p => p.x >= 29))
+    for (const p of south.filter(p => p.x >= 28))
       assert.truthy(east.some(q => p.x === q.x && p.y === q.y && p.z === q.z), 'miter joins without a slit');
     const levels = [...new Set(south.map(p => p.z))].sort((a, b) => a - b);
     for (const z of levels) {

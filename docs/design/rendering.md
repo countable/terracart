@@ -485,11 +485,11 @@ the real source so a missing texture cannot become a permanent cached palette.
   Atlases are baked once at startup. Live neighbour masks rebuild geometry after
   mining or tile arrival; compass and fractional camera movement reuse it.
   Internal faces are omitted, and individual blocks share the actor depth sort.
-  L1 recesses the upright face 3px, with a shallow upper shoulder and three
+  L1 recesses the upright face 4px, with the crown pulled back to meet it and three
   quarter-circle strips returning to the floor boundary. The entire profile
-  stays inside its cell and the crown remains full width. Exposed outer corners
+  stays inside its cell; the crown follows the recessed face without an overhang. Exposed outer corners
   use inward miters; closed diagonals pin inside-corner endpoints, tapering the
-  recess over 3px so L/T junctions close without holes. Straight cell seams
+  recess over 4px so L/T junctions close without holes. Straight cell seams
   retain identical profiles. Continuous UVs span the subdivisions; camera-facing
   selection uses the existing retained renderer, including compass rotation.
   Depth-specific parts hide on floor changes. L6 keeps near-black caps and a

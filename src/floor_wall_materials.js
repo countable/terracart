@@ -120,10 +120,10 @@
     return [[0, 1, 2], [0, 2, 3]].map(indices => ({points: indices.map(i => verts[i]), normal, color: 0xffffff}));
   }
   // L1 keeps its entire profile within the original cell. A recessed face
-  // joins the full crown through a shoulder, then a three-segment quarter pipe
+  // meets the pulled-back crown directly, then a three-segment quarter pipe
   // returns to the original floor boundary. The same retained faces rotate with
   // the compass; visibility remains WallPerspective's responsibility.
-  const SEWER_RADIUS = 3, SEWER_STEPS = 3;
+  const SEWER_RADIUS = 4, SEWER_STEPS = 3;
   function geometry(points, mask, v, depth = 0, diagonalMask = 0) {
     const faces = [], curved = depth === 1;
     const normals = points.map((a, i) => {
@@ -131,9 +131,8 @@
       const length = Math.hypot(dx, dy);
       return {x: dy / length, y: -dx / length};
     });
-    const profile = [{z: HEIGHT, inset: 0}];
+    const profile = [{z: HEIGHT, inset: curved ? SEWER_RADIUS : 0}];
     if (curved) {
-      profile.push({z: HEIGHT - SEWER_RADIUS, inset: SEWER_RADIUS});
       for (let step = 0; step <= SEWER_STEPS; step++) {
         const angle = step * Math.PI / (2 * SEWER_STEPS);
         profile.push({z: step === SEWER_STEPS ? 0 : SEWER_RADIUS * (1 - Math.sin(angle)),
@@ -144,26 +143,41 @@
     for (let i = 1; i < profile.length; i++) distances.push(distances[i - 1]
       + Math.hypot(profile[i].z - profile[i - 1].z, profile[i].inset - profile[i - 1].inset));
     const total = distances[distances.length - 1];
-    for (let i = 0; i < 4; i++) if (mask & (1 << i)) {
+    const crown = [];
+    for (let i = 0; i < 4; i++) {
+      const exposed = !!(mask & (1 << i));
       const next = (i + 1) % 4, prev = (i + 3) % 4;
       const a = points[i], b = points[next], normal = normals[i];
       const length = Math.hypot(b.x - a.x, b.y - a.y);
       // A closed diagonal at a hidden adjoining side is an inside corner.
-      // Pin that endpoint and taper the recess over 3px to close the junction.
-      const pinA = curved && !(mask & (1 << prev)) && !!(diagonalMask & (1 << i));
-      const pinB = curved && !(mask & (1 << next)) && !!(diagonalMask & (1 << next));
+      // Pin that endpoint and taper the recess over the curve radius to close the junction.
+      const pinA = curved && exposed && !(mask & (1 << prev)) && !!(diagonalMask & (1 << i));
+      const pinB = curved && exposed && !(mask & (1 << next)) && !!(diagonalMask & (1 << next));
       const stops = [0, ...(pinA ? [SEWER_RADIUS / length] : []),
         ...(pinB ? [1 - SEWER_RADIUS / length] : []), 1];
       const vertex = (t, p) => {
-        const factor = t === 0 && pinA || t === 1 && pinB ? 0 : 1;
-        let nx = normal.x, ny = normal.y;
         const adjoining = t === 0 ? prev : t === 1 ? next : -1;
+        const corner = t === 0 ? i : next;
+        const pinned = adjoining >= 0 && !!(diagonalMask & (1 << corner))
+          && exposed !== !!(mask & (1 << adjoining));
+        const factor = curved && pinned ? 0 : 1;
+        let nx = exposed ? normal.x : 0, ny = exposed ? normal.y : 0;
         if (adjoining >= 0 && (mask & (1 << adjoining))) {
           nx += normals[adjoining].x; ny += normals[adjoining].y;
         }
         return {x: a.x + (b.x - a.x) * t - nx * p.inset * factor,
           y: a.y + (b.y - a.y) * t - ny * p.inset * factor, z: p.z};
       };
+      if (curved) for (const t of stops.slice(0, -1)) {
+        const p = vertex(t, profile[0]);
+        // Keep the original rim UV at the pulled-back boundary.
+        const uv = quad(points.map(q => ({...q, z: HEIGHT})), null,
+          [(mask & 15) * CELL, v * CELL, CELL, CELL]);
+        const corners = [uv[0].points[0], uv[0].points[1], uv[0].points[2], uv[1].points[2]];
+        crown.push({...p, u: corners[i].u + (corners[next].u - corners[i].u) * t,
+          v: corners[i].v + (corners[next].v - corners[i].v) * t});
+      }
+      if (!exposed) continue;
       for (let j = 1; j < profile.length; j++) for (let k = 1; k < stops.length; k++) {
         const lo = stops[k - 1], hi = stops[k];
         const strip = quad([vertex(lo, profile[j - 1]), vertex(hi, profile[j - 1]),
@@ -172,7 +186,16 @@
         faces.push(...strip);
       }
     }
-    faces.push(...quad(points.map(p => ({...p, z: HEIGHT})), null, [(mask & 15) * CELL, v * CELL, CELL, CELL]));
+    if (curved) {
+      const centre = {x: points.reduce((n,p) => n+p.x, 0) / 4,
+        y: points.reduce((n,p) => n+p.y, 0) / 4, z: HEIGHT,
+        u: ((mask & 15) * CELL + CELL / 2) / WIDTH, v: (v * CELL + CELL / 2) / ATLAS_HEIGHT};
+      for (let i = 0; i < crown.length; i++) {
+        const a = crown[i], b = crown[(i + 1) % crown.length];
+        if (a.x !== b.x || a.y !== b.y)
+          faces.push({points: [centre, a, b], normal: null, color: 0xffffff});
+      }
+    } else faces.push(...quad(points.map(p => ({...p, z: HEIGHT})), null, [(mask & 15) * CELL, v * CELL, CELL, CELL]));
     return faces;
   }
   global.FloorWallMaterials = {theme, variant, prepare, prepareAll, drawAtlas, geometry,
