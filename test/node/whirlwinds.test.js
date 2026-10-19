@@ -1,7 +1,8 @@
 (function () {
   function fixture(run) {
     const W = WorldGen, key = W.tileKey(0, 0), previous = W.tileCache.get(key);
-    const rng = W.makeRng, nearby = W.forEachItemNear, veto = W.privateVetoAt;
+    const rng = W.makeRng, nearby = W.forEachItemNear, veto = W.privateVetoAt, home = HomeArea.worldM;
+    HomeArea.worldM = null;
     const entry = { cellsPerEdge: 8, grid: new Uint8Array(64).fill(W.T.GRASS),
       creatures: [], _spawnOpts: { roadMask: new Uint8Array(64), spawnWhy: new Uint16Array(64), occupied: new Set() } };
     W.tileCache.set(key, entry);
@@ -26,9 +27,18 @@
     };
     try { run(scene, entry); } finally {
       if (previous) W.tileCache.set(key, previous); else W.tileCache.delete(key);
-      W.makeRng = rng; W.forEachItemNear = nearby; W.privateVetoAt = veto;
+      W.makeRng = rng; W.forEachItemNear = nearby; W.privateVetoAt = veto; HomeArea.worldM = home;
     }
   }
+  test('whirlwind: never in the starting area; a wind gust still may', () => fixture((s, e) => {
+    HomeArea.setOrigin(0, 0);
+    const edge = HomeArea.NEAR_M;
+    assert.falsy(Whirlwinds.ground(s, 24, 24), 'home turf is calm');
+    assert.truthy(Whirlwinds.ground(s, 24, 24, null, true), 'a gust ignores the whirlwind rule');
+    Whirlwinds.observe(s, 0); assert.eq(s._whirlwinds.length, 0, 'no encounter at the start');
+    HomeArea.setOrigin(-edge, 24);
+    assert.truthy(Whirlwinds.ground(s, 24, 24), 'open grass beyond the starting area');
+  }));
   test('whirlwind: one visit roll, school permitted, kindergarten and road excluded', () => fixture((s, e) => {
     e.grid.fill(WorldGen.T.SCHOOL);
     assert.truthy(Whirlwinds.ground(s, 24, 24));

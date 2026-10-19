@@ -80,6 +80,9 @@ access or tile lifecycle mechanics.
   ghosts, starter/story creatures, crop pests, saved pets and summons remain
   feature/progression/player-driven exceptions; all placement still uses the
   shared gate. Hazards such as vents and whirlwinds retain their own system.
+  Whirlwinds form and wander only on plain GRASS, PITCH and SCHOOL cells
+  (never park, playground or a Nexus zone's terrain) and never within
+  `HomeArea.isNear` of the start; a Scroll of Wind gust is not bound by either.
 
 - Cave ambient enemies use stable request IDs: packs end in `pack_<ordinal>`
   and roamers in `roam_<blockX>_<blockY>`, after the depth/tile prefix. Their

@@ -8,7 +8,8 @@
     activeFrameMs: 110, frameSize: 48, anchor: [24, 44] });
 
   // Open turf only: grass landcover, sports pitches and schoolyards — never
-  // park or playground cells.
+  // park or playground cells, nor a Nexus zone's own terrain. Never the
+  // starting area either (HomeArea.isNear, the shared near-the-start test).
   function terrain(type) {
     const T = root.WorldGen.T;
     return [T.GRASS, T.PITCH, T.SCHOOL].includes(type);
@@ -20,6 +21,7 @@
     if (!p.loaded) return false;
     const W = root.WorldGen, entry = W.tileCache.get(W.tileKey(p.tx, p.ty));
     if (!entry?._spawnOpts || (!anyGround && !terrain(p.type))) return false;
+    if (!anyGround && typeof HomeArea !== 'undefined' && HomeArea.isNear(x, y)) return false;
     // The shared gate keeps roads, restricted land and KINDERGARTEN out;
     // SCHOOL is deliberately allowed, just as ordinary school fields are.
     // A pushed creature may occupy a reserved spawn seat. Allow it to leave
