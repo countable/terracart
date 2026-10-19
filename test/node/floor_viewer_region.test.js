@@ -62,15 +62,15 @@
     }
   });
 
-  test('floor viewer region: residential covers a fifth and smaller zones leave open grass', async () => {
+  test('floor viewer region: residential extends ten rows and smaller zones leave open grass', async () => {
     const R = FloorViewerRegion;
     const uses = R.makeLayers().find(layer => layer.name === 'landuse').features;
     const area = feature => {
       const ring = feature.geom[0];
       return (ring[1].x - ring[0].x) * (ring[2].y - ring[1].y) / (R.CELL * R.CELL);
     };
-    assert.eq(Math.round(area(uses.find(f => f.tags.class === 'residential'))), 414,
-      'the contiguous residential block occupies roughly one fifth of 2100 cells');
+    assert.eq(Math.round(area(uses.find(f => f.tags.class === 'residential'))), 644,
+      'the contiguous residential block occupies 23 by 28 cells in the taller viewport');
     assert.falsy(uses.some(f => f.tags.class === 'commercial' && f.geom[0][0].y >= 6 * R.CELL),
       'commercial zoning stays above the parking lot');
     assert.eq(uses.filter(f => f.tags.class === 'park').length, 1, 'only the grove park remains');
@@ -106,9 +106,10 @@
     const at = t => counts.get(T[t]) || 0;
     assert.gt(at('FOREST'), 40, 'forest patch paints');
     assert.eq(entry.grid[15 * FloorViewerRegion.N + 55], T.FOREST, 'forest sits below the eastern grove');
+    assert.eq(entry.grid[25 * FloorViewerRegion.N + 55], T.FOREST, 'forest paints the added rows');
     const lot = entry.grid[12 * FloorViewerRegion.N + 7];
     assert.eq(lot, T.ROCK, 'parking lot becomes quarry ground');
-    for (let y = 8; y < 21; y++) for (let x = 4; x < 12; x++) {
+    for (let y = 8; y < 31; y++) for (let x = 4; x < 12; x++) {
       const i = y * FloorViewerRegion.N + x;
       assert.falsy(entry.grid[i] === T.COMMERCIAL, 'commercial ground never splits the parking lot');
       if (entry.roadMask[i] || WorldGen.isRoadTerrain(entry.grid[i])) continue;
@@ -118,7 +119,7 @@
     assert.eq(entry.grid[21 * FloorViewerRegion.N + 25], T.RESIDENTIAL, 'residential fills the west side above the medium road');
     assert.eq(at('FARMLAND'), 0, 'farmland is replaced by the parking lot');
     assert.eq(FloorViewerRegion.WIDTH, 60, 'the viewport is sixty cells wide');
-    assert.eq(FloorViewerRegion.HEIGHT, 35, 'the viewport is thirty-five cells high');
+    assert.eq(FloorViewerRegion.HEIGHT, 45, 'the viewport is forty-five cells high');
     assert.gt(at('RESIDENTIAL'), 100, 'residential belt paints');
     assert.gt(at('COMMERCIAL'), 40, 'commercial block paints');
     assert.gt(at('BUILDING'), 20, 'house and shop footprints paint');
@@ -127,7 +128,7 @@
     assert.gt(at('SAND'), 60, 'the beach paints');
     assert.gt(at('WATER'), 60, 'the lake paints');
     assert.eq(at('PITCH'), 0, 'the sports pitch is replaced by the tar yard');
-    assert.truthy(entry.zone.anchors.some(a => a.kind === 'tar' && a.gy / FloorViewerRegion.CELL > 24),
+    assert.truthy(entry.zone.anchors.some(a => a.kind === 'tar' && a.gy / FloorViewerRegion.CELL > 34),
       'the tar yard sits below the medium road');
     assert.gt(at('ROAD') + at('ROAD_MD') + at('ROAD_LG'), 50, 'streets paint in all three tiers');
     // The lake stays small: well under an eighth of the tile.
@@ -188,7 +189,7 @@
     for (let y = 0; y < N; y++) if (isRoad(entry.grid[y * N + 22])) minor++;
     assert.gt(lg, minor, 'the primary paints a wider band than a residential street');
     // Beach: the north strip above the lake (rows ly-5..ly-1 at the lake's x range) is SAND, row ly-6 is not.
-    const lx = 48, ly = 27;
+    const lx = 48, ly = 37;
     for (let dy = 1; dy <= 5; dy++) {
       const i = (ly - dy) * N + (lx + 4);
       assert.eq(entry.grid[i], T.SAND, `beach row ${dy} cells above the lake is sand`);

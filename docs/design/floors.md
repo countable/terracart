@@ -31,6 +31,12 @@ Depth 0 is the surface. Each cave tile derives from the immutable surface or
 its generated predecessor, as selected by `WorldGen.floorProfile`, so a floor's identity comes from three things:
 its terrain rule, its content windows, and its route in.
 
+The [floor viewer](../../tools/floor-viewer.html) previews a 60×45-cell region,
+aligned to the top beside a scrollable control sidebar. Its residential, forest,
+and parking/quarry strips extend through the middle of the fixture; the southern
+road and lakeside landmarks sit below them. The viewer uses the live generation
+pipeline for both the surface and underground floors.
+
 ## Sky floor (depth -1)
 
 One level above the ground (`WorldGen.SKY_DEPTH`), the sky floor holds trials
