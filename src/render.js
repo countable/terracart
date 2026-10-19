@@ -4169,18 +4169,28 @@ const GROUND_MARK = {
   px: 42,
   tilt: 0.5,
   stepDeg: 3,
-  // [line width in the bake, colour, alpha]: under-stroke, halo, line;
-  // `weight` scales all three for a mark drawn heavier than the default.
-  strokes: (ink, weight = 1) => [[6 * weight, '#000', 0.5], [5 * weight, ink, 0.18], [2 * weight, ink, 1]],
+  // [line width in the bake, colour, alpha]: under-stroke, halo, line.
+  strokes: (ink) => [[6, '#000', 0.5], [5, ink, 0.18], [2, ink, 1]],
 };
 // The GPS ring's geometry in bake px: a ring around the feet with four short
 // ticks crossing it (an open ring, never a filled disc — a small gold disc is a
 // coin in this game), a strip over the 90° after which the ticks repeat. The
-// walk-home lead stops on the ring (app.js). Its own on-screen width, tilt and
-// stroke weight rather than GROUND_MARK's: at the shared 0.5 tilt the ring read
-// too squashed and its line too faint under the feet. `weight` is set so the
-// line lands about 1.3× the shared marks' on screen at this narrower width.
-const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 38, tilt: 0.6, weight: 1.44 };
+// walk-home lead stops on the ring (app.js). Its own on-screen width and tilt
+// rather than GROUND_MARK's (at the shared 0.5 tilt it read squashed), and
+// the facing caret's paint rather than the rune circle's halo: a gold line on
+// a dark outline, with a soft drop shadow `shadowPx` down the screen. `line`
+// and `outline` are on-screen px, as the caret's are (FACING_CHEVRON).
+const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
+  line: 1.2, outline: 2.8, shadowPx: 1, ink: '#ffe066' };
+// The ring's stroke passes in bake px, [width, colour, alpha, dy]: dy shifts
+// a pass down the bake before it turns, which the tilt lays flat as screen-down
+// (the ring is counter-rotated to stay screen-flat under heading-up).
+GPS_RING.passes = (() => {
+  const k = GROUND_MARK.bakePx / GPS_RING.px;
+  return [[GPS_RING.outline * k, '#000', 0.45, GPS_RING.shadowPx * k / GPS_RING.tilt],
+    [GPS_RING.outline * k, '#1a1208', 1, 0],
+    [GPS_RING.line * k, GPS_RING.ink, 1, 0]];
+})();
 // The frame of rotation strip `key` showing the mark turned `turnDeg`
 // clockwise on screen, with the map's own turn under heading-up folded in.
 Render.groundMarkFrame = function groundMarkFrame(scene, key, turnDeg = 0) {

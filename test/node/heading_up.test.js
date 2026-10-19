@@ -391,3 +391,27 @@ test('heading up: the caret\'s drop shadow falls down the screen at any map turn
     assert.lt(Math.abs(s.y - 1), 1e-9, `the shadow sits 1px below on screen at ${rot}`);
   }
 });
+
+test('heading up: the direction caret never lands on the GPS ring', () => {
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const pts = [];
+  const gfx = { clear() { pts.length = 0; }, lineStyle() {}, beginPath() {}, moveTo(x, y) { pts.push({ x, y }); },
+    lineTo(x, y) { pts.push({ x, y }); }, strokePath() {}, fillStyle() {}, fillCircle() {} };
+  const feet = { x: 100, y: 100 };
+  const ring = { visible: true, x: feet.x, y: feet.y, displayWidth: GPS_RING.px };
+  const scene = { _headingUp: false, facingChevronGfx: gfx, gpsGhost: ring,
+    player: { displayWidth: 24, displayHeight: 24 }, playerBodyDy: () => -9 };
+  const chevron = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+  const rx = GPS_RING.px * GPS_RING.r / GROUND_MARK.bakePx, ry = rx * GPS_RING.tilt;
+  for (let deg = 0; deg < 360; deg += 15) {
+    const a = deg * Math.PI / 180;
+    scene.facing = { x: Math.sin(a), y: -Math.cos(a) };
+    draw.call(scene, feet, 0.6, chevron);
+    for (const p of pts.slice(0, 3)) {
+      const d = ((p.x - ring.x) / rx) ** 2 + ((p.y - ring.y) / ry) ** 2;
+      assert.gt(d, 1, `facing ${deg}°, the caret sits outside the ring`);
+    }
+  }
+});
