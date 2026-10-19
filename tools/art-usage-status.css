@@ -1,0 +1,4 @@
+.art-usage-status{margin:6px 0;max-width:440px;font-size:12px;white-space:normal}
+.art-usage-status summary{cursor:pointer;font-weight:600;color:#edc58d}
+.art-usage-status[data-usage="uncertain"] summary{color:#b8c8dc}
+.art-usage-status p{margin:6px 0;line-height:1.5}.art-usage-status small{overflow-wrap:anywhere;display:block}

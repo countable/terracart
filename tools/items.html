@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Item catalogue · Dragon Hood</title>
+<link rel="stylesheet" href="art-selections.css">
+<link rel="stylesheet" href="art-usage-status.css">
 <style>
 :root{color-scheme:dark;--bg:#111;--panel:#1a1612;--ink:#ddd;--muted:#aaa;--gold:#ffd866;--line:#393126}
 *{box-sizing:border-box}body{margin:0 auto;padding:24px;max-width:1500px;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif}a{color:#8ec5ff}h1{font-size:26px;color:var(--gold);margin:18px 0 8px}p{color:var(--muted);line-height:1.5;margin:6px 0}.controls{display:flex;flex-wrap:wrap;gap:14px;margin:22px 0 14px;align-items:end}label{display:grid;gap:6px;font-size:12px;color:var(--muted)}input,select{font:inherit;color:var(--ink);background:#211d18;border:1px solid #65553d;border-radius:5px;padding:9px}input{width:300px;max-width:100%}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:14px}table{border-collapse:collapse;width:100%;background:var(--panel);font-size:13px}th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:#282119;color:var(--gold);white-space:nowrap}td.name{min-width:180px}td.description{min-width:220px;max-width:370px;line-height:1.5}td.sources{min-width:230px;max-width:430px;line-height:1.6}td.value{white-space:nowrap;font-variant-numeric:tabular-nums}.muted,small{color:var(--muted)}small{display:block;margin-top:5px;font:11px ui-monospace,monospace}.art{min-width:64px;text-align:center;vertical-align:middle}.art span{background-repeat:no-repeat}.tag{display:inline-block;background:#2b251d;border:1px solid #4c4030;border-radius:4px;padding:1px 6px;margin:2px;font-size:11px}summary{cursor:pointer;color:#8ec5ff}#status{margin-top:12px}#empty{padding:30px;text-align:center}button{font:inherit;color:var(--ink);background:#30291f;border:1px solid #65553d;padding:9px;border-radius:5px;cursor:pointer}@media(max-width:600px){body{padding:14px}.controls>label:first-child{width:100%}input{width:100%}h1{font-size:22px}}
@@ -35,7 +37,7 @@
 <script src="game-loader.js"></script>
 <script src="item-catalog-data.js"></script>
 <script src="item-art-candidates.js"></script>
-<script src="art-alternative-ids.js"></script>
+<script src="art-alternative-ids.js"></script><script src="art-selections.js"></script><script src="art-usage-status.js"></script>
 <script>
 const el = id => document.getElementById(id);
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -56,7 +58,7 @@ function candidateHTML(row, pack) {
   const url = source.image || 'art-candidates/items/' + source.file;
   const cell = source.cell || 16, inset = source.inset || 0;
   const [x, y, width, height] = source.crop || [candidate.col * cell + inset, candidate.row * cell + inset, 16, 16];
-  return `<code data-alternative-id="${candidate.alternativeId}">${candidate.alternativeId}</code><div class="candidate-preview"><img alt="${escapeHTML(source.name + ' alternative for ' + row.name)}" width="40" height="40" src="${candidatePreviews.get(pack + ':' + row.id + ':' + index)}"><span class="tag">${source.status || 'Candidate'}</span></div><p>${escapeHTML(candidate.note)}</p><details><summary>Source &amp; crop</summary><a href="${url}" target="_blank" rel="noopener">${escapeHTML(source.file || source.source.split('/').pop())}</a><small>x ${x}, y ${y}, w ${width}, h ${height}${source.crop ? ' · original source pixels' : ` · column ${candidate.col}, row ${candidate.row} in ${cell}px source grid (zero-based${inset ? `; ${inset}px inset` : ''})`}</small><small>${escapeHTML(source.source)}</small></details>`;
+  return `<button type="button" class="art-choice" aria-pressed="false" data-art-domain="item" data-art-target="${escapeHTML(row.id)}" data-art-label="${escapeHTML(row.name)}" data-art-alt="${candidate.alternativeId}" aria-label="Save ${candidate.alternativeId} for ${escapeHTML(row.name)}"><code data-alternative-id="${candidate.alternativeId}">${candidate.alternativeId}</code><span class="candidate-preview"><img alt="${escapeHTML(source.name + ' alternative for ' + row.name)}" width="40" height="40" src="${candidatePreviews.get(pack + ':' + row.id + ':' + index)}"><span class="tag">${source.status || 'Candidate'}</span></span></button><p>${escapeHTML(candidate.note)}</p><details><summary>Source &amp; crop</summary><a href="${url}" target="_blank" rel="noopener">${escapeHTML(source.file || source.source.split('/').pop())}</a><small>x ${x}, y ${y}, w ${width}, h ${height}${source.crop ? ' · original source pixels' : ` · column ${candidate.col}, row ${candidate.row} in ${cell}px source grid (zero-based${inset ? `; ${inset}px inset` : ''})`}</small><small>${escapeHTML(source.source)}</small></details>`;
   }).map(html => `<div class="candidate-option">${html}</div>`).join('');
 }
 async function loadFurnitureCandidates() {
@@ -132,13 +134,13 @@ function sourceHTML(row) {
 }
 function render() {
   const query = el('search').value.trim().toLowerCase(), category = el('category').value, tier = el('tier').value, chest = el('chest').value, alternatives = el('alternatives').value;
-  const rows = catalogue.filter(row => (!query || `${row.name} ${row.id} ${row.description} ${Object.values(ItemArtCandidates.rows[row.id] || {}).flat().map(c => c.alternativeId).join(" ")}`.toLowerCase().includes(query))
+  const rows = catalogue.filter(row => (!query || `${row.name} ${row.id} ${row.description} ${ArtUsageStatus.search('item', row.id)} ${Object.values(ItemArtCandidates.rows[row.id] || {}).flat().map(c => c.alternativeId).join(" ")}`.toLowerCase().includes(query))
     && (!alternatives || (alternatives === 'any' ? !!ItemArtCandidates.rows[row.id] : alternatives === 'smaller' ? Object.keys(ItemArtCandidates.rows[row.id] || {}).some(key => ItemArtCandidates.packs[key].group === 'smaller') : alternatives === 'none' ? !ItemArtCandidates.rows[row.id] : !!ItemArtCandidates.rows[row.id]?.[alternatives]))
     && (!category || row.category === category) && (!tier || String(row.tier) === tier)
     && (!chest || (chest === 'none' ? !row.chests.length : row.chests.some(source => source.context === chest))));
   const sort = el('sort').value;
   rows.sort((a,b) => (sort === 'value-desc' ? b.value-a.value : sort === 'value-asc' ? a.value-b.value : sort === 'tier' ? a.tier-b.tier : sort === 'category' ? a.category.localeCompare(b.category) : 0) || a.name.localeCompare(b.name));
-  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="name" data-sort-value="${escapeHTML(row.name)}"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small></td><td class="art">${iconHTML(row)}</td><td class="candidate">${candidateHTML(row, 'rogue')}</td><td class="candidate">${candidateHTML(row, 'dreamland')}</td><td class="candidate">${candidateHTML(row, 'smaller')}</td><td class="value" data-sort-value="${row.value}">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td data-sort-value="${row.tier || 0}">${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
+  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="name" data-sort-value="${escapeHTML(row.name)}"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small>${ArtUsageStatus.badge('item', row.id)}</td><td class="art">${iconHTML(row)}</td><td class="candidate">${candidateHTML(row, 'rogue')}</td><td class="candidate">${candidateHTML(row, 'dreamland')}</td><td class="candidate">${candidateHTML(row, 'smaller')}</td><td class="value" data-sort-value="${row.value}">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td data-sort-value="${row.tier || 0}">${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
   SortableTables.refresh(el('rows').closest('table'));
   el('status').textContent = `${rows.length} of ${catalogue.length} items · ${catalogue.filter(row => ItemArtCandidates.rows[row.id]).length} items with reviewed alternatives`;
   el('alternative-scope').hidden = !alternatives;
@@ -217,7 +219,7 @@ async function preparePreviewIcons(rows) {
     catalogue = ItemCatalog.build();
     await loadFurnitureCandidates();
     await loadIndexedCandidates();
-    await ArtAlternativeIds.load();
+    await Promise.all([ArtAlternativeIds.load(), ArtUsageStatus.load()]);
     await Promise.all([preparePreviewIcons(catalogue), prepareCandidatePreviews()]);
     const fill = (id, values, label = value => value) => values.forEach(value => el(id).add(new Option(label(value), value)));
     fill('category', [...new Set(catalogue.map(row => row.category))].sort());

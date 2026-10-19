@@ -1,0 +1,1543 @@
+{
+  "schemaVersion": 1,
+  "notes": [
+    "Static audit of current source and catalogue, not player telemetry. Unused means the displayed artwork has no current normal-game appearance route; the named gameplay object or item may still be active.",
+    "Planned means approved reference art with no implemented placement/render route. Do not remove planned art automatically.",
+    "All 353 item rows have a traced acquisition route; no item is marked unused. This includes furniture and dynamically generated gear, animals and tomes.",
+    "World catalogue has 267 rows. Review traced catalogue inclusion, live render dispatch and dynamic selectors; only proven retired or unimplemented rows are flagged. Unflagged world rows are not a guarantee of exhaustive playthrough coverage.",
+    "Audit is a source snapshot. Revisit findings if the evidence files change. Development sandboxes and art preview tools are outside normal-game use."
+  ],
+  "summary": {
+    "itemRows": 353,
+    "itemRowsWithAcquisitionRoute": 353,
+    "worldRows": 267,
+    "worldFlagged": 45,
+    "worldStatuses": {
+      "unused": 25,
+      "planned": 20
+    }
+  },
+  "rows": [
+    {
+      "catalogue": "world",
+      "id": "cave_props:quartz_rock",
+      "status": "unused",
+      "reason": "Retired deposit artwork. The gem deposit and its inventory item are still used; its world appearance now comes from rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:topaz_rock",
+      "status": "unused",
+      "reason": "Retired deposit artwork. The gem deposit and its inventory item are still used; its world appearance now comes from rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:amethyst_rock",
+      "status": "unused",
+      "reason": "Retired deposit artwork. The gem deposit and its inventory item are still used; its world appearance now comes from rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:ruby_rock",
+      "status": "unused",
+      "reason": "Retired deposit artwork. The gem deposit and its inventory item are still used; its world appearance now comes from rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:emerald_rock",
+      "status": "unused",
+      "reason": "Retired deposit artwork. The gem deposit and its inventory item are still used; its world appearance now comes from rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:diamond_rock",
+      "status": "unused",
+      "reason": "Retired deposit artwork. The gem deposit and its inventory item are still used; its world appearance now comes from rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:59",
+      "status": "unused",
+      "reason": "Retired sapphire/crystal deposit artwork; live deposits use rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:64",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:65",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:66",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:67",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:68",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:69",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:70",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_objects:71",
+      "status": "unused",
+      "reason": "Retired zone rock frame; legacy frame numbers select a zone palette, then the world renderer draws rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "src/items.js",
+          "line": 425,
+          "detail": "Legacy frames 64\u201371 are interpreted as theme metadata, not rendered."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "mineralboulder",
+      "status": "unused",
+      "reason": "Legacy rock sheet retained by the asset/bounds catalogue. No current object appearance selects this sheet; rocks and deposits use rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 60,
+          "detail": "Dashboard includes registered ART_BOUNDS even when no active renderer selects them."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "crystal_cluster",
+      "status": "unused",
+      "reason": "Legacy rock sheet retained by the asset/bounds catalogue. No current object appearance selects this sheet; rocks and deposits use rock_variants.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 386,
+          "detail": "Legacy deposit art retained for layout/reference tools; world renderer uses mineralRockArtFrame."
+        },
+        {
+          "file": "src/items.js",
+          "line": 442,
+          "detail": "Active mineral rock texture is always rock_variants."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6520,
+          "detail": "Runtime mineralrock renderer uses the new resolver."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 60,
+          "detail": "Dashboard includes registered ART_BOUNDS even when no active renderer selects them."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "zone_berry_bush",
+      "status": "unused",
+      "reason": "Retired standalone berry-bush texture. Current berry plants use bushes_fruiting and the shared bush geometry; this row survives through ART_BOUNDS.",
+      "evidence": [
+        {
+          "file": "src/items.js",
+          "line": 57,
+          "detail": "Mature berry plants use ordinary bushes plus berry overlays."
+        },
+        {
+          "file": "src/items.js",
+          "line": 60,
+          "detail": "Current mature berry texture."
+        },
+        {
+          "file": "src/sprite_layout.js",
+          "line": 365,
+          "detail": "Old bounds retain the standalone texture in the dashboard."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:ground_hole",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Current holes use the connected cave_chasm sheet.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6532,
+          "detail": "Current holes use the connected cave_chasm sheet."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:roots",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:gong",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:cookpot",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:lookout",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:skeletal_hand",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:poison_vent",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Active vents use vent_cycle; inactive poison props have their own texture.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/environment_hazards.js",
+          "line": 5,
+          "detail": "Active vents use vent_cycle; inactive poison props have their own texture."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:fire_vent",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Current vents use vent_cycle.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/environment_hazards.js",
+          "line": 5,
+          "detail": "Current vents use vent_cycle."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:paralysis_vent",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Current vents use vent_cycle.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/environment_hazards.js",
+          "line": 5,
+          "detail": "Current vents use vent_cycle."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:cage",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:elevator",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Current elevator uses progression_tiles, not cave_props.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6327,
+          "detail": "Current elevator uses progression_tiles, not cave_props."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:hive",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Current hive uses beehive.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 6553,
+          "detail": "Current hive uses beehive."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:pit",
+      "status": "unused",
+      "reason": "This approved frame is not selected by the current runtime; the implemented object uses different artwork. Current cave-in opening uses cave_chasm.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/environment_hazards.js",
+          "line": 7,
+          "detail": "Current cave-in opening uses cave_chasm."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:rune_cyan",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:rune_violet",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:rune_red",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:rune_gold",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_props:spring",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:switch",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:weight_cyan",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:plate_cyan",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:weight_violet",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:plate_violet",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:weight_amber",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:plate_amber",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:weight_green",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    },
+    {
+      "catalogue": "world",
+      "id": "cave_mechanisms:plate_green",
+      "status": "planned",
+      "reason": "Approved reference art without a current placement/render route for these frames. Asset loading and dashboard inclusion do not establish in-game use.",
+      "evidence": [
+        {
+          "file": "assets/Objects/Cave/manifest.json",
+          "line": 4,
+          "detail": "Manifest approves this sheet for placement, but approval does not create an in-game spawn."
+        },
+        {
+          "file": "tools/world-art.js",
+          "line": 48,
+          "detail": "Dashboard explicitly includes approved art before placement mechanics are wired."
+        },
+        {
+          "file": "src/render.js",
+          "line": 5902,
+          "detail": "Only pressure-plate rendering selects this sheet."
+        },
+        {
+          "file": "src/pressure_traps.js",
+          "line": 26,
+          "detail": "The implemented plate selects only frames 2 and 3; these other frames are not selected."
+        }
+      ]
+    }
+  ],
+  "itemAcquisitionRoutes": [
+    {
+      "route": "Exhaustive live chest eligibility",
+      "ids": [
+        "workbench",
+        "bed_quilted",
+        "washtub",
+        "mirror_brass",
+        "table_oak",
+        "dresser_oak",
+        "planter_clay",
+        "rug_burgundy",
+        "bookshelf_frontier",
+        "lamp_floor",
+        "clock_grandfather",
+        "statue_pedestal",
+        "planter_copper",
+        "candelabra_floor",
+        "globe_brass",
+        "telescope_brass",
+        "field_scope",
+        "compass",
+        "orb",
+        "goblet",
+        "lucky_key",
+        "wood_shield",
+        "metal_shield",
+        "gold_shield",
+        "smiths_guild_badge",
+        "marketeers_guild_badge",
+        "traders_guild_badge",
+        "rainberry_seed",
+        "pairy_seed",
+        "gemfruit_seed",
+        "nut_seed",
+        "rubble_seed",
+        "coffee_seed",
+        "potato_seed",
+        "iceflower_seed",
+        "fireflower_seed",
+        "sunflower_seed",
+        "dawnfruit_seed",
+        "miracle_lettuce_seed",
+        "starfruit_seed",
+        "berry_seed",
+        "cress_seed",
+        "onion_seed",
+        "rainberry",
+        "pairy",
+        "gemfruit",
+        "nut",
+        "rubble",
+        "coffee",
+        "potato",
+        "iceflower",
+        "fireflower",
+        "sunflower",
+        "dawnfruit",
+        "miracle_lettuce",
+        "starfruit",
+        "berry",
+        "cress",
+        "onion",
+        "chicken",
+        "cow",
+        "rabbit",
+        "egg",
+        "milk",
+        "longgrass",
+        "flowers",
+        "forgetmenot",
+        "marigold",
+        "wildrose",
+        "starflower",
+        "sugar_potion",
+        "taming_potion",
+        "book",
+        "blank_scroll",
+        "fireball_scroll",
+        "explosive_flask",
+        "fear_scroll",
+        "wind_scroll",
+        "treasure_map",
+        "magic_hammer",
+        "sleep_powder",
+        "psychosis_powder",
+        "hardworking_potion",
+        "grip_potion",
+        "stoneskin_potion",
+        "poison_flask",
+        "antidote",
+        "elixir",
+        "reach_potion",
+        "healing_potion",
+        "speed_potion",
+        "shielding_potion",
+        "protection_potion",
+        "time_potion",
+        "immortal_potion",
+        "flight_potion",
+        "shrinking_potion",
+        "giant_potion",
+        "fire_resistance_potion",
+        "blight_potion",
+        "bones_scroll",
+        "wraith_scroll",
+        "raven_scroll",
+        "revival_potion",
+        "resurrection_potion",
+        "thunder_scroll",
+        "moonbeam_scroll",
+        "dragon_powder",
+        "growth_powder",
+        "shadow_powder",
+        "frost_powder",
+        "stealth_ring",
+        "perception_ring",
+        "coin_ring",
+        "invisibility_ring",
+        "ember_ring",
+        "vampire_ring",
+        "xray_ring",
+        "regeneration_amulet",
+        "vigor_amulet",
+        "rope",
+        "torch",
+        "evertorch",
+        "trap_disarm_kit",
+        "magic_trap",
+        "throwing_spear",
+        "javelin",
+        "renovation_permit",
+        "meat",
+        "grilled_meat",
+        "baked_potato",
+        "roast_onion",
+        "grilled_mushroom",
+        "baked_apple",
+        "grilled_minnow",
+        "grilled_bass",
+        "grilled_trout",
+        "grilled_salmon",
+        "grilled_goldenfish",
+        "scarecrow",
+        "barricade",
+        "mushroom",
+        "poisonberry",
+        "goldenberry",
+        "minnow",
+        "bass",
+        "trout",
+        "salmon",
+        "goldenfish",
+        "syrup",
+        "apple",
+        "cherry",
+        "worldpeach",
+        "banana",
+        "orange",
+        "mango",
+        "coconut",
+        "apricot",
+        "apple_sapling",
+        "worldpeach_sapling",
+        "acorn",
+        "flint_shard",
+        "quartz",
+        "topaz",
+        "amethyst",
+        "sapphire",
+        "ruby",
+        "emerald",
+        "diamond",
+        "wood",
+        "copper_bar",
+        "iron_bar",
+        "gold_bar",
+        "platinum_bar",
+        "crimson_bar",
+        "frost_bar",
+        "relic:pickaxe:1",
+        "relic:pickaxe:2",
+        "relic:pickaxe:3",
+        "relic:pickaxe:4",
+        "relic:pickaxe:5",
+        "relic:pickaxe:6",
+        "relic:pickaxe:7",
+        "relic:axe:1",
+        "relic:axe:2",
+        "relic:axe:3",
+        "relic:axe:4",
+        "relic:axe:5",
+        "relic:axe:6",
+        "relic:axe:7",
+        "relic:amulet:1",
+        "relic:amulet:2",
+        "relic:amulet:3",
+        "relic:amulet:4",
+        "relic:amulet:5",
+        "relic:amulet:6",
+        "relic:amulet:7",
+        "relic:sword:1",
+        "relic:sword:2",
+        "relic:sword:3",
+        "relic:sword:4",
+        "relic:sword:5",
+        "relic:sword:6",
+        "relic:sword:7",
+        "relic:dagger:1",
+        "relic:dagger:2",
+        "relic:dagger:3",
+        "relic:dagger:4",
+        "relic:dagger:5",
+        "relic:dagger:6",
+        "relic:dagger:7",
+        "relic:lance:1",
+        "relic:lance:2",
+        "relic:lance:3",
+        "relic:lance:4",
+        "relic:lance:5",
+        "relic:lance:6",
+        "relic:lance:7",
+        "relic:musket:1",
+        "relic:musket:2",
+        "relic:musket:3",
+        "relic:musket:4",
+        "relic:musket:5",
+        "relic:musket:6",
+        "relic:musket:7",
+        "relic:bow:1",
+        "relic:bow:2",
+        "relic:bow:3",
+        "relic:bow:4",
+        "relic:bow:5",
+        "relic:bow:6",
+        "relic:bow:7",
+        "relic:staff:1",
+        "relic:staff:2",
+        "relic:staff:3",
+        "relic:staff:4",
+        "relic:staff:5",
+        "relic:staff:6",
+        "relic:staff:7",
+        "relic:watering_can:1",
+        "relic:watering_can:2",
+        "relic:watering_can:3",
+        "relic:watering_can:4",
+        "relic:watering_can:5",
+        "relic:watering_can:6",
+        "relic:watering_can:7",
+        "relic:hoe:1",
+        "relic:hoe:2",
+        "relic:hoe:3",
+        "relic:hoe:4",
+        "relic:hoe:5",
+        "relic:hoe:6",
+        "relic:hoe:7",
+        "relic:net:1",
+        "relic:net:2",
+        "relic:net:3",
+        "relic:net:4",
+        "relic:net:5",
+        "relic:net:6",
+        "relic:net:7",
+        "relic:fishing_rod:1",
+        "relic:fishing_rod:2",
+        "relic:fishing_rod:3",
+        "relic:fishing_rod:4",
+        "relic:fishing_rod:5",
+        "relic:fishing_rod:6",
+        "relic:fishing_rod:7",
+        "relic:bag:1",
+        "relic:bag:2",
+        "relic:bag:3",
+        "relic:bag:4",
+        "relic:bag:5",
+        "relic:bag:6",
+        "relic:bag:7",
+        "armor:helmet:1",
+        "armor:helmet:2",
+        "armor:helmet:3",
+        "armor:helmet:4",
+        "armor:helmet:5",
+        "armor:helmet:6",
+        "armor:helmet:7",
+        "armor:chestplate:1",
+        "armor:chestplate:2",
+        "armor:chestplate:3",
+        "armor:chestplate:4",
+        "armor:chestplate:5",
+        "armor:chestplate:6",
+        "armor:chestplate:7",
+        "armor:leggings:1",
+        "armor:leggings:2",
+        "armor:leggings:3",
+        "armor:leggings:4",
+        "armor:leggings:5",
+        "armor:leggings:6",
+        "armor:leggings:7",
+        "armor:boots:1",
+        "armor:boots:2",
+        "armor:boots:3",
+        "armor:boots:4",
+        "armor:boots:5",
+        "armor:boots:6",
+        "armor:boots:7"
+      ],
+      "evidence": [
+        {
+          "file": "tools/item-catalog-data.js",
+          "line": 27,
+          "detail": "Enumerates eligible outcomes through actual loot-context tier ceilings; not a random sample."
+        }
+      ]
+    },
+    {
+      "route": "Dynamic trader inventory (tiers 1\u20137)",
+      "ids": [
+        "slime",
+        "cave_slime",
+        "purple_slime",
+        "fire_slime",
+        "cat",
+        "dog",
+        "deer",
+        "crow",
+        "butterfly",
+        "crab",
+        "horse",
+        "sea_turtle",
+        "shiny_chicken",
+        "shiny_cow",
+        "shiny_cat",
+        "shiny_dog",
+        "shiny_rabbit",
+        "shiny_butterfly",
+        "shiny_crab",
+        "shiny_horse",
+        "shiny_sea_turtle",
+        "baby_chicken",
+        "baby_cow",
+        "baby_cat",
+        "baby_dog",
+        "baby_rabbit",
+        "shiny_egg",
+        "green_dragon",
+        "baby_green_dragon",
+        "petnip",
+        "nettle",
+        "tome_reach",
+        "tome_raven",
+        "tome_thunder",
+        "tome_speed",
+        "tome_shielding",
+        "tome_healing",
+        "tome_blight",
+        "tome_frost_aura",
+        "tome_fire_wall",
+        "pet_collar",
+        "pet_guard_collar",
+        "pet_fang_charm",
+        "pet_rest_charm",
+        "rabbit_pelt",
+        "crow_feather",
+        "shell",
+        "old_boot"
+      ],
+      "evidence": [
+        {
+          "file": "src/shops.js",
+          "line": 360,
+          "detail": "All non-progression non-equipment items enter the trader inventory, including tomes, pets and shiny variants."
+        },
+        {
+          "file": "src/shops.js",
+          "line": 364,
+          "detail": "Filters the dynamic stock by tier."
+        },
+        {
+          "file": "src/scene_shops.js",
+          "line": 1442,
+          "detail": "Live trader offer picks from that stock."
+        },
+        {
+          "file": "src/gear.js",
+          "line": 268,
+          "detail": "Tomes are not excluded as equipment."
+        }
+      ]
+    },
+    {
+      "route": "Explicit progression reward",
+      "ids": [
+        "serpent_idol"
+      ],
+      "evidence": [
+        {
+          "file": "src/trail.js",
+          "line": 177,
+          "detail": "Runtime reward grants this inventory item."
+        }
+      ]
+    },
+    {
+      "route": "Explicit progression reward",
+      "ids": [
+        "portal_stone"
+      ],
+      "evidence": [
+        {
+          "file": "src/interactables.js",
+          "line": 700,
+          "detail": "Runtime reward grants this inventory item."
+        }
+      ]
+    },
+    {
+      "route": "Explicit progression reward",
+      "ids": [
+        "depth_key"
+      ],
+      "evidence": [
+        {
+          "file": "src/scene_arena.js",
+          "line": 147,
+          "detail": "Runtime reward grants this inventory item."
+        }
+      ]
+    }
+  ],
+  "evidenceSHA256": {
+    "assets/Objects/Cave/manifest.json": "53dba39d3aa8b96036d0b75593734276d1b824ddbf534043522aef693bb69cee",
+    "src/environment_hazards.js": "67bc727f1fd871d846c0992f0ece06dc4c7e47d7063f8a7eed456cee61b9d7d6",
+    "src/gear.js": "9a5ec3b7a5964f07c3d5debe8b9b9babae50efe602a5041bb3fa44cb288b685a",
+    "src/interactables.js": "0c56ddaea13b79736f72931386cba12d59c27f280019d5e7ca36b6bd616d4033",
+    "src/items.js": "4248a3a80461319cd26cb9cfb704ae74caeb0815998e5437565616c9a378590c",
+    "src/pressure_traps.js": "b2bc2a75f07178084709692c3e74807776d2b8d5f81b89c7e6dee54039aecbf7",
+    "src/render.js": "e3748a48c40e10347a234e1ce05c275f16d955455160f49d2c22753035960675",
+    "src/scene_arena.js": "f444910f3c0798075217ef07f5bfa60e07533a87fe7891d7fc5d9cb906ed5d72",
+    "src/scene_shops.js": "5f6bf962ee309a10feca37f4d8c06c54b5fa2adecb61a42a868bbf02ca64001c",
+    "src/shops.js": "f29e703240888a96d81549fddcecfadd48b6a37e9cd331d301013471f078a80b",
+    "src/sprite_layout.js": "d766251145ad58d0811d34a5d9aa014a40a364ebb32d48403eb1676575b3d33e",
+    "src/trail.js": "246ae65b89861f860563a4e6482ff322ee8e328a05667f63589d59d579ecaf49",
+    "tools/item-catalog-data.js": "ea70197e4e8963795fcb50744e30c9baa68deeac423be0f71b7564f9001e7f28",
+    "tools/world-art.js": "6dd77cf9321cf578cfab6c798372ed14da922c5fb35cf3605c95cc89e44c186f"
+  }
+}
