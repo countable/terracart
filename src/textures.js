@@ -1519,11 +1519,12 @@ function makeCastlePavingTexture(scene, size) {
 
 function drawInteriorFloorTexture(ctx, size, source, tier) {
   // The sheet's top rows include wall-edge shading. Repeat a complete pair
-  // of unshaded staggered courses instead, keeping the source texel scale.
+  // of unshaded staggered courses instead. Half-size motifs keep the boards
+  // and tiles in proportion to furniture without changing the cached cell size.
   const [x, y] = { 9: [176, 0], 11: [48, 12], 12: [208, 12] }[tier];
   ctx.imageSmoothingEnabled = false;
-  for (let row = 0; row < 2; row++) {
-    ctx.drawImage(source, x, y, 32, 16, 0, row * size / 2, size, size / 2);
+  for (let row = 0; row < 4; row++) for (let col = 0; col < 2; col++) {
+    ctx.drawImage(source, x, y, 32, 16, col * size / 2, row * size / 4, size / 2, size / 4);
   }
 }
 
