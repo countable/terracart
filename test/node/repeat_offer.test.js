@@ -28,7 +28,7 @@
       });
       open();
       const first = shell.buttons[1];
-      assert.eq(shell.opts.onClose, undefined, 'backdrop does not exit the shop');
+      assert.eq(typeof shell.opts.onClose, 'function', 'the backdrop and × leave a counter too');
       first.click(); first.click();
       assert.eq(stock, 1, 'a detached button cannot charge twice');
       assert.eq(shell.box.children.find(c => c.role === 'status')?.textContent,

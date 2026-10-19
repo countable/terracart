@@ -41,7 +41,7 @@ test('modal buttons: the legacy (label, primary, disabled) spelling still reads'
   // The offer modal's own Cancel / secondary / Buy calls, and the stubs the
   // other tests hand in, use the positional form.
   const src = MODAL_SHELL_SRC;
-  assert.truthy(/const cancel = mkBtn\(cancelLabel, false, false\);/.test(src));
+  assert.truthy(/const cancel = mkBtn\(back \? '‹ Back' : cancelLabel, false, false\);/.test(src));
   assert.truthy(/const o = \(opts && typeof opts === 'object'\) \? opts : \{ variant: opts \? 'primary' : 'ghost', disabled \};/.test(src),
     'a boolean second argument is read as the variant');
 });

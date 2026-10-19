@@ -11,7 +11,7 @@ const BREW = (0, eval)('({\n' + [
   lift('presentBrewOffer(sx, sy, house, recordDeal, targetId = null) {'),
   lift('_settleDeal(recordDeal, loot) {'),
   lift('_presentThemedItem(sx, sy, house, recordDeal, id) {'),
-  lift('_presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, ...modal }) {'),
+  lift('_presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, topAction, ...modal }) {'),
   lift('_presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {'),
 ].join(',\n') + '\n})');
 const last = s => s.modals.at(-1);
@@ -23,6 +23,7 @@ function scene(inv = [], money = 100, found = []) {
       selSlot: -1, foundWild: Object.fromEntries(found.map(id => [id, 1])) },
     modals: [], flashes: [], grants: [], deals: 0, refreshes: 0,
     showOfferModal(o) { this.modals.push(o); },
+    showPickGridModal(o) { this.modals.push({ grid: true, ...o }); },
     flash(t) { this.flashes.push(t); }, flashLoot() {},
     invRoomFor(id) { return Inventory.roomFor(this.save, id); },
     addToInv(id, n, silent, opts = {}) {
@@ -79,14 +80,18 @@ test('brewing: an empty recipe book teaches discovery and keeps the Shop tab usa
   assert.eq(last(s).args[2], house, 'tab preserves the shop');
 });
 
-test('brewing: picker includes only discovered recipes and browsing spends nothing', () => {
+test('brewing: the grid includes only discovered recipes and browsing spends nothing', () => {
   const s = scene([['mango', 4], ['cress', 3]], 20, ['antidote', 'shrinking_potion']);
   open(s, 'shielding_potion');
   const before = JSON.stringify(s.save);
-  const options = last(s).pager.options;
-  assert.eq(options.map(o => o.label).join('|'), ['antidote', 'shrinking_potion'].map(itemName).join('|'));
-  options[1].onSelect();
+  const grid = last(s);
+  assert.truthy(grid.grid, 'an unknown target opens the grid');
+  assert.eq(grid.tabs.map(t => t.label).join(','), 'Shop,Brew', 'the grid keeps the shop tabs');
+  assert.eq(grid.items.map(o => o.label).join('|'), ['antidote', 'shrinking_potion'].map(itemName).join('|'));
+  grid.items[1].onSelect();
   assert.includes(last(s).get, itemName('shrinking_potion'));
+  last(s).back();
+  assert.truthy(last(s).grid, 'Back returns to the grid');
   assert.eq(JSON.stringify(s.save), before);
 });
 

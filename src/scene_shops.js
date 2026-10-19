@@ -1189,34 +1189,44 @@ class SceneShops {
 
   // Home, workbenches and brewing share discovery, selection and capacity.
   // Venues supply navigation, copy, fees on recipe rows, and completion effects.
-  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, ...modal }) {
+  // A station with several known recipes opens on a grid of them all; a pick
+  // opens that recipe's counter, whose ‹ Back returns to the grid
+  // (`present(null)`). One known recipe opens its counter directly.
+  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, topAction, ...modal }) {
     recipes = recipes.filter(r => !homeRecipeLocked(this.save, r.id));
     if (!recipes.length) {
-      this.showOfferModal({ ...modal, get: empty, cost: '', canAfford: false, cancelLabel: 'Leave' });
+      this.showOfferModal({ ...modal, topAction, get: empty, cost: '', canAfford: false, cancelLabel: 'Leave' });
       return;
     }
     const held = id => Inventory.count(this.save, id);
     const available = r => recipeCap(r.cost, held) > 0
       && (this.save.money ?? 0) >= (r.coins || 0) && this.invRoomFor(r.id) >= 1;
-    const rec = recipes.find(r => r.id === targetId) || recipes.find(available) || recipes[0];
-    const idx = recipes.indexOf(rec), n = recipes.length;
-    const pageTo = r => () => present(r.id);
+    const grid = recipes.length > 1;
+    const rec = recipes.find(r => r.id === targetId) || (!grid && recipes[0]);
+    if (!rec) {
+      const { kind, kindLabel, kindIcon, tabs, art } = modal;
+      this.showPickGridModal({
+        kind, kindLabel, kindIcon, tabs, art, topAction,
+        title: 'Pick something to make',
+        items: recipes.map(r => ({
+          label: itemName(r.id), iconHTML: this.iconSpanHTML(r.id, 32),
+          ready: available(r), note: available(r) ? 'Ready' : `In bag: ${held(r.id)}`,
+          onSelect: () => present(r.id),
+        })),
+      });
+      return;
+    }
     const room = this.invRoomFor(rec.id);
+    const effect = ITEM_EFFECTS[rec.id];
     this._presentRecipeOffer(sx, sy, {
       ...modal, recipe: rec.cost, coinCost: rec.coins || 0,
-      get: `1× ${this.iconSpanHTML(rec.id)} ${itemName(rec.id)}`,
-      blurb: ITEM_EFFECTS[rec.id] || undefined,
+      topAction: grid ? undefined : topAction,
+      get: `${this.iconSpanHTML(rec.id, 32)} ${itemName(rec.id)}`,
+      blurb: `<div class="recipe-made">Makes 1 · In bag: ${held(rec.id)}</div>${effect || ''}`,
       cancelLabel: 'Leave', canAfford: room >= 1,
       disabledReason: room < 1 ? bagFullFor(rec.id) : undefined,
-      repeat: pageTo(rec),
-      pager: {
-        index: idx, count: n, showIndex: false,
-        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
-        iconHTML: this.iconSpanHTML(rec.id, 32),
-        caption: `Makes 1 · In bag: ${held(rec.id)}`,
-        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
-        onNext: pageTo(recipes[(idx + 1) % n]),
-      },
+      repeat: () => present(rec.id),
+      back: grid ? () => present(null) : undefined,
       refuse: () => {
         if (validate && !validate()) return true;
         if (homeRecipeLocked(this.save, rec.id)) {
