@@ -1,5 +1,5 @@
 // The representative fake region for the floor viewer (and its smoke test):
-// one 60x35 viewport of MVT-shaped layers - grass base, forest,
+// one 60x45 viewport of MVT-shaped layers - grass base, forest,
 // a parking lot, church, a residential grid with houses, a commercial block,
 // streets of every size, a southeast lake with a 5-cell beach,
 // a separate top-right grove, and one nexus anchor of each kind
@@ -8,7 +8,7 @@
 (function (root) {
   'use strict';
   const E = 4096;                       // MVT extent space
-  const WIDTH = 60, HEIGHT = 35;        // visible cells
+  const WIDTH = 60, HEIGHT = 45;        // visible cells
   const N = Math.max(WIDTH, HEIGHT);     // square backing tile required by WorldGen
   const CELL = E / N;                   // extent units per cell
   const lat = 47.62;                    // a mid-latitude row for cave loading
@@ -57,21 +57,21 @@
     // Urban zoning fills the quadrant bounded by the major and medium roads.
     // Nexus sources remain inside the urban background.
     landuse.push(poly({ class: 'commercial' }, [cellRect(0, 0, 36, 6)]));
-    landuse.push(poly({ class: 'residential' }, [cellRect(15, 6, 23, 18)]));
+    landuse.push(poly({ class: 'residential' }, [cellRect(15, 6, 23, 28)]));
     // Forest occupies the eastern grass below the grove and above the beach.
-    landcover.push(poly({ class: 'wood' }, [cellRect(45, 10, 14, 9)]));
+    landcover.push(poly({ class: 'wood' }, [cellRect(45, 10, 14, 19)]));
     // The parking POI and aisles define the lot without commercial zoning,
     // which would let nearby private POIs cut diagonally through its coverage.
-    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 15));
+    poi.push(point({ class: 'parking', name: 'Market Parking' }, 7, 20));
     // The southern tar yard replaces the sports pitch.
-    poi.push(point({ class: 'fuel', subclass: 'fuel' }, 21, 30));
+    poi.push(point({ class: 'fuel', subclass: 'fuel' }, 21, 40));
     // Keep the aisle buffer inside the tile so this previews complete quarry
     // layouts rather than the fixed scatter used for clipped lot fragments.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 8], [12, 8], [12, 21], [4, 21], [4, 8]]));
-    for (const y of [12, 15, 18])
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 8], [12, 8], [12, 31], [4, 31], [4, 8]]));
+    for (const y of [12, 15, 18, 21, 24, 27])
       transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
-    building.push(poly({ building: 'church' }, [cellRect(3, 28, 3, 2.5)]));
-    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 29));
+    building.push(poly({ building: 'church' }, [cellRect(3, 38, 3, 2.5)]));
+    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 39));
 
     // North band: commercial block, then the separate top-right grove.
     building.push(poly({ building: 'retail' }, [cellRect(17, 1, 4, 3)]));
@@ -83,15 +83,15 @@
     poi.push(point({ class: 'park', subclass: 'park', name: 'Hilltop Park' }, 51, 4));
 
     // The house grid leaves the minor streets and nexus sites clear.
-    for (const by of [7, 12, 19]) for (const bx of [16, 27, 33])
+    for (const by of [7, 12, 19, 24, 29]) for (const bx of [16, 27, 33])
       building.push(poly({ building: 'house' }, [cellRect(bx, by, 3, 2)]));
     // A medium footprint in open grass showcases the fort through the live
     // building-tier and sprite rules, clear of the tar yard and main roads.
-    building.push(poly({ building: 'commercial', name: 'Fort' }, [cellRect(30, 28, 3, 3)]));
+    building.push(poly({ building: 'commercial', name: 'Fort' }, [cellRect(30, 38, 3, 3)]));
 
     // Small southeast lake, with the 5-cell beach on its north
     // and west. The former beach-side park is now open grass.
-    const lx = 48, ly = 27;
+    const lx = 48, ly = 37;
     water.push(poly({ natural: 'water' }, [cellRect(lx, ly, WIDTH - lx, HEIGHT - ly)]));
     landcover.push(poly({ class: 'sand' }, [
       cellRect(lx - 5, ly - 5, WIDTH - lx + 5, 5),   // north strip, 5 cells wide
@@ -103,13 +103,14 @@
 
     // Streets of every size; widths come from the classes
     transportation.push(line({ class: 'primary' }, [[39, 0], [39, HEIGHT - 1]]));       // LG, town height
-    transportation.push(line({ class: 'secondary' }, [[0, 24], [42, 24]]));     // MD, town to beach
-    transportation.push(line({ class: 'minor' }, [[22, 6], [22, 23]]));         // minor streets
+    transportation.push(line({ class: 'secondary' }, [[0, 34], [42, 34]]));     // MD, town to beach
+    transportation.push(line({ class: 'minor' }, [[22, 6], [22, 33]]));         // minor streets
     transportation.push(line({ class: 'minor' }, [[15, 16], [38, 16]]));
-    transportation.push(line({ class: 'minor' }, [[31, 6], [31, 23]]));
+    transportation.push(line({ class: 'minor' }, [[15, 27], [38, 27]]));
+    transportation.push(line({ class: 'minor' }, [[31, 6], [31, 33]]));
     transportation.push(line({ class: 'minor' }, [[15, 10], [38, 10]]));
     transportation.push(line({ class: 'service' }, [[40, 3], [52, 3]]));        // service lane into the park
-    transportation.push(line({ class: 'footway' }, [[50, 3], [50, 20]]));       // path down to the beach
+    transportation.push(line({ class: 'footway' }, [[50, 3], [50, 30]]));       // path down to the beach
 
     return [
       { name: 'park', extent: E, features: landuse.filter(f => f.tags.class === 'park') },
@@ -125,16 +126,16 @@
   // Label seats in the same cell frame as the source geometry.
   const labels = [
     { text: 'Commercial', x: 16, y: 1 },
-    { text: 'Residential', x: 25, y: 13 },
-    { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 15 },
-    { text: 'Tar Yard nexus', nexusKind: 'tar', x: 21.5, y: 30.5 },
-    { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 30 },
+    { text: 'Residential', x: 25, y: 23 },
+    { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 20 },
+    { text: 'Tar Yard nexus', nexusKind: 'tar', x: 21.5, y: 40.5 },
+    { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 40 },
     { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
-    { text: 'Forest', x: 55, y: 15 },
-    { text: 'Fort', x: 31.5, y: 32 },
-    { text: 'Beach nexus', nexusKind: 'beach', x: 56, y: 23 },
-    { text: 'Regular beach', x: 45.5, y: 29 },
-    { text: 'Lake', x: 54, y: 31 }
+    { text: 'Forest', x: 55, y: 20 },
+    { text: 'Fort', x: 31.5, y: 42 },
+    { text: 'Beach nexus', nexusKind: 'beach', x: 56, y: 33 },
+    { text: 'Regular beach', x: 45.5, y: 39 },
+    { text: 'Lake', x: 54, y: 41 }
   ];
   root.FloorViewerRegion = { E, WIDTH, HEIGHT, N, CELL, EDGE, HOME, lat, makeLayers, labels, withNexusSizes, withSeed };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

@@ -228,7 +228,7 @@ test('the literal spellings are gone from the readers', () => {
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
                       '_fire', 'torch', 'waystone', 'stakes',
                       'headstone', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope',
-                      'stalagmites'];
+                      'stalagmites', 'sandboxprop'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
     for (const k of ['house', 'tower', 'groundstack', 'staircase', '_scarecrow']) {
       assert.falsy(flagged.has(k), `${k} does not`);

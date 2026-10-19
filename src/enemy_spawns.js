@@ -98,6 +98,7 @@
       && inHomeFaunaCircle(anchor, c.x, c.y);
   }
   function homeFaunaAllows(scene, c, x = c?.x, y = c?.y) {
+    if (root.HomeVariant && !root.HomeVariant.allows(scene, c, x, y)) return false;
     if (!homeFaunaSubject(c)) return true;
     const anchor = homeFaunaAnchor(scene);
     if (!inHomeFaunaCircle(anchor, x, y)) return true;
@@ -108,6 +109,7 @@
   // catch, death or Home change invalidated it since that step. No per-body
   // query scans the world. Retain the chosen deer while it remains eligible.
   function refreshHomeFauna(scene, force = true) {
+    root.HomeVariant?.refresh(scene);
     const anchor = homeFaunaAnchor(scene), caughtArray = scene.save?.caught || [];
     const entries = [...root.WorldGen.tileCache.values()];
     const previous = scene._homeFaunaState;
@@ -253,23 +255,27 @@
     return active;
   }
   function caveRows(depth, context) {
+    const floorHabitat = root.WorldGen.floorProfile(depth).enemyHabitat;
+    if (floorHabitat) context = { kinds: root.EnemyHabitats.FAMILIES[floorHabitat] };
     return rows().filter(row => !row.retired && row.cave && row.attackType !== 'touch'
       && depth >= row.cave.minDepth && (row.cave.maxDepth == null || depth <= row.cave.maxDepth)
       && (row.cave.depthRule !== 'even' || depth % 2 === 0)
       && (!context || context.kinds.includes(row.id))
       && (depth >= root.WorldGen.LAVA_DEPTH || !['red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'].includes(row.id))
-      && row.id !== 'red_dragon');
+      && (row.id !== 'red_dragon' || floorHabitat === 'dragon'));
   }
   // Giants share at most 5% of the total bag, regardless of how many are added.
   function caveKind(depth, r, context) {
     const eligible = caveRows(depth, context);
+    const habitat = root.WorldGen.floorProfile(depth).enemyHabitat;
+    const weights = root.EnemyHabitats.FAMILY_WEIGHTS[habitat];
     const giants = eligible.filter(row => row.variantType === 'Giant');
     const ordinary = eligible.filter(row => row.variantType !== 'Giant');
     const giantChance = giants.length && ordinary.length ? 0.05 : (giants.length ? 1 : 0);
     const giant = r < giantChance;
     const pool = giant ? giants : ordinary;
     const local = giant ? r / giantChance : (r - giantChance) / (1 - giantChance);
-    return pick(pool.map(row => ({ row, weight: row.cave.weight })), local)?.id || null;
+    return pick(pool.map(row => ({ row, weight: weights?.[row.id] ?? row.cave.weight })), local)?.id || null;
   }
   function surfaceId(tx, ty, cx, cy) { return root.WorldGen.cellId('enemy', tx, ty, cx, cy); }
   function caveId(depth, tx, ty, cx, cy) { return root.WorldGen.cellId(`enemy_cave_${depth}`, tx, ty, cx, cy); }

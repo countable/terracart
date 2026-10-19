@@ -265,6 +265,10 @@ changing dialogue, story panels, books, toasts or status presentation.
   startup, worker control, and offline cached art. Network-panel entries include
   cached resources; compare transferred bytes and time to playable as well as count.
 
+- Sandbox `skipStory=true` holds automatic story ceremonies and their badge as
+  well as skipping the opening story. Explicit interactions remain available;
+  the override does not consume story progress.
+
 - Dungeon arrival splashes select their story ID through
   `WorldGen.floorProfile(depth).arrivalStory`; presentation owns the copy and
   art, while the existing story ledger owns one-time delivery.

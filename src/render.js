@@ -2213,6 +2213,36 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   }
 };
 
+// Full-cell rock masses share the retained wall renderer and actor depth sort.
+// A depth-specific group keeps underground art separate from surface architecture.
+Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
+  if (typeof WallPerspective === 'undefined') return;
+  if (!cells.length || scene.depth <= 0 || typeof FloorWallMaterials === 'undefined') {
+    WallPerspective.clear(scene, 'cave'); scene._caveWallKey = null; return;
+  }
+  const key = scene.depth + ':' + cells.map(p => [p.ax, p.ay, p.x, p.y, p.mask, p.diagonalMask].join(',')).join(';');
+  if (key !== scene._caveWallKey || !scene._wallPerspective?.cave) {
+    const group = WallPerspective.begin(scene, 'cave');
+    group.renderDepth = scene.depth; group.perWall = true;
+    group.atlas = FloorWallMaterials.prepare(scene, scene.depth);
+    for (const cell of cells) {
+      const { x, y, ax, ay, mask, diagonalMask } = cell;
+      const points = [{ x, y }, { x: x + CELL_PX, y },
+        { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
+      const variant = FloorWallMaterials.variant(scene.depth, ax, ay);
+      WallPerspective.prism(scene, 'cave', points, 0, FloorWallMaterials.height,
+        { face: 0x302a24, top: 0x625646, dark: 0x151310 }, null, true,
+        { materialFaces: FloorWallMaterials.geometry(points, mask, variant, scene.depth, diagonalMask) });
+    }
+    scene._caveWallKey = key;
+    WallPerspective.offset(scene, 'cave', offsetX, offsetY);
+    WallPerspective.finish(scene, 'cave');
+  } else {
+    WallPerspective.offset(scene, 'cave', offsetX, offsetY);
+    WallPerspective.update(scene);
+  }
+};
+
 Render.drawCells = function drawCells(scene) {
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
@@ -2508,8 +2538,6 @@ Render.drawCells = function drawCells(scene) {
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
-  const caveEdges = scene._caveEdgePool || (scene._caveEdgePool = []);
-  let caveEdgesUsed = 0;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2862,6 +2890,16 @@ Render.drawCells = function drawCells(scene) {
             }
           }
         }
+        if (!isTilled && scene.depth === 1 && typeof FloorWallMaterials !== 'undefined') {
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+          texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+        }
+        if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+          texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+        }
         let damageFrame;
         if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
           const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
@@ -2942,35 +2980,24 @@ Render.drawCells = function drawCells(scene) {
     }
   }
   scene.terrainCache?.flush();
-  // All underground floors share this wall style. Re-evaluate the live neighbour ring:
-  // mining and arriving tiles immediately update faces, including tile seams.
-  // Atlas sprites share the ground-decoration layer, beneath actors and lights.
-  if (scene.depth > 0 && scene.cobbleContainer) {
+  // Mining and arriving tiles change the exposed-face mask, including seams.
+  // Geometry stays retained while the compass or fractional camera position moves.
+  const caveCells = [];
+  if (scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
     const open = (c, r) => T(c, r) !== WorldGen.T.CAVE_WALL && T(c, r) !== UNMAPPED_T;
     for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
       if (T(col, row) !== WorldGen.T.CAVE_WALL) continue;
-      let mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
+      const mask = (open(col, row - 1) ? 1 : 0) | (open(col + 1, row) ? 2 : 0)
         | (open(col, row + 1) ? 4 : 0) | (open(col - 1, row) ? 8 : 0);
-      // A neighbouring south face also exposes the lower half of this cap's
-      // side, even though both data cells are solid rock.
-      if (!(mask & 4)) {
-        if (T(col - 1, row) === WorldGen.T.CAVE_WALL && open(col - 1, row + 1)) mask |= 16;
-        if (T(col + 1, row) === WorldGen.T.CAVE_WALL && open(col + 1, row + 1)) mask |= 32;
-      }
-      // Fully enclosed cells use the dark cap frame as well.
-      let sprite = caveEdges[caveEdgesUsed++];
-      if (!sprite) {
-        sprite = scene.add.image(0, 0, 'cave_wall_edges', 0).setOrigin(0, 0);
-        scene.cobbleContainer.add(sprite); caveEdges.push(sprite);
-      }
-      const variant = (Math.imul(AX(col, row), 31) ^ AY(col, row)) & 3;
-      const at = cellScreenXY(scene, col - half, row - half, fracX, fracY, PHASE(row));
-      setTextureIfDifferent(sprite, 'cave_wall_edges', variant * CAVE_WALL_EDGE_FRAMES + mask);
-      sprite.setPosition(Math.round(at.x), Math.round(at.y) - CAVE_WALL_TOP_LIFT)
-        .setDisplaySize(CELL_PX, CELL_PX + CAVE_WALL_TOP_LIFT).setVisible(true);
+      const at = cellScreenXY(scene, col - half, row - half, 0, 0, PHASE(row));
+      const diagonalMask = (!open(col - 1, row - 1) ? 1 : 0) | (!open(col + 1, row - 1) ? 2 : 0)
+        | (!open(col + 1, row + 1) ? 4 : 0) | (!open(col - 1, row + 1) ? 8 : 0);
+      caveCells.push({ x: at.x, y: at.y, ax: AX(col, row), ay: AY(col, row), mask, diagonalMask });
     }
   }
-  for (let i = caveEdgesUsed; i < caveEdges.length; i++) caveEdges[i].setVisible(false);
+  Render.drawCaveWalls(scene, caveCells, -fracX * CELL_PX, -fracY * CELL_PX);
+  // Hide sprites retained by a scene that previously used the flat wall atlas.
+  for (const sprite of scene._caveEdgePool || []) sprite.setVisible(false);
 
   // Short broken columns are floor decoration: no object, collision or tap target.
   // Polygon mode draws these same source-ring sites into its floor canvas.
@@ -3724,8 +3751,9 @@ Render.headingFadeView = function headingFadeView(scene, box) {
 // QC labels read the generated selections, never choose another variant.
 // Buffered copies share an identity; prefer a zone's owned POI and the
 // nearest visible road-piece midpoint so a clipped street gets one label.
-Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay, halfM) {
+Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay, halfM, scene) {
   const zones = new Map(), roads = new Map();
+  const inHome = (x, y) => scene && typeof HomeVariant !== 'undefined' && HomeVariant.contains(scene, x, y);
   const visible = (x, y) => inViewBox(x - ax, y - ay, halfM);
   for (const e of entries) {
     for (const a of e.zone && e.zone.anchors || []) {
@@ -3736,6 +3764,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       const poi = a.owned && (e.objects || []).find(o => o._poiAt === `${a.lx},${a.ly}`);
       const x = poi ? poi.x : a.gx / 4096 * edgeM;
       const y = poi ? poi.y : a.gy / 4096 * edgeM;
+      if (inHome(x, y) || (scene && typeof HomeVariant !== 'undefined' && HomeVariant.discardedAt(scene, x, y))) continue;
       zones.set(id, { id, kind: 'zone', text: `Zone: ${row.name}`, x, y });
     }
     const index = e.streetIndex;
@@ -3768,6 +3797,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
         if (left <= span.d) { x = span.x + span.dx * left / span.d; y = span.y + span.dy * left / span.d; break; }
         left -= span.d;
       }
+      if (inHome(x, y)) continue;
       const id = `road:${rec.key || rec.lineKey}:${rec.variant || 'plain'}`, distance = (x - ax) ** 2 + (y - ay) ** 2;
       const prior = roads.get(id);
       if (prior && prior.distance <= distance) continue;
@@ -3776,7 +3806,10 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       roads.set(id, { id, kind: 'road', text: `Road: ${title}${rec.rocks ? ' · rocks' : ''}`, x, y, distance });
     }
   }
-  return [...zones.values(), ...roads.values()].filter(o => visible(o.x, o.y));
+  const home = scene && typeof HomeVariant !== 'undefined' && HomeVariant.anchor(scene);
+  const records = [...zones.values(), ...roads.values()];
+  if (home) records.push({ id: 'home', kind: 'zone', text: 'Zone: Home', x: home.x, y: home.y });
+  return records.filter(o => visible(o.x, o.y));
 };
 
 Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
@@ -3787,9 +3820,9 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
     // Shipping entries store coordinates in the cache key, not on the entry.
     const [, tx, ty] = key.split('/').map(Number);
     if (!tileBoxReach(edge, tx, ty, ax - halfM, ay - halfM, ax + halfM, ay + halfM)) continue;
-    entries.push({ tx, ty, zone: e.zone, objects: e.objects, streetIndex: e.streetIndex });
+    entries.push({ tx, ty, zone: e.zone, objects: e.objects, streetIndex: StreetVariants.indexFor(e) });
   }
-  const records = Render.variantLabelRecords(entries, edge, ax, ay, halfM);
+  const records = Render.variantLabelRecords(entries, edge, ax, ay, halfM, scene);
   Render.renderPool(scene, pool, scene.labelContainer, records, (text, o) => {
     const screen = deltaMToScreen(scene, o.x - ax, o.y - ay);
     text.setText(o.text).setPosition(Math.round(screen.x), Math.round(screen.y - 18));
@@ -4409,11 +4442,13 @@ Render.drawObjects = function drawObjects(scene) {
     }
     if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
       pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
         objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
       }, true);
     if (entry.objects) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
         if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
         if (Render.coverHidden(scene, o, true)) return;
         if (HiddenObjects.isHidden(scene.save, o)
@@ -4460,6 +4495,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (LIGHTS && lM > sM && preCullLightList(entry)) {
         WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
           _boot_scanned++;
+          if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
           if (HiddenObjects.isHidden(scene.save, o)
               || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
@@ -4473,6 +4509,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
         _boot_scanned++;
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, wp)) return;
         // Most picked plants disappear; fruit bushes leave a plain bush.
         // The source record stays spent for interaction and persistence.
         wp = Render.wildplantView(wp, spentIds);
@@ -4509,6 +4546,7 @@ Render.drawObjects = function drawObjects(scene) {
       WorldGen.forEachItemInBox(entry, 'traps',
         pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, (tr) => {
           _boot_scanned++;
+          if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, tr)) return;
           if (disarmedSet.has(tr.id)) return;
           const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
           if (!inViewBox(dx, dy, halfM)) return;
@@ -4524,6 +4562,7 @@ Render.drawObjects = function drawObjects(scene) {
       const nowMs = Date.now();
       _boot_scanned += entry.laidTraps.length;
       cullToView(entry.laidTraps, pWorldX, pWorldY, halfM, (tr, dx, dy) => {
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, tr)) return;
         if (!Traps.isLive(tr, nowMs)) return;
         trapList.push({ tr, dx, dy, sprung: !!tr._sprung });
         _boot_kept++;
@@ -4542,6 +4581,7 @@ Render.drawObjects = function drawObjects(scene) {
   // In the live game wanderCreatures has already removed the frozen ring
   // seats; the fallback preserves standalone render callers.
   cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
+    if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, c)) return;
     if (caughtSet.has(c.id)) return;
     if (Render.coverHidden(scene, c)) return;
     if (typeof EnemySpawns !== 'undefined' && EnemySpawns.isSurfaceResident(c)) EnemySpawns.surfaceActive(scene, c);
@@ -4648,6 +4688,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
+    if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) continue;
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
     if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o, true)) continue;
     if (HiddenObjects.isHidden(scene.save, o)
@@ -6502,6 +6543,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                   depth: s.depth + 0.5,
                 });
               } },
+    sandboxprop: { key: o => SandboxArt.propKey(o),
+      scale: (o, scene) => SandboxArt.propScale(o, scene),
+      origin: [0.5, 1], dyPx: 15, shadow: true },
     mineralrock: { key: mineralRockArtKey, frame: mineralRockArtFrame,
               origin: [0.5, 0.5],
               scale: mineralRockArtScale,
@@ -6519,6 +6563,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple
     // stalagmites prop and an inert poison vent, 24px art at one cell like
     // the stakes. A vent lies flat; the stalagmites stand and cast a shadow.
+    bone_cache: { key: 'bone_cache', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },
     stalagmites: { key: 'cave_props', frame: 1, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     inactive_poison_vent: { key: 'poison_vent_inactive', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, layer: WorldLayers.GROUND_DECAL },
     tar:      { key: 'tar',      frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, layer: WorldLayers.GROUND_DECAL },
@@ -6595,7 +6640,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     }
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
     const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const scl = typeof spec.scale === 'function' ? spec.scale(o) : spec.scale;
+    const scl = typeof spec.scale === 'function' ? spec.scale(o, scene) : spec.scale;
     const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
     const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
     let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);

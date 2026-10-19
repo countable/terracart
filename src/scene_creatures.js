@@ -148,6 +148,9 @@ class SceneCreatures {
   // treasure still to come. The heavy but pure work of that stretch (the trap
   // draw, the path / sand / pier scan) is done ahead, before the flag.
   *spawnInTileSteps(entry, tx, ty) {
+    // Shared draws must read generated ownership, even when replaying a live tile.
+    entry._homeVariantGenerating = true;
+    try {
     // Read once: a sliced pass must not change its mind between slices.
     const testMode = !!window.__TEST_MODE;
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
@@ -582,6 +585,7 @@ class SceneCreatures {
     const isStarterTile = !!_trailAnchor &&
       _trailAnchor.x >= tx0 && _trailAnchor.x < tx0 + this.tileEdgeM &&
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
+    HomeVariant.apply(this, entry, tx, ty, { phase: 'prepare' });
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
       this._stripStarterCrates(entry);      // hard mode: no supply handout
@@ -809,6 +813,10 @@ class SceneCreatures {
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+    } finally {
+      delete entry._homeVariantGenerating;
+    }
+    HomeVariant.apply(this, entry, tx, ty);
     EnemySpawns.refreshHomeFauna(this);
   }
 
@@ -1118,10 +1126,10 @@ class SceneCreatures {
       }));
     if (!anchors.length) anchors.push({ lix: Math.floor(N / 2), liy: Math.floor(N / 2) });
     // Cells an object (rock, staircase, chest…) already sits on. Built ONCE
-    // here and shared by every seat-time check below — monsters, rabbits,
+    // here and shared by every seat-time check below — monsters,
     // the coin trickle and the traps — rather than each rescanning
     // entry.objects for the same thing. This is occupancy governing where a
-    // thing is SEATED, not where it may later walk: a monster or rabbit is
+    // thing is SEATED, not where it may later walk: a monster is
     // free to wander onto any cell once it exists (the wander loop in
     // wanderCreatures doesn't consult this), it just must not be BORN on a
     // staircase or inside a rock sprite — the same "not under a rock" half of
@@ -1343,27 +1351,6 @@ class SceneCreatures {
           h => EnemySpawns.caveKind(depth, kindRoll, h), nearEntrance, 'entrance');
         if (seat) addEnemy(seat, i, `enemy_cave_${depth}_${tx}_${ty}_pack_${i}`);
       }
-      // Rabbits share the entrance bounds but stay outside authored cave areas.
-      const rabbitN = 10 + Math.floor(hash01(`cave_rabbits_${depth}_${tx}_${ty}:count`) * 8);
-      for (let i = 0; i < rabbitN; i++) {
-        const draw = WorldGen.makeRng(fnv1a(`rabbit_${depth}_${tx}_${ty}_${i}:draw`));
-        let seat = null, habitat = null;
-        for (let attempt = 0; attempt < 20; attempt++) {
-          const { cx, cy } = randCell(draw);
-          if (!rawFloor(cx, cy)) continue;
-          const candidateHabitat = contextAt(cx, cy);
-          habitat ||= candidateHabitat;
-          if (candidateHabitat.id !== habitat.id || !legalSeat(cx, cy, 'rabbit')) continue;
-          seat = { cx, cy }; break;
-        }
-        seat ||= fallbackSeat(`rabbit_${depth}_${tx}_${ty}_${i}`, habitat, () => 'rabbit', nearEntrance, 'entrance');
-        if (!seat) continue;
-        const { cx, cy } = seat, at = cy * N + cx, id = `rabbit_${depth}_${tx}_${ty}_${i}`;
-        creatureCells.add(at);
-        if (canonicalPass || caughtSet.has(id) || heldByPlayer.has(at)) continue;
-        const { x: wmx, y: wmy } = tileCellCentre(this.tileEdgeM, tx, ty, cellSizeM, cx, cy);
-        creatures.push(WorldGen.makeCreature('rabbit', wmx, wmy, id));
-      }
       // Roamers retain their own stream and one request per present floor block.
       const ROAM_PIVOT = 12, ROAM_TRIES = 6;
       const roamP = Math.min(0.6, 0.4 * Difficulty.get().monsterCountMul);
@@ -1410,7 +1397,7 @@ class SceneCreatures {
     // NO expiresAt: a coin found by digging should still be there when the
     // torch swings back. In-memory only, like every coinDrop: a fresh build of
     // the level lays a fresh handful, which is the trickle intended. The seeded
-    // rng keeps the draw order of the monsters and rabbits above untouched.
+    // rng keeps the draw order of the monsters above untouched.
     // Not on a staircase or a rock: the coin handler wins the tap, but a coin
     // under a rock sprite reads as a rock. Guarded like `creatures` — a tile
     // REBUILT under the player (see CLAUDE.md) carries coinDrops across and
@@ -1453,17 +1440,17 @@ class SceneCreatures {
     }
     // Cave traps — same anchors, same reason: a trap 200 cells out in the dark
     // is a trap nobody ever meets. Seeded off its own stream (Traps.spawnCave),
-    // so the monster / rabbit / coin draws above keep the numbers they had.
+    // so the monster / coin draws above keep the numbers they had.
     // Every cell an object already holds is refused, so a trap is never laid
     // under a rock or a staircase sprite — down here the art is the only
     // warning there is, and an unlit cell already swallows most of it.
     entry.traps = [];
     if (typeof Traps !== 'undefined' && !window.__TEST_MODE) {
       // Same occupiedIdx built once above.
-      // Flat multiplier regardless of game mode — a dungeon is dangerous on
-      // either one (see Traps.DUNGEON_DENSITY_MUL).
+      // Floor profiles may reduce ambient snares (the sewer stays sparse).
+      // Other floors retain the shared rate, independent of game mode.
       entry.traps = Traps.spawnCave(genGrid, N, tx, ty, entry.tileEdgeM, depth,
-        anchors, occupiedIdx, Traps.DUNGEON_DENSITY_MUL)
+        anchors, occupiedIdx, WorldGen.floorProfile(depth).trapDensityMul ?? Traps.DUNGEON_DENSITY_MUL)
         .filter(t => !heldByPlayer.has(t._iy * N + t._ix));
     }
     for (const c of creatures) { c._discovered = !HiddenObjects.isHidden(this.save, c); EnemySpawns.markShared(c); }

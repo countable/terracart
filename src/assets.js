@@ -2,6 +2,8 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  bone_cache: { kind: 'image', path: 'assets/Objects/Approved/bone_pile.png' },
+  floor_wall_sources: { kind: 'image', path: 'assets/Objects/Cave/floor-wall-sources.png' },
   interior_floors: { kind: 'image', path: 'assets/Objects/BuildingMaterials/all-floors.png' },
   interior_walls: { kind: 'image', path: 'assets/Objects/BuildingMaterials/all-walls.png' },
   building_material_reference: { kind: 'image', path: 'assets/Objects/BuildingMaterials/reference-materials-v3.png' },

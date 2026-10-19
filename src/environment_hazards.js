@@ -134,8 +134,7 @@
     return (h.footprintCells || footprint(scene, h)).some(c => c.cellIX === p.cellIX && c.cellIY === p.cellIY);
   }
   function zoneAnchorAt(entry, ix, iy) {
-    const field = entry?.zone, coverage = field?.coverage || field?.idx;
-    return field?.anchors?.[(coverage?.[iy * entry.cellsPerEdge + ix] || 0) - 1] || null;
+    return root.WorldGen.zoneAnchorAt(entry, iy * entry?.cellsPerEdge + ix);
   }
   function quarryVariant(entry, ix, iy) {
     const anchor = zoneAnchorAt(entry, ix, iy);

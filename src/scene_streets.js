@@ -398,6 +398,7 @@ class SceneStreets {
       // flat pairs is the cost here and a long way carries several lamps.
       const restored = new Map();
       for (const L of lamps) {
+        if (HomeVariant.contains(this, L.x, L.y)) continue;
         if (Math.abs(L.x - c.x) > pad || Math.abs(L.y - c.y) > pad) continue;
         let iv = restored.get(L.lineKey);
         if (iv === undefined) {
@@ -573,8 +574,8 @@ class SceneStreets {
   _scenicWalkStory(kind, meta, newly) {
     let row = Scenic.rowFor(kind);
     const entry = meta && WorldGen.tileCache.get(meta.tileKey);
-    const rec = entry?.streetIndex?.lines?.find(r => r.lineKey === meta.lineKey);
-    if (rec?.variantSegments) {
+    const rec = StreetVariants.indexFor(entry)?.lines?.find(r => r.lineKey === meta.lineKey);
+    if (rec?.variantSegments || rec?.homeSuppressedRanges?.length) {
       row = null;
       let longest = 0;
       for (const part of StreetVariants.lineParts(rec, meta.mvtToM)) {
@@ -691,6 +692,7 @@ class SceneStreets {
       const lamps = this._streetLampsForTile(tx, ty, entry);
       const restored = new Map();
       for (const L of lamps) {
+        if (HomeVariant.contains(this, L.x, L.y)) continue;
         if (Math.abs(L.x - px) > R || Math.abs(L.y - py) > R) continue;
         if (Math.hypot(L.x - px, L.y - py) > R) continue;
         let iv = restored.get(L.lineKey);

@@ -5,6 +5,10 @@ hand-laid town and countryside map. It keeps sparse mechanics close together,
 because a tester can compare their art and interactions without waiting for a
 real-world roll. `src/sandbox.js` owns the map.
 
+Variant and floor-viewer launches include `skipStory=true&skipTutorial=true&autoTorch=true`.
+The torch uses the normal three-minute buff and relights on reload, without spending inventory.
+These flags can also be used on other sandbox links.
+
 For simulated travel, enable **☰ → Developer → GPS stick**. The blue left
 stick moves the GPS fix; the ordinary stick still moves the character relative
 to it. First movement takes over from device GPS for this session. Turning the

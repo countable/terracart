@@ -1328,6 +1328,7 @@ class SceneVenues {
   // reloads and tile eviction — worldgen output never contains it, so without
   // this it would vanish.
   ensureStarterTrailerObject() {
+    if (globalThis.FloorSandbox?.isScenario()) return;
     // Surface-only. Underground, WorldGen.tileCache is repointed at the active
     // depth's cave map (setDepth), so injecting here would drop a phantom
     // trailer into a cave tile. The trailer lives on the surface — depth 0.

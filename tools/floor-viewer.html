@@ -1,31 +1,40 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="artifact-review" content="disabled">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Dragon Hood - 60×35 floor viewer</title>
+<title>Dragon Hood - 60×45 floor viewer</title>
 <style>
-  :root { color-scheme: dark; }
+  :root { color-scheme: dark; --sidebar-width: 280px; }
   html, body { margin: 0; height: 100%; background: #14181a; color: #e8e4da;
     font: 14px/1.4 'Segoe UI', system-ui, sans-serif; overflow: hidden; }
-  #bar { position: fixed; inset: 0 0 auto 0; display: flex; flex-wrap: wrap; gap: 14px; align-items: center;
-    padding: 10px 16px; background: #1b2124e6; border-bottom: 1px solid #3a4146; z-index: 2; }
+  #bar { position: fixed; inset: 0 auto 0 0; width: var(--sidebar-width); box-sizing: border-box;
+    display: flex; flex-direction: column; gap: 14px; align-items: stretch; overflow-y: auto;
+    padding: 16px; background: #1b2124; border-right: 1px solid #3a4146; z-index: 2; }
+  #bar > * { flex-shrink: 0; }
+  #floorSeg { flex-wrap: wrap; }
+  #floorSeg button { flex: 1; padding: 5px 8px; }
+  #seed { min-width: 0; flex: 1; }
+  #safetyRadius { min-width: 0; flex: 1; }
+  #safetyValue { white-space: nowrap; }
+  @media (max-width: 700px) { :root { --sidebar-width: 220px; } #bar { padding: 10px; } }
   #bar h1 { font-size: 14px; margin: 0 4px 0 0; letter-spacing: .04em; color: #9fb8a4; }
   .seg { display: flex; border: 1px solid #3a4146; border-radius: 7px; overflow: hidden; }
   .seg button { font: inherit; border: 0; background: #22292d; color: #cfc9bc; padding: 5px 11px; cursor: pointer; }
   .seg button + button { border-left: 1px solid #3a4146; }
   .seg button.on { background: #4c6b4a; color: #fff; }
-  .variant { display: flex; align-items: center; gap: 7px; }
+  .variant { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+  .variant:has(#variantName) > div { width: 100%; }
   .variant button { font: inherit; width: 26px; height: 26px; border-radius: 6px; border: 1px solid #3a4146;
     background: #22292d; color: #cfc9bc; cursor: pointer; }
   button:disabled { opacity: .45; cursor: default; }
   .variant button:hover { border-color: #9fb8a4; }
   .variant button.on { background: #4c6b4a; color: #fff; }
-  #variantName { min-width: 170px; color: #c9b98a; }
+  #variantName { min-width: 0; flex: 1; overflow-wrap: anywhere; color: #c9b98a; }
   label { color: #98a09a; font-size: 12px; letter-spacing: .05em; text-transform: uppercase; }
-  #tag { position: fixed; top: 64px; left: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
-    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #cfc9bc; max-width: 320px; }
+  #tag, #status { background: #14181a; border: 1px solid #3a4146;
+    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; overflow-wrap: anywhere; }
+  #tag { color: #cfc9bc; }
   #tag b { color: #9fb8a4; }
-  #status { position: fixed; top: 64px; right: 16px; z-index: 2; background: #1b2124d9; border: 1px solid #3a4146;
-    border-radius: 8px; padding: 8px 12px; font-size: 12.5px; color: #c9b98a; max-width: 300px; }
+  #status { color: #c9b98a; }
   #regionLabels { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
   .region-label { position: absolute; transform: translate(-50%, -50%);
     color: #fff; font: 600 11px/1.2 system-ui, sans-serif; white-space: pre; text-align: center;
@@ -36,46 +45,35 @@
 </style></head>
 <body>
 <div id="bar">
-  <h1>FLOOR VIEWER · 60×35</h1>
+  <h1>FLOOR VIEWER · 60×45</h1>
   <button id="playSandbox" disabled>Play in sandbox</button>
   <div><label for="seed">Seed</label><div class="seg">
     <input id="seed" type="number" min="0" max="4294967295" step="1" value="0" style="width:110px">
     <button id="newSeed">New seed</button><button id="resetSeed">Reset</button>
   </div></div>
-  <div><label for="safetyRadius">Home safety · preview only</label><div class="seg" style="align-items:center;padding:4px 8px;gap:8px">
-    <input id="safetyRadius" type="range" min="0" max="350" step="10" value="50">
-    <output id="safetyValue" for="safetyRadius">50 m</output>
-  </div></div>
+  <div><label>Home · curated surface area</label><div id="safetyValue">50 m</div></div>
   <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
   <div class="variant"><div><label>Creatures</label></div><button id="creatureToggle" class="on" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Labels</label></div><button id="labelToggle" class="on" aria-pressed="true" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Variant index</label></div>
     <button id="vMinus">&minus;</button><span id="variantName">0</span><button id="vPlus">+</button>
   </div>
-</div>
 <div id="tag"></div>
-<div id="status">Loading game modules&hellip;</div>
+<div id="status" role="status">Loading game modules&hellip;</div>
+</div>
 <canvas id="cv"></canvas>
 <div id="regionLabels" aria-label="Map region and POI labels"></div>
 <script src="game-loader.js"></script>
+<script src="floor-viewer-walls.js"></script>
 <script src="floor-viewer-region.js?v=e7ef48f0"></script>
 <script src="floor-viewer-variants.js?v=ae9a8f2d"></script>
 <script>
 (() => {
   'use strict';
-  const FLOOR_NAMES = { 0: 'Surface - the town', 1: 'Floor 1 - natural caves', 2: 'Floor 2 - goblin city',
-    3: 'Floor 3 - deep stone', 4: 'Floor 4 - fungal Underdark',
-    5: 'Floor 5 - the haunted dead city', 6: 'Floor 6 - the lava stratum',
-    7: 'Floor 7 - dragon hunting grounds', 8: 'Floor 8 - the deep roosts' };
   let floor = 0, variantIndex = 0, showCreatures = true, showLabels = true;
   const seedInput = document.getElementById('seed');
   let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
   seedInput.value = seed;
-  const safetyInput = document.getElementById('safetyRadius');
-  const requestedRadius = new URLSearchParams(location.search).get('safetyM');
-  let safetyRadius = requestedRadius !== null && Number.isFinite(Number(requestedRadius))
-    ? Math.max(0, Math.min(350, Math.round(Number(requestedRadius) / 10) * 10)) : 50;
-  safetyInput.value = safetyRadius;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true, readyToPlay = false;
@@ -87,7 +85,7 @@
   document.getElementById('playSandbox').onclick = () => {
     try {
       FloorSandbox.write(entries, displayDepth(), seed, variantIndex);
-      location.href = '../index.html?sandbox=true&sandboxMap=floor-viewer';
+      location.href = '../index.html?sandbox=true&sandboxMap=floor-viewer&skipStory=true&skipTutorial=true&autoTorch=true';
     } catch (error) {
       document.getElementById('status').textContent = 'Could not launch sandbox: ' + error.message;
     }
@@ -130,6 +128,8 @@
         scene.ensureStarterShopId();
         entry.viewerSave = scene.save;
         entry.viewerHome = entry.objects.find(o => o.id === scene.save.starterShopId);
+        scene.save.starterCratesAt = entry.viewerHome
+          ? { x: entry.viewerHome.x, y: entry.viewerHome.y } : { ...home };
         status('Dressing the surface&hellip;');
         await W.runStepsSliced(() => scene.spawnInTileSteps(entry, 0, 0));
         // Runtime wakes building guards near the player in its update loop;
@@ -140,6 +140,7 @@
             tileEdgeM: R.EDGE,
           }));
         }
+        HomeVariant.apply(scene, entry, 0, 0);
         for (let d = 1; d <= depth; d++) {
           status(`Building floor ${d}&hellip;`);
           W.setDepth(d);
@@ -221,6 +222,7 @@
           drawBiomeTexture(t.getContext(), 32, +type, v, 0);
         }
       } catch (e) { console.warn(e); }
+      FloorWallMaterials.prepareGround(scene);
       return { textures: store, failures };
     })();
     return assetsPromise;
@@ -334,17 +336,13 @@
     const entry = entries[floor === 0 ? 0 : depth];
     if (!entry) return;
     const list = sprites[floor === 0 ? 0 : depth] || [];
-    const home = entries[0]?.viewerHome;
-    const hiddenByHome = o => depth === 0 && home && safetyRadius > 0
-      && Combat.isEnemyKind(o.kind) && !Combat.isTame(o)
-      && Math.hypot(o.x - home.x, o.y - home.y) < safetyRadius;
-    const hiddenEnemies = (entry.creatures || []).filter(hiddenByHome).length;
+    const home = entries[0]?.viewerSave?.starterCratesAt;
+    const safetyRadius = HomeVariant.RADIUS_M;
     const Wpx = cv.width = innerWidth, Hpx = cv.height = innerHeight;
-    const barBottom = document.getElementById('bar').getBoundingClientRect().bottom;
-    for (const id of ['tag', 'status']) document.getElementById(id).style.top = (barBottom + 8) + 'px';
-    const top = barBottom + 64;
-    const s = Math.max(1, Math.floor(Math.min((Wpx - 24) / R.WIDTH, (Hpx - top - 12) / R.HEIGHT)));
-    const offX = Math.floor((Wpx - R.WIDTH * s) / 2), offY = top + Math.floor((Hpx - top - R.HEIGHT * s) / 2);
+    const left = document.getElementById('bar').getBoundingClientRect().right;
+    const availableWidth = Wpx - left;
+    const s = Math.max(1, Math.floor(Math.min(availableWidth / R.WIDTH, Hpx / R.HEIGHT)));
+    const offX = left + Math.floor((availableWidth - R.WIDTH * s) / 2), offY = 0;
     ctx.fillStyle = '#14181a'; ctx.fillRect(0, 0, Wpx, Hpx);
     ctx.imageSmoothingEnabled = false;
     ctx.save(); ctx.beginPath(); ctx.rect(offX, offY, R.WIDTH * s, R.HEIGHT * s); ctx.clip();
@@ -371,6 +369,9 @@
       if (spec && s >= 8 && !(type === T.CAVE_FLOOR || type === T.CAVE_WALL || type === T.CAVE_LAVA))
         ctx.drawImage(assets.textures.get('biome' + type + '_' + (Math.abs(h) % spec.variants)).getSourceImage(),
           offX + x * s, offY + y * s, s + .5, s + .5);
+      const channel = FloorWallMaterials.groundTexture(entry, i, type);
+      if (channel) ctx.drawImage(assets.textures.get(channel).getSourceImage(),
+        offX + x * s, offY + y * s, s + .5, s + .5);
     }
     const roadLabels = [];
     // Source geometry at real widths, using the game's themed pavement tiles.
@@ -405,11 +406,27 @@
         }
       }
     }
+    // Walls and props share ground-depth ordering; elevated tops can cover
+    // the cells behind them without moving any footprint or collision cell.
+    const walls = depth > 0 ? FloorViewerWalls.cells(entry, R.WIDTH, R.HEIGHT, depth) : [];
+    const wallAtlas = walls.length ? FloorWallMaterials.prepare(assets, depth).getSourceImage() : null;
+    cv.dataset.wallCount = walls.length;
+    cv.dataset.wallTheme = depth > 0 ? FloorWallMaterials.theme(depth).id : '';
+    const ordered = [
+      ...list.map(sprite => ({ sprite, y: sprite.o.y / W.CELL_M, x: sprite.o.x / W.CELL_M })),
+      ...walls.map(wall => ({ wall, y: wall.y + .5, x: wall.x + .5 })),
+    ].sort((a, b) => a.y - b.y || a.x - b.x);
     // Sprites: the game's appearances, the game's scale rule (cell px / 32).
     const scale = s / 32;
-    for (const { o, appearance: p, cat } of list) {
+    for (const item of ordered) {
+      if (item.wall) {
+        FloorViewerWalls.draw(ctx, wallAtlas, item.wall,
+          offX + item.wall.x * s, offY + item.wall.y * s, s);
+        continue;
+      }
+      const { o, appearance: p, cat } = item.sprite;
       if (!showCreatures && cat === 'creature') continue;
-      if (cat === 'creature' && hiddenByHome(o)) continue;
+      if (depth === 0 && !HomeVariant.allows({ depth: 0, save: entries[0].viewerSave }, o)) continue;
       const at = { x: offX + o.x / R.EDGE * R.N * s, y: offY + o.y / R.EDGE * R.N * s };
       if (at.x < -40 || at.y < -40 || at.x > Wpx + 40 || at.y > Hpx + 40) continue;
       const t = assets.textures.get(p.texKey), f = t && t.get(p.frameVal);
@@ -472,6 +489,8 @@
       labels.push(...roadLabels);
       const occupiedLabels = [];
       for (const label of labels) {
+        if (depth === 0 && (label.road || label.nexusKind)
+            && HomeVariant.contains({ depth: 0, save: entries[0].viewerSave }, label.x * W.CELL_M, label.y * W.CELL_M)) continue;
         if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
         const el = document.createElement('span');
         el.className = 'region-label' + (label.poi ? ' poi-label' : label.road ? ' road-label' : ''); el.textContent = label.text;
@@ -502,22 +521,14 @@
       const reasons = [...new Set(records.filter(record => record.status === 'declined').map(record => record.reason.replace(/_/g, ' ')))];
       return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
     }).join(' · ') : '';
-    tag('<b>' + FLOOR_NAMES[floor] + '</b>'
-      + (depth === 0 ? `<br>Home safety: <b>${safetyRadius ? safetyRadius + ' m' : 'off'}</b> · ${hiddenEnemies} enemies hidden (preview)` : '')
+    tag('<b>' + (depth === 0 ? 'Surface - the town' : FloorWallMaterials.theme(depth).label) + '</b>'
+      + (depth === 0 ? `<br>Home: <b>${safetyRadius} m</b> · curated starter area` : '')
       + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + (placement ? '<br>Placed: ' + placement : ''));
   }
 
   // ── Controls ──────────────────────────────────────────────────────────────
-  safetyInput.oninput = () => {
-    safetyRadius = Number(safetyInput.value);
-    document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
-    const url = new URL(location.href);
-    url.searchParams.set('safetyM', safetyRadius);
-    history.replaceState(null, '', url);
-    draw();
-  };
   function changeSeed(value) {
     if (building) return;
     seed = Number(value) >>> 0;
@@ -537,7 +548,7 @@
   };
   document.getElementById('resetSeed').onclick = () => changeSeed(0);
   const floorSeg = document.getElementById('floorSeg');
-  for (const f of [0, 1, 2, 3, 4, 5, 6, 7, 8]) {
+  for (const f of [0, 1, 2, 3, 4, 5, 6, 7]) {
     const b = document.createElement('button'); b.textContent = f === 0 ? 'S' : String(f);
     b.onclick = () => { floor = f; [...floorSeg.children].forEach(x => x.classList.remove('on')); b.classList.add('on'); changeFloor(); };
     if (f === 0) b.classList.add('on');
@@ -554,8 +565,7 @@
     draw();
   };
   function updateControls() {
-    safetyInput.disabled = building || displayDepth() !== 0;
-    document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
+    document.getElementById('safetyValue').textContent = typeof HomeVariant === 'undefined' ? '50 m' : `${HomeVariant.RADIUS_M} m · surface only`;
     for (const id of ['seed', 'newSeed', 'resetSeed']) document.getElementById(id).disabled = building;
     document.querySelectorAll('#floorSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;

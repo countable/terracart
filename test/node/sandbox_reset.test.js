@@ -59,6 +59,20 @@
       assert.eq(save.compassModules.pending.length, 1, 'notices remain available when testing onboarding');
     } finally { window.__sandboxSkipTutorial = before; }
   });
+  test('sandbox skip story: holds queued dialogs without consuming them or showing the badge', () => {
+    const previous = window.__sandboxSkipStory;
+    const scene = { save: { memoryStory: { pending: ['memory'] } }, _ceremonies: [{waits: true}],
+      _storyRun: true, _dialogOpen: () => false };
+    const before = JSON.stringify(scene);
+    try {
+      window.__sandboxSkipStory = true;
+      assert.truthy(liftSceneMethod('_storyHeld').call(scene));
+      assert.eq(liftSceneMethod('_pendingStoryCount').call(scene), 0);
+      assert.eq(JSON.stringify(scene), before);
+      window.__sandboxSkipStory = false;
+      assert.falsy(liftSceneMethod('_storyHeld').call(scene));
+    } finally { window.__sandboxSkipStory = previous; }
+  });
   test('sandbox reset: executes before boot and settings readers', () => {
     assert.lt(INDEX_HTML_SRC.indexOf('// Sandbox local reset must run'), INDEX_HTML_SRC.indexOf('// Boot recovery stays inline:'));
   });

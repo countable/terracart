@@ -14,7 +14,7 @@
     if (anchor.kind === 'quarry') return 'mine_tunnels';
     if (anchor.kind !== 'grove') return null;
     const weights = profile.weights;
-    let ticket = fnv1a(`cave-area|${root.ZoneVariants.identity(anchor)}|${depth}`) / 4294967296 * weights.reduce((sum, row) => sum + row.weight, 0);
+    let ticket = fnv1a(`cave-area|${root.ZoneVariants.identity(anchor)}|${root.WorldGen.floorProfile(depth).generationDepth ?? depth}`) / 4294967296 * weights.reduce((sum, row) => sum + row.weight, 0);
     for (const row of weights) {
       ticket -= row.weight;
       if (ticket < 0) return row.id;
@@ -174,6 +174,7 @@
     const kind = select(state.anchor, depth), mine = kind === 'mine_tunnels';
     const coverage = surface.zone.coverage || surface.zone.idx;
     const id = `cave_area|${state.key}|${depth}`;
+    const seedId = `cave_area|${state.key}|${W.floorProfile(depth).generationDepth ?? depth}`;
     const diagnostic = { anchorKey: state.key, variant: kind, status: 'declined', reason: null };
     out.diagnostics.push(diagnostic);
     const cells = [], radius = SPRING.stoneRadius + SPRING.ringHalfWidth;
@@ -233,7 +234,7 @@
     const court = c => !mine && Math.hypot(c.u,c.v) < 3;
     const free = c => !used.has(c.i) && (mine || !cross(c));
     const order = (list, salt) => list.slice().sort((a,b) =>
-      fnv1a(`${id}|${salt}|${a.u},${a.v}`) - fnv1a(`${id}|${salt}|${b.u},${b.v}`));
+      fnv1a(`${seedId}|${salt}|${a.u},${a.v}`) - fnv1a(`${seedId}|${salt}|${b.u},${b.v}`));
     const put = (c, objectKind, extra={}) => {
       if (!c || used.has(c.i)) return false;
       const p = frame.centre(c.ix,c.iy), slot = `${id}|${c.u},${c.v}|${objectKind}`;
@@ -369,6 +370,7 @@
     const coverage = surface.zone.coverage || surface.zone.idx;
     const source = root.Underground?.surfaceData(surface);
     const id = `cave_area|${state.key}|${depth}`;
+    const seedId = `cave_area|${state.key}|${W.floorProfile(depth).generationDepth ?? depth}`;
     const diagnostic = { anchorKey: state.key, variant: 'dungeon_maze', status: 'declined', reason: null };
     out.diagnostics.push(diagnostic);
     const cells = new Map();
@@ -453,7 +455,7 @@
       ...frame.centre(fx,fy),reserved};
     out.areas.push(area);
     if (focusFree && reserved.has(focus)) {
-      const shrine = fnv1a(`${id}|focus`) % 2 === 0;
+      const shrine = fnv1a(`${seedId}|focus`) % 2 === 0;
       const extra={_ix:fx,_iy:fy,_cave:true,caveArea:id,depth,
         ...(mirror ? {caveOf:mirror.caveOf,poiClass:mirror.poiClass,poiDensity:mirror.poiDensity,
           rank:mirror.rank,name:mirror.name} : {}),
@@ -469,7 +471,7 @@
     for (const i of reserved) {
       const c=cells.get(i);
       if (walls.has(i) || dry.has(i) || Math.hypot(c.u,c.v)<4) continue;
-      const roll=avalanche32(fnv1a(`${id}|enemy|${c.u},${c.v}`))/4294967296;
+      const roll=avalanche32(fnv1a(`${seedId}|enemy|${c.u},${c.v}`))/4294967296;
       if (roll >= 1/(MAZE.enemySpacing*MAZE.enemySpacing)) continue;
       const kind=root.EnemySpawns.caveKind(depth,roll*MAZE.enemySpacing*MAZE.enemySpacing);
       if (!kind) continue;

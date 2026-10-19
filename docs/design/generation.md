@@ -53,6 +53,10 @@ access or tile lifecycle mechanics.
   shortfall counts; matching authored Nexus fauna satisfies matching slots.
 - Crows are the open country's corvid: Grass landcover, Grove Nexus and
   declared Road Variant populations; Ravens are the houses' (Residential).
+  Underground floors do not generate ambient rabbits.
+  L7 ambient encounters use the dragon floor habitat: four parts red dragon
+  to one red demon, within the existing deterministic population budget.
+  Deeper roost habitats retain one fixed dragon seat per region.
   Rabbits have ordinary surface populations. Cat exclusion from Wasteland, Deer restriction
   to Forest/Residential, and Butterfly exclusion from Forest/Orchard remain
   species placement limits.
@@ -93,10 +97,33 @@ access or tile lifecycle mechanics.
   identities and species remain fixed when safety relocates their seats. A
   raw-floor compatibility pass assigns historical cell aliases before safety;
   each alias belongs to one request, so old defeats neither resurrect relocated
-  foes nor suppress multiple enemies. Rabbit identities remain ordinal-based.
+  foes nor suppress multiple enemies.
 - Rendering and simulation use `EnemySpawns.isSurfaceResident`, including
   habitat-only residents without ordinary roster metadata. Evening suppression
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
+
+## Authored preview sandboxes
+
+- `SandboxScenarios.build` converts a versioned semantic cell matrix and explicit
+  prop/creature placements into ordinary tile entries. `FloorSandbox.writeScenario`
+  uses the same session-storage transfer, installation and disabled-save path as
+  the floor viewer. Producers own layout generation; the adapter does not reroll
+  terrain or ambient populations. Creature IDs derive from scenario, mode, seed,
+  species and cell. Restarting reloads the same authored snapshot.
+- Scenario cells become real terrain (including actual water and lava), with a one-cell
+  rock boundary and square padding. Player starts on dry, unoccupied ground.
+  Creatures use the normal factory; preview props are decorative `sandboxprop`
+  objects with supplied art. Explicit `pushable: true` blocks use `PushBlocks`: tap
+  from a cardinally adjacent cell to push one cell into clear, loaded, dry ground.
+  They block walking, never chain-push, fill water or repaint terrain, and retain
+  their identity/art when moving across tile boundaries. Positions last for the
+  sandbox session and reset on reload. The cardinal destination rule is shared
+  with temple block trials. Other preview props remain decorative.
+- Bounded PNG/WebP/JPEG data URIs travel with the snapshot; the art manifest and
+  semantic cells let the renderer reuse floor-specific preview art. Dimensions,
+  placements, payload and image sizes are checked before storage. The return URL
+  is HTTP(S) only. Scenario loads suppress automatic Home placement/clearing, Home variants,
+  normal spawns and unrelated depth generation; ordinary floor-viewer transfers preserve their existing behavior.
 
 ## Generation, saves and tiles
 
@@ -191,15 +218,15 @@ access or tile lifecycle mechanics.
   derives them from immutable surface evidence. Preserve that mask through cave
   generation and runtime spawns; repainting or digging never grants spawn access.
 
-- L2 fills eligible ground between authored areas with connected goblin-warren
-  rooms (`CaveAreas.planCity`, configured by `floorProfile(2).warren`).
+- L3 fills eligible ground between authored areas with connected goblin-warren
+  rooms (`CaveAreas.planCity`, configured by `floorProfile(3).warren`).
   Shared walls have two-cell doors; clipped rooms retain open rims, and route
   clearings, landmarks and stair approaches stay clear. The city owns its empty
   ground so ordinary rock scatter cannot refill its passages. Room encounters
   use stable IDs and the class-specific safety gate; finite stores share the
   existing cave-container budget. The drill budget is placed before the city.
 
-- L2 pressure plates are subtle floor marks, visible only within one cell of
+- L3 pressure plates are subtle floor marks, visible only within one cell of
   the player's body. Stepping on one triggers its paired rolling ball, spike
   wall or gas grate once per encounter. Gas grates stay inert until pressed,
   then emit the existing poison/paralysis gas burst rather than a periodic
@@ -207,18 +234,18 @@ access or tile lifecycle mechanics.
   reservation; actual objects, landmark approaches and the hazard safety gate
   still exclude placement. Grove ghost plates retain their existing visibility.
 
-- No goblin walks L1 (owner, Oct 2026): L1's cave-area weights give the
-  goblin warrens nothing and seat no goblins (`floorProfile(1).caveAreas`),
-  the L1 habitat theme band is all natural (`EnemyHabitats.THEME_BANDS`), and
-  every goblin row's cave window opens on L2 or deeper (the club goblin at
-  2..3). L1 is slimes, bats and what a campfire wards off.
+- L2 carries the natural cave profile previously used on L1: its authored
+  areas have no goblin warrens, and `generationDepth: 1` preserves the original
+  anchor selection and deterministic slot ordering. L1 sewer has no authored
+  natural areas. Physical-depth encounter, ore and travel progression remain
+  unchanged by this wall update; saved object IDs still include actual depth.
 - Authored cave areas use `ZoneVariants.anchorFrame` and run before ordinary
   floor passes. Keep their empty-ground reservations separate from object
   occupancy (`CaveAreas`); ambient spawns must respect both. Derive deeper
   floors from `geologyGrid`, before authored terrain changes. Ordinary cleanup
   and gem conversion must leave `caveArea` pieces intact. Authored warren
   stores spend `WorldGen.caveContainerBudget` before ambient barrels.
-  Dungeon mazes on floors 1–2 repeat the reviewed 34 × 33 braided wall mask
+  Dungeon mazes on floors 2–3 repeat the reviewed 34 × 33 braided wall mask
   (spacing 3, loops 77%) in canonical anchor coordinates across eligible grove
   coverage. Fill is diggable `CAVE_WALL`, not rock objects. Clipped boundaries,
   tile seams, routes, landmark approaches and the focus stay open; shortest
@@ -240,19 +267,32 @@ access or tile lifecycle mechanics.
   per-depth regions (`THEME_BANDS`), while chest mirrors, torch sites, quarry
   provenance and spring caves inherit surface anchors. The street mirror and
   any per-floor road clearings are level-scoped projections of surface lines.
-  On L1, only Small roads become road-derived cave walls; Medium/Large roads
-  and paths remain open terrain. Route projection cannot carve the L1 Small-road
-  walls. Buildings and water retain their existing wall mapping. Open terrain
+  On L2, only Small roads become road-derived cave walls; Medium/Large roads
+  and paths remain open terrain. Route projection cannot carve the L2 Small-road
+  walls. Buildings and water retain their existing wall mapping. L4 carves
+  surface road footprints (including paths) plus a one-cell buffer into
+  connected tunnels, preserving surrounding deep stone and eligible public
+  clearings. `floorProfile(4).roadTunnelBufferCells` owns the clearance;
+  physical road masks retain wider carriageways, with terrain routes as a
+  fallback. Tunnels do not become settlement clearings or surface street
+  overlays. Open terrain
   does not relax inherited spawn safety.
   `docs/design/floors.md` owns the per-floor catalog.
+
+- Player movement permits wading through actual water on every floor, including
+  sewer scenarios. This does not change `WorldGen.isWalkable` or spawn safety:
+  land creatures and ground drops still avoid water. Cave walls remain solid.
 
 - A per-floor rule - rope seals, fall seals, hazards, lighting levels - reads
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
   the vent kinds a floor erupts,
-  arrival story IDs and entry keys. The terrain ladder is city 2, clearings 3,
-  open fungal 4, haunted surface mirror 5, lava 6, and dragon mirrors 7–8.
+  arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
+  L1 mask read directly from the surface), goblin city 3, deep-stone clearings and road tunnels
+  4, open fungal 5, lava 6, and dragon masonry 7–8. Lava and dragon strata
+  read surface geometry directly; an open fungal floor must not erase lava
+  footprints. Lava building cells are ground-level `CAVE_LAVA`, not rockwalls.
   Clearing rewards carry the receiving depth; biome tints follow the profile.
   Keep story copy in the presentation module;
   choose its story through the profile. Depths beyond the explicit rows inherit
@@ -263,7 +303,7 @@ access or tile lifecycle mechanics.
 
 - Flint Field's central disk contains mineable flint-bearing rocks instead of
   loose pickups. Visible flint seams yield stone and one guaranteed flint.
-  L1 marks a quarter of ordinary ambient rocks as flint-bearing using stable
+  L2 marks a quarter of ordinary ambient rocks as flint-bearing using stable
   rock IDs and `floorProfile(depth).flintRockP`; placement and ore rolls retain
   their existing seeded streams. Other floors and loose tar-zone flint keep
   their existing rules.
@@ -498,6 +538,11 @@ access or tile lifecycle mechanics.
   or in yards, and every timed reward (coin bursts, bounty packs,
   `findWalkableDestination`) stays on the player's SIDE of any MD/LG road
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
+  L1 sewer uses the base ambient snare count (6–10 attempts per tile), rather
+  than the deeper floors’ 100× multiplier. The game and floor viewer share this
+  floor-profile setting; retained traps keep their seeded positions and IDs.
+  The floor viewer alone previews L2 at its base snare count (7–11 attempts
+  per tile); gameplay retains the deeper-floor multiplier.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
 - Path variant assignment joins connected mapped fragments and balances natural
@@ -765,11 +810,50 @@ Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 `chest_tier`, `daily_crates`, `density_pois`, `spawn_class`, `guard_groups`
 (`test/node/*.test.js`).
 
+The approved wall material source and cap colors live in
+`src/floor_wall_materials.js`. Both the game and fabricated floor viewer use
+these profiles and the same terrain generator. L5 generates no walls; its
+fungal wall sample remains available only as an art stress test. L2 uses the
+approved lighter Abandoned Mines wall material while retaining natural-cave
+terrain and authored-area rules. This changes floor assignments, not saved
+ledger keys or progression gates.
+
 ## Spawn precedence
 
 Commercial default ground uses the shared hedge lattice for bushes and pot
 pillars. Connection tuning belongs to `HEDGE_WALL_PCT` in `worldgen.js`; it
 changes whole wall segments while preserving pillar spacing and open interiors.
+
+For generated area content, precedence is **exclusion → suppression → Home →
+Nexus → road variants → landcover**. Exclusion and suppression are eligibility
+constraints, not competing themes: no area owner bypasses them. Saved/player-owned
+placements, physical building footprints, and location-bound story/landmark
+placements retain the ownership rules below; ordinary area filling must not
+replace them. Home admits its curated starter placements rather than incidental
+landmarks from an underlying theme.
+
+The implementation keeps eligibility and ownership separate: `WorldGen.isSpawnCell`
+applies exclusion/suppression by spawn class; `WorldGen.variantOwnerAt` resolves
+Home, Nexus and road ownership (no owner means ordinary landcover). Per-player
+Home filtering is applied after deterministic generation. Runtime theme effects
+use `WorldGen.zoneAnchorAt(entry, index)` for the winning Nexus anchor (or
+`null` when Home, a cave reservation, or another owner wins). Habitat resolution
+uses the same owner without reinterpreting coverage. Both `coverage` and legacy
+`idx` masks are resolved centrally. Road presentation uses
+`StreetVariants.indexFor`; raw generated coverage/index data is retained for
+shared generation and underground inheritance, not runtime priority decisions.
+
+After surface ownership is resolved, the live Home overlay discards complete
+four-connected Nexus/road-variant remnants smaller than
+`WorldGen.MIN_VARIANT_CELLS` (16 cells; exactly 16 stays). Count footprint cells,
+not objects; different Nexus anchors and road variant codes count separately.
+Discarded cells lose generated content, theme effects and themed pavement,
+returning to underlying terrain without exposing a lower-priority variant.
+Saved/player-owned content and physical roads remain. Generated masks and
+underground inheritance are unchanged. A component touching a tile edge is
+retained because its full extent is unknown; do not discard a cross-tile variant
+from one tile's partial count. Spawn-class-specific suppression is still an
+eligibility gate, not a universal subtraction from variant area.
 
 Higher-priority placements and their access space take precedence in this order:
 
@@ -783,6 +867,18 @@ Higher-priority placements and their access space take precedence in this order:
    immediate area is blocked. All four cells must avoid roads, water and existing
    buildings. `clearHomeFooting` removes incidental clutter only:
    existing building cells, objects and outlines are never erased for Home.
+   `HomeVariant` reserves a 50 m circle around the frozen `starterCratesAt`
+   anchor on the surface only. It overrides road, Nexus and ordinary biome
+   content with the curated starter area: Tilly and other unlocked story
+   neighbours, the doorstep chicken, starter supplies and authored starter
+   placements. Player possessions and mapped buildings remain. Physical roads
+   keep their geometry and safety rules but lose their themes inside Home.
+   A live street-index copy uses the same boundary intervals as Nexus road
+   suppression, including paths; pavement, labels, stories and hot-road effects
+   read it through `StreetVariants.indexFor`. Shared generation reads the original.
+   Apply this per-player overlay after shared generation, retaining the
+   original grids, dressing and zone metadata for cave generation and stable
+   spawn identities. The floor viewer uses the same overlay and starter placers.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles

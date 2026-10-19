@@ -119,7 +119,7 @@
         }
     }
     // Keep generated centre lanes open; remove only ordinary dressing, never stairs/finds.
-    for (let k = objects.length - 1; k >= 0; k--) if (objects[k].kind === 'mineralrock' && !objects[k].caveArea && reserved.has(index(objects[k]))) {
+    for (let k = objects.length - 1; k >= 0; k--) if (objects[k].kind === 'mineralrock' && !objects[k].caveArea && !mineralDeposit(objects[k]) && reserved.has(index(objects[k]))) {
       occupied.delete(index(objects[k])); objects.splice(k, 1);
     }
     const coverage = data.zone?.coverage || data.zone?.idx;

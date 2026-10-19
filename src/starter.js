@@ -102,6 +102,7 @@
     sv.starterCratesAt = { x, y };
     if (typeof persistSave === 'function') persistSave(sv);
     if ((scene.depth || 0) !== 0) return;     // tileCache is repointed underground
+    HomeVariant.refresh(scene);
     const home = scene._starterTileEntry();
     if (home) {
       scene._placeStarterTrail(home.entry, home.tx, home.ty);

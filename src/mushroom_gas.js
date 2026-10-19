@@ -20,7 +20,7 @@
   const DIRECTIONS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
 
   function prepare(entry, tx, ty) {
-    if (entry.depth > 0 || !entry.zone?.coverage ||
+    if (entry.depth > 0 || !entry.zone ||
         (entry._gasPreparedPlants === entry.wildplants && entry._gasPreparedCount === entry.wildplants?.length)) return;
     entry._gasPreparedPlants = entry.wildplants;
     entry._gasPreparedCount = entry.wildplants?.length;
@@ -33,8 +33,7 @@
       const ix = Math.floor((plant.x - tx * entry.tileEdgeM) / cellM);
       const iy = Math.floor((plant.y - ty * entry.tileEdgeM) / cellM);
       if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-      const slot = entry.zone.coverage[iy * N + ix];
-      if (entry.zone.anchors?.[slot - 1]?.variant !== 'mushroom_grove') continue;
+      if (W.zoneAnchorAt(entry, iy * N + ix)?.variant !== 'mushroom_grove') continue;
       if (!W.isSpawnCell(entry.grid, N, N, ix, iy, opts, 'enemy')) continue;
       if (root.EnemyHabitats.unit(`${plant.id}:gas-source`) >= CONFIG.sourceChance) continue;
       plant.gasEmitter = true;
@@ -58,7 +57,9 @@
   }
 
   function sourcePresent(scene, plant) {
-    return plant.gasEmitter && !plant.picked && !plant.burned
+    return !root.HomeVariant?.contains(scene, plant.x, plant.y)
+      && !root.HomeVariant?.discardedAt(scene, plant.x, plant.y)
+      && plant.gasEmitter && !plant.picked && !plant.burned
       && !setOf(scene.save.picked).has(plant.id) && !setOf(scene.save.burnedObjects).has(plant.id);
   }
 

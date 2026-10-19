@@ -1,0 +1,1769 @@
+{
+  "schemaVersion": 1,
+  "reviewNote": "Native16 variants only. Crops are at most16\u00d716 except trees and genuinely tall world objects spanning multiple vertical cells; exceptions are labelled. No rescaling or RPG Maker upscales. Candidates are comparison-only, not applied game assets.",
+  "entries": [
+    {
+      "id": "ra-barrel",
+      "pack": "Rogue Adventure World",
+      "name": "Weathered barrel",
+      "targets": [
+        "barrel"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        176,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-barrel.png",
+      "note": "Muted brown and clear top rim fit neglected interiors. A smashed state still needs matching art.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-crate",
+      "pack": "Rogue Adventure World",
+      "name": "Timber crate",
+      "targets": [
+        "box"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        128,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-crate.png",
+      "note": "Restrained warm wood; readable lid and compressed front. Compare with current loot visibility.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-rock",
+      "pack": "Rogue Adventure World",
+      "name": "Dark cave stone",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
+      "crop": [
+        272,
+        48,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-rock.png",
+      "note": "Small muted stone with a readable top. Fits neglected caves; mineral deposits still need explicit ore colour cues.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-grass",
+      "pack": "Rogue Adventure World",
+      "name": "Olive grass patch",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:15",
+        "ground:19",
+        "ground:21",
+        "ground:22",
+        "ground:28",
+        "ground:29"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "crop": [
+        32,
+        80,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-grass.png",
+      "note": "Muted olive works for unrestored ground. This soft-edged patch is a material sample, not a seamless replacement for the current painter. For school, pitch, golf or orchard rows this is base grass only; preserve chalk, mowing, litter and other role-specific overlays.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-earth",
+      "pack": "Rogue Adventure World",
+      "name": "Weathered earth patch",
+      "targets": [
+        "ground:4"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "crop": [
+        224,
+        80,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-earth.png",
+      "note": "Plain earth material; no visible furrows establish a tilled state.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-barrel",
+      "pack": "Fantasy Dreamland",
+      "name": "Copper-brown barrel",
+      "targets": [
+        "barrel"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        32,
+        128,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-barrel.png",
+      "note": "Strong top rim and readable front. Brighter orange than the current world; best as a restored prop. One intact state only.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-tree",
+      "pack": "Fantasy Dreamland",
+      "name": "Round broadleaf tree",
+      "targets": [
+        "trees"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+      "crop": [
+        192,
+        16,
+        32,
+        48
+      ],
+      "image": "art-candidates/world/fd-tree.png",
+      "note": "Clear canopy and trunk at small scale. Vivid green suits restored areas; 16px source clusters need scale review beside the 24px art target.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-shrub",
+      "pack": "Fantasy Dreamland",
+      "name": "Leafy shrub",
+      "targets": [
+        "plant:shrub"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+      "crop": [
+        384,
+        96,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-shrub.png",
+      "note": "Compact 16px leafy mound. Bright lime favours restored gardens; no harvest or damaged states selected.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-red-tree",
+      "pack": "Fantasy Dreamland",
+      "name": "Red canopy tree study",
+      "targets": [
+        "worldpeach_tree",
+        "apple_tree"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+      "crop": [
+        192,
+        272,
+        32,
+        48
+      ],
+      "image": "art-candidates/world/fd-red-tree.png",
+      "note": "Useful fruit-tree silhouette and colour contrast, but this canopy has no explicit fruit; fruit and harvest states would need authoring.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-flowers",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue flower clump",
+      "targets": [
+        "plant:flowers",
+        "plant:forgetmenot"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        240,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-flowers.png",
+      "note": "Readable pale blue bloom; colourful restored-garden option. A visual bloom alternative, not a verified botanical species.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-rock",
+      "pack": "Fantasy Dreamland",
+      "name": "Light limestone stone",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        240,
+        112,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-rock.png",
+      "note": "Small pale rock with a clear top plane. More visible than the darker current stone; no ore markings.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-stalagmites",
+      "pack": "Fantasy Dreamland",
+      "name": "Warm cave spires",
+      "targets": [
+        "cave_props:stalagmites"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        448,
+        0,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/fd-stalagmites.png",
+      "note": "Readable upright peaks with warm highlights. More saturated than Rogue; palette adjustment may be needed for bleak caves.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-house",
+      "pack": "Fantasy Dreamland",
+      "name": "Red-roof cottage study",
+      "targets": [
+        "house",
+        "house_trader"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Village.png",
+      "sourceSHA256": "e9c1c51fc04f71108dbbc519e74d40f131afc22bf705a3447242d7f0c3c5bd5a",
+      "crop": [
+        256,
+        128,
+        64,
+        80
+      ],
+      "image": "art-candidates/world/fd-house.png",
+      "note": "Cozy restored palette and readable roof. 64\u00d780 exceeds house target height; front is tall and role signage is absent.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-ground",
+      "pack": "Fantasy Dreamland",
+      "name": "Mint grass texture",
+      "targets": [
+        "ground:0",
+        "ground:6"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-ground.png",
+      "note": "Clean square ground sample with bright mint tones. Best restored palette; tile seams need checking before replacing procedural terrain.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-earth",
+      "pack": "Fantasy Dreamland",
+      "name": "Warm cave floor",
+      "targets": [
+        "ground:10",
+        "ground:24",
+        "ground:27"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-earth.png",
+      "note": "Fine orange grain offers a stone-floor alternative. More saturated than the current muted world; compare texture density at game scale.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-ore-quartz",
+      "pack": "Fantasy Dreamland",
+      "name": "Quartz ore colour study",
+      "targets": [
+        "cave_props:quartz_rock"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "sourceSHA256": "e1f14cfb465423594ccc7c15b4582359b470a37ff5e3c59506fa1d4352e449ff",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-ore-quartz.png",
+      "note": "Small mineral-flecked rock with a clear top plane. Colour study only: verify the gem colour language against inventory rewards before adoption; no mining depletion states included.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-ore-topaz",
+      "pack": "Fantasy Dreamland",
+      "name": "Topaz ore colour study",
+      "targets": [
+        "cave_props:topaz_rock"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "sourceSHA256": "e1f14cfb465423594ccc7c15b4582359b470a37ff5e3c59506fa1d4352e449ff",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-ore-topaz.png",
+      "note": "Small mineral-flecked rock with a clear top plane. Colour study only: verify the gem colour language against inventory rewards before adoption; no mining depletion states included.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "dg-chest",
+      "pack": "Dungeon Gathering",
+      "group": "smaller",
+      "name": "Steel-bound chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Chests/Chest 1 Sheet.png",
+      "sourceSHA256": "a6ef4e4dc8ee15d14e24282d195e17d16ff654ba8a26fda140d3c6276ace29bd",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/dg-chest.png",
+      "note": "Cool iron edging and a clear lid suit dungeon loot. First frame shown; the source includes other chest states. Check its dark outline against the current world palette.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "dg-torch",
+      "pack": "Dungeon Gathering",
+      "group": "smaller",
+      "name": "Warm dungeon torch",
+      "targets": [
+        "torch",
+        "plant:torch"
+      ],
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Torch/Torch Yellow.png",
+      "sourceSHA256": "a4d342dfe9e18d3b9bed665da40ee7675c359d2ca5da7af9571f5c950eeb9873",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/dg-torch.png",
+      "note": "Small warm flame on a dark stand. Animation frames exist; luminosity and ground anchor still need review at actual game scale.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "pp-tree",
+      "pack": "Pixel Plains",
+      "group": "smaller",
+      "name": "Square olive tree",
+      "targets": [
+        "trees"
+      ],
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes).png",
+      "sourceSHA256": "72a5c383db3eabed275b6ab2575f106c0d28357bc54b704ba1e3e6a3b55f9aa6",
+      "crop": [
+        336,
+        0,
+        48,
+        48
+      ],
+      "image": "art-candidates/world/pp-tree.png",
+      "note": "Large flat canopy is readable and muted. Its square crown is a stronger stylization than current trees; compare the trunk and pixel size at game scale.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "pp-hedge",
+      "pack": "Pixel Plains",
+      "group": "smaller",
+      "name": "Clipped hedge cell",
+      "targets": [
+        "approved_clipped_hedge",
+        "zone_hedge_single",
+        "look:zone_hedge_single",
+        "zone_hedge:0"
+      ],
+      "source": "extra_assets/Pixel Plains/Basic Tiles 4 (Trees & Bushes).png",
+      "sourceSHA256": "72a5c383db3eabed275b6ab2575f106c0d28357bc54b704ba1e3e6a3b55f9aa6",
+      "crop": [
+        288,
+        256,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/pp-hedge.png",
+      "note": "Native 16px cell of the hedge top and front. This is a material study; connected corners and endings still need separate review.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "pp-headstone",
+      "pack": "Pixel Plains",
+      "group": "smaller",
+      "name": "Cool stone grave marker",
+      "targets": [
+        "zone_objects:1"
+      ],
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "sourceSHA256": "d8f8e5d65f43ddd10bcb58eefe0a6e0d45044b40ee54e478cff4b5bb671e219c",
+      "crop": [
+        128,
+        176,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/pp-headstone.png",
+      "note": "Small carved upright stone. A material and silhouette alternative to the mossy grave pillar; moss and worn-state treatment would need matching.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "pp-sign",
+      "pack": "Pixel Plains",
+      "group": "smaller",
+      "name": "Bright wooden notice board",
+      "targets": [
+        "signpost"
+      ],
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "sourceSHA256": "d8f8e5d65f43ddd10bcb58eefe0a6e0d45044b40ee54e478cff4b5bb671e219c",
+      "crop": [
+        0,
+        48,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/pp-sign.png",
+      "note": "Compact legible notice board. Peach and mint accents suit restored locations; no readable game-specific lettering is included.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "dg-pot",
+      "pack": "Dungeon Gathering",
+      "name": "Ochre dungeon pot",
+      "targets": [
+        "clay_pot"
+      ],
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Break Update/All Vase Shine 16x16.png",
+      "sourceSHA256": "b5377b5faa981f6553ad76610e8fc6699dc517863f8224fbdaa2f4cb256fb17d",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/dg-pot.png",
+      "note": "Explicit native 16\u00d716 vase sheet. Warm earth colours and clear rim suit neglected rooms; animation and broken-state pairing still need review.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "pp-ground",
+      "pack": "Pixel Plains",
+      "name": "Flat green grass ground",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:15",
+        "ground:19",
+        "ground:21",
+        "ground:22",
+        "ground:28",
+        "ground:29"
+      ],
+      "source": "extra_assets/Pixel Plains/Basic Tiles 2.png",
+      "sourceSHA256": "f0102e433a01b407c2f7b75f83bf3ba937721d363fac847592f81bc38d42f921",
+      "crop": [
+        416,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/pp-ground.png",
+      "note": "Interior 16px ground cell without the raised border. Flat green gives a clean restored-park option; compare material detail with the current grass. For school, pitch, golf or orchard rows this is base grass only; preserve chalk, mowing, litter and other role-specific overlays.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "pp-grass-tuft",
+      "pack": "Pixel Plains",
+      "name": "Pixel Plains grass tuft",
+      "targets": [
+        "plant:longgrass"
+      ],
+      "source": "extra_assets/Pixel Plains/Basic Tiles 1.png",
+      "sourceSHA256": "b015597afbf9b86dcc9b7a362cf8e0200c3010bd3070f339f6f7aa59feab2094",
+      "crop": [
+        112,
+        160,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/pp-grass-tuft.png",
+      "note": "Thin upright blades offer a readable grass silhouette. Current longgrass is named Fern, so this is a grass study rather than a botanical match.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "ra-grass-tuft",
+      "pack": "Rogue Adventure World",
+      "name": "Muted grass tuft",
+      "targets": [
+        "plant:longgrass"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
+      "crop": [
+        208,
+        160,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-grass-tuft.png",
+      "note": "Olive blades fit neglected ground and the restrained palette. Grass silhouette differs from the current Fern identity; review before assigning it.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-grass",
+      "pack": "Fantasy Dreamland",
+      "name": "Bright grass tuft",
+      "targets": [
+        "plant:longgrass"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-grass.png",
+      "note": "A leaf-only native 16px tuft, without the flower in the earlier sample. Saturated green suits restored ground; differs from the current Fern identity.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-switch-blue",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue inset switch",
+      "targets": [
+        "cave_mechanisms:switch"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        352,
+        432,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-switch-blue.png",
+      "note": "Small blue inset button. Control alternative only: current lever silhouette and state feedback would need adapting.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-plate-cyan",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue dungeon floor plate",
+      "targets": [
+        "cave_mechanisms:plate_main",
+        "cave_mechanisms:plate_cyan"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        304,
+        512,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-plate-cyan.png",
+      "note": "Flat patterned cell has a clear rim. Material alternative only; needs separate pressed state and the game\u2019s cyan puzzle cue.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-plate-green",
+      "pack": "Fantasy Dreamland",
+      "name": "Green inset floor button",
+      "targets": [
+        "cave_mechanisms:plate_green"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        352,
+        464,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-plate-green.png",
+      "note": "A green inset control with strong colour cue. Match pressed/unpressed behaviour and keep its silhouette readable against floor tiles.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-plate-red",
+      "pack": "Fantasy Dreamland",
+      "name": "Red inset floor button",
+      "targets": [
+        "cave_mechanisms:plate_main"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        352,
+        448,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-plate-red.png",
+      "note": "Contrasting red activation cue on blue stone. Review whether red implies hazard rather than the main puzzle plate.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-bottle",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue glass bottle",
+      "targets": [
+        "bottle"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        496,
+        400,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-bottle.png",
+      "note": "Rounded glass container with a small stopper. Strong highlights read well; preserve the intended bottle contents and item/map consistency.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-floor-blue",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue square paving",
+      "targets": [
+        "ground:12",
+        "ground:16"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        288,
+        496,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-floor-blue.png",
+      "note": "Quiet stone square with a darker central motif. Suitable indoor paving study; repeat seams and contrast need review.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-floor-rose",
+      "pack": "Fantasy Dreamland",
+      "name": "Rose square paving",
+      "targets": [
+        "ground:12",
+        "ground:16"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "sourceSHA256": "b5c67c298a42de3e6d2795e88a91c17495eccb8d73070bdb61e36d7116c2b260",
+      "crop": [
+        288,
+        480,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-floor-rose.png",
+      "note": "Warm counterpart to the blue paving. Fits restored interiors; does not encode building status by itself.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-blacksmith",
+      "pack": "Fantasy Dreamland",
+      "name": "Red-roof smithy",
+      "targets": [
+        "house_blacksmith"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "sourceSHA256": "5d54ec48b503d8da9ea2f21212a74ec1fd7f236963c23dd20e92ea661b0561e8",
+      "crop": [
+        0,
+        16,
+        112,
+        96
+      ],
+      "image": "art-candidates/world/fd-blacksmith.png",
+      "note": "Recognizable smithy sign and broad roof. Tall building exception, but exceeds the 64px house target: would need reauthoring, not downscaling, before adoption.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-swamp-grass",
+      "pack": "Fantasy Dreamland",
+      "name": "Dark mossy grass",
+      "targets": [
+        "ground:1",
+        "ground:20",
+        "ground:28",
+        "ground:29"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "sourceSHA256": "fca8711a653f98090ff6221a1b5ef2e2242b1a47984ec8336d835dec2d0b3183",
+      "crop": [
+        32,
+        416,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-swamp-grass.png",
+      "note": "Deep desaturated green suits forest, wetland and neglected churchyard grass. Base material study; water sheen and leaf litter remain separate concerns.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-dead-tree",
+      "pack": "Fantasy Dreamland",
+      "name": "Bare swamp tree",
+      "targets": [
+        "trees"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "sourceSHA256": "fca8711a653f98090ff6221a1b5ef2e2242b1a47984ec8336d835dec2d0b3183",
+      "crop": [
+        256,
+        256,
+        32,
+        48
+      ],
+      "image": "art-candidates/world/fd-dead-tree.png",
+      "note": "Twisted bare branches support neglected landscapes. Keep living/restored trees distinct; camera is upright and front-heavy.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "pp-lamp",
+      "pack": "Pixel Plains",
+      "name": "Cool metal lamp post",
+      "targets": [
+        "lamp"
+      ],
+      "source": "extra_assets/Pixel Plains/Props.png",
+      "sourceSHA256": "d8f8e5d65f43ddd10bcb58eefe0a6e0d45044b40ee54e478cff4b5bb671e219c",
+      "crop": [
+        352,
+        0,
+        16,
+        48
+      ],
+      "image": "art-candidates/world/pp-lamp.png",
+      "note": "Tall simple lamp silhouette; current lighting stays separate. Palette is cool and clean, so weathered/broken states would need matching.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "pp-mushroom",
+      "pack": "Pixel Plains",
+      "name": "Red mushroom study",
+      "targets": [
+        "plant:mushroom"
+      ],
+      "source": "extra_assets/Pixel Plains/mushrooms.png",
+      "sourceSHA256": "7ccc58b4cbf0e5436678fdb7cd2d7fd49fe9b9360d198f18dc6ef1b7b256058d",
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/pp-mushroom.png",
+      "note": "Bold compact cap and pale stem. Thick outline is more graphic than current world art; compare at actual item size.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "fd-water",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue rippling water",
+      "targets": [
+        "ground:3",
+        "ground:23"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Animated_Water.png",
+      "sourceSHA256": "ea94dc26c1ee6d4d945b3b20ca61034a07f3ad088428dd7372b025c042270702",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-water.png",
+      "note": "Native16 interior water sample. One animation phase only; animated seams and pier overlays remain part of the current renderer.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-lava",
+      "pack": "Fantasy Dreamland",
+      "name": "Orange lava surface",
+      "targets": [
+        "ground:26"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Animated_Lava.png",
+      "sourceSHA256": "a59f0598cf14c27028192d0c8c3ba3d96a86274721a100552c4e984af593ad8e",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-lava.png",
+      "note": "Native16 interior lava texture with bright cellular highlights. One animation phase; preserve hazard readability and lighting separately.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-sand",
+      "pack": "Fantasy Dreamland",
+      "name": "Plain pale sand",
+      "targets": [
+        "ground:2",
+        "ground:8",
+        "road:true:true"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Ground.png",
+      "sourceSHA256": "7651e46ad8cbf601b864c2efdb11334a9e594a78883f7679ecb95e217753d22d",
+      "crop": [
+        16,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-sand.png",
+      "note": "Interior sample without the outer border. Suitable sand or restored path material; current roads need soft blended edges rather than a hard tile border.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-sand-grain",
+      "pack": "Fantasy Dreamland",
+      "name": "Grained sand",
+      "targets": [
+        "ground:2",
+        "ground:8",
+        "road:true:false"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Desert_Ground.png",
+      "sourceSHA256": "7651e46ad8cbf601b864c2efdb11334a9e594a78883f7679ecb95e217753d22d",
+      "crop": [
+        144,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-sand-grain.png",
+      "note": "Pale granular counterpart to plain sand. Useful weathered path texture study; preserve current continuous road geometry and edge blending.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-stone-floor",
+      "pack": "Rogue Adventure World",
+      "name": "Warm stone paving",
+      "targets": [
+        "ground:5",
+        "ground:9",
+        "ground:12",
+        "ground:16",
+        "road:false:true"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "sourceSHA256": "c9813f42a6957db6d96693485ca91fcadcd4c43d71aa0c3fa39f30a77a32dfbc",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-stone-floor.png",
+      "note": "Native16 square temple paving. Restrained warm stone could suit restored hard surfaces; road edge blending remains separate.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-stone-floor-worn",
+      "pack": "Rogue Adventure World",
+      "name": "Worn rose paving",
+      "targets": [
+        "ground:5",
+        "ground:9",
+        "ground:12",
+        "ground:17",
+        "road:false:false"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "sourceSHA256": "c9813f42a6957db6d96693485ca91fcadcd4c43d71aa0c3fa39f30a77a32dfbc",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-stone-floor-worn.png",
+      "note": "A darker stone material for weathered hard surfaces. Warm purple may need palette matching; no procedural road geometry is replaced by this sample.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-wood-floor",
+      "pack": "Rogue Adventure World",
+      "name": "Dark timber floor",
+      "targets": [
+        "ground:11"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
+      "crop": [
+        16,
+        400,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-wood-floor.png",
+      "note": "Vertical planking with restrained warm browns. Check repeat seams and apparent plank width at gameplay scale.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "ra-candle",
+      "pack": "Rogue Adventure World",
+      "name": "Small sanctuary candle",
+      "targets": [
+        "grove_votive"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Sanctuary.png",
+      "sourceSHA256": "22b42820dd73a008b334df90a6bf02520389b9f99d4fd63c982c184a623afb1c",
+      "crop": [
+        0,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-candle.png",
+      "note": "Warm flame on a pale base. A compact ritual-light alternative; current illumination and shrine meaning stay separate.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-wood-pole",
+      "pack": "Fantasy Dreamland",
+      "name": "Wood fence cell study",
+      "targets": [
+        "plant:barricade",
+        "approved_charred_stakes"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        32,
+        272,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-wood-pole.png",
+      "note": "Small timber fence cell rather than sharpened stakes. Material study only; hazard silhouettes and charred treatment would need reauthoring.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-stalagmites-second",
+      "pack": "Fantasy Dreamland",
+      "name": "Warm cave spires \u00b7 narrow",
+      "targets": [
+        "cave_props:stalagmites"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        464,
+        0,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/fd-stalagmites-second.png",
+      "note": "Readable upright peaks with warm highlights. More saturated than Rogue; palette adjustment may be needed for bleak caves.",
+      "nativeTileSize": 16,
+      "sizeException": "Tall world object spanning more than one vertical 16px cell; original pixels preserved."
+    },
+    {
+      "id": "fd-marsh-chest-0",
+      "pack": "Fantasy Dreamland",
+      "name": "Closed marsh chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "sourceSHA256": "fca8711a653f98090ff6221a1b5ef2e2242b1a47984ec8336d835dec2d0b3183",
+      "sourceSize": [
+        512,
+        448
+      ],
+      "crop": [
+        192,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-marsh-chest-0.png",
+      "note": "Native16 complete chest with restrained brown wood and gold latch. Closed/open companions are separately shown; match the game\u2019s chest state mapping before adoption.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "fd-marsh-chest-1",
+      "pack": "Fantasy Dreamland",
+      "name": "Open marsh chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "sourceSHA256": "fca8711a653f98090ff6221a1b5ef2e2242b1a47984ec8336d835dec2d0b3183",
+      "sourceSize": [
+        512,
+        448
+      ],
+      "crop": [
+        208,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-marsh-chest-1.png",
+      "note": "Native16 complete chest with restrained brown wood and gold latch. Closed/open companions are separately shown; match the game\u2019s chest state mapping before adoption.",
+      "nativeTileSize": 16
+    },
+    {
+      "id": "sunny-grass-flat",
+      "pack": "Sunnyside World",
+      "name": "Flat green grass",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:15",
+        "ground:19",
+        "ground:21",
+        "ground:22",
+        "ground:28"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        16,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grass-flat.png",
+      "note": "Clean saturated green suits restored ground. For pitch/golf/school this is base grass only; retain functional markings and texture overlays.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grass-clover",
+      "pack": "Sunnyside World",
+      "name": "Clover grass",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:1",
+        "ground:22",
+        "ground:28"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grass-clover.png",
+      "note": "Small light-green leaf clusters add a welcoming grass texture. Brighter than the muted current world; review repetition and density.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grass-dark",
+      "pack": "Sunnyside World",
+      "name": "Mottled grass",
+      "targets": [
+        "ground:0",
+        "ground:6",
+        "ground:20",
+        "ground:29"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        64,
+        32,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grass-dark.png",
+      "note": "Dark scattered clumps distinguish the surface from flat grass. It lacks wetland water sheen; a ground material study only.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-sand",
+      "pack": "Sunnyside World",
+      "name": "Warm sand grain",
+      "targets": [
+        "ground:2",
+        "ground:8",
+        "road:true:true"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        112,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-sand.png",
+      "note": "Small ochre flecks on pale sand. Interior material sample; preserve continuous road geometry and soft path edges.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-water",
+      "pack": "Sunnyside World",
+      "name": "Soft cyan water",
+      "targets": [
+        "ground:3",
+        "ground:23"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        192,
+        304,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-water.png",
+      "note": "Gentle broad water ripples. One surface sample only; animation and pier overlays still need matching.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-soil",
+      "pack": "Sunnyside World",
+      "name": "Circular tilled soil",
+      "targets": [
+        "tilled"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        800,
+        272,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-soil.png",
+      "note": "Small dark soil depression with a rim. Compare plot shape with the current square planting layout before adoption.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-barrel",
+      "pack": "Sunnyside World",
+      "name": "Small timber barrel",
+      "targets": [
+        "barrel"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        592,
+        256,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-barrel.png",
+      "note": "Compact complete barrel with pale bands. Larger barrels on this sheet exceed16px and were not used; break state still needs a companion.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grave-cross",
+      "pack": "Sunnyside World",
+      "name": "Stone grave cross",
+      "targets": [
+        "zone_objects:1"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        688,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grave-cross.png",
+      "note": "Clear tiny grave cross with cool shading. Shape alternative to the mossy grave marker; add moss or neglect treatment if needed.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-grave-round",
+      "pack": "Sunnyside World",
+      "name": "Rounded gravestone",
+      "targets": [
+        "zone_objects:1"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        720,
+        240,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-grave-round.png",
+      "note": "Compact cool-grey tombstone with an inset marking. One complete16px object; worn and mossy versions are not selected.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rock-pale",
+      "pack": "Sunnyside World",
+      "name": "Pale small stone",
+      "targets": [
+        "plant:rubble",
+        "mineralrock",
+        "zone_objects:64"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        880,
+        352,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rock-pale.png",
+      "note": "A complete loose stone with a broad lit top. Strong highlight suits restored areas; no embedded ore markings.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rock-dark",
+      "pack": "Sunnyside World",
+      "name": "Dark small stone",
+      "targets": [
+        "plant:flint",
+        "mineralrock",
+        "zone_objects:66"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        880,
+        384,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rock-dark.png",
+      "note": "Tiny blue-grey stone offers a flint colour study. Species/material identity needs matching before adopting for mineable flint.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rock-cyan",
+      "pack": "Sunnyside World",
+      "name": "Cyan crystal stone",
+      "targets": [
+        "crystal_cluster",
+        "zone_objects:37"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        880,
+        416,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rock-cyan.png",
+      "note": "Small cyan rock with a bright face. A single stone differs from a cluster; no automatic gem reward identity is implied.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-chest",
+      "pack": "Sunnyside World",
+      "name": "Gold-edged chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        576,
+        480,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-chest.png",
+      "note": "Compact complete chest with bright gold bands. Strong reward visibility; source also provides opening companions.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-chest-open",
+      "pack": "Sunnyside World",
+      "name": "Open gold-edged chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        592,
+        480,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-chest-open.png",
+      "note": "Open-state companion to the closed chest. A complete16px sprite; verify frame order against current loot state.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-bottle",
+      "pack": "Sunnyside World",
+      "name": "Blue ceramic bottle",
+      "targets": [
+        "bottle"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        784,
+        304,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-bottle.png",
+      "note": "Complete blue vessel with a small lip. More ceramic than glass; use only if the item material and world silhouette remain coherent.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-pot",
+      "pack": "Sunnyside World",
+      "name": "Orange clay pot",
+      "targets": [
+        "clay_pot"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        800,
+        304,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-pot.png",
+      "note": "Small rounded pot with a bright rim. Broad warm colour reads well; matching broken-state art is not selected.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-pot-small",
+      "pack": "Sunnyside World",
+      "name": "Round orange pot",
+      "targets": [
+        "clay_pot"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        800,
+        320,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-pot-small.png",
+      "note": "Second complete pottery silhouette from the same sheet. Compare size and contents with the current intact pot.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-rug",
+      "pack": "Sunnyside World",
+      "name": "Small red rug",
+      "targets": [
+        "furniture:rug_burgundy"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        752,
+        576,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-rug.png",
+      "note": "A complete small square rug, not a crop of a larger carpet. Red diagonal weave is a close colour-family match.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-table",
+      "pack": "Sunnyside World",
+      "name": "Small wooden table",
+      "targets": [
+        "furniture:table_oak"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        784,
+        536,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-table.png",
+      "note": "Complete tiny table with short legs. A compact alternative without trimming the larger tables on the sheet.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-planter",
+      "pack": "Sunnyside World",
+      "name": "Sunflower in blue pot",
+      "targets": [
+        "furniture:planter_clay",
+        "furniture:planter_copper"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        832,
+        512,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-planter.png",
+      "note": "Complete sunflower in a blue pot. A planted-state silhouette study rather than a copper/clay material match; keep empty and planted game states separate.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-bookshelf",
+      "pack": "Sunnyside World",
+      "name": "Tall red-book shelf",
+      "targets": [
+        "furniture:bookshelf_frontier"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        672,
+        528,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/sunny-bookshelf.png",
+      "note": "Complete single16px-wide cabinet. Warm wood and short front surfaces fit interior furniture; compare at current placement scale.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Genuinely tall cabinet spans two vertical16px cells; full original sprite retained."
+    },
+    {
+      "id": "sunny-dresser",
+      "pack": "Sunnyside World",
+      "name": "Tall wood dresser",
+      "targets": [
+        "furniture:dresser_oak"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "sourceSHA256": "b7c56b0e960548f0192931f79ed6cbe3e790b58523132821aeb05f6e1a95ec8a",
+      "sourceSize": [
+        1024,
+        1024
+      ],
+      "crop": [
+        704,
+        528,
+        16,
+        32
+      ],
+      "image": "art-candidates/world/sunny-dresser.png",
+      "note": "Complete single16px-wide cabinet. Warm wood and short front surfaces fit interior furniture; compare at current placement scale.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Genuinely tall cabinet spans two vertical16px cells; full original sprite retained."
+    },
+    {
+      "id": "sunny-tree",
+      "pack": "Sunnyside World",
+      "name": "Rounded broadleaf tree",
+      "targets": [
+        "trees"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_01_strip4.png",
+      "sourceSHA256": "8b18dd6916ac7766dbfc99a75075ac2810e3acaf65376b23490e0623b4b21d3d",
+      "sourceSize": [
+        128,
+        34
+      ],
+      "crop": [
+        0,
+        0,
+        32,
+        34
+      ],
+      "image": "art-candidates/world/sunny-tree.png",
+      "note": "Muted green crown and visible top suit restored forests. First animation pose shown; source contains four poses.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Tree taller than one16px world cell; complete native sprite without rescaling."
+    },
+    {
+      "id": "sunny-pine",
+      "pack": "Sunnyside World",
+      "name": "Tiered evergreen",
+      "targets": [
+        "pine_tree"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_tree_02_strip4.png",
+      "sourceSHA256": "9380607e0ca1ab3c021156f0ed28b5d23ef16d32f360a7a822d73903c80bb0aa",
+      "sourceSize": [
+        112,
+        43
+      ],
+      "crop": [
+        0,
+        0,
+        28,
+        43
+      ],
+      "image": "art-candidates/world/sunny-pine.png",
+      "note": "Slim conical crown makes a clear pine silhouette. First animation pose shown, full tree retained; not from the excluded32px forest tileset.",
+      "nativeTileSize": 16,
+      "group": "smaller",
+      "sizeException": "Tree taller than one16px world cell; complete native sprite without rescaling."
+    },
+    {
+      "id": "sunny-red-mushroom",
+      "pack": "Sunnyside World",
+      "name": "Red cap mushroom",
+      "targets": [
+        "plant:mushroom"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_red_01_strip4.png",
+      "sourceSHA256": "71185a5280746ded3e5d8979b6949ea24bb944546226136d35416ae484e3ea1c",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-red-mushroom.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-blue-mushroom",
+      "pack": "Sunnyside World",
+      "name": "Blue cap mushroom",
+      "targets": [
+        "plant:mushroom",
+        "gas_mushroom_small"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_01_strip4.png",
+      "sourceSHA256": "ac54fbde810a274a65535237f8b26ce06fc355d43aeacac53b86595a4643ef1f",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-blue-mushroom.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-blue-mushroom-two",
+      "pack": "Sunnyside World",
+      "name": "Blue mushroom cluster",
+      "targets": [
+        "plant:mushroom",
+        "gas_mushroom_small"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_02_strip4.png",
+      "sourceSHA256": "542e1011e48d2d72790f7b925ef9ede7662c66c60c37b07af4a45410f3ade5c9",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-blue-mushroom-two.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    },
+    {
+      "id": "sunny-blue-mushroom-three",
+      "pack": "Sunnyside World",
+      "name": "Small blue mushroom",
+      "targets": [
+        "plant:mushroom",
+        "gas_mushroom_small"
+      ],
+      "source": "extra_assets/Sunnyside_World_Assets/Elements/Plants/spr_deco_mushroom_blue_03_strip4.png",
+      "sourceSHA256": "e882a6d71f2df308fd2c096d7c7fdc071f9c6ebb7b6b4deaa789d86ed119da29",
+      "sourceSize": [
+        64,
+        16
+      ],
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/sunny-blue-mushroom-three.png",
+      "note": "Complete native16 mushroom animation frame. Colour is a visual alternative, not a promise of poison or gas effects; retain gameplay cues separately.",
+      "nativeTileSize": 16,
+      "group": "smaller"
+    }
+  ]
+}

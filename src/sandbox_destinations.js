@@ -4,7 +4,7 @@
   const scriptURL = typeof document !== 'undefined' ? document.currentScript?.src : null;
   const gameURL = scriptURL ? new URL('../index.html', scriptURL).href : 'index.html';
   const entries = [
-    { id: 'cave-rock', label: 'L1 mining and flint', scene: 'ROCK', depth: 1 },
+    { id: 'cave-rock', label: 'L2 mining and flint', scene: 'ROCK', depth: 2 },
     { id: 'flint-field', label: 'Flint Field', scene: 'FLINT_FIELD' },
     { id: 'services', label: 'Service counters', scene: 'SERVICES' },
     ...[['inn', 'INN'], ['chapel', 'CHAPEL'], ['training', 'TRAINING'], ['sports-service', 'SPORTS'],
@@ -23,8 +23,8 @@
     { id: 'hazards', label: 'Webs and sinkhole', scene: 'HAZARDS' },
     { id: 'cave-entrance', label: 'Cave entrance and return stairs', scene: 'HAZARDS', sub: 'CAVE ENTRANCE' },
     { id: 'cavein', label: 'Cave-in warning', scene: 'HAZARDS', sub: 'CAVE-IN ARRIVAL', depth: 1 },
-    { id: 'hazards-cave', label: 'Cave hazard lab', scene: 'HAZARDS', depth: 1 },
-    { id: 'hazards-deep', label: 'Deep hazard lab', scene: 'HAZARDS', depth: 2 },
+    { id: 'hazards-cave', label: 'Cave hazard lab', scene: 'HAZARDS', depth: 2 },
+    { id: 'hazards-deep', label: 'Deep hazard lab', scene: 'HAZARDS', depth: 3 },
     { id: 'practice', label: 'Combat practice', scene: 'PRACTICE' },
     { id: 'forage', label: 'Herbs and poisonberries', scene: 'FORAGE' },
     { id: 'poisonberries', label: 'Poisonberry harvest and feeding', scene: 'FORAGE', sub: 'POISONBERRIES' },

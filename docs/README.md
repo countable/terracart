@@ -28,6 +28,7 @@ when a file moves.
 | art/map-perspective.md | map camera and art geometry rules |
 | art/ART_SOURCES.md | external art archive rules |
 | art/ASSET_INVENTORY.md | asset inventory tool guide |
+| art/ambient-layer-plan.json | proposed ambient creatures and habitat variants by floor; build with `tools/build_ambient_layer_plan.py` |
 | data/zone-variants.json | implemented variant spec; tools read this path |
 | data/basic-zone-density-proposals.json | landcover density targets |
 | data/basic-zone-signatures.json | landcover signatures |

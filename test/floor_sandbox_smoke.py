@@ -68,6 +68,7 @@ async def main(base_url):
                 }));
             }""")
             await page.locator('#playSandbox').click()
+            await page.goto(page.url + '&skipTutorial=true')
             await wait_for_sandbox()
             await page.wait_for_timeout(2500)
             result = await page.evaluate("""() => {
@@ -99,6 +100,15 @@ async def main(base_url):
             assert overlap == len(original['objects'])
 
             if depth == 0:
+                await page.evaluate('''() => {
+                    const scene = __game.scene.getScene('map');
+                    const entry = WorldGen.tileCache.get(WorldGen.tileKey(0, 0));
+                    const inside = [...entry.objects, ...entry.creatures, ...entry.wildplants]
+                        .filter(o => HomeVariant.contains(scene, o.x, o.y));
+                    if (inside.some(o => !HomeVariant.allows(scene, o))) throw new Error('Uncurated Home content');
+                    if (!inside.some(o => o.id === 'npc_wanderer_0_0')) throw new Error('Tilly missing');
+                    if (!inside.some(o => o.id === 'chicken_greeter_0_0')) throw new Error('Starter chicken missing');
+                }''')
                 before = await page.evaluate("JSON.stringify(__game.scene.getScene('map').playerM)")
                 pad = await page.locator('#move-pad').bounding_box()
                 await page.mouse.move(pad['x'] + pad['width'] * .85, pad['y'] + pad['height'] * .5)

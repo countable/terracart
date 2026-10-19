@@ -132,6 +132,17 @@ heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
 without triangulating their textured floors. Floors remain cached ground textures.
+L1 sewer water repeats the approved sewer tileset swatch on actual water, water
+beneath pier decking, and existing underground route centre lanes through
+`FloorWallMaterials.groundTexture`. The runtime ground pool and floor viewer share
+that selection and its prebuilt texture, replacing the ordinary animated water
+texture in the same ground slot. Terrain and collision stay unchanged: actual
+water remains water, piers retain their decking, and decorative channels remain
+walkable cave-floor cells. Both actual water and L1 route channels use the normal
+waist-up player crop; pier decking stays dry. Flight, dragon riding and raised prop
+support clear the crop as on surface water. Dry L1 cells use one cool-grey 16px stone slab enlarged to a 32px cell, with stable world-cell
+selection of 14/16 plain slabs, 1/16 cracked slabs and 1/16 grates. Planning
+previews call the same selector. Other levels keep their existing ground.
 Building interiors use 32px swatches from the PP Interiors Pack's `all floors.png`
 (`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
 wooden boards for Home and forts, and masonry for civic buildings. The patterns
@@ -457,9 +468,25 @@ the real source so a missing texture cannot become a permanent cached palette.
   Building contact shadows use 25% opacity.
   Use a stable `seatFrame` for animation. After art changes, run
   `node tools/sprite_audit.js --emit-bounds` and update `src/sprite_layout.js`.
-- Every underground floor uses the same connected cave-wall atlas: raised caps,
-  chipped rims and lighter front faces. Live neighbour masks update after mining
-  and tile arrival; pooled sprites hide when returning to the surface or sky.
+- Underground rock walls use full-cell 32×32 prisms, 19px high, through the
+  retained `WallPerspective` renderer in both north-up and compass views.
+  `FloorWallMaterials` supplies the approved per-level caps, native 16px face
+  textures and 3px exposed lips; runtime and floor viewer share its atlas.
+  The compact source strip and provenance live in `assets/Objects/Cave/`.
+  Atlases are baked once at startup. Live neighbour masks rebuild geometry after
+  mining or tile arrival; compass and fractional camera movement reuse it.
+  Internal faces are omitted, and individual blocks share the actor depth sort.
+  L1 recesses the upright face 3px, with a shallow upper shoulder and three
+  quarter-circle strips returning to the floor boundary. The entire profile
+  stays inside its cell and the crown remains full width. Exposed outer corners
+  use inward miters; closed diagonals pin inside-corner endpoints, tapering the
+  recess over 3px so L/T junctions close without holes. Straight cell seams
+  retain identical profiles. Continuous UVs span the subdivisions; camera-facing
+  selection uses the existing retained renderer, including compass rotation.
+  Depth-specific parts hide on floor changes. L6 keeps near-black caps and a
+  stable one-in-four cracked-wall variant keyed by absolute cell. Floor profiles
+  own wall placement: the material renderer never creates walls on open L5 or
+  raises L6 lava pits into rock masses.
 - Connected ground art that must abut its neighbours (chasm sections) seats on
   its terrain slot through `absCellScreenCentre` (coords.js), never on its own
   rounded `deltaMToScreen` point: neighbours' float centres sit `CELL_PX` ± epsilon

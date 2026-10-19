@@ -105,6 +105,10 @@ def build(output):
     sandbox = (Path(__file__).resolve().parent / 'sandbox-directory.html').read_text()
     (output/'sandbox.html').write_text(sandbox.replace('href="floor-viewer.html"', 'href="../tools/floor-viewer.html"'))
     primary=[
+      ('../zone-variants/layout-lab.html','Layout generator lab','Interactive terrain layout algorithms, seeds, object placement and density controls.','Layout testing'),
+      ('http://localhost:8000/tools/rockwall-3d-preview.html','3D rockwall trial','Full-cell rockwalls with original materials, compass rotation, corner fixtures and a visibility marker.','Floor geometry testing'),
+      ('http://localhost:8000/tools/floor-viewer.html','Floor viewer','Fabricated 60×35 region: choose a floor, seed and variant, then play the same map in the sandbox.','Floor asset testing'),
+      ('http://localhost:8000/extra_assets/preview/level-table.html','Floor asset table','Proposed L1–L7 grounds, building treatments, roads, dressings and mechanics for asset exploration.','Art exploration'),
       ('../story-art-final/index.html','Approved story art','Current story and event paintings, with approved style references.','Art reference'),
       ('sandbox.html','Sandbox test directory','One-click test setups for castle and forts, service booths, nexuses, terrains, combat, roads and underground labs.','Playable fixtures'),
       ('glossary.html','Terminology glossary','Shared game concepts, preferred names, usage distinctions and scoped synonym replacements.','Design reference'),

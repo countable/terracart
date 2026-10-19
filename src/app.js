@@ -5966,7 +5966,8 @@ class MapScene extends Phaser.Scene {
         const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
         const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
-        submerged = basin || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+        const channel = FloorWallMaterials.isSewerChannel(entry, cell.iy * (entry?.cellsPerEdge || 0) + cell.ix, cell.type);
+        submerged = basin || channel || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
@@ -6585,11 +6586,13 @@ class MapScene extends Phaser.Scene {
     return fishedSlimeSpawn(this, performance.now(), px, py, this.playerToWorldCell());
   }
   _cellBlocked(wmx, wmy) {
+    if (typeof PushBlocks !== 'undefined' && PushBlocks.at(this, wmx, wmy)) return true;
     if (this.depth === Arena.DEPTH) return !this._arenaCanWalk(wmx, wmy);
     if (this.depth === 0) return false;
     const c = this.cellAt(wmx, wmy);
     if (!c.loaded) return false;
-    return !WorldGen.isWalkable(c.type);
+    // Water is waded through on every floor; spawn safety still excludes it.
+    return c.type !== WorldGen.T.WATER && !WorldGen.isWalkable(c.type);
   }
   // Mine a blocking cave wall into walkable floor. Mutates the live tile grid
   // (so collision + rendering update at once) and records the dug cell so the
@@ -8461,6 +8464,7 @@ class MapScene extends Phaser.Scene {
   // deferred lane asks this (MemoryStory.storyHeld); the badge counts what
   // they hold (_pendingStoryCount).
   _storyHeld() {
+    if (window.__sandboxSkipStory) return true;
     if (this._dialogOpen()) return true;
     if (this._storyRun) return false;
     return Date.now() - (this._lastInteractionT ?? -Infinity) < STORY_IDLE_MS;
@@ -8478,6 +8482,7 @@ class MapScene extends Phaser.Scene {
   // opened nothing, and a run flag left true for the rest of the trip, was the
   // alternative.
   _pendingStoryCount() {
+    if (window.__sandboxSkipStory) return 0;
     const s = this.save || {};
     const memoriesHere = typeof MemoryStory === 'undefined' || MemoryStory.atHome(this);
     return (this._ceremonies || []).filter((c) => c.waits).length
@@ -9435,6 +9440,7 @@ class MapScene extends Phaser.Scene {
       // …and the same per-player cull the spawn pass ends on.
       this._cullOffLiveGround(entry, tx, ty, N, this.tileEdgeM / N, genGrid,
         entry.genObjects || entry.objects || [], null);
+      HomeVariant.apply(this, entry, tx, ty);
     });
   }
 

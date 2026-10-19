@@ -287,14 +287,14 @@
     WorldGen.setDepth(0);
     WorldGen.tileCache.set(key, surface);
     try {
-      const lvl1 = await WorldGen.loadTile.atDepth(1, tx, ty, lat);
+      const lvl1 = await WorldGen.loadTile.atDepth(2, tx, ty, lat);
       // Level 1 also strews its own barrels (worldgen.js caveBarrels) — chests
       // too, but no POI's mirror; count the mirrors alone.
       const chests = lvl1.objects.filter(o => o.kind === 'chest' && !o.barrel);
-      assert.eq(chests.length, 2, 'both POIs reach depth 1');
+      assert.eq(chests.length, 2, 'both POIs reach natural depth 2');
       const lib = chests.find(c => c.caveOf === 'c_lib');
       assert.truthy(lib && lib.x === at(3, 3).x && lib.y === at(3, 3).y, 'library at its own point');
-      assert.eq(lib.depth, 1, 'depth 1');
+      assert.eq(lib.depth, 2, 'depth 1');
       const pond = chests.find(c => c.caveOf === 'c_pond');
       assert.truthy(pond, 'pond chest relocated off the wall');
       assert.falsy(pond.x === at(7, 7).x && pond.y === at(7, 7).y, 'not on the water cell');
@@ -304,14 +304,14 @@
       for (const o of lvl1.objects) {
         if (o.kind === 'mineralrock') assert.falsy(chestCells.has(cellOf(o)), 'rock ' + o.id + ' sits on a chest');
       }
-      const lvl2 = await WorldGen.loadTile.atDepth(2, tx, ty, lat);
+      const lvl2 = await WorldGen.loadTile.atDepth(3, tx, ty, lat);
       const deep = lvl2.objects.filter(o => o.kind === 'chest' && o.caveOf && !o.barrel);
       assert.eq(deep.length, 2, 'city ground receives both mirrors');
     } finally {
       WorldGen.setDepth(0);
       WorldGen.tileCache.delete(key);
-      WorldGen.setDepth(1); WorldGen.tileCache.delete(key);
-      WorldGen.setDepth(2); WorldGen.tileCache.delete(key);
+      WorldGen.setDepth(1); WorldGen.tileCache.delete(key); WorldGen.setDepth(2); WorldGen.tileCache.delete(key);
+      WorldGen.setDepth(3); WorldGen.tileCache.delete(key);
       WorldGen.setDepth(0);
     }
   });

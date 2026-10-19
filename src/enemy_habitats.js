@@ -11,7 +11,9 @@
     stronghold: ['orc', 'orc_mage', 'orc_shaman', 'minotaur', 'spear_goblin', 'brute'],
     infernal: ['fire_elemental', 'red_demon', 'purple_demon', 'armoured_demon', 'fiend', 'succubus', 'hell_brute'],
     roost: ['red_demon', 'armoured_demon'],
+    dragon: ['red_dragon', 'red_demon'],
   };
+  const FAMILY_WEIGHTS = { dragon: { red_dragon: 4, red_demon: 1 } };
   // Floor 1 is slime country: one region in eight is a goblin warren.
   const THEME_BANDS = [
     // L1 is all natural: no goblin walks the first level (owner, Oct 2026;
@@ -73,11 +75,11 @@
   function zoneAnchorAt(tileEdgeM, x, y) {
     const WG = root.WorldGen, tx = Math.floor(x / tileEdgeM), ty = Math.floor(y / tileEdgeM);
     const entry = WG.tileCache.get(WG.tileKey(tx, ty));
-    if (!entry?.zone?.coverage || entry.depth > 0) return null;
+    if (!entry || entry.depth > 0) return null;
     const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
     const ix = Math.floor((x - tx * entry.tileEdgeM) / cellM), iy = Math.floor((y - ty * entry.tileEdgeM) / cellM);
     if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
-    const a = entry.zone.anchors?.[entry.zone.coverage[iy * N + ix] - 1];
+    const a = WG.zoneAnchorAt(entry, iy * N + ix);
     return a ? { key: `${a.kind}|${a.gx}|${a.gy}`, variant: a.variant } : null;
   }
   // A harvest of `crop` at (x, y): if that point lies in a provoked-only zone
@@ -127,7 +129,8 @@
       if (!best || distance < best.distance) best = { id, gx: ax, gy: ay, distance };
     }
     const band = THEME_BANDS.find(b => depth <= b.max);
-    const theme = band.themes[Math.floor(unit(best.id + ':theme') * band.themes.length)];
+    const theme = root.WorldGen.floorProfile(depth).enemyHabitat
+      || band.themes[Math.floor(unit(best.id + ':theme') * band.themes.length)];
     return { ...best, theme, kinds: FAMILIES[theme] };
   }
   function variantAt(entry, cx, cy) {
@@ -428,8 +431,8 @@
     if (Array.isArray(entry.streetLairs)) entry.streetLairs.push(...lairs);
     return lairs;
   }
-  // From the roster's first dragon depth, a dragon is a single chamber
-  // encounter, never a member of the ambient bag.
+  // Roost habitats retain one dragon chamber seat. L7's dragon habitat
+  // instead uses the ordinary ambient budget and has no extra roost seats.
   // Jittered habitat centres own seats, even when their territory crosses a
   // tile seam. Missing space means no roost; another tile never retries it.
   // The caller filters saved defeats/live edits AFTER reserving this seat.
@@ -474,7 +477,7 @@
     }
     return out;
   }
-  root.EnemyHabitats = { FAMILIES, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, SURFACE_ENCOUNTER_PROFILES, NEXUS_RULES, HABITAT_TIER,
+  root.EnemyHabitats = { FAMILIES, FAMILY_WEIGHTS, THEME_BANDS, BUILDING_FAMILIES, CASTLE_FAMILIES, SURFACE_FAMILIES, SURFACE_ENCOUNTERS, SURFACE_ENCOUNTER_PROFILES, NEXUS_RULES, HABITAT_TIER,
     unit, caveAt, surfaceAt, shoreWater, surfaceSeat, surfaceEncounters, surfaceEncountersSteps, variantAt,
     PARTY_GROWTH, PARTY_ELITE_CHANCE, partySize, singleDraws, scaleEncounters, groupsOf, emergesFromGround, buildingKinds, habitatLairs, caveSites,
     PROVOKED_ONLY, provokedOnly, unprovoked, zoneAnchorAt, provokeZone };

@@ -26,7 +26,7 @@
   }
   const advance = (s, ms) => { for (let t = 0; t < ms; t += 100) EnvironmentHazards.tick(s, Math.min(100, ms - t) / 1000); };
   test('environment hazards: vent cycles repeat exact inactive warning active intervals', () => fixture(s => {
-    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
+    s.depth = 3;   // poison, fire and paralysis vent from the third floor down
     const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'v', () => .5, 'fire');
     const list = EnvironmentHazards.lists(s); list.vents.push(h);
     const cases = [[0, 'inactive', 5], [4999, 'inactive', 5], [5000, 'warning', 6],
@@ -41,7 +41,7 @@
     assert.eq(s.save.conditions.burning.remainingMs, 6000);
   }));
   test('environment hazards: poison and paralysis vents burst their own gas and strike nothing', () => fixture(s => {
-    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
+    s.depth = 3;   // poison, fire and paralysis vent from the third floor down
     const C = EnvironmentHazards.CONFIG.vent;
     for (const kind of ['poison', 'paralysis']) {
       s.save.conditions = {}; s._mushroomGas = null;
@@ -55,7 +55,7 @@
     }
   }));
   test('environment hazards: a fire vent eruption lights burning ground on its cell and the four beside it, every cycle', () => fixture((s, entries) => {
-    s.depth = 2;
+    s.depth = 3;
     const lit = [];
     s._igniteGroundCell = (cell, now, opts) => {
       const ok = GroundFire.ignite(s.save, cell.depth, cell.cellIX, cell.cellIY, now, Math.random, opts);
@@ -69,7 +69,7 @@
     s.playerM = { x: 60, y: 60 };   // well away: the vent's own strike is not under test
     h.elapsedMs = C.inactiveMs + C.warningMs - 100; EnvironmentHazards.tick(s, .1);
     assert.eq(lit.sort().join(' '), '2,3 3,2 3,3 3,4', 'the vent cell and its floor neighbours, never the rock');
-    const fire = s.save.groundFire[GroundFire.key(2, 3, 3)];
+    const fire = s.save.groundFire[GroundFire.key(3, 3, 3)];
     assert.eq(fire.until - fire.litAt, row.groundFireMs);
     EnvironmentHazards.tick(s, .1);
     assert.eq(lit.length, 4, 'one lighting per eruption, not per frame');
@@ -79,7 +79,7 @@
     EnvironmentHazards.update(h);   // the next cycle's warning
     EnvironmentHazards.tick(s, .1);
     assert.eq(lit.length, 8, 'relit each cycle');
-    assert.falsy(GroundFire.ignite(s.save, 2, 3, 3, Date.now()), 'ordinary fire still burns a cell only once');
+    assert.falsy(GroundFire.ignite(s.save, 3, 3, 3, Date.now()), 'ordinary fire still burns a cell only once');
   }));
   test('environment hazards: sealed floors never open sinkholes', () => fixture((s) => {
     s.depth = 2;
@@ -191,7 +191,7 @@
     } finally { if (old) WorldGen.tileCache.set(key, old); else WorldGen.tileCache.delete(key); }
   }));
   test('environment hazards: idle validation is throttled but dangerous transitions always recheck', () => fixture((s, entries) => {
-    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
+    s.depth = 3;   // poison, fire and paralysis vent from the third floor down
     const gate = WorldGen.isSpawnCell; let checks = 0;
     WorldGen.isSpawnCell = (...args) => { checks++; return gate(...args); };
     try {
@@ -385,7 +385,7 @@
     } finally { PressureTraps.lists = original; }
   }));
   test('flight: fire vents are harmless but poison and paralysis gas still affect the player', () => fixture(s => {
-    s.depth = 2;   // poison, fire and paralysis vent from the second floor down
+    s.depth = 3;   // poison, fire and paralysis vent from the third floor down
     s.save.flightPotionUntil = Date.now() + 60000;
     const C = EnvironmentHazards.CONFIG.vent;
     for (const kind of ['fire', 'poison', 'paralysis']) {
@@ -406,7 +406,8 @@
   test('vents: each floor vents its own kinds; the first floor vents confusion only', () => fixture(s => {
     assert.eq(EnvironmentHazards.ventKinds(0).join(), '', 'the surface has no ambient vents');
     assert.eq(EnvironmentHazards.ventKinds(1).join(), 'confusion');
-    for (const depth of [2, 3, 7]) assert.eq(EnvironmentHazards.ventKinds(depth).join(), 'poison,fire,paralysis');
+    assert.eq(EnvironmentHazards.ventKinds(2).join(), 'confusion');
+    for (const depth of [3, 4, 7]) assert.eq(EnvironmentHazards.ventKinds(depth).join(), 'poison,fire,paralysis');
     for (const kind of ['poison', 'fire', 'paralysis']) {
       const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, kind, () => .5, kind);
       assert.falsy(EnvironmentHazards.eligible(s, h), kind + ' never vents on L1');
@@ -414,8 +415,8 @@
     const yellow = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'c', () => .5, 'confusion');
     assert.truthy(EnvironmentHazards.eligible(s, yellow));
     assert.eq(yellow.frame, 15, 'the yellow confusion row is the fourth sheet row');
-    s.depth = 2;
-    assert.falsy(EnvironmentHazards.eligible(s, { ...yellow, depth: 2 }), 'confusion stays on L1');
+    s.depth = 3;
+    assert.falsy(EnvironmentHazards.eligible(s, { ...yellow, depth: 3 }), 'confusion stays on the shallow sewer and natural floors');
   }));
   test('vents: a confusion eruption bursts mushroom gas onto the adjacent cells and deals no hit', () => fixture(s => {
     s._mushroomGas = null;

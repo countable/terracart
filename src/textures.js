@@ -1306,6 +1306,7 @@ const ZONE_GROUND_ACCENTS = {
 };
 const _zoneGroundStates = new WeakMap();
 function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {
+  if (!WorldGen.zoneAnchorAt(entry, iy * entry?.cellsPerEdge + ix)) return null;
   const field = entry && entry.zone, V = typeof ZoneVariants !== 'undefined' && ZoneVariants;
   if (!field || !V || (type !== 28 && type !== 29)) return null;
   const N = entry.cellsPerEdge, coverage = field.coverage || field.idx;
@@ -1523,6 +1524,7 @@ function makeBiomeTextures(scene, size) {
   }
   makeCaveChasmTexture(scene, size);
   makeCaveWallEdges(scene, size);
+  if (typeof FloorWallMaterials !== 'undefined') FloorWallMaterials.prepareAll(scene);
   for (const [type, spec] of Object.entries(BIOME_TEX)) {
     const phases = spec.animPhases || 1;
     for (let v = 0; v < spec.variants; v++) {

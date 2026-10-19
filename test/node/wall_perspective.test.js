@@ -246,4 +246,47 @@
     // Home and retail occupancy exercise this integration behaviorally in
     // building_overlay.test.js; keep this test focused on the wall sorter.
   });
+  test('cave walls: retained geometry follows mining and depth, while rotation keeps its atlas', () => {
+    const s = scene(); s.depth = 2; s._headingUp = false;
+    Object.assign(s, { startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
+      viewCenterX: 0, viewCenterY: 0, cellM: 6, mapZoom: 1 });
+    const prepare = FloorWallMaterials.prepare, atlas = { key: 'floor-wall-l2' };
+    const lavaAtlas = { key: 'floor-wall-l6' };
+    FloorWallMaterials.prepare = (_, depth) => depth === 6 ? lavaAtlas : atlas;
+    try {
+      const cells = [{ x: 0, y: 0, ax: 100, ay: 200, mask: 13 },
+        { x: 32, y: 0, ax: 101, ay: 200, mask: 7 }];
+      Render.drawCaveWalls(s, cells);
+      const group = s._wallPerspective.cave, block = group.blocks[0];
+      assert.eq(group.blocks.length, 2);
+      assert.eq(group.atlas, atlas);
+      assert.truthy(group.gfx.visible, 'north-up underground uses the same geometry');
+      assert.eq(WallPerspective.worldPieces(s).length, 2, 'walls join the actor sort underground');
+      assert.eq(block.materialFaces.length, 8, 'three exposed sides plus cap; shared face omitted');
+      for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI]) {
+        s.mapRot = angle; Render.drawCaveWalls(s, cells, -4, -7);
+        assert.truthy(group.blocks.includes(block), 'heading and sub-cell movement retain blocks');
+        assert.eq(group.atlas, atlas);
+        for (let j = 0; j < block.projected.length; j += 4) {
+          const v = block.projected, dx = v[j+2] - v[j], dy = v[j+3] - v[j+1];
+          close(Math.cos(angle)*dx - Math.sin(angle)*dy, 0);
+          close(Math.sin(angle)*dx + Math.cos(angle)*dy, -19);
+        }
+      }
+      const firstPart = group.parts[0];
+      s.depth = 6; Render.drawCaveWalls(s, cells);
+      assert.eq(group.parts[0], firstPart, 'floor changes reuse draw targets');
+      assert.truthy(group.parts.every(p => p._wallAtlas === lavaAtlas), 'all parts switch to lava');
+      s.depth = 2; Render.drawCaveWalls(s, cells);
+      assert.truthy(group.parts.every(p => p._wallAtlas === atlas), 'returning restores the cave atlas');
+      Render.drawCaveWalls(s, [{ ...cells[0], mask: 15 }]);
+      assert.eq(group.blocks.length, 1, 'mining removes a block');
+      assert.eq(group.blocks[0].materialFaces.length, 10, 'mining exposes the new edge');
+      s.depth = 0; WallPerspective.update(s);
+      assert.truthy(group.parts.every(p => !p.visible), 'leaving underground hides every part');
+      assert.eq(WallPerspective.worldPieces(s).length, 0);
+      Render.drawCaveWalls(s, []);
+      assert.eq(group.blocks.length, 0);
+    } finally { FloorWallMaterials.prepare = prepare; }
+  });
 })();

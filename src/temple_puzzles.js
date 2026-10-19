@@ -90,8 +90,9 @@
     if (occupied(s.walls, to) || occupied(s.enemies, to)) return s;
     const block = s.blocks.find(b => same(b, to));
     if (block) {
-      const next = { x: block.x + dx, y: block.y + dy };
-      if (!inside(s, next) || occupied(s.walls, next) || occupied(s.blocks, next) || occupied(s.enemies, next)) return s;
+      const next = root.PushBlocks.destination(block, dx, dy, p =>
+        !inside(s, p) || occupied(s.walls, p) || occupied(s.blocks, p) || occupied(s.enemies, p));
+      if (!next) return s;
       block.x = next.x; block.y = next.y;
     }
     if (s.kind === 'path') {

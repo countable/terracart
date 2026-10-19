@@ -193,6 +193,26 @@ a composition shortfall.
   its coverage diagram is schematic. Main Nexus previews show two thirds of
   the original cell width around the POI (or quarry center), keeping the
   seven-metre cell scale and the POI close-ups unchanged.
+- The same preview's Floor plans tab reads `docs/art/ambient-layer-plan.json`.
+  `tools/preview_ambient_layouts.py` builds paired Tile / Generated samples with
+  representative creature sprites. Tile uses `ZoneVariants.sample` with an
+  authored repeat motif; Generated uses `TerrainLayouts.generate` and `assign`
+  for Hilbert ground accents and prop seats inside the same floor footprint.
+  Each proposal labels its algorithm and selected floor art source; unmatched
+  props are labeled material proxies. `tools/ambient_floor_art.py` owns those
+  inspected crops. Separate `floor-L0.html` through
+  `floor-L7.html` fragments load one floor at a time; these are planning
+  fixtures, not measured spawn densities. Each proposed card’s Load in sandbox
+  button exports its selected Tile / Generated cells, props, creatures and art
+  through `tools/sandbox-launcher.html`. `SandboxScenarios.build` adapts that
+  versioned payload to the existing `FloorSandbox` session snapshot; new review
+  tools can supply the same schema. `SandboxArt` registers proposed raster crops
+  through the normal asset catalog and renderer. Authored fixtures suppress
+  automatic Home placement, keep real water/lava terrain, and never alter saves. The ambient
+  table links directly to each floor and habitat, with proposed changes in gold.
+  L0 Nexus sections reuse the existing generated Nexus cards unchanged; they
+  are retained behavior, not replacement proposals. Only the separate L0
+  landcover studies and underground cards use the planning fixtures.
 - The map review (`tools/map-review.html`, `tools/map-review-zones.js`) shows
   variant labels, each Nexus's coverage union, live placements and what occupancy or
   the gate removed; `?quarryClusters=1` (with `removedLanes=1`) colours quarry

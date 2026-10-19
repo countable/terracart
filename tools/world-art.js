@@ -65,9 +65,16 @@
     for(const [key,asset] of Object.entries(ASSETS))if(/^(house_|macro_)/.test(key))want(key,asset.kind==='image'?'__BASE':0);
     for (const pile of Render.COIN_PILES) want(pile.texture);
     const crops = [...new Set([...Object.keys(CROP_ROW),...Object.keys(CROP_SPRITE)])];
-    function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.texture||s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+MAX_GROWTH_STAGE:(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+MAX_GROWTH_STAGE};}
+    function plantArt(plant){const s=wildplantSprite(plant);return {key:s?.texture||s?.sheet||'crops',frame:s?.custom?wildplantFrame(plant):s?.sheet==='springcrops'?s.row*SPRING_CROPS_COLS+(plant.stage??MAX_GROWTH_STAGE):(CROP_ROW[plant.crop]??1)*CROPS_SHEET_COLS+(plant.stage??MAX_GROWTH_STAGE)};}
     const plantRows=[];
-    for(const crop of crops){const plant={crop,stage:MAX_GROWTH_STAGE,id:'world-art:'+crop},p=plantArt(plant);want(p.key,p.frame);plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[p.frame],category:'Plants & crops',zoneVariants:new Set(),source:'src/items.js'});}
+    for(const crop of crops){const plant={crop,stage:MAX_GROWTH_STAGE,id:'world-art:'+crop},p=plantArt(plant);want(p.key,p.frame);
+      const growthStages=[];
+      for(let stage=0;stage<MAX_GROWTH_STAGE;stage++) {
+        const sample=plantArt({...plant,stage});
+        if(sample.key===p.key&&sample.frame===p.frame)continue;
+        want(sample.key,sample.frame);growthStages.push({...sample,stage});
+      }
+      plantRows.push({id:'plant:'+crop,name:CROP_NAMES[crop]||title(crop),key:p.key,frames:[p.frame],growthStages,category:'Plants & crops',zoneVariants:new Set(),source:'src/items.js'});}
     const usage = new Map();
     function use(key,zoneVariant,frame){for(const identity of [key,`${key}:${frame}`]){if(!usage.has(identity))usage.set(identity,new Set());usage.get(identity).add(zoneVariant);}}
     // Include finite decorations and reef finds as well as the repeating layout.
@@ -96,12 +103,15 @@
       if(connected)for(const frame of manifests[connected].frames){want(connected,frame.frame);use(connected,zoneVariant.id,frame.frame);}
     }
     want('castle_tower_shapes');
+    want('stair_up','__BASE');want('progression_tiles',0);want('progression_tiles',1);
+    for(const id of CastleStyles.ids){want('tower',CastleStyles.get(id).towerFrame);want('tower_unclaimed',CastleStyles.get(id).towerFrame);}
     const gemDeposits = Object.values(GEM_DEPOSITS);
     for (const deposit of gemDeposits) {
       want(deposit.art.sheet, deposit.art.frame);
       const icon = MINERAL_ICON_SHEET[deposit.item];
       want(icon.sheet, icon.frame);
     }
+    for(const spec of Object.values(FURNITURE))for(const frame of [spec.frame,...Object.values(spec.tierSheetFrame||{})])want('furniture',frame);
     // Decode selected world textures and matching inventory icons for deposits.
     await Promise.all([...wanted.keys()].map(async key=>{
       const iconSheet=ICON_SHEETS[key];
@@ -109,8 +119,8 @@
         frameWidth:iconSheet.srcW/iconSheet.cols,frameHeight:iconSheet.srcW/iconSheet.cols});if(!asset)return;
       try{const img=new Image();img.src='../'+asset.path;await img.decode();add(key,img,asset.kind==='spritesheet'?asset:null);asset.onLoad?.(scene);}catch(error){failures.push(key);console.warn('World art asset:',key,error);}
     }));
-    makeBerryBushTexture(scene);makeTowerTexture(scene);makePotOfGoldTexture(scene);makeTrapTextures(scene);
-    function image(key,frame){const t=textures.get(key),f=t?.get(frame);if(!f)return null;const c=canvas(f.width,f.height);c.getContext('2d').drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,0,0,f.width,f.height);return c.toDataURL();}
+    makeBerryBushTexture(scene);makeTowerTexture(scene);makeTowerTexture(scene,CASTLE_STONE_UNCLAIMED,'tower_unclaimed');makePotOfGoldTexture(scene);makeTrapTextures(scene);
+    function image(key,frame){const t=textures.get(key),f=t?.get(frame);if(!f)return null;const c=canvas(f.width,f.height);c.getContext('2d').drawImage(t.getSourceImage(),f.x,f.y,f.width,f.height,0,0,f.width,f.height);return ArtPreviewFit.trim(c).toDataURL();}
     // Like export_map_art_painters.js, expose the live private polygon painter
     // in a viewer-only namespace without changing the game's public API.
     const buildingResponse=await fetch('../src/building_overlay.js',{cache:'no-store'});
@@ -122,11 +132,11 @@
     buildingScript.textContent=buildingSource.replace(buildingHook,'global.WorldArtBuildings = { rebuild,');
     document.head.append(buildingScript);
     const rows=[];
-    for(const row of plantRows)rows.push({...row,images:row.frames.map(frame=>image(row.key,frame)).filter(Boolean)});
-    const plantFrames=new Set(plantRows.flatMap(r=>r.frames.map(f=>`${r.key}:${f}`)));
+    for(const row of plantRows)rows.push({...row,images:[...row.frames.map(frame=>image(row.key,frame)),...(row.growthStages||[]).map(sample=>image(sample.key,sample.frame))].filter(Boolean),stateLabels:row.growthStages?.length?['Mature',...row.growthStages.map(sample=>'Growth stage '+sample.stage)]:undefined});
+    const plantFrames=new Set(plantRows.flatMap(r=>[...r.frames.map(f=>`${r.key}:${f}`),...(r.growthStages||[]).map(sample=>`${sample.key}:${sample.frame}`)]));
     function category(key){return /house|tower|macro_|market_stand|shrine|well/.test(key)?'Buildings & landmarks':/tree|bush|mushroom/.test(key)?'Trees & foliage':/rock|ore/.test(key)?'Stone & minerals':/trap|tar/.test(key)?'Hazards':'Objects & props';}
     for(const [key,wantedFrames] of wanted) {
-      if(key==='gems')continue; // Inventory icons accompany their world deposits below.
+      if(key==='gems'||key==='furniture'||key==='mineralrock')continue; // Inventory icons accompany their world deposits below.
       if(approvedSheets[key]) {
         for(const entry of approvedSheets[key].entries)rows.push({
           ...entry,id:`${key}:${entry.id}`,key,approved:true,
@@ -141,9 +151,21 @@
       for(const group of groups) {
         const individual=groups.length>1||!!manifests[key], frame=group[0];
         const frameName=manifests[key]?.frames.find(f=>f.frame===frame)?.name;
-        rows.push({id:individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||(key==='cobble'?'broken_lamp_post':key.replace(/^approved_/,'')))+(individual&&!frameName?' '+frame:''),key,frames:group,
+        rows.push({id:key==='rock_variants'?'mineralrock':individual?`${key}:${frame}`:key,name:(key==='stronghold_wall'?'Stronghold wall · ':key==='zone_hedge'?'Hedge · ':'')+title(frameName||(key==='rock_variants'?'mineral_rocks':key==='cobble'?'broken_lamp_post':key.replace(/^approved_/,'')))+(individual&&!frameName?' '+frame:''),key,frames:group,
           images:group.map(frame=>image(key,frame)).filter(Boolean),category:category(key),zoneVariants:usage.get(individual?`${key}:${frame}`:key)||new Set(),source:ASSETS[key]?.path||'src/textures.js'});
       }
+    }
+    for(const [id,spec] of Object.entries(FURNITURE)) {
+      const current=furnitureFrame(id);
+      const frames=[current,...[spec.frame,...Object.values(spec.tierSheetFrame||{})].filter(frame=>frame!==current)];
+      rows.push({id:'furniture:'+id,name:itemName(id),key:'furniture',frames,
+        images:frames.map(frame=>image('furniture',frame)).filter(Boolean),category:'Furniture',
+        zoneVariants:new Set(),source:ASSETS.furniture.path,
+        stateLabels:frames.map((frame,index)=>index===0?'Current default':frame===spec.frame?'Base fallback':'Tier '+Object.keys(spec.tierSheetFrame||{}).find(tier=>spec.tierSheetFrame[tier]===frame))});
+    }
+    for(const row of rows) {
+      if(row.key==='tower'||row.key==='tower_unclaimed')row.stateLabels=row.frames.map(frame=>CastleStyles.get(CastleStyles.ids[frame]).name+(row.key==='tower_unclaimed'?' · unclaimed':' · restored'));
+      if(row.key==='progression_tiles'){row.name='Progression elevator';row.stateLabels=['Broken','Repaired'];}
     }
     const gemUses = {
       quartz: 'Mining and value exchange only; no crafting recipe or direct action.',
@@ -166,7 +188,7 @@
         row.zoneVariants = new Set(ZoneVariantData.variants.filter(z => z.zone === 'quarry').map(z => z.id));
       }
     }
-    function painted(id,name,category,painter,zoneVariants=[]){const c=canvas(96);painter(c);rows.push({id,name,category,zoneVariants:new Set(zoneVariants),images:[c.toDataURL()],source:'Current game painter',frames:[]});}
+    function painted(id,name,category,painter,zoneVariants=[]){const c=canvas(96);painter(c);rows.push({id,name,category,zoneVariants:new Set(zoneVariants),images:[ArtPreviewFit.trim(c).toDataURL()],source:'Current game painter',frames:[]});}
     const terrainNames=Object.fromEntries(Object.entries(WorldGen.T).map(([k,v])=>[v,title(k)]));
     for(const id of Object.keys(BIOME_TEX)) {
       const zoneVariants=ZoneVariantData.variants.filter(z=>WorldGen.T[Zones.ZONE_KINDS[z.zone]?.terrain]===Number(id)).map(z=>z.id);
@@ -204,19 +226,50 @@
       if(row.reference!=null)usedNumbers.add(row.reference);
       row.referenceLabel=row.reference==null?'Unassigned':`WA-${String(row.reference).padStart(3,'0')}`;
     }
+    const alternativeResponse=await fetch('world-art-alternatives.json',{cache:'no-store'});
+    if(!alternativeResponse.ok)throw new Error('Could not load art alternatives');
+    const alternatives=await alternativeResponse.json();
+    const furnitureAlternativeResponse=await fetch('art-candidates/furniture/alternatives.json',{cache:'no-store'});
+    if(!furnitureAlternativeResponse.ok)throw new Error('Could not load furniture alternatives');
+    alternatives.entries.push(...(await furnitureAlternativeResponse.json()).entries);
+    const historicalResponse=await fetch('art-candidates/historical-rocks/alternatives.json',{cache:'no-store'});
+    if(!historicalResponse.ok)throw new Error('Could not load previous rock art');
+    alternatives.entries.push(...(await historicalResponse.json()).entries);
+    const indexedResponse=await fetch('art-candidates/indexed/alternatives.json',{cache:'no-store'});
+    if(!indexedResponse.ok)throw new Error('Could not load indexed art alternatives');
+    for(const entry of (await indexedResponse.json()).entries) {
+      const targets=entry.targets.filter(target=>!alternatives.entries.some(existing=>
+        existing.targets.includes(target)&&existing.source===entry.source&&JSON.stringify(existing.crop)===JSON.stringify(entry.crop)));
+      if(targets.length)alternatives.entries.push({...entry,targets});
+    }
+    await Promise.all(alternatives.entries.map(async candidate=>{candidate.previewImage=await ArtPreviewFit.load(candidate.image);}));
+    for(const row of rows)row.alternatives=alternatives.entries.filter(candidate=>candidate.targets.includes(row.id));
+    const query=new URLSearchParams(location.search);
+    $('search').value=query.get('search')||'';
+    const requestedAlternatives=query.get('alternatives');
+    if(['any','Rogue Adventure World','Fantasy Dreamland','smaller','Dungeon Gathering','Pixel Plains','Sunnyside World','Previous game art','none'].includes(requestedAlternatives))$('alternatives').value=requestedAlternatives;
     const unnumbered=rows.filter(row=>row.reference==null);
     let selected=null,descending=false;
     const zoneVariantsText=row=>(row.approved?'Approved for placement: ':'')+([...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use');
     const sandboxZoneKind = id => ZoneVariantData.variants.find(z=>z.id===id)?.zone || id;
     const art=(row,limit)=>row.images.slice(0,limit).map((src,i)=>`<img class="sprite" src="${src}" alt="${esc(row.name+(row.stateLabels?.[i]?' · '+row.stateLabels[i]:''))}" title="${esc(row.stateLabels?.[i]||row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
+    const candidateArt=c=>`<figure class="candidate"><img class="sprite" src="${esc(c.previewImage||c.image)}" alt="${esc(c.name)}" loading="lazy"><figcaption><strong>${esc(c.name)}</strong><br><small>${esc(c.pack)}${c.status?` · ${esc(c.status)}`:''} · native ${c.nativeTileSize}px grid<br>${c.crop[2]}×${c.crop[3]} px crop${c.sizeException?' · tall object':''}</small></figcaption></figure>`;
+    const filteredAlternatives=row=>row.alternatives.filter(c=>{
+      const choice=$('alternatives').value;
+      return choice==='smaller'?c.group==='smaller':['','any','none'].includes(choice)||c.pack===choice;
+    });
+    const alternativeColumn=(row,group)=>`<td><div class="candidates">${row.alternatives.filter(c=>group==='smaller'?c.group==='smaller':c.pack===group).map(candidateArt).join('')||'<small>No reviewed match</small>'}</div></td>`;
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zoneVariant=$('zone').value,cat=$('category').value,sort=$('sort').value;
-      const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
+      const choice=$('alternatives').value;
+      const visible=rows.filter(r=>(!choice||(choice==='none'?!r.alternatives.length:filteredAlternatives(r).length))&&(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,...r.alternatives.map(c=>c.name+' '+c.pack),zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
       const value=r=>sort==='zone'?zoneVariantsText(r):r[sort];visible.sort((a,b)=>((sort==='reference'?(a.reference??Infinity)-(b.reference??Infinity):String(value(a)).localeCompare(String(value(b))))||a.name.localeCompare(b.name))*(descending?-1:1));
       if(!visible.some(r=>r.id===selected))selected=visible[0]?.id;
       $('sandbox-zone').innerHTML=zoneVariant && zoneVariant !== 'shared' ? SandboxLinks.link(sandboxZoneKind(zoneVariant)) : '';
-      $('count').textContent=`${visible.length} of ${rows.length} artwork entries`;
-      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pickaxe" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td>${esc(r.category)}${r.gem?`<br><small>T${r.deposit.yieldTier} · ${r.value} coin value</small><div class="gem-icon"><img class="sprite" src="${r.inventoryImage}" alt="${esc(itemName(r.gem))} inventory icon"><small>${esc(itemName(r.gem))}</small></div>`:''}</td><td>${esc(zoneVariantsText(r))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No art matches these filters.</td></tr>';
+      $('filter-status').innerHTML=choice?`Showing ${choice==='any'?'only entries with reviewed alternatives':choice==='none'?'only entries without a reviewed match':'only '+esc(choice==='smaller'?'smaller art sets':choice)+' matches'} — <button id="show-all-art" class="pickaxe" type="button">Show all artwork</button>`:'';
+      $('show-all-art')?.addEventListener('click',()=>{for(const id of ['search','zone','category','alternatives'])$(id).value='';renderTable();});
+      $('count').textContent=`${visible.length} of ${rows.length} artwork entries · ${rows.filter(r=>r.alternatives.length).length} entries have reviewed alternatives`;
+      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><button class="pickaxe" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td>${['Rogue Adventure World','Fantasy Dreamland','smaller'].map(group=>alternativeColumn(r,group)).join('')}<td>${esc(r.category)}${r.gem?`<br><small>T${r.deposit.yieldTier} · ${r.value} coin value</small><div class="gem-icon"><img class="sprite" src="${r.inventoryImage}" alt="${esc(itemName(r.gem))} inventory icon"><small>${esc(itemName(r.gem))}</small></div>`:''}</td><td>${esc(zoneVariantsText(r))}</td></tr>`).join('')||'<tr><td colspan="8" class="empty">No art matches these filters.</td></tr>';
       $('rows').querySelectorAll('[data-id]').forEach(tr=>tr.addEventListener('click',()=>{selected=tr.dataset.id;renderTable();}));
       document.querySelectorAll('[data-sort]').forEach(button=>{
         const active=button.dataset.sort===sort;
@@ -225,14 +278,17 @@
       });
       const row=rows.find(r=>r.id===selected);
       $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div>${row.stateLabels?'<p><small>Frames, left to right: '+esc(row.stateLabels.join(', '))+'</small></p>':''}<h3>Zone use</h3><p>${esc(zoneVariantsText(row))}</p><small>${row.gem?(row.deposit.yieldTier<=4?'Assigned to quarry regions on the surface and at depth 1; mining yields the pictured gem.':'Mining yields the pictured gem when placed. Underground zone placement is being designed.'):row.approved?'Approved art; placement and interactions are not yet enabled.':row.zoneVariants.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      if(row?.id==='mineralrock')$('detail').insertAdjacentHTML('beforeend','<p><small>Current art follows the live mineral-rock renderer (rock_variants). Previous sprites remain available under Previous game art in the Smaller art sets column.</small></p>');
+      if(row?.growthStages?.length)$('detail').insertAdjacentHTML('beforeend', `<h3>Growth sources</h3><small>${row.growthStages.map(sample=>'Stage '+sample.stage+': '+esc(sample.key)+', frame '+sample.frame).join('<br>')}</small>`);
+      if(row)$('detail').insertAdjacentHTML('beforeend', `<h3>Source-pack alternatives</h3><p><small>Comparison only; not applied to the game. Previews fit the same display box; source dimensions below reveal scale differences.</small></p>${row.alternatives.map(c=>`${candidateArt(c)}<p>${esc(c.note)}</p>${c.sizeException?`<p><small>${esc(c.sizeException)}</small></p>`:''}<details><summary>Source crop</summary><code>${esc(c.source)}</code><p><small>x ${c.crop[0]}, y ${c.crop[1]}, width ${c.crop[2]}, height ${c.crop[3]} px</small></p><a href="${esc(c.image)}" target="_blank" rel="noopener">Open original-size crop</a></details>`).join('')||'<p>No close alternative selected from these packs.</p>'}`);
       if(row?.gem)$('detail').insertAdjacentHTML('beforeend', `<h3>Mining reward</h3><div class="gem-icon"><img class="sprite" src="${row.inventoryImage}" alt="${esc(itemName(row.gem))} inventory icon"><p>${row.deposit.quantity} × ${esc(itemName(row.gem))}<br><small>Inventory icon: ${esc(row.inventorySource)}</small></p></div><p>T${row.deposit.yieldTier} gem · requires a T${row.deposit.requiredTier}+ pickaxe · ${row.value} coin base value.</p><h3>Current uses</h3><p>${esc(row.currentUse)}</p>`);
       if(row&&!row.approved){const keys=[...new Set([...row.zoneVariants].map(sandboxZoneKind))];$('detail').insertAdjacentHTML('beforeend', `<p>${keys.map(key=>SandboxLinks.link(key)).filter(Boolean).join('<br>')}</p>`);}
     }
-    for(const id of ['search','zone','category'])$(id).addEventListener('input',renderTable);
+    for(const id of ['search','zone','category','alternatives'])$(id).addEventListener('input',renderTable);
     $('sort').addEventListener('change',()=>{descending=false;renderTable();});
     document.querySelectorAll('[data-sort]').forEach(b=>b.addEventListener('click',()=>{descending=$('sort').value===b.dataset.sort?!descending:false;$('sort').value=b.dataset.sort;renderTable();}));
-    $('reset').addEventListener('click',()=>{for(const id of ['search','zone','category'])$(id).value='';$('sort').value='name';descending=false;renderTable();});
+    $('reset').addEventListener('click',()=>{for(const id of ['search','zone','category','alternatives'])$(id).value='';$('sort').value='name';descending=false;renderTable();});
     renderTable();$('status').textContent=`${rows.length} entries loaded from game definitions and approved art manifests.${failures.length?' Missing textures: '+failures.join(', '):''}${unnumbered.length?' '+unnumbered.length+' new entries await a reference number.':''}`;
-    window.worldArt={rows,failures};document.documentElement.dataset.worldArtReady='true';
+    window.worldArt={rows,failures,alternatives};document.documentElement.dataset.worldArtReady='true';
   } catch(error) {$('status').textContent='Could not load world art: '+error.message;$('status').className='error';document.documentElement.dataset.worldArtError=error.message;console.error(error);}
 })();

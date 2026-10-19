@@ -4,14 +4,14 @@
   function spawn(entry, tx = 0, ty = 0, caught = []) {
     const scene = Object.assign(new SceneCreatures(), {
       tileEdgeM: entry.tileEdgeM, cellM: entry.tileEdgeM / entry.cellsPerEdge,
-      depth: 1, save: { caught, opened: [], placedFloors: [], inv: [] },
+      depth: 2, save: { caught, opened: [], placedFloors: [], inv: [] },
       _raiseBoneCacheSkeleton() {},
     });
-    scene.spawnCaveCreatures(entry, tx, ty, 1);
+    scene.spawnCaveCreatures(entry, tx, ty, 2);
     return entry.creatures;
   }
   function entryFor(grid, N, edge, objects, wildplants = [], extra = {}) {
-    return { depth: 1, grid, baseGrid: grid.slice(), cellsPerEdge: N, tileEdgeM: edge,
+    return { depth: 2, grid, baseGrid: grid.slice(), cellsPerEdge: N, tileEdgeM: edge,
       objects, genObjects: objects.slice(), wildplants, genWildplants: wildplants.slice(), ...extra };
   }
   for (const variant of ['spring_cave', 'dungeon_maze']) {
@@ -23,13 +23,13 @@
           gx: tx * 4096 + (32.5 + n / 10000) * 4096 / N,
           gy: ty * 4096 + 32.5 * 4096 / N,
           lx: 32.5 * 4096 / N, ly: 32.5 * 4096 / N, upm: edge / 4096 };
-        if (CaveAreas.select(anchor, 1) === variant) break;
+        if (CaveAreas.select(anchor, 2) === variant) break;
       }
-      assert.eq(CaveAreas.select(anchor, 1), variant);
+      assert.eq(CaveAreas.select(anchor, 2), variant);
       const surface = { grid: new Uint8Array(N * N).fill(W.T.PARK),
         zone: { anchors: [anchor], coverage: new Uint16Array(N * N).fill(1) } };
       const grid = new Uint8Array(N * N).fill(W.T.CAVE_FLOOR), objects = [], wildplants = [], occupied = new Set();
-      const plan = CaveAreas.plan({ surface, grid, N, tx, ty, tileEdgeM: edge, depth: 1,
+      const plan = CaveAreas.plan({ surface, grid, N, tx, ty, tileEdgeM: edge, depth: 2,
         objects, occupied, spawnWhy: new Uint32Array(N * N) });
       CaveAreas.apply(plan, grid, objects, wildplants, occupied);
       assert.gt(plan.encounters.length, 0);
@@ -55,7 +55,7 @@
     const cells = Array.from({ length: 14 }, (_, i) => 10 * N + 3 + i);
     const route = { id: 'bone-route', routeKey: 'underground-way/123/0/1', street: true,
       theme: 'bone_gallery', cells, owner: { x: 30, y: 100 } };
-    const plan = { N, tx: 0, ty: 0, tileEdgeM: edge, depth: 1,
+    const plan = { N, tx: 0, ty: 0, tileEdgeM: edge, depth: 2,
       data: { grid: new Uint8Array(N * N).fill(W.T.ROAD) }, routes: [route],
       routeAt: new Map(cells.map(i => [i, route])), lane: new Set(cells), streetCells: new Set(cells) };
     const objects = [];

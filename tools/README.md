@@ -79,6 +79,24 @@ Serve the repository with `python3 -m http.server 8000`, then open a page under
 | `foliage_audit.html`, `map_art_dashboard.html`, `sandbox_art_comparison.html` | Art-review surfaces. |
 | `compass-test.html` | Compass behavior. |
 
+The item and world art dashboards compare current game art with curated Rogue
+Adventure World and Fantasy Dreamland alternatives, plus a third alternatives
+column for Dungeon Gathering, Pixel Plains and Sunnyside World, plus the native
+16×16 RPG Pack item sheet in the item dashboard.
+Open either dashboard with `?alternatives=any` to show all reviewed matches or
+`?alternatives=smaller` for the smaller sets; pack filters narrow the review.
+Source coordinates and fit notes accompany each candidate. Item mappings live in
+`item-art-candidates.js`, world mappings in `world-art-alternatives.json`, and
+review images in `art-candidates/`. These files are dashboard-only proposals;
+they do not replace runtime art. World thumbnails remove transparent padding
+with `art-preview-fit.js` while original-size crop links preserve source pixels
+and dimensions. Use native 16px art variants, never the upscaled
+32px/48px exports. Crops must fit 16×16 except trees and other tall objects
+spanning more than one vertical cell; retain their original pixels.
+Monochrome glyph and outline icons are excluded. Dreamland comparisons use its
+coloured prop crops. Equipment samples include T1 silhouette studies and proposed
+material-colour variants where the source pack provides suitable choices.
+
 In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
 variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
 The gameplay tier is included when its overlay is enabled.
@@ -104,6 +122,15 @@ Click a dot for source feature IDs and, at section boundaries, the variant,
 assignment length, section key and tile.
 The street overlay and distribution report use those same assignment sections;
 MD roads appear as Old Trade Road and LG roads as Ancient Highway.
+
+`rockwall-3d-preview.html` compares the original north-up cave sprites with the
+shared runtime wall materials and full-cell WebGL prisms. Its ground tiles and
+sewer pipes remain trial arrangements. `build_floor_wall_materials.py` packs the
+approved crops from `rockwall-floor-materials.json` into the tracked
+`assets/Objects/Cave/floor-wall-sources.png` strip, records source attribution,
+and updates the theme data in `src/floor_wall_materials.js`. Run it after
+changing approved material choices; it requires the local `extra_assets` library.
+The game, floor viewer and 3D comparison use that shared module.
 
 In `floor-viewer.html`, the variant buttons wrap through the selected floor’s
 nexus catalog and rebuild the region with that choice. Natural selection uses

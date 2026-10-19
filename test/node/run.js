@@ -53,6 +53,8 @@ const ctx = {};
 ctx.window = ctx;            // modules do `(function(window){…})(window)` and `window.X = …`
 ctx.self = ctx;
 ctx.console = console;
+ctx.URL = URL;
+ctx.URLSearchParams = URLSearchParams;
 ctx.SRC_PARSE_ERRORS = SRC_PARSE_ERRORS;
 ctx.Math = Math; ctx.Date = Date; ctx.JSON = JSON;
 ctx.Object = Object; ctx.Array = Array; ctx.Number = Number; ctx.String = String;
@@ -86,7 +88,7 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
+  'mvt.js', 'util.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.
   'streets.js',
   // Street variants. Pure (reads WorldGen / Streets at CALL time), before worldgen.js like the page.
@@ -95,7 +97,7 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
+  'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
@@ -105,7 +107,7 @@ const FILES = [
   'compass_modules.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
-  'hidden_objects.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
+  'hidden_objects.js', 'push_blocks.js', 'temple_puzzles.js', 'temple_layout.js', 'temple_scene.js', 'temples.js', 'interactables.js', 'boss_encounters.js', 'houses.js',
   // The starter-area placers. They read the scene they are handed plus app.js's
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
@@ -126,6 +128,9 @@ const FILES = [
   'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
+  'sandbox_scenarios.js',
+  'floor_sandbox.js',
+  'sandbox_art.js',
   'sandbox.js',
   // render.js reads no globals at load time (see the CANVAS_W comment in
   // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
@@ -197,6 +202,8 @@ try {
     { filename: 'floor-viewer-region.js' });
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-variants.js'), 'utf8'), ctx,
     { filename: 'floor-viewer-variants.js' });
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-walls.js'), 'utf8'), ctx,
+    { filename: 'floor-viewer-walls.js' });
   vm.runInContext(FILES.map(readSrc).join('\n;\n') + '\n' + BRIDGE, ctx,
     { filename: 'src-bundle.js' });
 } catch (e) {
@@ -983,6 +990,9 @@ Object.assign(ctx, {
   ctx.SPAWN_IN_TILE_SRC      = slice(creaturesSrc, '  *spawnInTileSteps(entry, tx, ty) {\n', '\n  // Cave fauna: hostile', 'spawnInTile');
   vm.runInContext(`globalThis.spawnPassFn = function (body) {
     const GeneratorFunction = Object.getPrototypeOf(function* () {}).constructor;
+    // Partial passes still release the generated-ownership guard on return.
+    if (body.includes('entry._homeVariantGenerating = true;') && !body.includes('delete entry._homeVariantGenerating;'))
+      body += '\\n} finally { delete entry._homeVariantGenerating; }';
     const steps = new GeneratorFunction('entry', 'tx', 'ty', body);
     return function (entry, tx, ty) { return WorldGen.runSteps(steps.call(this, entry, tx, ty)); };
   };`, ctx, { filename: 'run.js#spawnPassFn' });
