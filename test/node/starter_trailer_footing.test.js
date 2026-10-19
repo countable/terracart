@@ -65,6 +65,26 @@
   const NORTH = { key: 'h_0_0_30_27', x0: 29, x1: 32, y0: 26, y1: 28 };
   const FAR = { key: 'h_0_0_45_45', x0: 44, x1: 46, y0: 44, y1: 46 };
 
+  test('home luxury: moving and adopting Home recompute saved furniture without moving it', () => {
+    const house = {kind:'house',id:FAR.key,...at(45,45),tier:9};
+    const e = tile([FAR],[house]);
+    const s = scene({furniture:[]});
+    withTile(e, () => {
+      const start=at(20,20); s._placeHome(start.x,start.y);
+      const oldHome={...s.save.starterTrailer};
+      s.save.furniture.push({id:'lamp',itemId:'lamp_floor',x:oldHome.x,y:oldHome.y,depth:0});
+      PlacedFloor.restoreFurniture(s,e,0,0);
+      assert.eq(Furniture.luxuryOf(s.save),9);
+      const next=at(30,30); assert.truthy(s.moveHomeTrailerHere(next.x,next.y));
+      assert.eq(Furniture.luxuryOf(s.save),0,'move hook invalidates the reused synthetic id');
+      assert.eq(s.save.furniture[0].x,oldHome.x,'furniture stays where placed');
+      s.save.furniture.push({id:'rug',itemId:'rug_burgundy',...at(45,45),depth:0});
+      assert.truthy(s.moveHomeTrailerHere(house.x,house.y));
+      assert.eq(s.save.starterShopId,FAR.key);
+      assert.eq(Furniture.luxuryOf(s.save),4,'adoption hook sees the adopted ownership grid');
+    });
+  });
+
   test('home footing: the wagon parks north of the player, the firepit three cells due south after compass detection', () => {
     const s = scene();
     withTile(tile([]), () => {

@@ -453,7 +453,7 @@ test('Mushroom Grove giant caps fit centered inside the cell and have distinct r
   assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
   assert.eq(itemName(p.crop),'Giant mushroom');
   assert.eq(inventoryIconSource(p.crop).sheet,'giant_mushroom');
-  assert.truthy(RENDER_SRC.includes('const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage);'),
+  assert.truthy(RENDER_SRC.includes('const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage, scene);'),
     'the planted pass seats through the shared placement rule');
   assert.truthy(RENDER_SRC.includes('const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];'),
     'which seats a `seat: true` look off its trimmed bounds');
@@ -879,4 +879,58 @@ test('bush variants stay stable through harvest and reload and cover every appro
     for (let i = 0; i < 80; i++) variants.add(wildplantFrame({crop:'shrub',id:'shrub-' + i,_plantArt:look}));
     assert.eq(variants.size, count, look + ' uses every approved variant');
   }
+});
+
+test('furniture art: every frame seats in its cell, including mirrored asymmetric pieces', () => {
+  const world = pngDims('assets/Objects/Furniture/furniture-32.png');
+  assert.eq(world.w, 128);
+  assert.eq(world.h, 1728);
+  const scene = {textures:{exists:()=>true},save:{}};
+  const art = Render.objectAppearance(scene, new Map());
+  for (const item of ITEMS.filter(item => item.kind === 'furniture')) {
+    const metadata = furnitureSpec(item.id);
+    for (const flip of [false, true]) {
+      const o = {kind:'furniture',itemId:item.id,flip};
+      const p = art.resolveAppearance(o);
+      assert.eq(p.texKey, 'furniture');
+      assert.eq(p.frameVal, furnitureFrame(item.id));
+      const layers = { flat: WorldLayers.GROUND_DECAL, mid: WorldLayers.STEP_OVER_PROP,
+        basin: WorldLayers.GROUND_DECAL };
+      assert.eq(p.layer, layers[metadata.height]);
+      const b = SpriteLayout.ART_BOUNDS[`furniture:${p.frameVal}`];
+      const mirrored = metadata.flip && flip;
+      if (Number.isFinite(metadata.seatFoot)) {
+        assert.inRange(Math.abs(p.foot.footFromCentre - 32 / 6), 0, 1e-8,
+          item.id + ': base and depth sit one third up the cell');
+      } else if (['bed_quilted', 'bookshelf_frontier', 'rug_burgundy'].includes(item.id)) {
+        assert.inRange(Math.abs(p.dyPx + ((b.minY + b.maxY) / 2 - b.fh / 2) * p.scl), 0, 1e-8,
+          item.id + ': art stays vertically centred');
+      }
+      const minX = mirrored ? b.fw - b.maxX : b.minX;
+      const maxX = mirrored ? b.fw - b.minX : b.maxX;
+      const centreX = Number.isFinite(metadata.seatFoot) ? (mirrored ? b.fw - b.baseX : b.baseX) : (minX + maxX) / 2;
+      assert.inRange(Math.abs(p.dxPx + (centreX - b.fw / 2) * p.scl), 0, 1e-8);
+      assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
+      if (item.id === 'clock_grandfather') {
+        assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
+        assert.lte((b.maxY - b.minY) * p.scl, 32, 'approved upright fits one cell');
+        assert.inRange(Math.abs(p.dyPx + (b.maxY - b.fh / 2) * p.scl - 32 / 6), 0, 1e-8, 'clock base sits one third up the cell');
+      }
+      if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
+        assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 32, 'lamp fills its cell');
+        assert.gte(b.minY, b.fh - 32, 'lamp fits the bottom 32×32 frame');
+        assert.inRange(b.maxY, b.fh - 1, b.fh, 'lamp is bottom-seated');
+        assert.lte((b.maxY - b.minY) * p.scl, 32, 'lamp stays within a cell');
+      }
+      let actualFlip;
+      p.spec.after({setFlipX(value) { actualFlip=value; }}, o);
+      assert.eq(actualFlip, !!mirrored);
+    }
+  }
+  const o={kind:'furniture',itemId:'washtub',flip:false};
+  const before=Render.resolveObjectAppearance(scene,o);
+  o.flip=true;
+  const after=Render.resolveObjectAppearance(scene,o);
+  assert.falsy(before===after, 'mutable orientation re-resolves');
+  assert.eq(before.dxPx, -after.dxPx, 'asymmetric washtub keeps its centre after flipping');
 });

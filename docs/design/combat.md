@@ -294,10 +294,13 @@ mechanics.
   Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  existing Home recipe. Growth Powder is crafted at Home from three Nettles
+  workbench recipe. Growth Powder is crafted at a workbench from three Nettles
   and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
-- Home light, rest and ward share `HOME_R` and surface-only `homeWorldPos()`;
-  campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
+- Home light and ward retain `HOME_R` and surface-only `homeWorldPos()`.
+  Home rest uses `isRestingAtHome`: the player's owned Home building cells
+  and their four edge-sharing neighbours, never corner-only contact. Ownership
+  is checked across tile seams; other houses and caves do not qualify.
+  Campfires use `FIRE_REST_R`. Home wards steer enemies away from Home and suppress bites.
   Do not merge this with campfires' refused-target-cell ward, which would trap
   enemies inside Home's ring. Campfires burn for 24 real hours, including offline
   time (`Campfires.active`, saved `litAt`). After expiry their smoking pits give
@@ -314,6 +317,21 @@ mechanics.
   ground: no step or hop enters it, a body already in it may walk out, and a
   chasing foe sidesteps around it when a jog fits. This is separate from the
   warmth-ring ward (`FIRE_REST_R`), which turns back only entry-level kinds.
+- Home rest adds an expected 0.1 energy per second per current luxury point
+  to the base full-bar-in-50-seconds rate. `Furniture.restBonus` random-rounds
+  each elapsed interval (floor plus a fractional Bernoulli draw); base healing
+  retains its fractional bank. Both pass through `_accrueRestEnergy` and
+  `Energy.set`. Work/settling pauses, the energy cap, hard-mode quarter-bar
+  revival and independent campfire recovery keep their existing rules.
+  Luxury milestones at 4/16/36/64/100 each bank one real memory once per save,
+  with the normal immediate full heal and lifetime story progression. Pickup
+  cannot remove or repeat an earned memory.
+- The Quilted Cot restores all missing energy through `_restoreEnergy` and
+  `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
+  building cell and refuses full energy or `_zeroEnergyLocked()`, both before
+  sleeping and when the shared sleep fade commits. The Inn uses that same fade
+  with its existing paid, once-per-day transaction. Washing Tub clears only
+  `Conditions` debuffs; buffs, energy, food cooldown and terrain remain unchanged.
 - Home is `save.starterShopId`: the player's house, placed by `_placeHome`
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty
@@ -332,7 +350,7 @@ mechanics.
   saved rings move to this southern cell too; a matching surface fire follows
   the ring and retains its state. Cave fires at the same coordinates are
   unaffected.
-  The house is `HomeArea.HOUSE`: the nine cells round the anchor cell
+  The house is `HomeArea.HOUSE`: a 2×2 footprint around the anchor cell
   (`inHouse`), stamped into the built tile by `_stampHomeFootprint` as
   building cells under Home's id with a polygon ring and a doorway on the
   wall facing the player at placement (`doorSide`, saved as
@@ -341,13 +359,11 @@ mechanics.
   Standing on one of its cells is being inside (`homeInside`; `homeInterior`
   hands the ring to the renderer — see [rendering](rendering.md)). Older saves
   may still have an adopted house as Home; it keeps its own footprint and is
-  drawn the same way. Any unclaimed house on Home's footing (the house's 3x3
-  and the firepit cell) is erased entirely — footprint, outline and roof — by
-  `clearHomeFooting`, a per-player overlay, leaving only a black 50% shadow of
-  its footprint (`entry.clearedShapes`, drawn by `building_overlay.js`); a
-  claimed building, temple or castle is never erased (Home's own footprint
-  stops short of its cells), Home never clears itself, and "Move Home here"
-  refuses on one (`_homeFootingAt`, test `starter_trailer_footing`).
+  drawn the same way. Home adopts a nearby building as-is or needs a clear
+  2×2 site. `clearHomeFooting` clears incidental clutter while preserving
+  neighbouring buildings and saved furniture; moving Home leaves furniture
+  at its saved world cells and recomputes its indoor membership.
+
 
 Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_ward`,
 `pet_pickup`.

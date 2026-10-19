@@ -18,10 +18,10 @@
     buildInventoryDOM() {}, flashLoot() {}, coinIconEl() {},
     _storySplashOnce: () => true,
   });
-  const nextKey = variant => {
+  const nextKey = (variant, verb = 'deliver') => {
     for (let i = 0; i < 100; i++) {
       const key = 'conversation-castle-' + i;
-      if (CastleStyles.get(key).id === variant) return key;
+      if (CastleStyles.get(key).id === variant && CastleStyles.questTypeFor(key, variant) === verb) return key;
     }
     throw new Error('No castle key for ' + variant);
   };
@@ -100,7 +100,7 @@
     const otherKey = (() => {
       for (let i = 0; i < 400; i++) {
         const key = 'later-archive-' + i;
-        if (CastleStyles.get(key).id === 'archive') return key;
+        if (CastleStyles.get(key).id === 'archive' && CastleStyles.questTypeFor(key, 'archive') === 'deliver') return key;
       }
       throw new Error('No third archive key');
     })();
@@ -191,5 +191,29 @@
     s.showQuestBoard(0, 0, h);
     assert.eq(s.offers.length, 0);
     assert.falsy(s.save.quests);
+  });
+
+  test('castle conversation: luxury card rechecks a stale claim and pays 60 coins once', () => {
+    const s = scene(), h = house(nextKey('archive', 'luxury'));
+    s.save.starterShopId = 'home';
+    s.save.houseLuxury = { home: { score: 16, footprintKey: 'room' } };
+    s.showQuestBoard(0, 0, h);
+    const card = s.offers[0];
+    assert.eq(card.get, 'A respectable address');
+    assert.truthy(card.blurb.includes("We don't admit rabble here!"));
+    assert.truthy(card.blurb.includes('16 luxury'));
+    assert.truthy(card.canAfford, 'pre-earned luxury completes the first conversation');
+    s.save.houseLuxury.home.score = 4;
+    card.onAccept();
+    assert.falsy(s.isCastleClaimed(h)); assert.eq(s.save.money, 0);
+    s.showQuestBoard(0, 0, h);
+    assert.falsy(s.offers[1].canAfford); assert.truthy(s.offers[1].blurb.includes('4 / 16'));
+    s.save.houseLuxury.home.score = 16;
+    s.showQuestBoard(0, 0, h);
+    s.offers[2].onAccept(); s.offers[2].onAccept();
+    assert.truthy(s.isCastleClaimed(h)); assert.eq(s.save.money, 60);
+    s.save.houseLuxury.home.score = 0;
+    s.showQuestBoard(0, 0, h);
+    assert.eq(s.offers.length, 3, 'pickup never removes claimed ownership');
   });
 })();

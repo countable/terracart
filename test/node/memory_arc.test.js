@@ -44,6 +44,37 @@ test('memory arc: every third lifetime discovery replaces the default, even afte
   assert.eq(save.memories, 0, 'narrative does not grant or spend currency');
 }));
 
+test('memory arc: luxury panels preserve every numbered scene and the second-tower reveal gate', () => isolated(() => {
+  for (const n of [3, 6, 9, 12, 15, 18, 21, 24, 27, 30]) {
+    const save = saveWith(n);
+    const pending = MemoryStory.enqueue(save, n, 'Living like a Neighbour', 'luxury:4');
+    MemoryStory.enqueue(save, n, 'duplicate', 'luxury:4');
+    assert.eq(pending.length, 2, 'one domestic panel and one numbered scene, without duplicates');
+    assert.eq(MemoryStory.panel(pending[0], save).title, 'Living like a Neighbour');
+    assert.eq(MemoryStory.panel(pending[1], save).title, MemoryStory.SCENES[n].title);
+    assert.eq(MemoryStory.panel(pending[1], save).body, MemoryStory.SCENES[n].body);
+    assert.eq(save.memories, n, 'queuing the extra scene grants no extra memory');
+    assert.falsy(save.memoryStory.act3Started, 'neither queued panel opens the reveal');
+  }
+  const save = towerSave(30, true);
+  assert.eq(MemoryStory.wizardSequence(save, firstTower).kind, 'abandoned');
+  assert.eq(MemoryStory.wizardSequence(save, secondTower).kind, 'reveal');
+}));
+
+test('memory arc: a luxury panel survives reload until acknowledged before its numbered scene', () => isolated(() => {
+  const save = saveWith(3);
+  MemoryStory.enqueue(save, 3, 'Living like a Craftsperson', 'luxury:16');
+  const scene = sceneFor(copy(save));
+  assert.truthy(MemoryStory.drain(scene));
+  assert.eq(scene.modals[0].title, 'Living like a Craftsperson');
+  assert.eq(scene.save.memoryStory.pending.length, 2, 'opening does not consume either page');
+  dismiss(scene);
+  assert.truthy(MemoryStory.drain(scene));
+  assert.eq(scene.modals[1].title, MemoryStory.SCENES[3].title);
+  dismiss(scene);
+  assert.eq(scene.save.memoryStory.pending.length, 0);
+}));
+
 test('memory arc: queue waits behind other modals and persists through reload until acknowledged', () => isolated(saved => {
   const save = saveWith(3);
   MemoryStory.enqueue(save, 2, 'a leaf'); MemoryStory.enqueue(save, 3, 'a bell');

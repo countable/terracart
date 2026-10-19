@@ -65,3 +65,13 @@ test('crop spatial index: ten thousand distant crops cost a bounded warm query',
   assert.eq(warm.work.candidates, 1, 'distant farm does not grow frame work');
   assert.eq(warm.found.length, 1);
 });
+
+
+test('crop spatial index: planter crops retain furniture association across save reload', () => {
+  const save = JSON.parse(JSON.stringify({ planted: [
+    { x: 2.5, y: 2.5, crop: 'sunflower', depth: 0, planter: 'clay-pot', stage: 2, watered_t: 123 },
+  ] }));
+  const crop = cropBox(save, 0, 0, 0, 5, 5).found[0];
+  assert.eq(crop, save.planted[0]); assert.eq(crop.planter, 'clay-pot');
+  assert.eq(crop.stage, 2); assert.eq(cropBox(save, 1, 0, 0, 5, 5).found.length, 0);
+});

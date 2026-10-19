@@ -424,6 +424,54 @@ test('lighting: what lights is what is yours', () => {
     'a kind that is not a light stays dark whatever else is on it');
 });
 
+test('lighting: furniture emits indoors, across the sprite cull, and stops after pickup', () => {
+  const s = scene({ cellsPerTile: 32, tileEdgeM: 160, mPerPx: 5 / (WorldGen.TILE_PX / 32),
+    save: { starterShopId: 'furniture-home', furniture: [], inv: [] }, _lights: [] });
+  const entry = { cellsPerEdge: 32, grid: new Uint8Array(1024).fill(WorldGen.T.GRASS),
+    owners: new Uint8Array(1024), ownerKeys: ['furniture-home'], objects: [] };
+  entry.grid[0] = WorldGen.T.BUILDING;
+  const old = [...WorldGen.tileCache];
+  WorldGen.tileCache.clear(); WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+  const start = RENDER_SRC.indexOf('  const offerPreCullLights = (o, dx, dy) => {');
+  const end = RENDER_SRC.indexOf('\n  };', start);
+  const offer = new Function('scene', 'LIGHTS', 'Macros', 'isBuilding', 'poiLit', 'spentIds', 'halfM',
+    RENDER_SRC.slice(start, end + 5) + '; return offerPreCullLights;')(
+      s, Lighting, Macros, isBuilding, () => false, {}, HALF_M);
+  try {
+    for (const [itemId, kind, radius] of [['lamp_floor', 'furniture_lamp', 2], ['candelabra_floor', 'furniture_candle', 1.5]]) {
+      const lamp = { id: 'fixture-' + itemId, kind: 'furniture', itemId, x: 2.5, y: 2.5, depth: 0 };
+      s.save.furniture = [lamp]; entry.objects = [lamp];
+      assert.eq(Lighting.sourceKind(s, lamp), kind);
+      assert.eq(Lighting.radiusCells(kind), radius);
+      assert.gt(ch(Lighting.KINDS[kind].colour, 16), ch(Lighting.KINDS[kind].colour, 0), 'warm light');
+      assert.eq(Lighting.KINDS[kind].flicker > 0, itemId === 'candelabra_floor');
+      Lighting.beginFrame(s); offer(lamp, HALF_M + 1, 0);
+      assert.eq(s._lights.length, 1, 'off-screen art still lights the visible room edge');
+      const light = s._lights[0];
+      assert.eq(light.kind, kind);
+      const b = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(lamp)}`];
+      const spec = furnitureSpec(lamp);
+      const baseY = Number.isFinite(spec.seatFoot) ? 32 / 6 : (b.maxY - b.minY) / 2;
+      assert.inRange(Math.abs(light.dyPx - (baseY + spec.lightFrameY - b.maxY)), 0, 1e-8,
+        'glow follows the placed lamp base');
+      assert.eq(Lighting.liftPx(s, light).y, light.dyPx, 'existing lift mechanism places the glow');
+      assert.falsy(Lighting.consider(s, lamp, HALF_M + radius * s.cellM + 1, 0, HALF_M), 'own radius culls distant fixtures');
+      assert.eq(Lighting.sourceKind(s, { ...lamp, x: 7.5, houseKey: 'furniture-home' }), null, 'stale Home association cannot light outdoors');
+      assert.eq(Lighting.sourceKind(s, { ...lamp, depth: 1 }), null, 'saved depths cannot leak light');
+      s.depth = 1; assert.eq(Lighting.sourceKind(s, lamp), null, 'surface fixture stays off underground'); s.depth = 0;
+      assert.eq(Lighting.sourceKind(s, { ...lamp, itemId: 'table_oak' }), null, 'ordinary furniture is dark');
+      s._placedFurniture = liftSceneMethod('_placedFurniture');
+      s.addToInv = () => 1; s._finishInventoryChange = () => {};
+      s.drawObjects = () => { Lighting.beginFrame(s); for (const object of entry.objects) offer(object, 0, 0); };
+      assert.truthy(liftSceneMethod('pickupFurniture').call(s, lamp));
+      assert.eq(s._lights.length, 0, 'pickup redraw removes the light');
+      assert.eq(s.save.furniture.length, 0);
+    }
+  } finally {
+    WorldGen.tileCache.clear(); for (const [key, value] of old) WorldGen.tileCache.set(key, value);
+  }
+});
+
 test('lighting: a torch and a mushroom glow to different degrees', () => {
   // The user's brief: torches AND mushrooms, each lit, "to different degrees".
   // A torch is a flame — warm, a campfire's little sibling, breathing; a
@@ -923,13 +971,13 @@ test('lighting: drawObjects offers buildings to the map and draws it last', () =
   // remembered here.
   // (+ the grove shrine, src/zones.js — a standing light like the torch.)
   // One closure offers them, for the sprite walk and the light walk alike.
-  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
+  assert.truthy(body.includes("if (isBuilding(o.kind) || o.kind === 'furniture' || o.kind === 'temple' || o.kind === 'torch' || o.kind === 'waystone' || o.kind === 'grove_shrine' || visit) LIGHTS.consider(scene, o, dx, dy, halfM);"),
     'the pre-cull offer asks isBuilding (+ torch, grove shrine)');
   const offer = body.indexOf('if (LIGHTS && offersPreCullLight(o)) offerPreCullLights(o, dx, dy);');
   const cull = body.indexOf('if (!inViewBox(dx, dy, lim)) return;');
   assert.truthy(offer > 0 && cull > offer, 'buildings (and torches) are offered BEFORE the sprite cull drops them');
   const pred = r.slice(r.indexOf('function offersPreCullLight(o) {'), r.indexOf('Render.drawObjects = function drawObjects(scene)'));
-  assert.truthy(/return isBuilding\(k\) \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'waystone' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
+  assert.truthy(/return isBuilding\(k\) \|\| k === 'furniture' \|\| k === 'temple' \|\| k === 'torch' \|\| k === 'waystone' \|\| k === 'grove_shrine' \|\| k === 'vista_scope'/.test(pred),
     'and the per-tile light list is derived by the same kinds');
   assert.truthy(pred.includes('Macros.visitKindForObject(o)'), 'daily sites join the shared pre-cull predicate');
   assert.truthy(body.includes("o.kind === 'chest' && !offersPreCullLight(o) && poiLit(o, spentIds)"),

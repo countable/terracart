@@ -24,7 +24,7 @@ const lift = (sig, what) => {
   return app.slice(start + 1, end + 4);
 };
 
-const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26, frame = 0) {', 'worldIconHTML');
+const WORLD_ICON_SRC = lift('worldIconHTML(texKey, sizePx = 26, frame = 0, heightPx = sizePx) {', 'worldIconHTML');
 
 // ── The one resolver, run for real ────────────────────────────────────────
 // A memorial: an ordinary civic T3 trunk.

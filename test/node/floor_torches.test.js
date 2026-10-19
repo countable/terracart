@@ -111,8 +111,8 @@ function xorRng(seed) {
   return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
 }
 
-test('roadside chest: every tier stays with supplies, minerals and cash', () => {
-  assert.eq(ChestThemes.weights('roadside', 1).supplies, 45);
+test('roadside chest: every tier stays with supplies, minerals, cash and furniture', () => {
+  assert.eq(ChestThemes.weights('roadside', 1).supplies, 40.5);
   const supplyIds = new Set(['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade', 'sugar_potion', 'blank_scroll', 'javelin', 'renovation_permit', 'evertorch']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
@@ -135,6 +135,9 @@ test('roadside chest: every tier stays with supplies, minerals and cash', () => 
         assert.inRange(r.qty, 1, 5, 'supplies keep their stack cap');
         if (r.rolledTier === 1) assert.eq(ITEM_BY_ID[r.id].baseTier, 1, 'T1 supplies respect catalog rarity');
         if (r.id === 'torch') torches++;
+      } else if (r.group === 'furniture') {
+        assert.eq(ITEM_BY_ID[r.id].kind, 'furniture');
+        assert.eq(r.qty, 1);
       } else if (r.group === 'materials') {
         assert.includes(['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
       } else if (r.group === 'plainBook') {
@@ -146,11 +149,11 @@ test('roadside chest: every tier stays with supplies, minerals and cash', () => 
         assert.eq(r.kind, 'gold');
       }
     }
-    const bookMul = tier === 2 ? (100 - ChestThemes.BOOK_T2_SHARE) / 100 : 1;
-    assert.inRange(supplies / n, 0.42 * bookMul, 0.48 * bookMul, `T${tier}: supply share`);
+    const share = ChestThemes.weights('roadside', tier, { tier }).supplies / 100;
+    assert.inRange(supplies / n, share - 0.03, share + 0.03, `T${tier}: supply share`);
     // About 31% after tier jackpots; allow sampling variance when reward
     // quantity changes consume a different number of random draws.
-    if (tier === 1) assert.inRange(torches / n, 0.28, 0.34, 'roadside T1 remains a dependable Torch source');
+    if (tier === 1) assert.inRange(torches / n, 0.25, 0.31, 'roadside T1 remains a dependable Torch source');
   }
 });
 

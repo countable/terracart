@@ -68,6 +68,51 @@ test('memory story: a banked memory queues its dialog, a refused key queues none
   assert.truthy(s.chipDOM > 0, 'the HUD chip repaints');
 });
 
+test('memory story: luxury catches up every reached threshold once per save, with real memory rewards', () => {
+  const s = mkScene({ energy: 5, max: 140 });
+  s.save.starterShopId = 'home:a';
+  const original = Furniture.luxuryOf;
+  let luxury = 100;
+  Furniture.luxuryOf = (save, id) => {
+    assert.eq(save, s.save);
+    assert.eq(id, s.save.starterShopId, 'milestones read the active Home');
+    return luxury;
+  };
+  try {
+    assert.truthy(MemoryStory.reconcileLuxury(s));
+    assert.eq(s.save.memories, 5);
+    assert.eq(s.save.energy, 140, 'the first threshold gives the normal memory full heal');
+    assert.eq(MemoryStory.total(s.save), 5, 'all five thresholds enter the lifetime ledger');
+    assert.eq(MemoryStory.LUXURY_MILESTONES.map(row => row.luxury).join(), '4,16,36,64,100');
+    for (const row of MemoryStory.LUXURY_MILESTONES) {
+      assert.truthy(s.save.discovered[row.key]);
+      const record = s.save.memoryStory.pending.find(p => p.key === row.key);
+      assert.truthy(record, 'each threshold queues its own memory');
+      assert.eq(MemoryStory.panel(record, s.save).title, row.title);
+      assert.eq(MemoryStory.panel(record, s.save).body, row.line);
+      assert.falsy(/wizard|dragon|warmonger/i.test(row.title + row.line), 'domestic copy keeps the secret');
+    }
+    const queued = s.save.memoryStory.pending.length;
+    assert.falsy(MemoryStory.reconcileLuxury(s), 'load reconciliation cannot bank again');
+    luxury = 0;
+    assert.falsy(MemoryStory.reconcileLuxury(s), 'pickup removes luxury, not earned memories');
+    luxury = 100;
+    s.save.starterShopId = 'home:b';
+    assert.falsy(MemoryStory.reconcileLuxury(s), 'replacement or changing Home cannot retrigger');
+    assert.eq(s.save.memories, 5);
+    assert.eq(s.save.memoryStory.pending.length, queued);
+  } finally { Furniture.luxuryOf = original; }
+});
+
+test('memory story: luxury below four and a save without a Home bank nothing', () => {
+  const s = mkScene();
+  assert.falsy(MemoryStory.reconcileLuxury(s));
+  s.save.starterShopId = 'home:a';
+  s.save.houseLuxury = { 'home:a': { score: 3, footprintKey: 'room' } };
+  assert.falsy(MemoryStory.reconcileLuxury(s));
+  assert.eq(MemoryStory.total(s.save), 0);
+});
+
 test('memory story: the drain opens one dialog per memory, with the label in the blank', () => {
   const s = mkScene();
   s._bankDiscovery('cow', 'a shiny Cow');

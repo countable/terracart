@@ -54,3 +54,21 @@
     assert.eq(CastleStyles.ids.includes('mended'), false);
   });
 })();
+
+
+test('castle materials: Archive quest variety preserves the four existing style assignments', () => {
+  const jobs = new Set();
+  assert.eq(CastleStyles.ids.length, 4);
+  for (let i = 0; i < 200; i++) {
+    const key = 'castle_' + i;
+    let hash = 0x811c9dc5;
+    for (const ch of key) hash = Math.imul(hash ^ ch.charCodeAt(0), 0x01000193);
+    const expected = ['citadel', 'ruin', 'bastion', 'archive'][(hash >>> 0) % 4];
+    assert.eq(CastleStyles.variantFor(key), expected, 'historical castle hash is unchanged');
+    const verb = CastleStyles.questTypeFor(key, expected);
+    assert.eq(verb, CastleStyles.questTypeFor(key, expected), 'stable on reload');
+    if (expected === 'archive') jobs.add(verb);
+    else assert.eq(verb, CastleStyles.get(expected).questType);
+  }
+  assert.eq([...jobs].sort().join(), 'deliver,luxury', 'real generated Archives reach both jobs');
+});

@@ -254,9 +254,11 @@ ENERGY & FOOD
    timers are rows of `Buffs.KINDS` (CLAUDE.md status row rule).
  - REST: energy regenerates in a rest context and pauses while you are
    WORKING (`energy.js`; `app.js` owns the per-frame accrual):
-     * HOME — Home's ring (`HOME_R`) rests you fastest. THE ONLY BUILDING THAT
-       RESTS YOU. Home is a campfire you own: the same ring lights, rests and
-       wards (CLAUDE.md).
+     * HOME — rests you fastest while you stand on one of Home's owned cells
+       or an edge-sharing neighbour of one (`isRestingAtHome`); THE ONLY
+       BUILDING THAT RESTS YOU. Home luxury (furniture, tier² each) adds
+       +0.1 energy/s per point, random-rounded. Home's ring (`HOME_R`) still
+       lights, wards and delivers memories; it no longer heals on its own.
      * CAMPFIRE — a lit fire's ring (`FIRE_REST_R`) rests slowly, anywhere.
      * OFFLINE — the bar refills pro rata while the tab is closed
        (`Energy.OFFLINE_FULL_REST_MS`).

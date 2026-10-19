@@ -119,8 +119,12 @@
     } else if (reward.kind === 'gold') {
       result.money = reward.amount || 0;
     } else if (reward.kind === 'relic' || reward.kind === 'armor') {
+      const newArmor = reward.kind === 'armor' && !save.armor?.[reward.slot];
       Gear.equip(save, reward.kind, reward.slot, reward.tier);
       scene.markRelicsDirty?.();
+      // A first armor slot surfaces like a new item stack; upgrades leave the
+      // player's browsed category alone.
+      if (newArmor && save.armor?.[reward.slot]) scene.selectInvCat?.('armour');
       result.equipped = true;
     } else {
       return null;

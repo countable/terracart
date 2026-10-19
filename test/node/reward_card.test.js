@@ -154,3 +154,14 @@ test('reward card: the card carries what the reward IS, and the ceremony splits 
   assert.truthy(/<div style="flex:1 1 0;min-width:0">\$\{found\}<\/div>` \+\s*\n\s*`<div class="reward-desc"/.test(body), 'found on the left, desc on the right');
   assert.truthy(/: found;/.test(body), 'no desc keeps the single column');
 });
+
+
+test('reward card: furniture displays its catalog tier through the ordinary item path', () => {
+  const scene = makeScene();
+  for (const item of ITEMS.filter(item => item.kind === 'furniture')) {
+    const card = Rewards.card(scene, { kind: 'item', id: item.id, qty: 1, tier: 7 });
+    assert.eq(card.tier, item.baseTier, item.id + ' ignores the rolled quality tier');
+    assert.eq(card.name, itemName(item.id));
+    assert.eq(card.qty, '× 1');
+  }
+});

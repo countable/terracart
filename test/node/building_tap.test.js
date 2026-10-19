@@ -239,4 +239,72 @@
       assert.eq(calls.length, 1); assert.eq(calls[0], owner);
     });
   });
+
+  test('building tap: full dispatch opens interior furniture while exterior architecture keeps priority', () => {
+    const owner = { kind: 'house', id: 'home', x: 2.5, y: 2.5 };
+    const furniture = { kind: 'furniture', id: 'bed', itemId: 'bed_quilted',
+      x: 2.5, y: 2.5, depth: 0, houseKey: owner.id, placed: true };
+    withBuildingWorld([owner, furniture], () => {
+      const calls = [], N = 32;
+      const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N),
+        owners: new Uint8Array(N * N), ownerKeys: [owner.id], objects: [owner, furniture] };
+      entry.grid[0] = WorldGen.T.BUILDING;
+      WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+      const s = Object.assign(makeScene(), scene([mesh(owner.id)]), {
+        viewLeft: 0, viewTop: 0, viewSize: 200,
+        originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
+        playerM: { x: 2.5, y: 2.5 }, cellM: 5, tileEdgeM: 160,
+        mPerPx: 160 / WorldGen.TILE_PX, cellsPerTile: N,
+        screenToWorldMeters: () => ({ x: 2.5, y: 2.5 }),
+        homeInside: liftSceneMethod('homeInside', { BUILDING_TYPES: globalThis.BUILDING_TYPES }),
+        shopInteract: () => calls.push('home'), presentFurniture: o => { calls.push(o.id); return true; },
+      });
+      s.save = makeCtx(s, { energy: 100, starterShopId: owner.id,
+        furniture: [furniture], inv: [], selSlot: -1 }).save;
+      interactTap(s, 25, 20);
+      assert.eq(calls.join(','), 'bed', 'furniture wins over its containing building anchor');
+      s.playerM = { x: 7.5, y: 2.5 };
+      interactTap(s, 25, 20);
+      assert.eq(calls.join(','), 'bed,home', 'outside player activates the visible architecture');
+      s.playerM = { x: 2.5, y: 2.5 };
+      s.screenToWorldMeters = () => ({ x: 7.5, y: 2.5 });
+      interactTap(s, 25, 20);
+      assert.eq(calls.join(','), 'bed,home,home', 'roof or wall above exterior ground retains ownership');
+    });
+  });
+
+  test('building tap: full dispatch places held furniture on Home floor without opening the shop', () => {
+    const owner = { kind: 'house', id: 'home', x: 2.5, y: 2.5 };
+    withBuildingWorld([owner], () => {
+      const N = 32, entry = { cellsPerEdge: N, grid: new Uint8Array(N * N),
+        owners: new Uint8Array(N * N), ownerKeys: [owner.id], objects: [owner] };
+      entry.grid[0] = WorldGen.T.BUILDING;
+      WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+      let shops = 0;
+      const s = Object.assign(makeScene(), scene([mesh(owner.id)]), {
+        viewLeft: 0, viewTop: 0, viewSize: 200,
+        originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
+        playerM: { x: 2.5, y: 2.5 }, cellM: 5, tileEdgeM: 160,
+        mPerPx: 160 / WorldGen.TILE_PX, cellsPerTile: N,
+        screenToWorldMeters: () => ({ x: 2.5, y: 2.5 }),
+        homeInside: liftSceneMethod('homeInside', { BUILDING_TYPES: globalThis.BUILDING_TYPES }),
+        cellAt: () => ({ loaded: true, type: WorldGen.T.BUILDING, tx: 0, ty: 0, ix: 0, iy: 0 }),
+        tilledSet: new Set(), placedRockSet: new Set(), buildInventoryDOM() {},
+        shopInteract: () => { shops++; },
+      });
+      s.save = makeCtx(s, { energy: 100, starterShopId: owner.id,
+        furniture: [], planted: [], inv: [{ id: 'bed_quilted', count: 1 }], selSlot: 0 }).save;
+      s.save.energy = 0;
+      interactTap(s, 25, 20);
+      assert.eq(s.save.furniture.length, 0, 'indoor permission does not bypass reach at zero energy');
+      assert.eq(s.save.inv[0].count, 1);
+      s.save.energy = 100;
+      interactTap(s, 25, 20);
+      assert.eq(shops, 0);
+      assert.eq(s.save.furniture.length, 1);
+      assert.eq(s.save.furniture[0].houseKey, owner.id);
+      assert.eq(s.save.inv.length, 0);
+      assert.truthy(entry.objects.includes(owner));
+    });
+  });
 })();

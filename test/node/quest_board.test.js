@@ -1,5 +1,12 @@
 // Castle jobs belong to their first conversation, not a shared board.
 (() => {
+  // Delivery-pool tests explicitly choose the delivery half of Archive courts.
+  const deliveryKey = label => {
+    for (let i = 0; ; i++) {
+      const key = `${label}:delivery:${i}`;
+      if (CastleStyles.questTypeFor(key, 'archive') === 'deliver') return key;
+    }
+  };
   test('castle quests: events and reads never assign quests', () => {
     const save = {};
     assert.eq(Quests.get(save, 'unvisited'), null);
@@ -12,10 +19,10 @@
     assert.eq(Quests.assign(save, 'first', 'bastion').have, 0);
   });
 
-  test('castle quests: variants choose exactly the three quest types', () => {
+  test('castle quests: styles choose kill, hunt and Archive delivery jobs', () => {
     const save = {};
     const kill = Quests.assign(save, 'b', 'bastion');
-    const delivery = Quests.assign(save, 'a', 'archive');
+    const delivery = Quests.assign(save, deliveryKey('a'), 'archive');
     const hunt = Quests.assign(save, 'r', 'ruin');
     assert.eq(kill.verb, 'kill'); assert.eq(kill.need, 1, 'a single enemy');
     assert.eq(delivery.verb, 'deliver'); assert.eq(delivery.need, 1);
@@ -35,9 +42,9 @@
       }
     }
     assert.eq(Quests.completedCount(save), 0);
-    assert.eq(Quests.assign(save, 'first-delivery', 'archive').need, 1);
-    assert.eq(Quests.assign(save, 'second-delivery', 'archive').need, 1);
-    assert.eq(Quests.assign(save, 'third-delivery', 'archive').need, 1);
+    assert.eq(Quests.assign(save, deliveryKey('first-delivery'), 'archive').need, 1);
+    assert.eq(Quests.assign(save, deliveryKey('second-delivery'), 'archive').need, 1);
+    assert.eq(Quests.assign(save, deliveryKey('third-delivery'), 'archive').need, 1);
   });
 
   test('castle quests: hunting cycles through game animals', () => {
@@ -87,22 +94,22 @@
   };
 
   test('castle quests: one delivery credits one Archive, oldest first', () => {
-    const save = {}, a = Quests.assign(save, 'a', 'archive'), b = Quests.assign(save, 'b', 'archive');
+    const save = {}, a = Quests.assign(save, deliveryKey('a'), 'archive'), b = Quests.assign(save, deliveryKey('b'), 'archive');
     assert.truthy(deliver(save));
     assert.eq(a.have, 1); assert.eq(b.have, 0, 'the delivery is spent at the first Archive');
     assert.truthy(deliver(save));
     assert.eq(b.have, 1);
     assert.falsy(deliver(save), 'no Archive left waiting');
-    assert.eq(Quests.assign(save, 'c', 'archive').have, 1,
+    assert.eq(Quests.assign(save, deliveryKey('c'), 'archive').have, 1,
       'the spare delivery credits the next Archive met');
-    assert.eq(Quests.assign(save, 'd', 'archive').have, 0, 'and only one Archive');
+    assert.eq(Quests.assign(save, deliveryKey('d'), 'archive').have, 0, 'and only one Archive');
     assert.eq(save.quests.deliveriesSpent, save.deliveryCount, 'every delivery spent exactly once');
   });
 
   test('castle quests: deliveries before the first Archive count, one per castle', () => {
     const save = { deliveryCount: 1 };
-    assert.eq(Quests.assign(save, 'a', 'archive').have, 1, 'an earlier delivery counts');
-    assert.eq(Quests.assign(save, 'b', 'archive').have, 0, 'but only at one castle');
+    assert.eq(Quests.assign(save, deliveryKey('a'), 'archive').have, 1, 'an earlier delivery counts');
+    assert.eq(Quests.assign(save, deliveryKey('b'), 'archive').have, 0, 'but only at one castle');
     assert.falsy(Quests.assign(save, 'k', 'bastion').have, 'a delivery never credits a kill');
   });
 
@@ -125,20 +132,20 @@
   });
 
   test('castle quests: claim happens once and never replaces the permanent job', () => {
-    const save = {}, q = Quests.assign(save, 'a', 'archive');
-    assert.eq(Quests.claim(save, 'a'), null);
+    const save = {}, q = Quests.assign(save, deliveryKey('a'), 'archive');
+    assert.eq(Quests.claim(save, deliveryKey('a')), null);
     assert.eq(Quests.claim(save, 'missing'), null);
     deliver(save);
-    assert.eq(Quests.claim(save, 'a'), q);
+    assert.eq(Quests.claim(save, deliveryKey('a')), q);
     assert.truthy(q.claimed);
     assert.eq(Quests.completedCount(save), 1);
-    assert.eq(Quests.claim(save, 'a'), null);
+    assert.eq(Quests.claim(save, deliveryKey('a')), null);
     assert.falsy(Quests.onEvent(save, 'deliver'), 'no new delivery, nothing to credit');
-    assert.eq(Quests.assign(save, 'a', 'archive'), q);
+    assert.eq(Quests.assign(save, deliveryKey('a'), 'archive'), q);
     assert.eq(save.quests.assigned.deliver, 1);
     const restored = JSON.parse(JSON.stringify(save));
-    assert.eq(Quests.claim(restored, 'a'), null);
-    assert.eq(Quests.assign(restored, 'next', 'archive').need, 1);
+    assert.eq(Quests.claim(restored, deliveryKey('a')), null);
+    assert.eq(Quests.assign(restored, deliveryKey('next'), 'archive').need, 1);
   });
   test('castle quests: each type has a title and one sentence of flavour naming its target', () => {
     const save = {};
@@ -149,5 +156,42 @@
       assert.falsy(/undefined/.test(text));
       if (q.target) assert.truthy(text.includes(q.verb === 'hunt' ? q.target : Combat.enemyName(q.target)), 'names its target');
     }
+  });
+
+  test('castle quests: luxury reads the active Home, revalidates decreases and survives reload', () => {
+    const key = Array.from({ length: 100 }, (_, i) => `luxury-castle:${i}`)
+      .find(k => CastleStyles.questTypeFor(k, 'archive') === 'luxury');
+    const save = { starterShopId: 'home', houseLuxury: { home: { score: 16, footprintKey: 'room' } } };
+    const q = Quests.assign(save, key, 'archive');
+    assert.eq(q.verb, 'luxury'); assert.eq(q.have, 16); assert.eq(q.need, 16);
+    assert.eq(q.title, 'A respectable address'); assert.eq(q.reward, 60);
+    assert.eq(Quests.flavour(q), "We don't admit rabble here!");
+    assert.truthy(q.body.includes('16 luxury'));
+    Quests.onEvent(save, 'luxury'); Quests.onEvent(save, 'place');
+    assert.eq(q.have, 16, 'placement events never increment the score');
+    save.houseLuxury.home.score = 9;
+    assert.eq(Quests.claim(save, key), null, 'stale completed card cannot claim after pickup');
+    assert.eq(q.have, 9);
+    save.starterShopId = 'new-home';
+    assert.eq(Quests.open(save, key, 'archive').have, 0, 'moving Home reads its own score');
+    save.houseLuxury['new-home'] = { score: 25, footprintKey: 'new-room' };
+    assert.truthy(Quests.onEvent(save, 'luxury'));
+    assert.eq(q.have, 25, 'progress is the current score, not a capped event counter');
+    const loaded = JSON.parse(JSON.stringify(save));
+    assert.eq(Quests.open(loaded, key, 'archive').have, 25);
+    assert.truthy(Quests.claim(loaded, key));
+    loaded.houseLuxury['new-home'].score = 0;
+    Quests.onEvent(loaded, 'luxury');
+    assert.truthy(Quests.open(loaded, key, 'archive').claimed, 'ownership remains earned');
+    assert.eq(Quests.claim(loaded, key), null, 'claim pays only once');
+  });
+
+  test('castle quests: saved Archive assignments survive the new luxury subvariant', () => {
+    const key = Array.from({ length: 100 }, (_, i) => `legacy-castle:${i}`)
+      .find(k => CastleStyles.questTypeFor(k, 'archive') === 'luxury');
+    const q = { verb: 'deliver', event: 'deliver', need: 1, have: 0, claimed: false, title: 'Neighbourly', reward: 30 };
+    const save = { deliveryCount: 1, quests: { byCastle: { [key]: q }, assigned: { deliver: 1 } } };
+    assert.eq(Quests.open(save, key, 'archive'), q);
+    assert.eq(q.verb, 'deliver'); assert.eq(q.have, 1);
   });
 })();

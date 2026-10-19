@@ -5,6 +5,22 @@ restoration. The root `CLAUDE.md` owns the overview; read this before changing
 rendering, lighting or street mechanics. Camera and art geometry live in
 [docs/art/map-perspective.md](../art/map-perspective.md).
 
+## Player robe colour
+
+Reflect stores one of `Multiplayer.COLORS` in `save.playerColor`. Farmer, all
+four callings and the mounted sheet have a separable cyan cloth palette:
+`#349aa4` shadows, `#4ebcb9` midtones and (runner only) `#6cd8d5` highlights.
+`PlayerRobeArt.bake` reads each loaded PNG once and builds all ten texture and
+directional-animation variants with `recolorEnemyPixels`' exact `colors` map
+and `preserveUnmapped`. Skin, hair, tools, metal, mount, alpha and frame geometry
+stay unchanged. `_syncPlayerSkin` selects cached art without pixel reads or
+texture creation during movement. Dragon form keeps its own art. A future
+sheet with no separable cloth palette falls back to whole-sprite tint; none
+of the current sheets needs that fallback. Conditions still tint over the robe.
+Name and colour changes share multiplayer's persistence and fresh-hello path;
+offline colour edits never connect the player. Peers use the same cached farmer
+robe variants; calling choices remain local.
+
 ## World layers
 
 Use these terms for object presentation and walking behavior, not pixel height:
@@ -23,6 +39,51 @@ Saplings are standing props despite their small size. `ObstacleStep` measures
 support continuously from world coordinates, so stopping on a prop keeps the
 player raised; this is not a timed jump. Connected support masks stay in world
 coordinates when the artwork counterrotates.
+
+Furniture uses the ordinary object list so the Home's near walls can occlude
+it. `FURNITURE` owns each item's frame, flat/mid/basin height and supported flip;
+flat rugs are ground decals and mid pieces use `ObstacleStep.PROFILES.furniture`
+for continuous support. Basins are walkable ground decals with no step lift;
+they draw under the player, whose submersion crop hides only the lower body.
+`RENDER_SPEC.furniture` seats each piece from its trimmed bounds at
+`FURNITURE_SCALE` (1: large and tall pieces use up to 31px of a 32px cell).
+New furniture bases sit horizontally centred, one-third of a cell up from its
+bottom (`seatFoot: 2 / 3`), letting tall art overlap the wall behind. Beds, rugs
+and bookshelves retain centred art. Mirrored bounds keep asymmetric pieces
+centred when flipped. The base center comes from the bottom three opaque
+rows, so an overhanging lamp shade does not displace its stand. Depth and lamp
+emitters follow the same base. Mutable furniture
+appearances are not cached. The complete piece is fitted proportionally into a
+16×16 icon for item surfaces. `tierSheetFrame` maps catalog tiers to the seven
+styles: Crude, Simple, Fine, Veblen, Masterwork, Royal and Ancient. The shared
+`furnitureFrame` resolver keeps world and inventory art together; workbenches
+and candelabras retain their roster art. Existing catalog tiers select the style;
+these images do not introduce per-instance tiers or alter item progression.
+Crops carrying a `planter` furniture id use
+`RENDER_SPEC.furniture.planterCrop`: a 16px frame starting 3px below
+the cell's top edge before applying the planter's seating offset, so its roots
+move with the soil. Their normal growth art is unchanged. The crop
+shares its planter's ground depth and sorts immediately above it, preserving
+Home wall occlusion.
+
+`python3 tools/build_furniture_sheets.py` rebuilds both sheets from
+`assets/Objects/Furniture/manifest.json`. The approved seven-tier source atlas
+contains 32×32 frames and preserves its generated alpha. Its crops are copied
+without resizing into the bottom half of uniform 32×64 world slots; icons use
+nearest-neighbour reduction. Roster frames occupy 0–15 and the 91 tier frames
+follow them. The original workbench and candelabra source crops still use their
+existing fit rules. The sprite audit covers every frame and permitted flip.
+After rebuilding art, regenerate `ART_BOUNDS` and the DOM icon atlas so map,
+inventory, shop and pickup-toast surfaces agree. Indoor lamps emit through the
+shared lighting pass.
+
+The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
+Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
+Frontier Bookshelf, Brass Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
+(T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
+Stargazer. The floor lamp uses F044 at 1×1 and the clock uses F085 at 32×64; the 1×1 candelabra,
+pedestal owl and tub use generated art pending approval. Both planters use
+the v2 concepts. Each piece still occupies one floor cell.
 
 Resolved appearances carry `layer`; pooled sprites carry `_worldLayer`. The same
 category controls depth order, fading, and compass compensation. Ground decals
@@ -172,6 +233,10 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
+While `homeInside()` is true, a separate white luxury number sits above that
+sign in the same label pool and fades over the player. Its retained text key
+includes the active Home, indoor state and `Furniture.luxuryOf` score; the
+number never shares Home's typing clock.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
@@ -290,6 +355,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   compensate for sprite seating by changing the projection.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
+  Furniture with height `basin` does the same at the player's feet cell on the
+  current depth, indoors or outdoors; picking it up restores the pose next update.
+  The Wash ability still requires an owned indoor Home cell.
   This spatial pose stays while paused, clears on dry ground, and yields to
   flight, the dragon form, collapse and step-over support. It does not change
   movement, reach or feet-based sorting; heading-up rotates the same cropped body.
@@ -642,6 +710,15 @@ the reach rim within the existing player-light radius.
   barrel or pot (`o.barrel`, no `poiClass`) get neither. Use the existing
   derived luminance/contrast controls; remeasure the plateau ceiling before
   raising it.
+- Furniture light is selected by its metadata `light` through `sourceKind`:
+  `furniture_lamp` reaches 2 cells with steady warm light; `furniture_candle`
+  reaches 1.5 cells with slight warm flicker. Only saved-depth objects inside
+  the active Home's owned cells (`PlacedFloor.furnitureIndoors`) emit; outside
+  pieces still render. Both sprite and pre-cull scans offer furniture, so
+  off-screen fixtures can light the room edge. The metadata `lightFrameY`
+  emitter is seated with the frame's trimmed bounds and furniture scale,
+  then follows the existing `dyPx` / `liftPx` mechanism at every map heading.
+  Pickup removes the normal object and its light on the next object draw.
 - Waystones use the existing plain rounded low-rock frame (`rock_variants:0`)
   at the shared small-rock scale. At startup, a source-atop ivory material
   variant preserves the rock’s alpha and shading. The per-draw material hook

@@ -86,7 +86,7 @@ const MODAL_KINDS = {
   relics:   { icon: '💍', label: 'Relics', art: 'kind_relics' },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery', art: 'kind_delivery' },   // household orders
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
-  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home's Craft page (HOME_RECIPES)
+  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home / workbench recipes (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
   spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/portraits/dragon_spirit.png' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
@@ -841,8 +841,10 @@ class SceneModals {
   //                 (optional, with withChoice) says whether that card may
   //                 be accepted this way — the hammer refuses a plain
   //                 House — and the button greys on a card it refuses.
+  //   topAction:    OPTIONAL { label, onClick } — top-right ghost station control.
+  //                 Returning false keeps the offer open when the action is refused.
   //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
-  //                 one of `count` options (a smelt bar, a Home recipe), and
+  //                 one of `count` options (a smelt bar, a crafting recipe), and
   //                 small ‹ › arrows flank the `get` line with an "i / n"
   //                 under it (paging is not an action, so no extra button).
   //                 `showIndex: false` drops the "i / n" line and keeps the arrows.
@@ -860,7 +862,7 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, pager, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, pager, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
@@ -879,6 +881,20 @@ class SceneModals {
     // Transitions and acceptance retain pending work; leaving or interruption
     // releases it exactly once, after the wrapper is out of the document.
     wrap.closeModal = close;
+    // Station controls stay above the recipe and never enter the transaction.
+    if (topAction) {
+      const topRow = document.createElement('div');
+      topRow.className = 'offer-top-actions';
+      topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:6px;';
+      const button = mkBtn(topAction.label, { variant: 'ghost' });
+      button.addEventListener('click', e => {
+        e.stopPropagation();
+        if (closed) return;
+        if (topAction.onClick() !== false) close('transition');
+      });
+      topRow.appendChild(button);
+      box.appendChild(topRow);
+    }
     // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
     // is { label, active, onSelect }. Tapping an inactive tab closes this modal
     // and calls onSelect, which re-presents the sibling modal — cheap "tabs"

@@ -1186,9 +1186,9 @@ class SceneShops {
     });
   }
 
-  // Home and brewing share discovery, recipe selection, paging, and capacity.
+  // Home, workbenches and brewing share discovery, selection, paging and capacity.
   // Venues supply navigation, copy, fees on recipe rows, and completion effects.
-  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, ...modal }) {
+  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, ...modal }) {
     recipes = recipes.filter(r => !homeRecipeLocked(this.save, r.id));
     if (!recipes.length) {
       this.showOfferModal({ ...modal, get: empty, cost: '', canAfford: false, cancelLabel: 'Leave' });
@@ -1217,6 +1217,7 @@ class SceneShops {
         onNext: pageTo(recipes[(idx + 1) % n]),
       },
       refuse: () => {
+        if (validate && !validate()) return true;
         if (homeRecipeLocked(this.save, rec.id)) {
           const verb = ITEM_BY_ID[rec.id]?.scroll ? 'Use' : 'Find';
           this.flash(`${verb} a ${itemName(rec.id)} first.`, sx, sy); return true;
@@ -1233,7 +1234,7 @@ class SceneShops {
 
   // THE RECIPE COUNTER — the one presenter for "give these ingredients, take
   // that": the crucible (presentSmeltOffer) and the forge
-  // (presentBlacksmithOffer), plus Home and brewing through the picker.
+  // (presentBlacksmithOffer), plus Home, workbenches and brewing through the picker.
   // It owns the held count, the coloured cost line
   // (green where the bag covers an ingredient, red where it is short), the
   // shortfall line that names the ingredient and how many more are wanted —

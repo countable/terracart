@@ -58,7 +58,8 @@
   const sceneMethod = (name) => {
     const source = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'))[0];
     return new Function('SpriteLayout', 'PLAYER_FEET_DROP_PX', 'Lighting', 'WALK_TIRED_SLOW_MUL',
-      'return ({' + source + '}).' + name)(SL, 12, { lowEnergyFrac: () => 0 }, 0.5);
+      'PlayerRobeArt', 'return ({' + source + '}).' + name)(SL, 12, { lowEnergyFrac: () => 0 }, 0.5,
+        { resolve: (scene, art, color) => scene._playerRobeArt?.get(art.sheet)?.get(color) || art });
   };
   const sync = sceneMethod('_syncPlayerSkin'), play = sceneMethod('_playDirected');
   const makeScene = (save) => {
@@ -82,6 +83,61 @@
     assert.eq(scene.player.anims.currentAnim.key, 'player_runner-walk-right');
     assert.eq(scene.player.scale, SL.PLAYER_ART.runner.scale);
     assert.eq(scene.playerFeetNudgeY, -SL.PLAYER_ART.runner.footDrop * SL.PLAYER_ART.runner.scale);
+  });
+
+  test('player art: cached robe colours retain class, facing, mount and animation geometry', () => {
+    const scene = makeScene({ playerClass: 'runner', playerColor: Multiplayer.COLORS[0] });
+    const art = SL.PLAYER_ART.runner;
+    const robe = { ...art, sheet: art.sheet + '_robe_ffd28a', robeColor: scene.save.playerColor };
+    scene._playerRobeArt = new Map([[art.sheet, new Map([[scene.save.playerColor, robe]])]]);
+    play.call(scene, scene.player, 'walk', -1, 0);
+    assert.eq(scene._playerArt, robe);
+    assert.eq(scene.player.anims.currentAnim.key, robe.sheet + '-walk-left');
+    assert.eq(scene.playerFeetNudgeY, -art.footDrop * art.scale);
+    scene.save.playerColor = Multiplayer.COLORS[1];
+    play.call(scene, scene.player, 'idle');
+    assert.eq(scene.player.anims.currentAnim.key, art.sheet + '-idle-left');
+    scene.save.bikeUntil = Date.now() + 10000;
+    play.call(scene, scene.player, 'walk', 0, -1);
+    assert.eq(scene._playerArt, SL.PLAYER_ART.mounted);
+    assert.eq(scene.save.playerClass, 'runner');
+  });
+
+  test('player art: asset load reads pixels once and caches every swatch with only cloth changed', () => {
+    const pixels = new Uint8ClampedArray([
+      52, 154, 164, 255, 78, 188, 185, 255, 108, 216, 213, 128,
+      211, 160, 97, 255, 129, 129, 129, 255, 0, 0, 0, 0,
+    ]);
+    let reads = 0;
+    const output = [];
+    const document = { createElement: () => ({ getContext: () => ({
+      drawImage() {}, getImageData() { reads++; return { data: pixels.slice() }; },
+      putImageData(image) { output.push(Array.from(image.data)); },
+    }) }) };
+    const window = {};
+    new Function('window', 'EnemyRoster', 'SpriteLayout', 'Multiplayer', 'document', ASSETS_SRC)(
+      window, EnemyRoster, SL, Multiplayer, document);
+    const textures = new Set(), animations = [];
+    const scene = {
+      textures: { get: () => ({ getSourceImage: () => ({ width: 6, height: 1 }) }),
+        exists: key => textures.has(key), addSpriteSheet: key => textures.add(key) },
+      _createAnim: (...args) => animations.push(args),
+    };
+    const art = SL.PLAYER_ART.runner;
+    window.ASSETS[art.sheet].onLoad(scene);
+    window.ASSETS[art.sheet].onLoad(scene);
+    assert.eq(reads, 1, 'no second read or crossing-time baking');
+    assert.eq(textures.size, Multiplayer.COLORS.length);
+    assert.eq(animations.length, Multiplayer.COLORS.length * 8);
+    for (let i = 0; i < Multiplayer.COLORS.length; i++) {
+      const color = Multiplayer.COLORS[i], result = output[i];
+      assert.eq(result.slice(4, 7).join(), [color >> 16 & 255, color >> 8 & 255, color & 255].join());
+      assert.eq(result.slice(12).join(), Array.from(pixels.slice(12)).join(), 'skin, metal and transparent pixels unchanged');
+      assert.eq(result[11], 128, 'cloth alpha unchanged');
+      const variant = window.PlayerRobeArt.resolve(scene, art, color);
+      assert.eq(variant.directions, art.directions);
+      assert.eq(variant.robeColor, color);
+    }
   });
 
   test('player art: standing still keeps the last walking direction, whatever the compass says', () => {

@@ -182,7 +182,8 @@
       Crops.advanceGrowth(save, now + Crops.stageHoldMs('starfruit'));
     }
     assert.truthy(Crops.isMature(save.planted[0]));
-    assert.truthy(TAP_HANDLERS.find(h => h.name === 'planted').try(ctx));
+    // Harvest is a later tap: do not reuse the planting tap's occupant cache.
+    assert.truthy(TAP_HANDLERS.find(h => h.name === 'planted').try({ ...ctx, at: undefined }));
     assert.eq(save.planted.length, 0);
     assert.inRange(Inventory.count(save, 'starfruit'), 1, 3);
     assert.eq(inventoryIconSource('starfruit').frame, 10 * 9 + 7);

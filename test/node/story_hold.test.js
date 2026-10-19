@@ -37,6 +37,21 @@
     assert.eq(IDLE, 3000);
   });
 
+  test('story hold: luxury memories wait for the furniture interaction and keep their title', () => withNow(1000, () => {
+    const s = mkScene();
+    s._noteInteraction(target());
+    MemoryStory.enqueue(s.save, 1, 'Living like a Neighbour', 'luxury:4');
+    s.showMessageModal = panel => { s.opened.push(panel); };
+    assert.falsy(MemoryStory.drain(s), 'placement interaction holds the milestone');
+    s._tickStoryHold();
+    assert.eq(s.badge.at(-1), 1, 'the held domestic memory uses the existing badge');
+    withNow(1000 + IDLE + 1, () => {
+      assert.truthy(MemoryStory.drain(s));
+      assert.eq(s.opened[0].title, 'Living like a Neighbour');
+      assert.truthy(s.opened[0].mustAcknowledge);
+    });
+  }));
+
   test('story hold: a recent tap holds unprompted panels, never a receipt; idle releases them in order', () => withNow(1000, () => {
     const s = mkScene();
     s._noteInteraction(target());

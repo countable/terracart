@@ -1289,10 +1289,12 @@ const Multiplayer = (function () {
   }
   function makePeerArt(scene, p) {
     p.sh = scene.add.image(0, 0, 'bldg_shadow').setOrigin(0.5, 0.5).setDisplaySize(17, 6).setAlpha(0.34);
-    // A peer is always the cyan farmer (callings are not shared), tinted its
-    // colour, at the farmer's own scale.
-    const art = SpriteLayout.PLAYER_ART.farmer;
-    p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(p.color);
+    // Callings are not shared; the farmer uses the same cached cloth palette
+    // as the local player, including on Canvas renderers.
+    const baseArt = SpriteLayout.PLAYER_ART.farmer;
+    const art = typeof PlayerRobeArt !== 'undefined' ? PlayerRobeArt.resolve(scene, baseArt, p.color) : baseArt;
+    p.spr = scene.add.sprite(0, 0, art.sheet, 0).setScale(art.scale).setTint(art.robeColor != null ? 0xffffff : p.color);
+    p.spr._mpArt = art;
     p.spr._mpPeer = true;
     playDirected(p.spr, 'idle', 0, 1);
     p.lbl = scene.add.text(0, 0, p.name, {
@@ -1308,7 +1310,7 @@ const Multiplayer = (function () {
     let dir = 'down';
     if (Math.abs(fx) > Math.abs(fy)) dir = fx < 0 ? 'left' : 'right';
     else if (fy < 0) dir = 'up';
-    const key = `${SpriteLayout.PLAYER_ART.farmer.sheet}-${base}-${dir}`;
+    const key = `${(spr._mpArt || SpriteLayout.PLAYER_ART.farmer).sheet}-${base}-${dir}`;
     if (spr.anims.currentAnim?.key !== key) spr.play(key);
   }
   function drawPeers(scene, now, dt) {
@@ -1577,20 +1579,39 @@ const Multiplayer = (function () {
     if (n !== S._nearN) { S._nearN = n; paintButton(); }
   }
 
+  // Identity fields are pinned at hello. Offline edits only persist; an
+  // existing connection refreshes through the same path for name and robe.
+  // Naming can also finish the multiplayer opt-in that was waiting for a name.
+  function persistIdentity(scene, startIfOffline = false) {
+    persistSave(scene.save);
+    if (!S.ws || S.scene !== scene) {
+      if (startIfOffline) start(scene);
+      return;
+    }
+    const ws = S.ws; S.ws = null; S.id = null; ws.onclose = null; ws.close();
+    clearPeers();
+    S.status = 'off';
+    start(scene);
+  }
+
+  function setColor(scene, color) {
+    if (!COLORS.includes(color)) return false;
+    scene.save.playerColor = color;
+    persistIdentity(scene);
+    scene._playDirected?.(scene.player, 'idle');
+    return true;
+  }
+
   function setName(scene, name) {
     const n = cleanName(name);
     if (!n) return false;
     scene.save.playerName = n;
     if (!scene.save.playerColor) scene.save.playerColor = pickColor();
-    persistSave(scene.save);
-    // The relay pins the name at hello, so a rename means a fresh hello.
-    if (S.ws) { const ws = S.ws; S.ws = null; ws.onclose = null; ws.close(); clearPeers(); }
-    S.status = 'off';
-    start(scene);
+    persistIdentity(scene, true);
     return true;
   }
 
-  return { start, stop, tick, shouldApplyDamage, applyState, correctEnemies, assisted, ASSIST_MS, consumeTap, setName, reportHit, reportKill, applyHit,
+  return { start, stop, tick, shouldApplyDamage, applyState, correctEnemies, assisted, ASSIST_MS, consumeTap, setName, setColor, reportHit, reportKill, applyHit,
            enemyTarget, pickTarget, localTargetState, onBattle, onBoss, flushBosses, BOSS_KEY_RE, onAggro, battleShared, partyCount, scaleParty, onGroup, PARTY_SCAN_MS, GROUP_RETRY_MS, GROUP_MAX_PLAYERS,
            TARGET_FLAGS, TARGET_TIE_CELLS, TARGET_STICKY_CELLS, TARGET_KEEP_CELLS,
            BATTLE_MS, BATTLE_REPLY_MS, AGGRO_MAX_PER_S, AGGRO_TIE_MS,

@@ -1,9 +1,9 @@
 test('reward categories: inventory keys match their official labels', () => {
-  assert.eq(INV_CATS.map(c => c.key).join(','), 'seeds,produce,pets,relics,armour,ores,magic,supplies');
+  assert.eq(INV_CATS.map(c => c.key).join(','), 'seeds,produce,pets,relics,magic,supplies,furniture,armour,ores');
   for (const cat of INV_CATS) assert.eq(cat.key, cat.label.toLowerCase());
   for (const [id, category] of Object.entries({ potato_seed: 'seeds', potato: 'produce',
     pet_collar: 'pets', wood_shield: 'relics', wood: 'ores', rubble: 'ores',
-    sapphire: 'ores', healing_potion: 'magic', book: 'supplies' })) {
+    workbench: 'furniture', sapphire: 'ores', healing_potion: 'magic', book: 'supplies' })) {
     assert.eq(rewardCategory({ kind: 'item', id }), category, id);
   }
   assert.eq(rewardCategory({ kind: 'relic', slot: 'sword' }), 'relics');
@@ -20,7 +20,7 @@ test('reward categories: ores rename preserves the materials and gems split', ()
   assert.falsy('sapphire' in materials); assert.truthy('sapphire' in gems);
   assert.eq(ITEM_BY_ID.rubble.kind, 'produce', 'rock retains crop and reward behavior');
   assert.eq(ITEM_BY_ID.sapphire.kind, 'ores');
-  assert.eq(ChestThemes.themes.roadside.weights.materials, 40);
+  assert.eq(ChestThemes.themes.roadside.weights.materials, 36);
   assert.falsy(ChestThemes.themes.roadside.weights.gems, 'names alone do not introduce gem drops');
 });
 

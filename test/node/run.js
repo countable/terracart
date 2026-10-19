@@ -141,12 +141,13 @@ const FILES = [
   'scene_geo.js',
   'scene_creatures.js',
   'scene_fire.js', 'scene_shops.js', 'heading_up.js',
-  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_streets.js', 'scene_boss.js',
+  'scene_create.js', 'scene_consumables.js', 'scene_venues.js', 'scene_furniture.js', 'scene_streets.js', 'scene_boss.js',
 ];
 // Bridge: copy the `const` exports onto the context global so the test files
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
+  SceneFurniture, Furniture,
   Arena,
   GasRender,
   GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
@@ -399,10 +400,8 @@ const starterWrapper = (name) => {
   }
 }
 
-// HOME IS A CAMPFIRE YOU OWN — one ring (HOME_R) that lights, rests and wards.
-// The rest half is a distance test on a real method, so lift it and RUN it.
-// homeWorldPos comes with it: all three effects ask it, and its depth gate is
-// half the answer.
+// Home rest follows owned cells; light and ward retain the broad ring.
+// Lift the shipped geometry predicates so tests run both policies.
 {
   const src = SCENE_SRC;
   const lift = (sig) => {
@@ -1493,6 +1492,31 @@ ctx.__tests.push({ name: 'assets: every ASSETS path exists on disk', fn: () => {
   const missing = Object.entries(ASSETS).filter(([, a]) => a && a.path && !fs.existsSync(path.join(ROOT, a.path.split('?')[0])))
     .map(([k, a]) => `${k} → ${a.path}`);
   if (missing.length) throw new Error(`missing art files: ${missing.join(', ')}`);
+} });
+
+// Rebuilding art must not silently change which item a runtime frame displays.
+ctx.__tests.push({ name: 'furniture manifest: catalog frames and world geometry agree', fn: () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/Objects/Furniture/manifest.json'), 'utf8'));
+  const { ASSETS } = require('../../tools/sprite_audit.js');
+  const furniture = vm.runInContext('FURNITURE', ctx);
+  ctx.assert.eq(manifest.items.length, Object.keys(furniture).length);
+  ctx.assert.eq(new Set(manifest.items.map(row => row.itemId)).size, manifest.items.length);
+  ctx.assert.eq(new Set(manifest.items.map(row => row.frame)).size, manifest.items.length);
+  ctx.assert.eq(ASSETS.furniture.frameWidth, manifest.worldCell);
+  ctx.assert.eq(ASSETS.furniture.frameHeight, manifest.worldFrameHeight);
+  for (const row of manifest.items) {
+    ctx.assert.eq(furniture[row.itemId].frame, row.frame, row.itemId);
+    ctx.assert.eq(row.frameSize[0], 32, row.itemId);
+    ctx.assert.eq(row.frameSize[1], 32, row.itemId);
+    if (row.itemId === 'candelabra_floor') {
+      ctx.assert.eq(JSON.stringify(row.fit), '[30,30]', row.itemId);
+    }
+    if (row.mode === 'concept') ctx.assert.truthy(fs.existsSync(path.join(ROOT, row.source)));
+  }
+  for (const row of manifest.items.filter(row => row.mode === 'native32')) {
+    ctx.assert.eq(row.approval, 'approved');
+    ctx.assert.truthy(fs.existsSync(path.join(ROOT, row.source)));
+  }
 } });
 
 // The editable table and the shipped browser module must always agree.
