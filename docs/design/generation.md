@@ -801,7 +801,10 @@ The implementation keeps eligibility and ownership separate: `WorldGen.isSpawnCe
 applies exclusion/suppression by spawn class; `WorldGen.variantOwnerAt` resolves
 Home, Nexus and road ownership (no owner means ordinary landcover). Per-player
 Home filtering is applied after deterministic generation. Runtime theme effects
-must query the winning owner, and road presentation uses
+use `WorldGen.zoneAnchorAt(entry, index)` for the winning Nexus anchor (or
+`null` when Home, a cave reservation, or another owner wins). Habitat resolution
+uses the same owner without reinterpreting coverage. Both `coverage` and legacy
+`idx` masks are resolved centrally. Road presentation uses
 `StreetVariants.indexFor`; raw generated coverage/index data is retained for
 shared generation and underground inheritance, not runtime priority decisions.
 

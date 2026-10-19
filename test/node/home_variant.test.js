@@ -6,6 +6,38 @@
     return { cellsPerEdge: 20, grid: baseGrid.slice(), baseGrid,
       variantBaseGrid: new Uint8Array(400).fill(1), objects: [], wildplants: [], creatures: [], _spawned: true };
   }
+  test('area ownership: Nexus lookup and habitats agree across overlapping owners and mask formats', () => {
+    for (const maskName of ['coverage', 'idx']) {
+      const e = entry(), index = 0;
+      const anchor = { kind: 'grove', variant: 'mushroom_grove', key: 'overlap' };
+      e.zone = { [maskName]: new Uint8Array(400).fill(1), anchors: [anchor] };
+      e.streetArea = new Uint8Array(400).fill(1);
+      e.homeVariant = new Uint8Array(400).fill(1);
+      for (const [depth, generating, cave, owner] of [
+        [0, false, false, 'home'], [0, true, false, 'zone'],
+        [2, false, false, 'zone'], [2, false, true, 'cave'],
+      ]) {
+        e.depth = depth; e._homeVariantGenerating = generating;
+        e.caveAreas = { reserved: new Set(cave ? [index] : []) };
+        assert.eq(WorldGen.variantOwnerAt(e, index), owner);
+        assert.eq(WorldGen.zoneAnchorAt(e, index), owner === 'zone' ? anchor : null);
+        const habitat = HabitatSpawns.resolve(e, index);
+        assert.eq(habitat.key, owner === 'zone' ? 'zone:grove|overlap' : owner === 'home' ? 'home' : null);
+      }
+      e.caveAreas.reserved.clear(); e.zone[maskName][index] = 0;
+      assert.eq(WorldGen.variantOwnerAt(e, index), 'road');
+      assert.eq(WorldGen.zoneAnchorAt(e, index), null);
+      e.streetArea[index] = 0;
+      assert.eq(WorldGen.variantOwnerAt(e, index), null);
+      assert.eq(WorldGen.zoneAnchorAt(e, index), null);
+      e.zone[maskName][index] = 1; e.zone.anchors = [];
+      assert.eq(WorldGen.zoneAnchorAt(e, index), null);
+      assert.eq(HabitatSpawns.resolve(e, index).profile, null, 'missing anchor cannot borrow landcover');
+      assert.eq(WorldGen.zoneAnchorAt(e, -1), null);
+      assert.eq(WorldGen.zoneAnchorAt(e, 400), null);
+    }
+    assert.eq(WorldGen.zoneAnchorAt(null, 0), null);
+  });
   test('Home variant: exactly 50 metres around the frozen starter anchor, surface only', () => {
     const s = scene({ save: { starterCratesAt: { x: 0, y: 0 } } });
     assert.eq(HomeVariant.RADIUS_M, 50);

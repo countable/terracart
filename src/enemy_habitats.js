@@ -75,12 +75,11 @@
   function zoneAnchorAt(tileEdgeM, x, y) {
     const WG = root.WorldGen, tx = Math.floor(x / tileEdgeM), ty = Math.floor(y / tileEdgeM);
     const entry = WG.tileCache.get(WG.tileKey(tx, ty));
-    if (!entry?.zone?.coverage || entry.depth > 0) return null;
+    if (!entry || entry.depth > 0) return null;
     const N = entry.cellsPerEdge, cellM = entry.tileEdgeM / N;
     const ix = Math.floor((x - tx * entry.tileEdgeM) / cellM), iy = Math.floor((y - ty * entry.tileEdgeM) / cellM);
     if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
-    if (WG.variantOwnerAt(entry, iy * N + ix) !== 'zone') return null;
-    const a = entry.zone.anchors?.[entry.zone.coverage[iy * N + ix] - 1];
+    const a = WG.zoneAnchorAt(entry, iy * N + ix);
     return a ? { key: `${a.kind}|${a.gx}|${a.gy}`, variant: a.variant } : null;
   }
   // A harvest of `crop` at (x, y): if that point lies in a provoked-only zone

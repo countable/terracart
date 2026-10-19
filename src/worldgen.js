@@ -213,8 +213,15 @@
     if (!entry || idx < 0) return null;
     if (entry.caveAreas?.reserved.has(idx)) return 'cave';
     if ((entry.depth || 0) === 0 && !entry._homeVariantGenerating && entry.homeVariant?.[idx]) return 'home';
-    if (entry.zone && entry.zone.coverage && entry.zone.coverage[idx]) return 'zone';
+    if ((entry.zone?.coverage || entry.zone?.idx)?.[idx]) return 'zone';
     return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
+  }
+
+  // Read the winning Nexus, never an underlying anchor hidden by another owner.
+  function zoneAnchorAt(entry, idx) {
+    if (variantOwnerAt(entry, idx) !== 'zone') return null;
+    const field = entry.zone, coverage = field.coverage || field.idx;
+    return field.anchors?.[coverage[idx] - 1] || null;
   }
 
   // String `_street` ids mark authored variant pieces. Boolean `_street`
@@ -9889,6 +9896,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
-    clearStreetAmbientSteps, variantOwnerAt, getTileBin,
+    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, getTileBin,
   };
 })(window);

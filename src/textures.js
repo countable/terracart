@@ -1324,7 +1324,7 @@ const ZONE_GROUND_ACCENTS = {
 };
 const _zoneGroundStates = new WeakMap();
 function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {
-  if ((entry?.depth || 0) === 0 && entry?.homeVariant?.[iy * entry.cellsPerEdge + ix]) return null;
+  if (!WorldGen.zoneAnchorAt(entry, iy * entry?.cellsPerEdge + ix)) return null;
   const field = entry && entry.zone, V = typeof ZoneVariants !== 'undefined' && ZoneVariants;
   if (!field || !V || (type !== 28 && type !== 29)) return null;
   const N = entry.cellsPerEdge, coverage = field.coverage || field.idx;

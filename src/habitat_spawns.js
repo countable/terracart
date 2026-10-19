@@ -150,11 +150,10 @@
     const grid = entry?.baseGrid || entry?.grid, type = grid?.[index];
     if (type == null || index < 0 || index >= grid.length) return { key: null, profile: null, type };
     const coverage = entry.zone?.coverage || entry.zone?.idx;
-    const areaOwner = root.WorldGen.variantOwnerAt(entry, index);
-    if (areaOwner === 'home') return { key: 'home', profile: null, type, variant: 'home' };
-    const owner = areaOwner === 'cave' ? areaOwner : coverage?.[index] ? 'zone' : areaOwner;
+    const owner = root.WorldGen.variantOwnerAt(entry, index);
+    if (owner === 'home') return { key: 'home', profile: null, type, variant: 'home' };
     if (owner === 'zone') {
-      const slot = coverage?.[index], anchor = entry.zone?.anchors?.[slot - 1];
+      const slot = coverage?.[index], anchor = root.WorldGen.zoneAnchorAt(entry, index);
       if (!anchor) return { key: null, profile: null, type };
       const variant = anchor.variant || root.ZoneVariants?.pick?.(anchor)?.id
         || root.ZoneVariants?.forKind(anchor.kind)?.[0]?.id;
