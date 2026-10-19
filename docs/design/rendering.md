@@ -492,9 +492,10 @@ the real source so a missing texture cannot become a permanent cached palette.
   mark's ink.
   `bakeGroundMark` (scene_create.js) is the one bake; the elite's rune bands
   and the player's GPS ring (`gps_ring`, baked in gold) are its rows. The GPS
-  ring's `GPS_RING` row carries its own on-screen width, tilt and stroke
-  `weight`: at the shared tilt it read squashed and its line faint under the
-  feet. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
+  ring's `GPS_RING` row carries its own on-screen width and tilt (at the
+  shared tilt it read squashed) and the facing caret's paint instead of the
+  halo: a gold line on a dark outline over a drop shadow down the screen
+  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
   around the feet while the body stands on it, left on the ground once the
   stick walks the body off, and, once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
