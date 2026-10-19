@@ -333,7 +333,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
   it locked. Repeated taps share one pending request, released on shutdown.
   Detection alone does not relocate a sandbox or teleport world. Desktop without a heading sensor
-  and north-up mode retain the caret. The caret is ground paint under the body,
+  and north-up mode retain the caret. The caret is foreshortened down the
+  turned screen (like the GPS ring), not the map's y, so it lies flat at any
+  map turn. It is ground paint under the body,
   so it is pushed out along the heading by the least that takes it off the
   body's on-screen box; pointing up-screen it clears the head instead of hiding
   behind it. The heading-up compass rim keeps its north marker.

@@ -3692,20 +3692,27 @@ class MapScene extends Phaser.Scene {
       // below the feet, past the head straight up.
       const { tip, arm, halfW } = FACING_CHEVRON;
       let push = 0;
-      // (along, across) on the ground → screen, y foreshortened.
-      const ground = (u, v) => ({
-        x: pScreen.x + fx * (u + push) - fy * v,
-        y: pScreen.y + (fy * (u + push) + fx * v) * FACING_CHEVRON_TILT,
-      });
+      // (along, across) on the ground → the TURNED screen, its y foreshortened,
+      // then back into this graphic's map frame. Foreshortening the map's y
+      // instead tipped the caret up on its end once heading-up turned the map
+      // — it stopped lying flat on the ground the way the GPS ring does.
+      const sv = HeadingUp.toScreenVec(this, fx, fy);
+      const ground = (u, v) => {
+        const w = HeadingUp.toWorldVec(this, sv.x * (u + push) - sv.y * v,
+          (sv.y * (u + push) + sv.x * v) * FACING_CHEVRON_TILT);
+        return { x: pScreen.x + w.x, y: pScreen.y + w.y };
+      };
       const caret = () => [ground(arm, halfW), ground(tip, 0), ground(arm, -halfW)];
       let pts = caret();
       if (this.player) {
         const headPx = this.player.displayHeight / 2 - this.playerBodyDy() + 2;
         const bodyHalfW = this.player.displayWidth * 0.3;
         // The GPS ring under the feet is screen-flat (counter-rotated), so its
-        // ellipse is tested on the turned screen too, padded by both outlines.
+        // ellipse is tested on the turned screen too. Padded by a pixel only:
+        // the caret sits against the ring, on the ground beside the feet,
+        // rather than floating off it.
         const ring = this.gpsGhost?.visible ? this.gpsGhost : null;
-        const pad = (GPS_RING.outline + FACING_CHEVRON.outlineW) / 2;
+        const pad = 1;
         const rx = ring ? ring.displayWidth * GPS_RING.r / GROUND_MARK.bakePx + pad : 0;
         const ry = ring ? ring.displayWidth * GPS_RING.r / GROUND_MARK.bakePx * GPS_RING.tilt + pad : 0;
         const behind = (p) => {

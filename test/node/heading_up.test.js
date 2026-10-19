@@ -438,3 +438,26 @@ test('heading up: burning-ground flames rise up the screen at any map turn', () 
     }
   }
 });
+
+test('heading up: the direction caret lies flat on the screen\'s ground at any map turn', () => {
+  // Foreshortening the map's y tipped the caret onto its end once heading-up
+  // turned the map; it is foreshortened down the turned screen, like the ring.
+  const start = SCENE_SRC.indexOf('    this.facingChevronGfx.clear();');
+  const end = SCENE_SRC.indexOf('    // Footprint trail.', start);
+  const draw = new Function('pScreen', 'FACING_CHEVRON_TILT', 'FACING_CHEVRON', SCENE_SRC.slice(start, end));
+  const pts = [];
+  const gfx = { clear() { pts.length = 0; }, lineStyle() {}, beginPath() {}, moveTo(x, y) { pts.push({ x, y }); },
+    lineTo(x, y) { pts.push({ x, y }); }, strokePath() {}, fillStyle() {}, fillCircle() {} };
+  const chevron = { tip: 16, arm: 10, halfW: 4.5, outlineW: 3.2, fillW: 1.6 };
+  for (const rot of [0, Math.PI / 3, Math.PI / 2, Math.PI]) {
+    const scene = { _headingUp: true, mapRot: rot, _compassDirectionLocked: true, gpsM: { x: 0, y: 0 },
+      facingChevronGfx: gfx };
+    // The heading that points straight across the turned screen, to the right.
+    scene.facing = HeadingUp.toWorldVec(scene, 1, 0);
+    draw.call(scene, { x: 50, y: 50 }, 0.5, chevron);
+    const [a, tip, b] = pts.slice(3, 6).map(p => HeadingUp.toScreenVec(scene, p.x - 50, p.y - 50));
+    assert.lt(Math.abs(tip.y), 1e-9, `at ${rot} a caret pointing across the screen keeps its tip on the feet's row`);
+    assert.lt(Math.abs(Math.abs(a.y - b.y) - 2 * chevron.halfW * 0.5), 1e-9,
+      `at ${rot} its width runs down the screen, foreshortened by the tilt`);
+  }
+});
