@@ -1,40 +1,24 @@
 """Static, tiled planning fixtures for the Nexus viewer's per-floor plan tab.
 
-These compose existing sprite frames and approved wall materials, not live spawn
-or terrain generation. Runtime definitions remain owned by their normal modules.
+These compare the shared motif sampler and terrain generator using proposed
+floor art; the previews do not change live spawn or terrain rules. Runtime definitions remain owned by their normal modules.
 """
-import base64
 import collections
 import functools
 import html
 import hashlib
-import io
 import json
-import re
+import subprocess
 from pathlib import Path
 
-from PIL import Image
+from ambient_floor_art import art_for, floor_materials
+from urllib.parse import quote
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 def ambient_layout_css():
-    return '''.ambient-area{scroll-margin-top:90px;margin:28px 0}.ambient-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}.ambient-card{margin:0;background:#171d27;border:1px solid #394456;border-radius:8px;padding:12px}.ambient-card h4{margin:0 0 10px}.ambient-card svg{width:100%;height:auto;image-rendering:pixelated;background:#20232b}.ambient-card p,.ambient-area>p{font-size:13px;line-height:1.5}.ambient-change{color:#f4cb70;text-decoration:underline dotted;text-underline-offset:3px}.ambient-spawn-key{display:flex;flex-wrap:wrap;gap:9px;align-items:center;font-size:12px}.ambient-spawn-key img{width:26px;height:26px;object-fit:contain;image-rendering:pixelated;vertical-align:middle}.ambient-caption{color:#abb7c8}.ambient-card .ambient-spec{font-size:12px;color:#bfc9d5}'''
-
-
-@functools.lru_cache(maxsize=1)
-def _themes():
-    text = (ROOT / 'src/floor_wall_materials.js').read_text()
-    return json.loads(re.search(r'const THEMES = (\[.*?\]);', text).group(1))
-
-
-@functools.lru_cache(maxsize=None)
-def _tile(index):
-    with Image.open(ROOT / 'assets/Objects/Cave/floor-wall-sources.png') as sheet:
-        image = sheet.crop((index * 16, 0, index * 16 + 16, 16))
-    out = io.BytesIO()
-    image.save(out, format='PNG')
-    return 'data:image/png;base64,' + base64.b64encode(out.getvalue()).decode()
+    return '''.ambient-layout-toggle{display:flex;gap:6px;margin:8px 0}.ambient-layout-toggle button{padding:7px 12px;border:1px solid #687580;border-radius:5px;background:#263342;color:#e8edf1;cursor:pointer}.ambient-layout-toggle button[aria-pressed=true]{background:#a9d6cb;color:#10231e}.ambient-area{scroll-margin-top:90px;margin:28px 0}.ambient-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}.ambient-card{margin:0;background:#171d27;border:1px solid #394456;border-radius:8px;padding:12px}.ambient-card h4{margin:0 0 10px}.ambient-card svg{width:100%;height:auto;image-rendering:pixelated;background:#20232b}.ambient-card p,.ambient-area>p{font-size:13px;line-height:1.5}.ambient-change{color:#f4cb70;text-decoration:underline dotted;text-underline-offset:3px}.ambient-spawn-key{display:flex;flex-wrap:wrap;gap:9px;align-items:center;font-size:12px}.ambient-spawn-key img{width:26px;height:26px;object-fit:contain;image-rendering:pixelated;vertical-align:middle}.ambient-caption{color:#abb7c8}.ambient-card .ambient-spec{font-size:12px;color:#bfc9d5}'''
 
 
 def _creatures(text, depth, variant):
@@ -118,8 +102,11 @@ def _fixture(shape, depth, name):
     return cells
 
 
-def _material(prop):
-    return {'kind': 'wildplant', 'crop': 'mushroom' if prop == 'mushroom' else 'shrub'} if prop in ('wildplant', 'mushroom') else {'kind': prop}
+@functools.lru_cache(maxsize=None)
+def _patterns(shape, depth, name):
+    seed = int.from_bytes(hashlib.sha256(f'{depth}:{name}'.encode()).digest()[:4], 'big')
+    payload = {'cells': _fixture(shape, depth, name), 'seed': seed}
+    return json.loads(subprocess.check_output(['node', str(ROOT / 'tools/preview_ambient_patterns.js')], input=json.dumps(payload), text=True))
 
 
 def _highlight(text, phrases):
@@ -129,41 +116,53 @@ def _highlight(text, phrases):
     return value
 
 
-def _card(area, layer, name, number, helpers):
+def _layout_panel(area, layer, name, number, helpers, mode):
     depth = int(layer['id'][1:])
     idea = area['ideas'][layer['id']]
-    prefix = f"ambient-{layer['id']}-{area['id']}-{number}"
+    prefix = f"ambient-{layer['id']}-{area['id']}-{number}-{mode}"
     shape, prop = _recipe(area['id'], name, depth)
-    cells = _fixture(shape, depth, name)
+    patterns = _patterns(shape, depth, name)
+    cells = [row[:] for row in patterns['tile']]
+    if mode == 'generated':
+        cells = [['ground' if cell == 'accent' else cell for cell in row] for row in cells]
+        for point in patterns['generated']:
+            x, y = point['cx'], point['cy']
+            if cells[y][x] == 'ground': cells[y][x] = 'accent'
     palette = ['#607544', '#655c50', '#82725d', '#766655', '#73768b', '#564c6a', '#393232', '#7866a0'][depth]
     water = '#c85d25' if depth == 6 else '#326f79' if depth < 5 else '#575d9a'
-    theme = _themes()[depth - 1] if depth else None
+    theme = floor_materials(depth)
     definitions = []
     if theme:
-        for role in ('ground', 'face'):
-            definitions.append(f'<pattern id="{prefix}-{role}" width="16" height="16" patternUnits="userSpaceOnUse"><image href="{_tile(theme[role])}" width="16" height="16"/></pattern>')
+        for role in ('ground', 'face', 'road', 'water'):
+            if not theme[role]: continue
+            definitions.append(f'<pattern id="{prefix}-{role}" width="16" height="16" patternUnits="userSpaceOnUse"><image href="{theme[role]}" width="16" height="16"/></pattern>')
     tiles = []
     for y, row in enumerate(cells):
         for x, kind in enumerate(row):
-            fill = water if kind == 'water' else '#%02x%02x%02x' % tuple(theme['cap']) if kind == 'wall' and theme else '#343d32' if kind == 'wall' else f'url(#{prefix}-ground)' if theme else palette
+            fill = (f'url(#{prefix}-water)' if theme and theme['water'] else water) if kind == 'water' else '#%02x%02x%02x' % tuple(theme['cap']) if kind == 'wall' and theme else '#343d32' if kind == 'wall' else f'url(#{prefix}-ground)' if theme else palette
             tiles.append(f'<rect x="{x*24}" y="{y*24}" width="24" height="24" fill="{fill}" stroke="#141925" stroke-opacity=".14"/>')
             if kind in ('accent', 'path'):
-                tiles.append(f'<rect x="{x*24}" y="{y*24}" width="24" height="24" fill="{palette}" opacity=".65"/>')
+                accent = f'url(#{prefix}-road)' if theme and depth != 1 else palette
+                tiles.append(f'<rect x="{x*24}" y="{y*24}" width="24" height="24" fill="{accent}" opacity=".65"/>')
             if kind == 'wall' and theme:
                 tiles.append(f'<rect x="{x*24}" y="{y*24+19}" width="24" height="5" fill="url(#{prefix}-face)"/>')
     positions = {'yard': [(2,1),(3,1),(8,7),(9,7)], 'patches': [(2,2),(8,6)], 'islands': [(2,2),(3,2),(8,6),(9,6)], 'pool': [(2,2),(9,2),(4,6),(8,7)], 'channel': [(2,1),(8,3),(2,7),(9,6)], 'pit': [(2,1),(9,1),(2,7),(9,7)], 'rows': [(2,2),(5,2),(8,2),(2,6),(5,6),(8,6)], 'ring': [(3,2),(6,1),(9,2),(3,6),(6,7),(9,6)],
                  'shore': [(5,1),(8,2),(5,7),(10,6)], 'hall': [(3,2),(8,2),(3,6),(8,6)],
                  'rooms': [(2,2),(6,2),(10,2),(2,7),(10,7)]}.get(shape, [(2,2),(8,2),(3,6),(9,6)])
+    if mode == 'generated':
+        positions = [(point['cx'], point['cy']) for point in patterns['generated']
+                     if cells[point['cy']][point['cx']] not in ('water', 'wall')][:6]
     used = set()
     objects = []
-    art = helpers['material_art'](_material(prop))
-    definitions.append(f'<symbol id="{prefix}-prop" viewBox="0 0 1 1">{helpers["art_image"](art, "width=\"1\" height=\"1\"")}</symbol>')
+    prop_art = art_for(depth, prop, helpers)
+    definitions.append(f'<symbol id="{prefix}-prop" viewBox="0 0 1 1"><image href="{prop_art["uri"]}" width="1" height="1" preserveAspectRatio="xMidYMid meet"/></symbol>')
     for x, y in positions:
         if cells[y][x] not in ('water', 'wall'):
             objects.append((y, f'<use href="#{prefix}-prop" x="{x*24-2}" y="{y*24-7}" width="29" height="31"/>'))
             used.add((x,y))
     creatures = _creatures(idea['spawn'], depth, name)
     seats = [(7,5),(3,4),(9,4),(5,7),(10,7),(6,3),(2,5),(8,7),(10,5)]
+    seats += [(x, y) for y in range(1, 8) for x in range(1, 11) if (x, y) not in seats]
     for i, kind in enumerate(creatures):
         possible = [(x,y) for x,y in seats if (x,y) not in used and cells[y][x] not in ('water','wall')]
         if not possible: break
@@ -177,9 +176,29 @@ def _card(area, layer, name, number, helpers):
         art = helpers['material_art']({'kind':kind})
         uri = helpers['sprite_png'](art['sheet'], art['frames'][0], False, art.get('tint',0xffffff))
         legend.append(f'<span><img src="{uri}" alt="">{html.escape(kind.replace("_"," "))}{" ×"+str(count) if count > 1 else ""}</span>')
+    algorithm = ('Tile · repeat_motif — ZoneVariants.sample · authored 12 × 9 motif'
+                 if mode == 'tile' else f"Generated · Hilbert fill — TerrainLayouts.generate + assign · seed {patterns['settings']['seed']}")
+    detail = ('Authored floor footprint and prop seats.' if mode == 'tile'
+              else 'Generated ground accents and prop seats inside the same floor footprint.')
+    source = prop_art['source']
+    source_label = Path(source).name if depth else source
+    art_note = f'Art: {html.escape(prop_art["label"])} · {html.escape(source_label)}'
+    if depth: art_note = f'<a href="http://localhost:8000/{quote(source)}">{art_note}</a>'
+    if prop_art['proxy']: art_note += f' · material proxy for {html.escape(prop.replace("_", " "))}'
+    if theme and any('water' in row for row in cells): art_note += '<br>' + html.escape(theme['water_label'])
+    return (f'<div data-layout-panel="{mode}" id="{prefix}" {"hidden" if mode == "generated" else ""}>'
+            f'<svg viewBox="0 0 288 216" role="img" aria-label="{html.escape(name)} {mode} layout"><defs>{"".join(definitions)}</defs>{"".join(tiles)}{"".join(s for _,s in sorted(objects,key=lambda row:row[0]))}</svg>'
+            f'<div class="ambient-spawn-key">{"".join(legend)}</div><p class="ambient-spec"><b>{html.escape(algorithm)}</b><br>{detail}</p><p class="ambient-spec">{art_note}</p></div>')
+
+
+def _card(area, layer, name, number, helpers):
+    idea = area['ideas'][layer['id']]
     title_class = ' class="ambient-change"' if any(name.lower() in phrase.lower() for phrase in idea.get('changes',{}).get('variants',[])) else ''
-    return (f'<figure class="ambient-card"><h4{title_class}>{html.escape(name)}</h4><svg viewBox="0 0 288 216" role="img" aria-label="{html.escape(name)} static tiled planning fixture"><defs>{"".join(definitions)}</defs>{"".join(tiles)}{"".join(s for _,s in sorted(objects,key=lambda row:row[0]))}</svg>'
-            f'<div class="ambient-spawn-key">{"".join(legend)}</div><p class="ambient-spec">{shape.title()} fixture · {html.escape(prop.replace("_"," "))} dressing · 12 × 9 tiles</p></figure>')
+    prefix = f"ambient-{layer['id']}-{area['id']}-{number}"
+    buttons = ''.join(f'<button type="button" data-layout-mode="{mode}" aria-controls="{prefix}-{mode}" aria-pressed="{str(mode == "tile").lower()}">{mode.title()}</button>' for mode in ('tile', 'generated'))
+    return (f'<figure class="ambient-card"><h4{title_class}>{html.escape(name)}</h4>'
+            f'<div class="ambient-layout-toggle" role="group" aria-label="Layout algorithm for {html.escape(name)}">{buttons}</div>'
+            + ''.join(_layout_panel(area, layer, name, number, helpers, mode) for mode in ('tile', 'generated')) + '</figure>')
 
 
 def ambient_floor_sections(helpers=None):
@@ -194,7 +213,7 @@ def ambient_floor_sections(helpers=None):
     result = {}
     for layer in data['layers']:
         parts = [f'<h2>{html.escape(layer["id"] + " · " + layer["name"])}</h2><p>{html.escape(layer["known"])}</p>',
-                 '<p class="ambient-caption">Static tiled planning fixtures using shipped sprite frames. Creature seats illustrate the proposed candidates below; counts are for readability, not live density. L0 Nexus cards reuse the current Nexus review layouts unchanged; only the separate landcover cards are proposals. Gold dotted words change current behavior. Underground ground swatches are material studies; only L1 sewer channel water is integrated. L2 fixtures propose dressing only, preserving its existing terrain. L5 remains open.</p>']
+                 '<p class="ambient-caption">Compare authored Tile motifs with Generated Hilbert dressing using the shared layout methods. Creature seats illustrate the proposed candidates below; counts are for readability, not live density. L0 Nexus cards reuse the current Nexus review layouts unchanged; only the separate landcover cards are proposals. Gold dotted words change current behavior. Underground ground swatches are material studies; only L1 sewer channel water is integrated. L2 fixtures propose dressing only, preserving its existing terrain. L5 remains open.</p>']
         for area in data['areas']:
             idea = area['ideas'][layer['id']]
             if layer['id'] == 'L0' and area.get('surfaceVariants'):

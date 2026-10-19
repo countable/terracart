@@ -63,6 +63,15 @@
     const target = document.getElementById(location.hash.slice(1));
     if (target && target !== panel) target.scrollIntoView({block: 'start'});
   }
+  content.addEventListener('click', event => {
+    const button = event.target.closest('[data-layout-mode]');
+    if (!button) return;
+    const card = button.closest('.ambient-card');
+    for (const option of card.querySelectorAll('[data-layout-mode]'))
+      option.setAttribute('aria-pressed', String(option === button));
+    for (const panel of card.querySelectorAll('[data-layout-panel]'))
+      panel.hidden = panel.dataset.layoutPanel !== button.dataset.layoutMode;
+  });
   select.addEventListener('change', () => { location.hash = `ambient-${select.value}`; });
   addEventListener('hashchange', showFloor);
   showFloor();
