@@ -1652,6 +1652,7 @@ const ICON_SHEETS = {
   // Same rustic prop sheet as the map: grass frame 10, mushroom frame 35.
   // Other frames retain their existing art.
   props:         { url: 'assets/Objects/Approved/props.png',               cols: 22, srcW: 352, srcH: 192 },
+  petnip:        { url: 'assets/Objects/Handmade/petnip.png',              cols: 1,  srcW: 16,  srcH: 16 },
   // 7_Pickup_Items — 224×160, 14×10 of 16×16. Frame 88 (row 6 col 4)
   // is the brown leather boot used as the fishing-junk inventory icon.
   pickup:        { url: 'assets/Objects/Pickup_Items.png',                   cols: 14, srcW: 224, srcH: 160 },

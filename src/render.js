@@ -880,11 +880,10 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
   }
   return data;
 };
-// The hook runs every draw even when the rock's geometry is cached. Selecting
-// a baked material keeps the on/off state legible in daylight in both renderers.
+// The hook runs every draw even when the stone's geometry is cached. The lit
+// frame's glowing rune keeps the on/off state legible in daylight.
 Render.setWaystoneMaterial = function setWaystoneMaterial(sprite, object, scene) {
-  if (window.Waystones?.isLit(object, scene.save) && scene.textures.exists('waystone_lit'))
-    setTextureIfDifferent(sprite, 'waystone_lit');
+  setTextureIfDifferent(sprite, 'waystone', window.Waystones?.isLit(object, scene.save) ? 1 : 0);
 };
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
@@ -6483,11 +6482,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               seat: true, shadow: true },
     // STREET VARIANT PROPS (src/street_variants.js). Ordinary 16px props draw
     // at 1.6; approved 24px ground spikes draw at 4/3. All seat in one cell.
-    // Waystones use the plain, low rounded rock. Their per-draw material hook
-    // changes the surface while the cached geometry remains immutable. The tar pit
+    // Waystones are carved standing stones at the plain rock's pixel scale.
+    // Their per-draw material hook swaps in the lit frame while the cached
+    // geometry remains immutable. The tar pit
     // and the iron stakes are the Burned Row's hazards (they SLOW the body —
     // app.js _bodyHold), the stakes standing, the tar lying flat (no shadow).
-    waystone: { key: 'rock_variants', frame: 0, origin: [0.5, 0.5], scale: ROCK_VARIANT_ART.smallScale, seat: true, shadow: true, after: Render.setWaystoneMaterial },
+    waystone: { key: 'waystone', frame: 0, origin: [0.5, 0.5], scale: ROCK_VARIANT_ART.smallScale, seat: true, shadow: true, after: Render.setWaystoneMaterial },
     stakes:   { key: 'approved_charred_stakes', frame: 0, origin: [0.5, 0.5], scale: 4 / 3, seat: true, shadow: true },
     ground_hole: { key: 'cave_chasm', frame: o => o._chasmMask ?? 15, origin: [0.5, 0.5], scale: 1, seat: false, layer: WorldLayers.GROUND_DECAL },
     // UNDERGROUND STREET SCATTER (src/underground.js decorate): the triple

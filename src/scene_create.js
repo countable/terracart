@@ -276,7 +276,6 @@ class SceneCreate {
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
     makeTrapTextures(this);
-    makeWaystoneTexture(this);
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after sheet loads so all source images are ready.

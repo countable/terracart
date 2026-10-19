@@ -258,6 +258,7 @@ const SHEETS = {
   apple_tree:    { file: 'assets/Objects/Approved/apple_tree.png',         fw: 32, fh: 48, frames: [0, 2, 4, 8], crownFrame: 4 },
   worldpeach_tree:    { file: 'assets/Objects/Approved/peach_tree.png',         fw: 32, fh: 48, frames: [0, 2, 3, 4], crownFrame: 3 },
   beehive:       { file: ASSETS.beehive.path, fw: 16, fh: 16, frames: [0] },
+  waystone:      { file: ASSETS.waystone.path, fw: 16, fh: 16, frames: [0, 1] },
   // Authored tier frames each carry their own measured alpha bounds.
   chest:         { file: ASSETS.chest.path, fw: 16, fh: 16, frames: [0, 1, 2, 3, 4, 5, 6] },
   box:           { file: 'assets/Objects/Approved/box.png',   fw: 16, fh: 16, frames: [0] },
@@ -346,7 +347,8 @@ const SCENARIOS = [
   { name: 'scarecrow',       key: 'scarecrow',     frameIdx: 0, scale: 0.6 },
   { name: 'bonfire',         key: 'bonfire',       frameIdx: 0, scale: 1.1 },
   { name: 'torch',           key: 'torch',         frameIdx: 0, scale: 1.1 },
-  { name: 'waystone',        key: 'rock_variants', frameIdx: 0, scale: 16 / 15 },
+  { name: 'waystone',        key: 'waystone',      frameIdx: 0, scale: 16 / 15 },
+  { name: 'waystone (lit)',  key: 'waystone',      frameIdx: 1, scale: 16 / 15 },
   { name: 'charred stakes', key: 'approved_charred_stakes', frameIdx: 0, scale: 4 / 3 },
   { name: 'tar',             key: 'tar',           frameIdx: 0, scale: 1.6 },
   { name: 'headstone',       key: 'zone_objects',  frameIdx: 1, scale: 4 / 3 },

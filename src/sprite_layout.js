@@ -384,6 +384,8 @@
     'shrines:9': { fw: 24, fh: 36, minX: 2, minY: 13, maxX: 23, maxY: 35 },
     'shrines:10': { fw: 24, fh: 36, minX: 2, minY: 1, maxX: 23, maxY: 34 },
     'beehive:0': { fw: 16, fh: 16, minX: 2, minY: 3, maxX: 14, maxY: 14 },
+    'waystone:0': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
+    'waystone:1': { fw: 16, fh: 16, minX: 2, minY: 1, maxX: 14, maxY: 15 },
     'barrel:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
     'clay_pot:0': { fw: 24, fh: 24, minX: 2, minY: 1, maxX: 21, maxY: 23 },
     'clay_pot_smashed:0': { fw: 24, fh: 24, minX: 1, minY: 4, maxX: 23, maxY: 23 },
