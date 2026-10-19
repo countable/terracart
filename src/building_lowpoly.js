@@ -306,8 +306,10 @@
     // sortWorldDepth, via worldPieces) seats the player between the wall
     // behind and the wall in front. One mesh per house would put the whole
     // room before or behind the player at once.
-    const edgeOf=(pts)=>{const base=pts.filter(p=>p.z<=1e-6),use=base.length?base:pts;
-      const m={x:use.reduce((t,p)=>t+p.x,0)/use.length,y:use.reduce((t,p)=>t+p.y,0)/use.length};
+    // Use the whole triangle: its only ground vertex may be a corner shared
+    // by two walls, which can assign half of a styled wall to its neighbour.
+    const edgeOf=(pts)=>{
+      const m={x:pts.reduce((t,p)=>t+p.x,0)/pts.length,y:pts.reduce((t,p)=>t+p.y,0)/pts.length};
       let best=0,bestD=Infinity;ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1;
         const t=Math.max(0,Math.min(1,((m.x-a.x)*dx+(m.y-a.y)*dy)/l2)),d=Math.hypot(m.x-(a.x+dx*t),m.y-(a.y+dy*t));
         if(d<bestD){bestD=d;best=i;}});return best;};
