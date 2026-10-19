@@ -96,6 +96,23 @@ resampling the master. Source, prompt and rectangles are recorded in
 stay upright as the compass turns. See the geometry in
 [the presentation guide](../design/presentation.md).
 
+## Map chest tiers
+
+`assets/Objects/Approved/chest-tiers.png` is the approved seven-frame 112×16
+map sheet. Frames 0–6 are Wood, Copper, Iron, Gold, lavender-Platinum, Crimson
+and Frost. Load the authored colors directly; do not recolor the first frame
+at runtime. Ordinary T1 supplies still use crates through `chestLook`.
+
+The sheet was generated with GPT Image 2.5 Sunburst from the local
+`extra_assets/Dungeon Gathering Full Ver. 1.1/Chests/All Chest Sheet.png`.
+The source was enlarged 4× with nearest-neighbor and seven copied closed-chest
+cells supplied placement templates. The approved output's rectangle
+`(512, 0, 448, 64)` was reduced exactly 4:1 to 112×16, without per-frame fitting
+or alpha cleanup. Native transparency retains faint semi-transparent shading.
+Inputs, prompt and raw output are archived at
+`http://localhost:8765/chest-tier-4x/index.html`. The reusable method is in
+[SPRITESHEET_EXTENSION.md](../../SPRITESHEET_EXTENSION.md).
+
 ## Treasure dialog paintings
 
 Treasure paintings keep Hood concealed and use a restricted palette with

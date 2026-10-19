@@ -152,8 +152,6 @@ def material_art(material):
 
 
 def art_image(art, extra='', frame=None):
-    if art.get('sheet') == 'chest':
-        return f'<image data-chest-tier="{art["frames"][0] if frame is None else frame}" href="{sprite_png("chest", 0)}" {extra}/>'
     if art.get('procedural'):
         return f'<image data-procedural="{art["procedural"]}" {extra}/>'
     return f'<image href="{sprite_png(art["sheet"], art["frames"][0] if frame is None else frame, art.get("preserveFrame", False), art.get("tint", 0xffffff), art.get("paletteKey"))}" {extra}/>'
@@ -221,15 +219,7 @@ def art_script():
     code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
     code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
     code += r['variantSource'] + '\n' + r['roadPainter']
-    code += '\nconst previewChestSheet=(()=>{'+r['chestPainter']+';return makeChestTierSheet;})();\n'
     code += '''
-for(const image of document.querySelectorAll('[data-chest-tier]')) {
-  const source=new Image();source.onload=()=>{
-    const sheet=previewChestSheet(source),c=document.createElement('canvas');c.width=c.height=16;
-    c.getContext('2d').drawImage(sheet,Number(image.dataset.chestTier)*16,0,16,16,0,0,16,16);
-    image.setAttribute('href',c.toDataURL());image.dataset.chestReady='true';
-  };source.src=image.getAttribute('href');
-}
 const baked = new Map();
 const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
   const c=document.createElement('canvas');c.width=w;c.height=h;

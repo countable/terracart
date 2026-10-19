@@ -613,7 +613,7 @@ test('every chest tier centers its visible art on its cell', () => {
       frames.add(look.frameVal);
       assert.eq(look.scl, 1.6 * 0.8);
       const b = SpriteLayout.ART_BOUNDS[`chest:${look.frameVal}`];
-      assert.truthy(b, 'each recolored tier has measured bounds');
+      assert.truthy(b, 'each authored tier has measured bounds');
       assert.truthy(look.foot, 'seating also supplies the shadow footprint');
       assert.inRange(look.dxPx + ((b.minX+b.maxX)/2 - look.origin[0]*b.fw)*look.scl, -1e-9, 1e-9);
       assert.inRange(look.dyPx + ((b.minY+b.maxY)/2 - look.origin[1]*b.fh)*look.scl, -1e-9, 1e-9);
