@@ -100,6 +100,17 @@
     assert.eq(piece.layer,WorldLayers.GROUND_DECAL,'player always draws above the wreck');
     assert.eq(mesh.obj.alpha,1,'wreck never fades');
   }));
+  test('low-poly wrecks: fallen wall chunks lie on the ground and the inside is not black', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck-rubble');
+    const lids=mesh.faces.filter(f=>f.rubbleTop);
+    assert.gte(lids.length/2,3,'a few chunks of wall lie about: '+lids.length/2);
+    assert.truthy(lids.every(f=>f.points.every(p=>p.z>1&&p.z<4)),'chunks are low blocks');
+    assert.truthy(mesh.faces.filter(f=>f.rubble).every(f=>Math.min(...f.points.map(p=>p.z))>=0),'chunks rest on the ground');
+    // The cel pass's darkest step is light < .65: the floor and inner walls stay above it.
+    for(const f of mesh.faces.filter(f=>f.debris||f.interior))assert.gte(f.light,.65,'interior faces take the middle cel step');
+  }));
   test('low-poly wrecks: intermediate height breaks are perpendicular to their walls', () => withPhaser(() => {
     const scene=stubScene();BuildingLowPoly.begin(scene);
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});

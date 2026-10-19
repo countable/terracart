@@ -3682,7 +3682,7 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
   if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
-    const art = SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+    const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
     const fh = art?.fh ?? s.frame?.realHeight ?? s.frame?.height ?? s.height;
     const x0 = s.x + ((art?.minX ?? 0) - s.originX * fw) * s.scaleX;
@@ -6336,6 +6336,14 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // has its dxPx/dyPx overwritten by the seat pass.
       dyPx: () => STREET_LAMP_DY_PX,
       scale: 1,
+      // The fade box: the ironwork, not the square's glow padding (2.4 cells
+      // wide, which faded the lamp with the player a cell to its side).
+      artBounds: (s) => {
+        const b = typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_BODY_FRAC;
+        const fw = s.frame?.realWidth ?? s.frame?.width ?? s.width;
+        const fh = s.frame?.realHeight ?? s.frame?.height ?? s.height;
+        return b ? { fw, fh, minX: b.minX * fw, maxX: b.maxX * fw, minY: b.minY * fh, maxY: b.maxY * fh } : null;
+      },
       after: (s) => {
         const px = CELL_PX * ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
         s.setDisplaySize(px, px).setAlpha(1);

@@ -214,10 +214,15 @@ review is published as a Claude artifact.
   one section of the longest edge always fallen (`mesh.gap`). Standing
   sections carry a flat `wallTop`, and the step up to a taller neighbour shows
   as an end face. Three axis-aligned `roofPatches` keep their tiles over bare
-  rafters, two of the six fallen (`hash` picks which); inside, a dark rubble
-  floor, fallen roof slabs and beams. Textured faces are tinted
-  `LOOK.wreck.tint`; the sheet boards the windows and adds soot, moss and
-  missing tiles.
+  rafters, two of the six fallen (`hash` picks which); inside, a rubble
+  floor, fallen roof slabs and beams, and up to five low chunks of fallen wall
+  (two spilled out through `mesh.gap`, the rest inside, seeded by the
+  footprint's centre). The floor and the inner wall faces are flat colour (the
+  0,0 texel: sampled, the charred sheet put soot and boarded windows inside)
+  at the middle cel step (`WRECK_INSIDE_LIGHT`). Walls are tinted
+  `LOOK.wreck.tint`, roof patches and slabs `roofTint`; the roof chars less
+  (×0.82) than the walls (×0.65). The sheet boards the windows and adds soot,
+  moss and missing tiles.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on
   every face at every heading; ridge and hip beams cover the seams, and a

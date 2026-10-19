@@ -411,8 +411,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Standing objects fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
-  overlap uses cached trimmed `ART_BOUNDS`, with frame bounds for procedural
-  art, and updates even on reused sprite slots. Moving clear restores the
+  overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
+  `artBounds` for procedural art that declares one (the street lamp's
+  ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots. Moving clear restores the
   original opacity; tool access never changes it. On a turned heading-up map
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
