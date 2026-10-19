@@ -213,8 +213,42 @@
     if (!entry || idx < 0) return null;
     if (entry.caveAreas?.reserved.has(idx)) return 'cave';
     if ((entry.depth || 0) === 0 && !entry._homeVariantGenerating && entry.homeVariant?.[idx]) return 'home';
+    if ((entry.depth || 0) === 0 && !entry._homeVariantGenerating && entry.variantDiscarded?.[idx]) return null;
     if ((entry.zone?.coverage || entry.zone?.idx)?.[idx]) return 'zone';
     return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
+  }
+
+  const MIN_VARIANT_CELLS = 16;
+  // Count four-connected surviving footprints, not spawned objects. A tile-edge
+  // component may continue outside this entry, so its partial count cannot veto it.
+  function smallVariantMask(entry) {
+    const N = entry.cellsPerEdge, size = N * N, discarded = new Uint8Array(size);
+    if ((entry.depth || 0) !== 0) return discarded;
+    const view = { ...entry, _homeVariantGenerating: false, variantDiscarded: null };
+    const coverage = entry.zone?.coverage || entry.zone?.idx;
+    const codes = entry.streetAreaVariants || entry.streetArea?.variants;
+    const keys = new Array(size), seen = new Uint8Array(size);
+    for (let i = 0; i < size; i++) {
+      const owner = variantOwnerAt(view, i);
+      keys[i] = owner === 'zone' ? `zone:${coverage[i]}`
+        : owner === 'road' ? `road:${codes?.[i] || 0}` : null;
+    }
+    for (let start = 0; start < size; start++) {
+      if (seen[start] || !keys[start]) continue;
+      const cells = [start]; seen[start] = 1;
+      let edge = false;
+      for (let at = 0; at < cells.length; at++) {
+        const i = cells[at], x = i % N, y = Math.floor(i / N);
+        if (x === 0 || y === 0 || x === N - 1 || y === N - 1) edge = true;
+        for (const next of [x > 0 ? i - 1 : -1, x < N - 1 ? i + 1 : -1,
+          y > 0 ? i - N : -1, y < N - 1 ? i + N : -1]) {
+          if (next < 0 || seen[next] || keys[next] !== keys[start]) continue;
+          seen[next] = 1; cells.push(next);
+        }
+      }
+      if (!edge && cells.length < MIN_VARIANT_CELLS) for (const i of cells) discarded[i] = 1;
+    }
+    return discarded;
   }
 
   // Read the winning Nexus, never an underlying anchor hidden by another owner.
@@ -9896,6 +9930,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
-    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, getTileBin,
+    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, MIN_VARIANT_CELLS, getTileBin,
   };
 })(window);

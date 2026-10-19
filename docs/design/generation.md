@@ -826,6 +826,18 @@ uses the same owner without reinterpreting coverage. Both `coverage` and legacy
 `StreetVariants.indexFor`; raw generated coverage/index data is retained for
 shared generation and underground inheritance, not runtime priority decisions.
 
+After surface ownership is resolved, the live Home overlay discards complete
+four-connected Nexus/road-variant remnants smaller than
+`WorldGen.MIN_VARIANT_CELLS` (16 cells; exactly 16 stays). Count footprint cells,
+not objects; different Nexus anchors and road variant codes count separately.
+Discarded cells lose generated content, theme effects and themed pavement,
+returning to underlying terrain without exposing a lower-priority variant.
+Saved/player-owned content and physical roads remain. Generated masks and
+underground inheritance are unchanged. A component touching a tile edge is
+retained because its full extent is unknown; do not discard a cross-tile variant
+from one tile's partial count. Spawn-class-specific suppression is still an
+eligibility gate, not a universal subtraction from variant area.
+
 Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and

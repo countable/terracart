@@ -147,7 +147,9 @@
     return roadCache.get(id);
   }
   function resolve(entry, index) {
-    const grid = entry?.baseGrid || entry?.grid, type = grid?.[index];
+    const grid = entry?.baseGrid || entry?.grid;
+    const liveDiscard = (entry?.depth || 0) === 0 && !entry?._homeVariantGenerating && entry?.variantDiscarded?.[index];
+    const type = liveDiscard ? (entry.grid?.[index] ?? grid?.[index]) : grid?.[index];
     if (type == null || index < 0 || index >= grid.length) return { key: null, profile: null, type };
     const coverage = entry.zone?.coverage || entry.zone?.idx;
     const owner = root.WorldGen.variantOwnerAt(entry, index);

@@ -58,6 +58,7 @@
 
   function sourcePresent(scene, plant) {
     return !root.HomeVariant?.contains(scene, plant.x, plant.y)
+      && !root.HomeVariant?.discardedAt(scene, plant.x, plant.y)
       && plant.gasEmitter && !plant.picked && !plant.burned
       && !setOf(scene.save.picked).has(plant.id) && !setOf(scene.save.burnedObjects).has(plant.id);
   }

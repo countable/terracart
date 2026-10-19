@@ -3755,7 +3755,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       const poi = a.owned && (e.objects || []).find(o => o._poiAt === `${a.lx},${a.ly}`);
       const x = poi ? poi.x : a.gx / 4096 * edgeM;
       const y = poi ? poi.y : a.gy / 4096 * edgeM;
-      if (inHome(x, y)) continue;
+      if (inHome(x, y) || (scene && typeof HomeVariant !== 'undefined' && HomeVariant.discardedAt(scene, x, y))) continue;
       zones.set(id, { id, kind: 'zone', text: `Zone: ${row.name}`, x, y });
     }
     const index = e.streetIndex;

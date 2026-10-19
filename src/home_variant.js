@@ -28,8 +28,17 @@
     // buildings carry provenance and must yield with the rest of that theme.
     return (object.kind === 'house' || object.kind === 'tower') && !object.zoneVariant && !object._street;
   }
+  function discardedAt(scene, x, y) {
+    if ((scene?.depth || 0) !== 0 || !(scene?.tileEdgeM > 0)) return false;
+    const edge = scene.tileEdgeM, tx = Math.floor(x / edge), ty = Math.floor(y / edge);
+    const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(tx, ty));
+    if (!entry?.variantDiscarded) return false;
+    const N = entry.cellsPerEdge;
+    const ix = Math.floor((x / edge - tx) * N), iy = Math.floor((y / edge - ty) * N);
+    return !!entry.variantDiscarded[iy * N + ix];
+  }
   function allows(scene, object, x = object?.x, y = object?.y) {
-    return !object || !contains(scene, x, y) || isCurated(scene, object);
+    return !object || !(contains(scene, x, y) || discardedAt(scene, x, y)) || isCurated(scene, object);
   }
   function overlaps(scene, entry, object, tx, ty, mask) {
     if (!object || !Number.isFinite(object.x) || !Number.isFinite(object.y)) return false;
@@ -72,33 +81,43 @@
         (ty * N + Math.floor(i / N) + .5) * unit) ? 1 : 0;
     }
     entry.homeVariant = mask;
-    entry.homeStreetIndex = intersects && entry.streetIndex
-      ? root.WorldGen.runSteps(root.StreetVariants.homeIndexSteps(entry.streetIndex, mask, N)) : null;
+    entry.variantDiscarded = root.WorldGen.smallVariantMask(entry);
+    const hasDiscarded = entry.variantDiscarded.some(Boolean);
+    const cleared = new Uint8Array(N * N);
+    for (let i = 0; i < cleared.length; i++) cleared[i] = mask[i] || entry.variantDiscarded[i];
+    const hasCleared = cleared.some(Boolean);
+    entry.homeStreetIndex = hasCleared && entry.streetIndex
+      ? root.WorldGen.runSteps(root.StreetVariants.homeIndexSteps(entry.streetIndex, cleared, N)) : null;
     // Keep original generated arrays intact: caves, shared spawn draws and
     // rebuilds all need the original world, regardless of whose Home this is.
     const source = entry._homeVariantSource || (entry._homeVariantSource = {
       streetGround: entry.streetGround, streetMarks: entry.streetMarks,
     });
     for (const key of ['streetGround', 'streetMarks']) {
-      if (!intersects || !entry[key]) continue;
+      if (!hasCleared || !entry[key]) continue;
       if (!source[key]) source[key] = entry[key];
       entry[key] = entry[key].slice();
-      for (let i = 0; i < mask.length; i++) if (mask[i]) entry[key][i] = 0;
+      for (let i = 0; i < cleared.length; i++) if (cleared[i]) entry[key][i] = 0;
     }
-    if (intersects && entry.slowCells) {
+    if (hasCleared && entry.slowCells) {
       entry.slowCells = new Map(entry.slowCells);
-      for (let i = 0; i < mask.length; i++) if (mask[i]) entry.slowCells.delete(i);
+      for (let i = 0; i < cleared.length; i++) if (cleared[i]) entry.slowCells.delete(i);
     }
     if (entry.variantBaseGrid && entry.baseGrid) {
-      for (let i = 0; i < mask.length; i++) {
-        if (mask[i] && entry.grid[i] === entry.baseGrid[i]) entry.grid[i] = entry.variantBaseGrid[i];
+      for (let i = 0; i < cleared.length; i++) {
+        if (cleared[i] && entry.grid[i] === entry.baseGrid[i]) entry.grid[i] = entry.variantBaseGrid[i];
       }
     }
     const saved = root.SpawnOwnership?.savedIds(scene.save);
     const keep = object => {
       const at = object && !Number.isFinite(object.x) && Number.isFinite(object.lx)
         ? { ...object, x: tx * scene.tileEdgeM + object.lx, y: ty * scene.tileEdgeM + object.ly } : object;
-      return isCurated(scene, object, saved) || !overlaps(scene, entry, at, tx, ty, mask);
+      if (isCurated(scene, object, saved)) return true;
+      if (overlaps(scene, entry, at, tx, ty, mask)) return false;
+      if (!hasDiscarded || !Number.isFinite(at?.x) || !Number.isFinite(at?.y)) return true;
+      const ix = Math.floor(at.x / unit - tx * N), iy = Math.floor(at.y / unit - ty * N);
+      if (ix >= 0 && iy >= 0 && ix < N && iy < N && entry.variantDiscarded[iy * N + ix]) return false;
+      return !root.SpawnOwnership?.tileCells(scene, entry, at, tx, ty).some(i => entry.variantDiscarded[i]);
     };
     const lists = ['objects', 'wildplants', 'traps', 'extraTreasures', 'parkingTreasures', 'streetLairs', 'reefCorals', 'spiderPathWebs', 'pathVents', 'laidTraps'];
     if (phase !== 'prepare') lists.push('creatures');
@@ -124,5 +143,5 @@
       if (Number.isFinite(tx) && Number.isFinite(ty)) apply(scene, entry, tx, ty);
     }
   }
-  root.HomeVariant = { RADIUS_M, anchor, contains, isCurated, allows, apply, refresh };
+  root.HomeVariant = { RADIUS_M, anchor, contains, discardedAt, isCurated, allows, apply, refresh };
 })(typeof window !== 'undefined' ? window : globalThis);
