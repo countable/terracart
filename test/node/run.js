@@ -95,7 +95,7 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js',
+  'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
@@ -985,6 +985,9 @@ Object.assign(ctx, {
   ctx.SPAWN_IN_TILE_SRC      = slice(creaturesSrc, '  *spawnInTileSteps(entry, tx, ty) {\n', '\n  // Cave fauna: hostile', 'spawnInTile');
   vm.runInContext(`globalThis.spawnPassFn = function (body) {
     const GeneratorFunction = Object.getPrototypeOf(function* () {}).constructor;
+    // Partial passes still release the generated-ownership guard on return.
+    if (body.includes('entry._homeVariantGenerating = true;') && !body.includes('delete entry._homeVariantGenerating;'))
+      body += '\\n} finally { delete entry._homeVariantGenerating; }';
     const steps = new GeneratorFunction('entry', 'tx', 'ty', body);
     return function (entry, tx, ty) { return WorldGen.runSteps(steps.call(this, entry, tx, ty)); };
   };`, ctx, { filename: 'run.js#spawnPassFn' });

@@ -9381,6 +9381,7 @@ class MapScene extends Phaser.Scene {
       // …and the same per-player cull the spawn pass ends on.
       this._cullOffLiveGround(entry, tx, ty, N, this.tileEdgeM / N, genGrid,
         entry.genObjects || entry.objects || [], null);
+      HomeVariant.apply(this, entry, tx, ty);
     });
   }
 

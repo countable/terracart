@@ -98,6 +98,7 @@
       && inHomeFaunaCircle(anchor, c.x, c.y);
   }
   function homeFaunaAllows(scene, c, x = c?.x, y = c?.y) {
+    if (root.HomeVariant && !root.HomeVariant.allows(scene, c, x, y)) return false;
     if (!homeFaunaSubject(c)) return true;
     const anchor = homeFaunaAnchor(scene);
     if (!inHomeFaunaCircle(anchor, x, y)) return true;
@@ -108,6 +109,7 @@
   // catch, death or Home change invalidated it since that step. No per-body
   // query scans the world. Retain the chosen deer while it remains eligible.
   function refreshHomeFauna(scene, force = true) {
+    root.HomeVariant?.refresh(scene);
     const anchor = homeFaunaAnchor(scene), caughtArray = scene.save?.caught || [];
     const entries = [...root.WorldGen.tileCache.values()];
     const previous = scene._homeFaunaState;

@@ -47,6 +47,13 @@
     const replace = (object, key, value) => { const previous = object[key]; restores.push(() => { object[key] = previous; }); object[key] = value; };
     const V = root.ZoneVariants, W = root.WorldGen, SV = root.StreetVariants;
     try {
+      // Keep L2 readable in this compact preview. The game retains its dungeon
+      // multiplier; even deeper previews rebuild L2 through this same scope.
+      const gameplayProfile = W.floorProfile;
+      replace(W, 'floorProfile', d => {
+        const profile = gameplayProfile(d);
+        return d === 2 ? { ...profile, trapDensityMul: 1 } : profile;
+      });
       if (selected?.id && depth === 0) {
         const picks = new Map(selected.nexuses.map(row => [row.kind, row.id])), originalPick = V.pick;
         replace(V, 'pick', anchor => {

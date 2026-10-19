@@ -148,6 +148,9 @@ class SceneCreatures {
   // treasure still to come. The heavy but pure work of that stretch (the trap
   // draw, the path / sand / pier scan) is done ahead, before the flag.
   *spawnInTileSteps(entry, tx, ty) {
+    // Shared draws must read generated ownership, even when replaying a live tile.
+    entry._homeVariantGenerating = true;
+    try {
     // Read once: a sliced pass must not change its mind between slices.
     const testMode = !!window.__TEST_MODE;
     const rng = WorldGen.makeRng(tx * 0x1f1f1f1f ^ ty * 0x12345);
@@ -582,6 +585,7 @@ class SceneCreatures {
     const isStarterTile = !!_trailAnchor &&
       _trailAnchor.x >= tx0 && _trailAnchor.x < tx0 + this.tileEdgeM &&
       _trailAnchor.y >= ty0 && _trailAnchor.y < ty0 + this.tileEdgeM;
+    HomeVariant.apply(this, entry, tx, ty, { phase: 'prepare' });
     if (isStarterTile) {
       this._placeStarterTrail(entry, tx, ty);
       this._stripStarterCrates(entry);      // hard mode: no supply handout
@@ -809,6 +813,10 @@ class SceneCreatures {
 
     // The per-player cull, AFTER every draw of the shared stream above.
     this._cullOffLiveGround(entry, tx, ty, N, cellM, genGrid, genObjects, creatures);
+    } finally {
+      delete entry._homeVariantGenerating;
+    }
+    HomeVariant.apply(this, entry, tx, ty);
     EnemySpawns.refreshHomeFauna(this);
   }
 

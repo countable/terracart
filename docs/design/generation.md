@@ -506,6 +506,8 @@ access or tile lifecycle mechanics.
   L1 sewer uses the base ambient snare count (6–10 attempts per tile), rather
   than the deeper floors’ 100× multiplier. The game and floor viewer share this
   floor-profile setting; retained traps keep their seeded positions and IDs.
+  The floor viewer alone previews L2 at its base snare count (7–11 attempts
+  per tile); gameplay retains the deeper-floor multiplier.
   Cave traps use their occupied-cell set; surface traps sit beside footpaths
   or on park edges, never near a road (`Traps.isTrapGround`).
 - Path variant assignment joins connected mapped fragments and balances natural
@@ -799,6 +801,15 @@ Higher-priority placements and their access space take precedence in this order:
    immediate area is blocked. All four cells must avoid roads, water and existing
    buildings. `clearHomeFooting` removes incidental clutter only:
    existing building cells, objects and outlines are never erased for Home.
+   `HomeVariant` reserves a 50 m circle around the frozen `starterCratesAt`
+   anchor on the surface only. It overrides road, Nexus and ordinary biome
+   content with the curated starter area: Tilly and other unlocked story
+   neighbours, the doorstep chicken, starter supplies and authored starter
+   placements. Player possessions and mapped buildings remain. Physical roads
+   keep their geometry and safety rules but lose their themes inside Home.
+   Apply this per-player overlay after shared generation, retaining the
+   original grids, dressing and zone metadata for cave generation and stable
+   spawn identities. The floor viewer uses the same overlay and starter placers.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles

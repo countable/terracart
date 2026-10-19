@@ -151,6 +151,7 @@
     if (type == null || index < 0 || index >= grid.length) return { key: null, profile: null, type };
     const coverage = entry.zone?.coverage || entry.zone?.idx;
     const areaOwner = root.WorldGen.variantOwnerAt(entry, index);
+    if (areaOwner === 'home') return { key: 'home', profile: null, type, variant: 'home' };
     const owner = areaOwner === 'cave' ? areaOwner : coverage?.[index] ? 'zone' : areaOwner;
     if (owner === 'zone') {
       const slot = coverage?.[index], anchor = entry.zone?.anchors?.[slot - 1];

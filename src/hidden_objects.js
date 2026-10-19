@@ -67,7 +67,8 @@
     return true;
   }
   function saved(scene) {
-    return (scene.save.hiddenObjects || []).filter(o => (o.depth || 0) === (scene.depth || 0));
+    return (scene.save.hiddenObjects || []).filter(o => (o.depth || 0) === (scene.depth || 0)
+      && (!root.HomeVariant || root.HomeVariant.allows(scene, o)));
   }
   function tick(scene) {
     if (!scene.startWorldM || !scene.playerM) return;
@@ -115,7 +116,7 @@
     const id = `shrine_spirit_${temple.templeZone}`;
     const records = scene.save.hiddenObjects ||= [];
     const previous = records.find(o => o.id === id);
-    if (previous) return previous;
+    if (previous) return !root.HomeVariant || root.HomeVariant.allows(scene, previous) ? previous : null;
     const region = root.Temples.coverage(temple, root.WorldGen.tileCache, scene.tileEdgeM);
     if (!region.complete) return null;
     let best = null;
@@ -129,6 +130,7 @@
         if (x >= 0 && y >= 0 && x < N && y < N) occupied.add(y * N + x);
       }
       for (let i = 0; i < mask.length; i++) {
+        if (root.WorldGen.variantOwnerAt(entry, i) === 'home') continue;
         const anchor = entry.zone.anchors[mask[i] - 1];
         if (!anchor || String(anchor.key) !== String(temple.templeZone) || occupied.has(i)) continue;
         const ix = i % N, iy = Math.floor(i / N);

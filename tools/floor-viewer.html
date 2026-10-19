@@ -51,10 +51,7 @@
     <input id="seed" type="number" min="0" max="4294967295" step="1" value="0" style="width:110px">
     <button id="newSeed">New seed</button><button id="resetSeed">Reset</button>
   </div></div>
-  <div><label for="safetyRadius">Home safety · preview only</label><div class="seg" style="align-items:center;padding:4px 8px;gap:8px">
-    <input id="safetyRadius" type="range" min="0" max="350" step="10" value="50">
-    <output id="safetyValue" for="safetyRadius">50 m</output>
-  </div></div>
+  <div><label>Home · curated surface area</label><div id="safetyValue">50 m</div></div>
   <div><label>Floor</label><div class="seg" id="floorSeg"></div></div>
   <div class="variant"><div><label>Creatures</label></div><button id="creatureToggle" class="on" style="width:auto;padding:0 10px;">shown</button></div>
   <div class="variant"><div><label>Labels</label></div><button id="labelToggle" class="on" aria-pressed="true" style="width:auto;padding:0 10px;">shown</button></div>
@@ -77,11 +74,6 @@
   const seedInput = document.getElementById('seed');
   let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
   seedInput.value = seed;
-  const safetyInput = document.getElementById('safetyRadius');
-  const requestedRadius = new URLSearchParams(location.search).get('safetyM');
-  let safetyRadius = requestedRadius !== null && Number.isFinite(Number(requestedRadius))
-    ? Math.max(0, Math.min(350, Math.round(Number(requestedRadius) / 10) * 10)) : 50;
-  safetyInput.value = safetyRadius;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true, readyToPlay = false;
@@ -136,6 +128,8 @@
         scene.ensureStarterShopId();
         entry.viewerSave = scene.save;
         entry.viewerHome = entry.objects.find(o => o.id === scene.save.starterShopId);
+        scene.save.starterCratesAt = entry.viewerHome
+          ? { x: entry.viewerHome.x, y: entry.viewerHome.y } : { ...home };
         status('Dressing the surface&hellip;');
         await W.runStepsSliced(() => scene.spawnInTileSteps(entry, 0, 0));
         // Runtime wakes building guards near the player in its update loop;
@@ -146,6 +140,7 @@
             tileEdgeM: R.EDGE,
           }));
         }
+        HomeVariant.apply(scene, entry, 0, 0);
         for (let d = 1; d <= depth; d++) {
           status(`Building floor ${d}&hellip;`);
           W.setDepth(d);
@@ -341,11 +336,8 @@
     const entry = entries[floor === 0 ? 0 : depth];
     if (!entry) return;
     const list = sprites[floor === 0 ? 0 : depth] || [];
-    const home = entries[0]?.viewerHome;
-    const hiddenByHome = o => depth === 0 && home && safetyRadius > 0
-      && Combat.isEnemyKind(o.kind) && !Combat.isTame(o)
-      && Math.hypot(o.x - home.x, o.y - home.y) < safetyRadius;
-    const hiddenEnemies = (entry.creatures || []).filter(hiddenByHome).length;
+    const home = entries[0]?.viewerSave?.starterCratesAt;
+    const safetyRadius = HomeVariant.RADIUS_M;
     const Wpx = cv.width = innerWidth, Hpx = cv.height = innerHeight;
     const left = document.getElementById('bar').getBoundingClientRect().right;
     const availableWidth = Wpx - left;
@@ -434,7 +426,7 @@
       }
       const { o, appearance: p, cat } = item.sprite;
       if (!showCreatures && cat === 'creature') continue;
-      if (cat === 'creature' && hiddenByHome(o)) continue;
+      if (depth === 0 && !HomeVariant.allows({ depth: 0, save: entries[0].viewerSave }, o)) continue;
       const at = { x: offX + o.x / R.EDGE * R.N * s, y: offY + o.y / R.EDGE * R.N * s };
       if (at.x < -40 || at.y < -40 || at.x > Wpx + 40 || at.y > Hpx + 40) continue;
       const t = assets.textures.get(p.texKey), f = t && t.get(p.frameVal);
@@ -497,6 +489,8 @@
       labels.push(...roadLabels);
       const occupiedLabels = [];
       for (const label of labels) {
+        if (depth === 0 && (label.road || label.nexusKind)
+            && HomeVariant.contains({ depth: 0, save: entries[0].viewerSave }, label.x * W.CELL_M, label.y * W.CELL_M)) continue;
         if (label.x < 0 || label.y < 0 || label.x >= R.WIDTH || label.y >= R.HEIGHT) continue;
         const el = document.createElement('span');
         el.className = 'region-label' + (label.poi ? ' poi-label' : label.road ? ' road-label' : ''); el.textContent = label.text;
@@ -528,21 +522,13 @@
       return `${row.label}: ${placed}${reasons.length ? ` (${reasons.join(', ')})` : ''}`;
     }).join(' · ') : '';
     tag('<b>' + (depth === 0 ? 'Surface - the town' : FloorWallMaterials.theme(depth).label) + '</b>'
-      + (depth === 0 ? `<br>Home safety: <b>${safetyRadius ? safetyRadius + ' m' : 'off'}</b> · ${hiddenEnemies} enemies hidden (preview)` : '')
+      + (depth === 0 ? `<br>Home: <b>${safetyRadius} m</b> · curated starter area` : '')
       + '<br>Nexuses: <b>' + (nexusNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + '<br>Roads: <b>' + (roadNames || (selected ? 'Natural selection' : 'None on this floor')) + '</b>'
       + (placement ? '<br>Placed: ' + placement : ''));
   }
 
   // ── Controls ──────────────────────────────────────────────────────────────
-  safetyInput.oninput = () => {
-    safetyRadius = Number(safetyInput.value);
-    document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
-    const url = new URL(location.href);
-    url.searchParams.set('safetyM', safetyRadius);
-    history.replaceState(null, '', url);
-    draw();
-  };
   function changeSeed(value) {
     if (building) return;
     seed = Number(value) >>> 0;
@@ -579,8 +565,7 @@
     draw();
   };
   function updateControls() {
-    safetyInput.disabled = building || displayDepth() !== 0;
-    document.getElementById('safetyValue').textContent = safetyRadius ? `${safetyRadius} m` : 'Off';
+    document.getElementById('safetyValue').textContent = typeof HomeVariant === 'undefined' ? '50 m' : `${HomeVariant.RADIUS_M} m · surface only`;
     for (const id of ['seed', 'newSeed', 'resetSeed']) document.getElementById(id).disabled = building;
     document.querySelectorAll('#floorSeg button').forEach(b => { b.disabled = building; });
     document.getElementById('creatureToggle').disabled = building;

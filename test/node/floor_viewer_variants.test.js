@@ -1,4 +1,27 @@
 (() => {
+  test('floor viewer variants: L2 snares stay sparse in every preview and restore gameplay after failure', async () => {
+    const originalProfile = WorldGen.floorProfile;
+    const N = 60, grid = new Uint8Array(N * N).fill(WorldGen.T.CAVE_FLOOR);
+    const spawn = () => Traps.spawnCave(grid, N, 0, 0, N * WorldGen.CELL_M, 2,
+      [{ lix: 30, liy: 30 }], new Set(), WorldGen.floorProfile(2).trapDensityMul ?? Traps.DUNGEON_DENSITY_MUL);
+    const gameplay = spawn();
+    for (const [depth, index] of [[2, 0], [2, 1], [3, 0]]) {
+      let failed = false;
+      try {
+        await FloorViewerVariants.withSelection(depth, index, async () => {
+          for (const d of [0, 1, 3, 4, 5, 6, 7, 8]) assert.eq(WorldGen.floorProfile(d), originalProfile(d));
+          const preview = spawn();
+          assert.inRange(preview.length, 7, 11, 'L2 uses its base snare count');
+          assert.gt(gameplay.length, preview.length * 10, 'preview removes the dense dungeon multiplier');
+          assert.eq(JSON.stringify(preview), JSON.stringify(gameplay.slice(0, preview.length)),
+            'retained traps preserve their generated IDs and positions');
+          throw new Error('preview failed');
+        });
+      } catch (error) { failed = error.message === 'preview failed'; }
+      assert.truthy(failed);
+      assert.eq(WorldGen.floorProfile, originalProfile, 'viewer override cannot leak into game generation');
+    }
+  });
   test('floor viewer variants: surface cycling keeps paths and Small roads in separate theme pools', () => {
     const families = FloorViewerVariants.families(0).filter(family => family.type === 'road');
     assert.eq(families.length, 2);

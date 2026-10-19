@@ -1845,6 +1845,37 @@
     drainSteps(rebuildRestoredSteps(scene, tiles, proj, baseCellIX, baseCellIY, restoredTarget(scene)));
   }
 
+  // Home changes the local presentation, never the shared street metadata.
+  // Split exactly at its circular boundary, keeping contiguous runs joined.
+  function homeRoadRuns(scene, pts) {
+    const home = global.HomeVariant?.anchor(scene);
+    if (!home) return [{ pts, home: false }];
+    const radius = HomeVariant.RADIUS_M, runs = [];
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i], dx = b.x - a.x, dy = b.y - a.y;
+      const len2 = dx * dx + dy * dy;
+      if (!len2) continue;
+      const ox = a.x - home.x, oy = a.y - home.y;
+      const dot = ox * dx + oy * dy;
+      const disc = dot * dot - len2 * (ox * ox + oy * oy - radius * radius);
+      const cuts = [0, 1];
+      if (disc > 0) for (const t of [(-dot - Math.sqrt(disc)) / len2, (-dot + Math.sqrt(disc)) / len2]) {
+        if (t > 0 && t < 1) cuts.push(t);
+      }
+      cuts.sort((a, b) => a - b);
+      for (let j = 1; j < cuts.length; j++) {
+        const lo = cuts[j - 1], hi = cuts[j], mid = (lo + hi) / 2;
+        const inside = (ox + dx * mid) ** 2 + (oy + dy * mid) ** 2 < radius * radius;
+        const start = { x: a.x + dx * lo, y: a.y + dy * lo };
+        const end = { x: a.x + dx * hi, y: a.y + dy * hi };
+        const prior = runs[runs.length - 1];
+        if (prior && prior.home === inside) prior.pts.push(end);
+        else runs.push({ pts: [start, end], home: inside });
+      }
+    }
+    return runs;
+  }
+
   // ── The dilapidated network ──────────────────────────────────────────────
   function* rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, g) {
     if (!g) return;
@@ -1879,7 +1910,10 @@
         const hex = global.StreetVariants?.stoneColorFor(variant, false);
         const tint = hex ? parseInt(hex.slice(1), 16) : color;
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-        emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, isRail, variant, PATH_CLASSES.has(f.tags?.class)));
+        for (const part of homeRoadRuns(scene, pts)) {
+          emitRuns(part.pts, proj, (run) => addRun(widthPx, part.home ? color : tint, run,
+            isRail, part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class)));
+        }
         if (style && StreetVariants.carpetStyleFor(style.variant)) carpets.push({ pts, variant: style.variant,
           halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
       }
@@ -1894,9 +1928,9 @@
     if (g.decorPath) for (const { pts, variant, halfM } of carpets) {
       const off = halfM + scene.cellM / 2;
       for (const side of [1, -1]) {
-        emitRuns(offsetLine(pts, side * off), proj, (run) => {
-          emitCarpetStrip(g, run, variant);
-        });
+        for (const part of homeRoadRuns(scene, offsetLine(pts, side * off))) {
+          if (!part.home) emitRuns(part.pts, proj, (run) => emitCarpetStrip(g, run, variant));
+        }
         yield;
       }
     }
@@ -1945,7 +1979,10 @@
               const sub = S.subLineM(line, mvtToM, iv[0], iv[1]);
               if (!sub || sub.length < 2) continue;
               const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
-              emitRuns(pts, proj, (run) => addRun(widthPx, tint, run, variant, PATH_CLASSES.has(f.tags?.class)));
+              for (const part of homeRoadRuns(scene, pts)) {
+                emitRuns(part.pts, proj, (run) => addRun(widthPx, part.home ? color : tint, run,
+                  part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class)));
+              }
             }
           }
         }
@@ -2082,7 +2119,7 @@
     }
   }
 
-  global.RoadOverlay = { transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,

@@ -469,6 +469,7 @@
     const N = entry.cellsPerEdge;
     if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return false;
     const i = liy * N + lix;
+    if (root.WorldGen.variantOwnerAt(entry, i) === 'home') return false;
     if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
     // THE SPAWN GATE: a snare is a 'hazard' spawn. The entry's full options
     // apply sensitive ground, every hard reason, the kerb and the Small-road

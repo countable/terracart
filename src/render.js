@@ -3737,8 +3737,9 @@ Render.headingFadeView = function headingFadeView(scene, box) {
 // QC labels read the generated selections, never choose another variant.
 // Buffered copies share an identity; prefer a zone's owned POI and the
 // nearest visible road-piece midpoint so a clipped street gets one label.
-Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay, halfM) {
+Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay, halfM, scene) {
   const zones = new Map(), roads = new Map();
+  const inHome = (x, y) => scene && typeof HomeVariant !== 'undefined' && HomeVariant.contains(scene, x, y);
   const visible = (x, y) => inViewBox(x - ax, y - ay, halfM);
   for (const e of entries) {
     for (const a of e.zone && e.zone.anchors || []) {
@@ -3749,6 +3750,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       const poi = a.owned && (e.objects || []).find(o => o._poiAt === `${a.lx},${a.ly}`);
       const x = poi ? poi.x : a.gx / 4096 * edgeM;
       const y = poi ? poi.y : a.gy / 4096 * edgeM;
+      if (inHome(x, y)) continue;
       zones.set(id, { id, kind: 'zone', text: `Zone: ${row.name}`, x, y });
     }
     const index = e.streetIndex;
@@ -3781,6 +3783,7 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
         if (left <= span.d) { x = span.x + span.dx * left / span.d; y = span.y + span.dy * left / span.d; break; }
         left -= span.d;
       }
+      if (inHome(x, y)) continue;
       const id = `road:${rec.key || rec.lineKey}:${rec.variant || 'plain'}`, distance = (x - ax) ** 2 + (y - ay) ** 2;
       const prior = roads.get(id);
       if (prior && prior.distance <= distance) continue;
@@ -3789,7 +3792,10 @@ Render.variantLabelRecords = function variantLabelRecords(entries, edgeM, ax, ay
       roads.set(id, { id, kind: 'road', text: `Road: ${title}${rec.rocks ? ' · rocks' : ''}`, x, y, distance });
     }
   }
-  return [...zones.values(), ...roads.values()].filter(o => visible(o.x, o.y));
+  const home = scene && typeof HomeVariant !== 'undefined' && HomeVariant.anchor(scene);
+  const records = [...zones.values(), ...roads.values()];
+  if (home) records.push({ id: 'home', kind: 'zone', text: 'Zone: Home', x: home.x, y: home.y });
+  return records.filter(o => visible(o.x, o.y));
 };
 
 Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
@@ -3802,7 +3808,7 @@ Render.drawVariantLabels = function drawVariantLabels(scene, ax, ay, halfM) {
     if (!tileBoxReach(edge, tx, ty, ax - halfM, ay - halfM, ax + halfM, ay + halfM)) continue;
     entries.push({ tx, ty, zone: e.zone, objects: e.objects, streetIndex: e.streetIndex });
   }
-  const records = Render.variantLabelRecords(entries, edge, ax, ay, halfM);
+  const records = Render.variantLabelRecords(entries, edge, ax, ay, halfM, scene);
   Render.renderPool(scene, pool, scene.labelContainer, records, (text, o) => {
     const screen = deltaMToScreen(scene, o.x - ax, o.y - ay);
     text.setText(o.text).setPosition(Math.round(screen.x), Math.round(screen.y - 18));
@@ -4408,11 +4414,13 @@ Render.drawObjects = function drawObjects(scene) {
     }
     if (entry.reefCorals) WorldGen.forEachItemInBox(entry, 'reefCorals',
       pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, o => {
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
         objList.push({ o, dx: o.x - pWorldX, dy: o.y - pWorldY });
       }, true);
     if (entry.objects) {
       WorldGen.forEachItemInBox(entry, 'objects', sx0, sy0, sx1, sy1, (o) => {
         _boot_scanned++;
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
         if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
         if (Render.coverHidden(scene, o, true)) return;
         if (HiddenObjects.isHidden(scene.save, o)
@@ -4459,6 +4467,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (LIGHTS && lM > sM && preCullLightList(entry)) {
         WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
           _boot_scanned++;
+          if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
           if (HiddenObjects.isHidden(scene.save, o)
               || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
@@ -4472,6 +4481,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (entry.wildplants) {
       WorldGen.forEachItemInBox(entry, 'wildplants', pWorldX - wM, pWorldY - wM, pWorldX + wM, pWorldY + wM, (wp) => {
         _boot_scanned++;
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, wp)) return;
         // Most picked plants disappear; fruit bushes leave a plain bush.
         // The source record stays spent for interaction and persistence.
         wp = Render.wildplantView(wp, spentIds);
@@ -4508,6 +4518,7 @@ Render.drawObjects = function drawObjects(scene) {
       WorldGen.forEachItemInBox(entry, 'traps',
         pWorldX - halfM, pWorldY - halfM, pWorldX + halfM, pWorldY + halfM, (tr) => {
           _boot_scanned++;
+          if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, tr)) return;
           if (disarmedSet.has(tr.id)) return;
           const dx = tr.x - pWorldX, dy = tr.y - pWorldY;
           if (!inViewBox(dx, dy, halfM)) return;
@@ -4523,6 +4534,7 @@ Render.drawObjects = function drawObjects(scene) {
       const nowMs = Date.now();
       _boot_scanned += entry.laidTraps.length;
       cullToView(entry.laidTraps, pWorldX, pWorldY, halfM, (tr, dx, dy) => {
+        if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, tr)) return;
         if (!Traps.isLive(tr, nowMs)) return;
         trapList.push({ tr, dx, dy, sprung: !!tr._sprung });
         _boot_kept++;
@@ -4541,6 +4553,7 @@ Render.drawObjects = function drawObjects(scene) {
   // In the live game wanderCreatures has already removed the frozen ring
   // seats; the fallback preserves standalone render callers.
   cullToView(consideredCreatures, pWorldX, pWorldY, halfM, (c, dx, dy) => {
+    if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, c)) return;
     if (caughtSet.has(c.id)) return;
     if (Render.coverHidden(scene, c)) return;
     if (typeof EnemySpawns !== 'undefined' && EnemySpawns.isSurfaceResident(c)) EnemySpawns.surfaceActive(scene, c);
@@ -4647,6 +4660,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Only containers with broken art remain after collection (clay pots).
   // Wooden barrels disappear through the ordinary spent-object filter.
   for (const o of HiddenObjects.saved(scene)) {
+    if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) continue;
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
     if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o, true)) continue;
     if (HiddenObjects.isHidden(scene.save, o)

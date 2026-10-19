@@ -398,6 +398,7 @@ class SceneStreets {
       // flat pairs is the cost here and a long way carries several lamps.
       const restored = new Map();
       for (const L of lamps) {
+        if (HomeVariant.contains(this, L.x, L.y)) continue;
         if (Math.abs(L.x - c.x) > pad || Math.abs(L.y - c.y) > pad) continue;
         let iv = restored.get(L.lineKey);
         if (iv === undefined) {
@@ -691,6 +692,7 @@ class SceneStreets {
       const lamps = this._streetLampsForTile(tx, ty, entry);
       const restored = new Map();
       for (const L of lamps) {
+        if (HomeVariant.contains(this, L.x, L.y)) continue;
         if (Math.abs(L.x - px) > R || Math.abs(L.y - py) > R) continue;
         if (Math.hypot(L.x - px, L.y - py) > R) continue;
         let iv = restored.get(L.lineKey);

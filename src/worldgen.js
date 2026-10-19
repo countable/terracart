@@ -212,6 +212,7 @@
   function variantOwnerAt(entry, idx) {
     if (!entry || idx < 0) return null;
     if (entry.caveAreas?.reserved.has(idx)) return 'cave';
+    if ((entry.depth || 0) === 0 && !entry._homeVariantGenerating && entry.homeVariant?.[idx]) return 'home';
     if (entry.zone && entry.zone.coverage && entry.zone.coverage[idx]) return 'zone';
     return entry.streetArea && entry.streetArea[idx] ? 'road' : null;
   }
@@ -6678,6 +6679,9 @@
     // character's filler a little further out. A tile with parks but no Nexus
     // still gets a (stub) field, so the land's class (`under`) reaches the
     // trap ground the same way.
+    // Preserve physical landcover before any Nexus or road-theme paint.
+    // The per-player Home overlay uses this; shared cave inputs stay untouched.
+    const variantBaseGrid = grid.slice();
     let zone = null, zoneDress = null, fringe = null;
     if (typeof Zones !== 'undefined') {
       zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
@@ -6869,7 +6873,7 @@
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       landcoverGrid: caveSource.grid, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     assignScholarFallback(deduped);
-    return { grid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -7077,7 +7081,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -7121,6 +7125,7 @@
       // street index (src/street_variants.js) — both pure MVT, re-derived by a
       // rebuild like the mask. spawnInTile dresses the streets off the index.
       entry.roadClass = roadClass;
+      entry.variantBaseGrid = variantBaseGrid;
       entry.streetIndex = streetIndex || null;
       entry.streetArea = streetArea || null;
       entry.streetAreaVariants = streetArea?.variants || null;
