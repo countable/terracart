@@ -1,0 +1,391 @@
+{
+  "schemaVersion": 1,
+  "reviewNote": "Curated source crops for comparison only. Candidates are not approved or wired into game assets. Source rectangles use x, y, width, height in original pixels.",
+  "entries": [
+    {
+      "id": "ra-barrel",
+      "pack": "Rogue Adventure World",
+      "name": "Weathered barrel",
+      "targets": [
+        "barrel"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        176,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-barrel.png",
+      "note": "Muted brown and clear top rim fit neglected interiors. A smashed state still needs matching art."
+    },
+    {
+      "id": "ra-crate",
+      "pack": "Rogue Adventure World",
+      "name": "Timber crate",
+      "targets": [
+        "box"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        128,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/ra-crate.png",
+      "note": "Restrained warm wood; readable lid and compressed front. Compare with current loot visibility."
+    },
+    {
+      "id": "ra-chest",
+      "pack": "Rogue Adventure World",
+      "name": "Gold-trimmed chest",
+      "targets": [
+        "chest"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Interior.png",
+      "sourceSHA256": "770e26f500875d55f82ea86a06eb03f94a774c475c4b5f89b1bfcc3d3817fa38",
+      "crop": [
+        320,
+        224,
+        32,
+        16
+      ],
+      "image": "art-candidates/world/ra-chest.png",
+      "note": "Strong reward silhouette. Bright trim suits treasure; this is one closed state, not a complete opening animation."
+    },
+    {
+      "id": "ra-rock",
+      "pack": "Rogue Adventure World",
+      "name": "Dark rock cluster",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
+      "crop": [
+        256,
+        96,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/ra-rock.png",
+      "note": "Subdued cave stone and clear grounding; no mineral colour cue, so ore variants would need authoring."
+    },
+    {
+      "id": "ra-stalagmite",
+      "pack": "Rogue Adventure World",
+      "name": "Cave stalagmites",
+      "targets": [
+        "cave_props:stalagmites"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "sourceSHA256": "6438a58f5fa6eb6cc2a5c336afed7364bbd284c608c438b22df546fd912d0397",
+      "crop": [
+        448,
+        96,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/ra-stalagmite.png",
+      "note": "Muted stone fits dangerous caves. Keep the upright silhouette distinct from mineable rock."
+    },
+    {
+      "id": "ra-house",
+      "pack": "Rogue Adventure World",
+      "name": "Thatched cottage study",
+      "targets": [
+        "house",
+        "house_trader"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+      "sourceSHA256": "b5e285b3751757afc75e803487908643e3492ce0a68bf76ee4a16892596152f4",
+      "crop": [
+        176,
+        384,
+        64,
+        80
+      ],
+      "image": "art-candidates/world/ra-house.png",
+      "note": "Warm weathered palette. Source is 64\u00d780 and front-heavy: shorten its wall/roof before meeting the 64\u00d764 house brief. Role emblems are absent."
+    },
+    {
+      "id": "ra-grass",
+      "pack": "Rogue Adventure World",
+      "name": "Olive grass patch",
+      "targets": [
+        "ground:0",
+        "ground:6"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "crop": [
+        24,
+        72,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/ra-grass.png",
+      "note": "Muted olive works for unrestored ground. This soft-edged patch is a material sample, not a seamless replacement for the current painter."
+    },
+    {
+      "id": "ra-earth",
+      "pack": "Rogue Adventure World",
+      "name": "Weathered earth patch",
+      "targets": [
+        "tilled",
+        "ground:4"
+      ],
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "crop": [
+        216,
+        72,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/ra-earth.png",
+      "note": "Restrained brown suits neglected farmland. Needs a shallow depression lip and crop rows for tilled plots."
+    },
+    {
+      "id": "fd-barrel",
+      "pack": "Fantasy Dreamland",
+      "name": "Copper-brown barrel",
+      "targets": [
+        "barrel"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        32,
+        128,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-barrel.png",
+      "note": "Strong top rim and readable front. Brighter orange than the current world; best as a restored prop. One intact state only."
+    },
+    {
+      "id": "fd-tree",
+      "pack": "Fantasy Dreamland",
+      "name": "Round broadleaf tree",
+      "targets": [
+        "trees"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+      "crop": [
+        192,
+        16,
+        32,
+        48
+      ],
+      "image": "art-candidates/world/fd-tree.png",
+      "note": "Clear canopy and trunk at small scale. Vivid green suits restored areas; 16px source clusters need scale review beside the 24px art target."
+    },
+    {
+      "id": "fd-shrub",
+      "pack": "Fantasy Dreamland",
+      "name": "Leafy sapling study",
+      "targets": [
+        "plant:shrub"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+      "crop": [
+        128,
+        32,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/fd-shrub.png",
+      "note": "Clean leafy crown with a short exposed trunk. Brighter and more tree-like than a shrub; shorten the trunk for ground-hugging garden foliage. No harvest states supplied here."
+    },
+    {
+      "id": "fd-red-tree",
+      "pack": "Fantasy Dreamland",
+      "name": "Red canopy tree study",
+      "targets": [
+        "worldpeach_tree",
+        "apple_tree"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+      "sourceSHA256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+      "crop": [
+        192,
+        272,
+        32,
+        48
+      ],
+      "image": "art-candidates/world/fd-red-tree.png",
+      "note": "Useful fruit-tree silhouette and colour contrast, but this canopy has no explicit fruit; fruit and harvest states would need authoring."
+    },
+    {
+      "id": "fd-flowers",
+      "pack": "Fantasy Dreamland",
+      "name": "Blue flower clump",
+      "targets": [
+        "plant:flowers",
+        "plant:forgetmenot"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        240,
+        0,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-flowers.png",
+      "note": "Readable pale blue bloom; colourful restored-garden option. A visual bloom alternative, not a verified botanical species."
+    },
+    {
+      "id": "fd-grass",
+      "pack": "Fantasy Dreamland",
+      "name": "Grass tuft study",
+      "targets": [
+        "plant:longgrass"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        128,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-grass.png",
+      "note": "Small overhead tuft with vivid leaves. Does not reproduce the current fern identity; useful only if its silhouette is revised."
+    },
+    {
+      "id": "fd-rock",
+      "pack": "Fantasy Dreamland",
+      "name": "Light limestone boulder",
+      "targets": [
+        "mineralrock"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        240,
+        176,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/fd-rock.png",
+      "note": "Broad top plane and clean silhouette. Light colour suits restored quarries; ore-bearing variants still need explicit cues."
+    },
+    {
+      "id": "fd-stalagmites",
+      "pack": "Fantasy Dreamland",
+      "name": "Warm cave spires",
+      "targets": [
+        "cave_props:stalagmites"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        448,
+        0,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/fd-stalagmites.png",
+      "note": "Readable upright peaks with warm highlights. More saturated than Rogue; palette adjustment may be needed for bleak caves."
+    },
+    {
+      "id": "fd-house",
+      "pack": "Fantasy Dreamland",
+      "name": "Red-roof cottage study",
+      "targets": [
+        "house",
+        "house_trader"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Village.png",
+      "sourceSHA256": "e9c1c51fc04f71108dbbc519e74d40f131afc22bf705a3447242d7f0c3c5bd5a",
+      "crop": [
+        256,
+        128,
+        64,
+        80
+      ],
+      "image": "art-candidates/world/fd-house.png",
+      "note": "Cozy restored palette and readable roof. 64\u00d780 exceeds house target height; front is tall and role signage is absent."
+    },
+    {
+      "id": "fd-ground",
+      "pack": "Fantasy Dreamland",
+      "name": "Mint grass texture",
+      "targets": [
+        "ground:0",
+        "ground:6"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Grasslands.png",
+      "sourceSHA256": "99b4df039e783e5292ebaf10a6e8a41096dae7fe3ed7a3dac28a99e716284567",
+      "crop": [
+        16,
+        16,
+        32,
+        32
+      ],
+      "image": "art-candidates/world/fd-ground.png",
+      "note": "Clean square ground sample with bright mint tones. Best restored palette; tile seams need checking before replacing procedural terrain."
+    },
+    {
+      "id": "fd-earth",
+      "pack": "Fantasy Dreamland",
+      "name": "Warm cave floor",
+      "targets": [
+        "ground:10"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves.png",
+      "sourceSHA256": "0be99c3a640553869b4c19f041985391d2e92db5701f969788e632fba4900074",
+      "crop": [
+        32,
+        32,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-earth.png",
+      "note": "Fine orange grain offers a stone-floor alternative. More saturated than the current muted world; compare texture density at game scale."
+    },
+    {
+      "id": "fd-ore-quartz",
+      "pack": "Fantasy Dreamland",
+      "name": "Quartz ore colour study",
+      "targets": [
+        "cave_props:quartz_rock"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "sourceSHA256": "e1f14cfb465423594ccc7c15b4582359b470a37ff5e3c59506fa1d4352e449ff",
+      "crop": [
+        0,
+        16,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-ore-quartz.png",
+      "note": "Small mineral-flecked rock with a clear top plane. Colour study only: verify the gem colour language against inventory rewards before adoption; no mining depletion states included."
+    },
+    {
+      "id": "fd-ore-topaz",
+      "pack": "Fantasy Dreamland",
+      "name": "Topaz ore colour study",
+      "targets": [
+        "cave_props:topaz_rock"
+      ],
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "sourceSHA256": "e1f14cfb465423594ccc7c15b4582359b470a37ff5e3c59506fa1d4352e449ff",
+      "crop": [
+        0,
+        64,
+        16,
+        16
+      ],
+      "image": "art-candidates/world/fd-ore-topaz.png",
+      "note": "Small mineral-flecked rock with a clear top plane. Colour study only: verify the gem colour language against inventory rewards before adoption; no mining depletion states included."
+    }
+  ]
+}

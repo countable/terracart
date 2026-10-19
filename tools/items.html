@@ -7,6 +7,7 @@
 <style>
 :root{color-scheme:dark;--bg:#111;--panel:#1a1612;--ink:#ddd;--muted:#aaa;--gold:#ffd866;--line:#393126}
 *{box-sizing:border-box}body{margin:0 auto;padding:24px;max-width:1500px;background:var(--bg);color:var(--ink);font:14px system-ui,sans-serif}a{color:#8ec5ff}h1{font-size:26px;color:var(--gold);margin:18px 0 8px}p{color:var(--muted);line-height:1.5;margin:6px 0}.controls{display:flex;flex-wrap:wrap;gap:14px;margin:22px 0 14px;align-items:end}label{display:grid;gap:6px;font-size:12px;color:var(--muted)}input,select{font:inherit;color:var(--ink);background:#211d18;border:1px solid #65553d;border-radius:5px;padding:9px}input{width:300px;max-width:100%}.table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:14px}table{border-collapse:collapse;width:100%;background:var(--panel);font-size:13px}th,td{padding:12px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}th{background:#282119;color:var(--gold);white-space:nowrap}td.name{min-width:180px}td.description{min-width:220px;max-width:370px;line-height:1.5}td.sources{min-width:230px;max-width:430px;line-height:1.6}td.value{white-space:nowrap;font-variant-numeric:tabular-nums}.muted,small{color:var(--muted)}small{display:block;margin-top:5px;font:11px ui-monospace,monospace}.art{min-width:64px;text-align:center;vertical-align:middle}.art span{background-repeat:no-repeat}.tag{display:inline-block;background:#2b251d;border:1px solid #4c4030;border-radius:4px;padding:1px 6px;margin:2px;font-size:11px}summary{cursor:pointer;color:#8ec5ff}#status{margin-top:12px}#empty{padding:30px;text-align:center}button{font:inherit;color:var(--ink);background:#30291f;border:1px solid #65553d;padding:9px;border-radius:5px;cursor:pointer}@media(max-width:600px){body{padding:14px}.controls>label:first-child{width:100%}input{width:100%}h1{font-size:22px}}
+.candidate{min-width:210px;max-width:260px}.candidate-preview{display:flex;align-items:center;gap:10px;min-height:48px}.candidate p{font-size:12px}.candidate details{margin-top:6px;font-size:11px;overflow-wrap:anywhere}.candidate img{image-rendering:pixelated}.review-note{padding:12px;border:1px solid var(--line);border-radius:6px}.review-note strong{color:var(--gold)}
 </style>
 </head>
 <body>
@@ -14,19 +15,22 @@
 <h1>Item catalogue</h1>
 <p>Every inventory item and equipment tier, with game art, list value, and the description shown in-game.</p>
 <p>Chest sources show possible drops, including rare rolls. Actual odds depend on chest tier, depth, and player gear. “No chest drops” items come from other activities. Values are per item, before shop or equipment modifiers.</p>
+<p class="review-note"><strong>Art alternatives · review only.</strong> Current game icons sit beside reviewed crops from both requested packs. Rogue Adventure offers coloured inventory sprites; Fantasy Dreamland’s item sheets use cyan glyphs, shown as style studies that need recolouring. Equipment comparisons use T1 as a silhouette sample, not a complete tier replacement. All previews fit the same 40px box with crisp scaling; source crops remain 16×16. “No selected match” means no suitable candidate was selected in this review. Gameplay art is unchanged.</p>
 <div class="controls">
 <label>Search items<input type="search" id="search" placeholder="Name, description, or item ID"></label>
 <label>Category<select id="category"><option value="">All categories</option></select></label>
 <label>Tier<select id="tier"><option value="">All tiers</option></select></label>
 <label>Chest type<select id="chest"><option value="">All sources</option><option value="none">No chest drops</option></select></label>
+<label>Art alternatives<select id="alternatives"><option value="">All items</option><option value="any">With alternatives</option><option value="rogue">Rogue Adventure match</option><option value="dreamland">Fantasy Dreamland study</option><option value="none">No selected match</option></select></label>
 <label>Sort<select id="sort"><option value="name">Name</option><option value="value-desc">Value: high to low</option><option value="value-asc">Value: low to high</option><option value="tier">Tier</option><option value="category">Category</option></select></label>
 <button id="reset" type="button">Reset</button>
 </div>
 <p id="status" role="status" aria-live="polite">Loading game items…</p>
-<div class="table-wrap"><table data-sortable><thead><tr><th scope="col" data-sort="none">Art</th><th scope="col">Item</th><th scope="col">Value</th><th scope="col">Category</th><th scope="col">Tier</th><th scope="col">Chest types</th><th scope="col">In-game description</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" hidden>No items match these filters.</p></div>
+<div class="table-wrap"><table data-sortable><thead><tr><th scope="col">Item</th><th scope="col" data-sort="none">Current art</th><th scope="col" data-sort="none">Rogue Adventure</th><th scope="col" data-sort="none">Fantasy Dreamland</th><th scope="col">Value</th><th scope="col">Category</th><th scope="col">Tier</th><th scope="col">Chest types</th><th scope="col">In-game description</th></tr></thead><tbody id="rows"></tbody></table><p id="empty" hidden>No items match these filters.</p></div>
 <script src="sortable-tables.js"></script>
 <script src="game-loader.js"></script>
 <script src="item-catalog-data.js"></script>
+<script src="item-art-candidates.js"></script>
 <script>
 const el = id => document.getElementById(id);
 const escapeHTML = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -34,6 +38,35 @@ let catalogue = [];
 const iconScene = () => MapScene.prototype;
 const sourceName = context => context.replace(/^(chest|fixed):/, '').replaceAll('-', ' ');
 const previewIcons = new Map();
+const candidatePreviews = new Map();
+function candidateHTML(row, pack) {
+  const candidate = ItemArtCandidates.rows[row.id]?.[pack];
+  if (!candidate) return '<span class="muted">No selected match</span>';
+  const source = ItemArtCandidates.packs[pack];
+  const url = 'art-candidates/items/' + source.file;
+  const x = candidate.col * 16, y = candidate.row * 16;
+  return `<div class="candidate-preview"><img alt="${escapeHTML(source.name + ' alternative for ' + row.name)}" width="40" height="40" src="${candidatePreviews.get(pack + ':' + row.id)}"><span class="tag">${pack === 'rogue' ? 'Candidate' : 'Needs recolour'}</span></div><p>${escapeHTML(candidate.note)}</p><details><summary>Source &amp; crop</summary><a href="${url}" target="_blank" rel="noopener">${escapeHTML(source.file)}</a><small>x ${x}, y ${y}, w 16, h 16 · column ${candidate.col}, row ${candidate.row} (zero-based)</small><small>${escapeHTML(source.source)}</small></details>`;
+}
+async function prepareCandidatePreviews() {
+  await Promise.all(Object.entries(ItemArtCandidates.packs).map(async ([pack, source]) => {
+    const img = new Image(); img.src = 'art-candidates/items/' + source.file; await img.decode();
+    for (const [id, candidates] of Object.entries(ItemArtCandidates.rows)) {
+      const candidate = candidates[pack]; if (!candidate) continue;
+      const frame = document.createElement('canvas'); frame.width = frame.height = 16;
+      const ctx = frame.getContext('2d');
+      ctx.drawImage(img, candidate.col * 16, candidate.row * 16, 16, 16, 0, 0, 16, 16);
+      const bounds = ItemCatalog.iconBounds(ctx.getImageData(0, 0, 16, 16));
+      if (!bounds) throw new Error(`Empty art candidate: ${pack}/${id}`);
+      const canvas = document.createElement('canvas'); canvas.width = canvas.height = 40;
+      const out = canvas.getContext('2d'); out.imageSmoothingEnabled = false;
+      const scale = 36 / Math.max(bounds.width, bounds.height);
+      const width = Math.round(bounds.width * scale), height = Math.round(bounds.height * scale);
+      out.drawImage(frame, bounds.x, bounds.y, bounds.width, bounds.height,
+        Math.round((40-width)/2), Math.round((40-height)/2), width, height);
+      candidatePreviews.set(pack + ':' + id, canvas.toDataURL());
+    }
+  }));
+}
 function gameIconHTML(row) {
   const game = iconScene();
   const html = row.gear ? game.gearIconHTML(row.gear.kind, row.gear.slot, row.gear.tier, 40) : game.iconSpanHTML(row.itemId, 40);
@@ -48,15 +81,16 @@ function sourceHTML(row) {
   return tags + `<details><summary>Tier &amp; depth details</summary><span class="muted">${escapeHTML(details)}</span></details>`;
 }
 function render() {
-  const query = el('search').value.trim().toLowerCase(), category = el('category').value, tier = el('tier').value, chest = el('chest').value;
+  const query = el('search').value.trim().toLowerCase(), category = el('category').value, tier = el('tier').value, chest = el('chest').value, alternatives = el('alternatives').value;
   const rows = catalogue.filter(row => (!query || `${row.name} ${row.id} ${row.description}`.toLowerCase().includes(query))
+    && (!alternatives || (alternatives === 'any' ? !!ItemArtCandidates.rows[row.id] : alternatives === 'none' ? !ItemArtCandidates.rows[row.id] : !!ItemArtCandidates.rows[row.id]?.[alternatives]))
     && (!category || row.category === category) && (!tier || String(row.tier) === tier)
     && (!chest || (chest === 'none' ? !row.chests.length : row.chests.some(source => source.context === chest))));
   const sort = el('sort').value;
   rows.sort((a,b) => (sort === 'value-desc' ? b.value-a.value : sort === 'value-asc' ? a.value-b.value : sort === 'tier' ? a.tier-b.tier : sort === 'category' ? a.category.localeCompare(b.category) : 0) || a.name.localeCompare(b.name));
-  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="art">${iconHTML(row)}</td><td class="name" data-sort-value="${escapeHTML(row.name)}"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small></td><td class="value" data-sort-value="${row.value}">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td data-sort-value="${row.tier || 0}">${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
+  el('rows').innerHTML = rows.map(row => `<tr data-item="${escapeHTML(row.id)}"><td class="name" data-sort-value="${escapeHTML(row.name)}"><strong>${escapeHTML(row.name)}</strong><small>${escapeHTML(row.id)}</small></td><td class="art">${iconHTML(row)}</td><td class="candidate">${candidateHTML(row, 'rogue')}</td><td class="candidate">${candidateHTML(row, 'dreamland')}</td><td class="value" data-sort-value="${row.value}">$${Number(row.value).toLocaleString()}</td><td>${escapeHTML(row.category)}</td><td data-sort-value="${row.tier || 0}">${row.tier ? 'T'+escapeHTML(row.tier) : '—'}</td><td class="sources">${sourceHTML(row)}</td><td class="description">${row.description ? escapeHTML(row.description) : '<span class="muted">No in-game description</span>'}</td></tr>`).join('');
   SortableTables.refresh(el('rows').closest('table'));
-  el('status').textContent = `${rows.length} of ${catalogue.length} items`;
+  el('status').textContent = `${rows.length} of ${catalogue.length} items · ${catalogue.filter(row => ItemArtCandidates.rows[row.id]).length} items with reviewed alternatives`;
   el('empty').hidden = rows.length > 0;
 }
 // World animals use a representative sprite frame in the game's inventory.
@@ -125,14 +159,16 @@ async function preparePreviewIcons(rows) {
     IconNet.ready = path => ready(path.startsWith('assets/') ? '../' + path : path);
     await prepareWorldIcons();
     catalogue = ItemCatalog.build();
-    await preparePreviewIcons(catalogue);
+    await Promise.all([preparePreviewIcons(catalogue), prepareCandidatePreviews()]);
     const fill = (id, values, label = value => value) => values.forEach(value => el(id).add(new Option(label(value), value)));
     fill('category', [...new Set(catalogue.map(row => row.category))].sort());
     fill('tier', [...new Set(catalogue.map(row => row.tier))].sort((a,b) => a-b), value => 'T'+value);
     fill('chest', [...new Set(catalogue.flatMap(row => row.chests.map(source => source.context)))].sort(), sourceName);
     el('sort').addEventListener('input', () => SortableTables.clear(el('rows').closest('table')));
-    for (const id of ['search','category','tier','chest','sort']) el(id).addEventListener('input', render);
-    el('reset').addEventListener('click', () => { SortableTables.clear(el('rows').closest('table')); for (const id of ['search','category','tier','chest']) el(id).value = ''; el('sort').value = 'name'; render(); });
+    for (const id of ['search','category','tier','chest','alternatives','sort']) el(id).addEventListener('input', render);
+    el('reset').addEventListener('click', () => { SortableTables.clear(el('rows').closest('table')); for (const id of ['search','category','tier','chest','alternatives']) el(id).value = ''; el('sort').value = 'name'; render(); });
+    const initialAlternatives = new URLSearchParams(location.search).get('alternatives');
+    if (['any', 'rogue', 'dreamland', 'none'].includes(initialAlternatives)) el('alternatives').value = initialAlternatives;
     render();
   } catch (error) { el('status').textContent = 'Could not load the catalogue: ' + error.message; console.error(error); }
 })();

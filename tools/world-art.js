@@ -204,19 +204,28 @@
       if(row.reference!=null)usedNumbers.add(row.reference);
       row.referenceLabel=row.reference==null?'Unassigned':`WA-${String(row.reference).padStart(3,'0')}`;
     }
+    const alternativeResponse=await fetch('world-art-alternatives.json',{cache:'no-store'});
+    if(!alternativeResponse.ok)throw new Error('Could not load art alternatives');
+    const alternatives=await alternativeResponse.json();
+    for(const row of rows)row.alternatives=alternatives.entries.filter(candidate=>candidate.targets.includes(row.id));
+    const requestedAlternatives=new URLSearchParams(location.search).get('alternatives');
+    if(['any','Rogue Adventure World','Fantasy Dreamland','none'].includes(requestedAlternatives))$('alternatives').value=requestedAlternatives;
     const unnumbered=rows.filter(row=>row.reference==null);
     let selected=null,descending=false;
     const zoneVariantsText=row=>(row.approved?'Approved for placement: ':'')+([...row.zoneVariants].map(id=>names.get(id)||title(id)).sort().join(', ')||'Shared / other world use');
     const sandboxZoneKind = id => ZoneVariantData.variants.find(z=>z.id===id)?.zone || id;
     const art=(row,limit)=>row.images.slice(0,limit).map((src,i)=>`<img class="sprite" src="${src}" alt="${esc(row.name+(row.stateLabels?.[i]?' · '+row.stateLabels[i]:''))}" title="${esc(row.stateLabels?.[i]||row.name)}" loading="lazy">`).join('')||'<small>Preview unavailable</small>';
+    const candidateArt=c=>`<figure class="candidate"><img class="sprite" src="${esc(c.image)}" alt="${esc(c.name)}" loading="lazy"><figcaption><strong>${esc(c.name)}</strong><br><small>${esc(c.pack)} · ${c.crop[2]}×${c.crop[3]} px source</small></figcaption></figure>`;
+    const filteredAlternatives=row=>row.alternatives.filter(c=>!['Rogue Adventure World','Fantasy Dreamland'].includes($('alternatives').value)||c.pack===$('alternatives').value);
     function renderTable(){
       const words=$('search').value.trim().toLowerCase().split(/\s+/).filter(Boolean),zoneVariant=$('zone').value,cat=$('category').value,sort=$('sort').value;
-      const visible=rows.filter(r=>(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
+      const choice=$('alternatives').value;
+      const visible=rows.filter(r=>(!choice||(choice==='none'?!r.alternatives.length:filteredAlternatives(r).length))&&(!cat||r.category===cat)&&(!zoneVariant||(zoneVariant==='shared'?!r.zoneVariants.size:r.zoneVariants.has(zoneVariant)))&&words.every(w=>[r.referenceLabel,r.reference==null?'':`#${r.reference} ${r.reference}`,r.name,r.key,r.frames.join(' '),r.category,r.gem,r.currentUse,...r.alternatives.map(c=>c.name+' '+c.pack),zoneVariantsText(r)].join(' ').toLowerCase().includes(w)));
       const value=r=>sort==='zone'?zoneVariantsText(r):r[sort];visible.sort((a,b)=>((sort==='reference'?(a.reference??Infinity)-(b.reference??Infinity):String(value(a)).localeCompare(String(value(b))))||a.name.localeCompare(b.name))*(descending?-1:1));
       if(!visible.some(r=>r.id===selected))selected=visible[0]?.id;
       $('sandbox-zone').innerHTML=zoneVariant && zoneVariant !== 'shared' ? SandboxLinks.link(sandboxZoneKind(zoneVariant)) : '';
-      $('count').textContent=`${visible.length} of ${rows.length} artwork entries`;
-      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><button class="pickaxe" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td>${esc(r.category)}${r.gem?`<br><small>T${r.deposit.yieldTier} · ${r.value} coin value</small><div class="gem-icon"><img class="sprite" src="${r.inventoryImage}" alt="${esc(itemName(r.gem))} inventory icon"><small>${esc(itemName(r.gem))}</small></div>`:''}</td><td>${esc(zoneVariantsText(r))}</td></tr>`).join('')||'<tr><td colspan="5" class="empty">No art matches these filters.</td></tr>';
+      $('count').textContent=`${visible.length} of ${rows.length} artwork entries · ${rows.filter(r=>r.alternatives.length).length} entries have reviewed alternatives`;
+      $('rows').innerHTML=visible.map(r=>`<tr data-id="${esc(r.id)}" class="${r.id===selected?'selected':''}"><td><strong>${esc(r.referenceLabel)}</strong></td><td><button class="pickaxe" data-pick="${esc(r.id)}">${esc(r.name)}</button>${r.key?`<br><small>Texture: ${esc(r.key)}<br>Frames: ${esc(r.frames.join(', '))}</small>`:'<br><small>Painted: '+esc(r.id)+'</small>'}</td><td><div class="preview">${art(r,3)}</div>${r.images.length>3?`<small>+${r.images.length-3} more frames</small>`:''}</td><td><div class="candidates">${filteredAlternatives(r).map(candidateArt).join('')||'<small>No reviewed match</small>'}</div></td><td>${esc(r.category)}${r.gem?`<br><small>T${r.deposit.yieldTier} · ${r.value} coin value</small><div class="gem-icon"><img class="sprite" src="${r.inventoryImage}" alt="${esc(itemName(r.gem))} inventory icon"><small>${esc(itemName(r.gem))}</small></div>`:''}</td><td>${esc(zoneVariantsText(r))}</td></tr>`).join('')||'<tr><td colspan="6" class="empty">No art matches these filters.</td></tr>';
       $('rows').querySelectorAll('[data-id]').forEach(tr=>tr.addEventListener('click',()=>{selected=tr.dataset.id;renderTable();}));
       document.querySelectorAll('[data-sort]').forEach(button=>{
         const active=button.dataset.sort===sort;
@@ -225,14 +234,15 @@
       });
       const row=rows.find(r=>r.id===selected);
       $('detail').innerHTML=row?`<h2>${esc(row.referenceLabel)} · ${esc(row.name)}</h2><p><span class="tag">${esc(row.category)}</span></p><div class="preview">${art(row,Infinity)}</div>${row.stateLabels?'<p><small>Frames, left to right: '+esc(row.stateLabels.join(', '))+'</small></p>':''}<h3>Zone use</h3><p>${esc(zoneVariantsText(row))}</p><small>${row.gem?(row.deposit.yieldTier<=4?'Assigned to quarry regions on the surface and at depth 1; mining yields the pictured gem.':'Mining yields the pictured gem when placed. Underground zone placement is being designed.'):row.approved?'Approved art; placement and interactions are not yet enabled.':row.zoneVariants.size?'Declared material use in the current zone layouts. Other world placement rules may also use this art.':'Used by the shared world renderer; no specific material membership in the named zone layouts.'}</small><h3>Current source</h3><code>${esc(row.source)}</code>${row.key?`<p><small>Texture: ${esc(row.key)}<br>Frames: ${esc(row.frames.join(', '))}</small></p>`:''}`:'<h2>No selection</h2><p>Broaden your filters to inspect artwork.</p>';
+      if(row)$('detail').insertAdjacentHTML('beforeend', `<h3>Source-pack alternatives</h3><p><small>Comparison only; not applied to the game. Previews fit the same display box; source dimensions below reveal scale differences.</small></p>${filteredAlternatives(row).map(c=>`${candidateArt(c)}<p>${esc(c.note)}</p><details><summary>Source crop</summary><code>${esc(c.source)}</code><p><small>x ${c.crop[0]}, y ${c.crop[1]}, width ${c.crop[2]}, height ${c.crop[3]} px</small></p><a href="${esc(c.image)}" target="_blank" rel="noopener">Open original-size crop</a></details>`).join('')||'<p>No close alternative selected from these packs.</p>'}`);
       if(row?.gem)$('detail').insertAdjacentHTML('beforeend', `<h3>Mining reward</h3><div class="gem-icon"><img class="sprite" src="${row.inventoryImage}" alt="${esc(itemName(row.gem))} inventory icon"><p>${row.deposit.quantity} × ${esc(itemName(row.gem))}<br><small>Inventory icon: ${esc(row.inventorySource)}</small></p></div><p>T${row.deposit.yieldTier} gem · requires a T${row.deposit.requiredTier}+ pickaxe · ${row.value} coin base value.</p><h3>Current uses</h3><p>${esc(row.currentUse)}</p>`);
       if(row&&!row.approved){const keys=[...new Set([...row.zoneVariants].map(sandboxZoneKind))];$('detail').insertAdjacentHTML('beforeend', `<p>${keys.map(key=>SandboxLinks.link(key)).filter(Boolean).join('<br>')}</p>`);}
     }
-    for(const id of ['search','zone','category'])$(id).addEventListener('input',renderTable);
+    for(const id of ['search','zone','category','alternatives'])$(id).addEventListener('input',renderTable);
     $('sort').addEventListener('change',()=>{descending=false;renderTable();});
     document.querySelectorAll('[data-sort]').forEach(b=>b.addEventListener('click',()=>{descending=$('sort').value===b.dataset.sort?!descending:false;$('sort').value=b.dataset.sort;renderTable();}));
-    $('reset').addEventListener('click',()=>{for(const id of ['search','zone','category'])$(id).value='';$('sort').value='name';descending=false;renderTable();});
+    $('reset').addEventListener('click',()=>{for(const id of ['search','zone','category','alternatives'])$(id).value='';$('sort').value='name';descending=false;renderTable();});
     renderTable();$('status').textContent=`${rows.length} entries loaded from game definitions and approved art manifests.${failures.length?' Missing textures: '+failures.join(', '):''}${unnumbered.length?' '+unnumbered.length+' new entries await a reference number.':''}`;
-    window.worldArt={rows,failures};document.documentElement.dataset.worldArtReady='true';
+    window.worldArt={rows,failures,alternatives};document.documentElement.dataset.worldArtReady='true';
   } catch(error) {$('status').textContent='Could not load world art: '+error.message;$('status').className='error';document.documentElement.dataset.worldArtError=error.message;console.error(error);}
 })();
