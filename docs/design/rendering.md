@@ -430,9 +430,12 @@ the real source so a missing texture cannot become a permanent cached palette.
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
 - Layer order is landcover, variant surfaces, building footprints, walls,
   ground state (such as oil spills), then objects and characters.
-  Building footprints and walls are background. House and temple foundations
-  share the floor canvas: draw the shaded base below the top surface, with a
-  thin rim rather than an upright perimeter wall. House sidewalls stay close to
+  Building footprints and walls are background. House foundations draw a shaded
+  base below the top surface with a thin rim. Temples use retained foundation
+  faces below the rune floor and low, capped stone perimeter walls above it;
+  `TempleArt.geometry` owns their dimensions. The prisms retain concave
+  footprints and screen-up height through compass turns, without moving runes.
+  House sidewalls stay close to
   the footprint's brick colour, with a modest shadow in both restoration states.
   Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint

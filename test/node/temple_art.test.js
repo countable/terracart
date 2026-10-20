@@ -92,6 +92,39 @@
       assert.eq(gfx.clears, clearCount + 1, 'awakening invalidates floor cache');
       assert.eq(gfx.ops.find(o => o.op === 'temple').activated, true);
       assert.eq(gfx.ops.find(o => o.op === 'fill').color, TempleArt.palette(false, false, true).face);
+
+      // Exercise the live retained-prism path, including a concave floor.
+      scene.mPerPx = 1;
+      WorldGen.tileCache.get(WorldGen.tileKey(0, 0)).buildingShapes[0].ring = Float32Array.from(ring, n => n / 5);
+      scene.buildingWallContainer = { add() {}, setVisible() {} };
+      scene.add = { graphics: () => ({
+        triangles: [], clear() { this.triangles = []; }, setPosition() {},
+        fillStyle(color) { this.color = color; },
+        fillTriangle(...points) { this.triangles.push({ color: this.color, points }); },
+      }) };
+      scene._headingUp = true;
+      scene._buildingGeomKey = null;
+      BuildingOverlay.draw(scene);
+      const group = scene._wallPerspective.polygon;
+      const base = group.blocks.find(b => b.bottom < 0);
+      assert.truthy(base, 'temple has a retained raised foundation');
+      assert.eq(base.capped, false, 'concave rune floor is not covered by a convex cap');
+      assert.eq(base.top, 0);
+      assert.eq(base.bottom, -TempleArt.geometry.foundationDepth);
+      assert.truthy(group.blocks.some(b => b.top === TempleArt.geometry.wallHeight
+        && b.colors.top === TempleArt.palette(true, false, true).coping), 'walls have distinct stone caps');
+      assert.falsy(group.blocks.some(b => b.top > TempleArt.geometry.wallHeight), 'no castle teeth or turrets');
+      const blocks = group.blocks;
+      for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, Math.PI * 1.5]) {
+        scene.mapRot = angle;
+        WallPerspective.update(scene);
+        assert.eq(group.blocks, blocks, 'turning reuses retained temple geometry');
+        assert.gt(group.gfx.triangles.length, 0, 'visible faces at every compass heading');
+        assert.truthy(group.gfx.triangles.every(t => t.points.every(Number.isFinite)));
+      }
+      scene._headingUp = false;
+      WallPerspective.update(scene);
+      assert.truthy(group.gfx.visible, 'north-up temple walls remain visible');
     } finally {
       WorldGen.tileCache.clear(); for (const [key, entry] of oldTiles) WorldGen.tileCache.set(key, entry);
     }
