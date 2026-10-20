@@ -7740,6 +7740,356 @@
         16,
         16
       ]
+    },
+    {
+      "id": "ALT-0775",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        208,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0776",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        224,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0777",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        96,
+        208,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0778",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        160,
+        224,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0779",
+      "source": "extra_assets/16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "crop": [
+        112,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0780",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        352,
+        112,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0781",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        384,
+        96,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0782",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+      "crop": [
+        384,
+        416,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0783",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        400,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0784",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        384,
+        496,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0785",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        368,
+        512,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0786",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        176,
+        544,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0787",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        304,
+        400,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0788",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "crop": [
+        80,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0789",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "crop": [
+        112,
+        192,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0790",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Blacksmith.png",
+      "crop": [
+        80,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0791",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        96,
+        544,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0792",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        496,
+        448,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0793",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        80,
+        480,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0794",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        112,
+        464,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0795",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Beast.png",
+      "crop": [
+        144,
+        96,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0796",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Beast.png",
+      "crop": [
+        144,
+        160,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0797",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Hell.png",
+      "crop": [
+        0,
+        80,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0798",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Hell.png",
+      "crop": [
+        112,
+        32,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0799",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Caves_Minerals_Small.png",
+      "crop": [
+        0,
+        240,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0800",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern_Full.png",
+      "crop": [
+        16,
+        528,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0801",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Hell.png",
+      "crop": [
+        208,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0802",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Hell.png",
+      "crop": [
+        224,
+        16,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0803",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dreams.png",
+      "crop": [
+        352,
+        272,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0804",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dreams.png",
+      "crop": [
+        448,
+        80,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0805",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dreams.png",
+      "crop": [
+        384,
+        176,
+        16,
+        16
+      ]
+    },
+    {
+      "id": "ALT-0806",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        176,
+        528,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0807",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dungeon.png",
+      "crop": [
+        96,
+        528,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0808",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dreams.png",
+      "crop": [
+        256,
+        112,
+        16,
+        32
+      ]
+    },
+    {
+      "id": "ALT-0809",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Dreams.png",
+      "crop": [
+        320,
+        80,
+        16,
+        32
+      ]
     }
   ]
 }

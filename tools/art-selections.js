@@ -2,7 +2,7 @@
 (() => {
   const storageKey = 'terracart.artAlternativeSelections.v1';
   const identity = entry => JSON.stringify([entry.domain, entry.target, entry.alt]);
-  const valid = entry => entry && ['world', 'item'].includes(entry.domain)
+  const valid = entry => entry && ['world', 'item', 'floor'].includes(entry.domain)
     && typeof entry.target === 'string' && typeof entry.label === 'string'
     && /^ALT-\d+$/.test(entry.alt);
   function read() {
@@ -17,9 +17,9 @@
   panel.className = 'art-selections';
   panel.setAttribute('aria-label', 'Saved art selections');
   panel.innerHTML = `<details><summary>Saved selections (<span data-selection-count>0</span>)</summary>
-    <p>Click a variant to save it; click again to remove it. This list is shared between both dashboards and saved in this browser. It does not replace game art.</p>
+    <p>Click a variant to save it; click again to remove it. This list is shared between art reviews and saved in this browser. It does not replace game art.</p>
     <textarea aria-label="Selections to copy" rows="5" readonly></textarea>
-    <div class="selection-actions"><button type="button" data-copy-selections>Copy list</button><button type="button" data-clear-selections>Clear list</button></div>
+    <div class="selection-actions"><button type="button" data-copy-selections>Copy list</button><button type="button" data-copy-ids>Copy IDs</button><button type="button" data-clear-selections>Clear list</button></div>
     <ul data-selection-list></ul></details><p class="selection-status" role="status" aria-live="polite"></p>`;
   document.querySelector('.controls').before(panel);
   const status = panel.querySelector('.selection-status');
@@ -33,7 +33,7 @@
   }
   function render() {
     panel.querySelector('[data-selection-count]').textContent = selections.length;
-    textarea.value = selections.map(entry => `${entry.domain === 'world' ? 'World' : 'Item'}: ${entry.label} [${entry.target}] → ${entry.alt}`).join('\n');
+    textarea.value = selections.map(entry => `${{ world: 'World', item: 'Item', floor: 'Floor' }[entry.domain]}: ${entry.label} [${entry.target}] → ${entry.alt}`).join('\n');
     const list = panel.querySelector('[data-selection-list]');
     list.replaceChildren();
     for (const entry of selections) {
@@ -48,6 +48,7 @@
       list.append(li);
     }
     panel.querySelector('[data-copy-selections]').disabled = !selections.length;
+    panel.querySelector('[data-copy-ids]').disabled = !selections.length;
     panel.querySelector('[data-clear-selections]').disabled = !selections.length;
     refresh();
   }
@@ -74,17 +75,21 @@
     save(exists ? selections.filter(e => identity(e) !== identity(entry)) : [...selections, entry],
       `${exists ? 'Removed' : 'Saved'} ${entry.alt} for ${entry.label}.`);
   });
-  panel.querySelector('[data-copy-selections]').addEventListener('click', async () => {
+  async function copySelection(idsOnly) {
+    const value = idsOnly ? [...new Set(selections.map(entry => entry.alt))].join('\n') : textarea.value;
     try {
-      await navigator.clipboard.writeText(textarea.value);
-      status.textContent = 'Selection list copied.';
+      await navigator.clipboard.writeText(value);
+      status.textContent = idsOnly ? 'Art IDs copied.' : 'Selection list copied.';
     } catch {
       panel.querySelector('details').open = true;
+      textarea.value = value;
       textarea.focus();
       textarea.select();
       status.textContent = 'Select Copy in your browser, or press Ctrl+C / ⌘C.';
     }
-  });
+  }
+  panel.querySelector('[data-copy-selections]').addEventListener('click', () => { render(); copySelection(false); });
+  panel.querySelector('[data-copy-ids]').addEventListener('click', () => copySelection(true));
   panel.querySelector('[data-clear-selections]').addEventListener('click', () => save([], 'Selection list cleared.'));
   window.addEventListener('storage', event => {
     if (event.key === storageKey || event.key === null) { selections = read(); render(); }
