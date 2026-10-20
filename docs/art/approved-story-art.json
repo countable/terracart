@@ -2399,21 +2399,21 @@
     },
     {
       "key": "treasure_barrel",
-      "master_path": "approved-story-art/treasure_barrel.png",
-      "master_sha256": "6abeed648692e9d9c7c3b6e71af93636693928745a6e902bc0962b341328d80e",
-      "width": 432,
-      "height": 324,
-      "export_width": 432,
-      "export_height": 324,
-      "sha256": "e16d9e4ec805d62e82c32f1f6a94fb7430d3a1d6ead999c59f103187c000ad54",
-      "method": "original_crop",
+      "master_path": "../terracart-barrel-dialog/master.png",
+      "master_sha256": "ea3e78a435057978fc57f1463e12f58d451f5e0aa025fac74e4178ea1d1e3f04",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 512,
+      "export_height": 384,
+      "sha256": "6a511f4faa93c894897446d258bfc4656d93f27f1dd307b035284ad9834052f9",
+      "method": "reference_image_generation",
       "crop": {
-        "x": 40,
+        "x": 0,
         "y": 0,
-        "w": 432,
-        "h": 324
+        "w": 1448,
+        "h": 1086
       },
-      "prompt": null
+      "prompt": "Use case: illustration-story. Create a NEW 4:3 landscape game reward painting for smashing a wooden barrel, matching the attached approved pottery reward painting's exact painterly pixel style, warm ochre palette, close composition and ruined-stone setting. Replace the ceramic pot subject with an unmistakably smashed oak barrel: short remaining barrel body, jagged broken wooden staves, dark iron hoops, a few large wooden fragments on the cobbles, and subtle warm golden light emerging from the opened remains. Softly painted irregular pixel clusters and restrained detail throughout. Warm sunset ruins and subdued olive vegetation in the background, subject close and large in the middle, comfortably contained in a centered square crop too. No pottery, no chest, no people, no text, no borders, no UI. Preserve the reference's visual warmth and softness; the barrel should belong to the same illustration set."
     },
     {
       "key": "treasure_crate",

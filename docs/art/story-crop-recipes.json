@@ -1700,15 +1700,15 @@
     }
   },
   "treasure_barrel": {
-    "source": "repo:assets/art/treasure_barrel.webp",
-    "width": 512,
-    "height": 652,
-    "source_kind": "runtime_original",
+    "source": "artifact:terracart-barrel-dialog/master.png",
+    "width": 1448,
+    "height": 1086,
+    "source_kind": "approved_master",
     "crop": {
-      "x": 40,
+      "x": 0,
       "y": 0,
-      "w": 432,
-      "h": 324
+      "w": 1448,
+      "h": 1086
     }
   },
   "treasure_crate": {
