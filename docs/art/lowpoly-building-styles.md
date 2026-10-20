@@ -209,15 +209,18 @@ review is published as a Claude artifact.
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
 - Wreck: thick broken walls follow the inset footprint at roughly 16-unit
   intervals. One roof slope is missing entirely; a short cap joins the longer
-  opposite slope on the original roof planes. Rafters follow the underside,
-  with supporting wall remnants beneath the extended side.
-  Both wall faces use a flat warm-grey base with just one light stroke and one
-  shadow stroke per staggered brick. There is no mortar grid, noise or face
-  damage texture. Broken crowns and loose 3D bricks share that palette and edge
-  treatment. The opaque generated `wreck-floor-cel.png` carries sparse smooth
-  cel bricks and simple boards on plain ground, sampled at 128px with nearest
-  filtering. Three-step directional lighting and one soft outer silhouette
-  describe the form; wreck walls omit the contact gradient and internal ink.
+  opposite slope on the original roof planes. Steel rafters follow the underside,
+  with supporting wall remnants beneath the extended side. Their atlas strip
+  provides pale flange highlights, a dark edge and small rivets.
+  Both wall faces use touching staggered bricks with a flat warm-grey base,
+  full light top/left edges and full dark bottom/right edges. Courses align
+  across wall sections. Faces have no noise or damage texture. Broken crowns and loose 3D bricks share that palette and edge
+  treatment. The opaque generated `wreck-floor-cel.png` covers the floor with dense darker
+  cel bricks and planks separated by deep shadow gaps, sampled at 128px with nearest
+  filtering. Three-step directional lighting darkens side faces, with a broad 24%
+  ground-contact shade fading toward the wall tops. Top faces remain light;
+  one soft outer silhouette surrounds the wreck without internal ink. Wreck
+  masonry skips the generic dark eave strip on outside walls.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on
   every face at every heading; ridge and hip beams cover the seams, and a
