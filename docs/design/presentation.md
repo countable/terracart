@@ -123,16 +123,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
-  house awakening, then the ruined street. Each has two aligned paintings:
-  hold the first for 1.5 seconds, crossfade once over 1.2 seconds, and keep
-  the second frame. The dragon dream instead keeps alternating between its
-  two paintings while open, so the heads and flames continue moving after
-  the camera push ends. Discovery and the dream are borderless fullscreen panels.
-  Awakening says “The compass shows you are in a strange house.” with a
-  “Go Outside” button and uses the living-silver compass story sheet, as does the ruined street and subsequent narrative. Paintings
-  remain uncropped with readable copy below. The dream retains its eight-second camera push and
-  immediately available wake-up button. Reduced-motion mode shows the first frame without
-  zoom or crossfade.
+  house awakening, then the ruined street. Discovery and the street each
+  dissolve between two aligned paintings after a brief hold. The dream uses
+  four aligned portrait paintings under one camera. They dissolve in sequence
+  on a 12-second loop during the 16-second push toward the dragon's eye,
+  continuing after the camera stops. Dragons, flames and smoke move between
+  frames; painted darkness fades irregularly from below, lingering less over
+  bright fire. A soft stationary lower gradient keeps the copy edge dark.
+  Awakening pulls back across its two paintings.
+  Discovery and the dream are borderless fullscreen panels. Awakening and the
+  ruined street use the living-silver compass story sheet, with readable copy
+  below the art and immediately available advance buttons. Reduced-motion
+  mode shows the first frame without zoom or crossfade.
 
 - The living-silver chassis uses the approved neutral-silver mechanical bearing
   artwork (`assets/ui/compass/compass-bearing.webp`) in `css/compass_hud.css`.
