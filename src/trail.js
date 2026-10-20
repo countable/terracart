@@ -109,6 +109,12 @@
   // 400" at the moment a 200 prize opens. The remainder is still banked and
   // shows on the next sweep; only the readout of the paying sweep changes.
   function readout(out, playerClass) {
+    if (out?.rewards) {
+      const last = out.rewards[out.rewards.length - 1];
+      if (!last) return rewardProgress(out.metres, out.prizes, playerClass);
+      const target = last.metres - rewardFor(last.n - 1, playerClass).metres;
+      return { pos: target, target, label: label(target, target) };
+    }
     if (out && (out.owed | 0) > 0) {
       const goal = goalFor((out.prizes | 0) - 1, playerClass);
       return { pos: goal, target: goal, label: label(goal, goal) };
@@ -170,11 +176,11 @@
   }
   // ── THE FIXED RUNGS ──────────────────────────────────────────────────────
   // A rung that always pays one named thing. Rung one is the onion seed (a
-  // card in the rolled row); rung FOUR is the Serpent Idol (scene_boss.js),
+  // card in the rolled row); rung FIVE is the Serpent Idol (scene_boss.js),
   // offered ALONE (`sole`): a boss's trigger the player could pick past would
   // be lost for good — the idol is progressionOnly, found nowhere else.
   const FIXED_PRIZES = {
-    4: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
+    5: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
   };
   function fixedPrize(n, save) {
     // The third choice supplies the first pick; a better pick also counts.
@@ -211,6 +217,56 @@
   // difference between an offer and a formality; past that it's just burning
   // entropy. Three tries per card offered.
   const PRIZE_ROLL_TRIES = 3 * PRIZE_CHOICES;
+
+  // Special distance gifts use an exact tier, sampled without replacement.
+  // Prefer slots the player can upgrade; normal gear reconciliation handles
+  // a fully equipped player's remaining offers without downgrading anything.
+  const RELIC_MILESTONES = [
+    { metres: 2000, tier: 1 },
+    { metres: 5000, tier: 2 },
+    { metres: 10000, tier: 3 },
+    { metres: 20000, tier: 4 },
+    { metres: 40000, tier: 5 },
+    { metres: 100000, tier: 6 },
+    { metres: 200000, tier: 7 },
+  ];
+  // Move the first ordinary reward at/after each milestone to its exact
+  // distance. The saved arithmetic ladder stays intact: no lost metres,
+  // extra payout, or second reward when its old boundary is reached later.
+  function rewardFor(n, playerClass) {
+    if (n <= 0) return { n: 0, metres: 0, relicTier: 0 };
+    const before = totalMetres(0, n - 1, playerClass);
+    const after = totalMetres(0, n, playerClass);
+    const milestone = RELIC_MILESTONES.find(m => before < m.metres && m.metres <= after);
+    return { n, metres: milestone?.metres ?? after, relicTier: milestone?.tier || 0 };
+  }
+  function rewardsBetween(beforeM, afterM, firstPrize, playerClass) {
+    const rewards = [];
+    for (let n = firstPrize; ; n++) {
+      const reward = rewardFor(n, playerClass);
+      if (reward.metres > afterM) break;
+      if (reward.metres > beforeM) rewards.push(reward);
+    }
+    return rewards;
+  }
+  function rewardProgress(metres, prizes, playerClass) {
+    const total = totalMetres(metres, prizes, playerClass);
+    let n = Math.max(0, prizes | 0) + 1;
+    while (rewardFor(n, playerClass).metres <= total) n++;
+    const previous = rewardFor(n - 1, playerClass).metres;
+    const pos = total - previous, target = rewardFor(n, playerClass).metres - previous;
+    return { pos, target, label: label(pos, target) };
+  }
+  function relicChoices(tier, save, rng = Math.random) {
+    const slots = Object.keys(RELIC_DEFS).filter(slot =>
+      !RELIC_DEFS[slot].tiers || RELIC_DEFS[slot].tiers.includes(tier));
+    const upgrades = slots.filter(slot => Gear.canUpgrade(save, 'relic', slot, tier));
+    const owned = slots.filter(slot => !Gear.canUpgrade(save, 'relic', slot, tier));
+    shuffleInPlace(upgrades, rng);
+    shuffleInPlace(owned, rng);
+    return [...upgrades, ...owned].slice(0, PRIZE_CHOICES).map(slot =>
+      reconcileRelicOffer({ kind: 'relic', slot, tier }, save, rng, tier));
+  }
 
   // ── The prize gets BETTER as the walks get longer ────────────────────────
   // Extra tier steps the roll gets (app.js hands them to pickReward as
@@ -323,7 +379,7 @@
     STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, CASH_PER_SQRT_KM, cashPrize, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize, FIXED_PRIZES, fixedPrize,
-    PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey,
+    PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, RELIC_MILESTONES, relicChoices, rewardFor, rewardsBetween, rewardProgress,
     PRIZE_ROLL_BONUS, PRIZE_TIER_PER_PRIZE, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };
 })(typeof window !== 'undefined' ? window : globalThis);

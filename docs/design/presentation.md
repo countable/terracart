@@ -321,6 +321,20 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The third road reward offers a wooden pick in the magic/equipment card slot
   when the player has no pick. Owning any pick tier keeps the normal roll;
   cash and seed/supply choices remain, and only the selected card is granted.
+- At 2, 5, 10, 20, 40, 100 and 200 km of banked road progress, choose one
+  of three distinct relics at T1 through T7 respectively. These exact-distance
+  milestones move the next ordinary reward earlier rather than adding a payout.
+  The saved metre ladder stays unchanged; the HUD and street toast follow the
+  adjusted reward distances. Existing saves between a moved milestone and its
+  old rung receive that unpaid reward once when they next bank distance.
+  Runner goals and scenic bonuses still affect
+  ordinary progress; milestone distances are the same for every class.
+  Offers prefer equipment upgrades at the promised tier. When fewer than three
+  slots can improve, remaining slots use the normal duplicate coin conversion;
+  better equipment is never downgraded. Only the selected offer is granted.
+  The Serpent Idol moves to the fifth ordinary rung (3 km before class bonuses),
+  still offered alone so access to its boss cannot be declined.
+
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the two location warnings. The first night entry into the
   MD/LG kerb buffer shows `road:night` once per save through the story ledger.

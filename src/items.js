@@ -1120,7 +1120,7 @@ const ITEMS = [
   { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
   { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
   { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
-  // The trail's fourth prize (trail.js FIXED_PRIZES), never a find or a
+  // The trail's fifth prize (trail.js FIXED_PRIZES), never a find or a
   // ware: `progressionOnly` keeps it out of every loot pool and the trailer.
   { id: 'serpent_idol', name: 'Serpent Idol', kind: 'magic', progressionOnly: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see

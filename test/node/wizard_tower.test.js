@@ -250,7 +250,7 @@ test('classes: every player call site passes save.playerClass', () => {
   // No player call is left without it.
   // (A call is one line in app.js; the line must name the class.)
   const code = app.split('\n').filter((l) => !/^\s*\/\//.test(l));
-  const calls = code.filter((l) => /(Combat\.(shotDamage|meleeDps|meleeSwingDamage)|Trail\.(bank|readout|goalFor|progress))\(/.test(l));
+  const calls = code.filter((l) => /(Combat\.(shotDamage|meleeDps|meleeSwingDamage)|Trail\.(bank|readout|goalFor|progress|rewardProgress))\(/.test(l));
   assert.gte(calls.length, 6, 'found the gameplay calls');
   // magicTrapDamage is the one shotDamage call that is NOT the player's own
   // weapon: a Magic Trap is a tier-3 bow shot fired by the trap, so no
