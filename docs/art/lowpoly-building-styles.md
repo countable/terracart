@@ -208,16 +208,18 @@ review is published as a Claude artifact.
   with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
 - Wreck: thick broken walls follow the inset footprint at roughly 16-unit
-  intervals. The standing roof occupies one end of the original ridge planes;
-  continuous one-storey walls support three sloping rafters beneath it. The
-  collapsed end has taller varied remnants and a broad breach. Exposed tops
-  use chipped brick crowns and transverse mortar joints; inner wall faces
-  sample dedicated cel masonry rather than the exterior's boarded windows.
-  The generated `wreck-floor-cel.png` supplies weathered boards and stone
-  scatter, clipped to the footprint beneath tilted fallen roof slabs. It is
-  sampled at 128px then enlarged with nearest filtering for chunky pixel detail.
-  Restrained three-step lighting and one softened outer silhouette keep the
-  materials consistent; internal surfaces do not receive separate ink outlines.
+  intervals. One irregular roof remnant follows the original ridge planes,
+  loses an outer corner, and keeps a side slope longer than its cap. Rafters
+  sit immediately beneath it with short tails beyond the eaves. Supporting
+  wall crowns also lose chunks; more exposed sections collapse completely.
+  Chipped brick crowns sit on dark mortar with wide transverse joints. Both
+  inner and outer faces use uneven cel masonry with missing faces and cracks.
+  The opaque `wreck-floor-cel.png` fills the footprint with dense pale/taupe
+  blocks, weathered boards and dark recessed gaps beneath fallen roof slabs.
+  Its palette matches the 3D masonry, with five loose blocks spilling outside
+  the main breach. The floor is sampled at 128px then enlarged with nearest
+  filtering. Restrained three-step lighting and one softened outer silhouette
+  keep the materials consistent; internal surfaces do not receive ink outlines.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on
   every face at every heading; ridge and hip beams cover the seams, and a

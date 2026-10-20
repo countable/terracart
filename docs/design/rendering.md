@@ -218,7 +218,10 @@ They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wrecks render below the player without fading. Broken wall sections vary in
 height; their interior step cuts run perpendicular to each wall, while corners
-retain their mitred joins. Legacy wreck sprites use the ground layer and
+retain their mitred joins. Their roof remnant has an irregular broken edge,
+short projecting rafters, and chipped supporting crowns. Dense opaque rubble
+with dark gaps covers the floor; loose blocks spill beyond the main breach.
+Legacy wreck sprites use the ground layer and
 a flattened vertical scale; restoring a wreck returns it to standing architecture.
 
 [Low-poly building styles](../art/lowpoly-building-styles.md) owns the detail.

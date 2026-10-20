@@ -62,7 +62,7 @@ for(const role of Object.keys(api.ROLES)){
  const recipe=api.recipeFor(role),points=fixtures[0].points.map(([x,y])=>({x,y}));
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*15.6+2.5,5);
  // Thick broken walls, roof patches, rafters and rubble carry more triangles.
- assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?600:300),role+' bounded geometry');
+ assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?700:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);
@@ -119,6 +119,25 @@ assert(!wreck.faces.some(f=>f.kind==='wall'&&f.points.every(inGap)),'the fallen 
 assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>p.y<1e-6&&!inGap(p))),'the rest of that side still stands');
 assert(wreck.faces.some(f=>f.interior&&f.rawUV&&new Set(f.points.map(p=>p.u)).size>1),'inner walls have masonry UVs');
 assert(wreck.faces.some(f=>f.rafter),'the standing end has spanning rafters');
+const roofFaces=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2);
+assert(roofFaces.every(f=>!f.points.some(p=>Math.abs(p.x)<1e-6&&Math.abs(p.y)<1e-6)),'the roof has lost its outer corner');
+const roofReach=(lo,hi)=>Math.max(...roofFaces.flatMap(f=>f.points).filter(p=>p.y>=lo&&p.y<=hi).map(p=>p.x));
+assert(roofReach(60,90)>roofReach(25,55)+5,'the surviving side slope reaches beyond the cap');
+for(const f of wreck.faces.filter(f=>f.rafter))for(const p of f.points)
+ assert(Math.abs(p.z-wreck.roofZ(p)+.3)<.6,'rafters follow the roof underside, not the lower wall tops');
+assert(wreck.faces.some(f=>f.rafter&&f.points.some(p=>p.y<0||p.y>100)),'short rafter tails project beyond the eaves');
+const topHeights=wreck.faces.filter(f=>f.wallTop&&f.points.some(p=>p.x<40)).map(f=>f.points[0].z);
+assert(new Set(topHeights).size>1,'wall crowns near the surviving roof also lose chunks');
+assert(wreck.faces.filter(f=>f.rubbleTop&&f.points.some(p=>p.x<0||p.x>120||p.y<0||p.y>100)).length>=6,'several fallen chunks spill outside the breach');
+
+// Roof supports must keep their relative position on angled OSM footprints,
+// even when the polygon is expressed in a different local coordinate frame.
+const rotated=wreckPoints.map(p=>({x:p.x*.8-p.y*.6,y:p.x*.6+p.y*.8}));
+const shifted=rotated.map(p=>({x:p.x+500,y:p.y+300}));
+const beams=pts=>api.specialGeometry(pts,api.recipeFor('wreck')).faces.filter(f=>f.rafter).flatMap(f=>f.points);
+const rb=beams(rotated),sb=beams(shifted);
+assert(rb.length>0&&rb.length===sb.length,'angled wreck retains its rafters after translation');
+for(let i=0;i<rb.length;i++)assert(Math.abs(sb[i].x-rb[i].x-500)<1e-6&&Math.abs(sb[i].y-rb[i].y-300)<1e-6&&Math.abs(sb[i].z-rb[i].z)<1e-6,'angled rafters stay attached to the same roof section');
 const market=api.recipeFor('trader'),terrace=api.styleGeometry(wreckPoints,market.style,market);
 assert(market.terraced&&market.stories===2,'market has a second storey');
 const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>1.5*15.6)).flatMap(f=>f.points);
