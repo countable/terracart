@@ -3,7 +3,7 @@
 (function(root){
  const C=Math.cos(Math.PI/6),SIZE=240,X=256,Y=616;
  const beamStrips={com:[189,9,6,45],pp_cabin:[42,8,12,40],trader:[49,4,7,20],fdr:[120,15,88,7],pp_brick:[8,6,80,9],pp_plaster:[8,5,80,11]};
- const samples={ra:[8,400,16,16],com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[20,36,12,10],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
+ const samples={com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[20,36,12,10],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
  function prepare(ctx,image,spec,key){
   const [x,y,w,h]=samples[key],c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(image,x,y,w,h,0,0,w,h);
   const data=g.getImageData(0,0,w,h).data,counts=new Map();for(let i=0;i<data.length;i+=4)if(data[i+3]>250){const rgb=[...data.slice(i,i+3)],id=rgb.join(',');counts.set(id,(counts.get(id)||0)+1);}
@@ -12,11 +12,7 @@
   const fill=(a,x,y,w,h)=>{ctx.fillStyle=color(a);ctx.fillRect(X+x,Y+y,w,h);};
   ctx.save();ctx.beginPath();ctx.rect(X,Y,256,256);ctx.clip();fill(base,0,0,256,256);
   const tile=(sx,sy,sw,sh,dw,dh)=>{ctx.imageSmoothingEnabled=false;for(let yy=0;yy<SIZE;yy+=dh)for(let xx=0;xx<SIZE;xx+=dw)ctx.drawImage(image,sx,sy,sw,sh,X+xx,Y+yy,dw,dh);};
-  if(key==='ra'){
-   // Golden thatch: broken short strokes follow the fall of the roof. There
-   // is no diagonal stair-step shading baked into this surface-space atlas.
-   for(let yy=0;yy<SIZE;yy+=12)for(let xx=0;xx<SIZE;xx+=12){const n=((xx/12)*17+(yy/12)*31)%7;fill(mid,xx+(n%3),yy+1,1,5+n%3);fill(mid,xx+5,yy+5,1,4);}
-  }else if(key==='pp_cabin'){
+  if(key==='pp_cabin'){
    // The reference has three broad overlapping sheets, not narrow planks.
    for(let xx=0;xx<SIZE;xx+=32){fill(dark,xx,0,1,SIZE);fill(light,xx+1,0,2,SIZE);fill(base.map((n,i)=>Math.round(n*.88+dark[i]*.12)),xx+29,0,3,SIZE);}
   }else if(key==='trader'){
@@ -45,7 +41,6 @@
   // Small palette swatches serve the real eave/ridge edges, never interior repeats.
   let edgeColor=dark,ridgeColor=mid;
   const sample=(x,y)=>{g.clearRect(0,0,w,h);g.drawImage(image,x,y,1,1,0,0,1,1);return [...g.getImageData(0,0,1,1).data].slice(0,3);};
-  if(key==='ra')edgeColor=ridgeColor=sample(40,380);
   if(key==='pp_brick'||key==='pp_plaster'){edgeColor=sample(2,44);ridgeColor=sample(20,8);}
   if(key==='fdr')ridgeColor=sample(130,17);
   if(key==='com')ridgeColor=sample(192,10);
@@ -115,7 +110,7 @@
   }
   // Emit the ridge only on the rising half: the opposite roof plane shares
   // it. At 12 triangles this gives the reference's timber a real silhouette.
-  if(['ra','com','trader','pp_cabin'].includes(key)&&!alongU&&p[1].z>p[0].z){box(p[1],p[2],key==='pp_cabin'?12:key==='com'?6:7,.8);}
+  if(['com','trader','pp_cabin'].includes(key)&&!alongU&&p[1].z>p[0].z){box(p[1],p[2],key==='pp_cabin'?12:key==='com'?6:7,.8);}
  }
  // The original shell stays at the wall line. Only boundary strips project
  // outward, with a shallow fascia and underside closing every exposed edge.

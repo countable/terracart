@@ -1,8 +1,6 @@
-/* Generalized exteriors: one continuous shell for a simple orthogonal polygon.
-   Coordinates are physical, calibrated at a 30 degree source elevation. */
+/* Native facade sampling and validation shared by the closed building shells. */
 (function(root){
- const C=Math.cos(Math.PI/6), ATLAS_W=512, ATLAS_H=1024;
- const roofSamples={ra:[8,400,16,16],com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[16,56,16,7],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
+ const roofSamples={com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[16,56,16,7],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
  function sourceFacadeSlices(spec,length){
   const W=spec.right-spec.left,edge=Math.min(spec.posts[1]-spec.left+4,W/4,length/4);
   if(Math.abs(length-W)<1)return {parts:[[0,length,W,0]],center:length/2};
@@ -24,7 +22,7 @@
   const scratch=document.createElement('canvas');scratch.width=r[2];scratch.height=r[3];const c=scratch.getContext('2d');c.imageSmoothingEnabled=false;
   // Undo the source plane's pixel shear before repeating it on a new roof.
   // This removes the baked 2D diagonal that otherwise zigzags at tile seams.
-  const shear=({ra:-.5,com:-.5,trader:-20/38,pp_cabin:-.5})[key]||0;
+  const shear=({com:-.5,trader:-20/38,pp_cabin:-.5})[key]||0;
   c.setTransform(1,-shear,0,1,-r[0],-r[1]+shear*r[0]);c.drawImage(image,0,0);c.setTransform(1,0,0,1,0,0);const pixels=c.getImageData(0,0,r[2],r[3]).data;let color=[100,70,50];for(let i=0;i<pixels.length;i+=4)if(pixels[i+3]===255){color=[pixels[i],pixels[i+1],pixels[i+2]];break;}
   ctx.save();ctx.beginPath();ctx.rect(256,616,256,256);ctx.clip();ctx.fillStyle='rgb('+color.join(',')+')';ctx.fillRect(256,616,256,256);for(let y=616;y<872;y+=r[3])for(let x=256;x<512;x+=r[2])ctx.drawImage(scratch,x,y);ctx.restore();
   if(key==='fdr'){
@@ -74,61 +72,7 @@
   }
   return true;
  }
- function buildFootprintFaces(originalFaces,spec,key,polygon){
-  validateFootprint(polygon);
-  let ring=polygon.map(p=>Array.isArray(p)?{x:p[0],y:p[1]}:{...p});
-  if(ring[0].x===ring.at(-1).x&&ring[0].y===ring.at(-1).y)ring.pop();
-  const signed=ring.reduce((sum,a,i)=>{const b=ring[(i+1)%ring.length];return sum+a.x*b.y-b.x*a.y},0)/2;
-  if(Math.abs(signed)<1)throw Error('Footprint has no area');if(signed<0)ring.reverse();
-  const template=originalFaces[0],faces=[],H=(spec.base-spec.eave)/C,W=spec.right-spec.left;
-  function triangle(points,uv,kind='wall'){
-   const ps=points.map((p,i)=>({...p,tu:uv[i][0]/512,tv:uv[i][1]/1024}));
-   faces.push({...template,points:ps,projected:ps.map(()=>({})),kind,layer:0,sourceArt:true,feature:'body',wallDirection:kind==='wall'?{x:ps[1].x-ps[0].x,y:ps[1].y-ps[0].y}:undefined});
-  }
-  function quad(ps,uv,kind){triangle([ps[0],ps[1],ps[2]],[uv[0],uv[1],uv[2]],kind);triangle([ps[0],ps[2],ps[3]],[uv[0],uv[2],uv[3]],kind);}
-  const roof=buildSourceRoofs(spec,key,ring,{triangle,quad});
-  const edges=ring.map((a,i)=>({a,b:ring[(i+1)%ring.length]}));
-  let entry=-1,best=-Infinity;
-  edges.forEach(({a,b},i)=>{if(a.y===b.y&&a.x>b.x&&a.x-b.x>(spec.door?.[2]||16)+8&&a.y>best){entry=i;best=a.y;}});
-  edges.forEach(({a,b},index)=>{
-   const length=Math.hypot(b.x-a.x,b.y-a.y),dx=(b.x-a.x)/length,dy=(b.y-a.y)/length,phase=(W+length)/2;
-   const at=(t,z,offset=0)=>({x:a.x+dx*t+dy*offset,y:a.y+dy*t-dx*offset,z});
-   // Only the building corners receive corner posts. Complete interior bays
-   // keep windows intact; short remainder strips use matching plain wall art.
-   const post=Math.min(4,length/6),layout=sourceFacadeSlices(spec,length);
-   for(const [a0,a1,u0,u1] of layout.parts){
-    quad([at(a0,0),at(a1,0),at(a1,H),at(a0,H)],[[u0,900+H*C],[u1,900+H*C],[u1,900],[u0,900]],'wall');
-   }
-   if(a.y===b.y&&a.x>b.x&&spec.door&&length>spec.door[2]+post*2){
-    const [u,v,w,h]=facadeDoorRect(spec,key),from=Math.max(post,Math.min(length-post-w,layout.center+W/2-(u-spec.left)-w));
-    quad([at(from,(spec.base-v-h)/C,.1),at(from+w,(spec.base-v-h)/C,.1),at(from+w,(spec.base-v)/C,.1),at(from,(spec.base-v)/C,.1)],[[u+w,v+h+16],[u,v+h+16],[u,v+16],[u+w,v+16]],'wall');
-   }
-  });
-  for(const s of roof.sections)quad([{x:s.x0,y:s.y1,z:0},{x:s.x1,y:s.y1,z:0},{x:s.x1,y:s.y0,z:0},{x:s.x0,y:s.y0,z:0}],Array(4).fill([264.5,900+H*C-1.5]),'floor');
-  const copyFeature=(name,transform)=>{
-   for(const f of originalFaces.filter(f=>f.feature===name)){
-    const points=f.points.map(p=>({...p,...transform(p)}));faces.push({...f,points,projected:points.map(()=>({}))});
-   }
-  };
-  const primary=roof.primary;let dormer=false;
-  if(key==='market'&&primary.x1-primary.x0>=20&&primary.y1-primary.y0>=28){
-   const tx=primary.x1-12,ty=primary.y1-8,dz=roof.height(tx,ty)-41/C;
-   copyFeature('dormer',p=>({x:p.x+tx-78,y:p.y+ty-104,z:p.z+dz}));dormer=true;
-  }
-  if(spec.chimney){
-   const s=primary,market=key==='market',sourceX=market?90:4,sourceY=market?76:24;
-   const tx=market?s.x1:s.x0+4,ty=market?s.y0+(s.y1-s.y0)*76/(spec.depth*2):Math.max(...roof.sections.map(r=>r.y1))-20;
-   copyFeature('chimney',p=>({x:p.x+tx-sourceX,y:p.y+ty-sourceY,z:p.z}));
-  }
-  if(spec.porch){
-   for(const {a,b} of edges){if(a.y!==b.y||a.x-b.x<44)continue;const center=a.x-sourceFacadeSlices(spec,a.x-b.x).center;
-    copyFeature('porch',p=>({x:p.x+center-W/2,y:p.y+a.y-spec.depth*2,z:p.z}));
-   }
-  }
-  faces.footprintInfo={polygon:ring,area:Math.abs(signed),roofPitch:roof.pitch,mode:roof.mode,physical:true,dormer,sections:roof.sections.length};
-  return faces;
- }
  root.sourceFacadeSlices=sourceFacadeSlices;
  root.validateFootprint=validateFootprint;
- root.prepareFootprintMaterial=prepareFootprintMaterial;root.buildFootprintFaces=buildFootprintFaces;
+ root.prepareFootprintMaterial=prepareFootprintMaterial;
 })(typeof window==='undefined'?globalThis:window);
