@@ -5,8 +5,8 @@ const ASSETS = {
   // Reviewed closed building meshes share these native source images.
   authored_source_com: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/com_houses_05.png' },
   authored_source_fdr: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/FDR_Blacksmith.png' },
-  authored_source_market: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/house_market.png' },
-  authored_source_trader: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/house_trader.png' },
+  authored_source_market: { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
+  authored_source_trader: { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
   authored_source_wizard: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/wizard.png' },
   authored_source_flat_adobe: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/flat-adobe.png' },
   authored_source_flat_rooftop: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/flat-rooftop.png' },

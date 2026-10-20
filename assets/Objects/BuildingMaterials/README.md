@@ -125,18 +125,7 @@ pass; no new runtime pixel readback or per-frame baking is added. Legacy
 sprites and the Canvas fallback keep their previous facades. Cache-bust and
 run the node and building suites after changing runtime art/code.
 
-## Reference atlases
-
-
-`reference-materials-v3.png` is the active atlas (see below). `reference-materials-v2.png` was the previous shared imagegen atlas, generated with the built-in image_gen tool using `/tmp/bldg2.gif` as the visual reference. The earlier `reference-materials-v1.png` used `/tmp/bldg.png` and is retained for comparison. Neither reference is embedded in the game.
-
-Layout: three columns, two rows. Top: clay, slate, thatch. Bottom: plaster, timber, masonry. The renderer downsamples with nearest-neighbor sampling, applies role colors and the restricted palette once at material creation, and keeps doors/windows separate from the tiling surface. No geometry or per-frame texture uploads are added.
-
-Final generation prompt:
-
-Create a production pixel-art material atlas for a low-poly building game, matching the attached /tmp/bldg2.gif STYLE REFERENCE. The reference's defining qualities: flat warm beige plaster with virtually NO texture, crisp dark warm-brown timber, orderly scalloped slate and terracotta tiles made of solid pixel clusters, clean restrained 4-color ramps, no weathering or mottled noise. Produce a single opaque image with THREE EXACT EQUAL COLUMNS and TWO EXACT EQUAL ROWS, all cells touching with NO gutters, borders, labels or text. This is a flat orthographic UV MATERIAL SHEET, not buildings, not a village, no perspective, no grass, no doors or windows or objects. Each cell fills the whole rectangle and is designed to tile at its boundaries. TOP LEFT: warm burnt-orange terracotta roof tiles. TOP MIDDLE: muted blue-gray slate roof tiles. TOP RIGHT: warm straw thatch in tidy horizontal bands. BOTTOM LEFT: almost completely flat muted warm beige plaster, just two close colors and extremely sparse tiny deliberate pixels, no large stains. BOTTOM MIDDLE: dark warm-brown timber planks with very simple widely spaced horizontal seams, no grain noise. BOTTOM RIGHT: subdued warm-gray masonry with broad simple rectangular stones, quiet seams, no mottling. Roof swatches each have about eight regular horizontal staggered courses with 6 to 8 wide tiles per row; each tile has a small clean stepped or scalloped lower edge, a restrained short highlight and a small shadow edge. Pixel-perfect square corners and staircase diagonals, no blur, gradients, bevel rendering, random speckles or painterly shading. Use only 4 solid colors per roof, 2-3 per wall. Roofs medium contrast and walls low contrast. Aim for the legibility and deliberate clustering of the supplied GIF at its native small game resolution.
-
-## v3 (active)
+## Reference atlas
 
 `reference-materials-v3.png` is a 4x3 grid of seamless 96px tiles, drawn 1:1 by
 `BuildingLowPoly` (cell order: `MATERIAL_CELLS`): clay, slate, thatch, shingle /

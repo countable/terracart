@@ -1,35 +1,23 @@
-/* Five original Steampunk City tile-B-03 buildings. Fine detail stays in art;
+/* Storefront and fort from Steampunk City tile-B-03. Fine detail stays in art;
    only shells, roofs, stacks and large attached equipment use geometry. */
 (function(root){
  const C=Math.cos(Math.PI/6);
  const specs={
-  city_factory:{label:'Steampunk City · three-stack factory',image:'city-factory.png',crop:[0,0,192,192],left:16,right:160,base:192,eave:120,peak:28,back:78,backPeak:0,center:88,depth:42,wall:[90,135,10,12],posts:[16,20,156,160],bands:[120,125,188,192],door:[109,155,31,37],entry:[103,145,42,47],city:true},
   city_storefront:{label:'Steampunk City · copper storefront',image:'city-storefront.png',crop:[0,0,192,192],left:6,right:186,base:192,eave:104,peak:55,back:60,backPeak:0,center:96,depth:44,wall:[20,138,40,48],posts:[6,12,180,186],bands:[104,123,139,184,192],door:[80,153,32,37],entry:[72,141,43,51],city:true},
   city_gearhouse:{label:'Steampunk City · gear-front house',image:'city-gearhouse.png',crop:[0,0,96,192],left:8,right:88,base:192,eave:112,peak:72,back:48,backPeak:8,center:48,depth:64,wall:[11,144,12,44],posts:[8,13,83,88],bands:[112,117,145,150,190,192],door:[38,164,21,28],entry:[33,150,31,42],city:true,gabled:true},
-  city_chimney:{label:'Steampunk City · chimney tower',image:'city-chimney.png',crop:[0,0,96,192],left:22,right:74,base:192,eave:136,peak:40,back:108,backPeak:0,center:48,depth:18,wall:[28,138,6,20],posts:[22,28,68,74],bands:[136,140,192],door:[36,163,24,29],city:true,cityTower:true},
-  city_clock:{label:'Steampunk City · short clock tower',image:'city-clock.png',crop:[0,0,96,192],left:22,right:74,base:192,eave:136,peak:64,back:108,backPeak:0,center:48,depth:18,wall:[28,138,6,20],posts:[22,28,68,74],bands:[136,140,192],door:[36,163,24,29],city:true,cityTower:true}
  };
  function prepare(ctx,image,spec,key){
-  if(spec.cityTower)return CityTowers.prepare(ctx,image,spec,key);
   ctx.drawImage(image,0,16);
   const source=document.createElement('canvas');source.width=image.width;source.height=image.height;const g=source.getContext('2d');g.drawImage(image,0,0);
   const color=(x,y)=>{const p=g.getImageData(x,y,1,1).data;return `rgb(${p[0]},${p[1]},${p[2]})`;};
   const W=spec.right-spec.left,H=spec.base-spec.eave;
   const facade=document.createElement('canvas');facade.width=W;facade.height=H;const f=facade.getContext('2d');f.imageSmoothingEnabled=false;f.drawImage(image,spec.left,spec.eave,W,H,0,0,W,H);
-  if(key==='city_factory'){
-   // Retain brick and original fittings, replacing the full entrance framing.
-   for(let y=145;y<192;y+=12)for(let x=101;x<146;x+=10)f.drawImage(image,90,135,Math.min(10,146-x),Math.min(12,192-y),x-spec.left,y-spec.eave,Math.min(10,146-x),Math.min(12,192-y));
-  }else if(key==='city_storefront'){
+  if(key==='city_storefront'){
    // A third shop window replaces the door and its pilasters on inferred faces.
    f.drawImage(image,16,138,47,54,67,34,47,54);
   }else{
    for(let x=32;x<65;x+=12)f.drawImage(image,12,150,Math.min(12,65-x),42,x-spec.left,150-spec.eave,Math.min(12,65-x),42);
    f.drawImage(image,16,162,14,22,32,50,14,22);
-  }
-  // Complete doorless material bays; distinctive front ornament never repeats.
-  if(key==='city_factory'){
-   for(let y=5;y<H-4;y+=12)for(let x=4;x<W-4;x+=10){const w=Math.min(10,W-4-x),h=Math.min(12,H-4-y);f.drawImage(image,90,135,w,h,x,y,w,h);}
-   for(const x of [22,102])f.drawImage(image,121,128,16,16,x,8,16,16);
   }
   if(key==='city_gearhouse'){
    ctx.drawImage(image,0,0,96,192,0,400,96,192);
@@ -46,7 +34,7 @@
    for(let i=0;i<3;i++)f.drawImage(image,123,151,55,41,6+i*56,47,55,41);
   }
   for(let x=0;x<256;x+=W)ctx.drawImage(facade,x,900);
-  const quiet=key==='city_factory'?[89,120,12,72]:key==='city_storefront'?[61,104,6,88]:[14,112,3,80];
+  const quiet=key==='city_storefront'?[61,104,6,88]:[14,112,3,80];
   if(key==='city_storefront'){
    for(let y=0;y<H;y++){ctx.drawImage(image,y<47?174:181,spec.eave+y,1,1,256,900+y,256,1);ctx.drawImage(image,y<47?174:181,spec.eave+y,1,1,0,500+y,88,1);}
    ctx.drawImage(image,123,151,55,41,16,547,55,41);
@@ -54,9 +42,9 @@
   }else for(let x=256;x<512;x+=quiet[2])ctx.drawImage(image,...quiet,x,900,quiet[2],H);
   // Roof courses are orthogonal in surface space. They use source copper and
   // masonry texels, without retaining the raster's painted perspective steps.
-  const base=color(...(spec.gabled?[24,70]:key==='city_factory'?[64,110]:[117,82]));
-  const dark=color(...(spec.gabled?[23,74]:key==='city_factory'?[64,112]:[118,81]));
-  const light=color(...(spec.gabled?[27,70]:key==='city_factory'?[65,113]:[120,75]));
+  const base=color(...(spec.gabled?[24,70]:[117,82]));
+  const dark=color(...(spec.gabled?[23,74]:[118,81]));
+  const light=color(...(spec.gabled?[27,70]:[120,75]));
   ctx.fillStyle=base;ctx.fillRect(256,616,256,256);
   ctx.save();ctx.beginPath();ctx.rect(256,616,240,240);ctx.clip();
   if(spec.gabled){for(let y=0;y<240;y+=20)for(let x=-40;x<240;x+=40){const xx=256+x+(y/20%2)*20;ctx.fillStyle=dark;ctx.fillRect(xx,616+y,1,20);ctx.fillRect(xx,616+y,40,1);ctx.fillStyle=light;ctx.fillRect(xx+1,617+y,38,1);}}
@@ -70,20 +58,20 @@
    for(let i=0;i<pixels.data.length;i+=4){const j=palette.findIndex(p=>p[0]===pixels.data[i]&&p[1]===pixels.data[i+1]&&p[2]===pixels.data[i+2]);if(j>=0)for(let k=0;k<3;k++)pixels.data[i+k]=other[j][k];}
    ctx.putImageData(pixels,256,320);
   }
-  if(!spec.gabled)for(let i=0;i<8;i++)ctx.drawImage(image,spec.left+Math.floor(i*(key==='city_factory'?4:7)/8),key==='city_factory'?110:80,1,1,220+i,300,1,4);
+  if(!spec.gabled)for(let i=0;i<8;i++)ctx.drawImage(image,spec.left+Math.floor(i*7/8),80,1,1,220+i,300,1,4);
   if(!spec.gabled){
-   const deck=key==='city_factory'?[16,78,144,42]:[6,60,180,44],patch=key==='city_factory'?[64,84,4,28]:[90,75,44,22];
+   const deck=[6,60,180,44],patch=[90,75,44,22];
    const tile=(x,y,w,h)=>{ctx.save();ctx.beginPath();ctx.rect(x,y,w,h);ctx.clip();for(let yy=y;yy<y+h;yy+=patch[3]*2)for(let xx=x;xx<x+w;xx+=patch[2])ctx.drawImage(image,...patch,xx,yy,patch[2],patch[3]*2);ctx.restore();};
    tile(256,616,240,240);
    // Retain original visible roof pixels in the artwork camera; remove only
    // baked equipment already represented by closed geometry above this deck.
    ctx.drawImage(image,...deck,256,616,deck[2],deck[3]*2);
-   const masks=key==='city_factory'?[[24,78,40,34],[68,78,40,34],[116,78,40,34]]:[[25,60,19,24],[21,66,8,38],[21,76,62,28],[146,60,24,10],[146,70,26,20]];
+   const masks=[[25,60,19,24],[21,66,8,38],[21,76,62,28],[146,60,24,10],[146,70,26,20]];
    for(const [x,y,w,h] of masks)tile(256+x-deck[0],616+(y-deck[1])*2,w,h*2);
   }
   ctx.fillStyle='#292627';ctx.fillRect(200,300,4,4);
-  if(key==='city_factory'||key==='city_storefront'){
-   const patches=key==='city_factory'?[[32,31,20,29],[27,60,30,33],[26,91,32,18]]:[[148,58,10,24]];
+  if(key==='city_storefront'){
+   const patches=[[148,58,10,24]];
    patches.forEach(([u,v,w,h],j)=>{for(let y=0;y<h;y++)for(let x=0;x<128;x++){
     // Remove baked cylindrical edge shading; horizontal bands continue around.
     const sx=u+Math.floor(w*(.35+.3*((x%32)/31)));
@@ -94,7 +82,6 @@
  }
  function sections(ring){const xs=[...new Set(ring.map(p=>p.x))].sort((a,b)=>a-b),ys=[...new Set(ring.map(p=>p.y))].sort((a,b)=>a-b),out=[];const inside=(x,y)=>{let v=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[i],b=ring[j];if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)v=!v;}return v;};for(let j=1;j<ys.length;j++){let start=null;for(let i=1;i<=xs.length;i++){const yes=i<xs.length&&inside((xs[i-1]+xs[i])/2,(ys[j-1]+ys[j])/2);if(yes&&start===null)start=xs[i-1];if(!yes&&start!==null){const prev=out.find(s=>s.x0===start&&s.x1===xs[i-1]&&s.y1===ys[j-1]);if(prev)prev.y1=ys[j];else out.push({x0:start,x1:xs[i-1],y0:ys[j-1],y1:ys[j]});start=null;}}}return out;}
  function build(template,spec,key,polygon){
-  if(spec.cityTower)return CityTowers.build(template,spec,key,polygon);
   const W=spec.right-spec.left,H=(spec.base-spec.eave)/C,D=spec.depth*2;
   const ring=(polygon||[[0,0],[W,0],[W,D],[0,D]]).map(p=>Array.isArray(p)?{x:p[0],y:p[1]}:{...p});validateFootprint(ring);if(ring[0].x===ring.at(-1).x&&ring[0].y===ring.at(-1).y)ring.pop();const signed=ring.reduce((s,p,i)=>{const q=ring[(i+1)%ring.length];return s+p.x*q.y-q.x*p.y;},0)/2;if(signed<0)ring.reverse();
   const spans=sections(ring),faces=[],P=(x,y,z)=>({x,y,z}),UV=(x,y)=>[x,y+16];
@@ -122,12 +109,12 @@
   }
   if(spec.gabled)RoofMaterials.overhang(planes,ring,poly);
   else{
-   const cu=key==='city_factory'?25.5:16.5,cv=key==='city_factory'?119.5:61.5;
+   const cu=16.5,cv=61.5;
    if(!trimStore)RoofMaterials.overhang(planes,ring,(ps,uv,kind)=>constant(ps,cu,cv,kind));
    // Partition the flat deck at the actual perimeter bands. Coping and
    // deck share one plane instead of overlapping in the 16-bit depth buffer.
    const minX=Math.min(...ring.map(p=>p.x)),maxX=Math.max(...ring.map(p=>p.x)),minY=Math.min(...ring.map(p=>p.y)),maxY=Math.max(...ring.map(p=>p.y));
-   const rim=key==='city_factory'?4:7;const cuts=(axis,min,max)=>[...new Set(ring.flatMap(p=>[p[axis]-(axis==='y'?8:rim),p[axis],p[axis]+(axis==='y'?8:rim)]).filter(n=>n>=min&&n<=max))].sort((a,b)=>a-b),xs=cuts('x',minX,maxX),ys=cuts('y',minY,maxY);
+   const rim=7;const cuts=(axis,min,max)=>[...new Set(ring.flatMap(p=>[p[axis]-(axis==='y'?8:rim),p[axis],p[axis]+(axis==='y'?8:rim)]).filter(n=>n>=min&&n<=max))].sort((a,b)=>a-b),xs=cuts('x',minX,maxX),ys=cuts('y',minY,maxY);
    const inside=(x,y)=>spans.some(s=>x>s.x0-1e-6&&x<s.x1+1e-6&&y>s.y0-1e-6&&y<s.y1+1e-6);
    for(let i=1;i<xs.length;i++)for(let j=1;j<ys.length;j++){
     const x0=xs[i-1],x1=xs[i],y0=ys[j-1],y1=ys[j],mx=(x0+x1)/2,my=(y0+y1)/2;if(!inside(mx,my))continue;
@@ -147,20 +134,17 @@
   function box(x,y,w,d,z0,z1,r,top=r,recess=false,side=null){const ps=[P(x,y,z0),P(x+w,y,z0),P(x+w,y+d,z0),P(x,y+d,z0)];for(let i=0;i<4;i++){const a=ps[i],b=ps[(i+1)%4];art([a,b,{...b,z:z1},{...a,z:z1}],side&&i!==2?side:r);}if(recess){const outer=ps.map(p=>({...p,z:z1})),inner=[P(x+1.5,y+1.5,z1),P(x+w-1.5,y+1.5,z1),P(x+w-1.5,y+d-1.5,z1),P(x+1.5,y+d-1.5,z1)],bottom=inner.map(p=>({...p,z:z1-2}));for(let i=0;i<4;i++){const j=(i+1)%4;constant([outer[i],outer[j],inner[j],inner[i]],16.5,32.5,'roof');constant([inner[i],inner[j],bottom[j],bottom[i]],201.5,285.5);}constant(bottom,201.5,285.5,'roof');}else art(ps.map(p=>({...p,z:z1})),top,'roof');constant(ps.slice().reverse(),r[0]+.5,r[1]+.5,'floor');}
   // Eight-sided stacks preserve the major silhouettes at modest triangle cost.
   function stack(cx,cy,rx,ry,z0,z1,r,topRadius=1,n=8,open=false){
-   const [u,v,w,h]=r,band=key==='city_factory'?(v===31?0:v===60?1:2):0;
-   const point=(i,z,scale)=>P(cx+Math.cos(i*2*Math.PI/n)*rx*scale,cy+Math.sin(i*2*Math.PI/n)*ry*scale,z),project=p=>UV(u+w/2+p.x-cx,97-(p.z-H)*C+(p.y-cy)*.5);
-   for(let i=0;i<n;i++){const ps=[point(i,z0,1),point(i+1,z0,1),point(i+1,z1,topRadius),point(i,z1,topRadius)];poly(ps,key==='city_factory'&&i<n/2?ps.map(project):[[i*128/n,300+band*64+h-.5],[(i+1)*128/n,300+band*64+h-.5],[(i+1)*128/n,300+band*64+.5],[i*128/n,300+band*64+.5]]);}
+   const [u,v,w,h]=r;
+   const point=(i,z,scale)=>P(cx+Math.cos(i*2*Math.PI/n)*rx*scale,cy+Math.sin(i*2*Math.PI/n)*ry*scale,z);
+   for(let i=0;i<n;i++){const ps=[point(i,z0,1),point(i+1,z0,1),point(i+1,z1,topRadius),point(i,z1,topRadius)];poly(ps,[[i*128/n,300+h-.5],[(i+1)*128/n,300+h-.5],[(i+1)*128/n,300+.5],[i*128/n,300+.5]]);}
    if(open){const inner=.72*topRadius,depth=Math.min(3,(z1-z0)/4);for(let i=0;i<n;i++){
-    const j=i+1;const rim=[point(i,z1,topRadius),point(j,z1,topRadius),point(j,z1,inner),point(i,z1,inner)];if(key==='city_factory')poly(rim,rim.map(project),'roof');else constant(rim,u+w*.5,v+3.5,'roof');
+    const j=i+1;const rim=[point(i,z1,topRadius),point(j,z1,topRadius),point(j,z1,inner),point(i,z1,inner)];constant(rim,u+w*.5,v+3.5,'roof');
     poly([point(i,z1,inner),point(j,z1,inner),point(j,z1-depth,inner),point(i,z1-depth,inner)],Array(4).fill([201.5,301.5]));
    }poly(Array.from({length:n},(_,i)=>point(i,z1-depth,inner)),Array(n).fill([201.5,301.5]),'roof');}
    else constant(Array.from({length:n},(_,i)=>point(i,z1,topRadius)),u+w/2,v+2.5,'roof');
    constant(Array.from({length:n},(_,i)=>point(n-i,z0,1)),u+w/2,v+h-2.5,'floor');
   }
-  if(key==='city_factory'){
-   const count=Math.max(1,Math.min(3,Math.floor(mw/38))),radius=Math.min(16,mw/(count*2.6),md/3),cy=main.y1-Math.min(46,md*.6);
-   for(let i=0;i<count;i++){const cx=!polygon?[25,71,117][i]:main.x0+mw*(i+.5)/count,sx=[25,71,117][i];stack(cx,cy,radius,radius*1.5,H-.5,H+18/C,[sx,91,32,18]);stack(cx,cy,radius*.95,radius*1.425,H+18/C,H+44.5/C,[sx+1,60,30,33],.65);stack(cx,cy,radius*.62,radius*.93,H+44.5/C,H+61.5/C,[sx+6,31,20,29],1,8,true);}
-  }else if(key==='city_storefront'){
+  if(key==='city_storefront'){
    const y=main.y0+md*.5,x=main.x1-Math.min(33,mw*.2),z=H+26/C;
    box(x-6,y-6,24,12,H-.5,H+3/C,[147,80,27,9],[147,80,27,9]);
    for(let i=0;i<2;i++)stack(x+i*12,y,4,4,H+2/C,z,[148+i*13,58,10,24],1,8,true);

@@ -126,11 +126,11 @@ const FILES = [
   // building_lowpoly.js only touches Phaser/DOM inside begin()/add(): loaded so the
   // overlay's WebGL branch (`lowpoly`) is reachable headlessly (building_lowpoly_scene.test.js).
   // Reviewed source meshes expose pure role mapping before browser preparation.
-  'authored-buildings/roof-materials.js', 'authored-buildings/source-roofs.js',
-  'authored-buildings/footprint-builder.js', 'authored-buildings/flat-buildings.js',
+  'authored-buildings/roof-materials.js',
+  'authored-buildings/facade-materials.js', 'authored-buildings/flat-buildings.js',
   'authored-buildings/wizard-tower.js', 'authored-buildings/steam-home.js',
   'authored-buildings/steam-blacksmith.js', 'authored-buildings/steam-wizard.js',
-  'authored-buildings/city-towers.js', 'authored-buildings/city-buildings.js',
+  'authored-buildings/city-buildings.js',
   'authored_roof_palette.js', 'authored_buildings.js',
   'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
