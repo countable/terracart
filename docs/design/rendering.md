@@ -125,12 +125,11 @@ still occupies one floor cell.
 
 Large item and gear portraits (48px and above) use the five 8×8 dialog atlases
 in `assets/Icons/DialogItems`, built by `tools/build_dialog_item_art.py` from
-reference-guided generated masters. `DialogItemArt` maps catalog IDs to 48px
-cells. Small inventory/map icons retain their original art. Badged, base-derived
-and palette-transformed icons keep their existing composed art; rejected
-throwing-spear and barricade cells also fall back to their original images.
-The catalog records every reference crop and generated cell; the manifest
-records source/export hashes and exclusions.
+sundries-reference painterly masters on black. `DialogItemArt` maps all 345
+catalog IDs to 96px cells. Small inventory/map icons retain their original art.
+Large portraits preserve variant tints and badges; loot rewards and tapped item
+descriptions display them at 96px. The catalog records every reference crop and
+generated cell; the manifest records source and export hashes.
 
 Resolved appearances carry `layer`; pooled sprites carry `_worldLayer`. The same
 category controls depth order, fading, and compass compensation. Ground decals

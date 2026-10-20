@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-a09a54ec';
+const SHELL_VERSION = 'shell-987e5c86';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -130,16 +130,16 @@ const ASSET_HASHES = {
   "assets/Icons/AltWeapons/5/Lance.png": "45a17f72",
   "assets/Icons/AltWeapons/5/Musket.png": "7f97a331",
   "assets/Icons/AltWeapons/source/muskets.png": "7db175b7",
-  "assets/Icons/DialogItems/items-01.png": "cce4e0a3",
-  "assets/Icons/DialogItems/items-02.png": "7c75543a",
-  "assets/Icons/DialogItems/items-03.png": "5258b952",
-  "assets/Icons/DialogItems/items-04.png": "8fbd504c",
-  "assets/Icons/DialogItems/items-05.png": "add21102",
-  "assets/Icons/DialogItems/source/generated-01.png": "0e1773de",
-  "assets/Icons/DialogItems/source/generated-02.png": "000a69fd",
-  "assets/Icons/DialogItems/source/generated-03.png": "47cfeb9d",
-  "assets/Icons/DialogItems/source/generated-04.png": "2865e5a0",
-  "assets/Icons/DialogItems/source/generated-05.png": "5c31e3f4",
+  "assets/Icons/DialogItems/items-01.png": "a06cf896",
+  "assets/Icons/DialogItems/items-02.png": "a453e253",
+  "assets/Icons/DialogItems/items-03.png": "ce59bba4",
+  "assets/Icons/DialogItems/items-04.png": "aed4a668",
+  "assets/Icons/DialogItems/items-05.png": "1268cc8f",
+  "assets/Icons/DialogItems/source/generated-01.png": "74c7da04",
+  "assets/Icons/DialogItems/source/generated-02.png": "30c92171",
+  "assets/Icons/DialogItems/source/generated-03.png": "eb5b9654",
+  "assets/Icons/DialogItems/source/generated-04.png": "3b78f24d",
+  "assets/Icons/DialogItems/source/generated-05.png": "633ed615",
   "assets/Icons/DialogItems/source/reference-01.png": "d4ffdc45",
   "assets/Icons/DialogItems/source/reference-02.png": "0d8100c9",
   "assets/Icons/DialogItems/source/reference-03.png": "87b7a59c",

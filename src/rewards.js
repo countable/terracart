@@ -43,7 +43,7 @@
     }
     return null;
   }
-  function card(scene, reward, iconPx = 64) {
+  function card(scene, reward, iconPx = 96) {
     if (!reward) return null;
     if (reward.kind === 'item') {
       return {

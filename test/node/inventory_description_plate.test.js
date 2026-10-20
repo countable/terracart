@@ -48,8 +48,8 @@
       save, dialogs: [],
       showMessageModal(o) { this.dialogs.push(o); },
       renderItemIcon() { return element('img'); },
-      iconSpanHTML() { return '<i></i>'; },
-      gearIconHTML() { return '<i></i>'; },
+      iconSpanHTML(id, size) { return `<i data-size="${size}"></i>`; },
+      gearIconHTML(kind, slot, tier, size) { return `<i data-size="${size}"></i>`; },
       syncEatButton() {}, syncConsumableButton() {}, syncEquipButton() {}, syncFurnitureFlipButton() {},
     };
     for (const name of ['refreshInventoryHighlight', '_effectLineEl', '_openSelectedDescription']) s[name] = lift(name);
@@ -87,6 +87,7 @@
     assert.eq(s.dialogs.length, 1, 'one dialog');
     assert.eq(s.dialogs[0].body, `✦ ${ITEM_EFFECTS[described]}`, 'the whole sentence');
     assert.includes(s.dialogs[0].title, ITEM_BY_ID[described].name, 'titled with the item');
+    assert.includes(s.dialogs[0].title, 'data-size="96"', 'detail portrait is 96 pixels');
   });
 
   test('description plate: Enter and Space open it from the keyboard like other HUD buttons; other keys do not', () => {

@@ -9857,10 +9857,8 @@ class MapScene extends Phaser.Scene {
     const iconId = (item && item.base && !hasOwnBake) ? item.base : itemId;
     const dataUrl = window.ITEM_DATA_URLS && window.ITEM_DATA_URLS[iconId];
     const src = (typeof inventoryIconSource === 'function') ? inventoryIconSource(iconId) : null;
-    // Detailed dialog art leaves compact inventory icons and composited variants intact.
+    // Large dialog portraits share the item identity, including tints and badges.
     const detailed = sizePx >= 48 && typeof DialogItemArt !== 'undefined'
-      && !item?.shiny && !item?.base && !src?.filter
-      && !(typeof iconBadgeItem === 'function' && iconBadgeItem(itemId))
       && DialogItemArt.entries[itemId];
     const base = `width:${sizePx}px;height:${sizePx}px;image-rendering:pixelated;`
       + (style === 'inline' ? 'display:inline-block;vertical-align:middle;' : 'display:inline-block;');
@@ -9899,10 +9897,16 @@ class MapScene extends Phaser.Scene {
       css += 'filter:sepia(1) saturate(3.2) hue-rotate(-18deg) brightness(1.08)'
         + ` drop-shadow(0 0 ${Math.max(1, Math.round(sizePx * 0.06))}px #ffd23a);`;
     }
+    const badgeId = detailed && typeof iconBadgeItem === 'function' && iconBadgeItem(itemId);
+    const badgeHTML = badgeId
+      ? `<span style="position:absolute;right:0;bottom:0;line-height:0;background:#000;border-radius:3px">${this.renderItemIcon(badgeId, Math.round(sizePx * 0.3), 'inline')}</span>`
+      : '';
+    if (badgeHTML) css += 'position:relative;';
     if (style === 'block') {
       const el = document.createElement('span');
       if (css) {
         el.style.cssText = css;
+        if (badgeHTML) el.innerHTML = badgeHTML;
         if (netUrl) {
           el.className = 'px-icon icon-loading';
           el.dataset.iconsrc = netUrl;
@@ -9919,8 +9923,8 @@ class MapScene extends Phaser.Scene {
     // Inline string form (used inside modal cost/get text).
     if (css) {
       return netUrl
-        ? `<span class="px-icon icon-loading" data-iconsrc="${netUrl}" style="${css}"></span>`
-        : `<span style="${css}"></span>`;
+        ? `<span class="px-icon icon-loading" data-iconsrc="${netUrl}" style="${css}">${badgeHTML}</span>`
+        : `<span style="${css}">${badgeHTML}</span>`;
     }
     return '?';
   }
@@ -11188,7 +11192,7 @@ class MapScene extends Phaser.Scene {
           if (def && def.blurb) {
             const tier = (g.kind === 'armor' ? this.save.armor : Gear.effectiveRelics(this.save))?.[g.slot]?.tier;
             nameLbl.appendChild(this._effectLineEl(nameLbl, def.blurb,
-              `${this.gearIconHTML(g.kind, g.slot, tier)} ${nameSpan.textContent}`));
+              `<div style="margin-bottom:8px;line-height:0">${this.gearIconHTML(g.kind, g.slot, tier, 96)}</div>${nameSpan.textContent}`));
           }
         }
       } else {
@@ -11211,7 +11215,7 @@ class MapScene extends Phaser.Scene {
           nameLbl.appendChild(nameSpan);
           if (effect) {
             nameLbl.appendChild(this._effectLineEl(nameLbl, effect,
-              `${this.iconSpanHTML(sel.id)} ${it.name}`));
+              `<div style="margin-bottom:8px;line-height:0">${this.iconSpanHTML(sel.id, 96)}</div>${it.name}`));
           }
         }
       }

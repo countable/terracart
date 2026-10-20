@@ -26,6 +26,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   pixel-for-pixel source parity; `node test/dom-icon-atlas.cjs` verifies every
   catalogued item and gear tier's CSS frame at multiple display sizes.
 
+- Large item and gear portraits use 96×96 cells in the five 8×8 atlases under
+  `assets/Icons/DialogItems/`, selected by `DialogItemArt` before old icon bakes.
+  Their muted painterly pixel treatment follows the approved sundries story
+  panel, with a black background and recognizable object forms. The source
+  masters retain their resolution; `python3 tools/build_dialog_item_art.py`
+  exports each cell independently with Lanczos filtering and rebuilds the
+  content-hashed registry and manifest. Compact icons and map sprites keep
+  their original art. Variant colours and item badges still identify composed
+  items when their underlying portrait is shared. Loot reward cards default to
+  96px portraits; tapping an item for its description shows its portrait at
+  96px above the item details.
+
 - Shop recipes use compact rows, selector spacing and a shared ingredient/count
   heading so shortfalls and receipts fit with the actions as artwork contracts.
 

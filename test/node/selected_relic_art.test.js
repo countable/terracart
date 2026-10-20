@@ -68,7 +68,7 @@
     assert.eq(seen[2][1], 0, 'legacy swings default to frame zero');
   });
   test('dialog gear art: only large registered gear uses detailed frames', () => {
-    const art = { cell: 48, columns: 8, size: 384,
+    const art = { cell: 96, columns: 8, size: 768,
       entries: { 'relic:sword:1': { sheet: 'dialog-gear.png', frame: 17 } } };
     const render = new Function('SelectedItemArt', 'ICON_SHEETS', 'gearAssetPath',
       'AMULET_FRAME_BY_TIER', 'domIconSheet', 'IconNet', 'DialogItemArt',
