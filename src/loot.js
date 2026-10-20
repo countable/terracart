@@ -948,10 +948,10 @@ function chestAlwaysCrate(o) {
 }
 // Approved container alternatives vary by stable object id, shared by map and
 // popup art. The old context frame remains the broken-pot shard selector.
-const SELECTED_CONTAINER_FRAMES = Object.freeze({ barrel: 9, box: 4, clay_pot: 2 });
+const SELECTED_CONTAINER_FRAMES = Object.freeze({ barrel: [3], box: [0, 1, 2, 3], clay_pot: [0, 1] });
 function selectedContainerFrame(o, key) {
-  const count = SELECTED_CONTAINER_FRAMES[key];
-  return count ? (fnv1aFrom(0x617274, o.id || `${o.x}:${o.y}`) >>> 0) % count : 0;
+  const frames = SELECTED_CONTAINER_FRAMES[key];
+  return frames ? frames[(fnv1aFrom(0x617274, o.id || `${o.x}:${o.y}`) >>> 0) % frames.length] : 0;
 }
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;

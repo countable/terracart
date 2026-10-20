@@ -156,6 +156,9 @@ access or tile lifecycle mechanics.
   `street_variants.js`; 8% shrub, 2.5% berry, 1.5% poisonberry of the
   seats): mostly ordinary shrubs, with berry and poisonberry bushes mixed
   in, still fewer than the herbs.
+  Residential verges instead keep PetNip uncommon at 12% of eligible seats.
+  Its excess former seats become clipped hedges, keeping the total greenery
+  density and rarer Nettle placement unchanged.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
   (`HOUSE_BARREL_ODDS`: 50% none, 40% one, 10% two)

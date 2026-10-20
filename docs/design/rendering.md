@@ -937,12 +937,12 @@ picking retains the same foliage frame and transparency. Square clipped bushes
 present a broad side toward the camera. Connected hedges retain their fifteen
 cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 
-`CONTAINER_CONTEXT_ART` in `loot.js` selects cosmetic barrel/pot frames from
-zone, then street, then biome; unknown contexts use oak and terracotta. Coastal
-contexts use rope-bound or painted wood and turquoise pots, industrial contexts
-use copper-rimmed or repaired barrels and charcoal pottery, and wetland contexts
-use mossy rain barrels. Pot shards retain the intact pot's frame. Selection does
-not change rewards, material identity, saved IDs or restocking behavior.
+`SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
+by map and popup art. Barrels use only the cylindrical frame 3; the square
+variants are excluded. Crates and intact pots retain their stable ID-selected
+variants. `CONTAINER_CONTEXT_ART` selects broken-pot shards by zone, then
+street, then biome. Selection does not change rewards, material identity,
+saved IDs or restocking behavior.
 
 ## Building sprite artwork
 
@@ -960,8 +960,6 @@ Procedural buildings remain the default on the map. `?buildingArt=legacy`
 selects the original sprites instead. Both modes use the original artwork
 for dialog icons and sprite fallbacks.
 
-Default oak barrel art uses the supply crate’s manufactured-wood palette directly,
-without a runtime tint. Only frame 0 of the barrel sheet is replaced; the other
-seven variants retain their original pixels. Default barrels scale to
-`(2/3) × 1.1 × 1.1`. Long grass uses `1.16 × 0.9`; trunk chests use
+The selected native 16px cylindrical barrel scales to `1.1 × 1.1`.
+Long grass uses `1.16 × 0.9`; trunk chests use
 `1.6 × 0.8`, and supply crates use `0.8 × 1.1`. Chests have trimmed bounds for every tier to keep their art centered.
