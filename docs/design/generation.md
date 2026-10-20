@@ -989,8 +989,11 @@ Higher-priority placements and their access space take precedence in this order:
 Furniture is durable player property in `save.furniture`, exempt from history
 trimming. Each one-cell record stores item identity, a cell-derived id, world
 position, `PlacedFloor.stampDepth` depth, flip and optional Home `houseKey`.
-Both floor lamps have 1×1 art; the Grandfather Clock retains 32×64 art while
-still occupying one floor cell.
+Floor lamps, owl statues, clocks and planters occupy one floor cell. The stock
+floor lamp retains its upright proportions; all seven owl, clock and planter
+tiers use generated 24×24 exports. The furniture manifest maps both legacy
+and tier frames to these exports; source masters and crop provenance live in
+`assets/Objects/Furniture/source/generated/`.
 `PlacedFloor.restoreFurniture` overlays it into normal `entry.objects` after
 saved barricades on both surface and cave loads. Surface loading first calls
 `ensureStarterTrailerObject` to stamp synthetic Home ownership, then derives

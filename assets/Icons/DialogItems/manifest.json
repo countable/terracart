@@ -1,0 +1,52 @@
+{
+  "cell": 48,
+  "columns": 8,
+  "rows": 8,
+  "sheets": [
+    {
+      "source": "assets/Icons/DialogItems/source/generated-01.png",
+      "output": "assets/Icons/DialogItems/items-01.png",
+      "sha256": "cce4e0a333f3560c9164e631f5c59e513f7bcbf5907508a3733fc46766e86ede",
+      "sourceSha256": "0e1773def2cc66809e9e8421b6be492583c4c7201a62efc422a83cbd9d576cdb"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-02.png",
+      "output": "assets/Icons/DialogItems/items-02.png",
+      "sha256": "7c75543a5d56eea37acbc3841ea924a7e92e8f30b5d6ac074d7856b4162a6e4f",
+      "sourceSha256": "000a69fd3e8e41da8dd020011e31f8abe77c401ccd9e546d6229e64f670779ad"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-03.png",
+      "output": "assets/Icons/DialogItems/items-03.png",
+      "sha256": "5258b9523e5a0239579c42c18f584cb7b400de36e84e284b4ff3b91b157a6d13",
+      "sourceSha256": "47cfeb9daf20fa30617b53380cfbe9fe1aa5aa2cccb4191648a618b54b06d2cf"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-04.png",
+      "output": "assets/Icons/DialogItems/items-04.png",
+      "sha256": "8fbd504c6bef1ae7ea5557f6e12a54fbaeedbaad393b0196c2426fb3178e8a77",
+      "sourceSha256": "2865e5a00805c6be4ea9d22cdf053ced267b0c6c7ceaecfcd1dc861922fde4b2"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-05.png",
+      "output": "assets/Icons/DialogItems/items-05.png",
+      "sha256": "add2110289762f5977c5bb28c935c20d5d8b97738b6f5a498b52eba0cd252888",
+      "sourceSha256": "5c31e3f45ff29c42e62336ac738ea25be0c5ada466856e585cc28a1cbf8719b5"
+    }
+  ],
+  "method": "Image generation using 8x8 original-icon reference sheets; nearest-neighbor export to 384x384. Original transparency retained.",
+  "excludedCells": [
+    {
+      "sheet": 3,
+      "frame": 44,
+      "reason": "Throwing spear became a wooden stick."
+    },
+    {
+      "sheet": 3,
+      "frame": 62,
+      "reason": "Barricade became scattered gold objects."
+    }
+  ],
+  "composites": "Badged, base-derived and palette-transformed items retain existing composed art.",
+  "runtimeEntries": 308
+}

@@ -1,0 +1,8909 @@
+[
+  {
+    "id": "workbench",
+    "name": "Tinker's Workbench",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 0,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 0,
+    "pixelHash": "c45cc426aae5bd8c50a628c9306edfa6e4f5b14a5421b0db468980d40f05f3ab",
+    "outputCrop": [
+      0,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "bed_quilted",
+    "name": "Quilted Cot",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 16,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      0,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 1,
+    "pixelHash": "3e5e0e3e7b49d87cfd5086103d6c17cef77667e4ce6f073494dbf4cfd7ff9d5f",
+    "outputCrop": [
+      48,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "washtub",
+    "name": "Washing Tub",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 23,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      48,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 2,
+    "pixelHash": "4a2ab8178c852dd4e6339d6ccd45bcf24a8dfd085ea0de32abaeda1318910749",
+    "outputCrop": [
+      96,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "mirror_brass",
+    "name": "Gear-Rim Looking Glass",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 52,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      0,
+      208,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 3,
+    "pixelHash": "07f187e1717d4856772f751e642be5c5811fc0dceae9cdc65f19548d64eb1037",
+    "outputCrop": [
+      144,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "table_oak",
+    "name": "Oak Side Table",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 30,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      32,
+      112,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 4,
+    "pixelHash": "21e7479260594ca20ca54efbfc4cb9d8f3102330d0d4142d41dd3ceff3f15804",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "dresser_oak",
+    "name": "Four-Drawer Dresser",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 37,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      16,
+      144,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 5,
+    "pixelHash": "2f788705e6c82d3354e6cdb0966c804b3e9b453282af6b54cdf23a33affc0227",
+    "outputCrop": [
+      240,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "planter_clay",
+    "name": "Clay Planter",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 58,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      32,
+      224,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 6,
+    "pixelHash": "d310db9bf2a608446725a7b3e92579e29ac1cc11a3d8ed88560fa73d4ea42b33",
+    "outputCrop": [
+      288,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rug_burgundy",
+    "name": "Burgundy Rug",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 66,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      32,
+      256,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 7,
+    "pixelHash": "e1c00de6a5285d0000bbc7c0331a97db2f59484a095535363878b74df28197b3",
+    "outputCrop": [
+      336,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "bookshelf_frontier",
+    "name": "Frontier Bookshelf",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 45,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      16,
+      176,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 8,
+    "pixelHash": "b9defd79d8387a8f8bc6261eeba9132926ffe2d9a38d50c0484f7fbf93afdc4c",
+    "outputCrop": [
+      0,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "lamp_floor",
+    "name": "Floor Lamp",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 74,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      32,
+      288,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 9,
+    "pixelHash": "06aa5d9eda70cd37325ad3e5c6efa98d136dbf4c11c74aa3fef842419d5d8543",
+    "outputCrop": [
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "clock_grandfather",
+    "name": "Grandfather Clock",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 81,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      16,
+      320,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 10,
+    "pixelHash": "7ca97d682456ba0ca632788c38beb85882cd8c5dcc029157f9c7c0897065dfbe",
+    "outputCrop": [
+      96,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "statue_pedestal",
+    "name": "Pedestal Owl",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 87,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      48,
+      336,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 11,
+    "pixelHash": "b74423fee0eaaa9c119aa1497b56cdf30f3223c263ca6678db925b44baed24cc",
+    "outputCrop": [
+      144,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "planter_copper",
+    "name": "Riveted Copper Planter",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 59,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      48,
+      224,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 12,
+    "pixelHash": "01d631ed4ab6216ea8e0beca2848a68cb3e9606bdb05dd6d5b936a15ad9badad",
+    "outputCrop": [
+      192,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "candelabra_floor",
+    "name": "Floor Candelabra",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 13,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      16,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 13,
+    "pixelHash": "94341e7cdba4191f85dfa863f5632244270013881d042becffc59ec9caf6ddbe",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "globe_brass",
+    "name": "Surveyor's Globe",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 95,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      48,
+      368,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 14,
+    "pixelHash": "ac4b20bc8d8f2b68b9cef3d6660f5a9b20afa526147e07e5948573448d21dc2e",
+    "outputCrop": [
+      288,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "telescope_brass",
+    "name": "Brass Stargazer",
+    "kind": "furniture",
+    "sheet": "furniture_icons",
+    "frame": 102,
+    "source": "assets/Objects/Furniture/furniture-icons-16.png",
+    "crop": [
+      32,
+      400,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 15,
+    "pixelHash": "35e0d52138fb388fab4111936c7e6b58ec20f396756ef18c058382f3ea241fff",
+    "outputCrop": [
+      336,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "field_scope",
+    "name": "Field Scope",
+    "kind": "unique_relic",
+    "sheet": "icon_field_scope",
+    "frame": 0,
+    "source": "assets/Icons/Items/field_scope.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 16,
+    "pixelHash": "a3e44392a2845b8ee525c8396b419109110ffdc2682dfcc33f70a8ff32e0b81f",
+    "outputCrop": [
+      0,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "compass",
+    "name": "Compass",
+    "kind": "unique_relic",
+    "sheet": "icon_compass",
+    "frame": 0,
+    "source": "assets/Icons/Items/compass.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 17,
+    "pixelHash": "4814105af0e5c93f3b2097bba89a2a3ca365182d9445c2af91e2960603f60bc0",
+    "outputCrop": [
+      48,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "orb",
+    "name": "Orb",
+    "kind": "unique_relic",
+    "sheet": "icon_orb",
+    "frame": 0,
+    "source": "assets/Icons/Items/orb.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 18,
+    "pixelHash": "f020b9d1ce4741cdb651b1c31e2178463413831bcfe52c2b0a3bd3cf7a4b4d98",
+    "outputCrop": [
+      96,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "goblet",
+    "name": "Goblet",
+    "kind": "unique_relic",
+    "sheet": "icon_goblet",
+    "frame": 0,
+    "source": "assets/Icons/Items/goblet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 19,
+    "pixelHash": "6c36c7448dc781249b7371fd9f076884586688782f6dc8a0bdb739c56b3a1ec4",
+    "outputCrop": [
+      144,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "lucky_key",
+    "name": "Lucky Key",
+    "kind": "unique_relic",
+    "sheet": "icon_lucky_key",
+    "frame": 0,
+    "source": "assets/Icons/Items/lucky_key.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 20,
+    "pixelHash": "596a40d959c15ecb3df6ed436f85f85f6282ddb0a8637f807f0ebc0f129fa3c4",
+    "outputCrop": [
+      192,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "wood_shield",
+    "name": "Wood Shield",
+    "kind": "unique_relic",
+    "sheet": "icon_wood_shield",
+    "frame": 0,
+    "source": "assets/Icons/Items/wood_shield.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 21,
+    "pixelHash": "fe78fff2fb0178807ff96ca0e12473c7ddcf5651dfc051d5d8ee598e2c8538f6",
+    "outputCrop": [
+      240,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "metal_shield",
+    "name": "Metal Shield",
+    "kind": "unique_relic",
+    "sheet": "icon_metal_shield",
+    "frame": 0,
+    "source": "assets/Icons/Items/metal_shield.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 22,
+    "pixelHash": "3c7c8f6185f6b47ba577933088a9eb793094747865d3347035477e517c6bf105",
+    "outputCrop": [
+      288,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "gold_shield",
+    "name": "Gold Shield",
+    "kind": "unique_relic",
+    "sheet": "icon_gold_shield",
+    "frame": 0,
+    "source": "assets/Icons/Items/gold_shield.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 23,
+    "pixelHash": "0487226df8dc9317fbb0033c74e25f962a197960de0c38891d5caec2890a9506",
+    "outputCrop": [
+      336,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "smiths_guild_badge",
+    "name": "Smiths\u2019 Guild Badge",
+    "kind": "unique_relic",
+    "sheet": "icon_smiths_guild_badge",
+    "frame": 0,
+    "source": "assets/Icons/Items/smiths_guild_badge.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 24,
+    "pixelHash": "84b3eb80fd07b0a5ed5965b1e6562f951c8ad0d34552ab0b05f85303ba322100",
+    "outputCrop": [
+      0,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "marketeers_guild_badge",
+    "name": "Shopkeepers\u2019 Guild Badge",
+    "kind": "unique_relic",
+    "sheet": "icon_marketeers_guild_badge",
+    "frame": 0,
+    "source": "assets/Icons/Items/marketeers_guild_badge.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 25,
+    "pixelHash": "bd88f5b43e0b010e1689c3d13e3da67d4fa5d320d23176a7d0de087dec401295",
+    "outputCrop": [
+      48,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "traders_guild_badge",
+    "name": "Traders\u2019 Guild Badge",
+    "kind": "unique_relic",
+    "sheet": "icon_traders_guild_badge",
+    "frame": 0,
+    "source": "assets/Icons/Items/traders_guild_badge.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 26,
+    "pixelHash": "19892f23e9fd924459b7affeb0cfc25d93827554dfbeee3e63c997c0c997ffe1",
+    "outputCrop": [
+      96,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rainberry_seed",
+    "name": "Rainberry Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "rainberry",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "pairy_seed",
+    "name": "Pairy Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "pairy",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "gemfruit_seed",
+    "name": "Gemfruit Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "gemfruit",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "nut_seed",
+    "name": "Nut Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "nut",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rubble_seed",
+    "name": "Rock Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "rubble",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "coffee_seed",
+    "name": "Coffee Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "coffee",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "potato_seed",
+    "name": "Potato Seed",
+    "kind": "seed",
+    "sheet": "springcrops",
+    "frame": 77,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      112,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 28,
+    "pixelHash": "4578e7ee8a1015f75076ead8a895bfbbfd36e4a4d4d29542d72e7f125c5fb2eb",
+    "outputCrop": [
+      192,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "iceflower_seed",
+    "name": "Iceflower Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "iceflower",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "fireflower_seed",
+    "name": "Fireflower Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "fireflower",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "sunflower_seed",
+    "name": "Sunflower Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "sunflower",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "dawnfruit_seed",
+    "name": "Dawnfruit Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "dawnfruit",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "miracle_lettuce_seed",
+    "name": "Miracle Lettuce Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "miracle_lettuce",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "starfruit_seed",
+    "name": "Starfruit Seed",
+    "kind": "seed",
+    "sheet": "crops",
+    "frame": 143,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      128,
+      240,
+      16,
+      16
+    ],
+    "badge": "starfruit",
+    "referenceSheet": 2,
+    "referenceCell": 27,
+    "pixelHash": "e50b032a36f2789bdef4afe9d7236dfcf378caba67a325cceaf2511e919b3206",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "berry_seed",
+    "name": "Berry Seed",
+    "kind": "seed",
+    "sheet": "springcrops",
+    "frame": 21,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      112,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 29,
+    "pixelHash": "30848c987f0b923f811b48b79c66fef5b3c15bd2c90d8ccb42d8bcc60cea413a",
+    "outputCrop": [
+      240,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "cress_seed",
+    "name": "Cress Seed",
+    "kind": "seed",
+    "sheet": "springcrops",
+    "frame": 49,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      112,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 30,
+    "pixelHash": "8eacec3e4a8956e4214c6b17dad519d959e5e28c0d4a7ca4904a35f177ae0c5b",
+    "outputCrop": [
+      288,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "onion_seed",
+    "name": "Onion Seed",
+    "kind": "seed",
+    "sheet": "springcrops",
+    "frame": 105,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      112,
+      112,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 31,
+    "pixelHash": "8233fa365e9dedd7d0c3b5e533067e3cf2617f13134a005c21d391685b84623f",
+    "outputCrop": [
+      336,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rainberry",
+    "name": "Rainberry",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 7,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 32,
+    "pixelHash": "192f92098107822c0b4fa6c28d5da99cc95b56ec2fc237b4ebabaaa9117ee158",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "pairy",
+    "name": "Pairy",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 16,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 33,
+    "pixelHash": "9fd8baaf708509194b3053a920eb4b897630e5283df30c6dc70c35592caeead3",
+    "outputCrop": [
+      48,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "gemfruit",
+    "name": "Gemfruit",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 25,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 34,
+    "pixelHash": "480cc88ac257059bdb8a5d27f0ee9c3621fd1221a8aa1aa8a248e278563d5727",
+    "outputCrop": [
+      96,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "nut",
+    "name": "Nut",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 34,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 35,
+    "pixelHash": "7048c8b24c60a53081002694170f200a5327069639065c8b56c95cca9c039d38",
+    "outputCrop": [
+      144,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rubble",
+    "name": "Rock",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 35,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 35,
+      "id": "ALT-0400",
+      "source": "extra_assets/Sunnyside_World_Assets/Tileset/spr_tileset_sunnysideworld_16px.png",
+      "crop": [
+        496,
+        64,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 33,
+    "pixelHash": "29a381ee2197fe8b7fa5929f7cf68088b7ca5462af4a0908d688289a350435b3",
+    "outputCrop": [
+      48,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "coffee",
+    "name": "Coffee",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 52,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 36,
+    "pixelHash": "36e7a1144226f7ae11563b67e57ca7e014a1bc4b008c39e7f87be618e9bacfbb",
+    "outputCrop": [
+      192,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "potato",
+    "name": "Potato",
+    "kind": "produce",
+    "sheet": "springcrops",
+    "frame": 78,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      128,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 37,
+    "pixelHash": "02c7d032ed7f06edb5f4fce178ef366f47edfe4a7638b2cda6c73e14339ec399",
+    "outputCrop": [
+      240,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "iceflower",
+    "name": "Iceflower",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 70,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      112,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 38,
+    "pixelHash": "0fae26941d1b18cc07607970ba998049b3ae9c7bfd4bdffda20498956d33e48b",
+    "outputCrop": [
+      288,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "fireflower",
+    "name": "Fireflower",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 79,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      128,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 39,
+    "pixelHash": "39cc870b9730ab337930e091a4cfeb02a2cab2151d624dd924ccb84444d8b04c",
+    "outputCrop": [
+      336,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "sunflower",
+    "name": "Sunflower",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 88,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      144,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 40,
+    "pixelHash": "ed863ffb3d04b18a0791514c1a40b8ce5709d26043452385ac7b12874e292fb0",
+    "outputCrop": [
+      0,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "dawnfruit",
+    "name": "Dawnfruit",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 61,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      96,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 41,
+    "pixelHash": "95d0c28e92aecf73873dd49673162f21eec185f33223c1bef5fc6eda16dbd099",
+    "outputCrop": [
+      48,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "miracle_lettuce",
+    "name": "Miracle Lettuce",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 106,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      176,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 42,
+    "pixelHash": "96a6f4a113a4d939b1f37c930681bad24a60c71e93ad12115be6acf2df802a31",
+    "outputCrop": [
+      96,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "starfruit",
+    "name": "Starfruit",
+    "kind": "produce",
+    "sheet": "crops",
+    "frame": 97,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      112,
+      160,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 43,
+    "pixelHash": "6fd0df8232ad6db1edf4152b368939f04ffbb8142070c4213091cb82c10688fc",
+    "outputCrop": [
+      144,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "berry",
+    "name": "Berry",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 7,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      112,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 7,
+      "id": "ALT-0540",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        368,
+        32,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 5,
+    "pixelHash": "bcc785be4842953d902b60aadcf37456a439d6e55d78ba0a7d398368172b73d0",
+    "outputCrop": [
+      240,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "cress",
+    "name": "Cress",
+    "kind": "produce",
+    "sheet": "springcrops",
+    "frame": 50,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      128,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 44,
+    "pixelHash": "aedcc6c4a881a3eed28b6ad17c9128a3d9c873b79256fc0b219624dd921a095e",
+    "outputCrop": [
+      192,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "onion",
+    "name": "Onion",
+    "kind": "produce",
+    "sheet": "springcrops",
+    "frame": 106,
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      128,
+      112,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 45,
+    "pixelHash": "4aa7eb58964f10b7b4297f2d5e3a3304ebf0e6da4dd9e15b6d7ace73887e8ed4",
+    "outputCrop": [
+      240,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "slime",
+    "name": "Slime",
+    "kind": "animal",
+    "source": "assets/Enemy/Slime Green.png",
+    "sheet": "slime",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 46,
+    "pixelHash": "d29ed47f296f0e7221a6623ef562b8ac9dba6ef85fbbde1b0cd66d706e33d4a5",
+    "outputCrop": [
+      288,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "cave_slime",
+    "name": "Cave Slime",
+    "kind": "animal",
+    "source": "assets/Enemy/Slime Green.png",
+    "sheet": "slime",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 46,
+    "pixelHash": "d29ed47f296f0e7221a6623ef562b8ac9dba6ef85fbbde1b0cd66d706e33d4a5",
+    "outputCrop": [
+      288,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "purple_slime",
+    "name": "Purple Slime",
+    "kind": "animal",
+    "source": "assets/Enemy/Purple Slime.png",
+    "sheet": "purple_slime",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 47,
+    "pixelHash": "d15b6fbd903a10c183292d9d2982da58637faa315d8c3f3d95b6dbfa8549849c",
+    "outputCrop": [
+      336,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "fire_slime",
+    "name": "Fire Slime",
+    "kind": "animal",
+    "source": "assets/Enemy/Slime Green.png",
+    "sheet": "fire_slime",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 46,
+    "pixelHash": "d29ed47f296f0e7221a6623ef562b8ac9dba6ef85fbbde1b0cd66d706e33d4a5",
+    "outputCrop": [
+      288,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "chicken",
+    "name": "Chicken",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Chicken Red.png",
+    "sheet": "chicken",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 48,
+    "pixelHash": "d6fb888631fe04718f72338b6856af2a2bbdfe5ee67ae2cd828d4c4ef26a141b",
+    "outputCrop": [
+      0,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "cow",
+    "name": "Cow",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Female Cow Brown.png",
+    "sheet": "cow",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 49,
+    "pixelHash": "391dba3accb5c6ce05fb10ffce091728dfa0ce36ba59852f0e016a0161cf4f93",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "cat",
+    "name": "Cat",
+    "kind": "animal",
+    "source": "assets/Objects/Pets/cat.png",
+    "sheet": "cat",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 50,
+    "pixelHash": "58fe16733c00e6b309df655e965237103f52a40e762ee927d999ebc0c1c0e13a",
+    "outputCrop": [
+      96,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "dog",
+    "name": "Dog",
+    "kind": "animal",
+    "source": "assets/Objects/Pets/dog.png",
+    "sheet": "dog",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 51,
+    "pixelHash": "3ff644a29e3a204dadbffcf150940f75475f63e5a5941a83db01c077c52a1e68",
+    "outputCrop": [
+      144,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "deer",
+    "name": "Deer",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Deer Idle.png",
+    "sheet": "deer",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 52,
+    "pixelHash": "d34c689feeb7cbfaaa76ee6bede3db0561b2d150acb6f21785507a927826c703",
+    "outputCrop": [
+      192,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rabbit",
+    "name": "Rabbit",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Rabbit White.png",
+    "sheet": "rabbit",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 53,
+    "pixelHash": "c6abad8221214ae4266d883a9387e3d5f78f5adfa54aa3bd36a3aa0f31a7cce0",
+    "outputCrop": [
+      240,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "crow",
+    "name": "Crow",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Crow.png",
+    "sheet": "crow",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 54,
+    "pixelHash": "3a84e852dfde62ca90e78766adc931bb0f787c8be462f0f64a6c3df508572f0e",
+    "outputCrop": [
+      288,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "butterfly",
+    "name": "Butterfly",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Azure Butterfly.png",
+    "sheet": "butterfly",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 55,
+    "pixelHash": "5da4b73d3cda79033a2a1c07b6723f6b17bb2335a49bbcef1fa065cda0be4df0",
+    "outputCrop": [
+      336,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "crab",
+    "name": "Crab",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Crab.png",
+    "sheet": "crab",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 56,
+    "pixelHash": "1c0cf0345ac704ca00ae37b190297c87be0418472da4a4c703c80a2ec3adaeaa",
+    "outputCrop": [
+      0,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "horse",
+    "name": "Horse",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Horse.png",
+    "sheet": "horse",
+    "frame": 8,
+    "crop": [
+      0,
+      64,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 57,
+    "pixelHash": "ed19837aaaeb5e914d3224a5c2874b6f6cca66511f2df2b2134bfea5fe338393",
+    "outputCrop": [
+      48,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "sea_turtle",
+    "name": "Sea Turtle",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Turtle.png",
+    "sheet": "sea_turtle",
+    "frame": 6,
+    "crop": [
+      0,
+      48,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 58,
+    "pixelHash": "3e47d82ba89ebcc5f08c5053885f251dc6df88f719d2a1e75c00c4d46df24d24",
+    "outputCrop": [
+      96,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_chicken",
+    "name": "Shiny Chicken",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Chicken Red.png",
+    "base": "chicken",
+    "sheet": "chicken",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 48,
+    "pixelHash": "d6fb888631fe04718f72338b6856af2a2bbdfe5ee67ae2cd828d4c4ef26a141b",
+    "outputCrop": [
+      0,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_cow",
+    "name": "Shiny Cow",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Female Cow Brown.png",
+    "base": "cow",
+    "sheet": "cow",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 49,
+    "pixelHash": "391dba3accb5c6ce05fb10ffce091728dfa0ce36ba59852f0e016a0161cf4f93",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_cat",
+    "name": "Shiny Cat",
+    "kind": "animal",
+    "source": "assets/Objects/Pets/cat.png",
+    "base": "cat",
+    "sheet": "cat",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 50,
+    "pixelHash": "58fe16733c00e6b309df655e965237103f52a40e762ee927d999ebc0c1c0e13a",
+    "outputCrop": [
+      96,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_dog",
+    "name": "Shiny Dog",
+    "kind": "animal",
+    "source": "assets/Objects/Pets/dog.png",
+    "base": "dog",
+    "sheet": "dog",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 51,
+    "pixelHash": "3ff644a29e3a204dadbffcf150940f75475f63e5a5941a83db01c077c52a1e68",
+    "outputCrop": [
+      144,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_rabbit",
+    "name": "Shiny Rabbit",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Rabbit White.png",
+    "base": "rabbit",
+    "sheet": "rabbit",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 53,
+    "pixelHash": "c6abad8221214ae4266d883a9387e3d5f78f5adfa54aa3bd36a3aa0f31a7cce0",
+    "outputCrop": [
+      240,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_butterfly",
+    "name": "Shiny Butterfly",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Azure Butterfly.png",
+    "base": "butterfly",
+    "sheet": "butterfly",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 55,
+    "pixelHash": "5da4b73d3cda79033a2a1c07b6723f6b17bb2335a49bbcef1fa065cda0be4df0",
+    "outputCrop": [
+      336,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_crab",
+    "name": "Shiny Crab",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Crab.png",
+    "base": "crab",
+    "sheet": "crab",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 56,
+    "pixelHash": "1c0cf0345ac704ca00ae37b190297c87be0418472da4a4c703c80a2ec3adaeaa",
+    "outputCrop": [
+      0,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_horse",
+    "name": "Shiny Horse",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Horse.png",
+    "base": "horse",
+    "sheet": "horse",
+    "frame": 8,
+    "crop": [
+      0,
+      64,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 57,
+    "pixelHash": "ed19837aaaeb5e914d3224a5c2874b6f6cca66511f2df2b2134bfea5fe338393",
+    "outputCrop": [
+      48,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_sea_turtle",
+    "name": "Shiny Sea_turtle",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Turtle.png",
+    "base": "sea_turtle",
+    "sheet": "sea_turtle",
+    "frame": 6,
+    "crop": [
+      0,
+      48,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 58,
+    "pixelHash": "3e47d82ba89ebcc5f08c5053885f251dc6df88f719d2a1e75c00c4d46df24d24",
+    "outputCrop": [
+      96,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baby_chicken",
+    "name": "Baby Chicken",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Chicken Red.png",
+    "base": "chicken",
+    "sheet": "chicken",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 48,
+    "pixelHash": "d6fb888631fe04718f72338b6856af2a2bbdfe5ee67ae2cd828d4c4ef26a141b",
+    "outputCrop": [
+      0,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baby_cow",
+    "name": "Baby Cow",
+    "kind": "animal",
+    "source": "assets/Farm Animals/Female Cow Brown.png",
+    "base": "cow",
+    "sheet": "cow",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 49,
+    "pixelHash": "391dba3accb5c6ce05fb10ffce091728dfa0ce36ba59852f0e016a0161cf4f93",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baby_cat",
+    "name": "Baby Cat",
+    "kind": "animal",
+    "source": "assets/Objects/Pets/cat.png",
+    "base": "cat",
+    "sheet": "cat",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 50,
+    "pixelHash": "58fe16733c00e6b309df655e965237103f52a40e762ee927d999ebc0c1c0e13a",
+    "outputCrop": [
+      96,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baby_dog",
+    "name": "Baby Dog",
+    "kind": "animal",
+    "source": "assets/Objects/Pets/dog.png",
+    "base": "dog",
+    "sheet": "dog",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 51,
+    "pixelHash": "3ff644a29e3a204dadbffcf150940f75475f63e5a5941a83db01c077c52a1e68",
+    "outputCrop": [
+      144,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baby_rabbit",
+    "name": "Baby Rabbit",
+    "kind": "animal",
+    "source": "assets/Objects/Wilderness/Rabbit White.png",
+    "base": "rabbit",
+    "sheet": "rabbit",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 2,
+    "referenceCell": 53,
+    "pixelHash": "c6abad8221214ae4266d883a9387e3d5f78f5adfa54aa3bd36a3aa0f31a7cce0",
+    "outputCrop": [
+      240,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "egg",
+    "name": "Egg",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 10,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 10,
+      "id": "ALT-0387",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        200,
+        680,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 9,
+    "pixelHash": "64720e432b0e930a04bc2e8942fd0e6231904d226ded2b691357bd4b5472fba3",
+    "outputCrop": [
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shiny_egg",
+    "name": "Shiny Egg",
+    "kind": "produce",
+    "base": "egg",
+    "sheet": "selected_items",
+    "frame": 10,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 10,
+      "id": "ALT-0387",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        200,
+        680,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 9,
+    "pixelHash": "64720e432b0e930a04bc2e8942fd0e6231904d226ded2b691357bd4b5472fba3",
+    "outputCrop": [
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "green_dragon",
+    "name": "Green Dragon",
+    "kind": "animal",
+    "source": "assets/Enemy/Dragons/RedDragon.png",
+    "sheet": "green_dragon",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": true,
+    "referenceSheet": 2,
+    "referenceCell": 59,
+    "pixelHash": "70e7b8529fcb1b1a1990cc24715851ba482c4a40d3316949a6c2bb7d7faabe37",
+    "outputCrop": [
+      144,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baby_green_dragon",
+    "name": "Baby Green Dragon",
+    "kind": "animal",
+    "source": "assets/Enemy/Dragons/RedDragon.png",
+    "base": "green_dragon",
+    "sheet": "green_dragon",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      32,
+      32
+    ],
+    "baked": true,
+    "paletteTransform": true,
+    "referenceSheet": 2,
+    "referenceCell": 59,
+    "pixelHash": "70e7b8529fcb1b1a1990cc24715851ba482c4a40d3316949a6c2bb7d7faabe37",
+    "outputCrop": [
+      144,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "milk",
+    "name": "Milk",
+    "kind": "produce",
+    "sheet": "icon_milk",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Small Cow Milk.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 60,
+    "pixelHash": "4b71014bd64b32c912d5fda5fdb2c4bbad38791592530212a1040e267bd943d2",
+    "outputCrop": [
+      192,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "longgrass",
+    "name": "Long grass",
+    "kind": "produce",
+    "sheet": "selected_longgrass",
+    "frame": 0,
+    "source": "assets/Objects/SelectedWorld/world.png",
+    "crop": [
+      204,
+      140,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 61,
+    "pixelHash": "a825a21346e1c8e14bd6e1f404d992fad732fb4134696080bc72413694094e2f",
+    "outputCrop": [
+      240,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "petnip",
+    "name": "PetNip",
+    "kind": "produce",
+    "sheet": "petnip",
+    "frame": 0,
+    "source": "assets/Objects/Handmade/petnip.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 62,
+    "pixelHash": "32fd3206bd3718b6fa8a5546c20e7531040b6075a47e5691dc693ac81684d2ad",
+    "outputCrop": [
+      288,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "nettle",
+    "name": "Nettle",
+    "kind": "produce",
+    "sheet": "props",
+    "frame": 33,
+    "source": "assets/Objects/Approved/props.png",
+    "crop": [
+      176,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 2,
+    "referenceCell": 63,
+    "pixelHash": "52b35c3cb7fe2ad1891c6a65e10c3bfb46945202b71f40f6a07c6b446a81a4e6",
+    "outputCrop": [
+      336,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "flowers",
+    "name": "Flowers",
+    "kind": "produce",
+    "sheet": "props",
+    "frame": 12,
+    "source": "assets/Objects/Approved/props.png",
+    "crop": [
+      192,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 0,
+    "pixelHash": "c082a153d314d420f4865dfaba5bc388cd8a719970633465dc7700101a6c900b",
+    "outputCrop": [
+      0,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "forgetmenot",
+    "name": "Forget-me-not",
+    "kind": "produce",
+    "sheet": "props",
+    "frame": 76,
+    "source": "assets/Objects/Approved/props.png",
+    "crop": [
+      160,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 1,
+    "pixelHash": "27f9b79711cc156b31df2c2c82bd00c25004d7831c82a7b3e5d89dcfcae9e27f",
+    "outputCrop": [
+      48,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "marigold",
+    "name": "Marigold",
+    "kind": "produce",
+    "sheet": "props",
+    "frame": 34,
+    "source": "assets/Objects/Approved/props.png",
+    "crop": [
+      192,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 2,
+    "pixelHash": "3e0f388e5cd9522804f08f472669cabeeb783368c637f322a48020c67f2f8360",
+    "outputCrop": [
+      96,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "wildrose",
+    "name": "Wild Rose",
+    "kind": "produce",
+    "sheet": "props",
+    "frame": 30,
+    "source": "assets/Objects/Approved/props.png",
+    "crop": [
+      128,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 3,
+    "pixelHash": "0131f21dee4eb0b5922a69da0609e03af8e7e32cbd7cc67ee39c278da6e53219",
+    "outputCrop": [
+      144,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "starflower",
+    "name": "Starflower",
+    "kind": "produce",
+    "sheet": "props",
+    "frame": 102,
+    "source": "assets/Objects/Approved/props.png",
+    "crop": [
+      224,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 4,
+    "pixelHash": "51ed646e38aaf763f14b66189d8f300c2bc5fd5329d38ad75b96efec67870c20",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "sugar_potion",
+    "name": "Sugar Potion",
+    "kind": "supply",
+    "sheet": "selected_items",
+    "frame": 38,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      96,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 38,
+      "id": "ALT-0541",
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "crop": [
+        352,
+        96,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 39,
+    "pixelHash": "ff66b452eca9b63b2a1bd586b70207e87c39b41ed5bb1cc4119e2ccec51d9744",
+    "outputCrop": [
+      336,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "taming_potion",
+    "name": "Potion of Taming",
+    "kind": "supply",
+    "sheet": "selected_items",
+    "frame": 28,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      48,
+      16,
+      16
+    ],
+    "badge": "pet_fang_charm",
+    "original": {
+      "frame": 28,
+      "id": "ALT-0603",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 32,
+    "pixelHash": "9340f66742e3123c577c42b907fd36eb1998f39e2b42cd01bd5311ff1b2f531b",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "book",
+    "name": "Book",
+    "kind": "supply",
+    "sheet": "icon_book",
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 5,
+    "pixelHash": "91f1d262b1509d83951e2f6d8ec603f751c28f8a5d0969b06737dae4ff0dbdd8",
+    "outputCrop": [
+      240,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_reach",
+    "name": "Tome of Reach",
+    "kind": "unique_relic",
+    "sheet": "icon_book",
+    "frame": 2,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 6,
+    "pixelHash": "77e4e20500ac1c0196587f4607fb4c30a9370d023d15fa30ff01b96d2f31af0f",
+    "outputCrop": [
+      288,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_raven",
+    "name": "Tome of the Raven",
+    "kind": "unique_relic",
+    "sheet": "icon_book",
+    "frame": 8,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      128,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 7,
+    "pixelHash": "233ca3a0e7a6b6f3a305be175cdd511a2bc3d8dae9fff360b0c52f78bcb81552",
+    "outputCrop": [
+      336,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_thunder",
+    "name": "Tome of Thunder",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 42,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 42,
+      "id": "ALT-0714",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        48,
+        112,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 45,
+    "pixelHash": "2f6e6fdd17a55bdbef89a672cf97c60221b892b87534d70c1feefbd2d1d9f035",
+    "outputCrop": [
+      240,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_speed",
+    "name": "Tome of Speed",
+    "kind": "unique_relic",
+    "sheet": "icon_book",
+    "frame": 3,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      48,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 8,
+    "pixelHash": "dd434caf0189106905fa9e9715afb61b04101d2ff998780d4d7922f54a1eac96",
+    "outputCrop": [
+      0,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_shielding",
+    "name": "Tome of Shielding",
+    "kind": "unique_relic",
+    "sheet": "icon_book",
+    "frame": 4,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      64,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 9,
+    "pixelHash": "6e1c5817c3c37949bfa971f966672a153ad7543ed69f781b830a5e3815645f1a",
+    "outputCrop": [
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_healing",
+    "name": "Tome of Healing",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 41,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 41,
+      "id": "ALT-0617",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        136,
+        232,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 44,
+    "pixelHash": "fd0fa1a6c7d643bbc597f3d9996003fa4b223502e7f3a8ba7697866c8b0f7d1b",
+    "outputCrop": [
+      192,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_blight",
+    "name": "Tome of Blight",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 39,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      112,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 39,
+      "id": "ALT-0709",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        288,
+        208,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 41,
+    "pixelHash": "4c7778f7226d83f6d04d0bcfc229e2341bd681e7603b1ef2cd61603fbcd01f74",
+    "outputCrop": [
+      48,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_frost_aura",
+    "name": "Tome of Frost Aura",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 40,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 40,
+      "id": "ALT-0708",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        32,
+        112,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 43,
+    "pixelHash": "940169020fac968bc5427217661f1d099f4f0e4acf2112366a70fa5fca7aae25",
+    "outputCrop": [
+      144,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "tome_fire_wall",
+    "name": "Wall of Fire Tome",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 44,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 44,
+      "id": "ALT-0711",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        112,
+        112,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 42,
+    "pixelHash": "3ea7af47f478bf57b3e402122f114793e86a3d9ba2bbd97d9a92ce2b2ae1d638",
+    "outputCrop": [
+      96,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "blank_scroll",
+    "name": "Blank Scroll",
+    "kind": "supply",
+    "sheet": "icon_book",
+    "frame": 45,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      0,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 10,
+    "pixelHash": "be1fcb2f4a0ee5efeb28e71082157b5a79760fbf48920f3b5db53b5a61cacedc",
+    "outputCrop": [
+      96,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "fireball_scroll",
+    "name": "Fireball Scroll",
+    "kind": "magic",
+    "sheet": "icon_book",
+    "frame": 46,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      16,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 11,
+    "pixelHash": "1758262b47826fbbc445e799dee1db472b0871be3618fb016bfffa09587ecb3c",
+    "outputCrop": [
+      144,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "explosive_flask",
+    "name": "Explosive Flask",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 13,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      80,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 13,
+      "id": "ALT-0758",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        80,
+        16,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 12,
+    "pixelHash": "79c2a2c5eefec9690f9a953938ac19e64001f16acd0847f96977392ee4ff64df",
+    "outputCrop": [
+      192,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "fear_scroll",
+    "name": "Scroll of Fear",
+    "kind": "magic",
+    "sheet": "icon_book",
+    "frame": 47,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      32,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 12,
+    "pixelHash": "8f4b4bfe272b26fe5664d4c2cecf967db31556f892d95527eb46f904400e49b2",
+    "outputCrop": [
+      192,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "wind_scroll",
+    "name": "Scroll of Wind",
+    "kind": "magic",
+    "sheet": "icon_wind_scroll",
+    "frame": 0,
+    "source": "assets/Icons/Items/WindScroll.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 13,
+    "pixelHash": "c53c3541a19427dd9d6c272ccd4573d496e68996d3e149d1145863edb5a2c1d7",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "treasure_map",
+    "name": "Treasure Map",
+    "kind": "magic",
+    "sheet": "icon_book",
+    "frame": 49,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      64,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 14,
+    "pixelHash": "fe3b8d16c70a8eeb7f839d04313f4e12a0172622dd0f793f88692c98106ca4eb",
+    "outputCrop": [
+      288,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "magic_hammer",
+    "name": "Magic Hammer",
+    "kind": "magic",
+    "sheet": "icon_magic_hammer",
+    "frame": 0,
+    "source": "assets/Icons/Items/MagicHammer.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 15,
+    "pixelHash": "ef5cc73d13d131f9ca8d524d396c702c4842631a530f39d2de34ff4bbefb8a32",
+    "outputCrop": [
+      336,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "pet_collar",
+    "name": "Sturdy Collar",
+    "kind": "pet_accessory",
+    "sheet": "icon_amulets",
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 16,
+    "pixelHash": "bba30e1ad2f69b43a55052c8a6b5d740a5bf94c88b55aa99daa64acfd92ad95d",
+    "outputCrop": [
+      0,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "pet_guard_collar",
+    "name": "Guard Collar",
+    "kind": "pet_accessory",
+    "sheet": "icon_amulets",
+    "frame": 1,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 17,
+    "pixelHash": "b05545ae9218276c133c839c0f6649b43b4ee292e9dc5094bae3f2e864de4b7a",
+    "outputCrop": [
+      48,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "pet_fang_charm",
+    "name": "Fang Charm",
+    "kind": "pet_accessory",
+    "sheet": "selected_items",
+    "frame": 15,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      112,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 15,
+      "id": "ALT-0741",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        640,
+        80,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 20,
+    "pixelHash": "860f23fbae215462a0e541ce1643423af84ceee976f0c2444884da582197561c",
+    "outputCrop": [
+      192,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "pet_rest_charm",
+    "name": "Rest Charm",
+    "kind": "pet_accessory",
+    "sheet": "selected_items",
+    "frame": 34,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 34,
+      "id": "ALT-0742",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        672,
+        48,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 21,
+    "pixelHash": "c84b91aa4f1c3ce846cba9c80435d407e8f3d8699a99d0c0ff4e304c0fcc2639",
+    "outputCrop": [
+      240,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "sleep_powder",
+    "name": "Sleep Powder",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 3,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      48,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 18,
+    "pixelHash": "16c50605b75dcebf45dd531f0f554f6709896858848c68bdceda41aa39bec795",
+    "outputCrop": [
+      96,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "psychosis_powder",
+    "name": "Powder of Psychosis",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 1,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 19,
+    "pixelHash": "adbf5dd6a16c3cb5b5591423352e1526bbc645013f0dea4d2ff16c5314206075",
+    "outputCrop": [
+      144,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "hardworking_potion",
+    "name": "Potion of Hardworking",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 23,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      112,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 23,
+      "id": "ALT-0323",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.4.png",
+      "crop": [
+        0,
+        96,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 17,
+    "pixelHash": "f0eac7333fff4cae968619607c21ef1ba28e0e3c93a51b3f003f6f5220b50062",
+    "outputCrop": [
+      48,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grip_potion",
+    "name": "Potion of Grip",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 22,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      96,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 22,
+      "id": "ALT-0601",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        112,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 16,
+    "pixelHash": "6c5f36f83758fa1df7b22bff32905670e5d90d246330d96f4d465da84b6fa093",
+    "outputCrop": [
+      0,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "stoneskin_potion",
+    "name": "Potion of Stoneskin",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 32,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 32,
+      "id": "ALT-0759",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        64,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 38,
+    "pixelHash": "eb40ed4b39f535586d6186a273340a83b4043e86b3c3ec2b188dc566fada7e72",
+    "outputCrop": [
+      288,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "poison_flask",
+    "name": "Poison Flask",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 17,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 17,
+      "id": "ALT-0609",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        160,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 22,
+    "pixelHash": "15ae525a8c50297ba1232bb543515d9bc0d7dcab698656dd5ec2e1390627ef97",
+    "outputCrop": [
+      288,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "antidote",
+    "name": "Antidote",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 4,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 4,
+      "id": "ALT-0611",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 2,
+    "pixelHash": "27f30db5031f1fa51e13ef8aa3bc25b1fc9ef999dd4d26e4b325f7d53e1382b0",
+    "outputCrop": [
+      96,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "elixir",
+    "name": "Elixir",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 11,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 11,
+      "id": "ALT-0614",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 10,
+    "pixelHash": "47b9495417391aea2e0434d59c0f6b08f6aea0ad83f7c7ef9c67e164ffcee5af",
+    "outputCrop": [
+      96,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "reach_potion",
+    "name": "Potion of Reach",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 27,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 27,
+      "id": "ALT-0287",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        192,
+        144,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 24,
+    "pixelHash": "fadaa504a02832f553f331b8cc84267dc47169dab51c2a31e822e95628fe8f23",
+    "outputCrop": [
+      0,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "healing_potion",
+    "name": "Potion of Healing",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 24,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 24,
+      "id": "ALT-0605",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 18,
+    "pixelHash": "5eccb407be435757727e65cefd90c1ce77a49ddb23b6cd507d444abc1aaafac4",
+    "outputCrop": [
+      96,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "speed_potion",
+    "name": "Potion of Speed",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 31,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      112,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 31,
+      "id": "ALT-0747",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 37,
+    "pixelHash": "5f2dd693b6b6419c720af62aebbf6a93b3a5ffb38388be19c00bfe11df624137",
+    "outputCrop": [
+      240,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shielding_potion",
+    "name": "Potion of Shielding",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 30,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      96,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 30,
+      "id": "ALT-0228",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        400,
+        240,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 36,
+    "pixelHash": "8870a525ca07d5096ccf59da996baee34c22ea2da0d21d090a71499bbac14501",
+    "outputCrop": [
+      192,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "protection_potion",
+    "name": "Potion of Protection",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 26,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 26,
+      "id": "ALT-0281",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        96,
+        144,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 23,
+    "pixelHash": "054f25cca411c68ffce3a8d1912caa16d7b37b7de14e20491fcf27dd86ba92b5",
+    "outputCrop": [
+      336,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "time_potion",
+    "name": "Potion of Time",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 33,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 33,
+      "id": "ALT-0282",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        112,
+        144,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 40,
+    "pixelHash": "b5aec486362817c01760239d2bfe4147269096151125e4dbadd2f0c3465c3770",
+    "outputCrop": [
+      0,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "immortal_potion",
+    "name": "Potion of Immortal",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 25,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 25,
+      "id": "ALT-0222",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        336,
+        240,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 19,
+    "pixelHash": "57e66c8967c30fe5321ceca5cbbab2c42ae54cbfa615142db7a9af8909421644",
+    "outputCrop": [
+      144,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "flight_potion",
+    "name": "Potion of Flight",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 24,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      64,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 20,
+    "pixelHash": "a78239ef3ebaa04e04dd161ce3af07103d6200336fd65ce3d27f48684db72fc1",
+    "outputCrop": [
+      192,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shrinking_potion",
+    "name": "Potion of Shrinking",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 18,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      48,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 21,
+    "pixelHash": "5748adafa48327ff87619ff66ffed54f3595dcb8ef7d8bb1f764d2153d07c0a0",
+    "outputCrop": [
+      240,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "giant_potion",
+    "name": "Potion of Giant",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 21,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      80,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 21,
+      "id": "ALT-0327",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Set 2.0.png",
+      "crop": [
+        0,
+        192,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 14,
+    "pixelHash": "da57629addadb3ea68087f60bfe1e8b5f30a8581774f457f2608eed04f243195",
+    "outputCrop": [
+      288,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "fire_resistance_potion",
+    "name": "Potion of Fire Resistance",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 20,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 20,
+      "id": "ALT-0755",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        112,
+        16,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 13,
+    "pixelHash": "300f4ff5ca032f00c83cf5d60e8b18761066d863fdf0fae32642d84132092d4b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "blight_potion",
+    "name": "Potion of Blight",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 19,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 19,
+      "id": "ALT-0274",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        32,
+        144,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 6,
+    "pixelHash": "81e02b026303c11851fca0534d510ecc20396957b90fa172d6743b66083c6e24",
+    "outputCrop": [
+      288,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "bones_scroll",
+    "name": "Scroll of Bones",
+    "kind": "magic",
+    "sheet": "icon_bones_scroll",
+    "frame": 0,
+    "source": "assets/Icons/Items/SkeletonScroll.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 22,
+    "pixelHash": "bf2bc7d3cc9cb99a17125b12ff9d27c2569018cf229de7b457d20cae882ccf2b",
+    "outputCrop": [
+      288,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "wraith_scroll",
+    "name": "Scroll of the Wraith",
+    "kind": "magic",
+    "sheet": "icon_wraith_scroll",
+    "frame": 0,
+    "source": "assets/Icons/Items/WraithScroll.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 23,
+    "pixelHash": "f020d9be1d71a9a0fa8b7339b2c7a7c651f5f6a375cb7ff4685d92031900da98",
+    "outputCrop": [
+      336,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "raven_scroll",
+    "name": "Scroll of the Raven",
+    "kind": "magic",
+    "sheet": "icon_raven_scroll",
+    "frame": 0,
+    "source": "assets/Icons/Items/RavenScroll.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 24,
+    "pixelHash": "1643085a232ef33d9afe3e51f7367333d9999a7b43f21bbf8499fb35a87b0d8c",
+    "outputCrop": [
+      0,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "serpent_idol",
+    "name": "Serpent Idol",
+    "kind": "magic",
+    "sheet": "icon_serpent_idol",
+    "frame": 0,
+    "source": "assets/Icons/Items/SerpentIdol.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 25,
+    "pixelHash": "0e11419556a242b68a713ae2a0083080936e427a474069d3d6a6bde0e48380d5",
+    "outputCrop": [
+      48,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "revival_potion",
+    "name": "Potion of Revival",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 29,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      80,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 29,
+      "id": "ALT-0602",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 14,
+    "pixelHash": "da57629addadb3ea68087f60bfe1e8b5f30a8581774f457f2608eed04f243195",
+    "outputCrop": [
+      288,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "resurrection_potion",
+    "name": "Potion of Resurrection",
+    "kind": "magic",
+    "sheet": "selected_items",
+    "frame": 28,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      48,
+      16,
+      16
+    ],
+    "badge": "regeneration_amulet",
+    "original": {
+      "frame": 28,
+      "id": "ALT-0603",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/All potions.png",
+      "crop": [
+        144,
+        16,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 32,
+    "pixelHash": "9340f66742e3123c577c42b907fd36eb1998f39e2b42cd01bd5311ff1b2f531b",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "thunder_scroll",
+    "name": "Scroll of Thunder",
+    "kind": "magic",
+    "sheet": "icon_thunder_scroll",
+    "frame": 0,
+    "source": "assets/Icons/Items/ThunderScroll.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 26,
+    "pixelHash": "eaae5c068809c38bdd401d5ccfceb6402b0ce275671bf2dd2e7b41144343e1d5",
+    "outputCrop": [
+      96,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "moonbeam_scroll",
+    "name": "Scroll of Moonbeam",
+    "kind": "magic",
+    "sheet": "icon_moonbeam_scroll",
+    "frame": 0,
+    "source": "assets/Icons/Items/MoonbeamScroll.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 27,
+    "pixelHash": "b8af35af6040ec9e529a61e1e10f1c263502f4cc08c6d17f07f0ed511a678c76",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "dragon_powder",
+    "name": "Dragon Powder",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 7,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      32,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 28,
+    "pixelHash": "61a107a428eda005dcb9f47dbec5d526c608694b86f3b7fd6488da299fd74e9a",
+    "outputCrop": [
+      192,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "growth_powder",
+    "name": "Growth Powder",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 6,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 29,
+    "pixelHash": "7ccd15f9d8c695c10e44af391547262f3851e2eaebc300cd958fe4e9e5d8a0b0",
+    "outputCrop": [
+      240,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shadow_powder",
+    "name": "Shadow Powder",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 8,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      48,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 30,
+    "pixelHash": "29b882519f23401763b9f6a299d6fc01789d4d638e6d14c93185552bebb7cb90",
+    "outputCrop": [
+      288,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "frost_powder",
+    "name": "Frost Powder",
+    "kind": "magic",
+    "sheet": "icon_potions",
+    "frame": 9,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      64,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 31,
+    "pixelHash": "a130628aca392fa3b8511cbc0f66c1bda0766eec52531cea12f38262ed6e7617",
+    "outputCrop": [
+      336,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "stealth_ring",
+    "name": "Stealth Ring",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 8,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      32,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 32,
+    "pixelHash": "ab85a3213ee2b26246efe421ce3e602c4125fc283c90a66f9ee47f630fc6aca8",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "perception_ring",
+    "name": "Ring of Perception",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 10,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      64,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 33,
+    "pixelHash": "abd6d0b6c894fc87feae5072badfddc8421f17d336b82d5771904fc0e0a19846",
+    "outputCrop": [
+      48,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "portal_stone",
+    "name": "Portal Stone",
+    "kind": "unique_relic",
+    "sheet": "icon_progression",
+    "frame": 0,
+    "source": "assets/Objects/Progression/icons.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 34,
+    "pixelHash": "63f8eee63a6e09012e5475ad7bb475a68917b95bc7f5fcf852dd47486447a3c6",
+    "outputCrop": [
+      96,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "depth_key",
+    "name": "Key of the Fourth Depth",
+    "kind": "unique_relic",
+    "sheet": "icon_progression",
+    "frame": 1,
+    "source": "assets/Objects/Progression/icons.png",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 35,
+    "pixelHash": "806ba2a8f30a20d51809a2315453a8629da8541ecbd983344f4d97ba60eb7f72",
+    "outputCrop": [
+      144,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "coin_ring",
+    "name": "Ring of Gathering",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 7,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 36,
+    "pixelHash": "bc5fd1b48f41162d18da41ad4f4263502c27360707a1cf6df74e625bef9e706d",
+    "outputCrop": [
+      192,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "invisibility_ring",
+    "name": "Ring of Invisibility",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 11,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      80,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 32,
+    "pixelHash": "ab85a3213ee2b26246efe421ce3e602c4125fc283c90a66f9ee47f630fc6aca8",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "ember_ring",
+    "name": "Ember Ring",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 9,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      48,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 37,
+    "pixelHash": "b8a59b13c8c0e72c860a321908a58bb13c93e78dfec7a9a73074202f1be3ba92",
+    "outputCrop": [
+      240,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "vampire_ring",
+    "name": "Vampire Ring",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 18,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      0,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 38,
+    "pixelHash": "20663bbcde8a01e720a1134fa2b5328b24c9e50a9d3d474820846dd1bcdc921a",
+    "outputCrop": [
+      288,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "xray_ring",
+    "name": "X-Ray Ring",
+    "kind": "unique_relic",
+    "sheet": "icon_rings",
+    "frame": 12,
+    "source": "assets/Icons/RPG icons/Extras/Rings.png",
+    "crop": [
+      0,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 39,
+    "pixelHash": "4dccec3d1695ae99ffb9227ed20dd4621eab8713b2457eeddc8cbbf9d176b3d5",
+    "outputCrop": [
+      336,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "regeneration_amulet",
+    "name": "Amulet of Regeneration",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 2,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 2,
+      "id": "ALT-0739",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        672,
+        16,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 25,
+    "pixelHash": "f49c4f38637516f6654f9976048b9879360edf70e3b7b31b991bce1a71a6c41a",
+    "outputCrop": [
+      48,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "vigor_amulet",
+    "name": "Amulet of Vigour",
+    "kind": "unique_relic",
+    "sheet": "selected_items",
+    "frame": 3,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 3,
+      "id": "ALT-0740",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        656,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 47,
+    "pixelHash": "19412b4ec1300104a004c30080a31174f4212b6cdc41e91f9806df76a15aa26a",
+    "outputCrop": [
+      336,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rope",
+    "name": "Rope",
+    "kind": "supply",
+    "sheet": "icon_rope",
+    "frame": 0,
+    "source": "assets/Icons/Items/Rope.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 40,
+    "pixelHash": "722c151e51dd20bc4807143bfc1a7a72d4d1ee2b133a50ede4e0d0d7efc113d6",
+    "outputCrop": [
+      0,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "torch",
+    "name": "Torch",
+    "kind": "supply",
+    "sheet": "selected_items",
+    "frame": 43,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 43,
+      "id": "ALT-0279",
+      "source": "extra_assets/db32_rpg_items/db32-items-atlas.png",
+      "crop": [
+        16,
+        128,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 46,
+    "pixelHash": "313e9f70880b8c3147e8bdacd1c2294564cd697af658c9c87f9a5fa75c5f413a",
+    "outputCrop": [
+      288,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "evertorch",
+    "name": "Lantern",
+    "kind": "supply",
+    "sheet": "icon_lantern",
+    "frame": 0,
+    "source": "assets/Icons/Items/Lantern.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 41,
+    "pixelHash": "476aaf71285bbfe55ae1284f897effe741791462cb0e2bccdc0f8de963a1ae16",
+    "outputCrop": [
+      48,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "trap_disarm_kit",
+    "name": "Trap Disarm Kit",
+    "kind": "supply",
+    "sheet": "icon_kit",
+    "frame": 0,
+    "source": "assets/Icons/Items/TrapDisarmKit.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 42,
+    "pixelHash": "db2b3a04a38834eb55a43113380f7e22b16929a35fd633622bc48346b5cc083b",
+    "outputCrop": [
+      96,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "magic_trap",
+    "name": "Magic Trap",
+    "kind": "supply",
+    "sheet": "icon_magic_trap",
+    "frame": 0,
+    "source": "assets/Icons/Items/MagicTrap.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 43,
+    "pixelHash": "46d4675b820b895c2d18034bf7b9125241a3d53c955454203476772e47f4c659",
+    "outputCrop": [
+      144,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "throwing_spear",
+    "name": "Throwing Spear",
+    "kind": "supply",
+    "sheet": "icon_throwing_spear",
+    "frame": 0,
+    "source": "assets/Icons/Items/Spear.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 44,
+    "pixelHash": "a3d6bd5348a0ba665501a59fe6b19525e7a9d0387799a9841445129ace146071",
+    "outputCrop": [
+      192,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "javelin",
+    "name": "Javelin",
+    "kind": "supply",
+    "sheet": "icon_javelin",
+    "frame": 0,
+    "source": "assets/Icons/Items/Spear.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 44,
+    "pixelHash": "a3d6bd5348a0ba665501a59fe6b19525e7a9d0387799a9841445129ace146071",
+    "outputCrop": [
+      192,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "renovation_permit",
+    "name": "Renovation Permit",
+    "kind": "supply",
+    "sheet": "icon_book",
+    "frame": 48,
+    "source": "assets/Icons/RPG icons/Extras/Books.png",
+    "crop": [
+      48,
+      48,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 45,
+    "pixelHash": "265fc52748bb4b051742a28a5e94ed982c92dc11df45d2abfb12be5ee46089ab",
+    "outputCrop": [
+      240,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "meat",
+    "name": "Meat",
+    "kind": "produce",
+    "sheet": "icon_meat",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Beef.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 46,
+    "pixelHash": "f1c2145b266a80b4bcf5bed8323fe06875ed1cabbc61aae3a15899250568c208",
+    "outputCrop": [
+      288,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_meat",
+    "name": "Grilled Meat",
+    "kind": "produce",
+    "sheet": "icon_meat",
+    "frame": 2,
+    "source": "assets/Icons/Food Icons/Beef.png",
+    "crop": [
+      0,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 47,
+    "pixelHash": "f43c12761b6499eead1300e5fa65d2d36820f028f7438d2858c3304c4048af10",
+    "outputCrop": [
+      336,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baked_potato",
+    "name": "Baked Potato",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 48,
+    "pixelHash": "e74827e5b886e72f6045c183078a5c6714bf4b849cb934ea615ca997e92ee1b7",
+    "outputCrop": [
+      0,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "roast_onion",
+    "name": "Roast Onion",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 1,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 49,
+    "pixelHash": "7c20af4a8a5c12bf25ab5a973367e64a823dda116c3189c567e374324adebd40",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_mushroom",
+    "name": "Grilled Mushroom",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 2,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 50,
+    "pixelHash": "eefcc26931c37886508008e95be50b7d5fa23f442fa42ae1f32d2b8895ae2255",
+    "outputCrop": [
+      96,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "baked_apple",
+    "name": "Baked Apple",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 3,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      48,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 51,
+    "pixelHash": "f92425bbe8a6f40a3623688946956a5c61e0b6cf65fa23307a65c3bf64f60110",
+    "outputCrop": [
+      144,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_minnow",
+    "name": "Grilled Minnow",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 4,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      64,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 52,
+    "pixelHash": "577208f2a9cf912132d012988e6a10ee5113dfc426664ebe936cff72f3c98c22",
+    "outputCrop": [
+      192,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_bass",
+    "name": "Grilled Bass",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 5,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      80,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 53,
+    "pixelHash": "0bb1858493cd458c6afe5f9f0b8fbec7ac97f77ee22d797041af7916c4553791",
+    "outputCrop": [
+      240,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_trout",
+    "name": "Grilled Trout",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 6,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      96,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 54,
+    "pixelHash": "f0ecee88801cedb19639966c557bb298b556c7c2707a378944fb081511c37f51",
+    "outputCrop": [
+      288,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_salmon",
+    "name": "Grilled Salmon",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 7,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      112,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 55,
+    "pixelHash": "c667cc54970279fa2b11e3b2875f2bacd3b451dd6445fbc5fe7204c7c8c12a18",
+    "outputCrop": [
+      336,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "grilled_goldenfish",
+    "name": "Grilled Goldenfish",
+    "kind": "produce",
+    "sheet": "icon_cooked",
+    "frame": 8,
+    "source": "assets/Icons/Food Icons/Cooked.png",
+    "crop": [
+      128,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 56,
+    "pixelHash": "6ad85f57e89a01e721af5c936d9cb98bd2733a0a64f9038179924fde832c5b24",
+    "outputCrop": [
+      0,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "rabbit_pelt",
+    "name": "Rabbit Pelt",
+    "kind": "produce",
+    "sheet": "icon_pelt",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Black rabbit Fur.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 57,
+    "pixelHash": "2475cefe011151c4fd9f6d81e973bcddf7e28ede164ef0bd40a5a320ece39c92",
+    "outputCrop": [
+      48,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "crow_feather",
+    "name": "Crow Feather",
+    "kind": "produce",
+    "sheet": "icon_feather",
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Chicken feather.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 58,
+    "pixelHash": "2126de40150f0cb91d25924b550b2ff7d84af8825d8b3fd4d2fbf24aaeffc889",
+    "outputCrop": [
+      96,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "shell",
+    "name": "Shell",
+    "kind": "produce",
+    "sheet": "shell_sheet",
+    "frame": 0,
+    "source": "assets/Icons/Fish/Sea/Creatures/Shell-24.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 59,
+    "pixelHash": "13b33840283a919817fefe8c8f04b441fdba607b01086c777ea7b18bb4e888b0",
+    "outputCrop": [
+      144,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "old_boot",
+    "name": "Old Boot",
+    "kind": "produce",
+    "sheet": "pickup",
+    "frame": 88,
+    "source": "assets/Objects/Pickup_Items.png",
+    "crop": [
+      64,
+      96,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 60,
+    "pixelHash": "3e488dce7840f52811aa2906cac4d7543d287fda5e11d9577c7533f646540379",
+    "outputCrop": [
+      192,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "scarecrow",
+    "name": "Scarecrow",
+    "kind": "supply",
+    "source": "assets/Objects/Approved/scarecrow.png",
+    "sheet": "scarecrow",
+    "frame": 0,
+    "crop": [
+      0,
+      0,
+      48,
+      48
+    ],
+    "baked": true,
+    "paletteTransform": false,
+    "referenceSheet": 3,
+    "referenceCell": 61,
+    "pixelHash": "d50046d5912459f15203e92761d7b493288c7c40473bc8d7d527cf92a3c8c651",
+    "outputCrop": [
+      240,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "barricade",
+    "name": "Barricade",
+    "kind": "supply",
+    "sheet": "icon_barricade",
+    "frame": 0,
+    "source": "assets/Objects/Approved/barricade.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 62,
+    "pixelHash": "9e7f010d3cbc84dfcfb5bdbd2b1a9fe8d4941a8779b448931e3770881a028874",
+    "outputCrop": [
+      288,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "mushroom",
+    "name": "Mushroom",
+    "kind": "produce",
+    "sheet": "selected_mushroom",
+    "frame": 0,
+    "source": "assets/Objects/SelectedWorld/world.png",
+    "crop": [
+      0,
+      140,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 3,
+    "referenceCell": 63,
+    "pixelHash": "645ed1ed6e376b5e39ba4881b9c43d5102f5b90e549a4b8c43931b399ad6ae29",
+    "outputCrop": [
+      336,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "poisonberry",
+    "name": "Poisonberry",
+    "kind": "produce",
+    "sheet": "springcrops",
+    "frame": 22,
+    "filter": "hue-rotate(190deg) saturate(1.3)",
+    "source": "assets/Objects/Approved/springcrops.png",
+    "crop": [
+      128,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 0,
+    "pixelHash": "46f20f82354ed95c5266459760c44cbfa41701f7bd87cfa2056ad73f32ff28f4",
+    "outputCrop": [
+      0,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "goldenberry",
+    "name": "Golden berry",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 16,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 16,
+      "id": "ALT-0698",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        128,
+        0,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 15,
+    "pixelHash": "aa39948ed1bec06568895a73c3d13cbda5c508813700350470403f636fdf0d43",
+    "outputCrop": [
+      336,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "minnow",
+    "name": "Minnow",
+    "kind": "produce",
+    "sheet": "icon_minnow",
+    "frame": 0,
+    "source": "assets/Icons/Fish/Sea/Smallmouth Bass.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 1,
+    "pixelHash": "66252e776517d818540b3cc2009c0bf6ba25742778659f5169b1305829552541",
+    "outputCrop": [
+      48,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "bass",
+    "name": "Bass",
+    "kind": "produce",
+    "sheet": "icon_bass",
+    "frame": 0,
+    "source": "assets/Icons/Fish/River/Large Mouth Bass.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 2,
+    "pixelHash": "d2bcb5c9ee4103c91084199124bde5ed22c99133ef2ffbbf21329702f4e98610",
+    "outputCrop": [
+      96,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "trout",
+    "name": "Trout",
+    "kind": "produce",
+    "sheet": "icon_trout",
+    "frame": 0,
+    "source": "assets/Icons/Fish/River/Tiger Trout.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 3,
+    "pixelHash": "86c7fbda8b21ce2d52ee540054e72925cd664e7ce961f2c9c6c2e55a32402afc",
+    "outputCrop": [
+      144,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "salmon",
+    "name": "Salmon",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 36,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 36,
+      "id": "ALT-0495",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        400,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 34,
+    "pixelHash": "d145c83bd0e29aaa69fd7c0cd8965d0cafed73f3d8f014653ec2a2932d963227",
+    "outputCrop": [
+      96,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "goldenfish",
+    "name": "Goldenfish",
+    "kind": "produce",
+    "sheet": "icon_goldenfish",
+    "frame": 0,
+    "source": "assets/Icons/Fish/River/Golden Fish.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 4,
+    "pixelHash": "6cbac32a56bf7a70d90788609ed181a8e2aa2227c818154ad1644d4c9fbbdd41",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "syrup",
+    "name": "Syrup",
+    "kind": "produce",
+    "sheet": "icon_potions",
+    "frame": 0,
+    "source": "assets/Icons/Items/Potions.png?v=1",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 5,
+    "pixelHash": "1c392a604b774e5c5d05f69acf7a3acac2bf0201015e89fe9bf12b141eedb34f",
+    "outputCrop": [
+      240,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "apple",
+    "name": "Apple",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 5,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      80,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 5,
+      "id": "ALT-0492",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        352,
+        416,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 3,
+    "pixelHash": "ea703d4da90470f3baa77f838bea6dd07692591b8187994d535bc65879ec32a1",
+    "outputCrop": [
+      144,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "cherry",
+    "name": "Cherry",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 8,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 8,
+      "id": "ALT-0487",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        368,
+        416,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 7,
+    "pixelHash": "ee42de310f36e1f90a27dc4a147257798c803ddbb6d8cd0a9a353eb3f5551f7f",
+    "outputCrop": [
+      336,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "worldpeach",
+    "name": "Worldpeach",
+    "kind": "produce",
+    "sheet": "icon_worldpeach",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Peach.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 6,
+    "pixelHash": "b56599b56c4209e4782dca14b179ddc3231488ce8f9e583dabead757c1c0afcf",
+    "outputCrop": [
+      288,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "banana",
+    "name": "Banana",
+    "kind": "produce",
+    "sheet": "selected_items",
+    "frame": 6,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      96,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 6,
+      "id": "ALT-0486",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        416,
+        416,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 4,
+    "pixelHash": "a018b828397754c43071b967b2bdd1f61df340269daf4f91b5f8d798d52e128f",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "orange",
+    "name": "Orange",
+    "kind": "produce",
+    "sheet": "icon_orange",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Orange.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 7,
+    "pixelHash": "8c0f4ef59ec310cb942e836896c3f407d34dbae3ea630319d4ac327136d825e7",
+    "outputCrop": [
+      336,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "mango",
+    "name": "Mango",
+    "kind": "produce",
+    "sheet": "icon_mango",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Mango.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 8,
+    "pixelHash": "7b5d850185d65f408148dd0817622eee757f37f8d0f4adab8db15987a817bbf1",
+    "outputCrop": [
+      0,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "coconut",
+    "name": "Coconut",
+    "kind": "produce",
+    "sheet": "icon_coconut",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Coconut.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 9,
+    "pixelHash": "9ab6c5a650f97af0598aec8882e80695b511aaf5a297d4aedf0183b46862a66e",
+    "outputCrop": [
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "apricot",
+    "name": "Apricot",
+    "kind": "produce",
+    "sheet": "icon_apricot",
+    "frame": 0,
+    "source": "assets/Icons/Food Icons/Apricot.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 1,
+    "referenceCell": 50,
+    "pixelHash": "1ba3a4cb2f00240a76ff5b806acb24e29d5fb6cb13fc0baaea1f9461a8fd3072",
+    "outputCrop": [
+      96,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "apple_sapling",
+    "name": "Apple Sapling",
+    "kind": "seed",
+    "sheet": "apple_tree",
+    "frame": 2,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "badge": "apple",
+    "referenceSheet": 1,
+    "referenceCell": 49,
+    "pixelHash": "3ed10ec921bdd2a2337f251a4baccc78126955b6bb324acb7d253e22d4f54cbb",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "worldpeach_sapling",
+    "name": "Worldpeach Sapling",
+    "kind": "seed",
+    "sheet": "worldpeach_tree",
+    "frame": 2,
+    "source": "assets/Objects/Approved/crops.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "badge": "worldpeach",
+    "referenceSheet": 1,
+    "referenceCell": 49,
+    "pixelHash": "3ed10ec921bdd2a2337f251a4baccc78126955b6bb324acb7d253e22d4f54cbb",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "acorn",
+    "name": "Acorn",
+    "kind": "seed",
+    "sheet": "selected_items",
+    "frame": 1,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "badge": "wood",
+    "original": {
+      "frame": 1,
+      "id": "ALT-0700",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        32,
+        96,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 0,
+    "pixelHash": "5b59dd8a70397b581e4728e17a875ec7dad5d072e09b027aceb91c3e3258af9e",
+    "outputCrop": [
+      0,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "flint_shard",
+    "name": "Flint",
+    "kind": "ores",
+    "sheet": "flint",
+    "frame": 0,
+    "source": "assets/Objects/SelectedWorld/world.png",
+    "crop": [
+      186,
+      140,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 10,
+    "pixelHash": "f94811e2a0eb5d1889c76c26cef88eed93dda8f3c412e4f2ec95a51b5e64d12c",
+    "outputCrop": [
+      96,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "quartz",
+    "name": "Rose Quartz",
+    "kind": "ores",
+    "sheet": "gems",
+    "frame": 6,
+    "source": "assets/Icons/RPG icons/Extras/Gemstones.png",
+    "crop": [
+      96,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 11,
+    "pixelHash": "2e18ee5f9356fc90a14bcddccb83179970e4ac9ab9c75f0eec8fc520bf4be515",
+    "outputCrop": [
+      144,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "topaz",
+    "name": "Topaz",
+    "kind": "ores",
+    "sheet": "gems",
+    "frame": 4,
+    "source": "assets/Icons/RPG icons/Extras/Gemstones.png",
+    "crop": [
+      64,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 12,
+    "pixelHash": "a08122bd11e7f73b56bae9782a0edaaacf846f2f72683d594a9a5ec76d096f91",
+    "outputCrop": [
+      192,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "amethyst",
+    "name": "Amethyst",
+    "kind": "ores",
+    "sheet": "selected_items",
+    "frame": 0,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 0,
+      "id": "ALT-0599",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        48,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 1,
+    "pixelHash": "7ba95b32b3f141bb1c346b1603838efedb37f2d479ee4717bcc9a925f78e7a0f",
+    "outputCrop": [
+      48,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "sapphire",
+    "name": "Sapphire",
+    "kind": "ores",
+    "sheet": "selected_items",
+    "frame": 37,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      80,
+      64,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 37,
+      "id": "ALT-0497",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Item_Icons01_2.png",
+      "crop": [
+        288,
+        288,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 35,
+    "pixelHash": "387e4e1266d543d4ef10709b2b34f6c76913601717283a4cf0cad9052022e145",
+    "outputCrop": [
+      144,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "ruby",
+    "name": "Ruby",
+    "kind": "ores",
+    "sheet": "gems",
+    "frame": 1,
+    "source": "assets/Icons/RPG icons/Extras/Gemstones.png",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 13,
+    "pixelHash": "9e11f14ef6f0087a6c8c9c598f76e8c7826db53620ac8961026ff46964e4869e",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "emerald",
+    "name": "Emerald",
+    "kind": "ores",
+    "sheet": "selected_items",
+    "frame": 12,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      64,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 12,
+      "id": "ALT-0371",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/16x16 Items v1.png",
+      "crop": [
+        200,
+        392,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 11,
+    "pixelHash": "98ecd8a6ac6f9f9d85b0a33578c317463425893035f905436532aaad0114c3cd",
+    "outputCrop": [
+      144,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "diamond",
+    "name": "Diamond",
+    "kind": "ores",
+    "sheet": "selected_items",
+    "frame": 9,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 9,
+      "id": "ALT-0594",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        496,
+        64,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 8,
+    "pixelHash": "f559436e3b4c21873026187703b227209bdfb4250c349aad345aeffb3d3d9d6e",
+    "outputCrop": [
+      0,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "wood",
+    "name": "Wood",
+    "kind": "ores",
+    "sheet": "selected_items",
+    "frame": 45,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      80,
+      80,
+      16,
+      16
+    ],
+    "badge": null,
+    "original": {
+      "frame": 45,
+      "id": "ALT-0341",
+      "source": "extra_assets/Pixel Plains/Harvest Sumer Full Ver. Pack/Vegetation/Trees & Fruits.png",
+      "crop": [
+        272,
+        160,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 48,
+    "pixelHash": "1105eec5d8b42381894d4ee182fd609bdfcfdbf173903cfb2fef159463a1ce2e",
+    "outputCrop": [
+      0,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "copper_bar",
+    "name": "Copper",
+    "kind": "ores",
+    "sheet": "bars",
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bars and ores.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 14,
+    "pixelHash": "de079be1a46bc0f4447b025b2e952ec3cbd1e4146af44ffea841264dd15802fa",
+    "outputCrop": [
+      288,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "iron_bar",
+    "name": "Iron",
+    "kind": "ores",
+    "sheet": "bars",
+    "frame": 2,
+    "source": "assets/Icons/RPG icons/Extras/Bars and ores.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 15,
+    "pixelHash": "c4e0535532d400d4afec1e82fcf447ec8c8d8ac586e956e600821149294929f4",
+    "outputCrop": [
+      336,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "gold_bar",
+    "name": "Gold",
+    "kind": "ores",
+    "sheet": "bars",
+    "frame": 16,
+    "source": "assets/Icons/RPG icons/Extras/Bars and ores.png",
+    "crop": [
+      0,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 16,
+    "pixelHash": "2301038f2360256097fafd759bff002601a024d96534b70975797c91a416e170",
+    "outputCrop": [
+      0,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "platinum_bar",
+    "name": "Platinum",
+    "kind": "ores",
+    "sheet": "bars",
+    "frame": 18,
+    "source": "assets/Icons/RPG icons/Extras/Bars and ores.png",
+    "crop": [
+      32,
+      16,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 17,
+    "pixelHash": "89956d9f6173b60aa93021fc951200fa3129d837ec93b7e7bea51c9614783993",
+    "outputCrop": [
+      48,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "crimson_bar",
+    "name": "Crimson",
+    "kind": "ores",
+    "sheet": "bars",
+    "frame": 32,
+    "source": "assets/Icons/RPG icons/Extras/Bars and ores.png",
+    "crop": [
+      0,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 18,
+    "pixelHash": "325db69533f5b6b8f19e8a6da044c92100103f57b29abc73ac4e6f91b5f55582",
+    "outputCrop": [
+      96,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "frost_bar",
+    "name": "Frost",
+    "kind": "ores",
+    "sheet": "bars",
+    "frame": 34,
+    "source": "assets/Icons/RPG icons/Extras/Bars and ores.png",
+    "crop": [
+      32,
+      32,
+      16,
+      16
+    ],
+    "badge": null,
+    "referenceSheet": 4,
+    "referenceCell": 19,
+    "pixelHash": "e915a83789e5749a85ef4aa4d948282ac638a79da40fb2b22fa76f98a1c97caa",
+    "outputCrop": [
+      144,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:1",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 20,
+    "pixelHash": "7c6b53fa9c8144d5fc7e78aa0c181623678ec14eb814c42f7d436eeda608ba75",
+    "outputCrop": [
+      192,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:2",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 21,
+    "pixelHash": "8245f5ecdd2823bb28d65076e3b0d08c5a6233f04bc65de0e1401b1c00dfe4c0",
+    "outputCrop": [
+      240,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:3",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 22,
+    "pixelHash": "15a4921ec68383d4b4a6606d7ed5c37b2885d17aed6d05a3fc582afc29d1e133",
+    "outputCrop": [
+      288,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:4",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 23,
+    "pixelHash": "2687c1fb7ae6b341185b8ff7e57a3b979926582c52f45bb33b3fdc5cb6a5247f",
+    "outputCrop": [
+      336,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:5",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 24,
+    "pixelHash": "1c6f20c43509f413d8f352ad6bee1bb84c5ab35fb9952d5190f7ff9691f3c4d0",
+    "outputCrop": [
+      0,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:6",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 25,
+    "pixelHash": "0c2bef711e474d71e6a986bfe1c7a8e4c88689fdaaec62031410ee245e6214a2",
+    "outputCrop": [
+      48,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:pickaxe:7",
+    "name": "Pickaxe",
+    "kind": "relic",
+    "slot": "pickaxe",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Pickaxe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 26,
+    "pixelHash": "c91f97d395fedf4138b06a6f935f61649286912676d35aca16c1d66002273a3f",
+    "outputCrop": [
+      96,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:1",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 27,
+    "pixelHash": "e4b54a4ada0e9610763be12469b48f583f6c4efd4f0fcdf32147fab1b7e349dc",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:2",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 28,
+    "pixelHash": "209c7bc88ec7c02eae518af062d258f3eca0a16c7408ce327bea37a074640381",
+    "outputCrop": [
+      192,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:3",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 29,
+    "pixelHash": "3fb4b395972bea3a3a0a3d8136c606750ea0cdc861cb3fb36b0a82716fc033a1",
+    "outputCrop": [
+      240,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:4",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 30,
+    "pixelHash": "09b9fd79aca3e4abe1668c1cbd6e9c5b32558fa0ed16ab936091ff2c8929bc71",
+    "outputCrop": [
+      288,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:5",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 31,
+    "pixelHash": "95d6ee94db50345ea5ea0a71b3450d9d3a73fa488dd9f8888af2c8bc46e3eb06",
+    "outputCrop": [
+      336,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:6",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 32,
+    "pixelHash": "c8acc2cb43cea36ba6bfa9a6df892bfc93be3635ba0edfb1ddb75abc691f90f5",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:axe:7",
+    "name": "Axe",
+    "kind": "relic",
+    "slot": "axe",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Axe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 33,
+    "pixelHash": "03bbcadd4ff907ef22aae19446676ffb3775a45e9c942eec9edae27aec05ca56",
+    "outputCrop": [
+      48,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:1",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 1,
+    "frame": 14,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      32,
+      32,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 34,
+    "pixelHash": "924d7554225049cdcf4c400c62187fd998b5f07be994300389c9055206de9a64",
+    "outputCrop": [
+      96,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:2",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 2,
+    "frame": 6,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      0,
+      16,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 35,
+    "pixelHash": "a64dbf7db7077e25bb0e1a0db25752f6bec7fa85e9b38a32f89f46a1bbca9dd7",
+    "outputCrop": [
+      144,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:3",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 3,
+    "frame": 13,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      16,
+      32,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 36,
+    "pixelHash": "33ebe08aba6ba1b548ef584fdb0e7432e0a294226de6210ccf3be46c8104f51d",
+    "outputCrop": [
+      192,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:4",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 4,
+    "frame": 12,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      0,
+      32,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 37,
+    "pixelHash": "e06a0d4ed33320f1fdcd4cc1e09632f2fdaafcd0248f38130f2b0fb42f81763d",
+    "outputCrop": [
+      240,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:5",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 5,
+    "frame": 8,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      32,
+      16,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 38,
+    "pixelHash": "7736acf462f50bbd6e89dc4b077d007895cf5de89919902a6592e1502dc465fb",
+    "outputCrop": [
+      288,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:6",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 6,
+    "frame": 18,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      0,
+      48,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 39,
+    "pixelHash": "40858a40e2d19e002920d42fa5f8451994da71337d5ce6a92fcbf2c6cba99718",
+    "outputCrop": [
+      336,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:amulet:7",
+    "name": "Amulet",
+    "kind": "relic",
+    "slot": "amulet",
+    "tier": 7,
+    "frame": 7,
+    "source": "assets/Icons/RPG icons/Extras/Amulet.png",
+    "crop": [
+      16,
+      16,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 40,
+    "pixelHash": "bdf6d2a4ae3c597d61ff2213164203bf5894e15fdb95044055022bdc99c6a4d4",
+    "outputCrop": [
+      0,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:1",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 41,
+    "pixelHash": "c089b82f85fd8ef4d66a4a84cd261906e01f6e24fe03bc0e02b3c6f54bd96368",
+    "outputCrop": [
+      48,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:2",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 42,
+    "pixelHash": "400e94a69951a642f49ce88ce7ce577a88977255373269e81c8069ac99cdd3b2",
+    "outputCrop": [
+      96,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:3",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 43,
+    "pixelHash": "086065adfb14c52501b279af6dc89157f1ae9dd8b4d232241e0f0a5dabacf05d",
+    "outputCrop": [
+      144,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:4",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 44,
+    "pixelHash": "a6de06489d1d3c649d6e10811a2f0e629ee4452e3af690bc3a8b84b5fb36ed1c",
+    "outputCrop": [
+      192,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:5",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 45,
+    "pixelHash": "b405e669c28799ae22bc97a42b654d1bea37a56bd990483eebfab613f6257448",
+    "outputCrop": [
+      240,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:6",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 46,
+    "pixelHash": "f3d3caa2ca5d18e0584e93cc680d083b3360be72ad92a678fcbfca9f81d321fe",
+    "outputCrop": [
+      288,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:sword:7",
+    "name": "Sword",
+    "kind": "relic",
+    "slot": "sword",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Sword.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 47,
+    "pixelHash": "e49916ba21fd088c8d1bdeedd94ec4b33b06934289b5e7d23e704005de175772",
+    "outputCrop": [
+      336,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:1",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 1,
+    "sheet": "selected_items",
+    "frame": 46,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      96,
+      80,
+      16,
+      16
+    ],
+    "original": {
+      "frame": 46,
+      "id": "ALT-0631",
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/New Items [Update]/16x16 Items Pack v1.png",
+      "crop": [
+        0,
+        48,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 26,
+    "pixelHash": "aa7ec263755e4217c734a2d0c8be209aca917fde11f42ec87cf0bc32c97d0746",
+    "outputCrop": [
+      96,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:2",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 2,
+    "sheet": "selected_items",
+    "frame": 47,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      112,
+      80,
+      16,
+      16
+    ],
+    "original": {
+      "frame": 47,
+      "id": "ALT-0657",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        160,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 27,
+    "pixelHash": "a2d3115d2a4ef10bd83ce6560e59c1e17d9bfb772306f40d96f711f42e614719",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:3",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/3/Dagger.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 48,
+    "pixelHash": "e75c72a50d1badc743ee9882c15d354eaf063fbc5377cd8c3f6de70737ab3f60",
+    "outputCrop": [
+      0,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:4",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 4,
+    "sheet": "selected_items",
+    "frame": 48,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      0,
+      96,
+      16,
+      16
+    ],
+    "original": {
+      "frame": 48,
+      "id": "ALT-0668",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        208,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 28,
+    "pixelHash": "4e6a31cb9e5fecfb88bf636cf0be36d8335e6aca527f5998447030689a1b5524",
+    "outputCrop": [
+      192,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:5",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/5/Dagger.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 30,
+    "pixelHash": "73e46399fb9bab54a0a2a11d6b09d7be94c35cadb0f3cefa668dfaee09e460d0",
+    "outputCrop": [
+      288,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:6",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 6,
+    "sheet": "selected_items",
+    "frame": 49,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      16,
+      96,
+      16,
+      16
+    ],
+    "original": {
+      "frame": 49,
+      "id": "ALT-0680",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        208,
+        224,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 29,
+    "pixelHash": "fdd6572a0e681e81cc1f72d0869ee52642c925873234ba53c46e43bacb919d2c",
+    "outputCrop": [
+      240,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:dagger:7",
+    "name": "Dagger",
+    "kind": "relic",
+    "slot": "dagger",
+    "tier": 7,
+    "sheet": "selected_items",
+    "frame": 50,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      32,
+      96,
+      16,
+      16
+    ],
+    "original": {
+      "frame": 50,
+      "id": "ALT-0686",
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "crop": [
+        64,
+        224,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 30,
+    "pixelHash": "73e46399fb9bab54a0a2a11d6b09d7be94c35cadb0f3cefa668dfaee09e460d0",
+    "outputCrop": [
+      288,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:lance:1",
+    "name": "Lance",
+    "kind": "relic",
+    "slot": "lance",
+    "tier": 1,
+    "sheet": "selected_items",
+    "frame": 51,
+    "source": "assets/Icons/SelectedItems/items.png",
+    "crop": [
+      48,
+      96,
+      16,
+      16
+    ],
+    "original": {
+      "frame": 51,
+      "id": "ALT-0640",
+      "source": "extra_assets/Pixel Plains/Items/16x16 All Items v1.png",
+      "crop": [
+        8,
+        136,
+        16,
+        16
+      ]
+    },
+    "referenceSheet": 1,
+    "referenceCell": 31,
+    "pixelHash": "47e90cf9a91946482266715a9b292aee804bcd89fcd793deaf3dc0534d91ed4f",
+    "outputCrop": [
+      336,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:lance:3",
+    "name": "Lance",
+    "kind": "relic",
+    "slot": "lance",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/3/Lance.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 49,
+    "pixelHash": "f49197225ec7dfc0aa5134017fd1ea64cb5ef88a6057c171c1ada29eddf40f75",
+    "outputCrop": [
+      48,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:lance:5",
+    "name": "Lance",
+    "kind": "relic",
+    "slot": "lance",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/5/Lance.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 50,
+    "pixelHash": "e349059a975dde9939a6c2ee216a7d4f876a15c1bcabf383db9ca9f88c663b5e",
+    "outputCrop": [
+      96,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:musket:1",
+    "name": "Musket",
+    "kind": "relic",
+    "slot": "musket",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/1/Musket.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 51,
+    "pixelHash": "5cf2943f2350b6cebbd5f0519e6b37ef8de5328f55f86b6d8677d4acbdd53c14",
+    "outputCrop": [
+      144,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:musket:3",
+    "name": "Musket",
+    "kind": "relic",
+    "slot": "musket",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/3/Musket.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 52,
+    "pixelHash": "a67ccc4293306811c9cb564723abbb99b0dbb6bfdb7c266cdfc98f890bc819b6",
+    "outputCrop": [
+      192,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:musket:5",
+    "name": "Musket",
+    "kind": "relic",
+    "slot": "musket",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/AltWeapons/5/Musket.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 53,
+    "pixelHash": "378d469209e45bfc9fdbe3128e67f8d02a371d1943f842291edc1a73fc6e892d",
+    "outputCrop": [
+      240,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:1",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 54,
+    "pixelHash": "bab8d25dd3ebee86387b390a27961016ced29ce83d6aa722bf4fd9f3ddb94e33",
+    "outputCrop": [
+      288,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:2",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 55,
+    "pixelHash": "bd5b7b252ebcacc7e7e575e33441d9d640ed99df599afd1f2bd3d4c0a7dec2af",
+    "outputCrop": [
+      336,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:3",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 56,
+    "pixelHash": "5a8d7936d2a0fdfb1806dd3fa144790d3312ee5652c1a0689b8b1af227e636ce",
+    "outputCrop": [
+      0,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:4",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 57,
+    "pixelHash": "eaea8a9ac3a3e2442341af97058796992b6bf22292dfcc0f7df3997b49344d99",
+    "outputCrop": [
+      48,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:5",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 58,
+    "pixelHash": "750f1c2eeed1e55514d927181392fc598e83a7254f448d81205ee72673772dee",
+    "outputCrop": [
+      96,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:6",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 59,
+    "pixelHash": "e8ef706a594812010e3f81303844d474faab58fd678ea7391874d95f6a8c1fdc",
+    "outputCrop": [
+      144,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bow:7",
+    "name": "Bow",
+    "kind": "relic",
+    "slot": "bow",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Bow.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 60,
+    "pixelHash": "7915f32d6cfb8f913108f6b8a2dd915bd2bffa10028fbac2ff485025c82046da",
+    "outputCrop": [
+      192,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:1",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 61,
+    "pixelHash": "9c1256ffb2f1f228b75a957193bace7ac2874ad5fcbf8b2d84e3107f43dbf75c",
+    "outputCrop": [
+      240,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:2",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 62,
+    "pixelHash": "aa95943129b9b853d9904fb615f71e74b581072702ae66d3daa7cb012ccb4a9f",
+    "outputCrop": [
+      288,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:3",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 4,
+    "referenceCell": 63,
+    "pixelHash": "7c7d6c2f8ab49b651f31caf3c18d9a3b7f74c12047f78e7f5a7a42aa2e602601",
+    "outputCrop": [
+      336,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:4",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 0,
+    "pixelHash": "f2cb7f854a783fcb418a8278c4428cda2053ebe7656609e1924f0373b5286285",
+    "outputCrop": [
+      0,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:5",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 1,
+    "pixelHash": "2ef01049b90aac63c83b8c6ab569b5fe86680dc2acd1de5b3846e29342a3e282",
+    "outputCrop": [
+      48,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:6",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 2,
+    "pixelHash": "a05e239d78785cb59887e4604a0e15e8ed8d3c6681e391ad53e87b83987c8fd0",
+    "outputCrop": [
+      96,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:staff:7",
+    "name": "Staff",
+    "kind": "relic",
+    "slot": "staff",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Staff.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 3,
+    "pixelHash": "7893dd07feb07086372cadbad48b5d8867ded9c2a27bc603de50b75b6efe35ab",
+    "outputCrop": [
+      144,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:1",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:2",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:3",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:4",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:5",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:6",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:watering_can:7",
+    "name": "Watering Can",
+    "kind": "relic",
+    "slot": "watering_can",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Watering can.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 4,
+    "pixelHash": "5ba3f2d6820a5a66f4a7d0b1c64109b9947b51541491d22986742b787834c5b0",
+    "outputCrop": [
+      192,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:1",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 5,
+    "pixelHash": "286a906d0d89a6c40010b9d878c3bc9f3f1ea112f637693fba5ddab62bd29869",
+    "outputCrop": [
+      240,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:2",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 6,
+    "pixelHash": "c3892d8d73d17a88724e9767e8f977f3e5a013a91abecc30e5693f026548c2af",
+    "outputCrop": [
+      288,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:3",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 7,
+    "pixelHash": "79ac7702d000be2cb283e9259ddcb1a2dd5a2ed78a73792c04761eb347f43422",
+    "outputCrop": [
+      336,
+      0,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:4",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 8,
+    "pixelHash": "8ed3e68d0a91e4989b609073c0a2a2faa42f26dfad69e7f78c47b7ce40011e7a",
+    "outputCrop": [
+      0,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:5",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 9,
+    "pixelHash": "9928d2477cd3e4f7cce60a1f68f32ca5b9f49822ec3caf01e32590700d799b7b",
+    "outputCrop": [
+      48,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:6",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 10,
+    "pixelHash": "bdd3dacae53320ef0bf9ad391f345c4e630da30ade00829080e7bff6444d4a62",
+    "outputCrop": [
+      96,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:hoe:7",
+    "name": "Hoe",
+    "kind": "relic",
+    "slot": "hoe",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Hoe.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 11,
+    "pixelHash": "3c8f6427848fc68c3fc06ce9d02a7c69b3c14975bd18e18290308ce19382bb2f",
+    "outputCrop": [
+      144,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:1",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 12,
+    "pixelHash": "ea4c0cdaf58b375a51d4e5711a42224b1cb58c7e9357ffcb4d2f97c6e275f3b1",
+    "outputCrop": [
+      192,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:2",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 13,
+    "pixelHash": "8182d1383ada3d86a9a1ac06bf486dcb14818685c3ccce826952a5ac711d764b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:3",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 13,
+    "pixelHash": "8182d1383ada3d86a9a1ac06bf486dcb14818685c3ccce826952a5ac711d764b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:4",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 13,
+    "pixelHash": "8182d1383ada3d86a9a1ac06bf486dcb14818685c3ccce826952a5ac711d764b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:5",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 13,
+    "pixelHash": "8182d1383ada3d86a9a1ac06bf486dcb14818685c3ccce826952a5ac711d764b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:6",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 13,
+    "pixelHash": "8182d1383ada3d86a9a1ac06bf486dcb14818685c3ccce826952a5ac711d764b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:net:7",
+    "name": "Net",
+    "kind": "relic",
+    "slot": "net",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bug net.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 13,
+    "pixelHash": "8182d1383ada3d86a9a1ac06bf486dcb14818685c3ccce826952a5ac711d764b",
+    "outputCrop": [
+      240,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:1",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 14,
+    "pixelHash": "5323e9da87a242f4d5526725c853607f99640de235bfa0bc60fd41b887d1d335",
+    "outputCrop": [
+      288,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:2",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 15,
+    "pixelHash": "c3fbb16a7ea6a3192a6f79f787709a22e01abec8dd27fa2b5400188273777186",
+    "outputCrop": [
+      336,
+      48,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:3",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 16,
+    "pixelHash": "71cf7dd4a9596ed89e536d9591c5d398c0b16b99228552ba540b5ed0e4557835",
+    "outputCrop": [
+      0,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:4",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 17,
+    "pixelHash": "17960976776e96f91729068d2204b48a5aa25defcb8e1bd463319f7a153c0b55",
+    "outputCrop": [
+      48,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:5",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 18,
+    "pixelHash": "f49a46b6adb471b6e1a90d78f0587591f5337c248165f503e460186cbbb742c6",
+    "outputCrop": [
+      96,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:6",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 19,
+    "pixelHash": "729460e3eb41c9bb0492e148f6fa1ee2072304fd1b56bfd7d949a798eb45a3da",
+    "outputCrop": [
+      144,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:fishing_rod:7",
+    "name": "Fishing Rod",
+    "kind": "relic",
+    "slot": "fishing_rod",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Fishing Rod.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 20,
+    "pixelHash": "6a744fda62e6bf0ebe9cf9192f357dff791acb08b286644229d127629b07dab5",
+    "outputCrop": [
+      192,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:1",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 21,
+    "pixelHash": "41a7b2ccf407bfca170cba888854da09f704cd6cc8f4a8377a89242bbba74e87",
+    "outputCrop": [
+      240,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:2",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 2,
+    "frame": 1,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      16,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 22,
+    "pixelHash": "d2c5a605b045649b91a8991ead50b0d0f255213a83dd7f79a4a7d2809cc5d19f",
+    "outputCrop": [
+      288,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:3",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 3,
+    "frame": 2,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 23,
+    "pixelHash": "6585d8f229e1d71d661128d554c6e2382335edc3eedaa036acfe27ea9e276010",
+    "outputCrop": [
+      336,
+      96,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:4",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 4,
+    "frame": 3,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      48,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 24,
+    "pixelHash": "32c22371d7b750f854a95ae05d6b560cfc9cadd35fbb69053f3820a041531e78",
+    "outputCrop": [
+      0,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:5",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 5,
+    "frame": 4,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      64,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 25,
+    "pixelHash": "c3854ff32127b2ef1357a13c01f6efed552eb75b5a0e2258cecec24e45429f65",
+    "outputCrop": [
+      48,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:6",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 6,
+    "frame": 5,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      80,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 26,
+    "pixelHash": "45c57ba04f2ff243b4cad900e707b0adb2d4e08e56bc003c93b48f3df0afc270",
+    "outputCrop": [
+      96,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "relic:bag:7",
+    "name": "Bag",
+    "kind": "relic",
+    "slot": "bag",
+    "tier": 7,
+    "frame": 6,
+    "source": "assets/Icons/RPG icons/Extras/Bags.png",
+    "crop": [
+      96,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 27,
+    "pixelHash": "dbd6de7ee09c60b52b83fe5498d45c0b36a5223dfa683c75c9b499542004261d",
+    "outputCrop": [
+      144,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:1",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 28,
+    "pixelHash": "ae2b646f356d53a4ebb75dde8793fa68999ea3885df40b7faad04e4bf468abcf",
+    "outputCrop": [
+      192,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:2",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 29,
+    "pixelHash": "f45c9554d1ab051acc763f4b396897a0f133679931a07aeaef2228fd179fc1cd",
+    "outputCrop": [
+      240,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:3",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 30,
+    "pixelHash": "59549f9313e73cf8bc5c0e445c30e2621100006ebf5ad47a2fb29ad949f6292b",
+    "outputCrop": [
+      288,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:4",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 31,
+    "pixelHash": "82440bd9acf5ac384e8cba80ba7c6a168e0b16760bd2f750f847e54563744b2d",
+    "outputCrop": [
+      336,
+      144,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:5",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 32,
+    "pixelHash": "065d944f1b46f61e64bc6cf334e0ccea252e1be0126951a1e8cc96f1f5d20598",
+    "outputCrop": [
+      0,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:6",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 33,
+    "pixelHash": "31fb874d19230774c1f0d9d8c20d075d7d74961d31d03be5718d4c6a0545f404",
+    "outputCrop": [
+      48,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:helmet:7",
+    "name": "Helmet",
+    "kind": "armor",
+    "slot": "helmet",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Helmet.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 34,
+    "pixelHash": "0118ff31c8c5c23cf94351992fbd84924aa28fd31702ca8a9ed16d1874fc2b24",
+    "outputCrop": [
+      96,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:1",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 58,
+    "pixelHash": "de81a3c8ed30d48610915f3da31f765efdaaf682ef1d275af56a15a88e8659ff",
+    "outputCrop": [
+      96,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:2",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 59,
+    "pixelHash": "62dc8c2a5a6fa912c9211c6b296c69c4fdf063de41dcd9134c2b88f520242fab",
+    "outputCrop": [
+      144,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:3",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 60,
+    "pixelHash": "d86e84a42e2451b65732689da3cc10af2ef7c04eba33b59077d8d65975affa89",
+    "outputCrop": [
+      192,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:4",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 61,
+    "pixelHash": "9b0b31f46b9f02ada5a8c76582e917598cf36b1aa8f0423237bac0c3e14bbd6f",
+    "outputCrop": [
+      240,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:5",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 62,
+    "pixelHash": "b195cbb77e05628e366b5c7fb3e0cf795aaec9fefc2069566d7f4837a36a5e11",
+    "outputCrop": [
+      288,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:6",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 63,
+    "pixelHash": "148fb84c5e974cbd252460b4b8d6229f86b362cb011d2b0a4e40ad58592258db",
+    "outputCrop": [
+      336,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:chestplate:7",
+    "name": "Chestplate",
+    "kind": "armor",
+    "slot": "chestplate",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Chestplate.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 35,
+    "pixelHash": "1a6cefff9360b78ebac6b5675ff8ceaca9ec1be2c8ee58922142ef2c82797a58",
+    "outputCrop": [
+      144,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:1",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 36,
+    "pixelHash": "df4ecfd2164aa68fbfe23e333fa8dca6e5865747b4548aec9ede78cd27b5c263",
+    "outputCrop": [
+      192,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:2",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 37,
+    "pixelHash": "2c39004a4dc37f2152b1fb5faec53e25d97b1d7b114b13f357392a8f3c1ddc1b",
+    "outputCrop": [
+      240,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:3",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 38,
+    "pixelHash": "d58d2c95dcc86a5fcb40e400c0958a8b94f397eb6279b1291b6f4c92f838f8f6",
+    "outputCrop": [
+      288,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:4",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 39,
+    "pixelHash": "82f37885c40c3ea79a5032b8ba633818eb6bac54b29f093370bd29c605a8bb94",
+    "outputCrop": [
+      336,
+      192,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:5",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 40,
+    "pixelHash": "a8cdbfe3f85ba730b5e6fa7e595278774dc1f0774654acdf098c48a736d590d2",
+    "outputCrop": [
+      0,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:6",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 41,
+    "pixelHash": "9f5563f1db9b1d4de2d1707f59bb59eacc31be37eba367616f9b4b645f008e95",
+    "outputCrop": [
+      48,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:leggings:7",
+    "name": "Leggings",
+    "kind": "armor",
+    "slot": "leggings",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Leggings.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 5,
+    "referenceCell": 42,
+    "pixelHash": "ec56a6bc0c13513bd44b9b428ece99a92183044c2af94493178b2c44da17185e",
+    "outputCrop": [
+      96,
+      240,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:1",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 1,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/1. Wood/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 51,
+    "pixelHash": "d4492c2c50bcded289410584f16d6b8d594ce7d825aaf3cf34b79d9026b66268",
+    "outputCrop": [
+      144,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:2",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 2,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/2. Cooper/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 52,
+    "pixelHash": "1efc7eedbc747bc50d2f7d15f94abfc0342fa0f36ac300b710d9a21933dfa358",
+    "outputCrop": [
+      192,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:3",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 3,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/3. Iron/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 53,
+    "pixelHash": "44ee192192a7d93f2bbcfc63988a25607e330278c740f94a7b12faadde0efcee",
+    "outputCrop": [
+      240,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:4",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 4,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/4. Gold/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 54,
+    "pixelHash": "ff07140f6f693c073b1c6fdf356c153e80860376d54ebbfd18cef57cf4209080",
+    "outputCrop": [
+      288,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:5",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 5,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/5. Platinum/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 55,
+    "pixelHash": "e71067564abcc21c095cb8859726f885db51e246ab393052c807dde1afbc6982",
+    "outputCrop": [
+      336,
+      288,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:6",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 6,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/6. Crimson/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 56,
+    "pixelHash": "028a1afa6851bb7007859dbe571e7b6a359c67f7f53e5db12083e160789426f7",
+    "outputCrop": [
+      0,
+      336,
+      48,
+      48
+    ]
+  },
+  {
+    "id": "armor:boots:7",
+    "name": "Boots",
+    "kind": "armor",
+    "slot": "boots",
+    "tier": 7,
+    "frame": 0,
+    "source": "assets/Icons/RPG icons/Weapons and Armor/7. Frost/Boots.png",
+    "crop": [
+      0,
+      0,
+      16,
+      16
+    ],
+    "referenceSheet": 1,
+    "referenceCell": 57,
+    "pixelHash": "4d4118252e16befe40eefa19ea3e709e57d154a4bcb548248d04308d92ae6e8e",
+    "outputCrop": [
+      48,
+      336,
+      48,
+      48
+    ]
+  }
+]

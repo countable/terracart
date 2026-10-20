@@ -67,4 +67,22 @@
     render.call(scene);
     assert.eq(seen[2][1], 0, 'legacy swings default to frame zero');
   });
+  test('dialog gear art: only large registered gear uses detailed frames', () => {
+    const art = { cell: 48, columns: 8, size: 384,
+      entries: { 'relic:sword:1': { sheet: 'dialog-gear.png', frame: 17 } } };
+    const render = new Function('SelectedItemArt', 'ICON_SHEETS', 'gearAssetPath',
+      'AMULET_FRAME_BY_TIER', 'domIconSheet', 'IconNet', 'DialogItemArt',
+      'return ({' + lift('gearIconHTML(kind, slot, tier, sizePx = 20) {') + '}).gearIconHTML;')(
+      { relics: {} }, {}, () => 'small-gear.png', AMULET_FRAME_BY_TIER,
+      (url, width, height) => ({ url, width, height, x: 0, y: 0 }), { ready: () => false }, art);
+    assert.truthy(render('relic', 'sword', 1, 47).includes('small-gear.png'));
+    assert.truthy(render('relic', 'sword', 2, 96).includes('small-gear.png'), 'unregistered tier keeps its art');
+    for (const size of [48, 96]) {
+      const html = render('relic', 'sword', 1, size);
+      assert.truthy(html.includes('dialog-gear.png'));
+      assert.truthy(html.includes(`background-size:${8 * size}px ${8 * size}px`));
+      assert.truthy(html.includes(`background-position:-${size}px -${2 * size}px`));
+      assert.truthy(html.includes('class="px-icon icon-loading" data-iconsrc="dialog-gear.png"'));
+    }
+  });
 })();

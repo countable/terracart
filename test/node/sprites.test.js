@@ -884,10 +884,12 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
         assert.inRange(Math.abs(p.dyPx + (b.maxY - b.fh / 2) * p.scl - 32 / 6), 0, 1e-8, 'clock base sits one third up the cell');
       }
       if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
-        assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 32, 'lamp fills its cell');
-        assert.gte(b.minY, b.fh - 32, 'lamp fits the bottom 32×32 frame');
+        const height = item.id === 'lamp_floor' ? 64 : 32;
+        assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), height - 4, height, 'lamp retains its source proportions');
+        assert.lte(b.maxX - b.minX, 32, 'lamp fits its floor-cell width');
+        assert.gte(b.minY, b.fh - height, 'lamp fits its world frame');
         assert.inRange(b.maxY, b.fh - 1, b.fh, 'lamp is bottom-seated');
-        assert.lte((b.maxY - b.minY) * p.scl, 32, 'lamp stays within a cell');
+        assert.lte((b.maxY - b.minY) * p.scl, height, 'lamp fits its display height');
       }
       let actualFlip;
       p.spec.after({setFlipX(value) { actualFlip=value; }}, o);

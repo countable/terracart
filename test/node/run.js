@@ -1519,7 +1519,7 @@ ctx.__tests.push({ name: 'furniture manifest: catalog frames and world geometry 
     ctx.assert.eq(furniture[row.itemId].frame, row.frame, row.itemId);
     ctx.assert.eq(row.frameSize[0], 32, row.itemId);
     const tall = ['bed_quilted', 'bookshelf_frontier'].includes(row.itemId);
-    ctx.assert.eq(row.frameSize[1], tall ? Math.round(32 * manifest.worldCell / manifest.nativeCell) : 32, row.itemId);
+    ctx.assert.eq(row.frameSize[1], row.itemId === 'lamp_floor' ? manifest.worldFrameHeight : tall ? Math.round(32 * manifest.worldCell / manifest.nativeCell) : 32, row.itemId);
     if (row.itemId === 'candelabra_floor') {
       ctx.assert.eq(JSON.stringify(row.fit), '[30,30]', row.itemId);
     }
