@@ -366,6 +366,33 @@
     });
   });
 
+  test('home footing: firepits leave a ground cell beside walls and diagonal corners', () => {
+    const b = { key: 'clearance', x0: 29, x1: 30, y0: 28, y1: 29 };
+    withTile(tile([b]), () => {
+      const s = scene();
+      for (const [x, y] of [[28, 28], [31, 29], [29, 27], [30, 30], [28, 27], [31, 30]]) {
+        const p = at(x, y);
+        assert.falsy(s._firepitGroundOK(p.x, p.y), `touching wall/corner at ${x},${y}`);
+      }
+      const p = at(30, 31);
+      assert.truthy(s._firepitGroundOK(p.x, p.y), 'one full cell between pit and wall');
+    });
+  });
+
+  test('home footing: starting firepits stay clear of the house at every compass heading', () => {
+    for (let heading = 0; heading < 360; heading += 15) {
+      withTile(tile([]), () => {
+        const s = scene({ homePlacementHeading: heading });
+        s._homeInitialHeading = heading;
+        const p = at(30, 30);
+        s._placeHome(p.x, p.y);
+        assert.truthy(s.save.homeFirepit, `${heading}: a safe firepit is placed`);
+        const pit = s.save.homeFirepit;
+        assert.truthy(s._firepitGroundOK(pit.x, pit.y), `${heading}: no wall touches the pit`);
+      });
+    }
+  });
+
   test('home footing: firepit candidates keep off the doorstep and the wagon', () => {
     const { firepit, wagon } = HomeArea.placementOffsets(0);
     const c = HomeArea.firepitCandidates(firepit, wagon);

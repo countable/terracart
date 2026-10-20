@@ -1143,7 +1143,7 @@ test('building overlay: angled walls stay in the background for every building t
   clearTiles();
 });
 
-test('building overlay: temple foundation stays beneath its floor without upright wall strips', () => {
+test('building overlay: canvas fallback keeps the temple foundation beneath its floor', () => {
   clearTiles();
   putShapes(0, 0, [{ ...rectShape(0, 0, 10, 10, T.BUILDING_LARGE), templeZone: 'sanctuary' }]);
   const { scene } = makeWallScene();
@@ -1153,7 +1153,7 @@ test('building overlay: temple foundation stays beneath its floor without uprigh
   assert.eq(fills[0].color, TempleArt.palette(false, false, true).face);
   assert.eq(fills[1].color, TempleArt.palette(false, false, true).floor);
   for (let i = 0; i < fills[0].pts.length; i++) {
-    assert.eq(fills[0].pts[i].y - fills[1].pts[i].y, Render.BUILDING_FACE_PX[T.BUILDING_LARGE]);
+    assert.eq(fills[0].pts[i].y - fills[1].pts[i].y, TempleArt.geometry.foundationDepth);
   }
   clearTiles();
 });
@@ -1440,8 +1440,14 @@ test('building overlay: heading-up temple uses temple wall palette without castl
   BuildingOverlay.draw(scene);
   const group = scene._wallPerspective.polygon;
   const palette = TempleArt.palette(false, true, true);
-  assert.eq(group.blocks.length, 0, 'temple foundations do not rise above their floor');
-  assert.eq(scene.buildingGeomGfx.only('fill')[0].color, palette.face, 'foundation uses temple stone');
+  const foundation = group.blocks.find(b => b.bottom < 0);
+  assert.truthy(foundation, 'raised platform has retained shaded faces');
+  assert.eq(foundation.colors.face, palette.face, 'foundation uses temple stone');
+  assert.eq(foundation.top, 0, 'foundation stays beneath the rune floor');
+  const walls = group.blocks.filter(b => b.bottom >= 0);
+  assert.gt(walls.length, 0, 'perimeter walls stand above the floor');
+  assert.truthy(walls.every(b => b.top <= TempleArt.geometry.wallHeight), 'no castle teeth');
+  assert.truthy(walls.some(b => b.colors.top === palette.coping), 'light stone wall caps');
   assert.eq(log.pages.length, 0);
   clearTiles();
 });

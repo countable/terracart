@@ -944,11 +944,11 @@
     const stone = d.tier === CASTLE && !d.templeZone ? castleStone(isMine, d.castleStyle || d.key) : null;
     const temple = d.templeZone ? TempleArt.palette(isMine, d.templeKind === 'tar', true) : null;
     const rampart = stone?.style.rampart;
-    const height = rampart ? rampart.wallHeight : d.tier === 11 ? 5 : facePx(d.tier);
+    const height = temple ? TempleArt.geometry.wallHeight : rampart ? rampart.wallHeight : d.tier === 11 ? 5 : facePx(d.tier);
     const face = temple ? temple.face : stone ? stone.style.stone.FACE : tune(shade(faceColor(d.tier, isMine)));
-    const top = temple ? temple.face : stone ? stone.top : tune(shade(floorColor(d.tier, isMine)));
+    const top = temple ? temple.coping : stone ? stone.top : tune(shade(floorColor(d.tier, isMine)));
     const dark = temple ? temple.outline : stone ? stone.dark : tune(dim(shade(floorColor(d.tier, isMine)), OUTLINE_MUL));
-    const thickness = rampart ? rampart.topDepth : d.tier === 11 ? 3 : 1;
+    const thickness = temple ? TempleArt.geometry.wallThickness : rampart ? rampart.topDepth : d.tier === 11 ? 3 : 1;
     const points = d.pts;
     let area = 0;
     for (let i = 0; i < points.length; i++) {
@@ -1523,8 +1523,16 @@
       if (d.templeZone) {
         const active = Temples.isActive(scene.save, d);
         const palette = TempleArt.palette(active, d.templeKind === 'tar', true);
-        // Foundations stay joined to the floor silhouette, beneath its top surface.
-        g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + facePx(d.tier) })), palette.face);
+        // The rune floor stays at ground elevation. Its foundation descends
+        // below it, while low capped walls rise above it at every heading.
+        if (perspective) {
+          scene._wallPerspective.polygon.alwaysActive = true;
+          WallPerspective.prism(scene, 'polygon', d.pts, -TempleArt.geometry.foundationDepth, 0,
+            { face: palette.face }, null, false);
+          perspectiveEdges(scene, d, active);
+        } else {
+          g.fillPoly(d.pts.map(p => ({ x: p.x, y: p.y + TempleArt.geometry.foundationDepth })), palette.face);
+        }
         if (g.templePoly) g.templePoly(d.pts, active, d.templeKind === 'tar');
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
         continue;
