@@ -378,3 +378,17 @@ A frame-wide silhouette pass does not add triangles to each building mesh.
   WebGL (`--no-sandbox --ozone-platform=headless --use-angle=swiftshader
   --enable-unsafe-swiftshader`) and remove a stale `DISPLAY` variable. Capture
   the visible native WebGL canvas, not the hidden Phaser bookkeeping canvas.
+
+### Roof refinement shortcuts
+
+- Select rectangular material patches without baked perspective silhouettes. Sample
+  timber separately from slate or metal so trim does not contaminate the roof tone.
+- Keep skylights and other baked roof details at their native physical size when a
+  footprint grows; repeat material spans instead of stretching the whole sprite.
+- A closed ridge prism costs 12 triangles. Intersect it with the intact roof shell
+  to add a major source-art beam without opening seams.
+- On round roofs, clamp UVs inside the painted material. A sprite's black outer
+  contour becomes an unwanted meridian seam when wrapped; let the silhouette pass
+  supply the outer ink instead.
+- Divide roof decks and coping into adjoining faces with shared edges. Nearly
+  coplanar overlays can still flicker in a 16-bit depth buffer at high elevations.
