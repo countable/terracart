@@ -620,8 +620,11 @@ access or tile lifecycle mechanics.
   MD/LG road, along the path’s length and within the existing kerb buffer.
   `ROAD_CLASS_PATH_SIDE` preserves creature suppression while the shared
   `nightZoneBits` check excludes the wash, hidden interactions and drain.
-  Carriageway cells, the opposite side, crossings, grade-separated paths and
-  overlapping buffers from roads without a path on that side remain dark.
+  The walking-path footprint itself (`ROAD_CLASS_PATH`, at least one cell wide)
+  clears every overlapping night zone, including crossings and grade-separated
+  paths. Off-path carriageway cells and buffers without a same-level parallel
+  path on their side remain dark. Private or inaccessible paths grant neither
+  exemption. Road warnings and spawn exclusions remain unchanged.
 - Parking lots join the MD/LG kerb buffer's suppression at every hour
   (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
   acquiring a road surface, the standing-on-carriageway warning or the night

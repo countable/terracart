@@ -2335,16 +2335,20 @@
   // hour, but never the night zone. Read the night zone through nightZoneBits.
   const ROAD_CLASS_LOT_BUFFER = 128;
   const ROAD_CLASS_PATH_SIDE = 256;
+  // Mapped walking-path footprint, even where it crosses a carriageway.
+  const ROAD_CLASS_PATH = 512;
   function nightZoneBits(bits) {
-    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & (ROAD_CLASS_LOT_BUFFER | ROAD_CLASS_PATH_SIDE));
+    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & (ROAD_CLASS_LOT_BUFFER | ROAD_CLASS_PATH_SIDE | ROAD_CLASS_PATH));
   }
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
   // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
-  // Exempt only the off-carriageway side served by a nearby parallel path.
+  // Every walking-path footprint clears the night zone. Parallel paths also
+  // exempt the off-carriageway side they serve.
   // Check every contributing road: a path cannot clear another road's buffer.
   function* stampPathSideSafetySteps(features, out, w, h, scale) {
     const roads = _bucketGrid(8), paths = _bucketGrid(8);
+    const pathCover = new Uint16Array(w * h);
     let hasPaths = false;
     for (const f of features || []) {
       if (f.type !== 2 || !f.geom) continue;
@@ -2353,6 +2357,10 @@
       const path = tier === T.PATH;
       if (path && (tags.access === 'private' || tags.access === 'no'
           || tags.foot === 'no' || tags.foot === 'private')) continue;
+      if (path) for (const line of f.geom) {
+        yield* stampCoverLineSteps(pathCover, w, h, line, Math.max(1, roadOverlayWidthM(tags) / CELL_M), scale);
+        hasPaths = true;
+      }
       const radius = roadOverlayWidthM(tags) / CELL_M / 2 + MAJOR_BUFFER_CELLS;
       const grade = `${tags.layer || 0}:${tags.brunnel || (tags.bridge === 'yes' ? 'bridge' : tags.tunnel === 'yes' ? 'tunnel' : '')}`;
       for (const line of f.geom) for (let j = 1; j < line.length; j++) {
@@ -2372,7 +2380,9 @@
       if ((cy & 15) === 15) yield 'roadside path safety';
       for (let cx = 0; cx < w; cx++) {
         const i = cy * w + cx, bits = out[i];
-        if (!(bits & ROAD_CLASS_MAJOR_BUFFER) || (bits & ROAD_CLASS_MAJOR_BAND)) continue;
+        if (!(bits & ROAD_CLASS_MAJOR_BUFFER)) continue;
+        if (pathCover[i]) { out[i] |= ROAD_CLASS_PATH; continue; }
+        if (bits & ROAD_CLASS_MAJOR_BAND) continue;
         const x = cx + 0.5, y = cy + 0.5;
         let served = false;
         const dangerous = roads.near(x, y, 0, r => {
@@ -9958,7 +9968,7 @@
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
-    ROAD_CLASS_LOT_BUFFER, ROAD_CLASS_PATH_SIDE, nightZoneBits,
+    ROAD_CLASS_LOT_BUFFER, ROAD_CLASS_PATH_SIDE, ROAD_CLASS_PATH, nightZoneBits,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
