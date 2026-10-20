@@ -206,13 +206,15 @@ They share the same elevation projection in north-up and heading-up modes;
 legacy sprite modes retain the north-up wall atlas artwork.
 The WebGL low-poly path (`building_lowpoly.js`) draws houses to match the 2D
 billboard sprites: `BuildingLowPoly.LOOK` owns the height foreshortening, the
-ink outline pass, eave shadow, flat-deck bands and chimney numbers, and the
+upper outer-edge ink pass, eave shadow, flat-deck bands and chimney numbers, and the
 material sheets are cut once per material from the tilesets. Roof UV wrapping
 uses the selected sheet's repeat: 360 texels for approved crops, 288 for generated
 and cel sheets, so atlas boundaries preserve the material pattern. Each low-poly
 building has a pooled render object in `worldContainer`, interleaved with props
 and actors by its footprint's vertex-average ground anchor. Faces and ink groups
-remain ordered within that building. This is whole-building painter ordering,
+remain ordered within that building. One upward-shifted silhouette draws before
+all building faces, including wrecks, so bottom edges and internal joins receive
+no outline. This is whole-building painter ordering,
 not per-pixel occlusion for long or concave footprints. Buildings retain map
 rotation; only their elevation vector compensates for heading. The retained
 geometry's pan offset also moves its sorting anchor, including at a fixed heading.
@@ -241,7 +243,7 @@ a flattened vertical scale; restoring a wreck returns it to standing architectur
 table: height through `LOOK.heightScale`, and the ink outline is drawn once
 per connected run (blocks sharing a ground vertex at any level, or one wall's
 support) before that run's first fill, so a ring of sections and the merlons
-standing on it carry one outer outline with no seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
+standing on it carry one upper outer outline with no bottom edge or internal seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
 
 `scene.activeInterior()` shares Home's interior renderer and outside-darkness
 mask with detected malls and strip malls. Retail footprints come from the same

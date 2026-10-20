@@ -259,8 +259,8 @@
     }
     if(chimneyAt&&chimneyLength>24){
       // A cobbled stack with a wider cap and a dark mouth. Sides are walls
-      // with raw UVs into the sheet's stone plinth rows (tv 105..128); the
-      // stack is its own ink group so the outline runs where it meets tiles.
+      // with raw UVs into the sheet's stone plinth rows (tv 105..128).
+      // The stack shares the building's upper outer silhouette.
       const count=chimneys?.count||1,scale=chimneys?.scale||1,C=LOOK.chimney;
       const stack=(c,column)=>{
         const corners=rr=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:c.x+(ux*sx-uy*sy)*rr,y:c.y+(uy*sx+ux*sy)*rr}));
@@ -1376,16 +1376,15 @@
         const pipeline=renderer.pipelines.set(renderer.pipelines.get('MultiPipeline'),src);
         renderer.pipelines.preBatch(src);
         const tu=510/512,tv=126/512,px=camera.zoom*LOOK.inkPx; // solid texel; one art pixel
-        // The ink outline: the group's visible triangles re-emitted in the solid
-        // texel at eight screen offsets, before the group's faces. One building
-        // is a contiguous sorted run; its ink groups (body, flat deck, chimney)
-        // draw in layer order so each gets a line where it meets the surface below.
-        const ink=(group)=>{
+        // One upward-offset silhouette behind the whole building leaves ink
+        // only on its upper outer edge. All faces cover it together, including
+        // decks, chimneys and wreck floors, so their joins never receive ink.
+        const ink=(faces)=>{
           const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(src._wreck?LOOK.wreck.ink:LOOK.ink,camera.alpha*src.alpha);
-          for(const [ox,oy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])for(const f of group){
+          for(const f of faces){
             if(pipeline.shouldFlush(3))pipeline.flush();
             const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
-            for(let i=0;i<3;i++){const p=f.projected[i];pipeline.batchVert(matrix.getX(p.x,p.y)+ox*px,matrix.getY(p.x,p.y)+oy*px,tu,tv,unit,0,tint);}
+            for(let i=0;i<3;i++){const p=f.projected[i];pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y)-px,tu,tv,unit,0,tint);}
           }
         };
         const paint=(group)=>{for(const f of group){
@@ -1407,17 +1406,11 @@
             pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,wallTint);
           }
         }};
-        let group=[],support=null,groupId=0;
-        // The outline repeats filled triangles eight times. During a fade those
-        // layers would accumulate to opaque black and hide the player again.
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(group);paint(group);group=[];};
-        for(const f of src._lowpolyFaces){
-          if(!f.visible)continue;
-          const g=src._wreck?0:f.inkGroup||0;
-          if(f.support!==support||g!==groupId){flush();support=f.support;groupId=g;}
-          group.push(f);
-        }
-        flush();
+        const faces=src._lowpolyFaces.filter(f=>f.visible);
+        // A filled ink pass would show through translucent faces and obscure
+        // the player; faded buildings and indoor wall parts omit it.
+        if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(faces);
+        paint(faces);
         renderer.pipelines.postBatch(src);
       };
       return obj;

@@ -36,6 +36,22 @@
     assert.eq(group.blocks,blocks,'retained wall geometry survives');
   });
 
+  test('wall perspective: connected walls and teeth ink only upward at every heading', () => {
+    const s=scene(),group=build(s,{...segment,toothWidth:5,toothHeight:3});
+    for(const angle of [0,.7,Math.PI,Math.PI*1.5]){
+      s.mapRot=angle;WallPerspective.update(s);
+      const triangles=group.gfx.triangles,ink=triangles.filter(t=>t.color===BuildingLowPoly.LOOK.ink),fill=triangles.filter(t=>t.color!==BuildingLowPoly.LOOK.ink);
+      assert.gt(ink.length,0,'opaque wall silhouette');
+      assert.eq(ink.length,fill.length,'one offset per visible face');
+      assert.truthy(triangles.slice(0,ink.length).every(t=>t.color===BuildingLowPoly.LOOK.ink),'entire connected silhouette precedes its fills');
+      for(const triangle of ink){
+        const shifted=triangle.points.map((v,j)=>v+(j%2?Math.cos(angle):Math.sin(angle))*BuildingLowPoly.LOOK.inkPx);
+        assert.truthy(fill.some(t=>t.points.every((v,j)=>Math.abs(v-shifted[j])<1e-8)),
+          'each ink triangle is exactly one screen pixel above a filled face');
+      }
+    }
+  });
+
   test('wall perspective: wall height projects vertically at every compass octant', () => {
     const s = scene(), group = build(s), block = group.blocks[0];
     for (let step = 0; step <= 8; step++) {
