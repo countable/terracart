@@ -298,3 +298,83 @@ ornaments; the current baseline stays at two. Gameplay ranks come from
 `Shops.shopTier`, not footprint biome tiers. Renovation invalidates cached
 geometry immediately. Unranked homes, ruins and special structures retain
 their own designs; `scene.buildingStoreys` remains a preview override.
+## Source artwork matching workflow
+
+These rules apply to source-matched building experiments and future implementations.
+The current review is served at `http://localhost:8765/ra-village-house/`; its
+30-degree calibration is a preview setting, not a change to production camera code.
+
+### Shape and triangle budgets
+
+Start with a closed basic building shape. Add low-poly geometry only for major
+silhouette features such as a chimney, boiler, porch, dome or substantial dormer.
+Keep brickwork, shingles, windows, gears that lie on a wall, and narrow trim in
+textures unless their depth materially changes the rotated silhouette. Simplify
+the reference where necessary to keep the outer shell closed.
+
+Count rendered triangles, including external details: stay below **500 for basic
+houses** and **1,000 for larger buildings**. Check counts after resizing or changing
+footprints; long wings and many roof sections can cost more than the native model.
+A frame-wide silhouette pass does not add triangles to each building mesh.
+
+### Fast setup and calibration
+
+- Find the exact source sheet and crop first. Existing reference catalogs often
+  already record the coordinates. Inspect the whole sprite: a runtime frame may
+  clip its bottom or omit a roof feature. Preserve the original crop for comparison.
+- Match at **30 degrees above the ground** before tuning proportions. The preview
+  converts its authored screen-space depth by `y / sin(30°)` and height by
+  `z / cos(30°)`. Apply `16 / sourceDoorHeight` once to the complete physical model
+  so the source door reads as 16 pixels at 1×. If no door exists, document the
+  reference dimension used instead. Never stretch the shaft to compensate for a
+  camera mismatch.
+- Reuse the material/mesh interface: one spec per source, one cached
+  `prepare(context, image, spec, key)` atlas, and
+  `build(template, spec, key, polygonOrNull)` returning physical-coordinate
+  triangles. Add the picker and reference crop once; avoid copying an entire
+  renderer for each style.
+
+### Texture and facade shortcuts
+
+- Use original source pixels for the front facade and sample their palette for
+  inferred surfaces. Prepare a complete doorless facade bay for the rear and sides;
+  remove the door frame and dressing too. Preserve native window sizes and place
+  corner posts only at actual building corners. Fill short remainder spans with
+  matching quiet wall texture.
+- Extend the nearest opaque texels into transparent sprite margins within the
+  building crop. Transparency in a sprite is not a hole in a physical wall.
+  Carry corner beam texture to the join instead of switching to a background color.
+- Draw roof courses in roof surface coordinates. Repeating perspective-painted
+  raster roof fragments preserves diagonal stair steps and produces sawtooth
+  patterns in side/top views; inverse shear alone does not reliably remove them.
+  Retain source colors, tile sizes and broad trim, then let geometry supply perspective.
+- Keep texture density tied to physical surface length, not building width.
+  Split at repeat boundaries before UVs leave their atlas region. Sample constant
+  colors at texel centers (`x + 0.5`, `y + 0.5`) to avoid triangular flicker.
+- Overhangs should continue the adjacent roof texture. Keep the original wall/roof
+  join, then add a small closed lip with fascia and underside. Miter real corners;
+  at an intermediate ridge split, offset along the edge normal so adjacent roof
+  planes still meet. Remove identical hidden internal caps.
+
+### Footprints and rotation checks
+
+- Keep each style's wall and peak heights fixed across footprint variants. Preserve
+  facade bay scale. Cover concave footprints with disjoint roof sections and close
+  exposed height steps; do not overlap full roof boxes or leave a missing membrane
+  to imitate a sprite cutout.
+- Check face winding before repainting a seemingly blank face. A reversed gable or
+  porch wall can expose the background even when its UVs and texture are correct.
+  Remove duplicate coplanar faces instead of masking depth flicker with arbitrary
+  offsets. A protruding feature needs finished sides, a back and a closed underside.
+- Compare the source and native model at 30°, then inspect front, rear and both
+  sides through a full orbit. Include L/T/U footprints, low and high elevations,
+  and an underside view when closing shells. Test finite positions, atlas bounds,
+  constant heights and triangle counts, but also inspect screenshots: valid numbers
+  and no WebGL errors do not prove visual parity or a closed-looking shell.
+- Use a screen-space silhouette mask for the overall black outline. Ink only the
+  background adjacent to the visible object, excluding ground-contact pixels.
+  This avoids outlining every triangle, facade seam or attached feature internally.
+- For local Chromium review, use the installed browser with headless software
+  WebGL (`--no-sandbox --ozone-platform=headless --use-angle=swiftshader
+  --enable-unsafe-swiftshader`) and remove a stale `DISPLAY` variable. Capture
+  the visible native WebGL canvas, not the hidden Phaser bookkeeping canvas.
