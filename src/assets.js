@@ -2,6 +2,22 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  // Reviewed closed building meshes share these native source images.
+  authored_source_com: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/com_houses_05.png' },
+  authored_source_fdr: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/FDR_Blacksmith.png' },
+  authored_source_market: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/house_market.png' },
+  authored_source_trader: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/house_trader.png' },
+  authored_source_wizard: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/wizard.png' },
+  authored_source_flat_adobe: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/flat-adobe.png' },
+  authored_source_flat_rooftop: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/flat-rooftop.png' },
+  authored_source_steam_home: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/steam-home.png' },
+  authored_source_steam_blacksmith: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/steam-blacksmith.png' },
+  authored_source_steam_wizard: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/steam-wizard.png' },
+  authored_source_city_storefront: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/city-storefront.png' },
+  authored_source_city_gearhouse: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/city-gearhouse.png' },
+  authored_source_pp_brick: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-brick-red.png' },
+  authored_source_pp_plaster: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-plaster-red.png' },
+  authored_source_pp_cabin: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-cabin-red.png' },
   selected_items: { kind: 'spritesheet', path: 'assets/Icons/SelectedItems/items.png', frameWidth: 16, frameHeight: 16 },
   selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
   selected_shrub: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_shrub.png', 'frameWidth': 16, 'frameHeight': 16},

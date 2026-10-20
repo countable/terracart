@@ -1364,7 +1364,7 @@
     }
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
-  function active(scene){return !!scene._headingUp&&scene.game?.renderer?.type===2;}
+  function active(scene){return scene.game?.renderer?.type===2;}
   function renderObject(scene){
       const obj=scene.add.graphics();
       (scene.worldContainer||scene.buildingWallContainer).add(obj);
@@ -1373,6 +1373,9 @@
       obj.renderWebGL=function(renderer,src,camera,parentMatrix){
         camera.addToRenderList(src);
         const matrix=Phaser.GameObjects.GetCalcMatrix(src,camera,parentMatrix).calc;
+        if(src._lowpolyFaces[0]?.sourceArt&&typeof AuthoredBuildingRenderer!=='undefined'){
+          AuthoredBuildingRenderer.draw(scene,renderer,src,camera,matrix);return;
+        }
         const pipeline=renderer.pipelines.set(renderer.pipelines.get('MultiPipeline'),src);
         renderer.pipelines.preBatch(src);
         const tu=510/512,tv=126/512,px=camera.zoom*LOOK.inkPx; // solid texel; one art pixel
@@ -1391,7 +1394,7 @@
           if(pipeline.shouldFlush(3))pipeline.flush();
           const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
           // Restrained three-step lighting keeps the wreck in the same cel palette.
-          let shade=src._wreck?(f.light<.65?196:f.light<.88?225:255):f.light<.65?140:f.light<.88?199:255;
+          let shade=f.sourceArt?255:src._wreck?(f.light<.65?196:f.light<.88?225:255):f.light<.65?140:f.light<.88?199:255;
           if(f.eaveShadow)shade=Math.round(shade*LOOK.eaveShade);
           const textured=LOOK.textured||f.solid||f.kind==='trim';
           const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
@@ -1542,6 +1545,50 @@
     panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
     return faces;
   }
+  // Authored shells stay whole. Uniform placement preserves the reviewed roof,
+  // facade and closed seams; irregular OSM lots receive an enclosed native body.
+  function authoredGeometry(model,ring,inset=1,door=null){
+    if(door){const {x:nx,y:ny}=door.normal;
+      model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,x:ny*p.x+nx*p.y*.5,y:(-nx*p.x+ny*p.y*.5)*2}))}))};
+    }
+    const C=Math.cos(Math.PI/6),points=model.faces.flatMap(f=>f.points);
+    const loX=Math.min(...points.map(p=>p.x)),hiX=Math.max(...points.map(p=>p.x));
+    const loY=Math.min(...points.map(p=>p.y))*.5,hiY=Math.max(...points.map(p=>p.y))*.5;
+    const W=hiX-loX,D=hiY-loY;
+    const x0=Math.min(...ring.map(p=>p.x)),x1=Math.max(...ring.map(p=>p.x));
+    const y0=Math.min(...ring.map(p=>p.y)),y1=Math.max(...ring.map(p=>p.y));
+    const inside=p=>{let hit=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const a=ring[j],b=ring[i];
+      if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
+      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
+    }return hit;};
+    const fits=(cx,cy,scale)=>{
+      const rect=[{x:cx-W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy+D*scale/2},{x:cx-W*scale/2,y:cy+D*scale/2}];
+      if(!rect.every(inside))return false;
+      for(let i=0;i<ring.length;i++)for(let j=0;j<4;j++){
+        const a=ring[i],b=ring[(i+1)%ring.length],c=rect[j],d=rect[(j+1)%4];
+        if(cross(a,b,c)*cross(a,b,d)<-1e-8&&cross(c,d,a)*cross(c,d,b)<-1e-8)return false;
+      }
+      return true;
+    };
+    let best={scale:0,x:(x0+x1)/2,y:(y0+y1)/2};
+    const max=Math.min((x1-x0)/W,(y1-y0)/D);
+    // The centre first keeps rectangular lots exactly centred; candidates find
+    // the broad lobe of a concave lot without stretching the authored shell.
+    const candidates=[best];for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
+    for(const p of candidates){if(!inside(p))continue;let lo=0,hi=max;
+      for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+      if(lo>best.scale+1e-6)best={...p,scale:lo};
+    }
+    const scale=best.scale*inset;
+    if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;
+      const target={x:door.center.x-nx*run,y:door.center.y-ny*run};
+      if(fits(target.x,target.y,scale)){best.x=target.x;best.y=target.y;}
+    }
+    const move=p=>({...p,x:best.x+(p.x-(loX+hiX)/2)*scale,y:best.y+(p.y*.5-(loY+hiY)/2)*scale,z:p.z*C*scale});
+    const faces=model.faces.map(f=>({...f,sourceArt:true,rawUV:true,preserveWalls:true,points:f.points.map(move)}));
+    return {...model,faces,ring,center:{x:best.x,y:best.y},height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true};
+  }
   function add(scene,pts,recipe,variant,key,streets=[],entrance=null){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
@@ -1551,13 +1598,15 @@
     // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
-    const door=recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    const authored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined'?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
+    const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
+    const door=authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
+    let cached=authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    const texture=material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
-    (state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);
+    const texture=authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
+    if(!authored){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
@@ -1572,7 +1621,7 @@
     // edge.
     return first;
     function place(cached){
-    const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
+    const mesh={...cached,faces:cached.authored?cached.faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     // A wall's sort point is its baseline's point in the player's screen
@@ -1590,6 +1639,10 @@
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
     obj._noInk=!!cached.noInk;obj._wreck=recipe.shape==='wreck';
     for(const face of mesh.faces){
+      if(cached.authored){
+        face.flat=face.color??0xffffff;face.support=support;face.texture=face.texture||texture;
+        face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);continue;
+      }
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
       else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?LOOK.wreck.mortar:0xffffff;
@@ -1670,10 +1723,10 @@
     for(const face of state.faces){let depth=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
       face.points.forEach((p,i)=>{const v=face.projected[i];v.x=face.x+p.x-s*p.z*LOOK.heightScale;v.y=face.y+p.y-c*p.z*LOOK.heightScale;v.u=p.tu;v.v=p.tv;depth+=s*(face.x+p.x)+c*(face.y+p.y);});
-      if((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
+      if(!face.sourceArt&&((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid))for(const p of face.projected){p.u=510/512;p.v=126/512;}
       face.support.depth=s*face.support.x+c*face.support.y;
-      face.depth=depth/3;
-      if((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
+      face.depth=depth/3+(face.sourceArt?face.points.reduce((sum,p)=>sum+p.z,0)/9:0);
+      if(!face.sourceArt&&((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection))){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
       const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
     }
     for(const mesh of state.buildings){
@@ -1708,5 +1761,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={authoredGeometry,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

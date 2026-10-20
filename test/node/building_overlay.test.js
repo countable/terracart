@@ -1778,7 +1778,7 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
 
 // The WebGL low-poly path hands houses to BuildingLowPoly.add; a fort must
 // never reach it (the shell was the regression), while its pickets still draw.
-test('building overlay: the low-poly path builds houses but never a fort body', () => {
+test('building overlay: the low-poly path gives forts a gearhouse while retaining their palisade', () => {
   clearTiles();
   const previousStyle = Render.buildingArtStyle;
   const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
@@ -1787,7 +1787,7 @@ test('building overlay: the low-poly path builds houses but never a fort body', 
   Render.buildingArtStyle = 'procedural';
   BuildingLowPoly.active = () => true;
   BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
-  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role }); return { faces: [1], height: 10 }; };
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role, authored: recipe.authored }); return { faces: [1], height: 10 }; };
   try {
     const entry = putShapes(0, 0, [
       rectShape(0, 0, 10, 10, T.BUILDING_MED, 'fort'),
@@ -1797,8 +1797,9 @@ test('building overlay: the low-poly path builds houses but never a fort body', 
     const { scene } = makePerspectiveScene();
     scene.save = { restoredHouses: { house: 'plain' } };
     BuildingOverlay.draw(scene);
-    assert.eq(added.map(a => a.id).join(','), 'house', 'only the house becomes a mesh');
-    assert.falsy(scene._proceduralBuildings.has('fort'), 'the fort keeps its sprite');
+    assert.eq(added.map(a => a.id).sort().join(','), 'fort,house', 'both inhabited buildings become meshes');
+    assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_gearhouse');
+    assert.truthy(scene._proceduralBuildings.has('fort'), 'the gearhouse replaces the fort sprite');
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'the palisade still rims the fort');
   } finally {

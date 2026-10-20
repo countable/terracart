@@ -1,18 +1,33 @@
 # Shared low-poly building styles
 
-Integrated from `art/house-symmetry` (084c5226) and the retained low-poly prototype.
-The style branch supplies role/shop palettes, concave inset validation, optional
-parapets and roof lofts, synthesized footprints, real model heights for signs,
-and a reversible rounded-sprite fallback. The default WebGL path uses shared
-textured triangles, not geometry for mortar, windows or roof courses.
+The default WebGL exteriors use the reviewed closed source-art meshes in
+`src/authored-buildings/`, selected by `AuthoredBuildings.recipeFor`. Native
+textures and roof-color variants are prepared once at scene startup. Compass
+rotation reuses geometry and textures. Roof recoloring preserves painted
+shading; walls, chimney shafts, timber trim and dark closures keep their art.
 
-The cottage finish follows the supplied `/tmp/bldg.png` reference: warm walls,
-dark timber framing and braces, clay/slate/thatch roof treatments, recessed
-joinery and broad eave shading. These details live in shared material sheets;
-story count and footprint do not create a new texture. Material palettes stay
-role-driven. Reference pixels are not embedded in the generated textures.
-Ordinary delivery houses have one storey; specialised buildings retain their
-role-specific heights. The Canvas fallback reads the same storey count.
+| Gameplay role | Exterior model | Roof |
+| --- | --- | --- |
+| Home | Pixel Plains timber cabin | Yellow |
+| Regular residence | com cottage, Pixel Plains brick/plaster/cabin, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
+| Blacksmith T1–T3 / T4–T7 | FDR / steam blacksmith | Slate |
+| Trader | Trader | Green |
+| Seed / supply shop | Market / city storefront | Lime / blue |
+| Magic / relic shop | Market / city storefront | Teal / red |
+| Pet / book shop | Market / city storefront | Orange / plum |
+| First / second wizard tower | Purple wizard / steam wizard | Purple |
+| Fort | City gearhouse inside existing palisade | Copper |
+
+All shop models belong to the market/storefront pair; tier does not change
+shop identity. Castle, turret and wreck geometry retain their existing paths.
+Home retains its open-roof interior and furniture behavior. Closed native
+shells fit uniformly within the lot rather than stretching their source art
+across concave corners. The factory, chimney tower and clock tower are reserved
+art, with no new gameplay role or placement introduced.
+
+The generated material system below remains the Canvas/fallback and interior
+path. Its role-specific heights and footprint geometry are independent of the
+reviewed native exteriors.
 
 `scene.buildingRoofVariant` selects ridge, inset, shallow or flat. Leaving it
 unset selects a low-poly roof appropriate to the role; `styles` explicitly
