@@ -31,7 +31,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   border: 0 !important;
   border-radius: 24px 24px 0 0 !important;
   padding: calc(var(--panel-rail-height) + 10px) 22px max(22px, env(safe-area-inset-bottom)) !important;
-  background-color: #141b1d !important;
+  background-color: #000 !important;
   box-shadow: 0 -5px 24px #0009;
   isolation: isolate;
 }
@@ -144,7 +144,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   padding: 0 0 calc(60px + env(safe-area-inset-bottom));
   box-sizing: border-box; overflow-x: hidden; overflow-y: auto;
   border: 0; border-radius: 28px 28px 0 0;
-  background: #1b252c; box-shadow: 0 -8px 35px #0009;
+  background: #000; box-shadow: 0 -8px 35px #0009;
   animation: compass-panel-rise 240ms ease-out both;
 }
 #story.compass-story .art { flex: 0 0 auto; min-height: 0; width: 100%; aspect-ratio: 4 / 3; margin: 0; overflow: hidden; }

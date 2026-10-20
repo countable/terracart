@@ -27,7 +27,7 @@ Approved dashboard ALT IDs are recorded beside their native crop exports in
 `assets/Objects/SelectedProps`, `assets/Objects/SelectedFlora` and
 `assets/selected-terrain`. Containers and surface mushrooms choose among the
 approved alternatives by stable object identity; terrain uses existing spatial
-variant indices. Never vary these choices with time. Existing pot shards,
+variant indices. Never vary these choices with time. Colour-matched pot shards,
 underground mushroom art, crop growth stages, berry-bush remnants and loot
 behavior remain separate from the new standing artwork. Retired reference
 assets and planned cave mechanisms do not gain placement merely by changing art.
@@ -950,12 +950,11 @@ picking retains the same foliage frame and transparency. Square clipped bushes
 present a broad side toward the camera. Connected hedges retain their fifteen
 cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 
-`CONTAINER_CONTEXT_ART` in `loot.js` selects cosmetic barrel/pot frames from
-zone, then street, then biome; unknown contexts use oak and terracotta. Coastal
-contexts use rope-bound or painted wood and turquoise pots, industrial contexts
-use copper-rimmed or repaired barrels and charcoal pottery, and wetland contexts
-use mossy rain barrels. Pot shards retain the intact pot's frame. Selection does
-not change rewards, material identity, saved IDs or restocking behavior.
+Selected intact containers use stable object IDs. `POT_SMASHED_FRAMES` in
+`loot.js` pairs the two selected pot colours with existing shard frames:
+terracotta uses frame 0 and cream uses frame 3. Zone, street and biome cannot
+change the broken pot's colour. Selection does not change rewards, material
+identity, saved IDs or restocking behavior.
 
 ## Building sprite artwork
 

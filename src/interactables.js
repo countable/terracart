@@ -568,9 +568,11 @@ const INTERACTABLES = {
         Rewards.apply(save, got, scene, { deferBookRead: newItem });
         const onDismiss = () => scene._revealPendingBookReads?.();
         const art = chestOpeningArt(o);
+        const look = chestLook(o);
+        const kindIcon = scene.worldIconHTML?.(look.texKey, 26, look.frame);
         if (!(newItem && Rewards.present(scene, got, { extra: { kind: 'treasure',
-          header: `Inside the ${chestLook(o).barrelName}`,
-          art: art || undefined, onDismiss } }))) {
+          header: `Inside the ${look.barrelName}`,
+          kindIcon, art: art || undefined, onDismiss } }))) {
           Rewards.present(scene, got, { mode: 'toast', text: barrelFlash(got), extra: { onDismiss } });
         }
         return true;

@@ -6452,7 +6452,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects chest tiers, stand awnings and contextual
-              // containers; broken pots retain their existing contextual shard art.
+              // containers; broken pots retain their selected ceramic colour.
               frame: (o) => { const L = chestLook(o); return L.barrel && o._smashed ? L.smashedFrame : L.frame; },
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —

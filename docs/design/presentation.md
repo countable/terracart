@@ -60,7 +60,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,
   80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
-  Short informational help and NPC conversations use floating ivory speech
+  Dialog panels and book readers use black backgrounds with light text.
+  Short informational help and NPC conversations use floating black speech
   bubbles with the participant's portrait. They point to the HUD control or
   speaking character: below sources in the top half of the viewport, above
   sources in the bottom half. NPC anchors follow heading, zoom and viewport size.
@@ -82,7 +83,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   before the card appears; OK acknowledges the reward without granting it again.
   Great X marks and underground finds keep their existing reward pools and bonuses.
   Container paintings follow the visible container, not the reward: crates use
-  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `treasure_crate`, barrels use `treasure_barrel`, clay pots use `treasure_pot`,
+  and ordinary chests use
   `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
   names the actual find as “Item name × quantity”, with its tier badge on the
   next line. When the find has a description (`Rewards.desc`: the item's

@@ -164,7 +164,7 @@ class SceneModals {
     const box = document.createElement('div');
     box.style.cssText = fullscreen
       ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
-        'background:#1a1612;color:#fff;border:0;border-radius:0;' +
+        'background:#000;color:#fff;border:0;border-radius:0;' +
         'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
         'font:13px var(--font-ui);overflow:hidden;' +
         (textAlign ? `text-align:${textAlign};` : '') + boxExtra
@@ -174,7 +174,7 @@ class SceneModals {
       `position:absolute;left:${vLeft}px;width:${vSize}px;` +
       `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
       `box-sizing:border-box;display:flex;flex-direction:column;` +
-      `background:#1a1612;color:#fff;` +
+      `background:#000;color:#fff;` +
       `border:2px solid ${frameBorder};border-radius:10px;padding:10px 12px;` +
       `font:13px var(--font-ui);` +
       // Content that outgrows the square uses pages; the box never grows to fit.
