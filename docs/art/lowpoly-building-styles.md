@@ -208,18 +208,22 @@ review is published as a Claude artifact.
   with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
 - Wreck: thick broken walls follow the inset footprint at roughly 16-unit
-  intervals. One roof slope is missing entirely; a short cap joins the longer
+  intervals, with smaller sub-section steps confined to two exposed stretches.
+  One roof slope is missing entirely; a short cap joins the longer
   opposite slope on the original roof planes. Steel rafters follow the underside,
   with supporting wall remnants beneath the extended side. Their atlas strip
   provides pale flange highlights, a dark edge and small rivets.
   Both wall faces use touching staggered bricks with a flat warm-grey base,
   full light top/left edges and full dark bottom/right edges. Courses align
-  across wall sections. Faces have no noise or damage texture. Broken crowns and loose 3D bricks share that palette and edge
-  treatment. The opaque generated `wreck-floor-cel.png` covers the floor with dense darker
-  cel bricks and planks separated by deep shadow gaps, sampled at 128px with nearest
-  filtering. Three-step directional lighting darkens side faces, with a broad 24%
+  across wall sections and continue across their top faces using the same UV
+  course. Broad irregular stains weather wall and roof surfaces; the roof also
+  has a slightly darker tint, scattered rust patches and restrained pale metallic glints. Loose 3D bricks retain the same cel palette. The opaque generated `wreck-floor-cel.png` covers the floor with dense darker
+  cel fragments of varied sizes, splintered planks and half-buried furniture,
+  pipe and gear remnants, separated by deep shadow gaps. It is sampled at 128px
+  with nearest filtering; warm light masonry tones snap to the exact 3D block
+  colour (`LOOK.wreck.top`). Three-step directional lighting darkens side faces, with a broad 48%
   ground-contact shade fading toward the wall tops. Top faces remain light;
-  one soft outer silhouette surrounds the wreck without internal ink. Wreck
+  one black outer silhouette surrounds the wreck without internal ink. Roof, wall and steel-strut silhouettes project a single cool cel shadow onto the rubble floor, clipped to the footprint; overlapping shadows do not stack. Fallen panels lean from their original inner wall bays into the rubble, with their lower edges buried. The floor is predominantly small dark irregular fragments with sparse larger pieces. Solid roof faces draw above wall crowns to prevent masonry bleeding through the tiles. Wreck
   masonry skips the generic dark eave strip on outside walls.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on
