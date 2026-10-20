@@ -20,8 +20,8 @@
     assert.truthy(SCENE_SRC.includes('this.worldContainer.add(this.playerWorldContainer)'));
     assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.player)'));
     assert.truthy(SCENE_SRC.includes('this.playerWorldContainer.add(this.swordSwingGfx)'));
-    assert.truthy(RENDER_SRC.includes('const playerGroundY = Math.max(playerWorldM(scene).y,') && RENDER_SRC.includes('groundY: playerGroundY, rank: 3'),
-      'player uses world feet, not relative metres or the peek camera');
+    assert.truthy(RENDER_SRC.includes('const playerGroundY = scene._wreckRepair?.at?.y ?? Math.max(playerWorldM(scene).y,') && RENDER_SRC.includes('groundY: playerGroundY, rank: 3'),
+      'player uses repair feet during work and world feet otherwise, never the peek camera');
   });
   test('world depth: seated trees and centred houses use their visual ground base', () => {
     assert.eq(Render.objectGroundOffsetPx({ visible: true, foot: { footFromCentre: 15 } }), 15);

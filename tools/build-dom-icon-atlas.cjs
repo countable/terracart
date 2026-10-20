@@ -10,7 +10,7 @@ const root = path.resolve(__dirname, '..');
 const appPath = path.join(root, 'src/app.js');
 const app = fs.readFileSync(appPath, 'utf8');
 const context = vm.createContext({ console });
-for (const file of ['util', 'sprite_layout', 'items']) {
+for (const file of ['util', 'sprite_layout', 'selected_item_art', 'selected_world_atlas', 'items']) {
   vm.runInContext(fs.readFileSync(path.join(root, `src/${file}.js`), 'utf8'), context);
 }
 const start = app.indexOf('const ICON_SHEETS = {');

@@ -162,20 +162,14 @@
     {
       "itemId": "lamp_floor",
       "frame": 9,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
-      "box": [
-        64,
-        256,
-        32,
-        32
-      ],
-      "mode": "native32",
+      "source": "assets/Objects/Furniture/source/stock-floor-lamp.png",
+      "box": null,
+      "mode": "native48",
       "pick": null,
       "frameSize": [
         32,
-        32
-      ],
-      "approval": "approved"
+        64
+      ]
     },
     {
       "itemId": "clock_grandfather",
@@ -315,7 +309,18 @@
       "Royal",
       "Ancient"
     ],
-    "provenance": "Approved Pixel Plains-reference generated furniture, pixel-plains-transparent-r1. Exact 32px exported frames; original alpha retained."
+    "provenance": "Approved Pixel Plains-reference generated furniture, pixel-plains-transparent-r1. Exact 32px exported frames; original alpha retained.",
+    "rowSources": {
+      "floorlamp": {
+        "source": "assets/Objects/Furniture/source/stock-floor-lamp.png",
+        "box": null,
+        "mode": "native48",
+        "frameSize": [
+          32,
+          64
+        ]
+      }
+    }
   },
   "approvedOverrides": {
     "rug:Crude": "assets/Objects/Furniture/source/approved/rug-crude.png",
@@ -362,7 +367,40 @@
     "bed:Royal": "assets/Objects/Furniture/source/approved/bed-royal.png",
     "bookshelf:Royal": "assets/Objects/Furniture/source/approved/bookshelf-royal.png",
     "bed:Ancient": "assets/Objects/Furniture/source/approved/bed-ancient.png",
-    "bookshelf:Ancient": "assets/Objects/Furniture/source/approved/bookshelf-ancient.png"
+    "bookshelf:Ancient": "assets/Objects/Furniture/source/approved/bookshelf-ancient.png",
+    "statue:Crude": "assets/Objects/Furniture/source/generated/statue-crude-24.png",
+    "statue:Simple": "assets/Objects/Furniture/source/generated/statue-simple-24.png",
+    "statue:Fine": "assets/Objects/Furniture/source/generated/statue-fine-24.png",
+    "statue:Veblen": "assets/Objects/Furniture/source/generated/statue-veblen-24.png",
+    "statue:Masterwork": "assets/Objects/Furniture/source/generated/statue-masterwork-24.png",
+    "statue:Royal": "assets/Objects/Furniture/source/generated/statue-royal-24.png",
+    "statue:Ancient": "assets/Objects/Furniture/source/generated/statue-ancient-24.png",
+    "clock:Crude": "assets/Objects/Furniture/source/generated/clock-crude-24.png",
+    "clock:Simple": "assets/Objects/Furniture/source/generated/clock-simple-24.png",
+    "clock:Fine": "assets/Objects/Furniture/source/generated/clock-fine-24.png",
+    "clock:Veblen": "assets/Objects/Furniture/source/generated/clock-veblen-24.png",
+    "clock:Masterwork": "assets/Objects/Furniture/source/generated/clock-masterwork-24.png",
+    "clock:Royal": "assets/Objects/Furniture/source/generated/clock-royal-24.png",
+    "clock:Ancient": "assets/Objects/Furniture/source/generated/clock-ancient-24.png",
+    "planter:Crude": "assets/Objects/Furniture/source/generated/planter-crude-24.png",
+    "planter:Simple": "assets/Objects/Furniture/source/generated/planter-simple-24.png",
+    "planter:Fine": "assets/Objects/Furniture/source/generated/planter-fine-24.png",
+    "planter:Veblen": "assets/Objects/Furniture/source/generated/planter-veblen-24.png",
+    "planter:Masterwork": "assets/Objects/Furniture/source/generated/planter-masterwork-24.png",
+    "planter:Royal": "assets/Objects/Furniture/source/generated/planter-royal-24.png",
+    "planter:Ancient": "assets/Objects/Furniture/source/generated/planter-ancient-24.png"
   },
-  "nativeCell": 24
+  "nativeCell": 24,
+  "stockSources": {
+    "assets/Objects/Furniture/source/stock-floor-lamp.png": {
+      "source": "extra_assets/themed-tilesets/Arcane Library/tile-B-01.png",
+      "box": [
+        384,
+        580,
+        48,
+        92
+      ],
+      "provenance": "Unmodified stock shaded floor lamp; all quality tiers use the same art."
+    }
+  }
 }

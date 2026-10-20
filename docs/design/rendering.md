@@ -114,11 +114,22 @@ shared lighting pass.
 
 The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
-Frontier Bookshelf, Brass Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
+Frontier Bookshelf, Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
 (T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
-Stargazer. The floor lamp uses F044 at 1×1 and the clock uses F085 at 32×64; the 1×1 candelabra,
-pedestal owl and tub use generated art pending approval. Both planters use
-the v2 concepts. Each piece still occupies one floor cell.
+Stargazer. The floor lamp uses the stock Arcane Library shaded lamp in a 32×64 frame across
+all quality tiers, with its light seated at frame y=14. The owl statues, clocks
+and planters use generated 24×24 tier sprites. Both planter items share the seven
+tier variants, with empty soil for crop overlays. The candelabra retains its
+existing source crop; the tub uses its approved generated variants. Each piece
+still occupies one floor cell.
+
+Large item and gear portraits (48px and above) use the five 8×8 dialog atlases
+in `assets/Icons/DialogItems`, built by `tools/build_dialog_item_art.py` from
+sundries-reference painterly masters on black. `DialogItemArt` maps all 345
+catalog IDs to 96px cells. Small inventory/map icons retain their original art.
+Large portraits preserve variant tints and badges; loot rewards and tapped item
+descriptions display them at 96px. The catalog records every reference crop and
+generated cell; the manifest records source and export hashes.
 
 Resolved appearances carry `layer`; pooled sprites carry `_worldLayer`. The same
 category controls depth order, fading, and compass compensation. Ground decals
@@ -725,10 +736,10 @@ the reach rim within the existing player-light radius.
   whenever the body moves, so render passes test `Render.coverHidden` only
   after their view-box cull: a ray per off-screen fish spot, coin or X across
   the tile ring once cost most of a walking frame.
-- Evertorch uses the shared player-light collector and torch radius with a blue
-  `Lighting.KINDS` row. It takes visual precedence while both torches burn;
-  neither expands interaction reach. Its icon reuses Torch art with the
-  icon-source CSS palette filter in the shared inventory/offer/toast renderer.
+- Lantern (`evertorch`) uses the shared player-light collector and torch radius with a blue
+  `Lighting.KINDS` row. It takes visual precedence while both lights burn;
+  neither expands interaction reach. Its stock carryable-lantern icon comes from
+  Medieval Furniture and uses the shared inventory/offer/toast renderer.
 
 - Gas uses a translucent cell-bound pixel cloud above world sprites and below
   lighting and fog, clipped to the world viewport. `GasRender` eases density

@@ -165,3 +165,17 @@ test('reward card: furniture displays its catalog tier through the ordinary item
     assert.eq(card.qty, '× 1');
   }
 });
+
+test('reward card: item and equipment loot use 96px portraits', () => {
+  const sizes = [];
+  const scene = {
+    iconSpanHTML(id, size) { sizes.push(size); return '<i></i>'; },
+    gearIconHTML(kind, slot, tier, size) { sizes.push(size); return '<i></i>'; },
+  };
+  Rewards.card(scene, { kind: 'item', id: 'wood', qty: 1 });
+  Rewards.card(scene, { kind: 'relic', slot: 'staff', tier: 3 });
+  Rewards.card(scene, { kind: 'armor', slot: 'chestplate', tier: 1 });
+  assert.eq(sizes.join(','), '96,96,96');
+  Rewards.card(scene, { kind: 'item', id: 'wood' }, 44);
+  assert.eq(sizes[3], 44, 'compact choice buttons retain explicit size');
+});

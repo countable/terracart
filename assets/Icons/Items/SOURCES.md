@@ -7,3 +7,11 @@
 - `GripPotion.png`: frame 12 of `Potions.png` (the round sparkling flask) with its saturated reds hue-shifted to the Rust totem's light (`0xff8c2a`, shrines.js `rust_totem`). The Potion of Grip (items.js `grip_potion`). Rebuild with `python3 tools/export_grip_potion_icon.py` (requires Pillow).
 - `SerpentIdol.png`: cell (39, 13) of `../RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png` (the slate coiled serpent), cropped unchanged to a 16×16 RGBA PNG. The Serpent Idol (items.js `serpent_idol`).
 - `MoonbeamScroll.png`: `ThunderScroll.png`'s parchment with the bolt wiped back to blank page and a gold crescent throwing a pale blue beam stamped on it. The Scroll of Moonbeam (items.js `moonbeam_scroll`). Rebuild with `python3 tools/export_moonbeam_scroll_icon.py` (requires Pillow).
+
+## Lantern
+
+`Lantern.png` is the handled oil lantern from
+`extra_assets/themed-tilesets/Medieval Furniture/tile-B-01.png`,
+source box `[624, 624, 48, 48]`. The unmodified crop is retained as
+`source/lantern-48.png`; the runtime icon is a nearest-neighbor resize to
+16×16. Its saved item id remains `evertorch`.

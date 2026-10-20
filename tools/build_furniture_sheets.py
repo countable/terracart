@@ -21,10 +21,13 @@ def build():
     tiers = manifest['tierSheet']
     for row, kind in enumerate(tiers['rows']):
         for col, tier in enumerate(tiers['tiers']):
-            entries.append({'itemId': f'{kind}:{tier}',
+            entry = {'itemId': f'{kind}:{tier}',
                             'frame': tiers['firstFrame'] + row * tiers['columns'] + col,
                             'source': tiers['source'], 'box': [col * cell, row * cell, cell, cell],
-                            'mode': 'native32', 'frameSize': [cell, cell]})
+                            'mode': 'native32', 'frameSize': [cell, cell]}
+            # Stock replacements apply to every quality tier, including saved items.
+            entry.update(tiers.get('rowSources', {}).get(kind, {}))
+            entries.append(entry)
     # The roster's legacy source boxes identify the same tier cells as the
     # expanded catalog. Apply approved art to both without changing frame ids.
     for entry in entries:

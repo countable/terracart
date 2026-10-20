@@ -282,7 +282,7 @@ test('evertorch: Light spends a T6 supply, banks two hours and survives scene re
   } finally { Date.now = old; }
 });
 
-test('evertorch: shared inventory, offer and pickup icon renderer applies its blue palette', () => {
+test('lantern: shared inventory, offer and pickup renderer uses the stock carryable lantern', () => {
   const start = app.indexOf('\n  renderItemIcon('), end = app.indexOf('\n  }\n', start);
   const doc = { createElement: () => ({ style: {}, dataset: {} }) };
   const sheets = selectedIconSheetsForTest();
@@ -290,10 +290,19 @@ test('evertorch: shared inventory, offer and pickup icon renderer applies its bl
     'return ({' + app.slice(start, end + 4) + '}).renderItemIcon;')(doc, { ready: () => true }, sheets,
       (url, width, height) => ({ url, width, height, x: 0, y: 0 }));
   const source = inventoryIconSource('evertorch');
-  assert.eq(source.sheet, inventoryIconSource('torch').sheet);
+  assert.eq(source.sheet, 'icon_lantern');
+  assert.eq(source.frame, 0);
+  assert.eq(ITEM_BY_ID.evertorch.name, 'Lantern');
+  assert.eq(Buffs.KINDS.evertorch.name, 'Lantern');
+  assert.falsy(source.filter, 'stock palette stays unchanged');
+  const sheet = sheets[source.sheet];
+  assert.eq(sheet.url, 'assets/Icons/Items/Lantern.png');
+  const dims = pngDims(sheet.url);
+  assert.eq(dims.w, sheet.srcW);
+  assert.eq(dims.h, sheet.srcH);
   for (const size of [16, 24, 32]) {
-    assert.truthy(render('evertorch', size, 'inline').includes('filter:' + source.filter));
-    assert.truthy(render('evertorch', size, 'block').style.cssText.includes('filter:' + source.filter));
+    assert.truthy(render('evertorch', size, 'inline').includes(sheet.url));
+    assert.truthy(render('evertorch', size, 'block').style.cssText.includes(sheet.url));
     assert.falsy(render('torch', size, 'inline').includes('hue-rotate'), 'ordinary torch keeps its palette');
   }
 });

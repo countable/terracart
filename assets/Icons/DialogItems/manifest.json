@@ -1,0 +1,42 @@
+{
+  "cell": 96,
+  "columns": 8,
+  "rows": 8,
+  "sheets": [
+    {
+      "source": "assets/Icons/DialogItems/source/generated-01.png",
+      "output": "assets/Icons/DialogItems/items-01.png",
+      "sha256": "a06cf8964fa14533a707fb5e5bd5753a748454e67a89c64ea1e43d5c94b20358",
+      "sourceSha256": "74c7da04860215242f6f71c3acf86dbaf8a316e44c80bd5807457de8209b70ed"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-02.png",
+      "output": "assets/Icons/DialogItems/items-02.png",
+      "sha256": "a453e2532b827623260d6c2dab4895d2d86fcb08cf65a385ff4b0552ec03e5fc",
+      "sourceSha256": "30c921719a1b5fe9a69d01e18838cc8197ac4d537721ea863eeb9f100d9e1c8d"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-03.png",
+      "output": "assets/Icons/DialogItems/items-03.png",
+      "sha256": "ce59bba48207dd843559a51da8e223cedbd256bd3a18a182d045bce92a8c10a1",
+      "sourceSha256": "eb5b9654e38e8ad7dfb94b3108d31774cf91526524e97960047f94d7cd0d3fa8"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-04.png",
+      "output": "assets/Icons/DialogItems/items-04.png",
+      "sha256": "aed4a66827a3c576fbaff55c4e6b053148ebaa4e08eaf9fa8e4b3c97cd00fd91",
+      "sourceSha256": "3b78f24d3953c0388fdc9e3750eb2a3e6a3b6216d5d64b619cae53d0815a56b3"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-05.png",
+      "output": "assets/Icons/DialogItems/items-05.png",
+      "sha256": "1268cc8f000a6deee05acd4c7482b51e5c2cd46b2c2dab4afc383123accb07f8",
+      "sourceSha256": "633ed6155f62984adb268df4586abb0630bb9c774679d313dd93bfab305aeaa8"
+    }
+  ],
+  "method": "Sundries story-panel reference: muted painterly pixel art on black. Each generated 8x8 master cell is composited on black and independently exported with Lanczos filtering to 96x96; atlases are 768x768.",
+  "styleReference": "docs/art/story-style-references.json#sundries",
+  "excludedCells": [],
+  "composites": "All catalog entries use generated base portraits; runtime preserves badges and variant colour treatments.",
+  "runtimeEntries": 345
+}

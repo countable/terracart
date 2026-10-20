@@ -6,6 +6,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Restoring a wreck runs a three-second work sequence before charging materials:
+  the player's sprite scurries around all four footprint sides and swings a
+  pixel hammer. The body/GPS and interaction origin stay put while movement
+  and taps are held. Completion revalidates the choice and inventory, saves
+  the restoration, then reveals the building with timber and green sparks
+  and its Restored card. Scene shutdown, depth changes or being downed cancel
+  the work without charging; effects and listeners are removed on every exit.
+
 - DOM inventory, shop, toast and gear icons share `assets/Icons/dom-atlas.png`.
   `renderItemIcon` and `gearIconHTML` retain the original sheet/frame selection,
   adding the atlas offset; baked `ITEM_DATA_URLS` still take priority. The atlas
@@ -17,6 +25,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   cache-bust generator. `node tools/build-dom-icon-atlas.cjs --check` checks
   pixel-for-pixel source parity; `node test/dom-icon-atlas.cjs` verifies every
   catalogued item and gear tier's CSS frame at multiple display sizes.
+
+- Large item and gear portraits use 96×96 cells in the five 8×8 atlases under
+  `assets/Icons/DialogItems/`, selected by `DialogItemArt` before old icon bakes.
+  Their muted painterly pixel treatment follows the approved sundries story
+  panel, with a black background and recognizable object forms. The source
+  masters retain their resolution; `python3 tools/build_dialog_item_art.py`
+  exports each cell independently with Lanczos filtering and rebuilds the
+  content-hashed registry and manifest. Compact icons and map sprites keep
+  their original art. Variant colours and item badges still identify composed
+  items when their underlying portrait is shared. Loot reward cards default to
+  96px portraits; tapping an item for its description shows its portrait at
+  96px above the item details.
 
 - Shop recipes use compact rows, selector spacing and a shared ingredient/count
   heading so shortfalls and receipts fit with the actions as artwork contracts.

@@ -42,7 +42,7 @@ test('furniture icons: every roster item uses its world frame on the shared DOM 
   assert.eq(ITEM_BY_ID.washtub.baseTier, 1);
   assert.eq(furnitureSpec('washtub').ability, 'wash');
   for (const [id, name, tier] of [
-    ['lamp_floor', 'Brass Floor Lamp', 3],
+    ['lamp_floor', 'Floor Lamp', 3],
     ['clock_grandfather', 'Grandfather Clock', 3],
     ['candelabra_floor', 'Floor Candelabra', 1],
     ['statue_pedestal', 'Pedestal Owl', 2],
@@ -107,7 +107,7 @@ test('furniture art: approved atlas tiers map to complete world and inventory fr
       assert.eq(bounds.fw, 32);
       assert.eq(bounds.fh, 64);
       const tall = id === 'bed_quilted' || id === 'bookshelf_frontier';
-      assert.gte(bounds.minY, tall ? 21 : 32, `${id} T${tier}: art fits its native height`);
+      assert.gte(bounds.minY, id === 'lamp_floor' ? 0 : tall ? 21 : 32, `${id} T${tier}: art fits its native height`);
       if (tall) assert.lt(bounds.minY, 32, `${id} T${tier}: tall art retains its height`);
       assert.gt(bounds.maxX, bounds.minX, `${id} T${tier}: non-empty width`);
       assert.gt(bounds.maxY, bounds.minY, `${id} T${tier}: non-empty height`);
