@@ -237,9 +237,11 @@ const PIECES = {
   // Edit story_nightmare as the visual reference; preserve its framing for crossfade.
   story_nightmare_frame2: { subject: 'Adjacent frame of story_nightmare: subtle head and jaw movements, drifting smoke plumes and flickering flame tongues. Exactly five hydra heads and one white dragon head. Keep architecture, camera, bodies, wings, palette and pixel treatment aligned with the original; fire stays anchored to the same structures.', size: '1536x1024', width: 768 },
   story_wake:
-    'Morning inside-and-out of a small travelling home wagon parked in a misty meadow. ' +
-    'A survivor stretches awake at the wagon door, face fully hidden by a raised brown hood, ' +
-    'first amber sunlight over the grass. Quiet, hopeful.' + HOME_WAGON,
+    'Hood wakes in bed inside a small timber home, reclining on a rough pillow under a blanket. ' +
+    'Medium close composition for a slow zoom out, brown hood centred near 50%/43%. ' +
+    'The hood interior is completely black: only two tiny amber eye glints are visible, ' +
+    'with no face, skin or hair. A fully gloved hand rests on the blanket. Warm window light, ' +
+    'restrained copper stove details, softly painted pixel clusters. No trailer or wagon.',
   story_wrecks:
     'A suburban neighbourhood of collapsed houses: boarded windows, caved roofs, rubble piles, ' +
     'weeds through cracked pavement. The same survivor stands small in the middle of the street ' +

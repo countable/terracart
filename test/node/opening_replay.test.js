@@ -66,7 +66,7 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
   const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1])
-    .filter(stem => !stem.endsWith('_frame2'));
+    .filter(stem => !stem.endsWith('_frame2') && !stem.endsWith('_close'));
   assert.eq(arts.length, 4, 'four slides');
   assert.eq(arts[0], 'story_compass', 'discovery comes before the dream');
   assert.eq(arts[1], 'story_nightmare', 'the nightmare comes before waking');
@@ -84,17 +84,17 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   }
 });
 
-test('opening: all four frame pairs align and describe the image once', () => {
-  for (const stem of ['story_compass', 'story_nightmare', 'story_wake', 'story_wrecks']) {
+test('opening: opening frame pairs align and describe each slide once', () => {
+  for (const stem of ['story_compass', 'story_nightmare', 'story_nightmare_close', 'story_wake', 'story_wrecks']) {
     const first = webpDims(`assets/art/${stem}.webp`);
     const second = webpDims(`assets/art/${stem}_frame2.webp`);
     assert.truthy(first && second, `${stem}: both animation frames ship`);
-    if (stem === 'story_compass' || stem === 'story_nightmare')
+    if (stem === 'story_compass' || stem.startsWith('story_nightmare'))
       assert.eq(first.w / first.h, 2 / 3, `${stem}: full-height portrait opening`);
     assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
     assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
   }
-  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 4,
+  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 5,
     'second frames do not repeat descriptions to screen readers');
   assert.truthy(html.includes('animation: story-crossfade 1.2s ease-in-out 1.5s forwards;'),
     'ordinary frame pairs wait 1.5 seconds and fade once, holding their final frame');
@@ -150,7 +150,7 @@ test('opening: wake up is available immediately during the zoom', () => {
     assert.eq(delay, undefined, 'no button timer');
     click();
     assert.eq(btn.textContent, 'Go Outside');
-    assert.eq(text.textContent, 'The compass shows you are in a strange house.');
+    assert.eq(text.textContent, 'You wake in an unfamiliar home, the compass beside you.');
     assert.falsy(nodes.story.classes.has('nightmare'));
     assert.truthy(nodes.story.classes.has('compass-story'), 'awakening is inside the compass');
     assert.falsy(nodes.story.classes.has('story-fullscreen'), 'awakening leaves fullscreen');

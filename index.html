@@ -1066,19 +1066,54 @@
       }
       #story .opening-copy { flex: 0 0 auto; padding: 20px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); }
     }
-    /* The camera's slow push toward Tiamat, STORY_PAN_MS long. */
+    /* Keep both camera shots on the same portrait canvas even when the
+       viewport leaves letterboxing. The second shot carries fresh eye detail. */
+    #story.nightmare .art { position: relative; container-type: size; isolation: isolate; }
+    #story.nightmare .opening-copy { position: relative; z-index: 1; }
+    #story.nightmare .story-skip { z-index: 1; }
+    /* Anchor the fade to the viewport so the painted smoke cannot zoom
+       away and expose bright art beneath the dream copy. */
+    #story.nightmare .art::after {
+      content: ""; position: absolute; inset: 0; pointer-events: none;
+      background: linear-gradient(to bottom, transparent 34%, rgba(0, 0, 0, .32) 46%, rgba(0, 0, 0, .88) 64%, #000 82%);
+    }
+    #story .nightmare-scene {
+      position: absolute; left: 50%; top: 50%;
+      width: min(100cqw, 66.6667cqh); height: min(100cqh, 150cqw);
+      transform: translate(-50%, -50%);
+    }
     #story.nightmare .story-frames {
-      position: relative; width: 100%; height: 100%;
-      display: block; transform-origin: top left;
-      animation: nightmare-pan var(--nightmare-pan-ms, 8s) ease-in-out both;
+      position: absolute; inset: 0;
+      transform-origin: 41% 14%;
+      animation: nightmare-pan var(--nightmare-pan-ms, 3.6s) linear both;
+    }
+    #story.nightmare .nightmare-close {
+      background: #000; opacity: 0; transform-origin: 63.5% 24.7%;
+      animation-name: nightmare-close-pan;
     }
     @keyframes nightmare-pan {
-      from { transform: translateY(0) scale(1); }
-      to { transform: translateY(-6%) scale(1.6); }
+      from { transform: translate(0, 0) scale(1); }
+      40% { transform: translate(9%, 16%) scale(3.8); }
+      to { transform: translate(9%, 16%) scale(5); }
+    }
+    @keyframes nightmare-close-pan {
+      0%, 33% { opacity: 0; transform: translate(-13.5%, 5.3%) scale(1.4); }
+      47% { opacity: 1; transform: translate(-13.5%, 5.3%) scale(1.6); }
+      100% { opacity: 1; transform: translate(-13.5%, 5.3%) scale(2.8); }
+    }
+    #story .wake-camera {
+      transform-origin: 50.5% 42.5%;
+      animation: wake-pullback 12s ease-out both;
+    }
+    @keyframes wake-pullback {
+      from { transform: scale(1.6); }
+      to { transform: scale(1); }
     }
     @media (prefers-reduced-motion: reduce) {
+      #story .wake-camera,
       #story.nightmare .story-frames,
       #story .story-frame-next { animation: none; }
+      #story.nightmare .nightmare-close { display: none; }
     }
     /* How-to-play card. Shown once when a fresh save first reaches the world
        (after the boot reload, so the player can see what it describes behind
@@ -2651,19 +2686,19 @@
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream camera animates while its button remains immediately available.
-    const STORY_PAN_MS = 8000;
+    const STORY_PAN_MS = 3600;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
         text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
-        art: '<div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Two enormous dragons clash above a burning city."><img class="story-frame-next" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"></div>',
+        art: '<div class="nightmare-scene"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city as the dream draws closer to her glowing eyes."><img class="story-frame-next" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"></div><div class="story-frames nightmare-close" aria-hidden="true"><img src="assets/art/story_nightmare_close.webp" alt=""><img class="story-frame-next" src="assets/art/story_nightmare_close_frame2.webp" alt="" aria-hidden="true"></div></div>',
         text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
       },
       {
-        art: '<div class="story-frames"><img src="assets/art/story_wake.webp" alt="The survivor stretches at the house door."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div>',
-        text: "The compass shows you are in a strange house.",
+        art: '<div class="story-frames wake-camera"><img src="assets/art/story_wake.webp" alt="Hood wakes in bed inside a strange house, a faint eye glint visible beneath the dark hood."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div>',
+        text: "You wake in an unfamiliar home, the compass beside you.",
         btn: 'Go Outside',
       },
       {

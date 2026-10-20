@@ -1816,39 +1816,29 @@
     },
     {
       "key": "story_wake",
-      "master_path": "approved-story-art/story_wake.png",
-      "master_sha256": "23a29f573109bad1201717bd26942140e82ab8cc3e35d4aba69d8915914f9543",
-      "width": 452,
-      "height": 339,
-      "export_width": 452,
-      "export_height": 339,
-      "sha256": "ddbe1e04124abd891335af54170cd01e796fb5c140af982940cf4d41495bf90e",
-      "method": "original_crop",
-      "crop": {
-        "x": 30,
-        "y": 1,
-        "w": 452,
-        "h": 339
-      },
-      "prompt": null
+      "master_path": "../opening-story-refresh/story_wake.png",
+      "master_sha256": "fae7b8a9bc8c0b518bf5fdd2a0e8d7edd43b2301a4ca43ce5bc73d19ce2874c7",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 1024,
+      "export_height": 768,
+      "sha256": "9d01bdd037b41a4cb41334c0b2df0b7fb0d970e8aae1a58caa4006463d11198e",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Hood waking in bed inside a timber home. Entire face hidden in opaque hood shadow except tiny amber eye glints. Matching subtly blinking animation pair; soft painterly pixels, warm window, copper stove. User-requested eye-glint exception; slow zoom out from eye midpoint 50.5%/42.5%."
     },
     {
       "key": "story_wake_frame2",
-      "master_path": "approved-story-art/story_wake_frame2.png",
-      "master_sha256": "f42675fa5ab9bd024ffc219c576b17e72c891aeae414adb9eb9e1d33bac4efb6",
-      "width": 452,
-      "height": 339,
-      "export_width": 452,
-      "export_height": 339,
-      "sha256": "b472b7fe1c7027fcc417ce790f9ccd4be05dd8a1dff4bf09aa6b09ad7791b67e",
-      "method": "original_crop",
-      "crop": {
-        "x": 30,
-        "y": 1,
-        "w": 452,
-        "h": 339
-      },
-      "prompt": null
+      "master_path": "../opening-story-refresh/story_wake_frame2.png",
+      "master_sha256": "1b6eb5d98204fe730fd3918d68df37fb316a022313497a0aa846196d9333d707",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 1024,
+      "export_height": 768,
+      "sha256": "b55f492f0fd867734fc94f52ef1743e80d540ddfe82b6d1c8c351107e1e84544",
+      "method": "regenerated",
+      "crop": null,
+      "prompt": "Hood waking in bed inside a timber home. Entire face hidden in opaque hood shadow except tiny amber eye glints. Matching subtly blinking animation pair; soft painterly pixels, warm window, copper stove. User-requested eye-glint exception; slow zoom out from eye midpoint 50.5%/42.5%."
     },
     {
       "key": "story_white_dragon_tower",
@@ -2912,29 +2902,55 @@
   "opening_frames": [
     {
       "key": "story_nightmare",
-      "master_path": "approved-story-art/story_nightmare.png",
-      "master_sha256": "6485d774d1fb97dd18a5d6f8cd33df6fad31f615c606e64e3d9e9d194f817469",
+      "master_path": "../opening-story-refresh/story_nightmare.png",
+      "master_sha256": "922ba679d95a1050e38167055a67464d72456d50fec1e626cb94229f90773863",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "f9bbf8cbfe21781fbaa1fe5ef08b186982fdbf515eb42707423b8c2df4a52499",
+      "sha256": "fedc35afbd7c6bcb7738726a42a1de337a57b4b92386c45f5a67c6deac790114",
       "method": "regenerated",
-      "reference": "story_nightmare original; compass portrait format; frame2 edited from new frame1"
+      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
     },
     {
       "key": "story_nightmare_frame2",
-      "master_path": "approved-story-art/story_nightmare_frame2.png",
-      "master_sha256": "f656af09259bb23f4f5e236cc54a29dfe55bf38f0c9a1bddc73866de3754569f",
+      "master_path": "../opening-story-refresh/story_nightmare_frame2.png",
+      "master_sha256": "451572f5146cdcdf8c6fbef901cf3ea3959d1c9da8167e7612830cd6d5511304",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "2af0b1010df2628b49e01417ff0b67a13256200a24512707b47da9dd71ea919b",
+      "sha256": "d19bc378390aa88a8cb69029c8b759f1ba46c8ac7b72e50c32f06dcd9b69c9d3",
       "method": "regenerated",
-      "reference": "story_nightmare original; compass portrait format; frame2 edited from new frame1"
+      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+    },
+    {
+      "key": "story_nightmare_close",
+      "master_path": "../opening-story-refresh/story_nightmare_close.png",
+      "master_sha256": "9da8c06aa93c4ab044db6968d453261312b1bea4f9cf3ee5e63baa5745e7efc3",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "sha256": "6d71eedaec69bbe4aade0d934f72d5112522d3fe90b75bf096321df36a48e7a8",
+      "method": "regenerated",
+      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+    },
+    {
+      "key": "story_nightmare_close_frame2",
+      "master_path": "../opening-story-refresh/story_nightmare_close_frame2.png",
+      "master_sha256": "e1ee59dc7e2ae3a6c10acc679600837b7f9855efc84a775d66120bf5e33f6ca5",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "sha256": "033cafddb1569c5bc18b7e0e385d7fe25e2dec28ef2650f1eba4429fc1b38aec",
+      "method": "regenerated",
+      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
     }
   ]
 }
