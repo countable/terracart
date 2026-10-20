@@ -438,8 +438,8 @@ const BARREL_ART = [
   { texKey: 'barrel', smashedKey: null, name: 'barrel', loot: BARREL_LOOT },
   { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot', loot: CLAY_POT_LOOT },
 ];
-// Cosmetic context only: [barrel frame, pot frame]. Pot shards use the same
-// frame as the intact vessel. Explicit zones beat streets, then biome fallback;
+// Legacy context only: [barrel frame, pot frame]. Selected pots use an
+// explicit colour-matched shard pair instead. Explicit zones beat streets, then biome fallback;
 // IDs still choose the container material and its existing loot profile.
 const CONTAINER_CONTEXT_ART = {
   zoneVariant: {
@@ -947,11 +947,12 @@ function chestAlwaysCrate(o) {
   return !!o && CHEST_ALWAYS_CRATE_CLASSES.has(o.poiClass) && !(o.depth > 0) && !o.vista && !o.chestTopUp;
 }
 // Approved container alternatives vary by stable object id, shared by map and
-// popup art. The old context frame remains the broken-pot shard selector.
-const SELECTED_CONTAINER_FRAMES = Object.freeze({ barrel: 9, box: 4, clay_pot: 2 });
+// popup art. Broken pottery follows the selected vessel colour.
+const POT_SMASHED_FRAMES = Object.freeze([0, 3]); // terracotta, cream
+const SELECTED_CONTAINER_FRAMES = Object.freeze({ barrel: [3], box: [0, 1, 2, 3], clay_pot: [0, 1] });
 function selectedContainerFrame(o, key) {
-  const count = SELECTED_CONTAINER_FRAMES[key];
-  return count ? (fnv1aFrom(0x617274, o.id || `${o.x}:${o.y}`) >>> 0) % count : 0;
+  const frames = SELECTED_CONTAINER_FRAMES[key];
+  return frames ? frames[(fnv1aFrom(0x617274, o.id || `${o.x}:${o.y}`) >>> 0) % frames.length] : 0;
 }
 function chestLook(o) {
   if (o._chestLook) return o._chestLook;
@@ -967,11 +968,12 @@ function chestLook(o) {
   const wagon = !!o.banditStop && !(o.depth > 0) && !stand && !special && !macro;
   const texKey = bike ? 'bike_rack' : barrel ? barrelArt.texKey : (macro ? macro.texKey
     : (stand ? 'market_stand' : (wagon ? 'wagon' : (box ? 'box' : 'chest'))));
+  const frame = SELECTED_CONTAINER_FRAMES[texKey] ? selectedContainerFrame(o, texKey)
+    : (texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0));
   return (o._chestLook = { stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
-    smashedFrame: barrel ? containerArtFrame(o, barrelArt) : 0,
-    frame: SELECTED_CONTAINER_FRAMES[texKey] ? selectedContainerFrame(o, texKey)
-      : (texKey === 'chest' ? chestTier(o) - 1 : (stand ? stand.frame : 0)) });
+    smashedFrame: texKey === 'clay_pot' ? POT_SMASHED_FRAMES[frame] : barrel ? containerArtFrame(o, barrelArt) : 0,
+    frame });
 }
 
 
@@ -981,6 +983,7 @@ function chestOpeningArt(o) {
   const look = chestLook(o);
   if (look.texKey === 'box') return o.crate || o.quarryCrate ? 'treasure_crate' : 'chest_t1';
   if (look.texKey === 'barrel') return 'treasure_barrel';
+  if (look.texKey === 'clay_pot') return 'treasure_pot';
   if (look.texKey === 'chest') return 'chest_t' + chestTier(o);
   return null;
 }

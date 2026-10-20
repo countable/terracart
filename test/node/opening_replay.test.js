@@ -66,7 +66,7 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
   const arts = [...new Set([...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]))]
-    .filter(stem => !/_frame\d+$/.test(stem));
+    .filter(stem => !/_frame\d+$/.test(stem) && !stem.endsWith('_close'));
   assert.eq(arts.length, 4, 'four slides');
   assert.eq(arts[0], 'story_compass', 'discovery comes before the dream');
   assert.eq(arts[1], 'story_nightmare', 'the nightmare comes before waking');
@@ -94,7 +94,7 @@ test('opening: opening frame pairs align and describe each slide once', () => {
     assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
     assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
   }
-  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 3,
+  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 4,
     'second frames do not repeat descriptions to screen readers');
   assert.truthy(html.includes('animation: story-crossfade 2.4s ease-in-out 750ms forwards;'),
     'ordinary frame pairs pause briefly and dissolve gently once, holding their final frame');

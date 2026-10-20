@@ -60,7 +60,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,
   80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
-  Short informational help and NPC conversations use floating ivory speech
+  Dialog panels and book readers use black backgrounds with light text.
+  Short informational help and NPC conversations use floating black speech
   bubbles with the participant's portrait. They point to the HUD control or
   speaking character: below sources in the top half of the viewport, above
   sources in the bottom half. NPC anchors follow heading, zoom and viewport size.
@@ -82,7 +83,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   before the card appears; OK acknowledges the reward without granting it again.
   Great X marks and underground finds keep their existing reward pools and bonuses.
   Container paintings follow the visible container, not the reward: crates use
-  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `treasure_crate`, barrels use `treasure_barrel`, clay pots use `treasure_pot`,
+  and ordinary chests use
   `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
   names the actual find as “Item name × quantity”, with its tier badge on the
   next line. When the find has a description (`Rewards.desc`: the item's
@@ -130,7 +132,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   continuing after the camera stops. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
   bright fire. A soft stationary lower gradient keeps the copy edge dark.
-  Awakening pulls back across its two paintings.
+  Awakening uses close and wide views of its existing two paintings, fading
+  between pairs while pulling back. Both camera moves begin with a short pause;
+  the dream pushes in slowly and awakening pulls back a little faster.
   Discovery and the dream are borderless fullscreen panels. Awakening and the
   ruined street use the living-silver compass story sheet, with readable copy
   below the art and immediately available advance buttons. Reduced-motion
@@ -320,6 +324,20 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The third road reward offers a wooden pick in the magic/equipment card slot
   when the player has no pick. Owning any pick tier keeps the normal roll;
   cash and seed/supply choices remain, and only the selected card is granted.
+- At 2, 5, 10, 20, 40, 100 and 200 km of banked road progress, choose one
+  of three distinct relics at T1 through T7 respectively. These exact-distance
+  milestones move the next ordinary reward earlier rather than adding a payout.
+  The saved metre ladder stays unchanged; the HUD and street toast follow the
+  adjusted reward distances. Existing saves between a moved milestone and its
+  old rung receive that unpaid reward once when they next bank distance.
+  Runner goals and scenic bonuses still affect
+  ordinary progress; milestone distances are the same for every class.
+  Offers prefer equipment upgrades at the promised tier. When fewer than three
+  slots can improve, remaining slots use the normal duplicate coin conversion;
+  better equipment is never downgraded. Only the selected offer is granted.
+  The Serpent Idol moves to the fifth ordinary rung (3 km before class bonuses),
+  still offered alone so access to its boss cannot be declined.
+
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the two location warnings. The first night entry into the
   MD/LG kerb buffer shows `road:night` once per save through the story ledger.

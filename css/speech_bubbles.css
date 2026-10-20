@@ -8,33 +8,33 @@
   position:absolute!important;left:var(--speech-left,10px)!important;top:var(--speech-top,120px)!important;
   width:var(--speech-width,320px)!important;height:auto!important;max-height:var(--speech-max-height,70vh)!important;
   padding:13px 16px 12px!important;border:1px solid #b6aa87!important;border-radius:17px!important;
-  background:radial-gradient(ellipse at 45% 30%,#fffdf5,#f1e9d3)!important;
-  color:#28251d!important;box-shadow:0 5px 13px #0008,inset 0 1px 3px #fff!important;
+  background:#000!important;
+  color:#eeede3!important;box-shadow:0 5px 13px #0008!important;
   text-align:left!important;font:15px/1.4 var(--font-ui)!important;overflow:visible!important;
   animation:none!important;transform:none!important;
 }
-/* Two outward triangles form the rim and ivory fill; no diamond overlaps copy. */
+/* Two outward triangles form the rim and black fill; no diamond overlaps copy. */
 .speech-dialog > .modal-box::before,.speech-dialog > .modal-box::after {
   content:'';position:absolute;left:calc(var(--speech-tail-x) - 13px);
   width:0;height:0;border:13px solid transparent;z-index:0;pointer-events:none;
 }
 .speech-dialog[data-placement="below"] > .modal-box::before {top:-26px;border-bottom-color:#b6aa87;}
-.speech-dialog[data-placement="below"] > .modal-box::after {top:-24px;border-bottom-color:#f5efdf;}
+.speech-dialog[data-placement="below"] > .modal-box::after {top:-24px;border-bottom-color:#000;}
 .speech-dialog[data-placement="above"] > .modal-box::before {bottom:-26px;border-top-color:#b6aa87;}
-.speech-dialog[data-placement="above"] > .modal-box::after {bottom:-24px;border-top-color:#f1e9d3;}
+.speech-dialog[data-placement="above"] > .modal-box::after {bottom:-24px;border-top-color:#000;}
 .speech-dialog .modal-body {position:relative;z-index:1;flex:0 1 auto!important;max-height:calc(var(--speech-max-height) - 27px);padding:0 1px 3px!important;scrollbar-width:thin;scrollbar-color:#b7a987 transparent;}
 .speech-dialog .modal-copy {scrollbar-width:thin;scrollbar-color:#b7a987 transparent;}
 .speech-dialog .modal-content {margin:0!important;}
 .speech-dialog .speech-speaker {justify-content:flex-start!important;gap:10px!important;margin:0 0 7px!important;padding:0!important;border:0!important;}
-.speech-dialog .speech-speaker > span {font:700 18px/1.2 var(--font-ui)!important;color:#242219!important;letter-spacing:0!important;text-transform:none!important;}
+.speech-dialog .speech-speaker > span {font:700 18px/1.2 var(--font-ui)!important;color:#f3dfa0!important;letter-spacing:0!important;text-transform:none!important;}
 /* The face at its authored cell size (CharacterPortraits.CELL_PX), 1:1 beside the name; the shell's pixelated rendering stays. */
 .speech-dialog .modal-portrait {width:80px!important;height:80px!important;flex:0 0 80px!important;margin:0!important;}
-.speech-dialog .modal-content > div {color:#302c23!important;opacity:1!important;text-shadow:none!important;}
+.speech-dialog .modal-content > div {color:#eeede3!important;opacity:1!important;text-shadow:none!important;}
 .speech-dialog .modal-speech {font-size:15px!important;line-height:1.4!important;margin:5px 0 11px!important;}
 .speech-dialog .modal-content > .compass-action {display:block;margin-left:auto;min-width:86px;}
 .speech-dialog .compass-action {font-size:14px!important;padding:8px 15px!important;border-radius:8px!important;}
 .speech-dialog .compass-action-primary:not(:disabled) {background:linear-gradient(#ffe18b,#e6b742 48%,#c58e25)!important;border:1px solid #967126!important;color:#30220b!important;box-shadow:inset 0 1px 2px #fff5ce,0 2px 2px #5e4c4680!important;}
-.speech-dialog .compass-action-ghost {color:#695330!important;border:1px solid #bbaa7d!important;}
+.speech-dialog .compass-action-ghost {color:#ece4c9!important;border:1px solid #bbaa7d!important;}
 .speech-dialog .compass-action:disabled {opacity:.4!important;}
 /* Preserve the source's existing display (including hidden dormant controls).
    The transparent full-viewport wrapper owns input while the bubble is open. */

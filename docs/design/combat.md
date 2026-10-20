@@ -413,7 +413,7 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   through `foeBlowLands`. Only coils can be struck (the head and tail are
   `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
   with only head and tail left it dies. Body and gait numbers are the
-  `KINDS.serpent` row. The Serpent Idol is the road ladder's fourth prize, alone
+  `KINDS.serpent` row. The Serpent Idol is the road ladder's fifth prize, alone
   (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
   be raised on the Major-and-Medium road group's kerb or junctions.
 - SHARED: once one player starts a boss fight, every nearby player is in it.

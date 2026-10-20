@@ -3,8 +3,9 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright-core');
 
 (async () => {
+  const env = { ...process.env }; delete env.DISPLAY;
   const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/usr/bin/chromium',
-    headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+    env, headless: true, args: ['--no-sandbox', '--ozone-platform=headless', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
     for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 900]]) {
       const page = await browser.newPage({ viewport: { width, height }, serviceWorkers: 'block' });

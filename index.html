@@ -98,7 +98,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=8d8a8ded" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=b6da557b" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -824,7 +824,7 @@
       padding: 20px;
     }
     #locating .box {
-      max-width: 320px; background: #1a1612; color: #fff;
+      max-width: 320px; background: #000; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px var(--font-ui); line-height: 1.45;
@@ -840,7 +840,7 @@
       padding: 20px;
     }
     #tooshort .box {
-      max-width: 340px; background: #1a1612; color: #fff;
+      max-width: 340px; background: #000; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px var(--font-ui); line-height: 1.45;
@@ -1116,18 +1116,33 @@
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
-      animation: wake-pullback 12s ease-out both;
+      animation: wake-pullback 9s ease-in-out 750ms both;
+    }
+    /* Reuse the wake paintings for the close pair. The shared camera keeps
+       its crop registered while that pair dissolves into the wide pair. */
+    #story .wake-camera > .story-frames { position: absolute; inset: 0; }
+    #story .wake-camera > .story-frames > .story-frame-next {
+      animation-delay: 4.75s;
+    }
+    #story .wake-camera > .wake-close {
+      animation: story-crossfade 3s ease-in-out 2.75s reverse both;
+    }
+    #story .wake-camera > .wake-close > .story-frame-next {
+      animation-delay: 750ms;
     }
     @keyframes wake-pullback {
-      from { transform: scale(1.6); }
+      from { transform: scale(1.75); }
       to { transform: scale(1); }
     }
     @media (prefers-reduced-motion: reduce) {
+      #story .wake-camera > .story-frames,
+      #story .wake-camera > .story-frames > .story-frame-next,
       #story .nightmare-camera,
       #story .nightmare-frame:nth-child(n),
       #story .wake-camera,
       #story.nightmare .story-frames,
       #story .story-frame-next { animation: none; }
+      #story .wake-camera > .wake-close { display: none; }
     }
     /* How-to-play card. Shown once when a fresh save first reaches the world
        (after the boot reload, so the player can see what it describes behind
@@ -1140,7 +1155,7 @@
     }
     #howto .box {
       max-width: 320px; width: 100%;
-      background: #1a1612; color: #fff;
+      background: #000; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       box-sizing: border-box; padding: 14px; text-align: left;
       font: 13px var(--font-ui); line-height: 1.45;
@@ -1274,9 +1289,9 @@
   </style>
   <link rel="stylesheet" href="css/compass_hud.css?v=4167c704">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=0c7233b4">
-  <link rel="stylesheet" href="css/speech_bubbles.css?v=e699f366">
-  <link rel="stylesheet" href="css/book_reader.css?v=f614be88">
+  <link rel="stylesheet" href="css/compass_panels.css?v=11da3227">
+  <link rel="stylesheet" href="css/speech_bubbles.css?v=a01acbcb">
+  <link rel="stylesheet" href="css/book_reader.css?v=5d786466">
 </head>
 <!-- Keep the HUD hidden until live values and the compass skin are ready. -->
 <body class="booting">
@@ -2711,7 +2726,7 @@
         text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
       },
       {
-        art: '<div class="story-frames wake-camera"><img src="assets/art/story_wake.webp" alt="Hood wakes in bed inside a strange house, a faint eye glint visible beneath the dark hood."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div>',
+        art: '<div class="story-frames wake-camera"><div class="story-frames"><img src="assets/art/story_wake.webp" alt="Hood wakes in bed inside a strange house, a faint eye glint visible beneath the dark hood."><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div><div class="story-frames wake-close" aria-hidden="true"><img src="assets/art/story_wake.webp" alt=""><img class="story-frame-next" src="assets/art/story_wake_frame2.webp" alt="" aria-hidden="true"></div></div>',
         text: "You wake in an unfamiliar home, the compass beside you.",
         btn: 'Go Outside',
       },
@@ -3058,9 +3073,9 @@
   <script src="src/util.js?v=6309055b"></script>
   <script src="src/polygon_geometry.js?v=1324c71a"></script>
   <script src="src/particles.js?v=4527614a"></script>
-  <script src="src/trail.js?v=246ae65b"></script>
+  <script src="src/trail.js?v=c123d281"></script>
   <script src="src/streets.js?v=b5afab2b"></script>
-  <script src="src/street_variants.js?v=62e65147"></script>
+  <script src="src/street_variants.js?v=1790d132"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=5beaaecb"></script>
   <script src="src/zone_variant_data.js?v=3c3b6dde"></script>
@@ -3108,7 +3123,7 @@
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=ce7451fd"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=65e085ad"></script>
+  <script src="src/items.js?v=7a8a9b43"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=ebae5f35"></script>
@@ -3125,7 +3140,7 @@
   <script src="src/chest_themes.js?v=b1264fc8"></script>
   <script src="src/loot_contexts.js?v=2b9057c3"></script>
   <script src="src/rarity.js?v=3b10f893"></script>
-  <script src="src/loot.js?v=c9b29000"></script>
+  <script src="src/loot.js?v=720ebf19"></script>
   <script src="src/macros.js?v=8ebeca54"></script>
   <script src="src/quests.js?v=a1d7a8e9"></script>
   <script src="src/hidden_objects.js?v=e290e73d"></script>
@@ -3134,7 +3149,7 @@
   <script src="src/temple_layout.js?v=1fd00fbe"></script>
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
-  <script src="src/interactables.js?v=0c56ddae"></script>
+  <script src="src/interactables.js?v=390fecd5"></script>
   <script src="src/boss_encounters.js?v=6b33000d"></script>
   <script src="src/houses.js?v=8e849dbb"></script>
   <script src="src/obstacle_step.js?v=f44a1908"></script>
@@ -3160,18 +3175,18 @@
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=3cef645c"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=4fabca9b"></script>
+  <script src="src/render.js?v=5e67f2d0"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=f939dd1a"></script>
   <script src="src/road_overlay.js?v=578c5593"></script>
-  <script src="src/temple_art.js?v=ef92c84b"></script>
+  <script src="src/temple_art.js?v=53dd4b24"></script>
   <script src="src/wall_materials.js?v=5791f121"></script>
   <script src="src/wall_surface_renderer.js?v=d1164603"></script>
   <script src="src/wall_perspective.js?v=de2d24f5"></script>
   <script src="src/building_styles.js?v=b503f242"></script>
   <script src="src/building_lowpoly.js?v=86619a08"></script>
-  <script src="src/building_overlay.js?v=ebe40095"></script>
+  <script src="src/building_overlay.js?v=92a1f26a"></script>
   <script src="src/art_atlas.js?v=9bea921d"></script>
   <script src="src/selected_world_atlas.js?v=9797f1a6"></script>
   <script src="src/assets.js?v=913315bb"></script>
@@ -3183,8 +3198,8 @@
   <script src="src/sandbox_art.js?v=ec5360fe"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
-  <script src="src/art_thumbs.js?v=ada441e3"></script>
-  <script src="src/modal_shell.js?v=02f98bfd"></script>
+  <script src="src/art_thumbs.js?v=8b37fefe"></script>
+  <script src="src/modal_shell.js?v=e0ce0e14"></script>
   <script src="src/scene_geo.js?v=f0f9f10b"></script>
   <script src="src/npc.js?v=a8acecba"></script>
   <script src="src/scene_creatures.js?v=e1aeaad5"></script>
@@ -3201,7 +3216,7 @@
   <script src="src/scene_pets.js?v=b0c58511"></script>
   <script src="src/scene_venues.js?v=7f0aca29"></script>
   <script src="src/scene_furniture.js?v=b5a06d20"></script>
-  <script src="src/scene_streets.js?v=15537708"></script>
+  <script src="src/scene_streets.js?v=62883ace"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -3272,7 +3287,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=8d8a8ded';
+      const APP_SRC = 'src/app.js?v=b6da557b';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

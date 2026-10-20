@@ -9142,7 +9142,7 @@ class MapScene extends Phaser.Scene {
 
   // ── The road chip ─────────────────────────────────────────────────────
   // Beside the memories chip: how far along the road-repair ladder the next
-  // prize is. The numbers are Trail.progress over save.trail — the same pair
+  // prize is. The numbers are Trail.rewardProgress over save.trail — the same pair
   // the on-street counter prints — so the chip and the counter can't disagree
   // (the Runner's shorter rungs come through save.playerClass, as everywhere).
   _buildRoadChip() {
@@ -9167,7 +9167,7 @@ class MapScene extends Phaser.Scene {
   // The chip's numbers: { pos, target } toward the next road prize.
   roadChipProgress() {
     const st = this.save?.trail || { metres: 0, prizes: 0 };
-    return Trail.progress(st.metres, st.prizes, this.save?.playerClass);
+    return Trail.rewardProgress(st.metres, st.prizes, this.save?.playerClass);
   }
 
   // Paints the chip. Every frame from updateHUD, guarded on the numbers.

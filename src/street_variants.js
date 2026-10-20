@@ -42,6 +42,9 @@
   // bush kind about two and a half times its first share (8% shrub, 2.5%
   // berry, 1.5% poisonberry of the seats) — still fewer than the herbs.
   const PLAIN_NETTLE_P = 0.055, PLAIN_HERB_P = 0.38, PLAIN_BUSH_P = 0.50;
+  // Residential verges keep PetNip uncommon (12% of seats); its remaining
+  // former seats grow clipped hedges, preserving total greenery density.
+  const RESIDENTIAL_PETNIP_P = 0.12;
   const PLAIN_BUSHES = [{ crop: 'shrub', below: 0.46 }, { crop: 'berry', below: 0.485 },
     { crop: 'poisonberry', below: PLAIN_BUSH_P }];
   // ── Pottery Road ─────────────────────────────────────────────────────────
@@ -2959,11 +2962,13 @@
           if (roll >= PLAIN_BUSH_P) continue;
           let crop = roll < PLAIN_NETTLE_P ? 'nettle' : roll < PLAIN_HERB_P ? 'petnip'
             : PLAIN_BUSHES.find(b => roll < b.below).crop;
+          const residential = grid[i] === T.RESIDENTIAL;
+          if (residential && crop === 'petnip' && roll >= PLAIN_NETTLE_P + RESIDENTIAL_PETNIP_P) crop = 'shrub';
           // A verge bush is an ambient bush placement: the wild golden roll.
           if (typeof goldenBushCrop === 'function') crop = goldenBushCrop(crop, id);
           claim(c.ix, c.iy);
           res.wildplants.push(WG.makeWildplant(crop, cx(c.ix), cy(c.iy), id,
-            { _street: 'plain' }));
+            { _street: 'plain', ...(residential && crop === 'shrub' ? { _streetArt: 'clipped' } : {}) }));
         }
       });
     }

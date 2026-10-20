@@ -32,6 +32,14 @@
     assert.eq(chestOpeningArt(chest({ banditStop: true })), null, 'a wagon stays a wagon');
   });
 
+  test('pot art: pottery has its own landscape painting and loading thumbnail', () => {
+    const art = chestOpeningArt(chest({ barrel: true, barrelStyle: 'clay_pot' }));
+    assert.eq(art, 'treasure_pot');
+    const dims = webpDims('assets/art/' + art + '.webp');
+    assert.truthy(dims && Math.abs(dims.w / dims.h - 4 / 3) < .01);
+    assert.truthy(ART_THUMBS_SRC.includes(art + ": 'data:image/webp;base64,"));
+  });
+
   test('barrel art: new items open one card in barrels and pots', () => {
     const original = globalThis.rollBarrel;
     try {
@@ -40,9 +48,10 @@
         let cards = 0, toasts = 0;
         const save = { opened: [] };
         const o = chest({ id: 'art_' + barrelStyle, barrel: true, barrelStyle });
-        const scene = makeScene({ flashLoot() { toasts++; }, showChestRewardModal(card) {
+        const scene = makeScene({ worldIconHTML: (key, size, frame) => `${key}:${frame}`, flashLoot() { toasts++; }, showChestRewardModal(card) {
           cards++;
-          assert.eq(card.art, barrelStyle === 'barrel' ? 'treasure_barrel' : undefined);
+          assert.eq(card.art, barrelStyle === 'barrel' ? 'treasure_barrel' : 'treasure_pot');
+          assert.eq(card.kindIcon, `${barrelStyle}:${chestLook(o).frame}`, 'the dialog header uses the same container sprite');
           assert.includes(save.opened, o.id);
           assert.eq(scene.invCount('wood'), 2);
         } });
