@@ -1266,14 +1266,24 @@ class SceneVenues {
     return true;
   }
 
-  // May Home's firepit sit at (x, y)? Not in water, on a road or path, or on
-  // a pier or any building. An unloaded tile cannot supply a safe site.
+  // Leave a full ground cell between the firepit and any building, including
+  // diagonal corners. Check across tile seams; unloaded ground is not a safe site.
   _firepitGroundOK(x, y) {
     const c = worldMetersToTileCell(this, x, y);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(c.tx, c.ty));
     const t = entry?.grid?.[c.iy * c.n + c.ix];
     if (t == null) return false;
-    return !BUILDING_TYPES.has(t) && t !== WorldGen.T.WATER && t !== WorldGen.T.PIER && !WorldGen.isCobbleTerrain(t);
+    if (BUILDING_TYPES.has(t) || t === WorldGen.T.WATER || t === WorldGen.T.PIER || WorldGen.isCobbleTerrain(t)) return false;
+    const at = worldMetersToAbsCell(this, x, y);
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      const cell = absCellOffset(this, at.cellIX, at.cellIY, dx, dy);
+      const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+      const neighbour = worldMetersToTileCell(this, m.x, m.y);
+      const grid = WorldGen.tileCache.get(WorldGen.tileKey(neighbour.tx, neighbour.ty))?.grid;
+      const terrain = grid?.[neighbour.iy * neighbour.n + neighbour.ix];
+      if (terrain == null || BUILDING_TYPES.has(terrain)) return false;
+    }
+    return true;
   }
 
   // Which wall of Home faces the nearest street (owner, Oct 2026: doors face

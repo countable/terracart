@@ -1043,8 +1043,9 @@ and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
 rotate into that heading once for a newly constructed 2×2 house, whose anchor
 is one cell ahead of the player. An adopted building keeps its source footprint
-and position. The firepit uses open ground near Home; water, roads and existing
-buildings are rejected. New house doorways face the player (`HomeArea.doorSide`). The saved layout stays fixed through later
+and position. The firepit uses open ground near Home; water and roads are rejected,
+and a full ground cell separates it from every building, including diagonal
+corners and buildings across tile seams. New house doorways face the player (`HomeArea.doorSide`). The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.
 
