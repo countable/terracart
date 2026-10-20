@@ -120,6 +120,8 @@ assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>p.y<1e-6&&!inGap(p)
 assert(wreck.faces.some(f=>f.interior&&f.rawUV&&new Set(f.points.map(p=>p.u)).size>1),'inner walls have masonry UVs');
 assert(wreck.faces.some(f=>f.rafter),'the standing end has spanning rafters');
 const roofFaces=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2);
+assert(roofFaces.every(f=>f.points.every(p=>p.y>=34-1e-6)),'one sloping side is completely missing');
+assert(Math.max(...roofFaces.flatMap(f=>f.points).map(p=>p.x))>75,'the opposite roof side extends past the old remnant');
 assert(roofFaces.every(f=>!f.points.some(p=>Math.abs(p.x)<1e-6&&Math.abs(p.y)<1e-6)),'the roof has lost its outer corner');
 const roofReach=(lo,hi)=>Math.max(...roofFaces.flatMap(f=>f.points).filter(p=>p.y>=lo&&p.y<=hi).map(p=>p.x));
 assert(roofReach(60,90)>roofReach(25,55)+5,'the surviving side slope reaches beyond the cap');

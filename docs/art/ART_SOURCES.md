@@ -156,4 +156,4 @@ so the transition cannot restore the earlier, shorter player proportions.
 
 ## Wreck interior scatter
 
-`assets/Objects/BuildingMaterials/wreck-floor-cel.png` was generated with the built-in image tool on 2026-10-19 for the wreck floor: overhead weathered boards and chipped stone/brick on dusty earth, muted cel pixel art. Runtime samples it at 128px with nearest filtering; the original generated PNG is retained as the source. Inner-wall masonry is procedural, using the same restrained warm palette.
+`assets/Objects/BuildingMaterials/wreck-floor-cel.png` was regenerated with the built-in image tool on 2026-10-19: sparse smooth cel-shaded brick cuboids and plain boards on uniform taupe ground, replacing the earlier grainy rubble. Brick faces use the same warm grey base, pale edge highlight and brown edge shadow as the procedural wall atlas. Runtime samples the source at 128px with nearest filtering. Wall strokes follow the restrained treatment in `source/b4d-pp/AorangeBrick.png`; the three-tone loose blocks also reference the existing cel-shaded rock study.
