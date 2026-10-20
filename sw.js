@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-931c7c26';
+const SHELL_VERSION = 'shell-9d3eed8c';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -94,8 +94,8 @@ const ASSET_HASHES = {
   "assets/Enemy/Skeleton/1Fullsheet_Skeleton.png": "b10d4d1f",
   "assets/Enemy/Skeleton/Reskin/1Fullsheet_DrySkeleton.png": "4e842f47",
   "assets/Enemy/Skeleton/Skeleton-Soldier.png": "9040b30c",
-  "assets/Enemy/Slime/1Fullsheet_Slime.png": "e9d44a99",
   "assets/Enemy/Slime Green.png": "8275fb7e",
+  "assets/Enemy/Slime/1Fullsheet_Slime.png": "e9d44a99",
   "assets/Enemy/Spider/1Fullsheet_Spider.png": "03808e40",
   "assets/Enemy/Spider/Reskin/1Fullsheet_PoisonSpider.png": "2a8693e5",
   "assets/Enemy/Succubus/1Fullsheet_Succubus.png": "f3e54778",
@@ -951,10 +951,12 @@ const ASSET_HASHES = {
   "assets/art/story_compass.webp": "14eb2290",
   "assets/art/story_compass_frame2.webp": "4c9e1536",
   "assets/art/story_dragon_hunters_arrive.webp": "06db0f57",
-  "assets/art/story_nightmare.webp": "fedc35af",
+  "assets/art/story_nightmare.webp": "3cd2f354",
   "assets/art/story_nightmare_close.webp": "6d71eeda",
   "assets/art/story_nightmare_close_frame2.webp": "033cafdd",
-  "assets/art/story_nightmare_frame2.webp": "d19bc378",
+  "assets/art/story_nightmare_frame2.webp": "b35208de",
+  "assets/art/story_nightmare_frame3.webp": "b1d1af96",
+  "assets/art/story_nightmare_frame4.webp": "0dfdbc46",
   "assets/art/story_wake.webp": "9d01bdd0",
   "assets/art/story_wake_frame2.webp": "b55f492f",
   "assets/art/story_white_dragon_tower.webp": "c9ebf822",

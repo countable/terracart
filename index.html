@@ -1041,12 +1041,30 @@
     }
     #story .story-frame-next {
       position: absolute; inset: 0; opacity: 0;
-      animation: story-crossfade 1.2s ease-in-out 1.5s forwards;
+      animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
-    /* Keep the dragon heads and flames moving while the dream is open. */
-    #story.nightmare .story-frame-next {
-      animation-iteration-count: infinite;
-      animation-direction: alternate;
+    /* Four registered paintings move throughout the camera push. Lower
+       layers reset only after the next painting fully covers them. */
+    #story .nightmare-frame {
+      position: absolute; inset: 0; opacity: 0;
+      animation: nightmare-frame-two 12s ease-in-out 750ms infinite;
+    }
+    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; }
+    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; }
+    @keyframes nightmare-frame-two {
+      0%, 12.5% { opacity: 0; }
+      25%, 50% { opacity: 1; }
+      50.01%, 100% { opacity: 0; }
+    }
+    @keyframes nightmare-frame-three {
+      0%, 37.5% { opacity: 0; }
+      50%, 75% { opacity: 1; }
+      75.01%, 100% { opacity: 0; }
+    }
+    @keyframes nightmare-frame-four {
+      0%, 62.5% { opacity: 0; }
+      75%, 87.5% { opacity: 1; }
+      100% { opacity: 0; }
     }
     @keyframes story-crossfade {
       from { opacity: 0; }
@@ -1066,8 +1084,7 @@
       }
       #story .opening-copy { flex: 0 0 auto; padding: 20px max(20px, env(safe-area-inset-right)) 12px max(20px, env(safe-area-inset-left)); }
     }
-    /* Keep both camera shots on the same portrait canvas even when the
-       viewport leaves letterboxing. The second shot carries fresh eye detail. */
+    /* All four paintings share one portrait canvas and one camera. */
     #story.nightmare .art { position: relative; container-type: size; isolation: isolate; }
     #story.nightmare .opening-copy { position: relative; z-index: 1; }
     #story.nightmare .story-skip { z-index: 1; }
@@ -1075,31 +1092,27 @@
        away and expose bright art beneath the dream copy. */
     #story.nightmare .art::after {
       content: ""; position: absolute; inset: 0; pointer-events: none;
-      background: linear-gradient(to bottom, transparent 34%, rgba(0, 0, 0, .32) 46%, rgba(0, 0, 0, .88) 64%, #000 82%);
+      background:
+        radial-gradient(ellipse at 14% 106%, rgba(0, 0, 0, .45), transparent 48%),
+        radial-gradient(ellipse at 83% 112%, rgba(0, 0, 0, .35), transparent 43%),
+        linear-gradient(to bottom, transparent 78%, rgba(0, 0, 0, .2) 90%, #000 100%);
     }
     #story .nightmare-scene {
       position: absolute; left: 50%; top: 50%;
       width: min(100cqw, 66.6667cqh); height: min(100cqh, 150cqw);
       transform: translate(-50%, -50%);
     }
+    #story .nightmare-camera {
+      position: absolute; inset: 0;
+      transform-origin: 59% 21%;
+      animation: nightmare-pan var(--nightmare-pan-ms, 16s) cubic-bezier(.3, 0, .3, 1) 750ms both;
+    }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
-      transform-origin: 41% 14%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 3.6s) linear both;
-    }
-    #story.nightmare .nightmare-close {
-      background: #000; opacity: 0; transform-origin: 63.5% 24.7%;
-      animation-name: nightmare-close-pan;
     }
     @keyframes nightmare-pan {
       from { transform: translate(0, 0) scale(1); }
-      40% { transform: translate(9%, 16%) scale(3.8); }
-      to { transform: translate(9%, 16%) scale(5); }
-    }
-    @keyframes nightmare-close-pan {
-      0%, 33% { opacity: 0; transform: translate(-13.5%, 5.3%) scale(1.4); }
-      47% { opacity: 1; transform: translate(-13.5%, 5.3%) scale(1.6); }
-      100% { opacity: 1; transform: translate(-13.5%, 5.3%) scale(2.8); }
+      to { transform: translate(0, 5%) scale(2.3); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
@@ -1110,10 +1123,11 @@
       to { transform: scale(1); }
     }
     @media (prefers-reduced-motion: reduce) {
+      #story .nightmare-camera,
+      #story .nightmare-frame:nth-child(n),
       #story .wake-camera,
       #story.nightmare .story-frames,
       #story .story-frame-next { animation: none; }
-      #story.nightmare .nightmare-close { display: none; }
     }
     /* How-to-play card. Shown once when a fresh save first reaches the world
        (after the boot reload, so the player can see what it describes behind
@@ -2686,14 +2700,14 @@
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream camera animates while its button remains immediately available.
-    const STORY_PAN_MS = 3600;
+    const STORY_PAN_MS = 16000;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
         text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
-        art: '<div class="nightmare-scene"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city as the dream draws closer to her glowing eyes."><img class="story-frame-next" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"></div><div class="story-frames nightmare-close" aria-hidden="true"><img src="assets/art/story_nightmare_close.webp" alt=""><img class="story-frame-next" src="assets/art/story_nightmare_close_frame2.webp" alt="" aria-hidden="true"></div></div>',
+        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city as the dream draws closer to her glowing eyes."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div></div></div>',
         text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
       },
       {

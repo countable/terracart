@@ -65,8 +65,8 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   // partly there (the CTA, then the world) with the story and the how-to
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
-  const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1])
-    .filter(stem => !stem.endsWith('_frame2') && !stem.endsWith('_close'));
+  const arts = [...new Set([...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]))]
+    .filter(stem => !/_frame\d+$/.test(stem));
   assert.eq(arts.length, 4, 'four slides');
   assert.eq(arts[0], 'story_compass', 'discovery comes before the dream');
   assert.eq(arts[1], 'story_nightmare', 'the nightmare comes before waking');
@@ -85,7 +85,7 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
 });
 
 test('opening: opening frame pairs align and describe each slide once', () => {
-  for (const stem of ['story_compass', 'story_nightmare', 'story_nightmare_close', 'story_wake', 'story_wrecks']) {
+  for (const stem of ['story_compass', 'story_nightmare', 'story_wake', 'story_wrecks']) {
     const first = webpDims(`assets/art/${stem}.webp`);
     const second = webpDims(`assets/art/${stem}_frame2.webp`);
     assert.truthy(first && second, `${stem}: both animation frames ship`);
@@ -94,18 +94,37 @@ test('opening: opening frame pairs align and describe each slide once', () => {
     assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
     assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
   }
-  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 5,
+  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 3,
     'second frames do not repeat descriptions to screen readers');
-  assert.truthy(html.includes('animation: story-crossfade 1.2s ease-in-out 1.5s forwards;'),
-    'ordinary frame pairs wait 1.5 seconds and fade once, holding their final frame');
+  assert.truthy(html.includes('animation: story-crossfade 2.4s ease-in-out 750ms forwards;'),
+    'ordinary frame pairs pause briefly and dissolve gently once, holding their final frame');
   assert.truthy(/#story \.story-frame-next \{ animation: none; \}/.test(html),
     'reduced motion leaves the first frame still');
 });
 
-test('opening: dragon heads and flames alternate continuously while the dream is open', () => {
-  const rule = html.match(/#story\.nightmare \.story-frame-next\s*\{([^}]+)\}/)?.[1] || '';
-  assert.truthy(/animation-iteration-count:\s*infinite/.test(rule), 'movement continues beyond the camera push');
-  assert.truthy(/animation-direction:\s*alternate/.test(rule), 'the second painting fades back to the first');
+test('opening: four dragon paintings move during the zoom with no late close shot', () => {
+  const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
+  const nightmare = slides.match(/art: '([^']*nightmare-scene[^']*)'/)?.[1] || '';
+  const images = [...nightmare.matchAll(/src="([^"]+)"/g)].map(m => m[1]);
+  assert.eq(images.length, 4, 'the dream has exactly four aligned frames');
+  const first = webpDims(images[0]);
+  for (let i = 0; i < images.length; i++) {
+    assert.eq(images[i], `assets/art/story_nightmare${i ? '_frame' + (i + 1) : ''}.webp`);
+    const frame = webpDims(images[i]);
+    assert.truthy(frame, `frame ${i + 1} ships`);
+    assert.eq(frame.w, first.w, 'all dragon paintings share the camera canvas');
+    assert.eq(frame.h, first.h, 'all dragon paintings share the camera canvas');
+  }
+  assert.eq((nightmare.match(/alt="" aria-hidden="true"/g) || []).length, 3,
+    'only the first painting describes the dream to screen readers');
+  assert.falsy(html.includes('nightmare-close'), 'no separate late close painting');
+  const frameRule = html.match(/#story \.nightmare-frame\s*\{([^}]+)\}/)?.[1] || '';
+  assert.truthy(/animation: nightmare-frame-two 12s ease-in-out 750ms infinite/.test(frameRule),
+    'all four paintings cycle before the 16-second push ends, and continue afterward');
+  assert.truthy(html.includes('const STORY_PAN_MS = 16000;'));
+  const reduced = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)', html.indexOf('@keyframes nightmare-pan')));
+  assert.truthy(/#story \.nightmare-camera,[^}]*#story \.nightmare-frame:nth-child\(n\),[^}]*animation: none/.test(reduced),
+    'reduced motion stops both the camera and painting transitions');
 });
 
 test('opening: the story plays FIRST, and the safety CTA waits for its last slide', () => {
