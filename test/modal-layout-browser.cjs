@@ -7,7 +7,7 @@ const { chromium } = require('playwright-core');
   const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/usr/bin/chromium',
     env, headless: true, args: ['--no-sandbox', '--ozone-platform=headless', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
-    for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 900]]) {
+    for (const [width, height] of (process.env.MODAL_DESKTOP_ONLY ? [[1280, 900]] : [[320, 568], [390, 844], [768, 1024], [1280, 900]])) {
       const page = await browser.newPage({ viewport: { width, height }, serviceWorkers: 'block' });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -45,7 +45,14 @@ const { chromium } = require('playwright-core');
           if (kind === 'portrait-art-long') s.showMessageModal({ title: 'Legacy art', art: 'house', body: long.repeat(30) });
           if (kind === 'plain') s.showMessageModal({ title: 'A long note', art: false, body: long.repeat(20) });
         }, kind);
-        await page.waitForTimeout(350);
+        // Measure final layout after the shell's entrance, even under renderer load.
+        // Loading mosaics may loop forever; only finite dialog animations settle.
+        await page.locator('.game-modal').evaluate(async wrap => {
+          const animations = wrap.getAnimations({subtree: true}).filter(animation =>
+            Number.isFinite(animation.effect.getComputedTiming().iterations));
+          await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        });
         if (kind === 'pick') {
           await page.getByRole('button', { name: 'Ring of Gathering', exact: true }).click();
           await page.waitForTimeout(100);
@@ -68,13 +75,14 @@ const { chromium } = require('playwright-core');
             contentHeight: content.scrollHeight, bodyHeight: body.clientHeight,
             scroll: [...wrap.querySelectorAll('*')].filter(el => el.clientHeight && el.scrollHeight > el.clientHeight + 2
               && /auto|scroll/.test(getComputedStyle(el).overflowY)).map(el => el.className),
+            box: {top:box.top,bottom:box.bottom,height:box.height,viewport:innerHeight,transform:getComputedStyle(wrap.querySelector('.modal-box')).transform},
             boxVisible: box.top >= -1 && box.bottom <= innerHeight + 1,
           };
         });
         const m = await measure();
         assert(m.scroll.every(name => name === 'modal-copy'), `${width} ${kind}: only copy scrolls ${JSON.stringify(m)}`);
         assert.equal(m.pages, false, `${width} ${kind}: no pagination controls`);
-        assert(m.boxVisible, `${width} ${kind}: dialog fits screen`);
+        assert(m.boxVisible, `${width} ${kind}: dialog fits screen ${JSON.stringify(m.box)}`);
         if (m.art) {
           assert.equal(m.art.position, '50% 0%', `${kind}: art preserves its top edge`);
           assert.equal(m.art.size, m.art.story ? 'cover' : '100% auto', `${kind}: width-fit art`);
