@@ -4782,7 +4782,7 @@ Render.drawObjects = function drawObjects(scene) {
     groundY: groundY(it, SpriteLayout.CREATURE_GROUND_DY) });
   // The ground shadow stays below props. The raised body clears only its
   // supporting step-over props; standing props retain ordinary depth ordering.
-  const playerGroundY = Math.max(playerWorldM(scene).y,
+  const playerGroundY = scene._wreckRepair?.at?.y ?? Math.max(playerWorldM(scene).y,
     ...zList.filter(row => supports.has(row.it?.o || row.it?.p)).map(row => row.groundY + 0.001));
   if (scene.playerWorldContainer) zList.push({ sprite: scene.playerWorldContainer,
     groundY: playerGroundY, rank: 3 });

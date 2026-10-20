@@ -262,9 +262,8 @@ const STREET_PREVIEW_COLOR = parseInt(UI_STREET_INK.slice(1), 16);
 // land on neither the restore's frame nor the overlay repaint after it. See
 // _afterRestoreBeat.
 const RESTORE_FX_DELAY_MS = 70;
-// How long a restored wreck gathers itself (the road's `stonegather`) before
-// the blast and the Restored! card. See _afterWreckGather.
-const WRECK_GATHER_MS = 1000;
+// Time spent scurrying around all four walls before the restoration pop.
+const WRECK_GATHER_MS = 3000;
 const STREET_COUNTER_MIN_MS = 1000;
 // A BUILDING'S BLAST: how far past the footprint's own half-diagonal the flash
 // reaches, in cells. Two, so the light clears the roof and the street either
@@ -3468,7 +3467,9 @@ class MapScene extends Phaser.Scene {
     const bodyHold = this._bodyHold();
     if (this._confusedLoop && !Conditions.active(this.save, 'confused')) this._endConfusedWalk();
     this._expireConfusedRecover?.(performance.now());
-    if (this._storyPause) {
+    if (this._wreckRepair) {
+      // The repair's postupdate pass owns the walk/hammer pose.
+    } else if (this._storyPause) {
       // A story can open while a pointer is held or a target is still ahead.
       // Keep receiving GPS fixes, but hold the body until reading finishes.
       this._playDirected(this.player, 'idle');
@@ -4316,7 +4317,7 @@ class MapScene extends Phaser.Scene {
     // already chewing on you: the nearest enemy IN REACH is picked up on its
     // own. That is the sword's lane AND bare hands'. An equipped bow or staff
     // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
-    if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress) {
+    if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress && !this._wreckRepair) {
       let best = null, bestD2 = Infinity;
       for (const c of visibleEnemies) {
         // ARM'S LENGTH, not the lit reach (Combat.MELEE_REACH_CELLS): a sword
@@ -5384,7 +5385,7 @@ class MapScene extends Phaser.Scene {
   // Melee never enters this queue.
   _busyWheel() {
     const wp = this._workProgress;
-    return (wp && !wp.auto) ? wp : null;
+    return this._wreckRepair || ((wp && !wp.auto) ? wp : null);
   }
 
   // --- Work-progress wheel (rock-break / tree-chop / fish / defeat / catch) ---
@@ -5939,7 +5940,7 @@ class MapScene extends Phaser.Scene {
   }
 
   playerScreen() {
-    const player = playerWorldM(this), anchor = viewAnchorWorldM(this);
+    const player = this._wreckRepair?.at || playerWorldM(this), anchor = viewAnchorWorldM(this);
     return deltaMToScreen(this, player.x - anchor.x, player.y - anchor.y);
   }
 
@@ -8056,7 +8057,7 @@ class MapScene extends Phaser.Scene {
     if (!(halfW > 0) || !(halfH > 0)) { halfW = halfH = cellM / 2; }   // one cell
     const halfDiagCells = Math.hypot(halfW, halfH) / cellM;
     return {
-      x: cx, y: cy,
+      x: cx, y: cy, halfW, halfH,
       radiusCells: halfDiagCells + BLAST_HOUSE_PAD_CELLS,
       ringPx: ((halfW + halfH) / 2) * CELL_PX / cellM,
     };
@@ -9724,12 +9725,18 @@ class MapScene extends Phaser.Scene {
         onAccept: (key) => restore(key, false),
       });
     };
-    const restore = (key, hammer) => {
+    const restore = (key, hammer, ready = false) => {
+      if (!ready && this._wreckRepair) return;
       const picked = options.find((r) => r.key === key);
       const cost = picked ? costFor(picked) : null;
       const item = cost && ITEM_BY_ID[cost.id];
       if (!cost || Inventory.count(this.save, cost.id) < cost.qty) {
         if (cost) this.flash(`need ${cost.qty} ${item?.name || cost.id}`, sx, sy);
+        return;
+      }
+      // Revalidate and charge only after the work finishes; interruption costs nothing.
+      if (!ready) {
+        this._afterWreckGather(() => restore(key, hammer, true), house);
         return;
       }
       if (hammer && (Inventory.count(this.save, Houses.HAMMER_ID) < 1 || !Houses.hammerTakes(picked))) hammer = false;
@@ -9745,56 +9752,42 @@ class MapScene extends Phaser.Scene {
       const order = Houses.restoredCount(this.save) - 1;   // this restore's 0-based index
       if (row.role === 'wizard') NPC.restoreShrine(this, house);
       persistSave(this.save);
-      // THE GATHER FIRST: the road repair's own `stonegather` (the setts
-      // pulling back together), thrown off a ring at the walls and drawn in
-      // to the footprint's centre, plays for WRECK_GATHER_MS before the
-      // blast and the Restored! card. The save, the ledger and the stock
-      // have all moved already — only the picture and the card wait.
       const bg = this._houseBlastGeometry(house);
-      this._blastAt(bg.x, bg.y, { ringPx: bg.ringPx, gather: 'stonegather' });
       this.buildInventoryDOM();
       this.questEvent('restore');
-      this._afterWreckGather(() => {
-        // THE BLAST, before the card opens (once the gather has played): the
-        // same fanfare a street gets, scaled to a building. The flash covers the footprint's half-diagonal
-        // (plus BLAST_HOUSE_PAD_CELLS), the timber chips and the green sparks
-        // are thrown off a RING at its half-extent so they come off the walls
-        // rather than out of the middle, and the sparks are UI_GREEN — the
-        // colour the Restored! card that follows is already set in, so the
-        // world and the card read as one event.
-        this._blastAt(bg.x, bg.y, {
-          radiusCells: bg.radiusCells, ringPx: bg.ringPx,
-          chips: 'timber', sparks: 'greenspark',
-        });
-        if (this.showChestRewardModal) {
-          // Name the building, describe what it does, show its painting, and
-          // let showChestRewardModal's sparkle burst supply the fanfare. The
-          // name is the sign's (Shops.roleLabel — a shop is named for the
-          // line it now sells, shopLine), the blurb and art the row's.
-          const theme = row.role === 'shop' ? this.shopLine(house).theme : null;
-          const name = labelFor(row, theme);
-          const tier = Shops.shopTier(this.save, house, row.role) || 0;
-          const blurb = row.key === 'shop' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
-          this.showChestRewardModal({
-            kind: 'build',
-            // The banner carries the picture - one art piece per card
-            // (restore_house / restore_blacksmith / …), so the card shows
-            // the story of the restore.
-            iconHTML: '',
-            art: row.art,
-            header: 'Restored!',
-            name: `You restored a ${hammer ? 'shiny ' : ''}${name}`,
-            tier,
-            sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
-              + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
-            color: UI_GREEN, accent: UI_GREEN,
-            onDismiss: row.role === 'wizard'
-              ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
-          });
-        } else {
-          this.flashLoot('🛠 restored', UI_GREEN, 1.25);
-        }
+      // The finished building and its celebratory pop appear together.
+      this._blastAt(bg.x, bg.y, {
+        radiusCells: bg.radiusCells, ringPx: bg.ringPx,
+        chips: 'timber', sparks: 'greenspark',
       });
+      if (this.showChestRewardModal) {
+        // Name the building, describe what it does, show its painting, and
+        // let showChestRewardModal's sparkle burst supply the fanfare. The
+        // name is the sign's (Shops.roleLabel — a shop is named for the
+        // line it now sells, shopLine), the blurb and art the row's.
+        const theme = row.role === 'shop' ? this.shopLine(house).theme : null;
+        const name = labelFor(row, theme);
+        const tier = Shops.shopTier(this.save, house, row.role) || 0;
+        const blurb = row.key === 'shop' ? row.blurb + (Shops.THEME_BLURB[theme] || 'You look over the freshly stocked counter.') : row.blurb;
+        this.showChestRewardModal({
+          kind: 'build',
+          // The banner carries the picture - one art piece per card
+          // (restore_house / restore_blacksmith / …), so the card shows
+          // the story of the restore.
+          iconHTML: '',
+          art: row.art,
+          header: 'Restored!',
+          name: `You restored a ${hammer ? 'shiny ' : ''}${name}`,
+          tier,
+          sub: (hammer ? 'The walls gleam under the hammer’s work. ' : '')
+            + (order === 0 ? "The family stares at the repaired building, amazed. How did you finish so quickly?" : blurb),
+          color: UI_GREEN, accent: UI_GREEN,
+          onDismiss: row.role === 'wizard'
+            ? () => MemoryStory.visitWizard(this, () => {}, house) : undefined,
+        });
+      } else {
+        this.flashLoot('🛠 restored', UI_GREEN, 1.25);
+      }
     };
     showTypes();
   }

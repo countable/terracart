@@ -207,16 +207,17 @@ review is published as a Claude artifact.
   ridge; every role, the smithy included, takes the default one at 28%. The smithy shaft widens slightly toward the roof (`chimneyFlare`), meeting its cap without an overhanging lip. A role
   with `smoke` puffs from its mouths (`smokeMouths`, projected like the faces)
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
-- Wreck: thick broken wall sections follow the inset footprint at roughly
-  16-unit intervals. Heights range from low stubs to the original one-storey
-  eave; about 38% are missing, with a guaranteed two-section breach on the
-  longest edge. Exposed tops have a mortar bed and individually chipped brick
-  crowns, with transverse joints and restrained colour/height variation.
-  Two small roof patches remain on the original ridge planes, with short
-  surviving rafters; seven tilted fallen roof slabs and broken beams fill the
-  interior. Low masonry chunks spill through the breach. Muted material colour,
-  continuous directional shading and contact shading describe the depth; all
-  faces share one softened silhouette outline, without internal ink groups.
+- Wreck: thick broken walls follow the inset footprint at roughly 16-unit
+  intervals. The standing roof occupies one end of the original ridge planes;
+  continuous one-storey walls support three sloping rafters beneath it. The
+  collapsed end has taller varied remnants and a broad breach. Exposed tops
+  use chipped brick crowns and transverse mortar joints; inner wall faces
+  sample dedicated cel masonry rather than the exterior's boarded windows.
+  The generated `wreck-floor-cel.png` supplies weathered boards and stone
+  scatter, clipped to the footprint beneath tilted fallen roof slabs. It is
+  sampled at 128px then enlarged with nearest filtering for chunky pixel detail.
+  Restrained three-step lighting and one softened outer silhouette keep the
+  materials consistent; internal surfaces do not receive separate ink outlines.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on
   every face at every heading; ridge and hip beams cover the seams, and a

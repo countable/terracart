@@ -153,3 +153,7 @@ Publish the current export grid with `python3 tools/build_approved_story_gallery
 
 The opening wrecks scene holds its approved painting across both fade frames,
 so the transition cannot restore the earlier, shorter player proportions.
+
+## Wreck interior scatter
+
+`assets/Objects/BuildingMaterials/wreck-floor-cel.png` was generated with the built-in image tool on 2026-10-19 for the wreck floor: overhead weathered boards and chipped stone/brick on dusty earth, muted cel pixel art. Runtime samples it at 128px with nearest filtering; the original generated PNG is retained as the source. Inner-wall masonry is procedural, using the same restrained warm palette.

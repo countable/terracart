@@ -105,18 +105,20 @@ console.log('Awning skirt orientation passed.');
 
 const wreckPoints=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
 const wreck=api.specialGeometry(wreckPoints,api.recipeFor('wreck'));
-assert(wreck.roofPatches.length>=2,'a few roof patches survive');
+assert.equal(wreck.roofPatches.length,1,'the surviving roof is grouped at one supported end');
 const patchArea=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2).reduce((n,f)=>n+area(f.points),0);
 assert(patchArea>0&&patchArea<area(wreckPoints)*.45,'most of the roof is gone');
 for(const f of wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2))for(const p of f.points)
  assert(wreck.roofPatches.some(b=>p.x>=b.x0-1e-6&&p.x<=b.x1+1e-6&&p.y>=b.y0-1e-6&&p.y<=b.y1+1e-6),'surviving tiles lie inside a patch');
 assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
 // One section of the longest side has fallen entirely: no wall face touches its span.
-assert(wreck.gap&&wreck.gap.o0.y===0&&wreck.gap.o1.y===0,'the gap opens on the longest edge');
-const inGap=p=>p.x>=wreck.gap.o0.x-1e-6&&p.x<=wreck.gap.o1.x+1e-6&&p.y<4.5;
+assert(wreck.gap,'the collapsed end has a breach');
+const ga=wreck.gap.o0,gb=wreck.gap.o1,gdx=gb.x-ga.x,gdy=gb.y-ga.y,glen=Math.hypot(gdx,gdy);
+const inGap=p=>{const t=((p.x-ga.x)*gdx+(p.y-ga.y)*gdy)/(glen*glen);return t>=-1e-6&&t<=1+1e-6&&Math.abs(gdx*(p.y-ga.y)-gdy*(p.x-ga.x))/glen<4.5;};
 assert(!wreck.faces.some(f=>f.kind==='wall'&&f.points.every(inGap)),'the fallen section has no wall');
 assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>p.y<1e-6&&!inGap(p))),'the rest of that side still stands');
-assert(wreck.faces.some(f=>f.interior),'inner wall faces are seen from inside');
+assert(wreck.faces.some(f=>f.interior&&f.rawUV&&new Set(f.points.map(p=>p.u)).size>1),'inner walls have masonry UVs');
+assert(wreck.faces.some(f=>f.rafter),'the standing end has spanning rafters');
 const market=api.recipeFor('trader'),terrace=api.styleGeometry(wreckPoints,market.style,market);
 assert(market.terraced&&market.stories===2,'market has a second storey');
 const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>1.5*15.6)).flatMap(f=>f.points);
