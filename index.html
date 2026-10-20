@@ -98,7 +98,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=0efa7a2a" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=8d8a8ded" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1274,9 +1274,9 @@
   </style>
   <link rel="stylesheet" href="css/compass_hud.css?v=4167c704">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=34f2c64b">
-  <link rel="stylesheet" href="css/speech_bubbles.css?v=420eac2d">
-  <link rel="stylesheet" href="css/book_reader.css?v=79db504e">
+  <link rel="stylesheet" href="css/compass_panels.css?v=0c7233b4">
+  <link rel="stylesheet" href="css/speech_bubbles.css?v=e699f366">
+  <link rel="stylesheet" href="css/book_reader.css?v=f614be88">
 </head>
 <!-- Keep the HUD hidden until live values and the compass skin are ready. -->
 <body class="booting">
@@ -3151,7 +3151,7 @@
 
   <script src="src/wizard.js?v=cc6328ca"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=6fa3739f"></script>
+  <script src="src/memory_story.js?v=5bec4c16"></script>
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=6613d99e"></script>
@@ -3184,12 +3184,12 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=ada441e3"></script>
-  <script src="src/modal_shell.js?v=84ac7345"></script>
+  <script src="src/modal_shell.js?v=02f98bfd"></script>
   <script src="src/scene_geo.js?v=f0f9f10b"></script>
-  <script src="src/npc.js?v=21caacef"></script>
+  <script src="src/npc.js?v=a8acecba"></script>
   <script src="src/scene_creatures.js?v=e1aeaad5"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=0a83d9cb"></script>
+  <script src="src/scene_shops.js?v=6f653891"></script>
   <script src="src/heading_up.js?v=7fe6e897"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=09e52940"></script>
@@ -3199,7 +3199,7 @@
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=41b69553"></script>
+  <script src="src/scene_venues.js?v=7f0aca29"></script>
   <script src="src/scene_furniture.js?v=b5a06d20"></script>
   <script src="src/scene_streets.js?v=15537708"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
@@ -3272,7 +3272,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=0efa7a2a';
+      const APP_SRC = 'src/app.js?v=8d8a8ded';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

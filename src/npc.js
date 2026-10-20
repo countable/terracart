@@ -580,9 +580,9 @@ const NPC = (() => {
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML (showMessageModal), the
   // vocabulary the story bible's (the Breaking, fifty years, the road as safe
-  // ground). A talk is PAGES — one dialog each, "Next" between them (interact
-  // below) — and `body`, the pages joined, for the one-box readers (the shop
-  // blurb via offerArt, the tests). A wait a neighbour SAYS is spokenDuration.
+  // ground). A talk keeps its authored sections in `pages` and joins them
+  // into one scrolling conversation. `body` also serves shop blurbs via
+  // offerArt. A wait a neighbour SAYS is spokenDuration.
   function talkOf(title, pages) {
     pages = (Array.isArray(pages) ? pages : [pages]).filter(p => p != null && p !== '');
     return { title, pages, body: pages.join('\n\n') };
@@ -708,8 +708,7 @@ const NPC = (() => {
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const talk = dialogue(scene, c);
-    // A talk of several pages is one dialog per page, "Next" between them
-    // (MemoryStory.showPages — the wizard's lane), retaining its painting or portrait.
+    // All sections share one scrolling conversation and its painting or portrait.
     const say = () => {
       if (talk.target && !isDormant(c)) {
         // The rim label names who gave the directions (Wayfinder, Fieldwalker…).

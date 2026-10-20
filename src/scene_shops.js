@@ -1124,7 +1124,7 @@ class SceneShops {
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
   // repeatable Smelt button, consuming one recipe’s ingredients per tap. The
-  // modal's ‹ › `pager` pages through the other unlocked bars, and a Forge /
+  // named selector lists the other unlocked bars, and a Forge /
   // Smelt tab row (forgeBack re-opens the forge tab) lets the player toggle
   // back without leaving the shop. `target` defaults to the highest unlocked
   // bar the player can currently afford, so the modal opens on something usable.
@@ -1154,14 +1154,14 @@ class SceneShops {
     const covered = (id) => recipeFor(id).every(r => Inventory.count(this.save, r.id) >= r.qty);
     // Default focus: the highest unlocked bar the player can afford ≥1 of,
     // else the highest unlocked, so the modal opens on something usable
-    // rather than a bar they lack ingredients for (the pager still reaches
-    // the others). An explicit `target` (from the pager) wins as long as it
+    // rather than a bar they lack ingredients for (the selector still reaches
+    // the others). An explicit `target` (from the selector) wins as long as it
     // is actually unlocked.
     if (!target || !bars.includes(target)) target = bars.slice().reverse().find(covered) || bars[bars.length - 1];
     const outItem = ITEM_BY_ID[target];
-    // The ‹ › pager walks the unlocked bars (wraps around).
+    // Every unlocked bar is directly reachable by name.
     const idx = bars.indexOf(target);
-    const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
+    const selectBar = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
     this._presentRecipeOffer(sx, sy, {
       recipe: recipeFor(target),
       cancelLabel: 'Leave',
@@ -1170,10 +1170,9 @@ class SceneShops {
       acceptLabel: 'Smelt',
       tabs,
       repeat: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target),
-      pager: {
-        index: idx, count: bars.length,
-        onPrev: pageTo(bars[(idx - 1 + bars.length) % bars.length]),
-        onNext: pageTo(bars[(idx + 1) % bars.length]),
+      selector: {
+        label: 'Bar', index: idx,
+        options: bars.map(id => ({ label: itemName(id), onSelect: selectBar(id) })),
       },
       refuse: () => {
         if (this.invRoomFor(target) >= 1) return false;
