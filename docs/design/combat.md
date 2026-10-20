@@ -113,7 +113,7 @@ mechanics.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
   `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
-  the night-time MD/LG kerb buffer, excluding its roadside-path side through
+  the night-time MD/LG kerb buffer, excluding walking-path footprints and its roadside-path side through
   `WorldGen.nightZoneBits`. `RoadSafety.drainPips` drops a partial pip
   on exit; app.js spends each whole pip through `_losePlayerEnergy` and the
   shared drain roll-up.

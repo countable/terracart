@@ -619,7 +619,7 @@ the real source so a missing texture cannot become a permanent cached palette.
   changes; work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
 - `RoadSafety` paints visible cells selected by `WorldGen.nightZoneBits` with its
-  muted red ground wash after dark; lot-only and roadside-path exemptions stay
+  muted red ground wash after dark; lot-only, walking-path and roadside-path exemptions stay
   clear. The wash sits above road surfaces and below
   road names, buildings and world sprites. Its key includes the camera cell,
   row-band phase, night state and visible road bits, so a crossing, sunset or
