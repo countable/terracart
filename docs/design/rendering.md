@@ -618,8 +618,9 @@ the real source so a missing texture cannot become a permanent cached palette.
   and sorts the shared world container only when membership or assigned depth
   changes; work transitions invalidate reuse, while connected, clock-driven
   and saved-state art stays live.
-- `RoadSafety` paints every visible `ROAD_CLASS_MAJOR_BUFFER` cell with its
-  muted red ground wash after dark. The wash sits above road surfaces and below
+- `RoadSafety` paints visible cells selected by `WorldGen.nightZoneBits` with its
+  muted red ground wash after dark; lot-only and roadside-path exemptions stay
+  clear. The wash sits above road surfaces and below
   road names, buildings and world sprites. Its key includes the camera cell,
   row-band phase, night state and visible road bits, so a crossing, sunset or
   newly loaded tile rebuilds it while sub-cell motion only scrolls it.

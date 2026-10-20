@@ -616,6 +616,12 @@ access or tile lifecycle mechanics.
   curse damage. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
+- A mapped parallel roadside path removes the night zone on its side of an
+  MD/LG road, along the path’s length and within the existing kerb buffer.
+  `ROAD_CLASS_PATH_SIDE` preserves creature suppression while the shared
+  `nightZoneBits` check excludes the wash, hidden interactions and drain.
+  Carriageway cells, the opposite side, crossings, grade-separated paths and
+  overlapping buffers from roads without a path on that side remain dark.
 - Parking lots join the MD/LG kerb buffer's suppression at every hour
   (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
   acquiring a road surface, the standing-on-carriageway warning or the night
@@ -739,6 +745,12 @@ access or tile lifecycle mechanics.
   including its empty cells. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
+  A connected parking-lane footprint adjoining a church's Old Stones coverage
+  becomes part of that same Nexus, retaining its identity and theme without a
+  separate Quarry or finite reward budget. Roads, paths and water split parking
+  footprints; other Nexus owners and excluded cells retain their ownership.
+  If several churchyards touch one lot, the northernmost, then westernmost
+  church anchor owns its unclaimed cells. Absorbed lots cannot claim other lots.
   Gas-station influence uses the tar row’s own minimum and maximum radii.
   Cave generation retains the original ground,
   objects and spawn reasons so surface dressing cannot reroll entrances.

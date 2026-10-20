@@ -151,3 +151,37 @@ test('night road: rendering and taps share the hidden-object predicate', () => {
   assert.truthy(/RoadSafety\.objectHidden\(scene, item\)/.test(INTERACT_SRC), 'item lookup skips hidden records');
   assert.truthy(/letterContainer\.add\(this\.roadSafetyGfx\)/.test(SCENE_SRC), 'ground wash sits below later road letters and world sprites');
 });
+
+(function () {
+  const N = 64, scale = 4096 / N;
+  const road = (cls, pts, tags = {}) => ({ type: 2, tags: { class: cls, ...tags },
+    geom: [pts.map(([x, y]) => ({ x: (x + 0.5) * scale, y: (y + 0.5) * scale }))] });
+  const build = (...features) => WorldGen.rasterizeTile([{ name: 'transportation', features }], N, 0, 0, N * 7);
+  const bits = (e, x, y) => e.roadClass[y * N + x];
+  test('night road: parallel roadside paths clear only their side and length of the buffer', () => {
+    const main = road('primary', [[4, 32], [60, 32]]);
+    const path = road('path', [[12, 34], [48, 34]]);
+    const e = build(main, path);
+    assert.falsy(WorldGen.nightZoneBits(bits(e, 30, 34)), 'path side is safe');
+    assert.truthy(bits(e, 30, 34) & WorldGen.ROAD_CLASS_MAJOR_BUFFER, 'creature suppression remains');
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 30, 30)), 'opposite side remains dark');
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 30, 32)), 'carriageway remains dark');
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 54, 34)), 'beyond the path remains dark');
+    const reversed = build(main, road('path', [[48, 34], [12, 34]]));
+    assert.eq([...e.roadClass].join(), [...reversed.roadClass].join(), 'path direction does not matter');
+    const both = build(main, path, road('path', [[12, 30], [48, 30]]));
+    assert.falsy(WorldGen.nightZoneBits(bits(both, 30, 30)), 'both path sides can be safe');
+  });
+  test('night road: crossings and separated paths do not clear roadside darkness', () => {
+    const main = road('primary', [[4, 32], [60, 32]]);
+    for (const path of [road('path', [[30, 4], [30, 60]]),
+      road('path', [[12, 34], [48, 34]], { brunnel: 'bridge' }),
+      road('path', [[12, 40], [48, 40]])]) {
+      assert.truthy(WorldGen.nightZoneBits(bits(build(main, path), 30, 34)), 'no adjoining parallel path');
+    }
+    const privatePath = build(main, road('path', [[12, 34], [48, 34]], { access: 'private' }));
+    assert.truthy(WorldGen.nightZoneBits(bits(privatePath, 30, 34)), 'private paths do not grant an exemption');
+    const e = build(main, road('path', [[12, 34], [48, 34]]), road('secondary', [[32, 4], [32, 60]]));
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 30, 34)), 'another road retains its own dark buffer');
+  });
+})();

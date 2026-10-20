@@ -109,7 +109,7 @@
     assert.eq(entry.grid[25 * FloorViewerRegion.N + 55], T.FOREST, 'forest paints the added rows');
     const lot = entry.grid[12 * FloorViewerRegion.N + 7];
     assert.eq(lot, T.ROCK, 'parking lot becomes quarry ground');
-    for (let y = 8; y < 31; y++) for (let x = 4; x < 12; x++) {
+    for (let y = 8; y < 25; y++) for (let x = 4; x < 12; x++) {
       const i = y * FloorViewerRegion.N + x;
       assert.falsy(entry.grid[i] === T.COMMERCIAL, 'commercial ground never splits the parking lot');
       if (entry.roadMask[i] || WorldGen.isRoadTerrain(entry.grid[i])) continue;

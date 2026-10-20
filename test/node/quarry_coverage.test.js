@@ -61,6 +61,50 @@
     assert.eq(owner(f,20,20)?.kind, 'quarry', 'unclaimed neighbouring land still becomes quarry');
   });
 
+  function churchField(points) {
+    const anchors = points.map(([x,y]) => ({kind:'stones', code:2, key:`church-${x}-${y}`,
+      gx:p(x,y).x, gy:p(x,y).y, variant:'churchyard', owned:true}));
+    const coverage = new Uint16Array(N*N);
+    points.forEach(([x,y], n) => { coverage[y*N+x] = n+1; });
+    return {anchors, allAnchors:anchors.slice(), coverage, idx:coverage.slice(), s:new Uint8Array(N*N), reach:[]};
+  }
+
+  test('quarry coverage: an adjoining church subsumes the whole lot into its existing Old Stones nexus', () => {
+    const field = churchField([[16,20]]), church = field.anchors[0];
+    const spawnWhy = new Uint16Array(N*N);
+    spawnWhy[20*N+25] = WorldGen.SPAWN_WHY.RESTRICTED;
+    const f = build([lane([[20,20],[40,20]])], {field,spawnWhy});
+    assert.eq(owner(f,40,20), church, 'far end inherits the same church, beyond the original halo');
+    assert.eq(f.anchors.length,1,'no quarry anchor or separate finite encounter');
+    assert.eq(f.allAnchors.length,1,'canonical anchor list is unchanged');
+    assert.eq(f.idx[20*N+40],1,'legacy influence ownership agrees with coverage');
+    assert.falsy(owner(f,25,20),'protected pocket stays excluded');
+    const grid = new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+    run(ZoneCoverage.paintSteps(f,grid,N,{},null,spawnWhy));
+    assert.eq(grid[20*N+40],WorldGen.T.CHURCHYARD,'absorbed lot uses Old Stones ground');
+    assert.eq(grid[20*N+25],WorldGen.T.GRASS,'excluded pocket is not painted');
+  });
+
+  test('quarry coverage: church absorption stops at paths and never chains through a second lot', () => {
+    const grid = new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+    for (let y=0;y<N;y++) grid[y*N+30] = WorldGen.T.PATH;
+    const f = build([lane([[20,20],[40,20]])],{field:churchField([[16,20]]),grid});
+    assert.eq(owner(f,20,20)?.kind,'stones');
+    assert.eq(owner(f,40,20)?.kind,'quarry','path divides the parking footprint');
+    const separate = build([lane([[20,20],[30,20]]),lane([[20,27],[30,27]],2)],
+      {field:churchField([[16,20]])});
+    assert.eq(owner(separate,25,20)?.kind,'stones');
+    assert.eq(owner(separate,25,27)?.kind,'quarry','touching expanded churchyard cannot absorb an unrelated lot');
+  });
+
+  test('quarry coverage: competing churches resolve independently of anchor order', () => {
+    const first = churchField([[16,20],[34,20]]), second = churchField([[34,20],[16,20]]);
+    const a = build([lane([[20,20],[30,20]])],{field:first});
+    const b = build([lane([[30,20],[20,20]])],{field:second});
+    assert.eq(owner(a,25,20).key,'church-16-20');
+    assert.eq(owner(a,25,20).key,owner(b,25,20).key,'source and anchor order do not select the winner');
+  });
+
   test('quarry coverage: roads, paths, buildings, water, sand and restricted sites stay excluded', () => {
     const T = WorldGen.T, W = WorldGen.SPAWN_WHY;
     const grid = new Uint8Array(N*N).fill(T.GRASS), roadMask = new Uint8Array(N*N), spawnWhy = new Uint16Array(N*N);
