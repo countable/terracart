@@ -392,3 +392,6 @@ A frame-wide silhouette pass does not add triangles to each building mesh.
   supply the outer ink instead.
 - Divide roof decks and coping into adjoining faces with shared edges. Nearly
   coplanar overlays can still flicker in a 16-bit depth buffer at high elevations.
+- Before extending transparent source edges, reject almost-transparent export
+  fringes as color seeds. City artwork needs alpha >= 250; otherwise invisible
+  white/purple RGB gets spread into opaque wall corners and ground edges.
