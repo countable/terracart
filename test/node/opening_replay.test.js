@@ -65,7 +65,7 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   // partly there (the CTA, then the world) with the story and the how-to
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
-  const arts = [...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1])
+  const arts = [...new Set([...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]))]
     .filter(stem => !stem.endsWith('_frame2') && !stem.endsWith('_close'));
   assert.eq(arts.length, 4, 'four slides');
   assert.eq(arts[0], 'story_compass', 'discovery comes before the dream');
@@ -94,10 +94,10 @@ test('opening: opening frame pairs align and describe each slide once', () => {
     assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
     assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
   }
-  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 5,
+  assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 6,
     'second frames do not repeat descriptions to screen readers');
-  assert.truthy(html.includes('animation: story-crossfade 1.2s ease-in-out 1.5s forwards;'),
-    'ordinary frame pairs wait 1.5 seconds and fade once, holding their final frame');
+  assert.truthy(html.includes('animation: story-crossfade 2.4s ease-in-out 750ms forwards;'),
+    'ordinary frame pairs pause briefly and dissolve gently once, holding their final frame');
   assert.truthy(/#story \.story-frame-next \{ animation: none; \}/.test(html),
     'reduced motion leaves the first frame still');
 });
