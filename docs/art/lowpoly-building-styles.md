@@ -217,7 +217,7 @@ review is published as a Claude artifact.
   full light top/left edges and full dark bottom/right edges. Courses align
   across wall sections and continue across their top faces using the same UV
   course. Broad irregular stains weather wall and roof surfaces; the roof also
-  has a darker tint, scattered rust patches and contrasting pale metallic glints. Loose 3D bricks retain the same cel palette. The opaque generated `wreck-floor-cel.png` covers the floor with dense darker
+  has a darker tint and narrow staggered tiles matching `com_houses_03_c.png`: rusty red-orange planes, dark full outlines and bright golden edges, under irregular tarnish. Loose 3D bricks retain the same cel palette. The opaque generated `wreck-floor-cel.png` covers the floor with dense darker
   cel fragments of varied sizes, splintered planks and half-buried furniture,
   pipe and gear remnants, separated by deep shadow gaps. It is sampled at 128px
   with nearest filtering; warm light masonry tones snap to the exact 3D block

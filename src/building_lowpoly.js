@@ -1091,20 +1091,21 @@
       // Reduce painted detail contrast; geometry supplies the depth shading.
       const ctx=tex.getContext(),size=tex.getSourceImage().width;
       ctx.fillStyle='rgba(151,142,130,0.38)';ctx.fillRect(0,0,size,size);
-      wreckWeather(ctx,0,128,512,380,size/512);
-      // Tarnished metal keeps broad dull planes and a few sharp worn glints.
+      // Match com_houses_03_c: narrow tiles down the slope, staggered end
+      // joints, dark outlines and a warm bright edge. Weather the same cel
+      // pattern toward rusty metal rather than adding isolated white streaks.
       const scale=size/512;
-      for(let k=0;k<32;k++){
-        const x=5+Math.floor(hash(k,103)*480),y=134+Math.floor(hash(k,107)*350),w=8+Math.floor(hash(k,109)*23);
-        ctx.fillStyle='rgba(112,55,29,0.32)';ctx.fillRect(x*scale,y*scale,w*scale,5*scale);
-        ctx.fillRect((x+3)*scale,(y-3)*scale,(w*.55)*scale,10*scale);
-        ctx.fillStyle='rgba(213,189,143,0.32)';ctx.fillRect((x+1)*scale,(y-4)*scale,w*.7*scale,scale);
+      const roofRect=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(x*scale,y*scale,w*scale,h*scale);};
+      roofRect(0,128,512,384,'#54251f');
+      for(let col=0,x=0;x<512;x+=8,col++)for(let y=128-(col%2)*8;y<512;y+=16){
+        const top=Math.max(128,y),bottom=Math.min(512,y+16);
+        roofRect(x+1,top,6,bottom-top,hash(col,y)>.55?'#a94d2c':'#97412b');
+        roofRect(x+1,top,1,bottom-top,'#d78945');
+        roofRect(x+6,top,1,bottom-top,'#713024');
+        if(y>=128){roofRect(x+1,y,6,1,'#e6a45b');roofRect(x+1,y+15,6,1,'#54251f');}
+        if(hash(col,y)>.72)roofRect(x+2,Math.max(128,y+3),1,Math.min(7,bottom-Math.max(128,y+3)),'#bd7440');
       }
-      for(let y=136;y<504;y+=23)for(let x=5;x<500;x+=37){
-        const k=x+y;if(hash(k,113)<.35)continue;const w=9+Math.floor(hash(k,131)*15);
-        ctx.fillStyle='rgba(244,235,202,0.72)';ctx.fillRect(x*scale,y*scale,w*scale,2*scale);
-        ctx.fillStyle='rgba(75,78,74,0.25)';ctx.fillRect(x*scale,(y+2)*scale,w*scale,scale);
-      }
+      wreckWeather(ctx,0,128,512,380,scale);
       // Keep the atlas solid texel white for tint-only faces and the silhouette.
       ctx.fillStyle='#ffffff';ctx.fillRect(508/512*size,124/512*size,4/512*size,4/512*size);
       tex.refresh();tex._wreckSoftened=true;
