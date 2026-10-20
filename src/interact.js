@@ -626,6 +626,7 @@ const TAP_HANDLERS = [
   // the progress wheel can't be re-dispatched a frame later and immediately
   // cancel it (a real risk on double-tap or held-pointer interactions).
   { name: 'work-progress', try: (ctx) => {
+    if (ctx.scene._wreckRepair) return true;
     const wp = ctx.scene._workProgress;
     if (!wp) return false;
     // An AUTO-engaged sword fight (combat.js / app.js _combatTick) is not an

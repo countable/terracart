@@ -760,15 +760,85 @@ class SceneStreets {
     }
   }
 
-  // A WRECK'S GATHER: the beat between the restore and its card, long enough
-  // for `stonegather` (550–850 ms of lifespan) to land. Same headless rule as
-  // _afterRestoreBeat: no clock runs it at once.
-  _afterWreckGather(fn) {
-    if (this.time && typeof this.time.delayedCall === 'function') {
-      this.time.delayedCall(WRECK_GATHER_MS, fn);
-    } else {
-      fn();
-    }
+  // Cosmetic work visits the footprint's four sides. The real GPS/body and
+  // reach stay put; postupdate seats the player's own sprite after normal
+  // movement/idle rendering. Nothing is charged until the final callback.
+  _afterWreckGather(fn, house) {
+    if (!this.events?.on || !this.player || !this.add?.graphics || !house) { fn(); return; }
+    if (this._wreckRepair) return;
+    const bg = this._houseBlastGeometry(house);
+    const pad = (this.cellM || 1) * 0.35;
+    const w = bg.halfW + pad, h = bg.halfH + pad;
+    const sides = [
+      { x: bg.x, y: bg.y + h }, { x: bg.x + w, y: bg.y },
+      { x: bg.x, y: bg.y - h }, { x: bg.x - w, y: bg.y },
+    ];
+    // Corner waypoints keep the scurrying route outside the standing walls.
+    const corners = [null, { x: bg.x + w, y: bg.y + h },
+      { x: bg.x + w, y: bg.y - h }, { x: bg.x - w, y: bg.y - h }];
+    const origin = playerWorldM(this);
+    const work = this._wreckRepair = { elapsed: 0, depth: this.depth, strike: -1 };
+    const tool = this.add.graphics().setDepth(this.player.depth + 1);
+    this.playerWorldContainer?.add(tool);
+    const finish = (complete) => {
+      if (this._wreckRepair !== work) return;
+      this._wreckRepair = null;
+      this.events.off('postupdate', tick);
+      this.events.off('shutdown', cancel);
+      tool.destroy();
+      if (!this.player?.scene && this.player?.active === false) return;
+      const p = this.playerScreen();
+      this.player.setPosition(p.x, p.y + this.playerBodyDy()).setRotation(this.playerBodyRotation());
+      this.player.anims.timeScale = 1;
+      this.playerShadow?.setPosition(p.x, p.y - 1);
+      if (complete) fn();
+    };
+    const cancel = () => finish(false);
+    const tick = (_time, delta) => {
+      if (this.depth !== work.depth || Combat.playerDowned(this.save.energy)) { cancel(); return; }
+      work.elapsed += Math.max(0, delta || 0);
+      if (work.elapsed >= WRECK_GATHER_MS) { finish(true); return; }
+      const stepMs = WRECK_GATHER_MS / sides.length;
+      const step = Math.min(3, Math.floor(work.elapsed / stepMs));
+      const phase = work.elapsed / stepMs - step;
+      const target = sides[step], from = step ? sides[step - 1] : origin;
+      const running = phase < 0.42;
+      let at = target, direction = { x: bg.x - target.x, y: bg.y - target.y };
+      if (running) {
+        const t = phase / 0.42, corner = corners[step];
+        const a = corner && t >= 0.5 ? corner : from;
+        const b = corner && t < 0.5 ? corner : target;
+        const u = corner ? (t * 2) % 1 : t;
+        at = { x: a.x + (b.x - a.x) * u, y: a.y + (b.y - a.y) * u };
+        direction = { x: b.x - a.x, y: b.y - a.y };
+      }
+      work.at = at;
+      const p = this.worldMetersToScreen(at.x, at.y);
+      if (!p) { cancel(); return; }
+      this._playDirected(this.player, running ? 'walk' : 'idle', direction.x, direction.y);
+      this.player.anims.timeScale = running ? 2.6 : 1;
+      const swing = running ? 0 : Math.sin((phase - 0.42) / 0.58 * Math.PI * 4);
+      this.player.setPosition(p.x, p.y + this.playerBodyDy() - Math.abs(swing) * 2);
+      this.playerShadow?.setPosition(p.x, p.y - 1);
+      tool.clear();
+      if (!running) {
+        const center = this.worldMetersToScreen(bg.x, bg.y);
+        const side = center && center.x < p.x ? -1 : 1;
+        const scale = Math.max(1, this.player.displayHeight / 30);
+        tool.setPosition(p.x + side * 6 * scale, p.y + this.playerBodyDy());
+        tool.setRotation(side * (-0.65 + swing * 0.9)).setScale(scale);
+        tool.fillStyle(0x765d43, 1).fillRect(-1, -10, 3, 12);
+        tool.fillStyle(0xb9bdba, 1).fillRect(-5, -14, 10, 5);
+        tool.fillStyle(0xe0ddd1, 1).fillRect(-5, -14, 10, 1);
+        const strike = step * 2 + Math.floor((phase - 0.42) / 0.58 * 2);
+        if (strike !== work.strike) {
+          work.strike = strike;
+          this._burstAtWorld('timber', at.x, at.y, { count: 3 });
+        }
+      }
+    };
+    this.events.on('postupdate', tick);
+    this.events.once('shutdown', cancel);
   }
 
   // The metres a sweep just restored, banked against the one ladder: show the

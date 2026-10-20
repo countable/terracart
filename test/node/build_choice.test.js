@@ -37,17 +37,17 @@ test('build choice: the type first, then the rank where more than one is open, e
     remove: (save, id, qty) => { stock[id] -= qty; },
   };
   const present = new Function('Houses', 'Shops', 'Inventory', 'ITEM_BY_ID', 'Render',
-    'CastleStyles', 'tierBadgeHTML', 'persistSave', 'newBadgeHTML',
+    'CastleStyles', 'tierBadgeHTML', 'persistSave', 'newBadgeHTML', 'UI_GREEN',
     `return ({${body}}).presentWreckRestoreModal;`)(Houses, Shops, inventory, ITEM_BY_ID,
       { houseTextureKey: () => 'house', houseTextureFrame: () => 'front' }, { get: () => ({ towerFrame: 0 }) },
-      (tier) => `quality-${tier}`, () => {}, () => 'NEW');
+      (tier) => `quality-${tier}`, () => {}, () => 'NEW', '#7c9');
   let modal;
   const scene = {
     save: { restoredHouses: { first: 'plain' } },
     showOfferModal: (offer) => { modal = offer; },
     iconSpanHTML: () => '', worldIconHTML: () => '', flash() {},
     _clampSelSlot() {}, _houseBlastGeometry: () => ({ x: 0, y: 0 }),
-    _blastAt() {}, buildInventoryDOM() {}, questEvent() {}, _afterWreckGather() {},
+    _blastAt() {}, buildInventoryDOM() {}, questEvent() {}, _afterWreckGather(fn) { fn(); }, flashLoot() {},
   };
   const house = { kind: 'house', tier: 9, id: 'new' };
   present.call(scene, 0, 0, house);
@@ -72,7 +72,13 @@ test('build choice: the type first, then the rank where more than one is open, e
   assert.truthy(modal.choices.every(c => c.canAfford === false), 'empty inventory disaffords every card');
   stock.rubble = 100; stock[cost.id] = 100;
   const typeModal = modal;
+  let completeWork;
+  scene._afterWreckGather = fn => { completeWork = fn; };
   modal.onAccept('blacksmith');
+  assert.eq(scene.save.restoredHouses.new, undefined, 'wreck stays intact during work');
+  assert.eq(stock.wood, 100, 'materials are not charged during work');
+  completeWork();
+  scene._afterWreckGather = fn => fn();
   assert.eq(modal, typeModal, 'a sole rank: no rank screen, no confirmation screen');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith');
   assert.eq(cost.id, 'wood', 'a T1 smithy is paid in the T1 ore (barForTier)');

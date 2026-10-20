@@ -6,6 +6,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 
 ## Dialogs, feedback and teaching
 
+- Restoring a wreck runs a three-second work sequence before charging materials:
+  the player's sprite scurries around all four footprint sides and swings a
+  pixel hammer. The body/GPS and interaction origin stay put while movement
+  and taps are held. Completion revalidates the choice and inventory, saves
+  the restoration, then reveals the building with timber and green sparks
+  and its Restored card. Scene shutdown, depth changes or being downed cancel
+  the work without charging; effects and listeners are removed on every exit.
+
 - DOM inventory, shop, toast and gear icons share `assets/Icons/dom-atlas.png`.
   `renderItemIcon` and `gearIconHTML` retain the original sheet/frame selection,
   adding the atlas offset; baked `ITEM_DATA_URLS` still take priority. The atlas
