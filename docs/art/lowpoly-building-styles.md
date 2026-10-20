@@ -395,3 +395,7 @@ A frame-wide silhouette pass does not add triangles to each building mesh.
 - Before extending transparent source edges, reject almost-transparent export
   fringes as color seeds. City artwork needs alpha >= 250; otherwise invisible
   white/purple RGB gets spread into opaque wall corners and ground edges.
+- For a gable crossbeam, use one closed cuboid with its back half embedded in
+  the intact wall. Sample the source timber palette and place it beneath the roof
+  supports. On custom footprints, add beams only along exposed gable runs, skipping
+  shared section boundaries. Each complete beam adds 12 triangles.
