@@ -156,6 +156,9 @@ access or tile lifecycle mechanics.
   `street_variants.js`; 8% shrub, 2.5% berry, 1.5% poisonberry of the
   seats): mostly ordinary shrubs, with berry and poisonberry bushes mixed
   in, still fewer than the herbs.
+  Residential verges instead keep PetNip uncommon at 12% of eligible seats.
+  Its excess former seats become clipped hedges, keeping the total greenery
+  density and rarer Nettle placement unchanged.
 
 - Every house fronting a plain (unthemed) Small street stands 0-2 loot barrels
   (`HOUSE_BARREL_ODDS`: 50% none, 40% one, 10% two)
@@ -1061,8 +1064,9 @@ and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
 rotate into that heading once for a newly constructed 2×2 house, whose anchor
 is one cell ahead of the player. An adopted building keeps its source footprint
-and position. The firepit uses open ground near Home; water, roads and existing
-buildings are rejected. New house doorways face the player (`HomeArea.doorSide`). The saved layout stays fixed through later
+and position. The firepit uses open ground near Home; water and roads are rejected,
+and a full ground cell separates it from every building, including diagonal
+corners and buildings across tile seams. New house doorways face the player (`HomeArea.doorSide`). The saved layout stays fixed through later
 heading changes and reloads. Existing Homes keep their saved positions; sandbox
 and north-up previews retain the north-facing layout.
 

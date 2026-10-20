@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-df3b8e2a';
+const SHELL_VERSION = 'shell-65c6fd86';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -991,10 +991,12 @@ const ASSET_HASHES = {
   "assets/art/story_compass.webp": "14eb2290",
   "assets/art/story_compass_frame2.webp": "4c9e1536",
   "assets/art/story_dragon_hunters_arrive.webp": "06db0f57",
-  "assets/art/story_nightmare.webp": "fedc35af",
+  "assets/art/story_nightmare.webp": "3cd2f354",
   "assets/art/story_nightmare_close.webp": "6d71eeda",
   "assets/art/story_nightmare_close_frame2.webp": "033cafdd",
-  "assets/art/story_nightmare_frame2.webp": "d19bc378",
+  "assets/art/story_nightmare_frame2.webp": "b35208de",
+  "assets/art/story_nightmare_frame3.webp": "b1d1af96",
+  "assets/art/story_nightmare_frame4.webp": "0dfdbc46",
   "assets/art/story_wake.webp": "9d01bdd0",
   "assets/art/story_wake_frame2.webp": "b55f492f",
   "assets/art/story_white_dragon_tower.webp": "c9ebf822",
@@ -1024,7 +1026,7 @@ const ASSET_HASHES = {
   "assets/art/tool_sword.webp": "a68eab18",
   "assets/art/tool_till.webp": "4729e91f",
   "assets/art/tool_water.webp": "328cffd5",
-  "assets/art/torch_light.webp": "b3b4e53c",
+  "assets/art/torch_light.webp": "88b41194",
   "assets/art/trail_intro.webp": "c7fe56d5",
   "assets/art/trail_prize.webp": "42ccf1b8",
   "assets/art/trap_free.webp": "70320502",

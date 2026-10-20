@@ -2309,21 +2309,16 @@
     },
     {
       "key": "torch_light",
-      "master_path": "approved-story-art/torch_light.png",
-      "master_sha256": "49be325a6c1b359ba71b868295a692e9cf86d28fed72252bf39a164f514ab895",
-      "width": 432,
-      "height": 324,
-      "export_width": 432,
-      "export_height": 324,
-      "sha256": "b3b4e53c74f2915c244d3573cc9f578af4073f73206c30af1dc368f8ae6a3728",
-      "method": "original_crop",
-      "crop": {
-        "x": 40,
-        "y": 0,
-        "w": 432,
-        "h": 324
-      },
-      "prompt": null
+      "master_path": "torch-style-fix/torch_light.png",
+      "master_sha256": "7b703e4dcab8beadf9456e7d8f026061eddca131d7a42867917d5653adb2fa5f",
+      "width": 1448,
+      "height": 1086,
+      "export_width": 768,
+      "export_height": 576,
+      "sha256": "88b41194b2edbe319582916884f2cf4d638e549bb0efadfd4dffb047b8fc0c54",
+      "method": "style_transfer",
+      "crop": null,
+      "prompt": "Built-in image_gen style transfer using original torch_light composition and approved cave/outdoor_work references. Preserve close first-person hands striking flint beside a cloth-wrapped torch in a dark stone passage. Match irregular painterly pixel marks, simplified anatomy, broad clustered shading and restrained brown/ochre firelight across hands, torch, flame and stone. No photographic detail, text, UI or copy zone; full-bleed 4:3 landscape."
     },
     {
       "key": "trail_intro",

@@ -22,7 +22,8 @@ test('containers: selected skins preserve material, rewards and matching pot sha
       const look = chestLook(o);
       assert.eq(look.texKey, barrelStyle, 'context never changes container material');
       assert.eq(spec.frame(o), look.frame, 'map and popup use the selected frame');
-      assert.truthy(look.frame >= 0 && look.frame < (barrelStyle === 'barrel' ? 9 : 2));
+      if (barrelStyle === 'barrel') assert.eq(look.frame, 3, 'only the cylindrical barrel is selected');
+      else assert.truthy(look.frame >= 0 && look.frame < 2);
       assert.eq(spec.key(o), barrelStyle);
       assert.truthy(SpriteLayout.ART_BOUNDS[`${barrelStyle}:${look.frame}`], 'each contextual frame has seating bounds');
       const ordinary = { kind: 'chest', id: o.id, barrel: true, barrelStyle };
@@ -40,7 +41,7 @@ test('containers: selected skins preserve material, rewards and matching pot sha
 });
 
 test('containers: every approved look is reachable and stable by identity', () => {
-  for (const [key, count] of [['barrel', 9], ['clay_pot', 2], ['box', 4]]) {
+  for (const [key, count] of [['barrel', 1], ['clay_pot', 2], ['box', 4]]) {
     const frames = new Set();
     for (let i = 0; i < 256; i++) {
       const o = { kind: 'chest', id: 'selected-container-' + i,

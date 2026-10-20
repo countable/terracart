@@ -127,10 +127,11 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The four opening panes show the compass discovery, dragon-war dream,
   house awakening, then the ruined street. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
-  a wide pair and a close pair, registered to the dragon's eye under one
-  camera so their longer dissolve does not jump. Soft edges blend the close
-  painting into the wide composition; the bottom shadow stays near the copy.
-  Dragon heads and flames alternate slowly even after the camera stops.
+  four aligned portrait paintings under one camera. They dissolve in sequence
+  on a 12-second loop during the 16-second push toward the dragon's eye,
+  continuing after the camera stops. Dragons, flames and smoke move between
+  frames; painted darkness fades irregularly from below, lingering less over
+  bright fire. A soft stationary lower gradient keeps the copy edge dark.
   Awakening uses close and wide views of its existing two paintings, fading
   between pairs while pulling back. Both camera moves begin with a short pause;
   the dream pushes in slowly and awakening pulls back a little faster.

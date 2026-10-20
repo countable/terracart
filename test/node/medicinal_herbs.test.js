@@ -13,17 +13,20 @@
     assert.truthy(flora.some(r => r.crop === 'nettle'));
   });
 
-  function herbs(size = 'minor', blocked = false, nexus = false) {
+  function herbs(size = 'minor', blocked = false, nexus = false, terrain = WorldGen.T.GRASS) {
     const N = 128, ext = N * WorldGen.CELL_M;
     const lines = [20, 45, 70, 95].map(y => ({
       key: `herbal-road-${y}`, size, variant: null, halfW: 4,
       line: [{ x: 0, y: y * 7 }, { x: ext, y: y * 7 }],
     }));
+    const grid = new Uint8Array(N * N).fill(terrain);
+    // Real road cells supply the public frontage required by residential land.
+    for (const y of [20, 45, 70, 95]) grid.fill(WorldGen.T.ROAD, y * N, (y + 1) * N);
     return StreetVariants.dress({
       tx: 5, ty: 7, N, tileEdgeM: ext,
       index: { extent: ext, lines, dressingLines: [],
         nexusCoverage: new Uint8Array(N * N).fill(nexus ? 1 : 0) },
-      grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS),
+      grid,
       spawnOpts: { occupied: new Set(), roadMask: new Uint8Array(N * N).fill(blocked ? 1 : 0) },
     }).wildplants;
   }
@@ -56,5 +59,19 @@
     assert.eq(StreetVariants.PLAIN_BUSHES.at(-1).below, StreetVariants.PLAIN_BUSH_P);
     const count = crop => bushes.filter(p => p.crop === crop).length;
     assert.gt(count('shrub'), count('berry'));
+  });
+
+  test('residential verges: uncommon PetNip gives way to clipped hedges without extra clutter', () => {
+    const ordinary = herbs();
+    const residential = herbs('minor', false, false, WorldGen.T.RESIDENTIAL);
+    const count = (plants, crop) => plants.filter(p => p.crop === crop).length;
+    const petnip = count(residential, 'petnip'), nettle = count(residential, 'nettle');
+    assert.eq(residential.length, ordinary.length, 'replacement keeps the same occupied seats');
+    assert.eq(nettle, count(ordinary, 'nettle'), 'rare nettles are unchanged');
+    assert.gt(petnip, nettle, 'PetNip remains uncommon, more available than the rare herb');
+    assert.lt(petnip, count(ordinary, 'petnip') / 2, 'residential PetNip is substantially less frequent');
+    assert.gt(count(residential, 'shrub'), petnip, 'hedges lead the residential greenery');
+    assert.truthy(residential.filter(p => p.crop === 'shrub').every(p => p._streetArt === 'clipped'));
+    assert.eq(JSON.stringify(residential), JSON.stringify(herbs('minor', false, false, WorldGen.T.RESIDENTIAL)));
   });
 })();

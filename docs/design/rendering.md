@@ -442,9 +442,12 @@ the real source so a missing texture cannot become a permanent cached palette.
   Add sprite appearances to `RENDER_SPEC`; ground surfaces stay underneath.
 - Layer order is landcover, variant surfaces, building footprints, walls,
   ground state (such as oil spills), then objects and characters.
-  Building footprints and walls are background. House and temple foundations
-  share the floor canvas: draw the shaded base below the top surface, with a
-  thin rim rather than an upright perimeter wall. House sidewalls stay close to
+  Building footprints and walls are background. House foundations draw a shaded
+  base below the top surface with a thin rim. Temples use retained foundation
+  faces below the rune floor and low, capped stone perimeter walls above it;
+  `TempleArt.geometry` owns their dimensions. The prisms retain concave
+  footprints and screen-up height through compass turns, without moving runes.
+  House sidewalls stay close to
   the footprint's brick colour, with a modest shadow in both restoration states.
   Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
@@ -950,11 +953,13 @@ picking retains the same foliage frame and transparency. Square clipped bushes
 present a broad side toward the camera. Connected hedges retain their fifteen
 cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 
-Selected intact containers use stable object IDs. `POT_SMASHED_FRAMES` in
-`loot.js` pairs the two selected pot colours with existing shard frames:
-terracotta uses frame 0 and cream uses frame 3. Zone, street and biome cannot
-change the broken pot's colour. Selection does not change rewards, material
-identity, saved IDs or restocking behavior.
+`SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
+by map and popup art. Barrels use only the cylindrical frame 3; the square
+variants are excluded. Crates and intact pots retain their stable ID-selected
+variants. `POT_SMASHED_FRAMES` pairs terracotta pots with shard frame 0 and
+cream pots with frame 3; zone, street and biome cannot change the broken pot's
+colour. Selection does not change rewards, material identity, saved IDs or
+restocking behavior.
 
 ## Building sprite artwork
 
@@ -972,8 +977,6 @@ Procedural buildings remain the default on the map. `?buildingArt=legacy`
 selects the original sprites instead. Both modes use the original artwork
 for dialog icons and sprite fallbacks.
 
-Default oak barrel art uses the supply crate’s manufactured-wood palette directly,
-without a runtime tint. Only frame 0 of the barrel sheet is replaced; the other
-seven variants retain their original pixels. Default barrels scale to
-`(2/3) × 1.1 × 1.1`. Long grass uses `1.16 × 0.9`; trunk chests use
+The selected native 16px cylindrical barrel scales to `1.1 × 1.1`.
+Long grass uses `1.16 × 0.9`; trunk chests use
 `1.6 × 0.8`, and supply crates use `0.8 × 1.1`. Chests have trimmed bounds for every tier to keep their art centered.
