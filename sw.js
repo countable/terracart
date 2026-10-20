@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-071b57da';
+const SHELL_VERSION = 'shell-dd24eb3a';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -457,6 +457,24 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/wagon.png": "9ee6ea9d",
   "assets/Objects/Approved/waystone-24.png": "06b7d36a",
   "assets/Objects/Approved/waystone.png": "121d51f9",
+  "assets/Objects/AuthoredBuildings/FDR_Blacksmith.png": "ee44c2b7",
+  "assets/Objects/AuthoredBuildings/city-chimney.png": "73177246",
+  "assets/Objects/AuthoredBuildings/city-clock.png": "9fbd2668",
+  "assets/Objects/AuthoredBuildings/city-factory.png": "6adfd94a",
+  "assets/Objects/AuthoredBuildings/city-gearhouse.png": "67f8bb35",
+  "assets/Objects/AuthoredBuildings/city-storefront.png": "071a027e",
+  "assets/Objects/AuthoredBuildings/com_houses_05.png": "c2173f12",
+  "assets/Objects/AuthoredBuildings/flat-adobe.png": "217864ca",
+  "assets/Objects/AuthoredBuildings/flat-rooftop.png": "cb9fc7c2",
+  "assets/Objects/AuthoredBuildings/house_market.png": "97a3c417",
+  "assets/Objects/AuthoredBuildings/house_trader.png": "79246b87",
+  "assets/Objects/AuthoredBuildings/pp-brick-red.png": "0c3a913d",
+  "assets/Objects/AuthoredBuildings/pp-cabin-red.png": "c84cf85c",
+  "assets/Objects/AuthoredBuildings/pp-plaster-red.png": "d4a6dee3",
+  "assets/Objects/AuthoredBuildings/steam-blacksmith.png": "fd36e8b3",
+  "assets/Objects/AuthoredBuildings/steam-home.png": "ae0e2577",
+  "assets/Objects/AuthoredBuildings/steam-wizard.png": "e8f738ca",
+  "assets/Objects/AuthoredBuildings/wizard.png": "9cd01e9b",
   "assets/Objects/Beach/driftwood.png": "f46727ec",
   "assets/Objects/Beach/palms-24.png": "57a86ae9",
   "assets/Objects/Beach/palms.png": "6520c5b7",

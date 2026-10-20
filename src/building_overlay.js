@@ -1332,6 +1332,12 @@
     const role = Houses.displayRole(save, house);
     return role === 'shop' ? Shops.lineFor(save, house).theme : role;
   }
+  function authoredRecipe(scene,object,role){
+    if(typeof AuthoredBuildings==='undefined')return null;
+    const display=Houses.displayRole(scene.save,object);
+    return AuthoredBuildings.recipeFor(role,object.id,Shops.shopTier(scene.save,object,display)||1,
+      role==='wizard'&&Houses.wizardTowerIdentity(scene.save,object)==='second');
+  }
   function claimEpoch(scene) {
     const s = scene.save || {};
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
@@ -1362,7 +1368,7 @@
     const procedural = Render.proceduralBuildings?.() && !!scene.buildingWallContainer && typeof scene.add?.graphics === 'function';
     scene._proceduralBuildings = new Map();
     const perspective = typeof WallPerspective !== 'undefined' && (WallPerspective.active(scene) || procedural) && !!scene.buildingWallContainer;
-    if (perspective) WallPerspective.begin(scene, 'polygon');
+    if (perspective) WallPerspective.begin(scene, 'polygon').alwaysActive = true;
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
     const lowpoly = typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.active(scene);
     if (lowpoly) BuildingLowPoly.begin(scene);
@@ -1552,6 +1558,7 @@
           const recipe = BuildingLowPoly.recipeFor('home',
             { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
           recipe.interior = inside;
+          recipe.authored = authoredRecipe(scene,object,'home');
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
           // Home's door is the save's doorway wall (the shape's door point,
           // chosen toward the nearest street at placement — scene_venues.js
@@ -1593,17 +1600,11 @@
       }
       // Wizard retains its shrine sprite above a plain footprint.
       const role = d.object && Houses.displayRole(scene.save, d.object);
-      if(role === 'wizard'){
+      if(role === 'wizard' && !lowpoly){
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
-      // FORT (tier 11, Houses.displayRole 'fort'): never a generated body. It
-      // takes the generic path below — the plank floor, then the tier-11
-      // pickets perspectiveEdges emits (a palisade rim following the footprint,
-      // compass-aware like every other wall) — and keeps its sprite: the
-      // gambling hall (house_fort / house_fort_unclaimed) seats through the
-      // RENDER_SPEC house row on the footprint's centre of mass, because this
-      // draw never enters scene._proceduralBuildings. (A low-poly fort shell
-      // was tried and reverted: the rim-plus-hall reads as the fort.)
+      // Forts keep their footprint palisade and plank floor; the reviewed
+      // gearhouse replaces only the central hall sprite.
       // Turrets retain the intact tower sprite inside standard castle walls.
       // Only this draw uses the castle tier; world ownership and gameplay stay house-based.
       if (role === 'turret') {
@@ -1632,6 +1633,7 @@
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
                 trim:role==='turret'?paint(palette.wall):undefined},Render.buildingStoreysFor(object, scene),isMine);
+          recipe.authored = styleId==='ruin'?null:authoredRecipe(scene,object,role);
           // Restored recipes own their brass/copper palette; apply the same
           // background treatment after selection, including the recipe trim.
           if(recipe.facadeTrim==='brass')for(const key of ['body','roof','trim'])recipe[key]=paint(recipe[key]);
@@ -1648,6 +1650,12 @@
           if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
           continue;
         }
+      }
+      if(lowpoly&&role==='fort'&&typeof AuthoredBuildings!=='undefined'){
+        const recipe=BuildingLowPoly.recipeFor('fort');
+        recipe.authored=authoredRecipe(scene,d.object,'fort');
+        const model=BuildingLowPoly.add(scene,d.pts,recipe,null,d.object.id);
+        if(model?.faces?.length)scene._proceduralBuildings.set(d.object.id,{height:model.height*BuildingLowPoly.LOOK.heightScale});
       }
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —

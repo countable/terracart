@@ -914,6 +914,22 @@ browser/backend settings against separate baseline and candidate servers.
 Headless CPU timings do not establish handset GPU time or a 120fps guarantee;
 validate on the target device before making that claim.
 
+## Reviewed building exteriors
+
+`AuthoredBuildings` maps saved gameplay roles to reviewed closed meshes. Regular
+residences use yellow roofs; shop themes use signature roof colors on market or
+city storefront models, and forts use the copper-roof city gearhouse inside the
+existing palisade. Home, shop inventory, ownership, tiers and wizard story gates
+continue using their existing saved identities. The full mapping is maintained
+in [low-poly building styles](../art/lowpoly-building-styles.md).
+
+Source images load through `ASSETS`. `AuthoredBuildings.prepare` bakes shared
+materials and roof palettes at scene startup; cell rebuilds clone cached faces
+and fit a closed shell uniformly inside the footprint. No pixel reads or canvas
+texture creation occur during placement or compass updates. Home switches to
+its existing interior walls and floor while occupied. Castle/turret/wreck models
+and the Canvas fallback remain available through their existing render paths.
+
 ## Footprint building styles
 
 The default house and fort architecture comes from `building_styles.js`, using

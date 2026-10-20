@@ -266,6 +266,7 @@ class SceneCreate {
     // time against the fix and could silently skip the capture.)
 
     // Bake terrain patterns and the two castle restoration-state atlases once.
+    AuthoredBuildings.prepare(this);
     makeBiomeTextures(this, CELL_PX);
     makeBerryBushTexture(this);
     makeTowerTexture(this);
