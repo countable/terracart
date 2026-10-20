@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-987e5c86';
+const SHELL_VERSION = 'shell-0cf00e12';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -518,6 +518,7 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/source/materials-gen-b.png": "5d01594c",
   "assets/Objects/BuildingMaterials/source/painterly-tileset-v1.png": "528ca2a1",
   "assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png": "d3d5415a",
+  "assets/Objects/BuildingMaterials/wreck-floor-cel.png": "8a303ad2",
   "assets/Objects/Castle/tower_master.png": "195b2576",
   "assets/Objects/Castle/tower_ruin_master.png": "42d55bee",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",
@@ -987,13 +988,15 @@ const ASSET_HASHES = {
   "assets/art/shrine_waystone.webp": "a3469fa3",
   "assets/art/shrine_wishing_well.webp": "a880c80f",
   "assets/art/story_ayo_arrival.webp": "879abc27",
-  "assets/art/story_compass.webp": "7d32b225",
-  "assets/art/story_compass_frame2.webp": "479a4c0c",
+  "assets/art/story_compass.webp": "14eb2290",
+  "assets/art/story_compass_frame2.webp": "4c9e1536",
   "assets/art/story_dragon_hunters_arrive.webp": "06db0f57",
-  "assets/art/story_nightmare.webp": "f9bbf8cb",
-  "assets/art/story_nightmare_frame2.webp": "2af0b101",
-  "assets/art/story_wake.webp": "ddbe1e04",
-  "assets/art/story_wake_frame2.webp": "b472b7fe",
+  "assets/art/story_nightmare.webp": "fedc35af",
+  "assets/art/story_nightmare_close.webp": "6d71eeda",
+  "assets/art/story_nightmare_close_frame2.webp": "033cafdd",
+  "assets/art/story_nightmare_frame2.webp": "d19bc378",
+  "assets/art/story_wake.webp": "9d01bdd0",
+  "assets/art/story_wake_frame2.webp": "b55f492f",
   "assets/art/story_white_dragon_tower.webp": "c9ebf822",
   "assets/art/story_wrecks.webp": "ddc5d278",
   "assets/art/story_wrecks_frame2.webp": "ddc5d278",

@@ -26,7 +26,7 @@
       add: { graphics() { return { visible: true, depth: 0, type: 'Graphics', alpha: 1, x: 0, y: 0,
         setPosition(x, y) { this.x = x; this.y = y; return this; }, setDepth(d) { this.depth = d; return this; } }; } },
       textures: { exists: (k) => textures.has(k), get: (k) => textures.get(k),
-        createCanvas(key, w, h) { const t = { key, w, h, _ctx: ctx2d(), getContext() { return this._ctx; },
+        createCanvas(key, w, h) { const t = { key, w, h, getSourceImage() { return { width: w, height: h }; }, _ctx: ctx2d(), getContext() { return this._ctx; },
           refresh() {}, setFilter() {}, source: [{ glTexture: {} }] }; textures.set(key, t); return t; } },
     };
   }
@@ -94,7 +94,7 @@
     assert.truthy(mesh.faces.length,'rubble material remains');
     // Check the broken walls themselves; surviving roof patches can stand higher.
     const top=Math.max(...mesh.faces.filter(f=>f.wallTop).flatMap(f=>f.points.map(p=>p.z)));
-    assert.truthy(top>1&&top<14,'wall stubs and roof patches stay under a storey: '+top);
+    assert.truthy(Math.abs(top-(15.6+2.5))<1e-6,'tallest wall retains the original one-storey eave: '+top);
     assert.truthy(new Set(mesh.faces.filter(f=>f.wallTop).map(f=>f.points[0].z.toFixed(1))).size>1,'stub heights vary');
     const [piece]=BuildingLowPoly.worldPieces(scene);
     assert.eq(piece.layer,WorldLayers.GROUND_DECAL,'player always draws above the wreck');

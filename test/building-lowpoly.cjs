@@ -61,15 +61,16 @@ console.table(overhangRows);
 for(const role of Object.keys(api.ROLES)){
  const recipe=api.recipeFor(role),points=fixtures[0].points.map(([x,y])=>({x,y}));
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*15.6+2.5,5);
- // Thick broken walls, roof patches, rafters and rubble carry more triangles.
- assert(mesh.faces.length>0&&mesh.faces.length<(role==='wreck'?600:300),role+' bounded geometry');
+ // Keep structural geometry bounded separately from clipped floor shadows.
+ assert(mesh.faces.filter(f=>f.castShadow).length<1000,role+' bounded shadows');
+ assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?700:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);
   const width=m=>Math.max(...m.ring.map(p=>p.x))-Math.min(...m.ring.map(p=>p.x));
   assert(Math.abs(width(mesh)-width(large))<1e-8,role+' ignores footprint dimensions');
  }
- if(role==='wreck'){const roofs=mesh.faces.filter(f=>f.kind==='roof'&&f.layer===2);assert(roofs.length&&roofs.reduce((n,f)=>n+area(f.points),0)<area(points)*.7,'wreck roof is partly missing');}
+ if(role==='wreck'){const roofs=mesh.faces.filter(f=>f.kind==='roof'&&f.standingRoof);assert(roofs.length&&roofs.reduce((n,f)=>n+area(f.points),0)<area(points)*.7,'wreck roof is partly missing');}
 }
 console.log('All role variants: bounded geometry, footprint-independent towers, damaged cottage passed.');
 // Every slope is tiled from its own eave (v grows downhill, courses level),
@@ -105,18 +106,48 @@ console.log('Awning skirt orientation passed.');
 
 const wreckPoints=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
 const wreck=api.specialGeometry(wreckPoints,api.recipeFor('wreck'));
-assert(wreck.roofPatches.length>=2,'a few roof patches survive');
-const patchArea=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2).reduce((n,f)=>n+area(f.points),0);
+assert.equal(wreck.roofPatches.length,1,'the surviving roof is grouped at one supported end');
+const patchArea=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof).reduce((n,f)=>n+area(f.points),0);
 assert(patchArea>0&&patchArea<area(wreckPoints)*.45,'most of the roof is gone');
-for(const f of wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.layer===2))for(const p of f.points)
+for(const f of wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof))for(const p of f.points)
  assert(wreck.roofPatches.some(b=>p.x>=b.x0-1e-6&&p.x<=b.x1+1e-6&&p.y>=b.y0-1e-6&&p.y<=b.y1+1e-6),'surviving tiles lie inside a patch');
 assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
+const crowns=wreck.faces.filter(f=>f.wallTop);
+assert(crowns.every(f=>f.rawUV),'top faces carry the side-wall brick pattern');
+assert(crowns.filter(f=>f.localBreak).length>0&&crowns.filter(f=>f.localBreak).length<=12&&crowns.some(f=>!f.localBreak),'small height steps are confined to two short stretches');
+for(const f of crowns)for(const p of f.points){
+ const aligned=wreck.faces.filter(f=>f.wreckMasonry||f.interior).flatMap(f=>f.points).some(q=>Math.abs(p.x-q.x)<1e-6&&Math.abs(p.y-q.y)<1e-6&&Math.abs(p.z-q.z)<1e-6&&Math.abs(p.u-q.u)<1e-6);
+ assert(aligned,'brick joints align across wall sides and tops');
+}
 // One section of the longest side has fallen entirely: no wall face touches its span.
-assert(wreck.gap&&wreck.gap.o0.y===0&&wreck.gap.o1.y===0,'the gap opens on the longest edge');
-const inGap=p=>p.x>=wreck.gap.o0.x-1e-6&&p.x<=wreck.gap.o1.x+1e-6&&p.y<4.5;
+assert(wreck.gap,'the collapsed end has a breach');
+const ga=wreck.gap.o0,gb=wreck.gap.o1,gdx=gb.x-ga.x,gdy=gb.y-ga.y,glen=Math.hypot(gdx,gdy);
+const inGap=p=>{const t=((p.x-ga.x)*gdx+(p.y-ga.y)*gdy)/(glen*glen);return t>=-1e-6&&t<=1+1e-6&&Math.abs(gdx*(p.y-ga.y)-gdy*(p.x-ga.x))/glen<4.5;};
 assert(!wreck.faces.some(f=>f.kind==='wall'&&f.points.every(inGap)),'the fallen section has no wall');
 assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>p.y<1e-6&&!inGap(p))),'the rest of that side still stands');
-assert(wreck.faces.some(f=>f.interior),'inner wall faces are seen from inside');
+assert(wreck.faces.some(f=>f.interior&&f.rawUV&&new Set(f.points.map(p=>p.u)).size>1),'inner walls have masonry UVs');
+assert(wreck.faces.some(f=>f.rafter),'the standing end has spanning rafters');
+const roofFaces=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof);
+assert(roofFaces.every(f=>f.points.every(p=>p.y>=34-1e-6)),'one sloping side is completely missing');
+assert(Math.max(...roofFaces.flatMap(f=>f.points).map(p=>p.x))>75,'the opposite roof side extends past the old remnant');
+assert(roofFaces.every(f=>!f.points.some(p=>Math.abs(p.x)<1e-6&&Math.abs(p.y)<1e-6)),'the roof has lost its outer corner');
+const roofReach=(lo,hi)=>Math.max(...roofFaces.flatMap(f=>f.points).filter(p=>p.y>=lo&&p.y<=hi).map(p=>p.x));
+assert(roofReach(60,90)>roofReach(25,55)+5,'the surviving side slope reaches beyond the cap');
+for(const f of wreck.faces.filter(f=>f.rafter))for(const p of f.points)
+ assert(Math.abs(p.z-wreck.roofZ(p)+.3)<.6,'rafters follow the roof underside, not the lower wall tops');
+assert(wreck.faces.some(f=>f.rafter&&f.points.some(p=>p.y<0||p.y>100)),'short rafter tails project beyond the eaves');
+const topHeights=wreck.faces.filter(f=>f.wallTop&&f.points.some(p=>p.x<40)).map(f=>f.points[0].z);
+assert(new Set(topHeights).size>1,'wall crowns near the surviving roof also lose chunks');
+assert(wreck.faces.filter(f=>f.rubbleTop&&f.points.some(p=>p.x<0||p.x>120||p.y<0||p.y>100)).length>=6,'several fallen chunks spill outside the breach');
+
+// Roof supports must keep their relative position on angled OSM footprints,
+// even when the polygon is expressed in a different local coordinate frame.
+const rotated=wreckPoints.map(p=>({x:p.x*.8-p.y*.6,y:p.x*.6+p.y*.8}));
+const shifted=rotated.map(p=>({x:p.x+500,y:p.y+300}));
+const beams=pts=>api.specialGeometry(pts,api.recipeFor('wreck')).faces.filter(f=>f.rafter).flatMap(f=>f.points);
+const rb=beams(rotated),sb=beams(shifted);
+assert(rb.length>0&&rb.length===sb.length,'angled wreck retains its rafters after translation');
+for(let i=0;i<rb.length;i++)assert(Math.abs(sb[i].x-rb[i].x-500)<1e-6&&Math.abs(sb[i].y-rb[i].y-300)<1e-6&&Math.abs(sb[i].z-rb[i].z)<1e-6,'angled rafters stay attached to the same roof section');
 const market=api.recipeFor('trader'),terrace=api.styleGeometry(wreckPoints,market.style,market);
 assert(market.terraced&&market.stories===2,'market has a second storey');
 const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>1.5*15.6)).flatMap(f=>f.points);
@@ -191,3 +222,22 @@ assert(deckWallPairs>0,'market draw-order regression exercises terrace/wall junc
   assert(Math.hypot(a.x-b.x,a.y-b.y)>Math.hypot(c.x-d.x,c.y-d.y),'shaft widens downward');
  }
 }
+
+for(const source of ['roof','wall','strut'])assert(wreck.faces.some(f=>f.castShadow&&f.shadowSource===source),source+' casts a floor shadow');
+assert(wreck.faces.filter(f=>f.standingRoof).every(f=>f.layer>Math.max(...wreck.faces.filter(f=>f.wallTop).map(f=>f.layer))),'solid roof covers wall tops');
+
+assert(wreck.faces.some(f=>f.fallenRoof),'collapsed roof panels rest against inner walls');
+for(const f of wreck.faces.filter(f=>f.fallenRoof))assert(Math.min(...f.points.map(p=>p.z))<=1&&Math.max(...f.points.map(p=>p.z))>=3,'fallen panel slopes from wall to rubble');
+
+// Broken ends face away from their taller adjoining wall, into the breach.
+let exposedEnds=0;
+for(const end of wreck.faces.filter(f=>f.wallEnd)){
+ const [a,b,c]=end.points,nx=(b.y-a.y)*(c.z-a.z)-(b.z-a.z)*(c.y-a.y),ny=(b.z-a.z)*(c.x-a.x)-(b.x-a.x)*(c.z-a.z);
+ const top=Math.max(...end.points.map(p=>p.z));
+ const adjoining=wreck.faces.filter(f=>f.wreckMasonry&&f.points.some(p=>Math.abs(p.z-top)<1e-6&&end.points.some(q=>Math.hypot(p.x-q.x,p.y-q.y,p.z-q.z)<1e-6)));
+ if(!adjoining.length)continue;
+ exposedEnds++;
+ for(const f of adjoining){const x=f.points.reduce((s,p)=>s+p.x,0)/3,y=f.points.reduce((s,p)=>s+p.y,0)/3;
+  assert(nx*(x-a.x)+ny*(y-a.y)<1e-6,'broken wall end faces the exposed side');}
+}
+assert(exposedEnds>0,'checks exposed wall-end winding');

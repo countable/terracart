@@ -418,6 +418,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
+- The opening nightmare pushes toward Tiamat’s red eye in 3.6 seconds,
+  crossfading from the wide animation pair to a detailed close pair. Both
+  pairs have a black smoke fade; a stationary lower gradient keeps it dark
+  throughout the zoom. The wake pair pulls back from Hood’s faint eye glints
+  over 12 seconds. Reduced motion shows the static first frames.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

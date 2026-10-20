@@ -1,0 +1,672 @@
+{
+  "schemaVersion": 1,
+  "scope": "Native16 decorations and functional objects; no chest variants. Source-sheet eligibility is not approval to install these objects or mechanics.",
+  "floors": [
+    {
+      "level": "l1",
+      "context": "Sewer walls are live. The service-room and drain variants below are proposed adaptations; L1 does not currently generate named cave areas.",
+      "items": [
+        {
+          "name": "Open pipe mouth",
+          "ref": {
+            "pack": "16x16/Sewers Tileset",
+            "file": "Tilesets/sewers_tiles.png",
+            "px": 16,
+            "x": 13,
+            "y": 5,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "Readable source marker for a confusion-gas vent; proposed reskin of existing vent mechanic.",
+          "fit": "L1 already permits confusion vents; does not imply a new water hazard.",
+          "nexus_variants": [
+            "quarry service drain",
+            "grove overflow drain"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: Sewers Tileset native16, single original visually reviewed sheet; docs/art/floor-environment-plan.json approves its wall material. Whole crop visually checked."
+        },
+        {
+          "name": "Square drain grate",
+          "ref": {
+            "pack": "16x16/Sewers Tileset",
+            "file": "Tilesets/sewers_tiles.png",
+            "px": 16,
+            "x": 14,
+            "y": 11,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Clean or unblock a maintenance drain, or mark an existing vent seat.",
+          "fit": "One complete grate reads clearly on the sewer dry bank; keep route lanes walkable.",
+          "nexus_variants": [
+            "residential runoff",
+            "commercial service sewer"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: Sewers Tileset native16, single original visually reviewed sheet; docs/art/floor-environment-plan.json approves its wall material. Whole crop visually checked."
+        },
+        {
+          "name": "Small culvert opening",
+          "ref": {
+            "pack": "16x16/Sewers Tileset",
+            "file": "Tilesets/sewers_tiles.png",
+            "px": 16,
+            "x": 6,
+            "y": 13,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "Wall-foot clue pointing toward a nearby maintenance passage or small-enemy encounter.",
+          "fit": "Complete mouth and sill read as a culvert opening; seat as a wall-foot decal, not a freestanding masonry surround.",
+          "nexus_variants": [
+            "park drain outlet",
+            "residential culvert"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: Sewers Tileset native16, single original visually reviewed sheet; docs/art/floor-environment-plan.json approves its wall material. Whole crop visually checked."
+        },
+        {
+          "name": "Iron service grille",
+          "ref": {
+            "pack": "16x16/Sewers Tileset",
+            "file": "Tilesets/sewers_tiles.png",
+            "px": 16,
+            "x": 10,
+            "y": 14,
+            "w": 1,
+            "h": 2
+          },
+          "column": "mechanics",
+          "purpose": "Optional side-alcove gate opened by a shared switch interaction.",
+          "fit": "Tall complete barred silhouette suits sewer utility infrastructure; do not gate existing main routes.",
+          "nexus_variants": [
+            "quarry pump room",
+            "commercial maintenance bay"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: Sewers Tileset native16, single original visually reviewed sheet; docs/art/floor-environment-plan.json approves its wall material. Whole crop visually checked."
+        },
+        {
+          "name": "Sewer inspection sign",
+          "ref": {
+            "pack": "16x16/Sewers Tileset",
+            "file": "Tilesets/sewers_tiles.png",
+            "px": 16,
+            "x": 7,
+            "y": 10,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "Inspectable route marker with branch name or vent-maintenance hint.",
+          "fit": "Small readable utility sign supports navigation through building-footprint channels.",
+          "nexus_variants": [
+            "residential branch label",
+            "commercial service label"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: Sewers Tileset native16, single original visually reviewed sheet; docs/art/floor-environment-plan.json approves its wall material. Whole crop visually checked."
+        }
+      ]
+    },
+    {
+      "level": "l2",
+      "context": "Natural caves retain quarry-linked mine tunnels, springs, mushroom areas, rare gemstone caverns and mazes. These are object and interaction proposals for those existing settings.",
+      "items": [
+        {
+          "name": "Cave survey shovel",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+            "px": 16,
+            "x": 22,
+            "y": 7,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "Search a marked soft-earth patch for a finite find or read an abandoned survey clue.",
+          "fit": "Quarry-linked mine tunnels already exist; this adds a purposeful worksite cue without altering natural walls.",
+          "nexus_variants": [
+            "mine_tunnels",
+            "dungeon_maze"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: FDR Caves native16, byte-identical original redirected to canonical Fantasy Dreamland World sheet; whole crop visually checked. Candidate approval remains separate from source eligibility."
+        },
+        {
+          "name": "Abandoned mining pick",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+            "px": 16,
+            "x": 27,
+            "y": 7,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "Inspectable mining station or recoverable repair-tool find.",
+          "fit": "Strong quarry-provenance fit; equipment prop is not a mineral-rock variant.",
+          "nexus_variants": [
+            "mine_tunnels",
+            "gemstone_cavern"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: FDR Caves native16, byte-identical original redirected to canonical Fantasy Dreamland World sheet; whole crop visually checked. Candidate approval remains separate from source eligibility."
+        },
+        {
+          "name": "Cave route sign",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+            "px": 16,
+            "x": 16,
+            "y": 1,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "Point to a spring, return ladder or surveyed tunnel junction.",
+          "fit": "Supports the original winding natural area layout while leaving geometry intact.",
+          "nexus_variants": [
+            "spring_cave",
+            "mine_tunnels",
+            "dungeon_maze"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: FDR Caves native16, byte-identical original redirected to canonical Fantasy Dreamland World sheet; whole crop visually checked. Candidate approval remains separate from source eligibility."
+        },
+        {
+          "name": "Amber survey lantern",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+            "px": 16,
+            "x": 24,
+            "y": 6,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Reusable hanging light at mine approaches and spring resting points.",
+          "fit": "Distinct compact lantern silhouette; use shared light behavior rather than duplicate floor torches.",
+          "nexus_variants": [
+            "mine_tunnels",
+            "spring_cave"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: FDR Caves native16, byte-identical original redirected to canonical Fantasy Dreamland World sheet; whole crop visually checked. Candidate approval remains separate from source eligibility."
+        },
+        {
+          "name": "Golden rune survey marker",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland Reborn/Tilesets/FDR_Caves.png",
+            "px": 16,
+            "x": 24,
+            "y": 26,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Activate matching markers to reveal a surveyed route or identify a gemstone pocket.",
+          "fit": "Complete glyph-bearing marker offers a non-container interaction in rare gemstone and maze areas.",
+          "nexus_variants": [
+            "gemstone_cavern",
+            "dungeon_maze"
+          ],
+          "implementation": "proposed",
+          "source_evidence": "extra_assets/index.md: FDR Caves native16, byte-identical original redirected to canonical Fantasy Dreamland World sheet; whole crop visually checked. Candidate approval remains separate from source eligibility."
+        }
+      ]
+    },
+    {
+      "level": "l3",
+      "context": "Goblin rooms, stores, pressure traps and vents are live. Barracks, prison and workshop variations below describe proposed room dressing or interactions.",
+      "items": [
+        {
+          "name": "Trapper pressure stud",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 25,
+            "y": 28,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Readable trigger for a warren trap; pair with a vent or spike seat.",
+          "fit": "L3 already enables pressureTraps and poison/fire/paralysis vents; the red stud is legible against the brown city masonry.",
+          "nexus_variants": "Warren ambush rooms; dungeon-maze trap lanes.",
+          "implementation": "existing: pressure-trap and vent systems; proposed: this art assignment and visible trigger treatment",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Retractable spike cluster",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 24,
+            "y": 31,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Expose the armed state of a floor trap with a small, recognizable spike cluster.",
+          "fit": "Trapper goblins and protected door lanes make a visible armed/disarmed distinction useful.",
+          "nexus_variants": "Warren trap room; maze side passage.",
+          "implementation": "existing: L3 pressure traps; proposed: dedicated spike visual/state pairing",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Trapper vent grille",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 23,
+            "y": 32,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Ground outlet marking the origin of existing poison, fire or paralysis vents.",
+          "fit": "Machined grille makes a warren hazard appear built by its inhabitants and gives the player a visual warning.",
+          "nexus_variants": "Poison store room; fire-workshop; paralysis ambush room.",
+          "implementation": "existing: L3 vent kinds; proposed: grille skin and local seating",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Goblin armory rack",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 11,
+            "y": 33,
+            "w": 1,
+            "h": 2
+          },
+          "column": "unique",
+          "purpose": "Mark an armory room; proposed disarm interaction prevents that room supplying a reinforcement.",
+          "fit": "Complete tall rack, including its sword hilt, supports organized goblin rooms and armed garrisons.",
+          "nexus_variants": "Spear-goblin barracks; trapper workshop; defended armory nexus.",
+          "implementation": "proposed: armory interaction; existing goblin garrisons do not currently consume rack supplies",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Prison shackle",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 19,
+            "y": 25,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "Wall dressing that identifies a holding alcove; proposed release target for a captive encounter.",
+          "fit": "A complete hanging chain in one cell communicates goblin occupation without another reward container.",
+          "nexus_variants": "Prison-room variant; captured-trader alcove; abandoned warren.",
+          "implementation": "proposed: decoration placement and any captive-release encounter",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        }
+      ]
+    },
+    {
+      "level": "l4",
+      "context": "Buffered road tunnels connect deep groves and dwarf-city clearings. Forge, archive and quarry services below are proposed additions to those existing settings.",
+      "items": [
+        {
+          "name": "Dwarven repair anvil",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Blacksmith.png",
+            "px": 16,
+            "x": 5,
+            "y": 15,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "A recognizable workstation for a proposed dwarf tool-repair or equipment-service encounter.",
+          "fit": "Blue iron matches the approved L4 masonry and makes the commercial-clearing dwarf residents read as craftspeople.",
+          "nexus_variants": "Dwarven city smith; quarry outpost; tunnel-maintenance nexus.",
+          "implementation": "proposed: repair service and workstation placement; dwarf market residents already exist",
+          "source_evidence": "extra_assets/index.md lists FD_Blacksmith.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Dwarven compact forge",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Blacksmith.png",
+            "px": 16,
+            "x": 7,
+            "y": 12,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "A one-cell working furnace for a proposed ore-processing station; extinguished counterpart exists at (7,11).",
+          "fit": "Makes deep stone mineral work legible, with separate active/inactive states already drawn.",
+          "nexus_variants": "Dwarven city forge; quarry refining station; abandoned foundry.",
+          "implementation": "proposed: ore processing and forge activation; do not claim a shipped smelting mechanic",
+          "source_evidence": "extra_assets/index.md lists FD_Blacksmith.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Smith quench bath",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Blacksmith.png",
+            "px": 16,
+            "x": 5,
+            "y": 10,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Cooling stage beside a forge, proposed as the second step in an ore/tool-working encounter.",
+          "fit": "The visibly water-filled, metal-banded bath has a specific workshop role, rather than ordinary storage.",
+          "nexus_variants": "Dwarf smith nexus; quarry service bay; cooling-water shortage variant.",
+          "implementation": "proposed: quenching step and workstation placement",
+          "source_evidence": "extra_assets/index.md lists FD_Blacksmith.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Dwarven survey ledger shelf",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 6,
+            "y": 33,
+            "w": 1,
+            "h": 2
+          },
+          "column": "unique",
+          "purpose": "Tall bookcase for a proposed tunnel map or survey-record interaction.",
+          "fit": "Dwarven settlements occupy clearings linked by live buffered road/path tunnels; survey records give those routes a local purpose.",
+          "nexus_variants": "City guild archive; quarry survey station; abandoned tunnel office.",
+          "implementation": "existing: clearing settlements and buffered tunnels; proposed: map/ledger interaction",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        },
+        {
+          "name": "Deep-grove guide lantern",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland",
+            "file": "Tilesets/FD_Dungeon.png",
+            "px": 16,
+            "x": 31,
+            "y": 28,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "A small warm lantern marking the approach to a deep-grove shrine or dwarven public lane.",
+          "fit": "A practical route marker in dark stone, with enough warm light color to distinguish inhabited clearings from surrounding rock.",
+          "nexus_variants": "Deep-grove shrine approach; dwarf-city lane; tunnel junction.",
+          "implementation": "proposed: decorative seating; actual illumination must be registered through Lighting.KINDS rather than assumed from the sprite",
+          "source_evidence": "extra_assets/index.md lists FD_Dungeon.png as an original main World source in the consolidated review set (FD_Blacksmith line 346; FD_Dungeon line 352). Inspected original sheet and individual 16x16 crop visually. Unverified in that index concerns duplicate-sheet containment, not source eligibility."
+        }
+      ]
+    },
+    {
+      "level": "l5",
+      "context": "The fungal floor is an open cavern with no rockwalls. Mushroom harvesting and vents exist; fungal gardens and research sites below are proposed variations.",
+      "items": [
+        {
+          "name": "Violet glowcap",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Cavern_Full.png",
+            "px": 16,
+            "x": 5,
+            "y": 30,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "Harvestable mushroom and faint route light.",
+          "fit": "Purple cap belongs in an open fungal cavern; small isolated lights help navigation without adding walls.",
+          "nexus_variants": [
+            "fungal beds",
+            "deep grove edges",
+            "mushroom nexus"
+          ],
+          "implementation": "existing mechanic; proposed art assignment",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. src/worldgen.js mushroom cave pass; src/lighting.js Lighting.KINDS.mushroom."
+        },
+        {
+          "name": "Green cap cluster",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Cavern_Full.png",
+            "px": 16,
+            "x": 7,
+            "y": 29,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "Distinct harvest patch; optionally define an antidote ingredient beside spore hazards.",
+          "fit": "Whole green mushroom cluster reads as a different fungal ecology, not generic furniture.",
+          "nexus_variants": [
+            "poison-vent gardens",
+            "mushroom nexus"
+          ],
+          "implementation": "proposed ingredient identity; existing mushroom harvest can be reused",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. src/worldgen.js depth-5 poison vents and mushroom cave pass."
+        },
+        {
+          "name": "Organic vent column",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Beast.png",
+            "px": 16,
+            "x": 9,
+            "y": 6,
+            "w": 1,
+            "h": 2
+          },
+          "column": "mechanics",
+          "purpose": "Organic housing for a periodic poison or paralysis vent.",
+          "fit": "Hollow red-purple organic column supplies a fungal vent skin; the tall form stays legible among low caps.",
+          "nexus_variants": [
+            "spore beds",
+            "fungal clearings"
+          ],
+          "implementation": "existing vent behavior; proposed fungal skin",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. src/worldgen.js FLOOR_PROFILES depth 5 vents; floor-geometry-proposal.md P10."
+        },
+        {
+          "name": "Open spore cup",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Beast.png",
+            "px": 16,
+            "x": 9,
+            "y": 10,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "Low fungal cup that can mark a dormant vent or a one-use spore sample.",
+          "fit": "An open organic vessel gives the cavern an interactable fungal object without crates or masonry.",
+          "nexus_variants": [
+            "dormant spore beds",
+            "fungal research nexus"
+          ],
+          "implementation": "proposed one-use sample; dormant vent presentation can reuse hazard system",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. RA_Beast full standalone organic cup; proposed use, not a shipped object."
+        }
+      ]
+    },
+    {
+      "level": "l6",
+      "context": "Basalt walls and lava building footprints are live. Infernal shrines and demon-camp dressing are proposals; heat drain and cooling shelters are not implemented.",
+      "items": [
+        {
+          "name": "Stone ember brazier",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Cavern_Full.png",
+            "px": 16,
+            "x": 1,
+            "y": 33,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Permanent fire source or a compact ember-altar interaction.",
+          "fit": "Fire rooted in a stone bowl suits demonic ritual sites and survives the proposed no-campfire rule.",
+          "nexus_variants": [
+            "infernal shrine",
+            "demon camp"
+          ],
+          "implementation": "existing lighting/shrine mechanics; proposed floor placement and art",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. src/shrines.js ember_altar/fire_path_shrine; source first flame frame."
+        },
+        {
+          "name": "Horned infernal idol",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland/Tilesets/FD_Dreams.png",
+            "px": 16,
+            "w": 1,
+            "h": 2,
+            "x": 16,
+            "y": 7
+          },
+          "column": "unique",
+          "purpose": "Compact demon shrine that could reuse the existing Ember boon interaction.",
+          "fit": "Complete horned red-violet stone idol gives a demonic ritual site a recognizable destination against basalt.",
+          "nexus_variants": [
+            "infernal shrine",
+            "demon stronghold"
+          ],
+          "implementation": "proposed floor placement and art; reuse existing shrine boon",
+          "source_evidence": "Native16 original FD_Dreams eligible in extra_assets/index.md; whole sheet and exact 16x32 crop inspected. src/shrines.js ember_altar / fire_path_shrine already grant Ember."
+        },
+        {
+          "name": "Ember ward plaque",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World",
+            "file": "Fantasy Dreamland/Tilesets/FD_Dreams.png",
+            "px": 16,
+            "w": 1,
+            "h": 2,
+            "x": 20,
+            "y": 5
+          },
+          "column": "mechanics",
+          "purpose": "Proposed heat-shelter activation: read or activate the carved ward to create a local respite from heat.",
+          "fit": "Complete red-purple carved wall plaque gives heat shelters a deliberately built ritual marker; mount on a visible wall face.",
+          "nexus_variants": [
+            "infernal sanctuary",
+            "lava crossing rest point"
+          ],
+          "implementation": "proposed ward interaction and heat shelter; floor-wide heat drain is not implemented",
+          "source_evidence": "Native16 original FD_Dreams eligible in extra_assets/index.md; exact 16x32 wall plaque inspected, not an isolated glyph. floor-geometry-proposal.md P17 motivates heat respite."
+        }
+      ]
+    },
+    {
+      "level": "l7",
+      "context": "Violet dragon masonry is live on L7–8; finite roost encounters begin at L8. Shrine, ward and hunting-trail proposals below identify their intended depth.",
+      "items": [
+        {
+          "name": "Scorched skull",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Hell.png",
+            "px": 16,
+            "x": 13,
+            "y": 1,
+            "w": 1,
+            "h": 1
+          },
+          "column": "dressings",
+          "purpose": "Warn of dragon hunting territory; optionally inspect for encounter clues.",
+          "fit": "Complete skull directly supports the planned scorched-bones hunting-ground dressing.",
+          "nexus_variants": [
+            "L7 hunting grounds",
+            "L8 roost perimeter"
+          ],
+          "implementation": "proposed dressing/inspection; dragons already exist",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. floor-geometry-proposal.md P19; docs/design/floors.md L7–8."
+        },
+        {
+          "name": "Scattered prey bones",
+          "ref": {
+            "pack": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets",
+            "file": "RA_Hell.png",
+            "px": 16,
+            "x": 14,
+            "y": 1,
+            "w": 1,
+            "h": 1
+          },
+          "column": "unique",
+          "purpose": "Mark patrol approaches or form a readable trail toward a finite roost.",
+          "fit": "Bone pair conveys predation and lets reused art distinguish the dangerous side of a nexus.",
+          "nexus_variants": [
+            "L7 patrol approaches",
+            "L8 roost trail"
+          ],
+          "implementation": "proposed trail dressing; finite roost encounters already implemented",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. src/enemy_habitats.js finite red-dragon roost placement starts at depth 8."
+        },
+        {
+          "name": "Violet blue-flame brazier",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets",
+            "file": "FD_Dreams.png",
+            "px": 16,
+            "x": 22,
+            "y": 17,
+            "w": 1,
+            "h": 1
+          },
+          "column": "mechanics",
+          "purpose": "Persistent route light or activation marker for a dragon-ward site.",
+          "fit": "Violet stone housing exactly matches the Dreams masonry used on both dragon floors.",
+          "nexus_variants": [
+            "dragon shrine",
+            "L8 roost threshold"
+          ],
+          "implementation": "existing lighting concept; proposed object/ward placement",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. FD_Dreams complete flame/brazier animation frame; floors.md dragon masonry."
+        },
+        {
+          "name": "Violet inscription plaque",
+          "ref": {
+            "pack": "16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets",
+            "file": "FD_Dreams.png",
+            "px": 16,
+            "x": 28,
+            "y": 5,
+            "w": 1,
+            "h": 2
+          },
+          "column": "unique",
+          "purpose": "Wall-mounted ward inscription for a proposed rune-order or dragon-lore interaction.",
+          "fit": "Tall violet carved plaque matches the floor material; seat on a visible wall face as a readable landmark.",
+          "nexus_variants": [
+            "wizard-linked threshold",
+            "dragon sanctuary",
+            "L8 ward ring"
+          ],
+          "implementation": "proposed ward/lore interaction; not a shipped puzzle",
+          "source_evidence": "Eligible original native16 sheet in extra_assets/index.md; visually inspected full sheet and exact crop. Complete 16x32 wall-mounted plaque, not isolated glyph; floor-geometry-proposal.md L7–8."
+        }
+      ]
+    }
+  ]
+}
