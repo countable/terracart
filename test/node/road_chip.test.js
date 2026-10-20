@@ -68,6 +68,10 @@ test('books chip: counts the pages read off the bookmark, built after the road c
   assert.truthy(/const n = bookPagesRead\(this\.save\)\.length;/.test(app), 'the count is the shelf\'s');
   // A row reopens its page on the parchment page with no title line, and the
   // list comes back when that page is tapped away; rereading moves no bookmark.
-  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), bookPage: true, okLabel: 'Back to books',\n\s+onDismiss: \(\) => this\._showBooksRead\(shelfPage\) \}\);/.test(app), 'a row rereads the page and returns to the same shelf page');
-  assert.falsy(/_showBooksRead\(shelfPage = 0\) \{[\s\S]*?tipsRead[\s\S]*?\n  \}\n/.test(app.slice(app.indexOf('  _showBooksRead(shelfPage = 0) {'), app.indexOf('  _showBooksRead(shelfPage = 0) {') + 2500)), 'the shelf never writes the bookmark');
+  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), bookPage: true, okLabel: 'Back to books',\n\s+onDismiss: \(\) => this\._showBooksRead\(\) \}\);/.test(app), 'a row rereads the page and returns to the scrolling shelf');
+  const shelfStart = app.indexOf('  _showBooksRead() {');
+  const shelf = app.slice(shelfStart, app.indexOf('\n  }', shelfStart) + 4);
+  assert.truthy(shelfStart > 0, 'the scrolling shelf exists');
+  assert.falsy(/tipsRead\s*=/.test(shelf), 'the shelf never writes the bookmark');
+  assert.falsy(/pageCount|shelfPage|pages\.slice/.test(shelf), 'all learned books share one scrolling list');
 });

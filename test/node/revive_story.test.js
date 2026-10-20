@@ -57,25 +57,22 @@ test('death story: both collapse paths show memories before the existing outcome
   }
 });
 
-test('revive story: three panels in order, Next between them, once per save', () => {
+test('revive story: three illustrated sections scroll together, once per save', () => {
   const real = globalThis.document.body;
   globalThis.document.body = { classList: { contains: () => false } };
   try {
     const s = mkScene();
     s._reviveStoryboard();
     assert.eq(s.modals.length, 1, 'the first panel opens');
-    assert.eq(s.modals[0].art, 'revive_fall');
-    assert.eq(s.modals[0].okLabel, 'Next');
+    const sections = s.modals[0].sections;
+    assert.eq(sections.map(panel => panel.art).join(), 'revive_fall,revive_found,revive_wake');
+    assert.eq(s.modals[0].okLabel, 'OK');
+    assert.truthy(/farmhand|carer/.test(sections[2].body), 'a silent carer');
+    assert.falsy(/\d|%|energy|strength/i.test(sections[2].body), 'the energy pop says what was restored');
+    assert.eq(s.modals[0].kind, 'story');
     s.modals[0].onDismiss();
-    assert.eq(s.modals[1].art, 'revive_found');
-    s.modals[1].onDismiss();
-    assert.eq(s.modals[2].art, 'revive_wake');
-    assert.eq(s.modals[2].okLabel, 'OK', 'the last page ends it (MemoryStory.showPages)');
-    assert.truthy(/farmhand|carer/.test(s.modals[2].body), 'a silent carer');
-    assert.falsy(/\d|%|energy|strength/i.test(s.modals[2].body), 'no numbers — the energy pop says what was restored');
-    for (const m of s.modals) assert.eq(m.kind, 'story');
     s._reviveStoryboard();
-    assert.eq(s.modals.length, 3, 'a second revival tells nothing');
+    assert.eq(s.modals.length, 1, 'a second revival tells nothing');
   } finally { globalThis.document.body = real; }
 });
 

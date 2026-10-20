@@ -151,19 +151,22 @@ test('memory arc: both first tower and nine lifetime memories are needed for Act
   earnTo(scene.save, 9); scene.save.memories = 0;
   assert.eq(MemoryStory.act(scene.save), 2);
   visit(scene); finish(scene);
-  assert.eq(scene.modals.length, 4); assert.eq(scene.offers, 1);
+  assert.eq(scene.modals.length, 2); assert.eq(scene.offers, 1);
   assert.eq(scene.save.memories, 0);
 }));
 
-test('memory arc: intro resumes its unacknowledged page and first return keeps the promise to guide remembering', () => isolated(saved => {
+test('memory arc: intro stays pending until dismissal and resumes legacy section indexes', () => isolated(saved => {
   const scene = sceneFor(towerSave(9)); visit(scene);
   visit(scene); assert.eq(scene.modals.length, 1);
-  assert.truthy(scene.modals[0].mustAcknowledge); dismiss(scene);
-  const resumed = sceneFor(copy(saved[saved.length - 1])); visit(resumed);
-  assert.eq(resumed.modals[0].body, MemoryStory.INTRO[1].body);
-  finish(resumed); assert.eq(resumed.modals.length, 2); assert.eq(resumed.offers, 1);
+  assert.truthy(scene.modals[0].mustAcknowledge);
+  assert.eq(scene.modals[0].sections.length, MemoryStory.INTRO.length);
+  assert.falsy(scene.save.memoryStory.introDone);
+  const legacy = copy(saved[saved.length - 1]); legacy.memoryStory.visit.page = 1;
+  const resumed = sceneFor(legacy); visit(resumed);
+  assert.eq(resumed.modals[0].sections[0].body, MemoryStory.INTRO[1].body);
+  finish(resumed); assert.eq(resumed.modals.length, 1); assert.eq(resumed.offers, 1);
   visit(resumed);
-  assert.truthy(resumed.modals[2].body.includes('help you remember the right things'));
+  assert.truthy(resumed.modals[1].body.includes('help you remember the right things'));
   finish(resumed); assert.eq(resumed.save.memories, 9);
 }));
 
@@ -184,28 +187,27 @@ test('memory arc: every eligible milestone at the current tower is bundled and a
 test('memory arc: late first return bundles all eligible beats without extra discovery or repeat clicks', () => isolated(() => {
   const scene = introduced(18); visit(scene);
   assert.eq(scene.save.memoryStory.visit.kind, 'return');
-  assert.eq(scene.modals[3].body, MemoryStory.FIRST_RETURN.body);
+  assert.eq(scene.modals[1].sections[0].body, MemoryStory.FIRST_RETURN.body);
   assert.eq(scene.save.memoryStory.visit.beats.length, 5); finish(scene);
   assert.eq(scene.save.memoryStory.act2Seen.length, 5);
   visit(scene); assert.eq(scene.save.memoryStory.visit.kind, 'visit'); finish(scene);
 }));
 
-test('memory arc: interrupted bundled milestones resume with frozen selection and ignore stale callbacks', () => isolated(saved => {
-  const scene = introduced(15); visit(scene); dismiss(scene);
-  const stale = scene.modals[scene.modals.length - 1]; dismiss(scene);
+test('memory arc: pending bundled milestones keep frozen selection and ignore repeated dismissal', () => isolated(saved => {
+  const scene = introduced(15); visit(scene);
   const currentPage = scene.save.memoryStory.visit.page;
-  stale.onDismiss(); assert.eq(scene.save.memoryStory.visit.page, currentPage);
   const resumed = sceneFor(copy(saved[saved.length - 1])); earnTo(resumed.save, 18); visit(resumed);
   assert.eq(resumed.save.memoryStory.visit.page, currentPage);
   assert.falsy(resumed.save.memoryStory.visit.beats.includes('hesitation'));
+  const final = resumed.modals[0];
   finish(resumed);
-  const final = resumed.modals[resumed.modals.length - 1], offers = resumed.offers;
+  const offers = resumed.offers;
   final.onDismiss(); assert.eq(resumed.offers, offers);
   visit(resumed); assert.truthy(resumed.save.memoryStory.visit.beats.includes('hesitation')); finish(resumed);
 }));
 
 test('memory arc: abandonment at twenty-one overrides an interrupted introduction and prevents upgrades', () => isolated(saved => {
-  const scene = sceneFor(towerSave(20)); visit(scene); dismiss(scene);
+  const scene = sceneFor(towerSave(20)); visit(scene);
   const resumed = sceneFor(copy(saved[saved.length - 1])); earnTo(resumed.save, 21);
   assert.eq(MemoryStory.towerAccess(resumed.save, firstTower), 'abandoned');
   visit(resumed);
@@ -237,10 +239,9 @@ test('memory arc: thirty memories only reveal at the second tower, overriding ol
   visit(resumed, secondTower);
   assert.eq(resumed.save.memoryStory.visit.kind, 'reveal');
   assert.eq(resumed.save.memoryStory.visit.revealVersion, 2);
-  dismiss(resumed);
-  assert.truthy(resumed.modals[2].body.includes(MemoryStory.DRAGON_DECLARATION));
+  assert.truthy(resumed.modals[1].sections.some(section => section.body.includes(MemoryStory.DRAGON_DECLARATION)));
   const reloaded = sceneFor(copy(saved[saved.length - 1])); visit(reloaded, secondTower);
-  assert.eq(reloaded.modals[0].body, MemoryStory.REVEAL[1].body);
+  assert.eq(reloaded.modals[0].sections[0].body, MemoryStory.REVEAL[0].body);
   assert.eq(MemoryStory.act(reloaded.save), 2);
   finish(reloaded); assert.eq(MemoryStory.act(reloaded.save), 3);
   assert.eq(reloaded.offers, 1); assert.eq(reloaded.save.memories, 29);
@@ -255,14 +256,27 @@ test('memory arc: old revealed flag and first visit at thirty cannot skip the se
   assert.eq(MemoryStory.panel({ memory: 30 }, scene.save).body, MemoryStory.AFTER[0].body);
 }));
 
-test('memory arc: failed later page remains retryable with saved progress', () => isolated(() => {
-  const scene = sceneFor(towerSave(9)); visit(scene);
+test('memory arc: failed conversation remains retryable without acknowledgement', () => isolated(() => {
+  const scene = sceneFor(towerSave(9));
   scene.showMessageModal = () => { throw new Error('modal unavailable'); };
-  let threw = false; try { dismiss(scene); } catch (_) { threw = true; }
+  let threw = false; try { visit(scene); } catch (_) { threw = true; }
   assert.truthy(threw); assert.falsy(scene._wizardStoryOpen);
+  assert.eq(scene.save.memoryStory.visit.page, 0);
+  assert.falsy(scene.save.memoryStory.introDone);
   scene.showMessageModal = panel => scene.modals.push(panel);
-  visit(scene); assert.eq(scene.modals[1].body, MemoryStory.INTRO[1].body); finish(scene);
+  visit(scene); assert.eq(scene.modals[0].sections[0].body, MemoryStory.INTRO[0].body); finish(scene);
 }));
+
+test('memory arc: stale acknowledgement stops before later sections or completion', () => {
+  const shown = [], acknowledged = []; let completed = false;
+  MemoryStory.showPages({ showMessageModal: panel => shown.push(panel) }, ['first', 'second', 'third'], {
+    from: 1, onTurn: i => { acknowledged.push(i); return false; }, onDone: () => { completed = true; },
+  });
+  assert.eq(shown.length, 1); assert.eq(shown[0].body, 'second\n\nthird');
+  assert.eq(acknowledged.length, 0, 'opening does not acknowledge');
+  shown[0].onDismiss(); shown[0].onDismiss();
+  assert.eq(acknowledged.join(), '1'); assert.falsy(completed);
+});
 
 test('memory arc: contradictory fragments require their acknowledged claim, and stop after Act III', () => {
   for (const [memory, fragment] of Object.entries(MemoryStory.ACT2_MEMORIES)) {

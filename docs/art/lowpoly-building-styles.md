@@ -177,13 +177,13 @@ review is published as a Claude artifact.
 - Height: `update()` projects z through `LOOK.heightScale` (1.0, full model
   height); the review page's slider foreshortens it for comparison. Sign and flag placement still reads
   the model height; the browser regression checks drift against the scaled z.
-- Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
-  solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
-  `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
-  one contiguous sorted run; faded buildings omit these repeated filled ink passes
-  so they remain see-through. Its ink groups (body, flat deck, chimney) draw in
-  layer order so each gets a line where it meets the surface below it. Same
-  retained vertices; nothing allocates on a heading change.
+- Ink outline: `renderWebGL` re-emits all visible triangles together in the
+  solid trim texel, tinted `LOOK.ink` (or `LOOK.wreck.ink`), shifted upward by
+  `LOOK.inkPx` (1) art pixel × camera zoom. Every face then paints over that
+  silhouette, leaving only the upper outer edge: no bottom border or internal
+  lines between body, deck, chimney, or wreck fragments. Faded buildings omit
+  the filled ink pass so they remain see-through. Legacy building prisms and
+  connected castle walls use the same upward-only offset in screen space.
 - Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the
   recipe roof colour from the solid texel) with a lighter 3.5-unit rim and a
   darker 9-unit band inside it (`flatBands`, flags `rim`/`rimShade`, coloured
@@ -223,7 +223,7 @@ review is published as a Claude artifact.
   with nearest filtering; warm light masonry tones snap to the exact 3D block
   colour (`LOOK.wreck.top`). Three-step directional lighting darkens side faces, with a broad 48%
   ground-contact shade fading toward the wall tops. Top faces remain light;
-  one black outer silhouette surrounds the wreck without internal ink. Roof, wall and steel-strut silhouettes project a single cool cel shadow onto the rubble floor, clipped to the footprint; overlapping shadows do not stack. Fallen panels lean from their original inner wall bays into the rubble, with their lower edges buried. The floor is predominantly small dark irregular fragments with sparse larger pieces. Solid roof faces draw above wall crowns to prevent masonry bleeding through the tiles. Wreck
+  one black upper outer edge marks the wreck without bottom or internal ink. Roof, wall and steel-strut silhouettes project a single cool cel shadow onto the rubble floor, clipped to the footprint; overlapping shadows do not stack. Fallen panels lean from their original inner wall bays into the rubble, with their lower edges buried. The floor is predominantly small dark irregular fragments with sparse larger pieces. Solid roof faces draw above wall crowns to prevent masonry bleeding through the tiles. Wreck
   masonry skips the generic dark eave strip on outside walls.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on

@@ -23,6 +23,7 @@
 .speech-dialog[data-placement="above"] > .modal-box::before {bottom:-26px;border-top-color:#b6aa87;}
 .speech-dialog[data-placement="above"] > .modal-box::after {bottom:-24px;border-top-color:#000;}
 .speech-dialog .modal-body {position:relative;z-index:1;flex:0 1 auto!important;max-height:calc(var(--speech-max-height) - 27px);padding:0 1px 3px!important;scrollbar-width:thin;scrollbar-color:#b7a987 transparent;}
+.speech-dialog .modal-copy {scrollbar-width:thin;scrollbar-color:#b7a987 transparent;}
 .speech-dialog .modal-content {margin:0!important;}
 .speech-dialog .speech-speaker {justify-content:flex-start!important;gap:10px!important;margin:0 0 7px!important;padding:0!important;border:0!important;}
 .speech-dialog .speech-speaker > span {font:700 18px/1.2 var(--font-ui)!important;color:#f3dfa0!important;letter-spacing:0!important;text-transform:none!important;}

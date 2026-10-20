@@ -69,10 +69,10 @@
     assert.eq(shown[0].art, 'story_ayo_arrival');
     assert.falsy(shown[0].portrait, 'a portrait must not replace the arrival painting');
     shown[0].onDismiss();
-    assert.eq(shown[1].art, 'story_ayo_arrival', 'both introductory pages retain the scene');
+    assert.eq(shown.length, 1, 'both introductory sections share one scrolling scene');
     NPC.interact(s, her, 0, 0);
-    assert.falsy(shown[2].art);
-    assert.eq(shown[2].portrait, NPC.portrait(s, her));
+    assert.falsy(shown[1].art);
+    assert.eq(shown[1].portrait, NPC.portrait(s, her));
   });
 
   test('stranger: each neighbour gossips about her once, and not before she comes', () => {

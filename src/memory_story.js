@@ -17,7 +17,7 @@ const MemoryStory = (() => {
   // (owner's call, Sep 2026): the player walks up to the neighbour and taps.
   // NEIGHBOUR COPY (CLAUDE.md, Dialogs): spoken words in curly quotes, an
   // action in <em> on its own line, the body HTML; a talk that needs two
-  // panels is an ARRAY of pages (NPC.dialogue shows them with "Next"). The
+  // sections is an ARRAY of paragraphs in one scrolling conversation. The
   // vocabulary is the story bible's (docs/design/story.txt): the Breaking, fifty
   // years, Mending Lane, the wizard the old folk call Tim.
   const HOME = {
@@ -247,30 +247,32 @@ const MemoryStory = (() => {
     } catch (error) { scene[flagKey] = false; throw error; }
     return true;
   }
-  // ── A PAGED DIALOG ────────────────────────────────────────────────────────
-  // One dialog per page, "Next" between them, `lastLabel` on the last: a
-  // neighbour's talk (npc.js interact) and the wizard's visit (visitWizard).
-  // `pages` are bodies (strings) under one title / art / kind, or whole
-  // panels ({ art, title, body }). `from` resumes at a page; `onTurn(i)` runs
-  // as page i is dismissed and may answer false to stop (a stale visit);
-  // `onDone` runs after the last page; `onFail(error)` when a page would not
-  // open (the error is rethrown).
-  function showPages(scene, pages, { title, art, portrait, kind = 'note', kindLabel, source, nextLabel = 'Next', lastLabel = kind === 'talk' || kind === 'spirit' ? 'Got it' : 'OK',
+  // A conversation is one scrollable dialog. Authored paintings and headings
+  // remain in order; string sections share their speaker's portrait. Legacy
+  // saves resume at `from`. Acknowledgement callbacks run only on dismissal,
+  // never on scrolling, and a stale section aborts the remaining callbacks.
+  function showPages(scene, pages, { title, art, portrait, kind = 'note', kindLabel, source, lastLabel = kind === 'talk' || kind === 'spirit' ? 'Got it' : 'OK',
     mustAcknowledge = false, from = 0, onTurn, onDone, onFail } = {}) {
-    const show = (i) => {
-      const page = pages[i], last = i + 1 >= pages.length;
-      try {
-        scene.showMessageModal({
-          title, art, portrait, kind, kindLabel, source, ...(typeof page === 'string' ? { body: page } : page),
-          mustAcknowledge, okLabel: last ? lastLabel : nextLabel,
-          onDismiss: () => {
+    const remaining = pages.slice(from);
+    const panels = remaining.map(page => typeof page === 'string' ? { body: page } : page);
+    const combined = remaining.every(page => typeof page === 'string');
+    let dismissed = false;
+    try {
+      scene.showMessageModal({
+        title, art, portrait, kind, kindLabel, source,
+        ...(combined ? { body: remaining.join('\n\n') } : panels.length === 1 ? panels[0]
+          : { title: undefined, art: false, sections: panels }),
+        mustAcknowledge, okLabel: lastLabel,
+        onDismiss: () => {
+          if (dismissed) return;
+          dismissed = true;
+          for (let i = from; i < pages.length; i++) {
             if (onTurn && onTurn(i) === false) return;
-            if (last) onDone?.(); else show(i + 1);
-          },
-        });
-      } catch (error) { onFail?.(error); throw error; }
-    };
-    show(from);
+          }
+          onDone?.();
+        },
+      });
+    } catch (error) { onFail?.(error); throw error; }
   }
   function reconcileLuxury(scene) {
     if (!scene?.save?.starterShopId || typeof scene._bankDiscovery !== 'function') return false;
@@ -659,9 +661,8 @@ const MemoryStory = (() => {
     showPages(scene, pages, {
       from: visit.page, kind: visit.kind === 'reveal' ? 'memory' : 'wizard', mustAcknowledge: true,
       lastLabel: blocked ? 'Leave' : 'Continue',
-      // A blocked door closes on its one page; a stale visit (another begun,
-      // this page already turned) is left alone. Progress is saved page by
-      // page, so a visit resumes where it stopped.
+      // Dismissal acknowledges the remaining sections together. A stale visit
+      // is left alone; legacy saves can still resume at their stored section.
       onTurn: (i) => {
         if (blocked) { scene._wizardStoryOpen = false; return false; }
         if (s.visit !== visit || visit.page !== i) return false;

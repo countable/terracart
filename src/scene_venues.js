@@ -442,7 +442,7 @@ class SceneVenues {
   }
 
   // One shared lending shelf. Keep credit and actions in view while the
-  // catalog pages; transactions update in place so preparing several
+  // catalog scrolls; transactions update in place so preparing several
   // spells never sends the player through a chain of confirmation dialogs.
   _presentScholar(sx, sy, o, dress) {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('scholar-modal', {
@@ -470,16 +470,6 @@ class SceneVenues {
     list.style.cssText = 'text-align:left;';
     list.setAttribute('aria-label', 'Tomes available to borrow');
     box.appendChild(list);
-    let shelfPage = 0;
-    const pager = document.createElement('div');
-    pager.style.cssText = 'display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px;';
-    const previous = mkBtn('Previous', { variant: 'ghost', css: 'padding:6px 9px;' });
-    const pageLabel = document.createElement('span');
-    pageLabel.style.fontSize = '11px';
-    pageLabel.setAttribute('aria-live', 'polite');
-    const next = mkBtn('Next', { variant: 'ghost', css: 'padding:6px 9px;' });
-    pager.append(previous, pageLabel, next);
-    box.appendChild(pager);
     const receipt = document.createElement('div');
     receipt.id = 'scholar-receipt';
     receipt.setAttribute('role', 'status');
@@ -502,17 +492,12 @@ class SceneVenues {
       list.replaceChildren();
       const catalog = Macros.scholarCatalog(this.save);
       const rows = onLoanOnly ? catalog.filter(row => row.borrowed > 0) : catalog;
-      shelfPage = Math.max(0, Math.min(shelfPage, rows.length - 1));
-      previous._setEnabled(shelfPage > 0);
-      next._setEnabled(shelfPage + 1 < rows.length);
-      pageLabel.textContent = rows.length ? `${shelfPage + 1} / ${rows.length}` : '';
-      pager.style.display = rows.length > 1 ? 'flex' : 'none';
       if (!rows.length) {
         const empty = document.createElement('p');
         empty.textContent = onLoanOnly ? 'No tomes on loan. Browse the shelf to prepare your spells.' : 'The shelf is empty.';
         list.appendChild(empty);
       }
-      for (const row of rows.slice(shelfPage, shelfPage + 1)) {
+      for (const row of rows) {
         const card = document.createElement('div');
         card.dataset.tome = row.id;
         card.style.cssText = 'display:grid;grid-template-columns:minmax(0,1fr) 88px;gap:3px 8px;padding:8px 1px;border-top:1px solid #ffffff28;';
@@ -571,12 +556,10 @@ class SceneVenues {
         card.appendChild(actions); list.appendChild(card);
       }
     };
-    allTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = false; shelfPage = 0; render(); });
-    loansTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = true; shelfPage = 0; render(); });
-    previous.addEventListener('click', (e) => { e.stopPropagation(); shelfPage--; render(); });
-    next.addEventListener('click', (e) => { e.stopPropagation(); shelfPage++; render(); });
+    allTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = false; render(); });
+    loansTab.addEventListener('click', (e) => { e.stopPropagation(); onLoanOnly = true; render(); });
     render();
-    // Paging keeps each tome and its actions together in the fitted panel.
+    // The shared modal scrolls the full catalog with each tome and its actions together.
     mount();
   }
 

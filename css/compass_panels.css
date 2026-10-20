@@ -111,7 +111,10 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   margin: 8px var(--panel-content-inset) max(12px, env(safe-area-inset-bottom));
 }
 .compass-panel .modal-scene .modal-content { box-sizing: border-box; padding: 0; }
-.compass-panel .modal-pages { padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+.compass-panel .modal-copy { scrollbar-width: thin; scrollbar-color: #a19670 transparent; }
+.compass-panel .modal-content { overflow-wrap: anywhere; }
+.compass-panel .offer-selector { display: block; margin: 8px 0; }
+.compass-panel .offer-selector select { max-width: 100%; min-height: 38px; font: inherit; }
 .compass-panel .modal-scene .modal-kind {
   position: static !important; margin: 0 0 10px;
 }

@@ -145,10 +145,33 @@
     assert.gt(visible,0,'the fixture draws visible faces');
     mesh.obj.alpha=.5;
     mesh.obj.renderWebGL(renderer,mesh.obj,camera);
-    assert.eq(vertices,visible*3,'faded faces draw once without eight overlapping ink fills');
+    assert.eq(vertices,visible*3,'faded faces draw once without a filled ink pass');
     vertices=0;mesh.obj.alpha=1;
     mesh.obj.renderWebGL(renderer,mesh.obj,camera);
-    assert.eq(vertices,visible*3*9,'opaque buildings retain their eight outline offsets');
+    assert.eq(vertices,visible*3*2,'opaque buildings retain one upper-edge ink pass');
+  }));
+  test('low-poly outlines: houses and wrecks draw one upper silhouette before every face', () => withPhaser(() => {
+    for(const role of ['market','blacksmith','wreck']){
+      const scene=stubScene();BuildingLowPoly.begin(scene);
+      const recipe=BuildingLowPoly.recipeFor(role,{wall:0xd4cdb4,roof:0x709b9a,trim:0x614534});
+      const mesh=BuildingLowPoly.add(scene,FOOT,recipe,recipe.variant||'ridge','outline:'+role);
+      for(const heading of [0,.7,Math.PI]){
+        scene.mapRot=heading;BuildingLowPoly.update(scene);
+        const vertices=[];
+        const pipeline={shouldFlush:()=>false,setTexture2D:()=>0,batchVert:(x,y)=>vertices.push({x,y})};
+        const renderer={pipelines:{get:()=>pipeline,set:()=>pipeline,preBatch(){},postBatch(){}}};
+        mesh.obj.renderWebGL(renderer,mesh.obj,{alpha:1,zoom:2,addToRenderList(){}});
+        const points=mesh.obj._lowpolyFaces.filter(f=>f.visible).flatMap(f=>f.projected);
+        assert.gt(points.length,0,'visible '+role);
+        assert.eq(vertices.length,points.length*2,'one ink pass and one fill pass');
+        for(let i=0;i<points.length;i++){
+          assert.eq(vertices[i].x,points[i].x,'ink never expands sideways');
+          assert.eq(vertices[i].y,points[i].y-2*BuildingLowPoly.LOOK.inkPx,'ink expands only upward at camera zoom');
+          assert.eq(vertices[i+points.length].x,points[i].x,'all fills follow the complete silhouette');
+          assert.eq(vertices[i+points.length].y,points[i].y,'fills cover interior joins and lower edges');
+        }
+      }
+    }
   }));
   test('street doors: face the nearest street with corner clearance, independent of winding', () => {
     const ring=[{x:0,y:0},{x:60,y:0},{x:60,y:40},{x:0,y:40}];

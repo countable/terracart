@@ -269,8 +269,8 @@
         // texture triangle both thickens the small pickets and multiplies submission cost.
         const ink = (target, block) => { if (!inkPx || block.materialFaces) return;
           faces(block, (x1, y1, x2, y2, x3, y3) => {
-            for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
-              WallSurfaceRenderer.paint(target, x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx, look.ink, block.building?.alpha ?? 1);
+            // Match buildings: only the upper outer edge receives ink.
+            WallSurfaceRenderer.paint(target, x1 - s * inkPx, y1 - c * inkPx, x2 - s * inkPx, y2 - c * inkPx, x3 - s * inkPx, y3 - c * inkPx, look.ink, block.building?.alpha ?? 1);
           }); };
         const fill = (target, block) => faces(block, (x1, y1, x2, y2, x3, y3, color, face) => WallSurfaceRenderer.paint(target, x1, y1, x2, y2, x3, y3, color, block.building?.alpha ?? 1, face));
         const mode = group.perWall ? 'parts' : 'gfx', modeChanged = group.mode !== mode;
