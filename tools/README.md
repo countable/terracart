@@ -141,7 +141,9 @@ catalog. Placement still obeys the live spawn gates and available space.
 Parking-lot quarries receive the selected quarry layout before footprint fitting;
 lots that cannot fit it retain the live fitter's fallback.
 The sample lot's aisle buffer stays inside the tile so it previews complete
-layouts rather than the fixed scatter for incomplete edge fragments.
+layouts rather than the fixed scatter for incomplete edge fragments. Its southern
+buffer is separated from the church halo so the viewer retains a Quarry example;
+adjoining church parking is absorbed into Old Stones in normal generation.
 Surface street choices cycle small-road themes and path-section themes, including
 scenic looks. Medium and large roads keep their fixed identities. Forced path
 themes preserve the geographic scenic intervals used for distance credit.

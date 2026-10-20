@@ -2285,7 +2285,7 @@
     }
   }
   // ── The road's CLASS, per cell ────────────────────────────────────────────
-  // Beside the mask, one byte of bits saying which ROAD this is ground of. Only
+  // Beside the mask, a bit field saying which ROAD this is ground of. Only
   // the Major-and-Medium road group (ROAD_MD + ROAD_LG, the old trade roads — see
   // src/street_variants.js) are recorded, because that is the question the
   // spawners ask: the kerb buffer (ROAD_CLASS_MAJOR_BUFFER), the wagon bus stops and
@@ -2334,12 +2334,67 @@
   // A MAJOR_BUFFER cell put there by a parking lot alone: suppression at every
   // hour, but never the night zone. Read the night zone through nightZoneBits.
   const ROAD_CLASS_LOT_BUFFER = 128;
+  const ROAD_CLASS_PATH_SIDE = 256;
   function nightZoneBits(bits) {
-    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & ROAD_CLASS_LOT_BUFFER);
+    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & (ROAD_CLASS_LOT_BUFFER | ROAD_CLASS_PATH_SIDE));
   }
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
   // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
+  // Exempt only the off-carriageway side served by a nearby parallel path.
+  // Check every contributing road: a path cannot clear another road's buffer.
+  function* stampPathSideSafetySteps(features, out, w, h, scale) {
+    const roads = _bucketGrid(8), paths = _bucketGrid(8);
+    let hasPaths = false;
+    for (const f of features || []) {
+      if (f.type !== 2 || !f.geom) continue;
+      const tags = f.tags || {}, tier = classifyLine('transportation', tags);
+      if (![T.PATH, T.ROAD_MD, T.ROAD_LG].includes(tier)) continue;
+      const path = tier === T.PATH;
+      if (path && (tags.access === 'private' || tags.access === 'no'
+          || tags.foot === 'no' || tags.foot === 'private')) continue;
+      const radius = roadOverlayWidthM(tags) / CELL_M / 2 + MAJOR_BUFFER_CELLS;
+      const grade = `${tags.layer || 0}:${tags.brunnel || (tags.bridge === 'yes' ? 'bridge' : tags.tunnel === 'yes' ? 'tunnel' : '')}`;
+      for (const line of f.geom) for (let j = 1; j < line.length; j++) {
+        const ax = line[j - 1].x * scale, ay = line[j - 1].y * scale;
+        const bx = line[j].x * scale, by = line[j].y * scale;
+        const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+        if (!len) continue;
+        const seg = { ax, ay, bx, by, dx: dx / len, dy: dy / len, len, radius, grade };
+        const pad = path ? 0 : radius + 1;
+        (path ? paths : roads).addBox(seg, Math.min(ax, bx) - pad, Math.min(ay, by) - pad,
+          Math.max(ax, bx) + pad, Math.max(ay, by) + pad);
+        if (path) hasPaths = true;
+      }
+    }
+    if (!hasPaths) return;
+    for (let cy = 0; cy < h; cy++) {
+      if ((cy & 15) === 15) yield 'roadside path safety';
+      for (let cx = 0; cx < w; cx++) {
+        const i = cy * w + cx, bits = out[i];
+        if (!(bits & ROAD_CLASS_MAJOR_BUFFER) || (bits & ROAD_CLASS_MAJOR_BAND)) continue;
+        const x = cx + 0.5, y = cy + 0.5;
+        let served = false;
+        const dangerous = roads.near(x, y, 0, r => {
+          if (!bandCoversCell(r.ax, r.ay, r.bx, r.by, r.radius, cx, cy)) return false;
+          const along = Math.max(0, Math.min(r.len, (x - r.ax) * r.dx + (y - r.ay) * r.dy));
+          const qx = r.ax + along * r.dx, qy = r.ay + along * r.dy;
+          const side = r.dx * (y - qy) - r.dy * (x - qx);
+          const hasPath = paths.near(qx, qy, r.radius, p => {
+            if (p.grade !== r.grade || Math.abs(p.dx * r.dx + p.dy * r.dy) < 0.8) return false;
+            const t = (qx - p.ax) * p.dx + (qy - p.ay) * p.dy;
+            if (t < 0 || t > p.len) return false;
+            const px = p.ax + t * p.dx, py = p.ay + t * p.dy;
+            const pathSide = r.dx * (py - qy) - r.dy * (px - qx);
+            return side * pathSide > 0 && Math.hypot(px - qx, py - qy) <= r.radius;
+          });
+          served ||= hasPath;
+          return !hasPath;
+        });
+        if (served && !dangerous) out[i] |= ROAD_CLASS_PATH_SIDE;
+      }
+    }
+  }
   function* resolveRoadClassSteps(majorCover, mask, out, w, h, bufCover) {
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class bands';
@@ -4577,7 +4632,7 @@
     // The Major-and-Medium road group's band once more, widened by MAJOR_BUFFER_CELLS each side
     // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no fast mover spawns in.
     const majorBufCover = new Uint16Array(w * h);
-    const roadClass = new Uint8Array(w * h);
+    const roadClass = new Uint16Array(w * h);
     // Vehicle-road segments wait until every way has been seen, then the
     // junction pass stamps one shared area for spawning and movement.
     const junctionSegments = [];
@@ -6101,6 +6156,7 @@
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
     yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
+    yield* stampPathSideSafetySteps(layersByName.transportation?.features, roadClass, w, h, mvtToCell);
     yield* stampRoadJunctionsSteps(junctionSegments, roadClass, w, h);
     yield* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM);
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
@@ -9902,7 +9958,7 @@
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
-    ROAD_CLASS_LOT_BUFFER, nightZoneBits,
+    ROAD_CLASS_LOT_BUFFER, ROAD_CLASS_PATH_SIDE, nightZoneBits,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
