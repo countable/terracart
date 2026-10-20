@@ -29,7 +29,7 @@
   // restoredRoles lists the RESTORED_ROLES whose look is live; null makes all of them live.
   const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',facadeVariant:'A',restoredRoles:['relic'],eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
-    wreck:{tint:0xb3a89e,roofTint:0xe8e5e0,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,ink:0x000000}};
+    wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,ink:0x000000}};
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.
   const WRECK_INSIDE_LIGHT=.7;
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
@@ -558,7 +558,7 @@
           const next=parts[(k+1)%parts.length];
           // A fallen section leaves only its standing neighbour's end face.
           if(p.gone){if(next.h>.5){const e=[{...o1,z:0},{...i1,z:0},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
-            quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}return;}
+            quad(e[3],e[2],e[1],e[0],'trim',{color:W.top,layer:2.3,wallEnd:true,wallDirection:{x:o1.x-i1.x,y:o1.y-i1.y}});}return;}
           // Outer face (textured, lit by direction), inner face seen from inside, broken top.
           const u0=(len*t0*2)%384,u1=u0+len*(t1-t0)*2;
           quad(wallUV(o0,u0,0),wallUV(o1,u1,0),wallUV(o1,u1,h),wallUV(o0,u0,h),'wall',{wallDirection:dir,rawUV:true,wreckMasonry:true});
@@ -571,10 +571,10 @@
             {...i1,z:h,u:8+u1,v:course+7},{...i0,z:h,u:8+u0,v:course+7}];
           quad(top[0],top[1],top[2],top[3],'trim',{color:0xffffff,layer:2.4,wallTop:true,rawUV:true,localBreak:p.localBreak});
           // The step up to a taller neighbour shows its end above this top.
-          if(next.h-h>.5){const e=[{...o1,z:h},{...i1,z:h},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
-            quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:i1.x-o1.x,y:i1.y-o1.y}});}
-          else if(h-next.h>.5){const e=[{...next.i0,z:next.h},{...next.o0,z:next.h},{...next.o0,z:h},{...next.i0,z:h}].map(v=>({...v,u:0,v:0}));
-            quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:2.3,wallDirection:{x:next.o0.x-next.i0.x,y:next.o0.y-next.i0.y}});}
+          if(next.h-h>1e-6){const e=[{...o1,z:h},{...i1,z:h},{...i1,z:next.h},{...o1,z:next.h}].map(v=>({...v,u:0,v:0}));
+            quad(e[3],e[2],e[1],e[0],'trim',{color:W.top,layer:2.3,wallEnd:true,wallDirection:{x:o1.x-i1.x,y:o1.y-i1.y}});}
+          else if(h-next.h>1e-6){const e=[{...next.i0,z:next.h},{...next.o0,z:next.h},{...next.o0,z:h},{...next.i0,z:h}].map(v=>({...v,u:0,v:0}));
+            quad(e[3],e[2],e[1],e[0],'trim',{color:W.top,layer:2.3,wallEnd:true,wallDirection:{x:next.i0.x-next.o0.x,y:next.i0.y-next.o0.y}});}
         });
       }else for(const f of base.faces.filter(f=>f.kind==='wall')){faces.push(f);faces.push({...f,interior:true,light:WRECK_INSIDE_LIGHT,points:[...f.points].reverse()});}
       // Clip the original roof planes and their UVs to the irregular remnant.
@@ -1102,7 +1102,7 @@
       }
       for(let y=136;y<504;y+=23)for(let x=5;x<500;x+=37){
         const k=x+y;if(hash(k,113)<.35)continue;const w=9+Math.floor(hash(k,131)*15);
-        ctx.fillStyle='rgba(222,218,193,0.42)';ctx.fillRect(x*scale,y*scale,w*scale,2*scale);
+        ctx.fillStyle='rgba(244,235,202,0.72)';ctx.fillRect(x*scale,y*scale,w*scale,2*scale);
         ctx.fillStyle='rgba(75,78,74,0.25)';ctx.fillRect(x*scale,(y+2)*scale,w*scale,scale);
       }
       // Keep the atlas solid texel white for tint-only faces and the silhouette.

@@ -228,3 +228,16 @@ assert(wreck.faces.filter(f=>f.standingRoof).every(f=>f.layer>Math.max(...wreck.
 
 assert(wreck.faces.some(f=>f.fallenRoof),'collapsed roof panels rest against inner walls');
 for(const f of wreck.faces.filter(f=>f.fallenRoof))assert(Math.min(...f.points.map(p=>p.z))<=1&&Math.max(...f.points.map(p=>p.z))>=3,'fallen panel slopes from wall to rubble');
+
+// Broken ends face away from their taller adjoining wall, into the breach.
+let exposedEnds=0;
+for(const end of wreck.faces.filter(f=>f.wallEnd)){
+ const [a,b,c]=end.points,nx=(b.y-a.y)*(c.z-a.z)-(b.z-a.z)*(c.y-a.y),ny=(b.z-a.z)*(c.x-a.x)-(b.x-a.x)*(c.z-a.z);
+ const top=Math.max(...end.points.map(p=>p.z));
+ const adjoining=wreck.faces.filter(f=>f.wreckMasonry&&f.points.some(p=>Math.abs(p.z-top)<1e-6&&end.points.some(q=>Math.hypot(p.x-q.x,p.y-q.y,p.z-q.z)<1e-6)));
+ if(!adjoining.length)continue;
+ exposedEnds++;
+ for(const f of adjoining){const x=f.points.reduce((s,p)=>s+p.x,0)/3,y=f.points.reduce((s,p)=>s+p.y,0)/3;
+  assert(nx*(x-a.x)+ny*(y-a.y)<1e-6,'broken wall end faces the exposed side');}
+}
+assert(exposedEnds>0,'checks exposed wall-end winding');
