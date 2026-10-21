@@ -16,19 +16,24 @@
       assert.eq(board.length,10,'rounded twelve-vertex face');
       const sides=mesh.faces.filter(f=>f.feature==='shop-sign-side');
       assert.eq(sides.length,24,'each rounded edge has a solid side wall');
+      for(let i=0;i<sides.length;i+=2){
+        const base=sides[i].points[0],front=sides[i+1].points[2];
+        assert.inRange(Math.hypot(front.x-base.x,front.y-base.y,front.z-base.z),1.199,1.201,
+          'backing has visible depth along the wall normal');
+      }
       assert.truthy(board.every(f=>f.texture===textures.sign&&f.roofPalette===false));
       const a=mesh.ring[edge],b=mesh.ring[(edge+1)%4],length=Math.hypot(b.x-a.x,b.y-a.y);
       const along=p=>((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/length;
       const spans=fs=>fs.flatMap(f=>f.points.map(along));
       const sign=spans(board),door=spans(mesh.faces.filter(f=>f.layer===.1));
-      assert.eq(Math.min(...board.flatMap(f=>f.points.map(p=>p.z))),1,'board hangs below the overhanging eave');
-      assert.eq(Math.max(...board.flatMap(f=>f.points.map(p=>p.z))),8);
+      assert.eq(Math.min(...board.flatMap(f=>f.points.map(p=>p.z))),6,'board hangs above the ground beside the upper doorway');
+      assert.eq(Math.max(...board.flatMap(f=>f.points.map(p=>p.z))),13);
       assert.eq(Math.max(...sign)-Math.min(...sign),6,'smaller than the ten-unit doorway');
       assert.truthy(Math.max(...sign)<Math.min(...door)||Math.min(...sign)>Math.max(...door),'board never covers door');
       for(const f of board)for(const p of f.points){
         assert.truthy(along(p)>=0&&along(p)<=length,'board stays on the entrance wall');
         const normalDistance=Math.abs((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x))/length;
-        assert.inRange(normalDistance,.69,.71,'front face sits half a unit above its mount');
+        assert.inRange(normalDistance,1.39,1.41,'front face projects from its wall mount');
       }
     }
   });
@@ -41,7 +46,7 @@
     for(let i=0;i<sides.length;i+=2){
       const base=sides[i].points[0];
       const other=sides[i+1].points[2];
-      assert.inRange(Math.hypot(other.x-base.x,other.y-base.y,other.z-base.z),.799,.801);
+      assert.inRange(Math.hypot(other.x-base.x,other.y-base.y,other.z-base.z),1.499,1.501);
     }
     assert.truthy(roof.some(f=>f.points.some(p=>p.tu!==f.points[0].tu||p.tv!==f.points[0].tv)),'face samples the complete textured emblem');
     assert.truthy(roof.every(f=>f.texture===textures.roof&&f.roofPalette===false));

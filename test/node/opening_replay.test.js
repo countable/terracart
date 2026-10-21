@@ -125,8 +125,11 @@ test('opening: four dragon paintings move during the zoom with no late close sho
   assert.truthy(/animation: nightmare-frame-two var\(--nightmare-pan-ms, 16s\) ease-in-out 750ms both/.test(frameRule),
     'painting transitions share the camera duration and hold their final state');
   assert.truthy(html.includes('const STORY_PAN_MS = 16000;'));
-  for (const crop of ['1.45', '2.1', '3'])
-    assert.truthy(html.includes(`transform: scale(calc(1 / ${crop}));`), 'intrinsic crop has inverse camera compensation');
+  assert.truthy(html.includes('transform: scale(calc(1 / 1.45));'), 'later paintings share one registered crop compensation');
+  for (const n of [3, 4]) {
+    const rule = html.match(new RegExp('#story \\.nightmare-frame:nth-child\\(' + n + '\\) \\{([^}]+)'))?.[1] || '';
+    assert.falsy(rule.includes('transform:'), 'a head turn must not rescale the registered background');
+  }
   assert.falsy(/@keyframes nightmare-pan[\s\S]*?translate/.test(html.split('#story .wake-camera')[0]),
     'camera stays on the crop anchor without exposing translated image edges');
   const reduced = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)', html.indexOf('@keyframes nightmare-pan')));

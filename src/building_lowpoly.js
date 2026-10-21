@@ -1597,7 +1597,7 @@
         if(piece.length>=3)out.push(piece.map(p=>({...p,[key]:p[key]-n*period})));}
       return out;};
     const decorations=[];
-    // A small solid plaque: rounded silhouette, textured face and a shallow
+    // A small solid plaque: rounded silhouette, textured face and a solid
     // side wall. The same geometry seats on a roof plane or an entrance wall.
     const plaque=(at,texture,feature,kind,bounds,sideUV,thickness)=>{
       const r=.14,outline=[];
@@ -1632,10 +1632,10 @@
             const width=6,gap=1.5,doorLeft=from*d,doorRight=(from+D.w)*d;
             const start=doorRight+gap+width<=L-1?doorRight+gap:doorLeft-gap-width;
             if(start>=1){
-              const bottom=z0+1,top=Math.min(H-1,bottom+7);
+              const bottom=z0+6,top=Math.min(H-1,bottom+7);
               const seat=(x,y,depth)=>{const p=at(start+x*width,bottom+y*(top-bottom));
                 return {...p,x:p.x+nx*(2+depth*10),y:p.y+ny*(2+depth*10)};};
-              plaque(seat,emblem.sign,'shop-sign','wall',emblem.signUV,emblem.signSideUV,.5);
+              plaque(seat,emblem.sign,'shop-sign','wall',emblem.signUV,emblem.signSideUV,1.2);
               mountedSign=true;
             }
           }
@@ -1686,7 +1686,7 @@
           return {x:center.x+sx*u.x+sy*v.x+normal.x*lift,
             y:center.y+sx*u.y+sy*v.y+normal.y*lift,z:center.z+sx*u.z+sy*v.z+normal.z*lift};
         };
-          plaque(seat,emblem.roof,'shop-emblem','roof',emblem.roofUV,emblem.roofSideUV,.8);
+          plaque(seat,emblem.roof,'shop-emblem','roof',emblem.roofUV,emblem.roofSideUV,1.5);
         }
       }
     }

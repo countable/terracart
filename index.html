@@ -1046,17 +1046,17 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
-    /* Later paintings redraw progressively closer views at full resolution.
-       Counter-scale those intrinsic crops around the camera's eye anchor;
-       fade only after the camera reaches each crop so no image edge shows. */
+    /* Later paintings share the second painting's registered canvas while
+       the head turns and gains finer detail. One crop compensation preserves
+       that framing through every fade; the shared camera keeps advancing. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
       transform-origin: 59% 21%;
       transform: scale(calc(1 / 1.45));
       animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) ease-in-out 750ms both;
     }
-    #story .nightmare-frame:nth-child(3) { transform: scale(calc(1 / 2.1)); animation-name: nightmare-frame-three; }
-    #story .nightmare-frame:nth-child(4) { transform: scale(calc(1 / 3)); animation-name: nightmare-frame-four; }
+    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; }
+    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; }
     @keyframes nightmare-frame-two {
       0%, 25% { opacity: 0; }
       37.5%, 100% { opacity: 1; }
@@ -1117,8 +1117,8 @@
     @keyframes nightmare-pan {
       0% { transform: scale(1); }
       25% { transform: scale(1.45); }
-      50% { transform: scale(2.1); }
-      75%, 100% { transform: scale(3); }
+      50% { transform: scale(1.8); }
+      75%, 100% { transform: scale(2.2); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
@@ -2737,7 +2737,7 @@
         text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
-        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city as the dream draws closer to her glowing eyes."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div></div></div>',
+        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city. As the dream draws closer, her head turns toward you, stops breathing fire, and fixes you with a silent stare."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div></div></div>',
         text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
       },
       {
@@ -3212,7 +3212,7 @@
   <script src="src/authored_roof_palette.js?v=5fedd428"></script>
   <script src="src/authored_buildings.js?v=2f3457ff"></script>
   <script src="src/authored_building_renderer.js?v=44f419c7"></script>
-  <script src="src/building_lowpoly.js?v=fec3ac81"></script>
+  <script src="src/building_lowpoly.js?v=d0a0a68a"></script>
   <script src="src/building_overlay.js?v=eaf190f3"></script>
   <script src="src/art_atlas.js?v=9bea921d"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>

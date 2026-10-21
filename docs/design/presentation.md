@@ -441,12 +441,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
-- The opening nightmare uses four full-resolution paintings, progressively
-  cropped at 1×, 1.45×, 2.1× and 3× around Tiamat’s eye (59% across, 21% down).
-  The camera reaches each crop at four, eight and twelve seconds. Inverse
-  frame scales keep the compositions registered; each fade starts only after
-  the camera covers that crop. The final four seconds resolve into the sharp
-  close painting and hold it. A stationary lower gradient blends into black.
+- The opening nightmare uses four full-resolution paintings. The second is
+  framed at 1.45× around Tiamat’s eye (59% across, 21% down); the third and
+  fourth keep that background framing while redrawing finer scales and a head
+  that turns toward the viewer, stops breathing fire, and holds a closed-mouth
+  stare. All three share the same inverse crop compensation, so their
+  backgrounds stay registered through the fades. The camera reaches 1.45×,
+  1.8× and 2.2× at four, eight and twelve seconds, then holds while the final
+  painting resolves by sixteen seconds. The portrait canvas clips older frames
+  to prevent spill into its letterbox; a lower gradient blends into black.
   Hood’s wake painting pulls back from 1.75× to 1.25× over fourteen seconds.
   The street’s distinct second painting shows Hood farther down the road.
   Reduced motion keeps each slide’s first painting still.
