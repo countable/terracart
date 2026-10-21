@@ -17,14 +17,16 @@
    ctx.drawImage(image,2,1,1,1,0,16,96,1);
    ctx.drawImage(image,2,1,1,46,0,17,96,46);
    ctx.drawImage(image,2,46,1,1,0,63,96,1);
-   ctx.drawImage(image,6,4,84,27,6,20,84,27);
+   // The flat deck is a plain source-colored surface; repeating its grid
+   // crop creates an unintended checkerboard on larger footprints.
+   ctx.drawImage(image,20,20,1,1,6,20,84,27);
    // The source outline belongs to the roof silhouette, not every wall corner.
    // Extend native masonry into the four border columns in the prepared atlas.
    ctx.save();ctx.beginPath();ctx.rect(0,900,256,32);ctx.clip();
    for(let x=0;x<256;x+=96){ctx.drawImage(image,4,48,1,32,x,900,4,32);ctx.drawImage(image,91,48,1,32,x+92,900,4,32);}
    ctx.restore();
-   // Native tiled deck and colored coping; retain the source texel density.
-   for(let y=616;y<872;y+=16)for(let x=256;x<512;x+=16)ctx.drawImage(image,16,16,16,16,x,y,16,16);
+   // Use the same quiet deck color for arbitrary in-game footprints.
+   ctx.drawImage(image,20,20,1,1,256,616,256,256);
    for(let i=0;i<5;i++){ctx.drawImage(image,2,12,1,1,500+i,616,1,256);ctx.drawImage(image,20,1,1,1,480+i,616,1,256);}
    ctx.drawImage(image,2,2,1,1,506,616,2,256);ctx.drawImage(image,4,12,1,1,508,616,4,256);
    return;

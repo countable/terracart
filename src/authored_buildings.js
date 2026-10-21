@@ -346,6 +346,9 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   const [du,dv,dw,dh]=specialBuilder(key)||a.flatRoof?a.door:facadeDoorRect(a,key);
   return {key,spec:a,texture:native.texture,template:native.faces[0],texel:DOOR_HEIGHT/dh,
    flat:!!a.flatRoof||(!!a.city&&!a.gabled),
+   // The native blacksmith ridge rises half its depth (24 source texels).
+   roofRise:key==='fdr'?a.depth/2*DOOR_HEIGHT/dh:undefined,
+   gable:key==='fdr'?{u:0,v:640,w:32,h:16}:undefined,
    facade:o.facade||{v:900,rows:a.base-a.eave},
    roof:o.roof||{u:256,v:616,w:a.flatRoof?224:period[0],h:a.flatRoof?240:period[1]},
    door:{u:du,v:dv+16,w:dw,h:dh,bottom:a.base-dv-dh},

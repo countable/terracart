@@ -39,8 +39,10 @@ Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
-entrance wall, its tiled roof in roof space, and single texels for gables,
-fascia and ridge beams. Pitched overhangs retain at least half the original
+entrance wall, its roof material in roof space, and source texels for
+fascia and ridge beams. FDR gables repeat native stone and timber at facade
+texel density; their ridge rise is capped at the native half-depth (24 texels)
+instead of the generic 14 scene units. Other gables use single source texels. Pitched overhangs retain at least half the original
 clearance around narrow returns, preventing almost-closed roof slits.
 Decorative flat-roof rims cap corner mitres at twice the band width to avoid
 inward spikes at acute corners. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
@@ -63,7 +65,7 @@ Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
 Pixel Plains houses keep their original source textures.
 
 Six `pp_flat_*` residential variants use native Pixel Plains flat-shop art, with a
-tiled horizontal deck and colored fascia. The native viewer model tucks walls
+plain source-colored horizontal deck and colored fascia. The native viewer model tucks walls
 three source pixels inside the roof lip (4.8 ground units along depth). Production
 lot-outline meshes keep walls on the real polygon and extend only the roof
 outward with a validated polygon offset, reducing the lip around narrow returns.
@@ -73,10 +75,10 @@ masonry over the source silhouette borders
 so black vertical strips do not repeat at corners. Roof fascia colors also
 extend through baked black perimeter pixels; geometric outlines remain. Door
 overlays stand clear of the wall depth, while native adobe fronts use the
-original doorway directly without an overlay. Expanded decks repeat native
-tile texels below the coping to avoid coplanar flicker. Production PP and adobe
-decks repeat the prepared sixteen-pixel tile, excluding the adjacent coping
-swatches. `tools/extract_pp_flat_buildings.py`
+original doorway directly without an overlay. Expanded decks sit below the coping to avoid coplanar flicker. PP decks
+sample a plain interior roof texel rather than repeating the source grid,
+which creates an unintended checkerboard on large lots. Production PP and
+adobe decks exclude the adjacent coping swatches. `tools/extract_pp_flat_buildings.py`
 extracts the six source colorways and assembles their native glass doorway;
 `pp-flat-provenance.json` records exact crops. They are prepared with the native
 palette. They join the former-cabin replacement pool; other existing residential
