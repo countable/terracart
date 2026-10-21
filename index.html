@@ -1046,27 +1046,28 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
-    /* Progress once through tighter crops. Keep the final painting so a
-       return to the wide first frame cannot undo the camera's push. */
+    /* Later paintings redraw progressively closer views at full resolution.
+       Counter-scale those intrinsic crops around the camera's eye anchor;
+       fade only after the camera reaches each crop so no image edge shows. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
       transform-origin: 59% 21%;
-      transform: scale(1.05);
+      transform: scale(calc(1 / 1.45));
       animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) ease-in-out 750ms both;
     }
-    #story .nightmare-frame:nth-child(3) { transform: scale(1.10); animation-name: nightmare-frame-three; }
-    #story .nightmare-frame:nth-child(4) { transform: scale(1.15); animation-name: nightmare-frame-four; }
+    #story .nightmare-frame:nth-child(3) { transform: scale(calc(1 / 2.1)); animation-name: nightmare-frame-three; }
+    #story .nightmare-frame:nth-child(4) { transform: scale(calc(1 / 3)); animation-name: nightmare-frame-four; }
     @keyframes nightmare-frame-two {
-      0%, 12.5% { opacity: 0; }
-      25%, 100% { opacity: 1; }
+      0%, 25% { opacity: 0; }
+      37.5%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-three {
-      0%, 37.5% { opacity: 0; }
-      50%, 100% { opacity: 1; }
+      0%, 50% { opacity: 0; }
+      62.5%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-four {
-      0%, 62.5% { opacity: 0; }
-      75%, 100% { opacity: 1; }
+      0%, 75% { opacity: 0; }
+      100% { opacity: 1; }
     }
     @keyframes story-crossfade {
       from { opacity: 0; }
@@ -1101,6 +1102,7 @@
     }
     #story .nightmare-scene {
       position: absolute; left: 50%; top: 50%;
+      overflow: hidden;
       width: min(100cqw, 66.6667cqh); height: min(100cqh, 150cqw);
       transform: translate(-50%, -50%);
     }
@@ -1113,8 +1115,10 @@
       position: absolute; inset: 0;
     }
     @keyframes nightmare-pan {
-      from { transform: translate(0, 0) scale(1); }
-      to { transform: translate(0, 5%) scale(3); }
+      0% { transform: scale(1); }
+      25% { transform: scale(1.45); }
+      50% { transform: scale(2.1); }
+      75%, 100% { transform: scale(3); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
@@ -3205,10 +3209,10 @@
   <script src="src/authored-buildings/steam-blacksmith.js?v=3647e79e"></script>
   <script src="src/authored-buildings/steam-wizard.js?v=b03c5d11"></script>
   <script src="src/authored-buildings/city-buildings.js?v=6cc2cce8"></script>
-  <script src="src/authored_roof_palette.js?v=d81e891c"></script>
+  <script src="src/authored_roof_palette.js?v=5fedd428"></script>
   <script src="src/authored_buildings.js?v=2f3457ff"></script>
   <script src="src/authored_building_renderer.js?v=44f419c7"></script>
-  <script src="src/building_lowpoly.js?v=95b127ad"></script>
+  <script src="src/building_lowpoly.js?v=fec3ac81"></script>
   <script src="src/building_overlay.js?v=eaf190f3"></script>
   <script src="src/art_atlas.js?v=9bea921d"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>

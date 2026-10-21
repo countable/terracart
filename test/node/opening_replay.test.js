@@ -91,8 +91,11 @@ test('opening: opening frame pairs align and describe each slide once', () => {
     assert.truthy(first && second, `${stem}: both animation frames ship`);
     if (stem === 'story_compass' || stem.startsWith('story_nightmare'))
       assert.eq(first.w / first.h, 2 / 3, `${stem}: full-height portrait opening`);
-    assert.eq(second.w, first.w, `${stem}: matching width avoids jumps during fades`);
-    assert.eq(second.h, first.h, `${stem}: matching height avoids jumps during fades`);
+    assert.eq(second.w / second.h, first.w / first.h, `${stem}: frame aspect stays aligned`);
+    if (stem !== 'story_nightmare') {
+      assert.eq(second.w, first.w, `${stem}: ordinary frames retain matching width`);
+      assert.eq(second.h, first.h, `${stem}: ordinary frames retain matching height`);
+    }
   }
   assert.eq((html.match(/class="story-frame-next"[^>]*alt="" aria-hidden="true"/g) || []).length, 4,
     'second frames do not repeat descriptions to screen readers');
@@ -112,8 +115,8 @@ test('opening: four dragon paintings move during the zoom with no late close sho
     assert.eq(images[i], `assets/art/story_nightmare${i ? '_frame' + (i + 1) : ''}.webp`);
     const frame = webpDims(images[i]);
     assert.truthy(frame, `frame ${i + 1} ships`);
-    assert.eq(frame.w, first.w, 'all dragon paintings share the camera canvas');
-    assert.eq(frame.h, first.h, 'all dragon paintings share the camera canvas');
+    assert.eq(frame.w / frame.h, first.w / first.h, 'all dragon paintings share the portrait camera aspect');
+    if (i > 0) assert.gte(frame.w, 1024, 'closer paintings retain detail at native resolution');
   }
   assert.eq((nightmare.match(/alt="" aria-hidden="true"/g) || []).length, 3,
     'only the first painting describes the dream to screen readers');
@@ -122,6 +125,10 @@ test('opening: four dragon paintings move during the zoom with no late close sho
   assert.truthy(/animation: nightmare-frame-two var\(--nightmare-pan-ms, 16s\) ease-in-out 750ms both/.test(frameRule),
     'painting transitions share the camera duration and hold their final state');
   assert.truthy(html.includes('const STORY_PAN_MS = 16000;'));
+  for (const crop of ['1.45', '2.1', '3'])
+    assert.truthy(html.includes(`transform: scale(calc(1 / ${crop}));`), 'intrinsic crop has inverse camera compensation');
+  assert.falsy(/@keyframes nightmare-pan[\s\S]*?translate/.test(html.split('#story .wake-camera')[0]),
+    'camera stays on the crop anchor without exposing translated image edges');
   const reduced = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)', html.indexOf('@keyframes nightmare-pan')));
   assert.truthy(/#story \.nightmare-camera,[^}]*#story \.nightmare-frame:nth-child\(n\),[^}]*animation: none/.test(reduced),
     'reduced motion stops both the camera and painting transitions');

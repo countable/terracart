@@ -94,44 +94,14 @@
     if (!glyph || !color || !roofTexture) return null;
     const scale = 2, left = (EMBLEM_SIZE - glyph[0].length * scale) / 2;
     const top = (EMBLEM_SIZE - glyph.length * scale) / 2;
-    const filled = (x, y) => {
-      const row = Math.floor((y - top) / scale), col = Math.floor((x - left) / scale);
-      return glyph[row]?.[col] === '#';
-    };
-    const make = (kind, paint) => {
-      const key = `authored:emblem:${role}:${colorName}:${kind}`;
-      if (scene.textures.exists(key)) return scene.textures.get(key);
-      const texture = scene.textures.createCanvas(key, 512, 1024);
+    const key = `authored:emblem:${role}:${colorName}:plaques`;
+    let texture = scene.textures.exists(key) ? scene.textures.get(key) : null;
+    if (!texture) {
+      // Roof, front board and their solid sides share one startup atlas. The
+      // geometry supplies rounded corners and thickness, not alpha cutouts.
+      texture = scene.textures.createCanvas(key, 512, 1024);
       const context = texture.getContext();
       context.imageSmoothingEnabled = false;
-      paint(context);
-      texture.refresh();
-      texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
-      return texture;
-    };
-    // Emit only the relief edges, never a rectangular tile patch. Adjacent
-    // equal runs share a quad; the roof's original tile phase stays untouched.
-    const roofRelief = [], active = new Map();
-    const toneAt = (x, y) => filled(x, y) === filled(x - 1, y - 1) ? 0 : filled(x, y) ? 1 : -1;
-    for (let y = 1; y < EMBLEM_SIZE - 1; y++) {
-      const next = new Map();
-      for (let x = 1; x < EMBLEM_SIZE - 1;) {
-        const tone = toneAt(x, y), start = x++;
-        if (!tone) continue;
-        while (x < EMBLEM_SIZE - 1 && toneAt(x, y) === tone) x++;
-        const w = x - start, key = `${start}:${w}:${tone}`, prior = active.get(key);
-        const span = prior || { x: start, y, w, h: 0,
-          u: (tone > 0 ? 65.5 : 69.5) / 512, v: 1.5 / 1024 };
-        span.h++;
-        if (!prior) roofRelief.push(span);
-        next.set(key, span);
-      }
-      active.clear();
-      for (const [key, span] of next) active.set(key, span);
-    }
-    const roof = make('roof', context => {
-      // Sample the actual recolored paint once at startup. The renderer draws
-      // opaque light/shadow swatches only on the relief spans above.
       context.drawImage(roofTexture.getSourceImage(), 256, 616, EMBLEM_SIZE, EMBLEM_SIZE,
         0, 0, EMBLEM_SIZE, EMBLEM_SIZE);
       const data = context.getImageData(0, 0, EMBLEM_SIZE, EMBLEM_SIZE).data;
@@ -143,32 +113,45 @@
         count++;
       }
       const rgb = sum.map(value => value / Math.max(1, count)), peak = Math.max(...rgb);
-      for (const [x, gain] of [[64, 1.45], [68, .58]]) {
-        // Scale RGB together rather than mixing in a differently colored ink.
+      const roofInk = gain => {
         const factor = Math.min(gain, peak ? 255 / peak : gain);
-        context.fillStyle = `rgb(${rgb.map(value => Math.round(value * factor)).join(',')})`;
-        context.fillRect(x, 0, 4, 4);
-      }
-    });
-    const sign = make('sign', context => {
-      const look = Render.shopSignLook(null);
-      context.fillStyle = look.rim;
-      context.fillRect(0, 0, EMBLEM_SIZE, EMBLEM_SIZE);
-      context.fillStyle = look.background;
-      context.fillRect(1, 1, EMBLEM_SIZE - 2, EMBLEM_SIZE - 2);
-      context.fillStyle = look.shadow;
-      context.fillRect(7, 0, 2, 5);
-      context.fillRect(23, 0, 2, 5);
-      for (const [offset, ink] of [[1, look.shadow], [0, look.ink]]) {
+        return `rgb(${rgb.map(value => Math.round(value * factor)).join(',')})`;
+      };
+      const rect = (ink, x, y, w, h) => {
+        context.fillStyle = ink;
+        context.fillRect(x, y, w, h);
+      };
+      const symbol = (x0, offset, ink) => {
         context.fillStyle = ink;
         glyph.forEach((row, y) => [...row].forEach((cell, x) => {
-          if (cell === '#') context.fillRect(left + x * scale, top + y * scale + offset, scale, scale);
+          if (cell === '#') context.fillRect(x0 + left + x * scale + offset,
+            top + y * scale + offset, scale, scale);
         }));
-      }
-    });
+      };
+      // The roof plaque wears the roof's own paint with restrained grain.
+      // Light and shadow edges emboss the glyph without a contrasting ink.
+      rect(roofInk(.82), 0, 0, EMBLEM_SIZE, EMBLEM_SIZE);
+      for (let y = 5; y < EMBLEM_SIZE; y += 6) rect(roofInk(.77), 0, y, EMBLEM_SIZE, 1);
+      symbol(0, 1, roofInk(.46));
+      symbol(0, -1, roofInk(1.45));
+      symbol(0, 0, roofInk(.92));
+      rect(roofInk(.55), 80, 0, 4, 4);
+
+      const look = Render.shopSignLook(null);
+      rect(look.background, 40, 0, EMBLEM_SIZE, EMBLEM_SIZE);
+      for (let y = 5; y < EMBLEM_SIZE; y += 6) rect(look.shadow, 40, y, EMBLEM_SIZE, 1);
+      symbol(40, 1, look.shadow);
+      symbol(40, 0, look.ink);
+      rect(look.shadow, 84, 0, 4, 4);
+      rect('#302b25', 88, 0, 4, 4);
+      texture.refresh();
+      texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
     if (!emblems.has(scene.textures)) emblems.set(scene.textures, new Map());
-    const uv = [.5 / 512, .5 / 1024, (EMBLEM_SIZE - .5) / 512, (EMBLEM_SIZE - .5) / 1024];
-    const result = { roof, sign, roofRelief, signUV: uv };
+    const faceUV = x => [(x + .5) / 512, .5 / 1024, (x + EMBLEM_SIZE - .5) / 512, (EMBLEM_SIZE - .5) / 1024];
+    const result = { roof: texture, sign: texture, roofUV: faceUV(0), signUV: faceUV(40),
+      roofSideUV: [81.5 / 512, 1.5 / 1024], signSideUV: [85.5 / 512, 1.5 / 1024],
+      bracketUV: [89.5 / 512, 1.5 / 1024] };
     emblems.get(scene.textures).set(role + ':' + colorName, result);
     return result;
   }

@@ -3,7 +3,7 @@
     facade: {v:900,rows:40,period:60}, roof:{u:256,v:616,w:240,h:240},
     door:{u:30,v:50,w:20,h:26,bottom:0},wall:[16,80],recolor(faces){for(const f of faces)f.texture='wall';}});
   const lot=[{x:0,y:0},{x:70,y:0},{x:70,y:60},{x:0,y:60}];
-  const textures={sign:{key:'sign'},roof:{key:'relief'},signUV:[0,0,32/512,32/1024],roofUV:[0,0,32/512,32/1024],roofRelief:[{x:5,y:6,w:8,h:1,u:.5/512,v:.5/1024},{x:8,y:12,w:4,h:1,u:1.5/512,v:.5/1024}]};
+  const textures={sign:{key:'sign'},roof:{key:'relief'},signUV:[0,0,32/512,32/1024],roofUV:[0,0,32/512,32/1024],signSideUV:[40/512,1/1024],roofSideUV:[41/512,1/1024]};
   test('mounted shop signs: every entrance edge seats a small board beside the door',()=>{
     for(let edge=0;edge<4;edge++){
       const mesh=BuildingLowPoly.authoredOutline(skin(),lot,edge,null,textures);
@@ -13,7 +13,9 @@
       assert.gt((r1.x-r0.x)*(front.x-end.x)+(r1.y-r0.y)*(front.y-end.y),0,
         'glyph horizontal strokes read along the entrance, not an arbitrary roof triangle');
       const board=mesh.faces.filter(f=>f.feature==='shop-sign');
-      assert.eq(board.length,2,'one board quad');
+      assert.eq(board.length,10,'rounded twelve-vertex face');
+      const sides=mesh.faces.filter(f=>f.feature==='shop-sign-side');
+      assert.eq(sides.length,24,'each rounded edge has a solid side wall');
       assert.truthy(board.every(f=>f.texture===textures.sign&&f.roofPalette===false));
       const a=mesh.ring[edge],b=mesh.ring[(edge+1)%4],length=Math.hypot(b.x-a.x,b.y-a.y);
       const along=p=>((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/length;
@@ -26,15 +28,22 @@
       for(const f of board)for(const p of f.points){
         assert.truthy(along(p)>=0&&along(p)<=length,'board stays on the entrance wall');
         const normalDistance=Math.abs((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x))/length;
-        assert.inRange(normalDistance,.19,.21,'small outward offset avoids wall flicker');
+        assert.inRange(normalDistance,.69,.71,'front face sits half a unit above its mount');
       }
     }
   });
   test('mounted shop signs: one roof relief retains its own texture after recoloring',()=>{
     const mesh=BuildingLowPoly.authoredOutline(skin(),lot,0,null,textures);
     const roof=mesh.faces.filter(f=>f.feature==='shop-emblem');
-    assert.eq(roof.length,textures.roofRelief.length*2,'only relief strokes, no opaque background quad');
-    assert.truthy(roof.every(f=>f.points.every(p=>p.tu===f.points[0].tu&&p.tv===f.points[0].tv)),'each stroke samples one relief color');
+    assert.eq(roof.length,10,'one rounded roof plaque');
+    const sides=mesh.faces.filter(f=>f.feature==='shop-emblem-side');
+    assert.eq(sides.length,24,'the roof plaque has real thickness');
+    for(let i=0;i<sides.length;i+=2){
+      const base=sides[i].points[0];
+      const other=sides[i+1].points[2];
+      assert.inRange(Math.hypot(other.x-base.x,other.y-base.y,other.z-base.z),.799,.801);
+    }
+    assert.truthy(roof.some(f=>f.points.some(p=>p.tu!==f.points[0].tu||p.tv!==f.points[0].tv)),'face samples the complete textured emblem');
     assert.truthy(roof.every(f=>f.texture===textures.roof&&f.roofPalette===false));
     for(const f of roof)for(const p of f.points){
       assert.inRange(p.tu,0,32/512);assert.inRange(p.tv,0,32/1024);

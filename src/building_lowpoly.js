@@ -1597,14 +1597,25 @@
         if(piece.length>=3)out.push(piece.map(p=>({...p,[key]:p[key]-n*period})));}
       return out;};
     const decorations=[];
-    const decoration=(points,texture,feature,kind='wall',sample=null)=>{
-      const bounds=(kind==='wall'?emblem.signUV:emblem.roofUV)||[0,0,1,1];
-      const uv=(kind==='wall'?[[1,1],[0,1],[0,0],[1,0]]:[[0,1],[1,1],[1,0],[0,0]])
-        .map(([u,v])=>sample||[bounds[0]+u*(bounds[2]-bounds[0]),bounds[1]+v*(bounds[3]-bounds[1])]);
-      for(const ids of [[0,1,2],[0,2,3]])decorations.push({...skin.template,
-        points:ids.map(i=>({...points[i],tu:uv[i][0],tv:uv[i][1]})),texture,
-        kind,layer:kind==='roof'?2.3:.2,color:0xffffff,light:1,shade:1,
-        sourceArt:true,rawUV:true,preserveWalls:true,roofPalette:false,feature});
+    // A small solid plaque: rounded silhouette, textured face and a shallow
+    // side wall. The same geometry seats on a roof plane or an entrance wall.
+    const plaque=(at,texture,feature,kind,bounds,sideUV,thickness)=>{
+      const r=.14,outline=[];
+      for(const [cx,cy,start] of [[1-r,r,-90],[1-r,1-r,0],[r,1-r,90],[r,r,180]])
+        for(const step of [0,45,90]){const angle=(start+step)*Math.PI/180;outline.push({x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)});}
+      const uv=p=>{const u=kind==='wall'?1-p.x:p.x,v=kind==='wall'?1-p.y:p.y;
+        return {tu:bounds[0]+u*(bounds[2]-bounds[0]),tv:bounds[1]+v*(bounds[3]-bounds[1])};};
+      const face=(points,name,shade=1)=>decorations.push({...skin.template,points,texture,
+        kind,layer:kind==='roof'?2.3:.2,color:0xffffff,light:1,shade,
+        sourceArt:true,rawUV:true,preserveWalls:true,roofPalette:false,feature:name});
+      const top=outline.map(p=>({...at(p.x,p.y,thickness),...uv(p)}));
+      for(let i=1;i<top.length-1;i++)face([top[0],top[i],top[i+1]],feature);
+      for(let i=0;i<outline.length;i++){
+        const p=outline[i],q=outline[(i+1)%outline.length];
+        const points=[at(q.x,q.y,0),at(p.x,p.y,0),at(p.x,p.y,thickness),at(q.x,q.y,thickness)]
+          .map(v=>({...v,tu:sideUV[0],tv:sideUV[1]}));
+        for(const ids of [[0,1,2],[0,2,3]])face(ids.map(j=>points[j]),feature+'-side',.8);
+      }
     };
     let mountedSign=false;
     // Walls: complete facade bays up to the eaves, along the ring's winding.
@@ -1622,9 +1633,9 @@
             const start=doorRight+gap+width<=L-1?doorRight+gap:doorLeft-gap-width;
             if(start>=1){
               const bottom=z0+1,top=Math.min(H-1,bottom+7);
-              // The cached sign includes its two hanging straps. Offset it
-              // outward from the wall, exactly like the painted doorway.
-              decoration([at(start,bottom),at(start+width,bottom),at(start+width,top),at(start,top)].map(p=>({...p,x:p.x+nx*2,y:p.y+ny*2})),emblem.sign,'shop-sign');
+              const seat=(x,y,depth)=>{const p=at(start+x*width,bottom+y*(top-bottom));
+                return {...p,x:p.x+nx*(2+depth*10),y:p.y+ny*(2+depth*10)};};
+              plaque(seat,emblem.sign,'shop-sign','wall',emblem.signUV,emblem.signSideUV,.5);
               mountedSign=true;
             }
           }
@@ -1648,9 +1659,9 @@
       constant(f.points,texel,'roof',{roofPalette:true,shade:f.rimShade?.8:f.beam?(f.light<.8?.82:1.06):.72,layer:f.layer||2});
     }
     skin.recolor(faces);
-    if(emblem?.roof&&emblem.roofRelief?.length){
-      // Sparse relief edges on a real roof plane. The original tiles remain
-      // visible between strokes, with no square background or repeated stamp.
+    if(emblem?.roof&&emblem.roofUV){
+      // One modest roof-coloured plaque follows a real roof plane. Its
+      // baked relief and rounded solid edge read as a mounted sign.
       const roof=g.faces.filter(f=>f.kind==='roof'&&!f.rim&&!f.beam)
         .sort((a,b)=>Math.abs(cross(...b.points))-Math.abs(cross(...a.points)))[0];
       if(roof){
@@ -1670,12 +1681,12 @@
           const area=cross3(sub(center,p),sub(q,p));return Math.hypot(area.x,area.y,area.z)/Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z);
         }));
         const half=Math.min(8,clearance*.65);
-        if(half>1){const at=(x,y)=>({x:center.x+x*u.x+y*v.x+normal.x*.12,y:center.y+x*u.y+y*v.y+normal.y*.12,z:center.z+x*u.z+y*v.z+normal.z*.12});
-          for(const stroke of emblem.roofRelief){
-            const left=-half+stroke.x/32*half*2,right=left+stroke.w/32*half*2;
-            const top=-half+stroke.y/32*half*2,bottom=top+stroke.h/32*half*2;
-            decoration([at(left,top),at(right,top),at(right,bottom),at(left,bottom)],emblem.roof,'shop-emblem','roof',[stroke.u,stroke.v]);
-          }
+        if(half>1){const seat=(x,y,depth)=>{
+          const sx=(x*2-1)*half,sy=(y*2-1)*half,lift=.12+depth;
+          return {x:center.x+sx*u.x+sy*v.x+normal.x*lift,
+            y:center.y+sx*u.y+sy*v.y+normal.y*lift,z:center.z+sx*u.z+sy*v.z+normal.z*lift};
+        };
+          plaque(seat,emblem.roof,'shop-emblem','roof',emblem.roofUV,emblem.roofSideUV,.8);
         }
       }
     }

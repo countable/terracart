@@ -22,10 +22,13 @@ All tier-one businesses, including blacksmiths, traders and generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
-Each T1 entrance carries a small hanging symbol beside its door; the same
-symbol is embossed into one roof surface in the roof color. These decorations
-rotate and occlude with the building, and their materials are prepared once at
-startup. A mounted sign replaces its floating plate; trader deal bubbles remain.
+Each T1 entrance carries a small wooden sign beside its door, and its roof
+carries a roof-coloured sign embossed with the same symbol. Both are simple
+rounded rectangles with textured faces and real side walls: the front board
+projects 0.5 world units from its mount, the roof plaque 0.8 along the roof
+normal. Their geometry follows the doorway and roof plane, including heading,
+occlusion and building fading. Shared material atlases are prepared at startup.
+A mounted sign replaces its floating plate; trader deal bubbles remain.
 Castle, turret and wreck geometry retain their existing paths.
 Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the

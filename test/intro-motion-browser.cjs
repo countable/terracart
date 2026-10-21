@@ -54,13 +54,35 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
           assert(s.animations.every(a => a.duration === 16000 && a.iterations === 1));
-          [1.05, 1.10, 1.15].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          for (const [time, visible] of [[4750, 0], [8750, 1], [12750, 2]]) {
+          [1 / 1.45, 1 / 2.1, 1 / 3].forEach((zoom, i) => near(s.frames[i].scale, zoom));
+          for (const [time, visible] of [[6750, 0], [10750, 1], [16750, 2]]) {
             await seek(time); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity === 0));
           }
+          for (const [time, crop] of [[4750, 1.45], [8750, 2.1], [12750, 3]]) {
+            await seek(time); near((await state()).scale, crop);
+          }
+          // At every fade sample, an incoming crop must cover the whole
+          // original image area; otherwise the older frame leaks at its edge.
+          for (const time of [4800, 5750, 8800, 9750, 12800, 14750, 16750]) {
+            await seek(time); s = await state();
+            for (const frame of s.frames) if (frame.opacity > 0) {
+              assert(s.scale * frame.scale >= .999, 'visible intrinsic crop covers the scene');
+            }
+          }
           await seek(16750); near((await state()).scale, 3);
           await seek(40000); s = await state(); near(s.scale, 3); near(s.frames[2].opacity, 1);
+          const coverage = await page.evaluate(() => {
+            const scene = document.querySelector('.nightmare-scene');
+            const bounds = scene.getBoundingClientRect();
+            const final = scene.querySelector('img:last-child').getBoundingClientRect();
+            const style = getComputedStyle(scene);
+            return { clipped: style.overflowX === 'hidden' && style.overflowY === 'hidden',
+              covers: final.left <= bounds.left + 1 && final.top <= bounds.top + 1
+                && final.right >= bounds.right - 1 && final.bottom >= bounds.bottom - 1 };
+          });
+          assert(coverage.clipped, 'older zoomed paintings cannot spill into the portrait letterbox');
+          assert(coverage.covers, 'the final painting covers the entire clipped portrait canvas');
         }
         await snapshot('dream');
         await next(); // Hood in bed.

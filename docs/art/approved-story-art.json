@@ -2910,16 +2910,19 @@
     },
     {
       "key": "story_nightmare_frame2",
-      "master_path": "../opening-story-refresh/story_nightmare_frame2.png",
-      "master_sha256": "451572f5146cdcdf8c6fbef901cf3ea3959d1c9da8167e7612830cd6d5511304",
+      "master_path": "approved-story-art/story_nightmare_frame2-zoom.png",
+      "master_sha256": "d8b66f3f4d77c316fd10e5e0801e98662699732b9a89c824a1d51cd14a00183d",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "d19bc378390aa88a8cb69029c8b759f1ba46c8ac7b72e50c32f06dcd9b69c9d3",
-      "method": "regenerated",
-      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+      "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "method": "reference_edit",
+      "reference": "assets/art/story_nightmare_frame2.webp; central red dragon face",
+      "generator": "built-in image_gen",
+      "intrinsic_zoom": 1.45,
+      "prompt": "Edit the supplied existing pixel-art dragon battle frame into a sharply resolved closer camera shot. Output a single portrait 2:3 image, ideally 1024x1536 or larger. This is frame 2 of a continuous zoom sequence, not a redesign. Enlarge the entire reference composition by exactly 1.45x around the anchor at 59% of image width and 21% of image height. That anchor near the central RED dragon's glowing eye must stay at 59% width,21% height in the result. Crop outside the portrait canvas; do not fit the whole original scene back into the image. All visible subjects, head poses, identities, architecture, flames, wings and smoke retain the exact spatial relationships from this reference. Central red dragon face is the focus; maintain its red scales, horns, eye, teeth and mouth silhouette exactly. Keep the five-headed hydra and opposing white dragon consistent, showing only whatever portions remain inside the tighter camera crop. Recover crisp high-resolution pixel-art details in scales, horns, eye, teeth and flames rather than blurry enlarged source pixels. No softened interpolation, no text, no new heads, no extra objects, no composition changes other than the specified optical zoom. Preserve dark red and black palette and bright lava-fire lighting. One frame only, not a contact sheet."
     },
     {
       "key": "story_nightmare_close",
@@ -2946,6 +2949,38 @@
       "sha256": "033cafddb1569c5bc18b7e0e385d7fe25e2dec28ef2650f1eba4429fc1b38aec",
       "method": "regenerated",
       "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+    },
+    {
+      "key": "story_nightmare_frame3",
+      "master_path": "approved-story-art/story_nightmare_frame3-zoom.png",
+      "master_sha256": "9b692e6164d53c752155a8cafad90edd2fdf112a14280f7bdaa5a86c0b5589c4",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "method": "reference_edit",
+      "generator": "built-in image_gen",
+      "intrinsic_zoom": 2.1,
+      "prompt": "Create a much tighter CLOSE-UP of the central red dragon face in this image. Portrait 2:3, high resolution 1024x1536. Camera crop change ONLY, retain its exact identity and crisp detailed pixel art. The red dragon's head from back horns at left to nose at right MUST occupy about90% of the entire image width, much larger than in the reference. The nose is near the right edge. The glowing red eye stays near58% width and17% height. Enlarge its jaws, scales, horns, face with crisp new detail. Crop away most of the other heads and the white dragon; they may appear only as fragments at the extreme edges. The lower part of the picture is the red dragon's descending neck and huge fire breath; only tiny distant tower tips may remain at the very bottom. DO NOT preserve the full battle composition. DO NOT shrink the dragon to fit all heads. We are zooming the camera into this SAME red face, so surrounding subjects leave the frame. No new anatomy, no text, no blur. Preserve red/black/fire color palette.",
+      "reference": "assets/art/story_nightmare_frame3.webp; central red dragon face",
+      "sha256": "3692150404fadec4bacffa88765a492fd65cd86cb9e1fac194a4f5677de415a8"
+    },
+    {
+      "key": "story_nightmare_frame4",
+      "master_path": "approved-story-art/story_nightmare_frame4-zoom.png",
+      "master_sha256": "7ccd3c6fc096341242003ae3f6f9d07fdd9b8d3a26cc6e5d45dbf099b1a93de5",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "method": "reference_edit",
+      "generator": "built-in image_gen",
+      "intrinsic_zoom": 3,
+      "prompt": "Make an EXTREME CLOSE-UP portrait of ONLY the central RED dragon's eye, face, huge open jaws and upper neck from this reference. Portrait2:3,1024x1536 sharp detailed pixel art. Physically zoom so the red head is WIDER THAN THE CANVAS: its rear horns extend off the left and top edges, muzzle/tooth tips nearly touch or cross the right edge. The glowing eye sits at58% width and15% height. The red dragon's open mouth is enormous in upper-middle/right, fire breath fills lower-right, red armored neck fills lower-left. ALL city buildings, ALL complete other dragon heads, ALL white dragon and wings must be OUTSIDE THE CROP. Only red head, partialhorns, jaws, neck, flame and small dark red smoky background patches should remain. Do NOT draw a full battle scene, do NOT fit all subjects into the frame. Preserve the exact red dragon design, tooth shape, horn directions, red scales and original pixel-art style; render newly resolved crisp fine scale and eye details, no blurry enlargement, no text.",
+      "reference": "assets/art/story_nightmare_frame4.webp; central red dragon face",
+      "sha256": "eab6ab05d111a6061760bd440794f59c9a96382f7cf4a40f05b6462ad7ef408a"
     }
   ]
 }
