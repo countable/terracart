@@ -73,7 +73,7 @@ const CROP_SPRITE = {
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,
-    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8 } } },
+    looks: { bramble: { sheet: 'bramble', shadow: true, custom: true, frames: [0], scale: 4 / 3 }, clipped: { sheet: 'approved_clipped_hedge', shadow: true, custom: true, frames: [0], scale: 0.8 } } },
   // Surface choices vary stably; the two existing blue cave caps remain distinct.
   mushroom: { sheet: 'selected_mushroom', custom: true, frames: [0, 1], scale: 1.1016, caveFrames: [2, 3] },
   // Keep planted-rock growth stages; mature and wild rocks use the selected art.
@@ -173,7 +173,7 @@ const WILDPLANT_CONTEXT_ART = {
   ...Object.fromEntries(Object.entries(ZONE_ROCK_THEMES).map(([zone, theme]) =>
     ['zone_rock_' + zone, { crop: 'rubble', sheet: 'rock_variants', custom: true, frame: theme.frame, scale: ROCK_VARIANT_ART.themedScale }])),
   zone_hedge: { crop: 'shrub', sheet: 'zone_hedge', custom: true, scale: 4 / 3, seat: false },
-  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 0.8, seat: false },
+  zone_hedge_single: { crop: 'shrub', sheet: 'zone_hedge_single', custom: true, frames: [0], scale: 0.8, seat: false },
   palm: { crop: 'shrub', sheet: 'beach_palms', custom: true, frames: [2, 3, 4, 5], scale: 4 / 3, seat: true, shadow: true },
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };

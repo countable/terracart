@@ -1,0 +1,20 @@
+{
+  "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png",
+  "sha256": "828731be252187814e697df8cd838f7282fe4076c1d655df883211daf8ecebda",
+  "crop": [
+    128,
+    96,
+    32,
+    24
+  ],
+  "resize": [
+    24,
+    18
+  ],
+  "resampling": "nearest",
+  "offset": [
+    0,
+    6
+  ],
+  "note": "Smooth crown above the trunk, used as a ground-level clipped dome."
+}
