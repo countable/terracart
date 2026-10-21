@@ -31,6 +31,19 @@ const RogueObjects = (() => {
     // already contain alpha/palette treatment and must not be muted a second time.
     if (typeof ROGUE_PROP_PROFILE !== 'undefined') {
       for (const [key, asset] of Object.entries(ROGUE_PROP_PROFILE.assets)) assets[key] = {...asset};
+      // Frame crops remove only ground-contact ink; dynamic shadows stay in
+      // Render. Keep source coordinates so lit/unlit sheet frames cannot drift.
+      for (const [key, frames] of Object.entries(ROGUE_PROP_PROFILE.frameCrops || {})) {
+        assets[key].onLoad = scene => {
+          const texture = scene.textures.get(key);
+          for (const [frame, height] of Object.entries(frames)) {
+            const source = texture.get(frame);
+            const {sourceIndex, cutX, cutY, cutWidth} = source;
+            texture.remove(frame);
+            texture.add(frame, sourceIndex, cutX, cutY, cutWidth, height);
+          }
+        };
+      }
       if (typeof SpriteLayout !== 'undefined') Object.assign(SpriteLayout.ART_BOUNDS, ROGUE_PROP_PROFILE.bounds);
     }
   }

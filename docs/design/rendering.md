@@ -88,6 +88,9 @@ same sheets; atlas aliases and old palette callbacks are replaced, not layered.
 first cannot recreate an obsolete alias while a replacement sheet is loading.
 Elevators retain their broken/repaired behavior in a separate 24×36 sheet; the
 grove votive uses the same 36px frame and display scale as other shrines.
+Waystone frames (both states) and the scope clip only their bottom ink row at
+texture load through `frameCrops`, with matching seating bounds. Their source
+art and dynamic contact shadows are preserved.
 The clipped hedge and procedural hedge-wall use the shared richer RA olive ramp,
 with darker side faces and retained leaf shading. Crates keep their existing 3D
 materials; broken pottery is unchanged. Rock material exports update only the
