@@ -2952,8 +2952,8 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-turn.png",
-      "master_sha256": "6eb6a355ffedc12f7cdedaab99d5361fdc63b87e59f99ef0d496157c2ce74676",
+      "master_path": "approved-story-art/story_nightmare_frame3-moving-f0610be9.png",
+      "master_sha256": "07acdd211d64f1d8a0e08f995b84d731ebaa91d92428f1f31870d6607ff3b3e6",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2962,14 +2962,15 @@
       "method": "reference_edit",
       "generator": "built-in image_gen",
       "intrinsic_zoom": 1.45,
-      "prompt": "Edit this exact dragon-war painting into the NEXT animation frame, portrait 2:3 at high resolution (1024x1536 or greater). This is a SMALL CONTINUOUS CAMERA STEP, not an extreme close-up. Zoom only about20% relative to this reference: the central RED dragon head must remain comfortably inside the frame, occupying roughly65% of the canvas width including its backward horns; preserve substantial neck, smoke, other cropped dragon heads and distant city in the lower part. Keep the central red dragon eye/head in the same upper-central area, with eye line near23% of image height. Preserve the same dragon identity, horn shapes, red armored scales, black ridges and crimson fire-lit palette. Animate ONLY this central red dragon: rotate its head about25 degrees TOWARD THE VIEWER from the existing side-facing pose. Its near eye starts looking directly at us, the far eye is beginning to become visible. Its jaws are closing; the long flame jet from its mouth has stopped, leaving only a short fading wisp of embers at its lips. Background city fires continue; no new breath jet. Other dragons remain background elements, not new focal subjects. REDRAW the revealed surfaces at this closer distance with finer NEW detail: layered small scales, fine creases around the glowing eye, subtle horn striations and convincing specular highlights. Keep the hand-crafted dark fantasy pixel-art aesthetic but use fine pixel clusters, not oversized blown-up blocks or soft blur. Do NOT make the red face huge or crop off its snout. The frame should crossfade naturally from the supplied wider image with only modest size increase and head movement. No text, no border, no duplicate red heads.",
-      "reference": "story_nightmare_frame2.webp",
-      "sha256": "436d1eb55b02498ae86e0d0a215d6f9d5e7b10dd57eab14a4b30acc0105aef80"
+      "prompt": "Edit target: supplied story_nightmare_frame3 painting. Create a restrained background-animation variant of THIS EXACT FRAME, portrait 1024x1536. Preserve the CENTRAL LARGE RED DRAGON pixel-for-pixel as far as possible: its partially turned head, glowing eye, open-but-closing jaw, all horns, neck, scales and existing fading lip embers must remain in precisely the same position, size, shape and expression. NO camera movement, zoom, reframing or repaint of the central red dragon; no new fire breath from it. Change ONLY peripheral dragons, existing fire and smoke. Give the existing black dragon at the extreme upper left a tiny jaw/neck shift, the bronze dragon at left a small jaw movement, the black dragon below the central head a subtle neck shift, and the pale dragons on the right subtle jaw/wing shifts. Keep every dragon's identity, number, placement and scale; no added heads. Make the existing flames visibly flicker with changed tips and sparks anchored to the same burning areas; gently curl smoke differently without moving the city buildings, eclipse or horizon. Changes should be clearly distinguishable animation motion around the unchanged central red head but small enough for a crossfade. Match the exact existing pixel-painted dark fantasy style, red-black palette, detail and sharpness. No text, borders, new objects or anatomy.",
+      "reference": "approved-story-art/story_nightmare_frame3-before-moving-f0610be9.webp",
+      "sha256": "d43c694646a4c94fb5c2f2100ab673c3f44358fcd40da2b25e5e315112bb08e7",
+      "reference_sha256": "436d1eb55b02498ae86e0d0a215d6f9d5e7b10dd57eab14a4b30acc0105aef80"
     },
     {
       "key": "story_nightmare_frame4",
-      "master_path": "approved-story-art/story_nightmare_frame4-turn.png",
-      "master_sha256": "2417c9e6d3e89cd654b06365fdb30a20e4afeb57a627fbea3ed435f0d2eadf8a",
+      "master_path": "approved-story-art/story_nightmare_frame4-moving-d06b26e6.png",
+      "master_sha256": "81a0aeda966a3bfeff234e9ff44fa1b0ea1e34e9783dc6cc35c67ee28cd0161a",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2978,9 +2979,10 @@
       "method": "reference_edit",
       "generator": "built-in image_gen",
       "intrinsic_zoom": 1.45,
-      "prompt": "Create the FINAL next animation frame from this exact reference. Portrait 2:3, high resolution1024x1536 or greater. The CENTRAL RED DRAGON now finishes turning its head to face the CAMERA DIRECTLY, both eyes fixed on the viewer in a still threatening stare. Its mouth is fully CLOSED: closed jaws, no open gape, no flame or fire jet or embers coming out of its mouth. Keep the same red dragon identity, swept backward black-red horns, armored scarlet brow, layered scales, snout ridges and red/orange eyes. The camera moves a MODEST step closer (about20%): the central red head and its horns occupy roughly70% of the image width, not a huge frame-filling jump. Position the pair of eyes in the upper-center, midpoint about57% across and25% down, similar to the supplied head. Preserve a substantial portion of its neck below; background dragon fragments and distant burning city may remain around the edges and lower third. Do not revert to a side profile. Most important: front-facing closed-mouth head staring straight into the camera. REDRAW newly visible frontal anatomy with substantially MORE detailed small scales, fine grooves in the horns, tiny chips on brow armor, fine eyelid ridges, richly resolved iris around a narrow pupil. This is closer detailed concept art in the same dark fantasy hand-crafted pixel-painting style, not a resized low-resolution sprite. Use smaller and finer pixel clusters than reference, no coarse square mosaic, no blur. Keep battle background and red-black palette continuous, but the central dragon itself is silent and still. Do not add extra red heads, limbs, text, border, or new props.",
-      "reference": "approved-story-art/story_nightmare_frame3-turn.png",
-      "sha256": "2a40c3bba6c499fb8ded67147bf4b4a7f6e7913723e3d22edc8d0a2403c8709e"
+      "prompt": "Edit target: supplied story_nightmare_frame4 painting. Create a restrained background-animation variant of THIS EXACT FINAL FRAME, portrait 1024x1536. PRESERVE the CENTRAL LARGE RED DRAGON EXACTLY: its frontal symmetric head, two glowing eyes staring directly at camera, fully CLOSED mouth, all horns, cheeks, neck and scales must remain at precisely the same positions, shapes, sizes and expression. Do not repaint, rotate, enlarge or move the central dragon. It emits NO fire, smoke or embers from its mouth. NO camera movement, zoom, crop or reframing. Change ONLY peripheral dragons and existing environmental flames and smoke. The upper-left black dragon slightly lifts its jaw/head while staying in its corner; the bronze left dragon subtly adjusts its neck and opens its jaw a little differently; the black dragon on the right subtly shifts its jaw and neck; the pale right dragons subtly alter jaw/wing positions. All remain the SAME existing dragons in the SAME areas, sizes and identities, no additional heads or limbs. Make the city flames flicker clearly with altered tips and sparks, anchored to the same burning areas; smoke curls and swirls slightly differently. Preserve the same city buildings, eclipse and horizon perfectly. These small surrounding changes should make the world feel alive during the central dragon's still closed-mouth stare. Match exact original dark fantasy pixel-painting style, red-black palette, fine detail and sharpness. No text, borders or new objects.",
+      "reference": "approved-story-art/story_nightmare_frame4-before-moving-d06b26e6.webp",
+      "sha256": "ec33fcb120d383607a4d30dc9cfb8115a7750eb2d58ae28ab728e85883e30822",
+      "reference_sha256": "2a40c3bba6c499fb8ded67147bf4b4a7f6e7913723e3d22edc8d0a2403c8709e"
     }
   ]
 }

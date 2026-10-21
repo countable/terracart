@@ -1612,7 +1612,7 @@
       for(let i=1;i<top.length-1;i++)face([top[0],top[i],top[i+1]],feature);
       for(let i=0;i<outline.length;i++){
         const p=outline[i],q=outline[(i+1)%outline.length];
-        const points=[at(q.x,q.y,0),at(p.x,p.y,0),at(p.x,p.y,thickness),at(q.x,q.y,thickness)]
+        const points=[at(p.x,p.y,0),at(q.x,q.y,0),at(q.x,q.y,thickness),at(p.x,p.y,thickness)]
           .map(v=>({...v,tu:sideUV[0],tv:sideUV[1]}));
         for(const ids of [[0,1,2],[0,2,3]])face(ids.map(j=>points[j]),feature+'-side',.8);
       }
@@ -1681,8 +1681,14 @@
           const area=cross3(sub(center,p),sub(q,p));return Math.hypot(area.x,area.y,area.z)/Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z);
         }));
         const half=Math.min(8,clearance*.65);
+        // Keep the roof plate square in the default view. The sloped roof
+        // stretches its projected height; shrink that axis within the safe
+        // footprint, then retain this geometry as the camera turns.
+        const xScale=Math.max(1e-6,Math.hypot(u.x,u.y-u.z*LOOK.heightScale));
+        const yScale=Math.max(1e-6,Math.hypot(v.x,v.y-v.z*LOOK.heightScale));
+        const halfWidth=half*Math.min(1,yScale/xScale),halfHeight=half*Math.min(1,xScale/yScale);
         if(half>1){const seat=(x,y,depth)=>{
-          const sx=(x*2-1)*half,sy=(y*2-1)*half,lift=.12+depth;
+          const sx=(x*2-1)*halfWidth,sy=(y*2-1)*halfHeight,lift=.12+depth;
           return {x:center.x+sx*u.x+sy*v.x+normal.x*lift,
             y:center.y+sx*u.y+sy*v.y+normal.y*lift,z:center.z+sx*u.z+sy*v.z+normal.z*lift};
         };

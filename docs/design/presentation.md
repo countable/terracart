@@ -445,7 +445,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   framed at 1.45× around Tiamat’s eye (59% across, 21% down); the third and
   fourth keep that background framing while redrawing finer scales and a head
   that turns toward the viewer, stops breathing fire, and holds a closed-mouth
-  stare. All three share the same inverse crop compensation, so their
+  stare. Peripheral dragons keep shifting as flames flicker and smoke curls
+  between these turning frames, including the final closed-mouth stare.
+  All three share the same inverse crop compensation, so their
   backgrounds stay registered through the fades. The camera reaches 1.45×,
   1.8× and 2.2× at four, eight and twelve seconds, then holds while the final
   painting resolves by sixteen seconds. The portrait canvas clips older frames

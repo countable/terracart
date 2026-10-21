@@ -4,6 +4,15 @@
     door:{u:30,v:50,w:20,h:26,bottom:0},wall:[16,80],recolor(faces){for(const f of faces)f.texture='wall';}});
   const lot=[{x:0,y:0},{x:70,y:0},{x:70,y:60},{x:0,y:60}];
   const textures={sign:{key:'sign'},roof:{key:'relief'},signUV:[0,0,32/512,32/1024],roofUV:[0,0,32/512,32/1024],signSideUV:[40/512,1/1024],roofSideUV:[41/512,1/1024]};
+  const outwardSides=(top,sides)=>{
+    const points=top.flatMap(f=>f.points),center={x:0,y:0,z:0};
+    for(const p of points)for(const k of ['x','y','z'])center[k]+=p[k]/points.length;
+    for(const face of sides){
+      const [a,b,c]=face.points,ab={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},ac={x:c.x-a.x,y:c.y-a.y,z:c.z-a.z};
+      const n={x:ab.y*ac.z-ab.z*ac.y,y:ab.z*ac.x-ab.x*ac.z,z:ab.x*ac.y-ab.y*ac.x};
+      assert.gt(n.x*(a.x-center.x)+n.y*(a.y-center.y)+n.z*(a.z-center.z),0,'solid plate sides face outward');
+    }
+  };
   test('mounted shop signs: every entrance edge seats a small board beside the door',()=>{
     for(let edge=0;edge<4;edge++){
       const mesh=BuildingLowPoly.authoredOutline(skin(),lot,edge,null,textures);
@@ -16,6 +25,7 @@
       assert.eq(board.length,10,'rounded twelve-vertex face');
       const sides=mesh.faces.filter(f=>f.feature==='shop-sign-side');
       assert.eq(sides.length,24,'each rounded edge has a solid side wall');
+      outwardSides(board,sides);
       for(let i=0;i<sides.length;i+=2){
         const base=sides[i].points[0],front=sides[i+1].points[2];
         assert.inRange(Math.hypot(front.x-base.x,front.y-base.y,front.z-base.z),1.199,1.201,
@@ -43,6 +53,9 @@
     assert.eq(roof.length,10,'one rounded roof plaque');
     const sides=mesh.faces.filter(f=>f.feature==='shop-emblem-side');
     assert.eq(sides.length,24,'the roof plaque has real thickness');
+    outwardSides(roof,sides);
+    const points=roof.flatMap(f=>f.points),xs=points.map(p=>p.x),ys=points.map(p=>p.y-p.z*BuildingLowPoly.LOOK.heightScale);
+    assert.lt(Math.abs((Math.max(...xs)-Math.min(...xs))-(Math.max(...ys)-Math.min(...ys))),1e-6,'roof plate looks square in the default view');
     for(let i=0;i<sides.length;i+=2){
       const base=sides[i].points[0];
       const other=sides[i+1].points[2];

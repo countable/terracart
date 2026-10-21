@@ -26,7 +26,9 @@ Each T1 entrance carries a small wooden sign beside its door, and its roof
 carries a roof-coloured sign embossed with the same symbol. Both are simple
 rounded rectangles with textured faces and real side walls: the front board
 projects 1.2 world units from its mount, the roof plaque 1.5 along the roof
-normal. The wall sign hangs six units above the door sill, beside the upper
+normal. The roof plate compensates for the roof slope so its visible face is
+square in the default view; its side walls face outward to reveal the thickness.
+The wall sign hangs six units above the door sill, beside the upper
 doorway; the eaves may obscure it. Their geometry follows the doorway and roof plane, including heading,
 occlusion and building fading. Shared material atlases are prepared at startup.
 A mounted sign replaces its floating plate; trader deal bubbles remain.
