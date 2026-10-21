@@ -71,7 +71,7 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             await seek(dreamTime(to)); return ((await state()).scale - start) / (to - from);
           };
           const startingSpeed = await speed(0, .001), peakSpeed = await speed(.939, .94);
-          assert(Math.abs(peakSpeed / startingSpeed - 2) < .04, 'zoom reaches twice its starting speed');
+          assert(Math.abs(peakSpeed / startingSpeed - 3) < .04, 'zoom reaches three times its starting speed');
           assert(Math.abs((await speed(.94, .941)) / peakSpeed - 1) < .04, 'damping starts without a speed jump');
           assert((await speed(.999, 1)) < startingSpeed * .05, 'zoom settles nearly to rest at the endpoint');
           let previousScale = 1.5;
