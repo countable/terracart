@@ -10,6 +10,12 @@
         assert.eq(Math.max(...points.map(p => p.z)), 48 / Math.cos(Math.PI / 6));
         const walls = faces.filter(f => f.kind === 'wall' && f.points.some(p => p.tv >= 900 / 1024));
         assert.eq(Math.max(...walls.flatMap(f => f.points.map(p => p.tv * 1024))), 932, 'all 32 facade texels survive');
+        if (!ring) {
+          const wallPoints = walls.flatMap(f => f.points);
+          assert.eq(Math.min(...wallPoints.map(p => p.x)), 3, 'left wall sits under roof lip');
+          assert.eq(Math.max(...wallPoints.map(p => p.x)), 93, 'right wall sits under roof lip');
+          assert.truthy(faces.filter(f => f.kind === 'roof').some(f => f.points.some(p => p.x === 0)), 'roof retains original outline');
+        }
         assert.eq(faces.footprintInfo.roofPitch, 0);
       }
     }
@@ -121,3 +127,20 @@
     }
   });
 })();
+
+test('authored blacksmith: widening the barrel preserves the gear panel and separates entry overlays', () => {
+  const C = Math.cos(Math.PI / 6), spec = SteamBlacksmith.spec, depth = 180;
+  const sourceWidth = spec.right - spec.left, wallHeight = (spec.base - spec.eave) / C;
+  for (const width of [sourceWidth * 2, sourceWidth * 3]) {
+    const faces = SteamBlacksmith.build({}, spec, 'steam_blacksmith', [[0,0],[width,0],[width,depth],[0,depth]]);
+    const gear = faces.filter(f => f.kind === 'wall' && f.points.every(p => p.y > depth) && f.points.some(p => p.z > wallHeight + 1));
+    assert.truthy(gear.length, 'wide front retains its original gear artwork');
+    const points = gear.flatMap(f => f.points), left = Math.min(...points.map(p => p.x)), right = Math.max(...points.map(p => p.x));
+    assert.eq(right - left, sourceWidth, 'gear artwork keeps native width as the building widens');
+    assert.eq((left + right) / 2, width / 2, 'gear panel stays centred');
+    const entries = faces.filter(f => f.kind === 'wall' && f.points.every(p => p.y > depth && p.z <= spec.door[3] / C));
+    assert.truthy(entries.length, 'entry overlay exists');
+    const standOff = Math.min(...entries.flatMap(f => f.points.map(p => p.y - depth))) * 16 / spec.door[3];
+    assert.truthy(standOff > 2 * 2048 / 65535, 'entry clears two 16-bit preview depth steps at game scale');
+  }
+});

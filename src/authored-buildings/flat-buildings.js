@@ -12,8 +12,13 @@
   // between its frame and the right window, preserving the horizontal cornice.
   prepareFootprintMaterial(ctx,image,{...spec,wall:spec.ppFlat?spec.wall:[32,spec.eave,2,16],sideRidge:true},key);
   if(spec.ppFlat){
+   // The source outline belongs to the roof silhouette, not every wall corner.
+   // Extend native masonry into the four border columns in the prepared atlas.
+   ctx.save();ctx.beginPath();ctx.rect(0,900,256,32);ctx.clip();
+   for(let x=0;x<256;x+=96){ctx.drawImage(image,4,48,1,32,x,900,4,32);ctx.drawImage(image,91,48,1,32,x+92,900,4,32);}
+   ctx.restore();
    // Native tiled deck and colored coping; retain the source texel density.
-   for(let y=616;y<872;y+=16)for(let x=256;x<512;x+=16)ctx.drawImage(image,16,12,16,16,x,y,16,16);
+   for(let y=616;y<872;y+=16)for(let x=256;x<512;x+=16)ctx.drawImage(image,16,16,16,16,x,y,16,16);
    for(let i=0;i<5;i++){ctx.drawImage(image,1+Math.min(i,2),12,1,1,500+i,616,1,256);ctx.drawImage(image,20,Math.min(i,2),1,1,480+i,616,1,256);}
    ctx.drawImage(image,2,2,1,1,506,616,2,256);ctx.drawImage(image,4,12,1,1,508,616,4,256);
    return;
@@ -49,15 +54,24 @@
   // four authored rim edges; inferred footprints keep the sampled materials.
   const quad=(ps,uv,kind='wall',projectSource=true)=>{if(projectSource&&!polygon&&kind==='roof')uv=ps.map(p=>[Math.max(.001,Math.min(W-.001,p.x)),16+Math.max(.001,Math.min(spec.base-.001,spec.base-spec.depth+p.y*.5-p.z*C))]);for(const ids of [[0,1,2],[0,2,3]]){const points=ids.map(i=>({...ps[i],tu:uv[i][0]/512,tv:uv[i][1]/1024}));faces.push({...template,points,projected:points.map(()=>({})),kind,feature:'body',sourceArt:true,layer:0,fallbackUV:[280.5/512,640.5/1024],wallDirection:kind==='wall'?{x:points[1].x-points[0].x,y:points[1].y-points[0].y}:undefined});}};
   const constant=(ps,x=280.5,y=640.5,kind='roof')=>quad(ps,ps.map(()=>[x,y]),kind),P=(p,z)=>({...p,z});
+  // Keep the native roof silhouette and tuck the masonry underneath its lip.
+  // Shared mitred corners seal convex and concave walls under rotation.
+  const wallRing=spec.ppFlat?ring.map((p,i)=>{const prev=ring[(i+ring.length-1)%ring.length],next=ring[(i+1)%ring.length],a=Math.hypot(p.x-prev.x,p.y-prev.y),b=Math.hypot(next.x-p.x,next.y-p.y),nx=(p.y-prev.y)/a,ny=-(p.x-prev.x)/a,mx=(next.y-p.y)/b,my=-(next.x-p.x)/b,den=1+nx*mx+ny*my;return {x:p.x-3*(nx+mx)/den,y:p.y-4.8*(ny+my)/den};}):ring;
   const spans=sections(ring);
-  for(const s of spans){const ps=[{x:s.x0,y:s.y0},{x:s.x1,y:s.y0},{x:s.x1,y:s.y1},{x:s.x0,y:s.y1}];constant(ps.map(p=>P(p,deckHeight)));constant(ps.slice().reverse().map(p=>P(p,0)),280.5,640.5,'floor');}
+  for(const s of spans){const ps=[{x:s.x0,y:s.y0},{x:s.x1,y:s.y0},{x:s.x1,y:s.y1},{x:s.x0,y:s.y1}];if(spec.ppFlat&&polygon){
+    // Repeat deck texels in surface space; keep the coping above the deck so
+    // their shared footprint cannot flicker in the depth buffer.
+    for(let y=s.y0;y<s.y1;y+=128)for(let x=s.x0;x<s.x1;x+=128){const x1=Math.min(x+128,s.x1),y1=Math.min(y+128,s.y1),tile=[{x,y},{x:x1,y},{x:x1,y:y1},{x,y:y1}];quad(tile.map(p=>P(p,deckHeight-.2)),tile.map(p=>[256+((x%16+16)%16)+p.x-x,616+((y*.5%16+16)%16)+(p.y-y)*.5]),'roof',false);}
+   }else constant(ps.map(p=>P(p,deckHeight)));constant(ps.slice().reverse().map(p=>P(p,spec.ppFlat?H:0)),280.5,640.5,'floor');}
+  if(spec.ppFlat)for(const s of sections(wallRing))constant([{x:s.x0,y:s.y1,z:0},{x:s.x1,y:s.y1,z:0},{x:s.x1,y:s.y0,z:0},{x:s.x0,y:s.y0,z:0}],280.5,640.5,'floor');
   // Two source pixels of corner masonry leave each adjacent window complete.
-  const facadeLayout=len=>{if(Math.abs(len-W)<1)return {parts:[[0,len,W,0]],center:len/2};const edge=Math.min(2,len/4),bay=W-2*edge,count=Math.floor((len-2*edge)/bay),gap=(len-2*edge-count*bay)/2,parts=[[0,edge,W,W-edge]];if(gap>0)parts.push([edge,edge+gap,256+gap,256]);for(let i=0;i<count;i++)parts.push([edge+gap+i*bay,edge+gap+(i+1)*bay,W-edge,edge]);if(gap>0)parts.push([len-edge-gap,len-edge,256+gap,256]);parts.push([len-edge,len,edge,0]);return {parts,center:len/2};};
-  ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,layout=facadeLayout(len),at=(t,z,out=0)=>({x:a.x+dx*t+dy*out,y:a.y+dy*t-dx*out,z});
+  const facadeLayout=len=>{if(Math.abs(len-(spec.ppFlat?W-6:W))<1)return {parts:[[0,len,W,0]],center:len/2};const edge=Math.min(2,len/4),bay=W-2*edge,count=Math.floor((len-2*edge)/bay),gap=(len-2*edge-count*bay)/2,parts=[[0,edge,W,W-edge]];if(gap>0)parts.push([edge,edge+gap,256+gap,256]);for(let i=0;i<count;i++)parts.push([edge+gap+i*bay,edge+gap+(i+1)*bay,W-edge,edge]);if(gap>0)parts.push([len-edge-gap,len-edge,256+gap,256]);parts.push([len-edge,len,edge,0]);return {parts,center:len/2};};
+  wallRing.forEach((a,i)=>{const b=wallRing[(i+1)%wallRing.length],len=Math.hypot(b.x-a.x,b.y-a.y),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,layout=facadeLayout(len),at=(t,z,out=0)=>({x:a.x+dx*t+dy*out,y:a.y+dy*t-dx*out,z});
    for(const [l,r,u0,u1] of layout.parts)quad([at(l,0),at(r,0),at(r,H),at(l,H)],[[u0,900+facadeHeight],[u1,900+facadeHeight],[u1,900],[u0,900]]);
-   if(spec.slabHeight)quad([at(0,H),at(len,H),at(len,deckHeight),at(0,deckHeight)],[[8,16+spec.eave],[24,16+spec.eave],[24,16+spec.eave-spec.slabHeight],[8,16+spec.eave-spec.slabHeight]],'roof',false);
+
    if(a.y===b.y&&a.x>b.x&&len>20){const [u,v,w,h]=spec.door,l=Math.max(2,Math.min(len-w-2,layout.center-w/2));quad([at(l,0,.04),at(l+w,0,.04),at(l+w,h/C,.04),at(l,h/C,.04)],[[u+w,v+h+16],[u,v+h+16],[u,v+16],[u+w,v+16]]);}
   });
+  if(spec.slabHeight)ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length];quad([P(a,H),P(b,H),P(b,deckHeight),P(a,deckHeight)],[[8,16+spec.eave],[24,16+spec.eave],[24,16+spec.eave-spec.slabHeight],[8,16+spec.eave-spec.slabHeight]],'roof',false);});
   // Mitred boundary rings share their corner vertices, so head-on corners do
   // not expose a slit. The slab and parapet overlap the sealed wall roof joint.
   function parapet(outline,z,amount=0,width=5,rise=1/C){
