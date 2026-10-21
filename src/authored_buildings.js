@@ -341,6 +341,9 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
   }
   for(const key of ['dreamland_house','dreamland_wide','dreamland_corner'])if(scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
+  // Native PP flat shops are selectable review models; keep their six source
+  // colorways without changing the saved world's residential assignments.
+  for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat&&scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
   for(const [id,{key,palette}] of variants){
    if(!scene.textures.exists(imageKey(key)))continue;
    const model=buildNative(scene,key);

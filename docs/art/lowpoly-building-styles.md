@@ -34,6 +34,25 @@ the lot. Only models assigned to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 
+The com cottage, wizard, steam home/wizard and City storefront/gearhouse use
+registered Pixel Plains-style textures from `assets/Objects/PPBuildings/`.
+`tools/build_pp_building_textures.cjs` exports the reviewed reference artwork
+at the original texture dimensions, aligns structural bands, and retains the
+original alpha mask. The manifest records registration knots and source hashes.
+Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
+Pixel Plains houses keep their original source textures.
+
+Six `pp_flat_*` review choices use native Pixel Plains flat-shop art, with a
+tiled horizontal deck and colored fascia. `tools/extract_pp_flat_buildings.py`
+extracts the six source colorways and assembles their native glass doorway;
+`pp-flat-provenance.json` records exact crops. They are prepared with the native
+palette and do not change existing residential assignments. The shared flat
+roof builder also supports their L, T and courtyard footprints. Run
+`node tools/sync_building_texture_viewer.cjs` to refresh the local
+`http://localhost:8765/ra-village-house/` viewer; it also retains three
+experimental City designs. `node test/pp-building-viewer.cjs` checks every
+viewer choice through five rotations and the new flat roofs on concave plots.
+
 ## Generated interiors and fallback geometry
 
 `src/building_lowpoly.js` retains the generated geometry and material system for
