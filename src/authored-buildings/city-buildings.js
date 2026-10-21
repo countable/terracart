@@ -58,6 +58,11 @@
    for(let i=0;i<pixels.data.length;i+=4){const j=palette.findIndex(p=>p[0]===pixels.data[i]&&p[1]===pixels.data[i+1]&&p[2]===pixels.data[i+2]);if(j>=0)for(let k=0;k<3;k++)pixels.data[i+k]=other[j][k];}
    ctx.putImageData(pixels,256,320);
   }
+  // Keep an equipment-free roof material for inferred footprints.
+  if(!spec.gabled){
+   const patch=[90,72,44,20];
+   for(let y=0;y<240;y+=patch[3]*2)for(let x=0;x<240;x+=patch[2]){const w=Math.min(patch[2],240-x),h=Math.min(patch[3]*2,240-y);ctx.drawImage(image,patch[0],patch[1],w,h/2,256+x,320+y,w,h);}
+  }
   if(!spec.gabled)for(let i=0;i<8;i++)ctx.drawImage(image,spec.left+Math.floor(i*7/8),80,1,1,220+i,300,1,4);
   if(!spec.gabled){
    const deck=[6,60,180,44],patch=[90,75,44,22];
@@ -93,7 +98,7 @@
   ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],L=Math.hypot(b.x-a.x,b.y-a.y),front=a.y===b.y&&a.x>b.x,at=(n,z,out=0)=>P(a.x+(b.x-a.x)*n/L+(b.y-a.y)*out/L,a.y+(b.y-a.y)*n/L-(b.x-a.x)*out/L,z),layout=sourceFacadeSlices(spec,L);
    if(front&&!polygon)art([at(0,0),at(L,0),at(L,H),at(0,H)],[spec.left,spec.eave,W,spec.base-spec.eave]);
    else{const side=key==='city_storefront'&&!front&&L<W,parts=side?sourceFacadeSlices({...spec,left:0,right:88,posts:[0,6,82,88]},L).parts:layout.parts;for(const [l,r,u,v] of parts){const row=side&&u<256?500:900;poly([at(l,0),at(r,0),at(r,H),at(l,H)],[[u,row+H*C],[v,row+H*C],[v,row],[u,row]]);}
-    if(front&&L>spec.entry[2]+4){const [u,v,w,h]=spec.entry,t=Math.max(2,Math.min(L-w-2,layout.center-w/2)),z=(spec.base-v-h)/C;art([at(t,z,.03),at(t+w,z,.03),at(t+w,z+h/C,.03),at(t,z+h/C,.03)],[u,v,w,h]);}
+    if(front&&L>spec.entry[2]+4){const [u,v,w,h]=spec.entry,t=Math.max(2,Math.min(L-w-2,layout.center-w/2)),z=(spec.base-v-h)/C;art([at(t,z,.3),at(t+w,z,.3),at(t+w,z+h/C,.3),at(t,z+h/C,.3)],[u,v,w,h]);}
    }
   });
   const planes=[],R=40/C;
@@ -119,7 +124,7 @@
    for(let i=1;i<xs.length;i++)for(let j=1;j<ys.length;j++){
     const x0=xs[i-1],x1=xs[i],y0=ys[j-1],y1=ys[j],mx=(x0+x1)/2,my=(y0+y1)/2;if(!inside(mx,my))continue;
     const near=ring.some((a,k)=>{const b=ring[(k+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((mx-a.x)*dx+(my-a.y)*dy)/(dx*dx+dy*dy)));return Math.hypot(mx-a.x-t*dx,(my-a.y-t*dy)*rim/8)<rim+.001;});
-    for(let x=x0;x<x1;x+=240)for(let y=y0;y<y1;y+=240){const r=Math.min(x1,x+240),b=Math.min(y1,y+240),ps=[P(x,y,H),P(r,y,H),P(r,b,H),P(x,b,H)];if(trimStore)poly(ps,ps.map(p=>[256+p.x,616+p.y]),'roof');else if(near){const edge=ring.map((a,k)=>{const b=ring[(k+1)%ring.length],vertical=a.x===b.x;const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((mx-a.x)*dx+(my-a.y)*dy)/(dx*dx+dy*dy)));return {a,vertical,d:Math.hypot((mx-a.x-t*dx)/rim,(my-a.y-t*dy)/8)};}).sort((a,b)=>a.d-b.d)[0];poly(ps,ps.map(p=>[220.5+7*Math.min(1,edge.vertical?Math.abs(p.x-edge.a.x)/rim:Math.abs(p.y-edge.a.y)/8),301.5]),'roof');}else poly(ps,!polygon?[[256+x,616+y],[256+r,616+y],[256+r,616+b],[256+x,616+b]]:[[256,616],[256+r-x,616],[256+r-x,616+b-y],[256,616+b-y]],'roof');}
+    for(let x=x0;x<x1;x+=240)for(let y=y0;y<y1;y+=240){const r=Math.min(x1,x+240),b=Math.min(y1,y+240),ps=[P(x,y,H),P(r,y,H),P(r,b,H),P(x,b,H)];if(trimStore)poly(ps,ps.map(p=>[256+p.x,616+p.y]),'roof');else if(near){const edge=ring.map((a,k)=>{const b=ring[(k+1)%ring.length],vertical=a.x===b.x;const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((mx-a.x)*dx+(my-a.y)*dy)/(dx*dx+dy*dy)));return {a,vertical,d:Math.hypot((mx-a.x-t*dx)/rim,(my-a.y-t*dy)/8)};}).sort((a,b)=>a.d-b.d)[0];poly(ps,ps.map(p=>[220.5+7*Math.min(1,edge.vertical?Math.abs(p.x-edge.a.x)/rim:Math.abs(p.y-edge.a.y)/8),301.5]),'roof');}else poly(ps,!polygon?[[256+x,616+y],[256+r,616+y],[256+r,616+b],[256+x,616+b]]:[[256,320],[256+r-x,320],[256+r-x,320+b-y],[256,320+b-y]],'roof');}
    }
   }
   if(trimStore){

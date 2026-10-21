@@ -53,6 +53,14 @@ roof builder also supports their L, T and courtyard footprints. Run
 experimental City designs. `node test/pp-building-viewer.cjs` checks every
 viewer choice through five rotations and the new flat roofs on concave plots.
 
+Roof repairs around painted protrusions preserve source texel density: translate
+clean patches in roof coordinates rather than stretching a source column. The
+steam home rectifies those same source tiles for expanded footprints, while the
+steam wizard samples its current roof palette for inferred surfaces. Market
+dormers and steam-home vents, pipes and landings are closed geometry aligned
+to source-camera rays. Inferred City decks use equipment-free material patches;
+doorless tower walls exclude the entire entrance frame from their sample.
+
 ## Generated interiors and fallback geometry
 
 `src/building_lowpoly.js` retains the generated geometry and material system for

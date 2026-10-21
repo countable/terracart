@@ -76,8 +76,6 @@ function material(s,key){const name='authored:'+imageKey(key);if(s.textures.exis
  }
  prepareFootprintMaterial(c,im,SPECS[key],key);
  if(key==='trader'){
-  // Remove the roof-tier window only. Downstairs source windows stay intact.
-  c.drawImage(im,13,87,14,10,46,46,14,12);
   // Quiet side closures carry source plaster courses without clipped windows.
   for(let y=400;y<528;y+=6)c.drawImage(im,42,87,1,Math.min(6,528-y),128,y,128,Math.min(6,528-y));
   // Roof-cap plaster is separate from the complete inferred wall bays.
@@ -197,6 +195,19 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   for(let i=0;i<ring.length;i++){if(i===2)continue;const a=ring[i],b=ring[(i+1)%ring.length];rect([{...a,z:0},{...b,z:0},b,a],[0,600,48,38]);}
   const cap=[P(shoulder,back,shoulderZ),P(right,back,eave),P(ridge,back,peak)];poly(cap,cap.map(p=>[p.x,728-p.z]),'wall');
   for(const [l,r,y0,y1] of [[shoulder,right,back,notch],[0,right,notch,fore]])poly([P(l,y1,0),P(r,y1,0),P(r,y0,0),P(l,y0,0)],Array(4).fill([264.5,884+H-1.5]),'floor');
+ }
+ if(key==='market'){currentFeature='dormer';
+  // The roof copy omits this window: put its source silhouette on a closed
+  // projecting gable, so it stays anchored to the slope when the map turns.
+  const outline=[[68,49],[88,49],[88,40],[78,28],[68,40]],frontY=52,backY=44;
+  const frontPoints=outline.map(([u,v])=>P(u,frontY,frontY+a.base-D-v));
+  poly([...frontPoints].reverse(),[...outline].reverse(),'wall');
+  const backPoints=frontPoints.map(p=>P(p.x,backY,p.z-(frontY-backY)));
+  poly(backPoints,Array(5).fill([73.5,38.5]),'wall');
+  for(let i=0;i<outline.length;i++){const j=(i+1)%outline.length;
+   poly([frontPoints[j],backPoints[j],backPoints[i],frontPoints[i]],
+    [outline[j],outline[j],outline[i],outline[i]],i===2||i===3?'roof':'wall');
+  }
  }
  if(a.chimney){currentFeature='chimney';
   const c=key==='market'?{l:89,r:104,front:38,back:28,z:66,uv:[128,732,15,66]}:{l:3,r:18,front:12,back:5,z:53,uv:[0,732,15,29]};

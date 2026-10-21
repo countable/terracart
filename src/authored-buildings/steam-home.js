@@ -30,7 +30,10 @@
    const top=44*Math.abs(x-71.5)/47.5;if(y<top||y>top+52)continue;
    const chimney=x>=28&&x<=43&&y<=63,dormer=(x>=85&&x<=114&&y>=28&&y<=51)||(x>=96&&x<=111&&y>51&&y<=64);
    if(!chimney&&!dormer)continue;
-   let sx=x,sy=chimney?Math.floor(top+36+(y-top)*.35):Math.round(y-top+44*Math.abs(116-71.5)/47.5);if(dormer)sx=116;
+   // Translate an unobstructed roof patch in surface coordinates. Preserve
+   // depth and slope texel density instead of stretching a single edge column.
+   const sx=chimney?x+16:48+(x-85)%16;
+   let sy=Math.round(y-top+44*Math.abs(sx-71.5)/47.5);
    sy=Math.max(0,Math.min(191,sy));const from=(sy*144+sx)*4,to=(y*144+x)*4;for(let k=0;k<4;k++)repaired.data[to+k]=original.data[from+k];
   }
   // Roof-edge raster steps may lie outside the painted silhouette. Extend
@@ -43,19 +46,16 @@
    for(let k=0;k<4;k++)repaired.data[to+k]=clean[from+k];
   }}
   rg.putImageData(repaired,0,0);ctx.drawImage(roof,256,200);
-  // Copper shingles are drawn orthogonally in roof space. Their palette is
-  // sampled from the artwork; perspective is supplied only by the roof mesh.
+  // Rectify an unobstructed native roof patch into surface space. The
+  // source camera halves depth and foreshortens the slope; undo both once
+  // so wider roofs retain the same shingle size as the original roof.
   const colors=[sample(54,39),sample(49,42),sample(57,33),sample(50,37)];
-  ctx.fillStyle=colors[0];ctx.fillRect(256,616,256,256);
-  // Native shingles are small, irregular copper scales, not broad brickwork.
-  // Keep their dimensions in roof space, so rotating does not enlarge the art.
-  ctx.save();ctx.beginPath();ctx.rect(256,616,240,240);ctx.clip();
-  for(let y=0;y<240;y+=7)for(let x=-8;x<240;x+=8){const row=y/7,offset=(row%2)*4,xx=256+x+offset,n=((x/8+32)*13+row*7)%5;
-   ctx.fillStyle=colors[n===0?1:0];ctx.fillRect(xx,616+y,8,7);
-   ctx.fillStyle=colors[3];ctx.fillRect(xx,622+y,8,1);ctx.fillRect(xx,618+y,1,4);
-   ctx.fillStyle=colors[2];ctx.fillRect(xx+1,617+y,5,1);if(n===2)ctx.fillRect(xx+2,619+y,1,2);
-   ctx.globalAlpha=.22;ctx.fillStyle=colors[(row+Math.abs(x))%colors.length];ctx.fillRect(xx+2+(row%3),618+y,2,3);ctx.globalAlpha=1;
-  }ctx.restore();
+  const tile=ctx.createImageData(240,240);
+  for(let y=0;y<240;y++)for(let x=0;x<240;x++){
+   const sx=Math.floor(48+(y%24)*.68),sy=Math.floor(44*Math.abs(sx-71.5)/47.5+12+(x%32)*.5),from=(sy*144+sx)*4,to=(y*240+x)*4;
+   for(let k=0;k<4;k++)tile.data[to+k]=original.data[from+k];
+  }
+  ctx.putImageData(tile,256,616);
   // The ridge's broad golden face has distinct shaded borders and weathering.
   // Sample the actual spine instead of painting the whole cap a flat orange.
   for(let y=200;y<600;y+=32)ctx.drawImage(image,69,12,5,32,224,y,5,Math.min(32,600-y));
@@ -126,6 +126,30 @@
    // The shaft top is entirely covered by the cap and must not plug its well.
    solid(ps.slice().reverse());};
   box(cx,cy,cw,cd,H-5,top,[30,28,11,34]);box(cx-margin,cy-margin,cw+margin*2,cd+margin*2,top-3,top,[28,17,15,10]);
+  // Restore the source roof vent as a sealed box on the right slope. Its
+  // sloping foot follows the roof; source-facing texels stay pixel registered.
+  if(!polygon){
+   const x0=61,x1=88,y0=54,y1=60,top=136/C;
+   const foot=x=>(137-44*Math.abs(x-47.5)/47.5)/C-1;
+   const bottom=[P(x0,y0,foot(x0)),P(x1,y0,foot(x1)),P(x1,y1,foot(x1)),P(x0,y1,foot(x0))],upper=bottom.map(p=>({...p,z:top}));
+   for(let i=0;i<4;i++){const j=(i+1)%4,ps=[bottom[i],bottom[j],upper[j],upper[i]];
+    if(i===2)quad(ps,ps.map(p=>[24+p.x,153+p.y*.5-p.z*C]));
+    else solid(ps,100.5,56.5);
+   }
+   art(upper,[85,31,27,3],'roof');solid(bottom.slice().reverse());
+   // Brass service pipe and lower landing are part of the original silhouette.
+   // Shallow closed solids retain their artwork when the camera turns aside.
+   function sourceBox(sx,sy,w,h,depth){const front=100,back=front-depth,x=sx-24,z0=(187-sy-h)/C,z1=(187-sy)/C;
+    const lo=[P(x,back,z0),P(x+w,back,z0),P(x+w,front,z0),P(x,front,z0)],hi=lo.map(p=>({...p,z:z1}));
+    for(let i=0;i<4;i++){const j=(i+1)%4,ps=[lo[i],lo[j],hi[j],hi[i]];
+     if(i===2)quad(ps,ps.map(p=>[24+p.x,153+p.y*.5-p.z*C]));else art(ps,[sx,sy,w,h]);
+    }
+    solid(hi,sx+w/2,sy+17,'roof');solid(lo.slice().reverse(),sx+w/2,sy+h+15,'floor');
+   }
+   sourceBox(13,99,8,34,5);sourceBox(17,96,10,5,5);sourceBox(14,132,13,6,5);
+   sourceBox(17,157,10,21,7);
+
+  }
   // Source lean-to ends twelve pixels behind the main front at ground level.
   // Project its trapezoid directly instead of stretching a rectangular crop.
   if(!polygon){const x=95,y=20,w=24,d=60,h=27/C,high=44/C;

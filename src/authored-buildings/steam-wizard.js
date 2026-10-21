@@ -7,7 +7,17 @@
   g.putImageData(d,0,0);ctx.drawImage(c,0,16);
   // A dedicated full-height facade repeats the reference windows and masonry.
   for(let x=0;x<256;x+=24)ctx.drawImage(c,24,65,24,125,x,900,24,125);
-  ctx.fillStyle='#cc8c66';ctx.fillRect(256,616,256,256);for(let y=616;y<872;y+=16)for(let x=256;x<512;x+=16){ctx.fillStyle='#85533c';ctx.fillRect(x,y,1,16);ctx.fillStyle='#df9b5e';ctx.fillRect(x+1,y,1,16);ctx.fillStyle=((x+y)%48)?'#cc8c66':'#bf805b';ctx.fillRect(x+3,y+3,6,4);}
+  // Inferred roof planes use the current source palette, including restyles.
+  // Keep compact staggered shingles instead of the former copper panel grid.
+  const color=(x,y)=>{const i=(y*72+x)*4;return `rgb(${p[i]},${p[i+1]},${p[i+2]})`;};
+  const tile=color(35,40),shade=color(36,46),edge=color(34,36),light=color(28,30);
+  ctx.fillStyle=tile;ctx.fillRect(256,616,256,256);
+  ctx.save();ctx.beginPath();ctx.rect(256,616,256,256);ctx.clip();
+  for(let y=0;y<256;y+=7)for(let x=-8;x<256;x+=8){const xx=256+x+(y/7%2)*4;
+   ctx.fillStyle=(x/8+y/7)%3?tile:shade;ctx.fillRect(xx,616+y,8,7);
+   ctx.fillStyle=edge;ctx.fillRect(xx,622+y,8,1);ctx.fillRect(xx,616+y,1,7);
+   ctx.fillStyle=light;ctx.fillRect(xx+1,616+y,6,1);
+  }ctx.restore();
  }
  function build(template,a,key,ring=null){
   const faces=[];
