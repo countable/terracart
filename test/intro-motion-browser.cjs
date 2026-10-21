@@ -60,6 +60,13 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             await seek(dreamTime(progress)); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
           }
+          const zoomSteps = [];
+          for (const progress of [0, .25, .5, .75, 1]) {
+            await seek(dreamTime(progress)); zoomSteps.push((await state()).scale);
+          }
+          const gains = zoomSteps.slice(1).map((value, i) => value - zoomSteps[i]);
+          assert(gains.every((gain, i) => !i || gain > gains[i - 1]), 'zoom accelerates gently throughout');
+          assert(gains[3] / gains[0] < 2, 'acceleration remains subtle');
           let previousScale = 1.5;
           for (let step = 1; step <= 100; step++) {
             const progress = step / 100;
@@ -99,12 +106,15 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             const bounds = scene.getBoundingClientRect();
             const final = scene.querySelector('img:last-child').getBoundingClientRect();
             const style = getComputedStyle(scene);
-            return { clipped: style.overflowX === 'hidden' && style.overflowY === 'hidden',
+            return { fadeMask: style.maskImage,
+              clipped: style.overflowX === 'hidden' && style.overflowY === 'hidden',
               faceX: (final.left + final.width * .49 - bounds.left) / bounds.width,
               faceY: (final.top + final.height * .29 - bounds.top) / bounds.height,
               covers: final.left <= bounds.left + 1 && final.top <= bounds.top + 1
                 && final.right >= bounds.right - 1 && final.bottom >= bounds.bottom - 1 };
           });
+          assert(coverage.fadeMask.includes('90%') && coverage.fadeMask.includes('99.5%'),
+            'the portrait viewport fades its bottom ten percent independently of camera zoom');
           assert(coverage.clipped, 'older zoomed paintings cannot spill into the portrait letterbox');
           assert(coverage.covers, 'the final painting covers the entire clipped portrait canvas');
           near(coverage.faceX, .5); near(coverage.faceY, .5);

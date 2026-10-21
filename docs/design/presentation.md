@@ -453,7 +453,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
-  One continuous, linear camera zoom runs from 1.5× to 4.2× over 16 seconds.
+  One continuous camera zoom runs from 1.5× to 4.2× over 16 seconds, starting
+  slower and gently accelerating without changing its endpoint framing.
   Its aim at 55.6% across and 16.9% down places the final frontal face at the
   exact horizontal and vertical center of the portrait frame, separately
   from the paintings’ crop registration. Starting closer lets the incoming
@@ -468,8 +469,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   and feathers only the smoke above the roofs, preventing architectural drift.
   Dragon and flame motion remains in the exposed upper scene; smoke near the
   city changes only along the narrow feathered edge.
-  The portrait canvas clips older frames to prevent spill into its letterbox;
-  a lower gradient blends into black.
+  The portrait canvas clips older frames to prevent spill into its letterbox.
+  A stationary viewport mask softly fades its bottom 10% into the black backdrop,
+  outside the camera so every frame and zoom level keeps the same soft edge.
   Hood’s wake painting pulls back from 1.75× to 1.25× over fourteen seconds.
   The street’s distinct second painting shows Hood farther down the road.
   Reduced motion keeps each slide’s first painting still.

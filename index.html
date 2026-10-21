@@ -1091,15 +1091,6 @@
     #story.nightmare .art { position: relative; container-type: size; isolation: isolate; }
     #story.nightmare .opening-copy { position: relative; z-index: 1; }
     #story.nightmare .story-skip { z-index: 1; }
-    /* Anchor the fade to the viewport so the painted smoke cannot zoom
-       away and expose bright art beneath the dream copy. */
-    #story.nightmare .art::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background:
-        radial-gradient(ellipse at 14% 106%, rgba(0, 0, 0, .45), transparent 48%),
-        radial-gradient(ellipse at 83% 112%, rgba(0, 0, 0, .35), transparent 43%),
-        linear-gradient(to bottom, transparent 78%, rgba(0, 0, 0, .2) 90%, #000 100%);
-    }
     #story .nightmare-scene {
       position: absolute; left: 50%; top: 50%;
       overflow: hidden;
@@ -1110,7 +1101,13 @@
       position: absolute; inset: 0;
       /* Camera aim is independent of the paintings' crop registration. */
       transform-origin: 55.6% 16.9%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 16s) linear 200ms both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 16s) cubic-bezier(.333333, .23, .666667, .56) 200ms both;
+    }
+    /* Fade the whole portrait viewport, outside the zooming camera. The
+       transparent final half-percent also removes fractional-pixel seams. */
+    #story .nightmare-scene {
+      mask-image: linear-gradient(to bottom, #000 90%, rgba(0, 0, 0, .84375) 92.5%,
+        rgba(0, 0, 0, .5) 95%, rgba(0, 0, 0, .15625) 97.5%, transparent 99.5%);
     }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
