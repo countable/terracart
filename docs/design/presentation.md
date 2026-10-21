@@ -453,13 +453,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
-  One continuous, linear camera zoom runs from 1× to 3.5× over 16 seconds,
-  keeping the final close-up strong by enlarging the entire battle.
-  After the first 3.2 seconds, three equally spaced 4.27-second fades run
-  back-to-back, leaving a fade active for 80% of the sequence. The first two
+  One continuous, linear camera zoom runs from 1.5× to 4.2× over 16 seconds.
+  Its aim at 56% across and 20% down centers the final frontal face, separately
+  from the paintings’ crop registration. Starting closer lets the incoming
+  painting cover the canvas as the first fade begins after just 0.52 seconds.
+  The equally spaced fades start at 2%, 35% and 68% of the animation and last
+  4.27 seconds each, leaving a fade active for 80% of the sequence. The first two
   are linear; the final fade uses a steeper symmetric easing curve so the
   turn toward the viewer is more sudden while its midpoint stays on schedule.
-  The opening animation delay is 600 milliseconds.
+  The opening animation delay is 200 milliseconds.
   A shared city plate from the first painting sits above the changing frames
   inside the same camera. Its skyline mask stays opaque over every building
   and feathers only the smoke above the roofs, preventing architectural drift.

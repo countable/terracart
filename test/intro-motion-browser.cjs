@@ -49,30 +49,30 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
         });
         await next(); // Dragon war.
         await seek(0);
-        let s = await state(); near(s.scale, 1);
+        let s = await state(); near(s.scale, reduced ? 1 : 1.5);
         if (reduced) {
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
           assert(s.animations.every(a => a.duration === 16000 && a.iterations === 1));
           [1 / 1.5, 1 / 1.92, 1 / 2.112].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          const dreamTime = progress => 600 + progress * 16000;
-          for (const [progress, visible] of [[7 / 15, 0], [11 / 15, 1], [1, 2]]) {
+          const dreamTime = progress => 200 + progress * 16000;
+          for (const [progress, visible] of [[.02 + 4 / 15, 0], [.35 + 4 / 15, 1], [.68 + 4 / 15, 2]]) {
             await seek(dreamTime(progress)); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
           }
-          let previousScale = 1;
+          let previousScale = 1.5;
           for (let step = 1; step <= 100; step++) {
             const progress = step / 100;
             await seek(dreamTime(progress)); s = await state();
             assert(s.scale > previousScale, 'zoom continues through every frame and the final fade');
             previousScale = s.scale;
-            if (progress > .2 && progress < 1) {
-              assert(s.frames.some(f => f.opacity > 0 && f.opacity < 1), 'a fade stays active throughout the final 80 percent');
+            if ([.02,.35,.68].some(start => progress > start && progress < start + 4 / 15)) {
+              assert(s.frames.some(f => f.opacity > 0 && f.opacity < 1), 'each evenly spaced fade stays active for its full interval');
             }
           }
           // At every fade sample, an incoming crop must cover the whole
           // original image area; otherwise the older frame leaks at its edge.
-          for (const progress of [.201, 1 / 3, .467, .6, .734, 13 / 15, 1]) {
+          for (const progress of [.021, .15, .351, .48, .681, .81, 1]) {
             await seek(dreamTime(progress)); s = await state();
             for (const frame of s.frames) if (frame.opacity > 0) {
               assert(s.scale * frame.scale >= .999, 'visible intrinsic crop covers the scene');
@@ -83,28 +83,32 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
               await seek(time); await snapshot(`dream-${time}`);
             }
           }
-          for (const [progress, frame] of [[1 / 3, 0], [.6, 1], [13 / 15, 2]]) {
+          for (const [progress, frame] of [[.02 + 2 / 15, 0], [.35 + 2 / 15, 1], [.68 + 2 / 15, 2]]) {
             await seek(dreamTime(progress)); near((await state()).frames[frame].opacity, .5);
           }
           // The final turn crosses its blended pose faster without moving
           // its midpoint away from the equally spaced transition schedule.
-          await seek(dreamTime(11 / 15 + (4 / 15) * .25));
+          await seek(dreamTime(.68 + (4 / 15) * .25));
           assert((await state()).frames[2].opacity < .1, 'final turn holds the side-facing pose longer');
-          await seek(dreamTime(11 / 15 + (4 / 15) * .75));
+          await seek(dreamTime(.68 + (4 / 15) * .75));
           assert((await state()).frames[2].opacity > .9, 'final turn resolves the frontal stare promptly');
-          await seek(dreamTime(1)); near((await state()).scale, 3.5);
-          await seek(40000); s = await state(); near(s.scale, 3.5); near(s.frames[2].opacity, 1);
+          await seek(dreamTime(1)); near((await state()).scale, 4.2);
+          await seek(40000); s = await state(); near(s.scale, 4.2); near(s.frames[2].opacity, 1);
           const coverage = await page.evaluate(() => {
             const scene = document.querySelector('.nightmare-scene');
             const bounds = scene.getBoundingClientRect();
             const final = scene.querySelector('img:last-child').getBoundingClientRect();
             const style = getComputedStyle(scene);
             return { clipped: style.overflowX === 'hidden' && style.overflowY === 'hidden',
+              faceX: (final.left + final.width * .49 - bounds.left) / bounds.width,
+              faceY: (final.top + final.height * .29 - bounds.top) / bounds.height,
               covers: final.left <= bounds.left + 1 && final.top <= bounds.top + 1
                 && final.right >= bounds.right - 1 && final.bottom >= bounds.bottom - 1 };
           });
           assert(coverage.clipped, 'older zoomed paintings cannot spill into the portrait letterbox');
           assert(coverage.covers, 'the final painting covers the entire clipped portrait canvas');
+          assert(coverage.faceX > .4 && coverage.faceX < .6 && coverage.faceY > .3 && coverage.faceY < .6,
+            'the final camera centers the frontal dragon face');
           if (width === 390) {
             const clips = await page.evaluate(() => {
               const camera = document.querySelector('.nightmare-camera');
@@ -116,14 +120,24 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
               return [[.01,.44,.07,.17],[.54,.48,.12,.17],[.02,.55,.96,.2]].map(([x,y,w,h]) =>
                 ({x:r.x+x*r.width,y:r.y+y*r.height,width:w*r.width,height:h*r.height}));
             });
+            // Let the compositor present the forced, paused frame before
+            // comparing pixels; screenshots must not catch the prior layer.
+            const presented = () => page.evaluate(() => new Promise(resolve =>
+              requestAnimationFrame(() => requestAnimationFrame(resolve))));
+            await presented();
             const originals = [];
             for (const clip of clips) originals.push(await page.screenshot({clip}));
             for (let frame = 0; frame < 3; frame++) {
               await page.evaluate(frame => document.querySelectorAll('.nightmare-frame')
                 .forEach((el,i) => el.style.opacity = i <= frame ? '1' : '0'), frame);
+              await presented();
               for (let i = 0; i < clips.length; i++) {
-                assert((await page.screenshot({clip:clips[i]})).equals(originals[i]),
-                  `building pixels stay identical through frame ${frame + 2}`);
+                const current = await page.screenshot({clip:clips[i]});
+                if (!current.equals(originals[i])) {
+                  fs.writeFileSync(path.join(output, `city-before-${i}.png`), originals[i]);
+                  fs.writeFileSync(path.join(output, `city-after-${i}.png`), current);
+                }
+                assert(current.equals(originals[i]), `building pixels stay identical through frame ${frame + 2}, region ${i}`);
               }
             }
             await page.evaluate(() => document.querySelectorAll('.nightmare-camera,.nightmare-frame')

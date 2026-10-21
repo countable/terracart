@@ -1053,21 +1053,21 @@
       position: absolute; inset: 0; opacity: 0;
       transform-origin: 59% 21%;
       transform: scale(calc(1 / 1.5));
-      animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) linear 600ms both;
+      animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) linear 200ms both;
     }
     #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
     #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; animation-timing-function: cubic-bezier(.75, 0, .25, 1); transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
-      0%, 20% { opacity: 0; }
-      46.666667%, 100% { opacity: 1; }
+      0%, 2% { opacity: 0; }
+      28.666667%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-three {
-      0%, 46.666667% { opacity: 0; }
-      73.333333%, 100% { opacity: 1; }
+      0%, 35% { opacity: 0; }
+      61.666667%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-four {
-      0%, 73.333333% { opacity: 0; }
-      100% { opacity: 1; }
+      0%, 68% { opacity: 0; }
+      94.666667%, 100% { opacity: 1; }
     }
     @keyframes story-crossfade {
       from { opacity: 0; }
@@ -1108,8 +1108,9 @@
     }
     #story .nightmare-camera {
       position: absolute; inset: 0;
-      transform-origin: 59% 21%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 16s) linear 600ms both;
+      /* Camera aim is independent of the paintings' crop registration. */
+      transform-origin: 56% 20%;
+      animation: nightmare-pan var(--nightmare-pan-ms, 16s) linear 200ms both;
     }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
@@ -1122,8 +1123,8 @@
       mask: url('assets/art/story_nightmare_city_mask.svg') center / 100% 100% no-repeat;
     }
     @keyframes nightmare-pan {
-      0% { transform: scale(1); }
-      100% { transform: scale(3.5); }
+      0% { transform: scale(1.5); }
+      100% { transform: scale(4.2); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
