@@ -55,16 +55,22 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
         } else {
           assert(s.animations.every(a => a.duration === 16000 && a.iterations === 1));
           [1 / 1.45, 1 / 1.45, 1 / 1.45].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          for (const [time, visible] of [[6750, 0], [10750, 1], [16750, 2]]) {
+          for (const [time, visible] of [[8217, 0], [12484, 1], [16750, 2]]) {
             await seek(time); s = await state(); near(s.frames[visible].opacity, 1);
-            assert(s.frames.slice(visible + 1).every(f => f.opacity === 0));
+            assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
           }
-          for (const [time, crop] of [[4750, 1.45], [8750, 1.8], [12750, 2.2]]) {
-            await seek(time); near((await state()).scale, crop);
+          let previousScale = 1;
+          for (let time = 1000; time <= 16750; time += 250) {
+            await seek(time); s = await state();
+            assert(s.scale > previousScale, 'zoom continues through every frame and the final fade');
+            previousScale = s.scale;
+            if (time > 3950 && time < 16750) {
+              assert(s.frames.some(f => f.opacity > 0 && f.opacity < 1), 'a fade stays active throughout the final 80 percent');
+            }
           }
           // At every fade sample, an incoming crop must cover the whole
           // original image area; otherwise the older frame leaks at its edge.
-          for (const time of [4800, 5750, 8800, 9750, 12800, 14750, 16750]) {
+          for (const time of [4000, 5750, 8250, 9750, 12500, 14750, 16750]) {
             await seek(time); s = await state();
             for (const frame of s.frames) if (frame.opacity > 0) {
               assert(s.scale * frame.scale >= .999, 'visible intrinsic crop covers the scene');

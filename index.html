@@ -1058,15 +1058,15 @@
     #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; }
     #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; }
     @keyframes nightmare-frame-two {
-      0%, 25% { opacity: 0; }
-      37.5%, 100% { opacity: 1; }
+      0%, 20% { opacity: 0; }
+      46.666667%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-three {
-      0%, 50% { opacity: 0; }
-      62.5%, 100% { opacity: 1; }
+      0%, 46.666667% { opacity: 0; }
+      73.333333%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-four {
-      0%, 75% { opacity: 0; }
+      0%, 73.333333% { opacity: 0; }
       100% { opacity: 1; }
     }
     @keyframes story-crossfade {
@@ -1109,16 +1109,14 @@
     #story .nightmare-camera {
       position: absolute; inset: 0;
       transform-origin: 59% 21%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 16s) cubic-bezier(.3, 0, .3, 1) 750ms both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 16s) cubic-bezier(.25, .65, .5, 1) 750ms both;
     }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
     }
     @keyframes nightmare-pan {
       0% { transform: scale(1); }
-      25% { transform: scale(1.45); }
-      50% { transform: scale(1.8); }
-      75%, 100% { transform: scale(2.2); }
+      100% { transform: scale(2.2); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;

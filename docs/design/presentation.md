@@ -448,9 +448,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   stare. Peripheral dragons keep shifting as flames flicker and smoke curls
   between these turning frames, including the final closed-mouth stare.
   All three share the same inverse crop compensation, so their
-  backgrounds stay registered through the fades. The camera reaches 1.45×,
-  1.8× and 2.2× at four, eight and twelve seconds, then holds while the final
-  painting resolves by sixteen seconds. The portrait canvas clips older frames
+  backgrounds stay registered through the fades. One uninterrupted camera curve
+  zooms from 1× to 2.2× over sixteen seconds without restarting its easing at
+  frame boundaries. After a 3.2-second opening hold, three equal fades run
+  back-to-back until sixteen seconds: a fade is active for 80% of the sequence.
+  The portrait canvas clips older frames
   to prevent spill into its letterbox; a lower gradient blends into black.
   Hood’s wake painting pulls back from 1.75× to 1.25× over fourteen seconds.
   The street’s distinct second painting shows Hood farther down the road.
