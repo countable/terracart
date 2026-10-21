@@ -131,7 +131,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   house awakening, then the ruined street. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
   four aligned portrait paintings under one camera. They dissolve once in
-  sequence during the 24-second push toward the dragon's eye. Each successive
+  sequence during the 20-second push toward the dragon's eye. Each successive
   frame has a tighter crop; the fourth holds after the camera stops, avoiding
   a pullback to the first frame. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
@@ -442,16 +442,19 @@ changing dialogue, story panels, books, toasts or status presentation.
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
 - The opening nightmare uses four full-resolution paintings. Later paintings
-  redraw progressively closer crops of the entire scene at 1.45×, 1.74× and
-  2.088× around Tiamat’s eye (59% across, 21% down). Each uses its own inverse
-  crop compensation so the shared camera controls the scale of every dragon
-  and the city through the fades. Tiamat turns nearly toward the viewer in
-  the third painting, then finishes her closed-mouth stare in the fourth;
+  redraw progressively closer crops of the entire scene. Runtime inverse zoom
+  offsets are 1/1.5, 1/1.92 and 1/2.112 around Tiamat’s eye (59% across,
+  21% down). These use measured head sizes rather than the nominal art crops:
+  face-patch comparisons give adjacent scale ratios near 1.5, 1.28 and 1.10.
+  Every outgoing and incoming image shares the same camera, preserving those
+  scale offsets throughout each fade. Painted head motion and perspective
+  still vary locally; the offsets match overall head scale, not every contour.
+  Tiamat turns nearly toward the viewer in the third painting, then finishes her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
-  One continuous, linear camera zoom runs from 1× to 3.3× over 24 seconds,
+  One continuous, linear camera zoom runs from 1× to 3.5× over 20 seconds,
   keeping the final close-up strong by enlarging the entire battle.
-  After the first 4.8 seconds, three linear 6.4-second fades run back-to-back,
+  After the first four seconds, three linear 5⅓-second fades run back-to-back,
   leaving a fade active for 80% of the sequence and more time at mixed opacity.
   The portrait canvas clips older frames to prevent spill into its letterbox;
   a lower gradient blends into black.

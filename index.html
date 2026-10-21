@@ -1046,17 +1046,17 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
-    /* Each painting redraws a closer crop of the entire scene. Cancel that
-       baked-in zoom so the shared camera controls size continuously while
-       the head turns in place and the surrounding battle keeps moving. */
+    /* Match painted head sizes, not the nominal zoom requested for the art.
+       Measured adjacent ratios are about 1.5, 1.28 and 1.10; their cumulative
+       inverse offsets keep scale stable throughout each shared-camera fade. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
       transform-origin: 59% 21%;
-      transform: scale(calc(1 / 1.45));
-      animation: nightmare-frame-two var(--nightmare-pan-ms, 24s) linear 750ms both;
+      transform: scale(calc(1 / 1.5));
+      animation: nightmare-frame-two var(--nightmare-pan-ms, 20s) linear 750ms both;
     }
-    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.74)); }
-    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; transform: scale(calc(1 / 2.088)); }
+    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
+    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
       0%, 20% { opacity: 0; }
       46.666667%, 100% { opacity: 1; }
@@ -1109,14 +1109,14 @@
     #story .nightmare-camera {
       position: absolute; inset: 0;
       transform-origin: 59% 21%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 24s) linear 750ms both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 20s) linear 750ms both;
     }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
     }
     @keyframes nightmare-pan {
       0% { transform: scale(1); }
-      100% { transform: scale(3.3); }
+      100% { transform: scale(3.5); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
@@ -2728,7 +2728,7 @@
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream camera animates while its button remains immediately available.
-    const STORY_PAN_MS = 24000;
+    const STORY_PAN_MS = 20000;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',

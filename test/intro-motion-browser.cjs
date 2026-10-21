@@ -53,9 +53,9 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
         if (reduced) {
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
-          assert(s.animations.every(a => a.duration === 24000 && a.iterations === 1));
-          [1 / 1.45, 1 / 1.74, 1 / 2.088].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          const dreamTime = progress => 750 + progress * 24000;
+          assert(s.animations.every(a => a.duration === 20000 && a.iterations === 1));
+          [1 / 1.5, 1 / 1.92, 1 / 2.112].forEach((zoom, i) => near(s.frames[i].scale, zoom));
+          const dreamTime = progress => 750 + progress * 20000;
           for (const [progress, visible] of [[7 / 15, 0], [11 / 15, 1], [1, 2]]) {
             await seek(dreamTime(progress)); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
@@ -79,15 +79,15 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             }
           }
           if (width === 390) {
-            for (const time of [11000, 17000, 24000]) {
+            for (const time of [9500, 14500, 20000]) {
               await seek(time); await snapshot(`dream-${time}`);
             }
           }
           for (const [progress, frame] of [[1 / 3, 0], [.6, 1], [13 / 15, 2]]) {
             await seek(dreamTime(progress)); near((await state()).frames[frame].opacity, .5);
           }
-          await seek(dreamTime(1)); near((await state()).scale, 3.3);
-          await seek(40000); s = await state(); near(s.scale, 3.3); near(s.frames[2].opacity, 1);
+          await seek(dreamTime(1)); near((await state()).scale, 3.5);
+          await seek(40000); s = await state(); near(s.scale, 3.5); near(s.frames[2].opacity, 1);
           const coverage = await page.evaluate(() => {
             const scene = document.querySelector('.nightmare-scene');
             const bounds = scene.getBoundingClientRect();
