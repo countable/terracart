@@ -1120,21 +1120,31 @@
       mask: url('assets/art/story_nightmare_city_mask.svg') center / 100% 100% no-repeat;
     }
     @keyframes nightmare-pan {
+      /* A gentle midpoint speed crest preserves the opening quarter and
+         final quarter, with continuous velocity at every handoff. */
       0% {
-        transform: scale(1.5);
-        animation-timing-function: cubic-bezier(.333333, 0.174031, .666667, 0.507364);
+        transform: scale(1.500000);
+        animation-timing-function: cubic-bezier(.333333, 0.228673, .666667, 0.562006);
       }
-      /* Reach cruising speed halfway through, keeping velocity continuous
-         into the steady zoom and final 0.96-second damping segment. */
+      25% {
+        transform: scale(1.930017);
+        animation-timing-function: cubic-bezier(.333333, 0.269044, .666667, 0.562615);
+      }
       50% {
         transform: scale(2.630069);
-        animation-timing-function: linear;
+        animation-timing-function: cubic-bezier(.333333, 0.366667, .666667, 0.666667);
+      }
+      75% {
+        transform: scale(3.465139);
+        animation-timing-function: cubic-bezier(.333333, 0.333333, .666667, 0.666667);
       }
       94% {
         transform: scale(4.099792);
-        animation-timing-function: cubic-bezier(.333333, .666667, .666667, 1);
+        animation-timing-function: cubic-bezier(.333333, 0.666667, .666667, 1.000000);
       }
-      100% { transform: scale(4.2); }
+      100% {
+        transform: scale(4.200000);
+      }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;

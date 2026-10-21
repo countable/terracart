@@ -71,9 +71,10 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             await seek(dreamTime(to)); return ((await state()).scale - start) / (to - from);
           };
           const startingSpeed = await speed(0, .001), peakSpeed = await speed(.939, .94);
-          assert((await speed(.499, .5)) > 3.3, 'zoom reaches a faster cruising speed by the midpoint');
+          assert(Math.abs(startingSpeed - 1.18) < .02, 'zoom preserves its slow starting speed');
+          assert(Math.abs((await speed(.499, .5)) - 3.674306) < .03, 'midpoint zoom is ten percent faster than cruising speed');
           assert(Math.abs((await speed(.5, .501)) / (await speed(.499, .5)) - 1) < .02, 'midpoint keeps velocity continuous');
-          assert(Math.abs((await speed(.5, .501)) / peakSpeed - 1) < .02, 'zoom holds its faster cruising speed until damping');
+          assert(Math.abs(peakSpeed - 3.340278) < .02, 'zoom preserves its speed entering the final damping');
           assert(Math.abs((await speed(.94, .941)) / peakSpeed - 1) < .04, 'damping starts without a speed jump');
           assert((await speed(.999, 1)) < startingSpeed * .05, 'zoom settles nearly to rest at the endpoint');
           let previousScale = 1.5;
