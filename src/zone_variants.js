@@ -39,7 +39,7 @@
   // Traits describe appearance, not eligibility: unusual combinations remain possible.
   const TRAITS = {
     meadow: ['cultivated'], marine_meadow: ['coastal', 'cultivated'], mushroom_grove: ['woodland', 'damp'], orchard: ['cultivated', 'woodland'],
-    formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'], sacred_grove: ['woodland', 'sacred'],
+    formal_garden: ['formal', 'cultivated'], hedge_garden: ['formal', 'cultivated'], ancient_grove: ['woodland', 'sacred'], spooky_woods: ['woodland', 'ruined'], sacred_grove: ['woodland', 'sacred'],
     stone_garden: ['formal', 'sacred'], ordered_graves: ['formal', 'sacred'], overgrown_graves: ['woodland', 'sacred'],
     broken_masonry: ['ruined'], silent_circle: ['sacred'], flint_field: ['ruined'], broken_depot: ['ruined'],
     seep: ['damp'], work_yard: ['formal'], black_ring: ['ruined'],

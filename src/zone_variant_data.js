@@ -391,6 +391,13 @@
       "rockMaterial": "flint",
       "spawnClass": "minor",
       "color": "#d6a877"
+    },
+    "dead_tree": {
+      "kind": "tree",
+      "species": "maple",
+      "spawnClass": "minor",
+      "color": "#514b30",
+      "size": "large"
     }
   },
   "variants": [
@@ -2519,10 +2526,10 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.6,
+        "nominalDensity": 0.35,
         "materialDensity": {
           "tree": 0.027777777777777776,
-          "shrub": 0.5,
+          "shrub": 0.25,
           "grass": 0.04444444444444444,
           "treant": 0.027777777777777776
         },
@@ -2562,7 +2569,10 @@
           "placement": "empty_motif_cells_only",
           "seed": "anchor_variant_global_cell"
         },
-        "densityBasis": "fixed_cluster_plus_expected_gap_scatter"
+        "densityBasis": "fixed_cluster_plus_expected_gap_scatter",
+        "materialKeepChance": {
+          "shrub": 0.5
+        }
       },
       "poi": {
         "id": "stone_tree_ring",
@@ -2727,7 +2737,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering half the background cells and light grass in the gaps. Stone markers lead to the guarded starflower. A bramble beside each central tree twitches, hiding a treant that wakes when approached.",
+      "atmosphere": "Rounded tree-centered clusters repeat six cells apart, with brambles covering roughly a quarter of the background cells, leaving open breaks through the clusters and light grass in the gaps. Stone markers lead to the guarded starflower. A bramble beside each central tree twitches, hiding a treant that wakes when approached.",
       "materialLooks": {
         "shrub": "bramble"
       }
@@ -7872,6 +7882,385 @@
           "count": 1
         }
       ]
+    },
+    {
+      "id": "spooky_woods",
+      "zone": "grove",
+      "name": "Spooky Woods",
+      "weight": 1,
+      "background": {
+        "repeatCells": [
+          6,
+          6
+        ],
+        "slots": [
+          {
+            "at": [
+              2,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "treant"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              2
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              3
+            ],
+            "material": "tree"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              1,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              5,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              5
+            ],
+            "material": "grass"
+          }
+        ],
+        "densityFalloff": "none",
+        "phaseOrigin": "settled_poi_at_declared_motif_cell",
+        "orientation": "quarter_turn_toward_approach",
+        "nominalDensity": 0.35,
+        "materialDensity": {
+          "tree": 0.027777777777777776,
+          "shrub": 0.25,
+          "grass": 0.04444444444444444,
+          "treant": 0.027777777777777776
+        },
+        "type": "repeat_motif",
+        "cluster": {
+          "centerCell": [
+            3,
+            3
+          ],
+          "shape": "rounded_concentric_rings",
+          "outerRadiusSquaredCells": 6,
+          "layers": [
+            {
+              "radiusCells": 0,
+              "material": "tree"
+            },
+            {
+              "radiusCells": 1,
+              "material": "shrub"
+            },
+            {
+              "outerRadiusSquaredCells": 6,
+              "material": "shrub"
+            }
+          ]
+        },
+        "poiOrigin": {
+          "cell": [
+            3,
+            3
+          ],
+          "role": "cluster_center_replacing_center_tree"
+        },
+        "gapScatter": {
+          "material": "grass",
+          "chance": 0.04,
+          "placement": "empty_motif_cells_only",
+          "seed": "anchor_variant_global_cell"
+        },
+        "densityBasis": "fixed_cluster_plus_expected_gap_scatter",
+        "materialKeepChance": {
+          "shrub": 0.5
+        }
+      },
+      "poi": {
+        "id": "stone_tree_ring",
+        "origin": "settled_poi",
+        "slots": [
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              0
+            ],
+            "material": "dead_tree"
+          },
+          {
+            "at": [
+              0,
+              1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              -1,
+              0
+            ],
+            "material": "dead_tree"
+          },
+          {
+            "at": [
+              -1,
+              -1
+            ],
+            "material": "stone"
+          },
+          {
+            "at": [
+              1,
+              1
+            ],
+            "material": "dead_tree"
+          }
+        ],
+        "relocation": {
+          "unit": "fixed_to_poi",
+          "maxCells": 0,
+          "preserveApproach": true,
+          "blocked": "omit_blocked_slots_no_outward_rescue"
+        },
+        "whenInsideBuilding": {
+          "slots": [
+            {
+              "at": [
+                0,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                0
+              ],
+              "material": "dead_tree"
+            },
+            {
+              "at": [
+                0,
+                2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                -2,
+                0
+              ],
+              "material": "dead_tree"
+            },
+            {
+              "at": [
+                -2,
+                -2
+              ],
+              "material": "stone"
+            },
+            {
+              "at": [
+                2,
+                2
+              ],
+              "material": "dead_tree"
+            }
+          ],
+          "origin": "settled_poi",
+          "relocation": {
+            "unit": "whole_pattern",
+            "maxCells": 4,
+            "preserveApproach": true
+          }
+        },
+        "placementCondition": "original_poi_outside_building_footprint_uses_touching_slots; inside_uses_whenInsideBuilding",
+        "adjacency": "eight_immediate_neighbor_cells; edge_or_corner_contact; no_empty_cell_gap",
+        "composition": {
+          "replaceBackgroundAt": "poi_cell_and_declared_slots_only",
+          "preserveUntouchedNeighbors": true
+        }
+      },
+      "finds": {
+        "rarity": "rare",
+        "material": "star",
+        "targets": [
+          {
+            "id": "1",
+            "radiusFraction": [
+              0,
+              0.65
+            ]
+          }
+        ],
+        "spawnClass": "attractor",
+        "owner": "anchor",
+        "relocation": {
+          "unit": "group",
+          "maxCells": 4,
+          "stayInZone": true
+        },
+        "count": 1
+      },
+      "connection": {
+        "shape": "stepping_stones",
+        "material": "stone",
+        "spacingCells": 3,
+        "from": "poi",
+        "to": "finds",
+        "withinCoverageBudget": true,
+        "crossMajorRoad": false
+      },
+      "guards": {
+        "mode": "guard_find",
+        "kind": "treant",
+        "kinds": [
+          "treant",
+          "spider"
+        ],
+        "count": 2,
+        "offsetCells": [
+          [
+            2,
+            0
+          ],
+          [
+            -2,
+            0
+          ]
+        ],
+        "spawnClass": "enemy",
+        "fallback": "omit_guard_keep_find"
+      },
+      "atmosphere": "Dark olive soil beneath living tree clusters, with bare Rogue Adventure snags around the grove shrine. Existing brambles, grass resources, stone markers and guarded starflower remain interactive.",
+      "materialLooks": {
+        "shrub": "bramble",
+        "dead_tree": "dead_tree"
+      }
     }
   ],
   "quarryLayouts": {

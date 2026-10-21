@@ -5,18 +5,18 @@
 .compass-panel.book-page-modal .modal-body {
   margin: 0 !important;
   padding: 48px 34px max(48px, env(safe-area-inset-bottom)) !important;
-  background: #f4dfa8 url('../assets/art/book_page.webp') center / 100% 100% no-repeat;
-  color: #4c3c23;
+  background: #000;
+  color: #eeede3;
   font: 17px/1.65 var(--font-ui);
   text-shadow: none !important;
-  scrollbar-color: #a2854c #e9cd91;
+  scrollbar-color: #a2854c #000;
 }
 .compass-panel.book-page-modal .modal-content {
   margin: 0 !important;
   text-align: center;
 }
 .compass-panel.book-page-modal .modal-content > div {
-  color: #4c3c23 !important;
+  color: #eeede3 !important;
 }
 .compass-panel.book-page-modal .book-volume { font-size: 16px; line-height: 1.5; }
 .compass-panel.book-page-modal .story-copy { color: inherit; }
@@ -24,3 +24,5 @@
 @media (max-height: 650px) {
   .compass-panel.book-page-modal .modal-body { padding: 24px 30px 36px !important; font-size: 16px; }
 }
+.compass-panel.book-page-modal.modal-compact .modal-body { padding: 18px 24px 24px !important; }
+.compass-panel.book-page-modal.modal-compact .compass-action { margin-top: 10px !important; }

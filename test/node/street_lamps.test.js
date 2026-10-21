@@ -137,7 +137,7 @@ test('street lamps: an UNLIT lamp draws the BROKEN POST baked from the same pain
   // column snapped (RoadOverlay.paintBrokenLamp), baked at runtime exactly as
   // the lit lamp is, so restoring a stretch changes the lamp and nothing else.
   assert.truthy(/const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';/.test(app), 'one bake for every street\'s broken post');
-  assert.truthy(/_ensureBrokenLampTex\(\) \{[\s\S]{0,600}?this\._ensureCanvasTex\(key, RoadOverlay\.LAMP_TEX_PX, \(ctx, S\) => RoadOverlay\.paintBrokenLamp\(ctx, S\)\)/.test(app),
+  assert.truthy(/_ensureBrokenLampTex\(\) \{[\s\S]{0,800}?RoadOverlay\.paintSelectedLamp\(ctx, S, source, true\)/.test(app),
     'baked by the real painter with `broken` set, into a canvas texture (the one bake shell)');
   assert.truthy(/const key = STREET_LAMP_BROKEN_TEX;\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app), 'baked once');
   assert.truthy(/this\._ensureStreetLampTex\(UI_LAMP_GLOW\);\s*\n\s*this\._ensureBrokenLampTex\(\);/.test(app), 'baked at boot beside the lit lamp');
@@ -146,6 +146,7 @@ test('street lamps: an UNLIT lamp draws the BROKEN POST baked from the same pain
   const keyBody = lampSpecSrc.match(/key: \(o\) => ([\s\S]*?),\s*frame:/)[1];
   const keyFor = new Function('o', 'streetLampTexKey', 'STREET_LAMP_BROKEN_TEX', `return ${keyBody};`);
   const key = o => keyFor(o, glow => `lamp:${glow}`, 'broken');
+  assert.eq(key({ restored: true, lit: false, glow: '#ff8800' }), 'lamp:#ff8800', 'intact restoration survives daylight or disabled light');
   assert.eq(key({ lit: true, glow: '#ff8800' }), 'lamp:#ff8800', 'lit normal lamp uses its glow');
   assert.eq(key({ lit: false, glow: '#ff8800' }), 'broken', 'dark normal lamp uses the shared broken post');
   assert.eq(key({ lit: true, suppressed: true, glow: '#d6ff3f' }), 'lamp:#d6ff3f', 'lit rift uses its own glow');
@@ -168,7 +169,7 @@ test('street lamps: the light collector reads the same list and skips the dark o
   // by Streets.covers over the restored intervals; the draw pass and
   // Lighting.collectLamps both read that flag, so a stone can never be drawn
   // lit while throwing no light, or the reverse.
-  assert.truthy(/out\.push\(\{ \.\.\.L, lit: Streets\.covers\(iv, L\.s\),/.test(updateSrc),
+  assert.truthy(/const isRestored = Streets\.covers\(iv, L\.s\);\s*out\.push\(\{ \.\.\.L, restored: isRestored, lit: isRestored,/.test(updateSrc),
     'the flag is Streets.covers over the line\'s restored list, on a fresh object (never written onto the tile cache)');
   assert.falsy(/if \(!Streets\.covers\(iv, L\.s\)\) continue;/.test(updateSrc), 'a dark lamp is no longer dropped from the list');
   assert.truthy(/if \(!L\.lit\) continue;/.test(LIGHTING_SRC), 'collectLamps skips a dark lamp');
@@ -192,7 +193,7 @@ test('street lamps: which lamps are lit is settled before the pass that draws th
 
 
 test('street lamps: the texture is baked once with RoadOverlay.paintLamp, keyed off the module\'s own LAMP_TEX_PX', () => {
-  assert.truthy(/\(ctx, S\) => RoadOverlay\.paintLamp\(ctx, S, glow \|\| UI_LAMP_GLOW, broken\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
+  assert.truthy(/RoadOverlay\.paintSelectedLamp\(ctx, S, source, broken, glow \|\| UI_LAMP_GLOW\)/.test(app), 'the real painter draws the baked texture, in the lamp\'s glow');
   assert.truthy(/this\._ensureCanvasTex\(key, RoadOverlay\.LAMP_TEX_PX, /.test(app), 'sized off road_overlay.js\'s own texture constant');
   assert.truthy(/const key = streetLampTexKey\(glow\) \+ \(broken \? '_broken' : ''\);\s*\n\s*if \(this\.textures\.exists\(key\)\) return key;/.test(app),
     'baked once per colour and broken state');
@@ -549,7 +550,7 @@ test('street lamps: each lamp carries its street\'s glow — StreetVariants.lamp
   const other = P._streetLampsForTile.call({}, TX, TY, withIndex([{ fi: 0, li: 1, size: v.size, variant: v.id }]));
   assert.eq(other[0].glow, UI_LAMP_GLOW, 'keyed by fi:li — another line\'s theme stays on that line');
   // …and the frame list carries it through untouched.
-  assert.truthy(/out\.push\(\{ \.\.\.L, lit:/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
+  assert.truthy(/out\.push\(\{ \.\.\.L, restored: isRestored, lit:/.test(updateSrc), 'the frame list spreads the tile lamp, glow and all');
 });
 
 test('street lamps: density and glow stop at the same compact theme intervals', () => {
@@ -624,7 +625,7 @@ test('street lamps: the baked art is cached PER COLOUR — the default keeps the
   const shellSrc = app.slice(shellAt, app.indexOf('\n  }\n', shellAt) + 4);
   const painted = [];
   const states = [];
-  const fakeRO = { LAMP_TEX_PX: 8, paintLamp: (cx, S, g, broken) => { painted.push(g); states.push(broken); } };
+  const fakeRO = { LAMP_TEX_PX: 8, paintSelectedLamp: () => false, paintLamp: (cx, S, g, broken) => { painted.push(g); states.push(broken); } };
   const mk = new Function('RoadOverlay', 'STREET_LAMP_TEX', 'UI_LAMP_GLOW', 'bakeCanvas',
     `${keyFn}\nreturn { streetLampTexKey, host: { ${ensSrc.trimEnd()},\n${shellSrc.trimEnd()} } };`);
   // textures.js bakeCanvas (the shell the bake rides) is not loaded headlessly: lift it from its source.

@@ -57,6 +57,7 @@
       addToInv, _finishInventoryChange: finish, _settleDeal: settle,
       shopLine: () => ({ tier: 1 }), shopRng: () => () => 0,
       _shopBagSpaceReason: method('_shopBagSpaceReason'),
+      _buildThemedItemOffer: method('_buildThemedItemOffer'),
       invDisplayEntriesForCat() { return this.save.inv.map((entry, idx) => ({ entry, idx })); },
       buildInventoryDOM() {
         refreshes++;
@@ -85,6 +86,7 @@
       addToInv, _finishInventoryChange: finish, _settleDeal: settle,
       shopLine: () => ({ tier: 1 }), shopRng: () => () => 0,
       _shopBagSpaceReason: method('_shopBagSpaceReason'),
+      _buildThemedItemOffer: method('_buildThemedItemOffer'),
       invRoomFor(id) { return Inventory.roomFor(this.save, id); },
       buildShopOffer() {
         return { canAfford: () => true, consume: () => { consumed++; this.save.money -= 5; } };

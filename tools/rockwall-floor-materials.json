@@ -11,7 +11,12 @@
     "magma": "16x16/Farm Game Magma Dungeon Tileset/Tilesets/FG_Magma_Dungeon.png",
     "mines": "16x16/Farm Game Abandoned Mines Tileset/Tilesets/FG_Abandoned_Mines.png",
     "reborn": "16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
-    "dreams": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png"
+    "dreams": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png",
+    "ra_RA_Cavern": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+    "ra_RA_Ancient": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ancient.png",
+    "ra_RA_Ruins": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ruins.png",
+    "ra_RA_Temple": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+    "ra_All tiles v2": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
   },
   "themes": [
     {
@@ -28,41 +33,39 @@
         "y": 3
       },
       "ground": {
-        "sheet": "sewer",
-        "x": 0,
-        "y": 6,
-        "tint": [
-          224,
-          240,
-          255
-        ]
+        "sheet": "ra_RA_Cavern",
+        "x": 16.0,
+        "y": 21.0,
+        "catalogId": "F05"
       },
       "road": {
-        "sheet": "sewer",
-        "x": 2,
-        "y": 18
+        "sheet": "ra_RA_Ancient",
+        "x": 11.0,
+        "y": 0.0,
+        "catalogId": "R02"
       },
-      "note": "Warm grey rock tops with a 3px brick lip and half-scale brick faces. A subtle concave foot stays inside each wall cell. Cool-grey stone fills each ground cell, with rare cracked slabs and complete grates. Pipes sit on the floor behind raised walls.",
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes.",
       "groundBroken": {
-        "sheet": "sewer",
-        "x": 3,
-        "y": 6,
-        "tint": [
-          224,
-          240,
-          255
-        ]
+        "sheet": "ra_RA_Ancient",
+        "x": 11.0,
+        "y": 0.0,
+        "catalogId": "R02"
       },
       "groundGrate": {
         "sheet": "sewer",
         "x": 6,
         "y": 8
+      },
+      "water": {
+        "sheet": "sewer",
+        "x": 2,
+        "y": 18
       }
     },
     {
       "id": "l2",
       "label": "L2 \u00b7 Natural caves",
-      "note": "Abandoned Mines rock faces and cave stone floor. The game retains the established natural cave layout with these shared wall materials. Original cave art stays in the left reference; ground tiles are a trial arrangement.",
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes.",
       "cap": [
         86,
         70,
@@ -74,14 +77,22 @@
         "y": 10
       },
       "ground": {
-        "sheet": "mines",
-        "x": 13,
-        "y": 13
+        "sheet": "ra_RA_Cavern",
+        "x": 9.0,
+        "y": 1.0,
+        "catalogId": "G11"
       },
       "road": {
-        "sheet": "mines",
-        "x": 13,
-        "y": 13
+        "sheet": "ra_RA_Cavern",
+        "x": 9.0,
+        "y": 4.5,
+        "catalogId": "G12"
+      },
+      "groundAccent": {
+        "sheet": "ra_RA_Cavern",
+        "x": 9.0,
+        "y": 4.5,
+        "catalogId": "G12"
       }
     },
     {
@@ -98,16 +109,18 @@
         "y": 5
       },
       "ground": {
-        "sheet": "reborn",
-        "x": 22,
-        "y": 0
+        "sheet": "ra_RA_Cavern",
+        "x": 9.0,
+        "y": 4.5,
+        "catalogId": "G12"
       },
       "road": {
-        "sheet": "reborn",
-        "x": 23,
-        "y": 0
+        "sheet": "ra_RA_Ancient",
+        "x": 10.0,
+        "y": 16.0,
+        "catalogId": "R03"
       },
-      "note": "Fantasy Dreamland Reborn Dungeon: dark brown masonry, worn slab ground and a neighbouring slab variant on the route."
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes."
     },
     {
       "id": "l4",
@@ -123,16 +136,178 @@
         "y": 4
       },
       "ground": {
-        "sheet": "dungeon",
-        "x": 4,
-        "y": 22
+        "sheet": "ra_RA_Cavern",
+        "x": 16.0,
+        "y": 26.0,
+        "catalogId": "F07"
       },
       "road": {
-        "sheet": "dungeon",
-        "x": 4,
-        "y": 22
+        "sheet": "ra_RA_Cavern",
+        "x": 16.0,
+        "y": 26.0,
+        "catalogId": "F07"
       },
-      "note": "Blue dressed masonry and continuous blue slab paving from the Dungeon pack."
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes.",
+      "pad": {
+        "assembly": [
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 24.0,
+            "y": 28.5,
+            "catalogId": "F10H",
+            "at": [
+              0,
+              0
+            ],
+            "size": [
+              16,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 22.0,
+            "y": 28.0,
+            "catalogId": "F10V",
+            "at": [
+              16,
+              0
+            ],
+            "size": [
+              8,
+              16
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 23.0,
+            "y": 28.0,
+            "catalogId": "F10S",
+            "at": [
+              24,
+              0
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 23.0,
+            "y": 28.0,
+            "catalogId": "F10S",
+            "at": [
+              0,
+              8
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 23.0,
+            "y": 28.0,
+            "catalogId": "F10S",
+            "at": [
+              8,
+              8
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 23.0,
+            "y": 28.0,
+            "catalogId": "F10S",
+            "at": [
+              24,
+              8
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 22.0,
+            "y": 28.0,
+            "catalogId": "F10V",
+            "at": [
+              0,
+              16
+            ],
+            "size": [
+              8,
+              16
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 24.0,
+            "y": 28.5,
+            "catalogId": "F10H",
+            "at": [
+              8,
+              16
+            ],
+            "size": [
+              16,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 23.0,
+            "y": 28.0,
+            "catalogId": "F10S",
+            "at": [
+              24,
+              16
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 23.0,
+            "y": 28.0,
+            "catalogId": "F10S",
+            "at": [
+              8,
+              24
+            ],
+            "size": [
+              8,
+              8
+            ]
+          },
+          {
+            "sheet": "ra_All tiles v2",
+            "x": 24.0,
+            "y": 28.5,
+            "catalogId": "F10H",
+            "at": [
+              16,
+              24
+            ],
+            "size": [
+              16,
+              8
+            ]
+          }
+        ],
+        "size": 32,
+        "catalogId": "F10"
+      }
     },
     {
       "id": "l5",
@@ -148,16 +323,23 @@
         "y": 2
       },
       "ground": {
-        "sheet": "mycelium",
-        "x": 13,
-        "y": 1
+        "sheet": "ra_RA_Cavern",
+        "x": 16.0,
+        "y": 16.0,
+        "catalogId": "F06",
+        "tint": [
+          112,
+          96,
+          127
+        ]
       },
       "road": {
-        "sheet": "mycelium",
-        "x": 13,
-        "y": 1
+        "sheet": "ra_RA_Ruins",
+        "x": 12.0,
+        "y": 16.0,
+        "catalogId": "R05"
       },
-      "note": "Violet mushroom-cap material and teal mycelium. Wall geometry is a stress test only: target L5 remains an open cavern."
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes."
     },
     {
       "id": "l6",
@@ -173,21 +355,28 @@
         "y": 7
       },
       "ground": {
-        "sheet": "magma",
-        "x": 13,
-        "y": 15
+        "sheet": "ra_RA_Ancient",
+        "x": 10.0,
+        "y": 0.0,
+        "catalogId": "R06",
+        "tint": [
+          80,
+          66,
+          62
+        ]
       },
       "road": {
-        "sheet": "hell",
-        "x": 6,
-        "y": 5
+        "sheet": "ra_RA_Ancient",
+        "x": 10.0,
+        "y": 0.0,
+        "catalogId": "R06",
+        "tint": [
+          80,
+          66,
+          62
+        ]
       },
-      "groundAccent": {
-        "sheet": "magma",
-        "x": 13,
-        "y": 11
-      },
-      "note": "Plain basalt faces; a stable random one-in-four wall-cell chance adds lava cracks. Roughly one fifth of floor cells have ember cracks from the Magma Dungeon pack. Cracked cells keep their pattern when the compass turns or the fixture reloads. Texture only, no new lighting or hazards.",
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes.",
       "faceAccent": {
         "sheet": "magma",
         "x": 26,
@@ -208,16 +397,30 @@
         "y": 6
       },
       "ground": {
-        "sheet": "dreams",
-        "x": 2,
-        "y": 0
+        "sheet": "ra_RA_Temple",
+        "x": 1.0,
+        "y": 0.0,
+        "catalogId": "F01"
       },
       "road": {
-        "sheet": "dreams",
-        "x": 6,
-        "y": 0
+        "sheet": "ra_RA_Temple",
+        "x": 9.0,
+        "y": 0.0,
+        "catalogId": "F03"
       },
-      "note": "Dreams violet masonry and purple slab floors, with gold-flecked paving along the route. Muted violet tops retain the 3px masonry lip."
+      "note": "RA Phase 1 floor material; existing wall cap, face and geometry retained. Routes follow existing underground lane masks; no generation changes.",
+      "groundAccent": {
+        "sheet": "ra_RA_Temple",
+        "x": 3.0,
+        "y": 0.0,
+        "catalogId": "F02"
+      },
+      "roadAccent": {
+        "sheet": "ra_RA_Temple",
+        "x": 11.0,
+        "y": 0.0,
+        "catalogId": "F04"
+      }
     }
   ]
 }

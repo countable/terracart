@@ -2,12 +2,30 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
+  selected_dead_tree: { kind: 'spritesheet', path: 'assets/Objects/SelectedFlora/selected_dead_tree.png', frameWidth: 64, frameHeight: 64 },
+  // Reviewed closed building meshes share these native source images.
+  authored_source_com: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/com_houses_05.png' },
+  authored_source_fdr: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/FDR_Blacksmith.png' },
+  authored_source_market: { kind: 'image', path: 'assets/Objects/Approved/house_market.png' },
+  authored_source_trader: { kind: 'image', path: 'assets/Objects/Approved/house_trader.png' },
+  authored_source_wizard: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/wizard.png' },
+  authored_source_flat_adobe: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/flat-adobe.png' },
+  authored_source_flat_rooftop: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/flat-rooftop.png' },
+  authored_source_steam_home: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/steam-home.png' },
+  authored_source_steam_blacksmith: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/steam-blacksmith.png' },
+  authored_source_steam_wizard: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/steam-wizard.png' },
+  authored_source_city_storefront: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/city-storefront.png' },
+  authored_source_city_gearhouse: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/city-gearhouse.png' },
+  authored_source_pp_brick: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-brick-red.png' },
+  authored_source_pp_plaster: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-plaster-red.png' },
+  authored_source_pp_cabin: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-cabin-red.png' },
   selected_items: { kind: 'spritesheet', path: 'assets/Icons/SelectedItems/items.png', frameWidth: 16, frameHeight: 16 },
   selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
   selected_shrub: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_shrub.png', 'frameWidth': 16, 'frameHeight': 16},
   selected_rubble: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_rubble.png', 'frameWidth': 16, 'frameHeight': 16},
   selected_mushroom: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_mushroom.png', 'frameWidth': 16, 'frameHeight': 16},
   selected_longgrass: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_longgrass.png', 'frameWidth': 16, 'frameHeight': 16},
+  selected_streetlamp: { kind: 'image', path: 'assets/Objects/SelectedProps/selected_streetlamp.png' },
   selected_grave_pillar: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/selected_grave_pillar.png', 'frameWidth': 16, 'frameHeight': 32},
   bone_cache: { kind: 'image', path: 'assets/Objects/Approved/bone_pile.png' },
   floor_wall_sources: { kind: 'image', path: 'assets/Objects/Cave/floor-wall-sources.png' },
@@ -204,6 +222,7 @@ const ASSETS = {
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Approved DG-style rocks — 128×144 atlas of 16px frames; 65 runtime identities.
+  prop_materials: { kind: 'image', path: 'assets/Objects/LowPolyProps/materials.png' },
   rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-16.png', frameWidth: 16, frameHeight: 16 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.

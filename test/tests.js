@@ -968,7 +968,8 @@ test('REG #16: tilled self-heal preserves cells with a planted crop', (scene) =>
   scene.save.planted.push({ x: c.x, y: c.y, crop: 'potato', stage: 1, watered_t: 0 });
   scene.tilledSet.add(`${cellIX}_${cellIY}`);
   teleport(scene, c.x, c.y);
-  // Force a draw — the buggy self-heal would silently drop the tilled mark.
+  // Tile reconciliation must preserve the plot before rendering reads it.
+  Crops.reconcileTilled(scene);
   scene.drawCells();
   assert.truthy(scene.tilledSet.has(`${cellIX}_${cellIY}`), 'tilled mark preserved (plant present)');
 });

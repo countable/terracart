@@ -5,7 +5,7 @@
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
   const WOOD = { height: 8, tipHeight: 3.4, thickness: 4.4, width: 4.4, pitch: 5.2, rounding: .26 };
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
-  const colors = { hedgeTop: 0x80995b, hedgeSide: 0x456e47, stoneTop: 0xc6baa4,
+  const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xe3c8a1, woodSide: 0xcba47d };
   const hash = (x, y) => ((Math.imul(x + 173, 374761393) ^ Math.imul(y + 97, 668265263)) >>> 0) / 4294967296;
   function multiplyColors(a, b) {
@@ -23,13 +23,13 @@
       fill('#' + colors[name].toString(16).padStart(6, '0'), 0, 0, n, n);
       if (name.startsWith('hedge')) {
         const side = name === 'hedgeSide';
-        fill(side ? '#3d6542' : '#789153', 0, 0, n, n);
+        fill(side ? '#2f5934' : '#477735', 0, 0, n, n);
         for (let y = -8; y < n; y += 10) for (let x = -8; x < n; x += 12) {
-          const v = hash(x, y), xx = x + Math.floor(hash(y, x) * 4);
-          fill(side ? '#456e47' : '#80995b', xx + 1, y + 1, 8, 5);
-          fill(side ? '#456e47' : '#80995b', xx + 3, y, 4, 7);
-          if (v > .24) fill(side ? '#50794d' : '#8ca368', xx + 2, y + 1, 4, 1);
-          if (v > .4) fill(side ? '#355b3c' : '#6c874f', xx + 6, y + 6, 2, 1);
+          const v = hash(x, y), xx = x + Math.floor(hash(y, x) * 7), yy = y + Math.floor(v * 5);
+          fill(side ? '#35633a' : '#4f813b', xx + 1, yy + 1, 8, 5);
+          fill(side ? '#35633a' : '#4f813b', xx + 3, yy, 4, 7);
+          if (v > .24) fill(side ? '#457744' : '#629347', xx + 2, yy + 1, 4, 1);
+          if (v > .4) fill(side ? '#294d30' : '#3f7035', xx + 6, yy + 6, 2, 1);
         }
       } else if (name === 'stoneTop' || name === 'stonePlain') {
         for (let y = 3; y < n; y += 11) for (let x = 3; x < n; x += 13) {
@@ -154,7 +154,7 @@
       } else {
         const edge = [topPoint(a), topPoint(b), topPoint(cap[j]), topPoint(cap[i])];
         edge[0].z = edge[1].z = low;
-        topSurface(edge, normal, hedge ? 0xc9d2ba : 0xd5c9b6);
+        topSurface(edge, normal, hedge ? 0xffffff : 0xd5c9b6);
       }
     }
     if (options.tint != null) for (const face of faces) {

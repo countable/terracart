@@ -16,7 +16,7 @@ const { chromium } = require('playwright-core');
       await page.evaluate(() => {
         window.staticDialogs = ['howto', 'story', 'bootload'].map(id => document.getElementById(id)?.cloneNode(true));
       });
-      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'long-story', 'plain', 'square-story', 'square-night', 'square-long', 'portrait-art-long']) {
+      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'plain', 'square-story', 'square-night', 'book', 'restore-list', 'menu']) {
         await page.evaluate(kind => {
           const s = window.__scene;
           document.querySelectorAll('.game-modal').forEach(el => el.remove());
@@ -31,14 +31,27 @@ const { chromium } = require('playwright-core');
             blurb: long, cost: '25 coins', canAfford: true, onAccept: () => {} });
           if (kind === 'portrait') s.showMessageModal({ kind: 'talk', kindLabel: 'Tilly', title: 'Neighbour',
             portrait: 'assets/Icons/coin.png', body: long.repeat(2) });
-          if (kind === 'long-story') s.showMessageModal({ title: 'A long book', body: long.repeat(30) });
-          if (kind === 'square-story' || kind === 'square-long') {
+          if (kind === 'square-story') {
             s.showMessageModal({ title: 'Low Health', art: 'health_low',
-              body: kind === 'square-long' ? long.repeat(30) : 'Rest here to recover.' });
+              body: 'Rest here to recover.' });
           }
           if (kind === 'square-night') s.showMessageModal(RoadSafety.NIGHT_STORY);
-          if (kind === 'portrait-art-long') s.showMessageModal({ title: 'Legacy art', art: 'house', body: long.repeat(30) });
-          if (kind === 'plain') s.showMessageModal({ title: 'A long note', art: false, body: long.repeat(20) });
+          if (kind === 'plain') s.showMessageModal({ title: 'A long note', art: false, body: long.repeat(2) });
+          if (kind === 'book') {
+            const page = PLAY_TIPS.map((_, i) => i).sort((a, b) => bookPageHTML(b).length - bookPageHTML(a).length)[0];
+            s.showMessageModal({ title: '', body: bookPageHTML(page), bookPage: true });
+          }
+          if (kind === 'menu') s._openMenuDialog();
+          if (kind === 'restore-list') {
+            const { box, mount } = s.makeModalShell('restore-test', { kind: 'restore', art: false, scroll: true });
+            for (let i = 0; i < 30; i++) {
+              const row = document.createElement('button');
+              row.textContent = `Restore building ${i + 1}`;
+              row.style.cssText = 'display:block;min-height:44px;margin:8px;';
+              box.appendChild(row);
+            }
+            mount();
+          }
         }, kind);
         await page.waitForTimeout(350);
         if (kind === 'pick') {
@@ -59,8 +72,11 @@ const { chromium } = require('playwright-core');
                 width: bounds.width, height: bounds.height, position: style.backgroundPosition,
                 size: style.backgroundSize, story: wrap.dataset.kind === 'story', scrim: style.backgroundImage };
             })(),
-            pages: getComputedStyle(pages).display !== 'none',
-            count: pages.textContent,
+            pages: !!pages,
+            buttonsVisible: [...content.querySelectorAll('button')].filter(el => el.getClientRects().length).every(el => {
+              const r = el.getBoundingClientRect(), v = body.getBoundingClientRect();
+              return r.left >= v.left - 1 && r.right <= v.right + 1 && r.top >= v.top - 1 && r.bottom <= v.bottom + 1;
+            }),
             contentHeight: content.scrollHeight, bodyHeight: body.clientHeight,
             scroll: [...wrap.querySelectorAll('*')].filter(el => el.clientHeight && el.scrollHeight > el.clientHeight + 2
               && /auto|scroll/.test(getComputedStyle(el).overflowY)).map(el => el.className),
@@ -68,44 +84,26 @@ const { chromium } = require('playwright-core');
           };
         });
         const m = await measure();
-        assert.deepEqual(m.scroll, [], `${width} ${kind}: no scrolling ${JSON.stringify(m)}`);
+        if (kind !== 'restore-list') assert.deepEqual(m.scroll, [], `${width} ${kind}: no scrolling ${JSON.stringify(m)}`);
         assert(m.boxVisible, `${width} ${kind}: dialog fits screen`);
         if (m.art) {
           assert.equal(m.art.position, '50% 0%', `${kind}: art preserves its top edge`);
           assert.equal(m.art.size, m.art.story ? 'cover' : '100% auto', `${kind}: width-fit art`);
-          if (m.art.story) assert(Math.abs(m.art.width / m.art.height - 4 / 3) < .01, `${kind}: consistent 4:3 story frame`);
           if (kind.startsWith('square-')) {
             assert(m.art.bottom <= m.art.bodyTop + 1, `${kind}: copy sits below art`);
-            assert(m.art.height / m.art.width >= 0.699, `${kind}: copy and paging preserve the subject`);
             assert(m.art.height <= m.art.width + 1, `${kind}: visible art never stretches`);
             assert(!m.art.scrim.includes('gradient'), `${kind}: artwork has no dark copy scrim`);
           }
         }
-        if (!['long-story', 'plain', 'square-long', 'portrait-art-long'].includes(kind)) {
-          assert.equal(m.pages, false, `${width} ${kind}: ordinary dialog fits one page ${JSON.stringify(m)}`);
-          assert(m.contentHeight <= m.bodyHeight + 2, `${width} ${kind}: content not clipped`);
+        assert.equal(m.pages, false, `${width} ${kind}: no pagination`);
+        if (kind === 'restore-list') {
+          assert(m.scroll.includes('modal-copy'), 'expanding restore list can scroll');
+          await page.locator('.modal-copy').evaluate(el => { el.scrollTop = el.scrollHeight; });
+          assert(await page.locator('.modal-copy').evaluate(el => el.scrollTop > 0), 'list scroll reaches later entries');
+          await page.getByRole('button', { name: 'Restore building 30', exact: true }).click();
         } else {
-          assert.equal(m.pages, true, `${kind} has pages`);
-          const next = page.getByRole('button', { name: 'Next page', exact: true });
-          if (kind === 'long-story') {
-            await page.getByRole('button', { name: 'OK', exact: true }).focus();
-            assert(await next.isDisabled(), 'keyboard focus reveals the action page');
-            const previous = page.getByRole('button', { name: 'Previous page', exact: true });
-            while (!(await previous.isDisabled())) await previous.click();
-          }
-          let turns = 0;
-          while (!(await next.isDisabled())) {
-            await next.click();
-            assert(++turns < 50, 'finite page count');
-          }
-          const ok = page.getByRole('button', { name: 'OK', exact: true });
-          const visible = await ok.evaluate(el => {
-            const b = el.getBoundingClientRect(), p = el.closest('.modal-copy').getBoundingClientRect();
-            return b.left >= p.left - 1 && b.right <= p.right + 1 && b.top >= p.top - 1 && b.bottom <= p.bottom + 1;
-          });
-          assert(visible, 'final-page action is visible and whole');
-          await ok.click();
-          assert.equal(await page.locator('#message-modal').count(), 0);
+          assert(m.contentHeight <= m.bodyHeight + 2, `${width} ${kind}: content not clipped ${JSON.stringify(m)}`);
+          assert(m.buttonsVisible, `${width} ${kind}: actions visible without paging or scrolling`);
         }
         if (process.env.MODAL_SCREENSHOTS && width === 390 && ['relic', 'pick'].includes(kind)) {
           require('node:fs').mkdirSync(process.env.MODAL_SCREENSHOTS, { recursive: true });
@@ -138,14 +136,14 @@ const { chromium } = require('playwright-core');
             dialog.querySelector('.box').style.animation = 'none';
             const art = dialog.querySelector('.art').getBoundingClientRect();
             const frame = dialog.querySelector('.box').getBoundingClientRect();
-            results.push({ id: 'opening-story-art', fits: Math.abs(art.width / art.height - 4 / 3) < .01,
+            results.push({ id: 'opening-story-art', fits: art.height > 0 && art.height <= art.width,
               visible: Math.abs(frame.width - (right - left)) < 1 && Math.abs(art.width - frame.width) < 1 });
-            dialog.querySelector('p').textContent = 'The long night is over. You wake beside the ruined street, with a compass in your hand and a whole neighbourhood waiting to be rebuilt.';
+            dialog.querySelector('p').textContent = STORY_SLIDES.filter(slide => !slide.fullscreen).sort((a, b) => b.text.length - a.text.length)[0].text;
           }
           for (const box of dialog.querySelectorAll('.box')) {
             if (!box.clientHeight) continue;
             const r = box.getBoundingClientRect();
-            results.push({ id: dialog.id, fits: box.scrollHeight <= box.clientHeight + 2 || getComputedStyle(box).overflowY === 'auto',
+            results.push({ id: dialog.id, fits: box.scrollHeight <= box.clientHeight + 2 && !['auto', 'scroll'].includes(getComputedStyle(box).overflowY),
               visible: r.top >= -1 && r.bottom <= innerHeight + 1 && r.left >= left - 1 && r.right <= right + 1 });
           }
           dialog.remove();

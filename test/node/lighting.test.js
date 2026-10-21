@@ -449,7 +449,8 @@ test('lighting: furniture emits indoors, across the sprite cull, and stops after
       assert.eq(light.kind, kind);
       const b = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(lamp)}`];
       const spec = furnitureSpec(lamp);
-      const baseY = Number.isFinite(spec.seatFoot) ? 32 / 6 : (b.maxY - b.minY) / 2;
+      const height = b.maxY - b.minY;
+      const baseY = height * FURNITURE_SCALE <= CELL_PX ? height / 3 : 5;
       assert.inRange(Math.abs(light.dyPx - (baseY + spec.lightFrameY - b.maxY)), 0, 1e-8,
         'glow follows the placed lamp base');
       assert.eq(Lighting.liftPx(s, light).y, light.dyPx, 'existing lift mechanism places the glow');
@@ -646,7 +647,7 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
     && /ctx\.drawImage\(stamp\.canvas, stamp\.x, stamp\.y, stamp\.width, stamp\.height\);/.test(st),
     'the stamp is placed at that centre');
   assert.truthy(/const c = lightCentrePx\(scene, L\); at = `\$\{c\.x\},\$\{c\.y\}`;/.test(LIGHTING_SRC)
-    && /\$\{L\.id\},\$\{at\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
+    && /\$\{L\.id\},\$\{at\},\$\{L\.dxPx\},\$\{L\.dyPx\}/.test(LIGHTING_SRC),
     'and frameKey names the lifted centre (and dyPx), so a lift that moves repaints');
   // No list, or an empty one, is a no-op — like collectFires with no fires.
   assert.eq(Lighting.collectLamps(scene({ cellM }), 0, 0, HALF_M), 0, 'no list at all');

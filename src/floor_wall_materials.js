@@ -2,7 +2,7 @@
 (function (global) {
   'use strict';
   // BEGIN GENERATED THEMES
-  const THEMES = [{"id":"l1","label":"L1 \u00b7 Sewer","cap":[76,68,65],"face":0,"ground":1,"road":2,"groundBroken":3,"groundGrate":4},{"id":"l2","label":"L2 \u00b7 Natural caves","cap":[86,70,51],"face":5,"ground":6,"road":6},{"id":"l3","label":"L3 \u00b7 Goblin warrens","cap":[88,68,57],"face":7,"ground":8,"road":9},{"id":"l4","label":"L4 \u00b7 Dwarven stone","cap":[69,74,103],"face":10,"ground":11,"road":11},{"id":"l5","label":"L5 \u00b7 Fungal Underdark","cap":[82,51,72],"face":12,"ground":13,"road":13},{"id":"l6","label":"L6 \u00b7 Lava and demons","cap":[30,27,31],"face":14,"faceAccent":15,"ground":16,"road":17},{"id":"l7","label":"L7 \u00b7 Dragon temple","cap":[75,61,111],"face":18,"ground":19,"road":20}];
+  const THEMES = [{"id":"l1","label":"L1 \u00b7 Sewer","cap":[76,68,65],"face":0,"ground":1,"road":2,"groundBroken":2,"groundGrate":3,"water":4},{"id":"l2","label":"L2 \u00b7 Natural caves","cap":[86,70,51],"face":5,"ground":6,"road":7,"groundAccent":7},{"id":"l3","label":"L3 \u00b7 Goblin warrens","cap":[88,68,57],"face":8,"ground":7,"road":9},{"id":"l4","label":"L4 \u00b7 Dwarven stone","cap":[69,74,103],"face":10,"ground":11,"road":11,"pad":12,"padSize":32},{"id":"l5","label":"L5 \u00b7 Fungal Underdark","cap":[82,51,72],"face":14,"ground":15,"road":16},{"id":"l6","label":"L6 \u00b7 Lava and demons","cap":[30,27,31],"face":17,"faceAccent":18,"ground":19,"road":19},{"id":"l7","label":"L7 \u00b7 Dragon temple","cap":[75,61,111],"face":20,"ground":21,"road":22,"groundAccent":23,"roadAccent":24}];
   // END GENERATED THEMES
   const CELL = 32, HEIGHT = 19, WIDTH = 512, ATLAS_HEIGHT = 160;
   const theme = depth => THEMES[Math.max(0, Math.min(THEMES.length - 1, Math.floor(depth) - 1))];
@@ -78,37 +78,75 @@
     return entry?.depth === 1 && type === global.WorldGen.T.CAVE_FLOOR
       && !!entry.underground?.lane?.has(index);
   }
-  function groundTexture(entry, index, type = entry?.grid?.[index]) {
-    if (entry?.depth !== 1) return null;
-    const T = global.WorldGen.T;
-    if (type === T.WATER || type === T.PIER
-      || isSewerChannel(entry, index, type)) return SEWER_WATER;
-    if (type !== T.CAVE_FLOOR) return null;
+  // Material roles are derived only from existing generated masks. No extra
+  // routes, clearings, hazards or collectible-looking dressing is introduced.
+  function groundRole(entry, index) {
     const n = entry.cellsPerEdge || 1;
-    const role = sewerGroundRole((entry.tx || 0) * n + index % n,
-      (entry.ty || 0) * n + Math.floor(index / n));
-    return 'floor-sewer-' + role;
+    const x = (entry.tx ?? entry.underground?.tx ?? 0) * n + index % n;
+    const y = (entry.ty ?? entry.underground?.ty ?? 0) * n + Math.floor(index / n);
+    if (entry.depth === 1) return sewerGroundRole(x, y);
+    const material = theme(entry.depth);
+    if (entry.depth === 4 && entry.undergroundAreas?.[index] === 2) return 'pad';
+    const route = !!entry.underground?.lane?.has(index);
+    const role = route ? 'road' : 'ground';
+    const alternate = role + 'Accent';
+    return material[alternate] !== undefined
+      && avalanche32(fnv1a(`floor:${entry.depth}:${x},${y}`)) % 5 === 0 ? alternate : role;
+  }
+  function groundTexture(entry, index, type = entry?.grid?.[index], now = 0) {
+    if (!(entry?.depth >= 1 && entry.depth <= THEMES.length)) return null;
+    const T = global.WorldGen.T;
+    if (entry.depth === 1 && (type === T.WATER || type === T.PIER
+      || isSewerChannel(entry, index, type))) {
+      const phase = Math.floor(now / (typeof WATER_ANIM_MS === 'undefined' ? 120 : WATER_ANIM_MS)) % 8;
+      return SEWER_WATER + (phase ? `p${phase}` : '');
+    }
+    // Water and lava retain the existing animated terrain material. Wall
+    // crowns are independently owned by prepare()/WallPerspective.
+    if (type !== T.CAVE_FLOOR) return null;
+    const prefix = entry.depth === 1 ? 'floor-sewer-' : `floor-${theme(entry.depth).id}-`;
+    const role = groundRole(entry, index);
+    if (role === 'pad') {
+      const n = entry.cellsPerEdge || 1;
+      const x = (entry.tx ?? entry.underground?.tx ?? 0) * n + index % n;
+      const y = (entry.ty ?? entry.underground?.ty ?? 0) * n + Math.floor(index / n);
+      // The 32px slab assembly spans 2×2 cells: all art retains the same
+      // native 16px-per-cell pixel size, including across tile boundaries.
+      return prefix + role + ((x & 1) + 2 * (y & 1));
+    }
+    return prefix + role;
   }
   function prepareGround(scene) {
-
     if (!scene.textures.exists('floor_wall_sources')) return null;
     const source = scene.textures.get('floor_wall_sources').getSourceImage();
-    for (const role of ['ground', 'groundBroken', 'groundGrate']) {
-      const key = 'floor-sewer-' + role;
-      if (scene.textures.exists(key)) continue;
-      const tile = scene.textures.createCanvas(key, CELL, CELL), g = tile.getContext();
-      g.imageSmoothingEnabled = false;
-      g.drawImage(source, theme(1)[role] * 16, 0, 16, 16, 0, 0, CELL, CELL);
-      tile.refresh(); tile.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);
+    for (let depth = 1; depth <= THEMES.length; depth++) {
+      const material = theme(depth);
+      for (const role of ['ground', 'road', 'groundBroken', 'groundGrate', 'groundAccent', 'roadAccent', 'pad']) {
+        if (material[role] === undefined) continue;
+        const prefix = (depth === 1 ? 'floor-sewer-' : `floor-${material.id}-`) + role;
+        const size = material[role + 'Size'] || 16, across = size / 16;
+        for (let phase = 0; phase < across * across; phase++) {
+          const key = prefix + (across > 1 ? phase : '');
+          if (scene.textures.exists(key)) continue;
+          const tile = scene.textures.createCanvas(key, CELL, CELL), g = tile.getContext();
+          g.imageSmoothingEnabled = false;
+          g.drawImage(source, material[role] * 16 + phase % across * 16,
+            Math.floor(phase / across) * 16, 16, 16, 0, 0, CELL, CELL);
+          tile.refresh(); tile.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);
+        }
+      }
     }
-    if (scene.textures.exists(SEWER_WATER)) return scene.textures.get(SEWER_WATER);
-    const texture = scene.textures.createCanvas(SEWER_WATER, CELL, CELL);
-    const g = texture.getContext(); g.imageSmoothingEnabled = false;
-    for (let y = 0; y < CELL; y += 16) for (let x = 0; x < CELL; x += 16)
-      g.drawImage(source, theme(1).road * 16, 0, 16, 16, x, y, 16, 16);
-    texture.refresh();
-    texture.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);
-    return texture;
+    for (let phase = 0; phase < 8; phase++) {
+      const key = SEWER_WATER + (phase ? `p${phase}` : '');
+      if (scene.textures.exists(key)) continue;
+      const texture = scene.textures.createCanvas(key, CELL, CELL);
+      const g = texture.getContext(); g.imageSmoothingEnabled = false;
+      if (typeof drawSelectedMaterial === 'undefined' || !drawSelectedMaterial(g, CELL, `W02-${phase}`))
+        g.drawImage(source, theme(1).water * 16, 0, 16, 16, 0, 0, CELL, CELL);
+      texture.refresh();
+      texture.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);
+    }
+    return scene.textures.get(SEWER_WATER);
   }
   function quad(points, normal, rect, range = [0, 1], span = [0, 1]) {
     const [x, y, w, h] = rect;
@@ -199,5 +237,5 @@
     return faces;
   }
   global.FloorWallMaterials = {theme, variant, prepare, prepareAll, drawAtlas, geometry,
-    sewerGroundRole, isSewerChannel, groundTexture, prepareGround, height: HEIGHT};
+    sewerGroundRole, isSewerChannel, groundRole, groundTexture, prepareGround, height: HEIGHT};
 })(typeof window !== 'undefined' ? window : globalThis);

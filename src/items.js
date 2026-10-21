@@ -497,7 +497,7 @@ const FURNITURE = {
   planter_clay: { seatFoot: 2 / 3, frame: 6, tierSheetFrame: furnitureTierFrames(6), flip: true, height: "mid", ability: "plant", light: null, luxury: null },
   rug_burgundy: { frame: 7, tierSheetFrame: furnitureTierFrames(7), flip: false, height: "flat", ability: null, light: null, luxury: null },
   bookshelf_frontier: { frame: 8, tierSheetFrame: furnitureTierFrames(4), flip: true, height: "mid", ability: null, light: null, luxury: null },
-  lamp_floor: { seatFoot: 2 / 3, frame: 9, tierSheetFrame: furnitureTierFrames(8), flip: true, height: "mid", ability: null, light: "furniture_lamp", lightFrameY: 37, luxury: null },
+  lamp_floor: { seatFoot: 2 / 3, frame: 9, tierSheetFrame: furnitureTierFrames(8), flip: true, height: "mid", ability: null, light: "furniture_lamp", lightFrameY: 14, luxury: null },
   clock_grandfather: { seatFoot: 2 / 3, frame: 10, tierSheetFrame: furnitureTierFrames(9), flip: false, height: "mid", ability: null, light: null, luxury: null },
   statue_pedestal: { seatFoot: 2 / 3, frame: 11, tierSheetFrame: furnitureTierFrames(10), flip: true, height: "mid", ability: null, light: null, luxury: null },
   planter_copper: { seatFoot: 2 / 3, frame: 12, tierSheetFrame: furnitureTierFrames(6), flip: true, height: "mid", ability: "plant", light: null, luxury: null },
@@ -689,8 +689,8 @@ const MINERAL_ICON_SHEET = {
   // widens the player's own light for a few minutes (useTorch in app.js →
   // the `torch` row of Lighting.KINDS).
   torch:         { sheet: 'icon_torch', frame: 0 },
-  // The shared icon renderer applies the blue palette on every DOM surface.
-  evertorch:     { sheet: 'icon_torch', frame: 0, filter: 'hue-rotate(180deg) saturate(1.4)' },
+  // Keep the saved evertorch ID while the shared renderer uses stock lantern art.
+  evertorch:     { sheet: 'icon_lantern', frame: 0 },
   // The berry's own produce icon, its red turned the bush's teal.
   poisonberry:   { sheet: 'springcrops', frame: 1 * SPRING_CROPS_COLS + 8, filter: 'hue-rotate(190deg) saturate(1.3)' },
   // The berry's icon turned gold.
@@ -739,7 +739,6 @@ const MINERAL_ICON_SHEET = {
 // Inventory, drops, projectiles and world pickups share the approved source.
 Object.assign(MINERAL_ICON_SHEET, SelectedItemArt.icons);
 MINERAL_ICON_SHEET.flint_shard = { sheet: 'flint', frame: 0 };
-MINERAL_ICON_SHEET.evertorch = { ...SelectedItemArt.icons.torch, filter: 'hue-rotate(180deg) saturate(1.4)' };
 
 function inventoryIconSource(itemId) {
   // Minerals + gems use the dedicated sheet table above. Read BEFORE the item
@@ -974,7 +973,7 @@ const ITEMS = [
   { id: "planter_clay", name: "Clay Planter", kind: 'furniture', baseTier: 1 },
   { id: "rug_burgundy", name: "Burgundy Rug", kind: 'furniture', baseTier: 2 },
   { id: "bookshelf_frontier", name: "Frontier Bookshelf", kind: 'furniture', baseTier: 2 },
-  { id: "lamp_floor", name: "Brass Floor Lamp", kind: 'furniture', baseTier: 3 },
+  { id: "lamp_floor", name: "Floor Lamp", kind: 'furniture', baseTier: 3 },
   { id: "clock_grandfather", name: "Grandfather Clock", kind: 'furniture', baseTier: 3 },
   { id: "statue_pedestal", name: "Pedestal Owl", kind: 'furniture', baseTier: 2 },
   { id: "planter_copper", name: "Riveted Copper Planter", kind: 'furniture', baseTier: 2 },
@@ -1121,7 +1120,7 @@ const ITEMS = [
   { id: 'bones_scroll', name: 'Scroll of Bones', kind: 'magic', scroll: true },
   { id: 'wraith_scroll', name: 'Scroll of the Wraith', kind: 'magic', scroll: true },
   { id: 'raven_scroll',  name: 'Scroll of the Raven', kind: 'magic', scroll: true },
-  // The trail's fourth prize (trail.js FIXED_PRIZES), never a find or a
+  // The trail's fifth prize (trail.js FIXED_PRIZES), never a find or a
   // ware: `progressionOnly` keeps it out of every loot pool and the trailer.
   { id: 'serpent_idol', name: 'Serpent Idol', kind: 'magic', progressionOnly: true },
   // Drunk while DOWN (zero energy) to get back up on the spot — see
@@ -1172,7 +1171,7 @@ const ITEMS = [
   // plateau (what you can tap) is untouched; only the dark around it lifts.
   // Lighting another while one burns EXTENDS the time (useTorch in app.js).
   { id: 'torch',         name: 'Torch',               kind: 'supply' },
-  { id: 'evertorch',     name: 'Evertorch',           kind: 'supply' },
+  { id: 'evertorch',     name: 'Lantern',           kind: 'supply' },
   // Trap Disarm Kit also dismantles barricades and iron spikes permanently.
   // Hold it and tap a trap (hidden scuff or already-sprung
   // jaw, surface or cave) to remove it for good — see Traps.disarm in
@@ -1748,10 +1747,10 @@ const CONSUMABLE_SPEC = {
   },
   evertorch: {
     durationMs: 120 * _CONSUMABLE_MINUTE_MS, radiusMul: 2, buff: 'evertorch',
-    verb: 'Light', title: 'Light the Evertorch?',
-    get: 'Blue fire opens the dark around you.',
-    used: { title: 'You light the Evertorch',
-      body: 'A steady blue flame takes hold. Its light follows you into the dark.' },
+    verb: 'Light', title: 'Light the Lantern?',
+    get: 'Light the wick and carry its glow into the dark.',
+    used: { title: 'You light the Lantern',
+      body: 'A steady blue flame takes hold behind the glass. You lift the handle and carry its light into the dark.' },
   },
   // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
   // riding only counts while a horse is in the bag (isRiding). Mounted, the
@@ -2103,7 +2102,7 @@ const ITEM_EFFECTS = {
   planter_clay: "An open bed of soil rests in a broad clay planter.",
   rug_burgundy: "A rich burgundy rug brings warmth beneath your feet.",
   bookshelf_frontier: "A sturdy frontier shelf holds the promise of many stories.",
-  lamp_floor: "A tall brass floor lamp lends a welcoming shape to a quiet room.",
+  lamp_floor: "A cream-shaded floor lamp lends a welcoming glow to a quiet room.",
   clock_grandfather: "A stately grandfather clock gives the room a dignified air.",
   statue_pedestal: "A patient owl on a stone pedestal watches over the room.",
   planter_copper: "Riveted copper surrounds a broad bed of waiting soil.",
@@ -2224,7 +2223,7 @@ const ITEM_EFFECTS = {
   frost_powder: 'A pinch chills the air, and foes within reach move and strike slowly.',
   rope: 'Its woven fibres offer a handhold between daylight and the depths.',
   torch: 'Its flame pushes back the dark beyond your fingertips.',
-  evertorch: 'Blue flame pushes back the dark for two hours.',
+  evertorch: 'A carryable lantern shelters a blue flame that pushes back the dark for two hours.',
   trap_disarm_kit: 'Iron tools loosen snares, barricades and spikes.',
   renovation_permit: 'A guild seal that lets masons raise a shop a rank, once the lane has remembered enough to deserve it.',
   magic_trap: 'A hungry knot of magic waits for a foe’s footfall.',
@@ -3112,7 +3111,7 @@ function isLowTierSeed(id) {
 // and render.js' tilled-cell draw.
 // 31 = TAR_YARD (an influence zone's halo round a fuel station, src/zones.js):
 // oily ground that weeps tar — nothing takes root in it.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31]);
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31, 32]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // The full "can this CELL take a hoe / placement / released animal" test:
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says

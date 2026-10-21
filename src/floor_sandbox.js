@@ -5,8 +5,14 @@
   const TYPES = { Uint8Array, Uint8ClampedArray, Uint16Array, Uint32Array,
     Int8Array, Int16Array, Int32Array, Float32Array, Float64Array };
   let snapshot;
+  let lastSearch, activeMap = false;
   function active() {
-    return ['floor-viewer', 'scenario'].includes(new URLSearchParams(root.location?.search || '').get('sandboxMap'));
+    const search = root.location?.search || '';
+    if (search !== lastSearch) {
+      lastSearch = search;
+      activeMap = ['floor-viewer', 'scenario'].includes(new URLSearchParams(search).get('sandboxMap'));
+    }
+    return activeMap;
   }
   function isScenario() { return active() && read().scenario === true; }
   function encode(key, value) {

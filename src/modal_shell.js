@@ -1,6 +1,6 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
 // in: makeModalShell (the 4:3 scene frame, separate copy region, kind header
-// and measured pagination), the stock dialogs
+// and responsive content fitting), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
@@ -33,8 +33,8 @@
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
 // Scene paintings share a full-width crop under the fixed dragon rail.
-// Approved 4:3 scenes keep their full frame; copy and actions occupy
-// a separate viewport, with pages when the content needs more room.
+// Approved 4:3 scenes start at full frame; copy and actions occupy
+// a separate viewport, with art giving space to copy when needed.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
@@ -116,9 +116,8 @@ class SceneModals {
   //   borderColor — defaults to the CONTROL gold: an ordinary dialog is
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
-  //   scroll — the copy viewport SCROLLS instead of turning pages (the ☰
-  //             menu: one list, thumbed through, never split across pages —
-  //             owner, Oct 2026). Copy that is read, not browsed, keeps pages.
+  //   scroll — only for growing catalogs and lists. Fixed content fits
+  //             the available space without scrolling or pagination.
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
     kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scroll = false, scrollContent = false } = {}) {
@@ -164,7 +163,7 @@ class SceneModals {
     const box = document.createElement('div');
     box.style.cssText = fullscreen
       ? 'position:absolute;inset:0;box-sizing:border-box;display:flex;flex-direction:column;' +
-        'background:#1a1612;color:#fff;border:0;border-radius:0;' +
+        'background:#000;color:#fff;border:0;border-radius:0;' +
         'padding:max(14px, env(safe-area-inset-top)) 16px max(14px, env(safe-area-inset-bottom));' +
         'font:13px var(--font-ui);overflow:hidden;' +
         (textAlign ? `text-align:${textAlign};` : '') + boxExtra
@@ -174,10 +173,10 @@ class SceneModals {
       `position:absolute;left:${vLeft}px;width:${vSize}px;` +
       `top:calc(${vTop - Math.round(grow / 4)}px - var(--view-top, 0px));height:${vSize + grow}px;` +
       `box-sizing:border-box;display:flex;flex-direction:column;` +
-      `background:#1a1612;color:#fff;` +
+      `background:#000;color:#fff;` +
       `border:2px solid ${frameBorder};border-radius:10px;padding:10px 12px;` +
       `font:13px var(--font-ui);` +
-      // Content that outgrows the square uses pages; the box never grows to fit.
+      // Content fits the available panel; the box never grows beyond the screen.
       `overflow:hidden;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
@@ -198,7 +197,6 @@ class SceneModals {
     // Dynamic pet paintings use the same 4:3 frame as installed scenes.
     const artAspect = kind === 'story' ? 4 / 3 : (art && typeof ART_ASPECTS !== 'undefined' && ART_ASPECTS[art]) || 4 / 3;
     const fullFrameArt = Math.abs(artAspect - 4 / 3) < 0.01;
-    const squareArt = Math.abs(artAspect - 1) < 0.01;
     const tone = (art && typeof ART_TONES !== 'undefined' && ART_TONES[art]) || '#1a1612';
     const paintLayer = (el, img) => {
       el.style.backgroundImage = img ? `url(${img})` : `linear-gradient(${tone}, ${tone})`;
@@ -318,8 +316,7 @@ class SceneModals {
     }
     const mount = () => {
       // The body holds the art or portrait above a fitted copy viewport.
-      // Copy and buttons stay together, using pages when they need more
-      // room. Short unpainted dialogs retain their centred content.
+      // Copy and buttons stay together in one view. Short unpainted dialogs retain their centred content.
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.style.cssText =
@@ -366,8 +363,7 @@ class SceneModals {
       if (spacer) body.appendChild(spacer);
       const viewport = document.createElement('div');
       viewport.className = 'modal-copy';
-      // A scrolling dialog (the menu) thumbs its one list; every other dialog
-      // keeps its copy still and turns pages (fit, below).
+      // Only expanding lists scroll; fixed copy stays in one fitted view.
       viewport.style.cssText = scroll
         ? 'flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;'
         : 'flex:1 1 auto;min-height:0;overflow:hidden;';
@@ -394,7 +390,7 @@ class SceneModals {
       // box pops up from a touch smaller and lower. Only when nothing was on
       // screen — body.modal-open is synced by a MutationObserver that runs
       // AFTER this tap's handler, so a dialog that REPLACES another in the
-      // same tap (a pager turn, a re-roll, a tab) still sees it set and swaps
+      // same tap (a recipe selection, a re-roll, a tab) still sees it set and swaps
       // in place instead of popping on every page.
       box.classList.add('modal-box');
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
@@ -417,66 +413,26 @@ class SceneModals {
         body.appendChild(footer);
         return;
       }
-      // Refit live content and paginate overflow without shrinking type.
-      let page = 0, pageCount = 1, frame = 0;
-      const pages = document.createElement('div');
-      pages.className = 'modal-pages';
-      pages.style.cssText = 'display:none;align-items:center;justify-content:center;gap:10px;flex:0 0 auto;margin-top:6px;';
-      const previous = mkBtn('‹', { variant: 'ghost', css: 'min-width:40px;min-height:36px;padding:4px 10px;' });
-      const next = mkBtn('›', { variant: 'ghost', css: 'min-width:40px;min-height:36px;padding:4px 10px;' });
-      previous.setAttribute('aria-label', 'Previous page');
-      next.setAttribute('aria-label', 'Next page');
-      const count = document.createElement('span');
-      count.setAttribute('aria-live', 'polite');
-      pages.append(previous, count, next);
-      box.appendChild(pages);
-      const showPage = (index) => {
-        page = Math.max(0, Math.min(pageCount - 1, index));
-        into.style.transform = page ? `translateX(${-page * (viewport.clientWidth + 16)}px)` : '';
-        previous._setEnabled(page > 0);
-        next._setEnabled(page < pageCount - 1);
-        count.textContent = `${page + 1} / ${pageCount}`;
-      };
-      previous.addEventListener('click', e => { e.stopPropagation(); showPage(page - 1); });
-      next.addEventListener('click', e => { e.stopPropagation(); showPage(page + 1); });
-      into.addEventListener('focusin', e => {
-        if (pageCount < 2) return;
-        const x = e.target.getBoundingClientRect().left - into.getBoundingClientRect().left;
-        showPage(Math.floor(x / (viewport.getBoundingClientRect().width * (1 + 16 / viewport.clientWidth))));
-      });
+      // Fixed dialogs fit in one view: give copy space before decoration,
+      // then tighten spacing on short screens. Only growing lists scroll.
+      let frame = 0;
       const fit = () => {
         frame = 0;
         if (!wrap.isConnected) return;
-        into.style.height = '';
-        into.style.columnWidth = '';
-        into.style.columnGap = '';
-        into.style.columnFill = '';
-        into.style.transform = '';
-        pages.style.display = 'none';
-        if (spacer) {
-          // Preserve approved 4:3 compositions and paginate their copy.
-          // Legacy squares/portraits retain their existing bottom crop.
+        wrap.classList.remove('modal-compact');
+        const fitArt = () => {
+          if (!spacer) return;
           const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
-          const minimum = fullFrameArt ? full : squareArt ? body.clientWidth * .7
-            : Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
+          const minimum = Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
           spacer.style.height = `${full}px`;
           const deficit = into.scrollHeight - viewport.clientHeight;
           if (deficit > 0) spacer.style.height = `${Math.max(minimum, full - deficit)}px`;
-        }
-        pageCount = 1;
-        // A scrolling dialog never pages: its overflow is the viewport's to scroll.
+        };
+        fitArt();
         if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {
-          pages.style.display = 'flex';
-          // Reserve the pager inside the content region, below the columns.
-          const available = viewport.clientHeight - 3;
-          into.style.margin = '0';
-          into.style.height = `${Math.max(44, available)}px`;
-          into.style.columnWidth = `${viewport.clientWidth}px`;
-          into.style.columnGap = '16px';
-          into.style.columnFill = 'auto';
-          pageCount = Math.max(1, Math.ceil((into.scrollWidth + 16) / (viewport.clientWidth + 16)));
+          wrap.classList.add('modal-compact');
+          fitArt();
         }
-        showPage(page);
       };
       const scheduleFit = () => {
         if (!frame) frame = requestAnimationFrame(fit);
@@ -504,7 +460,7 @@ class SceneModals {
     //             Disabled, it is the flat UI_CONTROL_DIM the token is named
     //             for ("inactive controls"), faded.
     //   ghost   — transparent with a thin grey border: Cancel, a secondary
-    //             action, a choice card, a pager arrow, an
+    //             action, a choice card, an
     //             inactive tab. One ghost (it used to be #eee/#666 on Cancel
     //             and #ddd/#555 on the rest).
     // Every button carries _setEnabled(on): the ONE disabled look (faded, no
@@ -843,11 +799,8 @@ class SceneModals {
   //                 House — and the button greys on a card it refuses.
   //   topAction:    OPTIONAL { label, onClick } — top-right ghost station control.
   //                 Returning false keeps the offer open when the action is refused.
-  //   pager:        OPTIONAL { index, count, onPrev, onNext } — the page is
-  //                 one of `count` options (a smelt bar, a crafting recipe), and
-  //                 small ‹ › arrows flank the `get` line with an "i / n"
-  //                 under it (paging is not an action, so no extra button).
-  //                 `showIndex: false` drops the "i / n" line and keeps the arrows.
+  //   pager:        OPTIONAL recipe selector: index, options with label/onSelect,
+  //                 iconHTML and caption. Shows named choices without pages.
   //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford?, disabled? }]
   //                 — the offer is ONE OF several things (what a wreck is
   //                 restored as). Laid out as cards between the headline and
@@ -974,27 +927,6 @@ class SceneModals {
       caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 4px;';
       caption.textContent = pager.caption || `${pager.index + 1} / ${pager.count}`;
       box.appendChild(caption);
-    } else if (pager && pager.count > 1) {
-      const pageRow = document.createElement('div');
-      pageRow.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:8px;';
-      const mkArrow = (glyph, aria, fn) => {
-        const b = mkBtn(glyph, { variant: 'ghost', css:
-          'flex:none;width:32px;height:32px;border-radius:50%;line-height:1;font:700 18px var(--font-ui);' });
-        b.setAttribute('aria-label', aria);
-        b.addEventListener('click', (e) => { e.stopPropagation(); close('transition'); fn(); });
-        return b;
-      };
-      getDiv.style.flex = '1';
-      pageRow.appendChild(mkArrow('‹', 'Previous', pager.onPrev));
-      pageRow.appendChild(getDiv);
-      pageRow.appendChild(mkArrow('›', 'Next', pager.onNext));
-      box.appendChild(pageRow);
-      if (pager.showIndex !== false) {
-        const pageNo = document.createElement('div');
-        pageNo.style.cssText = 'font:700 10px var(--font-ui);opacity:.55;margin-bottom:2px';
-        pageNo.textContent = `${pager.index + 1} / ${pager.count}`;
-        box.appendChild(pageNo);
-      }
     } else if (get != null && get !== '') {
       // No headline (the wreck's pick): the cards start at the top.
       box.appendChild(getDiv);
@@ -1250,7 +1182,7 @@ class SceneModals {
       zIndex: 55, borderColor: accent, wrapBg: '#000c', art, portrait, centerBody: true,
       kind, kindLabel: header, kindIcon, source,
       wrapExtra: 'animation:chestModalIn 180ms ease-out;',
-      boxExtra: `border-width:3px;border-radius:14px;padding:12px 14px 10px;font-size:14px;` +
+      boxExtra: `background:#000;border-width:3px;border-radius:14px;padding:12px 14px 10px;font-size:14px;` +
         `animation:chestRewardPop 320ms cubic-bezier(.34,1.56,.64,1);`,
     });
     // Keyframes injected once. The sparkle keyframe reads its drift vector

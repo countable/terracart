@@ -26,8 +26,25 @@ changing dialogue, story panels, books, toasts or status presentation.
   pixel-for-pixel source parity; `node test/dom-icon-atlas.cjs` verifies every
   catalogued item and gear tier's CSS frame at multiple display sizes.
 
+- Large item and gear portraits use 96×96 cells in the five 8×8 atlases under
+  `assets/Icons/DialogItems/`, selected by `DialogItemArt` before old icon bakes.
+  Their muted painterly pixel treatment follows the approved sundries story
+  panel, with a black background and recognizable object forms. The source
+  masters retain their resolution; `python3 tools/build_dialog_item_art.py`
+  finds the actual black gutters between painted rows and columns, then centers
+  each complete portrait with six pixels of padding in its output cell using
+  Lanczos filtering and rebuilds the content-hashed registry and manifest.
+  Generated masters need not align perfectly with an equal grid. Compact icons and map sprites keep
+  their original art. Variant colours and item badges still identify composed
+  items when their underlying portrait is shared. Loot reward cards default to
+  96px portraits; tapping an item for its description shows its portrait at
+  96px above the item details.
+
 - Shop recipes use compact rows, selector spacing and a shared ingredient/count
   heading so shortfalls and receipts fit with the actions as artwork contracts.
+  Themed item and relic offer builders return the shared quote for shelves and
+  individual dialogs. Acceptance rechecks funds and capacity or gear upgrades,
+  and returns purchase success; shelves replace a slot only on that success.
 
 - Rewards converted to coins show only the coin reward in dialogs and toasts,
   without naming the replaced item or explaining the conversion.
@@ -48,7 +65,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   tapping the body or backdrop does not dismiss them. Dragon Spirit messages
   and confirmations use the NPC portrait layout with a dedicated transparent,
   80×80 pixel-art Dragon Spirit head-and-neck portrait (`assets/portraits/dragon_spirit.png`).
-  Short informational help and NPC conversations use floating ivory speech
+  Dialog panels and book readers use black backgrounds with light text.
+  Short informational help and NPC conversations use floating black speech
   bubbles with the participant's portrait. They point to the HUD control or
   speaking character: below sources in the top half of the viewport, above
   sources in the bottom half. NPC anchors follow heading, zoom and viewport size.
@@ -70,7 +88,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   before the card appears; OK acknowledges the reward without granting it again.
   Great X marks and underground finds keep their existing reward pools and bonuses.
   Container paintings follow the visible container, not the reward: crates use
-  `treasure_crate`, barrels use `treasure_barrel`, and ordinary chests use
+  `treasure_crate`, barrels use `treasure_barrel`, clay pots use `treasure_pot`,
+  and ordinary chests use
   `chest_t1` through `chest_t7` for their source tier. Only a glow inside hints at the contents; the reward card
   names the actual find as “Item name × quantity”, with its tier badge on the
   next line. When the find has a description (`Rewards.desc`: the item's
@@ -118,7 +137,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   continuing after the camera stops. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
   bright fire. A soft stationary lower gradient keeps the copy edge dark.
-  Awakening pulls back across its two paintings.
+  Awakening uses close and wide views of its existing two paintings, fading
+  between pairs while pulling back. Both camera moves begin with a short pause;
+  the dream pushes in slowly and awakening pulls back a little faster.
   Discovery and the dream are borderless fullscreen panels. Awakening and the
   ruined street use the living-silver compass story sheet, with readable copy
   below the art and immediately available advance buttons. Reduced-motion
@@ -306,6 +327,20 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The third road reward offers a wooden pick in the magic/equipment card slot
   when the player has no pick. Owning any pick tier keeps the normal roll;
   cash and seed/supply choices remain, and only the selected card is granted.
+- At 2, 5, 10, 20, 40, 100 and 200 km of banked road progress, choose one
+  of three distinct relics at T1 through T7 respectively. These exact-distance
+  milestones move the next ordinary reward earlier rather than adding a payout.
+  The saved metre ladder stays unchanged; the HUD and street toast follow the
+  adjusted reward distances. Existing saves between a moved milestone and its
+  old rung receive that unpaid reward once when they next bank distance.
+  Runner goals and scenic bonuses still affect
+  ordinary progress; milestone distances are the same for every class.
+  Offers prefer equipment upgrades at the promised tier. When fewer than three
+  slots can improve, remaining slots use the normal duplicate coin conversion;
+  better equipment is never downgraded. Only the selected offer is granted.
+  The Serpent Idol moves to the fifth ordinary rung (3 km before class bonuses),
+  still offered alone so access to its boss cannot be declined.
+
 - Feedback is visual; there is no vibration setting or device vibration.
 - `RoadSafety` owns the two location warnings. The first night entry into the
   MD/LG kerb buffer shows `road:night` once per save through the story ledger.
@@ -329,7 +364,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
 - Home, workbenches and brewing share `_presentRecipePicker` for discovery,
-  selection, capacity and paging, above `_presentRecipeOffer` transactions.
+  selection and capacity, above `_presentRecipeOffer` transactions. Named recipe
+  selectors replace paging controls.
   `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
   workbench (three Wood and one Rubble). Every former Home recipe, including
   the starter-known Spear, belongs at a placed workbench. Tapping a workbench
@@ -342,7 +378,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
 - The Book Club is a lending catalog shared across scholars. Keep total/free
-  credit visible above the shelf, with one complete tome per page; All tomes and On loan filters
+  credit visible above the scrolling shelf, with every matching tome listed; All tomes and On loan filters
   support preparing spells and returning them. Each row shows its effect,
   credit cost, borrowed/owned counts, and an explicit unlock or affordability
   reason. Borrow and Return update the catalog in place with one receipt;
@@ -360,13 +396,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
-  window top behind the fixed silver dragon rail. Approved 4:3 paintings keep
-  their full height; longer copy paginates below them. All story paintings use
+  window top behind the fixed silver dragon rail. Approved 4:3 paintings start at
+  their full height and give space to copy on shorter screens. All story paintings use
   a full-width 4:3 frame, cropping legacy art without stretching. Opening
   panels three and four share this layout; the first two stay immersive.
-  Other dialogs with legacy squares begin at
-  90% of panel width and can shorten to 70%; legacy portraits can shorten to
-  the rail height plus eight pixels. `tools/art_thumbs.js` bakes `ART_ASPECTS`
+  Legacy squares begin at 90% of panel width. All painted dialogs can shorten
+  the art to the rail height plus eight pixels so text and actions fit. `tools/art_thumbs.js` bakes `ART_ASPECTS`
   alongside aspect-preserving thumbnails, so this layout is ready before the
   full painting loads.
   Copy follows directly below, with comfortable side padding and the specific
@@ -374,15 +409,15 @@ changing dialogue, story panels, books, toasts or status presentation.
   useful shop/event categories sit with the copy below the image. The Build
   chooser uses a vertically scrolling card grid with a compact painting and
   a fixed price/action footer; it never paginates. Selected cards expose their
-  pressed state to assistive technology. Other dialogs do not scroll.
-  Copy and actions occupy a separate `.modal-copy` viewport;
-  long content uses Previous/Next pages at its original text size, with whole
-  controls. The one exception is the ☰ menu (`makeModalShell` `scroll`): a
-  list thumbed through, it scrolls as one and is never paged. The saved
-  games ("Load game") and the developer tools ("Developer") are pages of the
-  menu (`_openMenuPage`): a second scrolling dialog with a Back row, its
-  markup moved out of the hidden `#menu-pages` holder and home again. Content, expanded details, image loads, fonts and viewport changes
-  trigger fitting again. Art and loading mosaics share the same crop.
+  pressed state to assistive technology. Fixed dialogs do not scroll.
+  Copy and actions occupy a separate `.modal-copy` viewport. No dialog uses
+  pagination. Fixed content, including treasure, fits in one view by adapting
+  art height, spacing and content layout; text and controls remain readable.
+  Only growing lists such as restore choices, recipe catalogs, books, deliveries,
+  saved games and developer catalogs may scroll. The main menu is fixed and
+  fits without scrolling. Saved games and developer tools open separate menu
+  views with a Back row. Content, expanded details, image loads, fonts and
+  viewport changes trigger fitting again. Art and loading mosaics share a crop.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
@@ -390,7 +425,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   mask beneath the panel; the mask does not intercept input.
   Shop/trade, story/event and conversation kinds carry distinct
   category headings; controls retain simple gold faces. Safe-area padding and
-  pagination keep actions reachable. Reduced motion skips the slide. The
+  responsive fitting keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene
   flag keeps inventory, movement pads and the objective hidden until shutdown,
@@ -401,11 +436,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
-- The opening nightmare pushes toward Tiamat’s red eye in 3.6 seconds,
-  crossfading from the wide animation pair to a detailed close pair. Both
-  pairs have a black smoke fade; a stationary lower gradient keeps it dark
-  throughout the zoom. The wake pair pulls back from Hood’s faint eye glints
-  over 12 seconds. Reduced motion shows the static first frames.
+- The opening nightmare pushes toward Tiamat’s red eye over 16 seconds while
+  four aligned paintings cycle continuously. Its irregular painted lower fade
+  preserves bright flames longer; a soft stationary gradient blends the bottom
+  into black throughout the zoom. The wake pair pulls back from Hood’s faint
+  eye glints over nine seconds. Reduced motion shows the static first frames.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

@@ -51,7 +51,7 @@ function add(id,label,group,object,usage,note='') {
   const overlays = [];
   if (object.kind === 'fruittree') {
     resolver.fruitList.length = 0;
-    spec.after({texture:{key:appearance.texKey},frame:{name:appearance.frameVal},originX:appearance.origin[0],originY:appearance.origin[1],scaleX:appearance.scl,scaleY:appearance.scl*appearance.scaleYMul,x:appearance.dxPx,y:appearance.dyPx,depth:0}, object, ctx.scene);
+    spec.after({texture:{key:appearance.texKey},frame:{name:appearance.frameVal},originX:appearance.origin[0],originY:appearance.origin[1],scaleX:appearance.scl,scaleY:appearance.scl*appearance.scaleYMul,x:appearance.dxPx,y:appearance.dyPx,depth:0}, object, ctx.scene, resolver);
     overlays.push(...resolver.fruitList);
   }
   const asset = registry.assets[appearance.texKey];

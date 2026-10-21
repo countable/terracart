@@ -66,10 +66,9 @@
         assert.truthy(bounds);
         assert.eq(frame, 0);
         const origin = spec.origin(object), scale = spec.scale(object);
-        const seat = SpriteLayout.seatInCell(bounds, ...origin, scale, scale, SpriteLayout.CELL_PX);
+        const seat = SpriteLayout.contactSeat(bounds, ...origin, scale, scale, false);
         const bottom = (bounds.maxY - origin[1] * bounds.fh) * scale + seat.dyPx;
-        const height = (bounds.maxY - bounds.minY) * scale;
-        const expectedBottom = height <= SpriteLayout.CELL_PX ? height / 2 : SpriteLayout.CELL_PX / 2 - 1;
+        const expectedBottom = 5 * scale;
         assert.truthy(Math.abs(bottom - expectedBottom) < 0.000001);
       }
     }

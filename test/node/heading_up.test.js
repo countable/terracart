@@ -165,9 +165,9 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
     HeadingUp._postRender(scene);
   }
  });
- test('heading up: placed fires, torches, all lamps and dropped items stay upright', () => {
+ test('heading up: placed fires, torches and lamps stay upright while dropped items lie flat', () => {
   const {RENDER_SPEC:spec}=Render.objectAppearance({},new Map());
-  for(const kind of ['_fire','torch','_streetlamp','_scarecrow','groundstack']) {
+  for(const kind of ['_fire','torch','_streetlamp','_scarecrow']) {
     assert.truthy(WorldLayers.forObject({kind},spec[kind]) !== WorldLayers.GROUND_DECAL,kind+' stays upright');
     for(const angle of [Math.PI/4,Math.PI/2,Math.PI]) {
       const scene=huScene(angle),sprite=huSprite({_huAnchor:{x:130,y:130}});
@@ -177,6 +177,8 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
       HeadingUp._postRender(scene);
     }
   }
+  assert.eq(WorldLayers.forObject({kind:'groundstack'},spec.groundstack),WorldLayers.GROUND_DECAL);
+  for (const crop of ['shell', 'flint', 'driftwood']) assert.eq(WorldLayers.forObject({kind:'wildplant',crop}),WorldLayers.GROUND_DECAL);
   assert.eq(WorldLayers.forObject({kind:'_firepit'},spec._firepit),WorldLayers.STEP_OVER_PROP,'cold firepit is a step-over prop');
  });
 
@@ -318,31 +320,27 @@ test('heading up: no captured GPS forces the map lock even with a compass sensor
   assert.truthy(HeadingUp.directionLocked(scene), 'manual locking still works with GPS');
 });
 
-// Measure the opaque art, not the padded sprite frame. A foot pivot used to
-// displace short rocks by twice their half-height when facing south.
-test('heading up: seated props retain cell centering, shadows and visible-foot depth at every heading', () => {
-  for (const height of [18, 46]) {
-    const box = { fw: 64, fh: 64, minX: 9, maxX: 35, minY: 7, maxY: 7 + height };
-    const seat = SpriteLayout.seatInCell(box, .5, .5, 1, 1);
-    const footDy = height <= CELL_PX ? height / 2 : CELL_PX / 2 - 1;
-    const appearance = { visible: true, foot: { footFromCentre: footDy }, ...seat };
+// Padded frames and different compass headings must pin the same drawn point.
+test('heading up: upright contacts stay at the cell centre at every heading', () => {
+  for (const hoppable of [false, true]) for (const height of [18, 46]) {
+    const box = { fw: 64, fh: 64, minX: 9, maxX: 35, minY: 7, maxY: 7 + height, baseX: 24 };
+    const scale = 1.7;
+    const seat = SpriteLayout.contactSeat(box, .5, .5, scale, scale, hoppable);
+    const inset = hoppable && height * scale <= CELL_PX ? height / 3 : 5;
+    huNear(seat.footFromCentre, inset * scale);
+    const appearance = { visible: true, foot: { footFromCentre: seat.footFromCentre }, ...seat };
     const point = { x: 130, y: 120 };
     const anchor = Render.objectGroundAnchor(appearance, null, point);
     for (const angle of [0, Math.PI / 4, Math.PI / 2, Math.PI, -Math.PI / 2]) {
       const scene = huScene(angle);
       const sprite = huSprite({ x: point.x + seat.dxPx, y: point.y + seat.dyPx, _huAnchor: anchor });
-      const shadow = huSprite({ type: 'Image', x: point.x, y: point.y + footDy - 2, _huAnchor: anchor });
       HeadingUp._upright(sprite, -angle, []);
-      HeadingUp._upright(shadow, -angle, []);
       const drawn = HeadingUp.toScreenPt(scene, sprite.x, sprite.y);
       const cell = HeadingUp.toScreenPt(scene, point.x, point.y);
-      huNear(drawn.x + (box.minX + box.maxX) / 2 - 32, cell.x);
-      huNear(drawn.y + box.maxY - 32, cell.y + footDy);
-      if (seat.fits) huNear(drawn.y + (box.minY + box.maxY) / 2 - 32, cell.y);
-      const shade = HeadingUp.toScreenPt(scene, shadow.x, shadow.y);
-      huNear(shade.x, cell.x); huNear(shade.y, cell.y + footDy - 2);
+      huNear(drawn.x + (box.baseX - 32) * scale, cell.x);
+      huNear(drawn.y + (box.maxY - inset - 32) * scale, cell.y);
       const depth = HeadingUp.toScreenPt(scene, sprite._huFoot.x, sprite._huFoot.y);
-      huNear(depth.x, cell.x); huNear(depth.y, cell.y + footDy);
+      huNear(depth.x, cell.x); huNear(depth.y, cell.y + inset * scale);
     }
   }
 });

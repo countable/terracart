@@ -2292,6 +2292,7 @@ class SceneCreatures {
             if (idx >= 0) {
               this.save.planted.splice(idx, 1);
               Crops.invalidateSpatialIndex(this.save);
+              Crops.reconcileTilled(this);
               this.flash?.('🦌 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
             }
           }
@@ -2474,6 +2475,7 @@ class SceneCreatures {
             if (idx >= 0) {
               this.save.planted.splice(idx, 1);
               Crops.invalidateSpatialIndex(this.save);
+              Crops.reconcileTilled(this);
               this.flash?.('🐦 crop eaten!', this.viewCenterX, this.viewCenterY - 60);
             }
             c._destroyCropRef = null;

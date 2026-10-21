@@ -538,7 +538,9 @@
     }
     // Quarry ownership uses the same exclusions as every other nexus.
     const opts = { roadMask, spawnWhy };
-    const eligible = i => !field?.coverage?.[i] && !field?.idx?.[i]
+    // Parking footprints take precedence over park groves, including their influence fringe.
+    const groveOrEmpty = slot => !slot || field?.anchors[slot - 1]?.kind === 'grove';
+    const eligible = i => groveOrEmpty(field?.coverage?.[i]) && groveOrEmpty(field?.idx?.[i])
       && !WG.isRoadTerrain(grid[i]) && !WG.isBuildingTerrain(grid[i])
       && grid[i] !== WG.T.PATH && grid[i] !== WG.T.PIER && grid[i] !== WG.T.SAND
       && WG.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), opts, 'minor');
@@ -589,11 +591,16 @@
     for (let i = 0; i < mask.length; i++) if (additions[i]) {
       mask[i] = 1; labels[i] = additions[i]; sourceClipped[i] = clippedGroups.has(labels[i]) ? 1 : 0;
     }
+    // Only the original churchyard can claim an adjoining lot. Newly absorbed
+    // ground must not chain ownership into another, unrelated parking source.
+    const churchCoverage = field?.anchors?.some(a => a.kind === 'stones')
+      ? Uint16Array.from(field.coverage || field.idx || []) : null;
     let result = field;
     for (let start = 0; start < mask.length; start++) {
       if ((start & 511) === 0) yield 'quarry components';
       if (mask[start] !== 1) continue;
       const queue = [start], cells = [];
+      let churchSlot = 0;
       mask[start] = 2;
       for (let head = 0; head < queue.length; head++) {
         if ((head & 511) === 0) yield 'quarry component cells';
@@ -602,8 +609,13 @@
         // Diagonal buffers can join, but never across a travel barrier's corner.
         root.WorldGen.boxCells(N, N, x, y, 1, (nx, ny, next) => {
           const dx = nx - x, dy = ny - y;
-          if (!dx && !dy) return;
           if (dx && dy && (separator[y * N + nx] || separator[ny * N + x])) return;
+          const slot = churchCoverage?.[next], church = field?.anchors[slot - 1];
+          if (!separator[next] && church?.kind === 'stones') {
+            const previous = field.anchors[churchSlot - 1];
+            if (!previous || church.gy < previous.gy || (church.gy === previous.gy && church.gx < previous.gx)) churchSlot = slot;
+          }
+          if (!dx && !dy) return;
           if (mask[next] === 1 && labels[next] === labels[start]) { mask[next] = 2; queue.push(next); }
         });
       }
@@ -612,6 +624,14 @@
       if (!result.coverage) result.coverage = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!(result.idx instanceof Uint16Array)) result.idx = result.idx ? Uint16Array.from(result.idx) : new Uint16Array(N * N);
       if (!result.s) result.s = new Uint8Array(N * N);
+      // Reuse the church's identity, theme and finite budget; even a small or
+      // clipped adjoining lot is churchyard, never a second quarry encounter.
+      if (churchSlot) {
+        for (const i of cells) {
+          result.coverage[i] = churchSlot; result.idx[i] = churchSlot; result.s[i] = 255;
+        }
+        continue;
+      }
       const clipped = cells.some(i => sourceClipped[i]);
       const touchesEdge = cells.some(i => i % N === 0 || i % N === N - 1 || i < N || i >= N * (N - 1));
       // Tiny inland leftovers cannot support a readable quarry composition.

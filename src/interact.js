@@ -258,6 +258,7 @@ const TERRAIN = {
   CAVE_FLOOR: WorldGen.T.CAVE_FLOOR,         // 24
   CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
   CAVE_LAVA: WorldGen.T.CAVE_LAVA,           // 26
+  EXCLUSION_ROCK: WorldGen.T.EXCLUSION_ROCK, // 32
   TAR_YARD: WorldGen.T.TAR_YARD,             // 31
 };
 
@@ -308,6 +309,7 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
   [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
+  [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock. No tilling.',
 };
 
 // …and the refusal on soil a street lamp stands on (cellAt's underLamp).

@@ -665,7 +665,7 @@ class SceneShops {
   // house. Opened from the ☰ menu's "Deliveries" button (wired in index.html).
   openDeliveryMenu() {
     const { wrap, box, mount, mkBtn } = this.makeModalShell('delivery-menu',
-      { textAlign: 'left', onClose: () => {}, kind: 'delivery' });
+      { textAlign: 'left', onClose: () => {}, kind: 'delivery', scroll: true });
     // No title line — the kind header already says DELIVERY.
     const houses = this.knownDeliveryHouses();
     if (!houses.length) {
@@ -954,25 +954,120 @@ class SceneShops {
     };
   }
 
-  // A THEMED SHOP's visit: its own tier or a batch from one tier below,
-  // seeded on the shop's hour like every offer, priced through buildShopOffer
-  // (the 1.2–3.0× markup over PRICES, so a shop always asks above list), with a
-  // re-roll that starts at $2 and grows ×1.5 (ShopsMath.themedRerollCost). The
-  // relic line hands off to the relic offer — capped at the shop's tier, never
-  // at or below what the player wears — with the same cheap re-roll.
+  // Three offers share one counter. Snapshot each slot so buying one leaves
+  // the other two goods, quantities and prices unchanged, including on reopen.
   presentThemedShop(sx, sy, house, recordDeal) {
-    const { theme, tier } = this.shopLine(house);
-    const cost = ShopsMath.themedRerollCost;
-    if (theme === 'relic') {
-      const peek = () => this.peekOrBuildRelicOffer(house, { maxTier: tier });
-      const offer = peek();
-      if (!offer) { this.flash('Nothing here beats your kit.', sx, sy); return; }
-      this.presentRelicOffer(sx, sy, offer, recordDeal, house, true, { cost, peek });
-      return;
+    const { theme } = this.shopLine(house);
+    const cur = this.shopBucketState(house);
+    const draw = (slot, others, previous) => this._drawShopShelf(house, slot, others, previous);
+    const shelf = ShopsMath.shelf(cur, draw);
+    persistSave(this.save);
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', {
+      kind: theme === 'relic' ? 'relics' : 'shop', onClose: () => {},
+      ...NPC.offerArt(this, house),
+    });
+    wrap.closeModal = () => { wrap.remove(); return true; };
+    box.classList.add('shop-shelf');
+    const heading = document.createElement('div');
+    heading.innerHTML = this.buildingFlavorTitle(house, 'buy') + this.shopTierBadgeHTML(house);
+    box.appendChild(heading);
+    shelf.forEach((entry, slot) => {
+      const row = document.createElement('div');
+      row.className = 'shop-shelf-row';
+      row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;text-align:left';
+      const info = document.createElement('div');
+      info.className = 'shop-shelf-info';
+      info.style.cssText = 'flex:1;min-width:0;font-size:12px;line-height:1.25';
+      if (!entry) {
+        info.textContent = 'No upgrades left';
+        row.appendChild(info); box.appendChild(row); return;
+      }
+      const offer = theme === 'relic'
+        ? this._buildRelicOffer(sx, sy, entry, recordDeal, house)
+        : this._buildThemedItemOffer(sx, sy, house, recordDeal, entry.id, entry);
+      info.innerHTML = offer.get;
+      const effect = theme === 'relic' ? gearDef(entry.kind, entry.slot)?.blurb : ITEM_EFFECTS[entry.id];
+      if (effect) {
+        const detail = document.createElement('div');
+        detail.style.cssText = 'font-size:10px;opacity:.75;line-height:1.2';
+        detail.textContent = effect;
+        info.appendChild(detail);
+      }
+      const reason = offer.disabledReason;
+      if (reason) {
+        const note = document.createElement('div');
+        note.style.cssText = 'font-size:10px;opacity:.75';
+        note.textContent = theme === 'relic' ? reason : bagFullFor(entry.id);
+        note.title = reason;
+        info.appendChild(note);
+      }
+      row.appendChild(info);
+      const buy = mkBtn(`Buy ${offer.cost}`, true, !offer.canAfford || !!reason);
+      buy.style.flex = '0 0 auto';
+      buy.addEventListener('click', () => {
+        // A stale dialog cannot purchase a replaced shelf or a new hour's offer.
+        if (this.shopBucketState(house) !== cur || cur.shelf[slot] !== entry) {
+          wrap.remove(); this.presentThemedShop(sx, sy, house, recordDeal); return;
+        }
+        if (!offer.onAccept()) return;
+        ShopsMath.shelf(cur, draw, slot);
+        persistSave(this.save);
+        wrap.remove();
+        this.presentThemedShop(sx, sy, house, recordDeal);
+      });
+      row.appendChild(buy); box.appendChild(row);
+    });
+    const actions = document.createElement('div');
+    actions.style.cssText = 'display:flex;justify-content:center;gap:8px;margin-top:6px';
+    if (theme === 'potion') {
+      const brew = mkBtn('Brew', false);
+      brew.addEventListener('click', () => { wrap.remove(); this.presentBrewOffer(sx, sy, house, recordDeal); });
+      actions.appendChild(brew);
     }
-    const id = this.themedShopPick(house);
-    if (!id) { this.flash('Nothing on the shelf.', sx, sy); return; }
-    this._presentThemedItem(sx, sy, house, recordDeal, id);
+    const later = mkBtn('Later', false);
+    later.addEventListener('click', () => wrap.remove());
+    actions.appendChild(later);
+    if (theme === 'relic' || this._themedStockCount(house) > 1) {
+      const reroll = this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
+        () => { wrap.remove(); this.presentThemedShop(sx, sy, house, recordDeal); }, {
+          cost: ShopsMath.themedRerollCost, current: shelf,
+          peek: () => { delete cur.shelf; return ShopsMath.shelf(cur, draw); },
+        });
+      const button = mkBtn(reroll.label, false, reroll.disabled);
+      button.addEventListener('click', reroll.onClick);
+      actions.appendChild(button);
+    }
+    box.appendChild(actions);
+    mount();
+  }
+
+  _drawShopShelf(house, slot, others, previous) {
+    const { theme, tier } = this.shopLine(house);
+    const rng = this.shopRng(house, `shelf-${slot}`);
+    if (theme === 'relic') {
+      let offer = null;
+      const used = new Set([...others, previous].filter(Boolean).map(ShopsMath.offerKey));
+      for (let i = 0; i < 32; i++) {
+        offer = this.buildRelicOffer(rng, { maxTier: tier });
+        if (!offer || !used.has(ShopsMath.offerKey(offer))) break;
+      }
+      return offer;
+    }
+    const stock = Shops.themedOfferStock(theme, tier);
+    const used = new Set(others.map(o => o.id));
+    let choices = stock.filter(id => !used.has(id) && id !== previous?.id);
+    if (!choices.length) choices = stock.filter(id => id !== previous?.id);
+    if (!choices.length) choices = stock;
+    if (!choices.length) return null;
+    // Retain the tier-biased themed picker, falling back only when its draw
+    // duplicates a stocked item and another distinct item is available.
+    let id = Shops.pickThemed(theme, tier, rng);
+    if (!choices.includes(id)) id = choices[Math.floor(rng() * choices.length)];
+    const units = Shops.themedQuantity(id, tier, rng);
+    const base = units * ShopsMath.listPrice(this.save, id, itemValue(id));
+    const price = this.guildPrice(house, Math.max(1,
+      Math.ceil(ShopsMath.buyPrice(this.save, base, rng) * this.priceMul(house))));
+    return { id, units, price };
   }
 
   // The item a themed shop is selling right now — its own seeded lane, so it
@@ -1010,16 +1105,22 @@ class SceneShops {
   }
 
   _presentThemedItem(sx, sy, house, recordDeal, id) {
+    this.showOfferModal(this._buildThemedItemOffer(sx, sy, house, recordDeal, id));
+  }
+
+  // Both the shelf and individual dialog use this quote. Acceptance rechecks
+  // live state and returns whether a purchase completed.
+  _buildThemedItemOffer(sx, sy, house, recordDeal, id, entry = null) {
     const item = ITEM_BY_ID[id];
     // The base is the ladder's (ShopsMath.listPrice — the Book climbs with
     // every one bought; everything else is its itemValue).
     const { theme, tier } = this.shopLine(house);
     const quantityRng = house?.id ? this.shopRng(house, 'theme-quantity') : Math.random;
-    const units = Shops.themedQuantity(id, tier, quantityRng);
-    const offer = this.buildShopOffer(id, units * ShopsMath.listPrice(this.save, id, itemValue(id)), { house });
+    const units = entry?.units ?? Shops.themedQuantity(id, tier, quantityRng);
+    const offer = this.buildShopOffer(id, units * ShopsMath.listPrice(this.save, id, itemValue(id)), { house, price: id === 'book' ? undefined : entry?.price });
     // Lower-tier batches buy multiple units; seed units retain their bonus.
     const buyQty = units * (1 + (isLowTierSeed(id) ? LOW_TIER_SEED_QTY_BONUS : 0));
-    this.showOfferModal({
+    return {
       kind: 'shop',
       tabs: theme === 'potion' ? this._brewingTabs('shop', sx, sy, house, recordDeal) : undefined,
       title: this.buildingFlavorTitle(house, 'buy'),
@@ -1031,12 +1132,13 @@ class SceneShops {
       canAfford: offer.canAfford(),
       disabledReason: this._shopBagSpaceReason(id, buyQty),
       onAccept: () => {
-        if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return; }
-        if (this.invRoomFor(id) < buyQty) { this.flash(bagFullFor(id), sx, sy); return; }
+        if (!offer.canAfford()) { this.flash(offer.shortDenial, sx, sy); return false; }
+        if (this.invRoomFor(id) < buyQty) { this.flash(bagFullFor(id), sx, sy); return false; }
         offer.consume();
         this.addToInv(id, buyQty, false, { notWild: true, deferRefresh: true });
         if (id === 'book') ShopsMath.bookBought(this.save, buyQty);
         this._settleDeal(recordDeal, [`${buyQty}× ${item?.name || id}\n${offer.shortGain}`, UI_GOLD, 1, id]);
+        return true;
       },
       // Include lower-tier batch stock when deciding whether another item
       // is available to re-roll to.
@@ -1045,7 +1147,7 @@ class SceneShops {
             (nextId) => this._presentThemedItem(sx, sy, house, recordDeal, nextId),
             { cost: ShopsMath.themedRerollCost, peek: () => this.themedShopPick(house), current: id })
         : undefined,
-    });
+    };
   }
 
   _brewingTabs(active, sx, sy, house, recordDeal) {
@@ -1072,13 +1174,17 @@ class SceneShops {
   // seed via peekOrBuildRelicOffer, so no per-tap persistence is needed; the
   // re-roll button bumps cur.rerolls which pivots the seed lane.
   presentRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
+    this.showOfferModal(this._buildRelicOffer(sx, sy, offer, recordDeal, house, allowReroll, rerollOpts));
+  }
+
+  _buildRelicOffer(sx, sy, offer, recordDeal, house, allowReroll = false, rerollOpts = {}) {
     const name = gearName(offer.kind, offer.slot, offer.tier);
     const iconHtml = this.gearIconHTML(offer.kind, offer.slot, offer.tier, 24);
     const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
     // The charm's hour and the hammer's standing cut (floor $1) — priceMul —
     // then a guild badge takes its share off (guildPrice).
     const price = this.guildPrice(house, Math.max(1, Math.ceil(offer.price * this.priceMul(house))));
-    this.showOfferModal({
+    return {
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
       cancelLabel: 'Later',
@@ -1086,13 +1192,15 @@ class SceneShops {
       blurb,
       cost: this.moneyHTML(price),
       canAfford: (this.save.money ?? 0) >= price,
+      disabledReason: Gear.canUpgrade(this.save, offer.kind, offer.slot, offer.tier) ? '' : 'Already carry a finer one.',
       acceptLabel: 'Buy',
       onAccept: () => {
-        if (!this._gearUpgradeOk(offer, sx, sy)) return;
-        if (!this._spendMoney(price, sx, sy)) return;
+        if (!this._gearUpgradeOk(offer, sx, sy)) return false;
+        if (!this._spendMoney(price, sx, sy)) return false;
         this._equipGear(offer.kind, offer.slot, offer.tier);
         this.markRelicsDirty();
         this._settleDeal(recordDeal, [`${name}\n−${price}`, UI_GOLD, 1.25]);
+        return true;
       },
       // Pivot the seed lane so the next peekOrBuildRelicOffer returns
       // something else — no per-house cache to invalidate.
@@ -1101,7 +1209,7 @@ class SceneShops {
             next => this.presentRelicOffer(sx, sy, next, recordDeal, house, true, rerollOpts),
             { ...rerollOpts, current: offer })
         : undefined,
-    });
+    };
   }
 
   // Blacksmith recipes (gear.js Gear.blacksmithRecipe): an array of
@@ -1172,8 +1280,7 @@ class SceneShops {
       repeat: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target),
       pager: {
         index: idx, count: bars.length,
-        onPrev: pageTo(bars[(idx - 1 + bars.length) % bars.length]),
-        onNext: pageTo(bars[(idx + 1) % bars.length]),
+        options: bars.map(id => ({ label: itemName(id), onSelect: pageTo(id) })),
       },
       refuse: () => {
         if (this.invRoomFor(target) >= 1) return false;
@@ -1214,8 +1321,6 @@ class SceneShops {
         options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
         iconHTML: this.iconSpanHTML(rec.id, 32),
         caption: `Makes 1 · In bag: ${held(rec.id)}`,
-        onPrev: pageTo(recipes[(idx - 1 + n) % n]),
-        onNext: pageTo(recipes[(idx + 1) % n]),
       },
       refuse: () => {
         if (validate && !validate()) return true;
@@ -1853,7 +1958,7 @@ class SceneShops {
       : undefined;
     // The charm's hour and the hammer's standing cut (floor $1) — see priceMul —
     // then a guild badge takes its share off (guildPrice).
-    const cashCost = this.guildPrice(opts.house, Math.max(1,
+    const cashCost = opts.price ?? this.guildPrice(opts.house, Math.max(1,
       Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.priceMul(opts.house))));
     return {
       kind: 'money',

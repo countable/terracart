@@ -18,8 +18,7 @@
 //      a decorative connecting avenue's walk stops) rather than "may I spawn
 //      here". Every one of these sits beside a SEPARATE call that DOES ask
 //      isSpawnCell before anything is actually placed.
-//   3. A NON-SPAWN reader — tilling (render.js's self-heal, mirroring
-//      items.js isTillableCell), a general-purpose cell query (app.js
+//   3. A NON-SPAWN reader — the general-purpose cell query (app.js
 //      cellAt(), read by tilling/movement/flavour-text callers, never a
 //      spawner), and the doorstep greeter's documented road-only "always"
 //      fallback (starter.js), which deliberately does NOT want the gate's
@@ -48,8 +47,6 @@
     { file: 'zone_dressing.js', re: /opts\.roadMask && opts\.roadMask\[i\]/ },
     // ── zone_coverage.js: terrain paint retains the visible road band ───
     { file: 'zone_coverage.js', re: /^if \(roadMask && roadMask\[i\]\) \{/ },
-    // ── render.js: tilling self-heal (draw-side, not a spawn) ────────────
-    { file: 'render.js', re: /e3\.roadMask\[_ringIY\[_si\] \* N3 \+ _ringIX\[_si\]\]/ },
     // ── app.js: cellAt()'s general-purpose .underRoad flag (tilling /
     //    NPC movement / flavour text read it; nothing here places anything) ─
     { file: 'app.js', re: /entry\.roadMask\[iy \* N \+ ix\]/ },

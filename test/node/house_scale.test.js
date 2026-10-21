@@ -91,8 +91,8 @@ test('building scale: Home draws no sprite, so it has no row', () => {
   }
   assert.eq(buildingArt('fort'), FORT);
   // render.js hands the role itself to the rule, never an isFort flag.
-  assert.includes(RENDER_SRC, 'houseArtScale(o.area, _houseFrameW(o), _houseRole(o), _pass.scene.cellM, CELL_PX)');
-  assert.includes(RENDER_SRC, 'buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX)');
+  assert.includes(RENDER_SRC, 'houseArtScale(o.area, _houseFrameW(o, scene, pass), _houseRole(o, scene, pass), scene.cellM, CELL_PX)');
+  assert.includes(RENDER_SRC, 'buildingBaseScale(_houseFrameW(o, scene, pass), _houseRole(o, scene, pass), CELL_PX)');
 });
 
 test('building scale: an unmeasurable frame is finite and matches its baseline', () => {

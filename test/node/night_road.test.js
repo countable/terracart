@@ -1,7 +1,7 @@
 function nightRoadScene(bits, { depth = 0 } = {}) {
   WorldGen.tileCache.clear();
   const N = 4, tileEdgeM = 40;
-  const roadClass = new Uint8Array(N * N);
+  const roadClass = new Uint16Array(N * N);
   roadClass[1 * N + 1] = bits;
   WorldGen.tileCache.set(WorldGen.tileKey(0, 0), { cellsPerEdge: N, roadClass });
   return {
@@ -151,3 +151,55 @@ test('night road: rendering and taps share the hidden-object predicate', () => {
   assert.truthy(/RoadSafety\.objectHidden\(scene, item\)/.test(INTERACT_SRC), 'item lookup skips hidden records');
   assert.truthy(/letterContainer\.add\(this\.roadSafetyGfx\)/.test(SCENE_SRC), 'ground wash sits below later road letters and world sprites');
 });
+
+(function () {
+  const N = 64, scale = 4096 / N;
+  const road = (cls, pts, tags = {}) => ({ type: 2, tags: { class: cls, ...tags },
+    geom: [pts.map(([x, y]) => ({ x: (x + 0.5) * scale, y: (y + 0.5) * scale }))] });
+  const build = (...features) => WorldGen.rasterizeTile([{ name: 'transportation', features }], N, 0, 0, N * 7);
+  const bits = (e, x, y) => e.roadClass[y * N + x];
+  test('night road: parallel roadside paths clear only their side and length of the buffer', () => {
+    const main = road('primary', [[4, 32], [60, 32]]);
+    const path = road('path', [[12, 34], [48, 34]]);
+    const e = build(main, path);
+    assert.falsy(WorldGen.nightZoneBits(bits(e, 30, 34)), 'path side is safe');
+    assert.truthy(bits(e, 30, 34) & WorldGen.ROAD_CLASS_MAJOR_BUFFER, 'creature suppression remains');
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 30, 30)), 'opposite side remains dark');
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 30, 32)), 'carriageway remains dark');
+    assert.truthy(WorldGen.nightZoneBits(bits(e, 54, 34)), 'beyond the path remains dark');
+    const reversed = build(main, road('path', [[48, 34], [12, 34]]));
+    assert.eq([...e.roadClass].join(), [...reversed.roadClass].join(), 'path direction does not matter');
+    const both = build(main, path, road('path', [[12, 30], [48, 30]]));
+    assert.falsy(WorldGen.nightZoneBits(bits(both, 30, 30)), 'both path sides can be safe');
+  });
+  test('night road: paths cut through every overlapping night zone, including crossings', () => {
+    const main = road('primary', [[4, 32], [60, 32]]);
+    const crossing = build(main, road('path', [[30, 4], [30, 60]]));
+    for (const y of [30, 32, 34]) {
+      assert.falsy(WorldGen.nightZoneBits(bits(crossing, 30, y)), 'crossing path stays clear');
+      assert.truthy(bits(crossing, 30, y) & WorldGen.ROAD_CLASS_MAJOR_BUFFER, 'suppression remains');
+      assert.truthy(WorldGen.nightZoneBits(bits(crossing, 28, y)), 'off-path road zone remains');
+    }
+    assert.truthy(bits(crossing, 30, 32) & WorldGen.ROAD_CLASS_MAJOR_ROAD, 'road warning remains');
+    const bridge = build(main, road('path', [[12, 34], [48, 34]], { brunnel: 'bridge' }));
+    assert.falsy(WorldGen.nightZoneBits(bits(bridge, 30, 34)), 'bridge path footprint is clear');
+    assert.truthy(WorldGen.nightZoneBits(bits(bridge, 30, 33)), 'bridge does not clear the entire roadside');
+    const overlap = build(main, road('path', [[12, 34], [48, 34]]), road('secondary', [[32, 4], [32, 60]]));
+    assert.falsy(WorldGen.nightZoneBits(bits(overlap, 32, 34)), 'path clears overlapping road zones');
+    assert.truthy(WorldGen.nightZoneBits(bits(overlap, 32, 33)), 'adjacent carriageway remains dark');
+    for (const depth of [0, 1, 2, 3]) {
+      const scene = nightRoadScene(bits(crossing, 30, 32), { depth });
+      const state = RoadSafety.playerState(scene, 0, 0);
+      assert.falsy(state.nightZone, 'path is not a runtime damage zone');
+      assert.eq(RoadSafety.drainPips(scene, 10, state.nightZone), 0, 'no energy drain');
+      assert.falsy(RoadSafety.objectHidden(scene, { x: 15, y: 15 }, true), 'path interactions remain visible');
+    }
+  });
+  test('night road: distant and private paths do not clear road zones', () => {
+    const main = road('primary', [[4, 32], [60, 32]]);
+    for (const path of [road('path', [[12, 40], [48, 40]]),
+      road('path', [[12, 34], [48, 34]], { access: 'private' })]) {
+      assert.truthy(WorldGen.nightZoneBits(bits(build(main, path), 30, 34)), 'zone remains');
+    }
+  });
+})();

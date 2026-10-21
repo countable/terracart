@@ -25,7 +25,7 @@
     assert.eq(WorldGen.parkPoiLayer(poi, null), poi);
   });
 
-  test('park zones: designation polygons preserve residential ground and do not expand a nearby grove', () => {
+  test('park zones: designation polygons preserve residential substrate and do not expand a nearby grove', () => {
     const N = 64, edge = N * WorldGen.CELL_M;
     const polygon = tags => ({ type: 3, tags, geom: [[{x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096}]] });
     const layers = [
@@ -34,7 +34,9 @@
     ];
     const build = features => WorldGen.rasterizeTile([...layers, {name:'park',features}], N, 0, 0, edge);
     const baseline = build([]), far = 50 * N + 50;
-    assert.eq(baseline.grid[far], WorldGen.T.RESIDENTIAL);
+    assert.eq(baseline.variantBaseGrid[far], WorldGen.T.RESIDENTIAL, 'underlying mapped lot remains residential');
+    assert.truthy(baseline.spawnWhy[far] & WorldGen.SPAWN_WHY.PRIVATE, 'far lot has no public frontage');
+    assert.eq(baseline.grid[far], WorldGen.T.EXCLUSION_ROCK, 'private lot interior receives permanent bedrock');
     for (const kind of ['protected_area','historic','conservation']) {
       const world = build([polygon({class:kind,name:'Neighbourhood designation'})]);
       assert.eq(Array.from(world.grid).join(), Array.from(baseline.grid).join(), kind + ': designation does not repaint ground');

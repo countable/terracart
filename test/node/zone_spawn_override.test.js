@@ -12,7 +12,14 @@
     const slot = r.zone.anchors.indexOf(a) + 1;
     let excluded = 0;
     for (let i = 0; i < N * N; i++) {
-      assert.eq(r.spawnWhy[i], source.spawnWhy[i], `cell ${i}: nexus painting preserves source exclusions`);
+      const bedrock = r.grid[i] === WorldGen.T.EXCLUSION_ROCK;
+      if (bedrock) {
+        assert.falsy(r.zone.coverage[i], `cell ${i}: bedrock stays outside Nexus coverage`);
+        assert.truthy(source.spawnWhy[i] & inferred, `cell ${i}: bedrock was already a private lot`);
+        assert.falsy(WorldGen.isWalkable(r.grid[i]), `cell ${i}: material adds physical collision`);
+      }
+      assert.eq(r.spawnWhy[i], source.spawnWhy[i] | (bedrock ? W.TERRAIN : 0),
+        `cell ${i}: nexus preserves source exclusions; bedrock adds only terrain collision`);
       if (r.zone.coverage[i] === slot && (source.spawnWhy[i] & inferred)) excluded++;
     }
     assert.gt(excluded, 5, 'real residential fringe exercises retained exclusions');

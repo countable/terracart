@@ -4,8 +4,8 @@
 
 (function (global) {
   const SATEXTRACT_URL = typeof document !== 'undefined' && document.currentScript?.src
-    ? new URL('../data/satextract_osm.geojson?v=7', document.currentScript.src).href
-    : 'data/satextract_osm.geojson?v=7';
+    ? new URL('../data/satextract_osm.geojson?v=8', document.currentScript.src).href
+    : 'data/satextract_osm.geojson?v=8';
   const Z = 14;
   const TILE_PX = 256;          // standard
   const TILE_EXTENT = 4096;     // MVT units
@@ -19,8 +19,9 @@
   function fruitTreeSpecies(hash) {
     return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'worldpeach' : 'apple';
   }
-  // Temporarily pause the detected-tree layer, including already cached bins.
-  const DEEPFOREST_TREES_ENABLED = false;
+  // Opt in to satellite detections for areas with extracted crowns. Elsewhere
+  // keep the procedural residential canopy until detection coverage expands.
+  const DEEPFOREST_TREES_ENABLED = /(?:^|[?&])deepforest=on(?:&|$)/.test(global.location?.search || '');
 
   // ── Where the tiles come from ──────────────────────────────────────────
   // OpenFreeMap serves each weekly planet build from a DATED directory
@@ -458,6 +459,7 @@
     GROVE: 28,
     CHURCHYARD: 29,
     TAR_YARD: 31,
+    EXCLUSION_ROCK: 32, // permanent bedrock in inaccessible rear-lot interiors
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -481,7 +483,7 @@
     ...BUILDING_TYPES,
     // Underground rock — the solid walls of a cave level. Surface
     // buildings/roads/water rasterize to this in loadCaveTile.
-    T.CAVE_WALL,
+    T.CAVE_WALL, T.EXCLUSION_ROCK,
   ]);
   function isWalkable(t) { return !NON_WALKABLE.has(t); }
   // The road tiers as terrain. Nothing SPAWNS here (isSpawnCell, the road
@@ -2285,7 +2287,7 @@
     }
   }
   // ── The road's CLASS, per cell ────────────────────────────────────────────
-  // Beside the mask, one byte of bits saying which ROAD this is ground of. Only
+  // Beside the mask, a bit field saying which ROAD this is ground of. Only
   // the Major-and-Medium road group (ROAD_MD + ROAD_LG, the old trade roads — see
   // src/street_variants.js) are recorded, because that is the question the
   // spawners ask: the kerb buffer (ROAD_CLASS_MAJOR_BUFFER), the wagon bus stops and
@@ -2334,12 +2336,77 @@
   // A MAJOR_BUFFER cell put there by a parking lot alone: suppression at every
   // hour, but never the night zone. Read the night zone through nightZoneBits.
   const ROAD_CLASS_LOT_BUFFER = 128;
+  const ROAD_CLASS_PATH_SIDE = 256;
+  // Mapped walking-path footprint, even where it crosses a carriageway.
+  const ROAD_CLASS_PATH = 512;
   function nightZoneBits(bits) {
-    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & ROAD_CLASS_LOT_BUFFER);
+    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & (ROAD_CLASS_LOT_BUFFER | ROAD_CLASS_PATH_SIDE | ROAD_CLASS_PATH));
   }
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
   // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
+  // Every walking-path footprint clears the night zone. Parallel paths also
+  // exempt the off-carriageway side they serve.
+  // Check every contributing road: a path cannot clear another road's buffer.
+  function* stampPathSideSafetySteps(features, out, w, h, scale) {
+    const roads = _bucketGrid(8), paths = _bucketGrid(8);
+    const pathCover = new Uint16Array(w * h);
+    let hasPaths = false;
+    for (const f of features || []) {
+      if (f.type !== 2 || !f.geom) continue;
+      const tags = f.tags || {}, tier = classifyLine('transportation', tags);
+      if (![T.PATH, T.ROAD_MD, T.ROAD_LG].includes(tier)) continue;
+      const path = tier === T.PATH;
+      if (path && (tags.access === 'private' || tags.access === 'no'
+          || tags.foot === 'no' || tags.foot === 'private')) continue;
+      if (path) for (const line of f.geom) {
+        yield* stampCoverLineSteps(pathCover, w, h, line, Math.max(1, roadOverlayWidthM(tags) / CELL_M), scale);
+        hasPaths = true;
+      }
+      const radius = roadOverlayWidthM(tags) / CELL_M / 2 + MAJOR_BUFFER_CELLS;
+      const grade = `${tags.layer || 0}:${tags.brunnel || (tags.bridge === 'yes' ? 'bridge' : tags.tunnel === 'yes' ? 'tunnel' : '')}`;
+      for (const line of f.geom) for (let j = 1; j < line.length; j++) {
+        const ax = line[j - 1].x * scale, ay = line[j - 1].y * scale;
+        const bx = line[j].x * scale, by = line[j].y * scale;
+        const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
+        if (!len) continue;
+        const seg = { ax, ay, bx, by, dx: dx / len, dy: dy / len, len, radius, grade };
+        const pad = path ? 0 : radius + 1;
+        (path ? paths : roads).addBox(seg, Math.min(ax, bx) - pad, Math.min(ay, by) - pad,
+          Math.max(ax, bx) + pad, Math.max(ay, by) + pad);
+        if (path) hasPaths = true;
+      }
+    }
+    if (!hasPaths) return;
+    for (let cy = 0; cy < h; cy++) {
+      if ((cy & 15) === 15) yield 'roadside path safety';
+      for (let cx = 0; cx < w; cx++) {
+        const i = cy * w + cx, bits = out[i];
+        if (!(bits & ROAD_CLASS_MAJOR_BUFFER)) continue;
+        if (pathCover[i]) { out[i] |= ROAD_CLASS_PATH; continue; }
+        if (bits & ROAD_CLASS_MAJOR_BAND) continue;
+        const x = cx + 0.5, y = cy + 0.5;
+        let served = false;
+        const dangerous = roads.near(x, y, 0, r => {
+          if (!bandCoversCell(r.ax, r.ay, r.bx, r.by, r.radius, cx, cy)) return false;
+          const along = Math.max(0, Math.min(r.len, (x - r.ax) * r.dx + (y - r.ay) * r.dy));
+          const qx = r.ax + along * r.dx, qy = r.ay + along * r.dy;
+          const side = r.dx * (y - qy) - r.dy * (x - qx);
+          const hasPath = paths.near(qx, qy, r.radius, p => {
+            if (p.grade !== r.grade || Math.abs(p.dx * r.dx + p.dy * r.dy) < 0.8) return false;
+            const t = (qx - p.ax) * p.dx + (qy - p.ay) * p.dy;
+            if (t < 0 || t > p.len) return false;
+            const px = p.ax + t * p.dx, py = p.ay + t * p.dy;
+            const pathSide = r.dx * (py - qy) - r.dy * (px - qx);
+            return side * pathSide > 0 && Math.hypot(px - qx, py - qy) <= r.radius;
+          });
+          served ||= hasPath;
+          return !hasPath;
+        });
+        if (served && !dangerous) out[i] |= ROAD_CLASS_PATH_SIDE;
+      }
+    }
+  }
   function* resolveRoadClassSteps(majorCover, mask, out, w, h, bufCover) {
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class bands';
@@ -4577,7 +4644,7 @@
     // The Major-and-Medium road group's band once more, widened by MAJOR_BUFFER_CELLS each side
     // — the KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER) no fast mover spawns in.
     const majorBufCover = new Uint16Array(w * h);
-    const roadClass = new Uint8Array(w * h);
+    const roadClass = new Uint16Array(w * h);
     // Vehicle-road segments wait until every way has been seen, then the
     // junction pass stamps one shared area for spawning and movement.
     const junctionSegments = [];
@@ -4637,10 +4704,8 @@
     // "cx_cy" → biome code a PATH cell overwrote (see paintCell). Render uses
     // it to draw the under-path biome so paths don't change the ground.
     const pathUnder = {};
-    // Same idea for the vehicle road tiers, but rasterize-local only: it isn't
-    // exported for render (roads fully cover their cell) — it exists so the
-    // pavement-blob erosion pass can restore the biome a dissolved road cell
-    // was stamped over. See erodePavementBlobs.
+    // Vehicle road tiers retain the same source landcover for both the render
+    // backdrop and the pavement-blob erosion pass (erodePavementBlobs).
     const roadUnder = {};
     // (No tile-wide rng: every scatter seeds its OWN stream from its polygon
     // or cell, so one pass's draw count can never shift another's.)
@@ -5540,11 +5605,9 @@
           const wCells = (t === T.PIER)
             ? Math.max(1, Math.round(roadWidthM(f.tags) / CELL_M))
             : 1;
-          // PATH records its under-biome in pathUnder (render draws it beneath
-          // the sparse path pebbles); vehicle road tiers record theirs in the
-          // rasterize-local roadUnder so the erosion pass can restore dissolved
-          // cells. Piers record nothing — they're never eroded and their plank
-          // sprite fully covers the cell.
+          // Paths and roads retain their original landcover for the render
+          // backdrop as well as pavement erosion. Piers record nothing —
+          // they are never eroded and their plank sprite fully covers the cell.
           const under = t === T.PATH ? pathUnder : (t === T.PIER ? undefined : roadUnder);
           // A footpath paints only the cells it actually crosses; roads and
           // piers paint every cell they touch, as before.
@@ -6101,6 +6164,7 @@
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
     yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
+    yield* stampPathSideSafetySteps(layersByName.transportation?.features, roadClass, w, h, mvtToCell);
     yield* stampRoadJunctionsSteps(junctionSegments, roadClass, w, h);
     yield* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM);
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
@@ -6918,8 +6982,46 @@
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       landcoverGrid: caveSource.grid, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
+    // All dressing has reserved its seats before permanent backyard bedrock.
+    const bedrockOccupied = new Set([...dressOcc, ...lampReservations]);
+    for (const list of [deduped, filtered, zoneDress?.objects, streetDress?.objects, scenicDress?.objects]) {
+      for (const o of list || []) {
+        const c = o._ix != null && o._iy != null ? { x: o._ix, y: o._iy }
+          : { x: Math.floor((o.x - tileOriginMx) / cellWidthM), y: Math.floor((o.y - tileOriginMy) / cellWidthM) };
+        if (c.x >= 0 && c.y >= 0 && c.x < w && c.y < h) bedrockOccupied.add(c.y * w + c.x);
+      }
+    }
+    const hasExclusionRock = stampExclusionRock(grid, w, h, { spawnWhy, roadMask, occupied: bedrockOccupied,
+      coverage: zone?.coverage || zone?.idx }) > 0;
     assignScholarFallback(deduped);
-    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain ? caveSource : null };
+    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
+  }
+
+  // A material/collision treatment for deep private backyards, not a new
+  // general access rule. Keep one full cell of clearance around every path,
+  // footprint, public edge, authored zone and existing prop. Test eligibility
+  // against the unchanged grid, then stamp together so scan order cannot
+  // change the shape. Tile borders stay open without neighbouring-tile data.
+  function stampExclusionRock(grid, w, h, opts = {}) {
+    const reasons = SPAWN_WHY.PRIVATE | SPAWN_WHY.BEHIND_HOUSE;
+    const { spawnWhy, roadMask, occupied, coverage } = opts;
+    if (!spawnWhy) return 0;
+    const eligible = i => isLotTerrain(grid[i]) && !!(spawnWhy[i] & reasons)
+      && !(spawnWhy[i] & ~reasons) && !roadMask?.[i]
+      && !coverage?.[i] && !occupied?.has(i);
+    const cells = [];
+    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
+      let clear = true;
+      for (let dy = -1; dy <= 1 && clear; dy++) for (let dx = -1; dx <= 1; dx++) {
+        if (!eligible((y + dy) * w + x + dx)) { clear = false; break; }
+      }
+      if (clear) cells.push(y * w + x);
+    }
+    for (const i of cells) {
+      grid[i] = T.EXCLUSION_ROCK;
+      spawnWhy[i] |= SPAWN_WHY.TERRAIN;
+    }
+    return cells.length;
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -7127,7 +7229,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -7224,6 +7326,7 @@
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
       entry.pathUnder   = pathUnder   || {};
+      entry.roadUnder   = roadUnder   || {};
       entry.layers = layers;
 
       // Inject pre-extracted Overpass trees + tree_row bushes for this tile.
@@ -9849,7 +9952,7 @@
     // stamp and its numbers, and the live per-player private-ground veto.
     SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_ALL_FLOORS, floorSpawnWhy, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
     SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf,
-    landRefused, stampSpawnWhySteps, isPrivateWay, isPublicPier, churchyardBufferM, SPAWN_FRONTAGE,
+    landRefused, stampExclusionRock, stampSpawnWhySteps, isPrivateWay, isPublicPier, churchyardBufferM, SPAWN_FRONTAGE,
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
@@ -9902,7 +10005,7 @@
     // "drawn as road" and "no spawns here" are the same number.
     roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
-    ROAD_CLASS_LOT_BUFFER, nightZoneBits,
+    ROAD_CLASS_LOT_BUFFER, ROAD_CLASS_PATH_SIDE, ROAD_CLASS_PATH, nightZoneBits,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,

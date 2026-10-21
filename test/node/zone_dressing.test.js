@@ -13,6 +13,22 @@
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
   const finds = out => all(out).filter(o => o.zoneLayer === 'find');
+  test('Spooky Woods: bare shrine trees preserve living clusters, harvest identity and spawn gates', () => {
+    const out = ZoneDressing.dress(context('spooky_woods'));
+    const snags = out.objects.filter(o => o._objectArt === 'dead_tree');
+    assert.gt(snags.length, 0);
+    assert.truthy(snags.every(o => o.kind === 'tree' && o.size === 'large' && o.zoneLayer === 'poi'));
+    assert.gt(out.objects.filter(o => o.kind === 'tree' && !o._objectArt).length, 0, 'living canopy remains');
+    assert.gt(out.wildplants.length, 0, 'interactive resources remain');
+    const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.tree;
+    for (const o of snags) {
+      assert.eq(spec.key(o), 'selected_dead_tree'); assert.eq(spec.frame(o), 0);
+      assert.gt(spec.scale(o), 0); assert.eq(treeSizeClass(o), 'full');
+    }
+    assert.eq(JSON.stringify(out), JSON.stringify(ZoneDressing.dress(context('spooky_woods'))));
+    const blocked = context('spooky_woods'); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o._objectArt === 'dead_tree').length, 0);
+  });
   test('Sacred Grove: harmless clusters with broken ghost pressure footpaths', () => {
     const out = ZoneDressing.dress(context('sacred_grove'));
     const bushes = out.wildplants.filter(o => o.crop === 'shrub');

@@ -910,8 +910,7 @@
       // dyPx passes through liftPx, so the upright fixture stays lit when the map turns.
       const spec = furnitureSpec(o), bounds = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(o)}`];
       if (bounds && Number.isFinite(spec.lightFrameY)) {
-        const seat = SpriteLayout.seatInCell(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE,
-          SpriteLayout.CELL_PX, spec.seatFoot);
+        const seat = SpriteLayout.contactSeat(bounds, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE, true);
         light.dyPx = seat.dyPx + (spec.lightFrameY - bounds.fh * 0.5) * FURNITURE_SCALE;
       }
     }
@@ -1026,6 +1025,15 @@
       const e = colour == null
         ? { kind: 'cobble', dx, dy, dyPx, id: L.id }
         : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour };
+      if (L.selectedArt) {
+        // The hanging lantern is right of the foot. Screen-space offsets keep
+        // upright artwork and its emitter together when the map rotates.
+        const cellPx = typeof CELL_PX !== 'undefined' ? CELL_PX : 32;
+        e.dxPx = RoadOverlay.SELECTED_LAMP_OFFSET_CELLS * cellPx;
+        e.dyPx = -RoadOverlay.SELECTED_LAMP_RISE_CELLS * cellPx;
+      }
+      const trialOffset = typeof WorldArtProfile !== 'undefined' && WorldArtProfile.lampLightOffset?.(scene);
+      if (trialOffset) { e.dxPx = trialOffset.dxPx; e.dyPx = trialOffset.dyPx; }
       // THE LIVING LAMP's brightness (app.js, Streets.lampBrightness —
       // already quantised to LAMP_BRIGHT_STEPS) as the entry's GAIN `g`: a
       // STEADY multiplier, not the animated `a` (which would put the clock in
@@ -1159,10 +1167,10 @@
   // lantern at every heading; applied straight down the map's y it sat
   // off the post sideways at a quarter turn.
   function liftPx(scene, L) {
-    const d = L.dyPx || 0;
-    if (!d) return { x: 0, y: 0 };
+    const d = L.dyPx || 0, x = L.dxPx || 0;
+    if (!d && !x) return { x: 0, y: 0 };
     const a = (typeof HeadingUp !== 'undefined' && HeadingUp.angle) ? HeadingUp.angle(scene) : 0;
-    return a ? { x: Math.sin(a) * d, y: Math.cos(a) * d } : { x: 0, y: d };
+    return a ? { x: Math.cos(a) * x + Math.sin(a) * d, y: -Math.sin(a) * x + Math.cos(a) * d } : { x, y: d };
   }
   // …and back in metres, for the brightness readers.
   function liftM(scene, L, cellM) {
@@ -1316,7 +1324,7 @@
       let at;
       if (inPx) { const c = lightCentrePx(scene, L); at = `${c.x},${c.y}`; }
       else at = `${L.dx},${L.dy}`;
-      k += `|${L.kind},${L.id},${at},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
+      k += `|${L.kind},${L.id},${at},${L.dxPx},${L.dyPx},${L.r},${L.colour},${L.a},${L.s},${L.g}`;
     }
     return k;
   }

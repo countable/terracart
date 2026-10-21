@@ -54,15 +54,15 @@ test('deal cooldown: recordDeal banks the deal and stamps the moment', () => {
 // A closed deal SETTLES the shop (shops_math.js header): the paid re-roll
 // rungs and the free skips both go back to zero, so the next re-roll costs
 // the base price at once — the one recorder's job for every shop.
-test('recordDeal: a closed deal settles the re-roll ladder', () => {
+test('recordDeal: a closed deal lowers the re-roll ladder one rung', () => {
   const save = {};
   const house = { id: 'sh-1' };
   const cur = ShopsMath.bucketState(save, house, 1000);
   cur.rerolls = 3; cur.skips = 2;
   ShopsMath.recordDeal(save, house, 1000);
-  assert.eq(cur.rerolls, 0, 'the paid rungs are forgiven');
+  assert.eq(cur.rerolls, 2, 'one paid rung is forgiven');
   assert.eq(cur.skips, 0, 'and the free skips with them');
-  assert.eq(ShopsMath.themedRerollCost(cur.rerolls), ShopsMath.THEMED_REROLL_START, 'the next re-roll is the base price');
+  assert.eq(ShopsMath.themedRerollCost(cur.rerolls), ShopsMath.themedRerollCost(2), 'the next re-roll is one rung cheaper');
   assert.eq(cur.deals, 1, 'the deal itself still counts');
 });
 
@@ -100,7 +100,7 @@ test('deal cooldown: the stamp survives the hour bucket while it still cools, an
   // Hours later the stamp is spent: the carried record sheds it, so it is
   // the exact shape a fresh record would be (pruneShopState's lossless rule).
   const b2 = ShopsMath.bucketState(save, house, turn + HOUR * 3);
-  assert.eq(JSON.stringify(b2), JSON.stringify({ bucket: b1.bucket + 3, deals: 0, rerolls: 0 }), 'no stamp once spent');
+  assert.eq(JSON.stringify(b2), JSON.stringify({ bucket: b1.bucket + 3, deals: 0, rerolls: 0, day: b2.day }), 'no stamp once spent');
 });
 
 test('deal cooldown: pruneShopState keeps a stale entry whose deal still cools', () => {
@@ -839,7 +839,40 @@ test('rerollPeek: every re-roll button draws through it with what is on display'
     'the trader rides the shared button with its own peek and ladder');
   assert.falsy(/curState\.rerolls \+= 1|ShopsMath\.rerollPeek\(/.test(trader), 'and draws nowhere else');
   // Each caller names its current offer.
-  assert.truthy(/peek: \(\) => this\.themedShopPick\(house\), current: id \}/.test(src), 'the themed shelf: the item id');
+  assert.truthy(/cost: ShopsMath\.themedRerollCost, current: shelf/.test(src), 'the themed shelf rerolls all three offers');
   assert.truthy(/\{ cost: ShopsMath\.smithyRerollCost, current: offer \}/.test(src), 'the smithy: the forge target');
   assert.truthy(/\{ \.\.\.rerollOpts, current: offer \}/.test(src), 'the relic stall: the piece');
+});
+
+
+test('shop shelf: purchase replaces only its slot and survives save round trip', () => {
+  const save = {};
+  const house = { id: 'three-shelves' };
+  const cur = ShopsMath.bucketState(save, house, 1000);
+  let next = 0;
+  const draw = () => ({ id: `stock-${next++}`, price: next * 2 });
+  const first = ShopsMath.shelf(cur, draw).slice();
+  assert.eq(first.length, 3);
+  cur.rerolls = 3;
+  ShopsMath.recordDeal(save, house, 1001);
+  ShopsMath.shelf(cur, draw, 1);
+  assert.eq(cur.shelf[0], first[0]);
+  assert.eq(cur.shelf[2], first[2]);
+  assert.truthy(cur.shelf[1].id !== first[1].id);
+  assert.eq(cur.rerolls, 2);
+  const restored = JSON.parse(JSON.stringify(save));
+  const shelf = ShopsMath.shelf(ShopsMath.bucketState(restored, house, 1002), draw);
+  assert.eq(JSON.stringify(shelf), JSON.stringify(cur.shelf));
+  assert.eq(next, 4, 'reopening draws nothing');
+});
+
+test('shop penalty: overnight resets remaining rungs even inside one shop bucket', () => {
+  const house = { id: 'night-shop' }, save = {};
+  const midnight = Date.UTC(2026, 9, 20);
+  const cur = ShopsMath.bucketState(save, house, midnight - 1);
+  cur.rerolls = 40;
+  const next = ShopsMath.bucketState(save, house, midnight);
+  assert.eq(next.rerolls, 0);
+  assert.eq(next.day, utcDayKey(midnight));
+  assert.eq(ShopsMath.recordDeal(save, house, midnight + 1).rerolls, 0, 'purchase cannot go negative');
 });

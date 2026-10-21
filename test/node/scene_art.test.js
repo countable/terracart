@@ -1,7 +1,7 @@
 // SCENE ART — the dialog-painting standard (modal_shell.js makeModalShell `art`,
 // css/compass_panels.css; tools/gen_story_art.js
-// scene()). Approved 4:3 paintings retain their complete composition above
-// fitted, paged copy, without scrolling or legacy band modes.
+// scene()). Approved 4:3 paintings give space to fitted copy when needed,
+// without pagination or legacy band modes.
 
 (function () {
 const app = SCENE_SRC;
@@ -74,20 +74,15 @@ test('scene art: generic Story is omitted and useful categories follow the image
   const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
   assert.truthy(sceneShell.includes('const resize = new ResizeObserver(scheduleFit)'), 'viewport changes refit the content');
   assert.truthy(sceneShell.includes('const changes = new MutationObserver(scheduleFit)'), 'live content changes refit the content');
-  assert.truthy(sceneShell.includes('body.clientWidth * .9') && sceneShell.includes('Math.max(minimum, full - deficit)'), 'legacy art can give height to copy above its minimum');
-  assert.truthy(sceneShell.includes("pages.className = 'modal-pages'") && sceneShell.includes('into.style.columnWidth'), 'long content uses pages at its original text size');
-  // The ☰ menu is the one dialog that scrolls instead (owner, Oct 2026: "the
-  // main menu shouldn't be paginated"): the shell's `scroll` option turns the
-  // copy viewport into a scroller and the fit never pages it.
-  assert.truthy(sceneShell.includes('if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {'), 'a scrolling dialog never pages');
-  assert.truthy(/viewport\.style\.cssText = scroll\n\s*\? 'flex:1 1 auto;min-height:0;overflow-y:auto;/.test(sceneShell), 'its viewport scrolls');
-  assert.truthy(/makeModalShell\('menu-modal', \{\n(?:.*\n){0,4}.*scroll: true,/.test(SCENE_SRC), 'the menu dialog asks for it');
+  assert.falsy(sceneShell.includes("pages.className = 'modal-pages'") || sceneShell.includes('into.style.columnWidth'),
+    'the shared shell never paginates dialog content');
+  assert.truthy(/viewport\.style\.cssText = scroll\n\s*\? 'flex:1 1 auto;min-height:0;overflow-y:auto;/.test(sceneShell),
+    'explicit growing-list dialogs can scroll');
 });
 
 test('scene art: new generated scenes use full 4:3 compositions', () => {
   assert.truthy(/const SCENE_ASPECT = 4 \/ 3;/.test(STORY_ART_GEN_SRC), 'new scene generation is 4:3');
   assert.truthy(/size: '1536x1024', width: 512, aspect: SCENE_ASPECT/.test(STORY_ART_GEN_SRC), 'landscape source exports 4:3');
-  assert.truthy(shell.includes('const minimum = fullFrameArt ? full'), 'approved frames are preserved while copy paginates');
   assert.truthy(shell.includes('fullFrameArt ? body.clientWidth / artAspect'), 'approved art height matches its intrinsic aspect');
 });
 

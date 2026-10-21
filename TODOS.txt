@@ -1,0 +1,33 @@
+
+#Projects
+You own one project below. They are all listed for context only. Research each subtask, ask operator questions with suggested defaults, and assign a subagent. Have them come up with a visual concept and visual review presentation  and you review/refine it to match the vision and make sense, get my operator review/revision, and have them execute the work. Use a branch/wt per project and don't push to main until the project's output is approved locally.
+Art to use in-game is in art-assets/ (gitignored). Find appropriate art for your pro
+
+## steampunk lean
+We want to shift the game to more of an overall steampunk style, esp residential and commercial zones. We do also have a postapocalyptic overall theme for the world. Player-restored items in general would be steampunk. And, post-apocalyptic rebuilds by other factions. The pre-apocalypse is more ancient/advanced. 
+
+[ ] Review which player-restored objects could obtain a steampunk lean and approaches.
+[ ] Test presentations of shifting all fort+house variants toward steampunk style using texture adjustments mostly.
+[ ] Review which props could shift toward steampunk and propose new visuals for those. Propose new props and variants too.
+[ ] Review which story arts (particularly portraying restored things) could shift toward steampunk.
+[ ] Add piping between buildings, as a prop. It can be broken/destroyed with a T2+ pick, giving a pipe item. Pipes can be placed. They'll need a top-down tileset (not 3/4 cam). Broken pipes may emit gas, water or nothing. Water gushes out and pushes anything in a cone of cells. Gas is same as vents and dissipates out.
+
+## Zone decoration.
+(tbd)
+
+## Furniture system.
+[ ] Add a new inventory category. To fit it, we'll need 2 pages of categories, so the rightmost can be a mechanism to go to category page 2 (and corresponding left one). Make those golden. FFor now, page2 of item categories can have armor too. Move ores there as well.
+[ ] Furniture are basically all the same in many ways. They are a sprite that takes 1 map cell, Some can be mirrored left/right. Those with art support can be rotated all 4 directions. They can be flat or mid height (causes player hop). When in inventory they can be placed (in vision region) or rotated. when tapped on-map, they open a dialog to be picked up or use a special ability (some only). "Pick up" can be off to the side/top, out of the way of main functions. When in the interaction screen. show the furniture art larger like when obtaining an item, but a new presentation.
+[ ] ie, Toilets can 'flush' to cleans debuffs. Beds can 'sleep' to go to full energy (show the art. fade out the screen dark briefly, same subroutine as Inn market stall).
+[ ] Mirror can change player appearance (choose a robe tint)
+[ ] We'll expand this to crafting stations which are the same as furniture but have a crafting screen. Just make a basic workbench for now. It's crafted at the house and all other house crafting function "move" to it. When tapping it, open the crafting screen directly.
+[ ] Furniture in the house increases its "luxury", a white score number shown in the shaded area above the house when inside, calculated from the placed furniture and cached. Furnitures have tiers like any item and luxury is 1 per tier by default.
+[ ] Furniture is added to treasure tables, in appropriate rewards.
+[ ] Hitting luxury milestones triggers memory events "Living like a ____" with different titles.
+[ ] One of the castle quests can be to hit a certain luxury level. (We don't admit rabble here!)
+[ ] Greater luxury increases the energy recovery speed, with 100 luxury healing 10 extra energy per second (random rounding).
+[ ] Home should only heal when actually inside or directly adjacent (house touches cell player is on)
+[ ] Given we use a cell per furniture item lets avoid chairs, they are too small for our modelled tile size.
+[ ] Placing furniture outside works but other than crafting stns, furniture abilities won't work outside and there is no luxury bonus.
+
+

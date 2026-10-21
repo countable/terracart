@@ -937,6 +937,7 @@ class SceneGeo {
           // grid put rock there.
           this._carveLanding({ tx, ty });
         }
+        Crops.reconcileTilled(this, { tx, ty });
       } catch (e) {
         const kind = this._tileFailureKind(e, entry);
         if (kind !== 'permanent') anyRetry = true;

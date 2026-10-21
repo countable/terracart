@@ -110,6 +110,16 @@ function pcRasterize() {
   ], CPE, 0, 0, TILE_EDGE_M);
 }
 
+test('road cells: rasterization retains source landcover beneath carriageways', () => {
+  const e = WorldGen.rasterizeTile([
+    { name: 'landcover', features: [{ type: 3, tags: { class: 'sand' }, geom: [whole()] }] },
+    { name: 'transportation', features: [{ type: 2, tags: { class: 'minor' },
+      geom: [pcLine([[8, 20], [56, 20]])] }] },
+  ], CPE, 0, 0, TILE_EDGE_M);
+  assert.truthy(WorldGen.isCobbleTerrain(e.grid[20 * CPE + 30]), 'carriageway retains gameplay terrain');
+  assert.eq(e.roadUnder['30_20'], T.SAND, 'renderer receives original sand beneath road');
+});
+
 test('path cells: a path crossing the tile paints its cells', () => {
   const { grid } = pcRasterize();
   let painted = 0;

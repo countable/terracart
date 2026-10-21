@@ -6,9 +6,11 @@ const WorldLayers = Object.freeze({
   GROUND_DECAL: 'groundDecal',
   STEP_OVER_PROP: 'stepOverProp',
   STANDING_PROP: 'standingProp',
+  FLAT_CROPS: Object.freeze(['shell', 'flint', 'driftwood']),
   forObject(object, spec = {}) {
     const layer = typeof spec.layer === 'function' ? spec.layer(object) : spec.layer;
-    return layer || (ObstacleStep.profile(object) ? this.STEP_OVER_PROP : this.STANDING_PROP);
+    return layer || (object?.kind === 'wildplant' && this.FLAT_CROPS.includes(object.crop)
+      ? this.GROUND_DECAL : ObstacleStep.profile(object) ? this.STEP_OVER_PROP : this.STANDING_PROP);
   },
 });
 

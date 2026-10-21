@@ -4,12 +4,13 @@
 (() => {
   // 8 px cells: TILE_PX 256 / 32 cells; cellM 5 → mPerPx 5/8.
   function makeScene() {
-    const list = [];
+    const list = [], architecture = [];
     return { _headingUp: true, depth: 0, mapRot: 0, list,
       startWorldM: { x: 0, y: 0 }, originPx: { x: 0, y: 0 }, mPerPx: 5 / 8,
       cellsPerTile: 32, cellM: 5, playerM: { x: 0, y: 0 },
       viewCenterX: 176, viewCenterY: 176, viewLeft: 0, viewTop: 0, viewSize: 352,
-      buildingWallContainer: { add(g) { list.push(g); } },
+      buildingWallContainer: { list: architecture, add(g) { architecture.push(g); } },
+      raisedPropContainer: { list, add(g) { list.push(g); } },
       add: { graphics() { return { visible: true, clears: 0, triangles: [], color: 0,
         clear() { this.clears++; this.triangles.length = 0; return this; },
         fillStyle(c) { this.color = c; return this; },
@@ -64,6 +65,9 @@
     assert.falsy(drawn.has(items[2]), 'a tree stays a sprite');
     assert.falsy(drawn.has(plants[1]), 'a lone bush stays a sprite');
     const group = s._wallPerspective.props;
+    assert.truthy(s.raisedPropContainer.list.includes(group.gfx),
+      '3D props cover ground shadows instead of receiving them on their caps');
+    assert.eq(s.buildingWallContainer.list.length, 0, 'props do not enter the background architecture layer');
     assert.eq(group.blocks.length, 3, 'one joined material mesh per cell');
     const wallHeight = ObstacleStep.PROFILES.wall.liftPx, hedgeHeight = ObstacleStep.PROFILES.hedge.liftPx;
     assert.eq(group.blocks.filter(b => b.top === wallHeight).length, 2, 'walls rise by their step-over lift');

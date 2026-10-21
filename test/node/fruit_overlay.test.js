@@ -90,7 +90,7 @@ test('fruit overlay: the sheets’ own fruiting frames are never drawn', () => {
 test('fruit overlay: both species draw mature blossoms only during their regrowth window', () => {
   const frames = new Function('return ({' + RENDER_FRUIT_FRAMES_SRC + '});')();
   const spec = RENDER_FRUITTREE_SPEC_SRC;
-  const frameFn = spec.slice(spec.indexOf('frame: (o) =>'), spec.indexOf('origin:'));
+  const frameFn = spec.slice(spec.indexOf('frame: (o, scene, pass) =>'), spec.indexOf('origin:'));
   assert.eq(frames.apple.blossom, 8, 'white mature apple blossom, not brown autumn frame 5');
   assert.eq(frames.worldpeach.blossom, 4, 'pink mature peach blossom');
   assert.eq(frames.apple.grow[3], 8, 'apple saplings also use the true blossom frame');
@@ -120,7 +120,7 @@ test('fruit overlay: a picked tree is not dimmed — the fruit is simply gone', 
 
 test('fruit overlay: the fruit is placed off the tree sprite, not by hand', () => {
   const hook = RENDER_FRUITTREE_SPEC_SRC;
-  assert.truthy(/_ftBearing\(o\)/.test(hook), 'bearing decides whether a fruit is drawn at all');
+  assert.truthy(/_ftBearing\(o, scene, pass\)/.test(hook), 'bearing decides whether a fruit is drawn at all');
   assert.truthy(/fruitCrownOffset\(/.test(hook), 'seated by the shared crown rule');
   assert.truthy(/inventoryIconSource\(o\.species\)/.test(hook),
     'the fruit wears its own inventory icon, per species');
@@ -140,12 +140,11 @@ test('fruit overlay: the fruit pass renders through its own pool', () => {
 // Execute the per-pass resolver with small render specs: these regressions
 // exercise animated bounds and missing-frame semantics without a Phaser scene.
 (() => {
-  const start = RENDER_SRC.indexOf('  const resolveAppearance = (o) => {');
+  const start = RENDER_SRC.indexOf('  const resolveAppearance = (o, pass) => {');
   const end = RENDER_SRC.indexOf('  return { RENDER_SPEC, resolveAppearance,', start);
-  // The resolver reads the draw pass's scene off `_pass` (render.js — set by
-  // Render.objectAppearance), so the harness hands one in under that name.
-  const makeResolver = new Function('RENDER_SPEC', '_pass', 'window', 'CELL_PX',
-    RENDER_SRC.slice(start, end) + '\nreturn resolveAppearance;');
+  // Bind the explicit pass just as Render.objectAppearance does.
+  const makeResolver = new Function('RENDER_SPEC', 'pass', 'window', 'CELL_PX',
+    RENDER_SRC.slice(start, end) + '\nreturn o => resolveAppearance(o, pass);');
   const scene = { scene: { textures: { exists: (key) => key === 'tree' } } };
 
   test('appearance: animated frame and seatFrame resolve once with shared foot geometry', () => {
@@ -153,11 +152,12 @@ test('fruit overlay: the fruit pass renders through its own pool', () => {
     const spec = { key: 'tree', frame: () => ++frames, scale: 2,
       scaleYMul: 1.5, origin: [0.5, 1], seat: true, seatFrame: 0 };
     const layout = { ART_BOUNDS: { 'tree:0': { minX: 1, maxX: 6, minY: 2, maxY: 18 } },
-      seatInCell: (bounds, ox, oy, sx, sy) => {
+      contactSeat: (bounds, ox, oy, sx, sy, hoppable) => {
         seats++;
         assert.eq(sx, 2);
         assert.eq(sy, 3);
-        return { dxPx: 4, dyPx: -5 };
+        assert.eq(hoppable, false);
+        return { dxPx: 4, dyPx: -5, footFromCentre: 15 };
       } };
     const resolve = makeResolver({ tree: spec }, scene, { SpriteLayout: layout }, 32);
     const appearance = resolve({ kind: 'tree' });
@@ -167,7 +167,7 @@ test('fruit overlay: the fruit pass renders through its own pool', () => {
     assert.eq(appearance.dxPx, 4);
     assert.eq(appearance.dyPx, -5);
     assert.eq(appearance.foot.w, 10, 'shadow uses the stable bounds and sprite scale');
-    assert.eq(appearance.foot.footFromCentre, 15, 'tall art sits one pixel above the cell bottom');
+    assert.eq(appearance.foot.footFromCentre, 15, 'standing contact leaves five source pixels below the pivot at scale three');
     assert.eq(resolve({ kind: 'tree' }).frameVal, 2, 'another draw gets a fresh animation frame');
   });
 

@@ -50,7 +50,7 @@
     const projected = {
       ...opts,
       roadMask: one(opts.roadMask, Uint8Array),
-      roadClass: one(opts.roadClass, Uint8Array),
+      roadClass: one(opts.roadClass, Uint16Array),
       spawnWhy: one(opts.spawnWhy, Uint16Array),
       occupied,
     };

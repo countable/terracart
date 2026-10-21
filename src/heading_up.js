@@ -381,7 +381,7 @@ const HeadingUp = {
     o.x = fx + c * dx - s * dy;
     o.y = fy + s * dx + c * dy;
     o.rotation += rot;
-    // Seated props pivot at their cell centre; their visible foot remains
+    // Seated props pin their drawn contact at the cell centre; the art bottom remains
     // screen-down from it for occlusion, just like the upright artwork.
     const footDy = o._huAnchor?.footDy || 0;
     o._huFoot = { x: fx - s * footDy, y: fy + c * footDy };

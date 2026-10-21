@@ -318,6 +318,11 @@ access or tile lifecycle mechanics.
   exact boundary comparisons and zero-weight fallback to preserve seeded worlds.
   Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
   surface-only tilled cells must not block placements on other floors.
+  `Crops.reconcileTilled` checks saved surface plots after tile loading and
+  crop raids, using `isTillableCell` for terrain, roads and lamp footings.
+  Unloaded plots and plots with a live surface crop retain their soil. Invalid
+  empty plots lose both their tilled marker and bed quality through the saved
+  set binding; rendering never repairs farming state.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
   Finding one unlocks its workbench recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved
@@ -460,6 +465,16 @@ access or tile lifecycle mechanics.
 - Reward rolls, recurring events, mode-dependent creature/trap counts and
   player progress may differ. Restoration remains per-save. Deduplication uses
   data/anchor ownership, not tile load order; cached Overpass bins are frame-free.
+- Rear-lot bedrock: `stampExclusionRock` paints the interior of residential or
+  wasteland cells refused solely by PRIVATE/BEHIND_HOUSE as `EXCLUSION_ROCK`
+  (32), after all zone and prop placement. A one-cell margin preserves roads,
+  paths, building edges, other access/safety reasons, Nexus coverage and props;
+  tile borders remain open when neighbour data is unavailable. This terrain
+  blocks player movement through `_cellBlocked`, unlike ordinary surface road
+  and water spawn exclusions, and is not mineable or tillable. Other spawn
+  exclusions do not become physical barriers. Bedrock keeps the pre-overlay cave
+  substrate and entrance occupancy snapshot, so adding a surface barrier does
+  not reroll cave floors or mine-mouth locations.
 - THE SPAWN GATE is `entry.spawnWhy` (`WorldGen.stampSpawnWhySteps`, beside
   the road mask in the sliced build): per cell, the REASONS it is refused
   (`WorldGen.SPAWN_WHY` bits), never a single verdict. HARD reasons refuse
@@ -619,6 +634,15 @@ access or tile lifecycle mechanics.
   curse damage. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
+- A mapped parallel roadside path removes the night zone on its side of an
+  MD/LG road, along the path’s length and within the existing kerb buffer.
+  `ROAD_CLASS_PATH_SIDE` preserves creature suppression while the shared
+  `nightZoneBits` check excludes the wash, hidden interactions and drain.
+  The walking-path footprint itself (`ROAD_CLASS_PATH`, at least one cell wide)
+  clears every overlapping night zone, including crossings and grade-separated
+  paths. Off-path carriageway cells and buffers without a same-level parallel
+  path on their side remain dark. Private or inaccessible paths grant neither
+  exemption. Road warnings and spawn exclusions remain unchanged.
 - Parking lots join the MD/LG kerb buffer's suppression at every hour
   (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
   acquiring a road surface, the standing-on-carriageway warning or the night
@@ -734,6 +758,12 @@ access or tile lifecycle mechanics.
   Garrisons (authored sizes), cave packs and roamers (two-pass canonical cave
   seating) and per-device mints do not scale
   (`test/node/multiplayer_shared.test.js`).
+- Spooky Woods is a selectable wooded Grove variant. It keeps Ancient Grove's
+  living tree clusters, brambles, harvestable grass, stone trail and guarded
+  starflower, adding bare harvestable trees only in the existing shrine tree
+  seats. These use the ordinary tree identity, save ledger and shared spawn
+  gate; they are not extra decorative pickups. Dark olive soil covers eligible
+  Grove ground without altering roads, buildings or exclusion ownership.
 - Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
   associated park footprint plus park fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
@@ -742,6 +772,13 @@ access or tile lifecycle mechanics.
   including its empty cells. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
+  A connected parking-lane footprint adjoining a church's Old Stones coverage
+  becomes part of that same Nexus, retaining its identity and theme without a
+  separate Quarry or finite reward budget. Roads, paths and water split parking
+  footprints. Parking-lane quarry footprints replace Grove coverage, including
+  park interiors and fringe; other Nexus owners and excluded cells retain their ownership.
+  If several churchyards touch one lot, the northernmost, then westernmost
+  church anchor owns its unclaimed cells. Absorbed lots cannot claim other lots.
   Gas-station influence uses the tar row’s own minimum and maximum radii.
   Cave generation retains the original ground,
   objects and spawn reasons so surface dressing cannot reroll entrances.
@@ -757,7 +794,9 @@ access or tile lifecycle mechanics.
   props: every standing piece is interactable or a hazard, one art per
   interactable. Repeating backgrounds can thin selected materials with a
   deterministic `materialKeepChance`; fixed shrine slots and other materials
-  retain their positions. Nexus mechanics use existing lanes (tar slow, lair tier,
+  retain their positions. Thorn Nexus (Ancient Grove) keeps half its repeated
+  bramble seats, covering roughly a quarter of the ground while preserving trees,
+  disguised treants and shrine layouts. Nexus mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
 - Sacred Grove keeps its six-cell shrub/tree clusters, with visible pressure
   plates along the empty grid seams and deterministic breaks; shrine cells,
@@ -951,7 +990,7 @@ Higher-priority placements and their access space take precedence in this order:
    Street timber also marks `treeSpeciesFixed`, so its type stays consistent
    through the starter area. Unfixed trees keep the existing near-home pine rule.
    Residential yard trees are the newest ambient fill: while the DeepForest
-   layer is paused (`DEEPFOREST_TREES_ENABLED`), each residential polygon
+   layer is off (enable it with `?deepforest=on`), each residential polygon
    seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
    (`BiomeProfiles.yardTrees`). They seat after every older object and wild
    plant, obey the residential spawn gate like the yard flora, and yield
@@ -992,8 +1031,11 @@ Higher-priority placements and their access space take precedence in this order:
 Furniture is durable player property in `save.furniture`, exempt from history
 trimming. Each one-cell record stores item identity, a cell-derived id, world
 position, `PlacedFloor.stampDepth` depth, flip and optional Home `houseKey`.
-Both floor lamps have 1×1 art; the Grandfather Clock retains 32×64 art while
-still occupying one floor cell.
+Floor lamps, owl statues, clocks and planters occupy one floor cell. The stock
+floor lamp retains its upright proportions; all seven owl, clock and planter
+tiers use generated 24×24 exports. The furniture manifest maps both legacy
+and tier frames to these exports; source masters and crop provenance live in
+`assets/Objects/Furniture/source/generated/`.
 `PlacedFloor.restoreFurniture` overlays it into normal `entry.objects` after
 saved barricades on both surface and cave loads. Surface loading first calls
 `ensureStarterTrailerObject` to stamp synthetic Home ownership, then derives

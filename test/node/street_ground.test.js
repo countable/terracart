@@ -8,7 +8,7 @@
   }
   function fixture() {
     const entry = { depth: 0, streetGround: new Uint8Array([1, 6]) };
-    const world = { tileCache: new Map([['tile', entry]]), tileKey: () => 'tile' };
+    const world = { tileCache: new Map([['tile', entry]]), tileKey: () => 'tile', isCobbleTerrain: WorldGen.isCobbleTerrain, isBuildingTerrain: WorldGen.isBuildingTerrain };
     const methods = new Function('WorldGen', 'absCellToTile', 'absCellOffset',
       `return {${lift('streetGroundType')},${lift('neighborNonRoadType')}}`)(world,
       (_s, x, _y, out) => Object.assign(out, { tx: 0, ty: 0, ix: x, iy: 0, n: 2 }),
@@ -22,6 +22,26 @@
     assert.eq(f.read(1),5);
     f.entry.streetGround[0]=0;
     assert.eq(f.read(),4,'unpainted cell keeps the sampled fallback');
+  });
+  test('street ground: source landcover wins over surrounding majority, but themes win over source', () => {
+    const f = fixture();
+    f.entry.grid = new Uint8Array([WorldGen.T.ROAD, WorldGen.T.PATH]);
+    f.entry.roadUnder = { '0_0': WorldGen.T.SAND };
+    f.entry.pathUnder = { '1_0': WorldGen.T.FOREST };
+    assert.eq(f.read(), 0, 'explicit theme overrides recorded landcover');
+    f.entry.streetGround.fill(0);
+    assert.eq(f.read(), WorldGen.T.SAND, 'road keeps its actual sand, not cached majority');
+    assert.eq(f.read(1), WorldGen.T.FOREST, 'path retains its source forest');
+    f.entry.roadUnder['0_0'] = WorldGen.T.PATH;
+    f.entry.pathUnder['0_0'] = WorldGen.T.GRASS;
+    assert.eq(f.read(), WorldGen.T.GRASS, 'crossing road looks through earlier path stamp to grass');
+    f.entry.roadUnder['0_0'] = WorldGen.T.BUILDING;
+    assert.eq(f.read(), WorldGen.T.GRASS, 'building stamp is not a ground material');
+    f.entry.grid[0] = WorldGen.T.BUILDING;
+    assert.eq(f.read(), 4, 'stale pavement metadata does not affect a building');
+    f.entry.grid[0] = WorldGen.T.ROAD;
+    f.scene.depth = 1;
+    assert.eq(f.read(), 4, 'surface underlay never leaks underground');
   });
   test('street ground: underground lookup ignores inherited surface decoration', () => {
     const f=fixture();

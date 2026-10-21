@@ -9,12 +9,12 @@ const count = (row, x0, y0, w, h, seed) => {
   }
   return result;
 };
-test('zone variants: contextual meadow and 24 random rows select deterministically without a legacy quarry', () => {
-  assert.eq(V.rows.length, 25);
-  assert.eq(V.rows.filter(row => row.selectable !== false).length, 24);
+test('zone variants: contextual meadow and 25 random rows select deterministically without a legacy quarry', () => {
+  assert.eq(V.rows.length, 26);
+  assert.eq(V.rows.filter(row => row.selectable !== false).length, 25);
   assert.eq(V.byId('quarry'), null);
   assert.eq(V.forKind('quarry').length, 4);
-  assert.eq(V.forKind('grove').length, 8);
+  assert.eq(V.forKind('grove').length, 9);
   assert.eq(V.forKind('stones').length, 5);
   assert.eq(V.forKind('tar').length, 5);
   for (const kind of ['grove', 'stones', 'tar', 'beach', 'quarry']) {
@@ -226,11 +226,15 @@ test('zone variants: Ancient Grove keeps rounded clusters and scatters grass onl
   const row = V.byId('ancient_grove'), b = row.background;
   assert.eq(b.repeatCells.join(','), '6,6');
   const fixed = { ...row, background: { ...b, gapScatter: null, materialKeepChance: null } };
-  let empty = 0, grass = 0, changed = 0;
+  let empty = 0, grass = 0, changed = 0, shrubs = 0, keptShrubs = 0;
   for (let y = -90; y < 90; y++) for (let x = -90; x < 90; x++) {
     const material = V.sample(row, x, y, 'one'), slot = V.sample(fixed, x, y, 'one');
     assert.eq(V.sample(row, x, y, 'one'), material, 'stable across revisits');
-    if (slot) assert.eq(material, slot, 'the rounded cluster is never replaced');
+    if (slot === 'shrub') {
+      shrubs++;
+      assert.truthy(material === null || material === 'shrub');
+      if (material) keptShrubs++;
+    } else if (slot) assert.eq(material, slot, 'trees and treants retain their seats');
     else {
       empty++;
       assert.truthy(material === null || material === 'grass');
@@ -238,6 +242,7 @@ test('zone variants: Ancient Grove keeps rounded clusters and scatters grass onl
       if (material !== V.sample(row, x, y, 'two')) changed++;
     }
   }
+  assert.inRange(keptShrubs / shrubs, 0.48, 0.52, 'half the brambles leave open ground');
   assert.lt(Math.abs(grass / empty - b.gapScatter.chance), 0.005);
   assert.gt(changed, 100, 'gap grass varies by anchor');
   assert.eq(V.sample(row, 3, 3, 'one'), 'tree');
@@ -358,7 +363,7 @@ test('bush groves keep their authored background density before placement exclus
    const row=ZoneVariants.byId(id); let shrubs=0;
    assert.eq(row.materialLooks?.shrub, id === 'ancient_grove' ? 'bramble' : 'ordinary');
    for(let y=0;y<120;y++) for(let x=0;x<120;x++) if(ZoneVariants.sample(row,x,y,'coverage')==='shrub')shrubs++;
-   const density = id === 'meadow' ? 0.315 : 0.5;
+   const density = id === 'meadow' ? 0.315 : 0.25;
    assert.eq(row.background.materialDensity.shrub, density);
    if (id === 'meadow') assert.eq(row.background.nominalDensity, density);
    assert.inRange(shrubs/14400, density - 0.02, density + 0.02, id);

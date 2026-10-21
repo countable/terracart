@@ -29,7 +29,7 @@ def main():
             if path.stem in EXCLUDED:
                 continue
             image = Image.open(path).convert('RGBA')
-            fw, fh = (24, 24) if path.stem == 'cave_mechanisms' else (16, 32) if path.stem == 'selected_grave_pillar' else (16, 16)
+            fw, fh = (64, 64) if path.stem == 'selected_dead_tree' else (24, 24) if path.stem == 'cave_mechanisms' else (16, 32) if path.stem == 'selected_grave_pillar' else (16, 16)
             assert image.width % fw == 0 and image.height % fh == 0
             sources.append((path, image, fw, fh))
     # Pack entire logical sheets so existing numeric frame order remains exact.

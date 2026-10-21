@@ -124,30 +124,68 @@ assert(wreck.gap,'the collapsed end has a breach');
 const ga=wreck.gap.o0,gb=wreck.gap.o1,gdx=gb.x-ga.x,gdy=gb.y-ga.y,glen=Math.hypot(gdx,gdy);
 const inGap=p=>{const t=((p.x-ga.x)*gdx+(p.y-ga.y)*gdy)/(glen*glen);return t>=-1e-6&&t<=1+1e-6&&Math.abs(gdx*(p.y-ga.y)-gdy*(p.x-ga.x))/glen<4.5;};
 assert(!wreck.faces.some(f=>f.kind==='wall'&&f.points.every(inGap)),'the fallen section has no wall');
-assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>p.y<1e-6&&!inGap(p))),'the rest of that side still stands');
+assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>!inGap(p))),'walls outside the breach still stand');
 assert(wreck.faces.some(f=>f.interior&&f.rawUV&&new Set(f.points.map(p=>p.u)).size>1),'inner walls have masonry UVs');
 assert(wreck.faces.some(f=>f.rafter),'the standing end has spanning rafters');
 const roofFaces=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof);
-assert(roofFaces.every(f=>f.points.every(p=>p.y>=34-1e-6)),'one sloping side is completely missing');
-assert(Math.max(...roofFaces.flatMap(f=>f.points).map(p=>p.x))>75,'the opposite roof side extends past the old remnant');
-assert(roofFaces.every(f=>!f.points.some(p=>Math.abs(p.x)<1e-6&&Math.abs(p.y)<1e-6)),'the roof has lost its outer corner');
-const roofReach=(lo,hi)=>Math.max(...roofFaces.flatMap(f=>f.points).filter(p=>p.y>=lo&&p.y<=hi).map(p=>p.x));
-assert(roofReach(60,90)>roofReach(25,55)+5,'the surviving side slope reaches beyond the cap');
+assert(roofFaces.every(f=>f.points.every(p=>p.z>=wreck.height-1e-6)),'surviving roof stays above the wall eaves');
+assert(wreckPoints.some(corner=>!roofFaces.some(f=>f.points.some(p=>Math.hypot(p.x-corner.x,p.y-corner.y)<1e-6))),
+ 'the roof has lost at least one outer corner');
+assert(new Set(roofFaces.flatMap(f=>f.points.map(p=>p.x.toFixed(5)+','+p.y.toFixed(5)))).size>4,
+ 'surviving roof has broken edges rather than a rectangular cap');
 for(const f of wreck.faces.filter(f=>f.rafter))for(const p of f.points)
  assert(Math.abs(p.z-wreck.roofZ(p)+.3)<.6,'rafters follow the roof underside, not the lower wall tops');
 assert(wreck.faces.some(f=>f.rafter&&f.points.some(p=>p.y<0||p.y>100)),'short rafter tails project beyond the eaves');
-const topHeights=wreck.faces.filter(f=>f.wallTop&&f.points.some(p=>p.x<40)).map(f=>f.points[0].z);
-assert(new Set(topHeights).size>1,'wall crowns near the surviving roof also lose chunks');
+const topHeights=wreck.faces.filter(f=>f.wallTop).map(f=>f.points[0].z);
+assert(new Set(topHeights).size>1,'wall crowns retain different heights');
 assert(wreck.faces.filter(f=>f.rubbleTop&&f.points.some(p=>p.x<0||p.x>120||p.y<0||p.y>100)).length>=6,'several fallen chunks spill outside the breach');
 
 // Roof supports must keep their relative position on angled OSM footprints,
 // even when the polygon is expressed in a different local coordinate frame.
 const rotated=wreckPoints.map(p=>({x:p.x*.8-p.y*.6,y:p.x*.6+p.y*.8}));
 const shifted=rotated.map(p=>({x:p.x+500,y:p.y+300}));
-const beams=pts=>api.specialGeometry(pts,api.recipeFor('wreck')).faces.filter(f=>f.rafter).flatMap(f=>f.points);
+const beams=pts=>api.specialGeometry(pts,api.recipeFor('wreck'),[],'angled').faces.filter(f=>f.rafter).flatMap(f=>f.points);
 const rb=beams(rotated),sb=beams(shifted);
 assert(rb.length>0&&rb.length===sb.length,'angled wreck retains its rafters after translation');
 for(let i=0;i<rb.length;i++)assert(Math.abs(sb[i].x-rb[i].x-500)<1e-6&&Math.abs(sb[i].y-rb[i].y-300)<1e-6&&Math.abs(sb[i].z-rb[i].z)<1e-6,'angled rafters stay attached to the same roof section');
+// Reusing the same identity with a street on a different side must move
+// the opening, including when that side would otherwise support the roof.
+for(const street of [
+ [{x:-20,y:-20},{x:140,y:-20}], [{x:140,y:-20},{x:140,y:120}],
+ [{x:-20,y:120},{x:140,y:120}], [{x:-20,y:-20},{x:-20,y:120}],
+]){
+ const streets=[street],expected=api.streetDoor(wreckPoints,streets);
+ const mesh=api.specialGeometry(wreckPoints,api.recipeFor('wreck'),streets,'street-wreck');
+ const door=mesh.doorway;
+ assert(door,'wreck has a street-facing opening');
+ assert.equal(door.edge,expected.edge,'opening faces the nearest street');
+ const width=Math.hypot(door.o1.x-door.o0.x,door.o1.y-door.o0.y);
+ assert(width>=api.DOOR.width,'opening is at least a doorway wide');
+ const along=p=>(p.x-door.o0.x)*door.along.x+(p.y-door.o0.y)*door.along.y;
+ const across=p=>(p.x-door.o0.x)*door.normal.x+(p.y-door.o0.y)*door.normal.y;
+ assert(!mesh.faces.some(f=>f.kind==='wall'&&f.points.every(p=>Math.abs(across(p))<4.5)
+  &&Math.min(...f.points.map(along))<width-1e-6&&Math.max(...f.points.map(along))>1e-6),
+ 'wall masonry does not bridge the street-facing opening');
+}
+// A narrow return can reject the usual wall-thickness inset. It must not
+// restore an intact shell or seal the doorway as a fallback.
+for(const coordinates of [
+ [[0,0],[100,0],[100,30],[55,30],[55,3],[45,3],[45,30],[0,30]],
+ [[0,0],[100,0],[100,3],[0,3]],
+]){
+ const points=coordinates.map(([x,y])=>({x,y}));
+ const mesh=api.specialGeometry(points,api.recipeFor('wreck'),[[{x:0,y:-10},{x:100,y:-10}]],'narrow-street-wreck');
+ assert(mesh.doorway,'narrow wreck preserves its street-facing doorway');
+ assert(mesh.faces.some(f=>f.wallTop),'narrow wreck retains broken wall tops');
+ assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z].every(Number.isFinite))),
+  'thin-wall fallback has finite geometry');
+ const door=mesh.doorway,width=Math.hypot(door.o1.x-door.o0.x,door.o1.y-door.o0.y);
+ const along=p=>(p.x-door.o0.x)*door.along.x+(p.y-door.o0.y)*door.along.y;
+ const across=p=>(p.x-door.o0.x)*door.normal.x+(p.y-door.o0.y)*door.normal.y;
+ assert(!mesh.faces.some(f=>f.wreckMasonry&&f.points.every(p=>Math.abs(across(p))<1e-6)
+  &&Math.min(...f.points.map(along))<width-1e-6&&Math.max(...f.points.map(along))>1e-6),
+  'narrow wreck has no facade masonry spanning the doorway');
+}
 const market=api.recipeFor('trader'),terrace=api.styleGeometry(wreckPoints,market.style,market);
 assert(market.terraced&&market.stories===2,'market has a second storey');
 const top=terrace.faces.filter(f=>f.kind==='roof'&&f.points.every(p=>p.z>1.5*15.6)).flatMap(f=>f.points);

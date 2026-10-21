@@ -268,7 +268,10 @@ class SceneStreets {
     const key = STREET_LAMP_BROKEN_TEX;
     if (this.textures.exists(key)) return key;
     if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintBrokenLamp) return key;
-    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => RoadOverlay.paintBrokenLamp(ctx, S));
+    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => {
+      const source = this.textures.exists('selected_streetlamp') && this.textures.get('selected_streetlamp').getSourceImage();
+      if (!RoadOverlay.paintSelectedLamp(ctx, S, source, true)) RoadOverlay.paintBrokenLamp(ctx, S);
+    });
   }
   // ONE canvas-texture bake for a square piece (the lamps, the ghost's
   // glow, the Blight aura): skip a key the texture manager holds, else a
@@ -287,7 +290,10 @@ class SceneStreets {
     const key = streetLampTexKey(glow) + (broken ? '_broken' : '');
     if (this.textures.exists(key)) return key;
     if (typeof RoadOverlay === 'undefined' || !RoadOverlay.paintLamp) return key;
-    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => RoadOverlay.paintLamp(ctx, S, glow || UI_LAMP_GLOW, broken));
+    return this._ensureCanvasTex(key, RoadOverlay.LAMP_TEX_PX, (ctx, S) => {
+      const source = this.textures.exists('selected_streetlamp') && this.textures.get('selected_streetlamp').getSourceImage();
+      if (!RoadOverlay.paintSelectedLamp(ctx, S, source, broken, glow || UI_LAMP_GLOW)) RoadOverlay.paintLamp(ctx, S, glow || UI_LAMP_GLOW, broken);
+    });
   }
 
   // Every lamp of ONE tile, in ABSOLUTE world metres — lit or not. Cached on
@@ -411,7 +417,8 @@ class SceneStreets {
         // geometry — that cache is per tile, this answer is per save.
         // `bright`: the living lamp's gain on the cobble row (Streets
         // .lampBrightness off save.lampVisits) — read by collectLamps.
-        out.push({ ...L, lit: Streets.covers(iv, L.s),
+        const isRestored = Streets.covers(iv, L.s);
+        out.push({ ...L, restored: isRestored, lit: isRestored, selectedArt: !!this.textures?.exists('selected_streetlamp'),
                    bright: Streets.lampBrightness(Streets.lampVisitAt(this.save, L.id), now) });
       }
     });
@@ -852,7 +859,18 @@ class SceneStreets {
   _bankStreetMetres(addedM, at, now, opts) {
     const st = this.save.trail = this.save.trail || { metres: 0, prizes: 0 };
     const bonusM = (opts && opts.bonusM > 0) ? opts.bonusM : 0;
+    const beforeM = Trail.totalMetres(st.metres, st.prizes, this.save.playerClass);
+    const firstPrize = Math.max(0, st.prizes | 0) + 1;
     const out = Trail.bank(st.metres, st.prizes, addedM + bonusM, this.save.playerClass);
+    out.rewards = Trail.rewardsBetween(beforeM,
+      Trail.totalMetres(out.metres, out.prizes, this.save.playerClass), firstPrize, this.save.playerClass);
+    // An older save may already be beyond a moved milestone while still
+    // awaiting its original rung. Deliver that unpaid reward once on upgrade.
+    if (!st.rewardSchedule) {
+      const pending = Trail.rewardFor(firstPrize, this.save.playerClass);
+      if (pending.relicTier && pending.metres <= beforeM) out.rewards.unshift(pending);
+      st.rewardSchedule = 1;
+    }
     st.metres = out.metres;
     st.prizes = out.prizes;
     if (bonusM > 0) st.bonusM = (st.bonusM || 0) + bonusM;
@@ -878,7 +896,7 @@ class SceneStreets {
     // modal agree; the carried remainder against the next, longer goal shows
     // from the next sweep on.
     const due = !(opts && opts.quiet) && (now - (this._streetCounterAt || 0)) >= STREET_COUNTER_MIN_MS;
-    if (due || out.owed > 0) {
+    if (due || out.rewards.length > 0) {
       this._streetCounterAt = now;
       const label = Trail.readout(out, this.save.playerClass).label;
       this._afterRestoreBeat(() => this._toast(label, {
@@ -899,7 +917,7 @@ class SceneStreets {
     // TRAIL_INTRO_MIN_M of road behind it — the first stretches play
     // unexplained, on purpose (see the constant).
     const greeting = !st.greeted && this._armTrailIntro(now, st);
-    if (out.owed <= 0) return;
+    if (!out.rewards.length) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
     // time rather than stacking modals on top of each other. Each entry is the
@@ -907,7 +925,7 @@ class SceneStreets {
     // Each is a `prize` ceremony; one owed a greeting holds until the greeting
     // has opened (its beat passes, _openTrailIntroIfDue queues it ahead).
     const hold = greeting ? () => !!this._trailIntroAt : undefined;
-    for (let n = out.prizes - out.owed + 1; n <= out.prizes; n++) {
+    for (const { n } of out.rewards) {
       this._enqueueCeremony('prize', (done) => this._fireTrailPrize(n, done), { hold });
     }
   }
@@ -1080,7 +1098,8 @@ class SceneStreets {
   // PRIZE #1 LEADS WITH THE ONION SEED: Trail.firstPrize is the first card,
   // so the first thing a road ever offers names what roads pay in — and the
   // rest of the row is rolled, so rung one is a choice like every other.
-  // PRIZE #4 IS THE SERPENT IDOL, alone (Trail.FIXED_PRIZES `sole`).
+  // PRIZE #5 IS THE SERPENT IDOL, alone (Trail.FIXED_PRIZES `sole`).
+  // Distance milestones offer three relics at their fixed tier.
   //
   // THE PRIZE IS A CHOICE: it rolls Trail.PRIZE_CHOICES rewards and the
   // player keeps ONE. Nothing is granted until they pick — the roll they turn
@@ -1107,7 +1126,9 @@ class SceneStreets {
           classFallbacks: { boots: 'magic', gear: 'magic' } });
     };
     const fixed = Trail.fixedPrize(n, this.save);
-    const choices = fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
+    const relicTier = Trail.rewardFor(n, pc).relicTier;
+    const choices = relicTier ? Trail.relicChoices(relicTier, this.save)
+      : fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The ceremony carries the survivors' thanks; the road counter shows progress.
     const header = n === 1 ? 'The survivors are watching' : TRAIL_PRIZE_HEADER;
     if (!choices.length) {

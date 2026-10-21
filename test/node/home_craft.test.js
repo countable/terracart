@@ -162,19 +162,19 @@ test('craft stations: short on wood, the page says so and nothing changes hands'
   assert.truthy(/Need 1 more Wood/.test(s.flashes[0] || ''), `names the shortfall: ${s.flashes[0]}`);
 });
 
-test('craft stations: opens on something the bag can make, and the pager walks the recipes', () => {
+test('craft stations: opens on something the bag can make, and named options select recipes', () => {
   const s = scene([['wood', 1], ['rubble', 1]]);
   s.save.foundWild = Object.fromEntries(HOME_RECIPES.map(r => [r.id, 1]));
   s.save.usedScrolls = ITEMS.filter(item => item.scroll).map(item => item.id);
   s.presentWorkbench(s.workbench);
   const m = last(s);
   assert.truthy(m.canAfford, 'a wood and a stone: the page opens on the spear it can make');
-  assert.eq(m.secondary, undefined, 'paging is the pager, not a second action button');
-  assert.eq(m.pager.count, HOME_RECIPES.filter(r => r.station === 'workbench').length, 'one page per workbench recipe');
-  m.pager.onNext();
+  assert.eq(m.secondary, undefined, 'recipe selection has its own control');
+  assert.eq(m.pager.count, HOME_RECIPES.filter(r => r.station === 'workbench').length, 'one option per workbench recipe');
+  m.pager.options.find(o => o.label === itemName('scarecrow')).onSelect();
   assert.falsy(last(s).canAfford, 'and the scarecrow page shows it cannot be made yet');
-  last(s).pager.onPrev();
-  assert.truthy(last(s).canAfford, '‹ goes back to the spear');
+  last(s).pager.options.find(o => o.label === itemName('throwing_spear')).onSelect();
+  assert.truthy(last(s).canAfford, 'selecting Spear returns to its affordable recipe');
 });
 
 test('craft stations: recipe picker jumps directly among learned recipes without changing the bag', () => {
@@ -249,7 +249,7 @@ test('craft stations: Home routes a held stack to Sell and an empty hand to Craf
     'shopInteract hands Home to its two pages');
 });
 
-test('craft stations: every mode starts with only Spear and hides undiscovered recipes from both pager directions', () => {
+test('craft stations: every mode starts with only Spear and hides undiscovered recipes from the selector', () => {
   const was = Difficulty.mode();
   try {
     for (const mode of [Difficulty.EASY, Difficulty.HARD]) {
@@ -260,9 +260,8 @@ test('craft stations: every mode starts with only Spear and hides undiscovered r
       assert.includes(m.get, 'Spear', 'a locked target falls back to the known recipe');
       assert.eq(m.pager.count, 1);
       assert.falsy(/Trap Disarm Kit|Find a|locked/i.test(m.get + m.blurb));
-      m.pager.onNext();
-      assert.includes(last(s).get, 'Spear');
-      last(s).pager.onPrev();
+      assert.eq(m.pager.options.length, 1);
+      m.pager.options[0].onSelect();
       assert.includes(last(s).get, 'Spear');
       s.save.foundWild = { trap_disarm_kit: 1 };
       s.presentWorkbench(s.workbench, 'trap_disarm_kit');
@@ -273,9 +272,10 @@ test('craft stations: every mode starts with only Spear and hides undiscovered r
       craft(s);
       assert.eq(Inventory.count(s.save, 'trap_disarm_kit'), 3, 'two kits from eight stones');
       assert.eq(Inventory.count(s.save, 'rubble'), 0);
-      m.pager.onNext();
-      assert.includes(last(s).get, 'Spear', 'next skips still-locked recipes');
-      last(s).pager.onPrev();
+      assert.eq(m.pager.options.length, 2, 'still-locked recipes have no options');
+      m.pager.options.find(o => o.label === itemName('throwing_spear')).onSelect();
+      assert.includes(last(s).get, 'Spear');
+      last(s).pager.options.find(o => o.label === itemName('trap_disarm_kit')).onSelect();
       assert.includes(last(s).get, 'Trap Disarm Kit');
     }
   } finally { Difficulty.setMode(was); }
@@ -325,9 +325,10 @@ test('craft stations: scrolls require prior use in both modes and spend blank sc
         assert.falsy(locked.canAfford, `${id}: possession and a wild find do not teach it`);
         assert.falsy(locked.get.includes(itemName(id)), 'an explicit unknown target is not offered');
         const knownCount = locked.pager.count;
-        for (let page = 0; page < knownCount; page++) {
-          assert.falsy(last(s).get.includes(itemName(id)), 'unused scroll is absent from every recipe page');
-          last(s).pager.onNext();
+        for (const option of locked.pager.options) {
+          assert.falsy(option.label === itemName(id), 'unused scroll has no selector option');
+          option.onSelect();
+          assert.falsy(last(s).get.includes(itemName(id)), 'unused scroll is absent from every selectable recipe');
         }
         locked.onAccept(1);
         assert.eq(Inventory.count(s.save, 'blank_scroll'), 3, 'locked craft preserves blanks');
@@ -337,7 +338,7 @@ test('craft stations: scrolls require prior use in both modes and spend blank sc
         s.presentWorkbench(s.workbench, id);
         assert.truthy(last(s).canAfford, 'use alone teaches the recipe, even in hard mode');
         assert.includes(last(s).get, itemName(id), 'learned scroll is offered');
-        assert.eq(last(s).pager.count, knownCount + 1, 'using a scroll adds its recipe to the pager');
+        assert.eq(last(s).pager.count, knownCount + 1, 'using a scroll adds its recipe to the selector');
         assert.eq(last(s).quantity, undefined, 'one blank per tap');
         craft(s);
         craft(s);

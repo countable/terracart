@@ -42,7 +42,7 @@ test('furniture icons: every roster item uses its world frame on the shared DOM 
   assert.eq(ITEM_BY_ID.washtub.baseTier, 1);
   assert.eq(furnitureSpec('washtub').ability, 'wash');
   for (const [id, name, tier] of [
-    ['lamp_floor', 'Brass Floor Lamp', 3],
+    ['lamp_floor', 'Floor Lamp', 3],
     ['clock_grandfather', 'Grandfather Clock', 3],
     ['candelabra_floor', 'Floor Candelabra', 1],
     ['statue_pedestal', 'Pedestal Owl', 2],
@@ -66,15 +66,15 @@ test('furniture art: a tier frame override agrees across world and inventory sur
   const metadata = furnitureSpec('bed_quilted');
   const originalTierFrames = metadata.tierSheetFrame;
   const scene = { textures: { exists: () => true }, save: {} };
-  Render.objectAppearance(scene, new Map());
+  const pass = Render.objectAppearance(scene, new Map());
   const placed = { kind: 'furniture', itemId: 'bed_quilted' };
   try {
     metadata.tierSheetFrame = { 1: 4 };
     assert.eq(inventoryIconSource('bed_quilted').frame, 4);
-    assert.eq(Render.resolveObjectAppearance(scene, placed).frameVal, 4);
+    assert.eq(Render.resolveObjectAppearance(pass, placed).frameVal, 4);
     metadata.tierSheetFrame = { 2: 4 };
     assert.eq(inventoryIconSource('bed_quilted').frame, metadata.frame, 'missing tier falls back');
-    assert.eq(Render.resolveObjectAppearance(scene, placed).frameVal, metadata.frame);
+    assert.eq(Render.resolveObjectAppearance(pass, placed).frameVal, metadata.frame);
   } finally {
     metadata.tierSheetFrame = originalTierFrames;
   }
@@ -95,7 +95,7 @@ test('furniture art: approved atlas tiers map to complete world and inventory fr
   assert.eq(worldColumns, iconColumns, 'world and inventory use matching frame order');
   assert.eq(world.h / 64, icons.h / 16, 'world and inventory contain the same rows');
   const scene = { textures: { exists: () => true }, save: {} };
-  Render.objectAppearance(scene, new Map());
+  const pass = Render.objectAppearance(scene, new Map());
   for (const [id, row] of Object.entries(rows)) {
     const metadata = furnitureSpec(id);
     for (let tier = 1; tier <= 7; tier++) {
@@ -107,7 +107,7 @@ test('furniture art: approved atlas tiers map to complete world and inventory fr
       assert.eq(bounds.fw, 32);
       assert.eq(bounds.fh, 64);
       const tall = id === 'bed_quilted' || id === 'bookshelf_frontier';
-      assert.gte(bounds.minY, tall ? 21 : 32, `${id} T${tier}: art fits its native height`);
+      assert.gte(bounds.minY, id === 'lamp_floor' ? 0 : tall ? 21 : 32, `${id} T${tier}: art fits its native height`);
       if (tall) assert.lt(bounds.minY, 32, `${id} T${tier}: tall art retains its height`);
       assert.gt(bounds.maxX, bounds.minX, `${id} T${tier}: non-empty width`);
       assert.gt(bounds.maxY, bounds.minY, `${id} T${tier}: non-empty height`);
@@ -117,7 +117,7 @@ test('furniture art: approved atlas tiers map to complete world and inventory fr
     const selected = 16 + row * 7 + ITEM_BY_ID[id].baseTier - 1;
     assert.eq(furnitureFrame(id), selected, `${id}: catalog tier selects approved art`);
     assert.eq(inventoryIconSource(id).frame, selected, `${id}: inventory matches world`);
-    assert.eq(Render.resolveObjectAppearance(scene, { kind: 'furniture', itemId: id }).frameVal,
+    assert.eq(Render.resolveObjectAppearance(pass, { kind: 'furniture', itemId: id }).frameVal,
       selected, `${id}: placed furniture matches inventory`);
   }
   for (const id of ['workbench', 'candelabra_floor']) {

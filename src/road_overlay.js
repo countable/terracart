@@ -630,6 +630,59 @@
     if (pattern === 'embers') paintEmbers(cx, size, accent);
   }
 
+  // Exact Phase 1 source families; terrain transitions and vector masks remain
+  // owned by the existing overlay. No new road geometry or gameplay identities.
+  const ROAD_MATERIALS = {
+    suppressed: 'R01',
+    lantern: 'R03', golden: 'R03', golden_path: 'R03', orchard: 'R03', promenade: 'R03',
+    hedgerow: 'R04', overgrown: 'R04', greenway: 'R04', thorny: 'R04',
+    toadstool: 'R05', spider_path: 'R05', confusion_path: 'R05',
+    burned: 'R06', fire_path: 'R06',
+    slime_trail: 'R07', poison_path: 'R07', paralysis_path: 'R07',
+  };
+  function roadMaterialFor(variant, restored) {
+    return ROAD_MATERIALS[variant] || (restored ? 'R01' : 'R02');
+  }
+  const selectedRoadCanvases = {};
+  function selectedRoadTile(variant, restored) {
+    const trial = typeof RATerrainTrial !== 'undefined' && RATerrainTrial.roadTile(variant, restored);
+    if (trial) return trial;
+    if (typeof drawSelectedMaterial !== 'function'
+        || typeof document === 'undefined') return null;
+    const id = variant === 'suppressed' ? 'R01' : roadMaterialFor(variant, restored);
+    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '');
+    if (selectedRoadCanvases[key]) return selectedRoadCanvases[key];
+    const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
+    const cx = tile.getContext('2d');
+    if (!cx) return null;
+    // These source frames are single bevelled slabs, not seamless fields. A
+    // whole-cell slab made its bright perimeter read as stripes across paths.
+    // Keep native-sized stones in running bond and lower the perimeter's
+    // contrast against its own interior. Bake once, never during movement.
+    const slab = document.createElement('canvas'); slab.width = slab.height = 16;
+    const sx = slab.getContext('2d');
+    if (!sx || !drawSelectedMaterial(sx, 16, id)) return null;
+    const stone = document.createElement('canvas'); stone.width = stone.height = 16;
+    const sc = stone.getContext('2d'); sc.imageSmoothingEnabled = false;
+    sc.drawImage(slab, 2, 2, 12, 12, 0, 0, 16, 16);
+    sc.globalAlpha = .28; sc.drawImage(slab, 0, 0); sc.globalAlpha = 1;
+    cx.imageSmoothingEnabled = false;
+    for (let y = 0; y < STONE_TILE_PX; y += 16) {
+      const offset = (y / 16) % 2 ? 8 : 0;
+      for (let x = -offset; x < STONE_TILE_PX; x += 16) cx.drawImage(stone, x, y);
+    }
+    if (variant === 'suppressed') {
+      cx.fillStyle = 'rgba(69,115,108,.24)'; cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
+    }
+    if (!restored && id !== 'R02') {
+      cx.fillStyle = 'rgba(31,29,26,.10)'; cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
+    }
+    // Burned Row is a damaging surface: retain its existing ember warning
+    // over the RA material, once per cached tile, in both restoration states.
+    if (id === 'R06') paintEmbers(cx, STONE_TILE_PX, '#ff6a20');
+    return (selectedRoadCanvases[key] = tile);
+  }
+
   // Shared preview swatch uses the same authored tiles and palette as the game.
   function paintPavementTile(cx, size, isPath, restored, variant) {
     const palette = global.StreetVariants?.pavementFor(variant);
@@ -637,6 +690,12 @@
       || cssOf(restored ? (isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR) : (isPath ? PATH_COLOR : ROAD_COLOR));
     cx.fillStyle = color;
     cx.fillRect(0, 0, size, size);
+    const selected = selectedRoadTile(variant, restored);
+    if (selected) {
+      cx.imageSmoothingEnabled = false; cx.drawImage(selected, 0, 0, size, size);
+      if (palette?.pattern === 'rift') paintRift(cx, size, palette.accent, restored);
+      return;
+    }
     if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color, palette?.pattern);
     else if (palette?.pattern !== 'rift') { const tile = stoneTile(palette?.pattern === 'embers'); if (tile) cx.drawImage(tile, 0, 0, size, size); }
     paintPattern(cx, size, palette?.pattern, palette?.accent, restored);
@@ -917,6 +976,35 @@
   // `glow`, the same value Lighting.collectLamps throws); absent or malformed,
   // LAMP_INK. Themed ironwork follows the same hue as its glass and light.
   const lampGlowHex = (g) => ((typeof g === 'string' && /^#[0-9a-f]{6}$/i.test(g)) ? g : LAMP_INK);
+  // L01: full native FD wooden lamp; second source frame is the authored
+  // snapped shaft. Ground stays at the historic origin and all radiance stays
+  // in Lighting. Half-size source placement gives a 1.2-cell standing post.
+  const SELECTED_LAMP_SCALE = .5;
+  const SELECTED_LAMP_BODY_FRAC = { minX: .453, maxX: .782, minY: .135, maxY: .62 };
+  const SELECTED_LAMP_RISE_CELLS = (31 - 15) / 32 * SELECTED_LAMP_SCALE * LAMP_DRAW_CELLS;
+  const SELECTED_LAMP_OFFSET_CELLS = (20 - 8) / 32 * SELECTED_LAMP_SCALE * LAMP_DRAW_CELLS;
+  function paintSelectedLamp(cx, size, source, broken, glowHex) {
+    if (!source || !cx.drawImage) return false;
+    const span = size * SELECTED_LAMP_SCALE;
+    cx.save(); cx.imageSmoothingEnabled = false;
+    cx.drawImage(source, broken ? 32 : 0, 0, 32, 32,
+      size / 2 - span * 8 / 32, size * LAMP_GROUND_FRAC - span * 31 / 32, span, span);
+    // L01's seven amber glass pixels are separate from its violet metal
+    // cage. Repaint only those pixels; the source wood, frame and alpha stay
+    // intact. The caller caches this entire texture by emitted-light colour.
+    if (!broken && glowHex) {
+      const glow = lampRgb(lampGlowHex(glowHex));
+      const tones = [lampMix(glow, [24, 20, 30], .32), glow,
+        lampMix(glow, [255, 255, 238], .35), lampMix(glow, [255, 255, 238], .65)];
+      const pixels = [[18,16,0],[20,16,1],[22,16,0],[18,17,1],[20,17,2],[22,17,1],[20,18,3]];
+      const unit = span / 32, left = size / 2 - unit * 8, top = size * LAMP_GROUND_FRAC - unit * 31;
+      for (const [x,y,tone] of pixels) {
+        cx.fillStyle = `rgb(${tones[tone].join(',')})`;
+        cx.fillRect(left + x * unit, top + y * unit, unit, unit);
+      }
+    }
+    cx.restore(); return true;
+  }
   function paintLamp(cx, size, glowHex, broken = false) {
     const S = size || LAMP_TEX_PX;
     const c = S / 2;
@@ -1370,8 +1458,27 @@
     // the track furniture so ties and rails stay untextured.
     const stones = patternOf(ctx, pass.pats, 'stone', stoneTile());
     if (stones) { patternFill(ctx, pass, stones, 'source-atop', STONE_TILE_PX); yield; }
+    // Apply exact source pavers inside each existing road mask. Rail furniture
+    // retains its ballast; every pattern remains phased to world coordinates.
+    const materialGroups = new Map();
+    for (const op of pass.ops) {
+      if (op.c === RAIL_COLOR) continue;
+      const id = op.variant || '';
+      if (!materialGroups.has(id)) materialGroups.set(id, []);
+      materialGroups.get(id).push(op);
+    }
+    for (const [variant, ops] of materialGroups) {
+      const tile = selectedRoadTile(variant, false);
+      const layer = tile && scratchLayer(size, pass.scratch, 0);
+      if (!layer) continue;
+      yield* strokeOpsSteps(layer.ctx, ops, 0);
+      const pat = patternOf(layer.ctx, pass.pats, 'ra:' + variant, tile);
+      if (pat) patternFill(layer.ctx, pass, pat, 'source-in', tile.width);
+      ctx.save(); ctx.globalCompositeOperation = 'source-atop';
+      ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); yield;
+    }
     for (const row of [...(global.StreetVariants?.STREET_VARIANTS || []), global.StreetVariants?.SUPPRESSED_STYLE].filter(Boolean)) {
-      if (!row.stone?.pattern) continue;
+      if (!row.stone?.pattern || (row.stone.pattern !== 'rift' && selectedRoadTile(row.id, false))) continue;
       const ops = pass.ops.filter((op) => op.variant === row.id);
       if (!ops.length) continue;
       const layer = scratchLayer(size, pass.scratch, 0);
@@ -1382,7 +1489,7 @@
       yield* strokeOpsSteps(layer.ctx, ops, 0);
       // Burned Row keeps its original dark joints underneath the glowing cracks.
       const embers = row.stone.pattern === 'embers';
-      if (row.stone.pattern === 'rift') {
+      if (row.stone.pattern === 'rift' && !selectedRoadTile(row.id, false)) {
         yield* strokeOpsSteps(ctx, ops, 0);
       }
       if (embers) {
@@ -1399,6 +1506,7 @@
     // plain would wipe their gravel, and a clip can't be built from a stroke).
     // Rail is identified by its colour: RAIL_COLOR has exactly one source.
     const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR && op.variant !== 'suppressed'
+      && !selectedRoadTile(op.variant, false)
       && !global.StreetVariants?.VARIANT_BY_ID[op.variant]?.hotRoad);
     if (roadOps.length) {
       const layer = scratchLayer(size, pass.scratch, 0);
@@ -1456,10 +1564,10 @@
       const layer = scratchLayer(size, pass.scratch, 0);
       if (!layer) break;
       const lx = layer.ctx;
-      const tile = cleanTile(isPath, stoneColor, pattern, accent);
+      const tile = selectedRoadTile(variant, true) || cleanTile(isPath, stoneColor, pattern, accent);
       const pat = tile && lx.createPattern(tile, 'repeat');
       yield* strokeOpsSteps(lx, ops, 0);
-      if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+      if (pat) patternFill(lx, pass, pat, 'source-atop', tile.width);
       if (pattern !== 'rift') {
         // Ordinary repairs retain the pale stone kerb.
         lx.save();
@@ -1467,7 +1575,7 @@
         yield* strokeOpsSteps(lx, ops, 0, `rgba(255,255,255,${KERB_ALPHA})`);
         yield* strokeOpsSteps(lx, ops, -KERB_INSET_PX);
         lx.restore();
-        if (pat) patternFill(lx, pass, pat, 'source-atop', CLEAN_TILE_PX);
+        if (pat) patternFill(lx, pass, pat, 'source-atop', tile.width);
       }
       softenEdge(layer, size, ops, pass.scratch, 1);
       if (pattern === 'rift') yield* paintRiftBorderSteps(lx, size, ops, pass.scratch);
@@ -2134,7 +2242,7 @@
   }
 
   global.RoadOverlay = { homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         roadMaterialFor, selectedRoadTile, offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintSelectedLamp, SELECTED_LAMP_BODY_FRAC, SELECTED_LAMP_RISE_CELLS, SELECTED_LAMP_OFFSET_CELLS, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K, LAMP_BODY_FRAC,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

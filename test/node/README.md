@@ -24,8 +24,11 @@ copies the `const` exports onto the global. Then it:
 - runs every `*.test.js` in this folder;
 - hands tests the source text of modules it cannot load headlessly
   (`APP_JS_SRC`, `INDEX_HTML_SRC`, `RENDER_SRC`, …) plus a few functions
-  lifted out of the scene, for source-level pins. Pins and lifts on scene
-  methods read `SCENE_SRC`: `app.js` plus every mixin it installs with
+  extracted from `app.js`, for source-level pins. Loaded scene mixins use
+  their actual prototype methods and lexical dependencies. `liftSceneMethod`
+  returns those methods directly unless a fixture supplies explicit globals;
+  `app.js` methods retain a source-extraction fallback. Source pins read
+  `SCENE_SRC`: `app.js` plus every mixin it installs with
   `installSceneMixin`, derived from `app.js`, so moving a method into a mixin
   needs no test edits. Use a single file's text only when the file matters;
 - checks that the wooden-tier and per-tier relic art actually ships on disk;

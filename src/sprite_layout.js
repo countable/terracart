@@ -1,26 +1,16 @@
 // ─────────────────────────────────────────────────────────────────────────
 // Sprite layout — the ONE place the "one cell" placement rule lives.
 //
-// THE RULE (audited by tools/sprite_audit.js, documented in CLAUDE.md):
-//   For every world sprite EXCEPT buildings (house / tower / produce stands
-//   / pot-of-gold) and moving/animated actors (creatures):
-//     1. The sprite's visible art must NEVER cross the cell's bottom edge.
-//     Authored furniture bases may sit at a specified fraction down the cell.
-//     2. If the art FITS in the cell (height <= one cell) it is centred
-//        vertically in the cell.
-//     3. If it does NOT fit, its bottom is seated exactly 1px above the
-//        cell bottom.
-//     4. The art is always centred horizontally on the cell.
+// Upright cell props pin their drawn contact at the cell centre with
+// contactSeat(): five source pixels above the opaque bottom for standing art,
+// one-third of opaque height for hoppable art no taller than one cell. Flat decals keep seatInCell's
+// centred/edge-seated layout and rotate with the ground. Building geometry and
+// moving actors retain their authored contact points.
 //
-// "Visible art" = the opaque, trimmed bounding box of the actual pixels in a
-// frame — NOT the frame box, since many sheets carry transparent padding. The
-// trimmed bounds for every frame the renderer seats live in ART_BOUNDS below;
-// regenerate them with `node tools/sprite_audit.js --emit-bounds` whenever the
-// art changes (the audit fails if this table drifts from the real PNGs).
-//
-// seatInCell() turns a frame's trimmed bounds + its origin/scale into the
-// (dxPx, dyPx) nudge — relative to the projected cell CENTRE — that satisfies
-// the rule. render.js applies it; the audit replays it to verify compliance.
+// ART_BOUNDS measures opaque pixels, excluding transparent frame padding.
+// Regenerate with `node tools/sprite_audit.js --emit-bounds` after art changes.
+// The audit checks bounds and legacy flat seating; heading-up regression tests
+// verify contact seating at multiple compass angles and sprite scales.
 //
 // Creatures are exempt from the rule (they're moving actors), but their drawn
 // geometry lives here too — see CREATURE_ART near the bottom — so the sprite,
@@ -132,14 +122,14 @@
     'furniture:41': { fw: 32, fh: 64, minX: 5, minY: 43, maxX: 26, maxY: 64, baseX: 15.5 },
     'furniture:42': { fw: 32, fh: 64, minX: 5, minY: 43, maxX: 26, maxY: 64, baseX: 15.5 },
     'furniture:43': { fw: 32, fh: 64, minX: 5, minY: 43, maxX: 26, maxY: 64, baseX: 15.5 },
-    'furniture:6': { fw: 32, fh: 64, minX: 0, minY: 41, maxX: 31, maxY: 63, baseX: 16 },
-    'furniture:58': { fw: 32, fh: 64, minX: 0, minY: 41, maxX: 31, maxY: 63, baseX: 16 },
-    'furniture:59': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
-    'furniture:60': { fw: 32, fh: 64, minX: 0, minY: 42, maxX: 31, maxY: 63, baseX: 15.5 },
-    'furniture:61': { fw: 32, fh: 64, minX: 0, minY: 43, maxX: 31, maxY: 63, baseX: 16 },
-    'furniture:62': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
-    'furniture:63': { fw: 32, fh: 64, minX: 0, minY: 43, maxX: 31, maxY: 63, baseX: 15.5 },
-    'furniture:64': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:6': { fw: 32, fh: 64, minX: 1, minY: 40, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:58': { fw: 32, fh: 64, minX: 1, minY: 40, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:59': { fw: 32, fh: 64, minX: 1, minY: 40, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:60': { fw: 32, fh: 64, minX: 1, minY: 43, maxX: 31, maxY: 63, baseX: 17 },
+    'furniture:61': { fw: 32, fh: 64, minX: 1, minY: 43, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:62': { fw: 32, fh: 64, minX: 3, minY: 43, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:63': { fw: 32, fh: 64, minX: 1, minY: 43, maxX: 31, maxY: 63, baseX: 16 },
+    'furniture:64': { fw: 32, fh: 64, minX: 3, minY: 41, maxX: 31, maxY: 63, baseX: 16 },
     'furniture:7': { fw: 32, fh: 64, minX: 5, minY: 43, maxX: 26, maxY: 64, baseX: 15.5 },
     'furniture:65': { fw: 32, fh: 64, minX: 5, minY: 43, maxX: 26, maxY: 64, baseX: 15.5 },
     'furniture:66': { fw: 32, fh: 64, minX: 5, minY: 43, maxX: 26, maxY: 64, baseX: 15.5 },
@@ -156,31 +146,31 @@
     'furniture:48': { fw: 32, fh: 64, minX: 5, minY: 24, maxX: 27, maxY: 64, baseX: 16 },
     'furniture:49': { fw: 32, fh: 64, minX: 5, minY: 24, maxX: 32, maxY: 64, baseX: 19.5 },
     'furniture:50': { fw: 32, fh: 64, minX: 5, minY: 25, maxX: 27, maxY: 64, baseX: 16 },
-    'furniture:9': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 13 },
-    'furniture:72': { fw: 32, fh: 64, minX: 8, minY: 32, maxX: 23, maxY: 63, baseX: 15.5 },
-    'furniture:73': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 11.5 },
-    'furniture:74': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 13 },
-    'furniture:75': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 15.5 },
-    'furniture:76': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 12 },
-    'furniture:77': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 15 },
-    'furniture:78': { fw: 32, fh: 64, minX: 9, minY: 32, maxX: 23, maxY: 63, baseX: 16 },
-    'furniture:10': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 25, maxY: 63, baseX: 16 },
-    'furniture:79': { fw: 32, fh: 64, minX: 8, minY: 32, maxX: 24, maxY: 63, baseX: 16 },
-    'furniture:80': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 15.5 },
-    'furniture:81': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 25, maxY: 63, baseX: 16 },
-    'furniture:82': { fw: 32, fh: 64, minX: 6, minY: 32, maxX: 25, maxY: 63, baseX: 15.5 },
-    'furniture:83': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 15.5 },
-    'furniture:84': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 25, maxY: 63, baseX: 16 },
-    'furniture:85': { fw: 32, fh: 64, minX: 7, minY: 32, maxX: 24, maxY: 63, baseX: 15.5 },
-    'furniture:11': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 24, maxY: 63, baseX: 16 },
-    'furniture:86': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
-    'furniture:87': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 24, maxY: 63, baseX: 16 },
-    'furniture:88': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
-    'furniture:89': { fw: 32, fh: 64, minX: 7, minY: 36, maxX: 24, maxY: 63, baseX: 15.5 },
-    'furniture:90': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
-    'furniture:91': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
-    'furniture:92': { fw: 32, fh: 64, minX: 8, minY: 36, maxX: 23, maxY: 63, baseX: 15.5 },
-    'furniture:12': { fw: 32, fh: 64, minX: 0, minY: 44, maxX: 31, maxY: 63, baseX: 15.5 },
+    'furniture:9': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:72': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:73': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:74': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:75': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:76': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:77': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:78': { fw: 32, fh: 64, minX: 7, minY: 4, maxX: 26, maxY: 64, baseX: 16 },
+    'furniture:10': { fw: 32, fh: 64, minX: 8, minY: 33, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:79': { fw: 32, fh: 64, minX: 7, minY: 33, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:80': { fw: 32, fh: 64, minX: 8, minY: 33, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:81': { fw: 32, fh: 64, minX: 8, minY: 33, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:82': { fw: 32, fh: 64, minX: 8, minY: 33, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:83': { fw: 32, fh: 64, minX: 8, minY: 33, maxX: 24, maxY: 63, baseX: 16 },
+    'furniture:84': { fw: 32, fh: 64, minX: 7, minY: 33, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:85': { fw: 32, fh: 64, minX: 7, minY: 33, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:11': { fw: 32, fh: 64, minX: 7, minY: 33, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:86': { fw: 32, fh: 64, minX: 7, minY: 33, maxX: 25, maxY: 63, baseX: 16.5 },
+    'furniture:87': { fw: 32, fh: 64, minX: 7, minY: 33, maxX: 25, maxY: 63, baseX: 16 },
+    'furniture:88': { fw: 32, fh: 64, minX: 5, minY: 33, maxX: 25, maxY: 63, baseX: 15 },
+    'furniture:89': { fw: 32, fh: 64, minX: 5, minY: 33, maxX: 25, maxY: 63, baseX: 15.5 },
+    'furniture:90': { fw: 32, fh: 64, minX: 5, minY: 33, maxX: 25, maxY: 63, baseX: 15.5 },
+    'furniture:91': { fw: 32, fh: 64, minX: 5, minY: 33, maxX: 25, maxY: 63, baseX: 15.5 },
+    'furniture:92': { fw: 32, fh: 64, minX: 5, minY: 33, maxX: 27, maxY: 63, baseX: 16 },
+    'furniture:12': { fw: 32, fh: 64, minX: 1, minY: 40, maxX: 31, maxY: 63, baseX: 16 },
     'furniture:13': { fw: 32, fh: 64, minX: 12, minY: 34, maxX: 20, maxY: 64, baseX: 16 },
     'furniture:14': { fw: 32, fh: 64, minX: 8, minY: 43, maxX: 22, maxY: 63, baseX: 15 },
     'furniture:93': { fw: 32, fh: 64, minX: 8, minY: 43, maxX: 22, maxY: 63, baseX: 15 },
@@ -326,6 +316,7 @@
     'beach_palms:5': { fw: 24, fh: 24, minX: 1, minY: 2, maxX: 22, maxY: 23 },
     'trees:1': { fw: 32, fh: 48, minX: 11, minY: 37, maxX: 21, maxY: 48 },
     'trees:2': { fw: 32, fh: 48, minX: 7, minY: 16, maxX: 25, maxY: 48 },
+    'selected_dead_tree:0': { fw: 64, fh: 64, minX: 6, minY: 10, maxX: 58, maxY: 58 },
     'trees:3': { fw: 32, fh: 48, minX: 0, minY: 6, maxX: 32, maxY: 48 },
     'pine_tree:1': { fw: 32, fh: 48, minX: 12, minY: 36, maxX: 19, maxY: 46 },
     'pine_tree:2': { fw: 32, fh: 48, minX: 4, minY: 14, maxX: 27, maxY: 48 },
@@ -426,7 +417,7 @@
   };
 
   // Shared map scale for the seven authored 16px chest frames.
-  const CHEST_SCALE = 1.6 * 0.8;
+  const CHEST_SCALE = 1.6 * 0.8 * 0.9;
 
   // Cosmetic only: each POI keeps its appearance across reloads and save overlays.
   const GROVE_SHRINE_ART = [
@@ -517,6 +508,19 @@
       ? box.baseX : (box.minX + box.maxX) / 2) - originX * box.fw;
     const dxPx = -artMidX * scaleX;
     return { dxPx, dyPx, fits };
+  }
+
+  // Upright props turn around a drawn ground contact, pinned to the cell
+  // centre. Measure opaque art, not frame padding; insets are source pixels.
+  function contactSeat(box, originX, originY, scaleX, scaleY, hoppable) {
+    const height = box.maxY - box.minY;
+    const inset = hoppable && height * scaleY <= CELL_PX ? height / 3 : Math.min(5, height);
+    const contactX = Number.isFinite(box.baseX) ? box.baseX : (box.minX + box.maxX) / 2;
+    return {
+      dxPx: -(contactX - originX * box.fw) * scaleX,
+      dyPx: -(box.maxY - inset - originY * box.fh) * scaleY,
+      footFromCentre: inset * scaleY,
+    };
   }
 
   // ── Fruit-tree crowns ────────────────────────────────────────────────────
@@ -1334,7 +1338,7 @@
   }
 
   const api = {
-    CELL_PX, ART_BOUNDS, seatInCell, PLAYER_ART, playerArt, CHEST_SCALE,
+    CELL_PX, ART_BOUNDS, seatInCell, contactSeat, PLAYER_ART, playerArt, CHEST_SCALE,
     GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, SHRINE_SPIRIT_ART, groveShrineArt,
     PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones, mineralRockArt,
     CROWN_BOUNDS, fruitCrownOffset,

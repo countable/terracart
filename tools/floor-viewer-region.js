@@ -67,11 +67,13 @@
     poi.push(point({ class: 'fuel', subclass: 'fuel' }, 21, 40));
     // Keep the aisle buffer inside the tile so this previews complete quarry
     // layouts rather than the fixed scatter used for clipped lot fragments.
-    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 8], [12, 8], [12, 31], [4, 31], [4, 8]]));
-    for (const y of [12, 15, 18, 21, 24, 27])
+    // Leave open ground between its southern buffer and the church halo: an
+    // adjoining lot would correctly become Old Stones instead of a quarry.
+    transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, 8], [12, 8], [12, 25], [4, 25], [4, 8]]));
+    for (const y of [12, 15, 18, 21, 24])
       transportation.push(line({ class: 'service', service: 'parking_aisle' }, [[4, y], [12, y]]));
-    building.push(poly({ building: 'church' }, [cellRect(3, 38, 3, 2.5)]));
-    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 39));
+    building.push(poly({ building: 'church' }, [cellRect(3, 42, 3, 2.5)]));
+    poi.push(point({ class: 'place_of_worship', subclass: 'christian', name: 'Sandbox Church' }, 4, 43));
 
     // North band: commercial block, then the separate top-right grove.
     building.push(poly({ building: 'retail' }, [cellRect(17, 1, 4, 3)]));
@@ -129,7 +131,7 @@
     { text: 'Residential', x: 25, y: 23 },
     { text: 'Parking lot · Quarry nexus', nexusKind: 'quarry', x: 7.5, y: 20 },
     { text: 'Tar Yard nexus', nexusKind: 'tar', x: 21.5, y: 40.5 },
-    { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 40 },
+    { text: 'Church · Old Stones nexus', nexusKind: 'stones', x: 8, y: 43 },
     { text: 'Park · Grove nexus', nexusKind: 'grove', x: 51, y: 4 },
     { text: 'Forest', x: 55, y: 20 },
     { text: 'Fort', x: 31.5, y: 42 },

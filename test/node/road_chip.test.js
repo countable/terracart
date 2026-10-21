@@ -1,18 +1,18 @@
 // The road chip in the top HUD row: the road-repair ladder at a glance. Its
-// numbers are Trail.progress over save.trail — the same pair the on-street
+// numbers are Trail.rewardProgress over save.trail — the same pair the on-street
 // counter prints — so the chip and the counter can't disagree.
 
-test('road chip: reads the ladder through Trail.progress, Runner rungs included', () => {
+test('road chip: reads the ladder through Trail.rewardProgress, Runner rungs included', () => {
   const app = SCENE_SRC;
-  assert.truthy(/roadChipProgress\(\) \{[\s\S]{0,200}?Trail\.progress\(st\.metres, st\.prizes, this\.save\?\.playerClass\)/.test(app),
-    'the chip reads Trail.progress with the player\'s class');
+  assert.truthy(/roadChipProgress\(\) \{[\s\S]{0,200}?Trail\.rewardProgress\(st\.metres, st\.prizes, this\.save\?\.playerClass\)/.test(app),
+    'the chip reads Trail.rewardProgress with the player\'s class');
   assert.truthy(/this\._buildMemoriesChip\(\);\s*this\._buildRoadChip\(\);/.test(app), 'built beside the memories chip');
   assert.truthy(/this\.updateMemoriesDOM\(\);\s*this\.updateRoadChipDOM\(\);/.test(app), 'repainted with the HUD');
   assert.truthy(/body\.modal-open #roadchip \{ opacity: 0\.25; pointer-events: none; \}/.test(app), 'dims under a dialog like its neighbours');
   // The numbers it would show, straight off the ladder.
-  const p = Trail.progress(120, 1);
+  const p = Trail.rewardProgress(120, 1);
   assert.eq(p.target, 400, 'the second prize wants 400 m');
-  assert.eq(Trail.progress(120, 1, 'runner').target, 200, 'a runner\'s rung is half');
+  assert.eq(Trail.rewardProgress(120, 1, 'runner').target, 200, 'a runner\'s rung is half');
 });
 
 test('road chip: the tap hint adds every metre restored (Trail.totalMetres)', () => {
@@ -68,6 +68,12 @@ test('books chip: counts the pages read off the bookmark, built after the road c
   assert.truthy(/const n = bookPagesRead\(this\.save\)\.length;/.test(app), 'the count is the shelf\'s');
   // A row reopens its page on the parchment page with no title line, and the
   // list comes back when that page is tapped away; rereading moves no bookmark.
-  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), bookPage: true, okLabel: 'Back to books',\n\s+onDismiss: \(\) => this\._showBooksRead\(shelfPage\) \}\);/.test(app), 'a row rereads the page and returns to the same shelf page');
-  assert.falsy(/_showBooksRead\(shelfPage = 0\) \{[\s\S]*?tipsRead[\s\S]*?\n  \}\n/.test(app.slice(app.indexOf('  _showBooksRead(shelfPage = 0) {'), app.indexOf('  _showBooksRead(shelfPage = 0) {') + 2500)), 'the shelf never writes the bookmark');
+  assert.truthy(/this\.showMessageModal\(\{ title: '', body: bookPageHTML\(page\), bookPage: true, okLabel: 'Back to books',\n\s+onDismiss: \(\) => this\._showBooksRead\(\) \}\);/.test(app), 'a row rereads the page and returns to the growing shelf list');
+  const shelfStart = app.indexOf('  _showBooksRead() {');
+  assert.truthy(shelfStart >= 0, 'the shelf method was found');
+  const shelf = app.slice(shelfStart, app.indexOf('\n  }\n', shelfStart));
+  assert.falsy(/tipsRead/.test(shelf), 'the shelf never writes the bookmark');
+  assert.truthy(/for \(const page of pages\)/.test(shelf), 'all read pages appear in the shelf list');
+  assert.truthy(/scroll: true/.test(shelf), 'the growing shelf can scroll');
+
 });

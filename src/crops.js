@@ -341,6 +341,35 @@
   // The can keeps the growth JUMP (waterJumpChance above); quality answers to
   // the tool that prepares the ground.
   //
+  // Reconcile saved surface soil when terrain lands or a crop is removed.
+  // Unloaded cells remain untouched; a live surface crop keeps its soil even
+  // when newer map data places a road, lamp or building underneath it.
+  // A tile filter keeps streamed tile loads from querying unrelated plots.
+  function reconcileTilled(scene, tile = null) {
+    if ((scene.depth ?? 0) !== 0 || !scene.tilledSet?.size) return 0;
+    let removed = 0;
+    for (const key of scene.tilledSet) {
+      const [cellIX, cellIY] = key.split('_').map(Number);
+      if (tile) {
+        const owner = absCellToTile(scene, cellIX, cellIY);
+        if (owner.tx !== tile.tx || owner.ty !== tile.ty) continue;
+      }
+      const centre = absCellCenterMeters(scene, cellIX, cellIY);
+      const cell = scene.cellAt(centre.x, centre.y);
+      if (!cell.loaded || isTillableCell(cell)) continue;
+      let hasPlant = false;
+      forEachInBox(scene.save, 0, centre.x - 0.1, centre.y - 0.1,
+        centre.x + 0.1, centre.y + 0.1, plant => {
+          if (Math.abs(plant.x - centre.x) < 0.1 && Math.abs(plant.y - centre.y) < 0.1) hasPlant = true;
+        });
+      if (hasPlant) continue;
+      clearBedQuality(scene.save, key);
+      scene.tilledSet.delete(key);
+      removed++;
+    }
+    return removed;
+  }
+
   // A bed is a cell, so the entry lives and dies with the cell's tilled
   // marker: written by the till, spent by the plant, dropped wherever the
   // marker is dropped. Everything goes through these three so the two cannot
@@ -369,6 +398,6 @@
 
   root.Crops = { FRUIT_STAGE_MS, FRUIT_RESPAWN_MS, FRUIT_BLOSSOM_MS, markFruitPicked, fruitTreeState, STAGE_HOLD_MS, HOLD_MIN_PER_TIER_CUBED, roundHoldMin, tierHoldMs, stageHoldMs, cropTier, CAN_HOLD_CUT, canHoldMul, plantHoldMs, CAN_TOP_TIER, maxStage, isMature, raiderEats,
                  advanceGrowth, waterWithin, waterOne, waterJumpChance, completeStageWithin,
-                 bedQuality, setBedQuality, clearBedQuality, takeBedQuality,
+                 bedQuality, setBedQuality, clearBedQuality, takeBedQuality, reconcileTilled,
                  forEachInBox, invalidateSpatialIndex, EFFECTS, EFFECT_SCAN_MS, effectFor, tickPlantEffect, tickEffects };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -19,7 +19,8 @@
     try {
       Math.random=()=>0.5;
       for(let i=0;i<100;i++)step.call(s,.05,null,2);
-      assert.lt(Math.hypot(s.playerM.x,s.playerM.y),4,'curved loops stay local');
+      assert.inRange(Math.abs(s._confusedLoop.turn),0.6,1.1,'confusion turns slowly');
+      assert.lt(Math.hypot(s.playerM.x,s.playerM.y),5,'curved loops stay local');
       assert.eq(s._targetM.x,1000);assert.eq(s.gpsM.x,2000,'the real fix is never overwritten');
       const busy=body();busy._busyWheel=()=>true;
       step.call(busy,1,null,2);assert.eq(busy.playerM.x,0,'active work keeps its body hold');

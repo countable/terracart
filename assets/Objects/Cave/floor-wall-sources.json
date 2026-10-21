@@ -3,119 +3,360 @@
   "sourceCellPx": 16,
   "tiles": [
     {
+      "atlasX": 0,
+      "size": 16,
       "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
       "x": 6,
       "y": 3
     },
     {
-      "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
-      "x": 0,
-      "y": 6,
-      "tint": [
-        224,
-        240,
-        255
-      ]
+      "atlasX": 16,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "x": 16.0,
+      "y": 21.0,
+      "catalogId": "F05"
     },
     {
-      "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
-      "x": 2,
-      "y": 18
+      "atlasX": 32,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ancient.png",
+      "x": 11.0,
+      "y": 0.0,
+      "catalogId": "R02"
     },
     {
-      "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
-      "x": 3,
-      "y": 6,
-      "tint": [
-        224,
-        240,
-        255
-      ]
-    },
-    {
+      "atlasX": 48,
+      "size": 16,
       "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
       "x": 6,
       "y": 8
     },
     {
+      "atlasX": 64,
+      "size": 16,
+      "source": "16x16/Sewers Tileset/Tilesets/sewers_tiles.png",
+      "x": 2,
+      "y": 18
+    },
+    {
+      "atlasX": 80,
+      "size": 16,
       "source": "16x16/Farm Game Abandoned Mines Tileset/Tilesets/FG_Abandoned_Mines.png",
       "x": 11,
       "y": 10
     },
     {
-      "source": "16x16/Farm Game Abandoned Mines Tileset/Tilesets/FG_Abandoned_Mines.png",
-      "x": 13,
-      "y": 13
+      "atlasX": 96,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "x": 9.0,
+      "y": 1.0,
+      "catalogId": "G11"
     },
     {
+      "atlasX": 112,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "x": 9.0,
+      "y": 4.5,
+      "catalogId": "G12"
+    },
+    {
+      "atlasX": 128,
+      "size": 16,
       "source": "16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
       "x": 17,
       "y": 5
     },
     {
-      "source": "16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
-      "x": 22,
-      "y": 0
+      "atlasX": 144,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ancient.png",
+      "x": 10.0,
+      "y": 16.0,
+      "catalogId": "R03"
     },
     {
-      "source": "16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Dungeon.png",
-      "x": 23,
-      "y": 0
-    },
-    {
+      "atlasX": 160,
+      "size": 16,
       "source": "16x16/Dungeon - Fantasy Dreamland/Tilesets/FD_Dungeon.png",
       "x": 4,
       "y": 4
     },
     {
-      "source": "16x16/Dungeon - Fantasy Dreamland/Tilesets/FD_Dungeon.png",
-      "x": 4,
-      "y": 22
+      "atlasX": 176,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "x": 16.0,
+      "y": 26.0,
+      "catalogId": "F07"
     },
     {
+      "atlasX": 192,
+      "size": 32,
+      "assembly": [
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 24.0,
+          "y": 28.5,
+          "catalogId": "F10H",
+          "at": [
+            0,
+            0
+          ],
+          "size": [
+            16,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 22.0,
+          "y": 28.0,
+          "catalogId": "F10V",
+          "at": [
+            16,
+            0
+          ],
+          "size": [
+            8,
+            16
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 23.0,
+          "y": 28.0,
+          "catalogId": "F10S",
+          "at": [
+            24,
+            0
+          ],
+          "size": [
+            8,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 23.0,
+          "y": 28.0,
+          "catalogId": "F10S",
+          "at": [
+            0,
+            8
+          ],
+          "size": [
+            8,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 23.0,
+          "y": 28.0,
+          "catalogId": "F10S",
+          "at": [
+            8,
+            8
+          ],
+          "size": [
+            8,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 23.0,
+          "y": 28.0,
+          "catalogId": "F10S",
+          "at": [
+            24,
+            8
+          ],
+          "size": [
+            8,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 22.0,
+          "y": 28.0,
+          "catalogId": "F10V",
+          "at": [
+            0,
+            16
+          ],
+          "size": [
+            8,
+            16
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 24.0,
+          "y": 28.5,
+          "catalogId": "F10H",
+          "at": [
+            8,
+            16
+          ],
+          "size": [
+            16,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 23.0,
+          "y": 28.0,
+          "catalogId": "F10S",
+          "at": [
+            24,
+            16
+          ],
+          "size": [
+            8,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 23.0,
+          "y": 28.0,
+          "catalogId": "F10S",
+          "at": [
+            8,
+            24
+          ],
+          "size": [
+            8,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        },
+        {
+          "sheet": "ra_All tiles v2",
+          "x": 24.0,
+          "y": 28.5,
+          "catalogId": "F10H",
+          "at": [
+            16,
+            24
+          ],
+          "size": [
+            16,
+            8
+          ],
+          "source": "Dungeon Gathering Full Ver. 1.1/All tiles v2.png"
+        }
+      ],
+      "catalogId": "F10"
+    },
+    {
+      "atlasX": 224,
+      "size": 16,
       "source": "16x16/Enchanted Forest - Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Forest_Blue.png",
       "x": 22,
       "y": 2
     },
     {
-      "source": "16x16/Enchanted Forest - Fantasy Dreamland Reborn/Tilesets/FDR_Enchanted_Grounds_Blue.png",
-      "x": 13,
-      "y": 1
+      "atlasX": 240,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+      "x": 16.0,
+      "y": 16.0,
+      "tint": [
+        112,
+        96,
+        127
+      ],
+      "catalogId": "F06"
     },
     {
+      "atlasX": 256,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ruins.png",
+      "x": 12.0,
+      "y": 16.0,
+      "catalogId": "R05"
+    },
+    {
+      "atlasX": 272,
+      "size": 16,
       "source": "16x16/Farm Game Magma Dungeon Tileset/Tilesets/FG_Magma_Dungeon.png",
       "x": 26,
       "y": 7
     },
     {
+      "atlasX": 288,
+      "size": 16,
       "source": "16x16/Farm Game Magma Dungeon Tileset/Tilesets/FG_Magma_Dungeon.png",
       "x": 26,
       "y": 10
     },
     {
-      "source": "16x16/Farm Game Magma Dungeon Tileset/Tilesets/FG_Magma_Dungeon.png",
-      "x": 13,
-      "y": 15
+      "atlasX": 304,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ancient.png",
+      "x": 10.0,
+      "y": 0.0,
+      "tint": [
+        80,
+        66,
+        62
+      ],
+      "catalogId": "R06"
     },
     {
-      "source": "16x16/Hell Tileset 16x16 Pixelart [Rogue Adventure]/Hell Tileset/RA_Hell.png",
-      "x": 6,
-      "y": 5
-    },
-    {
+      "atlasX": 320,
+      "size": 16,
       "source": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png",
       "x": 25,
       "y": 6
     },
     {
-      "source": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png",
-      "x": 2,
-      "y": 0
+      "atlasX": 336,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "x": 1.0,
+      "y": 0.0,
+      "catalogId": "F01"
     },
     {
-      "source": "16x16/Dreams - Fantasy Dreamland/Tilesets/FD_Dreams.png",
-      "x": 6,
-      "y": 0
+      "atlasX": 352,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "x": 9.0,
+      "y": 0.0,
+      "catalogId": "F03"
+    },
+    {
+      "atlasX": 368,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "x": 3.0,
+      "y": 0.0,
+      "catalogId": "F02"
+    },
+    {
+      "atlasX": 384,
+      "size": 16,
+      "source": "16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Temple.png",
+      "x": 11.0,
+      "y": 0.0,
+      "catalogId": "F04"
     }
   ]
 }

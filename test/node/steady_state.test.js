@@ -200,8 +200,8 @@ test('steady state: drawCells swaps a ground sprite\'s texture only when its key
   assert.truthy(/if \(setTextureIfDifferent\(ns, texKey\)\) ns\.setDisplaySize\(CELL_PX, CELL_PX\);/.test(body),
     'the ground sprite: swapped and resized together, only on a change');
   assert.falsy(/\bns\.setTexture\(/.test(body), 'no unconditional swap of the ground sprite');
-  assert.truthy(/if \(cs\.texture\.key !== 'pier' \|\| cs\.frame\.name !== PIER_FRAME\) \{/.test(body),
-    'the pier plank likewise');
+  assert.truthy(/if \(cs\.texture\.key !== 'selected_pier_deck'\) \{/.test(body),
+    'the standalone selected pier texture likewise swaps only on a key change');
 });
 
 // ── The lightmap's static layer is baked while it holds ───────────────────

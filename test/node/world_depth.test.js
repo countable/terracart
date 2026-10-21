@@ -48,7 +48,7 @@
   });
   test('world depth: ground decal definitions stay behind actors and upright props at every baseline', () => {
     const { resolveAppearance, RENDER_SPEC } = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map());
-    for (const o of [{ kind: 'tar' },
+    for (const o of [{ kind: 'tar' }, { kind: 'groundstack', itemId: 'wood' },
       { kind: 'staircase', dir: 'down' }]) {
       const appearance = resolveAppearance(o);
       assert.eq(appearance.layer, WorldLayers.GROUND_DECAL, o.kind);
@@ -62,7 +62,7 @@
         assert.lt(actor.sprite.depth, upright.sprite.depth, 'upright ground-Y order remains');
       }
     }
-    for (const o of [{ kind: 'stakes' }, { kind: 'groundstack', itemId: 'wood' }, { kind: 'staircase', dir: 'up' }]) {
+    for (const o of [{ kind: 'stakes' }, { kind: 'staircase', dir: 'up' }]) {
       assert.eq(resolveAppearance(o).layer, WorldLayers.STANDING_PROP, `${o.kind} stands upright`);
     }
     assert.eq(WorldLayers.forObject({kind:'_streetlamp',lit:false}, RENDER_SPEC._streetlamp), WorldLayers.STANDING_PROP, 'broken lamp stands upright');

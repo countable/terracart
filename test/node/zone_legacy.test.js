@@ -89,10 +89,18 @@
   test('zone legacy: mushroom grove replaces residential yard trees in the map-review fixture', () => {
     const tx = 2753, ty = 5566, N = WorldGen.cellsPerEdgeForTile(ty);
     const edge = WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty));
-    const r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
-    const slot = r.zone.anchors.findIndex(a => a.variant === 'mushroom_grove') + 1;
-    assert.gt(slot, 0, 'real fixture includes the reported grove');
+    // This regression exercises replacement, not the changing random variant
+    // roster. Explicitly choose Mushroom Grove over the real residential fixture.
+    const originalPick = ZoneVariants.pick;
+    let r;
+    try {
+      ZoneVariants.pick = a => originalPick(a.kind === 'grove' ? { ...a, variant: 'mushroom_grove' } : a);
+      r = WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES[`${tx}_${ty}`]), N, tx, ty, edge);
+    } finally { ZoneVariants.pick = originalPick; }
     const cell = o => Math.floor((o.y - ty * edge) / (edge / N)) * N + Math.floor((o.x - tx * edge) / (edge / N));
+    const slot = r.zone.anchors.findIndex((a, i) => a.variant === 'mushroom_grove'
+      && r.zone.caveSource.objects.some(o => o._yardTree && r.zone.coverage[cell(o)] === i + 1)) + 1;
+    assert.gt(slot, 0, 'real fixture includes Grove coverage over residential yard trees');
     const inside = o => r.zone.coverage[cell(o)] === slot;
     assert.truthy(r.zone.caveSource.objects.some(o => inside(o) && o._yardTree), 'original land generated yard trees');
     assert.falsy([...r.objects, ...r.zoneDress.objects].some(o => inside(o) && ['tree', 'fruittree'].includes(o.kind)),

@@ -86,8 +86,8 @@ test('coin icon: money amounts in HTML go through moneyHTML', () => {
     'a money reward card wears the 48px coin');
   const cardSrc = Rewards.card.toString();
   assert.truthy(/iconHTML: scene\.coinIconHTML \? scene\.coinIconHTML\(Math\.round\(iconPx \* 0\.75\)\) : '',/.test(cardSrc),
-    'the cash card wears the coin (48px of a 64px card)');
-  assert.eq(Rewards.card({ coinIconHTML: (px) => `coin${px}` }, { kind: 'gold', amount: 3 }).iconHTML, 'coin48');
+    'the cash card wears the coin (72px of a 96px card)');
+  assert.eq(Rewards.card({ coinIconHTML: (px) => `coin${px}` }, { kind: 'gold', amount: 3 }).iconHTML, 'coin72');
   assert.truthy(/name: `\+\$\{reward\.amount \|\| 0\}`,/.test(cardSrc),
     'and its name is a bare amount, no $');
 });

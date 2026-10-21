@@ -70,7 +70,7 @@ const GROUND = [
 // with the ground it stands on, so a house outside the bubble does not
 // read as a sticker on dark ground.
 // Castle walls, turrets and flags are children of this same sorted layer.
-const SPRITES = ['worldContainer'];
+const SPRITES = ['raisedPropContainer', 'worldContainer'];
 
 // The LIGHTMAP (src/lighting.js): every light added into one texture,
 // multiplied over the world. Above every ground layer, the halo and the
@@ -96,6 +96,19 @@ const BELOW_FOG = [...GROUND, ...SPRITES,
   'reachGfx', 'gasGfx', LIGHT, 'atmosRimGfx', FX, SPARK, 'labelContainer', 'tierGfx'];
 
 const CHECKS = [
+  {
+    name: 'layers: step-over meshes cover ground shadows and remain below the player',
+    run: () => {
+      const layers = displayLayers(), props = idx(layers, 'raisedPropContainer');
+      if (props <= idx(layers, 'shadowContainer') || props >= idx(layers, 'worldContainer')) {
+        throw new Error('raisedPropContainer must draw above ground shadows and below world sprites');
+      }
+      const src = fs.readFileSync(path.resolve(ROOT, 'src/scene_create.js'), 'utf8');
+      if (!src.includes('this.raisedPropContainer.setMask(mask)')) {
+        throw new Error('raisedPropContainer must use the world viewport mask');
+      }
+    },
+  },
   {
     name: 'layers: cell gas veils sprites and shares their lighting and viewport mask',
     run: () => {

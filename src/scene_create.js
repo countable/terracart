@@ -266,7 +266,9 @@ class SceneCreate {
     // time against the fix and could silently skip the capture.)
 
     // Bake terrain patterns and the two castle restoration-state atlases once.
+    AuthoredBuildings.prepare(this);
     makeBiomeTextures(this, CELL_PX);
+    if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(this);
     makeBerryBushTexture(this);
     makeTowerTexture(this);
     // Both tower atlases share their colours with the walls and courtyard.
@@ -513,6 +515,9 @@ class SceneCreate {
     // in it) and under the lightmap (it is not a light — it doesn't shine).
     // The image itself is added in create() once its texture is baked.
     this.auraContainer = this.add.container(0, 0);
+    // Step-over wall and hedge meshes stand above ground shadows, just like
+    // their sprite versions. Keep them below the player standing on their tops.
+    this.raisedPropContainer = this.add.container(0, 0);
     // (The POI halo layer — a ring "ping" under every live POI — lived here
     // until Sep 2026. A live POI is a LIGHT now, breathing in the lightmap:
     // Lighting.KINDS.poi.)
@@ -950,6 +955,7 @@ class SceneCreate {
     this.atmosGroundGfx.setMask(mask);
     this.reachGfx.setMask(mask);
     this.auraContainer.setMask(mask);
+    this.raisedPropContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
     this.gasGfx.setMask(mask);

@@ -1290,6 +1290,27 @@ function makePerspectiveScene() {
   return fixture;
 }
 
+test('building overlay: isolated castle and fort walls remain visible north-up', () => {
+  const previousStyle = Render.buildingArtStyle;
+  Render.buildingArtStyle = 'procedural';
+  try {
+    for (const tier of [T.BUILDING_LARGE, T.BUILDING_MED]) {
+      clearTiles();
+      putShapes(0, 0, [rectShape(0, 0, 10, 10, tier, 'isolated')]);
+      const { scene } = makePerspectiveScene();
+      scene._headingUp = false;
+      BuildingOverlay.draw(scene);
+      const group = scene._wallPerspective.polygon;
+      assert.gt(group.blocks.length, 0, 'the isolated building has wall geometry');
+      assert.truthy(group.gfx.visible, 'walls need no neighboring temple or restored house');
+      assert.gt(group.gfx.triangles.length, 0, 'north-up renders the generated walls');
+      scene.depth = 1;
+      WallPerspective.update(scene);
+      assert.falsy(group.gfx.visible, 'surface walls remain hidden underground');
+    }
+  } finally { Render.buildingArtStyle = previousStyle; clearTiles(); }
+});
+
 test('building overlay: heading-up castle uses retained prisms without an atlas and follows subcell pan', () => {
   clearTiles();
   putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING_LARGE, 'citadel')]);
@@ -1358,8 +1379,8 @@ test('building overlay: heading-up house foundations follow the camera without r
         if ((c * (b.x - a.x) - sn * (b.y - a.y)) * block.winding < -1e-6) visibleEdges++;
       }
       // Two fill triangles per visible face; the ink pass (BuildingLowPoly.LOOK.inkPx)
-      // first lays the same faces down eight times, offset — never a cap.
-      const inkCopies = (typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.LOOK.inkPx) ? 8 : 0;
+      // first lays the same faces down once, offset upward — never a cap.
+      const inkCopies = (typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.LOOK.inkPx) ? 1 : 0;
       assert.eq(group.gfx.triangles.length, visibleEdges * 2 * (1 + inkCopies), 'two triangles per visible face plus their ink offsets, no filled cap');
     }
     const clears = group.gfx.clears;
@@ -1374,6 +1395,22 @@ test('building overlay: heading-up house foundations follow the camera without r
   }
   clearTiles();
   } finally { Render.buildingArtStyle = previousStyle; }
+});
+
+test('building overlay: Canvas wrecks retain broken walls in north-up mode', () => {
+  clearTiles();const previousStyle=Render.buildingArtStyle;Render.buildingArtStyle='procedural';
+  try {
+    const entry=putShapes(0,0,[rectShape(0,0,12,10,T.BUILDING,'canvas-wreck')]);
+    entry.objects=[{kind:'house',id:'canvas-wreck',tier:9,x:6,y:5,area:120}];
+    const {scene}=makePerspectiveScene();scene._headingUp=false;scene.save={};
+    scene.game={renderer:{type:1}};
+    BuildingOverlay.draw(scene);WallPerspective.update(scene);
+    const group=scene._wallPerspective.polygon;
+    assert.truthy(scene._proceduralBuildings.has('canvas-wreck'),'procedural wreck owns its footprint');
+    assert.gt(group.blocks.filter(b=>b.top>0).length,0,'broken walls stand above the floor');
+    assert.truthy(group.gfx.visible,'north-up Canvas walls are visible');
+    assert.gt(group.gfx.triangles.length,0,'wreck walls submit faces');
+  } finally {Render.buildingArtStyle=previousStyle;clearTiles();}
 });
 
 test('building overlay: a shared sandbox block never becomes one oversized house', () => {
@@ -1778,7 +1815,7 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
 
 // The WebGL low-poly path hands houses to BuildingLowPoly.add; a fort must
 // never reach it (the shell was the regression), while its pickets still draw.
-test('building overlay: the low-poly path builds houses but never a fort body', () => {
+test('building overlay: the low-poly path gives forts a gearhouse while retaining their palisade', () => {
   clearTiles();
   const previousStyle = Render.buildingArtStyle;
   const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
@@ -1787,7 +1824,7 @@ test('building overlay: the low-poly path builds houses but never a fort body', 
   Render.buildingArtStyle = 'procedural';
   BuildingLowPoly.active = () => true;
   BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
-  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role }); return { faces: [1], height: 10 }; };
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role, authored: recipe.authored }); return { faces: [1], height: 10 }; };
   try {
     const entry = putShapes(0, 0, [
       rectShape(0, 0, 10, 10, T.BUILDING_MED, 'fort'),
@@ -1797,8 +1834,9 @@ test('building overlay: the low-poly path builds houses but never a fort body', 
     const { scene } = makePerspectiveScene();
     scene.save = { restoredHouses: { house: 'plain' } };
     BuildingOverlay.draw(scene);
-    assert.eq(added.map(a => a.id).join(','), 'house', 'only the house becomes a mesh');
-    assert.falsy(scene._proceduralBuildings.has('fort'), 'the fort keeps its sprite');
+    assert.eq(added.map(a => a.id).sort().join(','), 'fort,house', 'both inhabited buildings become meshes');
+    assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_gearhouse');
+    assert.truthy(scene._proceduralBuildings.has('fort'), 'the gearhouse replaces the fort sprite');
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'the palisade still rims the fort');
   } finally {

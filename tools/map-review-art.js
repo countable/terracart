@@ -127,7 +127,8 @@ const MapReviewArt = (() => {
       const scene={save:this._world.scene.save,depth:this._world.scene.depth,textures:this._assets.textures,cellM:WorldGen.CELL_M};
       const roles=new WeakMap();
       for(const e of this._world.tiles)for(const o of e.objects||[])if(o.kind==='house')roles.set(o,Houses.displayRole(scene.save,o));
-      const {resolveAppearance:resolve,fruitList}=Render.objectAppearance(scene,roles);
+      const appearancePass=Render.objectAppearance(scene,roles);
+      const {resolveAppearance:resolve,fruitList}=appearancePass;
       this._sprites=[];
       const tideDay=utcDayKey();
       const spent=spentSets(scene,scene.save);
@@ -143,7 +144,7 @@ const MapReviewArt = (() => {
           appearance.spec.after({
             setDisplaySize(w,h) { appearance.displayWidth=w;appearance.displayHeight=h;return this; },
             setAlpha(alpha) { appearance.alpha=alpha;return this; },
-          },o,scene);
+          },o,scene,appearancePass);
         }
         const kind=category==='creature'?(e?(o.kind==='npc'?'resident: npc':Combat.isEnemy(o)?'enemy: '+o.kind:'animal: '+o.kind):'enemy: garrison'):o.kind==='wildplant'?'plant:'+o.crop:o.kind==='xmark'?'X mark':o.kind;
         // Reuse the game's crown hook, measured at the tree's local origin.
@@ -154,7 +155,7 @@ const MapReviewArt = (() => {
           fruitList.length=0;
           p.spec.after({texture:{key:p.texKey},frame:{name:p.frameVal},
             originX:p.origin[0],originY:p.origin[1],scaleX:p.scl,scaleY:p.scl*p.scaleYMul,
-            x:p.dxPx,y:p.dyPx,depth:0},o,scene);
+            x:p.dxPx,y:p.dyPx,depth:0},o,scene,appearancePass);
           fruit.push(...fruitList);
         }
         this._sprites.push({e,o,category,kind,appearance,fruit});

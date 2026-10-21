@@ -29,10 +29,11 @@ mechanics.
   denser gas applies longer doses up to the shared 60-second condition cap,
   preserving any longer active confusion.
   A single outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
-  limit it to the source and four neighbours, dissipating in about five seconds
+  limit it to the source and four neighbours, dissipating in about ten seconds
   (at most about ten seconds of confusion from that puff). Overlapping or repeated
   puffs can extend exposure; sources can puff again after sixteen seconds. Gas
-  spreads to cardinal neighbours once per foreground second; rock, masonry and
+  spreads to cardinal neighbours and removes thin cells once every two foreground
+  seconds. Contact still refreshes conditions each second; rock, masonry and
   intact stronghold walls block it. Every gas cell disappears completely below
   the shared 0.025 density threshold, including sealed rooms and unloaded boundaries. Walls and unloaded
   cells still block diffusion; denser trapped gas remains until it can thin.
@@ -44,7 +45,8 @@ mechanics.
   cell and adjacent suitable ground. Loaded nearby seats retain their clocks;
   eviction restarts them inactive, and other depths never run the surface seats.
   These authored hazards keep the shared safety exclusions and cannot erupt
-  beneath a newly placed structure. They never enter the ambient crater roll
+  beneath a newly placed structure. Gas from successive eruptions can overlap
+  in narrow passages as it diffuses and thins. They never enter the ambient crater roll
   or the save, and path-authored seats survive Nexus ambient suppression.
 
 - Mushroom Grove residents are provoked-only (`EnemyHabitats.PROVOKED_ONLY`):
@@ -113,7 +115,8 @@ mechanics.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
   `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
-  the night-time MD/LG kerb buffer. `RoadSafety.drainPips` drops a partial pip
+  the night-time MD/LG kerb buffer, excluding walking-path footprints and its roadside-path side through
+  `WorldGen.nightZoneBits`. `RoadSafety.drainPips` drops a partial pip
   on exit; app.js spends each whole pip through `_losePlayerEnergy` and the
   shared drain roll-up.
 - A TIMED CONSUMABLE is a `CONSUMABLE_SPEC` row with `buff` (its `Buffs.KINDS`
@@ -123,7 +126,7 @@ mechanics.
   the row's `tome` column (`_readTome`); an "every foe in sight" spell is a
   `CAST_ROWS` row (`_castOnFoes`); the slot guard is `_selectedConsumable`,
   the spend `_spendScroll` / `_consumeSelected`. Never a hand-written handler.
-- Evertorch is a T6 timed supply: two hours of blue torchlight, with expiry
+- Lantern (saved item id `evertorch`) is a T6 timed supply: two hours of blue light, with expiry
   saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
   Torches keep their short, scene-local timer; either flame ignites melee foes.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
@@ -217,7 +220,8 @@ mechanics.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
-- Confusion chooses a random compass heading and turn direction. Its share
+- Confusion chooses a random compass heading and turn direction, with a slow
+  rotation held for a complete circle before choosing another turn. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control
   equally; at twenty seconds or more the compass fully takes over. As the
@@ -405,7 +409,7 @@ Tests: `combat`, `armor`, `energy_int`, `downed_pursuit`, `rest_work`, `home_war
   through `foeBlowLands`. Only coils can be struck (the head and tail are
   `untargetable`, read by `Combat.isConcealed`); a slain coil shortens it, and
   with only head and tail left it dies. Body and gait numbers are the
-  `KINDS.serpent` row. The Serpent Idol is the road ladder's fourth prize, alone
+  `KINDS.serpent` row. The Serpent Idol is the road ladder's fifth prize, alone
   (`Trail.FIXED_PRIZES`), `progressionOnly` (no loot pool or sale), and cannot
   be raised on the Major-and-Medium road group's kerb or junctions.
 - SHARED: once one player starts a boss fight, every nearby player is in it.

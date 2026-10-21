@@ -115,7 +115,9 @@
       const b = SpriteLayout.ART_BOUNDS[`furniture:${furnitureFrame(itemId)}`];
       const scene = { save: { furniture: [{ id: 'pot', itemId }] } };
       const seat = Render.plantPlacement({ planter: 'pot' }, null, 1, 1, scene);
-      assert.inRange(Math.abs(seat.dyPx - (-13 + 32 / 6 - (b.maxY - b.minY) / 2)), 0, 1e-8,
+      const artHeight = (b.maxY - b.minY) * FURNITURE_SCALE;
+      assert.lte(artHeight, CELL_PX, 'planters use the medium hoppable contact');
+      assert.inRange(Math.abs(seat.dyPx - (-13 - artHeight / 6)), 0, 1e-8,
         'crop moves with its planter soil');
     }
     assert.eq(Render.plantPlacement({ crop: 'potato' }, null, 1, 1).scl, 1.6,

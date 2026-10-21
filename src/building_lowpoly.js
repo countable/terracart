@@ -259,8 +259,8 @@
     }
     if(chimneyAt&&chimneyLength>24){
       // A cobbled stack with a wider cap and a dark mouth. Sides are walls
-      // with raw UVs into the sheet's stone plinth rows (tv 105..128); the
-      // stack is its own ink group so the outline runs where it meets tiles.
+      // with raw UVs into the sheet's stone plinth rows (tv 105..128).
+      // The stack shares the building's upper outer silhouette.
       const count=chimneys?.count||1,scale=chimneys?.scale||1,C=LOOK.chimney;
       const stack=(c,column)=>{
         const corners=rr=>[[-1,-1],[1,-1],[1,1],[-1,1]].map(([sx,sy])=>({x:c.x+(ux*sx-uy*sy)*rr,y:c.y+(uy*sx+ux*sy)*rr}));
@@ -481,10 +481,15 @@
     for(let y=128;y<176;y++){const d=(y-128)*15.5/47;px(Math.round(15.5-d),y,1,1,0x9b9769);px(Math.round(15.5+d),y,1,1,0x344e4b);}
     px(510,126,1,1,0xffffff);tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
-  function specialGeometry(points,recipe,streets=[]){
+  function specialGeometry(points,recipe,streets=[],identity=''){
     if(recipe.shape==='wizard')return wizardGeometry(points,recipe,streets);
     const xs=points.map(p=>p.x),ys=points.map(p=>p.y),cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
-    const key='special:'+recipe.shape+':'+cx+':'+cy+(recipe.shape==='wreck'?':'+points.map(p=>p.x+','+p.y).join(';'):'');
+    // Projection subtracts a new camera origin at each retained-overlay
+    // rebuild. Ignore its floating-point noise, just as geometry() does,
+    // otherwise an unchanged wreck retriangulates on every walking crossing.
+    const pointKey=p=>p.x.toFixed(4)+','+p.y.toFixed(4);
+    const key='special:'+recipe.shape+':'+points.map(pointKey).join(';')
+      +(recipe.shape==='wreck'?':'+identity+':'+streets.map(line=>line.map(pointKey).join(';')).join('|'):'');
     if(meshCache.has(key))return meshCache.get(key);
     if(recipe.shape==='wreck'){
       // Broken wall stubs surround an opaque bed of collapsed masonry. A torn
@@ -493,9 +498,14 @@
       // on a long exposed edge, with loose masonry spilling through it.
       // A few walls and roof remnants retain the original one-storey height.
       // Most of the shell is missing or collapsed into the footprint.
+      // The world object key survives local-origin and camera changes.
+      const seed=Array.from(String(identity||points.map(p=>p.x+','+p.y).join(';'))).reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261)>>>0;
+      const random=(n,salt)=>hash(seed+n,salt);
       const H=FLOOR_HEIGHT+EAVE_RISE,SECTION=16,base=geometry(points,'ridge',H,0),faces=[],W=LOOK.wreck;
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
-      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,2)))||null;
+      // Narrow annexes may reject a thick inset. Keep damage and doorway cuts
+      // even when only a thin (or zero-thickness) wall strip can fit.
+      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,2)||BuildingStyles.inset(ring,.5)))||ring;
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,...extra});return faces.at(-1);};
       const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
       const wallUV=(p,offset,z)=>({...p,z,u:8+offset,v:8+(H-z)*1.5});
@@ -503,17 +513,23 @@
       const roofAxis=Math.abs(base.ridge.x)>=Math.abs(base.ridge.y)?'x':'y';
       const sideAxis=roofAxis==='x'?'y':'x',lo=roofAxis==='x'?xlo:ylo,hi=roofAxis==='x'?xhi:yhi;
       const sideLo=sideAxis==='x'?xlo:ylo,sideHi=sideAxis==='x'?xhi:yhi;
-      const roofEnd=lo+(hi-lo)*.65;
-      // Remove one sloping side entirely. The opposite slope extends beyond
-      // the short surviving cap, leaving just two attached roof planes.
-      const roofPoint=([u,v])=>({[roofAxis]:lo+(hi-lo)*u,[sideAxis]:sideLo+(sideHi-sideLo)*v});
-      const roofOutline=[[0,.34],[.30,.34],[.33,.62],[.65,.68],[.60,.92],[.45,1],[0,1]].map(roofPoint);
-      const roofCuts=[[[0,.34],[.30,.34],[.33,.62],[.45,1],[0,1]],
-        [[.33,.62],[.65,.68],[.60,.92],[.45,1]]].map(poly=>poly.map(roofPoint));
-      const roofPatches=[{x0:xlo,x1:roofAxis==='x'?roofEnd:xhi,y0:ylo,y1:roofAxis==='y'?roofEnd:yhi}];
-      const supports=p=>Math.min(p.o0[roofAxis],p.o1[roofAxis])<=lo+(hi-lo)*.34
-        ||Math.min(p.o0[roofAxis],p.o1[roofAxis])<=roofEnd&&Math.max(p.o0[sideAxis],p.o1[sideAxis])>=sideHi-4;
-      let gap=null,wallSeats=[];
+      const area=Math.abs(ring.reduce((sum,p,i)=>{const q=ring[(i+1)%ring.length];return sum+p.x*q.y-q.x*p.y;},0))/2;
+      const hasRoof=Math.min(xhi-xlo,yhi-ylo)>=48&&area>=4096;
+      const flipEnd=random(0,101)<.5,flipSide=random(0,103)<.5;
+      const cap=.22+random(0,107)*.16,reach=cap+.20+random(0,109)*.15;
+      const cutSide=.25+random(0,113)*.18,join=.57+random(0,127)*.10;
+      const alongU=p=>(flipEnd?hi-p[roofAxis]:p[roofAxis]-lo)/(hi-lo);
+      const sideV=p=>(flipSide?sideHi-p[sideAxis]:p[sideAxis]-sideLo)/(sideHi-sideLo);
+      const roofPoint=([u,v])=>({[roofAxis]:lo+(hi-lo)*(flipEnd?1-u:u),[sideAxis]:sideLo+(sideHi-sideLo)*(flipSide?1-v:v)});
+      const neck=cap+.03,heel=cap+.15;
+      const roofOutline=hasRoof?[[0,cutSide],[cap,cutSide],[neck,join],[reach,join+.06],[reach-.05,.92],[heel,1],[0,1]].map(roofPoint):[];
+      const roofCuts=hasRoof?[[[0,cutSide],[cap,cutSide],[neck,join],[heel,1],[0,1]],
+        [[neck,join],[reach,join+.06],[reach-.05,.92],[heel,1]]].map(poly=>poly.map(roofPoint)):[];
+      const roofPatches=hasRoof?[{x0:Math.min(...roofOutline.map(p=>p.x)),x1:Math.max(...roofOutline.map(p=>p.x)),y0:Math.min(...roofOutline.map(p=>p.y)),y1:Math.max(...roofOutline.map(p=>p.y))}]:[];
+      const supports=p=>hasRoof&&(Math.min(alongU(p.o0),alongU(p.o1))<=cap+.04
+        ||Math.min(alongU(p.o0),alongU(p.o1))<=reach&&Math.max(sideV(p.o0),sideV(p.o1))>=1-4/(sideHi-sideLo));
+      const streetEntrance=streetDoor(ring,streets);
+      let gap=null,doorway=null,wallSeats=[];
       if(inner&&inner.length===ring.length){
         // Wall sections around the ring, each with its own broken height.
         let parts=[];
@@ -527,21 +543,27 @@
             const u=((o.x-ai.x)*dx+(o.y-ai.y)*dy)/(dx*dx+dy*dy);
             return {x:ai.x+dx*u,y:ai.y+dy*u};
           };
-          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count,r=hash(i*7+k,11);
+          for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count,r=random(i*7+k,11);
             // Broad missing sections alternate with low stubs and tall remnants.
             parts.push({edge:i,len,dir,t0,t1,h:r<.38?0:H*(.25+.65*(r-.38)/.62),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
         const exposed=parts.filter(p=>!supports(p)),longest=(exposed.length?exposed:parts).reduce((a,b)=>b.len>a.len?b:a).edge,candidates=parts.filter(p=>p.edge===longest&&!supports(p)),span=candidates.length?candidates:parts.filter(p=>p.edge===longest);
-        const start=Math.min(span.length-1,Math.floor(hash(longest,23)*Math.max(1,span.length-1))),gone=span[start],last=span[Math.min(start+1,span.length-1)];
+        const start=Math.min(span.length-1,Math.floor(random(longest,23)*Math.max(1,span.length-1))),gone=span[start],last=span[Math.min(start+1,span.length-1)];
         gone.h=0;last.h=0;gap={o0:gone.o0,o1:last.o1,i0:gone.i0,i1:last.i1};
         // Keep bearing piers under the remnant, with chunks lost from the
         // neighbouring crowns instead of an unbroken pristine eave line.
-        for(const [k,p] of parts.entries())if(supports(p))p.h=H-(k%3===1?3+hash(k,61)*4:0);
+        for(const [k,p] of parts.entries())if(supports(p))p.h=H-(random(k,59)<.4?3+random(k,61)*4:0);
         if(supports(gone))gap=null;
+        // A missing doorway bay remains open even under a surviving roof.
+        if(streetEntrance){
+          const bays=parts.filter(p=>p.edge===streetEntrance.edge&&p.t0<.5+DOOR.width/(2*p.len)&&p.t1>.5-DOOR.width/(2*p.len));
+          if(bays.length){for(const p of bays)p.h=0;
+            doorway={...streetEntrance,o0:bays[0].o0,o1:bays.at(-1).o1,i0:bays[0].i0,i1:bays.at(-1).i1};}
+        }
         const standing=parts.filter(p=>p.h>0);
         if(standing.length)standing.reduce((a,b)=>a.h>b.h?a:b).h=H;
         // Small chips are concentrated in two exposed stretches, not every wall.
         const eligible=parts.filter(p=>p.h>.5&&!supports(p));
-        const detailed=new Set([eligible[0],eligible[Math.floor(eligible.length*.6)]]);
+        const detailed=new Set([eligible[Math.floor(random(0,67)*eligible.length)],eligible[Math.floor(random(1,67)*eligible.length)]]);
         parts=parts.flatMap((p,k)=>{
           if(!detailed.has(p))return [p];
           const outer=t=>({x:p.o0.x+(p.o1.x-p.o0.x)*t,y:p.o0.y+(p.o1.y-p.o0.y)*t});
@@ -550,7 +572,7 @@
             return {x:p.i0.x+dx*u,y:p.i0.y+dy*u};};
           return [0,1,2].map(j=>({...p,t0:p.t0+(p.t1-p.t0)*j/3,t1:p.t0+(p.t1-p.t0)*(j+1)/3,
             o0:outer(j/3),o1:outer((j+1)/3),i0:innerAt(j/3),i1:innerAt((j+1)/3),
-            h:Math.max(1,p.h+(hash(k*3+j,73)-.5)*1.6),localBreak:true}));
+            h:Math.max(1,p.h+(random(k*3+j,73)-.5)*1.6),localBreak:true}));
         });
         wallSeats=parts.filter(p=>p.h>3&&!supports(p));
         for(const p of parts)p.gone=p.h<.5;
@@ -596,8 +618,8 @@
         for(let i=1;i<poly.length-1;i++)if(Math.abs(cross(poly[0],poly[i],poly[i+1]))>1e-8)faces.push({...f,layer:3,standingRoof:true,points:[poly[0],poly[i],poly[i+1]]});
       }
       // Ridge timber stops just past the short roof cap, never spanning the ruin.
-      for(const f of base.faces.filter(f=>f.beam)){
-        const poly=cut(f.points,roofAxis,lo+(hi-lo)*.34,-1);
+      for(const f of base.faces.filter(f=>hasRoof&&f.beam)){
+        const poly=cut(f.points,roofAxis,roofPoint([cap+.04,0])[roofAxis],flipEnd?1:-1);
         for(let i=1;i<poly.length-1;i++)faces.push({...f,color:W.beam,points:[poly[0],poly[i],poly[i+1]]});
       }
       // Rafters follow the roof underside, with short exposed tails at the eaves.
@@ -605,7 +627,7 @@
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       const span=v=>points.map(p=>p.x*v.x+p.y*v.y),[clo,chi]=[Math.min(...span(across)),Math.max(...span(across))];
       // Three sloping rafters span the standing end and bear on its full-height walls.
-      for(let k=1;k<=3;k++){const position=lo+(hi-lo)*(.075+k*.09),o=(position-across[roofAxis]*(clo+chi)/2)/along[roofAxis];let run=[];
+      for(let k=1;k<=(hasRoof?3:0);k++){const position=roofPoint([cap*k/3,0])[roofAxis],o=(position-across[roofAxis]*(clo+chi)/2)/along[roofAxis];let run=[];
         const flush=()=>{for(let i=1;i<run.length;i++){const a=run[i-1],b=run[i],w=1.1;
           let q=[{x:a.x-along.x*w,y:a.y-along.y*w,z:a.z},{x:b.x-along.x*w,y:b.y-along.y*w,z:b.z},{x:b.x+along.x*w,y:b.y+along.y*w,z:b.z},{x:a.x+along.x*w,y:a.y+along.y*w,z:a.z}].map(p=>({...p,u:0,v:0}));
           if(cross(q[0],q[1],q[2])<0)q=q.reverse();
@@ -613,7 +635,7 @@
           for(const t of [[q[0],q[1],q[2]],[q[0],q[2],q[3]]])faces.push({points:t,kind:'trim',color:0xffffff,light:1,layer:1.9,rafter:true,steel:true,rawUV:true});}run=[];};
         for(let c=clo-3;c<=chi+3;c+=1){const p={x:along.x*o+across.x*c,y:along.y*o+across.y*c};
           const seat={x:along.x*o+across.x*Math.max(clo+.5,Math.min(chi-.5,c)),y:along.y*o+across.y*Math.max(clo+.5,Math.min(chi-.5,c))};
-          if(inside(seat)&&p[roofAxis]<=roofEnd+4){p.z=base.roofZ(p)-.3;
+          if(inside(seat)&&alongU(p)<=reach+4/(hi-lo)){p.z=base.roofZ(p)-.3;
             if(run.length>1){const q=run.at(-1),r=run.at(-2);if(Math.abs((q.z-r.z)-(p.z-q.z)*Math.hypot(q.x-r.x,q.y-r.y)/Math.hypot(p.x-q.x,p.y-q.y))<1e-6)run.pop();}
             run.push(p);}else flush();}
         flush();
@@ -659,8 +681,7 @@
       for(let k=3;k<6;k++)fallen(k,'trim',W.beam,14+hash(k,3)*10,1.4,0);
       // Chunks of fallen wall: low turned blocks with wall-top lids and end-face
       // sides. Several spill out through the gap; the rest lie inside along the
-      // walls. Seeded by the footprint's centre so neighbouring wrecks differ.
-      const seed=Math.round(cx)*31+Math.round(cy);
+      // walls. The same building seed keeps rubble consistent with its damage.
       const chunk=(k,x,y)=>{const n=hash(seed+k,29),m=hash(seed+k,31),a=n*Math.PI,dx=Math.cos(a),dy=Math.sin(a);
         const L=(3+3.5*m)/2,w=(2.2+2*n)/2,h=1.6+2.2*hash(seed+k,37);
         const base=[{x:x-dx*L+dy*w,y:y-dy*L-dx*w},{x:x+dx*L+dy*w,y:y+dy*L-dx*w},{x:x+dx*L-dy*w,y:y+dy*L+dx*w},{x:x-dx*L-dy*w,y:y-dy*L+dx*w}];
@@ -681,7 +702,7 @@
       for(let k=0;k<20&&chunks<9;k++){const n=hash(seed+k,41),m=hash(seed+k,43);
         const x=xlo+6+(xhi-xlo-12)*n,y=ylo+6+(yhi-ylo-12)*m;
         if(inside({x,y})&&inside({x:x+4,y})&&inside({x:x-4,y})&&inside({x,y:y+4})&&inside({x,y:y-4}))chunk(chunks++,x,y);}
-      const mesh={...base,faces,roofPatches,roofOutline,gap,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
+      const mesh={...base,faces,roofPatches,roofOutline,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
       if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
     }
     const faces=[],wizard=recipe.shape==='wizard',radius=wizard?23:26,h=wizard?39:17;
@@ -1364,7 +1385,9 @@
     }
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
-  function active(scene){return !!scene._headingUp&&scene.game?.renderer?.type===2;}
+  // The retained geometry projects north-up at angle zero as well as rotated
+  // maps. Renderer capability, not compass mode, selects this path.
+  function active(scene){return scene.game?.renderer?.type===2;}
   function renderObject(scene){
       const obj=scene.add.graphics();
       (scene.worldContainer||scene.buildingWallContainer).add(obj);
@@ -1373,26 +1396,28 @@
       obj.renderWebGL=function(renderer,src,camera,parentMatrix){
         camera.addToRenderList(src);
         const matrix=Phaser.GameObjects.GetCalcMatrix(src,camera,parentMatrix).calc;
+        if(src._lowpolyFaces[0]?.sourceArt&&typeof AuthoredBuildingRenderer!=='undefined'){
+          AuthoredBuildingRenderer.draw(scene,renderer,src,camera,matrix);return;
+        }
         const pipeline=renderer.pipelines.set(renderer.pipelines.get('MultiPipeline'),src);
         renderer.pipelines.preBatch(src);
         const tu=510/512,tv=126/512,px=camera.zoom*LOOK.inkPx; // solid texel; one art pixel
-        // The ink outline: the group's visible triangles re-emitted in the solid
-        // texel at eight screen offsets, before the group's faces. One building
-        // is a contiguous sorted run; its ink groups (body, flat deck, chimney)
-        // draw in layer order so each gets a line where it meets the surface below.
-        const ink=(group)=>{
+        // One upward-offset silhouette behind the whole building leaves ink
+        // only on its upper outer edge. All faces cover it together, including
+        // decks, chimneys and wreck floors, so their joins never receive ink.
+        const ink=(faces)=>{
           const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(src._wreck?LOOK.wreck.ink:LOOK.ink,camera.alpha*src.alpha);
-          for(const [ox,oy] of [[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]])for(const f of group){
+          for(const f of faces){
             if(pipeline.shouldFlush(3))pipeline.flush();
             const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
-            for(let i=0;i<3;i++){const p=f.projected[i];pipeline.batchVert(matrix.getX(p.x,p.y)+ox*px,matrix.getY(p.x,p.y)+oy*px,tu,tv,unit,0,tint);}
+            for(let i=0;i<3;i++){const p=f.projected[i];pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y)-px,tu,tv,unit,0,tint);}
           }
         };
         const paint=(group)=>{for(const f of group){
           if(pipeline.shouldFlush(3))pipeline.flush();
           const unit=pipeline.setTexture2D(f.texture.source[0].glTexture);
           // Restrained three-step lighting keeps the wreck in the same cel palette.
-          let shade=src._wreck?(f.light<.65?196:f.light<.88?225:255):f.light<.65?140:f.light<.88?199:255;
+          let shade=f.sourceArt?255:src._wreck?(f.light<.65?196:f.light<.88?225:255):f.light<.65?140:f.light<.88?199:255;
           if(f.eaveShadow)shade=Math.round(shade*LOOK.eaveShade);
           const textured=LOOK.textured||f.solid||f.kind==='trim';
           const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
@@ -1407,17 +1432,11 @@
             pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,wallTint);
           }
         }};
-        let group=[],support=null,groupId=0;
-        // The outline repeats filled triangles eight times. During a fade those
-        // layers would accumulate to opaque black and hide the player again.
-        const flush=()=>{if(!group.length)return;if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(group);paint(group);group=[];};
-        for(const f of src._lowpolyFaces){
-          if(!f.visible)continue;
-          const g=src._wreck?0:f.inkGroup||0;
-          if(f.support!==support||g!==groupId){flush();support=f.support;groupId=g;}
-          group.push(f);
-        }
-        flush();
+        const faces=src._lowpolyFaces.filter(f=>f.visible);
+        // A filled ink pass would show through translucent faces and obscure
+        // the player; faded buildings and indoor wall parts omit it.
+        if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(faces);
+        paint(faces);
         renderer.pipelines.postBatch(src);
       };
       return obj;
@@ -1549,22 +1568,76 @@
     panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
     return faces;
   }
+  // Authored shells stay whole. Uniform placement preserves the reviewed roof,
+  // facade and closed seams; irregular OSM lots receive an enclosed native body.
+  function authoredGeometry(model,ring,inset=1,door=null){
+    if(door){const {x:nx,y:ny}=door.normal;
+      model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,x:ny*p.x+nx*p.y*.5,y:(-nx*p.x+ny*p.y*.5)*2}))}))};
+    }
+    const C=Math.cos(Math.PI/6),points=model.faces.flatMap(f=>f.points);
+    const loX=Math.min(...points.map(p=>p.x)),hiX=Math.max(...points.map(p=>p.x));
+    const loY=Math.min(...points.map(p=>p.y))*.5,hiY=Math.max(...points.map(p=>p.y))*.5;
+    const W=hiX-loX,D=hiY-loY;
+    const x0=Math.min(...ring.map(p=>p.x)),x1=Math.max(...ring.map(p=>p.x));
+    const y0=Math.min(...ring.map(p=>p.y)),y1=Math.max(...ring.map(p=>p.y));
+    const inside=p=>{let hit=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+      const a=ring[j],b=ring[i];
+      if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
+      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
+    }return hit;};
+    const fits=(cx,cy,scale)=>{
+      const rect=[{x:cx-W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy+D*scale/2},{x:cx-W*scale/2,y:cy+D*scale/2}];
+      if(!rect.every(inside))return false;
+      for(let i=0;i<ring.length;i++)for(let j=0;j<4;j++){
+        const a=ring[i],b=ring[(i+1)%ring.length],c=rect[j],d=rect[(j+1)%4];
+        if(cross(a,b,c)*cross(a,b,d)<-1e-8&&cross(c,d,a)*cross(c,d,b)<-1e-8)return false;
+      }
+      return true;
+    };
+    let best={scale:0,x:(x0+x1)/2,y:(y0+y1)/2};
+    const max=Math.min((x1-x0)/W,(y1-y0)/D);
+    // The centre first keeps rectangular lots exactly centred; candidates find
+    // the broad lobe of a concave lot without stretching the authored shell.
+    const candidates=[best];for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
+    for(const p of candidates){if(!inside(p))continue;let lo=0,hi=max;
+      for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+      if(lo>best.scale+1e-6)best={...p,scale:lo};
+    }
+    const scale=best.scale*inset;
+    if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;
+      const target={x:door.center.x-nx*run,y:door.center.y-ny*run};
+      if(fits(target.x,target.y,scale)){best.x=target.x;best.y=target.y;}
+    }
+    const move=p=>({...p,x:best.x+(p.x-(loX+hiX)/2)*scale,y:best.y+(p.y*.5-(loY+hiY)/2)*scale,z:p.z*C*scale});
+    const faces=model.faces.map(f=>({...f,sourceArt:true,rawUV:true,preserveWalls:true,points:f.points.map(move)}));
+    return {...model,faces,ring,center:{x:best.x,y:best.y},height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true};
+  }
   function add(scene,pts,recipe,variant,key,streets=[],entrance=null){
     const state=scene._lowpoly,left=Math.min(...pts.map(p=>p.x)),top=Math.min(...pts.map(p=>p.y));
     const local=pts.map(p=>({x:p.x-left,y:p.y-top}));
+    // Door selection rejects anything farther than DOOR.reach from a wall.
+    // Discard segments outside that expanded footprint before allocating and
+    // keying local coordinates; a loaded tile ring can contain thousands of
+    // unrelated segments for each visible house.
+    const right=Math.max(...pts.map(p=>p.x)),bottom=Math.max(...pts.map(p=>p.y));
+    streets=streets.filter(([a,b])=>Math.max(a.x,b.x)>=left-DOOR.reach
+      &&Math.min(a.x,b.x)<=right+DOOR.reach&&Math.max(a.y,b.y)>=top-DOOR.reach
+      &&Math.min(a.y,b.y)<=bottom+DOOR.reach);
     // THE DOOR FACES THE NEAREST STREET (streetDoor), or stands on the wall
     // the caller names (`entrance`: Home's saved doorway wall, edgeDoor): its
     // wall is the facade's entrance (the painted door bay, geometry's
     // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
-    const door=recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    const authored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined'?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
+    const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
+    const door=authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
+    let cached=authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    const texture=material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
-    (state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);
+    const texture=authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
+    if(!authored){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
@@ -1579,7 +1652,7 @@
     // edge.
     return first;
     function place(cached){
-    const mesh={...cached,faces:atlasFaces(cached,texture.roofPeriod)};
+    const mesh={...cached,faces:cached.authored?cached.faces:atlasFaces(cached,texture.roofPeriod)};
     mesh.roofTriangles=mesh.faces.filter(f=>f.kind==='roof').length;mesh.wallTriangles=mesh.faces.filter(f=>f.kind==='wall').length;mesh.trimTriangles=mesh.faces.filter(f=>f.kind==='trim').length;
     mesh.key=key;mesh.footprint=pts;mesh.role=recipe.role;mesh.x=left;mesh.y=top;mesh.smoke=recipe.smoke?cached.chimneyMouths||[]:[];state.buildings.push(mesh);if(key&&mesh.faces.length)state.keys.add(key);
     // A wall's sort point is its baseline's point in the player's screen
@@ -1597,6 +1670,10 @@
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
     obj._noInk=!!cached.noInk;obj._wreck=recipe.shape==='wreck';
     for(const face of mesh.faces){
+      if(cached.authored){
+        face.flat=face.color??0xffffff;face.support=support;face.texture=face.texture||texture;
+        face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);continue;
+      }
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
       else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?LOOK.wreck.mortar:0xffffff;
@@ -1677,10 +1754,10 @@
     for(const face of state.faces){let depth=0;
       // Height projects screen-up, foreshortened like the billboard sprites.
       face.points.forEach((p,i)=>{const v=face.projected[i];v.x=face.x+p.x-s*p.z*LOOK.heightScale;v.y=face.y+p.y-c*p.z*LOOK.heightScale;v.u=p.tu;v.v=p.tv;depth+=s*(face.x+p.x)+c*(face.y+p.y);});
-      if((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid)for(const p of face.projected){p.u=510/512;p.v=126/512;}
+      if(!face.sourceArt&&((face.kind==='trim'&&!face.facadeDoor&&!face.rawUV)||face.solid))for(const p of face.projected){p.u=510/512;p.v=126/512;}
       face.support.depth=s*face.support.x+c*face.support.y;
-      face.depth=depth/3;
-      if((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection)){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
+      face.depth=depth/3+(face.sourceArt?face.points.reduce((sum,p)=>sum+p.z,0)/9:0);
+      if(!face.sourceArt&&((face.kind==='wall'&&(!face.interior||face.edge!=null))||(face.kind==='trim'&&face.wallDirection))){const a=face.points[0],b=face.points[1],dx=face.wallDirection?.x??b.x-a.x,dy=face.wallDirection?.y??b.y-a.y,len=Math.hypot(dx,dy)||1;face.light=.76+.23*(c*dx-s*dy)/-len;}
       const p=face.projected;face.visible=cross(p[0],p[1],p[2])>1e-8;
     }
     for(const mesh of state.buildings){
@@ -1706,7 +1783,7 @@
     const state=scene._lowpoly;if(!state||!state.enabled||!active(scene)||(scene.depth??0)!==0)return [];
     update(scene);
     const anchor=viewAnchorWorldM(scene);
-    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:mesh.role==='wreck'?WorldLayers.GROUND_DECAL:WorldLayers.STANDING_PROP,
+    return state.buildings.map(mesh=>({sprite:mesh.obj,rank:1,layer:typeof WorldLayers==='undefined'?undefined:WorldLayers.STANDING_PROP,
       groundY:anchor.y+(mesh.obj._huAnchor.y-scene.viewCenterY)*scene.cellM/CELL_PX}));
   }
   function clear(scene){
@@ -1715,5 +1792,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={authoredGeometry,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

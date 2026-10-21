@@ -93,6 +93,42 @@ test('step support follows player feet while the camera peeks away', () => {
   }
 });
 
+test('step support updates the ground shadow with the moving feet, never the raised body', () => {
+  const method = name => {
+    const start = SCENE_SRC.indexOf('\n  ' + name + '(');
+    const end = SCENE_SRC.indexOf('\n  }\n', start);
+    return new Function('return ({' + SCENE_SRC.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+  };
+  const sprite = () => ({
+    x: -999, y: -999, visible: true,
+    setPosition(x, y) { this.x = x; this.y = y; return this; },
+    setRotation(rotation) { this.rotation = rotation; return this; },
+  });
+  const rock = { kind: 'mineralrock', x: 110, y: 220 };
+  const scene = {
+    save: { energy: 100 }, cellM: 10, startWorldM: { x: 100, y: 200 },
+    playerM: { x: 10, y: 20 }, playerFeetNudgeY: -9,
+    player: sprite(), playerShadow: sprite(), playerHalo: sprite(),
+    _updatePlayerSubmersion() {},
+    playerScreen() { return { x: 150 + this.playerM.x, y: 250 + this.playerM.y }; },
+    playerBodyDy: method('playerBodyDy'), playerBodyRotation: method('playerBodyRotation'),
+  };
+  const update = method('_updateObstacleStep');
+  for (const flying of [false, true]) {
+    scene.save.flightPotionUntil = flying ? Date.now() + 60000 : 0;
+    for (const dx of [-3, -2, 0, 0, 2, 3]) {
+      scene.playerM.x = 10 + dx;
+      update.call(scene, [rock]);
+      const feet = scene.playerScreen();
+      assert.eq(scene.playerShadow.x, feet.x, 'shadow follows the new feet in the same support update');
+      assert.eq(scene.playerShadow.y, feet.y - 1, 'shadow stays on ground across entry, pause and exit');
+      assert.eq(scene.player.y, feet.y + scene.playerBodyDy(), 'body retains its independent lift');
+      assert.eq(scene.playerHalo.y, scene.player.y, 'body effects follow the raised body');
+      if (dx === 0) assert.eq(scene._obstacleStep.liftPx, 4);
+    }
+  }
+});
+
 test('world layers: step-over category uses the same support profiles as walking', () => {
   for (const kind of ['_firepit','_fire','mineralrock','stronghold_wall']) {
     const o={kind,x:0,y:0};

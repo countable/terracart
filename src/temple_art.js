@@ -93,6 +93,7 @@
     }
     ctx.restore();
   }
+  const floorTexture = (active=false,dark=false) => `temple_floor_${active ? 'restored' : 'weathered'}${dark ? '_dark' : ''}`;
   function draw(ctx, sourceRing, options = {}) {
     const ring = points(sourceRing); if (ring.length < 3) return;
     const scale = options.scale || 1, b = bounds(ring);
@@ -104,12 +105,18 @@
       ctx.fillStyle = paint.face; ctx.fill(); ctx.restore();
     }
     trace(ctx, ring); ctx.fillStyle = paint.floor; ctx.fill(); ctx.clip();
-    // Bounded masonry grid; long temple footprints do not create unbounded work.
-    const step = Math.max(20 * scale, (b.right - b.left) / 48, (b.bottom - b.top) / 48);
-    ctx.lineWidth = scale; ctx.strokeStyle = paint.joint;
-    for (let y = b.top, row = 0; y < b.bottom; y += step, row++) {
-      for (let x = b.left - (row % 2) * step / 2; x < b.right; x += step) {
-        ctx.strokeRect(x, y, step, step);
+    if (options.floorPattern) {
+      // Existing world-phase anchor keeps the source tiles fixed as the camera moves.
+      const x=options.floorPhaseX || 0,y=options.floorPhaseY || 0;
+      ctx.save();ctx.translate(x,y);ctx.imageSmoothingEnabled=false;
+      ctx.fillStyle=options.floorPattern;
+      ctx.fillRect(b.left-x,b.top-y,b.right-b.left,b.bottom-b.top);ctx.restore();
+    } else {
+      // Fallback for tools or a missing atlas; never add this second grid over RA paving.
+      const step = Math.max(20 * scale, (b.right - b.left) / 48, (b.bottom - b.top) / 48);
+      ctx.lineWidth = scale; ctx.strokeStyle = paint.joint;
+      for (let y = b.top, row = 0; y < b.bottom; y += step, row++) {
+        for (let x = b.left - (row % 2) * step / 2; x < b.right; x += step) ctx.strokeRect(x,y,step,step);
       }
     }
     trace(ctx, ring); ctx.lineWidth = 4 * scale; ctx.strokeStyle = paint.shadow; ctx.stroke();
@@ -125,5 +132,5 @@
   function palette(activated = false, dark = false, background = false) {
     return background ? (dark ? backgroundTar : backgroundMarble) : dark ? tar : marble;
   }
-  global.TempleArt = Object.freeze({ draw, drawRunes, colors, darkColors, palette, geometry });
+  global.TempleArt = Object.freeze({ draw, drawRunes, floorTexture, colors, darkColors, palette, geometry });
 })(window);

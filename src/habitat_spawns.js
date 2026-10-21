@@ -64,6 +64,7 @@
     formal_garden: { butterfly: 4, rabbit: 3, chicken: 2, cat: 1 },
     hedge_garden: { rabbit: 4, butterfly: 3, chicken: 2, cat: 1 },
     ancient_grove: { crow: 4, rabbit: 3 },
+    spooky_woods: { crow: 4, rabbit: 3 },
     sacred_grove: { crow: 3, rabbit: 3, butterfly: 2 },
     stone_garden: { rabbit: 3, cat: 1 },
     ordered_graves: { rabbit: 2, cat: 1 },

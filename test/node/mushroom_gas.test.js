@@ -56,7 +56,7 @@
     assert.eq(mass(s), 0, 'harvested source stops and outdoor gas disperses');
   }));
 
-  test('mushroom gas: one outdoor puff reaches five cells and naturally dissipates within five seconds', () => fixture(s => {
+  test('mushroom gas: one outdoor puff reaches five cells and naturally dissipates within ten seconds', () => fixture(s => {
     MushroomGas.emit(s, 8, 8);
     const footprint = new Set(['8,8', '7,8', '9,8', '8,7', '8,9']);
     const sizes = [];
@@ -71,7 +71,7 @@
       sizes.push(MushroomGas.cells(s).length);
       if (second === 0) assert.truthy(Conditions.active(s.save, 'confused'));
     }
-    assert.eq(sizes.slice(0, 5).join(), '5,5,5,1,0');
+    assert.eq(sizes.join(), '1,5,5,5,5,5,5,1,1,0');
     assert.eq(mass(s), 0);
     assert.falsy(Conditions.active(s.save, 'confused'), 'single-puff confusion ends within ten seconds');
   }));
@@ -80,7 +80,7 @@
     e.grid.fill(W.T.CAVE_WALL); e.grid[8 * N + 8] = W.T.PARK;
     for (const kind of Object.keys(MushroomGas.KINDS))
       MushroomGas.emit(s, 8, 8, Gas.DEFAULTS.minDensity / 2, kind);
-    advance(s, 1000);
+    advance(s, Gas.STEP_MS);
     assert.eq(MushroomGas.cells(s).length, 0);
     for (const gas of Object.values(MushroomGas.state(s).gases)) assert.eq(gas.cells.size, 0);
   }));

@@ -26,18 +26,11 @@ const { chromium } = require('playwright-core');
       for (let i = 0; i < 3; i++) await borrow.click();
       assert.equal(await page.locator('#scholar-credit').textContent(), '3 / 18 credits free · 15 on loan');
       assert.equal(await borrow.isDisabled(), true);
-      const seen = new Set();
-      while (true) {
-        const visible = page.locator('[data-tome]');
-        assert.equal(await visible.count(), 1, 'one complete tome per page');
-        seen.add(await visible.getAttribute('data-tome'));
-        const next = page.getByRole('button', { name: 'Next', exact: true });
-        if (await next.isDisabled()) break;
-        await next.click();
-      }
-      assert.equal(seen.size, await page.evaluate(() => Macros.scholarCatalog(__scene.save).length), 'every tome remains reachable');
-      const previous = page.getByRole('button', { name: 'Previous', exact: true });
-      while (!(await previous.isDisabled())) await previous.click();
+      const tomes = page.locator('[data-tome]');
+      assert.equal(await tomes.count(), await page.evaluate(() => Macros.scholarCatalog(__scene.save).length), 'every tome appears in the full catalog');
+      assert.equal(await page.getByRole('button', { name: 'Next', exact: true }).count(), 0, 'catalog has no pagination');
+      await tomes.last().scrollIntoViewIfNeeded();
+      assert.equal(await tomes.last().isVisible(), true, 'last tome remains reachable');
       await page.getByRole('button', { name: 'On loan', exact: true }).click();
       assert.equal(await page.locator('[data-tome]').count(), 1);
       const until = await page.evaluate(() => {
@@ -61,26 +54,19 @@ const { chromium } = require('playwright-core');
       });
       assert.equal(geometry.doneVisible, true, 'Done stays inside the dialog');
       assert.equal(geometry.overflow, false, 'no horizontal overflow');
-      assert.equal(geometry.scroll, false, 'no dialog content scrolls');
+      assert.equal(geometry.scroll, false, 'short filtered list fits without scrolling');
       await page.getByRole('button', { name: 'Done', exact: true }).click();
       assert.equal(await page.locator('#scholar-modal').count(), 0);
       await page.evaluate(() => { __scene.save.tipsRead = PLAY_TIPS.length; __scene._showBooksRead(); });
       const bookRows = page.locator('#books-modal .book-row');
-      assert.equal(await bookRows.count(), 3);
-      const bookNext = page.locator('#books-modal').getByRole('button', { name: 'Next', exact: true });
-      const titles = new Set();
-      while (true) {
-        for (const title of await bookRows.allTextContents()) titles.add(title);
-        if (await bookNext.isDisabled()) break;
-        await bookNext.click();
-      }
-      assert.equal(titles.size, await page.evaluate(() => PLAY_TIPS.length), 'every read page remains reachable');
+      assert.equal(await bookRows.count(), await page.evaluate(() => PLAY_TIPS.length), 'every read book appears in the full shelf');
+      assert.equal(await page.locator('#books-modal').getByRole('button', { name: 'Next', exact: true }).count(), 0, 'shelf has no pagination');
       const lastTitles = await bookRows.allTextContents();
       await bookRows.first().click();
       const backToBooks = page.getByRole('button', { name: 'Back to books', exact: true });
       await backToBooks.focus();
       await backToBooks.click();
-      assert.deepEqual(await bookRows.allTextContents(), lastTitles, 'rereading returns to the same shelf page');
+      assert.deepEqual(await bookRows.allTextContents(), lastTitles, 'rereading returns to the full shelf');
       await page.locator('#books-modal').getByRole('button', { name: 'Close', exact: true }).click();
       assert.deepEqual(errors, []);
       await page.close();

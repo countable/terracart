@@ -434,15 +434,15 @@
     const g = MushroomGas.state(s).gases.confusion;
     Gas.advance(g, Gas.STEP_MS, () => 'open');
     const adjacent = cells().filter(c => Math.abs(c.cellIX - 3) + Math.abs(c.cellIY - 3) === 1);
-    assert.eq(adjacent.length, 4, 'one second later the four neighbours are gassed');
+    assert.eq(adjacent.length, 4, 'one diffusion step later the four neighbours are gassed');
     // Briefly: in a ventilated pocket the burst thins below the floor and clears.
     const pocket = (x, y) => Math.abs(x - 3) + Math.abs(y - 3) > 4 ? 'unknown' : 'open';
-    let seconds = 1;
-    while (cells().length && seconds < 30) { Gas.advance(g, Gas.STEP_MS, pocket); seconds++; }
+    let steps = 1;
+    while (cells().length && steps < 30) { Gas.advance(g, Gas.STEP_MS, pocket); steps++; }
     assert.eq(cells().length, 0, 'the gas clears');
-    assert.lt(seconds, 8, `cleared within a few seconds (${seconds}s)`);
+    assert.lt(steps * Gas.STEP_MS, 16000, `cleared within sixteen seconds (${steps} steps)`);
   }));
-  test('vents: a confusion burst disperses from a one-cell passage before the next eruption', () => fixture(s => {
+  test('vents: a confusion burst clears from a one-cell passage while allowing overlapping eruptions', () => fixture(s => {
     const C = EnvironmentHazards.CONFIG.vent;
     const periodMs = C.gasInactiveMs + C.warningMs + C.activeMs;
     const g = Gas.create();
@@ -451,7 +451,8 @@
     let ms = 0;
     while (g.cells.size && ms < 120000) { Gas.advance(g, Gas.STEP_MS, passage); ms += Gas.STEP_MS; }
     assert.eq(g.cells.size, 0, 'the gas clears');
-    assert.lt(ms, periodMs, `cleared in ${ms} ms, before the next eruption at ${periodMs} ms`);
+    assert.gt(ms, periodMs, 'slower diffusion lets successive eruptions overlap in narrow passages');
+    assert.eq(ms, 42000, 'an isolated burst still fully clears after forty-two seconds');
   }));
 
   test('cave-in contact: grounded NPC and enemy bodies trigger the same seeded L1 patch', () => fixture((s, entries) => {

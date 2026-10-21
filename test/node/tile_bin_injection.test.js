@@ -11,6 +11,20 @@
   }
   const point = (ix, iy, cellM = 7) => ({ x: (ix + 0.5) * cellM, y: (iy + 0.5) * cellM });
 
+  test('tile bin: DeepForest opt-in seats real crowns while preserving Nexus ownership and cached bins', () => {
+    const enabled = { location: { search: '?deepforest=on' } };
+    new Function('window', WORLDGEN_SRC)(enabled);
+    const bin = { trees: [{ kind: 'tree', lix: 10, liy: 10, crown_m: 8, _treeSource: 'deepforest' }] };
+    const before = JSON.stringify(bin), ordinary = entry(), nexus = entry();
+    nexus.zone = { coverage: new Uint16Array(N * N).fill(1) };
+    enabled.WorldGen.injectTileBin(ordinary, bin, 0, 0);
+    enabled.WorldGen.injectTileBin(nexus, bin, 0, 0);
+    assert.eq(ordinary.objects.length, 1, 'query enables the detected crown');
+    assert.eq(ordinary.objects[0]._treeSource, 'deepforest');
+    assert.eq(nexus.objects.length, 0, 'authored Nexus layout still owns its cells');
+    assert.eq(JSON.stringify(bin), before, 'shared crown coordinates remain unchanged');
+  });
+
   test('tile bin: imported forest trees are pine; fruit and yards keep species', () => {
     const e = entry();
     e.grid[10 * N + 10] = T.FOREST;

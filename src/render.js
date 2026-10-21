@@ -227,8 +227,9 @@ Render.objectGroundOffsetPx = function (appearance, textures) {
     * appearance.scl * appearance.scaleYMul;
 };
 
-// Cell-seated art keeps its seating offsets screen-relative as the map turns.
-// Its foot is still used for depth; buildings retain their footprint pivot.
+// Cell-seated art pins its drawn contact point at the cell centre as the map
+// turns. The visible bottom remains screen-down for depth and contact shadows.
+// Buildings retain their footprint pivot.
 Render.objectGroundAnchor = function (appearance, textures, point) {
   if (appearance?.foot) return { x: Math.round(point.x), y: Math.round(point.y),
     footDy: appearance.foot.footFromCentre };
@@ -811,6 +812,9 @@ const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 
 // Raster road codes carry gameplay, not a second paved surface. Both the
 // game and map review paint the surrounding ground under the source band.
+Render.groundBaseColor = (type, fallback) =>
+  typeof selectedGrassBaseColor === 'function' ? selectedGrassBaseColor(type, fallback) : fallback;
+
 Render.roadBackdropType = (scene, type, cellIX, cellIY) =>
   isRoadType(type) || type === T_PATH
     ? (scene.neighborNonRoadType(cellIX, cellIY) ?? WorldGen.T.GRASS) : null;
@@ -1860,11 +1864,13 @@ Render.buildingStoreysFor = (o, scene) => {
   return tier == null ? null : tier >= 2 ? 2 : 1;
 };
 Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
-Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
+Render.proceduralHouse = (o, scene) => !(typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, Houses.displayRole(scene.save, o)))
+  && Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
 // Map sprites and restoration cards use the original role artwork.
 Render.houseTextureFrame = (role, o, scene, theme) => {
+  if (typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, role)) return '__BASE';
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
   if (role === 'turret') return CastleStyles.get(CastleStyles.TURRET_STYLE).towerFrame;
@@ -1872,6 +1878,8 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
+  const trial = typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, role);
+  if (trial) return trial;
   // Home (the player's house) has no sprite: the building overlay draws it
   // from its footprint — walls, doorway and roof (building_overlay.js
   // drawHome). A null key is an invisible sprite (resolveAppearance).
@@ -2440,6 +2448,8 @@ Render.drawCells = function drawCells(scene) {
       _ringRiftGround[si] = Render.suppressedGround(e2, ix2, iy2, types[si], scene.depth ?? 0, N) ? 1 : 0;
       _ringGroundColor[si] = _ringRiftGround[si] ? parseHex(StreetVariants.SUPPRESSED_STYLE.ground)
         : Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+        ?? (typeof selectedZoneGroundColor === 'function'
+          ? selectedZoneGroundColor(e2, iy2 * N + ix2, types[si]) : null)
         ?? (typeof zoneGroundColor === 'function'
           ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
@@ -2511,6 +2521,7 @@ Render.drawCells = function drawCells(scene) {
   // corners' diagonal fills, and the wavy-border test that asks whether two
   // cells differ. Disagreeing put a border between every pair of unclaimed
   // court cells — the whole castle floor came out gridded.
+  const baseColor = (type, fallback = GRASS_FALLBACK_COLOR) => Render.groundBaseColor(type, COLORS[type] ?? fallback);
   const groundColor = (colour, c, r) => {
     const accent = _ringGroundColor[(r + 2) * RING + (c + 2)];
     return accent >= 0 ? accent : colour;
@@ -2532,9 +2543,37 @@ Render.drawCells = function drawCells(scene) {
     && !_ringSyntheticBuilding[(r + 2) * RING + (c + 2)];
   const lookThrough = (t, c, r) => isRoadType(t) || t === T_PATH
     || (polygonBuilding(c, r) && isBuildingType(t));
+  // Optional RA native transitions use the same generated ring and geographic
+  // row bands as every other terrain pass; no authored fixture or grid rewrite.
+  const raActive = typeof RATerrainTrial !== 'undefined' && RATerrainTrial.enabled
+    && scene._raTerrainReady && !scene.depth && !skyLevel;
+  let raMaterials = null;
+  if (raActive) {
+    raMaterials = scene._raTerrainRing;
+    if (!raMaterials || raMaterials.length !== types.length) raMaterials = scene._raTerrainRing = new Int8Array(types.length);
+    raMaterials.fill(-1);
+    scene._raTerrainAudit = {drawnCells:0, materials:{}};
+    for (let r = -2; r <= VIEW_CELLS + 1; r++) for (let c = -2; c <= VIEW_CELLS + 1; c++) {
+      const i = (r + 2) * RING + c + 2;
+      const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
+      let t = types[i];
+      // Keep special zone grounds, rift buffers and synthetic building floors.
+      if (!entry?.grid || _ringRiftGround[i] || _ringGroundColor[i] >= 0) continue;
+      if (isRoadType(t) || t === T_PATH) t = Render.roadBackdropType(scene, t, AX(c,r), AY(c,r));
+      else if (isBuildingType(t)) {
+        if (!polygonBuilding(c,r)) continue;
+        t = scene.neighborNonRoadType(AX(c,r), AY(c,r));
+      }
+      if (t != null) raMaterials[i] = RATerrainTrial.material(t, AX(c,r), AY(c,r));
+    }
+  }
+  const raAt = (c,r) => raMaterials ? raMaterials[(r+2)*RING+c+2] : -1;
+  // Only substitute biome seams covered by native bank/edge art. Structural
+  // borders remain in the ordinary renderer and the shared border layer stays.
+  const raSeam = (c,r,dc,dr) => raAt(c,r) >= 0 && raAt(c+dc,r+dr) >= 0;
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
-  const CORNER_R = 6;
+  const CORNER_R = typeof TERRAIN_CORNER_RADIUS !== 'undefined' ? TERRAIN_CORNER_RADIUS : 6;
   // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
   //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
   const TRANS_SKIP = BORDER_TRANS_SKIP;
@@ -2558,7 +2597,7 @@ Render.drawCells = function drawCells(scene) {
       // flashed a green tile under the dim rock).
       // For ROAD cells, inherit the color of the nearest non-road neighbor so the road
       // band sits on top of the surrounding zone (residential/grass/etc) instead of a hard gray strip.
-      let color = COLORS[type] ?? GRASS_FALLBACK_COLOR;
+      let color = baseColor(type);
       // Player-placed rock has its own material, even inside a tinted grove.
       if (type === T(col, row)) color = groundColor(color, col, row);
       // An unclaimed castle's COURT is shaded with its stone. The paving
@@ -2581,10 +2620,10 @@ Render.drawCells = function drawCells(scene) {
         const wcx = _absIX, wcy = _absIY;
         if (polyB) {
           const nt = scene.neighborNonRoadType ? scene.neighborNonRoadType(wcx, wcy) : null;
-          if (nt != null) { polyGround = nt; color = COLORS[nt] ?? color; }
+          if (nt != null) { polyGround = nt; color = baseColor(nt, color); }
         } else {
           polyGround = Render.roadBackdropType(scene, type, wcx, wcy);
-          color = COLORS[polyGround] ?? color;
+          color = baseColor(polyGround, color);
         }
       }
       // The road backdrop lookup must not replace the buffer's earth colour.
@@ -2673,7 +2712,7 @@ Render.drawCells = function drawCells(scene) {
         // revealed outside the curve are the correct adjacent-zone colour.
         const cornerColor = (t, dnx, dny) => lookThrough(t, col + dnx, row + dny)
           ? groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny)
-          : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
+          : courtShaded(t, baseColor(t), col + dnx, row + dny);
         if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
         if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
         if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
@@ -2724,15 +2763,15 @@ Render.drawCells = function drawCells(scene) {
         // and the blend ramp want — resolved once per side rather than twice.
         const nbrColorOf = (t, dnx, dny) =>
           lookThrough(t, col + dnx, row + dny) ? nbrInferred(dnx, dny)
-            : courtShaded(t, COLORS[t] ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
+            : courtShaded(t, baseColor(t), col + dnx, row + dny);
         const cN = nbrColorOf(tN,  0, -1);
         const cS = nbrColorOf(tS,  0, +1);
         const cW = nbrColorOf(tW, -1,  0);
         const cE = nbrColorOf(tE, +1,  0);
-        const drawN = edgeNeedsBorder(color, tN, cN);
-        const drawS = edgeNeedsBorder(color, tS, cS);
-        const drawW = edgeNeedsBorder(color, tW, cW);
-        const drawE = edgeNeedsBorder(color, tE, cE);
+        const drawN = !raSeam(col, row, 0, -1) && edgeNeedsBorder(color, tN, cN);
+        const drawS = !raSeam(col, row, 0, 1) && edgeNeedsBorder(color, tS, cS);
+        const drawW = !raSeam(col, row, -1, 0) && edgeNeedsBorder(color, tW, cW);
+        const drawE = !raSeam(col, row, 1, 0) && edgeNeedsBorder(color, tE, cE);
         if (drawN || drawS || drawW || drawE) {
           // Draw at integer-snapped positions — the borderContainer scrolls by
           // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
@@ -2810,38 +2849,9 @@ Render.drawCells = function drawCells(scene) {
       const absCellIY = _absIY;
       const _si = (row + 2) * RING + (col + 2);
       const tilledKey = cellKeyFromAbsCell(absCellIX, absCellIY);
-      // Tilling is a surface-only activity (cave floor isn't tillable). Gate the
-      // overlay on depth 0 so surface farm plots don't bleed through onto the
-      // underground levels directly below them (same GPS-mirrored cell coords).
-      let isTilled = (scene.depth ?? 0) === 0 && scene.tilledSet && scene.tilledSet.has(tilledKey);
-      // Self-heal: if a cell is marked tilled but its actual terrain is non-tillable
-      // (e.g. an old save where a GPS jump tilled an unloaded-then-building cell),
-      // silently drop it — UNLESS a planted crop still references this cell. Removing
-      // the tilled flag from under a live plant produces an "occupied: crop" orphan.
-      // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): TILLING,
-      // not a spawn decision — draw-side self-heal for a cell already marked
-      // tilled, mirroring items.js isTillableCell's own roadMask read.
-      // Road-BAND cells heal away too (tilling consults the roadMask, app.js
-      // isTillableCell). The mask lookup runs only for cells marked tilled.
-      let _tilledOffSoil = false;
-      if (isTilled) {
-        const e3 = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-        const N3 = e3 && (e3.cellsPerEdge || rowCells(scene, _ringTY[_si]));
-        _tilledOffSoil = !!(e3 && e3.roadMask
-          && e3.roadMask[_ringIY[_si] * N3 + _ringIX[_si]]);
-        // …and a lamp's footing (isTillableCell's underLamp).
-        if (!_tilledOffSoil && e3 && typeof RoadOverlay !== 'undefined'
-          && RoadOverlay.lampCellsFor(_ringTX[_si], _ringTY[_si], e3).has(_ringIY[_si] * N3 + _ringIX[_si])) _tilledOffSoil = true;
-      }
-      if (isTilled && (!isTillable(type) || _tilledOffSoil)) {
-        const cc = absCellCenterMeters(scene, absCellIX, absCellIY);
-        const hasPlant = _plantedNear.some(pp =>
-          Math.abs(pp.x - cc.x) < 0.1 && Math.abs(pp.y - cc.y) < 0.1);
-        if (!hasPlant) {
-          scene.tilledSet.delete(tilledKey);
-          isTilled = false;
-        }
-      }
+      // Soil reconciliation belongs to tile loading and crop removal. Drawing
+      // only reads the saved surface plots, even when looking underground.
+      const isTilled = (scene.depth ?? 0) === 0 && scene.tilledSet && scene.tilledSet.has(tilledKey);
       let isWatered = false;
       if (isTilled) {
         const c = absCellCenterMeters(scene, absCellIX, absCellIY);
@@ -2890,10 +2900,15 @@ Render.drawCells = function drawCells(scene) {
             }
           }
         }
-        if (!isTilled && scene.depth === 1 && typeof FloorWallMaterials !== 'undefined') {
+        if (!isTilled && !scene.depth && typeof zoneGroundTexture === 'function') {
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
           const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+          texKey = zoneGroundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+        }
+        if (!isTilled && scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
+          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+          texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type, texNow) || texKey;
         }
         if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
@@ -2901,12 +2916,24 @@ Render.drawCells = function drawCells(scene) {
           texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
         }
         let damageFrame;
+        // Reuse the exact corner decisions above; all cutouts were baked once.
+        const roundMask = (tl ? 1 : 0) | (tr ? 2 : 0) | (bl ? 4 : 0) | (br ? 8 : 0);
+        if (!isTilled && roundMask && ![9,11,12].includes(type)
+            && typeof selectedRoundedTerrainFrames !== 'undefined'
+            && selectedRoundedTerrainFrames.has(texKey)) {
+          damageFrame = selectedRoundedTerrainFrames.get(texKey) + roundMask - 1;
+          texKey = 'selected_rounded_terrain';
+        }
         if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
           const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
           if (damaged) {
             texKey = damaged;
             damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
           }
+        }
+        if (raActive && !isTilled && type === T(col, row)) {
+          const selected = RATerrainTrial.select(scene, raMaterials, RING, _si);
+          if (selected) { texKey = selected.key; damageFrame = selected.frame; }
         }
         if (texKey) {
           // Only on a swap: Phaser's setTexture re-derives frame, size and crop even for
@@ -2964,8 +2991,8 @@ Render.drawCells = function drawCells(scene) {
         // opens a seam. Fully opaque — it's a solid walkway.
         if (type === PIER && !isTilled) {
           // Swapped only when it differs, like the ground sprite above.
-          if (cs.texture.key !== 'pier' || cs.frame.name !== PIER_FRAME) {
-            cs.setTexture('pier', PIER_FRAME);
+          if (cs.texture.key !== 'selected_pier_deck') {
+            cs.setTexture('selected_pier_deck');
             cs.setDisplaySize(CELL_PX, CELL_PX);
           }
           cs.setPosition(Math.round(sx + CELL_PX / 2), Math.round(sy + CELL_PX / 2))
@@ -4005,6 +4032,51 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   return drawn;
 };
 
+// Loose props share the wall mesh projection and actor depth sorting. Keep
+// vertices in cell space; sub-cell movement only offsets the retained group.
+Render.drawLowPolyProps = function (scene, items) {
+  const drawn = new Set();
+  if (typeof PropLowPoly === 'undefined' || typeof WallPerspective === 'undefined'
+      || !scene.textures?.exists(PropLowPoly.ATLAS.key)) return drawn;
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
+  const pieces = [];
+  let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
+  for (const item of items) {
+    const o = item.o;
+    // Rocks retain their authored sprite silhouettes at every heading.
+    const kind = o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
+    if (!kind) continue;
+    if (typeof WorldArtProfile !== 'undefined' && WorldArtProfile.enabled
+        && WorldArtProfile.spec(o, scene, {}).key) continue;
+    const cell = worldMetersToAbsCell(scene, o.x, o.y);
+    const mineral = kind === 'rock' ? mineralRockMaterial(o) : null;
+    const tint = kind === 'rock' ? mineralRockTint(o) : 0xffffff;
+    const frame = kind === 'rock' ? mineralRockArtFrame(o) : chestLook(o).frame;
+    drawn.add(item); pieces.push({ o, kind, cell, mineral, tint, frame });
+    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}:${kind}:${mineral}:${frame}:${tint}:${!!o.sightBlocking}`;
+  }
+  if (!pieces.length) {
+    WallPerspective.clear(scene, 'looseProps'); scene._loosePropKey = null; return drawn;
+  }
+  WallPerspective.offset(scene, 'looseProps', -fx, -fy);
+  if (scene._loosePropKey === key && scene._wallPerspective?.looseProps) return drawn;
+  const group = WallPerspective.begin(scene, 'looseProps');
+  group.perWall = true; group.renderDepth = scene.depth ?? 0;
+  group.atlas = scene.textures.get(PropLowPoly.ATLAS.key);
+  for (const { o, kind, cell, mineral, tint, frame } of pieces) {
+    const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+    const large = kind === 'rock' && o.sightBlocking;
+    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, mineral, tint, frame,
+      ...(large ? { width: 27, depth: 26, height: 7 } : {}) });
+    WallPerspective.prism(scene, 'looseProps', mesh.points, 0, mesh.top, mesh.colors, null, true, mesh);
+  }
+  scene._loosePropKey = key;
+  WallPerspective.offset(scene, 'looseProps', -fx, -fy);
+  WallPerspective.finish(scene, 'looseProps');
+  return drawn;
+};
+
 // Score text has its own cache and never enters Home's session typing clock.
 Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
   const home = scene.save?.starterShopId;
@@ -4071,8 +4143,7 @@ const _ROLE_INK = {
 const _CASTLE_INK = '#e0c060';   // gold — fits the "vault" flavor
 const _FORT_INK   = '#9aa49a';   // mossy stone — military
 const _HOUSE_INK  = '#d6c9a8';   // warm parchment — plain residential
-const _houseSignInk = (o) => {
-  const role = _houseRole(o);
+const _houseSignInk = (o, role) => {
   if (role && _ROLE_INK[role]) return _ROLE_INK[role];
   if (o.tier === 12) return _CASTLE_INK;
   if (o.tier === 11) return _FORT_INK;
@@ -4722,11 +4793,12 @@ Render.drawObjects = function drawObjects(scene) {
     connectedArt.set(o, { _chasmMask: art._chasmMask });
     chasmAt.set(o, absCellScreenCentre(scene, chasmPc, art._cell.cellIX, art._cell.cellIY));
   }
-  const { fruitList } = Render.objectAppearance(scene, houseRoles);
+  const appearancePass = Render.objectAppearance(scene, houseRoles);
+  const { fruitList, _houseRole, _houseArtH, _houseArtMidPx } = appearancePass;
   for (const item of filteredObj) {
     const art = connectedArt.get(item.o);
     item._appearanceStable = Render.objectAppearanceIsStable(item.o, art);
-    item._appearance = Render.resolveObjectAppearance(scene, item.o, art);
+    item._appearance = Render.resolveObjectAppearance(appearancePass, item.o, art);
   }
   window.__boot?.count?.('object appearances resolved', scene._appearanceResolveCount);
   // Every upright piece shares one continuous ground-Y order. Pixel offsets
@@ -4762,6 +4834,7 @@ Render.drawObjects = function drawObjects(scene) {
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   // The buildings that sort with the world: the low-poly meshes, and the
   // prism path's per-wall parts (Home's interior without low-poly).
+  const lowPolyProps = Render.drawLowPolyProps(scene, filteredObj);
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
   Render.cullCovered(scene, whirlwindList, 'h');
@@ -4773,7 +4846,7 @@ Render.drawObjects = function drawObjects(scene) {
   for (const it of whirlwindList) zList.push({ it, rank: 3, groundY: groundY(it) });
   const planterGroundY = new Map(filteredObj.filter(it => furnitureSpec(it.o)?.ability === 'plant')
     .map(it => [it.o.id, groundY(it, Render.objectGroundOffsetPx(it._appearance, scene.textures))]));
-  for (const it of plantedList) zList.push({ it, rank: it.p.planter ? 2 : 0,
+  for (const it of plantedList) zList.push({ it, rank: it.p.planter ? 2 : 0, layer: Render.itemLayer(it),
     groundY: planterGroundY.get(it.p.planter) ?? groundY(it, Render.wildplantShadow(it.p)?.dyPx || 0) });
   for (const it of filteredObj) zList.push({ it, rank: it.o.kind === 'tower' ? 2 : 1,
     layer: Render.itemLayer(it),
@@ -4820,7 +4893,9 @@ Render.drawObjects = function drawObjects(scene) {
       // building_overlay.js drawHome) has no art to shadow.
       if (isBuilding(k)) { if (item._appearance?.visible) shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
-      const foot = item._appearance?.foot;
+      const foot = lowPolyProps.has(item)
+        ? { w: item.o.sightBlocking ? 27 : item.o.kind === 'chest' ? 14 : 17, footFromCentre: 0 }
+        : item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
     }
     for (const item of plantedList) {
@@ -4894,7 +4969,7 @@ Render.drawObjects = function drawObjects(scene) {
      .setTint(tint);
     // Per-kind post-config hook — runs AFTER the pool's identity reset and
     // the tint, so hooks can override the ordinary appearance.
-    if (typeof spec.after === 'function') spec.after(s, o, scene);
+    if (typeof spec.after === 'function') spec.after(s, o, scene, appearancePass);
     Render.applyWorkImpact(s, Render.workImpactPose(scene._workProgress, o, performance.now()),
       Math.round(sx), Math.round(sy) + (appearance.foot?.footFromCentre ?? dyPx));
     s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
@@ -4915,6 +4990,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Heading-up draws connected walls and hedges as ground-attached prisms in
   // the building background; their sprite slots stay empty this frame.
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
+  for (const item of lowPolyProps) prismDrawn.add(item);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
   const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)
     ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;
@@ -5239,7 +5315,7 @@ Render.drawObjects = function drawObjects(scene) {
     const full = luxury ? item.luxuryText : _houseSignText(o);
     const home = _houseRole(o) === 'trailer';
     const typed = home && !luxury ? _homeSignTyped(full) : full;
-    setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o)));
+    setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o, _houseRole(o))));
     tx.setText(full);
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
@@ -6146,17 +6222,9 @@ Render.wildplantShadow = function (plant, art = wildplantSprite(plant)) {
 // the two can never drift: the drawn scale (the look's, times the planted
 // crop's 0.8 shrink or a procedural background's `_terrainScale`), the
 // origin row, and the seat offsets.
-// 16×16 frame, scale 2 = 32×32 display. Centre the sprite in its cell
-// (origin 0.5, 0.5): a (0.5, 0.85) foot-anchor on flat ground tiles
-// (longgrass, flowers, wildplants) sat 11 px above the cell centre.
-// Exception: Crops.png seed frames (stage 0, default crops sheet) only have
-// pixels in the bottom half of their cell, so centring puts the seed at the
-// bottom of the tile. Stage 0 only: use the foot-anchor (0.5, 0.85).
-// Stages 1+ grow upward and look right centered.
-// Actual player-planted crops (not wildplants rendered through this same
-// pool, and not placed rockfruit stones) sit 3px higher and 20% smaller
-// than the shared crop art. Tall authored plants (`seat: true`) follow the
-// same cell-foot rule as trees and props off their trimmed ART_BOUNDS.
+// Opaque art uses the same drawn-contact rubric as object props. Flat pickups
+// retain centred ground placement. Crops keep their existing stage origin and
+// planted size/lift; planter overlays follow their furniture's seating offset.
 Render.plantPlacement = function (plant, art, frame, stage, scene) {
   if (plant?.planter) {
     const seat = RENDER_SPEC.furniture.planterCrop;
@@ -6168,8 +6236,7 @@ Render.plantPlacement = function (plant, art, frame, stage, scene) {
       const flipped = furnitureSpec(planter)?.flip && planter.flip;
       const base = flipped ? { ...bounds, baseX: bounds.fw - bounds.baseX,
         minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX } : bounds;
-      const placed = SpriteLayout.seatInCell(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE,
-        CELL_PX, furnitureSpec(planter)?.seatFoot);
+      const placed = SpriteLayout.contactSeat(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE, true);
       lift = placed.dyPx - normal.dyPx;
       const centred = SpriteLayout.seatInCell(base, 0.5, 0.5, FURNITURE_SCALE, FURNITURE_SCALE);
       shiftX = placed.dxPx - centred.dxPx;
@@ -6180,18 +6247,24 @@ Render.plantPlacement = function (plant, art, frame, stage, scene) {
   const oy = (stage === 0 && isCropsSheet) ? 0.85 : 0.5;
   const isPlantedCrop = !!plant && plant.wildId == null && !plant._placedRock;
   const scl = ((art && art.scale != null) ? art.scale : 2) * (isPlantedCrop ? 0.8 : (plant?._terrainScale ?? 1));
-  const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];
-  const seat = box ? SpriteLayout.seatInCell(box, 0.5, oy, scl, scl) : { dxPx: 0, dyPx: 0 };
+  const bounds = art && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];
+  const asset = art && typeof ASSETS !== 'undefined' ? ASSETS[art.sheet] : null;
+  const box = bounds || (asset?.frameWidth && asset?.frameHeight
+    ? { fw: asset.frameWidth, fh: asset.frameHeight, minX: 0, minY: 0,
+      maxX: asset.frameWidth, maxY: asset.frameHeight } : null);
+  const layer = WorldLayers.forObject({ ...plant, kind: 'wildplant' });
+  const seat = box ? layer === WorldLayers.GROUND_DECAL
+    ? SpriteLayout.seatInCell(box, 0.5, oy, scl, scl)
+    : SpriteLayout.contactSeat(box, 0.5, oy, scl, scl, layer === WorldLayers.STEP_OVER_PROP)
+    : { dxPx: 0, dyPx: 0 };
   return { scl, oy, dxPx: seat.dxPx, dyPx: seat.dyPx - (isPlantedCrop ? 3 : 0) };
 };
 
 // What varies per DRAW PASS for the spec below: the scene, the frame's
 // house-role cache (Houses.displayRole, resolved once per visible house by
 // drawObjects) and the ripe fruit the fruittree rows hang on their trees.
-// Render.objectAppearance sets it; every row callback reads it. The table
-// itself is built ONCE here (it was rebuilt inside drawObjects every frame —
-// four hundred lines of literal and a dozen closures a frame).
-const _pass = { scene: null, houseRoles: null, fruitNow: 0, fruitList: [] };
+// Each resolver owns its context; callbacks receive it explicitly. The
+// shared spec table is built once, including its callbacks.
 const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx } = (() => {
   // Per-kind render spec — `key` is the texture key (or fn(o) for variants),
   // `frame` (optional) picks a specific frame (literal | fn(o)), `origin`/`scale`
@@ -6216,7 +6289,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Render-spec callbacks receive the world object, while the object walk
   // carries the role on its frame item. This map bridges those APIs without
   // resolving the role again; Houses.displayRole owns the verdict.
-  const _houseRole = (o) => _pass.houseRoles.get(o);
+  const _houseRole = (o, scene, pass) => pass.houseRoles.get(o);
   // ── Tree size + fruit-tree growth helpers (shared by the specs below) ──
   // Timber tree frames/scales are shared with previews through util.js.
   // Fruit-tree life-cycle frames, in 32px-wide frame indices (sheets are sliced
@@ -6236,9 +6309,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     worldpeach: { grow: [0, 2, 3, 4, 3], mature: 3, blossom: 4 },
   };
   const _ftSpec = (o) => FRUIT_FRAMES[o.species === 'worldpeach' ? 'worldpeach' : 'apple'];
-  const _ftState = (o) => Crops.fruitTreeState(o, _pass.scene.save.fruitPicked?.[o.id], _pass.fruitNow);
-  const _ftStage = (o) => _ftState(o).stage;
-  const _ftBearing = (o) => _ftState(o).ready;
+  const _ftState = (o, scene, pass) => Crops.fruitTreeState(o, scene.save.fruitPicked?.[o.id], pass.fruitNow);
+  const _ftStage = (o, scene, pass) => _ftState(o, scene, pass).stage;
+  const _ftBearing = (o, scene, pass) => _ftState(o, scene, pass).ready;
   // Gentle hue nudge: lighten the sampled crown colour halfway to white so the
   // multiplicative tint shifts the sprite's hue without darkening it to mud.
   const _crownTint = (hex) => {
@@ -6249,40 +6322,42 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   // Texture key + frame for a house, by role. Named (rather than inlined in
   // RENDER_SPEC) because the scale fit and the shadow pass both need to look
   // up the same art the sprite will actually draw.
-  const _houseKey = (o) => Render.houseTextureKey(_houseRole(o), o, _pass.scene);
-  const _houseFrame = (o) => Render.houseTextureFrame(_houseRole(o), o, _pass.scene);
+  const _houseKey = (o, scene, pass) => Render.houseTextureKey(_houseRole(o, scene, pass), o, scene);
+  const _houseFrame = (o, scene, pass) => Render.houseTextureFrame(_houseRole(o, scene, pass), o, scene);
     // Every building is sized by ONE rule (BUILDING_ART / houseArtScale in
     // util.js): draw at your own footprint, clamped to a range stated in DRAWN
     // CELLS. render.js reads the art's real frame width (which turns a cell count
     // into a sprite scale) and hands it over with the role (fort, trailer, or the
     // shared house row). Unmeasurable frames come back as 0, which the rule answers
     // with 1; the sprite is already hidden then.
-  const _houseFrameW = (o) => {
-    const T = _pass.scene.textures;
-    if (!T || !T.exists(_houseKey(o))) return 0;
-    const fr = T.get(_houseKey(o)).get(_houseFrame(o));
+  const _houseFrameW = (o, scene, pass) => {
+    const T = scene.textures;
+    if (!T || !T.exists(_houseKey(o, scene, pass))) return 0;
+    const fr = T.get(_houseKey(o, scene, pass)).get(_houseFrame(o, scene, pass));
     return (fr && fr.width) || 0;
   };
-  const _houseBaseScale = (o) =>
-    buildingBaseScale(_houseFrameW(o), _houseRole(o), CELL_PX);
+  const _houseBaseScale = (o, scene, pass) =>
+    buildingBaseScale(_houseFrameW(o, scene, pass), _houseRole(o, scene, pass), CELL_PX);
   // The house art's drawn height, game px (0 before its texture loads).
-  const _houseArtH = (o) => {
-    if (Render.proceduralHouse(o, _pass.scene)) return _pass.scene._proceduralBuildings.get(o.id).height;
-    const T = _pass.scene.textures;
-    if (!T || !T.exists(_houseKey(o))) return 0;
-    const fr = T.get(_houseKey(o)).get(_houseFrame(o));
-    return ((fr && fr.height) || 0) * _houseScale(o);
+  const _houseArtH = (o, scene, pass) => {
+    if (Render.proceduralHouse(o, scene)) return scene._proceduralBuildings.get(o.id).height;
+    const T = scene.textures;
+    if (!T || !T.exists(_houseKey(o, scene, pass))) return 0;
+    const fr = T.get(_houseKey(o, scene, pass)).get(_houseFrame(o, scene, pass));
+    return ((fr && fr.height) || 0) * _houseScale(o, scene, pass);
   };
-  const _houseScale = (o) =>
-    houseArtScale(o.area, _houseFrameW(o), _houseRole(o), _pass.scene.cellM, CELL_PX);
+  const _houseScale = (o, scene, pass) =>
+    typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, _houseRole(o, scene, pass))
+      ? WorldArtProfile.houseScale(o, scene, _houseFrameW(o, scene, pass))
+      : houseArtScale(o.area, _houseFrameW(o, scene, pass), _houseRole(o, scene, pass), scene.cellM, CELL_PX);
   // Where a house's art stands, game px from its anchor cell's centre: the
   // centre of mass of its footprint (worldgen footprintFootOffset, in cells).
   // A house with no recorded footprint stands on its anchor cell's centre.
   const _houseFootPx = (o) => ({ x: Math.round((o.footDx || 0) * CELL_PX), y: Math.round((o.footDy || 0) * CELL_PX) });
   // The middle of the drawn art, same frame: roof plates and bubbles hang off it.
-  const _houseArtMidPx = (o) => {
+  const _houseArtMidPx = (o, scene, pass) => {
     const foot = _houseFootPx(o);
-    return { x: foot.x, y: foot.y - _houseArtH(o) / 2 };
+    return { x: foot.x, y: foot.y - _houseArtH(o, scene, pass) / 2 };
   };
 
   const RENDER_SPEC = {
@@ -6311,10 +6386,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // themed PNGs are single-image, so frame must be undefined for them. Tint is
     // suppressed for themed houses (see the `themedHouse` flag below).
     house:  {
-      key: o => Render.proceduralHouse(o, _pass.scene) ? null : _houseKey(o),
+      key: (o, scene, pass) => Render.proceduralHouse(o, scene) ? null : _houseKey(o, scene, pass),
       frame: _houseFrame,
-      layer: o => _houseRole(o) === 'wreck' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
-      scaleYMul: o => _houseRole(o) === 'wreck' ? 0.4 : 1,
+      layer: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' ? WorldLayers.GROUND_DECAL : WorldLayers.STANDING_PROP,
+      scaleYMul: (o, scene, pass) => _houseRole(o, scene, pass) === 'wreck' ? 0.4 : 1,
       // Every building stands its bottom-middle on its footprint's centre of
       // mass (_houseFootPx): the object sits on the footprint cell nearest
       // that point, so the art is nudged by the remainder.
@@ -6384,7 +6459,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // STREET_LAMP_TEX for the default, one texture per colour otherwise,
       // baked by app.js _ensureStreetLampTex before this pass runs); a dark
       // one the broken post app.js _ensureBrokenLampTex baked at boot.
-      key: (o) => (o.lit ? streetLampTexKey(o.glow)
+      key: (o) => ((o.restored ?? o.lit) ? streetLampTexKey(o.glow)
         : o.suppressed ? streetLampTexKey(o.glow) + '_broken' : STREET_LAMP_BROKEN_TEX),
       frame: '__BASE',
       // Read lazily (functions, not values): both constants live in app.js,
@@ -6399,7 +6474,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       // The fade box: the ironwork, not the square's glow padding (2.4 cells
       // wide, which faded the lamp with the player a cell to its side).
       artBounds: (s) => {
-        const b = typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_BODY_FRAC;
+        const b = typeof RoadOverlay !== 'undefined' && (RoadOverlay.SELECTED_LAMP_BODY_FRAC || RoadOverlay.LAMP_BODY_FRAC);
         const fw = s.frame?.realWidth ?? s.frame?.width ?? s.width;
         const fh = s.frame?.realHeight ?? s.frame?.height ?? s.height;
         return b ? { fw, fh, minX: b.minX * fw, maxX: b.maxX * fw, minY: b.minY * fh, maxY: b.maxY * fh } : null;
@@ -6421,12 +6496,14 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // every species sheet. Origin is only the no-SpriteLayout fallback: the seat
     // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
+                if (o._objectArt === 'dead_tree') return 'selected_dead_tree';
                 const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
                 if (trial) return trial.key;
                 if (o.species === 'pine')     return 'pine_tree';
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
+                if (o._objectArt === 'dead_tree') return 0;
                 const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
                 return trial ? trial.frame : treeArtFrame(o);
               },
@@ -6434,7 +6511,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                 return o.species === 'pine' ? [0.5, 0.92] : [0.5, 0.95];
               },
               // Growth artwork changes size; species scale stays constant.
-              scale: treeScale,
+              // Match the existing mature tree crown width (32px); retain native source pixels.
+              scale: o => o._objectArt === 'dead_tree' ? treeScale(o) * 32 / 52 : treeScale(o),
               // Placement obeys the "one cell" rule via the seat pass (see the render
               // loop + src/sprite_layout.js): each tree is seated from its trimmed art
               // bounds so the trunk base sits 1px above the cell's bottom edge (or centred
@@ -6452,7 +6530,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // by the filter). Wooden barrels disappear when collected.
     chest:  { key: (o) => { const L = chestLook(o); return (L.barrel && o._smashed) ? L.smashedKey : L.texKey; },
               // The shared look selects chest tiers, stand awnings and contextual
-              // containers; broken pots retain their existing contextual shard art.
+              // containers; broken pots retain their selected ceramic colour.
               frame: (o) => { const L = chestLook(o); return L.barrel && o._smashed ? L.smashedFrame : L.frame; },
               // THE WAGON (a bus stop on an old trade road): 32×32 art, drawn at
               // WAGON_SCALE (~1.5 cells wide) and foot-anchored like the stall —
@@ -6498,18 +6576,18 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               seat: (o) => { const L = chestLook(o); return !L.stand && !L.macro && !L.wagon; },
               shadow: true },
     fruittree: { key: (o) => `${o.species === 'worldpeach' ? 'worldpeach' : 'apple'}_tree`,
-              frame: (o) => {
-                const fr = _ftSpec(o), state = _ftState(o);
+              frame: (o, scene, pass) => {
+                const fr = _ftSpec(o), state = _ftState(o, scene, pass);
                 // Regrowth blossoms use mature artwork without restarting sapling growth.
                 if (state.blossoming) return fr.blossom;
                 return o.planted ? fr.grow[state.stage] : fr.mature;
               },
               origin: [0.5, 0.95],
-              scale: (o) => {
+              scale: (o, scene, pass) => {
                 const base = 0.85;
                 // Planted saplings start clearly visible (0.7) and grow to the mature
                 // wild-tree size (1.0×base) over their 4 stages.
-                if (o.planted) return base * (0.7 + 0.075 * _ftStage(o));  // 0.7→1.0
+                if (o.planted) return base * (0.7 + 0.075 * _ftStage(o, scene, pass));  // 0.7→1.0
                 // Wild fruit trees always render at full (mature) size — their
                 // o.size crown class no longer shrinks them.
                 return base;
@@ -6520,11 +6598,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               scaleYMul: 1.10,
               // Placement obeys the "one cell" rule (seat pass, src/sprite_layout.js).
               seat: true, shadow: true,
-              after: (s, o, scene) => {
+              after: (s, o, scene, pass) => {
                 // Hand the fruit pass everything it needs to hang this tree's fruit on it,
                 // measured off the sprite as just drawn (position, origin and scale are final
                 // by now). A picked tree simply contributes nothing.
-                if (!_ftBearing(o)) return;
+                if (!_ftBearing(o, scene, pass)) return;
                 const src = inventoryIconSource(o.species);
                 if (!src || !scene.textures.exists(src.sheet)) return;
                 const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
@@ -6535,7 +6613,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
                 if (!off) return;
                 // Ripe fruit waiting to be drawn ON its tree — the fruit pass
                 // drains the pass's list after the object pool has rendered.
-                _pass.fruitList.push({
+                pass.fruitList.push({
                   key: src.sheet, frame: src.frame ?? 0, treeSprite: s,
                   x: s.x + off.dxPx, y: s.y + off.dyPx,
                   // The fruit is drawn at the TREE's scale (scaleX, not scaleY: the tree's
@@ -6610,62 +6688,67 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // inventory icon can sit on the ground without per-kind plumbing.
     // World stacks use the same selected sprite as inventory and shops.
     groundstack: {
+      layer: WorldLayers.GROUND_DECAL,
       key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
         return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
       },
-      // Centred in the cell (origin y 0.5), NOT foot-anchored: ground stacks are
-      // small standing props centred like wildplants (a 0.9
-      // anchor rendered a dropped stack ~12px high).
-      //
-      // Frame-box centring rather than the seat pass: this sprite's texture and
-      // frame follow whatever item was dropped (inventoryIconSource), so there is no
-      // fixed frame to tabulate in ART_BOUNDS. The art of the sheets it uses is
-      // centred in its frame anyway (wood.png's logs are half a pixel off).
+      // Dropped inventory art lies flat on the ground and follows its heading.
       origin: [0.5, 0.5], scale: 1.8,
     },
   };
   // Resolve once per draw pass: animated frames, seating and shadow geometry
   // all use the same appearance. Nothing is cached on the world object.
-  const resolveAppearance = (o) => {
+  const resolveAppearance = (o, pass) => {
     let spec = RENDER_SPEC[o.kind];
     if (!spec) return null;
-    const scene = _pass.scene;
+    const { scene } = pass;
     // Zone-local appearances retain the existing object behavior and hooks.
     if (o.kind !== 'mineralrock' && Number.isInteger(o._zoneObjectFrame)) spec = { ...spec, key: o._zoneObjectFrame === 1 ? 'selected_grave_pillar' : 'zone_objects',
       frame: o._zoneObjectFrame === 1 ? 0 : o._zoneObjectFrame,
       scale: 4 / 3, origin: [0.5, 0.5], seat: true };
-    const texKey = typeof spec.key === 'function' ? spec.key(o, scene) : spec.key;
+    if (typeof WorldArtProfile !== 'undefined') spec = WorldArtProfile.spec(o, scene, spec);
+    const texKey = typeof spec.key === 'function' ? spec.key(o, scene, pass) : spec.key;
     if (texKey == null && o.kind === 'house' && Render.proceduralHouse(o, scene)) {
       const foot = _houseFootPx(o);
       return { spec, visible: false, groundGeometry: true, dxPx: foot.x, dyPx: foot.y };
     }
     if (texKey == null || !scene.textures.exists(texKey)) return { spec, visible: false };
-    const frameVal = typeof spec.frame === 'function' ? spec.frame(o) : spec.frame;
-    const scl = typeof spec.scale === 'function' ? spec.scale(o, scene) : spec.scale;
-    const origin = typeof spec.origin === 'function' ? spec.origin(o) : spec.origin;
-    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o) : (spec.scaleYMul || 1);
-    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o) : (spec.dyPx || 0);
-    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o) : (spec.dxPx || 0);
-    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o) : spec.seat;
+    const frameVal = typeof spec.frame === 'function' ? spec.frame(o, scene, pass) : spec.frame;
+    const scl = typeof spec.scale === 'function' ? spec.scale(o, scene, pass) : spec.scale;
+    const origin = typeof spec.origin === 'function' ? spec.origin(o, scene, pass) : spec.origin;
+    const scaleYMul = typeof spec.scaleYMul === 'function' ? spec.scaleYMul(o, scene, pass) : (spec.scaleYMul || 1);
+    let dyPx = typeof spec.dyPx === 'function' ? spec.dyPx(o, scene, pass) : (spec.dyPx || 0);
+    let dxPx = typeof spec.dxPx === 'function' ? spec.dxPx(o, scene, pass) : (spec.dxPx || 0);
+    const wantSeat = typeof spec.seat === 'function' ? spec.seat(o, scene, pass) : spec.seat;
     const SL = (typeof window !== 'undefined' && window.SpriteLayout) || null;
     let foot = null;
-    if (wantSeat && SL) {
+    const layer = (typeof spec.layer === 'function' ? spec.layer(o, scene, pass) : spec.layer)
+      || WorldLayers.forObject(o);
+    const contactSeat = layer !== WorldLayers.GROUND_DECAL && layer !== WorldLayers.GROUNDCOVER
+      && wantSeat !== false && !spec.groundAtOrigin && o.kind !== 'house' && o.kind !== 'tower';
+    if ((wantSeat || contactSeat) && SL) {
       // Animated sheets use stable bounds so neither art nor shadow bobs.
       const bframe = spec.seatFrame !== undefined ? spec.seatFrame : (frameVal ?? 0);
-      const bounds = SL.ART_BOUNDS[`${texKey}:${bframe}`];
+      const frame = scene.textures.getFrame?.(texKey, frameVal);
+      const asset = typeof ASSETS !== 'undefined' ? ASSETS[texKey] : null;
+      const fw = frame?.width || asset?.frameWidth, fh = frame?.height || asset?.frameHeight;
+      const bounds = SL.ART_BOUNDS[`${texKey}:${bframe}`]
+        || (contactSeat && fw && fh ? { fw, fh, minX: 0, minY: 0, maxX: fw, maxY: fh } : null);
       // Mirror the seating bounds with the art so asymmetric frames stay in
       // their own cell after a placed object's orientation changes.
-      const flipped = typeof spec.flipX === 'function' ? spec.flipX(o) : spec.flipX;
+      const flipped = typeof spec.flipX === 'function' ? spec.flipX(o, scene, pass) : spec.flipX;
       const bb = bounds && flipped ? { ...bounds, minX: bounds.fw - bounds.maxX, maxX: bounds.fw - bounds.minX, baseX: bounds.fw - bounds.baseX } : bounds;
       if (bb) {
-        const seatFoot = typeof spec.seatFoot === 'function' ? spec.seatFoot(o) : spec.seatFoot;
-        const seat = SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul, CELL_PX, seatFoot);
+        const seatFoot = typeof spec.seatFoot === 'function' ? spec.seatFoot(o, scene, pass) : spec.seatFoot;
+        const seat = contactSeat
+          ? SL.contactSeat(bb, origin[0], origin[1], scl, scl * scaleYMul, layer === WorldLayers.STEP_OVER_PROP)
+          : SL.seatInCell(bb, origin[0], origin[1], scl, scl * scaleYMul, CELL_PX, seatFoot);
         dxPx = seat.dxPx; dyPx = seat.dyPx;
         const artH = (bb.maxY - bb.minY) * scl * scaleYMul;
         foot = { w: (bb.maxX - bb.minX) * scl,
-          footFromCentre: Number.isFinite(seatFoot) ? (seatFoot - 0.5) * CELL_PX
+          footFromCentre: contactSeat ? seat.footFromCentre : Number.isFinite(seatFoot) ? (seatFoot - 0.5) * CELL_PX
             : artH <= CELL_PX ? artH / 2 : CELL_PX / 2 - 1 };
         // Low rocks rest over their contact ellipse. Centering the ellipse
         // on the bottom edge makes it protrude below the stone like a gap.
@@ -6680,22 +6763,24 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       dyPx -= lift;
       foot.footFromCentre -= lift;
     }
-    const layer = WorldLayers.forObject(o, spec);
     return { spec, visible: true, texKey, frameVal, scl, origin, scaleYMul, dxPx, dyPx, foot, layer };
   };
   return { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _houseBaseScale, _houseArtH, _houseFootPx, _houseArtMidPx };
 })();
 
-// Open a draw pass over `scene` with the frame's house roles: the spec's
-// callbacks read them from here on, and the fruit list starts empty. Returns
-// the shared table and resolver, for drawObjects and the review tools
-// (tools/world-art.js, map-review-art.js, export_foliage_audit.js).
+// A pass owns its scene, role cache, clock and fruit output. Keeping them in
+// closures lets live rendering and art-review scenes interleave safely. Spec
+// callbacks use (object, scene, pass), and after hooks add pass as argument 4.
 Render.objectAppearance = function (scene, houseRoles) {
-  _pass.scene = scene;
-  _pass.houseRoles = houseRoles;
-  _pass.fruitNow = Date.now();
-  _pass.fruitList = [];
-  return { RENDER_SPEC, resolveAppearance, fruitList: _pass.fruitList, _houseRole, _houseKey, _houseScale, _houseBaseScale };
+  const pass = { scene, houseRoles, fruitNow: Date.now(), fruitList: [] };
+  const bind = fn => o => fn(o, scene, pass);
+  return Object.assign(pass, {
+    RENDER_SPEC,
+    resolveAppearance: o => resolveAppearance(o, pass),
+    _houseRole: bind(_houseRole), _houseKey: bind(_houseKey),
+    _houseScale: bind(_houseScale), _houseBaseScale: bind(_houseBaseScale),
+    _houseArtH: bind(_houseArtH), _houseArtMidPx: bind(_houseArtMidPx),
+  });
 };
 
 // Generated records in these rows keep their appearance inputs for their
@@ -6715,14 +6800,15 @@ Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art)
     // Authored planted trees advance through growth frames on the clock.
     && !(object.kind === 'tree' && object.planted_t);
 };
-Render.resolveObjectAppearance = function resolveObjectAppearance(scene, object, art) {
+Render.resolveObjectAppearance = function resolveObjectAppearance(pass, object, art) {
+  const { scene } = pass;
   const cacheable = Render.objectAppearanceIsStable(object, art);
   if (cacheable) {
     const owner = scene._objectAppearanceOwner || (scene._objectAppearanceOwner = {});
     const prior = object._renderAppearance;
     if (prior?.owner === owner) return prior.appearance;
     scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
-    const appearance = resolveAppearance(object);
+    const appearance = pass.resolveAppearance(object);
     // A texture may be registered lazily. Do not make an early miss permanent.
     if (appearance?.visible) Object.defineProperty(object, '_renderAppearance', {
       value: { owner, appearance }, writable: true, configurable: true,
@@ -6730,5 +6816,5 @@ Render.resolveObjectAppearance = function resolveObjectAppearance(scene, object,
     return appearance;
   }
   scene._appearanceResolveCount = (scene._appearanceResolveCount || 0) + 1;
-  return resolveAppearance(art ? { ...object, ...art } : object);
+  return pass.resolveAppearance(art ? { ...object, ...art } : object);
 };

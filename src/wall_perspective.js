@@ -40,7 +40,11 @@
       let group = scene._wallPerspective[source];
       if (!group) {
         const gfx = scene.add.graphics();
-        scene.buildingWallContainer.add(gfx);
+        // Architectural walls keep their background slot. Step-over props
+        // must cover ground shadows, otherwise the shadow paints their cap.
+        const container = source === 'props' && scene.raisedPropContainer
+          ? scene.raisedPropContainer : scene.buildingWallContainer;
+        container.add(gfx);
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0, parts: [], perWall: false, mode: null };
       }
       group.blocks.length = 0; group.runs = null; group.buildings = null;
@@ -92,7 +96,7 @@
       support ||= { x: x / points.length, y: y / points.length, order: group.blocks.length };
       group.runs = null;
       group.blocks.push({ building: group.building || null, points, topPoints: geometry.topPoints || points, allFaces: !!geometry.allFaces, bottom, top, colors, support, capped, winding: Math.sign(area),
-        materialFaces: geometry.materialFaces || null,
+        materialFaces: geometry.materialFaces || null, topOutline: geometry.topOutline || null,
         segment: geometry.segment || null,   // the wall baseline this block stands on (addSegment), for its sort point
         x: x / points.length, y: y / points.length, order: group.blocks.length,
         faceOrder: Array.from({ length: points.length }, (_, i) => i), faceDepth: new Float64Array(points.length),
@@ -269,10 +273,27 @@
         // texture triangle both thickens the small pickets and multiplies submission cost.
         const ink = (target, block) => { if (!inkPx || block.materialFaces) return;
           faces(block, (x1, y1, x2, y2, x3, y3) => {
-            for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, -1], [-1, 1], [1, 1]])
-              WallSurfaceRenderer.paint(target, x1 + ox * inkPx, y1 + oy * inkPx, x2 + ox * inkPx, y2 + oy * inkPx, x3 + ox * inkPx, y3 + oy * inkPx, look.ink, block.building?.alpha ?? 1);
+            // Match buildings: only the upper outer edge receives ink.
+            WallSurfaceRenderer.paint(target, x1 - s * inkPx, y1 - c * inkPx, x2 - s * inkPx, y2 - c * inkPx, x3 - s * inkPx, y3 - c * inkPx, look.ink, block.building?.alpha ?? 1);
           }); };
-        const fill = (target, block) => faces(block, (x1, y1, x2, y2, x3, y3, color, face) => WallSurfaceRenderer.paint(target, x1, y1, x2, y2, x3, y3, color, block.building?.alpha ?? 1, face));
+        const fill = (target, block) => {
+          const alpha = block.building?.alpha ?? 1, outline = block.topOutline;
+          if (outline) {
+            // Only the upper outer edges receive ink. Boundary strips avoid
+            // a black underpaint showing through Canvas triangle antialiasing.
+            const dx = s * outline.width, dy = c * outline.width;
+            for (const edge of outline.edges) {
+              if (edge.length !== 2 || edge[0].face.visible === edge[1].face.visible) continue;
+              const front = edge.find(e => e.face.visible);
+              const a = front.face.projected[front.a], b = front.face.projected[front.b];
+              if (c*(b.x-a.x)-s*(b.y-a.y) <= 1e-6) continue;
+              WallSurfaceRenderer.paint(target, a.x, a.y, b.x, b.y, b.x-dx, b.y-dy, outline.color, alpha);
+              WallSurfaceRenderer.paint(target, a.x, a.y, b.x-dx, b.y-dy, a.x-dx, a.y-dy, outline.color, alpha);
+            }
+          }
+          faces(block, (x1, y1, x2, y2, x3, y3, color, face) =>
+            WallSurfaceRenderer.paint(target, x1, y1, x2, y2, x3, y3, color, alpha, face));
+        };
         const mode = group.perWall ? 'parts' : 'gfx', modeChanged = group.mode !== mode;
         group.mode = mode;
         if (group.perWall) {

@@ -12,6 +12,19 @@
 //      and a player north of a house drew over its roof. They join the world
 //      depth sort through worldPieces (render.js), by their ground anchor.
 (function () {
+  test('low-poly wrecks: camera subtraction noise reuses the mesh but real footprint and road edits invalidate it', () => {
+    const ring = [{x:0,y:0},{x:72,y:0},{x:72,y:64},{x:0,y:64}];
+    const streets = [[{x:-40,y:90},{x:110,y:90}]];
+    const recipe = BuildingLowPoly.recipeFor('wreck', {wall:0x777777,roof:0x555555,trim:0x333333});
+    const first = BuildingLowPoly.specialGeometry(ring, recipe, streets, 'walking-cache');
+    const jitter = p => ({x:p.x + 1e-8,y:p.y + 1e-8});
+    assert.eq(BuildingLowPoly.specialGeometry(ring.map(jitter), recipe, streets.map(line=>line.map(jitter)), 'walking-cache'), first,
+      'camera-origin floating-point noise must not retriangulate an unchanged wreck');
+    assert.truthy(BuildingLowPoly.specialGeometry(ring.map(p=>({x:p.x*1.2,y:p.y})), recipe, streets, 'walking-cache') !== first,
+      'a changed footprint needs its own mesh');
+    assert.truthy(BuildingLowPoly.specialGeometry(ring, recipe, [[{x:-40,y:-30},{x:110,y:-30}]], 'walking-cache') !== first,
+      'a changed street changes the opening');
+  });
   const ctx2d = () => ({ fillStyle: '', fillRect() {}, drawImage() {}, save() {}, restore() {}, beginPath() {},
     rect() {}, clip() {}, imageSmoothingEnabled: false, putImageData() {}, createPattern() { return {}; },
     getImageData() { throw new Error('getImageData read back during a rebuild'); } });
@@ -36,6 +49,22 @@
   const withPhaser = (fn) => { const had = window.Phaser; window.Phaser = PHASER;
     try { return fn(); } finally { if (had === undefined) delete window.Phaser; else window.Phaser = had; } };
   const FOOT = [{ x: 100, y: 100 }, { x: 190, y: 100 }, { x: 190, y: 160 }, { x: 140, y: 160 }, { x: 140, y: 200 }, { x: 100, y: 200 }];
+  test('low-poly buildings: distant road filtering preserves full-network door choice, including crossing segments', () => withPhaser(() => {
+    const scene=stubScene(),recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const far=Array.from({length:100},(_,i)=>[{x:3000+i,y:3000},{x:4000+i,y:4000}]);
+    for(const near of [
+      [[{x:90,y:80},{x:220,y:80}]],
+      [[{x:-10000,y:80},{x:10000,y:80}]],
+      [[{x:220,y:-10000},{x:220,y:10000}]],
+    ]) {
+      const streets=[...far,...near],local=FOOT.map(p=>({x:p.x-100,y:p.y-100}));
+      const full=BuildingLowPoly.specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-100,y:p.y-100}))),'door-filter');
+      BuildingLowPoly.begin(scene);
+      const actual=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','door-filter',streets);
+      assert.truthy(full.doorway,'fixture has a reachable street-facing opening');
+      assert.eq(JSON.stringify(actual.doorway),JSON.stringify(full.doorway),'same opening as searching every road');
+    }
+  }));
   const build = (scene, key, dx = 0) => {
     const role = Object.keys(BuildingLowPoly.ROLES)[0];
     const recipe = BuildingLowPoly.recipeFor(role, { wall: 0xd4cdb4, roof: 0x709b9a, trim: 0x614534 });
@@ -57,6 +86,26 @@
       'the overlay never reads scene._lowpoly.obj (a TypeError every WebGL frame once)');
     assert.truthy(/if \(scene\._lowpoly\) BuildingLowPoly\.offset\(scene, -offset\.fracX \* CELL_PX, -offset\.fracY \* CELL_PX\);/.test(BUILDING_OVERLAY_SRC),
       'it hands the fractional cell offset to the module');
+  }));
+
+  test('low-poly wrecks: north-up WebGL retains visible walls and rubble through compass changes', () => withPhaser(() => {
+    const scene=stubScene();scene._headingUp=false;scene.mapRot=0;
+    assert.truthy(BuildingLowPoly.active(scene),'north-up uses the same WebGL buildings');
+    BuildingLowPoly.begin(scene);
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','north-up-wreck');
+    for(const headingUp of [false,true,false]){
+      scene._headingUp=headingUp;scene.mapRot=headingUp?.7:0;
+      BuildingLowPoly.update(scene);
+      assert.truthy(mesh.obj.visible,'wreck remains visible in either compass mode');
+      assert.truthy(mesh.visibleTriangles.length,'visible projected geometry');
+      assert.eq(BuildingLowPoly.worldPieces(scene).length,1,'wreck joins world sorting');
+      assert.truthy(BuildingLowPoly.covers(scene,{id:'north-up-wreck'}),'legacy art stays suppressed');
+    }
+    scene.depth=1;BuildingLowPoly.update(scene);
+    assert.falsy(mesh.obj.visible,'surface wreck stays hidden underground');
+    scene.game.renderer.type=1;
+    assert.falsy(BuildingLowPoly.active(scene),'Canvas still uses its fallback');
   }));
 
   test('low-poly buildings: every mesh joins the world depth sort by its ground anchor', () => withPhaser(() => {
@@ -87,7 +136,7 @@
     BuildingLowPoly.update(scene);assert.eq(mesh.obj.alpha,1,'outside again at the same heading');
     assert.eq(mesh.faces,faces,'retained geometry is reused');
   }));
-  test('low-poly wrecks: rubble is low, opaque and sorted below the player', () => withPhaser(() => {
+  test('low-poly wrecks: broken walls are low, opaque and join standing scenery depth sorting', () => withPhaser(() => {
     const scene=stubScene();BuildingLowPoly.begin(scene);
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
@@ -97,8 +146,27 @@
     assert.truthy(Math.abs(top-(15.6+2.5))<1e-6,'tallest wall retains the original one-storey eave: '+top);
     assert.truthy(new Set(mesh.faces.filter(f=>f.wallTop).map(f=>f.points[0].z.toFixed(1))).size>1,'stub heights vary');
     const [piece]=BuildingLowPoly.worldPieces(scene);
-    assert.eq(piece.layer,WorldLayers.GROUND_DECAL,'player always draws above the wreck');
+    assert.eq(piece.layer,WorldLayers.STANDING_PROP,'standing roof and walls sort with other scenery');
     assert.eq(mesh.obj.alpha,1,'wreck never fades');
+  }));
+  test('low-poly wrecks: crates behind the wreck draw below its roof and crates in front draw above', () => withPhaser(() => {
+    const scene=stubScene();BuildingLowPoly.begin(scene);
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck-crate-depth');
+    assert.truthy(mesh.faces.some(f=>f.standingRoof),'fixture has a surviving roof');
+    const sprite=()=>({depth:0,setDepth(d){this.depth=d;}});
+    const rear=sprite(),front=sprite();
+    for(const heading of [0,Math.PI/2,Math.PI,Math.PI*1.5]){
+      scene.mapRot=heading;
+      const [wreck]=BuildingLowPoly.worldPieces(scene);
+      Render.sortWorldDepth([
+        {sprite:front,groundY:wreck.groundY+.1,rank:1,layer:WorldLayers.STANDING_PROP},
+        wreck,
+        {sprite:rear,groundY:wreck.groundY-.1,rank:1,layer:WorldLayers.STANDING_PROP},
+      ]);
+      assert.lt(rear.depth,mesh.obj.depth,'rear crate stays behind the roof at heading '+heading);
+      assert.lt(mesh.obj.depth,front.depth,'front crate draws above the wreck at heading '+heading);
+    }
   }));
   test('low-poly wrecks: fallen wall chunks lie on the ground and the inside is not black', () => withPhaser(() => {
     const scene=stubScene();BuildingLowPoly.begin(scene);
@@ -133,6 +201,38 @@
     }
     assert.gt(checked,0,'checked interior wall breaks');
   }));
+  test('low-poly wrecks: each house has distinct roof and wall damage that survives rebuilding', () => withPhaser(() => {
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    const footprint=[{x:100,y:100},{x:260,y:100},{x:260,y:196},{x:100,y:196}];
+    const signatures=(key,dx=0)=>{
+      const scene=stubScene();BuildingLowPoly.begin(scene);
+      const mesh=BuildingLowPoly.add(scene,footprint.map(p=>({x:p.x+dx,y:p.y})),recipe,'ridge',key);
+      const shape=predicate=>JSON.stringify(mesh.faces.filter(predicate).map(f=>
+        f.points.map(p=>[p.x,p.y,p.z].map(n=>+n.toFixed(5)))));
+      return {roof:shape(f=>f.standingRoof),wall:shape(f=>f.wallTop)};
+    };
+    const original=signatures('wreck-stable');
+    assert.truthy(original.roof!=='[]','a large wreck retains roof fragments');
+    assert.eq(signatures('wreck-stable').roof,original.roof,'roof damage survives a scene rebuild');
+    assert.eq(signatures('wreck-stable').wall,original.wall,'wall damage survives a scene rebuild');
+    const houses=Array.from({length:8},(_,i)=>signatures('wreck-diverse:'+i,i*300));
+    assert.gte(new Set(houses.map(s=>s.roof)).size,4,'same-size houses lose different roof areas');
+    assert.gte(new Set(houses.map(s=>s.wall)).size,4,'same-size houses lose different wall areas');
+  }));
+  test('low-poly wrecks: small and narrow footprints have no standing roof or roof framing', () => withPhaser(() => {
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    // The first is too narrow despite its area; the second is too small
+    // despite both dimensions clearing the width limit.
+    for(const [width,height] of [[40,160],[60,60],[24,24]]){
+      const scene=stubScene();BuildingLowPoly.begin(scene);
+      const footprint=[{x:0,y:0},{x:width,y:0},{x:width,y:height},{x:0,y:height}];
+      const mesh=BuildingLowPoly.add(scene,footprint,recipe,'ridge','small-wreck:'+width);
+      assert.falsy(mesh.faces.some(f=>f.standingRoof||f.rafter||f.beam),
+        width+'x'+height+' has no surviving roof structure');
+      assert.truthy(mesh.faces.some(f=>f.wallTop),'broken walls still remain');
+      assert.truthy(mesh.faces.some(f=>f.debris),'the rubble floor still remains');
+    }
+  }));
   test('low-poly fade: translucent buildings omit filled outline passes that hide the player', () => withPhaser(() => {
     const scene=stubScene();BuildingLowPoly.begin(scene);
     const mesh=build(scene,'fade-render');
@@ -145,10 +245,33 @@
     assert.gt(visible,0,'the fixture draws visible faces');
     mesh.obj.alpha=.5;
     mesh.obj.renderWebGL(renderer,mesh.obj,camera);
-    assert.eq(vertices,visible*3,'faded faces draw once without eight overlapping ink fills');
+    assert.eq(vertices,visible*3,'faded faces draw once without a filled ink pass');
     vertices=0;mesh.obj.alpha=1;
     mesh.obj.renderWebGL(renderer,mesh.obj,camera);
-    assert.eq(vertices,visible*3*9,'opaque buildings retain their eight outline offsets');
+    assert.eq(vertices,visible*3*2,'opaque buildings retain one upper-edge ink pass');
+  }));
+  test('low-poly outlines: houses and wrecks draw one upper silhouette before every face', () => withPhaser(() => {
+    for(const role of ['market','blacksmith','wreck']){
+      const scene=stubScene();BuildingLowPoly.begin(scene);
+      const recipe=BuildingLowPoly.recipeFor(role,{wall:0xd4cdb4,roof:0x709b9a,trim:0x614534});
+      const mesh=BuildingLowPoly.add(scene,FOOT,recipe,recipe.variant||'ridge','outline:'+role);
+      for(const heading of [0,.7,Math.PI]){
+        scene.mapRot=heading;BuildingLowPoly.update(scene);
+        const vertices=[];
+        const pipeline={shouldFlush:()=>false,setTexture2D:()=>0,batchVert:(x,y)=>vertices.push({x,y})};
+        const renderer={pipelines:{get:()=>pipeline,set:()=>pipeline,preBatch(){},postBatch(){}}};
+        mesh.obj.renderWebGL(renderer,mesh.obj,{alpha:1,zoom:2,addToRenderList(){}});
+        const points=mesh.obj._lowpolyFaces.filter(f=>f.visible).flatMap(f=>f.projected);
+        assert.gt(points.length,0,'visible '+role);
+        assert.eq(vertices.length,points.length*2,'one ink pass and one fill pass');
+        for(let i=0;i<points.length;i++){
+          assert.eq(vertices[i].x,points[i].x,'ink never expands sideways');
+          assert.eq(vertices[i].y,points[i].y-2*BuildingLowPoly.LOOK.inkPx,'ink expands only upward at camera zoom');
+          assert.eq(vertices[i+points.length].x,points[i].x,'all fills follow the complete silhouette');
+          assert.eq(vertices[i+points.length].y,points[i].y,'fills cover interior joins and lower edges');
+        }
+      }
+    }
   }));
   test('street doors: face the nearest street with corner clearance, independent of winding', () => {
     const ring=[{x:0,y:0},{x:60,y:0},{x:60,y:40},{x:0,y:40}];

@@ -748,8 +748,8 @@
     assert.truthy(/const listPrice = ShopsMath\.listPrice\(this\.save, id\);\s*[\s\S]{0,200}?const unitPrice = opts\.priceOf\?\.\(this\.save, id\) \?\? ShopsMath\.standPrice\(this\.save, listPrice\);/.test(SCENE_SRC),
       'the stall counter prices off the ladder');
     assert.truthy(/const want = 1;/.test(SCENE_SRC), 'and sells a Book one at a time');
-    assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house \}\)/.test(SCENE_SRC),
-      'the themed shop prices off the ladder');
+    assert.truthy(/this\.buildShopOffer\(id, units \* ShopsMath\.listPrice\(this\.save, id, itemValue\(id\)\), \{ house, price: id === 'book' \? undefined : entry\?\.price \}\)/.test(SCENE_SRC),
+      'the themed shop reprices books from the global ladder instead of a saved shelf quote');
     assert.eq((SCENE_SRC.match(/if \(id === 'book'\) ShopsMath\.bookBought\(this\.save, (?:take|buyQty)\);/g) || []).length, 2,
       'both counters climb the ladder on a sale');
     assert.truthy(/if \(!d\.stock\) return this\[d\.present\]\(sx, sy, o, dress\);/.test(SCENE_SRC), 'presentMacro routes it by the row');

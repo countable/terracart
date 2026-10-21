@@ -8,22 +8,10 @@
 // sub-hour offset staggers rotations. Deal counts + rerolls live in
 // save.shopState.
 //
-// A CLOSED DEAL SETTLES THE SHOP (owner's call, Oct 2026): what was bought
-// leaves the shelf, so the next offer is a fresh draw (the deal count is in
-// the seed), and the paid re-roll ladder drops back to its base rung
-// (recordDeal zeroes `rerolls` and `skips`), through the one recorder.
-//
-// NO SHOP RATIONS ITS DEALS (Sep 2026, owner's call): a smithy, trader or
-// storefront can be used continuously — there is no per-hour deal cap, no
-// resting anvil, no readiness pip. The clock does two things to a shop:
-//   · it eases the RE-ROLL LEVEL: the paid re-roll count (the cost ladder's
-//     rung) drops by one per hour bucket that passes, instead of resetting
-//     outright (bucketState);
-//   · it holds a SHORT COOLDOWN after a closed deal for the roles that have
-//     a row in DEAL_COOLDOWN_MS (Oct 2026: the trader, five minutes — a
-//     barter that reopened at once was a free converter between any two
-//     stacks). recordDeal stamps the moment, dealWaitMs prints the rest; a
-//     role with no row never waits.
+// Shops carry three shelf entries. Buying replaces only that entry and lowers
+// the paid re-roll ladder by one rung. Hourly easing still applies, and the
+// shared UTC game-day boundary clears any remaining penalty overnight.
+// Only traders keep a short deal cooldown; other counters stay open.
 //
 // The scene calls ShopsMath directly from its shop helpers (scene_shops.js
 // shopBucketState / shopRng / buildShopOffer) and from the two trader
@@ -85,7 +73,12 @@
     save.shopState = save.shopState || {};
     const id = house.id;
     const b = bucket(id, now);
+    const day = utcDayKey(now);
     let cur = save.shopState[id];
+    if (cur && cur.day != null && cur.day < day) {
+      cur.rerolls = 0;
+      cur.skips = 0;
+    }
     if (cur && cur.bucket !== b) {
       const next = { bucket: b, deals: 0, rerolls: easedRerolls(cur, b) };
       if (dealCooling(cur, now)) next.dealAt = cur.dealAt;
@@ -96,6 +89,7 @@
       cur = { bucket: b, deals: 0, rerolls: 0 };
       save.shopState[id] = cur;
     }
+    cur.day = day;
     return cur;
   }
 
@@ -122,20 +116,14 @@
     return n;
   }
 
-  // Bank a closed deal against a house: the deal count (the shelf's turnover
-  // within the bucket — rng folds it into the seed, so the next offer is a
-  // fresh draw) and the moment it closed, which the cooldown reads. The deal
-  // also SETTLES the re-roll ladder: the paid rung count and the free skips
-  // both go back to zero, so the next re-roll costs the base price at once
-  // rather than easing off one rung an hour. Every accept path records
-  // through here — the scene's recordDeal and the peddler's — so no caller
-  // keeps its own stamp or its own reset.
+  // A closed deal turns over the selected shelf slot and eases the paid
+  // re-roll ladder by one rung. The scene replaces the slot after this write.
   function recordDeal(save, house, now = Date.now()) {
     if (!house || house.id == null) return null;
     const cur = bucketState(save, house, now);
     cur.deals += 1;
     cur.dealAt = now;
-    cur.rerolls = 0;
+    cur.rerolls = Math.max(0, (cur.rerolls | 0) - 1);
     cur.skips = 0;
     return cur;
   }
@@ -203,6 +191,7 @@
   // is the same item again.
   function offerKey(o) {
     if (o == null) return '';
+    if (Array.isArray(o)) return o.map(offerKey).join('|');
     if (typeof o !== 'object') return String(o);
     return [o.id, o.kind, o.slot, o.tier, o.giveId, o.askId]
       .map(v => (v == null ? '' : String(v))).join('/');
@@ -216,6 +205,22 @@
       next = peek();
     }
     return next;
+  }
+
+  // Shelf snapshots preserve the two unbought offers, including their price.
+  // A draw may return null when a relic shop has no upgrades left.
+  const SHELF_SIZE = 3;
+  function shelf(cur, draw, replace = null) {
+    if (!Array.isArray(cur.shelf)) cur.shelf = Array(SHELF_SIZE).fill(null);
+    for (let i = 0; i < SHELF_SIZE; i++) {
+      if (replace !== null && i !== replace) continue;
+      if (replace === null && cur.shelf[i]) continue;
+      const previous = cur.shelf[i];
+      const others = cur.shelf.filter((o, j) => j !== i && o);
+      const next = draw(i, others, previous);
+      cur.shelf[i] = next || null;
+    }
+    return cur.shelf;
   }
 
   // Cash price to BUY an item worth baseValue: a random markup inside the one
@@ -564,7 +569,7 @@
     return out;
   }
 
-  root.ShopsMath = { HOUR, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, traderRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
+  root.ShopsMath = { HOUR, SHELF_SIZE, shelf, THEMED_REROLL_START, THEMED_REROLL_MUL, themedRerollCost, SMITHY_REROLL_START, smithyRerollCost, traderRerollCost, bucketOffset, bucket, easedRerolls, bucketState, pruneShopState, rng, buyPrice,
                      DEAL_COOLDOWN_MS, MAX_DEAL_COOLDOWN_MS, dealCooling, recordDeal, dealWaitMs,
                      REROLL_RETRIES, offerKey, rerollPeek,
                      SLOT_REELS, SLOT_PRIZES, SLOT_WEIGHT, SLOT_JACKPOT_WEIGHT, SLOT_JACKPOT_PAIR_COINS,

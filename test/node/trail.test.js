@@ -424,16 +424,16 @@ test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll
     'rung one takes its card in the rolled row; a sole rung stands alone');
 });
 
-test('trail prize: rung four is the Serpent Idol, alone, and nowhere else', () => {
-  const p = Trail.fixedPrize(4);
+test('trail prize: rung five is the Serpent Idol, alone, and nowhere else', () => {
+  const p = Trail.fixedPrize(5);
   assert.eq(p.id, 'serpent_idol');
   assert.eq(p.qty, 1);
   assert.truthy(p.sole, 'offered alone: it cannot be picked past');
   assert.eq(Trail.fixedPrize(1).id, Trail.FIRST_PRIZE_ID, 'rung one is unchanged');
-  for (const n of [2, 5, 8]) assert.eq(Trail.fixedPrize(n), null);
+  for (const n of [2, 4, 8]) assert.eq(Trail.fixedPrize(n), null);
   assert.truthy(ITEM_BY_ID.serpent_idol.progressionOnly, 'never a find, a ware or a trailer sale');
-  Trail.fixedPrize(4).qty = 9;
-  assert.eq(Trail.fixedPrize(4).qty, 1, 'callers get a copy');
+  Trail.fixedPrize(5).qty = 9;
+  assert.eq(Trail.fixedPrize(5).qty, 1, 'callers get a copy');
 });
 
 test('trail prize: rung one offers the onion seed AND a full row to pick from', () => {
@@ -1343,7 +1343,7 @@ test('trail prize: third rung offers a wooden pick only when no pick is owned', 
     assert.eq(Trail.fixedPrize(3, { relics: { pickaxe: { tier } } }), null,
       'an owned wooden or better pick keeps the normal roll');
   }
-  for (const n of [2, 5, 6]) assert.eq(Trail.fixedPrize(n, {}), null);
+  for (const n of [2, 4, 6]) assert.eq(Trail.fixedPrize(n, {}), null);
 });
 
 test('trail prize: the cash card pays 15 × √(km walked + 1)', () => {
@@ -1356,4 +1356,110 @@ test('trail prize: the cash card pays 15 × √(km walked + 1)', () => {
   const c = Trail.cashPrize(5);
   assert.eq(c.kind, 'gold');
   assert.eq(c.cls, 'cash', 'it takes the cash card in rollCardRow');
+});
+
+
+test('trail relic milestones: three distinct relics at the exact promised tier', () => {
+  const before = JSON.stringify({ relics: {} });
+  for (const tier of [1, 2, 3, 4, 5, 6, 7]) {
+    const save = JSON.parse(before);
+    const choices = Trail.relicChoices(tier, save, () => 0);
+    assert.eq(choices.length, 3);
+    assert.eq(new Set(choices.map(r => r.slot)).size, 3, 'even a constant RNG yields distinct slots');
+    for (const r of choices) {
+      assert.eq(r.kind, 'relic');
+      assert.eq(r.tier, tier);
+      assert.truthy(Gear.canUpgrade(save, r.kind, r.slot, r.tier));
+    }
+    assert.eq(JSON.stringify(save), before, 'offers grant nothing');
+    Gear.equip(save, choices[1].kind, choices[1].slot, choices[1].tier);
+    assert.eq(Object.keys(save.relics).length, 1, 'only the selected relic is equipped');
+  }
+});
+
+test('trail relic milestones: prefer useful relics and never downgrade owned gear', () => {
+  const save = { relics: Object.fromEntries(Object.keys(RELIC_DEFS).map(slot => [slot, { tier: 7 }])) };
+  for (const slot of ['axe', 'hoe', 'bag']) delete save.relics[slot];
+  const choices = Trail.relicChoices(2, save, () => .5);
+  assert.eq(choices.map(r => r.slot).sort().join(','), 'axe,bag,hoe');
+  for (const r of choices) { assert.eq(r.kind, 'relic'); assert.eq(r.tier, 2); }
+  for (const slot of ['axe', 'hoe', 'bag']) save.relics[slot] = { tier: 7 };
+  const before = JSON.stringify(save);
+  for (const r of Trail.relicChoices(2, save, () => .5)) {
+    assert.eq(r.kind, 'gold', 'fully equipped players receive the normal duplicate cash-out');
+    assert.gt(r.amount, 0);
+  }
+  assert.eq(JSON.stringify(save), before);
+});
+
+
+test('trail relic milestones: exact distances replace one rung each for every class', () => {
+  const expected = [[2000, 1], [5000, 2], [10000, 3], [20000, 4], [40000, 5], [100000, 6], [200000, 7]];
+  assert.eq(JSON.stringify(Trail.RELIC_MILESTONES.map(m => [m.metres, m.tier])), JSON.stringify(expected));
+  for (const pc of [undefined, 'runner']) {
+    for (const [metres, tier] of expected) {
+      const before = Trail.bank(0, 0, metres - .5, pc);
+      const first = before.prizes + 1;
+      assert.eq(Trail.rewardsBetween(metres - .5, metres - .01, first, pc).length, 0, 'not early');
+      const events = Trail.rewardsBetween(metres - .5, metres, first, pc);
+      assert.eq(events.length, 1, 'exactly one reward on the boundary');
+      assert.eq(events[0].relicTier, tier);
+      assert.eq(events[0].metres, metres);
+      const after = Trail.bank(0, 0, metres, pc);
+      assert.eq(Trail.rewardsBetween(metres, metres + .01, after.prizes + 1, pc).length, 0, 'no replay after reload');
+      const oldBoundary = Trail.totalMetres(0, events[0].n, pc);
+      assert.eq(Trail.rewardsBetween(metres, oldBoundary, after.prizes + 1, pc).length, 0, 'no second payout at the old rung');
+      const progress = Trail.rewardProgress(before.metres, before.prizes, pc);
+      assert.eq(progress.target - progress.pos, .5, 'HUD counts down to the exact milestone');
+      const readout = Trail.readout({ ...after, rewards: events }, pc);
+      assert.eq(readout.pos, readout.target, 'paying toast is full');
+    }
+    const events = Trail.rewardsBetween(0, 210000, 1, pc);
+    assert.eq(events.filter(e => e.relicTier).length, 7, 'a long sweep queues every tier');
+    assert.eq(new Set(events.map(e => e.n)).size, events.length, 'no duplicate ordinal');
+    assert.eq(events.length, Trail.bank(0, 0, 210000, pc).prizes, 'same total payouts as the original ladder');
+    for (let i = 1; i < events.length; i++) assert.gt(events[i].metres, events[i - 1].metres);
+  }
+});
+
+test('trail relic milestones: the ceremony offers the exact tier without paying or rolling normal loot', () => {
+  const signature = '_fireTrailPrize(n, onDismiss) {';
+  const start = SCENE_SRC.indexOf(signature) + signature.length;
+  const body = SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start));
+  const fire = new Function('Trail', 'pickReward', 'TRAIL_PRIZE_HEADER', 'TRAIL_PRIZE_THANKS', 'UI_GOLD',
+    'return function(n, onDismiss) {' + body + '};')(Trail,
+      () => { throw new Error('milestones must not roll ordinary loot'); }, 'Thanks', 'Thanks', '#fff');
+  for (const milestone of Trail.RELIC_MILESTONES) {
+    const event = Trail.rewardsBetween(milestone.metres - 1, milestone.metres, 1)[0];
+    let offered;
+    const save = { relics: {} };
+    const done = () => {};
+    fire.call({ save, _offerTreasurePick: options => { offered = options; } }, event.n, done);
+    assert.eq(offered.choices.length, 3);
+    assert.eq(offered.onDismiss, done);
+    for (const choice of offered.choices) { assert.eq(choice.kind, 'relic'); assert.eq(choice.tier, milestone.tier); }
+    assert.eq(Object.keys(save.relics).length, 0, 'nothing equipped before a selection');
+  }
+});
+
+
+test('trail relic milestones: an older save in the shifted gap receives its unpaid reward once', () => {
+  const calls = [];
+  const scene = {
+    save: { trail: { metres: 900, prizes: 6, greeted: true } }, // 5.1 km; old rung 7 still unpaid
+    _afterRestoreBeat(fn) { fn(); }, _toast() {},
+    _enqueueCeremony(kind, open) { open(() => {}); },
+    _fireTrailPrize(n) { calls.push(n); },
+  };
+  __trailCounter._bankStreetMetres.call(scene, 1, null, 10000);
+  assert.eq(calls.join(','), '7', 'the moved 5 km reward is delivered');
+  assert.eq(scene.save.trail.rewardSchedule, 1);
+  scene.save = JSON.parse(JSON.stringify(scene.save));
+  __trailCounter._bankStreetMetres.call(scene, 1, null, 11000);
+  assert.eq(calls.join(','), '7', 'reload cannot pay it again');
+  __trailCounter._bankStreetMetres.call(scene, 498, null, 12000);
+  assert.eq(scene.save.trail.prizes, 7);
+  assert.eq(calls.join(','), '7', 'the old 5.6 km boundary does not pay again');
+  __trailCounter._bankStreetMetres.call(scene, 1600, null, 13000);
+  assert.eq(calls.join(','), '7,8', 'the ordinary ladder resumes');
 });

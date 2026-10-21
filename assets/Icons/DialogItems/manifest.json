@@ -1,0 +1,42 @@
+{
+  "cell": 96,
+  "columns": 8,
+  "rows": 8,
+  "sheets": [
+    {
+      "source": "assets/Icons/DialogItems/source/generated-01.png",
+      "output": "assets/Icons/DialogItems/items-01.png",
+      "sha256": "a60705856623a0b8bb02e6366101d87e6bed24bace7f2b648ee25c8eb60d4601",
+      "sourceSha256": "74c7da04860215242f6f71c3acf86dbaf8a316e44c80bd5807457de8209b70ed"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-02.png",
+      "output": "assets/Icons/DialogItems/items-02.png",
+      "sha256": "3b7d0d1e1f9e7dbc5b1688acf6775855a92d5e21582d07712317bbc2418042c3",
+      "sourceSha256": "30c921719a1b5fe9a69d01e18838cc8197ac4d537721ea863eeb9f100d9e1c8d"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-03.png",
+      "output": "assets/Icons/DialogItems/items-03.png",
+      "sha256": "93b1f7391fc3c8cdf7173928843b683606c62aa8dc77b0493ddd3fbd2aaff8d7",
+      "sourceSha256": "eb5b9654e38e8ad7dfb94b3108d31774cf91526524e97960047f94d7cd0d3fa8"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-04.png",
+      "output": "assets/Icons/DialogItems/items-04.png",
+      "sha256": "c8ad6b062a0ca13e983eea341541ad1b0a4b49555d77b1f5a194cac00dcdc45c",
+      "sourceSha256": "3b78f24d3953c0388fdc9e3750eb2a3e6a3b6216d5d64b619cae53d0815a56b3"
+    },
+    {
+      "source": "assets/Icons/DialogItems/source/generated-05.png",
+      "output": "assets/Icons/DialogItems/items-05.png",
+      "sha256": "c9776417c7808a3e226c845ca9952c0f4ac280056c6715347d1e7d8e4f2f7805",
+      "sourceSha256": "633ed6155f62984adb268df4586abb0630bb9c774679d313dd93bfab305aeaa8"
+    }
+  ],
+  "method": "Sundries story-panel reference: muted painterly pixel art on black. Clear black gutters recover uneven rows and columns in each generated 8x8 master. Complete portraits are centered with at least 6px padding and Lanczos filtering in 96x96 cells; atlases are 768x768.",
+  "styleReference": "docs/art/story-style-references.json#sundries",
+  "excludedCells": [],
+  "composites": "All catalog entries use generated base portraits; runtime preserves badges and variant colour treatments.",
+  "runtimeEntries": 345
+}

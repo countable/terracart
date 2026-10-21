@@ -125,7 +125,14 @@ const FILES = [
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
   // building_lowpoly.js only touches Phaser/DOM inside begin()/add(): loaded so the
   // overlay's WebGL branch (`lowpoly`) is reachable headlessly (building_lowpoly_scene.test.js).
-  'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
+  // Reviewed source meshes expose pure role mapping before browser preparation.
+  'authored-buildings/roof-materials.js', 'authored-buildings/facade-materials.js',
+  'authored-buildings/flat-buildings.js',
+  'authored-buildings/wizard-tower.js', 'authored-buildings/steam-home.js',
+  'authored-buildings/steam-blacksmith.js', 'authored-buildings/steam-wizard.js',
+  'authored-buildings/city-buildings.js',
+  'authored_roof_palette.js', 'authored_buildings.js',
+  'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'prop_lowpoly.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox_scenarios.js',
@@ -209,6 +216,30 @@ try {
 } catch (e) {
   console.error('Failed to load source bundle headlessly:\n', e && e.stack || e);
   process.exit(2);
+}
+
+// Keep loaded mixin methods intact, including their lexical dependencies.
+const loadedMixins = SCENE_FILES.filter(file => FILES.includes(file))
+  .map(file => readSrc(file).match(/^class (\w+) \{/m)[1]);
+ctx.__sceneMethods = vm.runInContext(`(() => {
+  const methods = Object.create(null);
+  for (const mixin of [${loadedMixins.join(', ')}]) {
+    for (const name of Object.getOwnPropertyNames(mixin.prototype)) {
+      if (name !== 'constructor') methods[name] = mixin.prototype[name];
+    }
+  }
+  return methods;
+})()`, ctx);
+
+// app.js cannot boot headlessly yet. Keep its extraction fallback in one
+// place; loaded mixins use their actual methods regardless of formatting.
+function sceneMethodSource(signature) {
+  const name = signature.slice(0, signature.indexOf('('));
+  if (ctx.__sceneMethods[name]) return `${name}: __sceneMethods.${name}`;
+  const start = SCENE_SRC.indexOf('\n  ' + signature);
+  const end = start < 0 ? -1 : SCENE_SRC.indexOf('\n  }\n', start);
+  if (start < 0 || end < 0) throw new Error(`Cannot extract scene method ${name}`);
+  return SCENE_SRC.slice(start + 1, end + 4);
 }
 
 // NON_TILLABLE is the contract interact.js' TERRAIN_FLAVOR has to cover — every
@@ -341,17 +372,6 @@ const starterWrapper = (name) => {
 // inside _driftHome. Lift the method itself (with the ones it calls) and run it
 // on a stub scene, as tools/layout_audit.js does for layOutVertically.
 {
-  const src = SCENE_SRC;
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    // Class methods sit at two-space indent, so the first line exactly `  }` closes the method.
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
   const methods = ['_driftHome(dt) {', 'syncMoveTarget() {', '_gpsAwayM() {',
                    // The stick's countdown to that walk — same gates.
                    '_walkHomeCountdownS() {',
@@ -367,7 +387,7 @@ const starterWrapper = (name) => {
                    '_steerManual(vx, vy, dt) {',
                    // What pauses the debounce (a wheel, a dialog), and the one dialog test.
                    '_walkHomeHeld() {', '_dialogOpen() {']
-    .map(lift).join(',\n');
+    .map(sceneMethodSource).join(',\n');
   vm.runInContext(`globalThis.__walkHome = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_driftHome' });
   for (const k of ['_driftHome', 'syncMoveTarget', '_gpsAwayM', '_walkHomeCountdownS',
@@ -384,19 +404,9 @@ const starterWrapper = (name) => {
 // kept. Nothing may be granted by the drawing half (the declined option is
 // rendered too), so both halves are lifted and run on a stub scene in trail.test.js.
 {
-  const src = SCENE_SRC;
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
   // The card is Rewards.card now; the scene keeps no copy, so the lift wraps it.
   const methods = ['_claimTrailReward(reward, opts = {}) {', '_trailRewardBlurb(reward) {']
-    .map(lift).concat(['_trailRewardCard(reward, iconPx = 64) { return Rewards.card(this, reward, iconPx); }']).join(',\n');
+    .map(sceneMethodSource).concat(['_trailRewardCard(reward, iconPx = 64) { return Rewards.card(this, reward, iconPx); }']).join(',\n');
   vm.runInContext(`globalThis.__trailPrize = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#_claimTrailReward' });
   for (const k of ['_trailRewardCard', '_claimTrailReward', '_trailRewardBlurb']) {
@@ -410,19 +420,9 @@ const starterWrapper = (name) => {
 // Home rest follows owned cells; light and ward retain the broad ring.
 // Lift the shipped geometry predicates so tests run both policies.
 {
-  const src = SCENE_SRC;
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
   const methods = ['homeWorldPos() {', 'isRestingAtHome(pWX, pWY) {', 'inHomeRing(x, y) {',
                    '_cropRaidable(p) {']
-    .map(lift).join(',\n');
+    .map(sceneMethodSource).join(',\n');
   vm.runInContext(`globalThis.__home = {\n${methods}\n};`, ctx,
                   { filename: 'app.js#homeWorldPos' });
   for (const k of ['homeWorldPos', 'isRestingAtHome', 'inHomeRing', '_cropRaidable']) {
@@ -439,15 +439,6 @@ const starterWrapper = (name) => {
 // SWEEP, so trail.test.js drives the shipping dwell, reach gate and bank.
 {
   const src = SCENE_SRC;
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
   // _worldToastAt is the ONE world→toast seating the street counter and the
   // energy pops share; _energyPopAt / _cellAtScreen / playerScreen are the
   // energy pop's own placement (energy_pop.test.js).
@@ -468,7 +459,7 @@ const starterWrapper = (name) => {
                    '_drawStreetLive(now) {',
                    '_blastAt(wmx, wmy, opts) {',
                    '_houseMutter() {']
-    .map(lift).join(',\n');
+    .map(sceneMethodSource).join(',\n');
   // Carry app.js constants across as SOURCE TEXT so a retune moves the test with it.
   const constOf = (name) => {
     const m = src.match(new RegExp(`const ${name} = ([^;\n]+);`));
@@ -548,21 +539,12 @@ const starterWrapper = (name) => {
 // tree it slid over).
 {
   const src = SCENE_SRC;
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
   const methods = ['playerScreen() {', 'isPeeking() {', '_setPeekFromDrag(dxPx, dyPx) {',
                    '_releasePeek() {', 'clearPeek() {', '_tickPeek(dt) {', '_gamePt(p) {',
                    '_pinchStart(a, b) {', '_pinchMove(a, b) {', '_pinchEnd() {',
                    '_tickMapZoom(dt) {', '_stepMapZoom(direction) {', '_setRestZoom(zoom, tauMs) {',
                    '_tickHomeZoom() {', '_unzoomPt(pt) {']
-    .map(lift).join(',\n');
+    .map(sceneMethodSource).join(',\n');
   // The tap-or-drag decision itself, straight out of create()'s input wiring.
   const relSig = '    const endPeekPointer = (p) => {';
   const relStart = src.indexOf(relSig);
@@ -655,24 +637,10 @@ Object.assign(ctx, {
 
 // Claiming a castle (a footprint plus turrets, no house object) and its
 // once-a-day favour. The claim / key / daily-gate rules are houses.js
-// (houses.test.js); the rest and tax live on the scene class, so lift those
-// as text for castle_claim.test.js.
+// (houses.test.js); rest and tax use the loaded shop methods for
+// castle_claim.test.js.
 {
   const src = SCENE_SRC;
-  const grab = (head) => {
-    const at = src.indexOf(head);
-    if (at < 0) {
-      console.error(`Could not find ${head.trim()} in src/app.js — update run.js`);
-      process.exit(2);
-    }
-    const bodyStart = at + head.length;
-    const end = src.indexOf('\n  }\n', bodyStart);
-    if (end < 0) {
-      console.error(`Could not find the end of ${head.trim()} — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(bodyStart, end);
-  };
   let decls = '';
   const rest = src.match(/const CASTLE_REST_ENERGY = (\d+);/);
   if (!rest) { console.error('Could not find CASTLE_REST_ENERGY in src/app.js — update run.js'); process.exit(2); }
@@ -690,57 +658,21 @@ Object.assign(ctx, {
     + '  _castleServiceUsed(house) { return Houses.castleServiceUsed(this.save, house); },\n'
     + '  _castleServiceWaitMs(house) { return Houses.castleServiceWaitMs(this.save, house); },\n'
     + '  _markCastleServiceUsed(house) { return Houses.markCastleServiceUsed(this.save, house); },\n'
-    + '  _castleRest(sx, sy, house) {\n' + grab('  _castleRest(sx, sy, house) {\n') + '\n  },\n'
-    + '  _castleTax(sx, sy, house) {\n' + grab('  _castleTax(sx, sy, house) {\n') + '\n  },\n'
+    + '  _castleRest: SceneShops.prototype._castleRest,\n'
+    + '  _castleTax: SceneShops.prototype._castleTax,\n'
     + '};', ctx, { filename: 'castleClaim.js' });
 }
 
 // The tile-block retry backoff (_scheduleTileRetry): without it one bad moment
 // at boot left a new player on an empty map for good (tile_retry.test.js).
-// Pure timer logic on the SceneGeo mixin, lifted as text with its two constants.
+// Run the loaded SceneGeo methods directly with their own constants.
 {
   const src = readSrc('scene_geo.js');
-  const head = '  _scheduleTileRetry(anyFailed) {\n';
-  const at = src.indexOf(head);
-  if (at < 0) {
-    console.error('Could not find _scheduleTileRetry in src/scene_geo.js — update run.js');
-    process.exit(2);
-  }
-  const bodyStart = at + head.length;
-  const end = src.indexOf('\n  }\n', bodyStart);
-  if (end < 0) {
-    console.error('Could not find the end of _scheduleTileRetry — update run.js');
-    process.exit(2);
-  }
   // The call site matters: a backoff nothing arms is no backoff.
   if (!/this\._scheduleTileRetry\(anyRetry\)/.test(src)) {
     console.error('ensureTilesAround no longer arms _scheduleTileRetry — update run.js');
     process.exit(2);
   }
-  // The consts are already lexical globals (scene_geo.js is bundled): checked, not re-declared.
-  for (const n of ['TILE_RETRY_BASE_MS', 'TILE_RETRY_MAX_MS']) {
-    const m = src.match(new RegExp(`const ${n} = (\\d+);`));
-    if (!m) { console.error(`Could not find ${n} in src/scene_geo.js — update run.js`); process.exit(2); }
-    ctx[n] = parseInt(m[1], 10);
-  }
-  // The classifier that decides WHICH of the three a tile failure was; the
-  // banner and the retry both read it (tile_retry.test.js).
-  const kindHead = '  _tileFailureKind(err, entry) {\n';
-  const kindAt = src.indexOf(kindHead);
-  if (kindAt < 0) {
-    console.error('Could not find _tileFailureKind in src/scene_geo.js — update run.js');
-    process.exit(2);
-  }
-  const kindEnd = src.indexOf('\n  }\n', kindAt + kindHead.length);
-  // The walk-only settled predicate is lifted too: tile_retry.test.js runs its
-  // real nine cache lookups across marker, depth, ready and spawn changes.
-  const settledHead = '  _walkTileBlockSettled(cell) {\n';
-  const settledAt = src.indexOf(settledHead);
-  if (settledAt < 0) {
-    console.error('Could not find _walkTileBlockSettled in src/scene_geo.js — update run.js');
-    process.exit(2);
-  }
-  const settledEnd = src.indexOf('\n  }\n', settledAt + settledHead.length);
   // The call sites matter: the banner must be the CENTRE tile's verdict
   // alone, and a permanent answer must arm no retry.
   for (const [re, what] of [
@@ -759,16 +691,12 @@ Object.assign(ctx, {
     console.error('the 20 m walk check no longer consults _walkTileBlockSettled — update run.js');
     process.exit(2);
   }
-  vm.runInContext(
-    'globalThis.TILE_RETRY_BASE_MS = TILE_RETRY_BASE_MS;\n'
-    + 'globalThis.TILE_RETRY_MAX_MS = TILE_RETRY_MAX_MS;\n'
-    + 'globalThis.scheduleTileRetry = function (anyFailed) {\n'
-    + src.slice(bodyStart, end) + '\n};\n'
-    + 'globalThis.tileFailureKind = function (err, entry) {\n'
-    + src.slice(kindAt + kindHead.length, kindEnd) + '\n};\n'
-    + 'globalThis.walkTileBlockSettled = function (cell) {\n'
-    + src.slice(settledAt + settledHead.length, settledEnd) + '\n};',
-    ctx, { filename: 'scheduleTileRetry.js' });
+  vm.runInContext(`Object.assign(globalThis, {
+    TILE_RETRY_BASE_MS, TILE_RETRY_MAX_MS,
+    scheduleTileRetry: SceneGeo.prototype._scheduleTileRetry,
+    tileFailureKind: SceneGeo.prototype._tileFailureKind,
+    walkTileBlockSettled: SceneGeo.prototype._walkTileBlockSettled,
+  });`, ctx, { filename: 'scene_geo.js#test-exports' });
 }
 
 // The cash-storefront offer path must derive every roll from the shop's hour
@@ -835,20 +763,10 @@ Object.assign(ctx, {
 // the helpers it calls so starter_arrow.test.js drives the REAL aiming rules
 // (chip step X → the arrow points at X's own space, never a leftover crate fallback).
 {
-  const src = SCENE_SRC;
-  const lift = (sig) => {
-    const start = src.indexOf('\n  ' + sig);
-    const end = start < 0 ? -1 : src.indexOf('\n  }\n', start);
-    if (start < 0 || end < 0) {
-      console.error(`Could not lift ${sig} out of src/app.js — update run.js`);
-      process.exit(2);
-    }
-    return src.slice(start + 1, end + 4);
-  };
   // The wreck rules are houses.js now; the scene keeps one-line wrappers.
   const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
     "_nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {"]
-    .map(lift).concat([
+    .map(sceneMethodSource).concat([
       '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',
       '_wreckRestoreCost(house) { return Houses.wreckRestoreCost(this.save, house); }',
     ]).join(',\n');
@@ -1134,10 +1052,18 @@ ctx.BUILDING_LOWPOLY_SRC = readSrc('building_lowpoly.js');
 ctx.APP_JS_SRC = readSrc('app.js');
 ctx.SANDBOX_JS_SRC = readSrc('sandbox.js');
 ctx.SCENE_SRC = SCENE_SRC;
-// Lift one scene method out of SCENE_SRC as a callable `this`-method, for
-// methods whose class cannot be built headlessly. `globals` supplies the
-// app.js constants the body names (e.g. BUILDING_TYPES).
+// Return a loaded mixin method, with a source fallback for app.js methods.
+// `globals` supplies explicit fixture dependencies (e.g. BUILDING_TYPES).
 ctx.liftSceneMethod = (name, globals = {}) => {
+  const method = ctx.__sceneMethods[name];
+  if (method) {
+    if (!Object.keys(globals).length) return method;
+    // A few fixtures explicitly inject dependencies. Recompile the method's
+    // own source with those bindings, preserving defaults and destructuring.
+    const factory = new (vm.runInContext('Function', ctx))(
+      ...Object.keys(globals), `return ({${method.toString()}})[${JSON.stringify(name)}];`);
+    return factory(...Object.values(globals));
+  }
   const m = new RegExp(`\\n  ${name}\\(([^)]*)\\) \\{\\n`).exec(SCENE_SRC);
   if (!m) throw new Error(`liftSceneMethod: ${name} not found`);
   const start = m.index + m[0].length;
@@ -1161,87 +1087,27 @@ ctx.SCENE_CREATURES_SRC = readSrc('scene_creatures.js');
 ctx.ALL_SRC = Object.fromEntries(fs.readdirSync(path.join(ROOT, 'src'))
   .filter(f => f.endsWith('.js')).map(f => [f, readSrc(f)]));
 
-// ── wanderCreatures, lifted and RUN ───────────────────────────────────────
-// The creature sim is a huge scene method, so a regex pin cannot tell you that
-// a guard actually leaves its seat, closes the distance, turns round at the
-// leash and lands back on its spot (the lair chase once shipped with its state
-// machine tested and its movement loop not).
-//
-// So it is lifted like _driftHome: the REAL method text plus the top-level
-// constants and helpers it closes over, evaluated into one function the tests
-// call on a stub scene.
-{
-  // Consts and helpers live in app.js, creature_ai.js and scene_creatures.js; look in all three.
-  const src = SCENE_SRC + '\n' + readSrc('creature_ai.js') + '\n' + readSrc('scene_creatures.js');
-  const num = (name) => {
-    const m = src.match(new RegExp(`const ${name} = ([-\\d.]+);`));
-    if (!m) { console.error(`Could not lift ${name} for __wander — update run.js`); process.exit(2); }
-    return `const ${name} = ${m[1]};`;
+// Run the loaded creature simulation and its helpers on test scene stubs.
+vm.runInContext(`Object.assign(globalThis, {
+  __wander: SceneCreatures.prototype.wanderCreatures,
+  __monsterWanderingOff: monsterWanderingOff,
+  __wardTrip: wardTrip,
+  __ghostTick: ghostTick,
+  __ghostSpawnPass: ghostSpawnPass,
+  __raiseGhostAt: raiseGhostAt,
+  __fishedSlimeSpawn: fishedSlimeSpawn,
+});
+(() => {
+  const surfaceGhosts = EnemyRoster.ghostProfile(0);
+  globalThis.__ghost = {
+    GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt,
+    GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS,
+    GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax,
+    GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS,
+    GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS,
+    GHOST_LIFETIME_MS, ghostSunExposure, ghostSpawnDelay,
   };
-  // A top-level function by its signature line: the whole line when it is a
-  // one-liner, otherwise through the `}` that closes it at column 0.
-  const fn = (sig) => {
-    const i = src.indexOf('\n' + sig);
-    if (i < 0) { console.error(`Could not lift ${sig} for __wander — update run.js`); process.exit(2); }
-    const lineEnd = src.indexOf('\n', i + 1);
-    const line = src.slice(i + 1, lineEnd);
-    if (line.trimEnd().endsWith('}')) return line;
-    const close = src.indexOf('\n}\n', i);
-    if (close < 0) { console.error(`Could not find the end of ${sig} — update run.js`); process.exit(2); }
-    return src.slice(i + 1, close + 2);
-  };
-  const start = src.indexOf('  wanderCreatures() {');
-  const end = src.indexOf('\n  }\n', start);
-  if (start < 0 || end < 0) {
-    console.error('Could not lift wanderCreatures out of src/scene_creatures.js — update run.js');
-    process.exit(2);
-  }
-  const method = src.slice(start + 2, end + 4);
-  const preamble = [
-    // The numbers the loop reads. Lifted, never retyped: a retune has to move
-    // the simulation with it or these tests are measuring last week's game.
-    num('CREATURE_SIM_CELLS'), num('SURFACE_RECHECK_MS'), num('FIRE_WARD_MAX_DEPTH'), num('WANDER_STEP_MS'),
-    num('PEST_SPAWN_CELLS'), num('STRUCK_REACTION_MS'),
-    // The struck-prey flee and Home's rout both run at this pair.
-    num('FLEE_STRIDE_MUL'), num('FLEE_BEAT_MUL'),
-    // The wander-off schedule, distance and timeout (wander_off.test.js).
-    num('WANDER_OFF_MIN_MS'), num('WANDER_OFF_SPREAD_MS'), num('WANDER_OFF_MAX_MUL'),
-    num('WANDER_OFF_TIMEOUT_MS'), num('WANDER_OFF_TICK_CAP_MS'),
-    // The predicates. (faunaBlocksCell is Combat's, already loaded.)
-    fn('function slimeCharging(c) {'),
-    fn('function monsterRout(c, now, cellM) {'),
-    fn('function monsterWanderingOff(c, now, distM, cellM) {'),
-    fn('function wardTrip(c, homePos, castleWards, r2) {'),
-    // The ghosts: the night pump and the mover.
-    num('GHOST_DARK_DAYLIGHT'),
-    'const GHOST_SPAWN_MS = EnemyRoster.GHOST_SCALING.cadenceSeconds * 1000;',
-    'const GHOST_SPAWN_JITTER_MS = EnemyRoster.GHOST_SCALING.jitterSeconds * 1000;',
-    num('GHOST_GROUP_SPREAD'),
-    num('GHOST_SPAWN_DARK'), num('GHOST_HOVER_MS'), num('GHOST_TOUCH_CELLS'),
-    num('GHOST_PLATEAU_BURN_S'), num('GHOST_LIGHT_TICK_MS'), num('GHOST_LIFETIME_MS'),
-    fn('function ghostSpawnDelay(r) {'),
-    fn('function ghostSunExposure(day) {'),
-    fn('function ghostsHaunt(depth, day, habitat) {'),
-    fn('function ghostSpawnPass(scene, now, px, py, pcW, homePos, castleWards, wardR2, caughtSet) {'),
-    fn('function makeGhost(x, y, now, tx, ty, tag) {'),
-    fn('function raiseGhostAt(scene, x, y, now, tag) {'),
-    fn('function fireWardTrip(scene, c) {'),
-    fn('function ghostTick(scene, c, now, px, py, unnoticed, warded, pace) {'),
-    // The fished slime: a cast's slime, seated beside the player, angry.
-    fn('function fishedSlimeSpawn(scene, now, px, py, pcW) {'),
-  ].join('\n');
-  // ONE script, so the method closes over the preamble's consts — a second
-  // runInContext would not see them (a vm script's top-level `const` does not
-  // land on the context global; that is what the BRIDGE above exists for).
-  // The method text is a class method, so it is wrapped as an object literal
-  // and the property taken off it.
-  vm.runInContext(`(function () {\n${preamble}\nglobalThis.__wander = ({\n${method}\n}).wanderCreatures;\nglobalThis.__monsterWanderingOff = monsterWanderingOff;\nglobalThis.__wardTrip = wardTrip;\nglobalThis.__ghostTick = ghostTick;\nglobalThis.__ghostSpawnPass = ghostSpawnPass;\nglobalThis.__raiseGhostAt = raiseGhostAt;\nglobalThis.__fishedSlimeSpawn = fishedSlimeSpawn;\nconst surfaceGhosts = EnemyRoster.ghostProfile(0);\nglobalThis.__ghost = { GHOST_DARK_DAYLIGHT, ghostsHaunt, ghostSunExposureAt, GHOST_SPAWN_MS, GHOST_SPAWN_JITTER_MS, GHOST_GROUP_MIN: surfaceGhosts.groupMin, GHOST_GROUP_MAX: surfaceGhosts.groupMax, GHOST_NEAR_MAX: surfaceGhosts.nearMax, GHOST_SPAWN_DARK, GHOST_HOVER_MS, GHOST_TOUCH_CELLS, GHOST_PLATEAU_BURN_S, GHOST_LIGHT_TICK_MS, GHOST_LIFETIME_MS, ghostSunExposure, ghostSpawnDelay };\n})();`,
-    ctx, { filename: 'scene_creatures.js#wanderCreatures' });
-  if (typeof ctx.__wander !== 'function') {
-    console.error('__wander did not come back as a function — update run.js');
-    process.exit(2);
-  }
-}
+})();`, ctx, { filename: 'scene_creatures.js#test-exports' });
 // The burst call sites in interact.js's crop handler are pinned as source text (particles.test.js).
 ctx.INTERACT_JS_SRC = readSrc('interact.js');
 // Item descriptions and the Book curriculum are prose the tests sweep as
@@ -1519,7 +1385,7 @@ ctx.__tests.push({ name: 'furniture manifest: catalog frames and world geometry 
     ctx.assert.eq(furniture[row.itemId].frame, row.frame, row.itemId);
     ctx.assert.eq(row.frameSize[0], 32, row.itemId);
     const tall = ['bed_quilted', 'bookshelf_frontier'].includes(row.itemId);
-    ctx.assert.eq(row.frameSize[1], tall ? Math.round(32 * manifest.worldCell / manifest.nativeCell) : 32, row.itemId);
+    ctx.assert.eq(row.frameSize[1], row.itemId === 'lamp_floor' ? manifest.worldFrameHeight : tall ? Math.round(32 * manifest.worldCell / manifest.nativeCell) : 32, row.itemId);
     if (row.itemId === 'candelabra_floor') {
       ctx.assert.eq(JSON.stringify(row.fit), '[30,30]', row.itemId);
     }

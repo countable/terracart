@@ -140,6 +140,28 @@
       },
       "sourcePath": "assets/Objects/SelectedProps/cave_mechanisms.png"
     },
+    "selected_dead_tree": {
+      "kind": "atlas-alias",
+      "path": "assets/Objects/SelectedWorld/world.png",
+      "atlasKey": "selected_world_atlas",
+      "frameWidth": 64,
+      "frameHeight": 64,
+      "sheetRect": {
+        "x": 98,
+        "y": 0,
+        "width": 64,
+        "height": 64
+      },
+      "frameRects": {
+        "0": {
+          "x": 98,
+          "y": 0,
+          "width": 64,
+          "height": 64
+        }
+      },
+      "sourcePath": "assets/Objects/SelectedFlora/selected_dead_tree.png"
+    },
     "selected_grave_pillar": {
       "kind": "atlas-alias",
       "path": "assets/Objects/SelectedWorld/world.png",
@@ -147,14 +169,14 @@
       "frameWidth": 16,
       "frameHeight": 32,
       "sheetRect": {
-        "x": 98,
+        "x": 164,
         "y": 0,
         "width": 16,
         "height": 32
       },
       "frameRects": {
         "0": {
-          "x": 98,
+          "x": 164,
           "y": 0,
           "width": 16,
           "height": 32

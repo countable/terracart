@@ -42,3 +42,13 @@ the one-line version; this file owns the geometry. The
   with their visible faces following the same screen-down direction as castle
   wall faces; they never become a raised rim. North-up asset authoring rules above
   still apply.
+
+- Upright cell props counterrotate about their drawn ground contact, pinned near
+  the cell centre. Standing art uses five source pixels above its opaque bottom;
+  mid-height hoppable art no taller than one rendered cell uses one-third of its
+  opaque height above the bottom. Taller silhouettes use the five-pixel rule
+  even when gameplay permits stepping over them.
+  These are approximate drawn-geometry rubrics, applied by `SpriteLayout.contactSeat`.
+  Transparent frame padding does not move the contact. Flat items remain aligned
+  with the ground and never receive the upright counterrotation. Connected
+  architectural meshes keep the footprint/elevation treatment above.

@@ -1,18 +1,33 @@
 # Shared low-poly building styles
 
-Integrated from `art/house-symmetry` (084c5226) and the retained low-poly prototype.
-The style branch supplies role/shop palettes, concave inset validation, optional
-parapets and roof lofts, synthesized footprints, real model heights for signs,
-and a reversible rounded-sprite fallback. The default WebGL path uses shared
-textured triangles, not geometry for mortar, windows or roof courses.
+The default WebGL exteriors use the reviewed closed source-art meshes in
+`src/authored-buildings/`, selected by `AuthoredBuildings.recipeFor`. Native
+textures and roof-color variants are prepared once at scene startup. Compass
+rotation reuses geometry and textures. Roof recoloring preserves painted
+shading; walls, chimney shafts, timber trim and dark closures keep their art.
 
-The cottage finish follows the supplied `/tmp/bldg.png` reference: warm walls,
-dark timber framing and braces, clay/slate/thatch roof treatments, recessed
-joinery and broad eave shading. These details live in shared material sheets;
-story count and footprint do not create a new texture. Material palettes stay
-role-driven. Reference pixels are not embedded in the generated textures.
-Ordinary delivery houses have one storey; specialised buildings retain their
-role-specific heights. The Canvas fallback reads the same storey count.
+| Gameplay role | Exterior model | Roof |
+| --- | --- | --- |
+| Home | Pixel Plains timber cabin | Yellow |
+| Regular residence | com cottage, Pixel Plains brick/plaster/cabin, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
+| Blacksmith T1–T3 / T4–T7 | FDR / steam blacksmith | Slate |
+| Trader | Trader | Green |
+| Seed / supply shop | Market / city storefront | Lime / blue |
+| Magic / relic shop | Market / city storefront | Teal / red |
+| Pet / book shop | Market / city storefront | Orange / plum |
+| First / second wizard tower | Purple wizard / steam wizard | Purple |
+| Fort | City gearhouse inside existing palisade | Copper |
+
+All shop models belong to the market/storefront pair; tier does not change
+shop identity. Castle, turret and wreck geometry retain their existing paths.
+Home retains its open-roof interior and furniture behavior. Closed native
+shells fit uniformly within the lot rather than stretching their source art
+across concave corners. The factory, chimney tower and clock tower are reserved
+art, with no new gameplay role or placement introduced.
+
+The generated material system below remains the Canvas/fallback and interior
+path. Its role-specific heights and footprint geometry are independent of the
+reviewed native exteriors.
 
 `scene.buildingRoofVariant` selects ridge, inset, shallow or flat. Leaving it
 unset selects a low-poly roof appropriate to the role; `styles` explicitly
@@ -177,13 +192,13 @@ review is published as a Claude artifact.
 - Height: `update()` projects z through `LOOK.heightScale` (1.0, full model
   height); the review page's slider foreshortens it for comparison. Sign and flag placement still reads
   the model height; the browser regression checks drift against the scaled z.
-- Ink outline: `renderWebGL` re-emits each ink group's visible triangles in the
-  solid trim texel, tinted `LOOK.ink`, at eight screen offsets of
-  `LOOK.inkPx` (2) art pixels (× camera zoom), then draws the group. A building is
-  one contiguous sorted run; faded buildings omit these repeated filled ink passes
-  so they remain see-through. Its ink groups (body, flat deck, chimney) draw in
-  layer order so each gets a line where it meets the surface below it. Same
-  retained vertices; nothing allocates on a heading change.
+- Ink outline: `renderWebGL` re-emits all visible triangles together in the
+  solid trim texel, tinted `LOOK.ink` (or `LOOK.wreck.ink`), shifted upward by
+  `LOOK.inkPx` (1) art pixel × camera zoom. Every face then paints over that
+  silhouette, leaving only the upper outer edge: no bottom border or internal
+  lines between body, deck, chimney, or wreck fragments. Faded buildings omit
+  the filled ink pass so they remain see-through. Legacy building prisms and
+  connected castle walls use the same upward-only offset in screen space.
 - Flat roofs: no parapet lip. The deck is one colour (`solid` faces draw the
   recipe roof colour from the solid texel) with a lighter 3.5-unit rim and a
   darker 9-unit band inside it (`flatBands`, flags `rim`/`rimShade`, coloured
@@ -209,8 +224,12 @@ review is published as a Claude artifact.
   in render.js's firepit smoke pass, sharing `HomeArea.FIREPIT_SMOKE`.
 - Wreck: thick broken walls follow the inset footprint at roughly 16-unit
   intervals, with smaller sub-section steps confined to two exposed stretches. Every height step has an outward-facing end cap, including small chips.
-  One roof slope is missing entirely; a short cap joins the longer
-  opposite slope on the original roof planes. Steel rafters follow the underside,
+  The building identity seeds the damaged end, missing slope, roof reach and
+  wall heights. A short cap joins a longer surviving slope on the original
+  roof planes; either end and either side can survive. Footprints below 4,096
+  square map pixels or 48 pixels on their shorter bounding dimension have no
+  standing roof or rafters. The nearest street selects an open doorway bay,
+  which takes precedence over roof supports. Steel rafters follow the underside,
   with supporting wall remnants beneath the extended side. Their atlas strip
   provides pale flange highlights, a dark edge and small rivets.
   Both wall faces use touching staggered bricks with a flat warm-grey base,
@@ -223,7 +242,7 @@ review is published as a Claude artifact.
   with nearest filtering; warm light masonry tones snap to the exact 3D block
   colour (`LOOK.wreck.top`). Three-step directional lighting darkens side faces, with a broad 48%
   ground-contact shade fading toward the wall tops. Top faces remain light;
-  one black outer silhouette surrounds the wreck without internal ink. Roof, wall and steel-strut silhouettes project a single cool cel shadow onto the rubble floor, clipped to the footprint; overlapping shadows do not stack. Fallen panels lean from their original inner wall bays into the rubble, with their lower edges buried. The floor is predominantly small dark irregular fragments with sparse larger pieces. Solid roof faces draw above wall crowns to prevent masonry bleeding through the tiles. Wreck
+  one black upper outer edge marks the wreck without bottom or internal ink. Roof, wall and steel-strut silhouettes project a single cool cel shadow onto the rubble floor, clipped to the footprint; overlapping shadows do not stack. Fallen panels lean from their original inner wall bays into the rubble, with their lower edges buried. The floor is predominantly small dark irregular fragments with sparse larger pieces. Solid roof faces draw above wall crowns to prevent masonry bleeding through the tiles. Wreck
   masonry skips the generic dark eave strip on outside walls.
 - Roof direction: every sloped face is tiled from its own eave, u along the
   eave and v growing downhill, so the sheet's course bottoms face the ground on

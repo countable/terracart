@@ -15,13 +15,69 @@ function appearanceScene(exists = () => true) {
   };
 }
 
+test('appearance contexts: interleaved scenes retain textures and house roles', () => {
+  const house = { kind: 'house', id: 'shared_house', area: 100 };
+  const sceneA = appearanceScene(key => key !== 'well');
+  const sceneB = appearanceScene();
+  const a = Render.objectAppearance(sceneA, new Map([[house, 'plain']]));
+  const b = Render.objectAppearance(sceneB, new Map([[house, 'wreck']]));
+  assert.eq(b.resolveAppearance(house).texKey, 'house_wreck');
+  assert.eq(a.resolveAppearance(house).texKey, 'house', 'opening B leaves A bound to its roles');
+  assert.eq(a.resolveAppearance(house).frameVal, 'front');
+  assert.eq(b.resolveAppearance(house).layer, WorldLayers.GROUND_DECAL);
+  assert.eq(a.resolveAppearance(house).layer, WorldLayers.STANDING_PROP);
+  assert.falsy(a.resolveAppearance({ kind: 'well' }).visible, 'A still consults its own texture store');
+  assert.truthy(b.resolveAppearance({ kind: 'well' }).visible);
+  assert.eq(a._houseKey(house), 'house', 'label and size helpers retain their pass too');
+  assert.eq(b._houseKey(house), 'house_wreck');
+});
+
+test('appearance contexts: cached props belong to the scene that resolved them', () => {
+  let aLoaded = false;
+  const sceneA = appearanceScene(() => aLoaded), sceneB = appearanceScene();
+  const a = Render.objectAppearance(sceneA, new Map());
+  const b = Render.objectAppearance(sceneB, new Map());
+  const well = { kind: 'well', id: 'shared_well' };
+  const fromB = Render.resolveObjectAppearance(b, well);
+  assert.truthy(fromB.visible);
+  assert.falsy(Render.resolveObjectAppearance(a, well).visible, 'B cannot supply A with a drawable cache entry');
+  assert.eq(Render.resolveObjectAppearance(b, well), fromB, 'A\'s early texture miss does not overwrite B\'s cache');
+  aLoaded = true;
+  const fromA = Render.resolveObjectAppearance(a, well);
+  assert.truthy(fromA.visible);
+  assert.falsy(fromA === fromB, 'A resolves its own tuple after its texture loads');
+  const nextA = Render.objectAppearance(sceneA, new Map());
+  assert.eq(Render.resolveObjectAppearance(nextA, well), fromA, 'stable props remain cached across passes in one scene');
+});
+
+test('appearance contexts: interleaved fruit hooks use their own clock, save and output', () => {
+  const sceneA = appearanceScene(), sceneB = appearanceScene();
+  const tree = { kind: 'fruittree', id: 'shared_apple', species: 'apple' };
+  const a = Render.objectAppearance(sceneA, new Map());
+  sceneB.save.fruitPicked = { [tree.id]: a.fruitNow - Crops.FRUIT_RESPAWN_MS + Crops.FRUIT_BLOSSOM_MS / 2 };
+  const b = Render.objectAppearance(sceneB, new Map());
+  assert.eq(a.resolveAppearance(tree).frameVal, 4, 'A has ripe fruit');
+  assert.eq(b.resolveAppearance(tree).frameVal, 8, 'B is regrowing blossoms');
+  const sprite = { texture: { key: 'apple_tree' }, frame: { name: 4 },
+    originX: 0.5, originY: 0.95, scaleX: 0.85, scaleY: 0.935, x: 0, y: 0, depth: 1 };
+  a.RENDER_SPEC.fruittree.after(sprite, tree, sceneA, a);
+  b.RENDER_SPEC.fruittree.after(sprite, tree, sceneB, b);
+  assert.eq(a.fruitList.length, 1, 'A collects its fruit after B has opened');
+  assert.eq(b.fruitList.length, 0, 'B has neither ripe nor leaked fruit');
+  const growing = { ...tree, planted: true, planted_t: a.fruitNow };
+  b.fruitNow = a.fruitNow + 4 * Crops.FRUIT_STAGE_MS;
+  sceneB.save.fruitPicked = {};
+  assert.eq(a.resolveAppearance(growing).frameVal, 0, 'A keeps its clock');
+  assert.eq(b.resolveAppearance(growing).frameVal, 4, 'B can resolve a later growth stage');
+});
+
 test('drawObjects cache: immutable props resolve and seat once per scene', () => {
   const scene = appearanceScene();
   const object = { kind: 'tree', id: 'tree_1', species: 'maple', size: 'large' };
-  Render.objectAppearance(scene, new WeakMap());
+  const pass = Render.objectAppearance(scene, new WeakMap());
   scene._appearanceResolveCount = 0;
-  const first = Render.resolveObjectAppearance(scene, object);
-  const second = Render.resolveObjectAppearance(scene, object);
+  const first = Render.resolveObjectAppearance(pass, object);
+  const second = Render.resolveObjectAppearance(pass, object);
   assert.eq(second, first, 'the same generated record reuses the resolved tuple');
   assert.eq(scene._appearanceResolveCount, 1, 'only the first sight resolves appearance and seating');
   assert.truthy(first.visible, 'the cached tuple is a drawable appearance');
@@ -32,22 +88,22 @@ test('drawObjects cache: starter taming downgrades a stamped natural in place', 
   const scene = appearanceScene();
   const tree = { kind: 'tree', id: 'tree_st', species: 'maple', size: 'large' };
   const rock = { kind: 'mineralrock', id: 'rock_st', yieldTier: 3, requiredTier: 3 };
-  Render.objectAppearance(scene, new WeakMap());
-  const treeBefore = Render.resolveObjectAppearance(scene, tree);
-  const rockBefore = Render.resolveObjectAppearance(scene, rock);
+  const pass = Render.objectAppearance(scene, new WeakMap());
+  const treeBefore = Render.resolveObjectAppearance(pass, tree);
+  const rockBefore = Render.resolveObjectAppearance(pass, rock);
   assert.truthy(treeBefore.visible && rockBefore.visible);
   assert.truthy(HomeArea.makeStarterUsable(tree), 'the tree is tamed down');
   assert.truthy(HomeArea.makeStarterUsable(rock), 'the rock is tamed down');
   scene._appearanceResolveCount = 0;
-  const treeAfter = Render.resolveObjectAppearance(scene, tree);
-  const rockAfter = Render.resolveObjectAppearance(scene, rock);
+  const treeAfter = Render.resolveObjectAppearance(pass, tree);
+  const rockAfter = Render.resolveObjectAppearance(pass, rock);
   assert.eq(scene._appearanceResolveCount, 2, 'both downgraded records re-resolve their art');
   assert.falsy(treeAfter === treeBefore, 'the tree does not keep its stamped hardwood look');
   assert.falsy(rockAfter === rockBefore, 'the rock does not keep its stamped high-tier look');
   // A second pass over the already-tamed record stays cached: eviction happens
   // at the mutation point, not on every resolve.
   scene._appearanceResolveCount = 0;
-  Render.resolveObjectAppearance(scene, tree);
+  Render.resolveObjectAppearance(pass, tree);
   assert.eq(scene._appearanceResolveCount, 0, 'the tamed record re-stamps and stays cached');
 });
 
@@ -57,10 +113,10 @@ test('drawObjects cache: a warm still step has constant zero resolve bookkeeping
     const objects = Array.from({ length: n }, (_, i) => ({
       kind: 'tree', id: `tree_${i}`, species: i & 1 ? 'pine' : 'maple', size: 'large',
     }));
-    Render.objectAppearance(scene, new WeakMap());
-    for (const object of objects) Render.resolveObjectAppearance(scene, object);
+    const pass = Render.objectAppearance(scene, new WeakMap());
+    for (const object of objects) Render.resolveObjectAppearance(pass, object);
     scene._appearanceResolveCount = 0;
-    for (const object of objects) Render.resolveObjectAppearance(scene, object);
+    for (const object of objects) Render.resolveObjectAppearance(pass, object);
     return scene._appearanceResolveCount;
   };
   assert.eq(warmCount(1), 0, 'one unchanged object causes no resolve work');
@@ -92,24 +148,24 @@ test('drawObjects cache: a warm still pool configures zero objects regardless of
 
 test('drawObjects cache: animated, connected and not-yet-loaded appearances stay live', () => {
   const scene = appearanceScene();
-  Render.objectAppearance(scene, new WeakMap());
+  const pass = Render.objectAppearance(scene, new WeakMap());
 
   const growing = { kind: 'tree', id: 'growing', species: 'maple', planted_t: Date.now() };
-  assert.falsy(Render.resolveObjectAppearance(scene, growing)
-    === Render.resolveObjectAppearance(scene, growing), 'clock-grown trees resolve their current growth frame');
+  assert.falsy(Render.resolveObjectAppearance(pass, growing)
+    === Render.resolveObjectAppearance(pass, growing), 'clock-grown trees resolve their current growth frame');
 
   const joined = { kind: 'mineralrock', id: 'joined', yieldTier: 1 };
-  assert.falsy(Render.resolveObjectAppearance(scene, joined, { _zoneObjectFrame: 3 })
-    === Render.resolveObjectAppearance(scene, joined, { _zoneObjectFrame: 3 }),
+  assert.falsy(Render.resolveObjectAppearance(pass, joined, { _zoneObjectFrame: 3 })
+    === Render.resolveObjectAppearance(pass, joined, { _zoneObjectFrame: 3 }),
     'connected-art overrides resolve from the current neighbour shape');
 
   let loaded = false;
   const lateScene = appearanceScene(() => loaded);
-  Render.objectAppearance(lateScene, new WeakMap());
+  const latePass = Render.objectAppearance(lateScene, new WeakMap());
   const late = { kind: 'well', id: 'late' };
-  const missing = Render.resolveObjectAppearance(lateScene, late);
+  const missing = Render.resolveObjectAppearance(latePass, late);
   loaded = true;
-  const visible = Render.resolveObjectAppearance(lateScene, late);
+  const visible = Render.resolveObjectAppearance(latePass, late);
   assert.falsy(missing.visible, 'the first texture lookup can miss');
   assert.truthy(visible.visible, 'an early miss is not cached past texture registration');
 });

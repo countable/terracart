@@ -30,6 +30,20 @@
     for (const op of ctx.ops.filter(o => o.op === 'stroke' || o.op === 'slab')) assert.gt(op.clipDepth, 0);
     assert.eq(ctx.clipDepth, 0, 'restores caller clipping state');
   });
+  test('temple art: selected floor replaces only masonry grid and keeps coping and runes', () => {
+    const patterned=recorder(),fallback=recorder(),pattern={selected:'F02'};
+    patterned.fillRect=function(...rect){this.ops.push({op:'material',rect,color:this.fillStyle,clipDepth:this.clipDepth});};
+    TempleArt.draw(patterned,ring,{faces:false,floorPattern:pattern,floorPhaseX:7,floorPhaseY:11});
+    TempleArt.draw(fallback,ring,{faces:false});
+    assert.eq(patterned.ops.filter(o=>o.op==='slab').length,0,'no procedural grid over source paving');
+    const floor=patterned.ops.find(o=>o.op==='material');
+    assert.eq(floor.color,pattern);assert.gt(floor.clipDepth,0,'native texture clipped to footprint');
+    const strokes=c=>c.ops.filter(o=>o.op==='stroke');
+    assert.eq(JSON.stringify(strokes(patterned)),JSON.stringify(strokes(fallback)),'coping and runes stay exact');
+    assert.eq(TempleArt.floorTexture(false,false),'temple_floor_weathered');
+    assert.eq(TempleArt.floorTexture(true,false),'temple_floor_restored');
+    assert.eq(TempleArt.floorTexture(true,true),'temple_floor_restored_dark');
+  });
   test('temple art: activation illuminates existing rune geometry without moving it', () => {
     const dormant = recorder(), lit = recorder();
     TempleArt.drawRunes(dormant, ring);

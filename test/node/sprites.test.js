@@ -402,22 +402,22 @@ test('shrubs keep common harvesting across basic, cut and bramble art', () => {
   }
 });
 
-test('Mushroom Grove giant caps fit centered inside the cell and have distinct rewards', () => {
-  const p = {crop:'giant_mushroom'};
+test('Mushroom Grove giant caps pin their ground contact and have distinct rewards', () => {
+  const p = {crop:'giant_mushroom',wildId:'mushroom-seat'};
   const art = wildplantSprite(p);
   assert.eq(art.sheet, 'zone_objects');
   assert.eq(wildplantFrame(p), 40);
   const box = SpriteLayout.ART_BOUNDS['zone_objects:40'];
-  const pos = SpriteLayout.seatInCell(box, .5, .5, art.scale, art.scale);
-  assert.truthy(pos.fits, 'the smaller giant fits within one cell');
-  assert.eq(pos.dyPx + ((box.minY + box.maxY)/2 - box.fh/2) * art.scale, 0);
-  assert.eq(pos.dxPx + ((box.minX + box.maxX)/2 - box.fw/2) * art.scale, 0);
+  const pos = Render.plantPlacement(p, art, wildplantFrame(p), MAX_GROWTH_STAGE);
+  assert.lte((box.maxY-box.minY)*art.scale, CELL_PX, 'the smaller giant fits within one cell');
+  assert.eq(pos.dyPx + (box.maxY - 5 - box.fh/2) * art.scale, 0);
+  assert.eq(pos.dxPx + ((box.baseX ?? (box.minX + box.maxX)/2) - box.fw/2) * art.scale, 0);
   assert.eq(JSON.stringify(wildplantRewards(p.crop)),JSON.stringify([{id:'wood',qty:1},{id:'mushroom',qty:1}]));
   assert.eq(itemName(p.crop),'Giant mushroom');
   assert.eq(inventoryIconSource(p.crop).sheet,'giant_mushroom');
   assert.truthy(RENDER_SRC.includes('const placement = Render.plantPlacement(p, ov, wildplantFrame(p), stage, scene);'),
     'the planted pass seats through the shared placement rule');
-  assert.truthy(RENDER_SRC.includes('const box = art?.seat && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];'),
+  assert.truthy(RENDER_SRC.includes('const bounds = art && SpriteLayout.ART_BOUNDS[`${art.sheet}:${frame}`];'),
     'which seats a `seat: true` look off its trimmed bounds');
 });
 
@@ -532,16 +532,16 @@ test('down ladder uses only the centered bottom half while the up ladder stays w
 });
 
 
-test('crystal deposits use their quarry sapphire rock art and centered seating', () => {
+test('crystal deposits use their quarry sapphire rock art and contact seating', () => {
   const spec=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.mineralrock;
   const crystal={kind:'mineralrock',deposit:'crystal',yieldTier:1};
   assert.eq(spec.key(crystal),'rock_variants');assert.eq(spec.frame(crystal),10);
   assert.eq(spec.key({yieldTier:6}),'rock_variants');assert.eq(spec.frame({yieldTier:6}),26);
   assert.eq(spec.scale(crystal),ROCK_VARIANT_ART.smallScale);assert.truthy(spec.seat);
   const b=SpriteLayout.ART_BOUNDS['rock_variants:10'];
-  const offset=SpriteLayout.seatInCell(b,.5,.5,spec.scale(crystal),spec.scale(crystal));
-  assert.eq(offset.dxPx+((b.minX+b.maxX)/2-b.fw/2)*spec.scale(crystal),0);
-  assert.eq(offset.dyPx+((b.minY+b.maxY)/2-b.fh/2)*spec.scale(crystal),0);
+  const offset=Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map()).resolveAppearance(crystal);
+  assert.eq(offset.dxPx+((b.baseX ?? (b.minX+b.maxX)/2)-b.fw/2)*spec.scale(crystal),0);
+  assert.eq(offset.dyPx+(b.maxY-(b.maxY-b.minY)/3-b.fh/2)*spec.scale(crystal),0);
 });
 
 
@@ -566,7 +566,7 @@ test('chest renderer uses shared tier frames and keeps special POI art', () => {
   assert.truthy(/g\.strokeCircle\(centre\.x, centre\.y, radius\);/.test(RENDER_SRC), 'enemy attack footprints remain visible');
 });
 
-test('every chest tier centers its visible art on its cell', () => {
+test('every chest tier pins its drawn ground contact on its cell', () => {
   const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
   const frames = new Set();
   for (const depth of [0, 3, 6, 9]) {
@@ -574,12 +574,12 @@ test('every chest tier centers its visible art on its cell', () => {
       const look = art.resolveAppearance({kind:'chest', poiClass:'memorial', tierSeed, depth});
       assert.eq(look.texKey, 'chest');
       frames.add(look.frameVal);
-      assert.eq(look.scl, 1.6 * 0.8);
+      assert.eq(look.scl, 1.6 * 0.8 * 0.9);
       const b = SpriteLayout.ART_BOUNDS[`chest:${look.frameVal}`];
       assert.truthy(b, 'each authored tier has measured bounds');
       assert.truthy(look.foot, 'seating also supplies the shadow footprint');
-      assert.inRange(look.dxPx + ((b.minX+b.maxX)/2 - look.origin[0]*b.fw)*look.scl, -1e-9, 1e-9);
-      assert.inRange(look.dyPx + ((b.minY+b.maxY)/2 - look.origin[1]*b.fh)*look.scl, -1e-9, 1e-9);
+      assert.inRange(look.dxPx + ((b.baseX ?? (b.minX+b.maxX)/2) - look.origin[0]*b.fw)*look.scl, -1e-9, 1e-9);
+      assert.inRange(look.dyPx + (b.maxY - 5 - look.origin[1]*b.fh)*look.scl, -1e-9, 1e-9);
     }
   }
   assert.eq(frames.size, 6, 'all trunk chest tiers exercised');
@@ -724,7 +724,7 @@ test('wild plant contact shadows centre on the seated art foot with the prop ell
         const bb = SpriteLayout.ART_BOUNDS[`${look.sheet}:${frame}`];
         assert.truthy(bb, `${name} frame ${frame} has measured bounds`);
         const scl = look.scale;
-        const seat = look.seat ? SpriteLayout.seatInCell(bb, 0.5, 0.5, scl, scl) : { dxPx: 0, dyPx: 0 };
+        const seat = SpriteLayout.contactSeat(bb, 0.5, 0.5, scl, scl, false);
         if (look.seat) seated++;
         const foot = seat.dyPx + (bb.maxY - 0.5 * bb.fh) * scl;
         const sh = Render.wildplantShadow(null, { ...look, frame });
@@ -737,10 +737,11 @@ test('wild plant contact shadows centre on the seated art foot with the prop ell
         const p = { kind: 'wildplant', crop: 'shrub', wildId: 'wp_1_2_3', _plantArt: name === 'palm' ? 'palm' : name, _biome: name === 'palm' ? 2 : 0 };
         if (wildplantFrame(p) === frame) {
           const live = Render.wildplantShadow(p);
-          assert.inRange(live.dyPx - foot, -1e-9, 1e-9, `${name}: live plant shares the look's foot`);
+          const liveSeat = SpriteLayout.contactSeat(bb, 0.5, 0.5, scl, scl, true);
+          assert.inRange(live.dyPx - liveSeat.footFromCentre, -1e-9, 1e-9, `${name}: live hoppable plant shares its contact seat`);
           const place = Render.plantPlacement(p, wildplantSprite(p), frame, MAX_GROWTH_STAGE);
           assert.eq(place.scl, scl); assert.eq(place.oy, 0.5);
-          assert.inRange(place.dyPx - seat.dyPx, -1e-9, 1e-9, 'the planted pass seats where the shadow expects');
+          assert.inRange(place.dyPx - liveSeat.dyPx, -1e-9, 1e-9, 'the planted pass seats where the shadow expects');
         }
       }
     }
@@ -862,32 +863,28 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
       assert.eq(p.layer, layers[metadata.height]);
       const b = SpriteLayout.ART_BOUNDS[`furniture:${p.frameVal}`];
       const mirrored = metadata.flip && flip;
-      if (Number.isFinite(metadata.seatFoot)) {
-        assert.inRange(Math.abs(p.foot.footFromCentre - 32 / 6), 0, 1e-8,
-          item.id + ': base and depth sit one third up the cell');
-      } else if (['bed_quilted', 'bookshelf_frontier'].includes(item.id)) {
-        assert.gt((b.maxY - b.minY) * p.scl, 32, item.id + ': approved tall silhouette');
-        assert.inRange(Math.abs(p.dyPx + (b.maxY - b.fh / 2) * p.scl - 15), 0, 1e-8,
-          item.id + ': tall art seats one pixel above the cell bottom');
-      } else if (item.id === 'rug_burgundy') {
-        assert.inRange(Math.abs(p.dyPx + ((b.minY + b.maxY) / 2 - b.fh / 2) * p.scl), 0, 1e-8,
-          item.id + ': art stays vertically centred');
-      }
       const minX = mirrored ? b.fw - b.maxX : b.minX;
       const maxX = mirrored ? b.fw - b.minX : b.maxX;
-      const centreX = Number.isFinite(metadata.seatFoot) ? (mirrored ? b.fw - b.baseX : b.baseX) : (minX + maxX) / 2;
+      const upright = p.layer === WorldLayers.STEP_OVER_PROP;
+      const centreX = upright || Number.isFinite(metadata.seatFoot)
+        ? (mirrored ? b.fw - b.baseX : b.baseX) : (minX + maxX) / 2;
       assert.inRange(Math.abs(p.dxPx + (centreX - b.fw / 2) * p.scl), 0, 1e-8);
-      assert.inRange(p.dyPx + (b.maxY - b.fh / 2) * p.scl, 0, 16);
-      if (item.id === 'clock_grandfather') {
-        assert.eq(b.fh, 64, 'upright art keeps the tall world frame');
-        assert.lte((b.maxY - b.minY) * p.scl, 32, 'approved upright fits one cell');
-        assert.inRange(Math.abs(p.dyPx + (b.maxY - b.fh / 2) * p.scl - 32 / 6), 0, 1e-8, 'clock base sits one third up the cell');
+      if (upright) {
+        const height = b.maxY - b.minY;
+        const contact = b.maxY - (height * p.scl <= CELL_PX ? height / 3 : 5);
+        assert.inRange(Math.abs(p.dyPx + (contact - b.fh / 2) * p.scl), 0, 1e-8,
+          item.id + ': medium hoppable art pins one third up, tall art five source pixels up');
+      } else if (item.id === 'rug_burgundy') {
+        assert.inRange(Math.abs(p.dyPx + ((b.minY + b.maxY) / 2 - b.fh / 2) * p.scl), 0, 1e-8,
+          item.id + ': flat art stays vertically centred');
       }
       if (['lamp_floor', 'candelabra_floor'].includes(item.id)) {
-        assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), 30, 32, 'lamp fills its cell');
-        assert.gte(b.minY, b.fh - 32, 'lamp fits the bottom 32×32 frame');
+        const height = item.id === 'lamp_floor' ? 64 : 32;
+        assert.inRange(Math.max(b.maxX - b.minX, b.maxY - b.minY), height - 4, height, 'lamp retains its source proportions');
+        assert.lte(b.maxX - b.minX, 32, 'lamp fits its floor-cell width');
+        assert.gte(b.minY, b.fh - height, 'lamp fits its world frame');
         assert.inRange(b.maxY, b.fh - 1, b.fh, 'lamp is bottom-seated');
-        assert.lte((b.maxY - b.minY) * p.scl, 32, 'lamp stays within a cell');
+        assert.lte((b.maxY - b.minY) * p.scl, height, 'lamp fits its display height');
       }
       let actualFlip;
       p.spec.after({setFlipX(value) { actualFlip=value; }}, o);
@@ -895,9 +892,9 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
     }
   }
   const o={kind:'furniture',itemId:'washtub',flip:false};
-  const before=Render.resolveObjectAppearance(scene,o);
+  const before=Render.resolveObjectAppearance(art,o);
   o.flip=true;
-  const after=Render.resolveObjectAppearance(scene,o);
+  const after=Render.resolveObjectAppearance(art,o);
   assert.falsy(before===after, 'mutable orientation re-resolves');
   assert.eq(before.dxPx, -after.dxPx, 'asymmetric washtub keeps its centre after flipping');
 });

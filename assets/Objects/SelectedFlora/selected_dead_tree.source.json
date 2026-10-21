@@ -1,0 +1,11 @@
+{
+  "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+  "crop": {
+    "x": 384,
+    "y": 16,
+    "w": 64,
+    "h": 64
+  },
+  "treatment": "Unmodified native source crop; rendered with nearest filtering.",
+  "role": "Spooky Woods grove shrine snags; ordinary tree harvest identity remains."
+}

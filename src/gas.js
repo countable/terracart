@@ -1,7 +1,7 @@
 // Sparse cell gas: diffusion conserves mass until a cell falls below the density cutoff.
 (function (root) {
   'use strict';
-  const STEP_MS = 1000;
+  const STEP_MS = 2000;
   const DEFAULTS = Object.freeze({ minDensity: .025, maxCells: 4096, maxSteps: 5 });
   const key = (x, y) => `${x},${y}`;
   const cardinal = (x, y) => [{ x: x + 1, y }, { x: x - 1, y }, { x, y: y + 1 }, { x, y: y - 1 }];

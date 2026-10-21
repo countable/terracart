@@ -5,7 +5,7 @@
       underground: { lane: new Set([0, 2, 3]) } };
     assert.eq(FloorWallMaterials.groundTexture(entry, 0), 'floor-sewer-water');
     for (const i of [2, 3]) assert.eq(FloorWallMaterials.groundTexture(entry, i), null);
-    assert.eq(FloorWallMaterials.groundTexture({...entry, depth: 2}, 0), null);
+    assert.eq(FloorWallMaterials.groundTexture({...entry, depth: 2}, 0), 'floor-l2-road');
     assert.truthy(FloorWallMaterials.groundTexture({...entry, underground: null}, 0).startsWith('floor-sewer-ground'));
     assert.eq(FloorWallMaterials.groundTexture(null, 0), null);
     assert.eq(entry.grid[0], T.CAVE_FLOOR, 'visual water never changes walkability');
@@ -34,6 +34,54 @@
     }
     assert.inRange(counts.ground / 4096, .85, .90);
     for (const role of ['groundBroken', 'groundGrate']) assert.inRange(counts[role] / 4096, .04, .08);
+  });
+  test('sewer channels and water share synchronized green-water animation', () => {
+    globalThis.WATER_ANIM_MS = 220; // Texture module's shared clock in the browser.
+    const entry = {depth:1, grid:[WorldGen.T.CAVE_FLOOR, WorldGen.T.WATER], underground:{lane:new Set([0])}};
+    for (let phase=0; phase<8; phase++) {
+      const time=phase*WATER_ANIM_MS;
+      const key='floor-sewer-water'+(phase ? `p${phase}` : '');
+      assert.eq(FloorWallMaterials.groundTexture(entry,0,undefined,time),key);
+      assert.eq(FloorWallMaterials.groundTexture(entry,1,undefined,time),key);
+    }
+    assert.eq(FloorWallMaterials.groundTexture(entry,0,undefined,8*WATER_ANIM_MS),'floor-sewer-water');
+    delete globalThis.WATER_ANIM_MS;
+  });
+  test('all seven cave floors select authored art without repainting collision terrain', () => {
+    const T = WorldGen.T;
+    for (let depth = 1; depth <= 7; depth++) {
+      const entry = {depth, tx: 12, ty: -4, cellsPerEdge: 2,
+        grid: [T.CAVE_FLOOR, T.CAVE_WALL, T.CAVE_LAVA, T.WATER]};
+      const before = entry.grid.join(',');
+      assert.truthy(FloorWallMaterials.groundTexture(entry, 0));
+      assert.eq(FloorWallMaterials.groundTexture(entry, 1), null, 'never paints walls');
+      assert.eq(FloorWallMaterials.groundTexture(entry, 2), null, 'lava stays animated hazard');
+      assert.eq(entry.grid.join(','), before, 'material lookup cannot mutate terrain');
+    }
+    for (const depth of [0, 8, 9, -1])
+      assert.eq(FloorWallMaterials.groundTexture({depth, grid:[T.CAVE_FLOOR]}, 0), null);
+  });
+  test('dwarven constructed floors follow existing area masks and cave routes keep their layout', () => {
+    const entry = {depth: 4, cellsPerEdge: 2, grid: Array(4).fill(WorldGen.T.CAVE_FLOOR),
+      undergroundAreas: [0, 2, 1, 0], underground: {lane: new Set([3])}};
+    assert.eq(FloorWallMaterials.groundTexture(entry, 0), 'floor-l4-ground');
+    assert.eq(FloorWallMaterials.groundTexture(entry, 1), 'floor-l4-pad1');
+    assert.eq(FloorWallMaterials.groundTexture(entry, 2), 'floor-l4-ground');
+    assert.eq(FloorWallMaterials.groundTexture(entry, 3), 'floor-l4-road');
+    assert.eq(FloorWallMaterials.theme(4).padSize, 32, 'interleaved modules stay native 32px');
+  });
+  test('cave alternate wear is stable in absolute world cells and remains sparse', () => {
+    for (const depth of [2, 7]) {
+      let accents = 0;
+      for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) {
+        const entry = {depth, cellsPerEdge: 16, tx: Math.floor(x/16), ty: Math.floor(y/16)};
+        const role = FloorWallMaterials.groundRole(entry, y%16*16+x%16);
+        assert.eq(role, FloorWallMaterials.groundRole({depth, cellsPerEdge:32}, y*32+x));
+        assert.eq(role, FloorWallMaterials.groundRole({depth, cellsPerEdge:16, underground:{tx:entry.tx, ty:entry.ty}}, y%16*16+x%16), 'generated entries retain coordinates on their underground plan');
+        if (role === 'groundAccent') accents++;
+      }
+      assert.inRange(accents/1024, .15, .25);
+    }
   });
   test('floor wall materials: concealed sides are omitted without opening the full-cell crown', () => {
     const points = [{x: 32, y: 64}, {x: 64, y: 64}, {x: 64, y: 96}, {x: 32, y: 96}];

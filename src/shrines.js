@@ -66,7 +66,7 @@
       name: 'Bone watcher', flash: 'Something watches your back.',
       body: "A hooded stone figure stands guard. You rest beside it, feeling safer." },
     moss_cairn: { art: 'shrine_moss_cairn', frame: 4, light: 0x9be08a, lever: 'hidden', durationMs: 3 * MIN, boon: 'Unseen',
-      zoneVariants: ['ancient_grove', 'sacred_grove'], streets: ['overgrown', 'greenway', 'thorny'],
+      zoneVariants: ['ancient_grove', 'sacred_grove', 'spooky_woods'], streets: ['overgrown', 'greenway', 'thorny'],
       name: 'Moss cairn', flash: 'The moss hushes your steps.',
       body: "You touch the mossy stones and the woods fall quiet around you. Creatures look straight past you, as if you were part of the moss.",
       effect: "Creatures won't notice or attack you, and animals won't flee your net. Strike a creature and that one sees you again." },

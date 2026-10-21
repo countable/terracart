@@ -199,30 +199,41 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
   let changed = 0;
   const byKind = {};
   for (let i = 0; i < N * N; i++) {
-    if (on.grid[i] === off.grid[i]) {
-      assert.falsy(zoneCodes.has(on.grid[i]), 'a zone code only where the halo painted');
+    // Compare the Nexus's material pass against the actual pre-bedrock land.
+    // Its protected coverage also changes which neighbouring private cells
+    // receive the later collision material, without changing their substrate.
+    for (const r of [on, off]) if (r.grid[i] === T.EXCLUSION_ROCK) {
+      assert.truthy(r.spawnWhy[i] & (WorldGen.SPAWN_WHY.PRIVATE | WorldGen.SPAWN_WHY.BEHIND_HOUSE),
+        `cell ${i}: bedrock requires private lot exclusion`);
+      assert.falsy(r.zone?.coverage?.[i], `cell ${i}: bedrock never replaces a Nexus`);
+      assert.truthy(WorldGen.isLotTerrain(r.variantBaseGrid[i]), `cell ${i}: bedrock keeps lot substrate`);
+    }
+    const before = off.grid[i] === T.EXCLUSION_ROCK ? off.variantBaseGrid[i] : off.grid[i];
+    const after = on.grid[i] === T.EXCLUSION_ROCK ? on.variantBaseGrid[i] : on.grid[i];
+    if (after === before) {
+      assert.falsy(zoneCodes.has(after), 'a zone code only where the halo painted');
       continue;
     }
-    if (WorldGen.isBuildingTerrain(off.grid[i])) {
-      assert.truthy(WorldGen.isBuildingTerrain(on.grid[i]), 'nexus conversion preserves the building footprint');
+    if (WorldGen.isBuildingTerrain(before)) {
+      assert.truthy(WorldGen.isBuildingTerrain(after), 'nexus conversion preserves the building footprint');
       const shape = on.buildingShapes.find(s => s.key === on.ownerKeys[on.owners[i]]);
-      if (shape?.kind === 'temple') assert.eq(on.grid[i], T.BUILDING_LARGE, 'temples use their own stone footprint');
+      if (shape?.kind === 'temple') assert.eq(after, T.BUILDING_LARGE, 'temples use their own stone footprint');
       continue;
     }
     changed++;
-    assert.truthy(WorldGen.isWalkable(off.grid[i]) && !WorldGen.isRoadTerrain(off.grid[i]) &&
-      !WorldGen.isBuildingTerrain(off.grid[i]) && ![T.PATH, T.PIER].includes(off.grid[i]),
+    assert.truthy(WorldGen.isWalkable(before) && !WorldGen.isRoadTerrain(before) &&
+      !WorldGen.isBuildingTerrain(before) && ![T.PATH, T.PIER].includes(before),
       `cell ${i}: transport and structures retain their visible ground`);
     assert.falsy(on.roadMask[i], `cell ${i}: a visible road band stays untouched`);
-    assert.eq(on.zone.under[i], off.grid[i], `cell ${i}: the land it painted over is recorded`);
+    assert.eq(on.zone.under[i], before, `cell ${i}: the land it painted over is recorded`);
     if (!(on.zone.coverage[i] > 0)) {
       // …or the PARK FRINGE (zone_ground.test.js pins its reach).
-      assert.includes([T.GROVE, T.CHURCHYARD], on.grid[i], `cell ${i}: the fringe paints a park's halo`);
+      assert.includes([T.GROVE, T.CHURCHYARD], after, `cell ${i}: the fringe paints a park's halo`);
       byKind.fringe = (byKind.fringe || 0) + 1;
       continue;
     }
     const winner = on.zone.anchors[on.zone.coverage[i] - 1], kind = winner.kind;
-    assert.eq(on.grid[i], Z.terrainOf(kind), `cell ${i}: the winner's own terrain (no Nexus paints surface lava)`);
+    assert.eq(after, Z.terrainOf(kind), `cell ${i}: the winner's own terrain (no Nexus paints surface lava)`);
     byKind[kind] = (byKind[kind] || 0) + 1;
   }
   assert.gt(changed, 50, `the halo painted (${changed} cells)`);

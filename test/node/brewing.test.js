@@ -11,6 +11,7 @@ const BREW = (0, eval)('({\n' + [
   lift('presentBrewOffer(sx, sy, house, recordDeal, targetId = null) {'),
   lift('_settleDeal(recordDeal, loot) {'),
   lift('_presentThemedItem(sx, sy, house, recordDeal, id) {'),
+  lift('_buildThemedItemOffer(sx, sy, house, recordDeal, id, entry = null) {'),
   lift('_presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, ...modal }) {'),
   lift('_presentRecipeOffer(sx, sy, { recipe, produce, refuse, canAfford = true, ...modal }) {'),
 ].join(',\n') + '\n})');
