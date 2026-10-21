@@ -2935,7 +2935,7 @@ Render.drawCells = function drawCells(scene) {
           }
         }
         if (raActive && !isTilled && type === T(col, row)) {
-          const selected = RATerrainTrial.select(scene, raMaterials, RING, _si);
+          const selected = RATerrainTrial.select(scene, raMaterials, RING, _si, AX(col, row), AY(col, row));
           if (selected) { texKey = selected.key; damageFrame = selected.frame; }
         }
         if (texKey) {

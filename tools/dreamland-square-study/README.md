@@ -23,7 +23,10 @@ No authored fake map is installed. Runtime integration now lives in the shared m
 - Water: first FDR_Water_Tiles water/stone-bank frame, without elevation.
 - Civic/commercial/industrial: authored pale stone on grass.
 - Ordinary street/path paving: alternating cracked and split slabs when unrestored, intact slabs when restored, from
-  FDR_Village. Source pixels enlarge exactly 2x, matching 16px ground on 32px cells.
+  FDR_Village. Native 16px slabs display at 24px in the geographic game; road masks and
+  32px gameplay cells are unchanged. Ground interiors likewise repeat at 24px,
+  while transition masks retain their original scale. The authored reference
+  fixture keeps its exact source composition.
 - Suppressed, burned, poisonous and other special streets retain their existing
   source selection and warnings.
 
@@ -41,7 +44,7 @@ No fences, benches, new decorative interactables, cliffs or elevation are added.
 
 At the start of `selectedRoadTile(variant, restored)` in road_overlay.js, consult
 `RATerrainTrial.roadTile?.(variant, restored)` and return a non-null result.
-Its cached canvas is 128px wide. The selected-material `patternFill` calls must
+Its cached canvas is 96px wide. The selected-material `patternFill` calls must
 use `tile.width` as their period (unrestored source-in; two restored source-atop
 calls). The ordinary roads' existing masks, widths, geographic phase and rails
 are preserved. Do not change unrelated noise or hazard pattern periods.

@@ -17,6 +17,10 @@ const RATerrainTrial = (() => {
     return profile?.road && (!variant || ROAD_VARIANTS.has(variant)) ? (roadCanvases[restored ? 1 : 0] || null) : null;
   }
   const COUNT = families.length, FRAMES = COUNT ** 4;
+  // A 24px material repeat crosses the 32px grid in three world phases.
+  // Only quiet interiors need extra frames; native transition masks stay intact.
+  const DETAIL_REPEAT = 24, DETAIL_PHASES = 3;
+  const ATLAS_FRAMES = FRAMES + (mode === 'dreamland' ? COUNT * DETAIL_PHASES ** 2 : 0);
   const TYPES = Object.freeze({0:0, 1:1, 2:5, 3:4, 4:2, 5:0, 6:0, 15:6, 16:6, 17:6, 18:0, 19:0, 20:3, 21:0, 22:1, 23:4});
   function patchNoise(x, y) {
     let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -68,7 +72,9 @@ const RATerrainTrial = (() => {
       for (const key of ['dreamland_path_source','dreamland_path_restored_source']) {
         const source = scene.textures.get(key).getSourceImage();
         const canvas = document.createElement('canvas');
-        canvas.width = source.width * 2; canvas.height = source.height * 2;
+        // A native 16px slab occupies 24 display pixels. The road's vector
+        // mask and gameplay cells stay unchanged; only its repeat is finer.
+        canvas.width = source.width * 1.5; canvas.height = source.height * 1.5;
         const ctx = canvas.getContext('2d'); ctx.imageSmoothingEnabled = false;
         ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
         roadCanvases.push(canvas);
@@ -76,8 +82,8 @@ const RATerrainTrial = (() => {
     }
     if (scene.textures.exists(KEY)) { scene._raTerrainReady = true; return; }
     const canvas = document.createElement('canvas');
-    const columns = Math.ceil(Math.sqrt(FRAMES));
-    canvas.width = columns * TILE; canvas.height = Math.ceil(FRAMES / columns) * TILE;
+    const columns = Math.ceil(Math.sqrt(ATLAS_FRAMES));
+    canvas.width = columns * TILE; canvas.height = Math.ceil(ATLAS_FRAMES / columns) * TILE;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     const source = scene.textures.get(SOURCE);
@@ -102,24 +108,53 @@ const RATerrainTrial = (() => {
         if (mask) draw(family, mask, x, y);
       }
     }
+    if (mode === 'dreamland') {
+      // Bake cropped repeats once, with no readback or per-cell canvas. Cropping
+      // source and destination together avoids bleeding into adjacent atlas frames.
+      for (let family = 0; family < COUNT; family++) {
+        const f = source.get(family * 16 + 15);
+        for (let py = 0; py < DETAIL_PHASES; py++) for (let px = 0; px < DETAIL_PHASES; px++) {
+          const frame = FRAMES + family * DETAIL_PHASES ** 2 + py * DETAIL_PHASES + px;
+          const ox = frame % columns * TILE, oy = Math.floor(frame / columns) * TILE;
+          for (let y = 0; y < TILE;) {
+            const sy = (py * TILE + y) % DETAIL_REPEAT;
+            const h = Math.min(TILE - y, DETAIL_REPEAT - sy);
+            for (let x = 0; x < TILE;) {
+              const sx = (px * TILE + x) % DETAIL_REPEAT;
+              const w = Math.min(TILE - x, DETAIL_REPEAT - sx);
+              const scale = TILE / DETAIL_REPEAT;
+              ctx.drawImage(f.source.image, f.cutX + sx * scale, f.cutY + sy * scale,
+                w * scale, h * scale, ox + x, oy + y, w, h);
+              x += w;
+            }
+            y += h;
+          }
+        }
+      }
+    }
     const texture = scene.textures.addCanvas(KEY, canvas);
     if (typeof Phaser !== 'undefined') texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
-    for (let frame=0; frame<FRAMES; frame++) texture.add(frame, 0, frame % columns * TILE, Math.floor(frame / columns) * TILE, TILE, TILE);
+    for (let frame=0; frame<ATLAS_FRAMES; frame++) texture.add(frame, 0, frame % columns * TILE, Math.floor(frame / columns) * TILE, TILE, TILE);
     scene._raTerrainReady = true;
   }
   // The renderer supplies its already seam-correct world ring. Missing and
   // excluded vertices inherit the current ground rather than punching holes.
-  function select(scene, ring, stride, index) {
+  function select(scene, ring, stride, index, cellX = 0, cellY = 0) {
     if (!enabled || !scene._raTerrainReady || ring[index] < 0) return null;
     const self = ring[index];
     const a=ring[index+1], b=ring[index+stride], c=ring[index+stride+1];
-    const frame = self + COUNT * ((a < 0 ? self : a) + COUNT * ((b < 0 ? self : b) + COUNT * (c < 0 ? self : c)));
+    let frame = self + COUNT * ((a < 0 ? self : a) + COUNT * ((b < 0 ? self : b) + COUNT * (c < 0 ? self : c)));
+    if (mode === 'dreamland' && (a < 0 || a === self)
+        && (b < 0 || b === self) && (c < 0 || c === self)) {
+      const phase = value => ((Math.floor(value) % DETAIL_PHASES) + DETAIL_PHASES) % DETAIL_PHASES;
+      frame = FRAMES + self * DETAIL_PHASES ** 2 + phase(cellY) * DETAIL_PHASES + phase(cellX);
+    }
     const audit = scene._raTerrainAudit;
     if (audit) { audit.drawnCells++; audit.materials[families[self]] = (audit.materials[families[self]] || 0) + 1; }
     return {key:KEY, frame};
   }
   function status(scene) {
-    return {enabled, profile:enabled ? mode : null, ready:!!scene?._raTerrainReady, atlasFrames:scene?._raTerrainReady ? FRAMES : 0,
+    return {enabled, profile:enabled ? mode : null, ready:!!scene?._raTerrainReady, atlasFrames:scene?._raTerrainReady ? ATLAS_FRAMES : 0,
       drawnCells:scene?._raTerrainAudit?.drawnCells || 0, materials:{...scene?._raTerrainAudit?.materials}};
   }
   return {enabled, roadTile, families, material, maskFor, frameFor, install, prepare, select, status};

@@ -77,7 +77,7 @@ contour within a cell; collision and logical terrain stay on the original grid.
 Only biome borders replaced by these native transitions skip the old blend strips;
 structural borders continue rendering. `tools/build_ra_terrain_trial.py` exports
 eight source-native mask families into `assets/ArtTrials/RogueTerrain/tiles.png`.
-One bounded startup atlas caches all 4096 Rogue combinations (2401 for Dreamland); ordinary draws only select
+One bounded startup atlas caches all 4096 Rogue combinations (2401 plus 63 interior-phase frames for Dreamland); ordinary draws only select
 frames before the terrain cache receives them, with no per-cell pixel reads or
 texture creation. Stable world-coordinate noise introduces native brown-soil patches in village
 grass and olive/dark-olive patches in forest grass. These are appearance samples,
@@ -91,12 +91,17 @@ families using the same geographic mapping and native-mask renderer. Its normal
 roads use native grass-backed flagstones inside the existing vector pavement
 masks: cracked/split pieces before restoration, intact pieces after restoration.
 Hazard and special road variants retain their existing art. Both condition
-repeats bake once, and road phase follows the actual repeat width. Its source-native
+repeats bake once at 96px wide (24px per native slab), and road phase follows
+the actual repeat width. Road widths and gameplay cells remain unchanged. Its source-native
 olive grass islands use deterministic absolute-cell patchwork: unchanged logical
 landcover, with authored lime edges and no spawned grass interactables. Dreamland
 frames bake at 32px: native 16px bank silhouettes retain their 2x scale, while
 source grass speckles repeat at 1:1 pixels and islands use the source highlight
-palette internally. This reduces blocky detail without smoothing. Authored FAKEMAP
+palette internally. Homogeneous ground cells repeat that 32px source frame at
+24px, using nine baked world-coordinate phases to fill the unchanged 32px cell
+without seams. Mixed-material transition frames retain their original scale and
+masks; only interior texture detail is denser. No per-frame texture work is added.
+Authored FAKEMAP
 studies may supply `_dreamlandGroundFamilyAt(ax, ay, type)` for explicit material
 layout; ordinary geographic play keeps its world-stable patchwork.
 `DreamlandObjects` supplies native round trees, wooden hanging lamps, fountains,

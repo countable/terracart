@@ -68,12 +68,12 @@ const dreamScene={textures:{exists:k=>dreamTextures.has(k),get:k=>dreamTextures.
 const beforeBake=canvases;dreamBake.prepare(dreamScene);dreamBake.prepare(dreamScene);
 assert.equal(canvases-beforeBake,3,'two condition road repeats and one terrain atlas at startup');
 assert.equal(dreamBake.status(dreamScene).profile,'dreamland');
-assert.equal(dreamBake.roadTile('',false).width,128);
+assert.equal(dreamBake.roadTile('',false).width,96,'four native slabs repeat at 24px without changing road masks');
 assert.notEqual(dreamBake.roadTile('lantern',true),dreamBake.roadTile('',false));
 assert.equal(dreamBake.roadTile('lantern',true),dreamBake.roadTile('',true));
 for(const variant of ['suppressed','burned','slime_trail','poison_path','paralysis_path','old_stones']) assert.equal(dreamBake.roadTile(variant,true),null,'special road retains normal material');
 assert.equal(art.roadTile('',true),null,'Rogue profile never overrides roads');
-assert.equal(dreamTextures.get('dreamland_terrain_composite').frames,2401);
+assert.equal(dreamTextures.get('dreamland_terrain_composite').frames,2464);
 console.log('Dreamland profile: bundled assets, condition-specific startup road repeats, hazard preservation and no Rogue road override passed');
 
 for (const type of [0,1]) {
@@ -91,3 +91,21 @@ assert.equal(dreamAtlas.readUInt32BE(16),16*32,'native-detail export matches sou
 assert.equal(dreamAtlas.readUInt32BE(20),7*32,'all seven families remain in the exported atlas');
 assert.equal(dream.assets.dreamland_terrain_source.frameWidth,32);
 assert.equal(assets.ra_terrain_source.frameWidth,16,'Rogue native scale remains unchanged');
+
+// Detail repeats follow world coordinates, including across negative origins;
+// mixed-material boundaries keep exactly the original native transition frame.
+const uniform = new Int8Array([0,0,0,0]);
+const phases = new Set();
+const beforeSelectCanvases = canvases;
+for (let y = -3; y < 3; y++) for (let x = -3; x < 3; x++) {
+  const selected = dreamBake.select(dreamScene, uniform, 2, 0, x, y).frame;
+  phases.add(selected);
+  assert.equal(selected, dreamBake.select(dreamScene, uniform, 2, 0, x + 3, y + 3).frame);
+  assert(selected >= 2401 && selected < 2410);
+}
+assert.equal(phases.size,9,'24px repeats need nine phase combinations across 32px cells');
+assert.equal(dreamBake.select(dreamScene, new Int8Array([0,1,0,0]), 2, 0, 2, 2).frame,
+  dreamBake.frameFor([0,1,0,0]), 'native transition shape and frame are unchanged');
+assert.equal(canvases,beforeSelectCanvases,'world selection creates no canvases');
+assert.equal(reads,0,'phase baking and selection need no pixel readback');
+console.log('Dreamland smaller interiors: 63 bounded phase frames, world stability and original transitions passed');
