@@ -25,7 +25,7 @@ reference.convert('RGB').crop((0, 0, 630, 360)).save(out / 'reference-scene.png'
 shutil.copy(args.reference, out / 'reference.gif')
 shutil.copy(root / 'tools/village-study/README.md', out / 'README.txt')
 with zipfile.ZipFile(out / 'reproduce.zip', 'w', zipfile.ZIP_DEFLATED) as archive:
-    for folder in ['tools/village-study', 'tools/jungle-study']:
+    for folder in ['tools/village-study', 'tools/jungle-study', 'tools/ra-preview']:
         for path in sorted((root / folder).glob('*')):
             if path.is_file():
                 archive.write(path, str(path.relative_to(root)))
@@ -41,6 +41,7 @@ page = '''<!doctype html>
 </style><main>
 <small>ACTUAL GAME RENDERER · AUTHORED MAP INPUT</small>
 <h1>Rogue Adventure village</h1>
+<p><a href="http://localhost:8017/?sandbox=true&amp;headingUp=false&amp;raPreview=village">Open the playable village preview</a> · WASD/arrows or touch stick · temporary save</p>
 <p>A flat village scene built from Rogue Adventure source art. Promotional graphics and cliffs are omitted. The central opening uses the reference’s RA stone-rimmed hatch on the game's ladder-down object. Lamps beside doors are specific to this fixture.</p>
 <section class="pair">
 <figure><a href="village.png"><img src="village.png" alt="Village recreated through the game renderer"></a><figcaption>Renderer output · flat terrain, no badges or footer.</figcaption></figure>

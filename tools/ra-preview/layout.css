@@ -1,0 +1,23 @@
+/* Dedicated preview shell: retain the canvas, menus, interactions and touch stick. */
+html, body { margin: 0; width: 100%; height: 100%; overflow: hidden; background: #101811 !important; }
+#frame { position: fixed !important; inset: 0 !important; width: 100% !important; height: 100% !important; overflow: hidden; }
+#game { width: 672px !important; height: 844px !important; clip-path: none !important; mask: none !important; translate: none !important; box-shadow: none !important; background: #101811 !important; }
+#game canvas { width: 672px !important; height: 844px !important; image-rendering: pixelated; }
+#compass-body, .compass-aperture, .compass-bearing,
+#hud, #hud-row, #objective, #inv, #inv-tabs, #inv-name, #map-zoom,
+#status-row, #mp-btn, #story-badge, #compass-clock, #compass-mode,
+#save-notice { display: none !important; }
+#ra-preview-controls { box-sizing: border-box; min-height: 42px; line-height: 1.5; padding: 9px 16px !important; }
+#ra-preview-controls a { padding: 4px 6px; }
+body #menu { position: fixed !important; top: 54px !important; left: auto !important; right: 12px !important; width: auto !important; transform: none !important; z-index: 100; }
+body #menu > summary { width: 38px !important; height: 38px !important; border-radius: 6px !important; background: #273c29 !important; border: 1px solid #8b9f79 !important; box-shadow: none !important; }
+body #menu > summary::before, body #menu > summary::after { display: none !important; }
+body #menu .items { top: 44px !important; right: 0 !important; left: auto !important; width: min(300px, 90vw) !important; }
+body #move-pad { position: fixed !important; top: auto !important; left: auto !important; right: 18px !important; bottom: 18px !important; width: 104px !important; height: 104px !important; transform: none !important; opacity: .82; z-index: 90; }
+body #move-pad::after { display: none !important; }
+body.modal-open #move-pad { display: none !important; }
+@media(max-width:600px) { #ra-preview-controls { font-size: 12px !important; } body #move-pad { width: 88px !important; height: 88px !important; right: 12px !important; bottom: 12px !important; } }
+body.phone-preview::before { display: none !important; }
+#game { left: 50% !important; top: var(--ra-top, 56px) !important; transform-origin: top center !important; transform: translateX(-50%) scale(var(--ra-scale, 1)) !important; }
+/* The normal inventory occupies the unused lower canvas; crop that blank band. */
+#game { height: 608px !important; overflow: hidden !important; }
