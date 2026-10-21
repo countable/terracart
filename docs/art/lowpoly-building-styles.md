@@ -10,24 +10,30 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin (Home's alone) | Orange |
 | Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
-| Blacksmith T1 / T2–T3 / T4–T7 | FDR ground floor only / full FDR / steam blacksmith | Slate |
-| Trader | Trader | Green |
-| Seed / supply shop | Market / city storefront | Lime / blue |
-| Magic / relic shop | Market / city storefront | Teal / red |
-| Pet / book shop | Market / city storefront | Rose / plum |
+| Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
+| Trader T1 / T2+ | White plaster cottage / trader | Green |
+| Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
+| Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
+| Pet / book shop | T1: white plaster cottage; T2+: market / city storefront | Rose / plum |
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
 | Fort | City gearhouse inside existing palisade | Copper |
 
-All shop models belong to the market/storefront pair; tier does not change
-shop identity. Castle, turret and wreck geometry retain their existing paths.
+All tier-one businesses, including blacksmiths, traders and generic shops,
+use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
+colors and role symbols distinguish the trades. Generic shops use blue. Higher
+tiers retain their commercial models; upgrades preserve each trade’s roof color.
+Each T1 entrance carries a small hanging symbol beside its door; the same
+symbol is embossed into one roof surface in the roof color. These decorations
+rotate and occlude with the building, and their materials are prepared once at
+startup. A mounted sign replaces its floating plate; trader deal bubbles remain.
+Castle, turret and wreck geometry retain their existing paths.
 Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
 entrance wall, its tiled roof in roof space, and single texels for gables,
-fascia and ridge beams. Doors stand 13 units tall on every model. Tier-1 blacksmiths use the bottom
-36 facade texels for a single storey, keeping the source door scale; higher tiers
-retain their full facades. Model-only
+fascia and ridge beams. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
+facade and door scale. Model-only
 features (porches, painted chimneys, dormers) do not appear on lot-outline
 buildings. Wizard towers and the fort hall keep their whole shells, fit inside
 the lot. Only models assigned to existing game roles ship.

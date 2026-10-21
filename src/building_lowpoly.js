@@ -1575,7 +1575,7 @@
   // once on the entrance wall; roofs repeat the skin's tiled roof in roof
   // space; gables, fascia and beams take single source texels. `shade` is
   // the depth renderer's only lighting, for slopes the art did not paint.
-  function authoredOutline(skin,ring,entrance=null,facadeRows=null){
+  function authoredOutline(skin,ring,entrance=null,facadeRows=null,emblem=null){
     // Shorter facades keep the ground-floor pixels and the original door scale.
     const rows=facadeRows??skin.facade.rows;
     const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
@@ -1596,6 +1596,17 @@
           if(da>=-1e-8)next.push(a);if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),q={};for(const k of ['x','y','z','u','v'])q[k]=a[k]+(b[k]-a[k])*t;next.push(q);}});piece=next;}
         if(piece.length>=3)out.push(piece.map(p=>({...p,[key]:p[key]-n*period})));}
       return out;};
+    const decorations=[];
+    const decoration=(points,texture,feature,kind='wall',sample=null)=>{
+      const bounds=(kind==='wall'?emblem.signUV:emblem.roofUV)||[0,0,1,1];
+      const uv=(kind==='wall'?[[1,1],[0,1],[0,0],[1,0]]:[[0,1],[1,1],[1,0],[0,0]])
+        .map(([u,v])=>sample||[bounds[0]+u*(bounds[2]-bounds[0]),bounds[1]+v*(bounds[3]-bounds[1])]);
+      for(const ids of [[0,1,2],[0,2,3]])decorations.push({...skin.template,
+        points:ids.map(i=>({...points[i],tu:uv[i][0],tv:uv[i][1]})),texture,
+        kind,layer:kind==='roof'?2.3:.2,color:0xffffff,light:1,shade:1,
+        sourceArt:true,rawUV:true,preserveWalls:true,roofPalette:false,feature});
+    };
+    let mountedSign=false;
     // Walls: complete facade bays up to the eaves, along the ring's winding.
     g.ring.forEach((a,i)=>{const b=g.ring[(i+1)%g.ring.length],L=Math.hypot(b.x-a.x,b.y-a.y);if(L<1e-6)return;
       const at=(t,z)=>({x:a.x+(b.x-a.x)*t/L,y:a.y+(b.y-a.y)*t/L,z}),dir={wallDirection:{x:b.x-a.x,y:b.y-a.y}},len=L/d;
@@ -1605,7 +1616,19 @@
       if(i===g.entranceEdge){const D=skin.door,W=skin.spec.right-skin.spec.left;
         const center=F.period?len/2:sourceFacadeSlices(skin.spec,len).center,from=Math.max(0,Math.min(len-D.w,F.period?center-D.w/2:center+W/2-(D.u-skin.spec.left)-D.w));
         if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+nx,y:p.y+ny}),z0=D.bottom*d,z1=z0+D.h*d;
-          emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});}
+          emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});
+          if(emblem?.sign){
+            const width=6,gap=1.5,doorLeft=from*d,doorRight=(from+D.w)*d;
+            const start=doorRight+gap+width<=L-1?doorRight+gap:doorLeft-gap-width;
+            if(start>=1){
+              const bottom=z0+1,top=Math.min(H-1,bottom+7);
+              // The cached sign includes its two hanging straps. Offset it
+              // outward from the wall, exactly like the painted doorway.
+              decoration([at(start,bottom),at(start+width,bottom),at(start+width,top),at(start,top)].map(p=>({...p,x:p.x+nx*2,y:p.y+ny*2})),emblem.sign,'shop-sign');
+              mountedSign=true;
+            }
+          }
+        }
       }
     });
     for(const f of g.faces){
@@ -1625,7 +1648,39 @@
       constant(f.points,texel,'roof',{roofPalette:true,shade:f.rimShade?.8:f.beam?(f.light<.8?.82:1.06):.72,layer:f.layer||2});
     }
     skin.recolor(faces);
-    return {ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,entranceEdge:g.entranceEdge};
+    if(emblem?.roof&&emblem.roofRelief?.length){
+      // Sparse relief edges on a real roof plane. The original tiles remain
+      // visible between strokes, with no square background or repeated stamp.
+      const roof=g.faces.filter(f=>f.kind==='roof'&&!f.rim&&!f.beam)
+        .sort((a,b)=>Math.abs(cross(...b.points))-Math.abs(cross(...a.points)))[0];
+      if(roof){
+        const [a,b,c]=roof.points,center={x:(a.x+b.x+c.x)/3,y:(a.y+b.y+c.y)/3,z:(a.z+b.z+c.z)/3};
+        const sub=(p,q)=>({x:p.x-q.x,y:p.y-q.y,z:p.z-q.z});
+        const unit=p=>{const n=Math.hypot(p.x,p.y,p.z);return {x:p.x/n,y:p.y/n,z:p.z/n};};
+        const cross3=(u,v)=>({x:u.y*v.z-u.z*v.y,y:u.z*v.x-u.x*v.z,z:u.x*v.y-u.y*v.x});
+        let normal=unit(cross3(sub(b,a),sub(c,a)));
+        if(normal.z<0)normal={x:-normal.x,y:-normal.y,z:-normal.z};
+        // Read the mark from the entrance, independent of roof triangulation.
+        const front=g.ring[g.entranceEdge],end=g.ring[(g.entranceEdge+1)%g.ring.length];
+        const along={x:front.x-end.x,y:front.y-end.y,z:0};
+        const dot=along.x*normal.x+along.y*normal.y;
+        const projected={x:along.x-dot*normal.x,y:along.y-dot*normal.y,z:-dot*normal.z};
+        const u=unit(Math.hypot(projected.x,projected.y,projected.z)>1e-8?projected:sub(b,a)),v=unit(cross3(normal,u));
+        const clearance=Math.min(...[[a,b],[b,c],[c,a]].map(([p,q])=>{
+          const area=cross3(sub(center,p),sub(q,p));return Math.hypot(area.x,area.y,area.z)/Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z);
+        }));
+        const half=Math.min(8,clearance*.65);
+        if(half>1){const at=(x,y)=>({x:center.x+x*u.x+y*v.x+normal.x*.12,y:center.y+x*u.y+y*v.y+normal.y*.12,z:center.z+x*u.z+y*v.z+normal.z*.12});
+          for(const stroke of emblem.roofRelief){
+            const left=-half+stroke.x/32*half*2,right=left+stroke.w/32*half*2;
+            const top=-half+stroke.y/32*half*2,bottom=top+stroke.h/32*half*2;
+            decoration([at(left,top),at(right,top),at(right,bottom),at(left,bottom)],emblem.roof,'shop-emblem','roof',[stroke.u,stroke.v]);
+          }
+        }
+      }
+    }
+    faces.push(...decorations);
+    return {mountedSign,ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,entranceEdge:g.entranceEdge};
   }
   function authoredGeometry(model,ring,inset=1,door=null){
     if(door){const {x:nx,y:ny}=door.normal;
@@ -1694,7 +1749,7 @@
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows):authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};

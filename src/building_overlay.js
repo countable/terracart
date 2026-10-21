@@ -1658,7 +1658,7 @@
         });
         if (model && (model.faces?.length || model.prisms?.length)) {
           // Signs and flags seat on the drawn top: the low-poly path foreshortens height.
-          if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1) });
+          if (object.id) scene._proceduralBuildings.set(object.id, { height: model.height * (lowpoly ? BuildingLowPoly.LOOK.heightScale : 1), mountedSign: !!model.mountedSign });
           continue;
         }
       }

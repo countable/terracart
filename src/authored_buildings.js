@@ -274,7 +274,10 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  function recipeFor(role,id,tier=1,wizardSecond=false){
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
   if(role==='plain')return {key:residenceFor(id),palette:'yellow'};
-  if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate',...(tier===1?{facadeRows:36}:{})};
+  // First-tier businesses share the white cottage; color and emblem identify the trade.
+  const shopPalette=role==='blacksmith'?'slate':role==='trader'?'green':SHOP_ROOFS[role];
+  if(tier===1&&shopPalette)return {key:'pp_plaster',palette:shopPalette,emblem:role};
+  if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate'};
   if(role==='trader')return {key:'trader',palette:'green'};
   if(role==='wizard')return {key:wizardSecond?'steam_wizard':'wizard',palette:'purple'};
   if(role==='fort')return {key:'city_gearhouse',palette:'copper'};
@@ -284,16 +287,23 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  const caches=new WeakMap();
  function prepare(scene){
   if(caches.has(scene.textures))return;
-  const models=new Map(),variants=new Map();
+  const models=new Map(),variants=new Map(),emblems=new Map();
   for(const key of RESIDENCES)variants.set(key+':yellow',{key,palette:'yellow'});
-  for(const role of ['home','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,4])for(const second of [false,true]){
+  for(const role of ['home','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
+   if(r.emblem)emblems.set(r.emblem,r);
   }
   for(const [id,{key,palette}] of variants){
    if(!scene.textures.exists(imageKey(key)))continue;
    const model=buildNative(scene,key);
    AuthoredRoofPalette.prepare(scene,model.texture,model,palette);
    models.set(id,model);
+  }
+  // Trades may share a roof color without sharing a symbol (generic/supply).
+  for(const {key,palette,emblem} of emblems.values()){
+   const model=models.get(key+':'+palette);
+   const roofTexture=model?.faces.find(face=>AuthoredRoofPalette.roofFace(face,key))?.texture;
+   if(roofTexture)AuthoredRoofPalette.prepareEmblem(scene,emblem,palette,roofTexture);
   }
   caches.set(scene.textures,models);
  }
