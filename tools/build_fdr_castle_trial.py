@@ -25,10 +25,9 @@ def assemble_castle(source, out, palette, dx):
                 dest.alpha_composite(tile.crop((0,0,min(tile.width,x+w-xx),min(tile.height,y+h-yy))), (xx,yy))
     fill(canvas,floor,(ox-100,oy-80,200,160))
     tower=crop(128,28,48,84)
-    backing=Image.new('RGBA',tower.size)
-    fill(backing,floor,(8,12,32,36))
-    backing.alpha_composite(tower)
-    tower=backing
+    # The sheet already supplies a filled crown: preserve its floor registration
+    # and transparent merlon gaps instead of painting a guessed backing rectangle.
+    tower.paste(crop(128,124,48,52),(0,0))
     # Extend the centre tiles, preserving corners, native pixels and the base.
     wide=Image.new('RGBA',(80,84))
     for dest,src in [(0,0),(16,16),(32,16),(48,16),(64,32)]:
@@ -38,11 +37,11 @@ def assemble_castle(source, out, palette, dx):
         keep.alpha_composite(wide.crop((0,lo,80,hi)),(0,dest))
     keep.alpha_composite(source.crop((192,256 if dx==0 else 288,240,288 if dx==0 else 320)),(16,84))
     brick=crop(16,64,16,16)
-    tooth=crop(128,28,16,16)
+    tooth=crop(144,28,16,16)
     side=crop(128,48,8,16)
     def horizontal(y):
         fill(canvas,brick,(ox-100,oy+y-24,200,24))
-        fill(canvas,tooth,(ox-100,oy+y-32,200,16))
+        fill(canvas,tooth,(ox-104,oy+y-32,208,16))
     horizontal(-80)
     # Side coping is a native vertical roof edge, with brick foot faces.
     for x in [-100,92]:
@@ -70,7 +69,12 @@ def build(out, ref):
         rows.append(dict(id=f'{palette}-door',rect=[192,door_y,48,32],processing='Unchanged native door and frame'))
         for name, rect, size in [('wall', (16+dx,64,16,16), (16,16)),
                                  ('cap', (130+dx,30,12,8), (16,16)),
-                                 ('floor', (16+dx,0,16,16), (16,16))]:
+                                 ('floor', (16+dx,0,16,16), (16,16)),
+                                 ('merlon-top', (131+dx,29,10,4), (10,4)),
+                                 ('merlon-face', (131+dx,33,10,4), (10,4)),
+                                 ('side-coping', (128+dx,48,8,16), (8,16)),
+                                 ('rim', (144+dx,76,16,4), (16,4)),
+                                 ('base', (128+dx,104,16,8), (16,8))]:
             x,y,w,h = rect
             crop = source.crop((x,y,x+w,y+h)).resize(size, Image.Resampling.NEAREST)
             crop.save(materials / f'{palette}-{name}.png')
@@ -83,10 +87,10 @@ def build(out, ref):
     (out/'assembly-layout.json').write_text(json.dumps(dict(
         source='FDR_Castle.png', sourcePixelToWorldUnit=1,
         canvas=[320,288], origin=[160,164], perimeter=[200,160],
-        tower=dict(centres=[[-80,-60],[80,-60],[-80,60],[80,60]], footprint=[48,48], roofHeight=32, sourceCrop=[128,28,48,84]),
+        tower=dict(centres=[[-80,-60],[80,-60],[-80,60],[80,60]], footprint=[48,48], roofHeight=32, sourceCrop=[128,28,48,84],filledCrownCrop=[128,124,48,52]),
         keep=dict(centre=[0,0],footprint=[80,64],roofHeight=48),
-        wall=dict(height=24, crownHeight=8, thickness=8),
-        assembly='Native crops, repeated central strips, and alpha compositing only. Keep extends tower centre strips; doors use warm row256/cool row288. No generated imagery.',
+        wall=dict(height=24, crownHeight=4, thickness=8),
+        assembly='Native filled crowns and centre battlement strips, repeated central strips, and alpha compositing only. Keep extends tower centre strips; doors use warm row256/cool row288. No generated imagery.',
         projection='Fixed south-facing source convention; 3D uses the game projection, so baked source shading and exact pixel alignment differ.'
     ),indent=2)+'\n')
     source.save(out / 'source-castle.png')

@@ -29,8 +29,13 @@ const {chromium}=require('playwright-core'),assert=require('node:assert/strict')
    const audit=await page.evaluate(palette=>{document.getElementById('palette').value=palette;fdrGeometryScene.rebuild();return fdrGeometryAudit},palette);
    const candidate=audit.panels[1];assert.equal(candidate.allMassesInside,true);assert.equal(candidate.keepInsideCourtyard,true);assert.equal(candidate.billboards,0);assert.equal(candidate.towers.length,4);assert.ok(candidate.keep);
    assert.equal(audit.panels[0].blocks,0,'native reference has no generated geometry');
-   for(const tower of candidate.towers){assert.equal(tower.width,50);assert.equal(tower.depth,50);assert.equal(tower.height,40);}
-   assert.equal(candidate.keep.width,82);assert.equal(candidate.keep.depth,66);assert.equal(candidate.keep.height,56);
+   for(const tower of candidate.towers){assert.equal(tower.width,48);assert.equal(tower.depth,48);assert.equal(tower.height,36);}
+   assert.equal(candidate.keep.width,80);assert.equal(candidate.keep.depth,64);assert.equal(candidate.keep.height,52);
+   for(const wall of candidate.curtainFootprints){
+    const bounds={left:Math.min(...wall.map(p=>p.x)),right:Math.max(...wall.map(p=>p.x)),top:Math.min(...wall.map(p=>p.y)),bottom:Math.max(...wall.map(p=>p.y))};
+    for(const tower of candidate.towers){const overlapX=Math.min(bounds.right,tower.x+tower.width/2)-Math.max(bounds.left,tower.x-tower.width/2),overlapY=Math.min(bounds.bottom,tower.y+tower.depth/2)-Math.max(bounds.top,tower.y-tower.depth/2);assert.ok(overlapX<=0||overlapY<=0,'curtain geometry must not penetrate towers');}
+   }
+
    for(const angle of [0,45,90,135,180,225,270,315]){
     await page.locator('#angle').fill(String(angle));await page.waitForTimeout(70);
     assert.equal(await page.evaluate(()=>fdrGeometryScene.panels[0].root.rotation),0,'2D reference stays at authored heading');
