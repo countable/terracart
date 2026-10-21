@@ -15,6 +15,9 @@
       const sandbox = params.has('sandbox') && !['false', '0', 'no'].includes((params.get('sandbox') || '').toLowerCase());
       window.__sandboxSkipStory = sandbox && params.get('skipStory') === 'true';
       window.__sandboxSkipTutorial = sandbox && params.get('skipTutorial') === 'true';
+      // `?skipIntro=true` (testing, any world): no opening story slides and no
+      // how-to card. Nothing is marked seen, and the location splash stays.
+      window.__skipIntro = window.__sandboxSkipStory || params.get('skipIntro') === 'true';
       if (!sandbox || params.get('reset') !== 'true') return;
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -2825,7 +2828,7 @@
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
-        if (window.__sandboxSkipStory || window.__sandboxSkipTutorial) return;
+        if (window.__skipIntro || window.__sandboxSkipTutorial) return;
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
         // A save with no mode yet is asked even if the card was seen before
@@ -2938,7 +2941,7 @@
     } else {
       let freshIntro = false;
       try { freshIntro = !localStorage.getItem('terracart.introSeen'); } catch {}
-      if (freshIntro) {
+      if (freshIntro && !window.__skipIntro) {
         const safetyEl = document.getElementById('safety');
         if (safetyEl) safetyEl.style.display = 'none';
         startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
@@ -3193,10 +3196,10 @@
   <script src="src/authored-buildings/steam-blacksmith.js?v=3647e79e"></script>
   <script src="src/authored-buildings/steam-wizard.js?v=b03c5d11"></script>
   <script src="src/authored-buildings/city-buildings.js?v=6cc2cce8"></script>
-  <script src="src/authored_roof_palette.js?v=7c021381"></script>
-  <script src="src/authored_buildings.js?v=9941d9ad"></script>
+  <script src="src/authored_roof_palette.js?v=70ee5138"></script>
+  <script src="src/authored_buildings.js?v=ff4d1900"></script>
   <script src="src/authored_building_renderer.js?v=dde13aef"></script>
-  <script src="src/building_lowpoly.js?v=e443d233"></script>
+  <script src="src/building_lowpoly.js?v=ac20e298"></script>
   <script src="src/building_overlay.js?v=4b3fd5d1"></script>
   <script src="src/art_atlas.js?v=9bea921d"></script>
   <script src="src/selected_world_atlas.js?v=9797f1a6"></script>

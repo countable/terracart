@@ -1607,11 +1607,11 @@
     // outside.
     const useAuthored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined';
     const authoredDoor=useAuthored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
-    // HOME FILLS ITS LOT: its shell lengthens away from the door until it is
-    // as deep as the lot (AuthoredBuildings.rowsFor), so no bare floor is
-    // left in front of or behind the house.
-    const rows=recipe.role==='home'&&useAuthored?AuthoredBuildings.rowsFor(recipe.authored.key,lotDepthRatio(local,authoredDoor?.normal)):1;
-    const authored=useAuthored?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette,rows):null;
+    // A SHELL FILLS ITS LOT: reshaped to the lot's depth away from its door
+    // (AuthoredBuildings.build), so no bare floor reads as a deck beside it.
+    // A fort's hall stands inset inside its palisade and keeps its shape.
+    const ratio=useAuthored&&recipe.role!=='fort'?lotDepthRatio(local,authoredDoor?.normal):undefined;
+    const authored=useAuthored?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette,ratio):null;
     const door=authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
     let cached=authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);

@@ -85,17 +85,34 @@ function material(s,key){const name='authored:'+imageKey(key);if(s.textures.exis
  t.refresh();t.setFilter(Phaser.Textures.FilterMode.NEAREST);return t;}
 // The source back edge of each native shell's walls and roof.
 const rearOf=key=>['com','pp_cabin'].includes(key)?4:key==='pp_brick'?1:0;
-// A plain front-gabled shell lengthens by whole roof courses: its ridge runs
-// front to back, so each repeat keeps the source boards and ridge at native
-// density, and its side walls already repeat complete bays.
-function deepens(key){const a=SPECS[key];return !!a&&!a.sideRidge&&!a.flatRoof&&!a.rearHouse&&!a.chimney&&!a.porch&&!specialBuilder(key)&&key!=='wizard';}
-// How many native roof courses bring the shell nearest a lot `ratio` times
-// as deep as it is wide (1 for a shell that cannot lengthen).
+// SHELLS FILL THEIR LOTS. A shell fit uniformly into a lot of another shape
+// leaves the lot's plank floor showing beside it, which reads as a deck. A
+// native shell instead lengthens by whole depth modules (`rows`): a front
+// gable repeats roof courses along its ridge, a side ridge adds parallel
+// ridges. Every repeat keeps the source pixels at native density, and side
+// walls already repeat complete bays. Shells with their own footprint
+// builder (steam, city, flat roofs) are built on a rectangle of the lot's
+// proportions instead (`lot`). Ratios are a lot's depth over its width.
+function deepens(key){const a=SPECS[key];return !!a&&!a.flatRoof&&!a.rearHouse&&!specialBuilder(key)&&key!=='wizard';}
 function rowsFor(key,ratio){
  if(!deepens(key)||!(ratio>0))return 1;
  const a=SPECS[key];return Math.max(1,Math.min(4,Math.round(ratio*(a.right-a.left)/(a.depth-rearOf(key)))));
 }
-function buildNative(s,key,rows=1){const a=specFor(key),tex=material(s,key),W=a.right-a.left,H=a.base-a.eave,rear=rearOf(key),D=rear+(a.depth-rear)*rows,x=450-W/2,y=240-D/2;
+// The shape variant for a lot: null keeps the native shell. `native` is the
+// prepared shell, whose builder footprint gives a polygon builder's native
+// proportions. Footprint builders work in decoded units, twice as deep as
+// the world, and grow by ~15% steps up to three times either way.
+const LOT_STEP=Math.log(1.15),LOT_STEPS=8;
+function lotShape(key,ratio,native){
+ if(!(ratio>0))return null;
+ if(deepens(key)){const rows=rowsFor(key,ratio);return rows>1?{id:'r'+rows,rows}:null;}
+ const ring=native?.faces?.footprintInfo?.polygon;if(!ring||ring.length!==4)return null;
+ const xs=ring.map(p=>p.x),ys=ring.map(p=>p.y),w0=Math.max(...xs)-Math.min(...xs),d0=Math.max(...ys)-Math.min(...ys);
+ const q=Math.max(-LOT_STEPS,Math.min(LOT_STEPS,Math.round(Math.log(ratio/(d0*.5/w0))/LOT_STEP)));if(!q)return null;
+ const f=Math.exp(q*LOT_STEP),w=Math.round(q>0?w0:w0/f),d=Math.round(q>0?d0*f:d0);
+ return {id:'p'+q,lot:[[0,0],[w,0],[w,d],[0,d]]};
+}
+function buildNative(s,key,rows=1,lot=null){const a=specFor(key),tex=material(s,key),W=a.right-a.left,H=a.base-a.eave,rear=rearOf(key),D=rear+(a.depth-rear)*rows,x=450-W/2,y=240-D/2;
  const m={faces:[],height:a.base-a.peak,authoredKey:key,texture:tex};
  let currentFeature='body';
  function poly(points,uv,kind='wall',layer=0){for(let i=1;i<points.length-1;i++){const idx=[0,i,i+1],ps=idx.map(j=>({...points[j],tu:uv[j][0]/512,tv:(uv[j][1]+16)/1024}));const f={points:ps,projected:ps.map(()=>({})),x,y,texture:tex,kind,layer:0,color:0xffffff,light:1,sourceArt:true,feature:currentFeature,fallbackUV:currentFeature==='porch'?[168.5/512,131.5/1024]:currentFeature==='dormer'?[73.5/512,52.5/1024]:currentFeature==='chimney'?[((key==='market'?98.5:8.5))/512,52.5/1024]:null,support:m.support,preserveWalls:true,eaveHeight:H};if(kind==='wall')f.wallDirection={x:points[1].x-points[0].x,y:points[1].y-points[0].y};m.faces.push(f);}}
@@ -167,12 +184,14 @@ function buildNative(s,key,rows=1){const a=specFor(key),tex=material(s,key),W=a.
  }else{
   // The blacksmith reference exposes one broad roof slope. Its hidden slope
   // projects edge-on in the artwork view, revealing itself only on rotation.
-  const mid=(D+rear)/2,Z=H+(D-rear)/2;
-  roofFace([P(0,mid,Z),P(W,mid,Z),P(W,D,H),P(0,D,H)],[[a.left,a.peak+rear],[a.right,a.peak+rear],[a.right,a.eave],[a.left,a.eave]]);
-  roofFace([P(0,rear,H),P(W,rear,H),P(W,mid,Z),P(0,mid,Z)],[[a.left,a.eave],[a.right,a.eave],[a.right,a.peak+rear],[a.left,a.peak+rear]]);
-  poly([P(0,D,H),P(0,rear,H),P(0,mid,Z)],[[0,612.5],[key==='fdr'?D*2:W,612.5],[key==='fdr'?D:W/2,612.5]],'wall');
-  poly([P(W,rear,H),P(W,D,H),P(W,mid,Z)],[[0,612.5],[key==='fdr'?D*2:W,612.5],[key==='fdr'?D:W/2,612.5]],'wall');
-  if(key==='fdr')for(const side of [0,W])RoofMaterials.gableTie(P(side,0,H),P(side,D,H),(ps,uv,kind)=>poly(ps,uv.map(([u,v])=>[u,v-16]),kind),true);
+  // A deeper shell repeats the whole gable as parallel ridges.
+  for(let k=0,span=a.depth-rear;k<rows;k++){const y0=rear+k*span,y1=y0+span,mid=(y0+y1)/2,Z=H+span/2;
+   roofFace([P(0,mid,Z),P(W,mid,Z),P(W,y1,H),P(0,y1,H)],[[a.left,a.peak+rear],[a.right,a.peak+rear],[a.right,a.eave],[a.left,a.eave]]);
+   roofFace([P(0,y0,H),P(W,y0,H),P(W,mid,Z),P(0,mid,Z)],[[a.left,a.eave],[a.right,a.eave],[a.right,a.peak+rear],[a.left,a.peak+rear]]);
+   poly([P(0,y1,H),P(0,y0,H),P(0,mid,Z)],[[0,612.5],[key==='fdr'?span*2:W,612.5],[key==='fdr'?span:W/2,612.5]],'wall');
+   poly([P(W,y0,H),P(W,y1,H),P(W,mid,Z)],[[0,612.5],[key==='fdr'?span*2:W,612.5],[key==='fdr'?span:W/2,612.5]],'wall');
+   if(key==='fdr')for(const side of [0,W])RoofMaterials.gableTie(P(side,y0,H),P(side,y1,H),(ps,uv,kind)=>poly(ps,uv.map(([u,v])=>[u,v-16]),kind),true);
+  }
   // Porch pieces are projected from the actual reference: the landing, front
   // step and two raised rails all occupy their original source coordinates.
   if(a.porch){currentFeature='porch';
@@ -265,8 +284,8 @@ function buildNative(s,key,rows=1){const a=specFor(key),tex=material(s,key),W=a.
  // Decode source-space coordinates once using the source camera calibration.
  // Viewing elevation can then change without reshaping the physical model.
  for(const face of m.faces)for(const p of face.points){p.y/=0.5;p.z/=Math.cos(Math.PI/6);}
- if(specialBuilder(key)){m.faces=specialBuilder(key).build(m.faces[0],a,key,null);}
- if(a.flatRoof){m.faces=FlatBuildings.build(m.faces[0],a,key,null);}
+ if(specialBuilder(key)){m.faces=specialBuilder(key).build(m.faces[0],a,key,lot);}
+ if(a.flatRoof){m.faces=FlatBuildings.build(m.faces[0],a,key,lot);}
  if(key==='wizard'){m.faces=WizardTower.build(m.faces[0],a);}
  const unitScale=16/(a.door?.[3]||16);
  for(const face of m.faces)for(const p of face.points){p.x*=unitScale;p.y*=unitScale;p.z*=unitScale;}
@@ -276,12 +295,18 @@ function buildNative(s,key,rows=1){const a=specFor(key),tex=material(s,key),W=a.
  return m;
 }
 
- const RESIDENCES=['com','pp_brick','pp_plaster','pp_cabin','flat_adobe','flat_rooftop','steam_home'];
- const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'orange',book:'plum',shop:'blue'};
- function stableIndex(id){let n=2166136261;for(const c of String(id??'')){n^=c.charCodeAt(0);n=Math.imul(n,16777619);}return (n>>>0)%RESIDENCES.length;}
+ // The timber cabin is Home's alone, under the orange roof no other house wears.
+ const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home'];
+ const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'rose',book:'plum',shop:'blue'};
+ // A house keeps the facade it had when the cabin was still a residence: the
+ // pick runs over the former list, and only former cabins pick again.
+ const FORMER_RESIDENCES=['com','pp_brick','pp_plaster','pp_cabin','flat_adobe','flat_rooftop','steam_home'];
+ function residenceFor(id){let n=2166136261;for(const c of String(id??'')){n^=c.charCodeAt(0);n=Math.imul(n,16777619);}n>>>=0;
+  const key=FORMER_RESIDENCES[n%FORMER_RESIDENCES.length];
+  return RESIDENCES.includes(key)?key:RESIDENCES[Math.floor(n/FORMER_RESIDENCES.length)%RESIDENCES.length];}
  function recipeFor(role,id,tier=1,wizardSecond=false){
-  if(role==='home')return {key:'pp_cabin',palette:'yellow'};
-  if(role==='plain')return {key:RESIDENCES[stableIndex(id)],palette:'yellow'};
+  if(role==='home')return {key:'pp_cabin',palette:'orange'};
+  if(role==='plain')return {key:residenceFor(id),palette:'yellow'};
   if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate'};
   if(role==='trader')return {key:'trader',palette:'green'};
   if(role==='wizard')return {key:wizardSecond?'steam_wizard':'wizard',palette:'purple'};
@@ -305,19 +330,20 @@ function buildNative(s,key,rows=1){const a=specFor(key),tex=material(s,key),W=a.
   }
   caches.set(scene.textures,models);
  }
- // `rows` lengthens a shell by whole roof courses (rowsFor). The longer
- // shell reuses the source material and palette baked by prepare, so a
- // placement-time build reads no pixels and creates no textures.
- function build(scene,key,palette,rows=1){
-  const models=caches.get(scene.textures);
-  rows=deepens(key)?rows:1;
-  let native=models?.get(key+':'+palette+(rows>1?':'+rows:''));
-  if(!native&&rows>1&&models?.has(key+':'+palette)){
-   native=buildNative(scene,key,rows);
+ // `ratio` (a lot's depth over its width; omitted keeps the native shell)
+ // reshapes the shell to fill its lot (lotShape). The reshaped shell reuses
+ // the source material and palette baked by prepare, so a placement-time
+ // build reads no pixels and creates no textures; each shape is cached.
+ function build(scene,key,palette,ratio){
+  const models=caches.get(scene.textures),base=models?.get(key+':'+palette);
+  if(!base)return null;
+  const shape=lotShape(key,ratio,base),id=shape&&key+':'+palette+':'+shape.id;
+  let native=shape?models.get(id):base;
+  if(!native){
+   native=buildNative(scene,key,shape.rows||1,shape.lot||null);
    AuthoredRoofPalette.prepare(scene,native.texture,native,palette);
-   models.set(key+':'+palette+':'+rows,native);
+   models.set(id,native);
   }
-  if(!native)return null;
   return {...native,ring:native.ring.map(p=>({...p})),faces:native.faces.map(f=>({...f,points:f.points.map(p=>({...p})),projected:f.points.map(()=>({}))}))};
  }
  root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,rowsFor,prepare,build};

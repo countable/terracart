@@ -8,22 +8,24 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 
 | Gameplay role | Exterior model | Roof |
 | --- | --- | --- |
-| Home | Pixel Plains timber cabin | Yellow |
-| Regular residence | com cottage, Pixel Plains brick/plaster/cabin, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
+| Home | Pixel Plains timber cabin (Home's alone) | Orange |
+| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
 | Blacksmith T1–T3 / T4–T7 | FDR / steam blacksmith | Slate |
 | Trader | Trader | Green |
 | Seed / supply shop | Market / city storefront | Lime / blue |
 | Magic / relic shop | Market / city storefront | Teal / red |
-| Pet / book shop | Market / city storefront | Orange / plum |
+| Pet / book shop | Market / city storefront | Rose / plum |
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
 | Fort | City gearhouse inside existing palisade | Copper |
 
 All shop models belong to the market/storefront pair; tier does not change
 shop identity. Castle, turret and wreck geometry retain their existing paths.
-Home retains its open-roof interior and furniture behavior. Closed native
-shells fit uniformly within the lot rather than stretching their source art
-across concave corners. Home's cabin also repeats whole roof courses front to
-back so it fills its lot's depth. Only models assigned to existing game roles ship.
+Home retains its open-roof interior and furniture behavior. Shells fill their
+lots without stretching source art: native shells repeat whole depth modules
+(a front gable lengthens its ridge, a side ridge adds parallel ridges), and
+steam, city and flat-roof shells are built on a rectangle of the lot's
+proportions. What remains is fit uniformly, so concave lots and lots wider than
+the shell keep some floor showing; the fort hall stays inset in its palisade. Only models assigned to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 

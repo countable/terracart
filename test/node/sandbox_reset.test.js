@@ -30,6 +30,14 @@
       assert.eq(window.__sandboxSkipStory, expected, search);
     }
   });
+  test('skip intro: works outside the sandbox and follows the sandbox story skip', () => {
+    for (const [search, expected] of [['?skipIntro=true', true], ['?sandbox=true&skipIntro=true', true],
+      ['?sandbox=true&skipStory=true', true], ['?skipIntro=false', false], ['?skipStory=true', false], ['', false]]) {
+      const window = {};
+      new Function('window', 'location', 'localStorage', '// Sandbox local reset must run' + source)(window, { search }, { length: 0 });
+      assert.eq(window.__skipIntro, expected, search);
+    }
+  });
   test('sandbox skip tutorial: only the explicit sandbox flag enables it', () => {
     for (const [search, expected] of [['?sandbox=true&skipTutorial=true', true],
       ['?sandbox=true&reset=true&skipStory=true&skipTutorial=true', true],

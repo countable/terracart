@@ -1,8 +1,11 @@
 (() => {
   const recipe = (...args) => AuthoredBuildings.recipeFor(...args);
-  test('authored buildings: homes and all stable residential variants have yellow roofs', () => {
+  test('authored buildings: Home alone is the orange-roofed cabin', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
-    assert.eq(recipe('home', 'player').palette, 'yellow');
+    assert.eq(recipe('home', 'player').palette, 'orange');
+    assert.falsy(AuthoredBuildings.RESIDENCES.includes('pp_cabin'), 'no other house is a log cabin');
+    for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
+      assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
     for (let i = 0; i < 200; i++) {
       const id = `house:${i}`, first = recipe('plain', id), again = recipe('plain', id, 7);
@@ -13,14 +16,14 @@
     }
     assert.eq(seen.size, AuthoredBuildings.RESIDENCES.length, 'all residential variants are reachable');
   });
-  test('authored buildings: Home lengthens by whole roof courses to fill its lot', () => {
-    const home = recipe('home', 'player').key;
-    // Home's square 2×2 lot takes two native cabin courses, not a shrunken cabin.
-    assert.eq(AuthoredBuildings.rowsFor(home, 1), 2);
-    assert.eq(AuthoredBuildings.rowsFor(home, 0.5), 1);
-    assert.eq(AuthoredBuildings.rowsFor(home, 0), 1);
-    // Shells whose ridge or features run across the depth keep their native size.
-    for (const key of ['pp_brick', 'fdr', 'trader', 'market', 'flat_adobe', 'steam_home', 'wizard'])
+  test('authored buildings: native shells lengthen by whole modules to fill their lots', () => {
+    // A square lot takes two native modules, not a shrunken shell.
+    for (const key of ['pp_cabin', 'pp_brick', 'pp_plaster', 'fdr', 'market'])
+      assert.eq(AuthoredBuildings.rowsFor(key, 1), 2, key);
+    assert.eq(AuthoredBuildings.rowsFor('pp_cabin', 0.5), 1);
+    assert.eq(AuthoredBuildings.rowsFor('pp_cabin', 0), 1);
+    // Footprint-built and special shells reshape through their own builders.
+    for (const key of ['trader', 'flat_adobe', 'steam_home', 'city_storefront', 'wizard'])
       assert.eq(AuthoredBuildings.rowsFor(key, 1), 1, key);
   });
   test('authored buildings: every shop line uses a commercial model and a distinct signature', () => {

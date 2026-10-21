@@ -5,7 +5,7 @@
   const COLORS = Object.freeze({
     yellow: [46, .76], slate: [213, .24], green: [139, .47],
     teal: [180, .57], lime: [83, .58], blue: [211, .60], purple: [270, .48],
-    red: [2, .62], orange: [27, .76], plum: [312, .43],
+    red: [2, .62], orange: [27, .76], plum: [312, .43], rose: [340, .55],
     copper: [24, .59], rust: [18, .59]
   });
 
