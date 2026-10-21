@@ -1,0 +1,186 @@
+{
+  "tool": "Built-in image_gen",
+  "styleReference": "assets/Objects/AuthoredBuildings/pp-brick-red.png",
+  "status": "Reference artwork; generated proportions and details require pixel registration before use as mesh textures.",
+  "promptSpec": {
+    "operation": "style-transfer",
+    "target": "First input: original building or full sprite sheet.",
+    "reference": "Second input: pp-brick-red.png; steam-home also uses pp-plaster-red.png.",
+    "style": "Clean cel-shaded pixel art, crisp dark burgundy/brown outlines, broad flat color clusters, 2-3 discrete material tones, warm cream/ochre masonry, brown timber, coral/red roof tiles.",
+    "preserve": "Original architecture, silhouette, camera, proportions, roof planes, doors, windows, machinery, material identities and sprite-sheet arrangement.",
+    "avoid": "New objects, floor, labels, painterly grain, dithering, gradients and blur.",
+    "background": "Transparent"
+  },
+  "assets": [
+    {
+      "name": "steam-home",
+      "original": "assets/Objects/AuthoredBuildings/steam-home.png",
+      "file": "steam-home.png",
+      "size": [
+        1086,
+        1448
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "steam-blacksmith",
+      "original": "assets/Objects/AuthoredBuildings/steam-blacksmith.png",
+      "file": "steam-blacksmith.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "steam-wizard",
+      "original": "assets/Objects/AuthoredBuildings/steam-wizard.png",
+      "file": "steam-wizard.png",
+      "size": [
+        768,
+        2048
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "city-storefront",
+      "original": "assets/Objects/AuthoredBuildings/city-storefront.png",
+      "file": "city-storefront.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "city-gearhouse",
+      "original": "assets/Objects/AuthoredBuildings/city-gearhouse.png",
+      "file": "city-gearhouse.png",
+      "size": [
+        887,
+        1774
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "flat-adobe",
+      "original": "assets/Objects/AuthoredBuildings/flat-adobe.png",
+      "file": "flat-adobe.png",
+      "size": [
+        1086,
+        1448
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "flat-rooftop",
+      "original": "assets/Objects/AuthoredBuildings/flat-rooftop.png",
+      "file": "flat-rooftop.png",
+      "size": [
+        1024,
+        1536
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "house_market",
+      "original": "assets/Objects/Approved/house_market.png",
+      "file": "house_market.png",
+      "size": [
+        1332,
+        1181
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "house_trader",
+      "original": "assets/Objects/Approved/house_trader.png",
+      "file": "house_trader.png",
+      "size": [
+        1105,
+        1424
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "com_houses_05",
+      "original": "assets/Objects/AuthoredBuildings/com_houses_05.png",
+      "file": "com_houses_05.png",
+      "size": [
+        1138,
+        1382
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "FDR_Blacksmith",
+      "original": "assets/Objects/AuthoredBuildings/FDR_Blacksmith.png",
+      "file": "FDR_Blacksmith.png",
+      "size": [
+        1774,
+        887
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "wizard",
+      "original": "assets/Objects/AuthoredBuildings/wizard.png",
+      "file": "wizard.png",
+      "size": [
+        1555,
+        1011
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "city-factory",
+      "original": "assets/Objects/AuthoredBuildings/city-factory.png",
+      "file": "city-factory.png",
+      "size": [
+        1254,
+        1254
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "city-clock",
+      "original": "assets/Objects/AuthoredBuildings/city-clock.png",
+      "file": "city-clock.png",
+      "size": [
+        887,
+        1774
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "city-chimney",
+      "original": "assets/Objects/AuthoredBuildings/city-chimney.png",
+      "file": "city-chimney.png",
+      "size": [
+        887,
+        1774
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "dreamland-house",
+      "original": "assets/ArtTrials/DreamlandObjects/house.png",
+      "file": "dreamland-house.png",
+      "size": [
+        957,
+        1644
+      ],
+      "hasAlpha": true
+    },
+    {
+      "name": "dreamland-wide",
+      "original": "assets/ArtTrials/DreamlandObjects/house-wide.png",
+      "file": "dreamland-wide.png",
+      "size": [
+        1512,
+        1040
+      ],
+      "hasAlpha": true
+    }
+  ]
+}
