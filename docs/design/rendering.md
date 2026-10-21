@@ -925,11 +925,11 @@ in [low-poly building styles](../art/lowpoly-building-styles.md).
 
 Source images load through `ASSETS`. `AuthoredBuildings.prepare` bakes shared
 materials and roof palettes at scene startup; cell rebuilds clone cached faces
-and fit a closed shell uniformly inside the footprint. The shell is first
-reshaped to its lot's depth (`AuthoredBuildings.build` with the lot ratio):
-a shell smaller than its lot leaves the lot's plank floor showing, which reads
-as a deck. Native shells repeat whole depth modules; footprint-built shells
-take a lot-shaped rectangle. Each shape is cached per model and palette. No pixel
+and skin the procedural lot-outline shape with them: walls on the lot ring, the
+roof over the lot (`BuildingLowPoly.authoredOutline`, details in the styles
+doc). A shell fit inside a lot leaves its plank floor showing as a deck, so
+only wizard towers and the fort hall keep whole fitted shells. The depth
+renderer's per-face `shade` lights slopes the source art never painted. No pixel
 reads or canvas texture creation occur during placement or compass updates. Home switches to
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.

@@ -20,12 +20,15 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 
 All shop models belong to the market/storefront pair; tier does not change
 shop identity. Castle, turret and wreck geometry retain their existing paths.
-Home retains its open-roof interior and furniture behavior. Shells fill their
-lots without stretching source art: native shells repeat whole depth modules
-(a front gable lengthens its ridge, a side ridge adds parallel ridges), and
-steam, city and flat-roof shells are built on a rectangle of the lot's
-proportions. What remains is fit uniformly, so concave lots and lots wider than
-the shell keep some floor showing; the fort hall stays inset in its palisade. Only models assigned to existing game roles ship.
+Home retains its open-roof interior and furniture behavior. The lot outline is
+the building: walls stand on every lot edge at any angle and the roof covers the
+lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
+(`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
+entrance wall, its tiled roof in roof space, and single texels for gables,
+fascia and ridge beams. Doors stand 13 units tall on every model. Model-only
+features (porches, painted chimneys, dormers) do not appear on lot-outline
+buildings. Wizard towers and the fort hall keep their whole shells, fit inside
+the lot. Only models assigned to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 

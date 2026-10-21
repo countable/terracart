@@ -9,22 +9,22 @@
     const shader=(type,source)=>{const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
       if(!gl.getShaderParameter(s,gl.COMPILE_STATUS))throw new Error(gl.getShaderInfoLog(s));return s;};
     const vertex=shader(gl.VERTEX_SHADER,`
-      attribute vec3 aPosition;attribute vec2 aUV;attribute vec2 aFallback;
-      uniform vec2 uSize;varying vec2 vUV;varying vec2 vFallback;
-      void main(){gl_Position=vec4(aPosition.x/uSize.x*2.0-1.0,1.0-aPosition.y/uSize.y*2.0,aPosition.z,1.0);vUV=aUV;vFallback=aFallback;}`);
+      attribute vec3 aPosition;attribute vec2 aUV;attribute vec2 aFallback;attribute float aShade;
+      uniform vec2 uSize;varying vec2 vUV;varying vec2 vFallback;varying float vShade;
+      void main(){gl_Position=vec4(aPosition.x/uSize.x*2.0-1.0,1.0-aPosition.y/uSize.y*2.0,aPosition.z,1.0);vUV=aUV;vFallback=aFallback;vShade=aShade;}`);
     const fragment=shader(gl.FRAGMENT_SHADER,`#extension GL_OES_standard_derivatives : enable
-      precision highp float;uniform sampler2D uTexture;varying vec2 vUV;varying vec2 vFallback;
+      precision highp float;uniform sampler2D uTexture;varying vec2 vUV;varying vec2 vFallback;varying float vShade;
       void main(){vec2 size=vec2(512.0,1024.0),p=vUV*size-0.5,cell=floor(p),width=max(fwidth(p),vec2(0.0001));
         vec2 w=clamp((fract(p)-0.5)/width+0.5,0.0,1.0),uv=(cell+0.5)/size;
         vec4 color=mix(mix(texture2D(uTexture,uv),texture2D(uTexture,uv+vec2(1.0/512.0,0.0)),w.x),
           mix(texture2D(uTexture,uv+vec2(0.0,1.0/1024.0)),texture2D(uTexture,uv+vec2(1.0/512.0,1.0/1024.0)),w.x),w.y);
         vec3 base=texture2D(uTexture,vFallback).rgb;
-        gl_FragColor=vec4(color.rgb+base*(1.0-color.a),1.0);}`);
+        gl_FragColor=vec4(min(vec3(1.0),(color.rgb+base*(1.0-color.a))*vShade),1.0);}`);
     const program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);
     gl.deleteShader(vertex);gl.deleteShader(fragment);
     if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));
     const state={program,buffer:gl.createBuffer(),position:gl.getAttribLocation(program,'aPosition'),
-      uv:gl.getAttribLocation(program,'aUV'),fallback:gl.getAttribLocation(program,'aFallback'),
+      uv:gl.getAttribLocation(program,'aUV'),fallback:gl.getAttribLocation(program,'aFallback'),shade:gl.getAttribLocation(program,'aShade'),
       size:gl.getUniformLocation(program,'uSize'),sampler:gl.getUniformLocation(program,'uTexture'),width:0,height:0};
     scene.events?.once('shutdown',()=>{if(state.target)renderer.deleteFramebuffer(state.target);if(state.texture)renderer.deleteTexture(state.texture);
       gl.deleteBuffer(state.buffer);gl.deleteProgram(state.program);delete scene._authoredDepthRenderer;});
@@ -48,7 +48,8 @@
       f.points.forEach((p,i)=>{const projected=f.projected[i],x=matrix.getX(projected.x,projected.y),y=matrix.getY(projected.x,projected.y);
         const depth=s*(f.x+p.x)+c*(f.y+p.y)+p.z/3;
         left=Math.min(left,x);right=Math.max(right,x);top=Math.min(top,y);bottom=Math.max(bottom,y);far=Math.min(far,depth);near=Math.max(near,depth);
-        vertices.push([x,y,depth,p.tu,p.tv,...fallback]);});
+        // `shade` lights painted-less slopes (BuildingLowPoly.authoredOutline).
+        vertices.push([x,y,depth,p.tu,p.tv,...fallback,f.shade??1]);});
     }
     ranges.push({texture,start,count:vertices.length-start});}
     left=Math.max(0,Math.floor(left)-1);right=Math.min(width,Math.ceil(right)+1);
@@ -70,13 +71,13 @@
     gl.useProgram(state.program);gl.bindBuffer(gl.ARRAY_BUFFER,state.buffer);
     const range=Math.max(1,near-far),data=new Float32Array(vertices.flatMap(p=>[p[0],p[1],.9-(p[2]-far)/range*1.8,...p.slice(3)]));
     gl.bufferData(gl.ARRAY_BUFFER,data,gl.DYNAMIC_DRAW);
-    for(const [location,size,offset] of [[state.position,3,0],[state.uv,2,12],[state.fallback,2,20]]){
-      gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,28,offset);
+    for(const [location,size,offset] of [[state.position,3,0],[state.uv,2,12],[state.fallback,2,20],[state.shade,1,28]]){
+      gl.enableVertexAttribArray(location);gl.vertexAttribPointer(location,size,gl.FLOAT,false,32,offset);
     }
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(state.sampler,0);gl.uniform2f(state.size,width,height);
     for(const range of ranges){gl.bindTexture(gl.TEXTURE_2D,range.texture.webGLTexture);gl.drawArrays(gl.TRIANGLES,range.start,range.count);}
-    for(const location of [state.position,state.uv,state.fallback])gl.disableVertexAttribArray(location);
+    for(const location of [state.position,state.uv,state.fallback,state.shade])gl.disableVertexAttribArray(location);
     gl.disable(gl.DEPTH_TEST);gl.depthMask(depthMask);gl.depthFunc(depthFunc);
     gl.clearColor(...clearColor);gl.clearDepth(clearDepth);
     gl.bindFramebuffer(gl.FRAMEBUFFER,framebuffer?.webGLFramebuffer||null);
