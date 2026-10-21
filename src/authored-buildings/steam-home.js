@@ -87,7 +87,9 @@
     for(const [y,front] of [[s.y1,true],[s.y0,false]]){
      const ps=[P(s.x0,y,H),P(s.x1,y,H),P(m,y,H+R)];if(front)ps.reverse();tri(ps,ps.map(p=>[120+(p.x-m)*Math.min(1,238/(s.x1-s.x0)),876-(p.z-H)*C]));
      const shared=spans.some(other=>other!==s&&(front?other.y0===y:other.y1===y)&&other.x0<s.x1&&other.x1>s.x0);
-     const yy=y+(front?.03:-.03),window=[P(m-12,yy,z0),P(m+12,yy,z0),P(m+12,yy,z1),P(m-12,yy,z1)];
+     // Stay beyond the depth buffer's quantum after source-unit scaling.
+     // A .03 offset rounded onto the gable and striped the attic window.
+     const yy=y+(front?.2:-.2),window=[P(m-12,yy,z0),P(m+12,yy,z0),P(m+12,yy,z1),P(m-12,yy,z1)];
      if(!shared)(front?reverseArt:art)(window,[60,63,24,25]);
      const beam=[P(s.x0,yy,H-4/C),P(s.x1,yy,H-4/C),P(s.x1,yy,H),P(s.x0,yy,H)];(front?reverseArt:art)(beam,[30,92,82,4]);
     }

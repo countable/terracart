@@ -57,7 +57,11 @@ Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
 Pixel Plains houses keep their original source textures.
 
 Six `pp_flat_*` review choices use native Pixel Plains flat-shop art, with a
-tiled horizontal deck and colored fascia. `tools/extract_pp_flat_buildings.py`
+tiled horizontal deck and colored fascia. Their walls sit three source pixels
+inside the roof lip (4.8 ground units along depth), with a sealed soffit; the
+prepared wall atlas extends native masonry over the source silhouette borders
+so black vertical strips do not repeat at corners. Expanded decks repeat native
+tile texels below the coping to avoid coplanar flicker. `tools/extract_pp_flat_buildings.py`
 extracts the six source colorways and assembles their native glass doorway;
 `pp-flat-provenance.json` records exact crops. They are prepared with the native
 palette and do not change existing residential assignments. The shared flat
@@ -73,7 +77,10 @@ steam home rectifies those same source tiles for expanded footprints, while the
 steam wizard samples its current roof palette for inferred surfaces. Market
 dormers and steam-home vents, pipes and landings are closed geometry aligned
 to source-camera rays. Inferred City decks use equipment-free material patches;
-doorless tower walls exclude the entire entrance frame from their sample.
+doorless tower walls exclude the entire entrance frame from their sample. Expanded steam-blacksmith
+barrel ends repeat timber at native scale and centre one source-width gear panel;
+the emblem never stretches with the footprint. Entry and attic overlays stand
+far enough off their walls to survive depth quantization at game scale.
 
 ## Generated interiors and fallback geometry
 
