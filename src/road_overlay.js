@@ -579,7 +579,8 @@
     if (typeof drawSelectedMaterial !== 'function'
         || typeof document === 'undefined') return null;
     const id = variant === 'suppressed' ? 'R01' : roadMaterialFor(variant, restored);
-    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '');
+    const fine = typeof RogueObjects !== 'undefined' && RogueObjects.enabled && (id === 'R01' || id === 'R02');
+    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '') + (fine ? ':fine' : '');
     if (selectedRoadCanvases[key]) return selectedRoadCanvases[key];
     const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
     const cx = tile.getContext('2d');
@@ -596,9 +597,12 @@
     sc.drawImage(slab, 2, 2, 12, 12, 0, 0, 16, 16);
     sc.globalAlpha = .28; sc.drawImage(slab, 0, 0); sc.globalAlpha = 1;
     cx.imageSmoothingEnabled = false;
-    for (let y = 0; y < STONE_TILE_PX; y += 16) {
-      const offset = (y / 16) % 2 ? 8 : 0;
-      for (let x = -offset; x < STONE_TILE_PX; x += 16) cx.drawImage(stone, x, y);
+    // A 7m overworld cell contains a field of small paving stones, not two
+    // giant slabs. Only RA ordinary paving uses the denser running bond.
+    const brickW = fine ? 4 : 16, brickH = fine ? 2 : 16;
+    for (let y = 0; y < STONE_TILE_PX; y += brickH) {
+      const offset = (y / brickH) % 2 ? brickW / 2 : 0;
+      for (let x = -offset; x < STONE_TILE_PX; x += brickW) cx.drawImage(stone, x, y, brickW, brickH);
     }
     if (variant === 'suppressed') {
       cx.fillStyle = 'rgba(69,115,108,.24)'; cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);

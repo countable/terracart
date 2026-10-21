@@ -2,11 +2,13 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const code=fs.readFileSync('src/rogue_object_bounds.js','utf8')+'\n'+fs.readFileSync('src/rogue_objects.js','utf8');
 function load(search) {
  const assets={selected_shrub:{kind:'spritesheet',path:'assets/Objects/SelectedFlora/selected_shrub.png',frameWidth:16,frameHeight:16},bushes:{kind:'spritesheet',path:'assets/Objects/CelProps/bushes.png',frameWidth:24,frameHeight:24}},layout={ART_BOUNDS:{}};
- const art=new Function('location','ASSETS','SpriteLayout','DreamlandObjects','treeArtFrame','mineralRockMaterial','CELL_PX','Houses','WorldLayers',code+'\nreturn RogueObjects;')({search},assets,layout,{},o=>o.stage||3,o=>o.material||'plain',32,{displayRole:()=> 'wreck'},{STANDING_PROP:'standing'});
- return {art,assets,layout};
+ const bushes={sheet:'bushes',custom:true,frames:[0,1,2,3,4,5,6,7],scale:1};
+ const crops={shrub:{sheet:'selected_shrub',looks:{bramble:{sheet:'bramble'},clipped:{sheet:'approved_clipped_hedge'}}}};
+ const art=new Function('location','ASSETS','SpriteLayout','DreamlandObjects','treeArtFrame','mineralRockMaterial','CELL_PX','Houses','WorldLayers','CROP_SPRITE','BUSH_SPRITE',code+'\nreturn RogueObjects;')({search},assets,layout,{},o=>o.stage||3,o=>o.material||'plain',32,{displayRole:()=> 'wreck'},{STANDING_PROP:'standing'},crops,bushes);
+ return {art,assets,layout,crops};
 }
 const off=load('');assert.equal(Object.keys(off.assets).length,2);assert.equal(off.assets.bushes.path,'assets/Objects/CelProps/bushes.png');
-const {art,assets,layout}=load('?artTrial=rogue');assert.equal(Object.keys(assets).length,14);
+const {art,assets,layout,crops}=load('?artTrial=rogue');assert.equal(Object.keys(assets).length,14);
 assert.equal(assets.bushes.path,'assets/ArtTrials/RogueObjects/bushes-olive.png');
 assert.equal(off.assets.selected_shrub.path,'assets/Objects/SelectedFlora/selected_shrub.png');
 assert.equal(assets.selected_shrub.path,'assets/ArtTrials/RogueObjects/shrub-olive.png');
@@ -37,3 +39,10 @@ assert.equal(art.spec({kind:'_streetlamp',lit:true},{},original).key,'rogue_lamp
 assert.equal(art.spec({kind:'_streetlamp',lit:false},{},original).key,'rogue_lamp_unlit');
 console.log('RA reference objects: opt-in isolation, assets/bounds, growth, source palette, semantic exclusions and restoration conditions passed');
 
+
+assert.equal(off.crops.shrub.sheet,'selected_shrub');
+assert.equal(crops.shrub.sheet,'bushes','RA ordinary shrubs use rounded olive bush');
+assert.deepEqual(crops.shrub.frames,[0,1,2,3,4,5,6,7]);
+assert.equal(crops.shrub.scale,1,'24px frame preserves original shrub footprint');
+assert.equal(crops.shrub.looks.clipped.sheet,'bushes','urban biome shrub fallback uses same olive bush');
+assert.equal(crops.shrub.looks.bramble.sheet,'bramble','thorny grove identity survives');

@@ -12,6 +12,14 @@ const RogueObjects = (() => {
       path:'assets/ArtTrials/RogueObjects/bushes-olive.png'};
     if (assets.selected_shrub) assets.selected_shrub = {...assets.selected_shrub,
       path:'assets/ArtTrials/RogueObjects/shrub-olive.png'};
+    // Ambient shrubs use the planted-pool resolver, not spec(). Urban shrub
+    // cells otherwise select the old mint clipped hedge and bypass this palette.
+    // Keep explicitly authored hedge rows, brambles and palms in their own looks.
+    if (typeof CROP_SPRITE !== 'undefined' && typeof BUSH_SPRITE !== 'undefined') {
+      const shrub = CROP_SPRITE.shrub;
+      CROP_SPRITE.shrub = {...BUSH_SPRITE, shadow:true,
+        looks:{...shrub.looks, clipped:{...BUSH_SPRITE, shadow:true}}};
+    }
     for (const [name,bounds] of Object.entries(ROGUE_OBJECT_BOUNDS)) {
       // Houses use the shared footprint-based renderer and its current scheme.
       if (name.startsWith('house_')) continue;

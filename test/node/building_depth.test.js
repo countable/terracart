@@ -100,6 +100,30 @@
     }
   });
 
+  depthTest('building depth: player under front half of roof stays behind shell at every heading', () => {
+    const s=scene();BuildingLowPoly.begin(s);
+    const mesh=building(s,60,60,'shell'),player=billboard(72,72);
+    s.worldContainer.add(player);s.playerScreen=()=>({x:player.x,y:player.y});
+    for(let step=0;step<32;step++) {
+      const a=step*Math.PI/16;s.mapRot=a;
+      // Four pixels toward the camera from the centroid: the old sort drew
+      // the player above the roof, even though still inside the footprint.
+      player.x=72+Math.sin(a)*4;player.y=72+Math.cos(a)*4;player._huAnchor={x:player.x,y:player.y};
+      Render.sortWorldDepth([...BuildingLowPoly.worldPieces(s),{sprite:player,groundY:812+(player.y-100)*6/CELL_PX,rank:3}]);
+      s.worldContainer.list.sort((a,b)=>a.depth-b.depth);
+      HeadingUp._preRender(s);
+      assert.truthy(s.worldContainer.list.indexOf(mesh.obj)>s.worldContainer.list.indexOf(player), 'heading '+step+' support '+JSON.stringify(mesh.support)+' feet '+JSON.stringify(player._huFoot));
+      HeadingUp._postRender(s);
+      // Once in front of the wall the player must draw normally above it.
+      player.x=72+Math.sin(a)*30;player.y=72+Math.cos(a)*30;player._huAnchor={x:player.x,y:player.y};
+      Render.sortWorldDepth([...BuildingLowPoly.worldPieces(s),{sprite:player,groundY:812+(player.y-100)*6/CELL_PX,rank:3}]);
+      s.worldContainer.list.sort((a,b)=>a.depth-b.depth);
+      HeadingUp._preRender(s);
+      assert.truthy(s.worldContainer.list.indexOf(mesh.obj)<s.worldContainer.list.indexOf(player));
+      HeadingUp._postRender(s);
+    }
+  });
+
   depthTest('building depth: panning updates ground anchors at cached heading and clear retires meshes', () => {
     const s = scene(); BuildingLowPoly.begin(s);
     const first = building(s, 40, 50, 'first'), second = building(s, 90, 110, 'second');

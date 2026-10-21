@@ -68,7 +68,10 @@ world. It does not install an authored scene. Grass, residential land and parks
 use village grass; forest and orchard use jungle grass; farmland uses olive soil;
 wetland uses dark olive soil; sand, water and civic/commercial/industrial ground
 use the corresponding sand, water and stone families. Piers retain their existing
-deck over water. Roads keep their vector paving and inherit the existing source
+deck over water. Ordinary RA roads repeat 4×2px stones in running bond inside
+each 32px/approximately 7m cell, rather than 16px slabs; these are texture details,
+not smaller gameplay cells. Special pavement identities remain unchanged.
+Roads keep their vector widths and inherit the existing source
 landcover/theme lookup beneath it. Polygonal buildings retain their architecture
 and existing inferred ground. Houses use the shared 3D footprint renderer and
 latest normal house scheme, including restoration, heading rotation and open-roof
@@ -76,11 +79,17 @@ Home; RA facade images are not loaded or substituted. Canvas keeps the normal
 building fallback. The Rogue profile uses the reference-selected jungle canopy
 families (also used by the village reference), stone lamps, plain rocks and
 ladder-down hatches. Bushes preserve their eight source frames with an RA olive
-palette export; berry overlays retain their distinct fruit colours. RA wrecks
+palette export; ordinary and urban shrubs resolve through the planted-pool path
+to that rounded 24px bush, while named brambles, palms and authored hedge rows
+keep their explicit appearances. Berry overlays retain distinct fruit colours. RA wrecks
 keep the shared collapse geometry with desaturated, lower-contrast earth/olive
-materials baked into two cached sheets at startup, not during movement. Growth stages retain
-proportional sizes; ore deposits, temple architecture and indoor Home remain
-unchanged. Gameplay, source object IDs/positions and saves are unchanged.
+materials baked into two cached sheets at startup, not during movement. Other
+building exteriors use an RA-only muted earth/olive treatment: authored shells
+and fallback/open-Home walls apply it in their shader; procedural castle and
+temple masonry use the matching colour mapping. Geometry, material detail and
+functional light colours remain intact. Growth stages retain proportional sizes
+and ore identities remain unchanged. Gameplay, source object IDs/positions and
+saves are unchanged.
 Nexus-specific ground, rift buffers, quarry/exclusion rock, tilled beds, synthetic
 building floors and underground terrain retain their existing treatments.
 
@@ -326,7 +335,9 @@ material sheets are cut once per material from the tilesets. Roof UV wrapping
 uses the selected sheet's repeat: 360 texels for approved crops, 288 for generated
 and cel sheets, so atlas boundaries preserve the material pattern. Each low-poly
 building has a pooled render object in `worldContainer`, interleaved with props
-and actors by its footprint's vertex-average ground anchor. Faces and ink groups
+and actors by the near footprint edge in the player's screen column (the
+vertex-average anchor outside that column). This prevents the player in the
+front half of a lot from drawing above its roof. Faces and ink groups
 remain ordered within that building. One upward-shifted silhouette draws before
 all building faces, including wrecks, so bottom edges and internal joins receive
 no outline. This is whole-building painter ordering,
@@ -336,10 +347,11 @@ geometry's pan offset also moves its sorting anchor, including at a fixed headin
 Ground floors and the legacy architectural walls remain in their background
 passes. Standalone building viewers without a world container sort buildings
 in their existing wall container.
-Standing buildings become 50% opaque while the player occupies their footprint
-or their visible projected faces cover the player's body from in front. The
-footprint test includes concave outlines; the overlap test uses visible triangles
-for low-poly meshes and ramparts, and trimmed art bounds for legacy sprites.
+Standing buildings become 50% opaque only when their visible projected faces
+fully cover the player's inset body box from in front. Footprint entry or partial
+overlap alone never fades a building. The coverage test subtracts the union of
+visible triangles for low-poly meshes and ramparts, retaining courtyard holes;
+legacy sprite buildings require full containment by their trimmed art bounds.
 These checks follow compass rotation and retained pan offsets, and restore full
 opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
@@ -394,7 +406,8 @@ the baseline's point in the player's screen column at the current heading,
 clamped to the wall's ends and re-asked every frame; a wall seen end-on
 takes its end lowest on screen), so the player draws over the wall behind
 them and under the wall in front along the wall's whole length at every
-heading; a standing building stays one object at its footprint centroid.
+heading; a standing building stays one object at its near footprint edge in
+the player's screen column.
 Without the low-poly path (Canvas) the same house is
 retained prisms in the `home` group (`WallPerspective`, `alwaysActive`) with
 the palisade's thickness and a taller wall, a doorway gap on the door side
@@ -618,12 +631,13 @@ the surrounding grove’s shrub scale.
   centroid ordering handles ordinary joined walls; intersecting walls are not
   split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
-- Standing objects fade to half their normal opacity only when their art overlaps
+- Standing props fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
   `artBounds` for procedural art that declares one (the street lamp's
   ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. On a turned heading-up map
+  original opacity; tool access never changes it. Buildings instead require full
+  body-box coverage, as described in the low-poly section above. On a turned heading-up map
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
   Prop contact shadows turn about their prop's ground anchor, so a tucked-up

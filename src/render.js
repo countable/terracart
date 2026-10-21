@@ -3707,24 +3707,65 @@ Render.buildingTriangleOverlaps = function(points, box) {
     return Math.max(...a) >= Math.min(...b) && Math.max(...b) >= Math.min(...a);
   });
 };
+// Subtract the visible triangle union from the body box. Checking only its
+// corners misses courtyard holes; summing triangle areas double-counts overlaps.
+// This runs only for candidate faces around the player, never reads texture pixels.
+Render.buildingTrianglesCover = function(triangles, box) {
+  if (!box || box.x1 <= box.x0 || box.y1 <= box.y0) return false;
+  let remaining = [[{x:box.x0,y:box.y0},{x:box.x1,y:box.y0},
+    {x:box.x1,y:box.y1},{x:box.x0,y:box.y1}]];
+  triangles=triangles.filter(triangle=>Render.buildingTriangleOverlaps(triangle,box));
+  // Most frames have no fully hidden body. Reject uncovered corners before
+  // allocating clipped polygons; only the rare full-cover candidate needs it.
+  if (!remaining[0].every(p=>triangles.some(([a,b,c])=>{
+    const cross=(u,v)=>(v.x-u.x)*(p.y-u.y)-(v.y-u.y)*(p.x-u.x);
+    const ab=cross(a,b),bc=cross(b,c),ca=cross(c,a);
+    return (ab>=-1e-8&&bc>=-1e-8&&ca>=-1e-8)||(ab<=1e-8&&bc<=1e-8&&ca<=1e-8);
+  }))) return false;
+  const area = poly => Math.abs(poly.reduce((sum,p,i) => {
+    const q=poly[(i+1)%poly.length]; return sum+p.x*q.y-q.x*p.y;
+  },0))/2;
+  for (const triangle of triangles) {
+    const [a,b,c]=triangle;
+    const winding=Math.sign((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x));
+    if (!winding) continue;
+    const next=[];
+    for (const polygon of remaining) {
+      let inside=polygon;
+      for (let i=0;i<3 && inside.length;i++) {
+        const a=triangle[i],b=triangle[(i+1)%3],keep=[],outside=[];
+        const side=p=>winding*((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x));
+        for (let j=0;j<inside.length;j++) {
+          const p=inside[j],q=inside[(j+1)%inside.length],dp=side(p),dq=side(q);
+          (dp>=0?keep:outside).push(p);
+          if ((dp>=0)!==(dq>=0)) {
+            const t=dp/(dp-dq),cross={x:p.x+t*(q.x-p.x),y:p.y+t*(q.y-p.y)};
+            keep.push(cross);outside.push(cross);
+          }
+        }
+        if (outside.length>=3 && area(outside)>1e-6) next.push(outside);
+        inside=keep;
+      }
+    }
+    remaining=next;
+    if (!remaining.length) return true;
+  }
+  return false;
+};
 Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
   if (key && key === scene.save?.starterShopId) return 1;
   const feet = scene.playerScreen?.();
   if (!feet || !scene.player?.visible) return 1;
-  if (footprint?.length && Render.pointInBuilding({ x: feet.x - offset.x, y: feet.y - offset.y }, footprint)) return 0.5;
   const { box, view } = Render.headingFadeView(scene, playerScreenBox(scene));
   if (!box) return 1;
   const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
     : anchor.y + offset.y > feet.y;
   if (!front) return 1;
-  for (const triangle of triangles) {
-    const points = triangle.map(p => {
+  const projected = triangles.map(triangle => triangle.map(p => {
       const x = p.x + offset.x, y = p.y + offset.y;
       return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
-    });
-    if (Render.buildingTriangleOverlaps(points, box)) return 0.5;
-  }
-  return 1;
+    }));
+  return Render.buildingTrianglesCover(projected, box) ? 0.5 : 1;
 };
 Render.playerBuildingKey = function(scene) {
   if ((scene.depth || 0) !== 0 || !scene.playerM || !scene.startWorldM) return null;
@@ -3742,6 +3783,7 @@ Render.playerBuildingKey = function(scene) {
 // both the boxes and the front test follow the turned feet instead.
 Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null, onFootprint = false) {
   let obscures = false;
+  const building = !!s._staticObject && isBuilding(s._staticObject.kind);
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
   if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
@@ -3756,9 +3798,11 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
     // The art keeps its offsets from its feet; only the feet turn.
     const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
     const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
-    obscures = x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
+    obscures = building
+      ? x0 + ox <= box.x0 && x1 + ox >= box.x1 && y0 + oy <= box.y0 && y1 + oy >= box.y1
+      : x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
   }
-  const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && (onFootprint || obscures) ? 0.5 : 1);
+  const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && ((onFootprint && !building) || obscures) ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
 };
 

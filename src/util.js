@@ -806,20 +806,30 @@ function speedGateStep(state, fix, now = Date.now()) {
   return s;
 }
 
+// Match the authored RA building shader for procedural masonry as well.
+function rogueBuildingColor(rgb) {
+  const channels=[(rgb>>16)&255,(rgb>>8)&255,rgb&255];
+  const value=channels[0]*.299+channels[1]*.587+channels[2]*.114;
+  const earth=[.49*255,.50*255,.38*255];
+  const c=channels.map((v,i)=>Math.round((((value*.38+v*.62)-127.5)*.88+127.5)*.86+earth[i]*.14));
+  return (c[0]<<16)|(c[1]<<8)|c[2];
+}
 // Background masonry keeps its lightness and condition, with quieter colour.
 function buildingBackgroundColor(rgb) {
+  if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled)return rogueBuildingColor(rgb);
   const r = (rgb >> 16) & 255, g = (rgb >> 8) & 255, b = rgb & 255;
   const gray = r * 0.2126 + g * 0.7152 + b * 0.0722;
   return (Math.round(r * 0.7 + gray * 0.3) << 16)
     | (Math.round(g * 0.7 + gray * 0.3) << 8) | Math.round(b * 0.7 + gray * 0.3);
 }
-const _buildingBackgroundMaterials = new WeakMap();
+const _buildingBackgroundMaterials = new WeakMap(), _rogueBuildingBackgroundMaterials = new WeakMap();
 function buildingBackgroundMaterial(material) {
-  if (_buildingBackgroundMaterials.has(material)) return _buildingBackgroundMaterials.get(material);
+  const cache=typeof RogueObjects!=='undefined'&&RogueObjects.enabled?_rogueBuildingBackgroundMaterials:_buildingBackgroundMaterials;
+  if (cache.has(material)) return cache.get(material);
   const palette = colours => Object.fromEntries(Object.entries(colours)
     .map(([key, colour]) => [key, buildingBackgroundColor(colour)]));
   const background = { ...material, floor: buildingBackgroundColor(material.floor),
     stone: palette(material.stone), wood: palette(material.wood) };
-  _buildingBackgroundMaterials.set(material, background);
+  cache.set(material, background);
   return background;
 }

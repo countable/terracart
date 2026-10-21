@@ -13,19 +13,29 @@
       uniform vec2 uSize;varying vec2 vUV;varying vec2 vFallback;varying float vShade;
       void main(){gl_Position=vec4(aPosition.x/uSize.x*2.0-1.0,1.0-aPosition.y/uSize.y*2.0,aPosition.z,1.0);vUV=aUV;vFallback=aFallback;vShade=aShade;}`);
     const fragment=shader(gl.FRAGMENT_SHADER,`#extension GL_OES_standard_derivatives : enable
-      precision highp float;uniform sampler2D uTexture;varying vec2 vUV;varying vec2 vFallback;varying float vShade;
+      precision highp float;uniform sampler2D uTexture;uniform float uRoguePalette;varying vec2 vUV;varying vec2 vFallback;varying float vShade;
       void main(){vec2 size=vec2(512.0,1024.0),p=vUV*size-0.5,cell=floor(p),width=max(fwidth(p),vec2(0.0001));
         vec2 w=clamp((fract(p)-0.5)/width+0.5,0.0,1.0),uv=(cell+0.5)/size;
         vec4 color=mix(mix(texture2D(uTexture,uv),texture2D(uTexture,uv+vec2(1.0/512.0,0.0)),w.x),
           mix(texture2D(uTexture,uv+vec2(0.0,1.0/1024.0)),texture2D(uTexture,uv+vec2(1.0/512.0,1.0/1024.0)),w.x),w.y);
         vec3 base=texture2D(uTexture,vFallback).rgb;
-        gl_FragColor=vec4(min(vec3(1.0),(color.rgb+base*(1.0-color.a))*vShade),1.0);}`);
+        vec3 paint=color.rgb+base*(1.0-color.a);
+        // Keep role hues (copper, slate, purple, green) while bringing their
+        // saturation and value range into Rogue Adventure's earth palette.
+        // Apply before lighting: shaded faces must still read as shaded.
+        if(uRoguePalette>0.5){
+          float value=dot(paint,vec3(0.299,0.587,0.114));
+          paint=mix(vec3(value),paint,0.62);
+          paint=(paint-0.5)*0.88+0.5;
+          paint=mix(paint,vec3(0.49,0.50,0.38),0.14);
+        }
+        gl_FragColor=vec4(min(vec3(1.0),paint*vShade),1.0);}`);
     const program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);
     gl.deleteShader(vertex);gl.deleteShader(fragment);
     if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));
     const state={program,buffer:gl.createBuffer(),position:gl.getAttribLocation(program,'aPosition'),
       uv:gl.getAttribLocation(program,'aUV'),fallback:gl.getAttribLocation(program,'aFallback'),shade:gl.getAttribLocation(program,'aShade'),
-      size:gl.getUniformLocation(program,'uSize'),sampler:gl.getUniformLocation(program,'uTexture'),width:0,height:0};
+      size:gl.getUniformLocation(program,'uSize'),sampler:gl.getUniformLocation(program,'uTexture'),roguePalette:gl.getUniformLocation(program,'uRoguePalette'),width:0,height:0};
     scene.events?.once('shutdown',()=>{if(state.target)renderer.deleteFramebuffer(state.target);if(state.texture)renderer.deleteTexture(state.texture);
       gl.deleteBuffer(state.buffer);gl.deleteProgram(state.program);delete scene._authoredDepthRenderer;});
     return state;
@@ -76,6 +86,7 @@
     }
     gl.activeTexture(gl.TEXTURE0);
     gl.uniform1i(state.sampler,0);gl.uniform2f(state.size,width,height);
+    gl.uniform1f(state.roguePalette,src._roguePalette?1:0);
     for(const range of ranges){gl.bindTexture(gl.TEXTURE_2D,range.texture.webGLTexture);gl.drawArrays(gl.TRIANGLES,range.start,range.count);}
     for(const location of [state.position,state.uv,state.fallback,state.shade])gl.disableVertexAttribArray(location);
     gl.disable(gl.DEPTH_TEST);gl.depthMask(true);gl.depthFunc(gl.LESS);

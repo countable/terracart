@@ -1426,6 +1426,26 @@
   // The retained geometry projects north-up at angle zero as well as rotated
   // maps. Renderer capability, not compass mode, selects this path.
   function active(scene){return scene.game?.renderer?.type===2;}
+  // A dedicated pipeline leaves shared texture caches intact. It recolours
+  // sampled materials, including open Home walls, without canvas readbacks.
+  function roguePipeline(scene,renderer){
+    const key='RogueBuildingMaterial';
+    if(!renderer.pipelines.has(key)){
+      // The bundled Phaser build does not export its shader source table.
+      // Its live program wrapper retains the compiled, sampler-expanded source.
+      const fragment=renderer.pipelines.get('MultiPipeline').shaders[0].program.fragmentSource.replace('vec4 color = texture * texel;',`
+        if(texture.a>0.0){
+          vec3 paint=texture.rgb/texture.a;
+          float value=dot(paint,vec3(0.299,0.587,0.114));
+          paint=mix(vec3(value),paint,0.62);
+          paint=(paint-0.5)*0.88+0.5;
+          texture.rgb=mix(paint,vec3(0.49,0.50,0.38),0.14)*texture.a;
+        }
+        vec4 color = texture * texel;`);
+      renderer.pipelines.add(key,new Phaser.Renderer.WebGL.Pipelines.MultiPipeline({game:scene.game,fragShader:fragment}));
+    }
+    return renderer.pipelines.get(key);
+  }
   function renderObject(scene){
       const obj=scene.add.graphics();
       (scene.worldContainer||scene.buildingWallContainer).add(obj);
@@ -1437,7 +1457,7 @@
         if(src._lowpolyFaces[0]?.sourceArt&&typeof AuthoredBuildingRenderer!=='undefined'){
           AuthoredBuildingRenderer.draw(scene,renderer,src,camera,matrix);return;
         }
-        const pipeline=renderer.pipelines.set(renderer.pipelines.get('MultiPipeline'),src);
+        const pipeline=renderer.pipelines.set(src._roguePalette?roguePipeline(scene,renderer):renderer.pipelines.get('MultiPipeline'),src);
         renderer.pipelines.preBatch(src);
         const tu=510/512,tv=126/512,px=camera.zoom*LOOK.inkPx; // solid texel; one art pixel
         // One upward-offset silhouette behind the whole building leaves ink
@@ -1757,7 +1777,7 @@
     const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene,recipe):recipe.interior?interiorSheet(scene,texture,recipe):texture;
     if(!authored&&!skin){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
     // A standing building is ONE render object sorted at its footprint
-    // centroid (the player never stands among its walls). An INTERIOR (Home
+    // near edge in the player's screen column. An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
     // `edge`), each sorted at its own wall — see place().
     const parts=cached.edges?cached.edges.map((edge)=>({...cached,faces:cached.faces.filter(f=>f.edge===edge.index),edge,noInk:true})).filter(p=>p.faces.length):[cached];
@@ -1787,6 +1807,9 @@
     const obj=state.pool[index]||(state.pool[index]=renderObject(scene));
     mesh.obj=obj;mesh.support=support;obj._lowpolyFaces=mesh.faces;
     obj._noInk=!!cached.noInk;obj._wreck=recipe.shape==='wreck';
+    // Reused render objects must reset this in baseline/Dreamland. Wrecks already use their separately prepared RA atlas.
+    obj._roguePalette=recipe.shape!=='wreck'
+      &&typeof RogueObjects!=='undefined'&&RogueObjects.enabled;
     for(const face of mesh.faces){
       if(cached.authored){
         face.flat=face.color??0xffffff;face.support=support;face.texture=face.texture||texture;
@@ -1847,6 +1870,23 @@
     const s=Math.sin(angle),c=Math.cos(angle),a=edge.a,b=edge.b;
     const p=s*a.x+c*a.y>=s*b.x+c*b.y?a:b;return {x:p.x,y:p.y};
   }
+  // Exterior shells must cover a player behind their near wall, including
+  // the front half of the lot. The centroid incorrectly put that player over
+  // the roof. Sample the actual footprint in their screen column so concave
+  // lots and rotated corners do not use an unrelated farthest vertex.
+  function shellSupport(mesh,angle,at){
+    const ring=mesh.footprint;
+    if(!at||!ring?.length)return mesh.support;
+    const s=Math.sin(angle),c=Math.cos(angle),column=c*at.x-s*at.y;
+    let best=null,depth=-Infinity;
+    for(let i=0;i<ring.length;i++){
+      const a=ring[i],b=ring[(i+1)%ring.length],ax=c*a.x-s*a.y,bx=c*b.x-s*b.y;
+      if(column<Math.min(ax,bx)-1e-8||column>Math.max(ax,bx)+1e-8)continue;
+      const point=wallSupport({a,b},angle,at),d=s*point.x+c*point.y;
+      if(d>depth){best=point;depth=d;}
+    }
+    return best||{x:ring.reduce((v,p)=>v+p.x,0)/ring.length,y:ring.reduce((v,p)=>v+p.y,0)/ring.length};
+  }
   function offset(scene,x,y){
     const state=scene._lowpoly;if(!state)return;
     state.offsetX=x;state.offsetY=y;update(scene);
@@ -1861,7 +1901,9 @@
     // The retained geometry's pan changes even when its projected faces do not.
     for(const mesh of state.buildings){
       const obj=mesh.obj;obj.visible=visible;
-      if(mesh.edge){const w=wallSupport(mesh.edge,angle,at);mesh.support.x=w.x;mesh.support.y=w.y;}
+      const w=mesh.edge?wallSupport(mesh.edge,angle,at):shellSupport(mesh,angle,at);
+      mesh.support.x=w.x;mesh.support.y=w.y;
+      mesh.support.depth=Math.sin(angle)*w.x+Math.cos(angle)*w.y;
       obj.setPosition(state.offsetX,state.offsetY);
       obj._huAnchor.x=mesh.support.x+state.offsetX;
       obj._huAnchor.y=mesh.support.y+state.offsetY;

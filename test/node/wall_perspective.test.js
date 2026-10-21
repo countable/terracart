@@ -19,20 +19,25 @@
   }
   function close(a, b, message) { assert.lt(Math.abs(a - b), 1e-8, message); }
 
-  test('wall perspective: a building footprint fades its complete rampart and restores it', () => {
+  test('wall perspective: ramparts fade only after their faces fully cover the player', () => {
     const s=scene();s.save={};let feet={x:25,y:25};
     s.playerScreen=()=>feet;s.player={visible:true,x:25,y:25,displayWidth:16,displayHeight:24,originX:.5,originY:1};
     const group=WallPerspective.begin(s,'polygon');
-    group.building={key:'castle',footprint:[{x:0,y:0},{x:60,y:0},{x:60,y:60},{x:0,y:60}],anchor:{x:30,y:30}};
-    WallPerspective.addSegment(s,'polygon',{...segment,toothWidth:5,toothHeight:3});
+    group.building={key:'castle',footprint:[{x:0,y:0},{x:60,y:0},{x:60,y:60},{x:0,y:60}],anchor:{x:30,y:40}};
+    WallPerspective.addSegment(s,'polygon',{...segment,ay:40,by:40,height:32,toothWidth:5,toothHeight:3});
     WallPerspective.finish(s,'polygon');
     assert.truthy(group.gfx.triangles.length,'walls are drawn');
-    assert.truthy(group.gfx.triangles.every(t=>t.alpha===.5),'walls and teeth share half opacity');
-    const clears=group.gfx.clears,blocks=group.blocks;
-    feet={x:26,y:26};s.player.x=26;s.player.y=26;WallPerspective.update(s);
-    assert.eq(group.gfx.clears,clears,'movement inside the same footprint does not repaint');
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'footprint entry and partially covered body stay opaque');
+    const blocks=group.blocks;
+    feet={x:25,y:32};s.player.x=25;s.player.y=32;WallPerspective.update(s);
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===.5),'fully covering walls and teeth share half opacity');
+    const clears=group.gfx.clears;
+    feet={x:26,y:33};s.player.x=26;s.player.y=33;WallPerspective.update(s);
+    assert.eq(group.gfx.clears,clears,'movement while fully covered does not repaint');
+    feet={x:25,y:23};s.player.x=25;s.player.y=23;WallPerspective.update(s);
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'exposing the head restores opacity while still inside footprint');
     feet={x:100,y:100};s.player.x=100;s.player.y=100;WallPerspective.update(s);
-    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'leaving restores opacity at a fixed heading');
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'leaving keeps opacity at a fixed heading');
     assert.eq(group.blocks,blocks,'retained wall geometry survives');
   });
 
