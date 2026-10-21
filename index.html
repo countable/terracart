@@ -1053,21 +1053,21 @@
       position: absolute; inset: 0; opacity: 0;
       transform-origin: 59% 21%;
       transform: scale(calc(1 / 1.5));
-      animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) linear 200ms both;
+      animation: nightmare-frame-two var(--nightmare-pan-ms, 13.333333s) linear 166.666667ms both;
     }
     #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
     #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; animation-timing-function: cubic-bezier(.75, 0, .25, 1); transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
-      0%, 2% { opacity: 0; }
-      28.666667%, 100% { opacity: 1; }
+      0%, 6.444444% { opacity: 0; }
+      24.222222%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-three {
-      0%, 35% { opacity: 0; }
-      61.666667%, 100% { opacity: 1; }
+      0%, 39.444444% { opacity: 0; }
+      57.222222%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-four {
-      0%, 68% { opacity: 0; }
-      94.666667%, 100% { opacity: 1; }
+      0%, 72.444444% { opacity: 0; }
+      90.222222%, 100% { opacity: 1; }
     }
     @keyframes story-crossfade {
       from { opacity: 0; }
@@ -1101,7 +1101,7 @@
       position: absolute; inset: 0;
       /* Camera aim is independent of the paintings' crop registration. */
       transform-origin: 55.6% 16.9%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 16s) linear 200ms both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 13.333333s) linear 166.666667ms both;
     }
     /* Fade the whole portrait viewport, outside the zooming camera. The
        transparent final half-percent also removes fractional-pixel seams. */
@@ -1120,8 +1120,8 @@
       mask: url('assets/art/story_nightmare_city_mask.svg') center / 100% 100% no-repeat;
     }
     @keyframes nightmare-pan {
-      /* A gentle midpoint speed crest preserves the opening quarter and
-         final quarter, with continuous velocity at every handoff. */
+      /* Keep the slow opening and midpoint push, then ease the final
+         frame toward rest over the last quarter of the camera motion. */
       0% {
         transform: scale(1.500000);
         animation-timing-function: cubic-bezier(.333333, 0.228673, .666667, 0.562006);
@@ -1132,15 +1132,11 @@
       }
       50% {
         transform: scale(2.630069);
-        animation-timing-function: cubic-bezier(.333333, 0.366667, .666667, 0.666667);
+        animation-timing-function: cubic-bezier(.333333, 0.300209, .666667, 0.727083);
       }
       75% {
-        transform: scale(3.465139);
-        animation-timing-function: cubic-bezier(.333333, 0.333333, .666667, 0.666667);
-      }
-      94% {
-        transform: scale(4.099792);
-        animation-timing-function: cubic-bezier(.333333, 0.666667, .666667, 1.000000);
+        transform: scale(3.650000);
+        animation-timing-function: cubic-bezier(.333333, 0.506103, .666667, 1.000000);
       }
       100% {
         transform: scale(4.200000);
@@ -2756,7 +2752,7 @@
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream camera animates while its button remains immediately available.
-    const STORY_PAN_MS = 16000;
+    const STORY_PAN_MS = 16000 / 1.2;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',

@@ -53,10 +53,12 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
         if (reduced) {
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
-          assert(s.animations.every(a => a.duration === 16000 && a.iterations === 1));
+          assert(s.animations.every(a => Math.abs(a.duration - 16000 / 1.2) < .001 && a.iterations === 1));
           [1 / 1.5, 1 / 1.92, 1 / 2.112].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          const dreamTime = progress => 200 + progress * 16000;
-          for (const [progress, visible] of [[.02 + 4 / 15, 0], [.35 + 4 / 15, 1], [.68 + 4 / 15, 2]]) {
+          const dreamTime = progress => (200 + progress * 16000) / 1.2;
+          const fadeLength = 8 / 45;
+          const fadeStarts = [.02, .35, .68].map(start => start + 2 / 45);
+          for (const [progress, visible] of fadeStarts.map((start, i) => [start + fadeLength, i])) {
             await seek(dreamTime(progress)); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
           }
@@ -70,12 +72,13 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             await seek(dreamTime(from)); const start = (await state()).scale;
             await seek(dreamTime(to)); return ((await state()).scale - start) / (to - from);
           };
-          const startingSpeed = await speed(0, .001), peakSpeed = await speed(.939, .94);
+          const startingSpeed = await speed(0, .001), peakSpeed = await speed(.749, .75);
           assert(Math.abs(startingSpeed - 1.18) < .02, 'zoom preserves its slow starting speed');
           assert(Math.abs((await speed(.499, .5)) - 3.674306) < .03, 'midpoint zoom is ten percent faster than cruising speed');
           assert(Math.abs((await speed(.5, .501)) / (await speed(.499, .5)) - 1) < .02, 'midpoint keeps velocity continuous');
           assert(Math.abs(peakSpeed - 3.340278) < .02, 'zoom preserves its speed entering the final damping');
-          assert(Math.abs((await speed(.94, .941)) / peakSpeed - 1) < .04, 'damping starts without a speed jump');
+          assert(Math.abs((await speed(.75, .751)) / peakSpeed - 1) < .04, 'damping starts without a speed jump');
+          assert((await speed(.90, .901)) < peakSpeed * .75, 'final frame zoom slows well before the endpoint');
           assert((await speed(.999, 1)) < startingSpeed * .05, 'zoom settles nearly to rest at the endpoint');
           let previousScale = 1.5;
           for (let step = 1; step <= 100; step++) {
@@ -83,7 +86,7 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             await seek(dreamTime(progress)); s = await state();
             assert(s.scale > previousScale, 'zoom continues through every frame and the final fade');
             previousScale = s.scale;
-            if ([.02,.35,.68].some(start => progress > start && progress < start + 4 / 15)) {
+            if (fadeStarts.some(start => progress > start && progress < start + fadeLength)) {
               assert(s.frames.some(f => f.opacity > 0 && f.opacity < 1), 'each evenly spaced fade stays active for its full interval');
             }
           }
@@ -96,18 +99,18 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             }
           }
           if (width === 390) {
-            for (const time of [8000, 12000, 16000]) {
+            for (const time of [8000 / 1.2, 12000 / 1.2, 16000 / 1.2]) {
               await seek(time); await snapshot(`dream-${time}`);
             }
           }
-          for (const [progress, frame] of [[.02 + 2 / 15, 0], [.35 + 2 / 15, 1], [.68 + 2 / 15, 2]]) {
+          for (const [progress, frame] of fadeStarts.map((start, i) => [start + fadeLength / 2, i])) {
             await seek(dreamTime(progress)); near((await state()).frames[frame].opacity, .5);
           }
           // The final turn crosses its blended pose faster without moving
           // its midpoint away from the equally spaced transition schedule.
-          await seek(dreamTime(.68 + (4 / 15) * .25));
+          await seek(dreamTime(fadeStarts[2] + fadeLength * .25));
           assert((await state()).frames[2].opacity < .1, 'final turn holds the side-facing pose longer');
-          await seek(dreamTime(.68 + (4 / 15) * .75));
+          await seek(dreamTime(fadeStarts[2] + fadeLength * .75));
           assert((await state()).frames[2].opacity > .9, 'final turn resolves the frontal stare promptly');
           await seek(dreamTime(1)); near((await state()).scale, 4.2);
           await seek(40000); s = await state(); near(s.scale, 4.2); near(s.frames[2].opacity, 1);

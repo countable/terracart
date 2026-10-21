@@ -453,20 +453,19 @@ changing dialogue, story panels, books, toasts or status presentation.
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
-  One continuous camera zoom runs from 1.5× to 4.2× over 16 seconds, starting
-  slowly and cresting at 10% above cruising speed halfway through. The middle
-  half redistributes motion around that crest; the opening and final quarters
-  retain their gentle pacing. A velocity-matched final 0.96-second damping
-  segment brings it to rest without changing the endpoint framing.
+  One continuous camera zoom runs from 1.5× to 4.2× over 13.33 seconds,
+  starting slowly, pushing in through the middle, then slowing throughout
+  the final quarter (3.33 seconds) to settle on the final frame.
+  Camera velocity stays continuous between segments.
   Its aim at 55.6% across and 16.9% down places the final frontal face at the
   exact horizontal and vertical center of the portrait frame, separately
   from the paintings’ crop registration. Starting closer lets the incoming
-  painting cover the canvas as the first fade begins after just 0.52 seconds.
-  The equally spaced fades start at 2%, 35% and 68% of the animation and last
-  4.27 seconds each, leaving a fade active for 80% of the sequence. The first two
+  painting cover the canvas as the first fade begins after 1.03 seconds.
+  The equally spaced fades start at 6.444%, 39.444% and 72.444% and last
+  2.37 seconds each, leaving a fade active for 53.33% of the sequence. The first two
   are linear; the final fade uses a steeper symmetric easing curve so the
   turn toward the viewer is more sudden while its midpoint stays on schedule.
-  The opening animation delay is 200 milliseconds.
+  The opening animation delay is 166.67 milliseconds.
   A shared city plate from the first painting sits above the changing frames
   inside the same camera. Its skyline mask stays opaque over every building
   and feathers only the smoke above the roofs, preventing architectural drift.
