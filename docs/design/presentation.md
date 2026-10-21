@@ -454,7 +454,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
   One continuous, linear camera zoom runs from 1.5× to 4.2× over 16 seconds.
-  Its aim at 56% across and 20% down centers the final frontal face, separately
+  Its aim at 55.6% across and 16.9% down places the final frontal face at the
+  exact horizontal and vertical center of the portrait frame, separately
   from the paintings’ crop registration. Starting closer lets the incoming
   painting cover the canvas as the first fade begins after just 0.52 seconds.
   The equally spaced fades start at 2%, 35% and 68% of the animation and last
