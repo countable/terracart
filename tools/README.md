@@ -65,6 +65,36 @@ browser checker defaults. It covers 32 footprint/state/family/temple combination
 per renderer, eight screenshot headings, and 361 heading updates with retained
 geometry and no Canvas texture allocations, refreshes or pixel readback.
 
+## Fantasy Dreamland castle trial
+
+`tools/fdr-castle-preview.html` compares current ramparts/sprite towers with
+FDR masonry on retained 3D walls, square towers and an optional central keep.
+The source sheet supplies brick courses, pale coping pigment, roof/courtyard
+paving and door/window details. Tower shafts, trim and crowns are disjoint
+vertical sections so lower slab caps cannot paint over higher roofs.
+
+```sh
+python3 tools/build_fdr_castle_trial.py --out ~/.artifacts/fdr-castle-trial --ref HEAD
+node tools/check_fdr_castle_trial.cjs
+```
+
+Open `http://localhost:8765/fdr-castle-trial/`; use `?canvas` for the fallback.
+The builder snapshots committed renderer modules into the artifact and records
+the revision in `runtime-revision.txt`, isolating reviews from concurrent edits.
+Its `sources.json` records ElvGames attribution, exact native crops and processing.
+This is an opt-in fixture, not a change to live castle generation or collision.
+Doors are decorative. The candidate changes tower geometry and adds a keep;
+the baseline courtyard uses a comparison fill rather than the full terrain bake.
+
+The keep requires an interior clearance rectangle and separation from towers;
+concave boundary intersections reject a placement, and narrow courts omit it.
+Ruin crown gaps persist in both conditions. The source warm/cool palette is
+explicitly selectable rather than being a replacement for castle family IDs.
+The checker covers 96 shape/condition/family/palette/keep combinations per
+renderer and a 361-heading sweep with no texture allocations, refreshes or
+pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`, `STUDY_URL`
+and `CHROMIUM` override defaults.
+
 ## Prerequisites
 
 - Node.js runs the headless suite and most audits without browser packages.
