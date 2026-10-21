@@ -53,36 +53,41 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
         if (reduced) {
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
-          assert(s.animations.every(a => a.duration === 16000 && a.iterations === 1));
-          [1 / 1.45, 1 / 1.45, 1 / 1.45].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          for (const [time, visible] of [[8217, 0], [12484, 1], [16750, 2]]) {
-            await seek(time); s = await state(); near(s.frames[visible].opacity, 1);
+          assert(s.animations.every(a => a.duration === 24000 && a.iterations === 1));
+          [1 / 1.45, 1 / 1.74, 1 / 2.088].forEach((zoom, i) => near(s.frames[i].scale, zoom));
+          const dreamTime = progress => 750 + progress * 24000;
+          for (const [progress, visible] of [[7 / 15, 0], [11 / 15, 1], [1, 2]]) {
+            await seek(dreamTime(progress)); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
           }
           let previousScale = 1;
-          for (let time = 1000; time <= 16750; time += 250) {
-            await seek(time); s = await state();
+          for (let step = 1; step <= 100; step++) {
+            const progress = step / 100;
+            await seek(dreamTime(progress)); s = await state();
             assert(s.scale > previousScale, 'zoom continues through every frame and the final fade');
             previousScale = s.scale;
-            if (time > 3950 && time < 16750) {
+            if (progress > .2 && progress < 1) {
               assert(s.frames.some(f => f.opacity > 0 && f.opacity < 1), 'a fade stays active throughout the final 80 percent');
             }
           }
           // At every fade sample, an incoming crop must cover the whole
           // original image area; otherwise the older frame leaks at its edge.
-          for (const time of [4000, 5750, 8250, 9750, 12500, 14750, 16750]) {
-            await seek(time); s = await state();
+          for (const progress of [.201, 1 / 3, .467, .6, .734, 13 / 15, 1]) {
+            await seek(dreamTime(progress)); s = await state();
             for (const frame of s.frames) if (frame.opacity > 0) {
               assert(s.scale * frame.scale >= .999, 'visible intrinsic crop covers the scene');
             }
           }
           if (width === 390) {
-            for (const time of [7000, 10000, 16000]) {
+            for (const time of [11000, 17000, 24000]) {
               await seek(time); await snapshot(`dream-${time}`);
             }
           }
-          await seek(16750); near((await state()).scale, 2.2);
-          await seek(40000); s = await state(); near(s.scale, 2.2); near(s.frames[2].opacity, 1);
+          for (const [progress, frame] of [[1 / 3, 0], [.6, 1], [13 / 15, 2]]) {
+            await seek(dreamTime(progress)); near((await state()).frames[frame].opacity, .5);
+          }
+          await seek(dreamTime(1)); near((await state()).scale, 3.3);
+          await seek(40000); s = await state(); near(s.scale, 3.3); near(s.frames[2].opacity, 1);
           const coverage = await page.evaluate(() => {
             const scene = document.querySelector('.nightmare-scene');
             const bounds = scene.getBoundingClientRect();

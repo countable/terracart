@@ -2952,8 +2952,8 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-moving-f0610be9.png",
-      "master_sha256": "07acdd211d64f1d8a0e08f995b84d731ebaa91d92428f1f31870d6607ff3b3e6",
+      "master_path": "approved-story-art/story_nightmare_frame3-scenezoom-cf04eb9f.png",
+      "master_sha256": "8c8ef677315ab82d5ed55a36d975cc2e07fbc95fa1771e0310bf7543f4381234",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2961,16 +2961,23 @@
       "aspect": 0.6666666666666666,
       "method": "reference_edit",
       "generator": "built-in image_gen",
-      "intrinsic_zoom": 1.45,
-      "prompt": "Edit target: supplied story_nightmare_frame3 painting. Create a restrained background-animation variant of THIS EXACT FRAME, portrait 1024x1536. Preserve the CENTRAL LARGE RED DRAGON pixel-for-pixel as far as possible: its partially turned head, glowing eye, open-but-closing jaw, all horns, neck, scales and existing fading lip embers must remain in precisely the same position, size, shape and expression. NO camera movement, zoom, reframing or repaint of the central red dragon; no new fire breath from it. Change ONLY peripheral dragons, existing fire and smoke. Give the existing black dragon at the extreme upper left a tiny jaw/neck shift, the bronze dragon at left a small jaw movement, the black dragon below the central head a subtle neck shift, and the pale dragons on the right subtle jaw/wing shifts. Keep every dragon's identity, number, placement and scale; no added heads. Make the existing flames visibly flicker with changed tips and sparks anchored to the same burning areas; gently curl smoke differently without moving the city buildings, eclipse or horizon. Changes should be clearly distinguishable animation motion around the unchanged central red head but small enough for a crossfade. Match the exact existing pixel-painted dark fantasy style, red-black palette, detail and sharpness. No text, borders, new objects or anatomy.",
-      "reference": "approved-story-art/story_nightmare_frame3-before-moving-f0610be9.webp",
-      "sha256": "d43c694646a4c94fb5c2f2100ab673c3f44358fcd40da2b25e5e315112bb08e7",
-      "reference_sha256": "436d1eb55b02498ae86e0d0a215d6f9d5e7b10dd57eab14a4b30acc0105aef80"
+      "intrinsic_zoom": 1.74,
+      "prompt": "EDIT this exact reference into frame3 of a continuous camera zoom and head turn. Output1024x1536 portrait. Geometric rule: apply a UNIFORM1.20x camera enlargement to the ENTIRE SCENE around point(604,323), not just the red head. All other dragon heads, white dragons, wings, flame areas and city towers MUST grow by the SAME20percent and move outward from that anchor. Crop the scene edges; do NOT shrink the white dragon to keep it visible and do NOT preserve the whole city. Example: the lower-right white dragon's eye currently near(830,790) moves near(875,885), its head grows20percent and more of its body is clipped by right edge; the central city tower formerly near(670,1020) begins near(683,1160). Preserve these whole-scene relative sizes. THEN rotate ONLY the central red dragon's skull IN PLACE about60degrees toward us, so it is nearly front-facing: BOTH eyes clearly visible, muzzle turned just20-30degrees away from direct frontal. Jaw nearly closed, NO flame coming from its mouth. Its near eye remains around the upper-middle camera anchor; do not move the entire skull downward or closer to camera. Critical: turning the head must NOT inflate its physical size. Its brow/skull without horns should be comparable in width to the white dragon head, no enormous giant red face. Preserve original dragon identity, horns and scales, showing newly revealed anatomy in same fine pixel-painted style. Surrounding dragons make subtle jaw/neck/wing shifts; anchored city flames flicker and smoke curls. Keep exactly existing dragon count, identities and layout, same red/black palette, no newly invented heads, no text or borders. The city is now only the lower part because ALL scenery shares the optical zoom. This is a modest next step, not a hero-poster red-head enlargement.",
+      "reference": "approved-story-art/story_nightmare_frame2-reference-scenezoom-cf04eb9f.webp",
+      "sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
+      "reference_sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare_frame2-reference-scenezoom-cf04eb9f.webp",
+          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+          "role": "composition and uniform scene-scale baseline"
+        }
+      ]
     },
     {
       "key": "story_nightmare_frame4",
-      "master_path": "approved-story-art/story_nightmare_frame4-moving-d06b26e6.png",
-      "master_sha256": "81a0aeda966a3bfeff234e9ff44fa1b0ea1e34e9783dc6cc35c67ee28cd0161a",
+      "master_path": "approved-story-art/story_nightmare_frame4-scenezoom-9bdf3a9c.png",
+      "master_sha256": "3602cf644efb3e824497e79f852cb435dd4b0dd6f6f3aa8740d04a2b8ae8032d",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2978,11 +2985,23 @@
       "aspect": 0.6666666666666666,
       "method": "reference_edit",
       "generator": "built-in image_gen",
-      "intrinsic_zoom": 1.45,
-      "prompt": "Edit target: supplied story_nightmare_frame4 painting. Create a restrained background-animation variant of THIS EXACT FINAL FRAME, portrait 1024x1536. PRESERVE the CENTRAL LARGE RED DRAGON EXACTLY: its frontal symmetric head, two glowing eyes staring directly at camera, fully CLOSED mouth, all horns, cheeks, neck and scales must remain at precisely the same positions, shapes, sizes and expression. Do not repaint, rotate, enlarge or move the central dragon. It emits NO fire, smoke or embers from its mouth. NO camera movement, zoom, crop or reframing. Change ONLY peripheral dragons and existing environmental flames and smoke. The upper-left black dragon slightly lifts its jaw/head while staying in its corner; the bronze left dragon subtly adjusts its neck and opens its jaw a little differently; the black dragon on the right subtly shifts its jaw and neck; the pale right dragons subtly alter jaw/wing positions. All remain the SAME existing dragons in the SAME areas, sizes and identities, no additional heads or limbs. Make the city flames flicker clearly with altered tips and sparks, anchored to the same burning areas; smoke curls and swirls slightly differently. Preserve the same city buildings, eclipse and horizon perfectly. These small surrounding changes should make the world feel alive during the central dragon's still closed-mouth stare. Match exact original dark fantasy pixel-painting style, red-black palette, fine detail and sharpness. No text, borders or new objects.",
-      "reference": "approved-story-art/story_nightmare_frame4-before-moving-d06b26e6.webp",
-      "sha256": "ec33fcb120d383607a4d30dc9cfb8115a7750eb2d58ae28ab728e85883e30822",
-      "reference_sha256": "2a40c3bba6c499fb8ded67147bf4b4a7f6e7913723e3d22edc8d0a2403c8709e"
+      "intrinsic_zoom": 2.088,
+      "prompt": "Create final FRAME4 by EDITING IMAGE1, the near-frontal dragon battle. IMAGE1 is the ONLY composition and size reference. IMAGE2 is ONLY an expression/anatomy reference for frontal closed-mouth stare: IGNORE its oversized head and neck dimensions. Output1024x1536. First apply exactly UNIFORM1.20x optical zoom to ALL of IMAGE1 around(604,323). Every head, wing, white dragon, citytower, fire and smoke grows20percent together; crop outside edges. White dragon eye from image1 near(865,905) should end near(917,1021), white head prominently larger and more cropped at right/bottom, NEVER reduced to make room for red head. Central citytower from(700,1160) moves near(719,1327), so only tower tops remain at bottom. Then central red skull completes its SMALL remaining turn IN PLACE from almost frontal to fully frontal, BOTH eyes staring at viewer, jaws fully CLOSED, absolutely NO fire/embers/breath from its mouth. Crucial physical-scale rule: central red face width without horns should be around300-350pixels, NOT600-800pixels. Do not invent a giant head, do not advance red head toward camera independently, do not grow a huge red neck down the middle. Its eye-pair midpoint should remain near(555,350) with snout tip roughly(555,550); it rotates on existing neck with same skull size as image1 enlarged20percent, comparable physical scale to neighboring heads. Preserve red dragon horn shapes, scales, menacing closedmouth expression of image2 in this smaller consistent skull. The surrounding dragons subtly shift their jaws/necks/wings and flames/smoke change shape in same anchored locations. Existing number and identities only. Keep the high-detail dark fantasy pixel-painted red-black look, no blur, no text or border, no extra heads. Avoid hero-poster composition: this is a uniform zoom into an ensemble battle, not an isolated enormous central face.",
+      "reference": "approved-story-art/story_nightmare_frame3-scenezoom-cf04eb9f.png",
+      "sha256": "bb10c10355e906f15878bc7ce516b768cd77e366303175bda1a4d9cbb3c258cd",
+      "reference_sha256": "8c8ef677315ab82d5ed55a36d975cc2e07fbc95fa1771e0310bf7543f4381234",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare_frame3-scenezoom-cf04eb9f.png",
+          "sha256": "8c8ef677315ab82d5ed55a36d975cc2e07fbc95fa1771e0310bf7543f4381234",
+          "role": "composition and uniform scene-scale baseline"
+        },
+        {
+          "path": "approved-story-art/story_nightmare_frame4-expression-reference-scenezoom-9bdf3a9c.webp",
+          "sha256": "ec33fcb120d383607a4d30dc9cfb8115a7750eb2d58ae28ab728e85883e30822",
+          "role": "frontal expression only; oversized skull proportions explicitly excluded"
+        }
+      ]
     }
   ]
 }

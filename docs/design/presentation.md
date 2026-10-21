@@ -131,7 +131,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   house awakening, then the ruined street. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
   four aligned portrait paintings under one camera. They dissolve once in
-  sequence during the 16-second push toward the dragon's eye. Each successive
+  sequence during the 24-second push toward the dragon's eye. Each successive
   frame has a tighter crop; the fourth holds after the camera stops, avoiding
   a pullback to the first frame. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
@@ -441,19 +441,20 @@ changing dialogue, story panels, books, toasts or status presentation.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
-- The opening nightmare uses four full-resolution paintings. The second is
-  framed at 1.45× around Tiamat’s eye (59% across, 21% down); the third and
-  fourth keep that background framing while redrawing finer scales and a head
-  that turns toward the viewer, stops breathing fire, and holds a closed-mouth
-  stare. Peripheral dragons keep shifting as flames flicker and smoke curls
-  between these turning frames, including the final closed-mouth stare.
-  All three share the same inverse crop compensation, so their
-  backgrounds stay registered through the fades. One uninterrupted camera curve
-  zooms from 1× to 2.2× over sixteen seconds without restarting its easing at
-  frame boundaries. After a 3.2-second opening hold, three equal fades run
-  back-to-back until sixteen seconds: a fade is active for 80% of the sequence.
-  The portrait canvas clips older frames
-  to prevent spill into its letterbox; a lower gradient blends into black.
+- The opening nightmare uses four full-resolution paintings. Later paintings
+  redraw progressively closer crops of the entire scene at 1.45×, 1.74× and
+  2.088× around Tiamat’s eye (59% across, 21% down). Each uses its own inverse
+  crop compensation so the shared camera controls the scale of every dragon
+  and the city through the fades. Tiamat turns nearly toward the viewer in
+  the third painting, then finishes her closed-mouth stare in the fourth;
+  her head turns in place rather than growing independently. Peripheral
+  dragons keep shifting as flames flicker and smoke curls.
+  One continuous, linear camera zoom runs from 1× to 3.3× over 24 seconds,
+  keeping the final close-up strong by enlarging the entire battle.
+  After the first 4.8 seconds, three linear 6.4-second fades run back-to-back,
+  leaving a fade active for 80% of the sequence and more time at mixed opacity.
+  The portrait canvas clips older frames to prevent spill into its letterbox;
+  a lower gradient blends into black.
   Hood’s wake painting pulls back from 1.75× to 1.25× over fourteen seconds.
   The street’s distinct second painting shows Hood farther down the road.
   Reduced motion keeps each slide’s first painting still.

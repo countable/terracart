@@ -122,13 +122,13 @@ test('opening: four dragon paintings move during the zoom with no late close sho
     'only the first painting describes the dream to screen readers');
   assert.falsy(html.includes('nightmare-close'), 'no separate late close painting');
   const frameRule = html.match(/#story \.nightmare-frame\s*\{([^}]+)\}/)?.[1] || '';
-  assert.truthy(/animation: nightmare-frame-two var\(--nightmare-pan-ms, 16s\) ease-in-out 750ms both/.test(frameRule),
+  assert.truthy(/animation: nightmare-frame-two var\(--nightmare-pan-ms, 24s\) linear 750ms both/.test(frameRule),
     'painting transitions share the camera duration and hold their final state');
-  assert.truthy(html.includes('const STORY_PAN_MS = 16000;'));
-  assert.truthy(html.includes('transform: scale(calc(1 / 1.45));'), 'later paintings share one registered crop compensation');
-  for (const n of [3, 4]) {
+  assert.truthy(html.includes('const STORY_PAN_MS = 24000;'));
+  assert.truthy(html.includes('transform: scale(calc(1 / 1.45));'), 'second painting compensates its intrinsic crop');
+  for (const [n, crop] of [[3, 1.74], [4, 2.088]]) {
     const rule = html.match(new RegExp('#story \\.nightmare-frame:nth-child\\(' + n + '\\) \\{([^}]+)'))?.[1] || '';
-    assert.falsy(rule.includes('transform:'), 'a head turn must not rescale the registered background');
+    assert.truthy(rule.includes(`transform: scale(calc(1 / ${crop}));`), 'each whole-scene crop is registered to the shared camera');
   }
   assert.falsy(/@keyframes nightmare-pan[\s\S]*?translate/.test(html.split('#story .wake-camera')[0]),
     'camera stays on the crop anchor without exposing translated image edges');
