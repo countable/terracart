@@ -41,7 +41,8 @@ lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
 entrance wall, its roof material in roof space, and source texels for
 fascia and ridge beams. FDR gables repeat native stone and timber at facade
-texel density; their ridge rise is capped at the native half-depth (24 texels)
+texel density, with a continuous native timber crossbeam tying the upper-storey
+posts together below the gables; their ridge rise is capped at the native half-depth (24 texels)
 instead of the generic 14 scene units. Other gables use single source texels. Pitched overhangs retain at least half the original
 clearance around narrow returns, preventing almost-closed roof slits.
 Decorative flat-roof rims cap corner mitres at twice the band width to avoid
