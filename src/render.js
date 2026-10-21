@@ -4005,6 +4005,49 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   return drawn;
 };
 
+// Loose props share the wall mesh projection and actor depth sorting. Keep
+// vertices in cell space; sub-cell movement only offsets the retained group.
+Render.drawLowPolyProps = function (scene, items) {
+  const drawn = new Set();
+  if (typeof PropLowPoly === 'undefined' || typeof WallPerspective === 'undefined'
+      || !scene.textures?.exists(PropLowPoly.ATLAS.key)) return drawn;
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
+  const pieces = [];
+  let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
+  for (const item of items) {
+    const o = item.o;
+    const kind = o.kind === 'mineralrock' ? 'rock'
+      : o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
+    if (!kind) continue;
+    const cell = worldMetersToAbsCell(scene, o.x, o.y);
+    const mineral = kind === 'rock' ? mineralRockMaterial(o) : null;
+    const tint = kind === 'rock' ? mineralRockTint(o) : 0xffffff;
+    const frame = kind === 'rock' ? mineralRockArtFrame(o) : chestLook(o).frame;
+    drawn.add(item); pieces.push({ o, kind, cell, mineral, tint, frame });
+    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}:${kind}:${mineral}:${frame}:${tint}:${!!o.sightBlocking}`;
+  }
+  if (!pieces.length) {
+    WallPerspective.clear(scene, 'looseProps'); scene._loosePropKey = null; return drawn;
+  }
+  WallPerspective.offset(scene, 'looseProps', -fx, -fy);
+  if (scene._loosePropKey === key && scene._wallPerspective?.looseProps) return drawn;
+  const group = WallPerspective.begin(scene, 'looseProps');
+  group.perWall = true; group.renderDepth = scene.depth ?? 0;
+  group.atlas = scene.textures.get(PropLowPoly.ATLAS.key);
+  for (const { o, kind, cell, mineral, tint, frame } of pieces) {
+    const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+    const large = kind === 'rock' && o.sightBlocking;
+    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, mineral, tint, frame,
+      ...(large ? { width: 27, depth: 26, height: 7 } : {}) });
+    WallPerspective.prism(scene, 'looseProps', mesh.points, 0, mesh.top, mesh.colors, null, true, mesh);
+  }
+  scene._loosePropKey = key;
+  WallPerspective.offset(scene, 'looseProps', -fx, -fy);
+  WallPerspective.finish(scene, 'looseProps');
+  return drawn;
+};
+
 // Score text has its own cache and never enters Home's session typing clock.
 Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
   const home = scene.save?.starterShopId;
@@ -4762,6 +4805,7 @@ Render.drawObjects = function drawObjects(scene) {
     })).filter(it => Math.abs(it.dx) <= halfM + scene.cellM && Math.abs(it.dy) <= halfM + scene.cellM);
   // The buildings that sort with the world: the low-poly meshes, and the
   // prism path's per-wall parts (Home's interior without low-poly).
+  const lowPolyProps = Render.drawLowPolyProps(scene, filteredObj);
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
   Render.cullCovered(scene, whirlwindList, 'h');
@@ -4820,7 +4864,9 @@ Render.drawObjects = function drawObjects(scene) {
       // building_overlay.js drawHome) has no art to shadow.
       if (isBuilding(k)) { if (item._appearance?.visible) shadowList.push(item); continue; }
       if (!RENDER_SPEC[k]?.shadow) continue;
-      const foot = item._appearance?.foot;
+      const foot = lowPolyProps.has(item)
+        ? { w: item.o.sightBlocking ? 27 : item.o.kind === 'chest' ? 14 : 17, footFromCentre: 0 }
+        : item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
     }
     for (const item of plantedList) {
@@ -4915,6 +4961,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Heading-up draws connected walls and hedges as ground-attached prisms in
   // the building background; their sprite slots stay empty this frame.
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
+  for (const item of lowPolyProps) prismDrawn.add(item);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
   const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)
     ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;

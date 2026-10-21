@@ -1,0 +1,967 @@
+{
+  "size": 256,
+  "stride": 20,
+  "padding": 2,
+  "columns": 8,
+  "sources": {
+    "crate": {
+      "path": "assets/Objects/SelectedProps/box.png",
+      "sha256": "198b7851e7f1e78839ab189df08697b9c69fba5138e9832c0bf6bab50913634e"
+    },
+    "rock": {
+      "path": "assets/Objects/Rocks/rocks-16.png",
+      "sha256": "2362a47f93ab1631206035996c59ff81202c6d8338a9619b5b8084adfd9807d4"
+    }
+  },
+  "entries": [
+    {
+      "slot": 0,
+      "kind": "crate",
+      "frame": 0,
+      "surface": "side",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        1,
+        1,
+        14,
+        15
+      ]
+    },
+    {
+      "slot": 1,
+      "kind": "crate",
+      "frame": 0,
+      "surface": "lid",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        1,
+        1,
+        14,
+        11
+      ]
+    },
+    {
+      "slot": 2,
+      "kind": "crate",
+      "frame": 1,
+      "surface": "side",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        17,
+        1,
+        30,
+        15
+      ]
+    },
+    {
+      "slot": 3,
+      "kind": "crate",
+      "frame": 1,
+      "surface": "lid",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        17,
+        1,
+        30,
+        11
+      ]
+    },
+    {
+      "slot": 4,
+      "kind": "crate",
+      "frame": 2,
+      "surface": "side",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        33,
+        1,
+        46,
+        15
+      ]
+    },
+    {
+      "slot": 5,
+      "kind": "crate",
+      "frame": 2,
+      "surface": "lid",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        33,
+        1,
+        46,
+        11
+      ]
+    },
+    {
+      "slot": 6,
+      "kind": "crate",
+      "frame": 3,
+      "surface": "side",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        49,
+        1,
+        62,
+        15
+      ]
+    },
+    {
+      "slot": 7,
+      "kind": "crate",
+      "frame": 3,
+      "surface": "lid",
+      "source": "assets/Objects/SelectedProps/box.png",
+      "crop": [
+        49,
+        1,
+        62,
+        11
+      ]
+    },
+    {
+      "slot": 8,
+      "kind": "rock",
+      "frame": 0,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    },
+    {
+      "slot": 9,
+      "kind": "rock",
+      "frame": 1,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        0,
+        32,
+        16
+      ]
+    },
+    {
+      "slot": 10,
+      "kind": "rock",
+      "frame": 2,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        0,
+        48,
+        16
+      ]
+    },
+    {
+      "slot": 11,
+      "kind": "rock",
+      "frame": 3,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        0,
+        64,
+        16
+      ]
+    },
+    {
+      "slot": 12,
+      "kind": "rock",
+      "frame": 4,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        0,
+        80,
+        16
+      ]
+    },
+    {
+      "slot": 13,
+      "kind": "rock",
+      "frame": 5,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        0,
+        96,
+        16
+      ]
+    },
+    {
+      "slot": 14,
+      "kind": "rock",
+      "frame": 6,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        0,
+        112,
+        16
+      ]
+    },
+    {
+      "slot": 15,
+      "kind": "rock",
+      "frame": 7,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        0,
+        128,
+        16
+      ]
+    },
+    {
+      "slot": 16,
+      "kind": "rock",
+      "frame": 8,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        16,
+        16,
+        32
+      ]
+    },
+    {
+      "slot": 17,
+      "kind": "rock",
+      "frame": 9,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        16,
+        32,
+        32
+      ]
+    },
+    {
+      "slot": 18,
+      "kind": "rock",
+      "frame": 10,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        16,
+        48,
+        32
+      ]
+    },
+    {
+      "slot": 19,
+      "kind": "rock",
+      "frame": 11,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        16,
+        64,
+        32
+      ]
+    },
+    {
+      "slot": 20,
+      "kind": "rock",
+      "frame": 12,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        16,
+        80,
+        32
+      ]
+    },
+    {
+      "slot": 21,
+      "kind": "rock",
+      "frame": 13,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        16,
+        96,
+        32
+      ]
+    },
+    {
+      "slot": 22,
+      "kind": "rock",
+      "frame": 14,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        16,
+        112,
+        32
+      ]
+    },
+    {
+      "slot": 23,
+      "kind": "rock",
+      "frame": 15,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        16,
+        128,
+        32
+      ]
+    },
+    {
+      "slot": 24,
+      "kind": "rock",
+      "frame": 16,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        32,
+        16,
+        48
+      ]
+    },
+    {
+      "slot": 25,
+      "kind": "rock",
+      "frame": 17,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        32,
+        32,
+        48
+      ]
+    },
+    {
+      "slot": 26,
+      "kind": "rock",
+      "frame": 18,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        32,
+        48,
+        48
+      ]
+    },
+    {
+      "slot": 27,
+      "kind": "rock",
+      "frame": 19,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        32,
+        64,
+        48
+      ]
+    },
+    {
+      "slot": 28,
+      "kind": "rock",
+      "frame": 20,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        32,
+        80,
+        48
+      ]
+    },
+    {
+      "slot": 29,
+      "kind": "rock",
+      "frame": 21,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        32,
+        96,
+        48
+      ]
+    },
+    {
+      "slot": 30,
+      "kind": "rock",
+      "frame": 22,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        32,
+        112,
+        48
+      ]
+    },
+    {
+      "slot": 31,
+      "kind": "rock",
+      "frame": 23,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        32,
+        128,
+        48
+      ]
+    },
+    {
+      "slot": 32,
+      "kind": "rock",
+      "frame": 24,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        48,
+        16,
+        64
+      ]
+    },
+    {
+      "slot": 33,
+      "kind": "rock",
+      "frame": 25,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        48,
+        32,
+        64
+      ]
+    },
+    {
+      "slot": 34,
+      "kind": "rock",
+      "frame": 26,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        48,
+        48,
+        64
+      ]
+    },
+    {
+      "slot": 35,
+      "kind": "rock",
+      "frame": 27,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        48,
+        64,
+        64
+      ]
+    },
+    {
+      "slot": 36,
+      "kind": "rock",
+      "frame": 28,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        48,
+        80,
+        64
+      ]
+    },
+    {
+      "slot": 37,
+      "kind": "rock",
+      "frame": 29,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        48,
+        96,
+        64
+      ]
+    },
+    {
+      "slot": 38,
+      "kind": "rock",
+      "frame": 30,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        48,
+        112,
+        64
+      ]
+    },
+    {
+      "slot": 39,
+      "kind": "rock",
+      "frame": 31,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        48,
+        128,
+        64
+      ]
+    },
+    {
+      "slot": 40,
+      "kind": "rock",
+      "frame": 32,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        64,
+        16,
+        80
+      ]
+    },
+    {
+      "slot": 41,
+      "kind": "rock",
+      "frame": 33,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        64,
+        32,
+        80
+      ]
+    },
+    {
+      "slot": 42,
+      "kind": "rock",
+      "frame": 34,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        64,
+        48,
+        80
+      ]
+    },
+    {
+      "slot": 43,
+      "kind": "rock",
+      "frame": 35,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        64,
+        64,
+        80
+      ]
+    },
+    {
+      "slot": 44,
+      "kind": "rock",
+      "frame": 36,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        64,
+        80,
+        80
+      ]
+    },
+    {
+      "slot": 45,
+      "kind": "rock",
+      "frame": 37,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        64,
+        96,
+        80
+      ]
+    },
+    {
+      "slot": 46,
+      "kind": "rock",
+      "frame": 38,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        64,
+        112,
+        80
+      ]
+    },
+    {
+      "slot": 47,
+      "kind": "rock",
+      "frame": 39,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        64,
+        128,
+        80
+      ]
+    },
+    {
+      "slot": 48,
+      "kind": "rock",
+      "frame": 40,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        80,
+        16,
+        96
+      ]
+    },
+    {
+      "slot": 49,
+      "kind": "rock",
+      "frame": 41,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        80,
+        32,
+        96
+      ]
+    },
+    {
+      "slot": 50,
+      "kind": "rock",
+      "frame": 42,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        80,
+        48,
+        96
+      ]
+    },
+    {
+      "slot": 51,
+      "kind": "rock",
+      "frame": 43,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        80,
+        64,
+        96
+      ]
+    },
+    {
+      "slot": 52,
+      "kind": "rock",
+      "frame": 44,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        80,
+        80,
+        96
+      ]
+    },
+    {
+      "slot": 53,
+      "kind": "rock",
+      "frame": 45,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        80,
+        96,
+        96
+      ]
+    },
+    {
+      "slot": 54,
+      "kind": "rock",
+      "frame": 46,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        80,
+        112,
+        96
+      ]
+    },
+    {
+      "slot": 55,
+      "kind": "rock",
+      "frame": 47,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        80,
+        128,
+        96
+      ]
+    },
+    {
+      "slot": 56,
+      "kind": "rock",
+      "frame": 48,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        96,
+        16,
+        112
+      ]
+    },
+    {
+      "slot": 57,
+      "kind": "rock",
+      "frame": 49,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        96,
+        32,
+        112
+      ]
+    },
+    {
+      "slot": 58,
+      "kind": "rock",
+      "frame": 50,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        96,
+        48,
+        112
+      ]
+    },
+    {
+      "slot": 59,
+      "kind": "rock",
+      "frame": 51,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        96,
+        64,
+        112
+      ]
+    },
+    {
+      "slot": 60,
+      "kind": "rock",
+      "frame": 52,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        96,
+        80,
+        112
+      ]
+    },
+    {
+      "slot": 61,
+      "kind": "rock",
+      "frame": 53,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        96,
+        96,
+        112
+      ]
+    },
+    {
+      "slot": 62,
+      "kind": "rock",
+      "frame": 54,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        96,
+        112,
+        112
+      ]
+    },
+    {
+      "slot": 63,
+      "kind": "rock",
+      "frame": 55,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        96,
+        128,
+        112
+      ]
+    },
+    {
+      "slot": 64,
+      "kind": "rock",
+      "frame": 56,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        112,
+        16,
+        128
+      ]
+    },
+    {
+      "slot": 65,
+      "kind": "rock",
+      "frame": 57,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        16,
+        112,
+        32,
+        128
+      ]
+    },
+    {
+      "slot": 66,
+      "kind": "rock",
+      "frame": 58,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        32,
+        112,
+        48,
+        128
+      ]
+    },
+    {
+      "slot": 67,
+      "kind": "rock",
+      "frame": 59,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        48,
+        112,
+        64,
+        128
+      ]
+    },
+    {
+      "slot": 68,
+      "kind": "rock",
+      "frame": 60,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        64,
+        112,
+        80,
+        128
+      ]
+    },
+    {
+      "slot": 69,
+      "kind": "rock",
+      "frame": 61,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        80,
+        112,
+        96,
+        128
+      ]
+    },
+    {
+      "slot": 70,
+      "kind": "rock",
+      "frame": 62,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        96,
+        112,
+        112,
+        128
+      ]
+    },
+    {
+      "slot": 71,
+      "kind": "rock",
+      "frame": 63,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        112,
+        112,
+        128,
+        128
+      ]
+    },
+    {
+      "slot": 72,
+      "kind": "rock",
+      "frame": 64,
+      "surface": "stone",
+      "source": "assets/Objects/Rocks/rocks-16.png",
+      "crop": [
+        0,
+        128,
+        16,
+        144
+      ]
+    }
+  ]
+}

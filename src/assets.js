@@ -220,6 +220,7 @@ const ASSETS = {
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Approved DG-style rocks — 128×144 atlas of 16px frames; 65 runtime identities.
+  prop_materials: { kind: 'image', path: 'assets/Objects/LowPolyProps/materials.png' },
   rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-16.png', frameWidth: 16, frameHeight: 16 },
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
