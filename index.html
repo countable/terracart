@@ -29,6 +29,31 @@
     // End sandbox local reset.
   </script>
   <script>
+    // Local art trials use the current checkout, not a previous worker's art.
+    (function () {
+      const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
+      const trial = new URLSearchParams(location.search).get('artTrial');
+      window.__localArtTrial = local && ['dreamland', 'rogue'].includes(trial);
+      if (!window.__localArtTrial || !('serviceWorker' in navigator)) return;
+      const scope = new URL('./', location.href).href;
+      const key = 'terracart.artTrialWorkerReload:' + scope;
+      window.__artTrialCacheReady = (async () => {
+        const controlled = !!navigator.serviceWorker.controller;
+        if (!controlled) { try { sessionStorage.removeItem(key); } catch (_) {} }
+        const registrations = await navigator.serviceWorker.getRegistrations();
+        const registration = registrations.find(item => item.scope === scope);
+        if (!registration || !await registration.unregister() || !controlled) return;
+        // Unregistering leaves this document controlled until navigation. One
+        // reload releases it; saves and cached regions are deliberately kept.
+        try {
+          if (sessionStorage.getItem(key)) return;
+          sessionStorage.setItem(key, '1');
+        } catch (_) { return; } // Denied storage must not risk a reload loop.
+        location.reload();
+      })().catch(error => console.warn('Art trial cache reset failed:', error));
+    })();
+    // End local art trial cache reset.
+
     // Boot recovery stays inline: it must work even when no dependency arrives.
     (function () {
       const KEY = 'terracart.bootRetries', LIMIT = 2;
@@ -3065,7 +3090,7 @@
     // works offline once a region has been visited, and reloads are
     // fast on cellular. Only registered when the page is served over
     // http(s) (file:// has no SW support).
-    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+    if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.__localArtTrial) {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(err => {
           console.warn('SW registration failed:', err);

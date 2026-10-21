@@ -292,6 +292,11 @@ changing dialogue, story panels, books, toasts or status presentation.
   the offline resource cache; CSS-only changes invalidate the shell too. Local game servers must also
   serve the checkout’s root `sw.js` as JavaScript; mounting only `index.html`
   and asset directories leaves persistent caching disabled.
+  Loopback `artTrial=dreamland` and `artTrial=rogue` previews use the current
+  checkout without a service worker. They unregister only the game's exact
+  scope and reload a controlled page once to release its old cached scripts
+  and art, preserving saves and cached regions. Ordinary local games and
+  deployed games retain their offline caching.
   `node test/load-performance-browser.cjs [base URL]` checks cold/warm chapel
   startup, worker control, and offline cached art. Network-panel entries include
   cached resources; compare transferred bytes and time to playable as well as count.
