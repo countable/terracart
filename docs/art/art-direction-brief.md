@@ -98,6 +98,8 @@ objects, camera distance and narrative context.
 - The 8 × 8 layout is the generation convention, not a requirement to repack existing runtime sheets. Preserve the scale exceptions above for buildings, roads and characters; buildings still follow the three-quarter top-down camera rule.
 
 ## Colour, vectors, and light
+- Map-placed pixel art uses a black outline along its upper perimeter and exposed sides, but no black baseline where it touches the ground. Keep ground-contact edges in the material colors; apply this to shrines, votives, loose wood and other props. Shrine sprites are 36px high; inspect outlines at the final display scale.
+- Interactables should be slightly brighter and draw the eye. Match Rogue Adventure primarily by shifting material hues, not by broadly reducing saturation or flattening highlights. Keep existing flower silhouettes and adjust their colors gently.
 - Use a shared, restrained palette across terrain, props, buildings, and actors. Coordinate material colours and shadow tones; reserve stronger colour and contrast for useful focal points and restoration.
 - Vector art supports real-world road and building geometry. Smoother edges are acceptable; match the surrounding art's perspective, palette, and visual weight. A pixel-treated vector comparison is a future experiment.
 - Preserve the strong existing lighting. Warm local lights help objects read against subdued surroundings; lighting supports the palette rather than hiding mismatched assets.
