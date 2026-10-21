@@ -12,6 +12,12 @@
   // between its frame and the right window, preserving the horizontal cornice.
   prepareFootprintMaterial(ctx,image,{...spec,wall:spec.ppFlat?spec.wall:[32,spec.eave,2,16],sideRidge:true},key);
   if(spec.ppFlat){
+   // Continue fascia color through baked outlines in the prepared roof only.
+   // The renderer still owns the geometric silhouette; source files stay intact.
+   ctx.drawImage(image,2,1,1,1,0,16,96,1);
+   ctx.drawImage(image,2,1,1,46,0,17,96,46);
+   ctx.drawImage(image,2,46,1,1,0,63,96,1);
+   ctx.drawImage(image,6,4,84,27,6,20,84,27);
    // The source outline belongs to the roof silhouette, not every wall corner.
    // Extend native masonry into the four border columns in the prepared atlas.
    ctx.save();ctx.beginPath();ctx.rect(0,900,256,32);ctx.clip();
@@ -19,7 +25,7 @@
    ctx.restore();
    // Native tiled deck and colored coping; retain the source texel density.
    for(let y=616;y<872;y+=16)for(let x=256;x<512;x+=16)ctx.drawImage(image,16,16,16,16,x,y,16,16);
-   for(let i=0;i<5;i++){ctx.drawImage(image,1+Math.min(i,2),12,1,1,500+i,616,1,256);ctx.drawImage(image,20,Math.min(i,2),1,1,480+i,616,1,256);}
+   for(let i=0;i<5;i++){ctx.drawImage(image,2,12,1,1,500+i,616,1,256);ctx.drawImage(image,20,1,1,1,480+i,616,1,256);}
    ctx.drawImage(image,2,2,1,1,506,616,2,256);ctx.drawImage(image,4,12,1,1,508,616,4,256);
    return;
   }
@@ -67,9 +73,10 @@
   // Two source pixels of corner masonry leave each adjacent window complete.
   const facadeLayout=len=>{if(Math.abs(len-(spec.ppFlat?W-6:W))<1)return {parts:[[0,len,W,0]],center:len/2};const edge=Math.min(2,len/4),bay=W-2*edge,count=Math.floor((len-2*edge)/bay),gap=(len-2*edge-count*bay)/2,parts=[[0,edge,W,W-edge]];if(gap>0)parts.push([edge,edge+gap,256+gap,256]);for(let i=0;i<count;i++)parts.push([edge+gap+i*bay,edge+gap+(i+1)*bay,W-edge,edge]);if(gap>0)parts.push([len-edge-gap,len-edge,256+gap,256]);parts.push([len-edge,len,edge,0]);return {parts,center:len/2};};
   wallRing.forEach((a,i)=>{const b=wallRing[(i+1)%wallRing.length],len=Math.hypot(b.x-a.x,b.y-a.y),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,layout=facadeLayout(len),at=(t,z,out=0)=>({x:a.x+dx*t+dy*out,y:a.y+dy*t-dx*out,z});
-   for(const [l,r,u0,u1] of layout.parts)quad([at(l,0),at(r,0),at(r,H),at(l,H)],[[u0,900+facadeHeight],[u1,900+facadeHeight],[u1,900],[u0,900]]);
+   const nativeAdobeFront=!spec.ppFlat&&!polygon&&a.y===b.y&&a.x>b.x,facadeRow=nativeAdobeFront?16+spec.eave:900;
+   for(const [l,r,u0,u1] of layout.parts)quad([at(l,0),at(r,0),at(r,H),at(l,H)],[[u0,facadeRow+facadeHeight],[u1,facadeRow+facadeHeight],[u1,facadeRow],[u0,facadeRow]]);
 
-   if(a.y===b.y&&a.x>b.x&&len>20){const [u,v,w,h]=spec.door,l=Math.max(2,Math.min(len-w-2,layout.center-w/2));quad([at(l,0,.04),at(l+w,0,.04),at(l+w,h/C,.04),at(l,h/C,.04)],[[u+w,v+h+16],[u,v+h+16],[u,v+16],[u+w,v+16]]);}
+   if(!nativeAdobeFront&&a.y===b.y&&a.x>b.x&&len>20){const [u,v,w,h]=spec.door,out=spec.ppFlat?.2:.04,l=Math.max(2,Math.min(len-w-2,layout.center-w/2));quad([at(l,0,out),at(l+w,0,out),at(l+w,h/C,out),at(l,h/C,out)],[[u+w,v+h+16],[u,v+h+16],[u,v+16],[u+w,v+16]]);}
   });
   if(spec.slabHeight)ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length];quad([P(a,H),P(b,H),P(b,deckHeight),P(a,deckHeight)],[[8,16+spec.eave],[24,16+spec.eave],[24,16+spec.eave-spec.slabHeight],[8,16+spec.eave-spec.slabHeight]],'roof',false);});
   // Mitred boundary rings share their corner vertices, so head-on corners do

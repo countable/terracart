@@ -46,7 +46,10 @@ Six `pp_flat_*` review choices use native Pixel Plains flat-shop art, with a
 tiled horizontal deck and colored fascia. Their walls sit three source pixels
 inside the roof lip (4.8 ground units along depth), with a sealed soffit; the
 prepared wall atlas extends native masonry over the source silhouette borders
-so black vertical strips do not repeat at corners. Expanded decks repeat native
+so black vertical strips do not repeat at corners. Roof fascia colors also
+extend through baked black perimeter pixels; geometric outlines remain. Door
+overlays stand clear of the wall depth, while native adobe fronts use the
+original doorway directly without an overlay. Expanded decks repeat native
 tile texels below the coping to avoid coplanar flicker. `tools/extract_pp_flat_buildings.py`
 extracts the six source colorways and assembles their native glass doorway;
 `pp-flat-provenance.json` records exact crops. They are prepared with the native
