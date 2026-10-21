@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="768" viewBox="0 0 512 768">
+  <!-- Feather only smoke above the union of the registered building silhouettes. -->
+  <defs><filter id="smoke" x="-10%" y="-10%" width="120%" height="120%"><feGaussianBlur stdDeviation="4"/></filter></defs>
+  <path fill="white" filter="url(#smoke)" d="M-20 300 L41 307 L82 361 L143 376 L215 376 L246 346 L312 338 L358 353 L410 361 L451 376 L532 376 V788 H-20Z"/>
+</svg>

@@ -53,9 +53,9 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
         if (reduced) {
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
-          assert(s.animations.every(a => a.duration === 20000 && a.iterations === 1));
+          assert(s.animations.every(a => a.duration === 16000 && a.iterations === 1));
           [1 / 1.5, 1 / 1.92, 1 / 2.112].forEach((zoom, i) => near(s.frames[i].scale, zoom));
-          const dreamTime = progress => 750 + progress * 20000;
+          const dreamTime = progress => 600 + progress * 16000;
           for (const [progress, visible] of [[7 / 15, 0], [11 / 15, 1], [1, 2]]) {
             await seek(dreamTime(progress)); s = await state(); near(s.frames[visible].opacity, 1);
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
@@ -79,13 +79,19 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             }
           }
           if (width === 390) {
-            for (const time of [9500, 14500, 20000]) {
+            for (const time of [8000, 12000, 16000]) {
               await seek(time); await snapshot(`dream-${time}`);
             }
           }
           for (const [progress, frame] of [[1 / 3, 0], [.6, 1], [13 / 15, 2]]) {
             await seek(dreamTime(progress)); near((await state()).frames[frame].opacity, .5);
           }
+          // The final turn crosses its blended pose faster without moving
+          // its midpoint away from the equally spaced transition schedule.
+          await seek(dreamTime(11 / 15 + (4 / 15) * .25));
+          assert((await state()).frames[2].opacity < .1, 'final turn holds the side-facing pose longer');
+          await seek(dreamTime(11 / 15 + (4 / 15) * .75));
+          assert((await state()).frames[2].opacity > .9, 'final turn resolves the frontal stare promptly');
           await seek(dreamTime(1)); near((await state()).scale, 3.5);
           await seek(40000); s = await state(); near(s.scale, 3.5); near(s.frames[2].opacity, 1);
           const coverage = await page.evaluate(() => {
@@ -99,6 +105,31 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
           });
           assert(coverage.clipped, 'older zoomed paintings cannot spill into the portrait letterbox');
           assert(coverage.covers, 'the final painting covers the entire clipped portrait canvas');
+          if (width === 390) {
+            const clips = await page.evaluate(() => {
+              const camera = document.querySelector('.nightmare-camera');
+              camera.style.animation = 'none'; camera.style.transform = 'none';
+              document.querySelectorAll('.nightmare-frame').forEach(el => {
+                el.style.animation = 'none'; el.style.opacity = '0';
+              });
+              const r = document.querySelector('.nightmare-scene').getBoundingClientRect();
+              return [[.01,.44,.07,.17],[.54,.48,.12,.17],[.02,.55,.96,.2]].map(([x,y,w,h]) =>
+                ({x:r.x+x*r.width,y:r.y+y*r.height,width:w*r.width,height:h*r.height}));
+            });
+            const originals = [];
+            for (const clip of clips) originals.push(await page.screenshot({clip}));
+            for (let frame = 0; frame < 3; frame++) {
+              await page.evaluate(frame => document.querySelectorAll('.nightmare-frame')
+                .forEach((el,i) => el.style.opacity = i <= frame ? '1' : '0'), frame);
+              for (let i = 0; i < clips.length; i++) {
+                assert((await page.screenshot({clip:clips[i]})).equals(originals[i]),
+                  `building pixels stay identical through frame ${frame + 2}`);
+              }
+            }
+            await page.evaluate(() => document.querySelectorAll('.nightmare-camera,.nightmare-frame')
+              .forEach(el => el.removeAttribute('style')));
+            await seek(40000);
+          }
         }
         await snapshot('dream');
         await next(); // Hood in bed.
