@@ -925,8 +925,11 @@ in [low-poly building styles](../art/lowpoly-building-styles.md).
 
 Source images load through `ASSETS`. `AuthoredBuildings.prepare` bakes shared
 materials and roof palettes at scene startup; cell rebuilds clone cached faces
-and fit a closed shell uniformly inside the footprint. No pixel reads or canvas
-texture creation occur during placement or compass updates. Home switches to
+and fit a closed shell uniformly inside the footprint. Home's front-gabled
+cabin first lengthens away from its door by whole native roof courses
+(`AuthoredBuildings.rowsFor`) until it is as deep as its lot, so the house fills
+the footprint instead of leaving bare floor beside a shrunken cabin. No pixel
+reads or canvas texture creation occur during placement or compass updates. Home switches to
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
 

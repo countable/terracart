@@ -22,7 +22,8 @@ All shop models belong to the market/storefront pair; tier does not change
 shop identity. Castle, turret and wreck geometry retain their existing paths.
 Home retains its open-roof interior and furniture behavior. Closed native
 shells fit uniformly within the lot rather than stretching their source art
-across concave corners. Only models assigned to existing game roles ship.
+across concave corners. Home's cabin also repeats whole roof courses front to
+back so it fills its lot's depth. Only models assigned to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 

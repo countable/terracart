@@ -83,8 +83,19 @@ function material(s,key){const name='authored:'+imageKey(key);if(s.textures.exis
 
  RoofMaterials.prepare(c,im,SPECS[key],key);
  t.refresh();t.setFilter(Phaser.Textures.FilterMode.NEAREST);return t;}
-function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a.left,D=a.depth,H=a.base-a.eave,x=450-W/2,y=240-D/2;
- const rear=['com','pp_cabin'].includes(key)?4:key==='pp_brick'?1:0;
+// The source back edge of each native shell's walls and roof.
+const rearOf=key=>['com','pp_cabin'].includes(key)?4:key==='pp_brick'?1:0;
+// A plain front-gabled shell lengthens by whole roof courses: its ridge runs
+// front to back, so each repeat keeps the source boards and ridge at native
+// density, and its side walls already repeat complete bays.
+function deepens(key){const a=SPECS[key];return !!a&&!a.sideRidge&&!a.flatRoof&&!a.rearHouse&&!a.chimney&&!a.porch&&!specialBuilder(key)&&key!=='wizard';}
+// How many native roof courses bring the shell nearest a lot `ratio` times
+// as deep as it is wide (1 for a shell that cannot lengthen).
+function rowsFor(key,ratio){
+ if(!deepens(key)||!(ratio>0))return 1;
+ const a=SPECS[key];return Math.max(1,Math.min(4,Math.round(ratio*(a.right-a.left)/(a.depth-rearOf(key)))));
+}
+function buildNative(s,key,rows=1){const a=specFor(key),tex=material(s,key),W=a.right-a.left,H=a.base-a.eave,rear=rearOf(key),D=rear+(a.depth-rear)*rows,x=450-W/2,y=240-D/2;
  const m={faces:[],height:a.base-a.peak,authoredKey:key,texture:tex};
  let currentFeature='body';
  function poly(points,uv,kind='wall',layer=0){for(let i=1;i<points.length-1;i++){const idx=[0,i,i+1],ps=idx.map(j=>({...points[j],tu:uv[j][0]/512,tv:(uv[j][1]+16)/1024}));const f={points:ps,projected:ps.map(()=>({})),x,y,texture:tex,kind,layer:0,color:0xffffff,light:1,sourceArt:true,feature:currentFeature,fallbackUV:currentFeature==='porch'?[168.5/512,131.5/1024]:currentFeature==='dormer'?[73.5/512,52.5/1024]:currentFeature==='chimney'?[((key==='market'?98.5:8.5))/512,52.5/1024]:null,support:m.support,preserveWalls:true,eaveHeight:H};if(kind==='wall')f.wallDirection={x:points[1].x-points[0].x,y:points[1].y-points[0].y};m.faces.push(f);}}
@@ -114,7 +125,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  authoredWall(P(W,rear,0),P(W,D,0));
  authoredWall(P(0,D,0),P(0,rear,0));
  const roofPlanes=[];
- function roofFace(points,uv){roofPlanes.push(points);let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
+ function roofFace(points,uv,shift=0){roofPlanes.push(points);let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   if(['com','pp_cabin'].includes(key)){
    // Rectify only the authored plane's pixel staircase. Every texel remains
    // a source pixel; roof geometry supplies the source-camera diagonal.
@@ -128,7 +139,8 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   }
 
   points.sourceUV=key==='trader'?null:source;
-  points.sourceOrigin=[a.left,a.base-D+16];
+  // A repeated course `shift` behind the native front samples the native span.
+  points.sourceOrigin=[a.left,a.base-a.depth+16-shift];
   if(key==='fdr')points.edgeLip=.125;
   const nativePP=['pp_brick','pp_plaster'].includes(key);
   if(nativePP){
@@ -145,8 +157,10 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  if(a.flatRoof||specialBuilder(key)){}else if(!a.sideRidge){const r=a.center-a.left,Z=a.base-a.peak;
   // Roof planes are the original authored quadrilaterals, including their
   // bevels, edge highlights and ridge strip. No repeated texture cells.
-  roofFace([P(0,rear,H),P(r,rear,Z),P(r,D,Z),P(0,D,H)],[[a.left,a.back],[a.center,a.backPeak],[a.center,a.peak],[a.left,a.eave]]);
-  roofFace([P(r,rear,Z),P(W,rear,H),P(W,D,H),P(r,D,Z)],[[a.center,a.backPeak],[a.right,a.back],[a.right,a.eave],[a.center,a.peak]]);
+  for(let k=0,span=a.depth-rear;k<rows;k++){const y0=rear+k*span,y1=y0+span;
+   roofFace([P(0,y0,H),P(r,y0,Z),P(r,y1,Z),P(0,y1,H)],[[a.left,a.back],[a.center,a.backPeak],[a.center,a.peak],[a.left,a.eave]],y0-rear);
+   roofFace([P(r,y0,Z),P(W,y0,H),P(W,y1,H),P(r,y1,Z)],[[a.center,a.backPeak],[a.right,a.back],[a.right,a.eave],[a.center,a.peak]],y0-rear);
+  }
   poly([front(a.right,a.eave),front(a.left,a.eave),front(a.center,a.peak)],[[a.right,a.eave],[a.left,a.eave],[a.center,a.peak]],'wall',.2);
   poly([P(0,rear,H),P(W,rear,H),P(r,rear,Z)],[[a.left,a.eave],[a.right,a.eave],[a.center,a.peak]],'wall');
   // Side walls already close the eaves; duplicate coplanar trim flickers on rotation.
@@ -291,10 +305,20 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   }
   caches.set(scene.textures,models);
  }
- function build(scene,key,palette){
-  const native=caches.get(scene.textures)?.get(key+':'+palette);
+ // `rows` lengthens a shell by whole roof courses (rowsFor). The longer
+ // shell reuses the source material and palette baked by prepare, so a
+ // placement-time build reads no pixels and creates no textures.
+ function build(scene,key,palette,rows=1){
+  const models=caches.get(scene.textures);
+  rows=deepens(key)?rows:1;
+  let native=models?.get(key+':'+palette+(rows>1?':'+rows:''));
+  if(!native&&rows>1&&models?.has(key+':'+palette)){
+   native=buildNative(scene,key,rows);
+   AuthoredRoofPalette.prepare(scene,native.texture,native,palette);
+   models.set(key+':'+palette+':'+rows,native);
+  }
   if(!native)return null;
   return {...native,ring:native.ring.map(p=>({...p})),faces:native.faces.map(f=>({...f,points:f.points.map(p=>({...p})),projected:f.points.map(()=>({}))}))};
  }
- root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,prepare,build};
+ root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,rowsFor,prepare,build};
 })(typeof window!=='undefined'?window:globalThis);

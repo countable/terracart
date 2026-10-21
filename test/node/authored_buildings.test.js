@@ -13,6 +13,16 @@
     }
     assert.eq(seen.size, AuthoredBuildings.RESIDENCES.length, 'all residential variants are reachable');
   });
+  test('authored buildings: Home lengthens by whole roof courses to fill its lot', () => {
+    const home = recipe('home', 'player').key;
+    // Home's square 2×2 lot takes two native cabin courses, not a shrunken cabin.
+    assert.eq(AuthoredBuildings.rowsFor(home, 1), 2);
+    assert.eq(AuthoredBuildings.rowsFor(home, 0.5), 1);
+    assert.eq(AuthoredBuildings.rowsFor(home, 0), 1);
+    // Shells whose ridge or features run across the depth keep their native size.
+    for (const key of ['pp_brick', 'fdr', 'trader', 'market', 'flat_adobe', 'steam_home', 'wizard'])
+      assert.eq(AuthoredBuildings.rowsFor(key, 1), 1, key);
+  });
   test('authored buildings: every shop line uses a commercial model and a distinct signature', () => {
     const colors = new Set();
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES)]) {
