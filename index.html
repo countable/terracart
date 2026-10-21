@@ -1122,12 +1122,16 @@
     @keyframes nightmare-pan {
       0% {
         transform: scale(1.5);
-        animation-timing-function: cubic-bezier(.333333, .142857, .666667, .571429);
+        animation-timing-function: cubic-bezier(.333333, 0.174031, .666667, 0.507364);
       }
-      /* Three times the starting speed here. This scale matches velocity into
-         the final 0.96-second damping segment, which ends at zero speed. */
+      /* Reach cruising speed halfway through, keeping velocity continuous
+         into the steady zoom and final 0.96-second damping segment. */
+      50% {
+        transform: scale(2.630069);
+        animation-timing-function: linear;
+      }
       94% {
-        transform: scale(4.093577);
+        transform: scale(4.099792);
         animation-timing-function: cubic-bezier(.333333, .666667, .666667, 1);
       }
       100% { transform: scale(4.2); }

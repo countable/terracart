@@ -61,17 +61,19 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
             assert(s.frames.slice(visible + 1).every(f => f.opacity < .0001));
           }
           const zoomSteps = [];
-          for (const progress of [0, .235, .47, .705, .94]) {
+          for (const progress of [0, .125, .25, .375, .5]) {
             await seek(dreamTime(progress)); zoomSteps.push((await state()).scale);
           }
           const gains = zoomSteps.slice(1).map((value, i) => value - zoomSteps[i]);
-          assert(gains.every((gain, i) => !i || gain > gains[i - 1]), 'zoom accelerates until the final damping segment');
+          assert(gains.every((gain, i) => !i || gain > gains[i - 1]), 'zoom accelerates through the first half');
           const speed = async (from, to) => {
             await seek(dreamTime(from)); const start = (await state()).scale;
             await seek(dreamTime(to)); return ((await state()).scale - start) / (to - from);
           };
           const startingSpeed = await speed(0, .001), peakSpeed = await speed(.939, .94);
-          assert(Math.abs(peakSpeed / startingSpeed - 3) < .04, 'zoom reaches three times its starting speed');
+          assert((await speed(.499, .5)) > 3.3, 'zoom reaches a faster cruising speed by the midpoint');
+          assert(Math.abs((await speed(.5, .501)) / (await speed(.499, .5)) - 1) < .02, 'midpoint keeps velocity continuous');
+          assert(Math.abs((await speed(.5, .501)) / peakSpeed - 1) < .02, 'zoom holds its faster cruising speed until damping');
           assert(Math.abs((await speed(.94, .941)) / peakSpeed - 1) < .04, 'damping starts without a speed jump');
           assert((await speed(.999, 1)) < startingSpeed * .05, 'zoom settles nearly to rest at the endpoint');
           let previousScale = 1.5;
