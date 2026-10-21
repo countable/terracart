@@ -30,6 +30,10 @@
    // blacksmith's own post and infill so the added supports share its palette.
    ctx.drawImage(image,132,60,1,1,0,628,256,1);
    for(let x=0;x<256;x+=16)ctx.drawImage(image,115,60,1,1,x,628,2,1);
+   // Real-lot gables repeat native stone courses and vertical timber, not a
+   // single grey texel. Keep the native model's one-row gable strip intact.
+   for(let x=0;x<32;x+=24)ctx.drawImage(image,120,56,Math.min(24,32-x),16,x,640,Math.min(24,32-x),16);
+   ctx.drawImage(image,113,56,6,16,0,640,6,16);
   }
   // Broad gable infill repeats native wood/brick courses instead of stretching
   // the complete triangular artwork across a much wider wall.

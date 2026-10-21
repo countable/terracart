@@ -130,7 +130,7 @@
   // indexes) whose facade centres the door bay — the street door's wall
   // (owner, Oct 2026: doors face the nearest street). Without one, the
   // longest wall lowest on screen takes the door, as before.
-  function buildGeometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null){
+  function buildGeometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null,roofRise=14){
     const {ring,triangles}=triangulate(input);
     if(!triangles.length)return {ring,faces:[],roofTriangles:0,wallTriangles:0};
     // The longest facade defines a stable roof direction; camera heading never does.
@@ -171,7 +171,7 @@
     const planes=[],pitch=variant==='shallow'?.18:.42;
     const addAxis=i=>{const v=axes[i],[lo,hi]=bounds[i];planes.push({x:v.x*pitch,y:v.y*pitch,c:-lo*pitch},{x:-v.x*pitch,y:-v.y*pitch,c:hi*pitch});};
     if(variant!=='flat'){addAxis(1);if(variant==='inset')addAxis(0);}
-    planes.push({x:0,y:0,c:variant==='flat'?0:variant==='inset'?4:variant==='shallow'?2.5:14});
+    planes.push({x:0,y:0,c:variant==='flat'?0:variant==='inset'?4:variant==='shallow'?2.5:roofRise});
     const roofZ=p=>height+Math.max(0,Math.min(...planes.map(v=>value(v,p))));
     // Continuous distance across ridge slopes and their flat cap: per-plane
     // scaling used to jump the tile rows at the slope/cap seam.
@@ -302,10 +302,10 @@
     return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths,entranceEdge};
   }
   const meshCache=new Map();
-  function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null){
-    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+  function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null,roofRise=14){
+    const key=variant+':'+roofRise+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
-    const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance);
+    const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance,roofRise);
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;
   }
@@ -1594,14 +1594,14 @@
   // gables and the roof over the whole lot; every texel comes from the skin.
   // Facades lay out complete source bays (sourceFacadeSlices) with the door
   // once on the entrance wall; roofs repeat the skin's tiled roof in roof
-  // space; gables, fascia and beams take single source texels. `shade` is
+  // space; gables use native infill where supplied, while fascia and beams take source texels. `shade` is
   // the depth renderer's only lighting, for slopes the art did not paint.
   function authoredOutline(skin,ring,entrance=null,facadeRows=null,emblem=null){
     // Shorter facades keep the ground-floor pixels and the original door scale.
     const rows=facadeRows??skin.facade.rows;
     const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
     const d=skin.texel,H=F.rows*d,R=skin.roof,ppFlat=!!skin.spec.ppFlat,ppFlatRoof=[];
-    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance),faces=[];
+    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance,skin.roofRise),faces=[];
     const emit=(points,uv,kind,extra={})=>{if(points.length<3)return;
       for(let i=1;i<points.length-1;i++){const ids=[0,i,i+1],ps=ids.map(j=>({x:points[j].x,y:points[j].y,z:points[j].z,tu:uv[j][0]/512,tv:uv[j][1]/1024}));
         faces.push({...skin.template,points:ps,projected:ps.map(()=>({})),kind,layer:0,color:0xffffff,light:1,shade:1,sourceArt:true,rawUV:true,preserveWalls:true,feature:'body',
@@ -1692,7 +1692,18 @@
     for(const f of ppFlat?[]:g.faces){
       // The procedural stack has no source art; the skin keeps its roofline.
       if(f.chimney)continue;
-      if(f.kind==='wall'){const upper=clipZ(f.points,H,1);if(upper.length>=3)constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});continue;}
+      if(f.kind==='wall'){
+        const upper=clipZ(f.points,H,1),G=skin.gable;
+        if(upper.length>=3&&G){
+          // Native stone and timber continue above the eave at the facade's
+          // pixel scale, without stretching a solid swatch into another floor.
+          const dir=f.wallDirection,L=Math.hypot(dir.x,dir.y);
+          const pts=upper.map(p=>({...p,u:(p.x*dir.x+p.y*dir.y)/L/d,v:(H-p.z)/d}));
+          for(const across of tile(pts,'u',G.w))for(const piece of tile(across,'v',G.h))
+            emit(piece,piece.map(p=>[G.u+Math.max(.5,Math.min(G.w-.5,p.u)),G.v+Math.max(.5,Math.min(G.h-.5,p.v))]),'wall',{wallDirection:dir,feature:'gable'});
+        }else if(upper.length>=3)constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});
+        continue;
+      }
       if(f.kind==='roof'){
         // Flat decks run in plan; slopes run along the eave and downhill.
         const pts=f.points.map(p=>({...p,u:(skin.flat?p.x:p.u)/d,v:(skin.flat?p.y:p.v)/d}));
