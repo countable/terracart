@@ -107,8 +107,7 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
           });
           assert(coverage.clipped, 'older zoomed paintings cannot spill into the portrait letterbox');
           assert(coverage.covers, 'the final painting covers the entire clipped portrait canvas');
-          assert(coverage.faceX > .4 && coverage.faceX < .6 && coverage.faceY > .3 && coverage.faceY < .6,
-            'the final camera centers the frontal dragon face');
+          near(coverage.faceX, .5); near(coverage.faceY, .5);
           if (width === 390) {
             const clips = await page.evaluate(() => {
               const camera = document.querySelector('.nightmare-camera');
