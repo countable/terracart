@@ -449,16 +449,13 @@
       NPC.interact(s, w, 0, 0);
       assert.eq(shown.length, 1, 'the warden speaks');
       assert.truthy(shown[0].body.includes(MemoryStory.HOME.body), 'the plea first');
-      assert.eq(shown[0].okLabel, 'Next', 'a second panel follows');
+      assert.eq(shown[0].okLabel, 'Got it');
+      assert.truthy(shown[0].body.includes(NPC.WARDEN_LINE), 'the same conversation includes the safety explanation');
       shown[0].onDismiss();
-      assert.eq(shown.length, 2);
-      assert.truthy(shown[1].body.includes(NPC.WARDEN_LINE), 'the introduction retains the safety explanation');
-      assert.eq(shown[1].okLabel, 'Got it');
-      shown[1].onDismiss?.();
-      assert.eq(shown.length, 2, 'and ends there');
+      assert.eq(shown.length, 1, 'one acknowledgement ends the conversation');
       s._dialogOpen = () => true;
       NPC.interact(s, w, 0, 0);
-      assert.eq(shown.length, 2, 'but not over an open dialog');
+      assert.eq(shown.length, 1, 'but not over an open dialog');
     } finally { globalThis.document = g; }
   });
 })();

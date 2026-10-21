@@ -1232,7 +1232,7 @@ class SceneShops {
 
   // Smelt tab at the blacksmith. Focuses ONE unlocked top bar at a time, with a
   // repeatable Smelt button, consuming one recipe’s ingredients per tap. The
-  // modal's ‹ › `pager` pages through the other unlocked bars, and a Forge /
+  // named selector lists the other unlocked bars, and a Forge /
   // Smelt tab row (forgeBack re-opens the forge tab) lets the player toggle
   // back without leaving the shop. `target` defaults to the highest unlocked
   // bar the player can currently afford, so the modal opens on something usable.
@@ -1262,14 +1262,14 @@ class SceneShops {
     const covered = (id) => recipeFor(id).every(r => Inventory.count(this.save, r.id) >= r.qty);
     // Default focus: the highest unlocked bar the player can afford ≥1 of,
     // else the highest unlocked, so the modal opens on something usable
-    // rather than a bar they lack ingredients for (the pager still reaches
-    // the others). An explicit `target` (from the pager) wins as long as it
+    // rather than a bar they lack ingredients for (the selector still reaches
+    // the others). An explicit `target` (from the selector) wins as long as it
     // is actually unlocked.
     if (!target || !bars.includes(target)) target = bars.slice().reverse().find(covered) || bars[bars.length - 1];
     const outItem = ITEM_BY_ID[target];
-    // The ‹ › pager walks the unlocked bars (wraps around).
+    // Every unlocked bar is directly reachable by name.
     const idx = bars.indexOf(target);
-    const pageTo = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
+    const selectBar = (id) => () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, id);
     this._presentRecipeOffer(sx, sy, {
       recipe: recipeFor(target),
       cancelLabel: 'Leave',
@@ -1278,9 +1278,9 @@ class SceneShops {
       acceptLabel: 'Smelt',
       tabs,
       repeat: () => this.presentSmeltOffer(sx, sy, house, recordDeal, forgeBack, target),
-      pager: {
-        index: idx, count: bars.length,
-        options: bars.map(id => ({ label: itemName(id), onSelect: pageTo(id) })),
+      selector: {
+        label: 'Bar', index: idx,
+        options: bars.map(id => ({ label: itemName(id), onSelect: selectBar(id) })),
       },
       refuse: () => {
         if (this.invRoomFor(target) >= 1) return false;
@@ -1294,34 +1294,46 @@ class SceneShops {
     });
   }
 
-  // Home, workbenches and brewing share discovery, selection, paging and capacity.
+  // Home, workbenches and brewing share discovery, selection and capacity.
   // Venues supply navigation, copy, fees on recipe rows, and completion effects.
-  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, ...modal }) {
+  // A station with several known recipes opens on a grid of them all; a pick
+  // opens that recipe's counter, whose ‹ Back returns to the grid
+  // (`present(null)`). One known recipe opens its counter directly.
+  _presentRecipePicker(sx, sy, { recipes, targetId, present, onCraft, empty, validate, topAction, ...modal }) {
     recipes = recipes.filter(r => !homeRecipeLocked(this.save, r.id));
     if (!recipes.length) {
-      this.showOfferModal({ ...modal, get: empty, cost: '', canAfford: false, cancelLabel: 'Leave' });
+      this.showOfferModal({ ...modal, topAction, get: empty, cost: '', canAfford: false, cancelLabel: 'Leave' });
       return;
     }
     const held = id => Inventory.count(this.save, id);
     const available = r => recipeCap(r.cost, held) > 0
       && (this.save.money ?? 0) >= (r.coins || 0) && this.invRoomFor(r.id) >= 1;
-    const rec = recipes.find(r => r.id === targetId) || recipes.find(available) || recipes[0];
-    const idx = recipes.indexOf(rec), n = recipes.length;
-    const pageTo = r => () => present(r.id);
+    const grid = recipes.length > 1;
+    const rec = recipes.find(r => r.id === targetId) || (!grid && recipes[0]);
+    if (!rec) {
+      const { kind, kindLabel, kindIcon, tabs, art } = modal;
+      this.showPickGridModal({
+        kind, kindLabel, kindIcon, tabs, art, topAction,
+        title: 'Pick something to make',
+        items: recipes.map(r => ({
+          label: itemName(r.id), iconHTML: this.iconSpanHTML(r.id, 32),
+          ready: available(r), note: available(r) ? 'Ready' : `In bag: ${held(r.id)}`,
+          onSelect: () => present(r.id),
+        })),
+      });
+      return;
+    }
     const room = this.invRoomFor(rec.id);
+    const effect = ITEM_EFFECTS[rec.id];
     this._presentRecipeOffer(sx, sy, {
       ...modal, recipe: rec.cost, coinCost: rec.coins || 0,
-      get: `1× ${this.iconSpanHTML(rec.id)} ${itemName(rec.id)}`,
-      blurb: ITEM_EFFECTS[rec.id] || undefined,
+      topAction: grid ? undefined : topAction,
+      get: `${this.iconSpanHTML(rec.id, 32)} ${itemName(rec.id)}`,
+      blurb: `<div class="recipe-made">Makes 1 · In bag: ${held(rec.id)}</div>${effect || ''}`,
       cancelLabel: 'Leave', canAfford: room >= 1,
       disabledReason: room < 1 ? bagFullFor(rec.id) : undefined,
-      repeat: pageTo(rec),
-      pager: {
-        index: idx, count: n, showIndex: false,
-        options: recipes.map(r => ({ label: itemName(r.id), onSelect: pageTo(r) })),
-        iconHTML: this.iconSpanHTML(rec.id, 32),
-        caption: `Makes 1 · In bag: ${held(rec.id)}`,
-      },
+      repeat: () => present(rec.id),
+      back: grid ? () => present(null) : undefined,
       refuse: () => {
         if (validate && !validate()) return true;
         if (homeRecipeLocked(this.save, rec.id)) {

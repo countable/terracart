@@ -15,6 +15,9 @@
       const sandbox = params.has('sandbox') && !['false', '0', 'no'].includes((params.get('sandbox') || '').toLowerCase());
       window.__sandboxSkipStory = sandbox && params.get('skipStory') === 'true';
       window.__sandboxSkipTutorial = sandbox && params.get('skipTutorial') === 'true';
+      // `?skipIntro=true` (testing, any world): no opening story slides and no
+      // how-to card. Nothing is marked seen, and the location splash stays.
+      window.__skipIntro = window.__sandboxSkipStory || params.get('skipIntro') === 'true';
       if (!sandbox || params.get('reset') !== 'true') return;
       try {
         for (let i = localStorage.length - 1; i >= 0; i--) {
@@ -98,7 +101,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=5082841f" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=9f6c98b4" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1289,9 +1292,9 @@
   </style>
   <link rel="stylesheet" href="css/compass_hud.css?v=4167c704">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=88e9d1a0">
-  <link rel="stylesheet" href="css/speech_bubbles.css?v=87ecd94a">
-  <link rel="stylesheet" href="css/book_reader.css?v=062bfd01">
+  <link rel="stylesheet" href="css/compass_panels.css?v=00ec4765">
+  <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
+  <link rel="stylesheet" href="css/book_reader.css?v=6c9148bc">
 </head>
 <!-- Keep the HUD hidden until live values and the compass skin are ready. -->
 <body class="booting">
@@ -2645,18 +2648,27 @@
       }
     } catch {}
     // A reload that skips the splash never re-asks for the compass, and iOS
-    // sends no orientation events to a page that hasn't asked. Ask again on the
-    // first tap anywhere: an earlier grant resolves without a prompt.
+    // sends no orientation events to a page that hasn't asked. Ask again on
+    // each tap until iOS answers: an earlier grant resolves without a prompt.
+    // A drag (the movement or GPS stick) earns no gesture credit, so its
+    // request is refused unanswered; stopping at that first touch left the
+    // compass dead for the rest of the session.
     window.__rearmCompassOnGesture = () => {
       const DOE = window.DeviceOrientationEvent;
       if (!DOE || typeof DOE.requestPermission !== 'function') return;
+      let asking = false;
       const ask = () => {
-        document.removeEventListener('touchend', ask, true);
-        document.removeEventListener('click', ask, true);
+        if (asking) return;
+        asking = true;
         DOE.requestPermission().then((r) => {
+          asking = false;
           window.__compassPerm = r;
+          if (r === 'granted' || r === 'denied') {
+            document.removeEventListener('touchend', ask, true);
+            document.removeEventListener('click', ask, true);
+          }
           window.__scene?.startSensors?.();
-        }).catch(() => {});
+        }).catch(() => { asking = false; });
       };
       document.addEventListener('touchend', ask, true);
       document.addEventListener('click', ask, true);
@@ -2825,7 +2837,7 @@
       const overlay = document.getElementById('howto');
       if (!overlay) return;
       if (!force) {
-        if (window.__sandboxSkipStory || window.__sandboxSkipTutorial) return;
+        if (window.__skipIntro || window.__sandboxSkipTutorial) return;
         let seen = false;
         try { seen = !!localStorage.getItem('terracart.howtoSeen'); } catch {}
         // A save with no mode yet is asked even if the card was seen before
@@ -2938,7 +2950,7 @@
     } else {
       let freshIntro = false;
       try { freshIntro = !localStorage.getItem('terracart.introSeen'); } catch {}
-      if (freshIntro) {
+      if (freshIntro && !window.__skipIntro) {
         const safetyEl = document.getElementById('safety');
         if (safetyEl) safetyEl.style.display = 'none';
         startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
@@ -3090,7 +3102,7 @@
   <script src="src/sprite_layout.js?v=4dbc7f62"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=ddcaa455"></script>
+  <script src="src/home.js?v=aaada526"></script>
   <script src="src/home_variant.js?v=d962f23f"></script>
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
@@ -3166,7 +3178,7 @@
 
   <script src="src/wizard.js?v=cc6328ca"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=6fa3739f"></script>
+  <script src="src/memory_story.js?v=5bec4c16"></script>
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=6613d99e"></script>
@@ -3175,7 +3187,7 @@
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=5b192eb0"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=f5df06b8"></script>
+  <script src="src/render.js?v=7cbd12a8"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=f939dd1a"></script>
@@ -3187,17 +3199,17 @@
   <script src="src/wall_perspective.js?v=df3f4464"></script>
   <script src="src/building_styles.js?v=b503f242"></script>
   <script src="src/authored-buildings/roof-materials.js?v=ac0479cd"></script>
-  <script src="src/authored-buildings/facade-materials.js?v=465d849e"></script>
+  <script src="src/authored-buildings/facade-materials.js?v=46102831"></script>
   <script src="src/authored-buildings/flat-buildings.js?v=4220919d"></script>
   <script src="src/authored-buildings/wizard-tower.js?v=1f937faf"></script>
   <script src="src/authored-buildings/steam-home.js?v=8d6015e1"></script>
   <script src="src/authored-buildings/steam-blacksmith.js?v=3647e79e"></script>
   <script src="src/authored-buildings/steam-wizard.js?v=b03c5d11"></script>
   <script src="src/authored-buildings/city-buildings.js?v=6cc2cce8"></script>
-  <script src="src/authored_roof_palette.js?v=7c021381"></script>
-  <script src="src/authored_buildings.js?v=608cc99a"></script>
-  <script src="src/authored_building_renderer.js?v=01ce949b"></script>
-  <script src="src/building_lowpoly.js?v=a4603e57"></script>
+  <script src="src/authored_roof_palette.js?v=70ee5138"></script>
+  <script src="src/authored_buildings.js?v=f6f6736c"></script>
+  <script src="src/authored_building_renderer.js?v=44f419c7"></script>
+  <script src="src/building_lowpoly.js?v=b7821aed"></script>
   <script src="src/building_overlay.js?v=2eaef092"></script>
   <script src="src/art_atlas.js?v=9bea921d"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>
@@ -3215,12 +3227,12 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=dfb617d4"></script>
-  <script src="src/modal_shell.js?v=abf019f7"></script>
+  <script src="src/modal_shell.js?v=d88dfa8c"></script>
   <script src="src/scene_geo.js?v=6acf1a1f"></script>
-  <script src="src/npc.js?v=21caacef"></script>
+  <script src="src/npc.js?v=a8acecba"></script>
   <script src="src/scene_creatures.js?v=75abdb39"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=ad3a8533"></script>
+  <script src="src/scene_shops.js?v=fd98f3ad"></script>
   <script src="src/heading_up.js?v=87a3090a"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=09e52940"></script>
@@ -3230,7 +3242,7 @@
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=a7f74196"></script>
+  <script src="src/scene_venues.js?v=4cbbb2be"></script>
   <script src="src/scene_furniture.js?v=b5a06d20"></script>
   <script src="src/scene_streets.js?v=b37e084d"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
@@ -3303,7 +3315,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=5082841f';
+      const APP_SRC = 'src/app.js?v=9f6c98b4';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

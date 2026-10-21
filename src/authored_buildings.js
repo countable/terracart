@@ -262,12 +262,18 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  return m;
 }
 
- const RESIDENCES=['com','pp_brick','pp_plaster','pp_cabin','flat_adobe','flat_rooftop','steam_home'];
- const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'orange',book:'plum',shop:'blue'};
- function stableIndex(id){let n=2166136261;for(const c of String(id??'')){n^=c.charCodeAt(0);n=Math.imul(n,16777619);}return (n>>>0)%RESIDENCES.length;}
+ // The timber cabin is Home's alone, under the orange roof no other house wears.
+ const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home'];
+ const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'rose',book:'plum',shop:'blue'};
+ // A house keeps the facade it had when the cabin was still a residence: the
+ // pick runs over the former list, and only former cabins pick again.
+ const FORMER_RESIDENCES=['com','pp_brick','pp_plaster','pp_cabin','flat_adobe','flat_rooftop','steam_home'];
+ function residenceFor(id){let n=2166136261;for(const c of String(id??'')){n^=c.charCodeAt(0);n=Math.imul(n,16777619);}n>>>=0;
+  const key=FORMER_RESIDENCES[n%FORMER_RESIDENCES.length];
+  return RESIDENCES.includes(key)?key:RESIDENCES[Math.floor(n/FORMER_RESIDENCES.length)%RESIDENCES.length];}
  function recipeFor(role,id,tier=1,wizardSecond=false){
-  if(role==='home')return {key:'pp_cabin',palette:'yellow'};
-  if(role==='plain')return {key:RESIDENCES[stableIndex(id)],palette:'yellow'};
+  if(role==='home')return {key:'pp_cabin',palette:'orange'};
+  if(role==='plain')return {key:residenceFor(id),palette:'yellow'};
   if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate'};
   if(role==='trader')return {key:'trader',palette:'green'};
   if(role==='wizard')return {key:wizardSecond?'steam_wizard':'wizard',palette:'purple'};
@@ -296,5 +302,33 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   if(!native)return null;
   return {...native,ring:native.ring.map(p=>({...p})),faces:native.faces.map(f=>({...f,points:f.points.map(p=>({...p})),projected:f.points.map(()=>({}))}))};
  }
- root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,prepare,build};
+ // THE LOT IS THE BUILDING. Walls stand on the lot's own outline and the
+ // roof covers it (BuildingLowPoly.authoredOutline); a reviewed model lends
+ // only its skin, read from the regions its material already bakes: the
+ // doorless facade row, the tiled roof, the door and a plain wall texel.
+ // Texels are sized so every door stands DOOR_HEIGHT tall, as on the
+ // procedural houses. Wizard towers and the fort hall keep their whole
+ // shells (OUTLINE_EXEMPT): their silhouettes are the landmark.
+ const DOOR_HEIGHT=13,OUTLINE_EXEMPT=new Set(['wizard','steam_wizard','city_gearhouse']);
+ const SKIN_OVERRIDES={
+  // The workshop's own inferred-wall and copper-tile regions.
+  steam_blacksmith:{facade:{v:400,rows:76,period:102},roof:{u:256,v:500,w:252,h:256}},
+  steam_home:{roof:{u:256,v:616,w:240,h:238}},
+  // Clear of the original deck art drawn at the region's top-left.
+  city_storefront:{roof:{u:256,v:704,w:220,h:132}}
+ };
+ function skin(scene,key,palette){
+  const native=caches.get(scene.textures)?.get(key+':'+palette),a=SPECS[key];
+  if(!native||!a||OUTLINE_EXEMPT.has(key))return null;
+  const o=SKIN_OVERRIDES[key]||{},period=roofTilePeriod(key)||[240,240];
+  const [du,dv,dw,dh]=specialBuilder(key)||a.flatRoof?a.door:facadeDoorRect(a,key);
+  return {key,spec:a,texture:native.texture,template:native.faces[0],texel:DOOR_HEIGHT/dh,
+   flat:!!a.flatRoof||(!!a.city&&!a.gabled),
+   facade:o.facade||{v:900,rows:a.base-a.eave},
+   roof:o.roof||{u:256,v:616,w:period[0],h:period[1]},
+   door:{u:du,v:dv+16,w:dw,h:dh,bottom:a.base-dv-dh},
+   wall:[a.wall[0]+a.wall[2]/2,a.wall[1]+16+a.wall[3]/2],
+   recolor:faces=>AuthoredRoofPalette.prepare(scene,native.texture,{authoredKey:key,faces},palette)};
+ }
+ root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,prepare,build,skin};
 })(typeof window!=='undefined'?window:globalThis);

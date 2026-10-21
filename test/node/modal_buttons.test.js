@@ -1,7 +1,7 @@
 // modal_shell.js: ONE button factory for every button a modal shows.
 //
-// Regression guard for the footprint refactor: the choice cards, tabs
-// and the reward card's actions used to be
+// Regression guard for the footprint refactor: the choice
+// cards, tabs and the reward card's actions used to be
 // hand-built <button>s with two different ghost styles (#eee/#666 on
 // Cancel, #ddd/#555 everywhere else), a local `dim()` and a second
 // `_setEnabled` on Take. Every button now comes from mkBtn, in one of two
@@ -20,7 +20,6 @@ test('modal buttons: mkBtn is the only button factory, with one ghost and one di
   // Every former hand-built button asks the factory for its variant.
   for (const site of [
     /const tb = mkBtn\(t\.label, \{ variant: 'ghost', css:/,
-    /const close = mkBtn\('×', \{ variant: 'ghost' \}\);/,
     /const b = mkBtn\(a\.label, a\.primary \? \{ accent, css: cardCss \} : \{ variant: 'ghost', css: cardCss \}\);/,
     /take = mkBtn\(confirmLabel, \{ accent, css:/,
   ]) assert.truthy(site.test(src), `${site} builds through mkBtn`);
@@ -41,7 +40,7 @@ test('modal buttons: the legacy (label, primary, disabled) spelling still reads'
   // The offer modal's own Cancel / secondary / Buy calls, and the stubs the
   // other tests hand in, use the positional form.
   const src = MODAL_SHELL_SRC;
-  assert.truthy(/const cancel = mkBtn\(cancelLabel, false, false\);/.test(src));
+  assert.truthy(/const cancel = mkBtn\(back \? '‹ Back' : cancelLabel, false, false\);/.test(src));
   assert.truthy(/const o = \(opts && typeof opts === 'object'\) \? opts : \{ variant: opts \? 'primary' : 'ghost', disabled \};/.test(src),
     'a boolean second argument is read as the variant');
 });

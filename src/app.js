@@ -8843,7 +8843,7 @@ class MapScene extends Phaser.Scene {
       // is the point. What the revival GAVE is the energy pop's to say.
       { art: 'revive_wake',  title: 'Home',     body: 'You wake under a rough blanket at Home. A farmhand nods goodbye.' },
     ];
-    MemoryStory.showPages(this, PANELS, { kind: 'story' });   // "Next" between them, "OK" on the last
+    MemoryStory.showPages(this, PANELS, { kind: 'story' });   // One scrolling account, acknowledged together.
   }
 
   // FIRST-TOOL-ACTION stories: one splash per action, ever, keyed
@@ -9273,7 +9273,7 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const { wrap, box, mount, mkBtn } = this.makeModalShell('books-modal',
-      { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left', scroll: true });
+      { zIndex: 60, kind: 'story', kindLabel: 'Books read', art: 'book_read', textAlign: 'left' });
     const list = document.createElement('div');
     list.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin:4px 0 12px;';
     for (const page of pages) {

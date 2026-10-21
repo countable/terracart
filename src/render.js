@@ -4044,8 +4044,8 @@ Render.drawLowPolyProps = function (scene, items) {
   let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
   for (const item of items) {
     const o = item.o;
-    // Rocks retain their authored sprite silhouettes at every heading.
-    const kind = o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
+    const kind = o.kind === 'mineralrock' ? 'rock'
+      : o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
     if (!kind) continue;
     if (typeof WorldArtProfile !== 'undefined' && WorldArtProfile.enabled
         && WorldArtProfile.spec(o, scene, {}).key) continue;

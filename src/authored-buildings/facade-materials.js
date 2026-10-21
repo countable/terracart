@@ -72,6 +72,11 @@
   }
   return true;
  }
+ // prepareFootprintMaterial's tiled roof (256,616) repeats one source sample;
+ // a whole number of samples is its seamless period.
+ function roofTilePeriod(key){const r=roofSamples[key];return r?[Math.floor(256/r[2])*r[2],Math.floor(256/r[3])*r[3]]:null;}
+ root.roofTilePeriod=roofTilePeriod;
+ root.facadeDoorRect=facadeDoorRect;
  root.sourceFacadeSlices=sourceFacadeSlices;
  root.validateFootprint=validateFootprint;
  root.prepareFootprintMaterial=prepareFootprintMaterial;

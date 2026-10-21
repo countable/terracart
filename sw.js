@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-ae62b474';
+const SHELL_VERSION = 'shell-e46e4b87';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -405,9 +405,6 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/Sources/ArtRedo20261012/mossy_grave.png": "b970af76",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/barricade.png": "cdab7ea2",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/cart.png": "d3f647b2",
-  "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort-restored-native.png": "648e41c6",
-  "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort-unclaimed-native.png": "739f9a3a",
-  "assets/Objects/Approved/Sources/ArtRedo20261012Round2/fort.png": "642d8a41",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/maple.png": "e27665d5",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/mushroom.png": "1126e20e",
   "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png": "fff90034",
@@ -420,8 +417,6 @@ const ASSET_HASHES = {
   "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png": "380d334c",
   "assets/Objects/Approved/Sources/WorldArt/barricade-native.png": "34456b11",
   "assets/Objects/Approved/Sources/WorldArt/bramble-native.png": "0b1fa85c",
-  "assets/Objects/Approved/Sources/WorldArt/fort-a-restored.png": "87b1f493",
-  "assets/Objects/Approved/Sources/WorldArt/fort-a-unrestored.png": "13649be7",
   "assets/Objects/Approved/Sources/WorldArt/general-0.png": "f7105cb2",
   "assets/Objects/Approved/Sources/WorldArt/general-1.png": "8b761af4",
   "assets/Objects/Approved/Sources/WorldArt/general-3.png": "69ce4145",
@@ -523,8 +518,6 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/all-floors.png": "c30adc48",
   "assets/Objects/BuildingMaterials/all-walls.png": "b6ea82c2",
   "assets/Objects/BuildingMaterials/approved-materials-v1.png": "d4596946",
-  "assets/Objects/BuildingMaterials/reference-materials-v1.png": "bda4fb3a",
-  "assets/Objects/BuildingMaterials/reference-materials-v2.png": "1a55bdaa",
   "assets/Objects/BuildingMaterials/reference-materials-v3.png": "38fc2ff3",
   "assets/Objects/BuildingMaterials/source/b4-facade/awningblueSlate.png": "28849365",
   "assets/Objects/BuildingMaterials/source/b4-facade/awningplum.png": "9d4a51ea",

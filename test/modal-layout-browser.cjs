@@ -3,10 +3,11 @@ const assert = require('node:assert/strict');
 const { chromium } = require('playwright-core');
 
 (async () => {
+  const env = { ...process.env }; delete env.DISPLAY;
   const browser = await chromium.launch({ executablePath: process.env.PW_CHROMIUM || '/usr/bin/chromium',
-    headless: true, args: ['--no-sandbox', '--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
+    env, headless: true, args: ['--no-sandbox', '--ozone-platform=headless', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
   try {
-    for (const [width, height] of [[320, 568], [390, 844], [768, 1024], [1280, 900]]) {
+    for (const [width, height] of (process.env.MODAL_DESKTOP_ONLY ? [[1280, 900]] : [[320, 568], [390, 844], [768, 1024], [1280, 900]])) {
       const page = await browser.newPage({ viewport: { width, height }, serviceWorkers: 'block' });
       const errors = [];
       page.on('pageerror', e => errors.push(e.message));
@@ -16,11 +17,15 @@ const { chromium } = require('playwright-core');
       await page.evaluate(() => {
         window.staticDialogs = ['howto', 'story', 'bootload'].map(id => document.getElementById(id)?.cloneNode(true));
       });
-      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'plain', 'square-story', 'square-night', 'book', 'restore-list', 'menu']) {
+      for (const kind of ['coins', 'relic', 'pick', 'offer', 'portrait', 'long-story', 'plain', 'square-story', 'square-night', 'square-long', 'portrait-art-long', 'wreck', 'book', 'long-speech', 'x-mark']) {
         await page.evaluate(kind => {
           const s = window.__scene;
           document.querySelectorAll('.game-modal').forEach(el => el.remove());
           const long = 'This is a longer description of a discovery, with enough words to explain its effect and how to use it. ';
+          if (kind === 'wreck') s.showOfferModal({ kind: 'build', get: 'Restore a wreck', choices: Array.from({length: 24}, (_, i) => ({key: String(i), label: `Building ${i + 1}`, info: long})), cost: '25 wood', canAfford: true, onAccept: () => {} });
+          if (kind === 'book') { const shell = s.makeModalShell('test-book', {kind:'story', bookPage:true}); shell.box.innerHTML = long.repeat(30) + '<button>Finish reading</button>'; shell.mount(); }
+          if (kind === 'long-speech') s.showMessageModal({kind:'talk', kindLabel:'Tilly', body:long.repeat(30)});
+          if (kind === 'x-mark') s.showChestRewardModal({name:'Buried treasure', sub:long.repeat(30)});
           if (kind === 'coins') s.showChestRewardModal({ name: 'Coins', qty: '× 250', iconHTML: s.coinIconHTML(48) });
           if (kind === 'relic') s.showChestRewardModal({ name: 'Ring of Gathering', tier: 3,
             iconHTML: s.iconSpanHTML('coin_ring', 48), sub: 'Loose coins slide across the ground toward its golden band.' });
@@ -53,7 +58,14 @@ const { chromium } = require('playwright-core');
             mount();
           }
         }, kind);
-        await page.waitForTimeout(350);
+        // Measure final layout after the shell's entrance, even under renderer load.
+        // Loading mosaics may loop forever; only finite dialog animations settle.
+        await page.locator('.game-modal').evaluate(async wrap => {
+          const animations = wrap.getAnimations({subtree: true}).filter(animation =>
+            Number.isFinite(animation.effect.getComputedTiming().iterations));
+          await Promise.all(animations.map(animation => animation.finished.catch(() => {})));
+          await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        });
         if (kind === 'pick') {
           await page.getByRole('button', { name: 'Ring of Gathering', exact: true }).click();
           await page.waitForTimeout(100);
@@ -73,37 +85,38 @@ const { chromium } = require('playwright-core');
                 size: style.backgroundSize, story: wrap.dataset.kind === 'story', scrim: style.backgroundImage };
             })(),
             pages: !!pages,
-            buttonsVisible: [...content.querySelectorAll('button')].filter(el => el.getClientRects().length).every(el => {
-              const r = el.getBoundingClientRect(), v = body.getBoundingClientRect();
-              return r.left >= v.left - 1 && r.right <= v.right + 1 && r.top >= v.top - 1 && r.bottom <= v.bottom + 1;
-            }),
             contentHeight: content.scrollHeight, bodyHeight: body.clientHeight,
             scroll: [...wrap.querySelectorAll('*')].filter(el => el.clientHeight && el.scrollHeight > el.clientHeight + 2
               && /auto|scroll/.test(getComputedStyle(el).overflowY)).map(el => el.className),
+            box: {top:box.top,bottom:box.bottom,height:box.height,viewport:innerHeight,transform:getComputedStyle(wrap.querySelector('.modal-box')).transform},
             boxVisible: box.top >= -1 && box.bottom <= innerHeight + 1,
           };
         });
         const m = await measure();
-        if (kind !== 'restore-list') assert.deepEqual(m.scroll, [], `${width} ${kind}: no scrolling ${JSON.stringify(m)}`);
-        assert(m.boxVisible, `${width} ${kind}: dialog fits screen`);
+        assert(m.scroll.every(name => name === 'modal-copy'), `${width} ${kind}: only copy scrolls ${JSON.stringify(m)}`);
+        assert.equal(m.pages, false, `${width} ${kind}: no pagination controls`);
+        assert(m.boxVisible, `${width} ${kind}: dialog fits screen ${JSON.stringify(m.box)}`);
         if (m.art) {
           assert.equal(m.art.position, '50% 0%', `${kind}: art preserves its top edge`);
           assert.equal(m.art.size, m.art.story ? 'cover' : '100% auto', `${kind}: width-fit art`);
+          assert(m.art.height >= 60, `${kind}: art remains visible`);
           if (kind.startsWith('square-')) {
             assert(m.art.bottom <= m.art.bodyTop + 1, `${kind}: copy sits below art`);
+
             assert(m.art.height <= m.art.width + 1, `${kind}: visible art never stretches`);
             assert(!m.art.scrim.includes('gradient'), `${kind}: artwork has no dark copy scrim`);
           }
         }
-        assert.equal(m.pages, false, `${width} ${kind}: no pagination`);
-        if (kind === 'restore-list') {
-          assert(m.scroll.includes('modal-copy'), 'expanding restore list can scroll');
+        if (['long-story', 'plain', 'square-long', 'portrait-art-long', 'book', 'long-speech', 'x-mark', 'wreck'].includes(kind)) {
+          assert(m.scroll.includes('modal-copy'), `${width} ${kind}: long copy scrolls`);
           await page.locator('.modal-copy').evaluate(el => { el.scrollTop = el.scrollHeight; });
-          assert(await page.locator('.modal-copy').evaluate(el => el.scrollTop > 0), 'list scroll reaches later entries');
-          await page.getByRole('button', { name: 'Restore building 30', exact: true }).click();
-        } else {
-          assert(m.contentHeight <= m.bodyHeight + 2, `${width} ${kind}: content not clipped ${JSON.stringify(m)}`);
-          assert(m.buttonsVisible, `${width} ${kind}: actions visible without paging or scrolling`);
+          const lastButton = page.locator('.game-modal button').last();
+          await lastButton.focus();
+          const visible = await lastButton.evaluate(el => {
+            const b = el.getBoundingClientRect(), p = el.closest('.modal-box').getBoundingClientRect();
+            return b.top >= p.top - 1 && b.bottom <= p.bottom + 1;
+          });
+          assert(visible, `${kind}: final action is reachable by scrolling and focus`);
         }
         if (process.env.MODAL_SCREENSHOTS && width === 390 && ['relic', 'pick'].includes(kind)) {
           require('node:fs').mkdirSync(process.env.MODAL_SCREENSHOTS, { recursive: true });
@@ -111,6 +124,16 @@ const { chromium } = require('playwright-core');
         }
         console.log(`${width}×${height} ${kind} passed`);
       }
+      await page.evaluate(() => {
+        document.querySelectorAll('.game-modal').forEach(el => el.remove());
+        window.selectedRecipe = null;
+        window.__scene.showOfferModal({ kind: 'forge', get: 'Copper bar', cost: '2 ore', canAfford: true,
+          onAccept: () => { throw new Error('Selecting a recipe must not buy it'); },
+          selector: { label: 'Bar', index: 0, options: ['Copper', 'Iron'].map(label => ({label,
+            onSelect: () => { window.selectedRecipe = label; }})) } });
+      });
+      await page.getByRole('combobox', {name: 'Bar'}).selectOption('1');
+      assert.equal(await page.evaluate(() => window.selectedRecipe), 'Iron', 'named selector opens the selected recipe');
       const standalone = await page.evaluate(() => {
         document.querySelectorAll('.game-modal').forEach(el => el.remove());
         const results = [];

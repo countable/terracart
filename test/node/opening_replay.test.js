@@ -66,7 +66,7 @@ test('opening: the FULL sequence is four slides, in order, each with its own art
   // missing, so what the sequence IS gets pinned beside the flag that plays it.
   const slides = html.slice(html.indexOf('const STORY_SLIDES = ['), html.indexOf('let __storyStarted'));
   const arts = [...new Set([...slides.matchAll(/assets\/art\/(story_\w+)\.webp/g)].map((m) => m[1]))]
-    .filter(stem => !/_frame\d+$/.test(stem));
+    .filter(stem => !/_frame\d+$/.test(stem) && !stem.endsWith('_close'));
   assert.eq(arts.length, 4, 'four slides');
   assert.eq(arts[0], 'story_compass', 'discovery comes before the dream');
   assert.eq(arts[1], 'story_nightmare', 'the nightmare comes before waking');

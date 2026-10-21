@@ -1,6 +1,6 @@
 // The modal SHELL — the one dialog box every DOM dialog in the game is built
 // in: makeModalShell (the 4:3 scene frame, separate copy region, kind header
-// and responsive content fitting), the stock dialogs
+// and scrollable copy), the stock dialogs
 // built on it (showMessageModal, showConfirmModal, showOfferModal,
 // showChestRewardModal), and
 // the gate that mirrors "a dialog is open" onto body.modal-open
@@ -33,8 +33,8 @@
 // fallback geometry before the stylesheet loads.
 const STORY_MODAL_GROW_PX = 96;
 // Scene paintings share a full-width crop under the fixed dragon rail.
-// Approved 4:3 scenes start at full frame; copy and actions occupy
-// a separate viewport, with art giving space to copy when needed.
+// Approved 4:3 scenes keep their full frame; copy and actions occupy
+// a separate scrolling viewport when the content needs more room.
 
 // ── What KIND of dialog is this? ────────────────────────────────────────────
 // Every modal opens with one of these: a hero icon and a one-word category, so
@@ -116,11 +116,11 @@ class SceneModals {
   //   borderColor — defaults to the CONTROL gold: an ordinary dialog is
   //             something the player drives. Treasure ceremonies override it
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
-  //   scroll — only for growing catalogs and lists. Fixed content fits
-  //             the available space without scrolling or pagination.
+  //   scrollContent — keep offer price/actions below the scrolling copy.
+  //             Every dialog scrolls naturally when its content overflows.
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scroll = false, scrollContent = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scrollContent = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a 4:3 image above its copy.
@@ -176,7 +176,7 @@ class SceneModals {
       `background:#000;color:#fff;` +
       `border:2px solid ${frameBorder};border-radius:10px;padding:10px 12px;` +
       `font:13px var(--font-ui);` +
-      // Content fits the available panel; the box never grows beyond the screen.
+      // Content scrolls inside the box; the box never grows beyond the screen.
       `overflow:hidden;` +
       (textAlign ? `text-align:${textAlign};` : '') +
       boxExtra;
@@ -316,7 +316,7 @@ class SceneModals {
     }
     const mount = () => {
       // The body holds the art or portrait above a fitted copy viewport.
-      // Copy and buttons stay together in one view. Short unpainted dialogs retain their centred content.
+      // Copy and buttons stay together in one scrolling region.
       const body = document.createElement('div');
       body.className = 'modal-body';
       body.style.cssText =
@@ -363,10 +363,9 @@ class SceneModals {
       if (spacer) body.appendChild(spacer);
       const viewport = document.createElement('div');
       viewport.className = 'modal-copy';
-      // Only expanding lists scroll; fixed copy stays in one fitted view.
-      viewport.style.cssText = scroll
-        ? 'flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;'
-        : 'flex:1 1 auto;min-height:0;overflow:hidden;';
+      // All dialog overflow scrolls vertically at its original readable size.
+      viewport.style.cssText = 'flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;';
+      viewport.tabIndex = 0;
       viewport.appendChild(into);
       body.appendChild(viewport);
       box.style.overflow = 'hidden';
@@ -391,13 +390,13 @@ class SceneModals {
       // screen — body.modal-open is synced by a MutationObserver that runs
       // AFTER this tap's handler, so a dialog that REPLACES another in the
       // same tap (a recipe selection, a re-roll, a tab) still sees it set and swaps
-      // in place instead of popping on every page.
+      // in place instead of popping on every selection.
       box.classList.add('modal-box');
       if (!document.body.classList.contains('modal-open')) wrap.classList.add('modal-anim');
       wrap.appendChild(box);
       (speech ? document.body : document.getElementById('game') || document.body).appendChild(wrap);
       if (speech) { this._syncModalGate?.(); this._placeSpeechBubble(wrap, box, source); }
-      // Build cards stay in one scrollable grid; price and actions remain visible.
+      // Build cards and recipes scroll; price and actions remain visible.
       if (scrollContent) {
         wrap.classList.add('modal-scroll-content');
         viewport.style.overflowY = 'auto';
@@ -405,34 +404,24 @@ class SceneModals {
         viewport.style.overscrollBehavior = 'contain';
         into.style.margin = '0';
         into.style.padding = '4px';
-        if (spacer) spacer.style.height = 'clamp(100px, 28vh, 220px)';
         const footer = document.createElement('div');
         footer.className = 'modal-offer-footer';
         footer.style.cssText = 'flex:0 0 auto;padding:8px 16px max(12px, env(safe-area-inset-bottom));';
         for (const node of into.querySelectorAll('.offer-cost, .offer-actions')) footer.appendChild(node);
-        body.appendChild(footer);
-        return;
+        if (footer.childElementCount) body.appendChild(footer);
       }
-      // Fixed dialogs fit in one view: give copy space before decoration,
-      // then tighten spacing on short screens. Only growing lists scroll.
+      // Keep a bounded painting above the scroll region, including short phones.
       let frame = 0;
       const fit = () => {
         frame = 0;
-        if (!wrap.isConnected) return;
-        wrap.classList.remove('modal-compact');
-        const fitArt = () => {
-          if (!spacer) return;
-          const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
-          const minimum = Math.min(full, parseFloat(box.style.getPropertyValue('--panel-rail-height')) + 8);
-          spacer.style.height = `${full}px`;
-          const deficit = into.scrollHeight - viewport.clientHeight;
-          if (deficit > 0) spacer.style.height = `${Math.max(minimum, full - deficit)}px`;
-        };
-        fitArt();
-        if (!scroll && into.scrollHeight > viewport.clientHeight + 1) {
-          wrap.classList.add('modal-compact');
-          fitArt();
-        }
+        if (!wrap.isConnected || !spacer) return;
+        const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
+        // Reserve most of a short sheet for readable text and whole controls.
+        // Art stays independent of content length, so long copy never erases it.
+        const footerHeight = body.querySelector('.modal-offer-footer')?.offsetHeight || 0;
+        const available = Math.max(0, body.clientHeight - footerHeight);
+        const minimum = Math.min(100, available * .35);
+        spacer.style.height = `${Math.min(full, Math.max(minimum, available * .5))}px`;
       };
       const scheduleFit = () => {
         if (!frame) frame = requestAnimationFrame(fit);
@@ -561,6 +550,83 @@ class SceneModals {
     removed.observe(document.body, { childList: true });
   }
 
+  // Station controls above an offer or a pick grid: a top-right ghost action
+  // (a workbench's Pick up) and a tab row (Home's Sell / Craft). Each tab is
+  // { label, active, onSelect }; tapping an inactive tab leaves this dialog
+  // and onSelect re-presents the sibling — cheap tabs without a stateful panel.
+  _stationChrome(box, mkBtn, { topAction, tabs, isClosed, leave }) {
+    if (topAction) {
+      const topRow = document.createElement('div');
+      topRow.className = 'offer-top-actions';
+      topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:6px;';
+      const button = mkBtn(topAction.label, { variant: 'ghost' });
+      button.addEventListener('click', e => {
+        e.stopPropagation();
+        if (isClosed()) return;
+        if (topAction.onClick() !== false) leave();
+      });
+      topRow.appendChild(button);
+      box.appendChild(topRow);
+    }
+    if (tabs && tabs.length) {
+      const tabRow = document.createElement('div');
+      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:4px;';
+      for (const t of tabs) {
+        const tb = mkBtn(t.label, { variant: 'ghost', css:
+          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
+          + (t.active
+              ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
+              : 'color:#999;') });
+        if (!t.active) {
+          tb.addEventListener('click', (e) => { e.stopPropagation(); if (isClosed()) return; leave(); t.onSelect(); });
+        }
+        tabRow.appendChild(tb);
+      }
+      box.appendChild(tabRow);
+    }
+  }
+
+  // A station's PICK GRID: every option at once as icon cards (a workbench's
+  // recipes). A long grid scrolls — it is browsed, not a transaction — and a
+  // tap leaves for that option's own offer (`onSelect`), which comes back with
+  // ‹ Back. `ready` cards say so in green; the rest stay tappable so their
+  // ingredients can be read. Backdrop and × close.
+  //   items: [{ label, iconHTML, note, ready, onSelect }]
+  showPickGridModal({ title, items, kind, kindLabel, kindIcon, tabs, topAction, art }) {
+    let closed = false;
+    const close = () => {
+      if (closed) return false;
+      closed = true;
+      wrap.remove();
+      return true;
+    };
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
+      { onClose: () => { closed = true; }, kind, kindLabel, kindIcon, art, scrollContent: true });
+    wrap.classList.add('pick-grid-modal');
+    this._stationChrome(box, mkBtn, { topAction, tabs, isClosed: () => closed, leave: close });
+    if (title) {
+      const titleDiv = document.createElement('div');
+      titleDiv.style.cssText = 'opacity:.75;font-size:12px;margin:2px 0 8px';
+      titleDiv.textContent = title;
+      box.appendChild(titleDiv);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'pick-grid';
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px;margin:0 0 6px;';
+    for (const item of items) {
+      const card = mkBtn(`<div style="font-size:0;margin-bottom:3px">${item.iconHTML || ''}</div>`
+        + `<div style="line-height:1.2">${item.label}</div>`
+        + (item.note ? `<div style="font:400 11px var(--font-ui);margin-top:2px;color:${item.ready ? '#a7ffb0' : '#bdb5a4'}">${item.note}</div>` : ''),
+        { variant: 'ghost', css: 'padding:8px 4px 6px;font:700 12px var(--font-ui);border-radius:7px;min-width:0;'
+          + (item.ready ? 'border-color:#6fae6f;' : 'opacity:.8;') });
+      card.classList.add('pick-card');
+      card.addEventListener('click', (e) => { e.stopPropagation(); if (close()) item.onSelect(); });
+      grid.appendChild(card);
+    }
+    box.appendChild(grid);
+    mount();
+  }
+
   // Canonical accept/cancel modal for a simple decision. The caller supplies
   // trusted body HTML because feed icons and prices are richer than plain
   // text; this method owns dismissal so every exit closes before one callback.
@@ -620,7 +686,7 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false }) {
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections }) {
     document.getElementById('offer-modal')?.remove();
     let dismissed = false;
     const dismiss = () => {
@@ -640,6 +706,33 @@ class SceneModals {
       ? `<div class="modal-title" style="opacity:.85;font-size:13px;margin-bottom:8px;color:#ffe066">${kind === 'memory' ? this.iconSpanHTML('memory', 18) + ' ' : ''}${title}</div>`
       : '';
     box.innerHTML = titleHTML + `<div class="${kind === 'spirit' || kind === 'talk' ? 'modal-speech' : ''}" style="margin:6px 0 12px;white-space:pre-wrap">${safeBody}</div>`;
+    if (sections) {
+      box.innerHTML = '';
+      for (const panel of sections) {
+        const section = document.createElement('section');
+        section.className = 'modal-story-section';
+        section.style.cssText = 'margin:0 0 18px;';
+        if (panel.art) {
+          const painting = document.createElement('img');
+          painting.src = sceneArtUrl(panel.art);
+          painting.alt = '';
+          painting.style.cssText = 'display:block;width:100%;height:auto;margin:0 0 10px;image-rendering:pixelated;';
+          section.appendChild(painting);
+        }
+        if (panel.title) {
+          const heading = document.createElement('div');
+          heading.className = 'modal-title';
+          heading.style.cssText = 'color:#ffe066;margin-bottom:8px;';
+          heading.textContent = panel.title;
+          section.appendChild(heading);
+        }
+        const text = document.createElement('div');
+        text.style.whiteSpace = 'pre-wrap';
+        text.innerHTML = String(panel.body || '').replace(/\n/g, '<br>');
+        section.appendChild(text);
+        box.appendChild(section);
+      }
+    }
     const speech = kind === 'spirit' || kind === 'talk';
     const btn = mkBtn(okLabel || (speech ? 'Got it' : 'OK'));
     btn.addEventListener('click', (e) => {
@@ -783,6 +876,10 @@ class SceneModals {
   //   disabledReason: explain a non-money blocker without marking the cost unaffordable
   //   onAccept:     called after the modal closes
   //   repeat:       re-present a counter after each transaction with live state
+  //                 (the backdrop and × still leave it, as they leave any offer)
+  //   back:         OPTIONAL fn — the cancel button becomes ‹ Back and re-presents
+  //                 the list this offer was picked from (a station's recipe grid);
+  //                 the backdrop and × still leave entirely.
   //   onCancel:     optional work deferred until the player leaves
   //   acceptLabel:  primary button label ('Buy' default; 'Sell' / 'Trade'…)
   //   cancelLabel:  dismiss button label. Defaults to 'Cancel'; pass 'Later'
@@ -799,8 +896,8 @@ class SceneModals {
   //                 House — and the button greys on a card it refuses.
   //   topAction:    OPTIONAL { label, onClick } — top-right ghost station control.
   //                 Returning false keeps the offer open when the action is refused.
-  //   pager:        OPTIONAL recipe selector: index, options with label/onSelect,
-  //                 iconHTML and caption. Shows named choices without pages.
+  //   selector: OPTIONAL { label, index, options: [{ label, onSelect }] }
+  //             — a named recipe selector; changing it does not buy anything.
   //   choices:      OPTIONAL [{ key, label, info, iconHTML?, suggested?, cost?, canAfford?, disabled? }]
   //                 — the offer is ONE OF several things (what a wreck is
   //                 restored as). Laid out as cards between the headline and
@@ -815,7 +912,7 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
-  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, pager, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
+  showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, back, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, selector, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
     // this dialog, so the dialog that reopens prints them as its receipt.
@@ -829,45 +926,14 @@ class SceneModals {
       return true;
     };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal',
-      { onClose: repeat ? undefined : () => close(), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
-        scrollContent: kind === 'build' && choices?.length > 0 });
+      { onClose: () => close(), kind, kindLabel, kindIcon, art, portrait, fullscreen, source,
+        // Build cards and crafting recipes scroll above a pinned cost and
+        // actions; turning pages split the ingredients from Craft.
+        scrollContent: (kind === 'build' && choices?.length > 0) || kind === 'craft' });
     // Transitions and acceptance retain pending work; leaving or interruption
     // releases it exactly once, after the wrapper is out of the document.
     wrap.closeModal = close;
-    // Station controls stay above the recipe and never enter the transaction.
-    if (topAction) {
-      const topRow = document.createElement('div');
-      topRow.className = 'offer-top-actions';
-      topRow.style.cssText = 'display:flex;justify-content:flex-end;margin-bottom:6px;';
-      const button = mkBtn(topAction.label, { variant: 'ghost' });
-      button.addEventListener('click', e => {
-        e.stopPropagation();
-        if (closed) return;
-        if (topAction.onClick() !== false) close('transition');
-      });
-      topRow.appendChild(button);
-      box.appendChild(topRow);
-    }
-    // Optional tab row (e.g. the blacksmith's Forge / Smelt switch). Each tab
-    // is { label, active, onSelect }. Tapping an inactive tab closes this modal
-    // and calls onSelect, which re-presents the sibling modal — cheap "tabs"
-    // without restructuring the single-offer modal into a stateful panel.
-    if (tabs && tabs.length) {
-      const tabRow = document.createElement('div');
-      tabRow.style.cssText = 'display:flex;gap:4px;justify-content:center;margin-bottom:4px;';
-      for (const t of tabs) {
-        const tb = mkBtn(t.label, { variant: 'ghost', css:
-          'flex:1;padding:6px 4px;border-radius:6px 6px 0 0;font:700 12px var(--font-ui);border-bottom:none;'
-          + (t.active
-              ? 'background:#3a3322;color:#ffe066;border-color:#c8a64a;'
-              : 'color:#999;') });
-        if (!t.active) {
-          tb.addEventListener('click', (e) => { e.stopPropagation(); close('transition'); t.onSelect(); });
-        }
-        tabRow.appendChild(tb);
-      }
-      box.appendChild(tabRow);
-    }
+    this._stationChrome(box, mkBtn, { topAction, tabs, isClosed: () => closed, leave: () => close('transition') });
     // Built from individual nodes so choice controls can update the
     // get/cost lines without re-rendering the whole modal.
     if (title) {
@@ -896,41 +962,30 @@ class SceneModals {
         + 'border-top:1px solid rgba(200,166,74,.55);border-bottom:1px solid rgba(200,166,74,.55)'
       : 'font-size:16px;font-weight:700;margin:2px 0;color:#ffe066';
     getDiv.innerHTML = get ?? '';
-    if (pager?.options?.length) {
-      // Recipe counters can jump straight to any known recipe, including
-      // unavailable ones whose ingredient requirements the player wants to see.
-      const picker = document.createElement('div');
-      picker.className = 'recipe-picker';
-      picker.style.cssText = 'display:grid;grid-template-columns:36px minmax(0,1fr);align-items:center;gap:10px;margin:4px 0;';
-      const icon = document.createElement('span');
-      icon.style.cssText = 'line-height:0;text-align:center;';
-      icon.innerHTML = pager.iconHTML || '';
+    if (selector && selector.options.length > 1) {
+      const label = document.createElement('label');
+      label.className = 'offer-selector';
+      label.textContent = `${selector.label}: `;
       const select = document.createElement('select');
-      select.setAttribute('aria-label', 'Recipe');
-      select.setAttribute('aria-describedby', 'offer-recipe-caption');
-      select.style.cssText = 'width:100%;min-width:0;min-height:44px;padding:8px;border:1px solid #8c7950;border-radius:6px;background:#211c15;color:#ffe066;font:700 15px var(--font-ui);';
-      pager.options.forEach((option, index) => {
+      select.setAttribute('aria-label', selector.label);
+      selector.options.forEach((option, index) => {
         const node = document.createElement('option');
-        node.value = String(index); node.textContent = option.label;
+        node.value = String(index);
+        node.textContent = option.label;
         select.appendChild(node);
       });
-      select.value = String(pager.index);
+      select.value = String(selector.index);
       select.addEventListener('change', (e) => {
         e.stopPropagation();
-        const selected = pager.options[Number(select.value)];
-        if (!selected || Number(select.value) === pager.index) return;
-        close('transition'); selected.onSelect();
+        const option = selector.options[Number(select.value)];
+        if (!option || closed) return;
+        close('transition');
+        option.onSelect();
       });
-      picker.appendChild(icon); picker.appendChild(select); box.appendChild(picker);
-      const caption = document.createElement('div');
-      caption.id = 'offer-recipe-caption';
-      caption.style.cssText = 'font-size:12px;color:#c9c1af;margin:0 0 4px;';
-      caption.textContent = pager.caption || `${pager.index + 1} / ${pager.count}`;
-      box.appendChild(caption);
-    } else if (get != null && get !== '') {
-      // No headline (the wreck's pick): the cards start at the top.
-      box.appendChild(getDiv);
+      label.appendChild(select);
+      box.appendChild(label);
     }
+    if (get != null && get !== '') box.appendChild(getDiv);
     if (blurb) {
       const blurbDiv = document.createElement('div');
       blurbDiv.style.cssText = 'font-size:11px;opacity:.75;margin-bottom:4px';
@@ -1051,10 +1106,14 @@ class SceneModals {
         : `<span style="color:#ddd">${esc(t.text)}</span>`).join('<br>');
       box.appendChild(status);
     }
-    const cancel = mkBtn(cancelLabel, false, false);
+    const cancel = mkBtn(back ? '‹ Back' : cancelLabel, false, false);
     const sec    = secondary ? mkBtn(secondary.label, false, !!secondary.disabled || !!(secondary.withChoice && hasChoices && !selected)) : null;
     const accept = mkBtn(acceptLabel, true, !canAfford || !!disabledReason || (hasChoices && !selected));
-    cancel.addEventListener('click', (e) => { e.stopPropagation(); close(); });
+    cancel.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (!back) { close(); return; }
+      if (close('transition')) back();
+    });
     let accepted = false;
     accept.addEventListener('click', (e) => {
       e.stopPropagation();

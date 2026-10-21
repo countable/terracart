@@ -25,7 +25,7 @@
   }
   // The billboard look (docs/art/lowpoly-building-styles.md): every number
   // the ink pass, projection and dressing share, so sprites and meshes keep
-  // agreeing. tools/building-billboard-preview.html edits this table live.
+  // agreeing. Authored exterior selection lives in authored_buildings.js.
   // restoredRoles lists the RESTORED_ROLES whose look is live; null makes all of them live.
   const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',facadeVariant:'A',restoredRoles:['relic'],eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
@@ -1568,8 +1568,62 @@
     panel(2.3,3.1,5.3,6.2,0xd4b775,.14);
     return faces;
   }
-  // Authored shells stay whole. Uniform placement preserves the reviewed roof,
-  // facade and closed seams; irregular OSM lots receive an enclosed native body.
+  // A reviewed model's skin (AuthoredBuildings.skin) on the lot's own walls:
+  // the procedural shape (geometry) supplies the walls along every ring edge,
+  // gables and the roof over the whole lot; every texel comes from the skin.
+  // Facades lay out complete source bays (sourceFacadeSlices) with the door
+  // once on the entrance wall; roofs repeat the skin's tiled roof in roof
+  // space; gables, fascia and beams take single source texels. `shade` is
+  // the depth renderer's only lighting, for slopes the art did not paint.
+  function authoredOutline(skin,ring,entrance=null){
+    const d=skin.texel,F=skin.facade,H=F.rows*d,R=skin.roof;
+    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance),faces=[];
+    const emit=(points,uv,kind,extra={})=>{if(points.length<3)return;
+      for(let i=1;i<points.length-1;i++){const ids=[0,i,i+1],ps=ids.map(j=>({x:points[j].x,y:points[j].y,z:points[j].z,tu:uv[j][0]/512,tv:uv[j][1]/1024}));
+        faces.push({...skin.template,points:ps,projected:ps.map(()=>({})),kind,layer:0,color:0xffffff,light:1,shade:1,sourceArt:true,rawUV:true,preserveWalls:true,feature:'body',
+          fallbackUV:[skin.wall[0]/512,skin.wall[1]/1024],wallDirection:undefined,...extra});}};
+    const constant=(points,[u,v],kind,extra)=>emit(points,points.map(()=>[u,v]),kind,extra);
+    const clipZ=(poly,z,side)=>{const out=[];poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length],da=(a.z-z)*side,db=(b.z-z)*side;
+      if(da>=-1e-8)out.push(a);if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db);out.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:a.z+(b.z-a.z)*t,u:a.u+(b.u-a.u)*t,v:a.v+(b.v-a.v)*t});}});return out;};
+    // Split a polygon at every multiple of `period` along u or v, so each
+    // piece maps into one copy of a repeating texture region.
+    const tile=(poly,key,period)=>{const lo=Math.min(...poly.map(p=>p[key])),hi=Math.max(...poly.map(p=>p[key])),out=[];
+      for(let n=Math.floor(lo/period);n*period<hi-1e-7;n++){let piece=poly;
+        for(const [bound,side] of [[n*period,1],[(n+1)*period,-1]]){const next=[];piece.forEach((a,i)=>{const b=piece[(i+1)%piece.length],da=(a[key]-bound)*side,db=(b[key]-bound)*side;
+          if(da>=-1e-8)next.push(a);if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),q={};for(const k of ['x','y','z','u','v'])q[k]=a[k]+(b[k]-a[k])*t;next.push(q);}});piece=next;}
+        if(piece.length>=3)out.push(piece.map(p=>({...p,[key]:p[key]-n*period})));}
+      return out;};
+    // Walls: complete facade bays up to the eaves, along the ring's winding.
+    g.ring.forEach((a,i)=>{const b=g.ring[(i+1)%g.ring.length],L=Math.hypot(b.x-a.x,b.y-a.y);if(L<1e-6)return;
+      const at=(t,z)=>({x:a.x+(b.x-a.x)*t/L,y:a.y+(b.y-a.y)*t/L,z}),dir={wallDirection:{x:b.x-a.x,y:b.y-a.y}},len=L/d;
+      const parts=F.period?Array.from({length:Math.ceil(len/F.period-1e-6)},(_,k)=>{const l=k*F.period,r=Math.min(len,l+F.period);return [l,r,F.period,F.period-(r-l)];})
+        :sourceFacadeSlices(skin.spec,len).parts;
+      for(const [l,r,u0,u1] of parts)emit([at(l*d,0),at(r*d,0),at(r*d,H),at(l*d,H)],[[u0,F.v+F.rows],[u1,F.v+F.rows],[u1,F.v],[u0,F.v]],'wall',dir);
+      if(i===g.entranceEdge){const D=skin.door,W=skin.spec.right-skin.spec.left;
+        const center=F.period?len/2:sourceFacadeSlices(skin.spec,len).center,from=Math.max(0,Math.min(len-D.w,F.period?center-D.w/2:center+W/2-(D.u-skin.spec.left)-D.w));
+        if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+nx,y:p.y+ny}),z0=D.bottom*d,z1=z0+D.h*d;
+          emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});}
+      }
+    });
+    for(const f of g.faces){
+      // The procedural stack has no source art; the skin keeps its roofline.
+      if(f.chimney)continue;
+      if(f.kind==='wall'){const upper=clipZ(f.points,H,1);if(upper.length>=3)constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});continue;}
+      if(f.kind==='roof'){
+        // Flat decks run in plan; slopes run along the eave and downhill.
+        const pts=f.points.map(p=>({...p,u:(skin.flat?p.x:p.u)/d,v:(skin.flat?p.y:p.v)/d}));
+        const shade=skin.flat?1:f.light<.65?.78:f.light<.88?.9:1;
+        for(const across of tile(pts,'u',R.w))for(const piece of tile(across,'v',R.h))
+          emit(piece,piece.map(p=>[R.u+Math.max(.5,Math.min(R.w-.5,p.u)),R.v+Math.max(.5,Math.min(R.h-.5,p.v))]),'roof',{roofPalette:true,shade,layer:2,fallbackUV:[(R.u+.5)/512,(R.v+.5)/1024]});
+        continue;
+      }
+      // Fascia, ridge beams and flat rims: single roof-colour texels.
+      const texel=f.rim?[500.5,620.5]:f.rimShade?[508.5,620.5]:[R.u+2.5,R.v+2.5];
+      constant(f.points,texel,'roof',{roofPalette:true,shade:f.rimShade?.8:f.beam?(f.light<.8?.82:1.06):.72,layer:f.layer||2});
+    }
+    skin.recolor(faces);
+    return {ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,entranceEdge:g.entranceEdge};
+  }
   function authoredGeometry(model,ring,inset=1,door=null){
     if(door){const {x:nx,y:ny}=door.normal;
       model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,x:ny*p.x+nx*p.y*.5,y:(-nx*p.x+ny*p.y*.5)*2}))}))};
@@ -1629,15 +1683,20 @@
     // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
-    const authored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined'?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
+    const useAuthored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined';
+    // A reviewed skin goes on the lot's own walls; only the exempt landmarks
+    // (AuthoredBuildings.skin) keep a whole shell fit inside their lot.
+    const skin=useAuthored?AuthoredBuildings.skin(scene,recipe.authored.key,recipe.authored.palette):null;
+    const authored=useAuthored&&!skin?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
-    const door=authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
+    const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null):authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    const texture=authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
-    if(!authored){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
+    const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
+    if(!authored&&!skin){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
@@ -1792,5 +1851,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={authoredGeometry,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={authoredGeometry,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

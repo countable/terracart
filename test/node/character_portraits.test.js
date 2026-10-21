@@ -47,17 +47,17 @@ test('character portraits: every authored role and culture resolves its matching
   assert.eq(CharacterPortraits.npc({ role: 'wizard' }), 'assets/portraits/wizard.png');
 });
 
-test('character portraits: paged NPC speech retains the face through Next', () => {
+test('character portraits: scrolling NPC speech retains one face for all paragraphs', () => {
   const shown = [];
   MemoryStory.showPages({ showMessageModal: options => shown.push(options) }, ['one', 'two'],
     { ...NPC.speech({ name: 'Bryn', roleLabel: 'Mason' }), portrait: 'assets/portraits/mason.png' });
   assert.eq(shown[0].portrait, 'assets/portraits/mason.png');
   shown[0].onDismiss();
-  assert.eq(shown[1].portrait, shown[0].portrait);
+  assert.eq(shown.length, 1);
   // Every page keeps the role beside the name, without a separate title row.
   for (const page of shown) {
     assert.eq(page.kind, 'talk'); assert.eq(page.kindLabel, 'Bryn, Mason'); assert.eq(page.title, undefined);
   }
   assert.truthy(/talk:\s*\{ icon: '💬', label: 'Talk' \}/.test(SCENE_SRC), 'the talk kind is the chat bubble');
-  assert.eq(shown[1].body, 'two');
+  assert.eq(shown[0].body, 'one\n\ntwo');
 });

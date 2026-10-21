@@ -6,6 +6,7 @@
       save: { inv: [{ id: 'wood', count: 5 }, { id: 'rubble', count: 3 }],
         furniture: [record], selSlot: -1 }, depth: 0, record, modals: [], flashes: [],
       showOfferModal(modal) { this.modals.push(modal); },
+      showPickGridModal(modal) { this.modals.push({ grid: true, ...modal }); },
       iconSpanHTML: () => '', worldIconHTML: () => '',
       flash(message) { this.flashes.push(message); },
       flashAtPlayer(message) { this.flashes.push(message); }, flashLoot() {},
@@ -30,14 +31,14 @@
     assert.falsy(homeRecipeLocked(s.save, 'workbench'));
     s.presentHomeCraft(0, 0, 'throwing_spear');
     const modal = last(s);
-    assert.eq(modal.pager.count, 1);
-    assert.eq(modal.pager.options[0].label, itemName('workbench'));
+    assert.includes(modal.get, itemName('workbench'), 'Home crafts its one recipe, no grid');
+    assert.eq(modal.back, undefined);
     assert.truthy(modal.canAfford);
     modal.onAccept(); modal.repeat();
     assert.eq(Inventory.count(s.save, 'workbench'), 1);
     assert.eq(Inventory.count(s.save, 'wood'), 2);
     assert.eq(Inventory.count(s.save, 'rubble'), 2);
-    assert.eq(last(s).pager.options[0].label, itemName('workbench'));
+    assert.includes(last(s).get, itemName('workbench'));
   });
 
   test('workbench: indoors and outdoors craft the spear and retain selection without Home selling', () => {
@@ -46,13 +47,13 @@
       s.presentWorkbench(s.record, 'throwing_spear');
       const modal = last(s);
       assert.truthy(modal.canAfford);
-      assert.eq(modal.pager.options[0].label, itemName('throwing_spear'));
-      assert.falsy(modal.pager.options.some(o => o.label === itemName('workbench')));
+      assert.includes(modal.get, itemName('throwing_spear'));
+      assert.falsy(modal.back, 'the spear alone is known: no grid to return to');
       assert.falsy(modal.tabs, 'station cannot expose remote Home selling');
       modal.onAccept(); modal.repeat();
       assert.eq(Inventory.count(s.save, 'throwing_spear'), 1);
       assert.eq(Inventory.count(s.save, 'wood'), 4);
-      assert.eq(last(s).pager.options[last(s).pager.index].label, itemName('throwing_spear'));
+      assert.includes(last(s).get, itemName('throwing_spear'));
     }
   });
 

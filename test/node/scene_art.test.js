@@ -60,7 +60,7 @@ test('scene art: shared crop above fitted copy without scrolling', () => {
   const region = shell.slice(from, shell.indexOf('box.appendChild(body)', from));
   assert.truthy(region.includes('flex:1 1 auto;') && region.includes('overflow:hidden;'), 'the body fills the box without scrolling');
   assert.truthy(region.includes("viewport.className = 'modal-copy'") && region.includes('viewport.appendChild(into)'), 'copy has its own fitted viewport below the art');
-  assert.falsy(/overflow-y:auto;/.test(region.replace(/scroll\n\s*\? '[^']*'/, '')), 'neither body nor copy scrolls — except the menu\'s `scroll` viewport');
+  assert.truthy(region.includes('overflow-y:auto;'), 'all overflowing dialog copy scrolls');
   assert.truthy(region.includes("art ? 'margin:0;flex:0 0 auto;'"), 'copy follows the image region, including ceremonies');
   assert.truthy(region.includes('spacer.append(mosaicLayer, artLayer)'), 'painting and mosaic share the crop above copy');
   assert.truthy(shell.includes("backgroundSize = kind === 'story' ? 'cover' : '100% auto'"), 'crop scales uniformly without distortion');
@@ -74,15 +74,16 @@ test('scene art: generic Story is omitted and useful categories follow the image
   const sceneShell = shell.slice(shell.indexOf('  makeModalShell('), shell.indexOf('  _placeSpeechBubble('));
   assert.truthy(sceneShell.includes('const resize = new ResizeObserver(scheduleFit)'), 'viewport changes refit the content');
   assert.truthy(sceneShell.includes('const changes = new MutationObserver(scheduleFit)'), 'live content changes refit the content');
-  assert.falsy(sceneShell.includes("pages.className = 'modal-pages'") || sceneShell.includes('into.style.columnWidth'),
-    'the shared shell never paginates dialog content');
-  assert.truthy(/viewport\.style\.cssText = scroll\n\s*\? 'flex:1 1 auto;min-height:0;overflow-y:auto;/.test(sceneShell),
-    'explicit growing-list dialogs can scroll');
+  assert.truthy(sceneShell.includes('available * .5'), 'art leaves half the available body for copy');
+  assert.falsy(sceneShell.includes('modal-pages') || sceneShell.includes('columnWidth'), 'dialog overflow never creates pages or columns');
+  assert.truthy(sceneShell.includes('overflow-y:auto;'), 'all dialog copy scrolls');
+
 });
 
 test('scene art: new generated scenes use full 4:3 compositions', () => {
   assert.truthy(/const SCENE_ASPECT = 4 \/ 3;/.test(STORY_ART_GEN_SRC), 'new scene generation is 4:3');
   assert.truthy(/size: '1536x1024', width: 512, aspect: SCENE_ASPECT/.test(STORY_ART_GEN_SRC), 'landscape source exports 4:3');
+  assert.truthy(shell.includes('Math.min(full, Math.max(minimum, available * .5))'), 'art is bounded independently of content length');
   assert.truthy(shell.includes('fullFrameArt ? body.clientWidth / artAspect'), 'approved art height matches its intrinsic aspect');
 });
 

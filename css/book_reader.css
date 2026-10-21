@@ -11,6 +11,7 @@
   text-shadow: none !important;
   scrollbar-color: #a2854c #000;
 }
+.compass-panel.book-page-modal .modal-copy { scrollbar-color: #a2854c #e9cd91; }
 .compass-panel.book-page-modal .modal-content {
   margin: 0 !important;
   text-align: center;

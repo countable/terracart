@@ -113,6 +113,9 @@ sandbox persistence behaviour is unchanged.
 Add `&skipStory=true` to bypass the opening slides, location/safety splash and
 initial how-to card in sandbox mode. No location or compass permission is
 requested by this shortcut. It does not mark the story as seen in normal play.
+Outside the sandbox, `?skipIntro=true` skips only the opening slides and the
+how-to card for testing; the location splash still asks, and nothing is marked
+seen. Sandbox `skipStory=true` implies it.
 Add `&skipTutorial=true` to hide the tutorial guidance and automatic compass
 activation panes, and make every compass control available for testing. This
 is a session override: saved tutorial progress and unlocks are not rewritten.

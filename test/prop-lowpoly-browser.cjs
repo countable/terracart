@@ -105,12 +105,12 @@ const output = process.env.PROP_REVIEW_OUTPUT || '/tmp/prop-lowpoly-review';
       }
       const firstCount = group.blocks.length;
       Render.drawLowPolyProps(s,items.slice(1));
-      const removed = !s._wallPerspective?.looseProps || s._wallPerspective.looseProps.parts.every(p=>!p.visible);
+      const removed = group.blocks.length === firstCount-1 && !group.parts[firstCount-1].visible;
       Render.drawLowPolyProps(s,items);
       document.querySelectorAll('#bootload,#story,#safety-card,#objective').forEach(e=>e.remove());
       return { covered:covered.size,second:second.size,blocks:firstCount,stable,removed,renderer:s.game.renderer.type };
     });
-    assert.equal(live.covered,1); assert.equal(live.second,1); assert.equal(live.blocks,1);
+    assert.equal(live.covered,3); assert.equal(live.second,3); assert.equal(live.blocks,3);
     assert(live.stable && live.removed); assert.deepEqual(gameErrors,[]);
     for (const angle of [0,45]) {
       await game.evaluate(deg => { __scene.mapRot=deg*Math.PI/180; __scene._applyMapZoom(); WallPerspective.update(__scene); },angle);

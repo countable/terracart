@@ -209,7 +209,8 @@ the map's turn reaches their runes or ticks as a frame of their rotation strip
 ellipse on its end.
 
 The home firepit is centred two cells due south of the house's centre after the
-first device-compass reading (see [Home](combat.md)), without an inward artwork
+first device-compass reading, or out front toward a street facing the door
+(see [Home](combat.md)), without an inward artwork
 nudge. The ring, matching fire, smoke, interaction and step-over footprint use
 that position. Its cold and lit states are both step-over props.
 
@@ -1055,8 +1056,12 @@ in [low-poly building styles](../art/lowpoly-building-styles.md).
 
 Source images load through `ASSETS`. `AuthoredBuildings.prepare` bakes shared
 materials and roof palettes at scene startup; cell rebuilds clone cached faces
-and fit a closed shell uniformly inside the footprint. No pixel reads or canvas
-texture creation occur during placement or compass updates. Home switches to
+and skin the procedural lot-outline shape with them: walls on the lot ring, the
+roof over the lot (`BuildingLowPoly.authoredOutline`, details in the styles
+doc). A shell fit inside a lot leaves its plank floor showing as a deck, so
+only wizard towers and the fort hall keep whole fitted shells. The depth
+renderer's per-face `shade` lights slopes the source art never painted. No pixel
+reads or canvas texture creation occur during placement or compass updates. Home switches to
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
 
@@ -1104,8 +1109,7 @@ cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
 by map and popup art. Barrels use only the cylindrical frame 3; the square
 variants are excluded. Crate popup icons and intact pots retain their stable ID-selected
-variants. On the map, mineral rocks use their existing sprite artwork, including
-material and zone variants. Only box containers use closed low-poly
+variants. On the map, box containers and mineral rocks use closed low-poly
 meshes from `prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. The source sprite pixels from `box.png` and `rocks-16.png` texture every
 face through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded,
 opaque atlas with `python3 tools/build_prop_materials.py`; its manifest records
@@ -1118,12 +1122,12 @@ visible/hidden face boundaries before the textured faces, leaving bases and inte
 facet seams unoutlined at every compass heading. These props share the wall
 renderer’s elevation projection and actor depth sorting at every compass angle,
 including north-up and underground. Movement offsets cached geometry; rotation
-reprojects vertices without rebuilding textures. Opened crates
+reprojects vertices without rebuilding textures. Opened crates and mined rocks
 leave the mesh batch through the existing spent-object filter. Inventory and
-popup art retain their existing atlas icons. `POT_SMASHED_FRAMES` pairs each selected pot with matching shards: terracotta
-uses frame 0 and cream uses frame 3. Location never changes the broken vessel’s
-colour. Selection does not change rewards, material identity,
-saved IDs or restocking behavior.
+popup art retain their existing atlas icons. `POT_SMASHED_FRAMES` pairs terracotta pots with shard frame 0 and
+cream pots with frame 3; zone, street and biome cannot change the broken pot's
+colour. Selection does not change rewards, material identity, saved IDs or
+restocking behavior.
 
 ## Building sprite artwork
 

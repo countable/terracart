@@ -20,11 +20,31 @@ const { chromium } = require('playwright-core');
         },theme);
         await page.waitForTimeout(150);
         assert.equal(await page.locator('.shop-shelf-row').count(),3);
-        const measure=()=>page.evaluate(()=>{
-          const el=document.getElementById('offer-modal'), body=el.querySelector('.modal-copy'),content=el.querySelector('.modal-content');
-          return {fit:content.scrollHeight<=body.clientHeight+2,scroll:content.scrollHeight,body:body.clientHeight};
-        });
-        assert((await measure()).fit,`${width} ${theme} fit: ${JSON.stringify(await measure())}`);
+        const assertReachable = async label => {
+          const layout = await page.evaluate(() => {
+            const modal = document.getElementById('offer-modal');
+            const copy = modal.querySelector('.modal-copy');
+            const content = modal.querySelector('.modal-content');
+            const fits = content.scrollHeight <= copy.clientHeight + 2;
+            const scrolls = /auto|scroll/.test(getComputedStyle(copy).overflowY)
+              && copy.scrollHeight > copy.clientHeight;
+            return { fits, scrolls, content: content.scrollHeight, viewport: copy.clientHeight };
+          });
+          assert(layout.fits || layout.scrolls, `${label}: copy fits or scrolls: ${JSON.stringify(layout)}`);
+          const lastAction = page.locator('#offer-modal .modal-copy button').last();
+          await lastAction.scrollIntoViewIfNeeded();
+          const reachable = await lastAction.evaluate(button => {
+            const rect = button.getBoundingClientRect();
+            const copy = button.closest('.modal-copy').getBoundingClientRect();
+            const x = (rect.left + rect.right) / 2, y = (rect.top + rect.bottom) / 2;
+            const hit = document.elementFromPoint(x, y);
+            return rect.top >= Math.max(0, copy.top) - 2
+              && rect.bottom <= Math.min(innerHeight, copy.bottom) + 2
+              && (hit === button || button.contains(hit));
+          });
+          assert(reachable, `${label}: final action is visible and reachable after scrolling`);
+        };
+        await assertReachable(`${width} ${theme}`);
         const before=await page.evaluate(()=>JSON.parse(JSON.stringify(__scene.shopBucketState(__shelfHouse).shelf)));
         const buy=page.locator('.shop-shelf-row button').first();
         if (await buy.count() && await buy.isEnabled()) {
@@ -53,11 +73,11 @@ const { chromium } = require('playwright-core');
             s.presentThemedShop(0,0,__shelfHouse,()=>ShopsMath.recordDeal(s.save,__shelfHouse));
           });
           await page.waitForTimeout(100);
-          assert((await measure()).fit,`${width} ${theme} full-bag fit: ${JSON.stringify(await measure())}`);
+          await assertReachable(`${width} ${theme} full bag`);
           assert.equal(await page.locator('.shop-shelf-row button:enabled').count(),0,'full stacks disable buying');
         }
       }
-      console.log(`${width}x${height}: six shelf themes fit; purchases keep two slots and reduce penalty`);
+      console.log(`${width}x${height}: six shelf themes remain reachable; purchases keep two slots and reduce penalty`);
       await page.close();
     }
   } finally {await browser.close();}

@@ -74,6 +74,6 @@ test('books chip: counts the pages read off the bookmark, built after the road c
   const shelf = app.slice(shelfStart, app.indexOf('\n  }\n', shelfStart));
   assert.falsy(/tipsRead/.test(shelf), 'the shelf never writes the bookmark');
   assert.truthy(/for \(const page of pages\)/.test(shelf), 'all read pages appear in the shelf list');
-  assert.truthy(/scroll: true/.test(shelf), 'the growing shelf can scroll');
+  assert.falsy(/pageCount|shelfPage|pages\.slice/.test(shelf), 'all learned books share one scrolling list');
 
 });

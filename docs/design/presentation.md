@@ -31,10 +31,8 @@ changing dialogue, story panels, books, toasts or status presentation.
   Their muted painterly pixel treatment follows the approved sundries story
   panel, with a black background and recognizable object forms. The source
   masters retain their resolution; `python3 tools/build_dialog_item_art.py`
-  finds the actual black gutters between painted rows and columns, then centers
-  each complete portrait with six pixels of padding in its output cell using
-  Lanczos filtering and rebuilds the content-hashed registry and manifest.
-  Generated masters need not align perfectly with an equal grid. Compact icons and map sprites keep
+  exports each cell independently with Lanczos filtering and rebuilds the
+  content-hashed registry and manifest. Compact icons and map sprites keep
   their original art. Variant colours and item badges still identify composed
   items when their underlying portrait is shared. Loot reward cards default to
   96px portraits; tapping an item for its description shows its portrait at
@@ -200,7 +198,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
   supplies that frame. Painted sheets mask the dragon rail along its lower silver silhouette so
-  the image fills the space beneath the ornament without its dark backing; scene artwork preserves its approved 4:3 composition. Painted sheets reserve a separate
+  the image fills the space beneath the ornament without its dark backing; scene artwork scales uniformly within a bounded crop. Painted sheets reserve a separate
   content area below the image for useful category headings; painted stories omit
   the generic “Story” label.
   The modal gate publishes the final sheet edge in viewport pixels so silver
@@ -208,7 +206,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   It clips the header readouts at that edge too; story sheets rise above the
   coin indicator, using its measured position across phone and desktop scaling.
   Dismissible sheets expose a fixed close control using the same cancellation
-  callback and input arming as their backdrop. Offer dialogs close through
+  callback and input arming as their backdrop. Every offer dialog, a repeat
+  counter included, is dismissible: × or a tap outside the panel leaves it.
+  Offer dialogs close through
   `closeModal(reason)`: leaving or an enemy hit releases deferred book reads
   after removal, while acceptance and tab transitions retain pending work.
   Required acknowledgments omit
@@ -271,7 +271,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   from the generated 4×4 sheets (320×320 atlases) in `assets/portraits/`.
   NPC identity follows `SpriteLayout.npcSheet` for each role and culture; Tilly has a housed variant.
   Dialogue passes `portrait` to the modal shell. Panel dialogs keep the face
-  and shoulders at 128px above text that uses pages when necessary; speech
+  and shoulders at 128px above text that scrolls when necessary; speech
   bubbles (`talk`, `spirit`) draw the cell 1:1 at `CharacterPortraits.CELL_PX`
   (80px) beside the speaker name. Both use pixelated scaling for chunky
   pixels. Portraits have no background plate or rounded clipping.
@@ -364,14 +364,18 @@ changing dialogue, story panels, books, toasts or status presentation.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
 - Home, workbenches and brewing share `_presentRecipePicker` for discovery,
-  selection and capacity, above `_presentRecipeOffer` transactions. Named recipe
-  selectors replace paging controls.
+  selection and capacity, above `_presentRecipeOffer` transactions.
   `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
   workbench (three Wood and one Rubble). Every former Home recipe, including
-  the starter-known Spear, belongs at a placed workbench. Tapping a workbench
-  opens its recipe picker directly, indoors or outdoors, with a ghost Pick up
-  control at the top right and no Home Sell tab. Recheck the station before
-  spending and reopen the same workbench and selected recipe after crafting.
+  the starter-known Spear, belongs at a placed workbench. A station with
+  several known recipes opens on `showPickGridModal`: every recipe as an icon
+  card (green when it can be made now), scrolling when long, with the station
+  controls (a workbench's ghost Pick up, Home's or Brewing's tabs) above it. A
+  card opens that recipe's counter, whose ‹ Back (`back`) returns to the grid;
+  a station with one known recipe opens its counter directly. Lists may scroll;
+  a counter never pages or splits its ingredients from Craft — the ingredient
+  list and actions stay pinned. Recheck the station before spending and
+  reopen the same workbench and selected recipe after crafting.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
@@ -396,28 +400,26 @@ changing dialogue, story panels, books, toasts or status presentation.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
-  window top behind the fixed silver dragon rail. Approved 4:3 paintings start at
-  their full height and give space to copy on shorter screens. All story paintings use
-  a full-width 4:3 frame, cropping legacy art without stretching. Opening
-  panels three and four share this layout; the first two stay immersive.
-  Legacy squares begin at 90% of panel width. All painted dialogs can shorten
-  the art to the rail height plus eight pixels so text and actions fit. `tools/art_thumbs.js` bakes `ART_ASPECTS`
-  alongside aspect-preserving thumbnails, so this layout is ready before the
-  full painting loads.
+  window top behind the fixed silver dragon rail. Paintings keep their top
+  edge and use at most half the available body height, independently of copy
+  length. This leaves readable copy space on short phones without collapsing
+  art as more text is added. Story crops preserve uniform image scaling.
+  Opening panels three and four keep their authored 4:3 layout; the first
+  two stay immersive. Art and loading mosaics share the same crop.
   Copy follows directly below, with comfortable side padding and the specific
   title offset down four pixels. Painted stories omit the generic “Story” label;
-  useful shop/event categories sit with the copy below the image. The Build
-  chooser uses a vertically scrolling card grid with a compact painting and
-  a fixed price/action footer; it never paginates. Selected cards expose their
-  pressed state to assistive technology. Fixed dialogs do not scroll.
-  Copy and actions occupy a separate `.modal-copy` viewport. No dialog uses
-  pagination. Fixed content, including treasure, fits in one view by adapting
-  art height, spacing and content layout; text and controls remain readable.
-  Only growing lists such as restore choices, recipe catalogs, books, deliveries,
-  saved games and developer catalogs may scroll. The main menu is fixed and
-  fits without scrolling. Saved games and developer tools open separate menu
-  views with a Back row. Content, expanded details, image loads, fonts and
-  viewport changes trigger fitting again. Art and loading mosaics share a crop.
+  useful shop/event categories sit with the copy below the image.
+  Every dialog uses one vertically scrolling `.modal-copy` viewport, including
+  books, speech, X-mark rewards, chests and wrecks. Text keeps its original size;
+  there are no measured columns or Previous/Next overflow controls. Keyboard
+  focus naturally reveals actions below the fold. Build and crafting offers
+  pin their price/action footer below the scrolling content. Selected build
+  cards expose their pressed state to assistive technology. Named recipe
+  selectors choose an offer without buying it. Narrative event sequences
+  retain their authored steps; they are not overflow pages.
+  The saved games ("Load game") and developer tools ("Developer") remain
+  separate menu views with a Back row, their markup moved out of the hidden
+  `#menu-pages` holder and home again. Viewport changes refit the bounded art.
   Framed opening stories without titles keep their separate 14-pixel rail gap.
   `css/compass_panels.css` seats this same shell as a mechanical sheet that
   slides up from the compass and extends to the viewport floor without a
@@ -425,7 +427,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   mask beneath the panel; the mask does not intercept input.
   Shop/trade, story/event and conversation kinds carry distinct
   category headings; controls retain simple gold faces. Safe-area padding and
-  responsive fitting keep actions reachable. Reduced motion skips the slide. The
+  scrolling keep actions reachable. Reduced motion skips the slide. The
   `spirit` kind is the Dragon Spirit voice used by dormant module controls.
 - The modal HUD gate also covers the isolated upper-temple scene. Its scene
   flag keeps inventory, movement pads and the objective hidden until shutdown,
@@ -458,10 +460,14 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Format every visible wait with `shortDuration`; UTC-day gates pair it with
   `msToNextUtcDay`. A timed gate needs a visible wait. A wait a CHARACTER
   SAYS uses `spokenDuration` ("a day"), the same ladder in words.
-- Neighbour talk (`NPC.dialogue`, `MemoryStory.npcDialogue`) is PAGES: spoken
-  words in curly quotes, an action in `<em>` on its own line, HTML body, a
-  second panel only when the first is full (an array of pages; `interact`
-  shows them with Next). Survivors speak the bible's words: the Breaking,
+- Neighbour talk (`NPC.dialogue`, `MemoryStory.npcDialogue`) is one scrolling
+  conversation: spoken words in curly quotes, an action in `<em>` on its own
+  line, HTML body. Authored arrays join into paragraphs under one portrait.
+  Wizard visits and revival stories likewise scroll through their ordered
+  sections, preserving each painting and title. Dismissal acknowledges the
+  remaining sections together; scrolling never advances narrative state or
+  unlocks an offer. Legacy wizard saves resume at their stored section.
+  Survivors speak the bible's words: the Breaking,
   fifty years, Mending Lane, the wizard the old folk call Tim; the hood is
   looked at, never asked about twice.
 - A new game opens close on Home (`HomeArea.INTRO`): the house fills the top
@@ -509,12 +515,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   during an accept use the ceremony queue with `defer: true`: the gate tick
   waits for the refreshed shop to close. Duplicate keyed requests must also
   respect deferral rather than draining during the remove/remount gap.
-- The Books read list remains a full mechanical panel with three entries per
-  page. Reading or rereading a book puts live dark serif text, paged when
+- The Books read list remains a full mechanical panel with every learned book
+  in one scrolling list. Reading or rereading a book puts live dark serif text, scrolling when
   needed, on `assets/art/book_page.webp`,
   a full-height illustrated half-book beneath the silver dragon rail.
   `bookPage: true` selects this surface without changing the shared `book_read`
-  painting used elsewhere. Closing a reread returns to the same shelf page.
+  painting used elsewhere. Closing a reread returns to the book shelf.
 - Book stories use direct firsthand excerpts in quotation marks. Occasional
   narrator asides sit outside the quotation in italics (`bookPageHTML`), usually
   one short sentence. Vary length, format, mood and author voice across books;
