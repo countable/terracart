@@ -40,11 +40,17 @@ the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
 entrance wall, its tiled roof in roof space, and single texels for gables,
-fascia and ridge beams. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
+fascia and ridge beams. Pitched overhangs retain at least half the original
+clearance around narrow returns, preventing almost-closed roof slits.
+Decorative flat-roof rims cap corner mitres at twice the band width to avoid
+inward spikes at acute corners. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
 facade and door scale. Model-only
 features (porches, painted chimneys, dormers) do not appear on lot-outline
 buildings. Wizard towers and the fort hall keep their whole shells, fit inside
-the lot. Only models assigned to existing game roles ship.
+the lot with uniform scale. Their fitter tries dominant lot-edge orientations
+and interior triangle centres to avoid shrinking unnecessarily on diagonal
+wings; an explicit entrance direction remains fixed. Only models assigned
+to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 
@@ -79,7 +85,11 @@ roof builder also supports their L, T and courtyard footprints. Run
 `node tools/sync_building_texture_viewer.cjs` to refresh the local
 `http://localhost:8765/ra-village-house/` viewer; it also retains three
 experimental City designs. `node test/pp-building-viewer.cjs` checks every
-viewer choice through five rotations and the new flat roofs on concave plots.
+viewer choice through five rotations and the new flat roofs on concave plots. Real Kelowna
+outline checks use `GAME_URL=http://localhost:7735 node test/authored-kelowna-buildings.cjs`;
+the fixture README documents provenance, focused reruns and coverage limits.
+Inspect full-size images as well as contact sheets: subpixel roof slits can
+pass sampled coverage checks while appearing as bright seams.
 
 Roof repairs around painted protrusions preserve source texel density: translate
 clean patches in roof coordinates rather than stretching a source column. The

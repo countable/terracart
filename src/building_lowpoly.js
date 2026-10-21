@@ -122,7 +122,7 @@
     if(ring.reduce((n,p,i)=>n+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring=[...ring].reverse();
     const band=(outer,inner,flag,layer)=>outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],c=inner[(i+1)%inner.length],d=inner[i];
       for(const tri of [[a,b,c],[a,c,d]]){add(tri.map(p=>({x:p.x,y:p.y,z:z+.01,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{[flag]:true,layer,inkGroup:1});}});
-    const rim=BuildingStyles.inset(ring,LOOK.flatRim),shade=rim&&BuildingStyles.inset(ring,LOOK.flatShade);
+    const rim=BuildingStyles.inset(ring,LOOK.flatRim,2),shade=rim&&BuildingStyles.inset(ring,LOOK.flatShade,2);
     if(rim&&rim.length===ring.length)band(ring,rim,'rim',z-.004);
     if(shade&&shade.length===ring.length)band(rim,shade,'rimShade',z-.005);
   }
@@ -139,8 +139,29 @@
     // Reduce the offset around tiny returns rather than bridging a notch.
     let roofRing=ring,actualOverhang=0;
     if(overhang&&variant!=='flat'&&typeof BuildingStyles!=='undefined'){
+      const pointSegment=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+        return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);};
+      const clearance=(loop,i,j)=>{const a=loop[i],b=loop[(i+1)%loop.length],c=loop[j],e=loop[(j+1)%loop.length];
+        return Math.min(pointSegment(a,c,e),pointSegment(b,c,e),pointSegment(c,a,b),pointSegment(e,a,b));};
+      // inset() limits a vertex's miter displacement to five offsets. Two
+      // edges cannot halve a gap wider than twenty offsets; skip those pairs.
+      const reach=overhang*20,boxes=ring.map((a,i)=>{const b=ring[(i+1)%ring.length];
+        return {left:Math.min(a.x,b.x),right:Math.max(a.x,b.x),top:Math.min(a.y,b.y),bottom:Math.max(a.y,b.y)};});
+      const gaps=[];
+      for(let i=0;i<ring.length;i++)for(let j=i+2;j<ring.length;j++)if(i!==0||j!==ring.length-1){
+        const a=boxes[i],b=boxes[j];
+        if(Math.hypot(Math.max(0,a.left-b.right,b.left-a.right),Math.max(0,a.top-b.bottom,b.top-a.bottom))>reach)continue;
+        const width=clearance(ring,i,j);if(width>1e-6&&width<=reach)gaps.push([i,j,width]);
+      }
       for(let d=overhang;d>=.25;d/=2){const expanded=BuildingStyles.inset(ring,-d);
-        if(expanded){roofRing=expanded;actualOverhang=d;break;}
+        // A valid offset can still almost seal a narrow concave return,
+        // leaving a hairline roof slit through which the gable shows. Keep
+        // at least half of each original edge so these notches stay readable.
+        const keepsReturns=expanded&&expanded.every((p,i)=>{
+          const q=expanded[(i+1)%expanded.length],a=ring[i],b=ring[(i+1)%ring.length];
+          return Math.hypot(q.x-p.x,q.y-p.y)>=Math.hypot(b.x-a.x,b.y-a.y)*.5;
+        })&&gaps.every(([i,j,width])=>clearance(expanded,i,j)>=width*.5-1e-7);
+        if(keepsReturns){roofRing=expanded;actualOverhang=d;break;}
       }
     }
     const roofTris=triangulate(roofRing).triangles;
@@ -1733,37 +1754,55 @@
     const loX=Math.min(...points.map(p=>p.x)),hiX=Math.max(...points.map(p=>p.x));
     const loY=Math.min(...points.map(p=>p.y))*.5,hiY=Math.max(...points.map(p=>p.y))*.5;
     const W=hiX-loX,D=hiY-loY;
-    const x0=Math.min(...ring.map(p=>p.x)),x1=Math.max(...ring.map(p=>p.x));
-    const y0=Math.min(...ring.map(p=>p.y)),y1=Math.max(...ring.map(p=>p.y));
-    const inside=p=>{let hit=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-      const a=ring[j],b=ring[i];
+    let fitRing=ring;
+    const inside=p=>{let hit=false;for(let i=0,j=fitRing.length-1;i<fitRing.length;j=i++){
+      const a=fitRing[j],b=fitRing[i];
       if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
       if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
     }return hit;};
     const fits=(cx,cy,scale)=>{
       const rect=[{x:cx-W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy+D*scale/2},{x:cx-W*scale/2,y:cy+D*scale/2}];
       if(!rect.every(inside))return false;
-      for(let i=0;i<ring.length;i++)for(let j=0;j<4;j++){
-        const a=ring[i],b=ring[(i+1)%ring.length],c=rect[j],d=rect[(j+1)%4];
+      for(let i=0;i<fitRing.length;i++)for(let j=0;j<4;j++){
+        const a=fitRing[i],b=fitRing[(i+1)%fitRing.length],c=rect[j],d=rect[(j+1)%4];
         if(cross(a,b,c)*cross(a,b,d)<-1e-8&&cross(c,d,a)*cross(c,d,b)<-1e-8)return false;
       }
       return true;
     };
-    let best={scale:0,x:(x0+x1)/2,y:(y0+y1)/2};
-    const max=Math.min((x1-x0)/W,(y1-y0)/D);
-    // The centre first keeps rectangular lots exactly centred; candidates find
-    // the broad lobe of a concave lot without stretching the authored shell.
-    const candidates=[best];for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
-    for(const p of candidates){if(!inside(p))continue;let lo=0,hi=max;
-      for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
-      if(lo>best.scale+1e-6)best={...p,scale:lo};
+    // Sample interior triangle centres as well as the coarse grid: narrow
+    // diagonal wings can contain none of the old 25 grid positions. Limit
+    // orientation trials to dominant lot edges and their perpendiculars.
+    const triangles=triangulate(ring).triangles.slice().sort((a,b)=>Math.abs(cross(...b))-Math.abs(cross(...a))).slice(0,24);
+    const seeds=triangles.map(t=>({x:(t[0].x+t[1].x+t[2].x)/3,y:(t[0].y+t[1].y+t[2].y)/3}));
+    const angles=[0];
+    if(!door){
+      angles.push(Math.PI/2);
+      const edges=ring.map((a,i)=>{const b=ring[(i+1)%ring.length];return {length:Math.hypot(b.x-a.x,b.y-a.y),angle:Math.atan2(b.y-a.y,b.x-a.x)};}).sort((a,b)=>b.length-a.length);
+      for(const edge of edges){if(angles.length>=8)break;for(const offset of [0,Math.PI/2]){
+        const angle=((edge.angle+offset)%Math.PI+Math.PI)%Math.PI;
+        if(!angles.some(a=>Math.abs(Math.sin(a-angle))<.02))angles.push(angle);
+      }}
     }
+    let best={scale:0,x:ring[0].x,y:ring[0].y,angle:0};
+    for(const angle of angles){const c=Math.cos(angle),sn=Math.sin(angle),local=p=>({x:c*p.x+sn*p.y,y:-sn*p.x+c*p.y});
+      fitRing=ring.map(local);
+      const x0=Math.min(...fitRing.map(p=>p.x)),x1=Math.max(...fitRing.map(p=>p.x)),y0=Math.min(...fitRing.map(p=>p.y)),y1=Math.max(...fitRing.map(p=>p.y));
+      const max=Math.min((x1-x0)/W,(y1-y0)/D),candidates=[{x:(x0+x1)/2,y:(y0+y1)/2},...seeds.map(local)];
+      for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
+      for(const p of candidates){if(!inside(p)||!fits(p.x,p.y,best.scale+1e-6))continue;let lo=best.scale,hi=max;
+        for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+        if(lo>best.scale+1e-6)best={x:c*p.x-sn*p.y,y:sn*p.x+c*p.y,scale:lo,angle};
+      }
+    }
+    fitRing=ring;
     const scale=best.scale*inset;
     if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;
       const target={x:door.center.x-nx*run,y:door.center.y-ny*run};
       if(fits(target.x,target.y,scale)){best.x=target.x;best.y=target.y;}
     }
-    const move=p=>({...p,x:best.x+(p.x-(loX+hiX)/2)*scale,y:best.y+(p.y*.5-(loY+hiY)/2)*scale,z:p.z*C*scale});
+    const c=Math.cos(best.angle),sn=Math.sin(best.angle);
+    const move=p=>{const x=(p.x-(loX+hiX)/2)*scale,y=(p.y*.5-(loY+hiY)/2)*scale;
+      return {...p,x:best.x+c*x-sn*y,y:best.y+sn*x+c*y,z:p.z*C*scale};};
     const faces=model.faces.map(f=>({...f,sourceArt:true,rawUV:true,preserveWalls:true,points:f.points.map(move)}));
     return {...model,faces,ring,center:{x:best.x,y:best.y},height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true};
   }
