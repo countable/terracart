@@ -68,7 +68,7 @@ world. It does not install an authored scene. Grass, residential land and parks
 use village grass; forest and orchard use jungle grass; farmland uses olive soil;
 wetland uses dark olive soil; sand, water and civic/commercial/industrial ground
 use the corresponding sand, water and stone families. Piers retain their existing
-deck over water. Ordinary RA roads repeat 4×2px stones in running bond inside
+deck over water. Ordinary RA roads repeat 8×4px stones in running bond inside
 each 32px/approximately 7m cell, rather than 16px slabs; these are texture details,
 not smaller gameplay cells. Special pavement identities remain unchanged.
 Roads keep their vector widths and inherit the existing source

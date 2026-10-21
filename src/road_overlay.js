@@ -599,7 +599,7 @@
     cx.imageSmoothingEnabled = false;
     // A 7m overworld cell contains a field of small paving stones, not two
     // giant slabs. Only RA ordinary paving uses the denser running bond.
-    const brickW = fine ? 4 : 16, brickH = fine ? 2 : 16;
+    const brickW = fine ? 8 : 16, brickH = fine ? 4 : 16;
     for (let y = 0; y < STONE_TILE_PX; y += brickH) {
       const offset = (y / brickH) % 2 ? brickW / 2 : 0;
       for (let x = -offset; x < STONE_TILE_PX; x += brickW) cx.drawImage(stone, x, y, brickW, brickH);

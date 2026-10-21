@@ -11,7 +11,7 @@ for(const enabled of [false,true]){
  const {api,canvases,context}=load(enabled),target=context();
  for(const restored of [false,true]){
   const start=canvases.length;api.paintPavementTile(target,32,false,restored,'plain');
-  const tile=canvases[start],draws=tile.ctx.draws,w=enabled?4:16,h=enabled?2:16;
+  const tile=canvases[start],draws=tile.ctx.draws,w=enabled?8:16,h=enabled?4:16;
   assert.equal(tile.width,32);assert.equal(tile.height,32);
   assert(draws.length>0);assert(draws.every(d=>d[3]===w&&d[4]===h));
   // Each course covers the whole repeat; staggered ends wrap without gaps.
