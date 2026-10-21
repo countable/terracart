@@ -77,7 +77,7 @@ contour within a cell; collision and logical terrain stay on the original grid.
 Only biome borders replaced by these native transitions skip the old blend strips;
 structural borders continue rendering. `tools/build_ra_terrain_trial.py` exports
 eight source-native mask families into `assets/ArtTrials/RogueTerrain/tiles.png`.
-One bounded startup atlas caches all 4096 Rogue combinations (2401 plus 63 interior-phase frames for Dreamland); ordinary draws only select
+One bounded startup atlas caches all 4096 Rogue combinations (2401 plus 63 interior-phase and 512 fine-grass frames for Dreamland); ordinary draws only select
 frames before the terrain cache receives them, with no per-cell pixel reads or
 texture creation. Stable world-coordinate noise introduces native brown-soil patches in village
 grass and olive/dark-olive patches in forest grass. These are appearance samples,
@@ -99,8 +99,13 @@ frames bake at 32px: native 16px bank silhouettes retain their 2x scale, while
 source grass speckles repeat at 1:1 pixels and islands use the source highlight
 palette internally. Homogeneous ground cells repeat that 32px source frame at
 24px, using nine baked world-coordinate phases to fill the unchanged 32px cell
-without seams. Mixed-material transition frames retain their original scale and
-masks; only interior texture detail is denser. No per-frame texture work is added.
+without seams. Geographic grass uses four 16px art subtiles per 32px gameplay
+cell, with nine shared world-coordinate vertices and noise sampled every two
+cells. Its 512 baked arrangements make islands and their native edge pixels
+smaller while retaining one cached draw per cell. Ring corners remain shared;
+structural mixed-material transitions keep their original masks and scale.
+Authored ground layouts bypass this finer grass treatment. No per-frame texture
+work is added.
 Authored FAKEMAP
 studies may supply `_dreamlandGroundFamilyAt(ax, ay, type)` for explicit material
 layout; ordinary geographic play keeps its world-stable patchwork.

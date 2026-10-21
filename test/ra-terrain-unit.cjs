@@ -73,7 +73,7 @@ assert.notEqual(dreamBake.roadTile('lantern',true),dreamBake.roadTile('',false))
 assert.equal(dreamBake.roadTile('lantern',true),dreamBake.roadTile('',true));
 for(const variant of ['suppressed','burned','slime_trail','poison_path','paralysis_path','old_stones']) assert.equal(dreamBake.roadTile(variant,true),null,'special road retains normal material');
 assert.equal(art.roadTile('',true),null,'Rogue profile never overrides roads');
-assert.equal(dreamTextures.get('dreamland_terrain_composite').frames,2464);
+assert.equal(dreamTextures.get('dreamland_terrain_composite').frames,2976);
 console.log('Dreamland profile: bundled assets, condition-specific startup road repeats, hazard preservation and no Rogue road override passed');
 
 for (const type of [0,1]) {
@@ -94,18 +94,59 @@ assert.equal(assets.ra_terrain_source.frameWidth,16,'Rogue native scale remains 
 
 // Detail repeats follow world coordinates, including across negative origins;
 // mixed-material boundaries keep exactly the original native transition frame.
-const uniform = new Int8Array([0,0,0,0]);
+const uniform = new Int8Array([2,2,2,2]);
 const phases = new Set();
 const beforeSelectCanvases = canvases;
 for (let y = -3; y < 3; y++) for (let x = -3; x < 3; x++) {
   const selected = dreamBake.select(dreamScene, uniform, 2, 0, x, y).frame;
   phases.add(selected);
   assert.equal(selected, dreamBake.select(dreamScene, uniform, 2, 0, x + 3, y + 3).frame);
-  assert(selected >= 2401 && selected < 2410);
+  assert(selected >= 2419 && selected < 2428);
 }
 assert.equal(phases.size,9,'24px repeats need nine phase combinations across 32px cells');
-assert.equal(dreamBake.select(dreamScene, new Int8Array([0,1,0,0]), 2, 0, 2, 2).frame,
-  dreamBake.frameFor([0,1,0,0]), 'native transition shape and frame are unchanged');
+assert.equal(dreamBake.select(dreamScene, new Int8Array([0,2,0,0]), 2, 0, 2, 2).frame,
+  dreamBake.frameFor([0,2,0,0]), 'native transition shape and frame are unchanged');
 assert.equal(canvases,beforeSelectCanvases,'world selection creates no canvases');
 assert.equal(reads,0,'phase baking and selection need no pixel readback');
 console.log('Dreamland smaller interiors: 63 bounded phase frames, world stability and original transitions passed');
+
+// Grass art now has its own half-cell sampling lattice; adjacent gameplay
+// cells must encode the exact same three vertices along their shared edge.
+function grassFrame(x, y) {
+  const ring = new Int8Array([dreamBake.material(0,x,y), dreamBake.material(0,x+1,y),
+    dreamBake.material(0,x,y+1), dreamBake.material(0,x+1,y+1)]);
+  const frame = dreamBake.select(dreamScene,ring,2,0,x,y).frame;
+  assert(frame >= 2464 && frame < 2976);
+  return frame - 2464;
+}
+const right = code => ((code >> 2) & 1) | (((code >> 5) & 1) << 1) | (((code >> 8) & 1) << 2);
+const left = code => (code & 1) | (((code >> 3) & 1) << 1) | (((code >> 6) & 1) << 2);
+const bottom = code => (code >> 6) & 7;
+const top = code => code & 7;
+let fineEdges = 0;
+for (let y = -12; y < 12; y++) for (let x = -12; x < 12; x++) {
+  const code = grassFrame(x,y);
+  assert.equal(right(code),left(grassFrame(x+1,y)), 'horizontal half-cell vertices join across negative and positive origins');
+  assert.equal(bottom(code),top(grassFrame(x,y+1)), 'vertical half-cell vertices join');
+  if (code !== 0 && code !== 511) fineEdges++;
+}
+assert(fineEdges > 100, 'smaller islands include many native-size edge cells');
+const authored = {...dreamScene, _dreamlandGroundFamilyAt:()=>0};
+assert.equal(dreamBake.select(authored,new Int8Array([0,1,0,0]),2,0,2,2).frame,
+  dreamBake.frameFor([0,1,0,0]), 'authored reference grass outlines retain their original scale');
+const forcedCorners = dreamBake.select(dreamScene,new Int8Array([1,0,0,1]),2,0,0,0).frame - 2464;
+assert.equal(forcedCorners & 325,257,'fine grass preserves the world ring corner values');
+// Validate the baked geometry for all 512 states: exactly four 16px underfills,
+// and only 16px overlays, with no drawing outside each 32px composite cell.
+const dreamColumns = Math.ceil(Math.sqrt(2976));
+for (let code = 0; code < 512; code++) {
+  const frame = 2464 + code;
+  const ox = frame % dreamColumns * 32, oy = Math.floor(frame / dreamColumns) * 32;
+  const subtiles = painted.filter(args => args[7] === 16 && args[8] === 16
+    && args[5] >= ox && args[5] < ox+32 && args[6] >= oy && args[6] < oy+32);
+  assert(subtiles.length >= 4);
+  assert(subtiles.every(args => args[3] === 32 && args[4] === 32), 'native grass pixels shrink exactly 2:1');
+}
+assert.equal(canvases,beforeSelectCanvases);
+assert.equal(reads,0);
+console.log('Dreamland grass: 512 native-scale composites, smaller world-stable islands, shared edge vertices and authored preservation passed');

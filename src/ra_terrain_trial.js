@@ -20,7 +20,9 @@ const RATerrainTrial = (() => {
   // A 24px material repeat crosses the 32px grid in three world phases.
   // Only quiet interiors need extra frames; native transition masks stay intact.
   const DETAIL_REPEAT = 24, DETAIL_PHASES = 3;
-  const ATLAS_FRAMES = FRAMES + (mode === 'dreamland' ? COUNT * DETAIL_PHASES ** 2 : 0);
+  const GRASS_FRAMES = FRAMES + COUNT * DETAIL_PHASES ** 2;
+  // Four native-size grass subtiles use nine shared binary vertices.
+  const ATLAS_FRAMES = mode === 'dreamland' ? GRASS_FRAMES + 512 : FRAMES;
   const TYPES = Object.freeze({0:0, 1:1, 2:5, 3:4, 4:2, 5:0, 6:0, 15:6, 16:6, 17:6, 18:0, 19:0, 20:3, 21:0, 22:1, 23:4});
   function patchNoise(x, y) {
     let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
@@ -47,8 +49,8 @@ const RATerrainTrial = (() => {
     // Stable source-native grass islands. Both families share the reference's
     // olive fill; the island mask reveals its lighter irregular grass edge.
     // World coordinates keep patches fixed across walking and tile boundaries.
-    const bx = Math.floor(cellX / 4), by = Math.floor(cellY / 4);
-    const x = cellX / 4 - bx, y = cellY / 4 - by;
+    const bx = Math.floor(cellX / 2), by = Math.floor(cellY / 2);
+    const x = cellX / 2 - bx, y = cellY / 2 - by;
     const a = patchNoise(bx, by), b = patchNoise(bx + 1, by);
     const c = patchNoise(bx, by + 1), d = patchNoise(bx + 1, by + 1);
     return (a + (b - a) * x) * (1 - y) + (c + (d - c) * x) * y > 0.56 ? 1 : 0;
@@ -132,6 +134,24 @@ const RATerrainTrial = (() => {
         }
       }
     }
+    if (mode === 'dreamland') {
+      // Each 32px gameplay cell contains four 16px art cells. Bake every
+      // shared-vertex arrangement so walking still draws one cached frame.
+      for (let code = 0; code < 512; code++) {
+        const frame = GRASS_FRAMES + code;
+        const ox = frame % columns * TILE, oy = Math.floor(frame / columns) * TILE;
+        for (let y = 0; y < 2; y++) for (let x = 0; x < 2; x++) {
+          const bit = y * 3 + x;
+          const mask = ((code >> bit) & 1) | (((code >> (bit + 1)) & 1) << 1)
+            | (((code >> (bit + 3)) & 1) << 2) | (((code >> (bit + 4)) & 1) << 3);
+          for (const sourceFrame of mask ? [15, 16 + mask] : [15]) {
+            const f = source.get(sourceFrame);
+            ctx.drawImage(f.source.image, f.cutX, f.cutY, TILE, TILE,
+              ox + x * TILE / 2, oy + y * TILE / 2, TILE / 2, TILE / 2);
+          }
+        }
+      }
+    }
     const texture = scene.textures.addCanvas(KEY, canvas);
     if (typeof Phaser !== 'undefined') texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
     for (let frame=0; frame<ATLAS_FRAMES; frame++) texture.add(frame, 0, frame % columns * TILE, Math.floor(frame / columns) * TILE, TILE, TILE);
@@ -148,6 +168,17 @@ const RATerrainTrial = (() => {
         && (b < 0 || b === self) && (c < 0 || c === self)) {
       const phase = value => ((Math.floor(value) % DETAIL_PHASES) + DETAIL_PHASES) % DETAIL_PHASES;
       frame = FRAMES + self * DETAIL_PHASES ** 2 + phase(cellY) * DETAIL_PHASES + phase(cellX);
+    }
+    if (mode === 'dreamland' && typeof scene._dreamlandGroundFamilyAt !== 'function'
+        && self <= 1 && a >= 0 && a <= 1 && b >= 0 && b <= 1 && c >= 0 && c <= 1) {
+      let code = 0;
+      for (let y = 0; y < 3; y++) for (let x = 0; x < 3; x++) {
+        const corner = x % 2 === 0 && y % 2 === 0;
+        const family = corner ? (y === 0 ? (x === 0 ? self : a) : (x === 0 ? b : c))
+          : material(0, cellX + x / 2, cellY + y / 2);
+        code |= family << (y * 3 + x);
+      }
+      frame = GRASS_FRAMES + code;
     }
     const audit = scene._raTerrainAudit;
     if (audit) { audit.drawnCells++; audit.materials[families[self]] = (audit.materials[families[self]] || 0) + 1; }
