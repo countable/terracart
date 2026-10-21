@@ -2952,8 +2952,8 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-lowered-open-eec7b982.png",
-      "master_sha256": "4dab08faa359361a06d0832a04a5357f9a0ef73f15ea1c2287cf9f8f376019a7",
+      "master_path": "approved-story-art/story_nightmare_frame3-half-closed-14eb420f.png",
+      "master_sha256": "e2ae8049503b0d37ddcf23e813b67a2b5734093e3361f1c7e6ac08698109f676",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2961,16 +2961,16 @@
       "aspect": 0.6666666666666666,
       "method": "reference_edit",
       "generator": "built-in image_gen",
-      "intrinsic_zoom": 1.74,
-      "prompt": "Use case: precise-object-edit. Edit target: the supplied portrait dragon-war frame 3. Make a very small localized pose adjustment ONLY to the dominant bright red dragon head in the upper center (glowing eye near x=615,y=330 on this 1024x1536 image). Slightly open its mouth: lower its lower jaw just enough for a small visible dark gap between teeth, not a wide roar. Also lower that main red head a little, about 15 pixels (1% of image height), naturally bending its neck. Preserve its current side-facing orientation, exact apparent head size, horn design, expression, intricate pixel-art texture, and red lighting. No fire from this main mouth. Keep all other dragon heads, white dragons, flames, smoke, buildings, skyline and background in their exact current positions and appearance. No camera movement, zoom, reframing, new objects, text, or border. Preserve the full 1024x1536 portrait canvas. This is an aligned animation frame: only the small main-head pose and jaw adjustment should differ.",
-      "reference": "approved-story-art/story_nightmare_frame3-reference-lowered-open-eec7b982.webp",
-      "sha256": "9d826d4e42c7ce1610ed78f3c839d17b78e2213385a3d895acd68991800a7be7",
-      "reference_sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
+      "intrinsic_zoom": 1.5,
+      "prompt": "Precise local edit of the supplied frame 2, to create the next animation frame. Preserve the EXACT position, size and pose of the main central RED dragon's skull, glowing eye, horns, upper jaw, neck and body. Change only TWO things: (1) lift the LOWER JAW halfway toward the upper jaw, so its mouth is HALF CLOSED compared with the current wide-open gape, a moderate open dark mouth with teeth still visible; (2) remove the fire jet emerging from that main red dragon's mouth entirely, restoring the dark red smoky background behind the removed jet. The main dragon has stopped breathing fire. Do NOT rotate, translate, resize or lower the skull or upper jaw; use original image as exact template. All other dragon heads, white dragons, flames not belonging to that mouth jet, smoke, buildings and skyline stay exactly in place. Preserve full 1024x1536 portrait canvas, camera, crop, scale and pixel-art texture. No new objects, text or border.",
+      "reference": "approved-story-art/story_nightmare_frame3-reference-half-closed-14eb420f.webp",
+      "sha256": "ae9a912c6860d40c03bfac4b2c5ab38bfe64bbe949ff228c4e0594e592cf5e5b",
+      "reference_sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
       "references": [
         {
-          "path": "approved-story-art/story_nightmare_frame3-reference-lowered-open-eec7b982.webp",
-          "sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
-          "role": "edit target: lower main head slightly and part its jaws; preserve scene registration"
+          "path": "approved-story-art/story_nightmare_frame3-reference-half-closed-14eb420f.webp",
+          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+          "role": "frame 2 edit target: preserve head position and pose; half-close jaw and remove fire jet"
         }
       ]
     },

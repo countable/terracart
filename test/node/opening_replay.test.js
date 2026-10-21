@@ -126,7 +126,7 @@ test('opening: four dragon paintings move during the zoom with no late close sho
     'painting transitions share the camera duration and hold their final state');
   assert.truthy(html.includes('const STORY_PAN_MS = 16000 / 1.2;'));
   assert.truthy(html.includes('transform: scale(calc(1 / 1.5));'), 'second painting compensates its measured head scale');
-  for (const [n, crop] of [[3, 1.92], [4, 2.112]]) {
+  for (const [n, crop] of [[3, 1.5], [4, 2.112]]) {
     const rule = html.match(new RegExp('#story \\.nightmare-frame:nth-child\\(' + n + '\\) \\{([^}]+)'))?.[1] || '';
     assert.truthy(rule.includes(`transform: scale(calc(1 / ${crop}));`), 'each painted head scale is registered to the shared camera');
   }

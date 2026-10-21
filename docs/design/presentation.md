@@ -457,16 +457,17 @@ pixels and decorative details do not define additional tap cells.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
-- The opening nightmare uses four full-resolution paintings. Later paintings
-  redraw progressively closer crops of the entire scene. Runtime inverse zoom
-  offsets are 1/1.5, 1/1.92 and 1/2.112 around Tiamat’s eye (59% across,
+- The opening nightmare uses four full-resolution paintings. The second and final paintings
+  redraw closer crops of the entire scene; the third retains the second’s
+  framing to keep the main head’s position and pose aligned. Runtime inverse zoom
+  offsets are 1/1.5, 1/1.5 and 1/2.112 around Tiamat’s eye (59% across,
   21% down). These use measured head sizes rather than the nominal art crops:
-  face-patch comparisons give adjacent scale ratios near 1.5, 1.28 and 1.10.
+  face-patch comparisons give adjacent scale ratios near 1.5, 1.0 and 1.408.
   Every outgoing and incoming image shares the same camera, preserving those
   scale offsets throughout each fade. Painted head motion and perspective
   still vary locally; the offsets match overall head scale, not every contour.
-  Tiamat stops breathing fire with her mouth slightly open and head lowered
-  a little, while staying side-facing in the third painting,
+  Tiamat stops breathing fire with her mouth half closed, retaining the
+  second painting’s head position and side-facing pose in the third painting,
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
