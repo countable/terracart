@@ -13,6 +13,36 @@ A bleak, dangerous post-apocalyptic fantasy world becomes cozy, bright, and welc
 
 Unrestored places use weathered materials, subdued colour, and signs of neglect. Restored places look brighter and cleaner while retaining their material identity. Make the change readable at normal play scale. Additional repairs, greenery, or machinery changes depend on the site's design.
 
+## Overworld scale and interaction
+
+The map is an overworld. Use the existing approximately **7 × 7 metre cell**
+(`WorldGen.CELL_M = 7`) as the terrain grid, object-placement unit and ordinary
+cell-based tap target. Do not introduce a finer map grid to make a close-up
+village tileset fit. Texture detail within a tile is welcome, but it should read
+as ground covering seven metres, without implying smaller playable cells.
+
+Most interactions select objects by touch. GPS places the player in the world
+and affects reach; players should not need precise GPS alignment with a small
+prop. Keep targets readable and selectable at cell scale, and account for drift
+when designing reach/availability rules. This direction does not remove existing
+reach rules or change building-footprint hit testing.
+
+Scale objects for overworld readability rather than literal metre-for-metre
+proportions. Deliberately exaggerate small useful objects and recognizable
+features; keep relative sizes coherent and leave neighbouring targets readable.
+Where appropriate, represent a cell-sized activity or grouping instead of an
+isolated tiny furnishing: a bath set rather than a washbasin is one candidate,
+not an automatic rename of existing furniture. Larger features can span cells.
+
+**Rogue Adventure is the primary map-tiling direction.** Its ground and landscape
+forms plausibly represent seven-metre areas. Use the RA reference-selected
+profile in the actual geographic renderer when assessing it. Fantasy Dreamland
+is not the terrain-scale target: its close-up village treatment encourages an
+inappropriately fine grid. It remains a useful supplemental prop source when
+selected props fit the overworld scale, silhouette, palette and pixel treatment;
+recolour or resize individual assets where needed. Do not import its entire
+terrain treatment just to use its props.
+
 ## Camera and scale
 - The viewport uses a top-down square grid. Artwork starts overhead, tilted roughly 45 degrees toward a south camera: show crowns, backs and top surfaces with compressed front faces. This deliberately mixes perspectives rather than using a physically correct projection. Raised walls and traps retain enough upright height to show their faces.
 - Raised surfaces reveal a front-facing wall or cliff below their top plane: a clear lip, shaded face, and grounded base. Tilled plots read as shallow depressions; shrine footings rise above their surroundings. Roads retain their softly blended edges without depression walls. Keep landscape terrain level for now.
@@ -20,9 +50,9 @@ Unrestored places use weathered materials, subdued colour, and signs of neglect.
 - Building sprites use a three-quarter top-down camera too: show substantial roof depth and tower tops, with shorter, foreshortened front walls. Keep entrances facing screen-bottom; avoid a face-on architectural elevation.
 - Author new house sprites within 64×64 pixels and forts within 80×80 pixels. Use broad shapes, restrained trim and a single readable gambling emblem on the fort. Review exports at their actual pixel size; shrinking a detailed illustration does not make its detail appropriate for this resolution.
 - Keep house and fort masses approximately balanced around upright world Z: compact footprints, centred roof crowns, balanced wings or towers. Doors and small role details can break symmetry. The viewing direction is about 45 degrees from Z, not aligned with it; retain the tilted top-down view and cardinal footprint alignment. Avoid large directional annexes and steep front-facing roofs that become jarring during compass rotation.
-- Everything except roads, buildings, and game characters lives on a 24px tile grid, scaled to the device for a crisp pixel look. Larger tiled objects can span multiple cells.
+- Map placement and ordinary cell-based tap targets follow the approximately 7m grid above. Pixel dimensions describe artwork resolution, not a second spatial grid. Larger tiled objects can span multiple cells.
 - Match apparent pixel size across assets. Use crisp scaling for raster art; avoid mixing tiny detailed pixels with enlarged coarse pixels in neighbouring objects.
-- The 24px grid is the art target. Source sprites may be 16px or 24px; the current runtime display cell is 32px (`src/sprite_layout.js` and `src/app.js`). These are separate sizes; assess assets together at their final display scale.
+- Source sprites may be 16px or 24px; the current runtime display cell is 32px (`src/sprite_layout.js` and `src/app.js`). Choose source resolution and scaling for a coherent pixel size, while keeping the 7m world cell fixed. Assess assets together at their final display scale.
 - Characters and enemies have chunky proportions and move continuously, including between cells, to accommodate GPS movement. The art grid does not constrain movement.
 
 ## Player concealment and story illustrations

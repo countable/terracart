@@ -4,6 +4,15 @@ Detail doc for dialogs, story delivery, statuses shown to the player, and
 teaching copy. The root `CLAUDE.md` owns the overview; read this before
 changing dialogue, story panels, books, toasts or status presentation.
 
+## Map scale and selection
+
+Follow the [overworld scale direction](../art/art-direction-brief.md#overworld-scale-and-interaction).
+Ordinary map targets use approximately 7m cells and touch selection. GPS reach
+and availability should tolerate drift; selecting a small prop must not require
+standing at its exact real-world position. Enlarge useful silhouettes or group
+related furnishings where that makes the overworld clearer. Source texture
+pixels and decorative details do not define additional tap cells.
+
 ## Dialogs, feedback and teaching
 
 - Restoring a wreck runs a three-second work sequence before charging materials:

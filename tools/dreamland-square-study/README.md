@@ -4,7 +4,12 @@ The supplied reference is **Fantasy Dreamland Reborn Village**, not Rogue
 Adventure. This prototype selects installed source pixels; it does not recolor
 RA or paint the reference image over a map.
 
-The normal game supports `http://localhost:8000/?deepforest=on&artTrial=dreamland`. Prefer that URL for playtesting. Production artwork is bundled under
+This is a retained comparison study, not the primary terrain direction. Use
+`http://localhost:8000/index.html?deepforest=on&artTrial=rogue` for current map-scale
+playtesting. The [overworld scale brief](../../docs/art/art-direction-brief.md#overworld-scale-and-interaction)
+keeps approximately 7m terrain and tap cells; Dreamland remains a supplemental
+prop source. To inspect this older terrain experiment specifically, use
+`http://localhost:8000/?deepforest=on&artTrial=dreamland`. Production artwork is bundled under
 `assets/ArtTrials/DreamlandTerrain/`; rebuild it with the builder
 `--out assets/ArtTrials/DreamlandTerrain`.
 
