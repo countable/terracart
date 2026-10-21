@@ -2952,8 +2952,8 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-scenezoom-cf04eb9f.png",
-      "master_sha256": "8c8ef677315ab82d5ed55a36d975cc2e07fbc95fa1771e0310bf7543f4381234",
+      "master_path": "approved-story-art/story_nightmare_frame3-side-no-fire-b37e89cc.png",
+      "master_sha256": "741f797b376d82278f2fffd286964ef24345e6224ffc2a859045c053a0d8b7da",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2962,15 +2962,20 @@
       "method": "reference_edit",
       "generator": "built-in image_gen",
       "intrinsic_zoom": 1.74,
-      "prompt": "EDIT this exact reference into frame3 of a continuous camera zoom and head turn. Output1024x1536 portrait. Geometric rule: apply a UNIFORM1.20x camera enlargement to the ENTIRE SCENE around point(604,323), not just the red head. All other dragon heads, white dragons, wings, flame areas and city towers MUST grow by the SAME20percent and move outward from that anchor. Crop the scene edges; do NOT shrink the white dragon to keep it visible and do NOT preserve the whole city. Example: the lower-right white dragon's eye currently near(830,790) moves near(875,885), its head grows20percent and more of its body is clipped by right edge; the central city tower formerly near(670,1020) begins near(683,1160). Preserve these whole-scene relative sizes. THEN rotate ONLY the central red dragon's skull IN PLACE about60degrees toward us, so it is nearly front-facing: BOTH eyes clearly visible, muzzle turned just20-30degrees away from direct frontal. Jaw nearly closed, NO flame coming from its mouth. Its near eye remains around the upper-middle camera anchor; do not move the entire skull downward or closer to camera. Critical: turning the head must NOT inflate its physical size. Its brow/skull without horns should be comparable in width to the white dragon head, no enormous giant red face. Preserve original dragon identity, horns and scales, showing newly revealed anatomy in same fine pixel-painted style. Surrounding dragons make subtle jaw/neck/wing shifts; anchored city flames flicker and smoke curls. Keep exactly existing dragon count, identities and layout, same red/black palette, no newly invented heads, no text or borders. The city is now only the lower part because ALL scenery shares the optical zoom. This is a modest next step, not a hero-poster red-head enlargement.",
-      "reference": "approved-story-art/story_nightmare_frame2-reference-scenezoom-cf04eb9f.webp",
-      "sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
-      "reference_sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "prompt": "Precise local image edit. IMAGE1 is the TARGET frame3; IMAGE2 is ONLY the central red dragon's SIDE-FACING POSE reference. Output1024x1536. Keep IMAGE1 camera, zoom, framing and every peripheral dragon, white head, city building, flame and smoke shape in exactly the same pixel positions. Do not change, zoom, move, resize or repaint that background. Change ONLY the central RED dragon head in the upper middle. It must NOT begin turning toward the viewer: restore the same side-facing/right-facing angle as the red dragon in IMAGE2, with just ONE visible glowing eye, long snout pointing RIGHT and slightly downward. No second eye, no frontal symmetry, no gaze at viewer. Keep the skull's SIZE and CENTER as in IMAGE1; rotate it locally in place to the reference profile without enlarging head or neck. It has JUST STOPPED BREATHING FIRE: mouth closes or nearly closes, upper and lower jaws almost touching with a narrow tooth-lined gap; absolutely no flame jet, sparks, embers or smoke leaving its lips. Preserve red scales, jagged horns, neck connection, lighting, fine pixel-painted texture and menacing identity. This is the quiet cessation-of-fire beat BEFORE the later sudden frontal turn. Image2 only supplies yaw angle, not its open mouth/fire, camera, overall composition or scale. Preserve IMAGE1 entire background and proportions. No new heads, limbs, objects, text or borders.",
+      "reference": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
+      "sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
+      "reference_sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
       "references": [
         {
-          "path": "approved-story-art/story_nightmare_frame2-reference-scenezoom-cf04eb9f.webp",
+          "path": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
+          "sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
+          "role": "primary edit target: preserve whole composition, scene scale and background"
+        },
+        {
+          "path": "approved-story-art/story_nightmare_frame2-reference-side-no-fire-b37e89cc.webp",
           "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
-          "role": "composition and uniform scene-scale baseline"
+          "role": "supporting reference: side-facing central head pose only"
         }
       ]
     },

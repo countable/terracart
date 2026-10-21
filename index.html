@@ -1053,10 +1053,10 @@
       position: absolute; inset: 0; opacity: 0;
       transform-origin: 59% 21%;
       transform: scale(calc(1 / 1.5));
-      animation: nightmare-frame-two var(--nightmare-pan-ms, 20s) linear 750ms both;
+      animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) linear 600ms both;
     }
     #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
-    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; transform: scale(calc(1 / 2.112)); }
+    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; animation-timing-function: cubic-bezier(.75, 0, .25, 1); transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
       0%, 20% { opacity: 0; }
       46.666667%, 100% { opacity: 1; }
@@ -1109,10 +1109,17 @@
     #story .nightmare-camera {
       position: absolute; inset: 0;
       transform-origin: 59% 21%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 20s) linear 750ms both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 16s) linear 600ms both;
     }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
+    }
+    /* One city plate stays registered to the camera across every dissolve.
+       Its mask is opaque over all buildings; only the smoke edge feathers. */
+    #story .nightmare-city {
+      position: absolute; inset: 0; pointer-events: none;
+      background: url('assets/art/story_nightmare.webp') center / 100% 100% no-repeat;
+      mask: url('assets/art/story_nightmare_city_mask.svg') center / 100% 100% no-repeat;
     }
     @keyframes nightmare-pan {
       0% { transform: scale(1); }
@@ -2728,14 +2735,14 @@
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream camera animates while its button remains immediately available.
-    const STORY_PAN_MS = 20000;
+    const STORY_PAN_MS = 16000;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
         text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
-        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city. As the dream draws closer, her head turns toward you, stops breathing fire, and fixes you with a silent stare."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div></div></div>',
+        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city. As the dream draws closer, her head turns toward you, stops breathing fire, and fixes you with a silent stare."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div><div class="nightmare-city" aria-hidden="true"></div></div></div>',
         text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
       },
       {

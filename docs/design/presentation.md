@@ -131,7 +131,7 @@ changing dialogue, story panels, books, toasts or status presentation.
   house awakening, then the ruined street. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
   four aligned portrait paintings under one camera. They dissolve once in
-  sequence during the 20-second push toward the dragon's eye. Each successive
+  sequence during the 16-second push toward the dragon's eye. Each successive
   frame has a tighter crop; the fourth holds after the camera stops, avoiding
   a pullback to the first frame. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
@@ -449,13 +449,22 @@ changing dialogue, story panels, books, toasts or status presentation.
   Every outgoing and incoming image shares the same camera, preserving those
   scale offsets throughout each fade. Painted head motion and perspective
   still vary locally; the offsets match overall head scale, not every contour.
-  Tiamat turns nearly toward the viewer in the third painting, then finishes her closed-mouth stare in the fourth;
+  Tiamat stops breathing fire while staying side-facing in the third painting,
+  then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
-  One continuous, linear camera zoom runs from 1× to 3.5× over 20 seconds,
+  One continuous, linear camera zoom runs from 1× to 3.5× over 16 seconds,
   keeping the final close-up strong by enlarging the entire battle.
-  After the first four seconds, three linear 5⅓-second fades run back-to-back,
-  leaving a fade active for 80% of the sequence and more time at mixed opacity.
+  After the first 3.2 seconds, three equally spaced 4.27-second fades run
+  back-to-back, leaving a fade active for 80% of the sequence. The first two
+  are linear; the final fade uses a steeper symmetric easing curve so the
+  turn toward the viewer is more sudden while its midpoint stays on schedule.
+  The opening animation delay is 600 milliseconds.
+  A shared city plate from the first painting sits above the changing frames
+  inside the same camera. Its skyline mask stays opaque over every building
+  and feathers only the smoke above the roofs, preventing architectural drift.
+  Dragon and flame motion remains in the exposed upper scene; smoke near the
+  city changes only along the narrow feathered edge.
   The portrait canvas clips older frames to prevent spill into its letterbox;
   a lower gradient blends into black.
   Hood’s wake painting pulls back from 1.75× to 1.25× over fourteen seconds.
