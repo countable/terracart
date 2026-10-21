@@ -253,7 +253,7 @@ const ASSETS = {
   gas_mushroom_large: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-large.png', frameWidth: 24, frameHeight: 24 },
   zone_berry_bush: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/zone_berry_bush.png', 'frameWidth': 16, 'frameHeight': 16},
   beach_palms: { kind: 'spritesheet', path: 'assets/Objects/CelProps/palms.png', frameWidth: 24, frameHeight: 24 },
-  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/CelProps/clipped.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/SelectedFlora/selected_clipped_hedge.png', frameWidth: 24, frameHeight: 24 },
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
   reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
@@ -428,7 +428,7 @@ const ASSETS = {
   // BEGIN approved map-art states and contexts
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
   approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
-  approved_clipped_hedge: { kind: 'spritesheet', path: 'assets/Objects/CelProps/clipped.png', frameWidth: 24, frameHeight: 24 },
+  approved_clipped_hedge: { kind: 'spritesheet', path: 'assets/Objects/SelectedFlora/selected_clipped_hedge.png', frameWidth: 24, frameHeight: 24 },
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 24, "frameHeight": 24},
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts

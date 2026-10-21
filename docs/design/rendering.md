@@ -1099,11 +1099,13 @@ not saved. Original sprites also supply restoration cards and Home icons.
 
 ## Bush and container artwork
 
-`assets/Objects/CelProps/` supplies native 24px bushes, brambles, clipped hedges,
+`assets/Objects/CelProps/` supplies native 24px bushes, brambles,
 coastal palms, barrels and pots. Stable plant IDs select canopy frames. Berry
 textures bake red, teal or gold fruit onto all eight canopies once at startup;
-picking retains the same foliage frame and transparency. Square clipped bushes
-present a broad side toward the camera. Connected hedges retain their fifteen
+picking retains the same foliage frame and transparency. Standalone clipped hedges use the rounded Fantasy Dreamland crown in
+`assets/Objects/SelectedFlora/selected_clipped_hedge.png`, extracted by
+`tools/build_selected_hedge.py` into a 24px cell. Both clipped-shrub aliases
+use its single frame. Connected hedges retain their fifteen
 cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared

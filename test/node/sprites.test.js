@@ -838,7 +838,7 @@ test('bush variants stay stable through harvest and reload and cover every appro
     }
   }
   assert.eq(selected.size, 8);
-  for (const [look, count] of [['bramble', 1], ['clipped', 8], ['zone_hedge_single', 8]]) {
+  for (const [look, count] of [['bramble', 1], ['clipped', 1], ['zone_hedge_single', 1]]) {
     const variants = new Set();
     for (let i = 0; i < 80; i++) variants.add(wildplantFrame({crop:'shrub',id:'shrub-' + i,_plantArt:look}));
     assert.eq(variants.size, count, look + ' uses every approved variant');
