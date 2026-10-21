@@ -1575,8 +1575,11 @@
   // once on the entrance wall; roofs repeat the skin's tiled roof in roof
   // space; gables, fascia and beams take single source texels. `shade` is
   // the depth renderer's only lighting, for slopes the art did not paint.
-  function authoredOutline(skin,ring,entrance=null){
-    const d=skin.texel,F=skin.facade,H=F.rows*d,R=skin.roof;
+  function authoredOutline(skin,ring,entrance=null,facadeRows=null){
+    // Shorter facades keep the ground-floor pixels and the original door scale.
+    const rows=facadeRows??skin.facade.rows;
+    const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
+    const d=skin.texel,H=F.rows*d,R=skin.roof;
     const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance),faces=[];
     const emit=(points,uv,kind,extra={})=>{if(points.length<3)return;
       for(let i=1;i<points.length-1;i++){const ids=[0,i,i+1],ps=ids.map(j=>({x:points[j].x,y:points[j].y,z:points[j].z,tu:uv[j][0]/512,tv:uv[j][1]/1024}));
@@ -1691,7 +1694,7 @@
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null):authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows):authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};

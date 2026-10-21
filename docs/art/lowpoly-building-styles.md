@@ -10,7 +10,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin (Home's alone) | Orange |
 | Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
-| Blacksmith T1–T3 / T4–T7 | FDR / steam blacksmith | Slate |
+| Blacksmith T1 / T2–T3 / T4–T7 | FDR ground floor only / full FDR / steam blacksmith | Slate |
 | Trader | Trader | Green |
 | Seed / supply shop | Market / city storefront | Lime / blue |
 | Magic / relic shop | Market / city storefront | Teal / red |
@@ -25,7 +25,9 @@ the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
 entrance wall, its tiled roof in roof space, and single texels for gables,
-fascia and ridge beams. Doors stand 13 units tall on every model. Model-only
+fascia and ridge beams. Doors stand 13 units tall on every model. Tier-1 blacksmiths use the bottom
+36 facade texels for a single storey, keeping the source door scale; higher tiers
+retain their full facades. Model-only
 features (porches, painted chimneys, dormers) do not appear on lot-outline
 buildings. Wizard towers and the fort hall keep their whole shells, fit inside
 the lot. Only models assigned to existing game roles ship.
