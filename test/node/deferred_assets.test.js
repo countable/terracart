@@ -1,10 +1,11 @@
 (() => {
-  function fixture() {
+  function fixture(window = {}) {
     const assets = new Function('window', 'EnemyRoster', 'SpriteLayout', ASSETS_SRC + '\nreturn ASSETS;')({}, EnemyRoster, SpriteLayout);
     const handlers = new Map(), requests = [], textures = new Map(), animations = new Map();
     let starts = 0;
     const load = {
       on(event, fn) { const list = handlers.get(event) || []; list.push({ fn }); handlers.set(event, list); },
+      off(event, fn) { handlers.set(event, (handlers.get(event) || []).filter(listener => listener.fn !== fn)); },
       once(event, fn) { const list = handlers.get(event) || []; list.push({ fn, once: true }); handlers.set(event, list); },
       spritesheet(key, path, config) { requests.push({ key, path, config }); },
       image(key, path) { requests.push({ key, path }); },
@@ -21,7 +22,7 @@
     for (const name of ['preload', '_queueAsset', '_ensureAsset', '_createAnim']) {
       const match = SCENE_SRC.match(new RegExp(`^  ${name}\\(([^)]*)\\) \\{([\\s\\S]*?)^  \\}`, 'm'));
       assert.truthy(match, `extract actual ${name} method`);
-      scene[name] = new Function('ASSETS', 'window', `return function(${match[1]}) {${match[2]}}`)(assets, {});
+      scene[name] = new Function('ASSETS', 'window', `return function(${match[1]}) {${match[2]}}`)(assets, window);
     }
     const emit = (event, value) => {
       const listeners = handlers.get(event) || [];
@@ -51,6 +52,26 @@
     assert.falsy(scene._ensureAsset('missing-catalog-key'));
     assert.falsy(scene._ensureAsset('house'), 'core assets are not requeued by lazy consumers');
     assert.eq(starts(), 0);
+  });
+
+  test('deferred assets: later art loads cannot overwrite the map-loading boot status', () => {
+    const reports = [];
+    const window = { __bootStatus: (progress, label) => reports.push({ progress, label }) };
+    const { scene, emit } = fixture(window);
+    scene.preload();
+    emit('progress', 0.5);
+    assert.eq(reports.length, 1);
+    assert.eq(reports[0].progress, 0.425);
+    assert.eq(reports[0].label, 'Unpacking supplies…');
+    emit('complete');
+    window.__bootStatus(0.9, 'Loading the map…');
+    scene._ensureAsset('dragon');
+    emit('progress', 0);
+    emit('progress', 1);
+    emit('complete');
+    assert.eq(reports.length, 2, 'the initial preload listener is detached');
+    assert.eq(reports[1].label, 'Loading the map…');
+    assert.eq(reports[1].progress, 0.9);
   });
 
   test('deferred assets: repeated requests queue one sheet and animation becomes ready on completion', () => {

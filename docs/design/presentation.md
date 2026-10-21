@@ -285,6 +285,8 @@ changing dialogue, story panels, books, toasts or status presentation.
 - Interrupted startup script downloads show a recovery screen and retry the
   whole page at most twice per tab, preserving script order and saved progress.
   Offline startup waits for connectivity; exhausted retries offer **Try again**.
+  Asset progress updates end when initial preload completes; later deferred
+  artwork must not overwrite the map-loading caption or reset its watchdog.
   Successful map startup resets this budget. Runtime exceptions remain visible
   as diagnostics and do not trigger automatic reloads. Versioned scripts only
   fall back to an exact cached version, never an older incompatible module. Linked local stylesheets use the same

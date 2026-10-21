@@ -1856,7 +1856,11 @@ class MapScene extends Phaser.Scene {
     // 0→0.85 here, 0.9 as create() builds the world, 1 on the first update()
     // frame (which fades the overlay out and hands off to the in-world
     // unmapped-tile shimmer for whatever tiles are still loading).
-    this.load.on('progress', (p) => window.__bootStatus?.(p * 0.85, 'Unpacking supplies…'));
+    const bootAssetProgress = (p) => window.__bootStatus?.(p * 0.85, 'Unpacking supplies…');
+    this.load.on('progress', bootAssetProgress);
+    // Deferred creature art reuses this loader after create(). Its progress
+    // must not replace the map-loading caption or move the boot bar backward.
+    this.load.once('complete', () => this.load.off('progress', bootAssetProgress));
     // EVERY texture comes from the ASSETS catalog (assets.js) — the character,
     // the world sprites, the creature sheets, the icons. Nothing is loaded by
     // hand here: Phaser's loader keeps the FIRST config queued for a key, so a

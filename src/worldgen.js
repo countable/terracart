@@ -8281,8 +8281,56 @@
   // Negative-cache TTLs: after a failed Overpass fetch we store a sentinel in
   // IDB so the next page reload doesn't hammer the server again immediately.
   // 429 (rate-limited) gets a longer backoff than a generic network error.
-  const OVERPASS_FAIL_TTL_MS = 5  * 60 * 1000;   // 5 min — transient / load-shed
-  const OVERPASS_429_TTL_MS  = 15 * 60 * 1000;   // 15 min — rate limited
+  const OVERPASS_FAIL_TTL_MS = 60 * 60 * 1000;       // 1 hour — transient / load-shed
+  const OVERPASS_429_TTL_MS = 6 * 60 * 60 * 1000;   // 6 hours — rate limited
+
+  // Decoration and private-ground requests share endpoint cooldowns across
+  // tiles and reloads. Memory remains authoritative when storage is unavailable.
+  const _overpassEndpointRead = new Map();
+  async function overpassEndpointState(endpoint) {
+    if (!_overpassEndpointRead.has(endpoint)) {
+      const key = 'ovp-endpoint/' + endpoint;
+      _overpassEndpointRead.set(endpoint, Promise.resolve().then(() => idbGet(key))
+        .catch(() => null).then(value => ({ until: value?.until || 0 })));
+    }
+    return _overpassEndpointRead.get(endpoint);
+  }
+  async function overpassEndpointFailed(endpoint, state, response) {
+    let until = Date.now() + (response?.status === 429 ? OVERPASS_429_TTL_MS : OVERPASS_FAIL_TTL_MS);
+    const retry = response?.headers?.get?.('Retry-After');
+    if (retry) {
+      const seconds = Number(retry);
+      const deadline = Number.isFinite(seconds) ? Date.now() + Math.max(0, seconds) * 1000 : Date.parse(retry);
+      if (Number.isFinite(deadline)) until = Math.max(until, deadline);
+    }
+    state.until = Math.max(state.until, until);
+    await idbPut('ovp-endpoint/' + endpoint, { until: state.until });
+    return state.until;
+  }
+  async function requestOverpass(query) {
+    let until = Date.now() + OVERPASS_FAIL_TTL_MS;
+    for (const endpoint of OVERPASS_ENDPOINTS) {
+      const state = await overpassEndpointState(endpoint);
+      if (state.until > Date.now()) { until = Math.max(until, state.until); continue; }
+      const ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+      const timer = ctrl ? setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS) : null;
+      let response;
+      try {
+        response = await fetch(endpoint, { method: 'POST', body: 'data=' + encodeURIComponent(query),
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          signal: ctrl?.signal });
+        if (response.ok) {
+          const json = await response.json();
+          // A remark means a partial result. Never cache it as a successful
+          // empty/complete tile, including private-ground masks.
+          if (json && !json.remark && Array.isArray(json.elements)) return { json };
+        }
+      } catch (_) { /* network/abort/invalid JSON: back off and try the mirror */ }
+      finally { if (timer) clearTimeout(timer); }
+      until = Math.max(until, await overpassEndpointFailed(endpoint, state, response));
+    }
+    return { json: null, until };
+  }
 
   // Per-tile cache + in-flight dedup so a tile is queried at most once.
   //
@@ -8293,70 +8341,39 @@
   // orphans every one of those, so no old-format row is ever read back.
   const OVERPASS_IDB_PREFIX = 'ovp2';
   const _overpassInflight = new Map();
-  async function fetchOverpassBin(x, y, lat) {
-    const key = `${OVERPASS_IDB_PREFIX}/${Z}/${x}/${y}`;
+  const _overpassCache = new Map();
+  async function readOverpassBin(key) {
+    if (_overpassCache.has(key)) return _overpassCache.get(key);
     const cached = await idbGet(key);
-    if (cached) {
-      if (cached._failed) {
-        if (Date.now() < (cached.until ?? 0)) return null;   // backoff still active
-        // else: TTL expired — fall through and retry
-      } else {
-        return cached;                         // real bin
-      }
-    }
+    if (cached) _overpassCache.set(key, cached);
+    return cached;
+  }
+  function fetchOverpassBin(x, y, lat) {
+    const key = `${OVERPASS_IDB_PREFIX}/${Z}/${x}/${y}`;
     if (_overpassInflight.has(key)) return _overpassInflight.get(key);
-    const p = (async () => {
+    // Install dedup before the first asynchronous cache read as well as fetch.
+    const p = Promise.resolve().then(async () => {
+      const cached = await readOverpassBin(key);
+      if (cached && !cached._failed) return cached;
+      if (cached && Date.now() < cached.until) return null;
       await overpassAcquire();
       try {
-        const body = 'data=' + encodeURIComponent(buildOverpassQL(x, y));
-        let json = null;
-        let got429 = false;
-        for (const ep of OVERPASS_ENDPOINTS) {
-          // Per-attempt abort timeout: a slow/hung Overpass request must never
-          // wedge here, or the status sticks on FETCHING forever AND its
-          // concurrency slot (released in the outer finally) is held hostage,
-          // jamming every other tile's query behind it.
-          const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-          const timer = ctrl ? setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS) : null;
-          try {
-            const resp = await fetch(ep, {
-              method: 'POST', body,
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              signal: ctrl ? ctrl.signal : undefined,
-            });
-            if (resp.status === 429) { got429 = true; continue; }
-            if (!resp.ok) continue;            // load-shed → next mirror
-            const j = await resp.json();
-            // A `remark` is Overpass saying the answer is PARTIAL (a runtime
-            // timeout or memory cap cut the query short) while still sending
-            // 200 and some elements. Caching that "forever" would bake a
-            // half-decorated tile into one player's world and not another's.
-            // Treat it as a failure: next mirror, else the negative cache.
-            if (!j || j.remark) continue;
-            json = j;
-            break;
-          } catch (_) { /* abort/network error → try next endpoint */ }
-          finally { if (timer) clearTimeout(timer); }
-        }
+        const { json, until } = await requestOverpass(buildOverpassQL(x, y));
         if (!json) {
-          // Negative-cache so reloads don't immediately retry the same tile.
-          const ttl = got429 ? OVERPASS_429_TTL_MS : OVERPASS_FAIL_TTL_MS;
-          idbPut(key, { _failed: true, until: Date.now() + ttl });
+          const failed = { _failed: true, until };
+          _overpassCache.set(key, failed);
+          await idbPut(key, failed);
           ovpNote(x, y, 'failed'); return null;
         }
         const bins = buildBinsFromGeoJSON(overpassToGeoJSON(json.elements), lat);
-        // Features near the bbox edge can project into a neighbour tile; we
-        // keep only this tile's bin (neighbours fetch their own bbox).
         const bin = bins.get(`${x}_${y}`) || emptyBin();
-        // Awaited so warmOverpass's evict-and-rebuild can't race a rebuild's
-        // getTileBin against an uncommitted write (the rebuild would miss the
-        // bin and come back treeless again). Trees ~static → cached forever.
+        _overpassCache.set(key, bin);
         await idbPut(key, bin);
         ovpNote(x, y, 'loaded', bin);
         return bin;
       } catch (_) { ovpNote(x, y, 'failed'); return null; }
-      finally { overpassRelease(); _overpassInflight.delete(key); }
-    })();
+      finally { overpassRelease(); }
+    }).finally(() => _overpassInflight.delete(key));
     _overpassInflight.set(key, p);
     return p;
   }
@@ -8374,7 +8391,7 @@
     if (!overpassLiveEnabled()) return null;
     const key = `${OVERPASS_IDB_PREFIX}/${Z}/${x}/${y}`;
     let cached = null;
-    try { cached = await idbGet(key); } catch (_) { cached = null; }   // local, fast, can't hang on the network
+    try { cached = await readOverpassBin(key); } catch (_) { cached = null; }   // local only; never waits on Overpass
     if (cached) {
       if (cached._failed) {
         if (Date.now() < (cached.until ?? 0)) return null;   // within backoff window — don't retry
@@ -8393,13 +8410,14 @@
   // anything generated (CLAUDE.md: every player sees the SAME world). It is
   // one more REASON on the spawn gate for the things that are per-player
   // already: a coin burst's cells, a bounty pack's seats, anything
-  // walkableDestination finds. A failed, pending or missing fetch is NO veto.
+  // walkableDestination finds. Without a known mask, failed/pending fetches
+  // impose no veto; a known mask stays active while its refresh is pending.
   // Cached per tile in IndexedDB under PRIVATE_VETO_IDB_PREFIX as a
   // frame-free cell mask on the tile's own grid (cellsPerEdgeForTile), and
   // re-asked after PRIVATE_VETO_TTL_MS. Fetched beside the tile's Overpass
   // decoration (warmOverpass: the tile the player stands in).
   const PRIVATE_VETO_IDB_PREFIX = 'pvt1';
-  const PRIVATE_VETO_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+  const PRIVATE_VETO_TTL_MS = 30 * 24 * 60 * 60 * 1000;
   const PRIVATE_BARRIERS = 'fence|wall|hedge|retaining_wall|guard_rail|city_wall';
   const _privateVeto = new Map();          // `${x}_${y}` → Uint8Array (1 = vetoed)
   const _privateVetoInflight = new Map();
@@ -8441,53 +8459,37 @@
   // the veto is warmed on every 20 m walk check, and each read structured-
   // clones the tile's whole mask. key -> { until, mask }.
   const _privateVetoRead = new Map();
-  async function fetchPrivateVeto(x, y) {
+  function fetchPrivateVeto(x, y) {
     const key = `${PRIVATE_VETO_IDB_PREFIX}/${Z}/${x}/${y}`;
     const k = `${x}_${y}`;
-    const memo = _privateVetoRead.get(key);
-    if (memo && Date.now() < memo.until) {
-      if (memo.mask) _privateVeto.set(k, memo.mask);
-      return memo.mask || null;
-    }
-    const cached = await idbGet(key);
-    if (cached && Date.now() < (cached.until ?? 0)) {
-      _privateVetoRead.set(key, { until: cached.until, mask: cached.mask || null });
-      if (cached.mask) _privateVeto.set(k, cached.mask);
-      return cached.mask || null;
-    }
     if (_privateVetoInflight.has(key)) return _privateVetoInflight.get(key);
-    if (typeof fetch !== 'function') return null;
-    const p = (async () => {
+    const p = Promise.resolve().then(async () => {
+      const cached = _privateVetoRead.get(key) || await idbGet(key);
+      if (cached) {
+        _privateVetoRead.set(key, cached);
+        // A previously observed fence remains useful during a refresh or an
+        // outage. Only a complete new answer can replace its mask.
+        if (cached.mask) _privateVeto.set(k, cached.mask);
+        if (Date.now() < Math.max(cached.until || 0, cached.retryUntil || 0)) return cached.mask || null;
+      }
+      if (typeof fetch !== 'function') return cached?.mask || null;
       await overpassAcquire();
       try {
-        const body = 'data=' + encodeURIComponent(buildPrivateVetoQL(x, y));
-        for (const ep of OVERPASS_ENDPOINTS) {
-          const ctrl = (typeof AbortController !== 'undefined') ? new AbortController() : null;
-          const timer = ctrl ? setTimeout(() => ctrl.abort(), OVERPASS_TIMEOUT_MS) : null;
-          try {
-            const resp = await fetch(ep, { method: 'POST', body,
-              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-              signal: ctrl ? ctrl.signal : undefined });
-            if (!resp.ok) continue;
-            const j = await resp.json();
-            if (!j || j.remark) continue;        // partial answer: no veto from it
-            const mask = privateVetoMask(j.elements, x, y);
-            _privateVeto.set(k, mask);
-            const until = Date.now() + PRIVATE_VETO_TTL_MS;
-            _privateVetoRead.set(key, { until, mask });
-            await idbPut(key, { mask, until });
-            return mask;
-          } catch (_) { /* next mirror */ }
-          finally { if (timer) clearTimeout(timer); }
+        const { json, until: retryUntil } = await requestOverpass(buildPrivateVetoQL(x, y));
+        if (json) {
+          const mask = privateVetoMask(json.elements, x, y);
+          const value = { mask, until: Date.now() + PRIVATE_VETO_TTL_MS };
+          _privateVeto.set(k, mask);
+          _privateVetoRead.set(key, value);
+          await idbPut(key, value);
+          return mask;
         }
-        // Failed: no veto, and a short negative cache so a reload does not
-        // hammer the server (the decoration's own backoff).
-        const until = Date.now() + OVERPASS_FAIL_TTL_MS;
-        _privateVetoRead.set(key, { until, mask: null });
-        idbPut(key, { mask: null, until });
-        return null;
-      } finally { overpassRelease(); _privateVetoInflight.delete(key); }
-    })();
+        const value = { mask: cached?.mask || null, until: cached?.until || 0, retryUntil };
+        _privateVetoRead.set(key, value);
+        await idbPut(key, value);
+        return value.mask;
+      } finally { overpassRelease(); }
+    }).finally(() => _privateVetoInflight.delete(key));
     _privateVetoInflight.set(key, p);
     return p;
   }

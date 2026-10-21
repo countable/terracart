@@ -550,7 +550,16 @@ access or tile lifecycle mechanics.
   spawn classes cannot use that declaration to cross a road.
   POI chests are the place itself (`landRefused` —
   land reasons only). The live Overpass fence veto (`privateVetoAt`) is for per-player
-  things only and fails open. Road terrain alone misses drawn roads; the mask uses
+  things only and fails open when no successful mask is known. Its last known
+  mask stays active during a background refresh or outage; successful masks
+  stay fresh for 30 days. Overpass decoration bins are cached indefinitely.
+  Both query kinds share persistent per-endpoint cooldowns: one hour after
+  failure, six hours after HTTP 429, or a longer server `Retry-After`.
+  Memory caches preserve successful and negative results if IndexedDB is
+  unavailable, and concurrent callers share the cache read and request.
+  Partial Overpass responses never replace successful data. These optional
+  requests run in the background and never gate base map geometry.
+  Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover
   `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
   or in yards, and every timed reward (coin bursts, bounty packs,
