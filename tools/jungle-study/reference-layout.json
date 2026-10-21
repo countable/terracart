@@ -1,0 +1,1844 @@
+{
+  "reference": "https://img.itch.zone/aW1hZ2UvMTcwNTIxNS8xMTk3MTI4MC5naWY=/original/xGmC%2B2.gif",
+  "canvas": [
+    320,
+    250
+  ],
+  "display_scale": 2,
+  "coordinate_system": "top-left native reference pixels; crop top_left includes transparent padding; no perspective projection",
+  "trees": [
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        64,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        33,
+        -22
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        36,
+        0,
+        95,
+        52
+      ],
+      "seat": [
+        65,
+        51
+      ],
+      "confidence": "template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        168,
+        -23
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        170,
+        -1,
+        229,
+        51
+      ],
+      "seat": [
+        200,
+        50
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        86,
+        9
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        88,
+        12,
+        148,
+        87
+      ],
+      "seat": [
+        118,
+        86
+      ],
+      "confidence": "template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        226,
+        -15
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        228,
+        -12,
+        288,
+        63
+      ],
+      "seat": [
+        258,
+        62
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        103,
+        98
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        105,
+        120,
+        164,
+        172
+      ],
+      "seat": [
+        135,
+        171
+      ],
+      "confidence": "template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        192,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        71,
+        83
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        78,
+        91,
+        132,
+        158
+      ],
+      "seat": [
+        103,
+        157
+      ],
+      "confidence": "partial-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        -34,
+        -15
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        -32,
+        -12,
+        28,
+        63
+      ],
+      "seat": [
+        -2,
+        62
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        0,
+        -54
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        2,
+        -51,
+        62,
+        24
+      ],
+      "seat": [
+        32,
+        23
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        68,
+        -64
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        70,
+        -61,
+        130,
+        14
+      ],
+      "seat": [
+        100,
+        13
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        117,
+        -57
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        119,
+        -54,
+        179,
+        21
+      ],
+      "seat": [
+        149,
+        20
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        199,
+        -69
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        201,
+        -66,
+        261,
+        9
+      ],
+      "seat": [
+        231,
+        8
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        267,
+        -54
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        269,
+        -51,
+        329,
+        24
+      ],
+      "seat": [
+        299,
+        23
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        128,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        273,
+        11
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        276,
+        19,
+        330,
+        86
+      ],
+      "seat": [
+        305,
+        85
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        -10,
+        129
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        -8,
+        132,
+        52,
+        207
+      ],
+      "seat": [
+        22,
+        206
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        26,
+        153
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        28,
+        156,
+        88,
+        231
+      ],
+      "seat": [
+        58,
+        230
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        -6,
+        177
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        -4,
+        180,
+        56,
+        255
+      ],
+      "seat": [
+        26,
+        254
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        22,
+        201
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        24,
+        204,
+        84,
+        279
+      ],
+      "seat": [
+        54,
+        278
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        -10,
+        225
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        -8,
+        228,
+        52,
+        303
+      ],
+      "seat": [
+        22,
+        302
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        154,
+        212
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        156,
+        234,
+        215,
+        286
+      ],
+      "seat": [
+        186,
+        285
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        188,
+        188
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        190,
+        191,
+        250,
+        266
+      ],
+      "seat": [
+        220,
+        265
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        249,
+        189
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        251,
+        192,
+        311,
+        267
+      ],
+      "seat": [
+        281,
+        266
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        0,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        221,
+        216
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        223,
+        238,
+        282,
+        290
+      ],
+      "seat": [
+        253,
+        289
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        282,
+        213
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        284,
+        216,
+        344,
+        291
+      ],
+      "seat": [
+        314,
+        290
+      ],
+      "confidence": "estimated"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        256,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        -41,
+        153
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        -39,
+        156,
+        21,
+        231
+      ],
+      "seat": [
+        -9,
+        230
+      ],
+      "confidence": "robust-canopy-template"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        320,
+        0,
+        64,
+        80
+      ],
+      "top_left": [
+        -38,
+        200
+      ],
+      "scale": 1,
+      "opaque_bbox": [
+        -36,
+        203,
+        24,
+        278
+      ],
+      "seat": [
+        -6,
+        277
+      ],
+      "confidence": "robust-canopy-template"
+    }
+  ],
+  "ground": {
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "base_crop": [
+      16,
+      544,
+      16,
+      16
+    ],
+    "patch_crop": [
+      96,
+      544,
+      16,
+      16
+    ],
+    "note": "Reference patches are olive, not darkolive. Global ambient multiply~0.5 gives dark soil appearance. Organic outlines below hand-traced from first frame; some boundaries hidden under trees.",
+    "patch_polygons": [
+      [
+        [
+          39,
+          114
+        ],
+        [
+          54,
+          110
+        ],
+        [
+          71,
+          105
+        ],
+        [
+          84,
+          100
+        ],
+        [
+          91,
+          106
+        ],
+        [
+          88,
+          119
+        ],
+        [
+          80,
+          134
+        ],
+        [
+          68,
+          141
+        ],
+        [
+          54,
+          140
+        ],
+        [
+          44,
+          135
+        ]
+      ],
+      [
+        [
+          111,
+          96
+        ],
+        [
+          140,
+          95
+        ],
+        [
+          149,
+          102
+        ],
+        [
+          155,
+          107
+        ],
+        [
+          165,
+          109
+        ],
+        [
+          166,
+          120
+        ],
+        [
+          158,
+          130
+        ],
+        [
+          148,
+          135
+        ],
+        [
+          137,
+          131
+        ],
+        [
+          126,
+          124
+        ],
+        [
+          117,
+          110
+        ]
+      ],
+      [
+        [
+          167,
+          135
+        ],
+        [
+          181,
+          137
+        ],
+        [
+          192,
+          145
+        ],
+        [
+          205,
+          150
+        ],
+        [
+          210,
+          160
+        ],
+        [
+          201,
+          160
+        ],
+        [
+          186,
+          167
+        ],
+        [
+          173,
+          162
+        ],
+        [
+          163,
+          161
+        ],
+        [
+          156,
+          150
+        ]
+      ],
+      [
+        [
+          260,
+          139
+        ],
+        [
+          277,
+          131
+        ],
+        [
+          290,
+          136
+        ],
+        [
+          295,
+          145
+        ],
+        [
+          291,
+          155
+        ],
+        [
+          279,
+          160
+        ],
+        [
+          278,
+          173
+        ],
+        [
+          267,
+          179
+        ],
+        [
+          253,
+          173
+        ],
+        [
+          252,
+          161
+        ]
+      ],
+      [
+        [
+          280,
+          176
+        ],
+        [
+          294,
+          171
+        ],
+        [
+          310,
+          175
+        ],
+        [
+          320,
+          185
+        ],
+        [
+          320,
+          204
+        ],
+        [
+          306,
+          207
+        ],
+        [
+          293,
+          196
+        ],
+        [
+          280,
+          192
+        ]
+      ],
+      [
+        [
+          159,
+          189
+        ],
+        [
+          173,
+          184
+        ],
+        [
+          183,
+          186
+        ],
+        [
+          186,
+          193
+        ],
+        [
+          177,
+          198
+        ],
+        [
+          167,
+          209
+        ],
+        [
+          159,
+          222
+        ],
+        [
+          151,
+          224
+        ],
+        [
+          138,
+          225
+        ],
+        [
+          128,
+          220
+        ],
+        [
+          136,
+          212
+        ],
+        [
+          145,
+          199
+        ]
+      ],
+      [
+        [
+          83,
+          192
+        ],
+        [
+          95,
+          195
+        ],
+        [
+          108,
+          203
+        ],
+        [
+          111,
+          216
+        ],
+        [
+          107,
+          221
+        ],
+        [
+          101,
+          226
+        ],
+        [
+          87,
+          223
+        ],
+        [
+          74,
+          222
+        ],
+        [
+          72,
+          207
+        ]
+      ]
+    ],
+    "trial_note": "Lower tips and central separation compensate for native dual-grid boundary expansion."
+  },
+  "pond": {
+    "water_rgb": [
+      27,
+      38,
+      38
+    ],
+    "bank_width": 5,
+    "bank_is_level": true,
+    "outline": [
+      [
+        234,
+        70
+      ],
+      [
+        245,
+        70
+      ],
+      [
+        252,
+        69
+      ],
+      [
+        260,
+        70
+      ],
+      [
+        269,
+        70
+      ],
+      [
+        275,
+        76
+      ],
+      [
+        281,
+        83
+      ],
+      [
+        289,
+        87
+      ],
+      [
+        295,
+        96
+      ],
+      [
+        298,
+        107
+      ],
+      [
+        296,
+        117
+      ],
+      [
+        287,
+        120
+      ],
+      [
+        278,
+        120
+      ],
+      [
+        270,
+        123
+      ],
+      [
+        263,
+        126
+      ],
+      [
+        259,
+        134
+      ],
+      [
+        251,
+        141
+      ],
+      [
+        248,
+        150
+      ],
+      [
+        249,
+        163
+      ],
+      [
+        251,
+        174
+      ],
+      [
+        260,
+        182
+      ],
+      [
+        270,
+        189
+      ],
+      [
+        274,
+        202
+      ],
+      [
+        267,
+        214
+      ],
+      [
+        250,
+        220
+      ],
+      [
+        225,
+        220
+      ],
+      [
+        208,
+        214
+      ],
+      [
+        198,
+        204
+      ],
+      [
+        199,
+        194
+      ],
+      [
+        204,
+        183
+      ],
+      [
+        211,
+        177
+      ],
+      [
+        215,
+        170
+      ],
+      [
+        218,
+        158
+      ],
+      [
+        217,
+        146
+      ],
+      [
+        210,
+        139
+      ],
+      [
+        203,
+        134
+      ],
+      [
+        199,
+        126
+      ],
+      [
+        197,
+        116
+      ],
+      [
+        200,
+        108
+      ],
+      [
+        207,
+        100
+      ],
+      [
+        216,
+        96
+      ],
+      [
+        224,
+        86
+      ],
+      [
+        228,
+        76
+      ]
+    ],
+    "note": "Lower pond partly occluded by trees; under-canopy extension inferred. Treat all water and bridge as flat."
+  },
+  "bridge": {
+    "rect": [
+      208,
+      143,
+      48,
+      31
+    ],
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle_Extras.png",
+    "crop": [
+      176,
+      16,
+      16,
+      16
+    ],
+    "plank_direction": "vertical",
+    "railings": false
+  },
+  "lamps": [
+    {
+      "base": [
+        24,
+        106
+      ],
+      "top": [
+        24,
+        88
+      ],
+      "light_center": [
+        24,
+        96
+      ],
+      "light_radius": 34
+    },
+    {
+      "base": [
+        200,
+        90
+      ],
+      "top": [
+        200,
+        72
+      ],
+      "light_center": [
+        200,
+        79
+      ],
+      "light_radius": 33
+    }
+  ],
+  "lamp_source": {
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle_Animations.png",
+    "crop": [
+      240,
+      240,
+      16,
+      32
+    ],
+    "note": "Crop includes top transparent pixels; scale1, align visible base to specified base."
+  },
+  "small_rocks": [
+    [
+      156,
+      115
+    ],
+    [
+      189,
+      154
+    ],
+    [
+      269,
+      146
+    ],
+    [
+      100,
+      210
+    ],
+    [
+      128,
+      209
+    ],
+    [
+      147,
+      227
+    ],
+    [
+      315,
+      194
+    ]
+  ],
+  "omit": [
+    "all elevated cliffs and stone walls",
+    "fences",
+    "benches",
+    "large grass clumps",
+    "flowers and mushrooms as passive decoration"
+  ],
+  "lighting": {
+    "ambient_rgb_multiplier": [
+      0.5,
+      0.5,
+      0.5
+    ],
+    "tree_template_fit_rgb_multiplier": [
+      0.5003,
+      0.5024,
+      0.5034
+    ],
+    "ground_shadow_rgb": [
+      42,
+      58,
+      17
+    ],
+    "ground_light_rgb": [
+      84,
+      114,
+      34
+    ],
+    "soil_shadow_rgb": [
+      44,
+      45,
+      18
+    ],
+    "water_rgb": [
+      27,
+      38,
+      38
+    ],
+    "bridge_rgb": [
+      77,
+      67,
+      46
+    ],
+    "canopy_rgb": [
+      [
+        64,
+        64,
+        35
+      ],
+      [
+        77,
+        77,
+        38
+      ],
+      [
+        52,
+        52,
+        31
+      ],
+      [
+        90,
+        90,
+        36
+      ]
+    ],
+    "note": "Source pigments appear near full strength inside lamp radius, half strength elsewhere. Avoid daylight fog/brightening. Rain streaks in GIF are not terrain."
+  },
+  "ground_marks": [
+    {
+      "crop": [
+        288,
+        720,
+        16,
+        16
+      ],
+      "top_left": [
+        168,
+        110
+      ],
+      "center": [
+        176,
+        118
+      ],
+      "score": 1.0,
+      "pixels": 25,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "crop": [
+        288,
+        736,
+        16,
+        16
+      ],
+      "top_left": [
+        64,
+        142
+      ],
+      "center": [
+        72,
+        150
+      ],
+      "score": 1.0,
+      "pixels": 25,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "crop": [
+        304,
+        688,
+        16,
+        16
+      ],
+      "top_left": [
+        112,
+        182
+      ],
+      "center": [
+        120,
+        190
+      ],
+      "score": 1.0,
+      "pixels": 19,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "crop": [
+        304,
+        704,
+        16,
+        16
+      ],
+      "top_left": [
+        288,
+        118
+      ],
+      "center": [
+        296,
+        126
+      ],
+      "score": 1.0,
+      "pixels": 19,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "crop": [
+        336,
+        688,
+        16,
+        16
+      ],
+      "top_left": [
+        88,
+        78
+      ],
+      "center": [
+        96,
+        86
+      ],
+      "score": 1.0,
+      "pixels": 15,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "crop": [
+        336,
+        720,
+        16,
+        16
+      ],
+      "top_left": [
+        176,
+        198
+      ],
+      "center": [
+        184,
+        206
+      ],
+      "score": 1.0,
+      "pixels": 15,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "crop": [
+        336,
+        736,
+        16,
+        16
+      ],
+      "top_left": [
+        280,
+        158
+      ],
+      "center": [
+        288,
+        166
+      ],
+      "score": 1.0,
+      "pixels": 15,
+      "confidence": "exact: all colored source pixels match within 3 RGB after 0.5 ambient",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "scale": 1
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        336,
+        688,
+        16,
+        16
+      ],
+      "center": [
+        27,
+        49
+      ],
+      "top_left": [
+        19,
+        41
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        304,
+        688,
+        16,
+        16
+      ],
+      "center": [
+        43,
+        52
+      ],
+      "top_left": [
+        35,
+        44
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        336,
+        704,
+        16,
+        16
+      ],
+      "center": [
+        164,
+        51
+      ],
+      "top_left": [
+        156,
+        43
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        240,
+        640,
+        16,
+        16
+      ],
+      "center": [
+        172,
+        58
+      ],
+      "top_left": [
+        164,
+        50
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        336,
+        720,
+        16,
+        16
+      ],
+      "center": [
+        18,
+        107
+      ],
+      "top_left": [
+        10,
+        99
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        304,
+        720,
+        16,
+        16
+      ],
+      "center": [
+        28,
+        108
+      ],
+      "top_left": [
+        20,
+        100
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        272,
+        640,
+        16,
+        16
+      ],
+      "center": [
+        43,
+        100
+      ],
+      "top_left": [
+        35,
+        92
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        304,
+        720,
+        16,
+        16
+      ],
+      "center": [
+        144,
+        181
+      ],
+      "top_left": [
+        136,
+        173
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        288,
+        688,
+        16,
+        16
+      ],
+      "center": [
+        151,
+        184
+      ],
+      "top_left": [
+        143,
+        176
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        336,
+        704,
+        16,
+        16
+      ],
+      "center": [
+        160,
+        182
+      ],
+      "top_left": [
+        152,
+        174
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        336,
+        688,
+        16,
+        16
+      ],
+      "center": [
+        274,
+        134
+      ],
+      "top_left": [
+        266,
+        126
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    },
+    {
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "crop": [
+        304,
+        704,
+        16,
+        16
+      ],
+      "center": [
+        312,
+        137
+      ],
+      "top_left": [
+        304,
+        129
+      ],
+      "scale": 1,
+      "confidence": "approximate: sparse flat substitute for visible reference low grass texture; not exact sprite match"
+    }
+  ],
+  "vertex_overrides": [
+    {
+      "x": 3,
+      "y": -2,
+      "groundType": 3
+    },
+    {
+      "x": 7,
+      "y": -2,
+      "groundType": 3
+    },
+    {
+      "x": 2,
+      "y": -1,
+      "groundType": 3
+    },
+    {
+      "x": -1,
+      "y": 0,
+      "groundType": 1
+    },
+    {
+      "x": 6,
+      "y": 0,
+      "groundType": 1
+    },
+    {
+      "x": 9,
+      "y": 0,
+      "groundType": 4
+    },
+    {
+      "x": -11,
+      "y": 1,
+      "groundType": 4
+    },
+    {
+      "x": -7,
+      "y": 1,
+      "groundType": 1
+    },
+    {
+      "x": -6,
+      "y": 1,
+      "groundType": 1
+    },
+    {
+      "x": -2,
+      "y": 1,
+      "groundType": 4
+    },
+    {
+      "x": 5,
+      "y": 1,
+      "groundType": 1
+    },
+    {
+      "x": 6,
+      "y": 1,
+      "groundType": 4
+    },
+    {
+      "x": 7,
+      "y": 1,
+      "groundType": 1
+    },
+    {
+      "x": 0,
+      "y": 2,
+      "groundType": 1
+    },
+    {
+      "x": 3,
+      "y": 2,
+      "groundType": 3
+    },
+    {
+      "x": 4,
+      "y": 2,
+      "groundType": 1
+    },
+    {
+      "x": 5,
+      "y": 2,
+      "groundType": 4
+    },
+    {
+      "x": 7,
+      "y": 2,
+      "groundType": 1
+    },
+    {
+      "x": 5,
+      "y": 3,
+      "groundType": 4
+    },
+    {
+      "x": 6,
+      "y": 3,
+      "groundType": 1
+    },
+    {
+      "x": -6,
+      "y": 4,
+      "groundType": 4
+    },
+    {
+      "x": -1,
+      "y": 4,
+      "groundType": 4
+    },
+    {
+      "x": 2,
+      "y": 4,
+      "groundType": 3
+    },
+    {
+      "x": -6,
+      "y": 5,
+      "groundType": 4
+    },
+    {
+      "x": -5,
+      "y": 5,
+      "groundType": 4
+    },
+    {
+      "x": -4,
+      "y": 5,
+      "groundType": 1
+    },
+    {
+      "x": 0,
+      "y": 5,
+      "groundType": 1
+    },
+    {
+      "x": 6,
+      "y": 5,
+      "groundType": 3
+    },
+    {
+      "x": 9,
+      "y": 5,
+      "groundType": 1
+    },
+    {
+      "x": -5,
+      "y": 6,
+      "groundType": 4
+    },
+    {
+      "x": -4,
+      "y": 6,
+      "groundType": 1
+    },
+    {
+      "x": -1,
+      "y": 6,
+      "groundType": 1
+    },
+    {
+      "x": 9,
+      "y": 6,
+      "groundType": 4
+    },
+    {
+      "x": -4,
+      "y": 7,
+      "groundType": 1
+    },
+    {
+      "x": -2,
+      "y": 7,
+      "groundType": 1
+    }
+  ],
+  "vertex_override_note": "Native-grid refinements fitted to visible reference water and soil; water remains connected beneath the opaque bridge at vertex (3,2). Deck overlay does not define ground occupancy."
+}

@@ -1,0 +1,387 @@
+[
+  {
+    "id": "grass",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      16,
+      544,
+      16,
+      16
+    ],
+    "note": "Quiet green forest ground"
+  },
+  {
+    "id": "olive",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      96,
+      544,
+      16,
+      16
+    ],
+    "note": "Quiet olive understory / worn soil"
+  },
+  {
+    "id": "darkolive",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      176,
+      544,
+      16,
+      16
+    ],
+    "note": "Dark olive damp patches"
+  },
+  {
+    "id": "tree-wide-a",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      0,
+      0,
+      64,
+      80
+    ],
+    "note": "Broad tree, no baked shadow"
+  },
+  {
+    "id": "tree-wide-b",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      64,
+      0,
+      64,
+      80
+    ],
+    "note": "Broad tree, no baked shadow"
+  },
+  {
+    "id": "tree-root-a",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      256,
+      0,
+      64,
+      80
+    ],
+    "note": "Rooted tree, no baked shadow"
+  },
+  {
+    "id": "tree-root-b",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      320,
+      0,
+      64,
+      80
+    ],
+    "note": "Rooted tree, no baked shadow"
+  },
+  {
+    "id": "tree-dead",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      384,
+      0,
+      64,
+      80
+    ],
+    "note": "Optional dead tree; sparse"
+  },
+  {
+    "id": "pebble",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      384,
+      560,
+      16,
+      16
+    ],
+    "note": "Flat stone; do not imply collectible rock"
+  },
+  {
+    "id": "stone",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      352,
+      496,
+      16,
+      16
+    ],
+    "note": "Ordinary rock prop"
+  },
+  {
+    "id": "bridge",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle_Extras.png",
+    "rect": [
+      176,
+      16,
+      16,
+      16
+    ],
+    "note": "Vertical bridge planks"
+  },
+  {
+    "id": "lamp",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle_Animations.png",
+    "rect": [
+      240,
+      240,
+      16,
+      32
+    ],
+    "note": "Tall stone flame lamp"
+  },
+  {
+    "id": "water",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Animated_Water.png",
+    "rect": [
+      16,
+      80,
+      16,
+      16
+    ],
+    "note": "RA water center; eight frames spaced 64px"
+  },
+  {
+    "id": "waterbank",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Animated_Water.png",
+    "rect": [
+      0,
+      64,
+      48,
+      48
+    ],
+    "note": "Bank transition 3x3 frame one, no cliff"
+  },
+  {
+    "id": "leaf-small",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      240,
+      608,
+      16,
+      16
+    ],
+    "note": "Tiny flat leaf-shaped mark; optional sparse"
+  },
+  {
+    "id": "dirt",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+    "rect": [
+      224,
+      80,
+      16,
+      16
+    ],
+    "note": "Brown soil center if trail needs stronger contrast"
+  },
+  {
+    "id": "olive-bank",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      80,
+      528,
+      48,
+      48
+    ],
+    "note": "Full-tile convex olive edges"
+  },
+  {
+    "id": "olive-inner",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      128,
+      528,
+      32,
+      32
+    ],
+    "note": "Full-tile concave olive edges"
+  },
+  {
+    "id": "water-inner",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Animated_Water.png",
+    "rect": [
+      0,
+      16,
+      48,
+      48
+    ],
+    "note": "Full-tile concave water edges"
+  },
+  {
+    "id": "rock-tiny",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      368,
+      560,
+      16,
+      16
+    ],
+    "note": "Small reference rock prop"
+  },
+  {
+    "id": "rock-mid",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      432,
+      560,
+      16,
+      16
+    ],
+    "note": "Medium reference rock prop"
+  },
+  {
+    "id": "tree-rounded-2",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      128,
+      0,
+      64,
+      80
+    ],
+    "note": "Rounded reference canopy"
+  },
+  {
+    "id": "tree-rounded-3",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      192,
+      0,
+      64,
+      80
+    ],
+    "note": "Rounded reference canopy"
+  },
+  {
+    "id": "flat-leaf-288-720",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      288,
+      720,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-288-736",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      288,
+      736,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-304-688",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      304,
+      688,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-304-704",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      304,
+      704,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-336-688",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      336,
+      688,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-336-720",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      336,
+      720,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-336-736",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      336,
+      736,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-336-704",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      336,
+      704,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-240-640",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      240,
+      640,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-304-720",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      304,
+      720,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-272-640",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      272,
+      640,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  },
+  {
+    "id": "flat-leaf-288-688",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      288,
+      688,
+      16,
+      16
+    ],
+    "note": "Subtle flat reference foliage stroke"
+  }
+]

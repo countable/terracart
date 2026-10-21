@@ -1,0 +1,363 @@
+[
+  {
+    "id": "house-large",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+    "rect": [
+      368,
+      144,
+      144,
+      112
+    ],
+    "note": "Native large front gable house used for northeast house; no existing matching building definition.",
+    "clear": [
+      [
+        0,
+        0,
+        32,
+        16
+      ],
+      [
+        112,
+        0,
+        32,
+        16
+      ]
+    ],
+    "overlays": [
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          320,
+          400,
+          16,
+          16
+        ],
+        "at": [
+          16,
+          80
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          320,
+          400,
+          16,
+          16
+        ],
+        "at": [
+          112,
+          80
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village_Objects01.png",
+        "rect": [
+          0,
+          0,
+          16,
+          24
+        ],
+        "at": [
+          64,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          240,
+          256,
+          16,
+          32
+        ],
+        "at": [
+          112,
+          32
+        ]
+      }
+    ]
+  },
+  {
+    "id": "house-sw",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+    "rect": [
+      256,
+      144,
+      112,
+      112
+    ],
+    "note": "Wide source house module for southwest cropped building.",
+    "clear": [
+      [
+        0,
+        0,
+        32,
+        16
+      ]
+    ],
+    "overlays": [
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          320,
+          400,
+          16,
+          16
+        ],
+        "at": [
+          48,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          320,
+          400,
+          16,
+          16
+        ],
+        "at": [
+          80,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village_Objects01.png",
+        "rect": [
+          0,
+          0,
+          16,
+          24
+        ],
+        "at": [
+          64,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          240,
+          256,
+          16,
+          32
+        ],
+        "at": [
+          16,
+          24
+        ]
+      }
+    ]
+  },
+  {
+    "id": "house-small",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+    "rect": [
+      0,
+      256,
+      64,
+      112
+    ],
+    "note": "Narrow front gable house source family for northwest building.",
+    "clear": [],
+    "overlays": [
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          320,
+          400,
+          16,
+          16
+        ],
+        "at": [
+          8,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          320,
+          400,
+          16,
+          16
+        ],
+        "at": [
+          40,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village_Objects01.png",
+        "rect": [
+          0,
+          0,
+          16,
+          24
+        ],
+        "at": [
+          24,
+          88
+        ]
+      },
+      {
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+        "rect": [
+          240,
+          256,
+          16,
+          32
+        ],
+        "at": [
+          40,
+          24
+        ]
+      }
+    ]
+  },
+  {
+    "id": "grass",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+    "rect": [
+      96,
+      80,
+      16,
+      16
+    ],
+    "note": "Quiet olive ground center, source second ground family."
+  },
+  {
+    "id": "soil",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+    "rect": [
+      224,
+      80,
+      16,
+      16
+    ],
+    "note": "Dark brown earth center, source fourth ground family."
+  },
+  {
+    "id": "grass_dual",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+    "rect": [
+      80,
+      64,
+      48,
+      48
+    ],
+    "note": "Outer edge circle block; concave corners from donut block at [80,16]."
+  },
+  {
+    "id": "soil_dual",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+    "rect": [
+      208,
+      64,
+      48,
+      48
+    ],
+    "note": "Outer edge circle block; concave corners from donut block at [208,16]."
+  },
+  {
+    "id": "tree-left",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      0,
+      0,
+      64,
+      80
+    ],
+    "note": "Low broad olive tree, northwest cropped edge."
+  },
+  {
+    "id": "tree-a",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      128,
+      0,
+      64,
+      80
+    ],
+    "note": "Tall olive tree, center-left."
+  },
+  {
+    "id": "tree-b",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      256,
+      0,
+      64,
+      80
+    ],
+    "note": "Asymmetric olive tree, southeast."
+  },
+  {
+    "id": "lamp",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village_Animations.png",
+    "rect": [
+      128,
+      0,
+      16,
+      16
+    ],
+    "note": "Wall-mounted lit lantern, first animation frame."
+  },
+  {
+    "id": "chimney",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+    "rect": [
+      240,
+      256,
+      16,
+      32
+    ],
+    "note": "Stone chimney detail for north/south houses."
+  },
+  {
+    "id": "fleck-a",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      240,
+      688,
+      16,
+      16
+    ],
+    "note": "Small flat source leaf-strokes; not a standing/interactable grass clump."
+  },
+  {
+    "id": "fleck-b",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      256,
+      688,
+      16,
+      16
+    ],
+    "note": "Small flat source leaf-strokes; not a standing/interactable grass clump."
+  },
+  {
+    "id": "fleck-c",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+    "rect": [
+      272,
+      688,
+      16,
+      16
+    ],
+    "note": "Small flat source leaf-strokes; not a standing/interactable grass clump."
+  },
+  {
+    "id": "ladder-down",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+    "rect": [
+      288,
+      0,
+      32,
+      32
+    ],
+    "note": "Exact reference stone-rimmed hatch; rendered as existing staircase dir down."
+  }
+]

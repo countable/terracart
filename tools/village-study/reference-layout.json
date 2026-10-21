@@ -1,0 +1,603 @@
+{
+  "reference": "https://img.itch.zone/aW1hZ2UvMTY1NTM1OS8xODE1NjA4NS5naWY=/original/%2BsXcsh.gif",
+  "canvas": [
+    315,
+    180
+  ],
+  "display_scale": 2,
+  "coordinate_system": "native reference pixels; crop excludes all promotional footer; flat terrain",
+  "ground": {
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+    "autotile": {
+      "x": 208,
+      "y": 64,
+      "tileSize": 16,
+      "inner": {
+        "nw": [
+          240,
+          48
+        ],
+        "ne": [
+          208,
+          48
+        ],
+        "sw": [
+          240,
+          16
+        ],
+        "se": [
+          208,
+          16
+        ]
+      }
+    },
+    "patch_polygons": [
+      [
+        [
+          119,
+          25
+        ],
+        [
+          134,
+          22
+        ],
+        [
+          143,
+          51
+        ],
+        [
+          148,
+          79
+        ],
+        [
+          142,
+          95
+        ],
+        [
+          123,
+          95
+        ],
+        [
+          119,
+          74
+        ]
+      ],
+      [
+        [
+          0,
+          108
+        ],
+        [
+          24,
+          112
+        ],
+        [
+          42,
+          127
+        ],
+        [
+          52,
+          141
+        ],
+        [
+          27,
+          147
+        ],
+        [
+          0,
+          140
+        ]
+      ],
+      [
+        [
+          57,
+          115
+        ],
+        [
+          72,
+          118
+        ],
+        [
+          80,
+          127
+        ],
+        [
+          94,
+          123
+        ],
+        [
+          105,
+          137
+        ],
+        [
+          100,
+          155
+        ],
+        [
+          80,
+          156
+        ],
+        [
+          69,
+          143
+        ],
+        [
+          54,
+          138
+        ]
+      ],
+      [
+        [
+          125,
+          124
+        ],
+        [
+          146,
+          111
+        ],
+        [
+          158,
+          111
+        ],
+        [
+          168,
+          101
+        ],
+        [
+          187,
+          105
+        ],
+        [
+          198,
+          121
+        ],
+        [
+          187,
+          134
+        ],
+        [
+          173,
+          136
+        ],
+        [
+          154,
+          130
+        ],
+        [
+          140,
+          139
+        ],
+        [
+          125,
+          138
+        ]
+      ],
+      [
+        [
+          227,
+          104
+        ],
+        [
+          239,
+          104
+        ],
+        [
+          251,
+          115
+        ],
+        [
+          249,
+          127
+        ],
+        [
+          229,
+          128
+        ],
+        [
+          219,
+          121
+        ]
+      ],
+      [
+        [
+          231,
+          148
+        ],
+        [
+          246,
+          153
+        ],
+        [
+          251,
+          165
+        ],
+        [
+          266,
+          176
+        ],
+        [
+          262,
+          190
+        ],
+        [
+          232,
+          190
+        ],
+        [
+          219,
+          174
+        ],
+        [
+          219,
+          159
+        ]
+      ],
+      [
+        [
+          304,
+          101
+        ],
+        [
+          319,
+          95
+        ],
+        [
+          326,
+          117
+        ],
+        [
+          314,
+          126
+        ],
+        [
+          304,
+          117
+        ]
+      ]
+    ]
+  },
+  "objects": [
+    {
+      "kind": "house",
+      "asset": "house-small",
+      "top_left": [
+        30,
+        -30
+      ],
+      "seat": [
+        62,
+        79
+      ],
+      "properties": {
+        "size": "small",
+        "variant": 0,
+        "tier": 1
+      }
+    },
+    {
+      "kind": "house",
+      "asset": "house-large",
+      "top_left": [
+        166,
+        -6
+      ],
+      "seat": [
+        238,
+        108
+      ],
+      "properties": {
+        "size": "medium",
+        "variant": 0,
+        "tier": 1
+      }
+    },
+    {
+      "kind": "house",
+      "asset": "house-sw",
+      "top_left": [
+        -3,
+        133
+      ],
+      "seat": [
+        53,
+        245
+      ],
+      "properties": {
+        "size": "medium",
+        "variant": 0,
+        "tier": 1
+      }
+    },
+    {
+      "kind": "tree",
+      "asset": "tree-left",
+      "top_left": [
+        -23,
+        34
+      ],
+      "seat": [
+        10,
+        102
+      ],
+      "properties": {
+        "variant": 0,
+        "size": "large",
+        "species": "maple"
+      }
+    },
+    {
+      "kind": "tree",
+      "asset": "tree-a",
+      "top_left": [
+        78,
+        30
+      ],
+      "seat": [
+        111,
+        104
+      ],
+      "properties": {
+        "variant": 0,
+        "size": "large",
+        "species": "maple"
+      }
+    },
+    {
+      "kind": "tree",
+      "asset": "tree-b",
+      "top_left": [
+        247,
+        87
+      ],
+      "seat": [
+        279,
+        161
+      ],
+      "properties": {
+        "variant": 0,
+        "size": "large",
+        "species": "maple"
+      }
+    },
+    {
+      "kind": "staircase",
+      "asset": "ladder-down",
+      "top_left": [
+        151,
+        127
+      ],
+      "seat": [
+        167,
+        143
+      ],
+      "properties": {
+        "dir": "down",
+        "depth": 0
+      }
+    },
+    {
+      "kind": "torch",
+      "asset": "lamp",
+      "top_left": [
+        39,
+        65
+      ],
+      "seat": [
+        47,
+        81
+      ]
+    },
+    {
+      "kind": "torch",
+      "asset": "lamp",
+      "top_left": [
+        198,
+        77
+      ],
+      "seat": [
+        206,
+        98
+      ]
+    },
+    {
+      "kind": "torch",
+      "asset": "lamp",
+      "top_left": [
+        256,
+        77
+      ],
+      "seat": [
+        264,
+        98
+      ]
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-a",
+      "top_left": [
+        5,
+        4
+      ],
+      "seat": [
+        9,
+        8
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-b",
+      "top_left": [
+        111,
+        6
+      ],
+      "seat": [
+        115,
+        10
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-c",
+      "top_left": [
+        149,
+        99
+      ],
+      "seat": [
+        153,
+        103
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-a",
+      "top_left": [
+        17,
+        133
+      ],
+      "seat": [
+        21,
+        137
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-b",
+      "top_left": [
+        107,
+        145
+      ],
+      "seat": [
+        111,
+        149
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-c",
+      "top_left": [
+        204,
+        149
+      ],
+      "seat": [
+        208,
+        153
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-a",
+      "top_left": [
+        306,
+        167
+      ],
+      "seat": [
+        310,
+        171
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-b",
+      "top_left": [
+        297,
+        111
+      ],
+      "seat": [
+        301,
+        115
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-c",
+      "top_left": [
+        140,
+        10
+      ],
+      "seat": [
+        144,
+        14
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-a",
+      "top_left": [
+        47,
+        115
+      ],
+      "seat": [
+        51,
+        119
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-b",
+      "top_left": [
+        209,
+        119
+      ],
+      "seat": [
+        213,
+        123
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    },
+    {
+      "kind": "village_decal",
+      "asset": "fleck-c",
+      "top_left": [
+        71,
+        168
+      ],
+      "seat": [
+        75,
+        172
+      ],
+      "properties": {
+        "studyScale": 1
+      }
+    }
+  ],
+  "lamps": [],
+  "omitted": [
+    "cliffs",
+    "elevated stair platform",
+    "bench",
+    "promotional chrome",
+    "rain animation"
+  ]
+}
