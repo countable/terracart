@@ -54,6 +54,11 @@
   if(spec.door){const [u,v,w,h]=facadeDoorRect(spec,key);for(let x=0;x<w;x+=sw){const width=Math.min(sw,w-x);f.drawImage(image,sx,v,width,h,u-spec.left+x,v-spec.eave,width,h);}}
   ctx.save();ctx.beginPath();ctx.rect(256,900,256,H);ctx.clip();for(let x=256;x<512;x+=sw)ctx.drawImage(image,sx,spec.eave,sw,H,x,900,sw,H);ctx.restore();
   ctx.save();ctx.beginPath();ctx.rect(0,900,256,H);ctx.clip();for(let x=0;x<256;x+=W)ctx.drawImage(facade,x,900);ctx.restore();
+  if(key==='fdr'){
+   // Tie the upper-storey posts together below the new gable infill. Use
+   // the source's existing floor beam across both facade bays and fillers.
+   for(let x=0;x<512;x+=24)ctx.drawImage(image,120,76,Math.min(24,512-x),4,x,900,Math.min(24,512-x),4);
+  }
   if(key==='trader'){
    // Taller hidden walls continue the front's plaster, timber and windows.
    // Keep native pixel density; the door and its surround were erased above.
