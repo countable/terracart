@@ -1547,6 +1547,13 @@
   }
   // Authored shells stay whole. Uniform placement preserves the reviewed roof,
   // facade and closed seams; irregular OSM lots receive an enclosed native body.
+  // A lot's depth away from its door (`normal`; south without one) over its
+  // width along the door wall.
+  function lotDepthRatio(ring,normal={x:0,y:1}){
+    const extent=(ux,uy)=>{const d=ring.map(p=>p.x*ux+p.y*uy);return Math.max(...d)-Math.min(...d);};
+    const width=extent(-normal.y,normal.x);
+    return width>0?extent(normal.x,normal.y)/width:1;
+  }
   function authoredGeometry(model,ring,inset=1,door=null){
     if(door){const {x:nx,y:ny}=door.normal;
       model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,x:ny*p.x+nx*p.y*.5,y:(-nx*p.x+ny*p.y*.5)*2}))}))};
@@ -1598,8 +1605,13 @@
     // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
-    const authored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined'?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
-    const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
+    const useAuthored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined';
+    const authoredDoor=useAuthored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
+    // HOME FILLS ITS LOT: its shell lengthens away from the door until it is
+    // as deep as the lot (AuthoredBuildings.rowsFor), so no bare floor is
+    // left in front of or behind the house.
+    const rows=recipe.role==='home'&&useAuthored?AuthoredBuildings.rowsFor(recipe.authored.key,lotDepthRatio(local,authoredDoor?.normal)):1;
+    const authored=useAuthored?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette,rows):null;
     const door=authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
     let cached=authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
