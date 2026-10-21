@@ -125,6 +125,9 @@ other renders as the **wrong sprite, not an error**.
 - [ ] **The safety splash's button is the sensor-permission gesture.**
       Compass/GPS permission is requested from that click — don't move the
       request off it or auto-dismiss the splash.
+      A same-session reload skips the splash, so `__rearmCompassOnGesture`
+      asks on each later tap until iOS answers; a stick drag earns no gesture
+      credit and must not end the re-arm (`compass_rearm.test.js`).
 - [ ] **A message on the map is ≤ 30 characters** (`MAP_MSG_MAX`, CLAUDE.md).
 
 ## 7. Click targets & reachability (interaction)
