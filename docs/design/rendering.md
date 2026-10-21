@@ -1066,9 +1066,10 @@ its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
 
 The PP restyle uses registered source-sized PNGs, preserving the existing mesh
-UV coordinates and alpha silhouettes. Native PP flat-shop review variants are
+UV coordinates and alpha silhouettes. Native PP flat-shop residential variants are
 also prewarmed under `native`, so their six source colorways retain their deck
-and fascia colors without changing saved-world building assignments. Source
+and fascia colors. They join the stable former-cabin replacement pool while
+other existing residential assignments keep their models. Source
 provenance and viewer commands live in the low-poly building styles document.
 
 ## Footprint building styles

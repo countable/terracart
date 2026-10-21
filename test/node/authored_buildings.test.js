@@ -20,16 +20,16 @@
       }
     }
   });
-  test('authored buildings: Home alone is the orange-roofed cabin', () => {
+  test('authored buildings: Home alone uses the cabin and residences retain stable palettes', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');
     assert.falsy(AuthoredBuildings.RESIDENCES.includes('pp_cabin'), 'no other house is a log cabin');
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
       assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 1000; i++) {
       const id = `house:${i}`, first = recipe('plain', id), again = recipe('plain', id, 7);
-      assert.eq(first.palette, 'yellow');
+      assert.eq(first.palette, AuthoredBuildings.SPECS[first.key].ppFlat ? 'native' : 'yellow');
       assert.eq(first.key, again.key, 'rank does not replace a residential facade');
       assert.truthy(AuthoredBuildings.SPECS[first.key]);
       seen.add(first.key);

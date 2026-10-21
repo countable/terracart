@@ -9,7 +9,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | Gameplay role | Exterior model | Roof |
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin (Home's alone) | Orange |
-| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
+| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, steam home, or native Pixel Plains flat shops; stable ID selection | Yellow, or native flat-shop color |
 | Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
 | Trader T1 / T2+ | White plaster cottage / trader | Green |
 | Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
@@ -56,18 +56,25 @@ original alpha mask. The manifest records registration knots and source hashes.
 Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
 Pixel Plains houses keep their original source textures.
 
-Six `pp_flat_*` review choices use native Pixel Plains flat-shop art, with a
-tiled horizontal deck and colored fascia. Their walls sit three source pixels
-inside the roof lip (4.8 ground units along depth), with a sealed soffit; the
-prepared wall atlas extends native masonry over the source silhouette borders
+Six `pp_flat_*` residential variants use native Pixel Plains flat-shop art, with a
+tiled horizontal deck and colored fascia. The native viewer model tucks walls
+three source pixels inside the roof lip (4.8 ground units along depth). Production
+lot-outline meshes keep walls on the real polygon and extend only the roof
+outward with a validated polygon offset, reducing the lip around narrow returns.
+A sixteen-texel fascia raises the deck; separate coping and soffit faces seal
+the overhang without coplanar bands. The prepared wall atlas extends native
+masonry over the source silhouette borders
 so black vertical strips do not repeat at corners. Roof fascia colors also
 extend through baked black perimeter pixels; geometric outlines remain. Door
 overlays stand clear of the wall depth, while native adobe fronts use the
 original doorway directly without an overlay. Expanded decks repeat native
-tile texels below the coping to avoid coplanar flicker. `tools/extract_pp_flat_buildings.py`
+tile texels below the coping to avoid coplanar flicker. Production PP and adobe
+decks repeat the prepared sixteen-pixel tile, excluding the adjacent coping
+swatches. `tools/extract_pp_flat_buildings.py`
 extracts the six source colorways and assembles their native glass doorway;
 `pp-flat-provenance.json` records exact crops. They are prepared with the native
-palette and do not change existing residential assignments. The shared flat
+palette. They join the former-cabin replacement pool; other existing residential
+assignments retain their models. The original adobe variants remain available. The shared flat
 roof builder also supports their L, T and courtyard footprints. Run
 `node tools/sync_building_texture_viewer.cjs` to refresh the local
 `http://localhost:8765/ra-village-house/` viewer; it also retains three

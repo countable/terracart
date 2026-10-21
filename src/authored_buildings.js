@@ -273,8 +273,9 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  return m;
 }
 
- // The timber cabin is Home's alone, under the orange roof no other house wears.
- const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home'];
+ // The timber cabin is Home's alone; flat shops retain their native colorways.
+ const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home',...Object.keys(FlatBuildings.specs).filter(key=>FlatBuildings.specs[key].ppFlat)];
+ const residencePalette=key=>SPECS[key].ppFlat?'native':'yellow';
  const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'rose',book:'plum',shop:'blue'};
  // A house keeps the facade it had when the cabin was still a residence: the
  // pick runs over the former list, and only former cabins pick again.
@@ -284,7 +285,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   return RESIDENCES.includes(key)?key:RESIDENCES[Math.floor(n/FORMER_RESIDENCES.length)%RESIDENCES.length];}
  function recipeFor(role,id,tier=1,wizardSecond=false){
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
-  if(role==='plain')return {key:residenceFor(id),palette:'yellow'};
+  if(role==='plain'){const key=residenceFor(id);return {key,palette:residencePalette(key)};}
   // First-tier businesses share the white cottage; color and emblem identify the trade.
   const shopPalette=role==='blacksmith'?'slate':role==='trader'?'green':SHOP_ROOFS[role];
   if(tier===1&&shopPalette)return {key:'pp_plaster',palette:shopPalette,emblem:role};
@@ -299,14 +300,11 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  function prepare(scene){
   if(caches.has(scene.textures))return;
   const models=new Map(),variants=new Map(),emblems=new Map();
-  for(const key of RESIDENCES)variants.set(key+':yellow',{key,palette:'yellow'});
+  for(const key of RESIDENCES){const palette=residencePalette(key);variants.set(key+':'+palette,{key,palette});}
   for(const role of ['home','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
    if(r.emblem)emblems.set(r.emblem,r);
   }
-  // Native PP flat shops are selectable review models; keep their six source
-  // colorways without changing the saved world's residential assignments.
-  for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat&&scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
   for(const [id,{key,palette}] of variants){
    if(!scene.textures.exists(imageKey(key)))continue;
    const model=buildNative(scene,key);
@@ -349,7 +347,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   return {key,spec:a,texture:native.texture,template:native.faces[0],texel:DOOR_HEIGHT/dh,
    flat:!!a.flatRoof||(!!a.city&&!a.gabled),
    facade:o.facade||{v:900,rows:a.base-a.eave},
-   roof:o.roof||{u:256,v:616,w:period[0],h:period[1]},
+   roof:o.roof||{u:256,v:616,w:a.flatRoof?224:period[0],h:a.flatRoof?240:period[1]},
    door:{u:du,v:dv+16,w:dw,h:dh,bottom:a.base-dv-dh},
    wall:[a.wall[0]+a.wall[2]/2,a.wall[1]+16+a.wall[3]/2],
    recolor:faces=>AuthoredRoofPalette.prepare(scene,native.texture,{authoredKey:key,faces},palette)};
