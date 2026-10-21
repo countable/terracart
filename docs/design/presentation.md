@@ -454,7 +454,9 @@ changing dialogue, story panels, books, toasts or status presentation.
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.
   One continuous camera zoom runs from 1.5× to 4.2× over 16 seconds, starting
-  slower and gently accelerating without changing its endpoint framing.
+  slowly and building to twice its starting
+  speed at 94% of the animation. A velocity-matched final 0.96-second damping
+  segment brings it to rest without changing the endpoint framing.
   Its aim at 55.6% across and 16.9% down places the final frontal face at the
   exact horizontal and vertical center of the portrait frame, separately
   from the paintings’ crop registration. Starting closer lets the incoming

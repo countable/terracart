@@ -1101,7 +1101,7 @@
       position: absolute; inset: 0;
       /* Camera aim is independent of the paintings' crop registration. */
       transform-origin: 55.6% 16.9%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 16s) cubic-bezier(.333333, .23, .666667, .56) 200ms both;
+      animation: nightmare-pan var(--nightmare-pan-ms, 16s) linear 200ms both;
     }
     /* Fade the whole portrait viewport, outside the zooming camera. The
        transparent final half-percent also removes fractional-pixel seams. */
@@ -1120,7 +1120,16 @@
       mask: url('assets/art/story_nightmare_city_mask.svg') center / 100% 100% no-repeat;
     }
     @keyframes nightmare-pan {
-      0% { transform: scale(1.5); }
+      0% {
+        transform: scale(1.5);
+        animation-timing-function: cubic-bezier(.333333, .2, .666667, .6);
+      }
+      /* Twice the starting speed here. This scale matches velocity into
+         the final 0.96-second damping segment, which ends at zero speed. */
+      94% {
+        transform: scale(4.10041);
+        animation-timing-function: cubic-bezier(.333333, .666667, .666667, 1);
+      }
       100% { transform: scale(4.2); }
     }
     #story .wake-camera {
