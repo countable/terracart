@@ -465,7 +465,8 @@ pixels and decorative details do not define additional tap cells.
   Every outgoing and incoming image shares the same camera, preserving those
   scale offsets throughout each fade. Painted head motion and perspective
   still vary locally; the offsets match overall head scale, not every contour.
-  Tiamat stops breathing fire while staying side-facing in the third painting,
+  Tiamat stops breathing fire with her mouth slightly open and head lowered
+  a little, while staying side-facing in the third painting,
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
   dragons keep shifting as flames flicker and smoke curls.

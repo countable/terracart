@@ -365,7 +365,7 @@
       "sha256": "fbb967df86b4a833690ede62e87a7dd967424a24cc4f89cd8fb3dd174372abed",
       "method": "regenerated",
       "crop": null,
-      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close-up of gloved hands guiding another person\u2019s grip on a wooden practice sword, brown leather gloves, muted rust-brown left sleeve, cream cuff at right, timber training yard background. Keep hands anatomically coherent, no extra hands. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close-up of gloved hands guiding another person’s grip on a wooden practice sword, brown leather gloves, muted rust-brown left sleeve, cream cuff at right, timber training yard background. Keep hands anatomically coherent, no extra hands. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
     },
     {
       "key": "bottle_read",
@@ -2952,8 +2952,8 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-side-no-fire-b37e89cc.png",
-      "master_sha256": "741f797b376d82278f2fffd286964ef24345e6224ffc2a859045c053a0d8b7da",
+      "master_path": "approved-story-art/story_nightmare_frame3-lowered-open-eec7b982.png",
+      "master_sha256": "4dab08faa359361a06d0832a04a5357f9a0ef73f15ea1c2287cf9f8f376019a7",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2962,20 +2962,15 @@
       "method": "reference_edit",
       "generator": "built-in image_gen",
       "intrinsic_zoom": 1.74,
-      "prompt": "Precise local image edit. IMAGE1 is the TARGET frame3; IMAGE2 is ONLY the central red dragon's SIDE-FACING POSE reference. Output1024x1536. Keep IMAGE1 camera, zoom, framing and every peripheral dragon, white head, city building, flame and smoke shape in exactly the same pixel positions. Do not change, zoom, move, resize or repaint that background. Change ONLY the central RED dragon head in the upper middle. It must NOT begin turning toward the viewer: restore the same side-facing/right-facing angle as the red dragon in IMAGE2, with just ONE visible glowing eye, long snout pointing RIGHT and slightly downward. No second eye, no frontal symmetry, no gaze at viewer. Keep the skull's SIZE and CENTER as in IMAGE1; rotate it locally in place to the reference profile without enlarging head or neck. It has JUST STOPPED BREATHING FIRE: mouth closes or nearly closes, upper and lower jaws almost touching with a narrow tooth-lined gap; absolutely no flame jet, sparks, embers or smoke leaving its lips. Preserve red scales, jagged horns, neck connection, lighting, fine pixel-painted texture and menacing identity. This is the quiet cessation-of-fire beat BEFORE the later sudden frontal turn. Image2 only supplies yaw angle, not its open mouth/fire, camera, overall composition or scale. Preserve IMAGE1 entire background and proportions. No new heads, limbs, objects, text or borders.",
-      "reference": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
-      "sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
-      "reference_sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
+      "prompt": "Use case: precise-object-edit. Edit target: the supplied portrait dragon-war frame 3. Make a very small localized pose adjustment ONLY to the dominant bright red dragon head in the upper center (glowing eye near x=615,y=330 on this 1024x1536 image). Slightly open its mouth: lower its lower jaw just enough for a small visible dark gap between teeth, not a wide roar. Also lower that main red head a little, about 15 pixels (1% of image height), naturally bending its neck. Preserve its current side-facing orientation, exact apparent head size, horn design, expression, intricate pixel-art texture, and red lighting. No fire from this main mouth. Keep all other dragon heads, white dragons, flames, smoke, buildings, skyline and background in their exact current positions and appearance. No camera movement, zoom, reframing, new objects, text, or border. Preserve the full 1024x1536 portrait canvas. This is an aligned animation frame: only the small main-head pose and jaw adjustment should differ.",
+      "reference": "approved-story-art/story_nightmare_frame3-reference-lowered-open-eec7b982.webp",
+      "sha256": "9d826d4e42c7ce1610ed78f3c839d17b78e2213385a3d895acd68991800a7be7",
+      "reference_sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
       "references": [
         {
-          "path": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
-          "sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
-          "role": "primary edit target: preserve whole composition, scene scale and background"
-        },
-        {
-          "path": "approved-story-art/story_nightmare_frame2-reference-side-no-fire-b37e89cc.webp",
-          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
-          "role": "supporting reference: side-facing central head pose only"
+          "path": "approved-story-art/story_nightmare_frame3-reference-lowered-open-eec7b982.webp",
+          "sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
+          "role": "edit target: lower main head slightly and part its jaws; preserve scene registration"
         }
       ]
     },
