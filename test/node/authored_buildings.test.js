@@ -38,6 +38,21 @@
     }
     assert.eq(seen.length, 1, 'the roof palette is applied once');
   });
+  test('authored buildings: tier-one smith keeps the ground floor and full-size door', () => {
+    const spec = AuthoredBuildings.SPECS.fdr;
+    const skin = { spec, template: {}, texel: 0.5, flat: false,
+      facade: { v: 900, rows: 64 }, roof: { u: 256, v: 616, w: 240, h: 240 },
+      door: { u: 155, v: 96, w: 26, h: 26, bottom: 6 }, wall: [132, 96], recolor() {} };
+    const lot = [{x:0,y:0},{x:80,y:0},{x:80,y:60},{x:0,y:60}];
+    const mesh = BuildingLowPoly.authoredOutline(skin, lot, 0, recipe('blacksmith', 'smith', 1).facadeRows);
+    const facade = mesh.faces.filter(f => f.kind === 'wall' && f.layer === 0 && f.points.some(p => p.z === 0));
+    assert.eq(Math.max(...facade.flatMap(f => f.points.map(p => p.z))), 18);
+    const pixels = facade.flatMap(f => f.points.map(p => p.tv * 1024));
+    assert.eq(Math.min(...pixels), 928, 'upper-storey pixels are cropped');
+    assert.eq(Math.max(...pixels), 964, 'ground-floor pixels stay seated');
+    const door = mesh.faces.filter(f => f.layer === 0.1).flatMap(f => f.points.map(p => p.z));
+    assert.eq(Math.max(...door) - Math.min(...door), 13, 'door is not scaled down');
+  });
   test('authored buildings: wizard towers and the fort hall keep whole shells', () => {
     const scene = { textures: { exists: () => false } };
     for (const key of ['wizard', 'steam_wizard', 'city_gearhouse']) assert.eq(AuthoredBuildings.skin(scene, key, 'purple'), null, key);
@@ -57,6 +72,8 @@
     assert.includes(['market', 'city_storefront'], recipe('shop', 'legacy').key);
   });
   test('authored buildings: service landmarks preserve their role across upgrades', () => {
+    assert.eq(recipe('blacksmith', 'smith', 1).facadeRows, 36);
+    assert.eq(recipe('blacksmith', 'smith', 2).facadeRows, undefined);
     assert.eq(recipe('blacksmith', 'smith', 3).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 4).key, 'steam_blacksmith');
     assert.eq(recipe('blacksmith', 'smith', 1).palette, recipe('blacksmith', 'smith', 7).palette);

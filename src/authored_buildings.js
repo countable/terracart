@@ -274,7 +274,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  function recipeFor(role,id,tier=1,wizardSecond=false){
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
   if(role==='plain')return {key:residenceFor(id),palette:'yellow'};
-  if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate'};
+  if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate',...(tier===1?{facadeRows:36}:{})};
   if(role==='trader')return {key:'trader',palette:'green'};
   if(role==='wizard')return {key:wizardSecond?'steam_wizard':'wizard',palette:'purple'};
   if(role==='fort')return {key:'city_gearhouse',palette:'copper'};
