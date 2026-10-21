@@ -2645,18 +2645,27 @@
       }
     } catch {}
     // A reload that skips the splash never re-asks for the compass, and iOS
-    // sends no orientation events to a page that hasn't asked. Ask again on the
-    // first tap anywhere: an earlier grant resolves without a prompt.
+    // sends no orientation events to a page that hasn't asked. Ask again on
+    // each tap until iOS answers: an earlier grant resolves without a prompt.
+    // A drag (the movement or GPS stick) earns no gesture credit, so its
+    // request is refused unanswered; stopping at that first touch left the
+    // compass dead for the rest of the session.
     window.__rearmCompassOnGesture = () => {
       const DOE = window.DeviceOrientationEvent;
       if (!DOE || typeof DOE.requestPermission !== 'function') return;
+      let asking = false;
       const ask = () => {
-        document.removeEventListener('touchend', ask, true);
-        document.removeEventListener('click', ask, true);
+        if (asking) return;
+        asking = true;
         DOE.requestPermission().then((r) => {
+          asking = false;
           window.__compassPerm = r;
+          if (r === 'granted' || r === 'denied') {
+            document.removeEventListener('touchend', ask, true);
+            document.removeEventListener('click', ask, true);
+          }
           window.__scene?.startSensors?.();
-        }).catch(() => {});
+        }).catch(() => { asking = false; });
       };
       document.addEventListener('touchend', ask, true);
       document.addEventListener('click', ask, true);
