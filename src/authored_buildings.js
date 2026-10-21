@@ -73,8 +73,6 @@ function material(s,key){const name='authored:'+imageKey(key);if(s.textures.exis
  }
  prepareFootprintMaterial(c,im,SPECS[key],key);
  if(key==='trader'){
-  // Remove the roof-tier window only. Downstairs source windows stay intact.
-  c.drawImage(im,13,87,14,10,46,46,14,12);
   // Quiet side closures carry source plaster courses without clipped windows.
   for(let y=400;y<528;y+=6)c.drawImage(im,42,87,1,Math.min(6,528-y),128,y,128,Math.min(6,528-y));
   // Roof-cap plaster is separate from the complete inferred wall bays.
@@ -188,6 +186,19 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   const cap=[P(shoulder,back,shoulderZ),P(right,back,eave),P(ridge,back,peak)];poly(cap,cap.map(p=>[p.x,728-p.z]),'wall');
   for(const [l,r,y0,y1] of [[shoulder,right,back,notch],[0,right,notch,fore]])poly([P(l,y1,0),P(r,y1,0),P(r,y0,0),P(l,y0,0)],Array(4).fill([264.5,884+H-1.5]),'floor');
  }
+ if(key==='market'){currentFeature='dormer';
+  // The roof copy omits this window: put its source silhouette on a closed
+  // projecting gable, so it stays anchored to the slope when the map turns.
+  const outline=[[68,49],[88,49],[88,40],[78,28],[68,40]],frontY=52,backY=44;
+  const frontPoints=outline.map(([u,v])=>P(u,frontY,frontY+a.base-D-v));
+  poly([...frontPoints].reverse(),[...outline].reverse(),'wall');
+  const backPoints=frontPoints.map(p=>P(p.x,backY,p.z-(frontY-backY)));
+  poly(backPoints,Array(5).fill([73.5,38.5]),'wall');
+  for(let i=0;i<outline.length;i++){const j=(i+1)%outline.length;
+   poly([frontPoints[j],backPoints[j],backPoints[i],frontPoints[i]],
+    [outline[j],outline[j],outline[i],outline[i]],i===2||i===3?'roof':'wall');
+  }
+ }
  if(a.chimney){currentFeature='chimney';
   const c=key==='market'?{l:89,r:104,front:38,back:28,z:66,uv:[128,732,15,66]}:{l:3,r:18,front:12,back:5,z:53,uv:[0,732,15,29]};
   const lower=key==='market'?0:24;
@@ -262,8 +273,9 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  return m;
 }
 
- // The timber cabin is Home's alone, under the orange roof no other house wears.
- const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home'];
+ // The timber cabin is Home's alone; flat shops retain their native colorways.
+ const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home',...Object.keys(FlatBuildings.specs).filter(key=>FlatBuildings.specs[key].ppFlat)];
+ const residencePalette=key=>SPECS[key].ppFlat?'native':'yellow';
  const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'rose',book:'plum',shop:'blue'};
  // A house keeps the facade it had when the cabin was still a residence: the
  // pick runs over the former list, and only former cabins pick again.
@@ -273,7 +285,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   return RESIDENCES.includes(key)?key:RESIDENCES[Math.floor(n/FORMER_RESIDENCES.length)%RESIDENCES.length];}
  function recipeFor(role,id,tier=1,wizardSecond=false){
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
-  if(role==='plain')return {key:residenceFor(id),palette:'yellow'};
+  if(role==='plain'){const key=residenceFor(id);return {key,palette:residencePalette(key)};}
   // First-tier businesses share the white cottage; color and emblem identify the trade.
   const shopPalette=role==='blacksmith'?'slate':role==='trader'?'green':SHOP_ROOFS[role];
   if(tier===1&&shopPalette)return {key:'pp_plaster',palette:shopPalette,emblem:role};
@@ -288,7 +300,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  function prepare(scene){
   if(caches.has(scene.textures))return;
   const models=new Map(),variants=new Map(),emblems=new Map();
-  for(const key of RESIDENCES)variants.set(key+':yellow',{key,palette:'yellow'});
+  for(const key of RESIDENCES){const palette=residencePalette(key);variants.set(key+':'+palette,{key,palette});}
   for(const role of ['home','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
    if(r.emblem)emblems.set(r.emblem,r);
@@ -335,7 +347,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   return {key,spec:a,texture:native.texture,template:native.faces[0],texel:DOOR_HEIGHT/dh,
    flat:!!a.flatRoof||(!!a.city&&!a.gabled),
    facade:o.facade||{v:900,rows:a.base-a.eave},
-   roof:o.roof||{u:256,v:616,w:period[0],h:period[1]},
+   roof:o.roof||{u:256,v:616,w:a.flatRoof?224:period[0],h:a.flatRoof?240:period[1]},
    door:{u:du,v:dv+16,w:dw,h:dh,bottom:a.base-dv-dh},
    wall:[a.wall[0]+a.wall[2]/2,a.wall[1]+16+a.wall[3]/2],
    recolor:faces=>AuthoredRoofPalette.prepare(scene,native.texture,{authoredKey:key,faces},palette)};

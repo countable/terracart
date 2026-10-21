@@ -9,7 +9,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | Gameplay role | Exterior model | Roof |
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin (Home's alone) | Orange |
-| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
+| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, steam home, or native Pixel Plains flat shops; stable ID selection | Yellow, or native flat-shop color |
 | Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
 | Trader T1 / T2+ | White plaster cottage / trader | Green |
 | Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
@@ -47,6 +47,50 @@ buildings. Wizard towers and the fort hall keep their whole shells, fit inside
 the lot. Only models assigned to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
+
+The com cottage, wizard, steam home/wizard and City storefront/gearhouse use
+registered Pixel Plains-style textures from `assets/Objects/PPBuildings/`.
+`tools/build_pp_building_textures.cjs` exports the reviewed reference artwork
+at the original texture dimensions, aligns structural bands, and retains the
+original alpha mask. The manifest records registration knots and source hashes.
+Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
+Pixel Plains houses keep their original source textures.
+
+Six `pp_flat_*` residential variants use native Pixel Plains flat-shop art, with a
+tiled horizontal deck and colored fascia. The native viewer model tucks walls
+three source pixels inside the roof lip (4.8 ground units along depth). Production
+lot-outline meshes keep walls on the real polygon and extend only the roof
+outward with a validated polygon offset, reducing the lip around narrow returns.
+A sixteen-texel fascia raises the deck; separate coping and soffit faces seal
+the overhang without coplanar bands. The prepared wall atlas extends native
+masonry over the source silhouette borders
+so black vertical strips do not repeat at corners. Roof fascia colors also
+extend through baked black perimeter pixels; geometric outlines remain. Door
+overlays stand clear of the wall depth, while native adobe fronts use the
+original doorway directly without an overlay. Expanded decks repeat native
+tile texels below the coping to avoid coplanar flicker. Production PP and adobe
+decks repeat the prepared sixteen-pixel tile, excluding the adjacent coping
+swatches. `tools/extract_pp_flat_buildings.py`
+extracts the six source colorways and assembles their native glass doorway;
+`pp-flat-provenance.json` records exact crops. They are prepared with the native
+palette. They join the former-cabin replacement pool; other existing residential
+assignments retain their models. The original adobe variants remain available. The shared flat
+roof builder also supports their L, T and courtyard footprints. Run
+`node tools/sync_building_texture_viewer.cjs` to refresh the local
+`http://localhost:8765/ra-village-house/` viewer; it also retains three
+experimental City designs. `node test/pp-building-viewer.cjs` checks every
+viewer choice through five rotations and the new flat roofs on concave plots.
+
+Roof repairs around painted protrusions preserve source texel density: translate
+clean patches in roof coordinates rather than stretching a source column. The
+steam home rectifies those same source tiles for expanded footprints, while the
+steam wizard samples its current roof palette for inferred surfaces. Market
+dormers and steam-home vents, pipes and landings are closed geometry aligned
+to source-camera rays. Inferred City decks use equipment-free material patches;
+doorless tower walls exclude the entire entrance frame from their sample. Expanded steam-blacksmith
+barrel ends repeat timber at native scale and centre one source-width gear panel;
+the emblem never stretches with the footprint. Entry and attic overlays stand
+far enough off their walls to survive depth quantization at game scale.
 
 ## Generated interiors and fallback geometry
 

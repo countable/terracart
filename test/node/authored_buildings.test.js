@@ -1,15 +1,35 @@
 (() => {
   const recipe = (...args) => AuthoredBuildings.recipeFor(...args);
-  test('authored buildings: Home alone is the orange-roofed cabin', () => {
+  test('authored buildings: native PP flat shops retain their raised deck and full-height facade', () => {
+    for (const color of ['red', 'brown', 'orange', 'blue', 'green', 'pink']) {
+      const key = 'pp_flat_' + color, spec = FlatBuildings.specs[key];
+      for (const ring of [undefined, [[0,0],[120,0],[120,48],[64,48],[64,96],[0,96]]]) {
+        const faces = FlatBuildings.build({}, spec, key, ring);
+        const points = faces.flatMap(f => f.points);
+        assert.truthy(points.every(p => ['x','y','z','tu','tv'].every(k => Number.isFinite(p[k]))));
+        assert.eq(Math.max(...points.map(p => p.z)), 48 / Math.cos(Math.PI / 6));
+        const walls = faces.filter(f => f.kind === 'wall' && f.points.some(p => p.tv >= 900 / 1024));
+        assert.eq(Math.max(...walls.flatMap(f => f.points.map(p => p.tv * 1024))), 932, 'all 32 facade texels survive');
+        if (!ring) {
+          const wallPoints = walls.flatMap(f => f.points);
+          assert.eq(Math.min(...wallPoints.map(p => p.x)), 3, 'left wall sits under roof lip');
+          assert.eq(Math.max(...wallPoints.map(p => p.x)), 93, 'right wall sits under roof lip');
+          assert.truthy(faces.filter(f => f.kind === 'roof').some(f => f.points.some(p => p.x === 0)), 'roof retains original outline');
+        }
+        assert.eq(faces.footprintInfo.roofPitch, 0);
+      }
+    }
+  });
+  test('authored buildings: Home alone uses the cabin and residences retain stable palettes', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');
     assert.falsy(AuthoredBuildings.RESIDENCES.includes('pp_cabin'), 'no other house is a log cabin');
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
       assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 1000; i++) {
       const id = `house:${i}`, first = recipe('plain', id), again = recipe('plain', id, 7);
-      assert.eq(first.palette, 'yellow');
+      assert.eq(first.palette, AuthoredBuildings.SPECS[first.key].ppFlat ? 'native' : 'yellow');
       assert.eq(first.key, again.key, 'rank does not replace a residential facade');
       assert.truthy(AuthoredBuildings.SPECS[first.key]);
       seen.add(first.key);
@@ -99,3 +119,20 @@
     for (const role of ['turret', 'castle', 'wreck', 'unknown']) assert.eq(recipe(role, 'fixture'), null);
   });
 })();
+
+test('authored blacksmith: widening the barrel preserves the gear panel and separates entry overlays', () => {
+  const C = Math.cos(Math.PI / 6), spec = SteamBlacksmith.spec, depth = 180;
+  const sourceWidth = spec.right - spec.left, wallHeight = (spec.base - spec.eave) / C;
+  for (const width of [sourceWidth * 2, sourceWidth * 3]) {
+    const faces = SteamBlacksmith.build({}, spec, 'steam_blacksmith', [[0,0],[width,0],[width,depth],[0,depth]]);
+    const gear = faces.filter(f => f.kind === 'wall' && f.points.every(p => p.y > depth) && f.points.some(p => p.z > wallHeight + 1));
+    assert.truthy(gear.length, 'wide front retains its original gear artwork');
+    const points = gear.flatMap(f => f.points), left = Math.min(...points.map(p => p.x)), right = Math.max(...points.map(p => p.x));
+    assert.eq(right - left, sourceWidth, 'gear artwork keeps native width as the building widens');
+    assert.eq((left + right) / 2, width / 2, 'gear panel stays centred');
+    const entries = faces.filter(f => f.kind === 'wall' && f.points.every(p => p.y > depth && p.z <= spec.door[3] / C));
+    assert.truthy(entries.length, 'entry overlay exists');
+    const standOff = Math.min(...entries.flatMap(f => f.points.map(p => p.y - depth))) * 16 / spec.door[3];
+    assert.truthy(standOff > 2 * 2048 / 65535, 'entry clears two 16-bit preview depth steps at game scale');
+  }
+});

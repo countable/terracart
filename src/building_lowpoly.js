@@ -1579,7 +1579,7 @@
     // Shorter facades keep the ground-floor pixels and the original door scale.
     const rows=facadeRows??skin.facade.rows;
     const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
-    const d=skin.texel,H=F.rows*d,R=skin.roof;
+    const d=skin.texel,H=F.rows*d,R=skin.roof,ppFlat=!!skin.spec.ppFlat,ppFlatRoof=[];
     const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance),faces=[];
     const emit=(points,uv,kind,extra={})=>{if(points.length<3)return;
       for(let i=1;i<points.length-1;i++){const ids=[0,i,i+1],ps=ids.map(j=>({x:points[j].x,y:points[j].y,z:points[j].z,tu:uv[j][0]/512,tv:uv[j][1]/1024}));
@@ -1642,7 +1642,33 @@
         }
       }
     });
-    for(const f of g.faces){
+    if(ppFlat){
+      // Keep real-lot walls in place. Grow only the roof, using the validated
+      // arbitrary-polygon offset; shorten the lip around narrow returns.
+      const deckZ=H+(skin.spec.slabHeight||0)*d;
+      let outer=g.ring;
+      if(typeof BuildingStyles!=='undefined')for(let lip=3*d;lip>=.01;lip/=2){
+        const expanded=BuildingStyles.inset(g.ring,-lip);
+        if(expanded){outer=expanded;break;}
+      }
+      for(const tri of triangulate(g.ring).triangles){
+        const pts=tri.map(p=>({...p,z:deckZ,u:p.x/d,v:p.y/d}));
+        ppFlatRoof.push({kind:'roof',points:pts});
+        for(const across of tile(pts,'u',R.w))for(const piece of tile(across,'v',R.h))
+          emit(piece,piece.map(p=>[R.u+Math.max(.5,Math.min(R.w-.5,p.u)),R.v+Math.max(.5,Math.min(R.h-.5,p.v))]),'roof',{roofPalette:true,layer:2,feature:'flat-deck'});
+      }
+      outer.forEach((a,i)=>{const j=(i+1)%outer.length,b=outer[j],c=g.ring[j],e=g.ring[i],L=Math.hypot(b.x-a.x,b.y-a.y);
+        const at=(t,z)=>({x:a.x+(b.x-a.x)*t/L,y:a.y+(b.y-a.y)*t/L,z});
+        for(let t=0;t<L;t+=16*d){const end=Math.min(L,t+16*d);
+          emit([at(t,H),at(end,H),at(end,deckZ),at(t,deckZ)],[[8,16+skin.spec.eave],[8+(end-t)/d,16+skin.spec.eave],[8+(end-t)/d,16+skin.spec.eave-skin.spec.slabHeight],[8,16+skin.spec.eave-skin.spec.slabHeight]],'roof',{roofPalette:true,feature:'flat-fascia'});
+        }
+        if(outer!==g.ring){
+          constant([a,b,c,e].map(p=>({...p,z:deckZ})),[500.5,616.5],'roof',{roofPalette:true,feature:'flat-coping'});
+          constant([e,c,b,a].map(p=>({...p,z:H})),[508.5,616.5],'roof',{roofPalette:true,feature:'flat-soffit'});
+        }
+      });
+    }
+    for(const f of ppFlat?[]:g.faces){
       // The procedural stack has no source art; the skin keeps its roofline.
       if(f.chimney)continue;
       if(f.kind==='wall'){const upper=clipZ(f.points,H,1);if(upper.length>=3)constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});continue;}
@@ -1662,7 +1688,7 @@
     if(emblem?.roof&&emblem.roofUV){
       // One modest roof-coloured plaque follows a real roof plane. Its
       // baked relief and rounded solid edge read as a mounted sign.
-      const roof=g.faces.filter(f=>f.kind==='roof'&&!f.rim&&!f.beam)
+      const roof=(ppFlat?ppFlatRoof:g.faces).filter(f=>f.kind==='roof'&&!f.rim&&!f.beam)
         .sort((a,b)=>Math.abs(cross(...b.points))-Math.abs(cross(...a.points)))[0];
       if(roof){
         const [a,b,c]=roof.points,center={x:(a.x+b.x+c.x)/3,y:(a.y+b.y+c.y)/3,z:(a.z+b.z+c.z)/3};

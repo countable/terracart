@@ -1,0 +1,826 @@
+{
+  "generator": "tools/build_pp_building_textures.cjs",
+  "provenance": "Existing image_gen PP style-transfer artwork, docs/art/pp-building-references/manifest.json",
+  "styleReference": "assets/Objects/AuthoredBuildings/pp-brick-red.png",
+  "method": "Piecewise image registration at original resolution; nearest-neighbor Canvas reduction; nearest reference color edge extension; exact original alpha restored and encoded PNG verified.",
+  "preserved": "Original dimensions, transparent padding, silhouette, holes, sprite-sheet UV coordinates. No original files are overwritten.",
+  "exclusions": [
+    "FDR_Blacksmith",
+    "steam-blacksmith",
+    "flat-adobe",
+    "flat-rooftop",
+    "house_market",
+    "house_trader",
+    "dreamland_*",
+    "pp_*"
+  ],
+  "assets": [
+    {
+      "name": "com_houses_05",
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          32,
+          81
+        ],
+        [
+          48,
+          123
+        ],
+        [
+          80,
+          201
+        ],
+        [
+          128,
+          325
+        ],
+        [
+          160,
+          406
+        ],
+        [
+          176,
+          443
+        ],
+        [
+          192,
+          485
+        ],
+        [
+          224,
+          568
+        ],
+        [
+          256,
+          649
+        ],
+        [
+          272,
+          691
+        ],
+        [
+          304,
+          769
+        ],
+        [
+          352,
+          893
+        ],
+        [
+          384,
+          974
+        ],
+        [
+          400,
+          1011
+        ],
+        [
+          416,
+          1053
+        ],
+        [
+          448,
+          1138
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          8,
+          12
+        ],
+        [
+          96,
+          249
+        ],
+        [
+          128,
+          329
+        ],
+        [
+          136,
+          350
+        ],
+        [
+          240,
+          613
+        ],
+        [
+          272,
+          696
+        ],
+        [
+          280,
+          704
+        ],
+        [
+          368,
+          942
+        ],
+        [
+          400,
+          1023
+        ],
+        [
+          408,
+          1045
+        ],
+        [
+          512,
+          1305
+        ],
+        [
+          544,
+          1382
+        ]
+      ],
+      "landmarks": "Four colored sheet quadrants, ridge tops, upper eaves, accessory rows, lower eaves and garage steps.",
+      "original": "assets/Objects/AuthoredBuildings/com_houses_05.png",
+      "reference": "docs/art/pp-building-references/com_houses_05.png",
+      "output": "assets/Objects/PPBuildings/com_houses_05.png",
+      "sourceCrop": [
+        0,
+        0,
+        1138,
+        1382
+      ],
+      "originalSHA256": "c2173f12a5859835c5c9353c0a1ad2fc7184041c6842ad669d99ffb8b639c25d",
+      "referenceSHA256": "3432de985fa0e3b9b730bed3691fdd7061c8a6e175ccd392cc9567ea7218a975",
+      "outputSHA256": "cdf559753bde2215df911fbc1f83c59b773d4a791644400845770596dd8c4958",
+      "dimensions": [
+        448,
+        544
+      ],
+      "referenceDimensions": [
+        1138,
+        1382
+      ],
+      "filledPixels": 2085,
+      "maxFillDistance": 2.23606797749979,
+      "changedOpaquePixels": 162807,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "wizard",
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          40,
+          193
+        ],
+        [
+          80,
+          395
+        ],
+        [
+          120,
+          589
+        ],
+        [
+          160,
+          790
+        ],
+        [
+          200,
+          985
+        ],
+        [
+          240,
+          1186
+        ],
+        [
+          280,
+          1383
+        ],
+        [
+          320,
+          1555
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          3,
+          5
+        ],
+        [
+          62,
+          318
+        ],
+        [
+          136,
+          668
+        ],
+        [
+          144,
+          690
+        ],
+        [
+          172,
+          831
+        ],
+        [
+          176,
+          850
+        ],
+        [
+          204,
+          988
+        ],
+        [
+          208,
+          1011
+        ]
+      ],
+      "landmarks": "Four tower centers, roof eave, tower base and both detached door/window rows.",
+      "original": "assets/Objects/AuthoredBuildings/wizard.png",
+      "reference": "docs/art/pp-building-references/wizard.png",
+      "output": "assets/Objects/PPBuildings/wizard.png",
+      "sourceCrop": [
+        0,
+        0,
+        1555,
+        1011
+      ],
+      "originalSHA256": "9cd01e9bc0cfa676f0020cdf85e6098ec79953f92d2954346b4319681054cd22",
+      "referenceSHA256": "76f7e94f01b86df384da2dec78d97117f41e740e16fdda1558829a421c98a5fd",
+      "outputSHA256": "25374f377d54fb38315fa5f95c4c7e29769971ad87b4a33fb81241397692013a",
+      "dimensions": [
+        320,
+        208
+      ],
+      "referenceDimensions": [
+        1555,
+        1011
+      ],
+      "filledPixels": 527,
+      "maxFillDistance": 2.8284271247461903,
+      "changedOpaquePixels": 25887,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "steam-home",
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          25,
+          188
+        ],
+        [
+          72,
+          542
+        ],
+        [
+          119,
+          896
+        ],
+        [
+          144,
+          1086
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          97,
+          729
+        ],
+        [
+          141,
+          1063
+        ],
+        [
+          153,
+          1153
+        ],
+        [
+          192,
+          1440
+        ]
+      ],
+      "landmarks": "Main ridge and eave, upper-floor band, porch eave, door and foundation.",
+      "original": "assets/Objects/AuthoredBuildings/steam-home.png",
+      "reference": "docs/art/pp-building-references/steam-home.png",
+      "output": "assets/Objects/PPBuildings/steam-home.png",
+      "sourceCrop": [
+        0,
+        0,
+        1086,
+        1440
+      ],
+      "originalSHA256": "ae0e25773a362c93c9e395b2a551962890bf198a6bd15301e4f52d18875ec314",
+      "referenceSHA256": "3caddec58d5f0fbaa15702409bed5a4fa56ea5b4300d8891111220749bc585fe",
+      "outputSHA256": "1223ffd8cfe9bf9bff6f3460c680d007b908028c6cec069d6f3ec8600d3d8f25",
+      "dimensions": [
+        144,
+        192
+      ],
+      "referenceDimensions": [
+        1086,
+        1448
+      ],
+      "filledPixels": 275,
+      "maxFillDistance": 2.23606797749979,
+      "changedOpaquePixels": 19126,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "steam-wizard",
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          19,
+          205
+        ],
+        [
+          35,
+          382
+        ],
+        [
+          52,
+          560
+        ],
+        [
+          72,
+          768
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          2,
+          10
+        ],
+        [
+          25,
+          310
+        ],
+        [
+          62,
+          670
+        ],
+        [
+          100,
+          1055
+        ],
+        [
+          146,
+          1550
+        ],
+        [
+          192,
+          2048
+        ]
+      ],
+      "landmarks": "Finial, dome spring, dome eave, both floor cornices and base. Original alpha removes generated background glow.",
+      "original": "assets/Objects/AuthoredBuildings/steam-wizard.png",
+      "reference": "docs/art/pp-building-references/steam-wizard.png",
+      "output": "assets/Objects/PPBuildings/steam-wizard.png",
+      "sourceCrop": [
+        0,
+        0,
+        768,
+        2048
+      ],
+      "originalSHA256": "e8f738ca51423cef405489d99f8fac4c008026bf2de6169f236836da509b55fd",
+      "referenceSHA256": "d487c73ee7cbfe11c1c63fdf6503b1a78c0295049b800905f49a287fd8af8501",
+      "outputSHA256": "1a29a7fb64e9db58cc8115588344b97dc4e4611f109f60a706f105c81abd8597",
+      "dimensions": [
+        72,
+        192
+      ],
+      "referenceDimensions": [
+        768,
+        2048
+      ],
+      "filledPixels": 138,
+      "maxFillDistance": 2.23606797749979,
+      "changedOpaquePixels": 9608,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "city-storefront",
+      "x": [
+        [
+          0,
+          12
+        ],
+        [
+          8,
+          43
+        ],
+        [
+          76,
+          495
+        ],
+        [
+          96,
+          625
+        ],
+        [
+          116,
+          755
+        ],
+        [
+          184,
+          1210
+        ],
+        [
+          192,
+          1243
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          26,
+          163
+        ],
+        [
+          59,
+          373
+        ],
+        [
+          101,
+          666
+        ],
+        [
+          134,
+          873
+        ],
+        [
+          192,
+          1225
+        ]
+      ],
+      "landmarks": "Smoke top, parapet top, roof edge, facade band and double-door center.",
+      "original": "assets/Objects/AuthoredBuildings/city-storefront.png",
+      "reference": "docs/art/pp-building-references/city-storefront.png",
+      "output": "assets/Objects/PPBuildings/city-storefront.png",
+      "sourceCrop": [
+        12,
+        0,
+        1231,
+        1225
+      ],
+      "originalSHA256": "071a027e0e5556ecfadf743831fd63d9cb4132e321fece6fc8380c33cc527efb",
+      "referenceSHA256": "31cf7984eee0926d510d22d433ff83f2fb507d970c7409e3ec5665ef084ead13",
+      "outputSHA256": "40062b1dc8485e3f4af5e9fc9a9a3a59d2d1babb7ee02337287c5e506e7563dd",
+      "dimensions": [
+        192,
+        192
+      ],
+      "referenceDimensions": [
+        1254,
+        1254
+      ],
+      "filledPixels": 1450,
+      "maxFillDistance": 5.656854249492381,
+      "changedOpaquePixels": 25160,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "city-gearhouse",
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          8,
+          60
+        ],
+        [
+          40,
+          378
+        ],
+        [
+          55,
+          509
+        ],
+        [
+          88,
+          827
+        ],
+        [
+          96,
+          887
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          9,
+          70
+        ],
+        [
+          72,
+          643
+        ],
+        [
+          110,
+          1020
+        ],
+        [
+          148,
+          1364
+        ],
+        [
+          164,
+          1518
+        ],
+        [
+          192,
+          1754
+        ]
+      ],
+      "landmarks": "Ridge, gable spring, eave, floor beam, door canopy and foundation.",
+      "original": "assets/Objects/AuthoredBuildings/city-gearhouse.png",
+      "reference": "docs/art/pp-building-references/city-gearhouse.png",
+      "output": "assets/Objects/PPBuildings/city-gearhouse.png",
+      "sourceCrop": [
+        0,
+        0,
+        887,
+        1754
+      ],
+      "originalSHA256": "67f8bb35123d1132f3d6881b6231fa99966aa070ad5db7624e3b136e0c25d04e",
+      "referenceSHA256": "e35dabf1690fe85f00aeddf01f57c4ffb2d6ed089eb41f84484f1c7255596722",
+      "outputSHA256": "289278ffe963416aa4a7a28f8987fcdeeaddffc646852faadc09a911ec7e6c59",
+      "dimensions": [
+        96,
+        192
+      ],
+      "referenceDimensions": [
+        887,
+        1774
+      ],
+      "filledPixels": 705,
+      "maxFillDistance": 4.242640687119285,
+      "changedOpaquePixels": 14911,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "city-factory",
+      "viewerOnly": true,
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          42,
+          267
+        ],
+        [
+          88,
+          568
+        ],
+        [
+          134,
+          870
+        ],
+        [
+          192,
+          1254
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          29,
+          184
+        ],
+        [
+          80,
+          501
+        ],
+        [
+          123,
+          806
+        ],
+        [
+          192,
+          1242
+        ]
+      ],
+      "landmarks": "Three chimney centers, chimney tops, roof back edge, roof front edge and doors.",
+      "original": "assets/Objects/AuthoredBuildings/city-factory.png",
+      "reference": "docs/art/pp-building-references/city-factory.png",
+      "output": "assets/Objects/PPBuildings/city-factory.png",
+      "sourceCrop": [
+        0,
+        0,
+        1254,
+        1242
+      ],
+      "originalSHA256": "6adfd94a75e55f117bb6c0536158aa958a80a23f167e2a674edb15d9baab5e24",
+      "referenceSHA256": "5a2cce45e1cccf80c0573f0256c878d986c47fbc2f850a65df6a25b8c7e221a2",
+      "outputSHA256": "029dd3d1bd6ad10beefc7538138249c68bf4a1d1158e2ab2d0f22d4599716c9b",
+      "dimensions": [
+        192,
+        192
+      ],
+      "referenceDimensions": [
+        1254,
+        1254
+      ],
+      "filledPixels": 1118,
+      "maxFillDistance": 6.4031242374328485,
+      "changedOpaquePixels": 22800,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "city-clock",
+      "viewerOnly": true,
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          21,
+          191
+        ],
+        [
+          48,
+          443
+        ],
+        [
+          74,
+          693
+        ],
+        [
+          96,
+          887
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          66,
+          582
+        ],
+        [
+          98,
+          906
+        ],
+        [
+          135,
+          1254
+        ],
+        [
+          159,
+          1470
+        ],
+        [
+          192,
+          1774
+        ]
+      ],
+      "landmarks": "Padded roof top, roof eave, balcony, door head and foundation.",
+      "original": "assets/Objects/AuthoredBuildings/city-clock.png",
+      "reference": "docs/art/pp-building-references/city-clock.png",
+      "output": "assets/Objects/PPBuildings/city-clock.png",
+      "sourceCrop": [
+        0,
+        0,
+        887,
+        1774
+      ],
+      "originalSHA256": "9fbd266806ba294ac35d2f721ab96fbe23f3fb927fbf4f145e8ae5b580b3d097",
+      "referenceSHA256": "f3b943f828164ccd816f687518177253f5eaf1a918b862804465f42cde724170",
+      "outputSHA256": "7db65b2efc5954aedd66b7829414d2c2becf5252834dfeb49930a217a34b7d81",
+      "dimensions": [
+        96,
+        192
+      ],
+      "referenceDimensions": [
+        887,
+        1774
+      ],
+      "filledPixels": 567,
+      "maxFillDistance": 4.242640687119285,
+      "changedOpaquePixels": 6713,
+      "alphaMismatches": 0
+    },
+    {
+      "name": "city-chimney",
+      "viewerOnly": true,
+      "x": [
+        [
+          0,
+          0
+        ],
+        [
+          21,
+          191
+        ],
+        [
+          48,
+          443
+        ],
+        [
+          74,
+          693
+        ],
+        [
+          96,
+          887
+        ]
+      ],
+      "y": [
+        [
+          0,
+          0
+        ],
+        [
+          20,
+          175
+        ],
+        [
+          44,
+          380
+        ],
+        [
+          106,
+          958
+        ],
+        [
+          135,
+          1254
+        ],
+        [
+          159,
+          1470
+        ],
+        [
+          192,
+          1774
+        ]
+      ],
+      "landmarks": "Smoke top, chimney mouth, roof back edge, roof front edge and door head.",
+      "original": "assets/Objects/AuthoredBuildings/city-chimney.png",
+      "reference": "docs/art/pp-building-references/city-chimney.png",
+      "output": "assets/Objects/PPBuildings/city-chimney.png",
+      "sourceCrop": [
+        0,
+        0,
+        887,
+        1774
+      ],
+      "originalSHA256": "731772468e179fde311f1ba290da5652b20f0417d7ef3a15b46cf1f5d7a2a839",
+      "referenceSHA256": "1327fa34bd29f0ef4b581232dea25f03fe31155d3990b4b56d6d46c5edf9e860",
+      "outputSHA256": "003ed7e9281e6714c13d82c16ea187381e6e8783bc6604ceba028362db5cf8c4",
+      "dimensions": [
+        96,
+        192
+      ],
+      "referenceDimensions": [
+        887,
+        1774
+      ],
+      "filledPixels": 686,
+      "maxFillDistance": 4.242640687119285,
+      "changedOpaquePixels": 6792,
+      "alphaMismatches": 0
+    }
+  ]
+}

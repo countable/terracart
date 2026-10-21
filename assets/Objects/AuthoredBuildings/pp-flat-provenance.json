@@ -1,0 +1,133 @@
+{
+  "source": "extra_assets/Pixel Plains/PP Interiors Pack/Exterior set.png",
+  "sourceSha256": "bfcb80102b58f8d4f9ab503c7c6e890e1d85b775e4ab22f80236443f9b31bf5c",
+  "operation": "Native crops and alpha-composited modular door; no repaint or resampling.",
+  "variants": [
+    {
+      "key": "pp_flat_red",
+      "file": "pp-flat-red.png",
+      "shellRect": [
+        592,
+        32,
+        688,
+        112
+      ],
+      "doorRect": [
+        738,
+        164,
+        766,
+        192
+      ],
+      "doorDestination": [
+        34,
+        52
+      ],
+      "sha256": "d32bf006fefe743bb04fe8303e080820813c0206c0eda8ccd1e654558d9bb33b"
+    },
+    {
+      "key": "pp_flat_brown",
+      "file": "pp-flat-brown.png",
+      "shellRect": [
+        592,
+        144,
+        688,
+        224
+      ],
+      "doorRect": [
+        738,
+        164,
+        766,
+        192
+      ],
+      "doorDestination": [
+        34,
+        52
+      ],
+      "sha256": "15e83468ef8a782670ed1f088344989a7afa2de552ab6c62d3a8ec6aced68784"
+    },
+    {
+      "key": "pp_flat_orange",
+      "file": "pp-flat-orange.png",
+      "shellRect": [
+        592,
+        256,
+        688,
+        336
+      ],
+      "doorRect": [
+        738,
+        164,
+        766,
+        192
+      ],
+      "doorDestination": [
+        34,
+        52
+      ],
+      "sha256": "147ff94374717fef5da5b1bd75a20b8bf1332814d39dc8f33cf1cebe1a559450"
+    },
+    {
+      "key": "pp_flat_blue",
+      "file": "pp-flat-blue.png",
+      "shellRect": [
+        592,
+        368,
+        688,
+        448
+      ],
+      "doorRect": [
+        738,
+        164,
+        766,
+        192
+      ],
+      "doorDestination": [
+        34,
+        52
+      ],
+      "sha256": "4246446b555cb9e8fc2fa35aa375bcf59f092ec011b536d00dc5b9109b2ce211"
+    },
+    {
+      "key": "pp_flat_green",
+      "file": "pp-flat-green.png",
+      "shellRect": [
+        592,
+        480,
+        688,
+        560
+      ],
+      "doorRect": [
+        738,
+        164,
+        766,
+        192
+      ],
+      "doorDestination": [
+        34,
+        52
+      ],
+      "sha256": "cfcd60c7083fdc90a74ce3a3bf185929c35414ed3a1e9875fd86f9ce511485d2"
+    },
+    {
+      "key": "pp_flat_pink",
+      "file": "pp-flat-pink.png",
+      "shellRect": [
+        592,
+        592,
+        688,
+        672
+      ],
+      "doorRect": [
+        738,
+        164,
+        766,
+        192
+      ],
+      "doorDestination": [
+        34,
+        52
+      ],
+      "sha256": "c78675ed880aae5441a1adcf468defd7ce6731b0240f084cfc6b48a0a07cf327"
+    }
+  ]
+}

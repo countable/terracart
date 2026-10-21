@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-597796a5';
+const SHELL_VERSION = 'shell-644e0256';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -505,6 +505,12 @@ const ASSET_HASHES = {
   "assets/Objects/AuthoredBuildings/house_trader.png": "79246b87",
   "assets/Objects/AuthoredBuildings/pp-brick-red.png": "0c3a913d",
   "assets/Objects/AuthoredBuildings/pp-cabin-red.png": "c84cf85c",
+  "assets/Objects/AuthoredBuildings/pp-flat-blue.png": "4246446b",
+  "assets/Objects/AuthoredBuildings/pp-flat-brown.png": "15e83468",
+  "assets/Objects/AuthoredBuildings/pp-flat-green.png": "cfcd60c7",
+  "assets/Objects/AuthoredBuildings/pp-flat-orange.png": "147ff943",
+  "assets/Objects/AuthoredBuildings/pp-flat-pink.png": "c78675ed",
+  "assets/Objects/AuthoredBuildings/pp-flat-red.png": "d32bf006",
   "assets/Objects/AuthoredBuildings/pp-plaster-red.png": "d4a6dee3",
   "assets/Objects/AuthoredBuildings/steam-blacksmith.png": "fd36e8b3",
   "assets/Objects/AuthoredBuildings/steam-home.png": "ae0e2577",
@@ -774,6 +780,15 @@ const ASSET_HASHES = {
   "assets/Objects/Landmarks/shrine-votive.png": "add495ad",
   "assets/Objects/LowPolyProps/materials.png": "37fbf147",
   "assets/Objects/Maple Tree.png": "864ca59a",
+  "assets/Objects/PPBuildings/city-chimney.png": "003ed7e9",
+  "assets/Objects/PPBuildings/city-clock.png": "7db65b2e",
+  "assets/Objects/PPBuildings/city-factory.png": "029dd3d1",
+  "assets/Objects/PPBuildings/city-gearhouse.png": "289278ff",
+  "assets/Objects/PPBuildings/city-storefront.png": "40062b1d",
+  "assets/Objects/PPBuildings/com_houses_05.png": "cdf55975",
+  "assets/Objects/PPBuildings/steam-home.png": "1223ffd8",
+  "assets/Objects/PPBuildings/steam-wizard.png": "1a29a7fb",
+  "assets/Objects/PPBuildings/wizard.png": "25374f37",
   "assets/Objects/Pets/cat.png": "1e8a28ed",
   "assets/Objects/Pets/dog.png": "aa2839e6",
   "assets/Objects/Pickup_Items.png": "e2dbff8b",
