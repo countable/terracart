@@ -92,8 +92,13 @@
     if (existing) return existing;
     const glyph = emblemGlyph(role), color = COLORS[colorName];
     if (!glyph || !color || !roofTexture) return null;
-    const scale = 2, left = (EMBLEM_SIZE - glyph[0].length * scale) / 2;
-    const top = (EMBLEM_SIZE - glyph.length * scale) / 2;
+    // Center the visible ink rather than the padded glyph box. This also
+    // balances top-heavy marks such as the smith's shield within the plaque.
+    const cells = glyph.flatMap((row, y) => [...row].flatMap((cell, x) => cell === '#' ? [{x, y}] : []));
+    if (!cells.length) return null;
+    const scale = 2;
+    const left = Math.round(EMBLEM_SIZE / 2 - scale * cells.reduce((sum, p) => sum + p.x + .5, 0) / cells.length);
+    const top = Math.round(EMBLEM_SIZE / 2 - scale * cells.reduce((sum, p) => sum + p.y + .5, 0) / cells.length);
     const key = `authored:emblem:${role}:${colorName}:plaques`;
     let texture = scene.textures.exists(key) ? scene.textures.get(key) : null;
     if (!texture) {

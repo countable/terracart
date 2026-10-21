@@ -23,7 +23,9 @@ use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
 Each T1 entrance carries a small wooden sign beside its door, and its roof
-carries a roof-coloured sign embossed with the same symbol. Both are simple
+carries a roof-coloured sign embossed with the same symbol. Symbols are centered
+by the center of their visible ink, balancing top-heavy marks and excluding
+padding in the source glyph. Both are simple
 rounded rectangles with textured faces and real side walls: the front board
 projects 1.2 world units from its mount, the roof plaque 1.5 along the roof
 normal. The roof plate compensates for the roof slope so its visible face is
