@@ -1,5 +1,19 @@
 (() => {
   const recipe = (...args) => AuthoredBuildings.recipeFor(...args);
+  test('authored buildings: native PP flat shops retain their raised deck and full-height facade', () => {
+    for (const color of ['red', 'brown', 'orange', 'blue', 'green', 'pink']) {
+      const key = 'pp_flat_' + color, spec = FlatBuildings.specs[key];
+      for (const ring of [undefined, [[0,0],[120,0],[120,48],[64,48],[64,96],[0,96]]]) {
+        const faces = FlatBuildings.build({}, spec, key, ring);
+        const points = faces.flatMap(f => f.points);
+        assert.truthy(points.every(p => ['x','y','z','tu','tv'].every(k => Number.isFinite(p[k]))));
+        assert.eq(Math.max(...points.map(p => p.z)), 48 / Math.cos(Math.PI / 6));
+        const walls = faces.filter(f => f.kind === 'wall' && f.points.some(p => p.tv >= 900 / 1024));
+        assert.eq(Math.max(...walls.flatMap(f => f.points.map(p => p.tv * 1024))), 932, 'all 32 facade texels survive');
+        assert.eq(faces.footprintInfo.roofPitch, 0);
+      }
+    }
+  });
   test('authored buildings: Home alone is the orange-roofed cabin', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');

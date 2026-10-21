@@ -6,10 +6,18 @@
   flat_adobe:{label:'Desert adobe · flat roof',image:'flat-adobe.png',crop:[0,0,48,64],left:0,right:48,base:64,eave:48,peak:0,back:0,backPeak:0,center:24,depth:47,wall:[32,49,8,14],posts:[0,2,46,48],bands:[48,50,64],door:[16,48,16,16],flatRoof:true},
   flat_rooftop:{label:'Desert adobe · rooftop room',image:'flat-rooftop.png',crop:[0,0,48,72],left:0,right:48,base:72,eave:56,peak:0,back:8,backPeak:0,center:24,depth:47,wall:[32,57,8,14],posts:[0,2,46,48],bands:[56,58,72],door:[16,56,16,16],flatRoof:true,roofRoom:true}
  };
+ for(const color of ['red','brown','orange','blue','green','pink'])specs['pp_flat_'+color]={label:'Pixel Plains · flat shop · '+color,image:'pp-flat-'+color+'.png',crop:[0,0,96,80],left:0,right:96,base:80,eave:48,peak:0,back:0,backPeak:0,center:48,depth:32,wall:[8,48,16,32],posts:[0,3,93,96],bands:[48,51,72,80],door:[34,52,28,28],flatRoof:true,ppFlat:true,slabHeight:16};
  function prepare(ctx,image,spec,key){
   // Facades keep both windows. Erase only the entrance with the quiet strip
   // between its frame and the right window, preserving the horizontal cornice.
-  prepareFootprintMaterial(ctx,image,{...spec,wall:[32,spec.eave,2,16],sideRidge:true},key);
+  prepareFootprintMaterial(ctx,image,{...spec,wall:spec.ppFlat?spec.wall:[32,spec.eave,2,16],sideRidge:true},key);
+  if(spec.ppFlat){
+   // Native tiled deck and colored coping; retain the source texel density.
+   for(let y=616;y<872;y+=16)for(let x=256;x<512;x+=16)ctx.drawImage(image,16,12,16,16,x,y,16,16);
+   for(let i=0;i<5;i++){ctx.drawImage(image,1+Math.min(i,2),12,1,1,500+i,616,1,256);ctx.drawImage(image,20,Math.min(i,2),1,1,480+i,616,1,256);}
+   ctx.drawImage(image,2,2,1,1,506,616,2,256);ctx.drawImage(image,4,12,1,1,508,616,4,256);
+   return;
+  }
   const source=document.createElement('canvas');source.width=image.width;source.height=image.height;
   const c=source.getContext('2d');c.drawImage(image,0,0);
   const pixel=(x,y)=>{const p=c.getImageData(x,y,1,1).data;return `rgb(${p[0]},${p[1]},${p[2]})`;};
@@ -32,21 +40,22 @@
   }}return out;
  }
  function build(template,spec,key,polygon){
-  const W=spec.right-spec.left,H=(spec.base-spec.eave)/C;
+  const W=spec.right-spec.left,facadeHeight=spec.base-spec.eave,H=facadeHeight/C,deckHeight=H+(spec.slabHeight||0)/C;
   let ring=(polygon||[[0,0],[W,0],[W,spec.depth*2],[0,spec.depth*2]]).map(p=>Array.isArray(p)?{x:p[0],y:p[1]}:{...p});
   validateFootprint(ring);if(ring[0].x===ring.at(-1).x&&ring[0].y===ring.at(-1).y)ring.pop();
   const area=ring.reduce((s,a,i)=>{const b=ring[(i+1)%ring.length];return s+a.x*b.y-b.x*a.y},0)/2;if(area<0)ring.reverse();
   const faces=[];
   // Native roof surfaces use the calibrated source projection, retaining all
   // four authored rim edges; inferred footprints keep the sampled materials.
-  const quad=(ps,uv,kind='wall')=>{if(!polygon&&kind==='roof')uv=ps.map(p=>[Math.max(.001,Math.min(W-.001,p.x)),16+Math.max(.001,Math.min(spec.base-.001,spec.base-spec.depth+p.y*.5-p.z*C))]);for(const ids of [[0,1,2],[0,2,3]]){const points=ids.map(i=>({...ps[i],tu:uv[i][0]/512,tv:uv[i][1]/1024}));faces.push({...template,points,projected:points.map(()=>({})),kind,feature:'body',sourceArt:true,layer:0,fallbackUV:[280.5/512,640.5/1024],wallDirection:kind==='wall'?{x:points[1].x-points[0].x,y:points[1].y-points[0].y}:undefined});}};
+  const quad=(ps,uv,kind='wall',projectSource=true)=>{if(projectSource&&!polygon&&kind==='roof')uv=ps.map(p=>[Math.max(.001,Math.min(W-.001,p.x)),16+Math.max(.001,Math.min(spec.base-.001,spec.base-spec.depth+p.y*.5-p.z*C))]);for(const ids of [[0,1,2],[0,2,3]]){const points=ids.map(i=>({...ps[i],tu:uv[i][0]/512,tv:uv[i][1]/1024}));faces.push({...template,points,projected:points.map(()=>({})),kind,feature:'body',sourceArt:true,layer:0,fallbackUV:[280.5/512,640.5/1024],wallDirection:kind==='wall'?{x:points[1].x-points[0].x,y:points[1].y-points[0].y}:undefined});}};
   const constant=(ps,x=280.5,y=640.5,kind='roof')=>quad(ps,ps.map(()=>[x,y]),kind),P=(p,z)=>({...p,z});
   const spans=sections(ring);
-  for(const s of spans){const ps=[{x:s.x0,y:s.y0},{x:s.x1,y:s.y0},{x:s.x1,y:s.y1},{x:s.x0,y:s.y1}];constant(ps.map(p=>P(p,H)));constant(ps.slice().reverse().map(p=>P(p,0)),280.5,640.5,'floor');}
+  for(const s of spans){const ps=[{x:s.x0,y:s.y0},{x:s.x1,y:s.y0},{x:s.x1,y:s.y1},{x:s.x0,y:s.y1}];constant(ps.map(p=>P(p,deckHeight)));constant(ps.slice().reverse().map(p=>P(p,0)),280.5,640.5,'floor');}
   // Two source pixels of corner masonry leave each adjacent window complete.
   const facadeLayout=len=>{if(Math.abs(len-W)<1)return {parts:[[0,len,W,0]],center:len/2};const edge=Math.min(2,len/4),bay=W-2*edge,count=Math.floor((len-2*edge)/bay),gap=(len-2*edge-count*bay)/2,parts=[[0,edge,W,W-edge]];if(gap>0)parts.push([edge,edge+gap,256+gap,256]);for(let i=0;i<count;i++)parts.push([edge+gap+i*bay,edge+gap+(i+1)*bay,W-edge,edge]);if(gap>0)parts.push([len-edge-gap,len-edge,256+gap,256]);parts.push([len-edge,len,edge,0]);return {parts,center:len/2};};
   ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y),dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,layout=facadeLayout(len),at=(t,z,out=0)=>({x:a.x+dx*t+dy*out,y:a.y+dy*t-dx*out,z});
-   for(const [l,r,u0,u1] of layout.parts)quad([at(l,0),at(r,0),at(r,H),at(l,H)],[[u0,916],[u1,916],[u1,900],[u0,900]]);
+   for(const [l,r,u0,u1] of layout.parts)quad([at(l,0),at(r,0),at(r,H),at(l,H)],[[u0,900+facadeHeight],[u1,900+facadeHeight],[u1,900],[u0,900]]);
+   if(spec.slabHeight)quad([at(0,H),at(len,H),at(len,deckHeight),at(0,deckHeight)],[[8,16+spec.eave],[24,16+spec.eave],[24,16+spec.eave-spec.slabHeight],[8,16+spec.eave-spec.slabHeight]],'roof',false);
    if(a.y===b.y&&a.x>b.x&&len>20){const [u,v,w,h]=spec.door,l=Math.max(2,Math.min(len-w-2,layout.center-w/2));quad([at(l,0,.04),at(l+w,0,.04),at(l+w,h/C,.04),at(l,h/C,.04)],[[u+w,v+h+16],[u,v+h+16],[u,v+16],[u+w,v+16]]);}
   });
   // Mitred boundary rings share their corner vertices, so head-on corners do
@@ -62,14 +71,14 @@
     constant([P(d,bottom),P(c,bottom),P(b,bottom),P(a,bottom)],506.5,616.5);
    }
   }
-  parapet(ring,H);
+  if(spec.ppFlat)parapet(ring,deckHeight,0,3,0);else parapet(ring,H);
   if(spec.roofRoom){
    const s=spans.reduce((a,b)=>(b.x1-b.x0)*(b.y1-b.y0)>(a.x1-a.x0)*(a.y1-a.y0)?b:a),rw=Math.min(32,s.x1-s.x0-10),rd=Math.min(78,s.y1-s.y0-12);
    if(rw>=12&&rd>=16){const x=(s.x0+s.x1-rw)/2,y=s.y0,z=H+8/C,room=[{x,y},{x:x+rw,y},{x:x+rw,y:y+rd},{x,y:y+rd}];
     constant(room.map(p=>P(p,z)));room.forEach((a,i)=>{const b=room[(i+1)%4],len=Math.hypot(b.x-a.x,b.y-a.y);for(let t=0;t<len;t+=32){const end=Math.min(len,t+32),at=n=>({x:a.x+(b.x-a.x)*n/len,y:a.y+(b.y-a.y)*n/len});quad([P(at(t),H),P(at(end),H),P(at(end),z),P(at(t),z)],[[40,64],[40-(end-t),64],[40-(end-t),56],[40,56]]);}});parapet(room,z,0,Math.min(5,rw/3,rd/4.8),1/C);
    }
   }
-  faces.footprintInfo={polygon:ring,area:Math.abs(area),roofPitch:0,mode:spec.roofRoom?'flat adobe roof with rooftop room':'flat adobe roof with parapet',physical:true,sections:spans.length};return faces;
+  faces.footprintInfo={polygon:ring,area:Math.abs(area),roofPitch:0,mode:spec.ppFlat?'Pixel Plains flat shop':spec.roofRoom?'flat adobe roof with rooftop room':'flat adobe roof with parapet',physical:true,sections:spans.length};return faces;
  }
  root.FlatBuildings={specs,prepare,build};
 })(typeof window==='undefined'?globalThis:window);

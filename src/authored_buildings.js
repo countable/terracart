@@ -293,6 +293,9 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
    if(r.emblem)emblems.set(r.emblem,r);
   }
+  // Native PP flat shops are selectable review models; keep their six source
+  // colorways without changing the saved world's residential assignments.
+  for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat&&scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
   for(const [id,{key,palette}] of variants){
    if(!scene.textures.exists(imageKey(key)))continue;
    const model=buildNative(scene,key);
