@@ -48,7 +48,7 @@
   for(let j=1;j<ys.length;j++){let start=null;for(let i=1;i<=xs.length;i++){const occupied=i<xs.length&&inside((xs[i-1]+xs[i])/2,(ys[j-1]+ys[j])/2);if(occupied&&start===null)start=xs[i-1];if(!occupied&&start!==null){const end=xs[i-1],prev=cells.find(c=>c.x0===start&&c.x1===end&&c.y1===ys[j-1]);if(prev)prev.y1=ys[j];else cells.push({x0:start,x1:end,y0:ys[j-1],y1:ys[j]});start=null;}}}
   ring.forEach((p,i)=>{const q=ring[(i+1)%ring.length],L=Math.hypot(q.x-p.x,q.y-p.y),front=q.x<p.x&&q.y===p.y,at=(t,z)=>P(p.x+(q.x-p.x)*t/L,p.y+(q.y-p.y)*t/L,z);
    for(let t=0;t<L;t+=W){const end=Math.min(L,t+W),w=end-t;poly([at(t,0),at(end,0),at(end,H),at(t,H)],front&&Math.abs(L-W)<.01?[uv(148,188),uv(148-w,188),uv(148-w,112),uv(148,112)]:[[W,476],[W-w,476],[W-w,400],[W,400]]);}
-   if(front&&L>=50){const t=L/2-19,out=.025,dx=(q.y-p.y)/L,dy=-(q.x-p.x)/L,ps=[at(t,0),at(t+38,0),at(t+38,37/C),at(t,37/C)].map(p=>({...p,x:p.x+dx*out,y:p.y+dy*out}));poly(ps,[uv(114,188),uv(76,188),uv(76,151),uv(114,151)]);}
+   if(front&&L>=50){const t=L/2-19,out=.2,dx=(q.y-p.y)/L,dy=-(q.x-p.x)/L,ps=[at(t,0),at(t+38,0),at(t+38,37/C),at(t,37/C)].map(p=>({...p,x:p.x+dx*out,y:p.y+dy*out}));poly(ps,[uv(114,188),uv(76,188),uv(76,151),uv(114,151)]);}
   });
   const roofZ=t=>H+R*Math.sin(Math.PI*t);
   for(const s of cells){const {x0,x1,y0,y1}=s,N=10,roofAt=(t,y,extra=0)=>P(x0+(x1-x0)*t,y,roofZ(t)+extra);
@@ -64,7 +64,19 @@
    }
    // The convex arch end is one affine-textured polygon. Its fan closes
    // the same shell without redundant vertical strips at the curve endpoints.
-   for(const [y,front] of [[y0,false],[y1,true]]){const ps=Array.from({length:N+1},(_,i)=>roofAt(i/N,y)),tex=ps.map((p,i)=>front?uv(46+102*i/N,112-(p.z-H)*C):[128+102*i/N,834-(p.z-H)*C]);poly(front?ps:ps.slice().reverse(),front?tex:tex.slice().reverse());}
+   for(const [y,front] of [[y0,false],[y1,true]]){
+    const ps=Array.from({length:N+1},(_,i)=>roofAt(i/N,y));
+    if(x1-x0<=W+1){const tex=ps.map((p,i)=>front?uv(46+102*i/N,112-(p.z-H)*C):[128+102*i/N,834-(p.z-H)*C]);poly(front?ps:ps.slice().reverse(),front?tex:tex.slice().reverse());continue;}
+    // Wide barrel ends repeat timber at native scale. A centred source-sized
+    // gear panel avoids flattening the circular emblem across the whole span.
+    const clip=(points,x,greater)=>{const out=[];for(let i=0;i<points.length;i++){const a=points[i],b=points[(i+1)%points.length],ina=greater?a.x>=x:a.x<=x,inb=greater?b.x>=x:b.x<=x;if(ina)out.push(a);if(ina!==inb){const t=(x-a.x)/(b.x-a.x);out.push(P(x,a.y,a.z+(b.z-a.z)*t));}}return out;};
+    for(let x=x0;x<x1;x+=102){const end=Math.min(x1,x+102),panel=clip(clip(ps,x,true),end,false),tex=panel.map(p=>[128+p.x-x,834-(p.z-H)*C]);if(panel.length>=3)poly(front?panel:panel.slice().reverse(),front?tex:tex.slice().reverse());}
+    if(front){const center=(x0+x1)/2,yy=y+.2;
+     const panel=Array.from({length:N+1},(_,i)=>P(center-W/2+W*i/N,yy,roofZ(i/N)));
+     poly(panel,panel.map(p=>uv(97+p.x-center,112-(p.z-H)*C)));
+     poly([P(center-W/2,yy,H-28/C),P(center+W/2,yy,H-28/C),P(center+W/2,yy,H),P(center-W/2,yy,H)],[uv(46,140),uv(148,140),uv(148,112),uv(46,112)]);
+    }
+   }
    for(const [x,sign] of [[x0,-1],[x1,1]]){const ps=[P(x,y0-1.8,H),P(x,y1+1.8,H),P(x+sign*1.8,y1+1.8,H),P(x+sign*1.8,y0-1.8,H)];const top=sign>0?ps.slice().reverse():ps,bottom=top.map(p=>({...p,z:H-.7}));constant(top,49.5,108.5,'roof');constant(bottom.slice().reverse(),47.5,111.5,'roof');
     // A closed eave prism: both end caps and the wall-side face are needed
     // beyond the barrel ends, even though most of the inner face is embedded.
