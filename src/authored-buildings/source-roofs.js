@@ -76,7 +76,7 @@
      // Initial winding points -along for y ridges, +along for x ridges.
      if((axis==='y'&&end)||(axis==='x'&&!end)){ps.reverse();uv.reverse();}
      quad(ps,uv,'wall');
-     if(key==='trader'&&end&&!s.rearTier){
+     if(key==='trader'&&end){
       // Signs and attic windows keep their native pixel size. Clip the decal
       // to this exposed cap interval instead of stretching it with roof width.
       const f=s.rearTier?{u:46,v:31,w:14,h:10,anchor:52,base:76}:{u:30,v:60,w:16,h:11,anchor:38,base:98};

@@ -10,8 +10,8 @@
   ctx.drawImage(canvas,22,136,52,56,0,600,52,56);
   ctx.drawImage(canvas,22,136,52,56,128,600,52,56);
   // Keep the upper vent; remove only entrance dressing on the other elevations.
-  for(let x=140;x<168;x+=5)ctx.drawImage(canvas,29,160,5,32,x,624,Math.min(5,168-x),32);
-  for(let y=600;y<720;y+=16)for(let x=256;x<384;x+=8)ctx.drawImage(canvas,29,140,8,16,x,y,8,16);
+  for(let x=138;x<170;x+=8)ctx.drawImage(canvas,62,160,2,32,x,624,Math.min(8,170-x),32);
+  for(let y=600;y<720;y+=16)for(let x=256;x<384;x+=4)ctx.drawImage(canvas,62,140,4,16,x,y,4,16);
   const swatch=(sx,sy,x,y,w,h)=>ctx.drawImage(canvas,sx,sy,1,1,x,y,w,h);
   swatch(28,130,400,600,16,16);swatch(28,132,416,600,16,16);swatch(28,123,432,600,16,16);
   // The deck sample excludes the baked stack silhouette.
