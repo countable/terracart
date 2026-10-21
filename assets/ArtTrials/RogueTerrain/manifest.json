@@ -1,0 +1,1450 @@
+{
+  "frameSize": 16,
+  "columns": 16,
+  "rows": 7,
+  "families": [
+    {
+      "id": "villageGrass",
+      "index": 0,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 0,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 1,
+          "sourceRects": [
+            [
+              112,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 2,
+          "sourceRects": [
+            [
+              80,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 3,
+          "sourceRects": [
+            [
+              96,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 4,
+          "sourceRects": [
+            [
+              112,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 5,
+          "sourceRects": [
+            [
+              112,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 6,
+          "sourceRects": [
+            [
+              80,
+              96,
+              16,
+              16
+            ],
+            [
+              112,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 7,
+          "sourceRects": [
+            [
+              80,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 8,
+          "sourceRects": [
+            [
+              80,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 9,
+          "sourceRects": [
+            [
+              112,
+              96,
+              16,
+              16
+            ],
+            [
+              80,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 10,
+          "sourceRects": [
+            [
+              80,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 11,
+          "sourceRects": [
+            [
+              112,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 12,
+          "sourceRects": [
+            [
+              96,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 13,
+          "sourceRects": [
+            [
+              80,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 14,
+          "sourceRects": [
+            [
+              112,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 15,
+          "sourceRects": [
+            [
+              96,
+              80,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "forestGrass",
+      "index": 1,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "sourceSHA256": "c769fdd0c428b191379b2079211b3332ca5d3276ce09d32a4e761f9d3fe7802a",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 16,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 17,
+          "sourceRects": [
+            [
+              32,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 18,
+          "sourceRects": [
+            [
+              0,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 19,
+          "sourceRects": [
+            [
+              16,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 20,
+          "sourceRects": [
+            [
+              32,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 21,
+          "sourceRects": [
+            [
+              32,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 22,
+          "sourceRects": [
+            [
+              0,
+              560,
+              16,
+              16
+            ],
+            [
+              32,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 23,
+          "sourceRects": [
+            [
+              48,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 24,
+          "sourceRects": [
+            [
+              0,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 25,
+          "sourceRects": [
+            [
+              32,
+              560,
+              16,
+              16
+            ],
+            [
+              0,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 26,
+          "sourceRects": [
+            [
+              0,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 27,
+          "sourceRects": [
+            [
+              64,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 28,
+          "sourceRects": [
+            [
+              16,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 29,
+          "sourceRects": [
+            [
+              48,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 30,
+          "sourceRects": [
+            [
+              64,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 31,
+          "sourceRects": [
+            [
+              16,
+              544,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "oliveSoil",
+      "index": 2,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "sourceSHA256": "c769fdd0c428b191379b2079211b3332ca5d3276ce09d32a4e761f9d3fe7802a",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 32,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 33,
+          "sourceRects": [
+            [
+              112,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 34,
+          "sourceRects": [
+            [
+              80,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 35,
+          "sourceRects": [
+            [
+              96,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 36,
+          "sourceRects": [
+            [
+              112,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 37,
+          "sourceRects": [
+            [
+              112,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 38,
+          "sourceRects": [
+            [
+              80,
+              560,
+              16,
+              16
+            ],
+            [
+              112,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 39,
+          "sourceRects": [
+            [
+              128,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 40,
+          "sourceRects": [
+            [
+              80,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 41,
+          "sourceRects": [
+            [
+              112,
+              560,
+              16,
+              16
+            ],
+            [
+              80,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 42,
+          "sourceRects": [
+            [
+              80,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 43,
+          "sourceRects": [
+            [
+              144,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 44,
+          "sourceRects": [
+            [
+              96,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 45,
+          "sourceRects": [
+            [
+              128,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 46,
+          "sourceRects": [
+            [
+              144,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 47,
+          "sourceRects": [
+            [
+              96,
+              544,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "darkSoil",
+      "index": 3,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+      "sourceSHA256": "c769fdd0c428b191379b2079211b3332ca5d3276ce09d32a4e761f9d3fe7802a",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 48,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 49,
+          "sourceRects": [
+            [
+              192,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 50,
+          "sourceRects": [
+            [
+              160,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 51,
+          "sourceRects": [
+            [
+              176,
+              560,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 52,
+          "sourceRects": [
+            [
+              192,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 53,
+          "sourceRects": [
+            [
+              192,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 54,
+          "sourceRects": [
+            [
+              160,
+              560,
+              16,
+              16
+            ],
+            [
+              192,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 55,
+          "sourceRects": [
+            [
+              208,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 56,
+          "sourceRects": [
+            [
+              160,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 57,
+          "sourceRects": [
+            [
+              192,
+              560,
+              16,
+              16
+            ],
+            [
+              160,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 58,
+          "sourceRects": [
+            [
+              160,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 59,
+          "sourceRects": [
+            [
+              224,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 60,
+          "sourceRects": [
+            [
+              176,
+              528,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 61,
+          "sourceRects": [
+            [
+              208,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 62,
+          "sourceRects": [
+            [
+              224,
+              544,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 63,
+          "sourceRects": [
+            [
+              176,
+              544,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "water",
+      "index": 4,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Animated_Water.png",
+      "sourceSHA256": "3f0d9ba3b1ca74b1e721f1d7540443d4b7e68293114f0d6037aae604c99eae06",
+      "calmWater": true,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 64,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 65,
+          "sourceRects": [
+            [
+              32,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 66,
+          "sourceRects": [
+            [
+              0,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 67,
+          "sourceRects": [
+            [
+              16,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 68,
+          "sourceRects": [
+            [
+              32,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 69,
+          "sourceRects": [
+            [
+              32,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 70,
+          "sourceRects": [
+            [
+              0,
+              96,
+              16,
+              16
+            ],
+            [
+              32,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 71,
+          "sourceRects": [
+            [
+              0,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 72,
+          "sourceRects": [
+            [
+              0,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 73,
+          "sourceRects": [
+            [
+              32,
+              96,
+              16,
+              16
+            ],
+            [
+              0,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 74,
+          "sourceRects": [
+            [
+              0,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 75,
+          "sourceRects": [
+            [
+              32,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 76,
+          "sourceRects": [
+            [
+              16,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 77,
+          "sourceRects": [
+            [
+              0,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 78,
+          "sourceRects": [
+            [
+              32,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 79,
+          "sourceRects": [
+            [
+              16,
+              80,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sand",
+      "index": 5,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Overworld_Ground.png",
+      "sourceSHA256": "351fbb410b029bd2b22aed1463c3370ad1092e44f750eb3762331d88d569f17c",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 80,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 81,
+          "sourceRects": [
+            [
+              176,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 82,
+          "sourceRects": [
+            [
+              144,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 83,
+          "sourceRects": [
+            [
+              160,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 84,
+          "sourceRects": [
+            [
+              176,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 85,
+          "sourceRects": [
+            [
+              176,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 86,
+          "sourceRects": [
+            [
+              144,
+              80,
+              16,
+              16
+            ],
+            [
+              176,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 87,
+          "sourceRects": [
+            [
+              144,
+              0,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 88,
+          "sourceRects": [
+            [
+              144,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 89,
+          "sourceRects": [
+            [
+              176,
+              80,
+              16,
+              16
+            ],
+            [
+              144,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 90,
+          "sourceRects": [
+            [
+              144,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 91,
+          "sourceRects": [
+            [
+              176,
+              0,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 92,
+          "sourceRects": [
+            [
+              160,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 93,
+          "sourceRects": [
+            [
+              144,
+              32,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 94,
+          "sourceRects": [
+            [
+              176,
+              32,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 95,
+          "sourceRects": [
+            [
+              160,
+              64,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "stone",
+      "index": 6,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 96,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 97,
+          "sourceRects": [
+            [
+              304,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 98,
+          "sourceRects": [
+            [
+              272,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 99,
+          "sourceRects": [
+            [
+              288,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 100,
+          "sourceRects": [
+            [
+              304,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 101,
+          "sourceRects": [
+            [
+              304,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 102,
+          "sourceRects": [
+            [
+              272,
+              96,
+              16,
+              16
+            ],
+            [
+              304,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 103,
+          "sourceRects": [
+            [
+              272,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 104,
+          "sourceRects": [
+            [
+              272,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 105,
+          "sourceRects": [
+            [
+              304,
+              96,
+              16,
+              16
+            ],
+            [
+              272,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 106,
+          "sourceRects": [
+            [
+              272,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 107,
+          "sourceRects": [
+            [
+              304,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 108,
+          "sourceRects": [
+            [
+              288,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 109,
+          "sourceRects": [
+            [
+              272,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 110,
+          "sourceRects": [
+            [
+              304,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 111,
+          "sourceRects": [
+            [
+              288,
+              80,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    }
+  ],
+  "notes": "Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground."
+}
