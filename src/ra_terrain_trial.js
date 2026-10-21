@@ -8,7 +8,7 @@ const RATerrainTrial = (() => {
   });
   const profile = profiles[mode];
   const enabled = !!profile;
-  const families = Object.freeze(['villageGrass', 'forestGrass', 'oliveSoil', 'darkSoil', 'water', 'sand', 'stone']);
+  const families = Object.freeze(['villageGrass', 'forestGrass', 'oliveSoil', 'darkSoil', 'water', 'sand', 'stone', ...(mode === 'rogue' ? ['brownSoil'] : [])]);
   const SOURCE = profile?.source, KEY = profile?.key;
   const roadCanvases = [];
   const ROAD_VARIANTS = new Set(['plain','default','lantern','golden','golden_path','orchard','promenade']);
@@ -17,7 +17,37 @@ const RATerrainTrial = (() => {
   }
   const COUNT = families.length, FRAMES = COUNT ** 4;
   const TYPES = Object.freeze({0:0, 1:1, 2:5, 3:4, 4:2, 5:0, 6:0, 15:6, 16:6, 17:6, 18:0, 19:0, 20:3, 21:0, 22:1, 23:4});
-  function material(type) { return TYPES[type] ?? -1; }
+  function patchNoise(x, y) {
+    let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
+    h = Math.imul(h ^ (h >>> 13), 1274126177);
+    return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+  }
+  function material(type, cellX, cellY) {
+    const family = TYPES[type] ?? -1;
+    if (mode === 'rogue' && (family === 0 || family === 1)
+        && Number.isFinite(cellX) && Number.isFinite(cellY)) {
+      // Broad, stable ground islands use the reference's native soil edges;
+      // this is a presentation sample, never a new terrain/collision class.
+      const bx = Math.floor(cellX / 5), by = Math.floor(cellY / 5);
+      const x = cellX / 5 - bx, y = cellY / 5 - by;
+      const a = patchNoise(bx,by), b = patchNoise(bx+1,by);
+      const c = patchNoise(bx,by+1), d = patchNoise(bx+1,by+1);
+      const value = (a+(b-a)*x)*(1-y)+(c+(d-c)*x)*y;
+      if (value > .56) return family === 0 ? 7 : 2;
+      if (family === 1 && value < .25) return 3;
+      return family;
+    }
+    if (mode !== 'dreamland'  || (family !== 0 && family !== 1)
+        || !Number.isFinite(cellX) || !Number.isFinite(cellY)) return family;
+    // Stable source-native grass islands. Both families share the reference's
+    // olive fill; the island mask reveals its lighter irregular grass edge.
+    // World coordinates keep patches fixed across walking and tile boundaries.
+    const bx = Math.floor(cellX / 4), by = Math.floor(cellY / 4);
+    const x = cellX / 4 - bx, y = cellY / 4 - by;
+    const a = patchNoise(bx, by), b = patchNoise(bx + 1, by);
+    const c = patchNoise(bx, by + 1), d = patchNoise(bx + 1, by + 1);
+    return (a + (b - a) * x) * (1 - y) + (c + (d - c) * x) * y > 0.56 ? 1 : 0;
+  }
   function maskFor(values, family) {
     let mask = 0;
     for (let i = 0; i < 4; i++) if (values[i] === family) mask |= 1 << i;
@@ -61,7 +91,7 @@ const RATerrainTrial = (() => {
       const x = frame % columns * 16, y = Math.floor(frame / columns) * 16;
       // Fill with an actual local material, not unconditional village grass:
       // transparent authored corners on a sand shore must reveal sand.
-      const layers = [0,1,2,3,5,6,4];
+      const layers = mode === 'rogue' ? [0,1,2,3,5,6,7,4] : [0,1,2,3,5,6,4];
       const base = layers.find(family => values.includes(family));
       draw(base, 15, x, y);
       // Water draws last, so the native bank remains intact at three-way joins.

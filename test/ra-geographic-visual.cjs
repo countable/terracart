@@ -106,7 +106,7 @@ fs.mkdirSync(out,{recursive:true});
  const objects=[...WorldGen.tileCache.values()].flatMap(e=>[...(e.objects||[]),...(e.wildplants||[])]).filter(visible).map(o=>({id:o.id,kind:o.kind,x:o.x,y:o.y,species:o.species,source:o._treeSource})).sort((a,b)=>String(a.id).localeCompare(String(b.id)));
  const terrain=[];for(const [k,e] of WorldGen.tileCache){if(!e.grid)continue;const [,tx,ty]=k.split('/').map(Number),N=e.cellsPerEdge,cm=e.tileEdgeM/N;for(let i=0;i<e.grid.length;i++){const x=tx*e.tileEdgeM+(i%N+.5)*cm,y=ty*e.tileEdgeM+(Math.floor(i/N)+.5)*cm;if(visible({x,y}))terrain.push({k,i,type:e.grid[i],under:e.roadUnder?.[i],path:e.pathUnder?.[i]});}}
  const home=s.homeWorldPos();
- return {home:{id:s.save.starterShopId,x:home?.x,y:home?.y},artTrial:window.RATerrainTrial?.enabled||false,sourceTemplate:WorldGen.tileUrlTemplate(), artAudit:window.RATerrainTrial?.status?.(s)||null, tileSources:[...WorldGen.tileCache].filter(([k,e])=>e.status==='ready').map(([k,e])=>({key:k,layers:e.layers?.map(l=>({name:l.name,features:l.features?.length})),objects:e.objects?.length})), renderer:s.game.renderer.type,glError:s.game.renderer.gl?.getError(),testMode:!!window.__TEST_MODE,deepforest:true,daylight:Lighting.daylight(s),position:localMToLonLat(s,s.playerM.x,s.playerM.y),anchor:viewAnchorWorldM(s),canvasSize:[s.game.canvas.width,s.game.canvas.height],renderScale:RENDER_SCALE,lightKey:s.lightTex?.__lightKey,objects,terrain,lamps:s._streetLamps?.filter(visible).map(l=>({id:l.id,x:l.x,y:l.y,lit:l.lit,restored:l.restored})),buildingModels:s._lowpoly?.buildings.map(m=>({key:m.key,role:m.role,authored:m.authoredKey,visible:m.obj.visible,triangles:m.visibleTriangles?.length})),textures:s.textures.getTextureKeys().length};});
+ return {home:{id:s.save.starterShopId,x:home?.x,y:home?.y},artTrial:window.RATerrainTrial?.enabled||false,sourceTemplate:WorldGen.tileUrlTemplate(), artAudit:window.RATerrainTrial?.status?.(s)||null,objectArtAudit:(variant=>variant==='dreamland'?window.DreamlandObjects?.status?.(s):window.RogueObjects?.status?.(s))(new URLSearchParams(location.search).get('artTrial'))||null, tileSources:[...WorldGen.tileCache].filter(([k,e])=>e.status==='ready').map(([k,e])=>({key:k,layers:e.layers?.map(l=>({name:l.name,features:l.features?.length})),objects:e.objects?.length})), renderer:s.game.renderer.type,glError:s.game.renderer.gl?.getError(),testMode:!!window.__TEST_MODE,deepforest:true,daylight:Lighting.daylight(s),position:localMToLonLat(s,s.playerM.x,s.playerM.y),anchor:viewAnchorWorldM(s),canvasSize:[s.game.canvas.width,s.game.canvas.height],renderScale:RENDER_SCALE,lightKey:s.lightTex?.__lightKey,objects,terrain,lamps:s._streetLamps?.filter(visible).map(l=>({id:l.id,x:l.x,y:l.y,lit:l.lit,restored:l.restored})),buildingModels:s._lowpoly?.buildings.map(m=>({key:m.key,role:m.role,authored:m.authoredKey,visible:m.obj.visible,triangles:m.visibleTriangles?.length})),textures:s.textures.getTextureKeys().length};});
  const data=await page.evaluate(()=>new Promise(resolve=>{__scene.scene.pause();__game.loop.wake();setTimeout(()=>__game.renderer.snapshotArea(0,0,__game.scale.width,__game.scale.height,img=>{__game.loop.sleep();resolve(img.src)}),500)}));
  fs.writeFileSync(path.join(out,`${name}-${variant}${mobile?'-mobile':''}-${state}.png`),Buffer.from(data.split(',')[1],'base64'));fs.writeFileSync(path.join(out,`${name}-${variant}${mobile?'-mobile':''}-${state}.json`),JSON.stringify(audit,null,2));
  if(variant!=='baseline'){
@@ -120,12 +120,21 @@ fs.mkdirSync(out,{recursive:true});
      assert.deepEqual(ordered(audit.terrain),ordered(baseline.terrain),'art preserves all visible terrain types and road/path underlays');
      assert.deepEqual(normalize(audit.objects),baseline.objects,'art preserves generated object identities and positions');
      assert.deepEqual(normalize(audit.lamps),baseline.lamps,'art preserves street lamp placement/state');
-     assert.deepEqual(normalize(audit.buildingModels),baseline.buildingModels,'art preserves latest house models');
+     // Opt-in profiles replace house presentation; generated identities and
+     // positions above remain the parity contract, not procedural mesh counts.
+
    }
  }
  assert.deepEqual(audit.home,initialHome,'Home remains at its initial Athalmer location');assert.equal(audit.testMode,false);assert.equal(audit.renderer,renderer==='canvas'?1:2);if(renderer==='webgl')assert.equal(audit.glError,0);assert(audit.objects.length>0,'normal scene generated objects');
  console.log('CAPTURE',name,state,audit.objects.length,'objects',audit.lamps?.length,'lamps',audit.position);return audit;}
  const before=await capture('unrestored');
+ if(process.env.RESTORED==='1') {
+ await page.evaluate(()=>{const s=__scene,sv=s.save;for(const [key,e] of WorldGen.tileCache){if(e.status!=='ready')continue;for(const o of e.objects||[]){if(o.kind==='house'&&o.tier===9&&Houses.isHouseWreck(sv,o))Houses.restoreAs(sv,o,'plain');if(o.kind==='house'&&o.tier===11&&Houses.isFortLocked(sv,o))(sv.unlockedForts||={})[o.id]=true;if(o.castle)Houses.claimCastle(sv,o);}for(const layer of e.layers||[]){if(layer.name!=='transportation')continue;const scale=e.tileEdgeM/(layer.extent||4096);for(const f of layer.features||[]){if(f.type!==2||!f.geom||['rail','transit'].includes(f.tags?.class)||WorldGen.isParkingAisle(f.tags))continue;f.geom.forEach((line,i)=>{let len=0;for(let j=1;j<line.length;j++)len+=Math.hypot(line[j].x-line[j-1].x,line[j].y-line[j-1].y)*scale;if(len>0)Streets.restore(sv,key,Streets.lineKey(f,i),[[0,len]])})}}}s._buildingGeomKey=null;s._roadGeomKey=null;});
+ await settle();
+ const restored=await capture('restored');
+ assert.deepEqual(restored.objects,before.objects,'restoration keeps geographic identities');
+ }
+
  // Step across an actual tile boundary through the same loader. No world mutation.
  if(name==='athalmer'&&!mobile){
   const edge=await page.evaluate(()=>{const s=__scene,c=s.playerToWorldCell(),e=WorldGen.tileCache.get(WorldGen.tileKey(c.tx,c.ty));return {before:[c.tx,c.ty],destination:localMToLonLat(s,(c.tx+1)*e.tileEdgeM+e.tileEdgeM/e.cellsPerEdge-s.startWorldM.x,s.playerM.y)}});

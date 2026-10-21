@@ -1,0 +1,796 @@
+{
+  "reference": "https://img.itch.zone/aW1hZ2UvMTU2NjQ2OC8xMTkyNzE0Ny5naWY=/original/dve1%2FL.gif",
+  "method": "Source-native crops and layered assemblies; no generated/recolored pixels.",
+  "objects": [
+    {
+      "id": "house",
+      "file": "house.png",
+      "size": [
+        64,
+        110
+      ],
+      "assemblySize": [
+        64,
+        112
+      ],
+      "trimBounds": [
+        0,
+        2,
+        64,
+        112
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Reference red-roof house; existing ordinary building only.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            432,
+            144,
+            64,
+            112
+          ],
+          "at": [
+            0,
+            0
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            416,
+            0,
+            16,
+            32
+          ],
+          "at": [
+            24,
+            48
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            0,
+            160,
+            16,
+            32
+          ],
+          "at": [
+            24,
+            80
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            288,
+            0,
+            16,
+            32
+          ],
+          "at": [
+            8,
+            76
+          ]
+        }
+      ],
+      "excludedRects": [
+        [
+          0,
+          0,
+          16,
+          16
+        ]
+      ]
+    },
+    {
+      "id": "house-wide",
+      "file": "house-wide.png",
+      "size": [
+        160,
+        110
+      ],
+      "assemblySize": [
+        160,
+        112
+      ],
+      "trimBounds": [
+        0,
+        2,
+        160,
+        112
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Wide existing building footprint; native red roof and wall assembly.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            256,
+            144,
+            160,
+            112
+          ],
+          "at": [
+            0,
+            0
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            416,
+            0,
+            16,
+            32
+          ],
+          "at": [
+            72,
+            48
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            0,
+            160,
+            16,
+            32
+          ],
+          "at": [
+            72,
+            80
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            288,
+            0,
+            16,
+            32
+          ],
+          "at": [
+            56,
+            76
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            416,
+            0,
+            16,
+            32
+          ],
+          "at": [
+            16,
+            64
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            416,
+            0,
+            16,
+            32
+          ],
+          "at": [
+            128,
+            64
+          ]
+        }
+      ],
+      "excludedRects": [
+        [
+          128,
+          0,
+          160,
+          16
+        ]
+      ]
+    },
+    {
+      "id": "tree",
+      "file": "tree.png",
+      "size": [
+        32,
+        46
+      ],
+      "assemblySize": [
+        32,
+        48
+      ],
+      "trimBounds": [
+        0,
+        2,
+        32,
+        48
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Reference mature round tree; preserve tree identity and growth state.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+          "rect": [
+            96,
+            256,
+            32,
+            48
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "tree-young",
+      "file": "tree-young.png",
+      "size": [
+        28,
+        32
+      ],
+      "assemblySize": [
+        32,
+        32
+      ],
+      "trimBounds": [
+        2,
+        0,
+        30,
+        32
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Smaller native round tree.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+          "rect": [
+            96,
+            336,
+            32,
+            32
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "lamp",
+      "file": "lamp.png",
+      "size": [
+        21,
+        30
+      ],
+      "assemblySize": [
+        32,
+        32
+      ],
+      "trimBounds": [
+        5,
+        1,
+        26,
+        31
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Lit hanging lantern on wooden post; existing lamp only.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            192,
+            416,
+            32,
+            32
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "lamp-unlit",
+      "file": "lamp-unlit.png",
+      "size": [
+        21,
+        30
+      ],
+      "assemblySize": [
+        32,
+        32
+      ],
+      "trimBounds": [
+        5,
+        1,
+        26,
+        31
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Unlit purple lantern; existing lamp only.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            192,
+            384,
+            32,
+            32
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "fountain",
+      "file": "fountain.png",
+      "size": [
+        48,
+        48
+      ],
+      "assemblySize": [
+        48,
+        48
+      ],
+      "trimBounds": [
+        0,
+        0,
+        48,
+        48
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Reference octagonal fountain, native water and sculpture.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            144,
+            416,
+            48,
+            48
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "crate",
+      "file": "crate.png",
+      "size": [
+        14,
+        14
+      ],
+      "assemblySize": [
+        16,
+        16
+      ],
+      "trimBounds": [
+        1,
+        1,
+        15,
+        15
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Existing crate; native closed wooden crate.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            128,
+            96,
+            16,
+            16
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "crate-stack",
+      "file": "crate-stack.png",
+      "size": [
+        32,
+        22
+      ],
+      "assemblySize": [
+        32,
+        32
+      ],
+      "trimBounds": [
+        0,
+        10,
+        32,
+        32
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Existing crate group; native stacked closed crates.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            96,
+            128,
+            32,
+            32
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "sign",
+      "file": "sign.png",
+      "size": [
+        16,
+        15
+      ],
+      "assemblySize": [
+        16,
+        16
+      ],
+      "trimBounds": [
+        0,
+        1,
+        16,
+        16
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Existing sign; native freestanding wooden board.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            64,
+            144,
+            16,
+            16
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "well",
+      "file": "well.png",
+      "size": [
+        31,
+        44
+      ],
+      "assemblySize": [
+        32,
+        48
+      ],
+      "trimBounds": [
+        1,
+        2,
+        32,
+        46
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Existing well; native roofed water well.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            192,
+            80,
+            32,
+            48
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "ground-base",
+      "file": "ground-base.png",
+      "size": [
+        16,
+        16
+      ],
+      "assemblySize": [
+        16,
+        16
+      ],
+      "trimBounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Exact reference olive base RGB155,178,62.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            16,
+            0,
+            16,
+            16
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "ground-patch",
+      "file": "ground-patch.png",
+      "size": [
+        48,
+        48
+      ],
+      "assemblySize": [
+        48,
+        48
+      ],
+      "trimBounds": [
+        0,
+        0,
+        48,
+        48
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Native olive island with subtle lime boundary; place over same olive base.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Ground_Tiles.png",
+          "rect": [
+            0,
+            0,
+            48,
+            48
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "ground-patch-small",
+      "file": "ground-patch-small.png",
+      "size": [
+        32,
+        32
+      ],
+      "assemblySize": [
+        48,
+        48
+      ],
+      "trimBounds": [
+        8,
+        8,
+        40,
+        40
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Native smaller olive island with subtle lime boundary.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Ground_Tiles.png",
+          "rect": [
+            96,
+            0,
+            48,
+            48
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "ground-specks-a",
+      "file": "ground-specks-a.png",
+      "size": [
+        10,
+        10
+      ],
+      "assemblySize": [
+        16,
+        16
+      ],
+      "trimBounds": [
+        2,
+        4,
+        12,
+        14
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Tiny flat grass coloration, no flowers or tall grass.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+          "rect": [
+            0,
+            16,
+            16,
+            16
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "ground-specks-b",
+      "file": "ground-specks-b.png",
+      "size": [
+        12,
+        10
+      ],
+      "assemblySize": [
+        16,
+        16
+      ],
+      "trimBounds": [
+        2,
+        3,
+        14,
+        13
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Tiny flat grass coloration, no flowers or tall grass.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+          "rect": [
+            16,
+            16,
+            16,
+            16
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "ground-specks-c",
+      "file": "ground-specks-c.png",
+      "size": [
+        11,
+        13
+      ],
+      "assemblySize": [
+        16,
+        16
+      ],
+      "trimBounds": [
+        2,
+        2,
+        13,
+        15
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Tiny flat grass coloration, no flowers or tall grass.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+          "rect": [
+            32,
+            16,
+            16,
+            16
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    }
+  ],
+  "sha256": {
+    "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png": "cfff54e69f49732378649348b001285b6ee2250aff2dcebe14f817e8031e2961",
+    "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8",
+    "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Ground_Tiles.png": "0336638b9d1c3d0376aeb0cd957ef248bf45f67b0ca6684978c5289521a307d8"
+  },
+  "exclusions": [
+    "No fences, benches, cliffs, large grass clumps or new interactable spawns.",
+    "No barrel override: reference and village source provide no matching barrel."
+  ]
+}

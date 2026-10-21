@@ -14,7 +14,7 @@ def corners(x,y):
  return dict(x=x,y=y,tileSize=16,inner=dict(nw=[x+80,y+32],ne=[x+48,y+32],sw=[x+80,y],se=[x+48,y]))
 families=[
  dict(id='villageGrass',source='FDR_Ground_Tiles.png',options=corners(0,0)),
- dict(id='forestGrass',source='FDR_Ground_Tiles.png',options=corners(0,64)),
+ dict(id='forestGrass',source='FDR_Ground_Tiles.png',options=corners(0,0)),
  dict(id='oliveSoil',source='FDR_Ground_Tiles.png',options=corners(0,128)),
  dict(id='darkSoil',source='FDR_Ground_Tiles.png',options=corners(96,128)),
  dict(id='water',source='FDR_Water_Tiles.png',options=corners(0,0)),

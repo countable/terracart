@@ -25,6 +25,7 @@ families = [
     dict(id='water', source='RA_Animated_Water.png', options=dict(x=0,y=64,tileSize=16,inner=dict(nw=[32,48],ne=[0,48],sw=[32,16],se=[0,16])), calmWater=True),
     dict(id='sand', source='RA_Overworld_Ground.png', options=regular(144,48)),
     dict(id='stone', source='RA_Ground_Tiles.png', options=regular(272,64)),
+    dict(id='brownSoil', source='RA_Ground_Tiles.png', options=regular(208,64)),
 ]
 # Use the tested selector from the studies at export time. The running game
 # needs only the exported atlas, never this tool or the original art pack.

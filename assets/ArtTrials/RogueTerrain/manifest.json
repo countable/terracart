@@ -1,7 +1,7 @@
 {
   "frameSize": 16,
   "columns": 16,
-  "rows": 7,
+  "rows": 8,
   "families": [
     {
       "id": "villageGrass",
@@ -1437,6 +1437,212 @@
           "sourceRects": [
             [
               288,
+              80,
+              16,
+              16
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "brownSoil",
+      "index": 7,
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "sourceSHA256": "fae41218a10ea6aa45b6992551b199e53b40c6be55f3dfc5731d2110e796e907",
+      "calmWater": false,
+      "frames": [
+        {
+          "mask": 0,
+          "frame": 112,
+          "sourceRects": []
+        },
+        {
+          "mask": 1,
+          "frame": 113,
+          "sourceRects": [
+            [
+              240,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 2,
+          "frame": 114,
+          "sourceRects": [
+            [
+              208,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 3,
+          "frame": 115,
+          "sourceRects": [
+            [
+              224,
+              96,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 4,
+          "frame": 116,
+          "sourceRects": [
+            [
+              240,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 5,
+          "frame": 117,
+          "sourceRects": [
+            [
+              240,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 6,
+          "frame": 118,
+          "sourceRects": [
+            [
+              208,
+              96,
+              16,
+              16
+            ],
+            [
+              240,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 7,
+          "frame": 119,
+          "sourceRects": [
+            [
+              208,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 8,
+          "frame": 120,
+          "sourceRects": [
+            [
+              208,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 9,
+          "frame": 121,
+          "sourceRects": [
+            [
+              240,
+              96,
+              16,
+              16
+            ],
+            [
+              208,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 10,
+          "frame": 122,
+          "sourceRects": [
+            [
+              208,
+              80,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 11,
+          "frame": 123,
+          "sourceRects": [
+            [
+              240,
+              16,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 12,
+          "frame": 124,
+          "sourceRects": [
+            [
+              224,
+              64,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 13,
+          "frame": 125,
+          "sourceRects": [
+            [
+              208,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 14,
+          "frame": 126,
+          "sourceRects": [
+            [
+              240,
+              48,
+              16,
+              16
+            ]
+          ]
+        },
+        {
+          "mask": 15,
+          "frame": 127,
+          "sourceRects": [
+            [
+              224,
               80,
               16,
               16

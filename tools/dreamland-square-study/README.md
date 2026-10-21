@@ -4,7 +4,7 @@ The supplied reference is **Fantasy Dreamland Reborn Village**, not Rogue
 Adventure. This prototype selects installed source pixels; it does not recolor
 RA or paint the reference image over a map.
 
-The normal game now supports `http://localhost:8000/?headingUp=false&deepforest=on&artTrial=dreamland`. Prefer that URL for playtesting. Production artwork is bundled under
+The normal game supports `http://localhost:8000/?headingUp=false&deepforest=on&artTrial=dreamland`. Prefer that URL for playtesting. Production artwork is bundled under
 `assets/ArtTrials/DreamlandTerrain/`; rebuild it with the builder
 `--out assets/ArtTrials/DreamlandTerrain`.
 
@@ -17,7 +17,7 @@ No authored fake map is installed. Runtime integration now lives in the shared m
 ## Source roles
 
 - Grass/residential/park: FDR_Ground_Tiles, first lime grass bank.
-- Forest/orchard: muted green grass bank, keeping current tree artwork.
+- Forest/orchard: the reference olive grass bank with deterministic native lime-edge patches and source round trees.
 - Farmland/wetland: native plain or lightly stippled earth; no decorative props.
 - Sand: pale sand bank.
 - Water: first FDR_Water_Tiles water/stone-bank frame, without elevation.
@@ -28,9 +28,13 @@ No authored fake map is installed. Runtime integration now lives in the shared m
   source selection and warnings.
 
 `assets/manifest.json` records every source rectangle and source-file SHA256.
-Fountain and hanging-lamp crops are provided as reviewed candidates for **existing
-matching objects only**. They are not spawned by the hook. The reference tree
-crop documents the source; live trees and the latest house scheme stay unchanged.
+`src/dreamland_objects.js` now applies the reviewed native buildings, round trees,
+hanging lamps, fountain, crates and sign to existing matching objects. Rebuild
+with `python3 tools/dreamland-square-study/build_objects.py`. The object manifest
+records exact crops/assembly layers; no new objects spawn from this art profile.
+Actual DeepForest positions, house footprint/collision geometry, growth and lamp
+restoration states are preserved. Home's interior and special roles stay native
+to their existing gameplay. Unrestored wrecks retain their distinct ruin art.
 No fences, benches, new decorative interactables, cliffs or elevation are added.
 
 ## Road integration
@@ -62,3 +66,23 @@ output directory (`OUT_DIR`, default `/tmp/ra-third/geo`). The test compares
 terrain, underlays, object IDs and coordinates, lamp state and building models.
 This is a theme match on real geometry, not a recreation of the reference town
 layout. Existing gameplay lighting also makes the scene darker than the promo.
+
+## Complete profile verification
+
+`node tools/dreamland-square-study/capture-match.cjs` produces an explicitly
+authored composition through the production hooks, with restored/unrestored
+state identity checks. It widens the camera and hides lighting/chrome only for
+the source-palette comparison; it is not geographic evidence. Its civic stone
+strip is fixture ground; the geographic screenshots exercise actual vector
+road paving. Run `VARIANT=dreamland RESTORED=1 CASES=athalmer node
+test/ra-geographic-visual.cjs` for actual map geometry with a separate restored
+review save. `node test/dreamland-objects-unit.cjs` checks opt-in isolation,
+growth, condition, source presence, special roles and deterministic patches.
+
+Reference coverage: native red gables/windows/doors, round green crowns, olive
+ground with lime island edges, pale slabs, hanging lanterns, octagonal fountain,
+crates and signs. Existing world geometry dictates layout. No cliffs, fences,
+benches, long-grass clumps or new decorative interactables are introduced.
+Characters retain game art; fruit-tree harvest cues, dead-tree variants, ruins
+and special structures retain gameplay-specific art. These are explicit
+exceptions, not missing sprites silently substituted.

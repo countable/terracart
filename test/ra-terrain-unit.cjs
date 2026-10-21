@@ -15,18 +15,18 @@ for (const search of ['', '?raPreview=jungle','?artTrial=trees-water']) {
 const {art,assets}=load('?artTrial=rogue');
 assert.equal(assets.ra_terrain_source.path,'assets/ArtTrials/RogueTerrain/tiles.png');
 const frames=new Set();
-for(let a=0;a<7;a++)for(let b=0;b<7;b++)for(let c=0;c<7;c++)for(let d=0;d<7;d++) {
+for(let a=0;a<8;a++)for(let b=0;b<8;b++)for(let c=0;c<8;c++)for(let d=0;d<8;d++) {
   const values=[a,b,c,d];
   const frame=art.frameFor(values);
-  assert(frame>=0&&frame<2401);frames.add(frame);
+  assert(frame>=0&&frame<4096);frames.add(frame);
   let coverage=0;
-  for(let material=0;material<7;material++) {
+  for(let material=0;material<8;material++) {
     const mask=art.maskFor(values,material);
     assert.equal(coverage&mask,0);coverage|=mask;
   }
   assert.equal(coverage,15);
 }
-assert.equal(frames.size,2401);
+assert.equal(frames.size,4096);
 assert.equal(art.maskFor([4,0,0,4],4),9,'diagonal water islands retain authored disconnected mask');
 for(const type of [9,10,11,12,24,25,26,28,29,31,32]) assert.equal(art.material(type),-1,'special terrain stays with existing renderer');
 assert.equal(art.material(23),art.material(3),'pier retains water underneath');
@@ -43,17 +43,17 @@ const fakeDocument={createElement(){canvases++;return {getContext(){return {draw
 const bake=new Function('location','document',source+'\nreturn RATerrainTrial;')({search:'?artTrial=rogue'},fakeDocument);
 const fakeScene={textures:{exists:k=>textures.has(k),get:k=>textures.get(k),addCanvas(k,c){const t={frames:0,add(){this.frames++;}};textures.set(k,t);return t;}}};
 bake.prepare(fakeScene);bake.prepare(fakeScene);
-assert.equal(canvases,1);assert.equal(reads,0);assert(draws>2401);
-assert.equal(textures.get('ra_terrain_composite').frames,2401);
+assert.equal(canvases,1);assert.equal(reads,0);assert(draws>4096);
+assert.equal(textures.get('ra_terrain_composite').frames,4096);
 for (const family of [1,5]) {
   const frame=art.frameFor([family,4,family,4]);
-  const x=frame%49*16,y=Math.floor(frame/49)*16;
+  const x=frame%64*16,y=Math.floor(frame/64)*16;
   const layers=painted.filter(args=>args[5]===x&&args[6]===y);
   assert.equal(layers[0][1],15*16,'underfill uses complete center');
   assert.equal(layers[0][2],family*16,'forest and sand banks reveal their actual local ground');
   assert(layers.every(args=>args[2]!==0),'no unrelated village grass leaks below shoreline');
 }
-console.log('RA terrain: 2401 combinations, opt-in isolation, native masks, immutable inputs and single startup bake passed');
+console.log('RA terrain: 4096 combinations, opt-in isolation, native masks, immutable inputs and single startup bake passed');
 const dream = load('?artTrial=dreamland');
 assert.equal(dream.art.enabled,true);
 assert.equal(dream.assets.dreamland_terrain_source.path,'assets/ArtTrials/DreamlandTerrain/terrain.png');
@@ -75,3 +75,13 @@ for(const variant of ['suppressed','burned','slime_trail','poison_path','paralys
 assert.equal(art.roadTile('',true),null,'Rogue profile never overrides roads');
 assert.equal(dreamTextures.get('dreamland_terrain_composite').frames,2401);
 console.log('Dreamland profile: bundled assets, condition-specific startup road repeats, hazard preservation and no Rogue road override passed');
+
+for (const type of [0,1]) {
+  const found=new Set();
+  for(let y=-30;y<30;y++) for(let x=-30;x<30;x++) {
+    const first=art.material(type,x,y);found.add(first);
+    assert.equal(first,art.material(type,x,y),'patchwork is world-stable');
+  }
+  assert(found.has(type===0 ? 7 : 2),'native soil patches present');
+  assert(found.has(type),'base grass retained');
+}
