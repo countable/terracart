@@ -1,0 +1,450 @@
+{
+  "assets": [
+    {
+      "key": "rogue_ladder_down",
+      "asset": {
+        "kind": "image",
+        "path": "assets/ArtTrials/RogueProps/fixtures/ladder-down.png"
+      },
+      "bounds": {
+        "rogue_ladder_down:__BASE": {
+          "fw": 32,
+          "fh": 32,
+          "minX": 2,
+          "minY": 0,
+          "maxX": 30,
+          "maxY": 32
+        }
+      },
+      "alpha": {
+        "rogue_ladder_down:__BASE": {
+          "partial": 859,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "rogue_ladder_up",
+      "asset": {
+        "kind": "image",
+        "path": "assets/ArtTrials/RogueProps/fixtures/ladder-up.png"
+      },
+      "bounds": {
+        "rogue_ladder_up:__BASE": {
+          "fw": 32,
+          "fh": 32,
+          "minX": 2,
+          "minY": 0,
+          "maxX": 30,
+          "maxY": 32
+        }
+      },
+      "alpha": {
+        "rogue_ladder_up:__BASE": {
+          "partial": 860,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "rogue_lamp_unlit",
+      "asset": {
+        "kind": "image",
+        "path": "assets/ArtTrials/RogueProps/fixtures/lamp-unlit.png"
+      },
+      "bounds": {
+        "rogue_lamp_unlit:__BASE": {
+          "fw": 16,
+          "fh": 32,
+          "minX": 4,
+          "minY": 14,
+          "maxX": 12,
+          "maxY": 30
+        }
+      },
+      "alpha": {
+        "rogue_lamp_unlit:__BASE": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "selected_grave_pillar",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/grave.png",
+        "frameWidth": 16,
+        "frameHeight": 32
+      },
+      "bounds": {
+        "selected_grave_pillar:0": {
+          "fw": 16,
+          "fh": 32,
+          "minX": 2,
+          "minY": 9,
+          "maxX": 14,
+          "maxY": 32
+        }
+      },
+      "alpha": {
+        "selected_grave_pillar:0": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "well",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/well.png",
+        "frameWidth": 30,
+        "frameHeight": 32
+      },
+      "bounds": {
+        "well:0": {
+          "fw": 30,
+          "fh": 32,
+          "minX": 2,
+          "minY": 0,
+          "maxX": 30,
+          "maxY": 32
+        }
+      },
+      "alpha": {
+        "well:0": {
+          "partial": 14,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "gatepost",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/gatepost.png",
+        "frameWidth": 16,
+        "frameHeight": 16
+      },
+      "bounds": {
+        "gatepost:0": {
+          "fw": 16,
+          "fh": 16,
+          "minX": 0,
+          "minY": 1,
+          "maxX": 16,
+          "maxY": 16
+        }
+      },
+      "alpha": {
+        "gatepost:0": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "barricade",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/barricade.png",
+        "frameWidth": 24,
+        "frameHeight": 24
+      },
+      "bounds": {
+        "barricade:0": {
+          "fw": 24,
+          "fh": 24,
+          "minX": 1,
+          "minY": 14,
+          "maxX": 23,
+          "maxY": 23
+        }
+      },
+      "alpha": {
+        "barricade:0": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "grove_votive",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/votive.png",
+        "frameWidth": 24,
+        "frameHeight": 36
+      },
+      "bounds": {
+        "grove_votive:0": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 2,
+          "minY": 0,
+          "maxX": 22,
+          "maxY": 36
+        }
+      },
+      "alpha": {
+        "grove_votive:0": {
+          "partial": 555,
+          "belowBoundsThreshold": 5
+        }
+      }
+    },
+    {
+      "key": "vista_scope",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/scope.png",
+        "frameWidth": 16,
+        "frameHeight": 24
+      },
+      "bounds": {
+        "vista_scope:0": {
+          "fw": 16,
+          "fh": 24,
+          "minX": 0,
+          "minY": 0,
+          "maxX": 15,
+          "maxY": 24
+        }
+      },
+      "alpha": {
+        "vista_scope:0": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        }
+      }
+    },
+    {
+      "key": "rogue_elevators",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/elevators.png",
+        "frameWidth": 24,
+        "frameHeight": 36
+      },
+      "bounds": {
+        "rogue_elevators:0": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 3,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "rogue_elevators:1": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 3,
+          "maxX": 24,
+          "maxY": 36
+        }
+      },
+      "alpha": {
+        "rogue_elevators:0": {
+          "partial": 607,
+          "belowBoundsThreshold": 18
+        },
+        "rogue_elevators:1": {
+          "partial": 626,
+          "belowBoundsThreshold": 8
+        }
+      }
+    },
+    {
+      "key": "shrines",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/shrines.png",
+        "frameWidth": 24,
+        "frameHeight": 36
+      },
+      "bounds": {
+        "shrines:0": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 1,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:1": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 3,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:2": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 15,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:3": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 3,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:4": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 9,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:5": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 2,
+          "minY": 0,
+          "maxX": 22,
+          "maxY": 36
+        },
+        "shrines:6": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 5,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:7": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 2,
+          "maxX": 24,
+          "maxY": 36
+        },
+        "shrines:8": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 17,
+          "maxX": 21,
+          "maxY": 36
+        },
+        "shrines:9": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 13,
+          "maxX": 21,
+          "maxY": 36
+        },
+        "shrines:10": {
+          "fw": 24,
+          "fh": 36,
+          "minX": 0,
+          "minY": 0,
+          "maxX": 23,
+          "maxY": 36
+        }
+      },
+      "alpha": {
+        "shrines:0": {
+          "partial": 646,
+          "belowBoundsThreshold": 57
+        },
+        "shrines:1": {
+          "partial": 671,
+          "belowBoundsThreshold": 36
+        },
+        "shrines:2": {
+          "partial": 483,
+          "belowBoundsThreshold": 40
+        },
+        "shrines:3": {
+          "partial": 711,
+          "belowBoundsThreshold": 49
+        },
+        "shrines:4": {
+          "partial": 538,
+          "belowBoundsThreshold": 42
+        },
+        "shrines:5": {
+          "partial": 643,
+          "belowBoundsThreshold": 37
+        },
+        "shrines:6": {
+          "partial": 712,
+          "belowBoundsThreshold": 21
+        },
+        "shrines:7": {
+          "partial": 625,
+          "belowBoundsThreshold": 65
+        },
+        "shrines:8": {
+          "partial": 376,
+          "belowBoundsThreshold": 32
+        },
+        "shrines:9": {
+          "partial": 423,
+          "belowBoundsThreshold": 38
+        },
+        "shrines:10": {
+          "partial": 747,
+          "belowBoundsThreshold": 60
+        }
+      }
+    },
+    {
+      "key": "waystone",
+      "asset": {
+        "kind": "spritesheet",
+        "path": "assets/ArtTrials/RogueProps/fixtures/waystone.png",
+        "frameWidth": 16,
+        "frameHeight": 16
+      },
+      "bounds": {
+        "waystone:0": {
+          "fw": 16,
+          "fh": 16,
+          "minX": 2,
+          "minY": 1,
+          "maxX": 14,
+          "maxY": 15
+        },
+        "waystone:1": {
+          "fw": 16,
+          "fh": 16,
+          "minX": 2,
+          "minY": 1,
+          "maxX": 14,
+          "maxY": 15
+        }
+      },
+      "alpha": {
+        "waystone:0": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        },
+        "waystone:1": {
+          "partial": 0,
+          "belowBoundsThreshold": 0
+        }
+      }
+    }
+  ],
+  "notes": [
+    "Install only under Rogue Adventure profile; keep all gameplay kind/frame identities.",
+    "Separate elevator sheet preserves progression_tiles and every unrelated progression frame.",
+    "Use shrine display scale 16/15 for new 24x36 votive rather than former 4/3.",
+    "Access sprites remain scale 1; elevator sprites remain scale 1 with taller approved frames.",
+    "All source alpha is preserved exactly, including generated partial-alpha edge pixels.",
+    "Waystone lit frame 1 remains pixel-identical to the baseline source."
+  ]
+}

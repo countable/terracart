@@ -78,7 +78,19 @@ latest normal house scheme, including restoration, heading rotation and open-roo
 Home; RA facade images are not loaded or substituted. Canvas keeps the normal
 building fallback. The Rogue profile uses the reference-selected jungle canopy
 families (also used by the village reference), stone lamps, plain rocks and
-ladder-down hatches. Bushes preserve their eight source frames with an RA olive
+paired stone down/up access. The approved RA prop profile replaces foliage,
+chest/wood/pot frames, fixtures and all eleven shrine frames through
+`ROGUE_PROP_PROFILE`; the baseline and Dreamland assets remain unchanged.
+`tools/build_ra_prop_profile.py` combines reproducible flora, container and fixture
+exports into asset, icon and seating registries. Inventory/offer icons use these
+same sheets; atlas aliases and old palette callbacks are replaced, not layered.
+Elevators retain their broken/repaired behavior in a separate 24×36 sheet; the
+grove votive uses the same 36px frame and display scale as other shrines.
+The clipped hedge and procedural hedge-wall use the shared richer RA olive ramp,
+with darker side faces and retained leaf shading. Crates keep their existing 3D
+materials; broken pottery is unchanged. Rock material exports update only the
+reviewed plain/iron frames and preserve every crate slot. Access replacements
+also apply underground. Bushes preserve their eight source frames with an RA olive
 palette export; ordinary and urban shrubs resolve through the planted-pool path
 to that rounded 24px bush, while named brambles, palms and authored hedge rows
 keep their explicit appearances. Berry overlays retain distinct fruit colours. RA wrecks

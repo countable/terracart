@@ -1,0 +1,651 @@
+{
+  "sourceReview": "http://localhost:8765/ra-prop-review/",
+  "notes": "Approved final 20% richer olive hedge and hue-matched interactables. Inputs preserve reviewed pixels; output atlases retain every unreviewed frame. Bramble proposal unchanged intentionally.",
+  "entries": [
+    {
+      "id": "longgrass",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/longgrass.png",
+      "original": "assets/Objects/SelectedFlora/selected_longgrass.png",
+      "keys": [
+        "selected_longgrass"
+      ],
+      "frame": 0,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "longgrass",
+        "thumbnail": "images/proposal-longgrass.png",
+        "method": "Native RA source crop",
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+        "crop": [
+          112,
+          496,
+          16,
+          16
+        ],
+        "rationale": "Replace teal Pixel Plains blades with native RA olive longgrass. Reserve this tuft for harvestable grass; do not use as ground decoration."
+      }
+    },
+    {
+      "id": "hedge",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/hedge.png",
+      "original": "assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "keys": [
+        "zone_hedge_single",
+        "approved_clipped_hedge"
+      ],
+      "frame": 0,
+      "frameWidth": 24,
+      "frameHeight": 24,
+      "proposal": {
+        "id": "hedge",
+        "thumbnail": "images/proposal-hedge.png",
+        "method": "Shared RA olive ramp with hedge walls",
+        "source": "extra_assets/Medieval Fantasy Royal City/tile-B-03.png",
+        "crop": [
+          288,
+          480,
+          48,
+          48
+        ],
+        "rationale": "Squared clipped foliage from Royal City, matched to the same RA tree-derived olive ramp as hedge-wall top and sides. Richer olive color: saturation raised 20% from the prior preview, with brightness and leaf shading preserved. 24px export; source silhouette unchanged. Review proposal only.",
+        "palette": {
+          "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle.png",
+          "crop": [
+            128,
+            0,
+            64,
+            80
+          ],
+          "nativeRamp": [
+            "#332f23",
+            "#66663d",
+            "#7f7f46",
+            "#99994c",
+            "#b2b247",
+            "#cccc47"
+          ],
+          "sharedRamp": [
+            "#332e22",
+            "#66663a",
+            "#7f7f42",
+            "#999946",
+            "#b2b23f",
+            "#cccc3c"
+          ],
+          "method": "20% relative saturation increase over the previous shared olive proposal; hue, brightness, alpha and texture preserved. Wall retains interpolated shading."
+        },
+        "currentPreview": "/tmp/ra-hedge-alt/hedge.png"
+      }
+    },
+    {
+      "id": "reeds",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/reeds.png",
+      "original": "assets/Objects/Approved/approved_wetland_reeds.png",
+      "keys": [
+        "approved_wetland_reeds"
+      ],
+      "frame": 0,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "reeds",
+        "thumbnail": "images/proposal-reeds.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/approved_wetland_reeds.png",
+        "crop": [
+          0,
+          0,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 45
+      }
+    },
+    {
+      "id": "bramble",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/bramble.png",
+      "original": "assets/Objects/Approved/bramble.png",
+      "keys": [
+        "bramble"
+      ],
+      "frame": 0,
+      "frameWidth": 24,
+      "frameHeight": 24,
+      "proposal": {
+        "id": "bramble",
+        "thumbnail": "images/proposal-bramble.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/bramble.png",
+        "crop": [
+          0,
+          0,
+          24,
+          24
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 0
+      }
+    },
+    {
+      "id": "flowers",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/flowers.png",
+      "original": "assets/Objects/Approved/props.png",
+      "keys": [
+        "props"
+      ],
+      "frame": 12,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "flowers",
+        "thumbnail": "images/proposal-flowers.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/props.png",
+        "crop": [
+          192,
+          0,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 15
+      }
+    },
+    {
+      "id": "marigold",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/marigold.png",
+      "original": "assets/Objects/Approved/props.png",
+      "keys": [
+        "props"
+      ],
+      "frame": 34,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "marigold",
+        "thumbnail": "images/proposal-marigold.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/props.png",
+        "crop": [
+          192,
+          16,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 19
+      }
+    },
+    {
+      "id": "starflower",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/starflower.png",
+      "original": "assets/Objects/Approved/props.png",
+      "keys": [
+        "props"
+      ],
+      "frame": 102,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "starflower",
+        "thumbnail": "images/proposal-starflower.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/props.png",
+        "crop": [
+          224,
+          64,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 41
+      }
+    },
+    {
+      "id": "mushroom_alt",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/mushroom_alt.png",
+      "original": "assets/Objects/SelectedFlora/selected_mushroom.png",
+      "keys": [
+        "selected_mushroom"
+      ],
+      "frame": 1,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "mushroom_alt",
+        "thumbnail": "images/proposal-mushroom_alt.png",
+        "method": "Native RA source crop",
+        "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Cavern.png",
+        "crop": [
+          80,
+          448,
+          16,
+          16
+        ],
+        "rationale": "Native RA red-cap mushroom. Replaces the brighter orange supplementary mushroom with a clearly readable RA fungus; retain alternate yield/type in data."
+      }
+    },
+    {
+      "id": "nettle",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/nettle.png",
+      "original": "assets/Objects/Approved/props.png",
+      "keys": [
+        "props"
+      ],
+      "frame": 33,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "nettle",
+        "thumbnail": "images/proposal-nettle.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/props.png",
+        "crop": [
+          176,
+          16,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 10
+      }
+    },
+    {
+      "id": "petnip",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/petnip.png",
+      "original": "assets/Objects/Handmade/petnip.png",
+      "keys": [
+        "petnip"
+      ],
+      "frame": 0,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "petnip",
+        "thumbnail": "images/proposal-petnip.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Handmade/petnip.png",
+        "crop": [
+          0,
+          0,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 71
+      }
+    },
+    {
+      "id": "ore_iron",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/ore_iron.png",
+      "original": "assets/Objects/Rocks/rocks-16.png",
+      "keys": [
+        "rock_variants"
+      ],
+      "frame": 20,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "ore_iron",
+        "thumbnail": "images/proposal-ore_iron.png",
+        "method": "Hue-matched existing art; brightness and saturation retained",
+        "source": "assets/Objects/Rocks/rocks-16.png",
+        "crop": [
+          64,
+          32,
+          16,
+          16
+        ],
+        "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye."
+      }
+    },
+    {
+      "id": "loose_rock",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/loose_rock.png",
+      "original": "assets/Objects/Rocks/rocks-16.png",
+      "keys": [
+        "rock_variants"
+      ],
+      "frame": 0,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "loose_rock",
+        "thumbnail": "images/proposal-loose_rock.png",
+        "method": "RA reference palette on existing rock",
+        "source": "assets/Objects/Rocks/rocks-16.png",
+        "crop": [
+          0,
+          0,
+          16,
+          16
+        ],
+        "rationale": "Keep the existing plain loose-rock shape; map its shading to six actual stone colors sampled from the RA Jungle rock reference. Exclude green moss pixels from the stone ramp.",
+        "paletteReference": "assets/ArtTrials/RogueObjects/stone.png",
+        "palette": [
+          [
+            48,
+            51,
+            45
+          ],
+          [
+            62,
+            61,
+            51
+          ],
+          [
+            88,
+            87,
+            71
+          ],
+          [
+            121,
+            117,
+            104
+          ],
+          [
+            153,
+            148,
+            137
+          ],
+          [
+            191,
+            182,
+            162
+          ]
+        ]
+      }
+    },
+    {
+      "id": "potato",
+      "input": "assets/ArtTrials/RogueProps/approved-flora/potato.png",
+      "original": "assets/Objects/Approved/springcrops.png",
+      "keys": [
+        "springcrops"
+      ],
+      "frame": 74,
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "proposal": {
+        "id": "potato",
+        "thumbnail": "images/proposal-potato.png",
+        "method": "RA canopy colors on existing foliage",
+        "source": "assets/Objects/Approved/springcrops.png",
+        "crop": [
+          64,
+          80,
+          16,
+          16
+        ],
+        "palette": [
+          [
+            51,
+            47,
+            35
+          ],
+          [
+            102,
+            102,
+            61
+          ],
+          [
+            127,
+            127,
+            70
+          ],
+          [
+            153,
+            153,
+            76
+          ],
+          [
+            178,
+            178,
+            71
+          ],
+          [
+            204,
+            204,
+            71
+          ]
+        ],
+        "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+        "rationale": "Move green/cyan leaf pixels decisively into the actual RA yellow-olive canopy colors. Preserve the existing silhouette and all non-green petals, fruit and material accents; retain bright leaf highlights. No general desaturation.",
+        "changedLeafPixels": 44
+      }
+    }
+  ]
+}

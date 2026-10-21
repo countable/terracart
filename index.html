@@ -126,7 +126,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=7c1cda40" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=676920be" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3218,7 +3218,7 @@
   <script src="src/multiplayer.js?v=f939dd1a"></script>
   <script src="src/road_overlay.js?v=3d102a43"></script>
   <script src="src/temple_art.js?v=e102797a"></script>
-  <script src="src/wall_materials.js?v=0cdd3e51"></script>
+  <script src="src/wall_materials.js?v=047adc09"></script>
   <script src="src/wall_surface_renderer.js?v=d1164603"></script>
   <script src="src/prop_lowpoly.js?v=7a976750"></script>
   <script src="src/wall_perspective.js?v=df3f4464"></script>
@@ -3243,7 +3243,8 @@
   <script src="src/ra_terrain_trial.js?v=eb27b1dc"></script>
   <script src="src/dreamland_objects.js?v=7f3db73d"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
-  <script src="src/rogue_objects.js?v=44fab9a4"></script>
+  <script src="src/rogue_prop_profile.js?v=83bf6862"></script>
+  <script src="src/rogue_objects.js?v=388865a5"></script>
   <script src="src/sandbox_destinations.js?v=b40995bb"></script>
   <script src="src/sandbox.js?v=def47b20"></script>
   <script src="src/sandbox_scenarios.js?v=277dff08"></script>
@@ -3340,7 +3341,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=7c1cda40';
+      const APP_SRC = 'src/app.js?v=676920be';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

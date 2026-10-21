@@ -27,12 +27,35 @@ const RogueObjects = (() => {
       assets[key]={kind:'image',path:'assets/ArtTrials/RogueObjects/'+name.replaceAll('_','-')+'.png'};
       if (typeof SpriteLayout !== 'undefined') SpriteLayout.ART_BOUNDS[key+':__BASE']=bounds;
     }
+    // Replace atlas aliases and their legacy callbacks entirely. Reviewed PNGs
+    // already contain alpha/palette treatment and must not be muted a second time.
+    if (typeof ROGUE_PROP_PROFILE !== 'undefined') {
+      for (const [key, asset] of Object.entries(ROGUE_PROP_PROFILE.assets)) assets[key] = {...asset};
+      if (typeof SpriteLayout !== 'undefined') Object.assign(SpriteLayout.ART_BOUNDS, ROGUE_PROP_PROFILE.bounds);
+    }
+  }
+  function installIcons(sheets) {
+    if (!enabled || typeof ROGUE_PROP_PROFILE === 'undefined') return;
+    for (const [key, sheet] of Object.entries(ROGUE_PROP_PROFILE.icons)) {
+      if (sheets[key]) sheets[key] = {...sheet};
+    }
   }
   // No facade override: retain the normal 3D house renderer (and its Canvas
   // fallback), including footprint, restoration, rotation and open-roof Home.
   function houseKey() { return null; }
   function spec(o,scene,original) {
-    if (!enabled || (scene?.depth || 0)>0) return original;
+    if (!enabled) return original;
+    // Access and shrine assets share the reviewed treatment above and below ground.
+    if (o.kind === 'staircase') {
+      const elevator = !!o.elevator, up = o.dir === 'up';
+      return {...original, key: elevator ? 'rogue_elevators' : up ? 'rogue_ladder_up' : 'rogue_ladder_down',
+        frame: elevator ? (Elevators.isRepaired(scene?.save) ? 1 : 0) : '__BASE',
+        scale: 1, origin: [.5,.5], seat: elevator || up, groundAtOrigin: !elevator && !up,
+        dxPx: 0, dyPx: 0, scaleYMul: 1, artBounds: undefined};
+    }
+    if (o.kind === 'grove_shrine' && SpriteLayout.groveShrineArt(o).key === 'grove_votive')
+      return {...original, scale: SpriteLayout.SHRINE_KIND_ART.scale};
+    if ((scene?.depth || 0)>0) return original;
     let key,scale;
     if (o.kind==='tree') {
       key=o._objectArt==='dead_tree' ? 'tree_dead' : trees[hash(o.id)%trees.length];
@@ -41,7 +64,6 @@ const RogueObjects = (() => {
       const stage=treeArtFrame(o); scale=stage===1 ? .35 : stage===2 ? .6 : .85;
     } else if (o.kind==='_streetlamp') {key=o.lit ? 'lamp':'lamp_unlit';scale=1.25;}
     else if (o.kind==='mineralrock' && mineralRockMaterial(o)==='plain') {key=hash(o.id)%2 ? 'stone':'rock_mid';scale=o.sightBlocking ? 2.4 : 1.6;}
-    else if (o.kind==='staircase' && o.dir==='down' && !o.elevator) {key='ladder_down';scale=1;}
     if (!key) return original;
     return {...original,key:'rogue_'+key,frame:'__BASE',scale,origin:[.5,.5],seat:true,
       groundAtOrigin:false,dxPx:0,dyPx:0,scaleYMul:1,artBounds:undefined,after:undefined};
@@ -53,7 +75,7 @@ const RogueObjects = (() => {
     }
     return {enabled,textures};
   }
-  return {enabled,install,houseKey,spec,status};
+  return {enabled,install,installIcons,houseKey,spec,status};
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;

@@ -1,0 +1,251 @@
+[
+  {
+    "id": "pot-1",
+    "original": "assets/Objects/SelectedProps/clay_pot.png",
+    "frame": 1,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/pot-1.png",
+    "provenance": {
+      "id": "pot-1",
+      "thumbnail": "images/proposal-pot-1.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/SelectedProps/clay_pot.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye.",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-0",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 0,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-0.png",
+    "provenance": {
+      "id": "chest-0",
+      "thumbnail": "images/proposal-chest-0.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-1",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 1,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-1.png",
+    "provenance": {
+      "id": "chest-1",
+      "thumbnail": "images/proposal-chest-1.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        16,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-2",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 2,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-2.png",
+    "provenance": {
+      "id": "chest-2",
+      "thumbnail": "images/proposal-chest-2.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        32,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-3",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 3,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-3.png",
+    "provenance": {
+      "id": "chest-3",
+      "thumbnail": "images/proposal-chest-3.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        48,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-4",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 4,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-4.png",
+    "provenance": {
+      "id": "chest-4",
+      "thumbnail": "images/proposal-chest-4.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        64,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-5",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 5,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-5.png",
+    "provenance": {
+      "id": "chest-5",
+      "thumbnail": "images/proposal-chest-5.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        80,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "chest-6",
+    "original": "assets/Objects/Approved/chest-tiers.png",
+    "frame": 6,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/chest-6.png",
+    "provenance": {
+      "id": "chest-6",
+      "thumbnail": "images/proposal-chest-6.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/chest-tiers.png",
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Preserve distinct tier colors.",
+      "crop": [
+        96,
+        0,
+        16,
+        16
+      ]
+    }
+  },
+  {
+    "id": "wood-0",
+    "original": "assets/Objects/Wilderness/wood.png",
+    "frame": 0,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/wood-0.png",
+    "provenance": {
+      "id": "wood-0",
+      "thumbnail": "images/proposal-wood-0.png",
+      "method": "Generated ground-contact outline correction",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-38a1bba3-f0cc-400c-b538-1258f7336c30.png",
+      "reference": "assets/Objects/Wilderness/wood.png",
+      "crop": [
+        10,
+        197,
+        671,
+        459
+      ],
+      "exportSize": [
+        16,
+        16
+      ],
+      "rationale": "Wood bundle redraw with a dark upper contour and brown wood at ground contact; no black underline. Preview only, based on the existing wood variant.",
+      "generatedSource": "generated/exec-38a1bba3-f0cc-400c-b538-1258f7336c30.png"
+    }
+  },
+  {
+    "id": "wood-1",
+    "original": "assets/Objects/Wilderness/wood.png",
+    "frame": 1,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/wood-1.png",
+    "provenance": {
+      "id": "wood-1",
+      "thumbnail": "images/proposal-wood-1.png",
+      "method": "Generated ground-contact outline correction",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-38a1bba3-f0cc-400c-b538-1258f7336c30.png",
+      "reference": "assets/Objects/Wilderness/wood.png",
+      "crop": [
+        750,
+        197,
+        655,
+        459
+      ],
+      "exportSize": [
+        16,
+        16
+      ],
+      "rationale": "Wood bundle redraw with a dark upper contour and brown wood at ground contact; no black underline. Preview only, based on the existing wood variant.",
+      "generatedSource": "generated/exec-38a1bba3-f0cc-400c-b538-1258f7336c30.png"
+    }
+  },
+  {
+    "id": "wood-2",
+    "original": "assets/Objects/Wilderness/wood.png",
+    "frame": 2,
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "source": "assets/ArtTrials/RogueProps/containers/source/wood-2.png",
+    "provenance": {
+      "id": "wood-2",
+      "thumbnail": "images/proposal-wood-2.png",
+      "method": "Generated ground-contact outline correction",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-38a1bba3-f0cc-400c-b538-1258f7336c30.png",
+      "reference": "assets/Objects/Wilderness/wood.png",
+      "crop": [
+        1464,
+        197,
+        669,
+        459
+      ],
+      "exportSize": [
+        16,
+        16
+      ],
+      "rationale": "Wood bundle redraw with a dark upper contour and brown wood at ground contact; no black underline. Preview only, based on the existing wood variant.",
+      "generatedSource": "generated/exec-38a1bba3-f0cc-400c-b538-1258f7336c30.png"
+    }
+  }
+]

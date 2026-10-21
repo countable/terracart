@@ -7,6 +7,18 @@
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
   const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xe3c8a1, woodSide: 0xcba47d };
+  // Approved shared RA olive ramp, continuously interpolated by source luminance
+  // (+12), then given the review's 20% saturation lift. Bake the eight painted
+  // shades instead of reading back or recoloring a canvas during scene rebuilds.
+  const rogueHedge = {
+    '#294d30': '#525130', '#2f5934': '#5c5c36',
+    '#35633a': '#656539', '#3f7035': '#70703e',
+    '#457744': '#787840', '#477735': '#777740',
+    '#4f813b': '#818143', '#629347': '#949445'
+  };
+  const rogueEnabled = () => typeof RogueObjects !== 'undefined' && RogueObjects.enabled;
+  const materialColor = material => rogueEnabled() && material.startsWith('hedge')
+    ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
   const hash = (x, y) => ((Math.imul(x + 173, 374761393) ^ Math.imul(y + 97, 668265263)) >>> 0) / 4294967296;
   function multiplyColors(a, b) {
     const channel = shift => Math.round(((a >>> shift) & 255) * ((b >>> shift) & 255) / 255);
@@ -14,12 +26,16 @@
   }
   function prepare(scene) {
     if (!scene.textures?.createCanvas || !scene.textures?.exists) return null;
-    if (scene.textures.exists(KEY)) return scene.textures.get(KEY);
-    const texture = scene.textures.createCanvas(KEY, SIZE, SIZE), g = texture.getContext();
+    const rogue = rogueEnabled(), key = KEY + (rogue ? '-rogue' : '');
+    if (scene.textures.exists(key)) return scene.textures.get(key);
+    const texture = scene.textures.createCanvas(key, SIZE, SIZE), g = texture.getContext();
     for (const name of Object.keys(slots)) {
       const slot = slots[name], ox = slot % 4 * TILE + PAD, oy = Math.floor(slot / 4) * TILE + PAD, n = TILE - PAD * 2;
       g.save(); g.translate(ox, oy); g.beginPath(); g.rect(0, 0, n, n); g.clip();
-      const fill = (color, x, y, w, h) => { g.fillStyle = color; g.fillRect(x, y, w, h); };
+      const fill = (color, x, y, w, h) => {
+        g.fillStyle = rogue && name.startsWith('hedge') ? (rogueHedge[color] || color) : color;
+        g.fillRect(x, y, w, h);
+      };
       fill('#' + colors[name].toString(16).padStart(6, '0'), 0, 0, n, n);
       if (name.startsWith('hedge')) {
         const side = name === 'hedgeSide';
@@ -93,7 +109,7 @@
       ring = ring.map(p => ({ x: p.x, y: p.y, z: p.z,
         u: (ox + (p.s - s) * (TILE - PAD * 2)) / SIZE,
         v: (oy + (p.t - t) * (TILE - PAD * 2)) / SIZE }));
-      for (let i = 1; i + 1 < ring.length; i++) result.push({ points: [ring[0], ring[i], ring[i + 1]], normal, color: tint, flatColor: multiplyColors(colors[material], tint) });
+      for (let i = 1; i + 1 < ring.length; i++) result.push({ points: [ring[0], ring[i], ring[i + 1]], normal, color: tint, flatColor: multiplyColors(materialColor(material), tint) });
     }
   }
   function geometry(kind, points, height, options = {}) {

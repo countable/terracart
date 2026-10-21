@@ -1671,6 +1671,9 @@ const ICON_SHEETS = {
   wood:          { url: 'assets/Objects/Wilderness/wood.png',                cols: 3,  srcW: 48,  srcH: 16 },
 };
 
+// Keep item bars, offers and tooltips on the same opt-in sheets as the map.
+if (typeof RogueObjects !== 'undefined') RogueObjects.installIcons(ICON_SHEETS);
+
 // BEGIN GENERATED DOM ICON ATLAS
 // Regenerate with node tools/build-dom-icon-atlas.cjs; original sheets remain the art source.
 const DOM_ICON_ATLAS = {

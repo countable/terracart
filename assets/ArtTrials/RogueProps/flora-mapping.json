@@ -1,0 +1,260 @@
+{
+  "assets": {
+    "selected_longgrass": {
+      "path": "assets/ArtTrials/RogueProps/flora-selected_longgrass.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 16,
+      "height": 16,
+      "changedFrames": [
+        0
+      ],
+      "original": "assets/Objects/SelectedFlora/selected_longgrass.png",
+      "sha256": "770367612944c0513875883722ffe5bf79eecc9ba36c0e12953f91146baa69e4"
+    },
+    "zone_hedge_single": {
+      "path": "assets/ArtTrials/RogueProps/flora-zone_hedge_single.png",
+      "kind": "spritesheet",
+      "frameWidth": 24,
+      "frameHeight": 24,
+      "width": 24,
+      "height": 24,
+      "changedFrames": [
+        0
+      ],
+      "original": "assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "sha256": "9d5993da8a46834130c633d2a1ebc750ec8d868a32862de6d0e254f0c7029886"
+    },
+    "approved_clipped_hedge": {
+      "path": "assets/ArtTrials/RogueProps/flora-zone_hedge_single.png",
+      "kind": "spritesheet",
+      "frameWidth": 24,
+      "frameHeight": 24,
+      "width": 24,
+      "height": 24,
+      "changedFrames": [
+        0
+      ],
+      "original": "assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "sha256": "9d5993da8a46834130c633d2a1ebc750ec8d868a32862de6d0e254f0c7029886"
+    },
+    "approved_wetland_reeds": {
+      "path": "assets/ArtTrials/RogueProps/flora-approved_wetland_reeds.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 16,
+      "height": 16,
+      "changedFrames": [
+        0
+      ],
+      "original": "assets/Objects/Approved/approved_wetland_reeds.png",
+      "sha256": "0af4406780da771dd0b2c48a6c710f0bf182817fea082fddbac5716d2b891e8b"
+    },
+    "bramble": {
+      "path": "assets/ArtTrials/RogueProps/flora-bramble.png",
+      "kind": "spritesheet",
+      "frameWidth": 24,
+      "frameHeight": 24,
+      "width": 24,
+      "height": 24,
+      "changedFrames": [
+        0
+      ],
+      "original": "assets/Objects/Approved/bramble.png",
+      "sha256": "3ce0d9e72966a179788c8175884c6c37dd5562041d7de262b03704723cb795bb"
+    },
+    "props": {
+      "path": "assets/ArtTrials/RogueProps/flora-props.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 352,
+      "height": 192,
+      "changedFrames": [
+        12,
+        34,
+        102,
+        33
+      ],
+      "original": "assets/Objects/Approved/props.png",
+      "sha256": "64dd87c7ed62a48d2ddfa151ff8696d3f81c1e7c7d67445aaa746d1842346677"
+    },
+    "selected_mushroom": {
+      "path": "assets/ArtTrials/RogueProps/flora-selected_mushroom.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 64,
+      "height": 16,
+      "changedFrames": [
+        1
+      ],
+      "original": "assets/Objects/SelectedFlora/selected_mushroom.png",
+      "sha256": "ce49f70a17b5820edc0344019aecdb8b4e1b837d4d3faaf5d2a8c381c235d0b4"
+    },
+    "petnip": {
+      "path": "assets/ArtTrials/RogueProps/flora-petnip.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 16,
+      "height": 16,
+      "changedFrames": [
+        0
+      ],
+      "original": "assets/Objects/Handmade/petnip.png",
+      "sha256": "af901c0e609779a9f20a81d49a44540aa7ad02d69cdcd92a2964c98c8899b1c6"
+    },
+    "rock_variants": {
+      "path": "assets/ArtTrials/RogueProps/flora-rock_variants.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 128,
+      "height": 144,
+      "changedFrames": [
+        20,
+        0
+      ],
+      "original": "assets/Objects/Rocks/rocks-16.png",
+      "sha256": "cf2745709060a7cdf58ec110d3439b6dec5895bac1a28c7a426b67ed39463855"
+    },
+    "springcrops": {
+      "path": "assets/ArtTrials/RogueProps/flora-springcrops.png",
+      "kind": "spritesheet",
+      "frameWidth": 16,
+      "frameHeight": 16,
+      "width": 224,
+      "height": 128,
+      "changedFrames": [
+        74
+      ],
+      "original": "assets/Objects/Approved/springcrops.png",
+      "sha256": "72cd531f0c9af95fbfa57db4d30a20c4394fa800349272292d2112eeb6556686"
+    }
+  },
+  "bounds": {
+    "selected_longgrass:0": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 0,
+      "minY": 0,
+      "maxX": 16,
+      "maxY": 16
+    },
+    "zone_hedge_single:0": {
+      "fw": 24,
+      "fh": 24,
+      "minX": 0,
+      "minY": 1,
+      "maxX": 23,
+      "maxY": 24
+    },
+    "approved_clipped_hedge:0": {
+      "fw": 24,
+      "fh": 24,
+      "minX": 0,
+      "minY": 1,
+      "maxX": 23,
+      "maxY": 24
+    },
+    "approved_wetland_reeds:0": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 2,
+      "minY": 0,
+      "maxX": 14,
+      "maxY": 14
+    },
+    "bramble:0": {
+      "fw": 24,
+      "fh": 24,
+      "minX": 1,
+      "minY": 7,
+      "maxX": 23,
+      "maxY": 23
+    },
+    "props:12": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 0,
+      "minY": 3,
+      "maxX": 15,
+      "maxY": 16
+    },
+    "props:34": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 1,
+      "minY": 1,
+      "maxX": 14,
+      "maxY": 15
+    },
+    "props:102": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 0,
+      "minY": 1,
+      "maxX": 16,
+      "maxY": 16
+    },
+    "selected_mushroom:1": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 5,
+      "minY": 5,
+      "maxX": 11,
+      "maxY": 13
+    },
+    "props:33": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 1,
+      "minY": 4,
+      "maxX": 16,
+      "maxY": 15
+    },
+    "petnip:0": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 0,
+      "minY": 0,
+      "maxX": 16,
+      "maxY": 16
+    },
+    "rock_variants:20": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 2,
+      "minY": 4,
+      "maxX": 13,
+      "maxY": 14
+    },
+    "rock_variants:0": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 2,
+      "minY": 4,
+      "maxX": 13,
+      "maxY": 13
+    },
+    "springcrops:74": {
+      "fw": 16,
+      "fh": 16,
+      "minX": 2,
+      "minY": 5,
+      "maxX": 13,
+      "maxY": 16
+    }
+  },
+  "lowpolyMaterials": "assets/ArtTrials/RogueProps/flora-lowpoly-materials.png",
+  "notes": [
+    "Replace atlas-alias entries with standalone spritesheet descriptors.",
+    "Update ICON_SHEETS URLs, dimensions and frame rectangles for these sources.",
+    "Original plant frame indices and CROP_SPRITE semantics stay unchanged.",
+    "Bramble is byte-identical because its approved preview changed no green pixels.",
+    "Keep native RA plain-stone spec overrides unchanged."
+  ]
+}
