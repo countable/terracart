@@ -40,7 +40,23 @@ for mask in range(16):
   if mask&(1<<q):tile.alpha_composite(stone.crop((x,y,x+8,y+8)),(x,y))
  atlas.alpha_composite(tile,(mask*16,96))
 manifest.append(dict(id='stone',source=str(SRC/'FDR_Village.png'),rect=[0,16,16,16],notes='Four occupancy quadrants of an authored stone; no cliff artwork.'))
-atlas.save(OUT/'terrain.png')
+# Keep native bank silhouettes at game scale, but fill quiet surfaces with
+# 1:1 source speckles instead of magnifying every pixel to a 2px block.
+# This is offline baking; runtime never reads pixels while walking.
+native=atlas.resize((512,224),Image.Resampling.NEAREST)
+flat=village.crop((32,0,48,16))
+for family in [0,1]:
+ for mask in range(16):
+  for y in range(32):
+   for x in range(32):
+    pos=(mask*32+x,family*32+y)
+    if native.getpixel(pos)==(155,178,62,255):
+     # Coherent islands have a subtle lighter source-palette interior.
+     pixel=flat.getpixel((x%16,y%16))
+     if family==1 and pixel==(155,178,62,255):pixel=(165,188,73,255)
+     native.putpixel(pos,pixel)
+native.save(OUT/'terrain.png')
+ground_detail=dict(source=str(SRC/'FDR_Village.png'),rect=[32,0,16,16],frameSize=32,notes='Source speckles at 1:1 pixels inside 2x native bank silhouettes; island fill uses source highlight palette.')
 # Source path pieces preserve their proportions. Mix broad and split slabs.
 road=Image.new('RGBA',(64,64));restored=Image.new('RGBA',(64,64));cells=[];restored_cells=[]
 grass=village.crop((16,0,32,16))
@@ -61,6 +77,6 @@ crops=[
 for c in crops:
  im=Image.open(ROOT/SRC/c['sheet']).convert('RGBA');x,y,w,h=c['rect'];im.crop((x,y,x+w,y+h)).save(OUT/(c['id']+'.png'));c['source']=str(SRC/c.pop('sheet'))
 sources=sorted(set(r['source'] for r in manifest+crops))
-result=dict(reference='https://img.itch.zone/aW1hZ2UvMTU2NjQ2OC8xMTkyNzE0Ny5naWY=/original/dve1%2FL.gif',families=manifest,path=dict(source=str(SRC/'FDR_Village.png'),cells=cells,restoredCells=restored_cells,underfill=[16,0,16,16]),objects=crops,sha256={s:hashlib.sha256((ROOT/s).read_bytes()).hexdigest() for s in sources})
+result=dict(reference='https://img.itch.zone/aW1hZ2UvMTU2NjQ2OC8xMTkyNzE0Ny5naWY=/original/dve1%2FL.gif',families=manifest,groundDetail=ground_detail,path=dict(source=str(SRC/'FDR_Village.png'),cells=cells,restoredCells=restored_cells,underfill=[16,0,16,16]),objects=crops,sha256={s:hashlib.sha256((ROOT/s).read_bytes()).hexdigest() for s in sources})
 (OUT/'manifest.json').write_text(json.dumps(result,indent=2)+'\n')
 print('Exported 112 terrain frames, native path field, and 4 reviewed source crops')

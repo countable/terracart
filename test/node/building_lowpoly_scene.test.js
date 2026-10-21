@@ -49,6 +49,24 @@
   const withPhaser = (fn) => { const had = window.Phaser; window.Phaser = PHASER;
     try { return fn(); } finally { if (had === undefined) delete window.Phaser; else window.Phaser = had; } };
   const FOOT = [{ x: 100, y: 100 }, { x: 190, y: 100 }, { x: 190, y: 160 }, { x: 140, y: 160 }, { x: 140, y: 200 }, { x: 100, y: 200 }];
+  test('Dreamland wrecks: native materials keep damaged geometry and never allocate during rebuild', () => withPhaser(() => {
+    const scene=stubScene(),plain=BuildingLowPoly.recipeFor('wreck'),recipe={...plain,artProfile:'dreamland'};
+    for(const key of ['dreamland_wreck_material','dreamland_wreck_interior']) scene.textures.createCanvas(key,512,512);
+    scene.textures.createCanvas=()=>{throw Error('Dreamland wreck attempted a runtime material bake');};
+    const local=FOOT.map(p=>({x:p.x-100,y:p.y-100}));
+    const normal=BuildingLowPoly.specialGeometry(local,plain,[],'dreamland-wreck');
+    const native=BuildingLowPoly.specialGeometry(local,recipe,[],'dreamland-wreck');
+    assert.truthy(native!==normal,'profile palette must not reuse baseline-colored geometry');
+    assert.eq(JSON.stringify(native.faces.map(f=>f.points)),JSON.stringify(normal.faces.map(f=>f.points)),'same footprint and collapse geometry');
+    assert.eq(BuildingLowPoly.specialGeometry(local,plain,[],'dreamland-wreck'),normal,'Dreamland does not contaminate baseline cache');
+    BuildingLowPoly.begin(scene);
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','dreamland-wreck');
+    assert.truthy(mesh.faces.some(f=>f.texture.key==='dreamland_wreck_material'),'red roof atlas selected');
+    assert.truthy(mesh.faces.some(f=>f.texture.key==='dreamland_wreck_interior'),'plaster / timber / rubble atlas selected');
+    assert.truthy(mesh.faces.every(f=>f.texture.key.startsWith('dreamland_wreck_')),'no legacy material leak');
+    assert.truthy(mesh.faces.filter(f=>f.standingRoof||f.fallenRoof).every(f=>f.color===0xffffff),'source red roof has no legacy grey tint');
+    assert.truthy(mesh.faces.some(f=>f.rubbleTop&&f.color===0xf6d6af),'debris matches beige plaster');
+  }));
   test('low-poly buildings: distant road filtering preserves full-network door choice, including crossing segments', () => withPhaser(() => {
     const scene=stubScene(),recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const far=Array.from({length:100},(_,i)=>[{x:3000+i,y:3000},{x:4000+i,y:4000}]);

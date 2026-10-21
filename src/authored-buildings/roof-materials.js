@@ -3,7 +3,7 @@
 (function(root){
  const C=Math.cos(Math.PI/6),SIZE=240,X=256,Y=616;
  const beamStrips={com:[189,9,6,45],pp_cabin:[42,8,12,40],trader:[49,4,7,20],fdr:[120,15,88,7],pp_brick:[8,6,80,9],pp_plaster:[8,5,80,11]};
- const samples={com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[20,36,12,10],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
+ const samples={dreamland_corner:[8,32,16,16],dreamland_wide:[8,32,16,16],dreamland_house:[8,36,16,16],com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[20,36,12,10],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
  function prepare(ctx,image,spec,key){
   const [x,y,w,h]=samples[key],c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(image,x,y,w,h,0,0,w,h);
   const data=g.getImageData(0,0,w,h).data,counts=new Map();for(let i=0;i<data.length;i+=4)if(data[i+3]>250){const rgb=[...data.slice(i,i+3)],id=rgb.join(',');counts.set(id,(counts.get(id)||0)+1);}
@@ -12,7 +12,14 @@
   const fill=(a,x,y,w,h)=>{ctx.fillStyle=color(a);ctx.fillRect(X+x,Y+y,w,h);};
   ctx.save();ctx.beginPath();ctx.rect(X,Y,256,256);ctx.clip();fill(base,0,0,256,256);
   const tile=(sx,sy,sw,sh,dw,dh)=>{ctx.imageSmoothingEnabled=false;for(let yy=0;yy<SIZE;yy+=dh)for(let xx=0;xx<SIZE;xx+=dw)ctx.drawImage(image,sx,sy,sw,sh,X+xx,Y+yy,dw,dh);};
-  if(key==='pp_cabin'){
+  if(key==='dreamland_wide'||key==='dreamland_corner'){tile(8,32,16,16,16,16);
+  }else if(key==='dreamland_house'){
+   // Rectify the native 45-degree roof courses once. Retain source pixels
+   // and their red clay palette; projection supplies the new roof angle.
+   const patch=document.createElement('canvas');patch.width=patch.height=16;const p=patch.getContext('2d');p.imageSmoothingEnabled=false;
+   for(let col=0;col<16;col++)p.drawImage(image,8+col,36-col,1,16,col,0,1,16);
+   for(let yy=0;yy<256;yy+=16)for(let xx=0;xx<256;xx+=16)ctx.drawImage(patch,X+xx,Y+yy);
+  }else if(key==='pp_cabin'){
    // The reference has three broad overlapping sheets, not narrow planks.
    for(let xx=0;xx<SIZE;xx+=32){fill(dark,xx,0,1,SIZE);fill(light,xx+1,0,2,SIZE);fill(base.map((n,i)=>Math.round(n*.88+dark[i]*.12)),xx+29,0,3,SIZE);}
   }else if(key==='trader'){

@@ -1273,6 +1273,17 @@
       "notes": "Four occupancy quadrants of an authored stone; no cliff artwork."
     }
   ],
+  "groundDetail": {
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+    "rect": [
+      32,
+      0,
+      16,
+      16
+    ],
+    "frameSize": 32,
+    "notes": "Source speckles at 1:1 pixels inside 2x native bank silhouettes; island fill uses source highlight palette."
+  },
   "path": {
     "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
     "cells": [

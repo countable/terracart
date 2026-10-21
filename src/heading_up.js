@@ -14,7 +14,7 @@
 //     game code ever sees a counter-rotated sprite;
 //   · taps (_unzoomPt), the peek drag and the stick / keys go through
 //     toWorldVec back into north-up.
-// Without a device compass, Q / E turn a fake heading for desktop trials.
+// Q / E rotate the view manually, including desktops without a GPS fix.
 //
 // Art is authored for a south camera; ground geometry and its lighting turn
 // with the world while standing sprites retain their upright silhouettes.
@@ -50,6 +50,7 @@ const HeadingUp = {
   },
 
   toggleLock(scene) {
+    scene._huManualAngle = null;
     if (HeadingUp.hasGps(scene)) {
       scene._compassDirectionLocked = !scene._compassDirectionLocked;
       scene._huTurning = false;
@@ -124,6 +125,7 @@ const HeadingUp = {
     if (!HeadingUp.enabled || scene._headingUp) return;
     scene._headingUp = true;
     scene.mapRot = 0;
+    scene._huManualAngle = null;
     scene._compassDirectionLocked = false;
     // Phaser's two-corner camera cull assumes positive axes. At a half turn
     // its bounds invert and visible sprites disappear. World pools already
@@ -171,16 +173,8 @@ const HeadingUp = {
     }).setOrigin(0.5).setDepth(91);
     scene._huNoCompass._huUI = true;
 
-    // Desktop trial: Q / E turn a fake heading when no compass reports.
-    scene.input.keyboard?.on('keydown', (e) => {
-      if (scene._deviceCompass) return;
-      const step = e.key === 'q' || e.key === 'Q' ? -1 : e.key === 'e' || e.key === 'E' ? 1 : 0;
-      if (!step) return;
-      const deg = (((scene.compassDeg ?? 0) + step * HeadingUp.KEY_STEP_DEG) % 360 + 360) % 360;
-      scene.compassDeg = deg;
-      const rad = deg * Math.PI / 180;
-      scene.facing = { x: Math.sin(rad), y: -Math.cos(rad) };
-    });
+    // Explicit camera input works even when GPS automatically locks heading.
+    scene.input.keyboard?.on('keydown', e => HeadingUp.keyTurn(scene, e));
 
     const pre = () => HeadingUp._preRender(scene);
     const post = () => HeadingUp._postRender(scene);
@@ -195,13 +189,28 @@ const HeadingUp = {
     });
   },
 
+  keyTurn(scene, event) {
+    const target = event.target;
+    if (!HeadingUp.active(scene) || event.ctrlKey || event.altKey || event.metaKey
+        || target?.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(target?.tagName || '')) return false;
+    const key = event.key?.toLowerCase();
+    const step = key === 'q' ? -1 : key === 'e' ? 1 : 0;
+    if (!step) return false;
+    const angle = (scene._huManualAngle ?? scene.mapRot ?? 0) - step * HeadingUp.KEY_STEP_DEG * Math.PI / 180;
+    scene._huManualAngle = Math.atan2(Math.sin(angle), Math.cos(angle));
+    scene._huTurning = true;
+    event.preventDefault?.();
+    return true;
+  },
+
   // Once per frame, before the camera is applied.
   tick(scene, dt) {
     if (!HeadingUp.active(scene)) return;
     const deg = scene.compassDeg;
     scene._syncCompassLock?.();
-    if (deg != null && !HeadingUp.directionLocked(scene)) {
-      const target = -deg * Math.PI / 180;
+    const manual = scene._huManualAngle;
+    if (manual != null || (deg != null && !HeadingUp.directionLocked(scene))) {
+      const target = manual ?? -deg * Math.PI / 180;
       let diff = target - scene.mapRot;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       const dead = HeadingUp.DEAD_DEG * Math.PI / 180;
@@ -213,7 +222,7 @@ const HeadingUp = {
         scene.mapRot = Math.atan2(Math.sin(scene.mapRot + step), Math.cos(scene.mapRot + step));
       }
     }
-    scene._huNoCompass.setVisible(!scene._deviceCompass && deg == null);
+    scene._huNoCompass.setVisible(manual == null && !scene._deviceCompass && deg == null);
     const g = scene._huNorth;
     g.clear();
     // The silver chassis supplies the same true-north needle above the map.

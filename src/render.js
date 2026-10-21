@@ -2564,7 +2564,10 @@ Render.drawCells = function drawCells(scene) {
         if (!polygonBuilding(c,r)) continue;
         t = scene.neighborNonRoadType(AX(c,r), AY(c,r));
       }
-      if (t != null) raMaterials[i] = RATerrainTrial.material(t, AX(c,r), AY(c,r));
+      if (t != null) raMaterials[i] = (typeof scene._dreamlandGroundFamilyAt === 'function'
+        && typeof DreamlandObjects !== 'undefined' && DreamlandObjects.enabled)
+        ? scene._dreamlandGroundFamilyAt(AX(c,r), AY(c,r), t)
+        : RATerrainTrial.material(t, AX(c,r), AY(c,r));
     }
   }
   const raAt = (c,r) => raMaterials ? raMaterials[(r+2)*RING+c+2] : -1;

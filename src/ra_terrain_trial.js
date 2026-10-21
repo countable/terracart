@@ -10,6 +10,7 @@ const RATerrainTrial = (() => {
   const enabled = !!profile;
   const families = Object.freeze(['villageGrass', 'forestGrass', 'oliveSoil', 'darkSoil', 'water', 'sand', 'stone', ...(mode === 'rogue' ? ['brownSoil'] : [])]);
   const SOURCE = profile?.source, KEY = profile?.key;
+  const TILE = mode === 'dreamland' ? 32 : 16;
   const roadCanvases = [];
   const ROAD_VARIANTS = new Set(['plain','default','lantern','golden','golden_path','orchard','promenade']);
   function roadTile(variant, restored) {
@@ -55,7 +56,7 @@ const RATerrainTrial = (() => {
   }
   function frameFor(values) { return values[0] + COUNT * (values[1] + COUNT * (values[2] + COUNT * values[3])); }
   function install(assets) {
-    if (enabled) assets[SOURCE] = {kind:'spritesheet', path:profile.path, frameWidth:16, frameHeight:16};
+    if (enabled) assets[SOURCE] = {kind:'spritesheet', path:profile.path, frameWidth:TILE, frameHeight:TILE};
     if (profile?.road) {
       assets.dreamland_path_source = {kind:'image', path:profile.road};
       assets.dreamland_path_restored_source = {kind:'image', path:profile.road.replace('path.png','path-restored.png')};
@@ -76,19 +77,19 @@ const RATerrainTrial = (() => {
     if (scene.textures.exists(KEY)) { scene._raTerrainReady = true; return; }
     const canvas = document.createElement('canvas');
     const columns = Math.ceil(Math.sqrt(FRAMES));
-    canvas.width = columns * 16; canvas.height = Math.ceil(FRAMES / columns) * 16;
+    canvas.width = columns * TILE; canvas.height = Math.ceil(FRAMES / columns) * TILE;
     const ctx = canvas.getContext('2d');
     ctx.imageSmoothingEnabled = false;
     const source = scene.textures.get(SOURCE);
     const draw = (family, mask, x, y) => {
       const f = source.get(family * 16 + mask);
-      ctx.drawImage(f.source.image, f.cutX, f.cutY, 16, 16, x, y, 16, 16);
+      ctx.drawImage(f.source.image, f.cutX, f.cutY, TILE, TILE, x, y, TILE, TILE);
     };
     const values = [0,0,0,0];
     for (let frame = 0; frame < FRAMES; frame++) {
       let code = frame;
       for (let i=0; i<4; i++) { values[i] = code % COUNT; code = Math.floor(code / COUNT); }
-      const x = frame % columns * 16, y = Math.floor(frame / columns) * 16;
+      const x = frame % columns * TILE, y = Math.floor(frame / columns) * TILE;
       // Fill with an actual local material, not unconditional village grass:
       // transparent authored corners on a sand shore must reveal sand.
       const layers = mode === 'rogue' ? [0,1,2,3,5,6,7,4] : [0,1,2,3,5,6,4];
@@ -103,7 +104,7 @@ const RATerrainTrial = (() => {
     }
     const texture = scene.textures.addCanvas(KEY, canvas);
     if (typeof Phaser !== 'undefined') texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
-    for (let frame=0; frame<FRAMES; frame++) texture.add(frame, 0, frame % columns * 16, Math.floor(frame / columns) * 16, 16, 16);
+    for (let frame=0; frame<FRAMES; frame++) texture.add(frame, 0, frame % columns * TILE, Math.floor(frame / columns) * TILE, TILE, TILE);
     scene._raTerrainReady = true;
   }
   // The renderer supplies its already seam-correct world ring. Missing and

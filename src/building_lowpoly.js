@@ -78,6 +78,11 @@
     relic:{...RESTORED_SHOP,emblem:'relic',roof:0xa04f3f,roofMaterial:'red'},
     book:{...RESTORED_SHOP,emblem:'book',roof:0x754958,roofMaterial:'plum'},
   };
+  // Dreamland's collapsed architecture shares its intact house materials.
+  // Explicit recipe selection keeps baseline and Rogue wrecks independent.
+  const DREAMLAND_WRECK={tint:0xffffff,roofTint:0xffffff,debris:0xb58b5d,
+    beam:0x9b6b3f,top:0xf6d6af,highlight:0xffebcf,shadow:0xc39a73,mortar:0xf6d6af,ink:0x000000};
+  const wreckLook=recipe=>recipe.artProfile==='dreamland'?DREAMLAND_WRECK:LOOK.wreck;
   function recipeFor(role,palette={},stories,restored=false){
     const spec=ROLES[role]||ROLES.plain,base=BuildingStyles.STYLES[spec.style];
     const recipe={...spec,role,body:palette.wall??base.wall,roof:palette.roof??base.roof,
@@ -488,7 +493,7 @@
     // rebuild. Ignore its floating-point noise, just as geometry() does,
     // otherwise an unchanged wreck retriangulates on every walking crossing.
     const pointKey=p=>p.x.toFixed(4)+','+p.y.toFixed(4);
-    const key='special:'+recipe.shape+':'+points.map(pointKey).join(';')
+    const key='special:'+recipe.shape+':'+(recipe.artProfile||'')+':'+points.map(pointKey).join(';')
       +(recipe.shape==='wreck'?':'+identity+':'+streets.map(line=>line.map(pointKey).join(';')).join('|'):'');
     if(meshCache.has(key))return meshCache.get(key);
     if(recipe.shape==='wreck'){
@@ -501,7 +506,7 @@
       // The world object key survives local-origin and camera changes.
       const seed=Array.from(String(identity||points.map(p=>p.x+','+p.y).join(';'))).reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261)>>>0;
       const random=(n,salt)=>hash(seed+n,salt);
-      const H=FLOOR_HEIGHT+EAVE_RISE,SECTION=16,base=geometry(points,'ridge',H,0),faces=[],W=LOOK.wreck;
+      const H=FLOOR_HEIGHT+EAVE_RISE,SECTION=16,base=geometry(points,'ridge',H,0),faces=[],W=wreckLook(recipe);
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
       // Narrow annexes may reject a thick inset. Keep damage and doorway cuts
       // even when only a thin (or zero-thickness) wall strip can fit.
@@ -1107,6 +1112,8 @@
     }
   }
   function material(scene,recipe){
+    if(recipe.shape==='wreck'&&recipe.artProfile==='dreamland'&&scene.textures.exists('dreamland_wreck_material'))
+      return scene.textures.get('dreamland_wreck_material');
     const tex=baseMaterial(scene,recipe);
     if(recipe.shape==='wreck'&&!tex._wreckSoftened){
       // Reduce painted detail contrast; geometry supplies the depth shading.
@@ -1133,7 +1140,9 @@
     }
     return tex;
   }
-  function wreckInteriorSheet(scene){
+  function wreckInteriorSheet(scene,recipe){
+    if(recipe?.artProfile==='dreamland'&&scene.textures.exists('dreamland_wreck_interior'))
+      return scene.textures.get('dreamland_wreck_interior');
     const loaded=scene.textures.exists('wreck_floor_cel'),key='lowpoly:wreck-interior-v6:'+loaded;
     if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
@@ -1611,7 +1620,25 @@
     for(const f of g.faces){
       // The procedural stack has no source art; the skin keeps its roofline.
       if(f.chimney)continue;
-      if(f.kind==='wall'){const upper=clipZ(f.points,H,1);if(upper.length>=3)constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});continue;}
+      if(f.kind==='wall'){
+        const upper=clipZ(f.points,H,1);
+        if(upper.length>=3){
+          constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});
+          const W=skin.gableWindow;
+          // One source-native attic window on each supported gable. Clip its
+          // physical panel to the actual roof, never stretch a window over it.
+          if(W){const edge=g.ring.findIndex((a,i)=>{const b=g.ring[(i+1)%g.ring.length];return upper.every(p=>Math.abs((b.x-a.x)*(p.y-a.y)-(b.y-a.y)*(p.x-a.x))<1e-4);});
+            if(edge>=0){const a=g.ring[edge],b=g.ring[(edge+1)%g.ring.length],L=Math.hypot(b.x-a.x,b.y-a.y),lo=(L-W.w*d)/2,z0=H+W.bottom*d,z1=z0+W.h*d;
+              if(lo>2*d&&Math.max(...upper.map(p=>p.z))>=z1){
+                let panel=clipZ(clipZ(upper,z0,1),z1,-1).map(p=>({...p,u:((p.x-a.x)*(b.x-a.x)+(p.y-a.y)*(b.y-a.y))/L}));
+                for(const [bound,side] of [[lo,1],[lo+W.w*d,-1]]){const next=[];panel.forEach((p,i)=>{const q=panel[(i+1)%panel.length],dp=(p.u-bound)*side,dq=(q.u-bound)*side;if(dp>=-1e-8)next.push(p);if((dp<0&&dq>0)||(dp>0&&dq<0)){const t=dp/(dp-dq);next.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,z:p.z+(q.z-p.z)*t,u:bound});}});panel=next;}
+                emit(panel.map(p=>({...p,x:p.x+(b.y-a.y)/L*.03,y:p.y-(b.x-a.x)/L*.03})),panel.map(p=>[W.u+(p.u-lo)/d,W.v+W.h-(p.z-z0)/d]),'wall',{wallDirection:f.wallDirection,layer:.01});
+              }
+            }
+          }
+        }
+        continue;
+      }
       if(f.kind==='roof'){
         // Flat decks run in plan; slopes run along the eave and downhill.
         const pts=f.points.map(p=>({...p,u:(skin.flat?p.x:p.u)/d,v:(skin.flat?p.y:p.v)/d}));
@@ -1621,11 +1648,11 @@
         continue;
       }
       // Fascia, ridge beams and flat rims: single roof-colour texels.
-      const texel=f.rim?[500.5,620.5]:f.rimShade?[508.5,620.5]:[R.u+2.5,R.v+2.5];
+      const texel=skin.trim|| (f.rim?[500.5,620.5]:f.rimShade?[508.5,620.5]:[R.u+2.5,R.v+2.5]);
       constant(f.points,texel,'roof',{roofPalette:true,shade:f.rimShade?.8:f.beam?(f.light<.8?.82:1.06):.72,layer:f.layer||2});
     }
     skin.recolor(faces);
-    return {ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,entranceEdge:g.entranceEdge};
+    return {ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
   function authoredGeometry(model,ring,inset=1,door=null){
     if(door){const {x:nx,y:ny}=door.normal;
@@ -1689,16 +1716,16 @@
     const useAuthored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined';
     // A reviewed skin goes on the lot's own walls; only the exempt landmarks
     // (AuthoredBuildings.skin) keep a whole shell fit inside their lot.
-    const skin=useAuthored?AuthoredBuildings.skin(scene,recipe.authored.key,recipe.authored.palette):null;
+    const skin=useAuthored&&!recipe.authored.sourceShell?AuthoredBuildings.skin(scene,recipe.authored.key,recipe.authored.palette):null;
     const authored=useAuthored&&!skin?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows):authored?authoredGeometry(authored,local,recipe.role==='fort'?.65:1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows):authored?authoredGeometry(authored,local,(recipe.role==='fort'&&!recipe.authored.sourceShell) ? .65 : 1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):recipe.interior?interiorSheet(scene,texture,recipe):texture;
+    const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene,recipe):recipe.interior?interiorSheet(scene,texture,recipe):texture;
     if(!authored&&!skin){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
     // A standing building is ONE render object sorted at its footprint
     // centroid (the player never stands among its walls). An INTERIOR (Home
@@ -1738,10 +1765,10 @@
       }
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
       if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
-      else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?LOOK.wreck.mortar:0xffffff;
-      else if(face.rubbleTop)face.color=recipe.shape==='wreck'?LOOK.wreck.top:mix(recipe.body,0xf3e6c8,.35);
+      else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?wreckLook(recipe).mortar:0xffffff;
+      else if(face.rubbleTop)face.color=recipe.shape==='wreck'?wreckLook(recipe).top:mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
-      else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=face.kind==='roof'?LOOK.wreck.roofTint:LOOK.wreck.tint;
+      else if(recipe.shape==='wreck'&&(face.kind==='wall'||face.kind==='roof')&&!face.debris&&!face.chimney)face.color=face.kind==='roof'?wreckLook(recipe).roofTint:wreckLook(recipe).tint;
       // Fit complete opening bays onto each restored side wall, using the
       // existing split vertices. p.u retains the original pre-corner UV, so
       // this removes blank corner substitutions without changing any geometry.

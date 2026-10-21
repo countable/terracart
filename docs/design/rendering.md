@@ -93,18 +93,46 @@ masks: cracked/split pieces before restoration, intact pieces after restoration.
 Hazard and special road variants retain their existing art. Both condition
 repeats bake once, and road phase follows the actual repeat width. Its source-native
 olive grass islands use deterministic absolute-cell patchwork: unchanged logical
-landcover, with authored lime edges and no spawned grass interactables.
-`DreamlandObjects` supplies native red-roof small houses and wide medium halls,
-round trees at their existing growth stage, wooden hanging lamps, fountains,
-crates and signs. `WorldArtProfile` selects the opt-in object module; normal and
-RA appearances remain independent. Source facades fit existing geographic
-footprints; their source rings still govern roads, collisions and interactions.
-Home retains its actual interior when entered. Wrecks, temples, castles, wizard
-and turret roles retain their state-specific artwork. Fruit trees retain their
+landcover, with authored lime edges and no spawned grass interactables. Dreamland
+frames bake at 32px: native 16px bank silhouettes retain their 2x scale, while
+source grass speckles repeat at 1:1 pixels and islands use the source highlight
+palette internally. This reduces blocky detail without smoothing. Authored FAKEMAP
+studies may supply `_dreamlandGroundFamilyAt(ax, ay, type)` for explicit material
+layout; ordinary geographic play keeps its world-stable patchwork.
+`DreamlandObjects` supplies native round trees, wooden hanging lamps, fountains,
+crates and signs. On WebGL its houses use the existing retained 3D house renderer:
+`dreamland_house` lends source red roof tiles, beige plaster, timber and doorway
+art to each actual geographic lot outline. Native roof pixels are rectified once
+at startup and remain their original palette. Footprint geometry, roofs and
+occlusion rotate with the compass; cell rebuilds reuse shared material textures.
+Canvas retains the matching source facade sprites as its fallback. The explicit
+reference fixture sets `scene.dreamlandReferenceShell`: its designed footprints
+fit closed native house shells at source scale instead of normalizing the door
+to geographic gameplay scale. The wide hall has two shorter wings joined to a
+projecting central gable; the corner model keeps only its right wing. Optional
+reference chimneys are closed roof penetrations with source-native brick fronts
+and caps, sharing startup-baked textures. All source-facing planes use native
+roof/facade UVs.
+This fixture option does not alter ordinary geographic house dimensions.
+`WorldArtProfile` selects the opt-in object module; normal and RA appearances
+remain independent. Roads, collisions, identities and restoration roles are
+unchanged. Home keeps its existing open-roof interior when entered. Tier-9 wrecks
+use the existing broken 3D wall/roof geometry with matching native red tiles,
+plaster and brown timber; Canvas uses the source-fragment collapsed assembly.
+Forts do not acquire a wreck state.
+Temples, castles, wizard and turret roles retain their state-specific artwork. Fruit trees retain their
 harvest cues, and deliberately dead trees retain their variant. Existing DeepForest
 positions remain the source of tree placement. Lamps retain their lit state and
 existing light; source-measured foot/glass offsets align the native lantern and
-emitter. No scenery objects are added to the geographic world. Rebuild the bundled exports with
+emitter. Fountain water cycles four offline frames without moving stone pixels; one scene
+listener gives trees a restrained 0.4% canopy sway and lit lanterns a small color
+flicker. Pooled sprites only animate while their current texture matches their
+registered identity. Surface Dreamland daylight uses neutral color and a 0.54
+ambient floor; night, cave lighting, hazards, emitter radii and reach remain intact.
+`build_enrichment.py` exports native shrubs, flowers, paving pieces, well and crate
+stack for authored scene placement, with crop provenance. These are passive
+presentation assets, not extra geographic interactables.
+No scenery objects are added to the geographic world. Rebuild the bundled exports with
 `python3 tools/dreamland-square-study/build_assets.py --out assets/ArtTrials/DreamlandTerrain`;
 normal play loads only `assets/ArtTrials/DreamlandTerrain`, never study files or
 `extra_assets`. The source manifest records crops and hashes.
@@ -452,7 +480,7 @@ the surrounding grove’s shrub scale.
   are ignored, retaining the last usable bearing while the sensor recalibrates.
   The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
-  camera turns about the view centre by `-compassDeg` (Q / E fake it on
+  camera turns about the view centre by `-compassDeg` (Q / E manually rotate on
   desktop), and the map clips to the inscribed circle. Phaser's two-corner
   camera cull is disabled for that camera because rotated bounds invert;
   world pools and masks still bound rendering. Camera scroll remains fractional
@@ -477,6 +505,9 @@ the surrounding grove’s shrub scale.
   direction is forced locked even if the heading sensor reports. Tapping the
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
   it locked. Repeated taps share one pending request, released on shutdown.
+  Q/E sets a retained view-heading target in 15-degree steps, including without
+  GPS or while locked, without changing facing or sensor readings. Typing and
+  modified shortcuts are ignored. Using the lock clears that manual target.
   Detection alone does not relocate a sandbox or teleport world. Desktop without a heading sensor
   and north-up mode retain the caret. The caret is foreshortened down the
   turned screen (like the GPS ring), not the map's y, so it lies flat at any

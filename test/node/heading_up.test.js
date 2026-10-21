@@ -459,3 +459,24 @@ test('heading up: the direction caret lies flat on the screen\'s ground at any m
       `at ${rot} its width runs down the screen, foreshortened by the tilt`);
   }
 });
+
+test('heading up: keyboard rotates the camera without GPS or changing player facing', () => {
+  const scene = { ...huScene(0), gpsM: null, compassDeg: null, facing: {x:0,y:-1},
+    _compassDirectionLocked:true, _compassHUD:{}, _huNoCompass:{setVisible(){}}, _huNorth:{clear(){}} };
+  const original = JSON.stringify(scene.facing);
+  assert.truthy(HeadingUp.keyTurn(scene,{key:'e'}));
+  for(let i=0;i<120;i++) HeadingUp.tick(scene,1/60);
+  assert.lt(Math.abs(scene.mapRot+Math.PI/12),.02,'view turns 15 degrees without GPS');
+  assert.eq(scene.compassDeg,null);assert.eq(JSON.stringify(scene.facing),original);
+  HeadingUp.keyTurn(scene,{key:'q'});
+  for(let i=0;i<120;i++) HeadingUp.tick(scene,1/60);
+  assert.lt(Math.abs(scene.mapRot),.02,'opposite key returns view');
+});
+test('heading up: keyboard preserves typing and lock restores sensor policy', () => {
+  const scene=huScene(0);scene._compassDirectionLocked=false;
+  for(const event of [{key:'e',target:{tagName:'INPUT'}},{key:'q',target:{isContentEditable:true}},{key:'e',ctrlKey:true}])
+    assert.falsy(HeadingUp.keyTurn(scene,event));
+  assert.eq(scene._huManualAngle,undefined);
+  HeadingUp.keyTurn(scene,{key:'E'});assert.truthy(scene._huManualAngle!=null);
+  HeadingUp.toggleLock(scene);assert.eq(scene._huManualAngle,null);
+});

@@ -50,6 +50,9 @@ fs.mkdirSync(out,{recursive:true});
  async function settle(){
    await page.evaluate(()=>{const s=__scene;s._lastBorderIX=NaN;s._lastBorderIY=NaN;s._roadGeomKey=null;s._buildingGeomKey=null;window.__phase1Redraw();});
    await page.waitForFunction(()=>{window.__phase1Redraw();return !__scene._roadRebuildJob&&!!__scene._roadGeomKey&&!!__scene._buildingGeomKey},null,{timeout:120000,polling:'raf'});
+   // Paused snapshots must finish the normal 600ms newly-mapped tile reveal.
+   await page.waitForTimeout(650);
+   await page.evaluate(()=>window.__phase1Redraw());
    console.log('SETTLED',name);
  }
  async function move(lat,lon){

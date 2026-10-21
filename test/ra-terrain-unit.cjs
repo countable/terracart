@@ -85,3 +85,9 @@ for (const type of [0,1]) {
   assert(found.has(type===0 ? 7 : 2),'native soil patches present');
   assert(found.has(type),'base grass retained');
 }
+
+const dreamAtlas=fs.readFileSync(dream.assets.dreamland_terrain_source.path);
+assert.equal(dreamAtlas.readUInt32BE(16),16*32,'native-detail export matches source frame width');
+assert.equal(dreamAtlas.readUInt32BE(20),7*32,'all seven families remain in the exported atlas');
+assert.equal(dream.assets.dreamland_terrain_source.frameWidth,32);
+assert.equal(assets.ra_terrain_source.frameWidth,16,'Rogue native scale remains unchanged');

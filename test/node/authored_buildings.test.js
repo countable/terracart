@@ -88,4 +88,22 @@
     assert.eq(recipe('potion', 'magic-shop').palette, 'teal');
     for (const role of ['turret', 'castle', 'wreck', 'unknown']) assert.eq(recipe(role, 'fixture'), null);
   });
+  test('authored buildings: Dreamland attic glazing stays source-sized on a larger real footprint', () => {
+    const spec=AuthoredBuildings.SPECS.dreamland_house;
+    const skin={key:'dreamland_house',spec,template:{},texel:.5,flat:false,
+      facade:{v:900,rows:30},roof:{u:256,v:616,w:256,h:256},
+      door:{u:24,v:102,w:16,h:24,bottom:0},wall:[14,110],trim:[3.5,100.5],
+      gableWindow:{u:24,v:72,w:16,h:20,bottom:5},recolor(){}};
+    const lot=[{x:0,y:0},{x:96,y:0},{x:96,y:144},{x:0,y:144}];
+    const model=BuildingLowPoly.authoredOutline(skin,lot);
+    assert.eq(model.authoredKey,'dreamland_house');
+    const windows=model.faces.filter(f=>f.kind==='wall'&&f.layer===.01);
+    assert.truthy(windows.length,'native gable glazing is emitted');
+    const zs=windows.flatMap(f=>f.points.map(p=>p.z));
+    assert.eq(Math.min(...zs),17.5);assert.eq(Math.max(...zs),27.5);
+    for(const f of windows)for(const p of f.points){
+      assert.truthy(p.tu*512>=24-1e-6&&p.tu*512<=40+1e-6);
+      assert.truthy(p.tv*1024>=72-1e-6&&p.tv*1024<=92+1e-6);
+    }
+  });
 })();

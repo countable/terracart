@@ -1,6 +1,6 @@
 /* Native facade sampling and validation shared by the closed building shells. */
 (function(root){
- const roofSamples={com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[16,56,16,7],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
+ const roofSamples={dreamland_corner:[8,32,16,16],dreamland_wide:[8,32,16,16],dreamland_house:[8,36,16,16],com:[168,32,16,16],fdr:[128,25,16,16],market:[20,19,32,12],trader:[16,56,16,7],pp_brick:[8,16,16,24],pp_plaster:[8,16,32,24],pp_cabin:[12,40,16,16]};
  function sourceFacadeSlices(spec,length){
   const W=spec.right-spec.left,edge=Math.min(spec.posts[1]-spec.left+4,W/4,length/4);
   if(Math.abs(length-W)<1)return {parts:[[0,length,W,0]],center:length/2};

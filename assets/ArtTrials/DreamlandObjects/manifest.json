@@ -60,7 +60,7 @@
             32
           ],
           "at": [
-            24,
+            32,
             80
           ]
         },
@@ -145,7 +145,7 @@
             32
           ],
           "at": [
-            72,
+            80,
             80
           ]
         },
@@ -197,6 +197,331 @@
           16
         ]
       ]
+    },
+    {
+      "id": "house-collapsed",
+      "file": "house-collapsed.png",
+      "size": [
+        54,
+        49
+      ],
+      "assemblySize": [
+        64,
+        64
+      ],
+      "trimBounds": [
+        6,
+        14,
+        60,
+        63
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Collapsed ordinary house: same native red tiles, beige plaster and timber as intact counterpart. Existing wreck only.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            96,
+            208,
+            48,
+            48
+          ],
+          "at": [
+            8,
+            16
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            438,
+            232,
+            12,
+            16
+          ],
+          "at": [
+            6,
+            14
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            438,
+            240,
+            8,
+            8
+          ],
+          "at": [
+            18,
+            22
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            478,
+            232,
+            12,
+            16
+          ],
+          "at": [
+            46,
+            18
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            438,
+            240,
+            18,
+            12
+          ],
+          "at": [
+            8,
+            44
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            478,
+            240,
+            12,
+            12
+          ],
+          "at": [
+            46,
+            46
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            258,
+            176,
+            8,
+            4
+          ],
+          "at": [
+            8,
+            29
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            258,
+            180,
+            16,
+            4
+          ],
+          "at": [
+            8,
+            33
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            258,
+            184,
+            20,
+            8
+          ],
+          "at": [
+            8,
+            37
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            262,
+            192,
+            12,
+            4
+          ],
+          "at": [
+            12,
+            45
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            392,
+            184,
+            12,
+            4
+          ],
+          "at": [
+            40,
+            28
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            388,
+            188,
+            16,
+            8
+          ],
+          "at": [
+            36,
+            32
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            388,
+            196,
+            8,
+            4
+          ],
+          "at": [
+            36,
+            40
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            176,
+            322,
+            32,
+            8
+          ],
+          "at": [
+            16,
+            50
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            128,
+            179,
+            8,
+            13
+          ],
+          "at": [
+            3,
+            47
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            144,
+            180,
+            8,
+            12
+          ],
+          "at": [
+            52,
+            49
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            260,
+            184,
+            6,
+            6
+          ],
+          "at": [
+            29,
+            44
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "chimney",
+      "file": "chimney.png",
+      "size": [
+        16,
+        31
+      ],
+      "assemblySize": [
+        16,
+        32
+      ],
+      "trimBounds": [
+        0,
+        1,
+        16,
+        32
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Native brick roof chimney; left roof slope.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            392,
+            128,
+            16,
+            32
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
+    },
+    {
+      "id": "chimney-right",
+      "file": "chimney-right.png",
+      "size": [
+        16,
+        31
+      ],
+      "assemblySize": [
+        16,
+        32
+      ],
+      "trimBounds": [
+        0,
+        1,
+        16,
+        32
+      ],
+      "origin": [
+        0.5,
+        1
+      ],
+      "role": "Native brick roof chimney; right roof slope.",
+      "layers": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            424,
+            128,
+            16,
+            32
+          ],
+          "at": [
+            0,
+            0
+          ]
+        }
+      ],
+      "excludedRects": []
     },
     {
       "id": "tree",
@@ -782,6 +1107,133 @@
         }
       ],
       "excludedRects": []
+    },
+    {
+      "id": "wreck-material",
+      "file": "wreck-material.png",
+      "size": [
+        512,
+        512
+      ],
+      "role": "Native material atlas for existing 3D wreck geometry.",
+      "operations": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            448,
+            228,
+            16,
+            16
+          ],
+          "repeatRegion": [
+            0,
+            0,
+            512,
+            128
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            260,
+            184,
+            16,
+            16
+          ],
+          "repeatRegion": [
+            0,
+            128,
+            512,
+            512
+          ]
+        }
+      ],
+      "reservedSolidTexel": [
+        508,
+        124,
+        4,
+        4
+      ]
+    },
+    {
+      "id": "wreck-interior",
+      "file": "wreck-interior.png",
+      "size": [
+        512,
+        512
+      ],
+      "role": "Native material atlas for existing 3D wreck geometry.",
+      "operations": [
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            448,
+            228,
+            16,
+            16
+          ],
+          "repeatRegion": [
+            0,
+            0,
+            512,
+            128
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            132,
+            100,
+            8,
+            8
+          ],
+          "repeatRegion": [
+            0,
+            128,
+            512,
+            512
+          ]
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "scatterRects": [
+            [
+              260,
+              184,
+              8,
+              8
+            ],
+            [
+              448,
+              240,
+              8,
+              8
+            ]
+          ],
+          "spacing": 24
+        },
+        {
+          "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+          "rect": [
+            132,
+            100,
+            8,
+            8
+          ],
+          "repeatRegion": [
+            448,
+            104,
+            504,
+            120
+          ]
+        }
+      ],
+      "reservedSolidTexel": [
+        508,
+        124,
+        4,
+        4
+      ]
     }
   ],
   "sha256": {

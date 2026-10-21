@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-33c4fd1d';
+const SHELL_VERSION = 'shell-b2a94bd0';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -12,6 +12,20 @@ const ASSET_HASHES = {
   "assets/ArtTrials/ALT-0168.png": "73324a30",
   "assets/ArtTrials/ALT-0176.png": "45ad5379",
   "assets/ArtTrials/ALT-0245.png": "bf2eff7a",
+  "assets/ArtTrials/DreamlandEnrichment/crate-stack.png": "141e1fca",
+  "assets/ArtTrials/DreamlandEnrichment/flower.png": "f8c3ac37",
+  "assets/ArtTrials/DreamlandEnrichment/flowers.png": "5088f96b",
+  "assets/ArtTrials/DreamlandEnrichment/fountain-water.png": "2d6ef67f",
+  "assets/ArtTrials/DreamlandEnrichment/short-grass.png": "1a2ec0d6",
+  "assets/ArtTrials/DreamlandEnrichment/shrub-flower.png": "ae7f719c",
+  "assets/ArtTrials/DreamlandEnrichment/shrub.png": "36350491",
+  "assets/ArtTrials/DreamlandEnrichment/slab-small.png": "bd46765b",
+  "assets/ArtTrials/DreamlandEnrichment/slab-split.png": "9eb6c85c",
+  "assets/ArtTrials/DreamlandEnrichment/slab.png": "64e55043",
+  "assets/ArtTrials/DreamlandEnrichment/tree-tall.png": "9c5fd3c6",
+  "assets/ArtTrials/DreamlandEnrichment/well.png": "b45bca0a",
+  "assets/ArtTrials/DreamlandObjects/chimney-right.png": "3c8c39f2",
+  "assets/ArtTrials/DreamlandObjects/chimney.png": "8d0a4177",
   "assets/ArtTrials/DreamlandObjects/crate-stack.png": "fd424399",
   "assets/ArtTrials/DreamlandObjects/crate.png": "a2e81b44",
   "assets/ArtTrials/DreamlandObjects/fountain.png": "d772ff4f",
@@ -21,21 +35,24 @@ const ASSET_HASHES = {
   "assets/ArtTrials/DreamlandObjects/ground-specks-a.png": "7c4c3892",
   "assets/ArtTrials/DreamlandObjects/ground-specks-b.png": "72d1ac97",
   "assets/ArtTrials/DreamlandObjects/ground-specks-c.png": "8ab1dce5",
-  "assets/ArtTrials/DreamlandObjects/house-wide.png": "7da0982b",
-  "assets/ArtTrials/DreamlandObjects/house.png": "807d143f",
+  "assets/ArtTrials/DreamlandObjects/house-collapsed.png": "786ffd26",
+  "assets/ArtTrials/DreamlandObjects/house-wide.png": "1c4f9667",
+  "assets/ArtTrials/DreamlandObjects/house.png": "bf8a7201",
   "assets/ArtTrials/DreamlandObjects/lamp-unlit.png": "4c95b25a",
   "assets/ArtTrials/DreamlandObjects/lamp.png": "5b4c60bf",
   "assets/ArtTrials/DreamlandObjects/sign.png": "f416755b",
   "assets/ArtTrials/DreamlandObjects/tree-young.png": "206c3ef8",
   "assets/ArtTrials/DreamlandObjects/tree.png": "e8031324",
   "assets/ArtTrials/DreamlandObjects/well.png": "05a458d3",
+  "assets/ArtTrials/DreamlandObjects/wreck-interior.png": "65176610",
+  "assets/ArtTrials/DreamlandObjects/wreck-material.png": "b92205f0",
   "assets/ArtTrials/DreamlandTerrain/fountain.png": "d772ff4f",
   "assets/ArtTrials/DreamlandTerrain/grass.png": "157b629d",
   "assets/ArtTrials/DreamlandTerrain/hanging-lamp.png": "08b7cd33",
   "assets/ArtTrials/DreamlandTerrain/path-restored.png": "dc712e2e",
   "assets/ArtTrials/DreamlandTerrain/path.png": "b156bd86",
   "assets/ArtTrials/DreamlandTerrain/round-tree-reference.png": "f3ad3b88",
-  "assets/ArtTrials/DreamlandTerrain/terrain.png": "ea67e871",
+  "assets/ArtTrials/DreamlandTerrain/terrain.png": "ef7a4938",
   "assets/ArtTrials/RogueObjects/house-large.png": "03d57d89",
   "assets/ArtTrials/RogueObjects/house-small.png": "d889c2b5",
   "assets/ArtTrials/RogueObjects/house-sw.png": "8b70125d",

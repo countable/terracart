@@ -6,6 +6,8 @@
 const STEAM_BUILDERS={steam_home:SteamHome,steam_blacksmith:SteamBlacksmith,steam_wizard:SteamWizard};
 const specialBuilder=key=>STEAM_BUILDERS[key]||(SPECS[key]?.city?CityBuildings:null);
 const SPECS={
+ dreamland_wide:{label:'Dreamland · native cross-gable hall',image:'house-wide.png',crop:[0,0,160,110],left:0,right:160,base:110,eave:80,peak:48,back:32,backPeak:0,center:80,depth:48,wall:[54,82,16,26],posts:[50,55,105,110],bands:[80,84,104,110],door:[80,80,16,30]},
+ dreamland_house:{label:'Dreamland · native village house',image:'house.png',crop:[0,0,64,110],left:0,right:64,base:110,eave:80,peak:48,back:32,backPeak:0,center:32,depth:48,wall:[6,82,16,26],posts:[2,7,57,62],bands:[80,84,104,110],door:[32,80,16,30]},
  ...CityBuildings.specs,
  ...Object.fromEntries(Object.entries(STEAM_BUILDERS).map(([key,helper])=>[key,helper.spec])),
  ...FlatBuildings.specs,
@@ -18,6 +20,7 @@ const SPECS={
  com:{label:'House · com_houses_05',image:'com_houses_05.png',crop:[160,4,64,92],left:160,right:224,base:96,eave:76,peak:60,back:20,backPeak:4,center:192,depth:56,wall:[168,76,16,20],posts:[161,165,218,222],bands:[76,80,96],door:[192,76,16,20]},
  fdr:{label:'Blacksmith · FDR_Blacksmith',image:'FDR_Blacksmith.png',crop:[112,0,112,128],left:112,right:224,base:112,eave:48,peak:0,depth:48,sideRidge:true,wall:[120,48,24,64],posts:[113,118,217,222],bands:[48,76,80,104,108,112],door:[155,80,26,26],porch:true}
 };
+SPECS.dreamland_corner={...SPECS.dreamland_wide,label:'Dreamland · asymmetric corner house'};
 const P=(x,y,z)=>({x,y,z});
 const imageKey=key=>'authored_source_'+key;
 const specFor=key=>SPECS[key];
@@ -82,8 +85,13 @@ function material(s,key){const name='authored:'+imageKey(key);if(s.textures.exis
  }
 
  RoofMaterials.prepare(c,im,SPECS[key],key);
+ if(key.startsWith('dreamland_')){
+  const chimneyKey=key==='dreamland_house'?'dreamland_chimney_right':'dreamland_chimney';
+  if(s.textures.exists(chimneyKey)){c.fillStyle='#77654f';c.fillRect(208,160,16,32);c.drawImage(s.textures.get(chimneyKey).getSourceImage(),208,160);}
+ }
+
  t.refresh();t.setFilter(Phaser.Textures.FilterMode.NEAREST);return t;}
-function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a.left,D=a.depth,H=a.base-a.eave,x=450-W/2,y=240-D/2;
+function buildNative(s,key,chimney=false){const a=specFor(key),tex=material(s,key),W=a.right-a.left,D=a.depth,H=a.base-a.eave,x=450-W/2,y=240-D/2;
  const rear=['com','pp_cabin'].includes(key)?4:key==='pp_brick'?1:0;
  const m={faces:[],height:a.base-a.peak,authoredKey:key,texture:tex};
  let currentFeature='body';
@@ -114,7 +122,9 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
  authoredWall(P(W,rear,0),P(W,D,0));
  authoredWall(P(0,D,0),P(0,rear,0));
  const roofPlanes=[];
- function roofFace(points,uv){roofPlanes.push(points);let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
+ function roofFace(points,uv){roofPlanes.push(points);
+  if(key.startsWith('dreamland_')){poly(points,uv,'roof',2);return;}
+let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   if(['com','pp_cabin'].includes(key)){
    // Rectify only the authored plane's pixel staircase. Every texel remains
    // a source pixel; roof geometry supplies the source-camera diagonal.
@@ -248,6 +258,47 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
    face(frontEnd);face([...backEnd].reverse());for(let i=0;i<4;i++){const j=(i+1)%4;face([frontEnd[i],backEnd[i],backEnd[j],frontEnd[j]]);}
   }
  }
+ // The reference hall is a true cross-gable: a projecting central house
+ // joins two shorter wings. Every front face projects to its source pixels;
+ // closed backs/sides reuse the same native materials when the camera turns.
+ if(key==='dreamland_wide'||key==='dreamland_corner'){
+  m.faces=[];
+  const emit=(points,uv,kind='wall')=>poly(points,uv,kind),mapped=(points,kind='wall')=>emit(points,points.map(p=>[p.x,62+p.y-p.z]),kind);
+  const wing=(l,r)=>{
+   mapped([P(l,32,0),P(r,32,0),P(r,32,30),P(l,32,30)]);
+   const solid=(pts)=>emit(pts,pts.map(()=>[54.5,88.5]));
+   solid([P(r,-8,0),P(l,-8,0),P(l,-8,30),P(r,-8,30)]);
+   solid([P(l,-8,0),P(l,32,0),P(l,32,30),P(l,12,50),P(l,-8,30)]);
+   solid([P(r,32,0),P(r,-8,0),P(r,-8,30),P(r,12,50),P(r,32,30)]);
+   mapped([P(l,12,50),P(r,12,50),P(r,32,30),P(l,32,30)],'roof');
+   emit([P(l,-8,30),P(r,-8,30),P(r,12,50),P(l,12,50)],[[l,64],[r,64],[r,24],[l,24]],'roof');
+  };
+  if(key!=='dreamland_corner')wing(0,48);wing(112,160);
+  mapped([P(48,48,0),P(112,48,0),P(112,48,30),P(80,48,62),P(48,48,30)]);
+  emit([P(112,0,0),P(48,0,0),P(48,0,30),P(80,0,62),P(112,0,30)],[[112,110],[48,110],[48,80],[80,48],[112,80]]);
+  for(const x of [48,112])emit([P(x,0,0),P(x,48,0),P(x,48,30),P(x,0,30)],[[54,110],[70,110],[70,80],[54,80]]);
+  mapped([P(48,0,30),P(80,0,62),P(80,48,62),P(48,48,30)],'roof');
+  mapped([P(80,0,62),P(112,0,30),P(112,48,30),P(80,48,62)],'roof');
+  if(key==='dreamland_corner')for(const face of m.faces)for(const p of face.points)p.x-=48;
+ }
+ if(chimney){
+  // A closed roof penetration: its stepped bottom follows the actual slope.
+  // At the reference heading, the native brick front and cap retain their
+  // source pixel coordinates; camera turns reveal genuine side/back planes.
+  const x0=key==='dreamland_house'?40:8,x1=x0+16,back=14,front=18,top=61;
+  const roof=x=>62-Math.abs(x-32),bottom=x=>roof(x)-.1;
+  currentFeature='chimney';
+  const face=(points,uv)=>poly(points,uv,'wall');
+  const frontPoints=[P(x0,front,bottom(x0)),P(x1,front,bottom(x1)),P(x1,front,top),P(x0,front,top)];
+  face(frontPoints,frontPoints.map(p=>[208+p.x-x0,144+(62+p.y-p.z)-15]));
+  const rearPoints=[P(x1,back,bottom(x1)),P(x0,back,bottom(x0)),P(x0,back,top),P(x1,back,top)];
+  face(rearPoints,rearPoints.map(p=>[208+p.x-x0,148+top-p.z]));
+  for(const x of [x0,x1]){const points=[P(x,back,bottom(x)),P(x,front,bottom(x)),P(x,front,top),P(x,back,top)];
+    face(points,points.map(p=>[208+p.y-back,148+top-p.z]));
+  }
+  poly([P(x0,back,top),P(x1,back,top),P(x1,front,top),P(x0,front,top)],[[208,144],[224,144],[224,148],[208,148]],'roof');
+  m.authoredKey=key+'_chimney';
+ }
  // Decode source-space coordinates once using the source camera calibration.
  // Viewing elevation can then change without reshaping the physical model.
  for(const face of m.faces)for(const p of face.points){p.y/=0.5;p.z/=Math.cos(Math.PI/6);}
@@ -289,11 +340,13 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
   for(const role of ['home','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
   }
+  for(const key of ['dreamland_house','dreamland_wide','dreamland_corner'])if(scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
   for(const [id,{key,palette}] of variants){
    if(!scene.textures.exists(imageKey(key)))continue;
    const model=buildNative(scene,key);
    AuthoredRoofPalette.prepare(scene,model.texture,model,palette);
    models.set(id,model);
+   if(['dreamland_house','dreamland_corner'].includes(key))models.set(key+'_chimney:'+palette,buildNative(scene,key,true));
   }
   caches.set(scene.textures,models);
  }
@@ -328,6 +381,7 @@ function buildNative(s,key){const a=specFor(key),tex=material(s,key),W=a.right-a
    roof:o.roof||{u:256,v:616,w:period[0],h:period[1]},
    door:{u:du,v:dv+16,w:dw,h:dh,bottom:a.base-dv-dh},
    wall:[a.wall[0]+a.wall[2]/2,a.wall[1]+16+a.wall[3]/2],
+   ...(key==='dreamland_house'?{trim:[3.5,100.5],gableWindow:{u:24,v:72,w:16,h:20,bottom:5}}:{}),
    recolor:faces=>AuthoredRoofPalette.prepare(scene,native.texture,{authoredKey:key,faces},palette)};
  }
  root.AuthoredBuildings={SPECS,RESIDENCES,SHOP_ROOFS,recipeFor,prepare,build,skin};

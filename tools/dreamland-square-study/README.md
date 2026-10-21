@@ -4,7 +4,7 @@ The supplied reference is **Fantasy Dreamland Reborn Village**, not Rogue
 Adventure. This prototype selects installed source pixels; it does not recolor
 RA or paint the reference image over a map.
 
-The normal game supports `http://localhost:8000/?headingUp=false&deepforest=on&artTrial=dreamland`. Prefer that URL for playtesting. Production artwork is bundled under
+The normal game supports `http://localhost:8000/?deepforest=on&artTrial=dreamland`. Prefer that URL for playtesting. Production artwork is bundled under
 `assets/ArtTrials/DreamlandTerrain/`; rebuild it with the builder
 `--out assets/ArtTrials/DreamlandTerrain`.
 
@@ -34,7 +34,7 @@ with `python3 tools/dreamland-square-study/build_objects.py`. The object manifes
 records exact crops/assembly layers; no new objects spawn from this art profile.
 Actual DeepForest positions, house footprint/collision geometry, growth and lamp
 restoration states are preserved. Home's interior and special roles stay native
-to their existing gameplay. Unrestored wrecks retain their distinct ruin art.
+to their existing gameplay. Unrestored ordinary wrecks use native Dreamland plaster, roof fragments and timber on the existing broken 3D geometry.
 No fences, benches, new decorative interactables, cliffs or elevation are added.
 
 ## Road integration
@@ -67,22 +67,45 @@ terrain, underlays, object IDs and coordinates, lamp state and building models.
 This is a theme match on real geometry, not a recreation of the reference town
 layout. Existing gameplay lighting also makes the scene darker than the promo.
 
-## Complete profile verification
+## Authored reference map
 
-`node tools/dreamland-square-study/capture-match.cjs` produces an explicitly
-authored composition through the production hooks, with restored/unrestored
-state identity checks. It widens the camera and hides lighting/chrome only for
-the source-palette comparison; it is not geographic evidence. Its civic stone
-strip is fixture ground; the geographic screenshots exercise actual vector
-road paving. Run `VARIANT=dreamland RESTORED=1 CASES=athalmer node
-test/ra-geographic-visual.cjs` for actual map geometry with a separate restored
-review save. `node test/dreamland-objects-unit.cjs` checks opt-in isolation,
-growth, condition, source presence, special roles and deterministic patches.
+Run `node tools/dreamland-square-study/reference-server.cjs`, then open
+`http://localhost:8018/?sandbox=true&artTrial=dreamland`. This is an isolated,
+explicitly fake map for reference matching, with a disposable save. Q/E and the
+angle buttons rotate the normal 3D renderer; the condition button switches
+wrecks/restored houses and unlit/lit lamps. The fountain uses native animated
+water frames. Simulation is paused so the authored actors stay at their chosen
+reference positions; the fixture forwards Q/E through `HeadingUp.keyTurn`.
 
-Reference coverage: native red gables/windows/doors, round green crowns, olive
-ground with lime island edges, pale slabs, hanging lanterns, octagonal fountain,
-crates and signs. Existing world geometry dictates layout. No cliffs, fences,
-benches, long-grass clumps or new decorative interactables are introduced.
-Characters retain game art; fruit-tree harvest cues, dead-tree variants, ruins
-and special structures retain gameplay-specific art. These are explicit
-exceptions, not missing sprites silently substituted.
+`reference-layout.json` records pixel positions in the 640×360 reference frame,
+source crops, the four authored building footprints, and excluded fences/benches.
+The two upper houses and southwest house use closed native Dreamland 3D shells;
+the southeast house is the asymmetric gable plus right wing. The lower houses
+have true 3D native brick chimneys. These fixture-only proportions do not change
+how normal geographic buildings fit their actual footprints.
+
+Ground is a mosaic of installed source tiles, not the reference screenshot.
+`build_reference_ground.py --reference /path/to/reference.png` reconstructs
+visible ground at the measured 32px tile phase (16,4), allowing for GIF palette
+quantization. The data preserves source paths and rectangles. Occluded ground
+and ground beneath excluded fences/benches require explicit choices; the source
+image is never drawn as a backdrop. Generic fixture props render through the
+normal object specification and depth sorting, with no gameplay interactions
+invented for them. Native character frames come from the original Dreamland
+pack; village objects come from Dreamland Reborn.
+
+With the server running, `node tools/dreamland-square-study/capture-match.cjs`
+writes `restored.png`, `unrestored.png`, `rotated45.png`, `rotated90.png` and
+`audit.json` under `/tmp/dreamland-reference-final` (or `OUT_DIR`). Each capture
+is exactly 640×360. Lighting/chrome are hidden for this source-art comparison,
+and animation is frozen to a declared frame; interactive review stays animated.
+The check asserts real 3D models, stable object identity across restoration,
+lamp condition, fountain presence, WebGL status and actual Q-key rotation.
+
+For normal real-world geometry, run `VARIANT=dreamland RESTORED=1 CASES=athalmer
+node test/ra-geographic-visual.cjs`. `node test/dreamland-objects-unit.cjs` checks
+profile isolation, growth, condition, special roles and deterministic patches.
+The normal game retains fruit-tree harvest cues, dead-tree variants, special
+structures and existing actors; the reference map's inventory is a separate,
+explicitly authored visual test. Canvas retains native collapsed/intact facade
+sprites; WebGL uses the retained 3D renderer.
