@@ -30,6 +30,10 @@
    // blacksmith's own post and infill so the added supports share its palette.
    ctx.drawImage(image,132,60,1,1,0,628,256,1);
    for(let x=0;x<256;x+=16)ctx.drawImage(image,115,60,1,1,x,628,2,1);
+   // Real-lot gables repeat native stone courses and vertical timber, not a
+   // single grey texel. Keep the native model's one-row gable strip intact.
+   for(let x=0;x<32;x+=24)ctx.drawImage(image,120,56,Math.min(24,32-x),16,x,640,Math.min(24,32-x),16);
+   ctx.drawImage(image,113,56,6,16,0,640,6,16);
   }
   // Broad gable infill repeats native wood/brick courses instead of stretching
   // the complete triangular artwork across a much wider wall.
@@ -50,6 +54,11 @@
   if(spec.door){const [u,v,w,h]=facadeDoorRect(spec,key);for(let x=0;x<w;x+=sw){const width=Math.min(sw,w-x);f.drawImage(image,sx,v,width,h,u-spec.left+x,v-spec.eave,width,h);}}
   ctx.save();ctx.beginPath();ctx.rect(256,900,256,H);ctx.clip();for(let x=256;x<512;x+=sw)ctx.drawImage(image,sx,spec.eave,sw,H,x,900,sw,H);ctx.restore();
   ctx.save();ctx.beginPath();ctx.rect(0,900,256,H);ctx.clip();for(let x=0;x<256;x+=W)ctx.drawImage(facade,x,900);ctx.restore();
+  if(key==='fdr'){
+   // Tie the upper-storey posts together below the new gable infill. Use
+   // the source's existing floor beam across both facade bays and fillers.
+   for(let x=0;x<512;x+=24)ctx.drawImage(image,120,76,Math.min(24,512-x),4,x,900,Math.min(24,512-x),4);
+  }
   if(key==='trader'){
    // Taller hidden walls continue the front's plaster, timber and windows.
    // Keep native pixel density; the door and its surround were erased above.

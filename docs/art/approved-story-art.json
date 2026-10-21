@@ -1868,17 +1868,17 @@
     },
     {
       "key": "story_wrecks_frame2",
-      "master_path": "approved-story-art/story_wrecks_frame2.png",
-      "master_sha256": "80e47b5d46ffaca0cfc2f9659235deee4668933b70dd00daab8a47846159a0d6",
+      "master_path": "approved-story-art/story_wrecks_frame2-walk.png",
+      "master_sha256": "cbf5ccd8053aab73fffe074b79bfe0f7b5198cda41090fbbb71e3552ab38fa8d",
       "width": 1448,
       "height": 1086,
       "export_width": 512,
       "export_height": 384,
-      "sha256": "ddc5d278d6a983dad8b1350bcbcf9a4048d61eda6984f91758545cd81d3e85b6",
-      "method": "regenerated",
+      "sha256": "ac032e0aec1048710b21b9234953b9930aa560b5640d6a67ca6b7463267fc44f",
+      "method": "reference_edit",
       "crop": null,
-      "prompt": "Use case: precise-object-edit. Edit Image 1, preserving its original painterly pixel artwork, palette and framing as closely as possible. Change only Hood's proportions: the centered rear-facing traveler looks too short/chibi. Make the player modestly taller with adult legs and torso, keeping the same foot location and small scale in this wide ruined-village composition. Keep original painterly pixel technique, muted palette, all architecture, perspective and mood. Do not zoom in, brighten, or redesign the scene. Output one 4:3 landscape painting. Use only the existing upper painted scene, remove the old lower blank/text zone; art fills the frame, no text. Image 2 is reference ONLY for Hood's concealed face and adult proportions if needed, NOT a source of any new subjects, colors or scenery. Do not restyle or recompose the rest of the original. No characters or props from Image 2 may be added.",
-      "reuses": "story_wrecks"
+      "prompt": "Use case: precise-object-edit. Create the second animation frame for a game's opening ruined-street scene. Image 1 is the EDIT TARGET and must remain the exact composition, background, framing and pixel-art style. Image 2 is the HISTORICAL SECOND FRAME showing ONLY the requested movement: Hood has walked farther away down the street. Edit Image 1 by removing Hood from the near foreground and placing the SAME adult-proportioned brown-hooded backpacked traveler farther along the CENTER of the street, roughly at 50% image width and feet at 69% image height, about 60% of the first image's character height. Rear view, face concealed, natural walking posture. Fill the former character area naturally with the existing stone road. Preserve the scenery, buildings, horizon, orange sky, clouds, palette, texture and composition pixel-for-pixel as closely as possible so the two frames dissolve without a camera jump. Keep low-resolution pixel clusters, no smoothing or new detail. Exact 4:3 landscape canvas, artwork to all edges, no text, no borders, opaque background. Only one traveler, no added objects. Return just the edited second frame.",
+      "generator": "built-in image_gen"
     },
     {
       "key": "street_bandit",
@@ -2910,16 +2910,19 @@
     },
     {
       "key": "story_nightmare_frame2",
-      "master_path": "../opening-story-refresh/story_nightmare_frame2.png",
-      "master_sha256": "451572f5146cdcdf8c6fbef901cf3ea3959d1c9da8167e7612830cd6d5511304",
+      "master_path": "approved-story-art/story_nightmare_frame2-zoom.png",
+      "master_sha256": "d8b66f3f4d77c316fd10e5e0801e98662699732b9a89c824a1d51cd14a00183d",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "d19bc378390aa88a8cb69029c8b759f1ba46c8ac7b72e50c32f06dcd9b69c9d3",
-      "method": "regenerated",
-      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+      "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "method": "reference_edit",
+      "reference": "assets/art/story_nightmare_frame2.webp; central red dragon face",
+      "generator": "built-in image_gen",
+      "intrinsic_zoom": 1.45,
+      "prompt": "Edit the supplied existing pixel-art dragon battle frame into a sharply resolved closer camera shot. Output a single portrait 2:3 image, ideally 1024x1536 or larger. This is frame 2 of a continuous zoom sequence, not a redesign. Enlarge the entire reference composition by exactly 1.45x around the anchor at 59% of image width and 21% of image height. That anchor near the central RED dragon's glowing eye must stay at 59% width,21% height in the result. Crop outside the portrait canvas; do not fit the whole original scene back into the image. All visible subjects, head poses, identities, architecture, flames, wings and smoke retain the exact spatial relationships from this reference. Central red dragon face is the focus; maintain its red scales, horns, eye, teeth and mouth silhouette exactly. Keep the five-headed hydra and opposing white dragon consistent, showing only whatever portions remain inside the tighter camera crop. Recover crisp high-resolution pixel-art details in scales, horns, eye, teeth and flames rather than blurry enlarged source pixels. No softened interpolation, no text, no new heads, no extra objects, no composition changes other than the specified optical zoom. Preserve dark red and black palette and bright lava-fire lighting. One frame only, not a contact sheet."
     },
     {
       "key": "story_nightmare_close",
@@ -2946,6 +2949,64 @@
       "sha256": "033cafddb1569c5bc18b7e0e385d7fe25e2dec28ef2650f1eba4429fc1b38aec",
       "method": "regenerated",
       "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+    },
+    {
+      "key": "story_nightmare_frame3",
+      "master_path": "approved-story-art/story_nightmare_frame3-side-no-fire-b37e89cc.png",
+      "master_sha256": "741f797b376d82278f2fffd286964ef24345e6224ffc2a859045c053a0d8b7da",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "method": "reference_edit",
+      "generator": "built-in image_gen",
+      "intrinsic_zoom": 1.74,
+      "prompt": "Precise local image edit. IMAGE1 is the TARGET frame3; IMAGE2 is ONLY the central red dragon's SIDE-FACING POSE reference. Output1024x1536. Keep IMAGE1 camera, zoom, framing and every peripheral dragon, white head, city building, flame and smoke shape in exactly the same pixel positions. Do not change, zoom, move, resize or repaint that background. Change ONLY the central RED dragon head in the upper middle. It must NOT begin turning toward the viewer: restore the same side-facing/right-facing angle as the red dragon in IMAGE2, with just ONE visible glowing eye, long snout pointing RIGHT and slightly downward. No second eye, no frontal symmetry, no gaze at viewer. Keep the skull's SIZE and CENTER as in IMAGE1; rotate it locally in place to the reference profile without enlarging head or neck. It has JUST STOPPED BREATHING FIRE: mouth closes or nearly closes, upper and lower jaws almost touching with a narrow tooth-lined gap; absolutely no flame jet, sparks, embers or smoke leaving its lips. Preserve red scales, jagged horns, neck connection, lighting, fine pixel-painted texture and menacing identity. This is the quiet cessation-of-fire beat BEFORE the later sudden frontal turn. Image2 only supplies yaw angle, not its open mouth/fire, camera, overall composition or scale. Preserve IMAGE1 entire background and proportions. No new heads, limbs, objects, text or borders.",
+      "reference": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
+      "sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
+      "reference_sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
+          "sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
+          "role": "primary edit target: preserve whole composition, scene scale and background"
+        },
+        {
+          "path": "approved-story-art/story_nightmare_frame2-reference-side-no-fire-b37e89cc.webp",
+          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+          "role": "supporting reference: side-facing central head pose only"
+        }
+      ]
+    },
+    {
+      "key": "story_nightmare_frame4",
+      "master_path": "approved-story-art/story_nightmare_frame4-scenezoom-9bdf3a9c.png",
+      "master_sha256": "3602cf644efb3e824497e79f852cb435dd4b0dd6f6f3aa8740d04a2b8ae8032d",
+      "width": 1024,
+      "height": 1536,
+      "export_width": 1024,
+      "export_height": 1536,
+      "aspect": 0.6666666666666666,
+      "method": "reference_edit",
+      "generator": "built-in image_gen",
+      "intrinsic_zoom": 2.088,
+      "prompt": "Create final FRAME4 by EDITING IMAGE1, the near-frontal dragon battle. IMAGE1 is the ONLY composition and size reference. IMAGE2 is ONLY an expression/anatomy reference for frontal closed-mouth stare: IGNORE its oversized head and neck dimensions. Output1024x1536. First apply exactly UNIFORM1.20x optical zoom to ALL of IMAGE1 around(604,323). Every head, wing, white dragon, citytower, fire and smoke grows20percent together; crop outside edges. White dragon eye from image1 near(865,905) should end near(917,1021), white head prominently larger and more cropped at right/bottom, NEVER reduced to make room for red head. Central citytower from(700,1160) moves near(719,1327), so only tower tops remain at bottom. Then central red skull completes its SMALL remaining turn IN PLACE from almost frontal to fully frontal, BOTH eyes staring at viewer, jaws fully CLOSED, absolutely NO fire/embers/breath from its mouth. Crucial physical-scale rule: central red face width without horns should be around300-350pixels, NOT600-800pixels. Do not invent a giant head, do not advance red head toward camera independently, do not grow a huge red neck down the middle. Its eye-pair midpoint should remain near(555,350) with snout tip roughly(555,550); it rotates on existing neck with same skull size as image1 enlarged20percent, comparable physical scale to neighboring heads. Preserve red dragon horn shapes, scales, menacing closedmouth expression of image2 in this smaller consistent skull. The surrounding dragons subtly shift their jaws/necks/wings and flames/smoke change shape in same anchored locations. Existing number and identities only. Keep the high-detail dark fantasy pixel-painted red-black look, no blur, no text or border, no extra heads. Avoid hero-poster composition: this is a uniform zoom into an ensemble battle, not an isolated enormous central face.",
+      "reference": "approved-story-art/story_nightmare_frame3-scenezoom-cf04eb9f.png",
+      "sha256": "bb10c10355e906f15878bc7ce516b768cd77e366303175bda1a4d9cbb3c258cd",
+      "reference_sha256": "8c8ef677315ab82d5ed55a36d975cc2e07fbc95fa1771e0310bf7543f4381234",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare_frame3-scenezoom-cf04eb9f.png",
+          "sha256": "8c8ef677315ab82d5ed55a36d975cc2e07fbc95fa1771e0310bf7543f4381234",
+          "role": "composition and uniform scene-scale baseline"
+        },
+        {
+          "path": "approved-story-art/story_nightmare_frame4-expression-reference-scenezoom-9bdf3a9c.webp",
+          "sha256": "ec33fcb120d383607a4d30dc9cfb8115a7750eb2d58ae28ab728e85883e30822",
+          "role": "frontal expression only; oversized skull proportions explicitly excluded"
+        }
+      ]
     }
   ]
 }

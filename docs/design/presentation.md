@@ -139,14 +139,17 @@ pixels and decorative details do not define additional tap cells.
 - The four opening panes show the compass discovery, dragon-war dream,
   house awakening, then the ruined street. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
-  four aligned portrait paintings under one camera. They dissolve in sequence
-  on a 12-second loop during the 16-second push toward the dragon's eye,
-  continuing after the camera stops. Dragons, flames and smoke move between
+  four aligned portrait paintings under one camera. They dissolve once in
+  sequence during the 16-second push toward the dragon's eye. Each successive
+  frame has a tighter crop; the fourth holds after the camera stops, avoiding
+  a pullback to the first frame. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
   bright fire. A soft stationary lower gradient keeps the copy edge dark.
   Awakening uses close and wide views of its existing two paintings, fading
   between pairs while pulling back. Both camera moves begin with a short pause;
-  the dream pushes in slowly and awakening pulls back a little faster.
+  the dream pushes in slowly and awakening makes a shallow 14-second pullback.
+  The street's second painting shows Hood farther along the road; it must remain
+  distinct from the first painting so the final dissolve has visible movement.
   Discovery and the dream are borderless fullscreen panels. Awakening and the
   ruined street use the living-silver compass story sheet, with readable copy
   below the art and immediately available advance buttons. Reduced-motion
@@ -454,11 +457,42 @@ pixels and decorative details do not define additional tap cells.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
-- The opening nightmare pushes toward Tiamat’s red eye over 16 seconds while
-  four aligned paintings cycle continuously. Its irregular painted lower fade
-  preserves bright flames longer; a soft stationary gradient blends the bottom
-  into black throughout the zoom. The wake pair pulls back from Hood’s faint
-  eye glints over nine seconds. Reduced motion shows the static first frames.
+- The opening nightmare uses four full-resolution paintings. Later paintings
+  redraw progressively closer crops of the entire scene. Runtime inverse zoom
+  offsets are 1/1.5, 1/1.92 and 1/2.112 around Tiamat’s eye (59% across,
+  21% down). These use measured head sizes rather than the nominal art crops:
+  face-patch comparisons give adjacent scale ratios near 1.5, 1.28 and 1.10.
+  Every outgoing and incoming image shares the same camera, preserving those
+  scale offsets throughout each fade. Painted head motion and perspective
+  still vary locally; the offsets match overall head scale, not every contour.
+  Tiamat stops breathing fire while staying side-facing in the third painting,
+  then turns toward the viewer for her closed-mouth stare in the fourth;
+  her head turns in place rather than growing independently. Peripheral
+  dragons keep shifting as flames flicker and smoke curls.
+  One continuous camera zoom runs from 1.5× to 4.2× over 13.33 seconds,
+  starting slowly, pushing in through the middle, then slowing throughout
+  the final quarter (3.33 seconds) to settle on the final frame.
+  Camera velocity stays continuous between segments.
+  Its aim at 55.6% across and 16.9% down places the final frontal face at the
+  exact horizontal and vertical center of the portrait frame, separately
+  from the paintings’ crop registration. Starting closer lets the incoming
+  painting cover the canvas as the first fade begins after 1.03 seconds.
+  The equally spaced fades start at 6.444%, 39.444% and 72.444% and last
+  2.37 seconds each, leaving a fade active for 53.33% of the sequence. The first two
+  are linear; the final fade uses a steeper symmetric easing curve so the
+  turn toward the viewer is more sudden while its midpoint stays on schedule.
+  The opening animation delay is 166.67 milliseconds.
+  A shared city plate from the first painting sits above the changing frames
+  inside the same camera. Its skyline mask stays opaque over every building
+  and feathers only the smoke above the roofs, preventing architectural drift.
+  Dragon and flame motion remains in the exposed upper scene; smoke near the
+  city changes only along the narrow feathered edge.
+  The portrait canvas clips older frames to prevent spill into its letterbox.
+  A stationary viewport mask softly fades its bottom 10% into the black backdrop,
+  outside the camera so every frame and zoom level keeps the same soft edge.
+  Hood’s wake painting pulls back from 1.75× to 1.25× over fourteen seconds.
+  The street’s distinct second painting shows Hood farther down the road.
+  Reduced motion keeps each slide’s first painting still.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

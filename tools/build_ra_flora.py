@@ -35,7 +35,7 @@ def build():
         sheet['image'].paste(art, (x, y))
         sheet['frames'].append(frame)
         sheet.update(frameWidth=fw, frameHeight=fh)
-        box = art.getchannel('A').getbbox()
+        box = art.getchannel('A').point(lambda a: 255 if a >= 16 else 0).getbbox()
         assert box, row['id']
         for key in row['keys']:
             bounds[f'{key}:{frame}'] = dict(fw=fw, fh=fh,

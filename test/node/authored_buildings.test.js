@@ -20,16 +20,16 @@
       }
     }
   });
-  test('authored buildings: Home alone is the orange-roofed cabin', () => {
+  test('authored buildings: Home alone uses the cabin and residences retain stable palettes', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');
     assert.falsy(AuthoredBuildings.RESIDENCES.includes('pp_cabin'), 'no other house is a log cabin');
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
       assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
-    for (let i = 0; i < 200; i++) {
+    for (let i = 0; i < 1000; i++) {
       const id = `house:${i}`, first = recipe('plain', id), again = recipe('plain', id, 7);
-      assert.eq(first.palette, 'yellow');
+      assert.eq(first.palette, AuthoredBuildings.SPECS[first.key].ppFlat ? 'native' : 'yellow');
       assert.eq(first.key, again.key, 'rank does not replace a residential facade');
       assert.truthy(AuthoredBuildings.SPECS[first.key]);
       seen.add(first.key);
@@ -58,48 +58,58 @@
     }
     assert.eq(seen.length, 1, 'the roof palette is applied once');
   });
-  test('authored buildings: tier-one smith keeps the ground floor and full-size door', () => {
-    const spec = AuthoredBuildings.SPECS.fdr;
-    const skin = { spec, template: {}, texel: 0.5, flat: false,
-      facade: { v: 900, rows: 64 }, roof: { u: 256, v: 616, w: 240, h: 240 },
-      door: { u: 155, v: 96, w: 26, h: 26, bottom: 6 }, wall: [132, 96], recolor() {} };
-    const lot = [{x:0,y:0},{x:80,y:0},{x:80,y:60},{x:0,y:60}];
-    const mesh = BuildingLowPoly.authoredOutline(skin, lot, 0, recipe('blacksmith', 'smith', 1).facadeRows);
-    const facade = mesh.faces.filter(f => f.kind === 'wall' && f.layer === 0 && f.points.some(p => p.z === 0));
-    assert.eq(Math.max(...facade.flatMap(f => f.points.map(p => p.z))), 18);
-    const pixels = facade.flatMap(f => f.points.map(p => p.tv * 1024));
-    assert.eq(Math.min(...pixels), 928, 'upper-storey pixels are cropped');
-    assert.eq(Math.max(...pixels), 964, 'ground-floor pixels stay seated');
-    const door = mesh.faces.filter(f => f.layer === 0.1).flatMap(f => f.points.map(p => p.z));
-    assert.eq(Math.max(...door) - Math.min(...door), 13, 'door is not scaled down');
+  test('authored buildings: every tier-one business uses the white cottage with its trade identity', () => {
+    const colors = { blacksmith: 'slate', trader: 'green', seed: 'lime', supply: 'blue',
+      potion: 'teal', relic: 'red', pet: 'rose', book: 'plum', shop: 'blue' };
+    for (const [role, palette] of Object.entries(colors)) {
+      for (const id of ['shop:first', 'shop:second']) {
+        const r = recipe(role, id, 1);
+        assert.eq(r.key, 'pp_plaster', role + ': white cottage');
+        assert.eq(r.palette, palette, role + ': original roof color');
+        assert.eq(r.emblem, role, role + ': sign and roof emblem identity');
+        assert.eq(r.facadeRows, undefined, role + ': full cottage facade');
+        assert.eq(recipe(role, id).key, r.key, 'default tier is one');
+      }
+    }
+    assert.eq(recipe('plain', 'residence').emblem, undefined, 'residences have no trade emblem');
+    assert.eq(recipe('home', 'player').key, 'pp_cabin');
+  });
+  test('authored buildings: startup prepares both cottage and upgraded service models', () => {
+    const requested = new Set();
+    AuthoredBuildings.prepare({ textures: { exists(key) { requested.add(key); return false; } } });
+    for (const key of ['pp_plaster', 'fdr', 'steam_blacksmith', 'trader', 'market', 'city_storefront'])
+      assert.truthy(requested.has('authored_source_' + key), key + ': available after an upgrade without restarting');
   });
   test('authored buildings: wizard towers and the fort hall keep whole shells', () => {
     const scene = { textures: { exists: () => false } };
     for (const key of ['wizard', 'steam_wizard', 'city_gearhouse']) assert.eq(AuthoredBuildings.skin(scene, key, 'purple'), null, key);
   });
-  test('authored buildings: every shop line uses a commercial model and a distinct signature', () => {
+  test('authored buildings: upgraded shops keep commercial models and distinct roof colors', () => {
     const colors = new Set();
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES)]) {
-      for (const tier of [1, 3, 4, 7]) {
+      for (const tier of [2, 3, 4, 7]) {
         const r = recipe(role, 'shop:fixture', tier);
-        assert.includes(['market', 'city_storefront'], r.key, role);
+        assert.eq(r.key, ['supply', 'relic', 'book'].includes(role) ? 'city_storefront' : 'market', role);
+        assert.eq(r.emblem, undefined, 'cottage dressing is limited to tier one');
         assert.falsy(r.palette === 'yellow', 'residential color is reserved');
         assert.eq(r.palette, recipe(role, 'another-shop', 1).palette, 'signature persists across rank and identity');
       }
       colors.add(recipe(role, 'shop:fixture').palette);
     }
     assert.eq(colors.size, Shops.THEMES.length + Object.keys(Shops.SOLO_LINES).length);
-    assert.includes(['market', 'city_storefront'], recipe('shop', 'legacy').key);
+    assert.includes(['market', 'city_storefront'], recipe('shop', 'legacy', 2).key);
   });
   test('authored buildings: service landmarks preserve their role across upgrades', () => {
-    assert.eq(recipe('blacksmith', 'smith', 1).facadeRows, 36);
+    assert.eq(recipe('blacksmith', 'smith', 1).key, 'pp_plaster');
+    assert.eq(recipe('blacksmith', 'smith', 2).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 2).facadeRows, undefined);
     assert.eq(recipe('blacksmith', 'smith', 3).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 4).key, 'steam_blacksmith');
     assert.eq(recipe('blacksmith', 'smith', 1).palette, recipe('blacksmith', 'smith', 7).palette);
     assert.eq(recipe('fort', 'fort').key, 'city_gearhouse');
     assert.eq(recipe('fort', 'fort').palette, 'copper');
-    assert.eq(recipe('trader', 'trader').key, 'trader');
+    assert.eq(recipe('trader', 'trader', 2).key, 'trader');
+    assert.eq(recipe('trader', 'trader', 7).key, 'trader');
     assert.eq(recipe('trader', 'trader').palette, 'green');
     assert.eq(recipe('wizard', 'first', 1, false).key, 'wizard');
     assert.eq(recipe('wizard', 'second', 1, true).key, 'steam_wizard');

@@ -1071,28 +1071,28 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
-    /* Four registered paintings move throughout the camera push. Lower
-       layers reset only after the next painting fully covers them. */
+    /* Match painted head sizes, not the nominal zoom requested for the art.
+       Measured adjacent ratios are about 1.5, 1.28 and 1.10; their cumulative
+       inverse offsets keep scale stable throughout each shared-camera fade. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
-      animation: nightmare-frame-two 12s ease-in-out 750ms infinite;
+      transform-origin: 59% 21%;
+      transform: scale(calc(1 / 1.5));
+      animation: nightmare-frame-two var(--nightmare-pan-ms, 13.333333s) linear 166.666667ms both;
     }
-    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; }
-    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; }
+    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
+    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; animation-timing-function: cubic-bezier(.75, 0, .25, 1); transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
-      0%, 12.5% { opacity: 0; }
-      25%, 50% { opacity: 1; }
-      50.01%, 100% { opacity: 0; }
+      0%, 6.444444% { opacity: 0; }
+      24.222222%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-three {
-      0%, 37.5% { opacity: 0; }
-      50%, 75% { opacity: 1; }
-      75.01%, 100% { opacity: 0; }
+      0%, 39.444444% { opacity: 0; }
+      57.222222%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-four {
-      0%, 62.5% { opacity: 0; }
-      75%, 87.5% { opacity: 1; }
-      100% { opacity: 0; }
+      0%, 72.444444% { opacity: 0; }
+      90.222222%, 100% { opacity: 1; }
     }
     @keyframes story-crossfade {
       from { opacity: 0; }
@@ -1116,35 +1116,60 @@
     #story.nightmare .art { position: relative; container-type: size; isolation: isolate; }
     #story.nightmare .opening-copy { position: relative; z-index: 1; }
     #story.nightmare .story-skip { z-index: 1; }
-    /* Anchor the fade to the viewport so the painted smoke cannot zoom
-       away and expose bright art beneath the dream copy. */
-    #story.nightmare .art::after {
-      content: ""; position: absolute; inset: 0; pointer-events: none;
-      background:
-        radial-gradient(ellipse at 14% 106%, rgba(0, 0, 0, .45), transparent 48%),
-        radial-gradient(ellipse at 83% 112%, rgba(0, 0, 0, .35), transparent 43%),
-        linear-gradient(to bottom, transparent 78%, rgba(0, 0, 0, .2) 90%, #000 100%);
-    }
     #story .nightmare-scene {
       position: absolute; left: 50%; top: 50%;
+      overflow: hidden;
       width: min(100cqw, 66.6667cqh); height: min(100cqh, 150cqw);
       transform: translate(-50%, -50%);
     }
     #story .nightmare-camera {
       position: absolute; inset: 0;
-      transform-origin: 59% 21%;
-      animation: nightmare-pan var(--nightmare-pan-ms, 16s) cubic-bezier(.3, 0, .3, 1) 750ms both;
+      /* Camera aim is independent of the paintings' crop registration. */
+      transform-origin: 55.6% 16.9%;
+      animation: nightmare-pan var(--nightmare-pan-ms, 13.333333s) linear 166.666667ms both;
+    }
+    /* Fade the whole portrait viewport, outside the zooming camera. The
+       transparent final half-percent also removes fractional-pixel seams. */
+    #story .nightmare-scene {
+      mask-image: linear-gradient(to bottom, #000 90%, rgba(0, 0, 0, .84375) 92.5%,
+        rgba(0, 0, 0, .5) 95%, rgba(0, 0, 0, .15625) 97.5%, transparent 99.5%);
     }
     #story.nightmare .story-frames {
       position: absolute; inset: 0;
     }
+    /* One city plate stays registered to the camera across every dissolve.
+       Its mask is opaque over all buildings; only the smoke edge feathers. */
+    #story .nightmare-city {
+      position: absolute; inset: 0; pointer-events: none;
+      background: url('assets/art/story_nightmare.webp') center / 100% 100% no-repeat;
+      mask: url('assets/art/story_nightmare_city_mask.svg') center / 100% 100% no-repeat;
+    }
     @keyframes nightmare-pan {
-      from { transform: translate(0, 0) scale(1); }
-      to { transform: translate(0, 5%) scale(2.3); }
+      /* Keep the slow opening and midpoint push, then ease the final
+         frame toward rest over the last quarter of the camera motion. */
+      0% {
+        transform: scale(1.500000);
+        animation-timing-function: cubic-bezier(.333333, 0.228673, .666667, 0.562006);
+      }
+      25% {
+        transform: scale(1.930017);
+        animation-timing-function: cubic-bezier(.333333, 0.269044, .666667, 0.562615);
+      }
+      50% {
+        transform: scale(2.630069);
+        animation-timing-function: cubic-bezier(.333333, 0.300209, .666667, 0.727083);
+      }
+      75% {
+        transform: scale(3.650000);
+        animation-timing-function: cubic-bezier(.333333, 0.506103, .666667, 1.000000);
+      }
+      100% {
+        transform: scale(4.200000);
+      }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
-      animation: wake-pullback 9s ease-in-out 750ms both;
+      animation: wake-pullback 14s ease-in-out 750ms both;
     }
     /* Reuse the wake paintings for the close pair. The shared camera keeps
        its crop registered while that pair dissolves into the wide pair. */
@@ -1160,7 +1185,7 @@
     }
     @keyframes wake-pullback {
       from { transform: scale(1.75); }
-      to { transform: scale(1); }
+      to { transform: scale(1.25); }
     }
     @media (prefers-reduced-motion: reduce) {
       #story .wake-camera > .story-frames,
@@ -2752,14 +2777,14 @@
     // gate shows these before the safety/location CTA; replay uses that same gate.
     //
     // The dream camera animates while its button remains immediately available.
-    const STORY_PAN_MS = 16000;
+    const STORY_PAN_MS = 16000 / 1.2;
     const STORY_SLIDES = [
       {
         art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
         text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
-        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city as the dream draws closer to her glowing eyes."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div></div></div>',
+        art: '<div class="nightmare-scene"><div class="nightmare-camera"><div class="story-frames"><img src="assets/art/story_nightmare.webp" alt="Tiamat clashes with a white dragon above a burning city. As the dream draws closer, her head turns toward you, stops breathing fire, and fixes you with a silent stare."><img class="nightmare-frame" src="assets/art/story_nightmare_frame2.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame3.webp" alt="" aria-hidden="true"><img class="nightmare-frame" src="assets/art/story_nightmare_frame4.webp" alt="" aria-hidden="true"></div><div class="nightmare-city" aria-hidden="true"></div></div></div>',
         text: 'That night you enter fitful dreams...', btn: 'wake up', nightmare: true,
       },
       {
@@ -3212,7 +3237,7 @@
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=ce50d02b"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=4d65e095"></script>
+  <script src="src/render.js?v=7895c541"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=f939dd1a"></script>
@@ -3222,28 +3247,28 @@
   <script src="src/wall_surface_renderer.js?v=d1164603"></script>
   <script src="src/prop_lowpoly.js?v=7a976750"></script>
   <script src="src/wall_perspective.js?v=df3f4464"></script>
-  <script src="src/building_styles.js?v=b503f242"></script>
+  <script src="src/building_styles.js?v=d936c33a"></script>
   <script src="src/authored-buildings/roof-materials.js?v=5cb7dd3c"></script>
-  <script src="src/authored-buildings/facade-materials.js?v=86d5ca21"></script>
-  <script src="src/authored-buildings/flat-buildings.js?v=8e27bb14"></script>
+  <script src="src/authored-buildings/facade-materials.js?v=3c611157"></script>
+  <script src="src/authored-buildings/flat-buildings.js?v=a910954c"></script>
   <script src="src/authored-buildings/wizard-tower.js?v=1f937faf"></script>
   <script src="src/authored-buildings/steam-home.js?v=7ffaace6"></script>
   <script src="src/authored-buildings/steam-blacksmith.js?v=4c3070b4"></script>
   <script src="src/authored-buildings/steam-wizard.js?v=6dd87779"></script>
   <script src="src/authored-buildings/city-buildings.js?v=cde9efc7"></script>
-  <script src="src/authored_roof_palette.js?v=70ee5138"></script>
-  <script src="src/authored_buildings.js?v=6d387035"></script>
+  <script src="src/authored_roof_palette.js?v=72bd9c4d"></script>
+  <script src="src/authored_buildings.js?v=a4df867a"></script>
   <script src="src/authored_building_renderer.js?v=87e8df1e"></script>
-  <script src="src/building_lowpoly.js?v=4d576f77"></script>
-  <script src="src/building_overlay.js?v=76a1cbeb"></script>
-  <script src="src/art_atlas.js?v=9bea921d"></script>
+  <script src="src/building_lowpoly.js?v=1997605f"></script>
+  <script src="src/building_overlay.js?v=35e0bce6"></script>
+  <script src="src/art_atlas.js?v=bcd97f7b"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>
   <script src="src/assets.js?v=b66880c3"></script>
   <script src="src/art-trials.js?v=6081aac9"></script>
   <script src="src/ra_terrain_trial.js?v=eb27b1dc"></script>
   <script src="src/dreamland_objects.js?v=7f3db73d"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
-  <script src="src/rogue_prop_profile.js?v=83bf6862"></script>
+  <script src="src/rogue_prop_profile.js?v=61b9bbad"></script>
   <script src="src/rogue_objects.js?v=388865a5"></script>
   <script src="src/sandbox_destinations.js?v=b40995bb"></script>
   <script src="src/sandbox.js?v=def47b20"></script>
@@ -3252,7 +3277,7 @@
   <script src="src/sandbox_art.js?v=ec5360fe"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
-  <script src="src/art_thumbs.js?v=dfb617d4"></script>
+  <script src="src/art_thumbs.js?v=fad6955c"></script>
   <script src="src/modal_shell.js?v=d88dfa8c"></script>
   <script src="src/scene_geo.js?v=6acf1a1f"></script>
   <script src="src/npc.js?v=a8acecba"></script>

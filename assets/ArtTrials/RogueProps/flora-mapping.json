@@ -147,18 +147,18 @@
     "zone_hedge_single:0": {
       "fw": 24,
       "fh": 24,
-      "minX": 0,
-      "minY": 1,
+      "minX": 1,
+      "minY": 2,
       "maxX": 23,
-      "maxY": 24
+      "maxY": 23
     },
     "approved_clipped_hedge:0": {
       "fw": 24,
       "fh": 24,
-      "minX": 0,
-      "minY": 1,
+      "minX": 1,
+      "minY": 2,
       "maxX": 23,
-      "maxY": 24
+      "maxY": 23
     },
     "approved_wetland_reeds:0": {
       "fw": 16,

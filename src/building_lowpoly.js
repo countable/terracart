@@ -129,7 +129,7 @@
     if(ring.reduce((n,p,i)=>n+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring=[...ring].reverse();
     const band=(outer,inner,flag,layer)=>outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],c=inner[(i+1)%inner.length],d=inner[i];
       for(const tri of [[a,b,c],[a,c,d]]){add(tri.map(p=>({x:p.x,y:p.y,z:z+.01,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{[flag]:true,layer,inkGroup:1});}});
-    const rim=BuildingStyles.inset(ring,LOOK.flatRim),shade=rim&&BuildingStyles.inset(ring,LOOK.flatShade);
+    const rim=BuildingStyles.inset(ring,LOOK.flatRim,2),shade=rim&&BuildingStyles.inset(ring,LOOK.flatShade,2);
     if(rim&&rim.length===ring.length)band(ring,rim,'rim',z-.004);
     if(shade&&shade.length===ring.length)band(rim,shade,'rimShade',z-.005);
   }
@@ -137,7 +137,7 @@
   // indexes) whose facade centres the door bay — the street door's wall
   // (owner, Oct 2026: doors face the nearest street). Without one, the
   // longest wall lowest on screen takes the door, as before.
-  function buildGeometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null){
+  function buildGeometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null,roofRise=14){
     const {ring,triangles}=triangulate(input);
     if(!triangles.length)return {ring,faces:[],roofTriangles:0,wallTriangles:0};
     // The longest facade defines a stable roof direction; camera heading never does.
@@ -146,8 +146,29 @@
     // Reduce the offset around tiny returns rather than bridging a notch.
     let roofRing=ring,actualOverhang=0;
     if(overhang&&variant!=='flat'&&typeof BuildingStyles!=='undefined'){
+      const pointSegment=(p,a,b)=>{const dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+        return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);};
+      const clearance=(loop,i,j)=>{const a=loop[i],b=loop[(i+1)%loop.length],c=loop[j],e=loop[(j+1)%loop.length];
+        return Math.min(pointSegment(a,c,e),pointSegment(b,c,e),pointSegment(c,a,b),pointSegment(e,a,b));};
+      // inset() limits a vertex's miter displacement to five offsets. Two
+      // edges cannot halve a gap wider than twenty offsets; skip those pairs.
+      const reach=overhang*20,boxes=ring.map((a,i)=>{const b=ring[(i+1)%ring.length];
+        return {left:Math.min(a.x,b.x),right:Math.max(a.x,b.x),top:Math.min(a.y,b.y),bottom:Math.max(a.y,b.y)};});
+      const gaps=[];
+      for(let i=0;i<ring.length;i++)for(let j=i+2;j<ring.length;j++)if(i!==0||j!==ring.length-1){
+        const a=boxes[i],b=boxes[j];
+        if(Math.hypot(Math.max(0,a.left-b.right,b.left-a.right),Math.max(0,a.top-b.bottom,b.top-a.bottom))>reach)continue;
+        const width=clearance(ring,i,j);if(width>1e-6&&width<=reach)gaps.push([i,j,width]);
+      }
       for(let d=overhang;d>=.25;d/=2){const expanded=BuildingStyles.inset(ring,-d);
-        if(expanded){roofRing=expanded;actualOverhang=d;break;}
+        // A valid offset can still almost seal a narrow concave return,
+        // leaving a hairline roof slit through which the gable shows. Keep
+        // at least half of each original edge so these notches stay readable.
+        const keepsReturns=expanded&&expanded.every((p,i)=>{
+          const q=expanded[(i+1)%expanded.length],a=ring[i],b=ring[(i+1)%ring.length];
+          return Math.hypot(q.x-p.x,q.y-p.y)>=Math.hypot(b.x-a.x,b.y-a.y)*.5;
+        })&&gaps.every(([i,j,width])=>clearance(expanded,i,j)>=width*.5-1e-7);
+        if(keepsReturns){roofRing=expanded;actualOverhang=d;break;}
       }
     }
     const roofTris=triangulate(roofRing).triangles;
@@ -157,7 +178,7 @@
     const planes=[],pitch=variant==='shallow'?.18:.42;
     const addAxis=i=>{const v=axes[i],[lo,hi]=bounds[i];planes.push({x:v.x*pitch,y:v.y*pitch,c:-lo*pitch},{x:-v.x*pitch,y:-v.y*pitch,c:hi*pitch});};
     if(variant!=='flat'){addAxis(1);if(variant==='inset')addAxis(0);}
-    planes.push({x:0,y:0,c:variant==='flat'?0:variant==='inset'?4:variant==='shallow'?2.5:14});
+    planes.push({x:0,y:0,c:variant==='flat'?0:variant==='inset'?4:variant==='shallow'?2.5:roofRise});
     const roofZ=p=>height+Math.max(0,Math.min(...planes.map(v=>value(v,p))));
     // Continuous distance across ridge slopes and their flat cap: per-plane
     // scaling used to jump the tile rows at the slope/cap seam.
@@ -288,10 +309,10 @@
     return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths,entranceEdge};
   }
   const meshCache=new Map();
-  function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null){
-    const key=variant+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
+  function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null,roofRise=14){
+    const key=variant+':'+roofRise+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
-    const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance);
+    const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance,roofRise);
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;
   }
@@ -1631,14 +1652,14 @@
   // gables and the roof over the whole lot; every texel comes from the skin.
   // Facades lay out complete source bays (sourceFacadeSlices) with the door
   // once on the entrance wall; roofs repeat the skin's tiled roof in roof
-  // space; gables, fascia and beams take single source texels. `shade` is
+  // space; gables use native infill where supplied, while fascia and beams take source texels. `shade` is
   // the depth renderer's only lighting, for slopes the art did not paint.
-  function authoredOutline(skin,ring,entrance=null,facadeRows=null){
+  function authoredOutline(skin,ring,entrance=null,facadeRows=null,emblem=null){
     // Shorter facades keep the ground-floor pixels and the original door scale.
     const rows=facadeRows??skin.facade.rows;
     const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
-    const d=skin.texel,H=F.rows*d,R=skin.roof;
-    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance),faces=[];
+    const d=skin.texel,H=F.rows*d,R=skin.roof,ppFlat=!!skin.spec.ppFlat,ppFlatRoof=[];
+    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance,skin.roofRise),faces=[];
     const emit=(points,uv,kind,extra={})=>{if(points.length<3)return;
       for(let i=1;i<points.length-1;i++){const ids=[0,i,i+1],ps=ids.map(j=>({x:points[j].x,y:points[j].y,z:points[j].z,tu:uv[j][0]/512,tv:uv[j][1]/1024}));
         faces.push({...skin.template,points:ps,projected:ps.map(()=>({})),kind,layer:0,color:0xffffff,light:1,shade:1,sourceArt:true,rawUV:true,preserveWalls:true,feature:'body',
@@ -1654,6 +1675,28 @@
           if(da>=-1e-8)next.push(a);if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),q={};for(const k of ['x','y','z','u','v'])q[k]=a[k]+(b[k]-a[k])*t;next.push(q);}});piece=next;}
         if(piece.length>=3)out.push(piece.map(p=>({...p,[key]:p[key]-n*period})));}
       return out;};
+    const decorations=[];
+    // A small solid plaque: rounded silhouette, textured face and a solid
+    // side wall. The same geometry seats on a roof plane or an entrance wall.
+    const plaque=(at,texture,feature,kind,bounds,sideUV,thickness)=>{
+      const r=.14,outline=[];
+      for(const [cx,cy,start] of [[1-r,r,-90],[1-r,1-r,0],[r,1-r,90],[r,r,180]])
+        for(const step of [0,45,90]){const angle=(start+step)*Math.PI/180;outline.push({x:cx+r*Math.cos(angle),y:cy+r*Math.sin(angle)});}
+      const uv=p=>{const u=kind==='wall'?1-p.x:p.x,v=kind==='wall'?1-p.y:p.y;
+        return {tu:bounds[0]+u*(bounds[2]-bounds[0]),tv:bounds[1]+v*(bounds[3]-bounds[1])};};
+      const face=(points,name,shade=1)=>decorations.push({...skin.template,points,texture,
+        kind,layer:kind==='roof'?2.3:.2,color:0xffffff,light:1,shade,
+        sourceArt:true,rawUV:true,preserveWalls:true,roofPalette:false,feature:name});
+      const top=outline.map(p=>({...at(p.x,p.y,thickness),...uv(p)}));
+      for(let i=1;i<top.length-1;i++)face([top[0],top[i],top[i+1]],feature);
+      for(let i=0;i<outline.length;i++){
+        const p=outline[i],q=outline[(i+1)%outline.length];
+        const points=[at(p.x,p.y,0),at(q.x,q.y,0),at(q.x,q.y,thickness),at(p.x,p.y,thickness)]
+          .map(v=>({...v,tu:sideUV[0],tv:sideUV[1]}));
+        for(const ids of [[0,1,2],[0,2,3]])face(ids.map(j=>points[j]),feature+'-side',.8);
+      }
+    };
+    let mountedSign=false;
     // Walls: complete facade bays up to the eaves, along the ring's winding.
     g.ring.forEach((a,i)=>{const b=g.ring[(i+1)%g.ring.length],L=Math.hypot(b.x-a.x,b.y-a.y);if(L<1e-6)return;
       const at=(t,z)=>({x:a.x+(b.x-a.x)*t/L,y:a.y+(b.y-a.y)*t/L,z}),dir={wallDirection:{x:b.x-a.x,y:b.y-a.y}},len=L/d;
@@ -1663,16 +1706,61 @@
       if(i===g.entranceEdge){const D=skin.door,W=skin.spec.right-skin.spec.left;
         const center=F.period?len/2:sourceFacadeSlices(skin.spec,len).center,from=Math.max(0,Math.min(len-D.w,F.period?center-D.w/2:center+W/2-(D.u-skin.spec.left)-D.w));
         if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+nx,y:p.y+ny}),z0=D.bottom*d,z1=z0+D.h*d;
-          emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});}
+          emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});
+          if(emblem?.sign){
+            const width=6,gap=1.5,doorLeft=from*d,doorRight=(from+D.w)*d;
+            const start=doorRight+gap+width<=L-1?doorRight+gap:doorLeft-gap-width;
+            if(start>=1){
+              const bottom=z0+6,top=Math.min(H-1,bottom+7);
+              const seat=(x,y,depth)=>{const p=at(start+x*width,bottom+y*(top-bottom));
+                return {...p,x:p.x+nx*(2+depth*10),y:p.y+ny*(2+depth*10)};};
+              plaque(seat,emblem.sign,'shop-sign','wall',emblem.signUV,emblem.signSideUV,1.2);
+              mountedSign=true;
+            }
+          }
+        }
       }
     });
-    for(const f of g.faces){
+    if(ppFlat){
+      // Keep real-lot walls in place. Grow only the roof, using the validated
+      // arbitrary-polygon offset; shorten the lip around narrow returns.
+      const deckZ=H+(skin.spec.slabHeight||0)*d;
+      let outer=g.ring;
+      if(typeof BuildingStyles!=='undefined')for(let lip=3*d;lip>=.01;lip/=2){
+        const expanded=BuildingStyles.inset(g.ring,-lip);
+        if(expanded){outer=expanded;break;}
+      }
+      for(const tri of triangulate(g.ring).triangles){
+        const pts=tri.map(p=>({...p,z:deckZ,u:p.x/d,v:p.y/d}));
+        ppFlatRoof.push({kind:'roof',points:pts});
+        for(const across of tile(pts,'u',R.w))for(const piece of tile(across,'v',R.h))
+          emit(piece,piece.map(p=>[R.u+Math.max(.5,Math.min(R.w-.5,p.u)),R.v+Math.max(.5,Math.min(R.h-.5,p.v))]),'roof',{roofPalette:true,layer:2,feature:'flat-deck'});
+      }
+      outer.forEach((a,i)=>{const j=(i+1)%outer.length,b=outer[j],c=g.ring[j],e=g.ring[i],L=Math.hypot(b.x-a.x,b.y-a.y);
+        const at=(t,z)=>({x:a.x+(b.x-a.x)*t/L,y:a.y+(b.y-a.y)*t/L,z});
+        for(let t=0;t<L;t+=16*d){const end=Math.min(L,t+16*d);
+          emit([at(t,H),at(end,H),at(end,deckZ),at(t,deckZ)],[[8,16+skin.spec.eave],[8+(end-t)/d,16+skin.spec.eave],[8+(end-t)/d,16+skin.spec.eave-skin.spec.slabHeight],[8,16+skin.spec.eave-skin.spec.slabHeight]],'roof',{roofPalette:true,feature:'flat-fascia'});
+        }
+        if(outer!==g.ring){
+          constant([a,b,c,e].map(p=>({...p,z:deckZ})),[500.5,616.5],'roof',{roofPalette:true,feature:'flat-coping'});
+          constant([e,c,b,a].map(p=>({...p,z:H})),[508.5,616.5],'roof',{roofPalette:true,feature:'flat-soffit'});
+        }
+      });
+    }
+    for(const f of ppFlat?[]:g.faces){
       // The procedural stack has no source art; the skin keeps its roofline.
       if(f.chimney)continue;
       if(f.kind==='wall'){
-        const upper=clipZ(f.points,H,1);
+        const upper=clipZ(f.points,H,1),G=skin.gable;
+        if(upper.length>=3&&G){
+          // Native stone and timber continue above the eave at the facade's
+          // pixel scale, without stretching a solid swatch into another floor.
+          const dir=f.wallDirection,L=Math.hypot(dir.x,dir.y);
+          const pts=upper.map(p=>({...p,u:(p.x*dir.x+p.y*dir.y)/L/d,v:(H-p.z)/d}));
+          for(const across of tile(pts,'u',G.w))for(const piece of tile(across,'v',G.h))
+            emit(piece,piece.map(p=>[G.u+Math.max(.5,Math.min(G.w-.5,p.u)),G.v+Math.max(.5,Math.min(G.h-.5,p.v))]),'wall',{wallDirection:dir,feature:'gable'});
+        }else if(upper.length>=3)constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});
         if(upper.length>=3){
-          constant(upper,skin.wall,'wall',{wallDirection:f.wallDirection});
           const W=skin.gableWindow;
           // One source-native attic window on each supported gable. Clip its
           // physical panel to the actual roof, never stretch a window over it.
@@ -1701,7 +1789,45 @@
       constant(f.points,texel,'roof',{roofPalette:true,shade:f.rimShade?.8:f.beam?(f.light<.8?.82:1.06):.72,layer:f.layer||2});
     }
     skin.recolor(faces);
-    return {ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
+    if(emblem?.roof&&emblem.roofUV){
+      // One modest roof-coloured plaque follows a real roof plane. Its
+      // baked relief and rounded solid edge read as a mounted sign.
+      const roof=(ppFlat?ppFlatRoof:g.faces).filter(f=>f.kind==='roof'&&!f.rim&&!f.beam)
+        .sort((a,b)=>Math.abs(cross(...b.points))-Math.abs(cross(...a.points)))[0];
+      if(roof){
+        const [a,b,c]=roof.points,center={x:(a.x+b.x+c.x)/3,y:(a.y+b.y+c.y)/3,z:(a.z+b.z+c.z)/3};
+        const sub=(p,q)=>({x:p.x-q.x,y:p.y-q.y,z:p.z-q.z});
+        const unit=p=>{const n=Math.hypot(p.x,p.y,p.z);return {x:p.x/n,y:p.y/n,z:p.z/n};};
+        const cross3=(u,v)=>({x:u.y*v.z-u.z*v.y,y:u.z*v.x-u.x*v.z,z:u.x*v.y-u.y*v.x});
+        let normal=unit(cross3(sub(b,a),sub(c,a)));
+        if(normal.z<0)normal={x:-normal.x,y:-normal.y,z:-normal.z};
+        // Read the mark from the entrance, independent of roof triangulation.
+        const front=g.ring[g.entranceEdge],end=g.ring[(g.entranceEdge+1)%g.ring.length];
+        const along={x:front.x-end.x,y:front.y-end.y,z:0};
+        const dot=along.x*normal.x+along.y*normal.y;
+        const projected={x:along.x-dot*normal.x,y:along.y-dot*normal.y,z:-dot*normal.z};
+        const u=unit(Math.hypot(projected.x,projected.y,projected.z)>1e-8?projected:sub(b,a)),v=unit(cross3(normal,u));
+        const clearance=Math.min(...[[a,b],[b,c],[c,a]].map(([p,q])=>{
+          const area=cross3(sub(center,p),sub(q,p));return Math.hypot(area.x,area.y,area.z)/Math.hypot(q.x-p.x,q.y-p.y,q.z-p.z);
+        }));
+        const half=Math.min(8,clearance*.65);
+        // Keep the roof plate square in the default view. The sloped roof
+        // stretches its projected height; shrink that axis within the safe
+        // footprint, then retain this geometry as the camera turns.
+        const xScale=Math.max(1e-6,Math.hypot(u.x,u.y-u.z*LOOK.heightScale));
+        const yScale=Math.max(1e-6,Math.hypot(v.x,v.y-v.z*LOOK.heightScale));
+        const halfWidth=half*Math.min(1,yScale/xScale),halfHeight=half*Math.min(1,xScale/yScale);
+        if(half>1){const seat=(x,y,depth)=>{
+          const sx=(x*2-1)*halfWidth,sy=(y*2-1)*halfHeight,lift=.12+depth;
+          return {x:center.x+sx*u.x+sy*v.x+normal.x*lift,
+            y:center.y+sx*u.y+sy*v.y+normal.y*lift,z:center.z+sx*u.z+sy*v.z+normal.z*lift};
+        };
+          plaque(seat,emblem.roof,'shop-emblem','roof',emblem.roofUV,emblem.roofSideUV,1.5);
+        }
+      }
+    }
+    faces.push(...decorations);
+    return {mountedSign,ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
   function authoredGeometry(model,ring,inset=1,door=null){
     if(door){const {x:nx,y:ny}=door.normal;
@@ -1711,37 +1837,55 @@
     const loX=Math.min(...points.map(p=>p.x)),hiX=Math.max(...points.map(p=>p.x));
     const loY=Math.min(...points.map(p=>p.y))*.5,hiY=Math.max(...points.map(p=>p.y))*.5;
     const W=hiX-loX,D=hiY-loY;
-    const x0=Math.min(...ring.map(p=>p.x)),x1=Math.max(...ring.map(p=>p.x));
-    const y0=Math.min(...ring.map(p=>p.y)),y1=Math.max(...ring.map(p=>p.y));
-    const inside=p=>{let hit=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){
-      const a=ring[j],b=ring[i];
+    let fitRing=ring;
+    const inside=p=>{let hit=false;for(let i=0,j=fitRing.length-1;i<fitRing.length;j=i++){
+      const a=fitRing[j],b=fitRing[i];
       if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
       if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
     }return hit;};
     const fits=(cx,cy,scale)=>{
       const rect=[{x:cx-W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy+D*scale/2},{x:cx-W*scale/2,y:cy+D*scale/2}];
       if(!rect.every(inside))return false;
-      for(let i=0;i<ring.length;i++)for(let j=0;j<4;j++){
-        const a=ring[i],b=ring[(i+1)%ring.length],c=rect[j],d=rect[(j+1)%4];
+      for(let i=0;i<fitRing.length;i++)for(let j=0;j<4;j++){
+        const a=fitRing[i],b=fitRing[(i+1)%fitRing.length],c=rect[j],d=rect[(j+1)%4];
         if(cross(a,b,c)*cross(a,b,d)<-1e-8&&cross(c,d,a)*cross(c,d,b)<-1e-8)return false;
       }
       return true;
     };
-    let best={scale:0,x:(x0+x1)/2,y:(y0+y1)/2};
-    const max=Math.min((x1-x0)/W,(y1-y0)/D);
-    // The centre first keeps rectangular lots exactly centred; candidates find
-    // the broad lobe of a concave lot without stretching the authored shell.
-    const candidates=[best];for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
-    for(const p of candidates){if(!inside(p))continue;let lo=0,hi=max;
-      for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
-      if(lo>best.scale+1e-6)best={...p,scale:lo};
+    // Sample interior triangle centres as well as the coarse grid: narrow
+    // diagonal wings can contain none of the old 25 grid positions. Limit
+    // orientation trials to dominant lot edges and their perpendiculars.
+    const triangles=triangulate(ring).triangles.slice().sort((a,b)=>Math.abs(cross(...b))-Math.abs(cross(...a))).slice(0,24);
+    const seeds=triangles.map(t=>({x:(t[0].x+t[1].x+t[2].x)/3,y:(t[0].y+t[1].y+t[2].y)/3}));
+    const angles=[0];
+    if(!door){
+      angles.push(Math.PI/2);
+      const edges=ring.map((a,i)=>{const b=ring[(i+1)%ring.length];return {length:Math.hypot(b.x-a.x,b.y-a.y),angle:Math.atan2(b.y-a.y,b.x-a.x)};}).sort((a,b)=>b.length-a.length);
+      for(const edge of edges){if(angles.length>=8)break;for(const offset of [0,Math.PI/2]){
+        const angle=((edge.angle+offset)%Math.PI+Math.PI)%Math.PI;
+        if(!angles.some(a=>Math.abs(Math.sin(a-angle))<.02))angles.push(angle);
+      }}
     }
+    let best={scale:0,x:ring[0].x,y:ring[0].y,angle:0};
+    for(const angle of angles){const c=Math.cos(angle),sn=Math.sin(angle),local=p=>({x:c*p.x+sn*p.y,y:-sn*p.x+c*p.y});
+      fitRing=ring.map(local);
+      const x0=Math.min(...fitRing.map(p=>p.x)),x1=Math.max(...fitRing.map(p=>p.x)),y0=Math.min(...fitRing.map(p=>p.y)),y1=Math.max(...fitRing.map(p=>p.y));
+      const max=Math.min((x1-x0)/W,(y1-y0)/D),candidates=[{x:(x0+x1)/2,y:(y0+y1)/2},...seeds.map(local)];
+      for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
+      for(const p of candidates){if(!inside(p)||!fits(p.x,p.y,best.scale+1e-6))continue;let lo=best.scale,hi=max;
+        for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+        if(lo>best.scale+1e-6)best={x:c*p.x-sn*p.y,y:sn*p.x+c*p.y,scale:lo,angle};
+      }
+    }
+    fitRing=ring;
     const scale=best.scale*inset;
     if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;
       const target={x:door.center.x-nx*run,y:door.center.y-ny*run};
       if(fits(target.x,target.y,scale)){best.x=target.x;best.y=target.y;}
     }
-    const move=p=>({...p,x:best.x+(p.x-(loX+hiX)/2)*scale,y:best.y+(p.y*.5-(loY+hiY)/2)*scale,z:p.z*C*scale});
+    const c=Math.cos(best.angle),sn=Math.sin(best.angle);
+    const move=p=>{const x=(p.x-(loX+hiX)/2)*scale,y=(p.y*.5-(loY+hiY)/2)*scale;
+      return {...p,x:best.x+c*x-sn*y,y:best.y+sn*x+c*y,z:p.z*C*scale};};
     const faces=model.faces.map(f=>({...f,sourceArt:true,rawUV:true,preserveWalls:true,points:f.points.map(move)}));
     return {...model,faces,ring,center:{x:best.x,y:best.y},height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true};
   }
@@ -1770,7 +1914,7 @@
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows):authored?authoredGeometry(authored,local,(recipe.role==='fort'&&!recipe.authored.sourceShell) ? .65 : 1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,(recipe.role==='fort'&&!recipe.authored.sourceShell) ? .65 : 1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};

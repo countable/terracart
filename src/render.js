@@ -5344,6 +5344,9 @@ Render.drawObjects = function drawObjects(scene) {
   // (owner, Oct 2026). Everything else keeps the floating outlined lettering.
   const plates = [], plain = [];
   for (const item of shopHouses) {
+    // A real facade board travels and occludes with its building. Do not add
+    // a second floating label; trader barter bubbles remain independent.
+    if (scene._proceduralBuildings?.get(item.o.id)?.mountedSign) continue;
     const role = _houseRole(item.o);
     // A trader with a deal on shows it as its barter bubble (the DOM pass
     // below) instead of any board.

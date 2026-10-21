@@ -9,28 +9,51 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | Gameplay role | Exterior model | Roof |
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin (Home's alone) | Orange |
-| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, or steam home; stable ID selection | Yellow |
-| Blacksmith T1 / T2–T3 / T4–T7 | FDR ground floor only / full FDR / steam blacksmith | Slate |
-| Trader | Trader | Green |
-| Seed / supply shop | Market / city storefront | Lime / blue |
-| Magic / relic shop | Market / city storefront | Teal / red |
-| Pet / book shop | Market / city storefront | Rose / plum |
+| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, steam home, or native Pixel Plains flat shops; stable ID selection | Yellow, or native flat-shop color |
+| Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
+| Trader T1 / T2+ | White plaster cottage / trader | Green |
+| Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
+| Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
+| Pet / book shop | T1: white plaster cottage; T2+: market / city storefront | Rose / plum |
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
 | Fort | City gearhouse inside existing palisade | Copper |
 
-All shop models belong to the market/storefront pair; tier does not change
-shop identity. Castle, turret and wreck geometry retain their existing paths.
+All tier-one businesses, including blacksmiths, traders and generic shops,
+use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
+colors and role symbols distinguish the trades. Generic shops use blue. Higher
+tiers retain their commercial models; upgrades preserve each trade’s roof color.
+Each T1 entrance carries a small wooden sign beside its door, and its roof
+carries a roof-coloured sign embossed with the same symbol. Symbols are centered
+by the center of their visible ink, balancing top-heavy marks and excluding
+padding in the source glyph. Both are simple
+rounded rectangles with textured faces and real side walls: the front board
+projects 1.2 world units from its mount, the roof plaque 1.5 along the roof
+normal. The roof plate compensates for the roof slope so its visible face is
+square in the default view; its side walls face outward to reveal the thickness.
+The wall sign hangs six units above the door sill, beside the upper
+doorway; the eaves may obscure it. Their geometry follows the doorway and roof plane, including heading,
+occlusion and building fading. Shared material atlases are prepared at startup.
+A mounted sign replaces its floating plate; trader deal bubbles remain.
+Castle, turret and wreck geometry retain their existing paths.
 Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
-entrance wall, its tiled roof in roof space, and single texels for gables,
-fascia and ridge beams. Doors stand 13 units tall on every model. Tier-1 blacksmiths use the bottom
-36 facade texels for a single storey, keeping the source door scale; higher tiers
-retain their full facades. Model-only
+entrance wall, its roof material in roof space, and source texels for
+fascia and ridge beams. FDR gables repeat native stone and timber at facade
+texel density, with a continuous native timber crossbeam tying the upper-storey
+posts together below the gables; their ridge rise is capped at the native half-depth (24 texels)
+instead of the generic 14 scene units. Other gables use single source texels. Pitched overhangs retain at least half the original
+clearance around narrow returns, preventing almost-closed roof slits.
+Decorative flat-roof rims cap corner mitres at twice the band width to avoid
+inward spikes at acute corners. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
+facade and door scale. Model-only
 features (porches, painted chimneys, dormers) do not appear on lot-outline
 buildings. Wizard towers and the fort hall keep their whole shells, fit inside
-the lot. Only models assigned to existing game roles ship.
+the lot with uniform scale. Their fitter tries dominant lot-edge orientations
+and interior triangle centres to avoid shrinking unnecessarily on diagonal
+wings; an explicit entrance direction remains fixed. Only models assigned
+to existing game roles ship.
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 
@@ -42,23 +65,34 @@ original alpha mask. The manifest records registration knots and source hashes.
 Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
 Pixel Plains houses keep their original source textures.
 
-Six `pp_flat_*` review choices use native Pixel Plains flat-shop art, with a
-tiled horizontal deck and colored fascia. Their walls sit three source pixels
-inside the roof lip (4.8 ground units along depth), with a sealed soffit; the
-prepared wall atlas extends native masonry over the source silhouette borders
+Six `pp_flat_*` residential variants use native Pixel Plains flat-shop art, with a
+plain source-colored horizontal deck and colored fascia. The native viewer model tucks walls
+three source pixels inside the roof lip (4.8 ground units along depth). Production
+lot-outline meshes keep walls on the real polygon and extend only the roof
+outward with a validated polygon offset, reducing the lip around narrow returns.
+A sixteen-texel fascia raises the deck; separate coping and soffit faces seal
+the overhang without coplanar bands. The prepared wall atlas extends native
+masonry over the source silhouette borders
 so black vertical strips do not repeat at corners. Roof fascia colors also
 extend through baked black perimeter pixels; geometric outlines remain. Door
 overlays stand clear of the wall depth, while native adobe fronts use the
-original doorway directly without an overlay. Expanded decks repeat native
-tile texels below the coping to avoid coplanar flicker. `tools/extract_pp_flat_buildings.py`
+original doorway directly without an overlay. Expanded decks sit below the coping to avoid coplanar flicker. PP decks
+sample a plain interior roof texel rather than repeating the source grid,
+which creates an unintended checkerboard on large lots. Production PP and
+adobe decks exclude the adjacent coping swatches. `tools/extract_pp_flat_buildings.py`
 extracts the six source colorways and assembles their native glass doorway;
 `pp-flat-provenance.json` records exact crops. They are prepared with the native
-palette and do not change existing residential assignments. The shared flat
+palette. They join the former-cabin replacement pool; other existing residential
+assignments retain their models. The original adobe variants remain available. The shared flat
 roof builder also supports their L, T and courtyard footprints. Run
 `node tools/sync_building_texture_viewer.cjs` to refresh the local
 `http://localhost:8765/ra-village-house/` viewer; it also retains three
 experimental City designs. `node test/pp-building-viewer.cjs` checks every
-viewer choice through five rotations and the new flat roofs on concave plots.
+viewer choice through five rotations and the new flat roofs on concave plots. Real Kelowna
+outline checks use `GAME_URL=http://localhost:7735 node test/authored-kelowna-buildings.cjs`;
+the fixture README documents provenance, focused reruns and coverage limits.
+Inspect full-size images as well as contact sheets: subpixel roof slits can
+pass sampled coverage checks while appearing as bright seams.
 
 Roof repairs around painted protrusions preserve source texel density: translate
 clean patches in roof coordinates rather than stretching a source column. The

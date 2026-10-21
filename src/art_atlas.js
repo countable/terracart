@@ -5,6 +5,11 @@ const ArtAtlas = (() => {
     const manager = scene.textures;
     const master = manager.get(data.key);
     for (const [key, asset] of Object.entries(data.entries)) {
+      // A selected art profile can replace an alias with its own sheet. The
+      // shared atlas may finish loading first: do not claim that sheet's key
+      // while its image is still in flight, or Phaser keeps the wrong pixels.
+      const selected = typeof ASSETS !== 'undefined' ? ASSETS[key] : null;
+      if (selected && (selected.kind !== 'atlas-alias' || selected.atlasKey !== data.key)) continue;
       if (manager.exists(key)) continue;
       let texture;
       if (manager.create && master.source) {

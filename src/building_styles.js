@@ -47,7 +47,7 @@
   }
   // Parallel-edge inset with a bounded miter. Invalid narrow wings terminate
   // the roof, rather than scaling vertices toward a centroid outside an L.
-  function inset(ring, distance) {
+  function inset(ring, distance, miterLimit = null) {
     if (!distance) return ring.map(p => ({ ...p }));
     const result = [];
     for (let i = 0; i < ring.length; i++) {
@@ -58,8 +58,14 @@
       const nx = -ly / ll - ry / rl, ny = lx / ll + rx / rl;
       const dot = nx * (-ly / ll) + ny * (lx / ll);
       if (Math.abs(dot) < 0.05) return null;
-      const dx = nx * distance / dot, dy = ny * distance / dot;
-      if (Math.hypot(dx, dy) > Math.abs(distance) * 5) return null;
+      let dx = nx * distance / dot, dy = ny * distance / dot;
+      const length = Math.hypot(dx, dy);
+      // Decorative roof bands need short joins at acute returns. Structural
+      // offsets retain their parallel edges and reject excessive miters.
+      if (miterLimit != null && length > Math.abs(distance) * miterLimit) {
+        const scale = Math.abs(distance) * miterLimit / length;
+        dx *= scale; dy *= scale;
+      } else if (length > Math.abs(distance) * 5) return null;
       result.push({ x: b.x + dx, y: b.y + dy });
     }
     if (area(result) <= EPS || !simple(result)) return null;

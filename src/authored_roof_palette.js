@@ -72,5 +72,94 @@
     }
     return variant;
   }
-  root.AuthoredRoofPalette = { COLORS, prepare, roofFace };
+  const emblems = new WeakMap();
+  const EMBLEM_SIZE = 32;
+
+  function emblemGlyph(role) {
+    if (typeof Render === 'undefined') return null;
+    // Reuse the actual category signs, including the smith's armour symbol.
+    // Traders already use this arrow for their barter; generic shops use supplies.
+    if (role === 'trader') return typeof TRADE_ARROW_PX !== 'undefined' ? TRADE_ARROW_PX : null;
+    return Render.shopSignGlyph(role === 'shop' ? 'supply' : role, role);
+  }
+
+  function getEmblem(scene, role, colorName) {
+    return emblems.get(scene.textures)?.get(role + ':' + colorName) || null;
+  }
+
+  function prepareEmblem(scene, role, colorName, roofTexture) {
+    const existing = getEmblem(scene, role, colorName);
+    if (existing) return existing;
+    const glyph = emblemGlyph(role), color = COLORS[colorName];
+    if (!glyph || !color || !roofTexture) return null;
+    // Center the visible ink rather than the padded glyph box. This also
+    // balances top-heavy marks such as the smith's shield within the plaque.
+    const cells = glyph.flatMap((row, y) => [...row].flatMap((cell, x) => cell === '#' ? [{x, y}] : []));
+    if (!cells.length) return null;
+    const scale = 2;
+    const left = Math.round(EMBLEM_SIZE / 2 - scale * cells.reduce((sum, p) => sum + p.x + .5, 0) / cells.length);
+    const top = Math.round(EMBLEM_SIZE / 2 - scale * cells.reduce((sum, p) => sum + p.y + .5, 0) / cells.length);
+    const key = `authored:emblem:${role}:${colorName}:plaques`;
+    let texture = scene.textures.exists(key) ? scene.textures.get(key) : null;
+    if (!texture) {
+      // Roof, front board and their solid sides share one startup atlas. The
+      // geometry supplies rounded corners and thickness, not alpha cutouts.
+      texture = scene.textures.createCanvas(key, 512, 1024);
+      const context = texture.getContext();
+      context.imageSmoothingEnabled = false;
+      context.drawImage(roofTexture.getSourceImage(), 256, 616, EMBLEM_SIZE, EMBLEM_SIZE,
+        0, 0, EMBLEM_SIZE, EMBLEM_SIZE);
+      const data = context.getImageData(0, 0, EMBLEM_SIZE, EMBLEM_SIZE).data;
+      const sum = [0, 0, 0];
+      let count = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        if (!data[i + 3]) continue;
+        for (let c = 0; c < 3; c++) sum[c] += data[i + c];
+        count++;
+      }
+      const rgb = sum.map(value => value / Math.max(1, count)), peak = Math.max(...rgb);
+      const roofInk = gain => {
+        const factor = Math.min(gain, peak ? 255 / peak : gain);
+        return `rgb(${rgb.map(value => Math.round(value * factor)).join(',')})`;
+      };
+      const rect = (ink, x, y, w, h) => {
+        context.fillStyle = ink;
+        context.fillRect(x, y, w, h);
+      };
+      const symbol = (x0, offset, ink) => {
+        context.fillStyle = ink;
+        glyph.forEach((row, y) => [...row].forEach((cell, x) => {
+          if (cell === '#') context.fillRect(x0 + left + x * scale + offset,
+            top + y * scale + offset, scale, scale);
+        }));
+      };
+      // The roof plaque wears the roof's own paint with restrained grain.
+      // Light and shadow edges emboss the glyph without a contrasting ink.
+      rect(roofInk(.82), 0, 0, EMBLEM_SIZE, EMBLEM_SIZE);
+      for (let y = 5; y < EMBLEM_SIZE; y += 6) rect(roofInk(.77), 0, y, EMBLEM_SIZE, 1);
+      symbol(0, 1, roofInk(.46));
+      symbol(0, -1, roofInk(1.45));
+      symbol(0, 0, roofInk(.92));
+      rect(roofInk(.55), 80, 0, 4, 4);
+
+      const look = Render.shopSignLook(null);
+      rect(look.background, 40, 0, EMBLEM_SIZE, EMBLEM_SIZE);
+      for (let y = 5; y < EMBLEM_SIZE; y += 6) rect(look.shadow, 40, y, EMBLEM_SIZE, 1);
+      symbol(40, 1, look.shadow);
+      symbol(40, 0, look.ink);
+      rect(look.shadow, 84, 0, 4, 4);
+      rect('#302b25', 88, 0, 4, 4);
+      texture.refresh();
+      texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+    if (!emblems.has(scene.textures)) emblems.set(scene.textures, new Map());
+    const faceUV = x => [(x + .5) / 512, .5 / 1024, (x + EMBLEM_SIZE - .5) / 512, (EMBLEM_SIZE - .5) / 1024];
+    const result = { roof: texture, sign: texture, roofUV: faceUV(0), signUV: faceUV(40),
+      roofSideUV: [81.5 / 512, 1.5 / 1024], signSideUV: [85.5 / 512, 1.5 / 1024],
+      bracketUV: [89.5 / 512, 1.5 / 1024] };
+    emblems.get(scene.textures).set(role + ':' + colorName, result);
+    return result;
+  }
+
+  root.AuthoredRoofPalette = { COLORS, prepare, roofFace, prepareEmblem, getEmblem, emblemGlyph };
 })(typeof window !== 'undefined' ? window : globalThis);

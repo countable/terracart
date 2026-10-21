@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-731ff770';
+const SHELL_VERSION = 'shell-7ba2734d';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -1153,16 +1153,17 @@ const ASSET_HASHES = {
   "assets/art/story_compass_frame2.webp": "4c9e1536",
   "assets/art/story_dragon_hunters_arrive.webp": "06db0f57",
   "assets/art/story_nightmare.webp": "3cd2f354",
+  "assets/art/story_nightmare_city_mask.svg": "d2e7c53e",
   "assets/art/story_nightmare_close.webp": "6d71eeda",
   "assets/art/story_nightmare_close_frame2.webp": "033cafdd",
-  "assets/art/story_nightmare_frame2.webp": "b35208de",
-  "assets/art/story_nightmare_frame3.webp": "b1d1af96",
-  "assets/art/story_nightmare_frame4.webp": "0dfdbc46",
+  "assets/art/story_nightmare_frame2.webp": "9af40dee",
+  "assets/art/story_nightmare_frame3.webp": "cfe5d8e7",
+  "assets/art/story_nightmare_frame4.webp": "bb10c103",
   "assets/art/story_wake.webp": "9d01bdd0",
   "assets/art/story_wake_frame2.webp": "b55f492f",
   "assets/art/story_white_dragon_tower.webp": "c9ebf822",
   "assets/art/story_wrecks.webp": "ddc5d278",
-  "assets/art/story_wrecks_frame2.webp": "ddc5d278",
+  "assets/art/story_wrecks_frame2.webp": "ac032e0a",
   "assets/art/street_bandit.webp": "1cfc0793",
   "assets/art/street_barricade.webp": "d23eb43e",
   "assets/art/street_burned.webp": "f638e5bc",

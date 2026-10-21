@@ -77,3 +77,13 @@ for(const depth of [0,1,3]) for(const dir of ['up','down']) {
 assert.equal(profile.assets.box,undefined,'3D crate variants remain untouched');
 assert.equal(profile.assets.clay_pot_smashed,undefined,'Broken pots remain untouched');
 console.log('Approved RA prop profile: aliases, UI paths/geometry, bounds and underground access passed');
+// Atlas loading can finish before standalone art. It must not seize keys the
+// selected profile replaced, even while those PNG requests are still in flight.
+const atlasRegistry={selected_longgrass:assets.selected_longgrass,wood:assets.wood,
+ barrel:{kind:'atlas-alias',atlasKey:'shared'},moved:{kind:'atlas-alias',atlasKey:'other'}};
+const atlas=new Function('ASSETS',fs.readFileSync('src/art_atlas.js','utf8')+';return ArtAtlas;')(atlasRegistry);
+const created=[];const manager={get:()=>({source:[{}]}),exists:()=>false,create(key){created.push(key);return {source:[],remove(){},add(){},destroy(){}};}};
+const rect={x:0,y:0,width:16,height:16};
+atlas.register({textures:manager},{key:'shared',entries:Object.fromEntries(Object.keys(atlasRegistry).map(key=>[key,{sheetRect:rect,frameRects:{0:rect}}]))});
+assert.deepEqual(created,['barrel'],'Only active aliases may register before profile images finish');
+console.log('Atlas load-order regression: replaced aliases never reclaim standalone profile keys passed');

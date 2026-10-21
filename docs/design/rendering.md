@@ -84,6 +84,8 @@ chest/wood/pot frames, fixtures and all eleven shrine frames through
 `tools/build_ra_prop_profile.py` combines reproducible flora, container and fixture
 exports into asset, icon and seating registries. Inventory/offer icons use these
 same sheets; atlas aliases and old palette callbacks are replaced, not layered.
+`ArtAtlas.register` respects the current asset owner, so a shared atlas finishing
+first cannot recreate an obsolete alias while a replacement sheet is loading.
 Elevators retain their broken/repaired behavior in a separate 24×36 sheet; the
 grove votive uses the same 36px frame and display scale as other shrines.
 The clipped hedge and procedural hedge-wall use the shared richer RA olive ramp,
@@ -1153,9 +1155,10 @@ its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
 
 The PP restyle uses registered source-sized PNGs, preserving the existing mesh
-UV coordinates and alpha silhouettes. Native PP flat-shop review variants are
+UV coordinates and alpha silhouettes. Native PP flat-shop residential variants are
 also prewarmed under `native`, so their six source colorways retain their deck
-and fascia colors without changing saved-world building assignments. Source
+and fascia colors. They join the stable former-cabin replacement pool while
+other existing residential assignments keep their models. Source
 provenance and viewer commands live in the low-poly building styles document.
 
 ## Footprint building styles
