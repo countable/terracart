@@ -38,6 +38,33 @@ Use its heading slider or `?canvas` to compare renderer paths. Run
 `WALL_REVIEW_URL` overrides the page URL. It checks both renderers, shared atlas
 reuse, retained geometry, pointed-tip visibility, and clearing obsolete walls.
 
+## Rogue Adventure architecture trial
+
+`tools/ra-architecture-preview.html` compares current and RA materials on the
+production fort palisade, castle rampart and temple foundation/wall geometry.
+Rectangle and concave fixtures share unchanged floor artwork and contextual
+hall/tower sprites. This is a standalone material fixture, not a live map or a
+production art replacement. Castle and fort floors are plain comparison fills;
+temple floors use the native fallback painter. The trial preserves geometric
+surfaces while adding UV boundary subdivisions to castle and temple faces.
+
+Extract the installed ElvGames pack and save the viewer to the local artifact
+server with:
+
+```sh
+python3 tools/build_ra_architecture_materials.py --out ~/.artifacts/ra-architecture-geometry
+node tools/check_ra_architecture_geometry.cjs
+```
+
+Open `http://localhost:8765/ra-architecture-geometry/`; add `?canvas` for the
+fallback renderer. The server must also expose the repository's root game
+modules, as the shared artifact server does. The builder records source crops,
+hashes and processing in `materials.json`. No source pack is committed or
+installed into the game. `STUDY_URL`, `CHROMIUM` and `OUT_DIR` override the
+browser checker defaults. It covers 32 footprint/state/family/temple combinations
+per renderer, eight screenshot headings, and 361 heading updates with retained
+geometry and no Canvas texture allocations, refreshes or pixel readback.
+
 ## Prerequisites
 
 - Node.js runs the headless suite and most audits without browser packages.
