@@ -1046,28 +1046,27 @@
       position: absolute; inset: 0; opacity: 0;
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
-    /* Four registered paintings move throughout the camera push. Lower
-       layers reset only after the next painting fully covers them. */
+    /* Progress once through tighter crops. Keep the final painting so a
+       return to the wide first frame cannot undo the camera's push. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
-      animation: nightmare-frame-two 12s ease-in-out 750ms infinite;
+      transform-origin: 59% 21%;
+      transform: scale(1.05);
+      animation: nightmare-frame-two var(--nightmare-pan-ms, 16s) ease-in-out 750ms both;
     }
-    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; }
-    #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; }
+    #story .nightmare-frame:nth-child(3) { transform: scale(1.10); animation-name: nightmare-frame-three; }
+    #story .nightmare-frame:nth-child(4) { transform: scale(1.15); animation-name: nightmare-frame-four; }
     @keyframes nightmare-frame-two {
       0%, 12.5% { opacity: 0; }
-      25%, 50% { opacity: 1; }
-      50.01%, 100% { opacity: 0; }
+      25%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-three {
       0%, 37.5% { opacity: 0; }
-      50%, 75% { opacity: 1; }
-      75.01%, 100% { opacity: 0; }
+      50%, 100% { opacity: 1; }
     }
     @keyframes nightmare-frame-four {
       0%, 62.5% { opacity: 0; }
-      75%, 87.5% { opacity: 1; }
-      100% { opacity: 0; }
+      75%, 100% { opacity: 1; }
     }
     @keyframes story-crossfade {
       from { opacity: 0; }
@@ -1115,11 +1114,11 @@
     }
     @keyframes nightmare-pan {
       from { transform: translate(0, 0) scale(1); }
-      to { transform: translate(0, 5%) scale(2.3); }
+      to { transform: translate(0, 5%) scale(3); }
     }
     #story .wake-camera {
       transform-origin: 50.5% 42.5%;
-      animation: wake-pullback 9s ease-in-out 750ms both;
+      animation: wake-pullback 14s ease-in-out 750ms both;
     }
     /* Reuse the wake paintings for the close pair. The shared camera keeps
        its crop registered while that pair dissolves into the wide pair. */
@@ -1135,7 +1134,7 @@
     }
     @keyframes wake-pullback {
       from { transform: scale(1.75); }
-      to { transform: scale(1); }
+      to { transform: scale(1.25); }
     }
     @media (prefers-reduced-motion: reduce) {
       #story .wake-camera > .story-frames,
@@ -3226,7 +3225,7 @@
   <script src="src/sandbox_art.js?v=ec5360fe"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
-  <script src="src/art_thumbs.js?v=dfb617d4"></script>
+  <script src="src/art_thumbs.js?v=fad6955c"></script>
   <script src="src/modal_shell.js?v=d88dfa8c"></script>
   <script src="src/scene_geo.js?v=6acf1a1f"></script>
   <script src="src/npc.js?v=a8acecba"></script>

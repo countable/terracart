@@ -130,14 +130,17 @@ changing dialogue, story panels, books, toasts or status presentation.
 - The four opening panes show the compass discovery, dragon-war dream,
   house awakening, then the ruined street. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
-  four aligned portrait paintings under one camera. They dissolve in sequence
-  on a 12-second loop during the 16-second push toward the dragon's eye,
-  continuing after the camera stops. Dragons, flames and smoke move between
+  four aligned portrait paintings under one camera. They dissolve once in
+  sequence during the 16-second push toward the dragon's eye. Each successive
+  frame has a tighter crop; the fourth holds after the camera stops, avoiding
+  a pullback to the first frame. Dragons, flames and smoke move between
   frames; painted darkness fades irregularly from below, lingering less over
   bright fire. A soft stationary lower gradient keeps the copy edge dark.
   Awakening uses close and wide views of its existing two paintings, fading
   between pairs while pulling back. Both camera moves begin with a short pause;
-  the dream pushes in slowly and awakening pulls back a little faster.
+  the dream pushes in slowly and awakening makes a shallow 14-second pullback.
+  The street's second painting shows Hood farther along the road; it must remain
+  distinct from the first painting so the final dissolve has visible movement.
   Discovery and the dream are borderless fullscreen panels. Awakening and the
   ruined street use the living-silver compass story sheet, with readable copy
   below the art and immediately available advance buttons. Reduced-motion
@@ -439,10 +442,12 @@ changing dialogue, story panels, books, toasts or status presentation.
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
 - The opening nightmare pushes toward Tiamat’s red eye over 16 seconds while
-  four aligned paintings cycle continuously. Its irregular painted lower fade
-  preserves bright flames longer; a soft stationary gradient blends the bottom
+  four aligned paintings progress to tighter crops and hold on the fourth.
+  Its irregular painted lower fade preserves bright flames longer; a soft
+  stationary gradient blends the bottom
   into black throughout the zoom. The wake pair pulls back from Hood’s faint
-  eye glints over nine seconds. Reduced motion shows the static first frames.
+  eye glints over 14 seconds, retaining a closer view at the end. Reduced motion
+  shows the static first frames.
 - Paired story paintings must use actual image references. Establish the
   introduction first, then edit that image for the completed action; preserve
   object designs, materials and booth identity. After-use panels zoom in on

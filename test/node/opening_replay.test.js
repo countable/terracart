@@ -119,8 +119,8 @@ test('opening: four dragon paintings move during the zoom with no late close sho
     'only the first painting describes the dream to screen readers');
   assert.falsy(html.includes('nightmare-close'), 'no separate late close painting');
   const frameRule = html.match(/#story \.nightmare-frame\s*\{([^}]+)\}/)?.[1] || '';
-  assert.truthy(/animation: nightmare-frame-two 12s ease-in-out 750ms infinite/.test(frameRule),
-    'all four paintings cycle before the 16-second push ends, and continue afterward');
+  assert.truthy(/animation: nightmare-frame-two var\(--nightmare-pan-ms, 16s\) ease-in-out 750ms both/.test(frameRule),
+    'painting transitions share the camera duration and hold their final state');
   assert.truthy(html.includes('const STORY_PAN_MS = 16000;'));
   const reduced = html.slice(html.indexOf('@media (prefers-reduced-motion: reduce)', html.indexOf('@keyframes nightmare-pan')));
   assert.truthy(/#story \.nightmare-camera,[^}]*#story \.nightmare-frame:nth-child\(n\),[^}]*animation: none/.test(reduced),
