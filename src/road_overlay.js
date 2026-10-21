@@ -137,77 +137,6 @@
     return out;
   }
 
-  // A polyline pushed `off` to its left (negative: right), each vertex along
-  // the mean of its two segment normals. Pure; the carpet strips use it.
-  function offsetLine(pts, off) {
-    const n = pts.length, out = [];
-    const norm = (a, b) => {
-      const dx = b.x - a.x, dy = b.y - a.y, l = Math.hypot(dx, dy);
-      return l > 1e-9 ? { x: -dy / l, y: dx / l } : null;
-    };
-    for (let i = 0; i < n; i++) {
-      const a = i > 0 ? norm(pts[i - 1], pts[i]) : null, b = i < n - 1 ? norm(pts[i], pts[i + 1]) : null;
-      let nx = (a ? a.x : 0) + (b ? b.x : 0), ny = (a ? a.y : 0) + (b ? b.y : 0);
-      const l = Math.hypot(nx, ny);
-      if (l < 1e-9) { out.push({ x: pts[i].x, y: pts[i].y }); continue; }
-      nx /= l; ny /= l;
-      const k = a && b ? Math.max(0.5, nx * a.x + ny * a.y) : 1;   // cap the mitre
-      out.push({ x: pts[i].x + nx * off / k, y: pts[i].y + ny * off / k });
-    }
-    return out;
-  }
-
-  // ── Carpet emblems ───────────────────────────────────────────────────────
-  // A carpet row's repeating mark (StreetVariants carpetEmblemFor), stamped
-  // down the strip's centre line every CARPET_EMBLEM_STEP_PX of run. Drawn
-  // UPRIGHT on screen, not turned with the road: an emblem reads as one only
-  // the right way up. Shapes are polylines in px about the stamp point, sized
-  // to sit inside the 0.6-cell strip.
-  const CARPET_EMBLEM_STEP_PX = 32;   // one crown a cell
-  const CARPET_EMBLEM_W_PX = 1.5;
-  const CARPET_EMBLEMS = {
-    // The ancient religion's diamond; the crown below belongs to its rulers.
-    diamond: [[{ x: 0, y: -5 }, { x: 4, y: 0 }, { x: 0, y: 5 }, { x: -4, y: 0 }, { x: 0, y: -5 }]],
-    // A simple three-point crown on a band.
-    crown: [[{ x: -5, y: 3 }, { x: -5, y: -3 }, { x: -2.5, y: 0 }, { x: 0, y: -4 },
-      { x: 2.5, y: 0 }, { x: 5, y: -3 }, { x: 5, y: 3 }, { x: -5, y: 3 }]],
-  };
-  function emitCarpetEmblems(g, run, emblem) {
-    const shape = emblem && CARPET_EMBLEMS[emblem.kind];
-    if (!shape) return;
-    let next = CARPET_EMBLEM_STEP_PX / 2;
-    for (let i = 1; i < run.length; i++) {
-      const ax = run[i - 1].x, ay = run[i - 1].y;
-      const dx = run[i].x - ax, dy = run[i].y - ay;
-      const len = Math.hypot(dx, dy);
-      if (len < 1e-6) continue;
-      while (next <= len) {
-        const cx = ax + dx / len * next, cy = ay + dy / len * next;
-        for (const poly of shape) {
-          g.decorPath(CARPET_EMBLEM_W_PX, emblem.ink, poly.map((p) => ({ x: cx + p.x, y: cy + p.y })));
-        }
-        next += CARPET_EMBLEM_STEP_PX;
-      }
-      next -= len;
-    }
-  }
-
-  // Shared by the map and dashboard: translucent nested strokes soften the
-  // edge without requiring Canvas filters or a separate preview-only blur.
-  function emitCarpetStrip(g, run, variant, cellPx = CELL_PX) {
-    const style = global.StreetVariants?.carpetStyleFor(variant);
-    if (!style || run.length < 2 || !g.decorPath) return;
-    const w = style.widthCells * cellPx;
-    const feather = style.featherCells * cellPx;
-    if (feather > 0) {
-      const layers = 8;
-      for (let i = layers; i >= 0; i--) {
-        g.decorPath(w + 2 * feather * i / layers, style.color, run, 0.16);
-      }
-    } else g.decorPath(w, style.color, run);
-    emitCarpetEmblems(g, run, style.emblem);
-  }
-
   function emitRailDecor(scene, g, run) {
     const pxPerM = CELL_PX / scene.cellM;
     const halfGauge = (RAIL_GAUGE_M / 2) * pxPerM;
@@ -2009,7 +1938,6 @@
     // segment drawing leaves a notch at every bend.
     const runsByStyle = new Map();   // width, colour, variant and path kind → runs
     const railRuns = [];             // rail-class runs, for the track furniture pass
-    const carpets = [];              // themed verge strips (StreetVariants row.carpet)
     const addRun = (widthPx, color, run, isRail, variant, isPath) => {
       if (run.length < 2) return;
       const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}`;
@@ -2036,8 +1964,7 @@
           emitRuns(part.pts, proj, (run) => addRun(widthPx, part.home ? color : tint, run,
             isRail, part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class)));
         }
-        if (style && StreetVariants.carpetStyleFor(style.variant)) carpets.push({ pts, variant: style.variant,
-          halfM: (widthPx / CELL_PX) * scene.cellM / 2 });
+
       }
       yield;
     }
@@ -2045,17 +1972,6 @@
     yield* strokeBucketsSteps(g, runsByStyle, ALPHA);
     // Dress the railways as track, only where the target can draw decor.
     if (g.decorPath) for (const run of railRuns) { emitRailDecor(scene, g, run); yield; }
-    // Carpet strips either side of the road on the verge cell (so the keep-out
-    // trims them like the track), then the row's emblem down each strip.
-    if (g.decorPath) for (const { pts, variant, halfM } of carpets) {
-      const off = halfM + scene.cellM / 2;
-      for (const side of [1, -1]) {
-        for (const part of homeRoadRuns(scene, offsetLine(pts, side * off))) {
-          if (!part.home) emitRuns(part.pts, proj, (run) => emitCarpetStrip(g, run, variant));
-        }
-        yield;
-      }
-    }
     keepOut(scene, g, baseCellIX, baseCellIY); yield;
     // Anchor the stone pattern to the world, so walking scrolls the texture
     // with the road rather than under it.
@@ -2242,7 +2158,7 @@
   }
 
   global.RoadOverlay = { homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         roadMaterialFor, selectedRoadTile, offsetLine, emitCarpetStrip, emitCarpetEmblems, CARPET_EMBLEMS, CARPET_EMBLEM_STEP_PX, paintSelectedLamp, SELECTED_LAMP_BODY_FRAC, SELECTED_LAMP_RISE_CELLS, SELECTED_LAMP_OFFSET_CELLS, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         roadMaterialFor, selectedRoadTile, paintSelectedLamp, SELECTED_LAMP_BODY_FRAC, SELECTED_LAMP_RISE_CELLS, SELECTED_LAMP_OFFSET_CELLS, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K, LAMP_BODY_FRAC,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

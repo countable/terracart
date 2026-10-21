@@ -89,11 +89,11 @@ test('ground marks: no walk-target dot, and the GPS ring at every depth', () => 
 // mark after leaving it. And it is the same flat paint as the elite's rune
 // circle (GROUND_MARK): baked top-down and laid flat — at its own width and
 // tilt (GPS_RING), rounder than the shared marks, in the facing caret's paint.
-test('ground marks: the GPS ring is always shown and is a flat ground mark', () => {
-  assert.falsy(/> this\.cellM \*\* 2\) \{\s*const g = worldMetersToScreen/.test(app),
-    'no one-cell slack hides the ring near the body');
-  assert.truthy(/if \(this\.gpsM\) \{\s*const g = worldMetersToScreen\(this,[\s\S]{0,160}?this\.gpsGhost\.setPosition\(Math\.round\(g\.x\), Math\.round\(g\.y\)\)\.setVisible\(true\)\s*\.setFrame\(/.test(app),
-    'with a fix, the ring is placed and shown unconditionally');
+test('ground marks: the GPS marker stays visible with distance-based styling', () => {
+  assert.truthy(app.includes('Render.gpsMarkerStyle(Math.hypot(this.gpsM.x - this.playerM.x,'),
+    'appearance uses real player-to-fix distance');
+  assert.truthy(app.includes('this.gpsM.y - this.playerM.y) / this.cellM'),
+    'metres are converted to current gameplay cells');
   assert.truthy(/this\.gpsGhost = this\.add\.image\(this\.viewCenterX, this\.viewCenterY, 'gps_ring'\)/.test(app),
     'the marker is the gps_ring bake');
   assert.truthy(/\.setDisplaySize\(GPS_RING\.px, GPS_RING\.px \* GPS_RING\.tilt\)/.test(app),
@@ -140,3 +140,19 @@ test('feet anchor: the creature hit-test scales pixels from cellPx, not from the
     'interact.js no longer divides feetOffsetM by 14 (which is 0 / 14 now)');
 });
 })();
+
+test('GPS marker: shadow nearby, yellow ring farther away, half radius at five cells', () => {
+  for (const d of [0, .5, 1]) {
+    const m = Render.gpsMarkerStyle(d);
+    assert.eq(m.key, 'bldg_shadow'); assert.eq(m.width, GPS_RING.px); assert.lt(m.alpha, 1);
+  }
+  for (const d of [1.01, 2, 3, 4, 5, 10]) {
+    const m = Render.gpsMarkerStyle(d);
+    assert.eq(m.key, 'gps_ring'); assert.eq(m.alpha, 1);
+    assert.eq(m.width, GPS_RING.px * (1 - .5 * Math.min(1, (d - 1) / 4)));
+    assert.lt(Math.abs(m.height - m.width * GPS_RING.tilt), 1e-9);
+  }
+  assert.eq(Render.gpsMarkerStyle(3).width, GPS_RING.px * .75);
+  assert.eq(Render.gpsMarkerStyle(5).width, GPS_RING.px * .5);
+  assert.eq(Render.gpsMarkerStyle(50).width, GPS_RING.px * .5);
+});

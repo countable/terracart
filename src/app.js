@@ -1302,6 +1302,8 @@ const HOUSE_WRECK_MUTTERS = ["It's a fixer upper.", 'I would fix that.', 'Needs 
 // tells of) grunt: a bare-handed catch or fight is the normal way of those.
 const BAREHAND_MUTTERS = ['Oof!', 'Ghhhh!', 'Need tools!'];
 const BAREHAND_MUTTER_TOOLS = ['axe', 'pickaxe', 'hoe'];
+const WORK_ACTION_LABELS = { axe: 'chopping...', pickaxe: 'mining...', hoe: 'tilling...',
+  fishing_rod: 'fishing...', net: 'catching...', sword: 'hunting...' };
 const HOUSE_RESTORED_MUTTERS = ['Eek!', 'Why hello there.', 'Thanks for fixing my house!',
   'Welcome back!', 'Can I offer some tea?'];
 const FIRE_REST_R = 3;   // cells — must be within this of a fire to warm up
@@ -3559,23 +3561,19 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // GPS ghost: where you REALLY are, always — a ring around the feet while
-    // the character stands on the fix, a mark left on the ground once the
-    // stick has walked it off, and its bearing on the map rim once it is off
-    // the map (_drawGpsRimDot). It used to hide within a cell of the body so
-    // GPS jitter would not pop it in and out; drawn always, the jitter is just
-    // the ring breathing a few pixels under the feet, and the player learns
-    // what the mark is before they ever leave it. At EVERY depth: a descent
-    // GPS-mirrors the world coordinates (changeDepth), so underground the fix
-    // is still the point over your head that the dig has wandered off from,
-    // and it is the one ground marker the map keeps — the walk target itself
-    // (this._targetM) draws nothing, see the gpsGhost block in create().
+    // The fix is a quiet shadow within one cell, a yellow ring farther away.
+    // Ring radius falls linearly to half at five cells; the rim dot still
+    // indicates an offscreen fix. This is presentation only, at every depth.
     if (this.gpsM) {
       const g = worldMetersToScreen(this,
         this.startWorldM.x + this.gpsM.x,
         this.startWorldM.y + this.gpsM.y);
-      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true)
-        .setFrame(Render.groundMarkFrame(this, 'gps_ring'));   // ticks turn with the map
+      const marker = Render.gpsMarkerStyle(Math.hypot(this.gpsM.x - this.playerM.x,
+        this.gpsM.y - this.playerM.y) / this.cellM);
+      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
+      if (this.gpsGhost.texture.key !== marker.key) this.gpsGhost.setTexture(marker.key);
+      if (marker.key === 'gps_ring') this.gpsGhost.setFrame(Render.groundMarkFrame(this, 'gps_ring'));
+      this.gpsGhost.setDisplaySize(marker.width, marker.height).setAlpha(marker.alpha);
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }
@@ -5409,6 +5407,35 @@ class MapScene extends Phaser.Scene {
     this._barehandMutter?.(toolSlot, worldX, worldY);
     durationMs = Gear.workDurationMs(this.save, durationMs, Date.now(), toolSlot);
     this._workProgress = { worldX, worldY, onComplete, durationMs, energyRefund, toolSlot, startT: performance.now(), track: trackCreature };
+    this._syncWorkActionLabel?.();
+  }
+  // A single persistent note follows the player's head for the whole job.
+  // It shares normal map-note typography, without toast drift/fade timers.
+  _syncWorkActionLabel() {
+    const text = WORK_ACTION_LABELS[this._workProgress?.toolSlot];
+    const ps = this.playerScreen?.();
+    if (!text || Combat.playerDowned(this.save?.energy)
+        || !ps || !Number.isFinite(ps.x) || !Number.isFinite(ps.y)) {
+      this._workActionLabel?.setVisible(false);
+      return;
+    }
+    if (!this._workActionLabel) {
+      const S = TOAST_TIER.note;
+      this._workActionLabel = this.add.text(0, 0, '', {
+        ...phaserFontUI(S.font), color: UI_INK, stroke: UI_SHADOW,
+        strokeThickness: S.stroke, padding: { x: S.pad, y: S.padY },
+        shadow: { ...S.shadow, color: UI_SHADOW, fill: true, stroke: true },
+      }).setOrigin(0.5, 1).setDepth(S.depth);
+      this._workActionLabel._huUI = true;
+      this.events.once('shutdown', () => {
+        this.cancelWorkProgress();
+        this._workActionLabel = null;
+      });
+    }
+    const label = this._workActionLabel;
+    if (label.text !== text) label.setText(text);
+    const at = HeadingUp.toOverlayPt(this, ps.x, ps.y, -ENERGY_POP_HEAD_PX - 22);
+    label.setPosition(clampTextX(Math.round(at.x), label.width, W), Math.round(at.y)).setVisible(true);
   }
   // The grunt a bare-handed job starts with (BAREHAND_MUTTERS), on the job's
   // cell. Answered HERE, beside the badge, for the same reason the badge is:
@@ -5475,6 +5502,7 @@ class MapScene extends Phaser.Scene {
   cancelWorkProgress() {
     if (this._workProgress?.flee) this._workProgress.flee._beingCaught = false;
     this._workProgress = null;
+    this._workActionLabel?.setVisible(false);
     this._workProgressGfx?.clear();
     this._workToolGfx?.clear();
     this._workProgressIcon?.setVisible(false);
@@ -5548,6 +5576,7 @@ class MapScene extends Phaser.Scene {
     if (this._stopDownedActions()) return;
     this._drawSwordSwing();
     this._drawWatering?.();
+    this._syncWorkActionLabel?.();
     const wp = this._workProgress;
     if (!wp) return;
     if (wp.flee && Conditions.attacksBlocked(this.save)) return;

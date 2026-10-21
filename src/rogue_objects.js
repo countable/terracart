@@ -6,22 +6,23 @@ const RogueObjects = (() => {
   function hash(id) { let value=2166136261; for (const c of String(id || '')) value=Math.imul(value ^ c.charCodeAt(0),16777619); return value >>> 0; }
   function install(assets) {
     if (!enabled) return;
+    // Source-preserving palette adaptation; the existing berry baker derives
+    // fruiting/picked states from this same canopy, with unchanged 24px frames.
+    if (assets.bushes) assets.bushes = {...assets.bushes,
+      path:'assets/ArtTrials/RogueObjects/bushes-olive.png'};
+    if (assets.selected_shrub) assets.selected_shrub = {...assets.selected_shrub,
+      path:'assets/ArtTrials/RogueObjects/shrub-olive.png'};
     for (const [name,bounds] of Object.entries(ROGUE_OBJECT_BOUNDS)) {
+      // Houses use the shared footprint-based renderer and its current scheme.
+      if (name.startsWith('house_')) continue;
       const key='rogue_'+name;
       assets[key]={kind:'image',path:'assets/ArtTrials/RogueObjects/'+name.replaceAll('_','-')+'.png'};
       if (typeof SpriteLayout !== 'undefined') SpriteLayout.ART_BOUNDS[key+':__BASE']=bounds;
     }
   }
-  function houseKey(o,scene,role) {
-    if (!enabled || (scene?.depth || 0)>0 || !o || ![9,11].includes(o.tier)
-      || !['plain','trailer','shop','trader','blacksmith','fort'].includes(role)) return null;
-    if (role==='trailer' && scene.homeInside?.()) return null;
-    return o.tier===9 ? 'rogue_house_small' : hash(o.id)%2 ? 'rogue_house_sw' : 'rogue_house_large';
-  }
-  function houseScale(o,scene,width) {
-    const cells=o.area>0 && scene.cellM>0 ? Math.sqrt(o.area)/scene.cellM : 2.5;
-    return Math.max(1.5,Math.min(5,cells))*CELL_PX/width;
-  }
+  // No facade override: retain the normal 3D house renderer (and its Canvas
+  // fallback), including footprint, restoration, rotation and open-roof Home.
+  function houseKey() { return null; }
   function spec(o,scene,original) {
     if (!enabled || (scene?.depth || 0)>0) return original;
     let key,scale;
@@ -44,7 +45,7 @@ const RogueObjects = (() => {
     }
     return {enabled,textures};
   }
-  return {enabled,install,houseKey,houseScale,spec,status};
+  return {enabled,install,houseKey,spec,status};
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;

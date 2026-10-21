@@ -1,14 +1,19 @@
 const fs=require('node:fs'),assert=require('node:assert/strict');
 const code=fs.readFileSync('src/rogue_object_bounds.js','utf8')+'\n'+fs.readFileSync('src/rogue_objects.js','utf8');
 function load(search) {
- const assets={},layout={ART_BOUNDS:{}};
+ const assets={selected_shrub:{kind:'spritesheet',path:'assets/Objects/SelectedFlora/selected_shrub.png',frameWidth:16,frameHeight:16},bushes:{kind:'spritesheet',path:'assets/Objects/CelProps/bushes.png',frameWidth:24,frameHeight:24}},layout={ART_BOUNDS:{}};
  const art=new Function('location','ASSETS','SpriteLayout','DreamlandObjects','treeArtFrame','mineralRockMaterial','CELL_PX','Houses','WorldLayers',code+'\nreturn RogueObjects;')({search},assets,layout,{},o=>o.stage||3,o=>o.material||'plain',32,{displayRole:()=> 'wreck'},{STANDING_PROP:'standing'});
  return {art,assets,layout};
 }
-const off=load('');assert.equal(Object.keys(off.assets).length,0);
-const {art,assets,layout}=load('?artTrial=rogue');assert.equal(Object.keys(assets).length,15);
+const off=load('');assert.equal(Object.keys(off.assets).length,2);assert.equal(off.assets.bushes.path,'assets/Objects/CelProps/bushes.png');
+const {art,assets,layout}=load('?artTrial=rogue');assert.equal(Object.keys(assets).length,14);
+assert.equal(assets.bushes.path,'assets/ArtTrials/RogueObjects/bushes-olive.png');
+assert.equal(off.assets.selected_shrub.path,'assets/Objects/SelectedFlora/selected_shrub.png');
+assert.equal(assets.selected_shrub.path,'assets/ArtTrials/RogueObjects/shrub-olive.png');
+assert.equal(assets.selected_shrub.frameWidth,16);assert.equal(assets.selected_shrub.frameHeight,16);
+assert.equal(assets.bushes.frameWidth,24);assert.equal(assets.bushes.frameHeight,24);
 for(const [key,asset] of Object.entries(assets)) {
- assert(fs.existsSync(asset.path));assert(layout.ART_BOUNDS[key+':__BASE']);
+ assert(fs.existsSync(asset.path));if(!['bushes','selected_shrub'].includes(key))assert(layout.ART_BOUNDS[key+':__BASE']);
 }
 const original={key:'trees',frame:3,after:()=>{}};
 const tree=Object.freeze({id:'stable-id',kind:'tree',stage:3,crown_color:0xff00ff});
@@ -21,7 +26,10 @@ assert.equal(art.spec({kind:'mineralrock',material:'gold'},{},original),original
 assert(['rogue_rock_mid','rogue_stone'].includes(art.spec({kind:'mineralrock',material:'plain'},{},original).key));
 assert.equal(art.spec({kind:'staircase',dir:'down'},{},original).key,'rogue_ladder_down');
 assert.equal(art.spec({kind:'staircase',dir:'up'},{},original),original);
-assert.equal(art.houseKey({tier:9},{},'plain'),'rogue_house_small');
+for (const tier of [9,11,12]) for (const role of ['plain','trailer','shop','trader','blacksmith','fort','wreck']) {
+ assert.equal(art.houseKey({tier},{game:{renderer:{type:2}}},role),null,'RA keeps the shared 3D house scheme');
+}
+assert(!Object.keys(assets).some(key=>key.startsWith('rogue_house_')),'unused facade images are not loaded');
 assert.equal(art.houseKey({tier:9},{},'wreck'),null,'retain authentic ruined art until restored');
 assert.equal(art.houseKey({tier:11},{},'temple'),null);
 assert.equal(art.houseKey({tier:9},{homeInside:()=>true},'trailer'),null);

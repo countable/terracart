@@ -70,10 +70,15 @@ wetland uses dark olive soil; sand, water and civic/commercial/industrial ground
 use the corresponding sand, water and stone families. Piers retain their existing
 deck over water. Roads keep their vector paving and inherit the existing source
 landcover/theme lookup beneath it. Polygonal buildings retain their architecture
-and existing inferred ground; the opt-in source facade replaces eligible ordinary
-house geometry while retaining the source footprint for collision. The full Rogue profile uses the reference-selected jungle canopy families (also
-used by the village reference), source village facades for eligible small/medium
-houses, stone lamps, plain rocks and ladder-down hatches. Growth stages retain
+and existing inferred ground. Houses use the shared 3D footprint renderer and
+latest normal house scheme, including restoration, heading rotation and open-roof
+Home; RA facade images are not loaded or substituted. Canvas keeps the normal
+building fallback. The Rogue profile uses the reference-selected jungle canopy
+families (also used by the village reference), stone lamps, plain rocks and
+ladder-down hatches. Bushes preserve their eight source frames with an RA olive
+palette export; berry overlays retain their distinct fruit colours. RA wrecks
+keep the shared collapse geometry with desaturated, lower-contrast earth/olive
+materials baked into two cached sheets at startup, not during movement. Growth stages retain
 proportional sizes; ore deposits, temple architecture and indoor Home remain
 unchanged. Gameplay, source object IDs/positions and saves are unchanged.
 Nexus-specific ground, rift buffers, quarry/exclusion rock, tilled beds, synthetic
@@ -731,9 +736,11 @@ the surrounding grove’s shrub scale.
   ring's `GPS_RING` row carries its own on-screen width and tilt (at the
   shared tilt it read squashed) and the facing caret's paint instead of the
   halo: a gold line on a dark outline over a drop shadow down the screen
-  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS ring (`gpsGhost`) is always drawn while there is a fix:
-  around the feet while the body stands on it, left on the ground once the
-  stick walks the body off, and, once its centre is off the visible map, its
+  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
+  a soft shadow within one gameplay cell of the body, otherwise a yellow ring.
+  Radius decreases linearly from full at one cell to half at five cells,
+  clamped there beyond five; distance is measured in world metres independently
+  of zoom and heading. Once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
   on the rim layer). The walk-home lead stops on the ring's ellipse.
   The shine sweep and a warping rank's space warp (`Render.setEliteWarp`, a
@@ -743,6 +750,10 @@ the surrounding grove’s shrub scale.
   sub-viewport, so `Render.guardPreFxScissor` lifts the scissor around each
   FX quad (app.js installs it before the game boots); without it a shiny
   prop vanishes or shows a slice at every zoom but 1 and every heading.
+- Timed tool work keeps one ordinary map-note label above the player's head
+  (`chopping...`, `mining...`, `tilling...`, `fishing...`, `catching...`, or
+  `hunting...`). It follows the player through heading changes and persists for
+  the job, clearing on completion, cancellation, death or scene shutdown.
 - Centre a static target's work wheel in its cell; a creature's (a net
   capture, a hunt) rides the creature, on its body (`creatureWheelDy`). Use a
   small, solid disc at 50% opacity. Seat enemy health bars from `CREATURE_ART`

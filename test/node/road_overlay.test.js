@@ -1681,71 +1681,30 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
   });
 });
 
-// The hedged lane's carpet: two offset strips read off the row's own column,
-// and white, closer lamps from the same row.
-test('hedgerow carpet: offsetLine pushes left/right; row carries carpet + white closer lamps', () => {
-  const l = RoadOverlay.offsetLine([{ x: 0, y: 0 }, { x: 10, y: 0 }], 3);
-  assert.eq(l[0].y, 3); assert.eq(l[1].y, 3);
-  assert.eq(RoadOverlay.offsetLine([{ x: 0, y: 0 }, { x: 10, y: 0 }], -3)[0].y, -3);
-  assert.truthy(StreetVariants.carpetColorFor('hedgerow') > 0, 'hedgerow has a carpet');
-  assert.eq(StreetVariants.carpetColorFor('orchard'), null);
+test('street variants draw pavement without decorative verge strips', () => withStreets(() => {
+  const previousStyles=StreetVariants.lineStyles;
+  try {
+    for (const variant of ['hedgerow','overgrown','pilgrim']) {
+      clearTiles();
+      putTile(0,0,[line([{x:0,y:0},{x:160,y:0}],{class:'street'})]);
+      StreetVariants.lineStyles=()=>[{a:0,b:100,variant}];
+      const scene=makeOverlayScene(),decor=[];
+      scene.roadGeomGfx.decorPath=(...args)=>decor.push(args);
+      RoadOverlay.draw(scene);
+      assert.gt(scene.roadGeomGfx.paths.length,0,'pavement remains');
+      assert.eq(decor.length,0,variant+' has no carpet or emblem pass');
+    }
+  } finally {StreetVariants.lineStyles=previousStyles;}
+}));
+
+test('street variant identity uses biome verges and retains its themed lamps', () => {
   assert.eq(StreetVariants.VARIANT_BY_ID.hedgerow.lampGlow, '#ffffff');
-  assert.truthy(StreetVariants.VARIANT_BY_ID.hedgerow.lampDensity > 2, 'denser than before');
-});
-
-// The monarch's carpet: dark green, sown with upright crowns a cell apart.
-test('carpet strips: soft unmarked seed verge, preserved royal crown, religious diamond', () => {
-  const run = [{ x: 0, y: 0 }, { x: 96, y: 0 }];
-  const capture = (variant) => {
-    const ops = [];
-    RoadOverlay.emitCarpetStrip({ decorPath: (w, color, pts, alpha = 1) => ops.push({ w, color, pts, alpha }) }, run, variant, 32);
-    return ops;
-  };
-  const seed = StreetVariants.carpetStyleFor('overgrown');
-  const hedge = StreetVariants.carpetStyleFor('hedgerow');
-  assert.truthy(seed.widthCells < hedge.widthCells, 'seed strip is thinner than kept carpet');
-  assert.truthy(seed.featherCells > 0, 'seed strip has a soft edge');
-  assert.eq(seed.emblem, null, 'no symbols in gone to seed');
-  const r = seed.color >> 16, g = (seed.color >> 8) & 255, b = seed.color & 255;
-  assert.truthy(g > r && r > b, 'yellowish green');
-  const soft = capture('overgrown');
-  assert.truthy(soft.length > 1, 'feathered strokes');
-  for (let i = 0; i < soft.length; i++) {
-    assert.eq(soft[i].pts, run, 'no emblem path added');
-    assert.truthy(soft[i].alpha > 0 && soft[i].alpha < 1, 'translucent edge');
-    if (i) assert.truthy(soft[i].w < soft[i - 1].w, 'progressively narrower strokes');
+  assert.truthy(StreetVariants.VARIANT_BY_ID.hedgerow.lampDensity > 2);
+  for (const [variant,terrain] of Object.entries({hedgerow:'PARK',overgrown:'FOREST',pilgrim:'ROCK'})) {
+    assert.eq(StreetVariants.terrainFor(variant),WorldGen.T[terrain]);
+    assert.falsy('carpet' in StreetVariants.VARIANT_BY_ID[variant]);
+    assert.falsy('emblem' in StreetVariants.VARIANT_BY_ID[variant]);
   }
-  const royal = capture('hedgerow');
-  assert.eq(royal[0].w, StreetVariants.CARPET_WIDTH_CELLS * 32);
-  assert.eq(royal[0].alpha, 1, 'kept carpet stays crisp');
-  assert.eq(royal.length, 4, 'strip plus three crowns');
-  const pilgrim = capture('pilgrim');
-  const religion = StreetVariants.carpetStyleFor('pilgrim');
-  assert.truthy((religion.color & 255) > ((religion.color >> 8) & 255), 'purple carpet');
-  assert.eq(religion.emblem.kind, 'diamond');
-  assert.eq(pilgrim.length, 4, 'strip plus three diamonds');
-  assert.eq(pilgrim[1].pts.length, 5, 'closed diamond');
-  assert.eq(capture('orchard').length, 0, 'other streets acquire no carpet');
-});
-
-test('hedgerow carpet: dark green with a repeating crown emblem', () => {
-  const c = StreetVariants.carpetColorFor('hedgerow');
-  const r = c >> 16, g = (c >> 8) & 255, b = c & 255;
-  assert.truthy(g > r && g > b && g < 0x80, 'a dark green');
-  const em = StreetVariants.carpetEmblemFor('hedgerow');
-  assert.eq(em.kind, 'crown', 'the crown emblem');
-  assert.eq(StreetVariants.carpetEmblemFor('orchard'), null, 'no carpet, no emblem');
-  const ops = [];
-  const sink = { decorPath: (w, col, pts) => ops.push({ w, col, pts }) };
-  const step = RoadOverlay.CARPET_EMBLEM_STEP_PX;
-  RoadOverlay.emitCarpetEmblems(sink, [{ x: 0, y: 0 }, { x: 5 * step, y: 0 }], em);
-  assert.eq(ops.length, 5 * RoadOverlay.CARPET_EMBLEMS.crown.length, 'one crown a step');
-  for (const o of ops) assert.eq(o.col, em.ink, 'in the emblem ink');
-  // Upright on screen whatever the road's heading: a vertical run stamps the same shape.
-  const up = [];
-  RoadOverlay.emitCarpetEmblems({ decorPath: (w, col, pts) => up.push(pts) }, [{ x: 0, y: 0 }, { x: 0, y: step }], em);
-  const shape = RoadOverlay.CARPET_EMBLEMS.crown[0];
-  assert.eq(up[0].map((p) => p.x - up[0][0].x).join(), shape.map((p) => p.x - shape[0].x).join(), 'not turned with the road');
 });
 
 test('broken street lamp: shared plinth, shorter post and muted metal without any light', () => {

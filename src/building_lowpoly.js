@@ -82,7 +82,9 @@
   // Explicit recipe selection keeps baseline and Rogue wrecks independent.
   const DREAMLAND_WRECK={tint:0xffffff,roofTint:0xffffff,debris:0xb58b5d,
     beam:0x9b6b3f,top:0xf6d6af,highlight:0xffebcf,shadow:0xc39a73,mortar:0xf6d6af,ink:0x000000};
-  const wreckLook=recipe=>recipe.artProfile==='dreamland'?DREAMLAND_WRECK:LOOK.wreck;
+  const ROGUE_WRECK={tint:0xffffff,roofTint:0xffffff,debris:0x898675,
+    beam:0x797d70,top:0xa19c83,highlight:0xb0aa92,shadow:0x85816d,mortar:0xa19c83,ink:0x000000};
+  const wreckLook=recipe=>recipe.artProfile==='dreamland'?DREAMLAND_WRECK:recipe.artProfile==='rogue'?ROGUE_WRECK:LOOK.wreck;
   function recipeFor(role,palette={},stories,restored=false){
     const spec=ROLES[role]||ROLES.plain,base=BuildingStyles.STYLES[spec.style];
     const recipe={...spec,role,body:palette.wall??base.wall,roof:palette.roof??base.roof,
@@ -1111,7 +1113,32 @@
         ctx.fillRect(Math.round((px+dx)*scale),Math.round((py+dy)*scale),Math.round(rw*scale),Math.round(rh*scale));
     }
   }
+  // Bake once during Rogue startup. These are separate atlases: adjusting the
+  // trial cannot mutate the baseline or Dreamland material caches. Geometry,
+  // UVs and alpha are retained; softer earth/olive color reduces prop contrast.
+  function prepareRogueWreck(scene){
+    const recipe=recipeFor('wreck');
+    for(const [key,source] of [['rogue_wreck_material',()=>material(scene,recipe)],
+        ['rogue_wreck_interior',()=>wreckInteriorSheet(scene,recipe)]]){
+      if(scene.textures.exists(key))continue;
+      const src=source(),image=src.getSourceImage(),size=image.width;
+      const tex=scene.textures.createCanvas(key,size,image.height),ctx=tex.getContext();
+      ctx.imageSmoothingEnabled=false;
+      ctx.filter='saturate(35%) contrast(72%)';
+      ctx.drawImage(image,0,0);ctx.filter='none';
+      ctx.globalCompositeOperation='source-atop';
+      ctx.fillStyle='rgba(126,130,99,0.22)';ctx.fillRect(0,0,size,image.height);
+      ctx.globalCompositeOperation='source-over';
+      // Untextured rubble and silhouette faces sample this reserved white texel.
+      ctx.fillStyle='#ffffff';ctx.fillRect(508/512*size,124/512*image.height,4/512*size,4/512*image.height);
+      if(src.roofTone!==undefined)tex.roofTone=0x85816d;
+      if(src.roofPeriod!==undefined)tex.roofPeriod=src.roofPeriod;
+      tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);
+    }
+  }
   function material(scene,recipe){
+    if(recipe.shape==='wreck'&&recipe.artProfile==='rogue'&&scene.textures.exists('rogue_wreck_material'))
+      return scene.textures.get('rogue_wreck_material');
     if(recipe.shape==='wreck'&&recipe.artProfile==='dreamland'&&scene.textures.exists('dreamland_wreck_material'))
       return scene.textures.get('dreamland_wreck_material');
     const tex=baseMaterial(scene,recipe);
@@ -1141,6 +1168,8 @@
     return tex;
   }
   function wreckInteriorSheet(scene,recipe){
+    if(recipe?.artProfile==='rogue'&&scene.textures.exists('rogue_wreck_interior'))
+      return scene.textures.get('rogue_wreck_interior');
     if(recipe?.artProfile==='dreamland'&&scene.textures.exists('dreamland_wreck_interior'))
       return scene.textures.get('dreamland_wreck_interior');
     const loaded=scene.textures.exists('wreck_floor_cel'),key='lowpoly:wreck-interior-v6:'+loaded;
@@ -1881,5 +1910,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={authoredGeometry,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={prepareRogueWreck,authoredGeometry,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

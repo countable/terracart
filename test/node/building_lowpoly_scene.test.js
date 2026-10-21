@@ -67,6 +67,25 @@
     assert.truthy(mesh.faces.filter(f=>f.standingRoof||f.fallenRoof).every(f=>f.color===0xffffff),'source red roof has no legacy grey tint');
     assert.truthy(mesh.faces.some(f=>f.rubbleTop&&f.color===0xf6d6af),'debris matches beige plaster');
   }));
+  test('Rogue wrecks: prewarmed muted sheets preserve collapse geometry and allocate nothing on rebuild', () => withPhaser(() => {
+    const scene=stubScene(),plain=BuildingLowPoly.recipeFor('wreck'),recipe={...plain,artProfile:'rogue'};
+    BuildingLowPoly.prepareRogueWreck(scene);
+    const material=scene.textures.get('rogue_wreck_material'),interior=scene.textures.get('rogue_wreck_interior');
+    assert.truthy(material&&interior,'both profile sheets prewarmed');
+    assert.eq(material.getContext().filter,'none','filter reset after bake');
+    scene.textures.createCanvas=()=>{throw Error('Rogue wreck attempted a runtime material bake');};
+    BuildingLowPoly.prepareRogueWreck(scene);
+    assert.eq(scene.textures.get('rogue_wreck_material'),material,'prewarm is idempotent');
+    const local=FOOT.map(p=>({x:p.x-100,y:p.y-100}));
+    const baseline=BuildingLowPoly.specialGeometry(local,plain,[],'rogue-wreck');
+    const native=BuildingLowPoly.specialGeometry(local,recipe,[],'rogue-wreck');
+    assert.eq(JSON.stringify(native.faces.map(f=>f.points)),JSON.stringify(baseline.faces.map(f=>f.points)),'same collapse geometry');
+    assert.truthy(native!==baseline,'palette cache isolated');
+    BuildingLowPoly.begin(scene);
+    const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','rogue-wreck');
+    assert.truthy(mesh.faces.every(f=>f.texture.key.startsWith('rogue_wreck_')),'all surfaces use RA adapted sheets');
+    assert.truthy(mesh.faces.some(f=>f.rubbleTop&&f.color===0xa19c83),'rubble joins muted olive stone palette');
+  }));
   test('low-poly buildings: distant road filtering preserves full-network door choice, including crossing segments', () => withPhaser(() => {
     const scene=stubScene(),recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const far=Array.from({length:100},(_,i)=>[{x:3000+i,y:3000},{x:4000+i,y:4000}]);

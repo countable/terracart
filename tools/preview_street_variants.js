@@ -10,7 +10,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'polygon_geometry', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'items', 'macros', 'interactables', 'loot', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'coords', 'polygon_geometry', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'selected_item_art', 'items', 'macros', 'interactables', 'loot', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 // Use the same shared geometry pass as the scene street-lamp renderer.
@@ -26,22 +26,6 @@ const halfLengthCells = 22 * .7;
 const line = [point(middle - halfLengthCells, middle), point(middle + halfLengthCells, middle)];
 const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
 const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
-
-// Record the actual carpet painter, including its soft edge and symbols.
-// The painter uses screen pixels; the diagram's coordinate system is metres.
-function carpetPreview(row, roadWidthM, sampleLine = line) {
-  if (!SV.carpetStyleFor(row.id)) return [];
-  const pxPerM = ctx.SpriteLayout.CELL_PX / cellM, strokes = [];
-  const base = sampleLine.map(p => ({x:p.x*tileEdgeM/extent, y:p.y*tileEdgeM/extent}));
-  for (const side of [-1, 1]) {
-    const run = base.map(p => ({x:p.x*pxPerM, y:(p.y+side*(roadWidthM/2+cellM/2))*pxPerM}));
-    ctx.RoadOverlay.emitCarpetStrip({decorPath(width, colour, points, alpha=1) {
-      strokes.push({width:width/pxPerM, colour:'#'+colour.toString(16).padStart(6,'0'), alpha,
-        points:points.map(p=>({x:p.x/pxPerM,y:p.y/pxPerM}))});
-    }}, run, row.id, ctx.SpriteLayout.CELL_PX);
-  }
-  return strokes;
-}
 
 // Export the shipping raster, cropped to the preview viewport. Road surfaces are
 // drawn by the pavement painter; park is the fixture's unchanged base ground.
@@ -99,7 +83,6 @@ function preview(row) {
   const lairs = dress.lairs.map((o) => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly }));
   return { ...row, ...groundPreview(tile), words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
-    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags)),
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,
     line: line.map((p) => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })),
     slowKinds: [...new Set(objects.filter((o) => SV.isSlowKind(o.kind)).map((o) => o.kind))] };
@@ -153,7 +136,6 @@ function previewPath(row) {
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   if (!lamps.length || lamps.some(lamp => lamp.glow !== row.lampGlow)) throw new Error(`Wrong path lamps for ${row.id}`);
   return { ...row, ...groundPreview(tile), sampleName: name, roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
-    carpetStrokes: carpetPreview(row, WG.roadOverlayWidthM(tags), line),
     lampSpacingM: SV.lampSpacingFor(row.id, ctx.Streets.lampLayFor(tags).spacingM), objects,
     lamps, vents: (streetDress.vents || []).map(local), webs: (streetDress.webs || []).map(local), lairs: streetDress.lairs.map(o => ({ tier: o.tier, kind: o.tier + ' guard site', x: o.lx, y: o.ly })),
     slowKinds: [...new Set(objects.filter(o => SV.isSlowKind(o.kind)).map(o => o.kind))], geography, scenicKind: kind,

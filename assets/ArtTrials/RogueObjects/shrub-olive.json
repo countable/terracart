@@ -1,0 +1,46 @@
+{
+  "source": "assets/Objects/SelectedFlora/selected_shrub.png",
+  "sourceSHA256": "bcf1470b3c4736ccc62e3380c5b495d0475a44a53d21f992641cfa5faf12694b",
+  "sourceProvenance": "assets/Objects/SelectedFlora/manifest.json: selected_shrub / ALT-0769, Pixel Plains Harvest Summer",
+  "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
+  "paletteReferenceSHA256": "72639d55929a5a3abee9478d3deb85ed0b9f32efa4ce3344334fa1f83180fda6",
+  "ramp": [
+    [
+      51,
+      47,
+      35
+    ],
+    [
+      102,
+      102,
+      61
+    ],
+    [
+      127,
+      127,
+      70
+    ],
+    [
+      153,
+      153,
+      76
+    ],
+    [
+      178,
+      178,
+      71
+    ],
+    [
+      204,
+      204,
+      71
+    ]
+  ],
+  "strength": 0.8,
+  "frameSize": [
+    16,
+    16
+  ],
+  "frames": 1,
+  "method": "Same RA foliage ramp as berry canopies; original silhouette and alpha unchanged."
+}

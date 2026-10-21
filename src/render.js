@@ -4296,6 +4296,13 @@ const GROUND_MARK = {
 // and `outline` are on-screen px, as the caret's are (FACING_CHEVRON).
 const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
   line: 1.2, outline: 2.8, shadowPx: 1, ink: '#ffe066' };
+// Physical distance controls appearance independently of map zoom and heading.
+Render.gpsMarkerStyle = function gpsMarkerStyle(distanceCells) {
+  const near = distanceCells <= 1;
+  const scale = 1 - .5 * Math.max(0, Math.min(1, (distanceCells - 1) / 4));
+  return {key: near ? 'bldg_shadow' : 'gps_ring', alpha: near ? .35 : 1,
+    width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
+};
 // The ring's stroke passes in bake px, [width, colour, alpha, dy]: dy shifts
 // a pass down the bake before it turns, which the tilt lays flat as screen-down
 // (the ring is counter-rotated to stay screen-flat under heading-up).

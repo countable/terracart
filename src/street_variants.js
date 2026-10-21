@@ -204,9 +204,6 @@
   // The hedged lane's white lamps stand closer than the usual street's, still
   // short of a Lantern Row.
   const HEDGE_LAMP_DENSITY = 3;
-  // The hedged lane's carpet: centred on the first verge cell (where the
-  // hedges stand, so it shows at every garden gate), this many cells wide.
-  const CARPET_WIDTH_CELLS = 0.6;
   // A variant's claim reaches this far past its road band (areaSteps) and
   // its ground paint runs out to it (paintTerrainSteps): 2 cells from the
   // road, the owner's figure (Oct 2026).
@@ -254,11 +251,6 @@
   const STREET_VARIANTS = [
     { id: 'hedgerow', terrain: 'PARK', affinities: ['cultivated', 'formal'], size: 'minor', share: 0.08, nudge: 2, rung: 'find',
       stone: { weathered: '#77746a', restored: '#898a80' }, lampDensity: HEDGE_LAMP_DENSITY,
-      // A dark green carpet runs down the verge either side (road_overlay.js
-      // decor lane), sown with the old monarch's crown — the one royal symbol
-      // the kept lanes still carry from before the fire. `emblem` names the
-      // repeating mark; `emblemInk` is its colour.
-      carpet: '#1f4a2c', emblem: 'crown', emblemInk: '#7b803b',
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#ffffff', fauna: { rabbit: [2, 5] },
       story: 'street_hedgerow', title: 'The hedged lane',
@@ -271,7 +263,6 @@
       // giant bear on a third of them.
       extraEncounters: [{ tier: 'street_wild_boar', chance: 1 }, { tier: 'street_forest_bear', chance: 1 / 3 }],
       stone: { weathered: '#737f69', restored: '#8c9b7f' }, lampDensity: 1,
-      carpet: '#9caa55', carpetWidthCells: 0.28, carpetFeatherCells: 0.14,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', fauna: { rabbit: [2, 5], butterfly: [2, 5] },
       story: 'street_overgrown', title: 'Gone to seed',
@@ -286,8 +277,6 @@
       flash: 'Old trees, still fruiting.' },
     { id: 'pilgrim', terrain: 'ROCK', affinities: ['sacred'], size: 'minor', share: 0.06, rung: 'uncommon',
       stone: { weathered: '#929084', restored: '#aaa798' }, lampDensity: 1,
-      // The diamond marks the ancient religion; hedged lanes bear the ruling crown.
-      carpet: '#64517d', emblem: 'diamond', emblemInk: '#c5b4d5',
       words: /(church|chapel|abbey|kirch|kloster|pilgrim|cross|saint|\bst\b|priest|minster|\bdom\b|mission)/i,
       lampGlow: '#f2eee0', fauna: { crow: [2, 5] },
       story: 'street_pilgrim', title: "Pilgrim's Way",
@@ -1792,7 +1781,7 @@
   }
 
   // Select all themes before painting. Theme the ground continuously beneath
-  // the road and out to its 1.5-cell verge. Road/path codes stay intact;
+  // the road and out to its two-cell verge. Road/path codes stay intact;
   // streetGround stores their visible base as terrain + 1 (zero = unset).
   // Intersections prefer the nearest
   // road edge, with a stable key breaking ties. Source access reasons remain
@@ -3054,25 +3043,6 @@
     return null;
   }
 
-  function carpetColorFor(variant) {
-    const hex = VARIANT_BY_ID[variant]?.carpet;
-    return hex ? parseInt(hex.slice(1), 16) : null;
-  }
-  // The repeating mark on a variant's carpet, or null: { kind, ink }.
-  function carpetEmblemFor(variant) {
-    const row = VARIANT_BY_ID[variant];
-    if (!row?.carpet || !row.emblem) return null;
-    return { kind: row.emblem, ink: parseInt((row.emblemInk || '#ffffff').slice(1), 16) };
-  }
-
-  // Runtime and review surfaces share the strip's width, soft edge and mark.
-  function carpetStyleFor(variant) {
-    const row = VARIANT_BY_ID[variant];
-    if (!row?.carpet) return null;
-    return { color: carpetColorFor(variant), widthCells: row.carpetWidthCells ?? CARPET_WIDTH_CELLS,
-      featherCells: row.carpetFeatherCells || 0, emblem: carpetEmblemFor(variant) };
-  }
-
   // Whether street `key` (variant `v`) gets its shrine: STREET_SHRINE_CHANCE,
   // or the kind's own `streetChance` (the Golden Road's shrine is always there —
   // the road's coins are its).
@@ -3093,11 +3063,11 @@
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
-    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, CARPET_WIDTH_CELLS, SLOW_KINDS,
+    ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
-    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, carpetColorFor, carpetEmblemFor, carpetStyleFor, lineStyles, hotRoadAt, isSlowKind,
+    markBanditStops, streetShrineChosen, dress, dressSteps, lampSpacingFor, lampGlowFor, stoneColorFor, lineStyles, hotRoadAt, isSlowKind,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

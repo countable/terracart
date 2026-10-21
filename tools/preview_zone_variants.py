@@ -628,10 +628,6 @@ def street_svg(v, cell_m, detail=False):
         tile_size = cell_m
         parts.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{tile_size}" height="{tile_size}">' + art_image({'procedural': painter}, f'width="{tile_size}" height="{tile_size}"') + '</pattern></defs>')
         parts.append(f'<path class="sprite-cell pavement-{state}" d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="url(#{pid})" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>')
-    # Shipping carpet strokes appear below the hedge/grass sprite layer.
-    for stroke in v.get('carpetStrokes', []):
-        points = ' '.join(f'{point["x"]},{point["y"]}' for point in stroke['points'])
-        parts.append(f'<polyline class="sprite-cell carpet-deco" points="{points}" fill="none" stroke="{stroke["colour"]}" stroke-width="{stroke["width"]}" stroke-opacity="{stroke["alpha"]}"><title>Shipping verge carpet decoration</title></polyline>')
     art_prefix = f'street-art-{v["id"]}{suffix}'
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
     for o in v['objects']:

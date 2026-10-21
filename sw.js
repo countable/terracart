@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-bc082d67';
+const SHELL_VERSION = 'shell-56ab6495';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -53,6 +53,7 @@ const ASSET_HASHES = {
   "assets/ArtTrials/DreamlandTerrain/path.png": "b156bd86",
   "assets/ArtTrials/DreamlandTerrain/round-tree-reference.png": "f3ad3b88",
   "assets/ArtTrials/DreamlandTerrain/terrain.png": "ef7a4938",
+  "assets/ArtTrials/RogueObjects/bushes-olive.png": "120fc538",
   "assets/ArtTrials/RogueObjects/house-large.png": "03d57d89",
   "assets/ArtTrials/RogueObjects/house-small.png": "d889c2b5",
   "assets/ArtTrials/RogueObjects/house-sw.png": "8b70125d",
@@ -60,6 +61,7 @@ const ASSET_HASHES = {
   "assets/ArtTrials/RogueObjects/lamp-unlit.png": "03d576f5",
   "assets/ArtTrials/RogueObjects/lamp.png": "531900a1",
   "assets/ArtTrials/RogueObjects/rock-mid.png": "05ddc979",
+  "assets/ArtTrials/RogueObjects/shrub-olive.png": "b1fdfd56",
   "assets/ArtTrials/RogueObjects/stone.png": "48db8818",
   "assets/ArtTrials/RogueObjects/tree-dead.png": "99bd2d41",
   "assets/ArtTrials/RogueObjects/tree-root-a.png": "d190ad93",

@@ -269,6 +269,7 @@ class SceneCreate {
     AuthoredBuildings.prepare(this);
     makeBiomeTextures(this, CELL_PX);
     if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(this);
+    if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled&&typeof BuildingLowPoly!=='undefined')BuildingLowPoly.prepareRogueWreck(this);
     makeBerryBushTexture(this);
     makeTowerTexture(this);
     // Both tower atlases share their colours with the walls and courtyard.
@@ -1143,20 +1144,8 @@ class SceneCreate {
       .setMask(mask);
     this.playerHalo.clearMask();
     this.playerWorldContainer.add(this.playerHalo);
-    // GPS marker — a flat gold ring on the ground at your REAL (GPS) position,
-    // always shown: around the feet while the body stands on the fix, and left
-    // behind on the ground once the stick has walked the character off it.
-    // Walking off the GPS is the whole point of the stick, so you need to see
-    // where you actually are to find your way back; a mark that is always
-    // there needs no "far enough to matter" threshold to pop in at, and it
-    // says "this is you" before you ever leave it.
-    //
-    // Not a player-shaped sprite — the only player sprites on the map belong
-    // to real bodies — and not a filled dot either: gold and round at this
-    // size is a coin, which is the one thing on this map you are meant to walk
-    // over and collect. The same flat ground paint as the elite's rune circle
-    // (the 'gps_ring' bake above), laid flat by GPS_RING.tilt and drawn at
-    // GPS_RING.px — its own size and tilt, in the caret's paint (render.js).
+    // GPS marker: a soft shadow within one cell of the player, otherwise
+    // the yellow ring. Update scales its radius down to half at five cells.
     // Ground paint, so it lives with the shadows and the walk-home lead
     // (shadowContainer, under every standing sprite): the body stands ON the
     // ring, the way an elite stands on its rune circle — a root-level image

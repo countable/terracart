@@ -1648,6 +1648,8 @@
                 trim:role==='turret'?paint(palette.wall):undefined},Render.buildingStoreysFor(object, scene),isMine);
           if(typeof DreamlandObjects!=='undefined'&&DreamlandObjects.enabled
               &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='dreamland';
+          else if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled
+              &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='rogue';
           recipe.authored = styleId==='ruin'?null:authoredRecipe(scene,object,role);
           // Restored recipes own their brass/copper palette; apply the same
           // background treatment after selection, including the recipe trim.
