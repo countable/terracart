@@ -51,8 +51,10 @@ assert.equal(crops.shrub.looks.bramble.sheet,'bramble','thorny grove identity su
 
 // Replacing an atlas alias must discard old frame rectangles and load callbacks.
 for(const [key,entry] of Object.entries(profile.assets)) {
- assert.deepEqual(assets[key],entry,key);
- for(const stale of ['atlasKey','frameRects','onLoad','desaturated']) assert.equal(assets[key][stale],undefined,key+': '+stale);
+ const {onLoad,...installed}=assets[key];
+ assert.deepEqual(installed,entry,key);
+ assert.equal(typeof onLoad,profile.frameCrops[key] ? 'function' : 'undefined');
+ for(const stale of ['atlasKey','frameRects','desaturated']) assert.equal(assets[key][stale],undefined,key+': '+stale);
 }
 for(const [key,bounds] of Object.entries(profile.bounds)) assert.deepEqual(layout.ART_BOUNDS[key],bounds,key);
 const iconSheets=Object.fromEntries(Object.keys(profile.icons).map(key=>[key,{url:'old-atlas.png',frames:{0:{x:48,y:32}}}]));
@@ -87,3 +89,15 @@ const rect={x:0,y:0,width:16,height:16};
 atlas.register({textures:manager},{key:'shared',entries:Object.fromEntries(Object.keys(atlasRegistry).map(key=>[key,{sheetRect:rect,frameRects:{0:rect}}]))});
 assert.deepEqual(created,['barrel'],'Only active aliases may register before profile images finish');
 console.log('Atlas load-order regression: replaced aliases never reclaim standalone profile keys passed');
+
+// Ground-contact crops preserve each source column and replace only the height.
+for (const [key,frames] of Object.entries(profile.frameCrops)) {
+ const added=[];
+ const texture={get:frame=>({sourceIndex:0,cutX:Number(frame)*16,cutY:0,cutWidth:16}),remove:()=>{},add:(...args)=>added.push(args)};
+ assets[key].onLoad({textures:{get:name=>{assert.equal(name,key);return texture;}}});
+ assert.deepEqual(added,Object.entries(frames).map(([frame,height])=>[frame,0,Number(frame)*16,0,16,height]));
+ for(const [frame,height] of Object.entries(frames)) {
+  assert.equal(layout.ART_BOUNDS[key+':'+frame].fh,height);
+  assert(layout.ART_BOUNDS[key+':'+frame].maxY<=height);
+ }
+}
