@@ -77,7 +77,8 @@
       const first=src._wallTriangles[0],length=src._wallTriangles.length;
       if(src._fdrCanvasEdgeCache?.first!==first||src._fdrCanvasEdgeCache?.length!==length)src._fdrCanvasEdgeCache={first,length,...internalEdges(src._wallTriangles)};
       const {shared,paths}=src._fdrCanvasEdgeCache;
-      g.save();g.transform(matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f);g.imageSmoothingEnabled=false;const transform=g.getTransform();
+      // GetCalcMatrix already includes the camera; replace the inherited Canvas transform.
+      g.save();g.setTransform(matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f);g.imageSmoothingEnabled=false;const transform=g.getTransform();
       src._fdrCanvasSharedEdges=shared.reduce((n,edges)=>n+edges.filter(Boolean).length,0);
       const affine=t=>{
         if(!t.uv)return null;
