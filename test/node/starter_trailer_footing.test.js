@@ -514,6 +514,50 @@
     }
   });
 
+  test('initial Home: desktop without GPS receives Home after capture and compass grace settle', () => {
+    withTile(tile([]), () => {
+      const s = scene({ homeCompassDetected: false });
+      s.gpsM = null; s.playerM = at(30, 30);
+      s._homeCapturePending = true;
+      let supplies = null;
+      s._setStarterCratesAt = (x, y) => { supplies = { x, y }; };
+      s.ensureStarterShopId = lift('ensureStarterShopId');
+      s.ensureStarterShopId();
+      assert.falsy(s.save.starterShopId, 'pending GPS capture cannot place at provisional origin');
+      s._homeCapturePending = false;
+      s.ensureStarterShopId();
+      assert.falsy(s.save.starterShopId, 'desktop still gets the normal compass grace');
+      s._homeHeadingWaitT0 = performance.now() - HomeArea.FIREPIT_COMPASS_GRACE_MS - 1;
+      s.ensureStarterShopId();
+      assert.eq(s.save.starterShopId, 'starter_trailer', 'no-GPS fallback creates Home');
+      near(s.save.starterTrailer.x, at(30, 29).x, 'Home beside the body');
+      near(s.save.starterTrailer.y, at(30, 29).y, 'Home north-up');
+      assert.eq(cellsOf(WorldGen.tileCache.get(KEY), 'starter_trailer'), 4, 'full footing is stamped');
+      near(supplies.x, s.playerM.x, 'supplies share the settled start x');
+      near(supplies.y, s.playerM.y, 'supplies share the settled start y');
+      assert.eq(s.gpsM, null, 'no fabricated GPS fix');
+      const home = JSON.stringify(s.save.starterTrailer);
+      s.playerM = at(40, 40); s.ensureStarterShopId();
+      assert.eq(JSON.stringify(s.save.starterTrailer), home, 'walking leaves Home fixed');
+    });
+  });
+
+  test('initial Home: no-GPS teleport start adopts a nearby mapped house', () => {
+    const b = { key: 'desktop_home', x0: 29, x1: 30, y0: 28, y1: 29 };
+    const obj = { kind: 'house', id: b.key, tier: 9, ...at(30, 29) };
+    withTile(tile([b], [obj]), () => {
+      const s = scene();
+      s.gpsM = null; s.playerM = at(30, 30);
+      s._homeCapturePending = false; s._deviceCompass = { deg: 0 };
+      s._setStarterCratesAt = () => {};
+      s.ensureStarterShopId = lift('ensureStarterShopId');
+      s.ensureStarterShopId();
+      assert.eq(s.save.starterShopId, b.key, 'teleport uses the ordinary nearby-house adoption');
+      assert.eq(cellsOf(WorldGen.tileCache.get(KEY), b.key), 4, 'mapped footprint is preserved');
+      assert.falsy(s.save.starterTrailer, 'no duplicate synthetic house');
+    });
+  });
+
   test('initial Home: a road-covered start finds a clear 2x2 site beyond the local search', () => {
     const e = tile([]);
     for (let iy = 24; iy <= 36; iy++) for (let ix = 24; ix <= 36; ix++) {

@@ -561,11 +561,12 @@ class SceneShops {
       this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
       return;
     }
-    // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
-    // frame). A sandbox session may have no fix at all — fall back to the
-    // player's current position so Home still resolves.
-    const anchor = this.gpsM || (this._sandboxMode ? this.playerM : null);
-    if (!anchor) return;                       // no fix yet — wait for one
+    // Once origin capture has settled, every playable start needs Home —
+    // including denied/unavailable GPS and teleport presets on desktop. Those
+    // sessions never receive gpsM. Use the body at the settled origin instead;
+    // the capture-pending gate above still protects a fresh GPS start.
+    const anchor = this.gpsM || this.playerM;
+    if (!anchor) return;
     const ax = this.startWorldM.x + anchor.x;
     const ay = this.startWorldM.y + anchor.y;
     // Half the visible map viewport (a VIEW_CELLS square centred on the
