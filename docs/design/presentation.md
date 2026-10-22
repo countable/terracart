@@ -466,11 +466,15 @@ pixels and decorative details do not define additional tap cells.
   Every outgoing and incoming image shares the same camera, preserving those
   scale offsets throughout each fade. Painted head motion and perspective
   still vary locally; the offsets match overall head scale, not every contour.
+  The lower dark head breathes fire in the first painting; the main red head
+  takes over in the second while the white dragon lifts its head.
   Tiamat stops breathing fire with her mouth half closed, retaining the
   second painting’s head position and side-facing pose in the third painting,
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
-  dragons keep shifting as flames flicker and smoke curls.
+  dragons change their relative head heights and neck angles in every painting,
+  with a distinct recoil and lean in the third. Flame and ice plumes reshape
+  with those poses while smoke curls drift only slightly.
   One continuous camera zoom runs from 1.5× to 4.2× over 13.33 seconds,
   starting slowly, pushing in through the middle, then slowing throughout
   the final quarter (3.33 seconds) to settle on the final frame.

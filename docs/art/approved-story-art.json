@@ -2897,32 +2897,51 @@
   "opening_frames": [
     {
       "key": "story_nightmare",
-      "master_path": "../opening-story-refresh/story_nightmare.png",
-      "master_sha256": "922ba679d95a1050e38167055a67464d72456d50fec1e626cb94229f90773863",
+      "master_path": "approved-story-art/story_nightmare-motion-4b0c5df4.png",
+      "master_sha256": "5ca7e828da3d7d09c6ce545c59339e6111900a8623f22ac3a14683385e208dd6",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "fedc35afbd7c6bcb7738726a42a1de337a57b4b92386c45f5a67c6deac790114",
-      "method": "regenerated",
-      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+      "sha256": "18322b9d94661176ea99f48544b94964d53418234bb2f8e55c7ab401bcf67653",
+      "method": "reference_edit",
+      "reference": "approved-story-art/story_nightmare-motion-reference-4b0c5df4.webp",
+      "generator": "built-in image_gen",
+      "prompt": "Precise animation-frame edit. Preserve camera, crop, zoom, character identities, apparent skull sizes, red/black pixel-art texture and full 2:3 portrait canvas. Keep EVERY building, roof, tower, window and skyline precisely fixed. Animate dragon necks/heads locally, not by moving the whole scene. Smoke changes only subtly; flames and dragon poses change more visibly. No new heads, objects, text or borders. EDIT FRAME 1. Move the fire-breathing action from the dominant upper-center RED head to the lower central DARK head (the lowest dark head, directly beneath the red one). Remove the fire jet from the upper red mouth; leave its mouth partly open, no emitted flame. The lower central dark head now breathes a strong orange fire jet diagonally down/right toward the white dragon's ice, naturally replacing the old central fire stream. Tilt that lower dark head slightly up/right to aim. Give the left tan head a slight backward lean and the upper-right dark head a small downward nod, so their relative poses differ from later frames. Keep central red eye/skull anchored in same position and scale. Preserve the existing white dragon poses as frame1 starting positions. Keep original black lower fade. Output1024x1536 matching original composition exactly.",
+      "reference_sha256": "3cd2f3546fd32e6f93ba98d5c384ec32454548d8ec904f29c852df881f92bec8",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare-motion-reference-4b0c5df4.webp",
+          "sha256": "3cd2f3546fd32e6f93ba98d5c384ec32454548d8ec904f29c852df881f92bec8",
+          "role": "edit target: preserve camera and city; animate local heads, flames and smoke"
+        }
+      ],
+      "intrinsic_zoom": 1
     },
     {
       "key": "story_nightmare_frame2",
-      "master_path": "approved-story-art/story_nightmare_frame2-zoom.png",
-      "master_sha256": "d8b66f3f4d77c316fd10e5e0801e98662699732b9a89c824a1d51cd14a00183d",
+      "master_path": "approved-story-art/story_nightmare_frame2-motion-746fe889.png",
+      "master_sha256": "50326564bee8e2652dadaeda5f37aaa4ff2d31924367f3d16af133a7f116f73a",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "sha256": "abc8790fc94771f36b5f04edbea46ad70f72603b8520a679efc6671bf35562f5",
       "method": "reference_edit",
-      "reference": "assets/art/story_nightmare_frame2.webp; central red dragon face",
+      "reference": "approved-story-art/story_nightmare_frame2-motion-reference-746fe889.webp",
       "generator": "built-in image_gen",
-      "intrinsic_zoom": 1.45,
-      "prompt": "Edit the supplied existing pixel-art dragon battle frame into a sharply resolved closer camera shot. Output a single portrait 2:3 image, ideally 1024x1536 or larger. This is frame 2 of a continuous zoom sequence, not a redesign. Enlarge the entire reference composition by exactly 1.45x around the anchor at 59% of image width and 21% of image height. That anchor near the central RED dragon's glowing eye must stay at 59% width,21% height in the result. Crop outside the portrait canvas; do not fit the whole original scene back into the image. All visible subjects, head poses, identities, architecture, flames, wings and smoke retain the exact spatial relationships from this reference. Central red dragon face is the focus; maintain its red scales, horns, eye, teeth and mouth silhouette exactly. Keep the five-headed hydra and opposing white dragon consistent, showing only whatever portions remain inside the tighter camera crop. Recover crisp high-resolution pixel-art details in scales, horns, eye, teeth and flames rather than blurry enlarged source pixels. No softened interpolation, no text, no new heads, no extra objects, no composition changes other than the specified optical zoom. Preserve dark red and black palette and bright lava-fire lighting. One frame only, not a contact sheet."
+      "intrinsic_zoom": 1.5,
+      "prompt": "Precise animation-frame edit. Preserve camera, crop, zoom, character identities, apparent skull sizes, red/black pixel-art texture and full 2:3 portrait canvas. Keep EVERY building, roof, tower, window and skyline precisely fixed. Animate dragon necks/heads locally, not by moving the whole scene. Smoke changes only subtly; flames and dragon poses change more visibly. No new heads, objects, text or borders. EDIT FRAME 2. Raise the lower-right white dragon head (the one emitting ice) by about 35 pixels on a 1024x1536 canvas, bending its neck upward naturally; tip its nose up 5 degrees, keeping its skull the same size. Also lift the upper-right white head about 20 pixels and tilt its nose slightly up. This must be visible neck/head motion, not a zoom. Shift left tan head slightly left/down and tilt lower-center dark head slightly down compared with current pose; upper-right dark head reaches 15px forward. Keep main RED head's skull, eye and horns in exactly their current positions and scale, still breathing fire. Change flame tongues so they flicker and twist slightly right, reshape the ice plume to follow the raised white head, gently curl smoke only a little. Keep buildings exact. Output1024x1536.",
+      "reference_sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare_frame2-motion-reference-746fe889.webp",
+          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+          "role": "edit target: preserve camera and city; animate local heads, flames and smoke"
+        }
+      ]
     },
     {
       "key": "story_nightmare_close",
@@ -2952,8 +2971,8 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-half-closed-14eb420f.png",
-      "master_sha256": "e2ae8049503b0d37ddcf23e813b67a2b5734093e3361f1c7e6ac08698109f676",
+      "master_path": "approved-story-art/story_nightmare_frame3-motion-cf31bed0.png",
+      "master_sha256": "8f8f4b121027b25e2898e68ff1f37980db9334ef271e71055f51eb8042e6d548",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
@@ -2962,15 +2981,15 @@
       "method": "reference_edit",
       "generator": "built-in image_gen",
       "intrinsic_zoom": 1.5,
-      "prompt": "Precise local edit of the supplied frame 2, to create the next animation frame. Preserve the EXACT position, size and pose of the main central RED dragon's skull, glowing eye, horns, upper jaw, neck and body. Change only TWO things: (1) lift the LOWER JAW halfway toward the upper jaw, so its mouth is HALF CLOSED compared with the current wide-open gape, a moderate open dark mouth with teeth still visible; (2) remove the fire jet emerging from that main red dragon's mouth entirely, restoring the dark red smoky background behind the removed jet. The main dragon has stopped breathing fire. Do NOT rotate, translate, resize or lower the skull or upper jaw; use original image as exact template. All other dragon heads, white dragons, flames not belonging to that mouth jet, smoke, buildings and skyline stay exactly in place. Preserve full 1024x1536 portrait canvas, camera, crop, scale and pixel-art texture. No new objects, text or border.",
-      "reference": "approved-story-art/story_nightmare_frame3-reference-half-closed-14eb420f.webp",
-      "sha256": "ae9a912c6860d40c03bfac4b2c5ab38bfe64bbe949ff228c4e0594e592cf5e5b",
-      "reference_sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "prompt": "Precise animation-frame edit. Preserve camera, crop, zoom, character identities, apparent skull sizes, red/black pixel-art texture and full 2:3 portrait canvas. Keep EVERY building, roof, tower, window and skyline precisely fixed. Animate dragon necks/heads locally, not by moving the whole scene. Smoke changes only subtly; flames and dragon poses change more visibly. No new heads, objects, text or borders. EDIT FRAME 3. Keep the dominant central RED head in its current frame2-like position and right-facing orientation, with HALF-CLOSED mouth, no fire or smoke leaving it, no turn toward camera yet. Add distinct local motion to surrounding heads: raise the left tan head about 25 pixels and turn its nose slightly inward/right; lower the upper-right dark head about 20 pixels and tilt its nose down; swing the lower-center dark head about 25 pixels left and raise its snout slightly; upper-left dark head recoils slightly. The lower-right ice-breathing WHITE head should lift 15px and lean about20px toward the center, angling its nose slightly down relative to frame2's lifted pose; let the upper white head extend left about20px. Preserve their skull sizes and connect necks naturally. Flames visibly flicker into different branching tongues, ice stream shifts with white head, smoke curls drift subtly only10px or so. This needs visibly different head poses and flame silhouettes from frame2, while all buildings stay pixel aligned. Output1024x1536.",
+      "reference": "approved-story-art/story_nightmare_frame3-motion-reference-cf31bed0.webp",
+      "sha256": "d930451ad271c29153945b99953fa114633ede91033233f5a605e16652df32ba",
+      "reference_sha256": "ae9a912c6860d40c03bfac4b2c5ab38bfe64bbe949ff228c4e0594e592cf5e5b",
       "references": [
         {
-          "path": "approved-story-art/story_nightmare_frame3-reference-half-closed-14eb420f.webp",
-          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
-          "role": "frame 2 edit target: preserve head position and pose; half-close jaw and remove fire jet"
+          "path": "approved-story-art/story_nightmare_frame3-motion-reference-cf31bed0.webp",
+          "sha256": "ae9a912c6860d40c03bfac4b2c5ab38bfe64bbe949ff228c4e0594e592cf5e5b",
+          "role": "edit target: preserve camera and city; animate local heads, flames and smoke"
         }
       ]
     },
