@@ -388,12 +388,19 @@ access or tile lifecycle mechanics.
   then it is neither drawn nor diggable. A covering rock adds no rule of its
   own. The Treasure Map's dot is apart.
 - X-mark density: every ambient X stream (tile scatter, low-tier quota,
-  footpath and inland-sand bonuses, shoreline, cave floors) scales its count
+  footpath, inland-sand and front-yard bonuses, shoreline, cave floors) scales its count
   by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
   per site. Shoreline marks use an additional 0.7 density multiplier and
   seeded farthest-first placement, at least three cells apart from each other
   and earlier X marks on the tile. Their positions repeat for every player
   and reload; crowded beaches may place fewer when no spaced legal seat remains.
+- Residential front yards have their own X stream, because the reveal radius
+  is one cell and the flat scatter puts half its yard marks two or three cells
+  off the street. A RESIDENTIAL cell touching a road, its band or a footpath
+  is a front yard; a tile lays one mark per `YARD_X_PER_CELLS` of them
+  × `X_MARK_FREQUENCY`, at most `YARD_X_MAX`, through the same minor spawn
+  gate and the shoreline's farthest-first spacing, on a salted stream of its
+  own (`scene_creatures.js`).
 - A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
@@ -967,10 +974,11 @@ Higher-priority placements and their access space take precedence in this order:
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
    Pottery Road (a Small-road row, sections up to 250 m) lines both verges
-   with generated clay pots (`VERGE_ROWS.pottery`): one sample a cell with
-   `POTTERY_GAP` (35%) left empty, each pot the first free cell from the
-   second verge cell out on the reward gate, so none stands on the kerb cell
-   or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
+   a cell with `POTTERY_GAP` (15%) left empty, each pot the first free cell
+   from the second verge cell out, and a back rank on the third verge cell
+   alone (its own stream, `POTTERY_BACK_GAP` 50% empty), both on the reward
+   gate, so none stands on the kerb cell or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with

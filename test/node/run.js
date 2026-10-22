@@ -351,6 +351,8 @@ const starterWrapper = (name) => {
                       'HOME_R',
                       // Buried X mark density on sand (beach_treasure.test.js).
                       'BEACH_X_PER_CELLS',
+                      // …and on residential front yards (beach_treasure.test.js).
+                      'YARD_X_PER_CELLS', 'YARD_X_MAX',
                       // The campfire's depth cap on its ward — authored in
                       // app.js since it is the FIRE's rule, not the table's.
                       'FIRE_WARD_MAX_DEPTH']) {
@@ -978,7 +980,7 @@ Object.assign(ctx, {
 }
 
 // ── The bonus buried-X streams (spawnInTile) ──────────────────────────────
-// The path-side and beach streams, and the single grid pass that feeds them,
+// The path-side, beach and front-yard streams, and the single grid pass that feeds them,
 // lifted as ONE runnable block for beach_treasure.test.js: the cap, the cell
 // packing (wrong above 256 cells per edge) and the "on the sand, beside the
 // path" difference are decided in here. It closes over entry / tx / ty / N /

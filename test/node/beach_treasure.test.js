@@ -145,18 +145,65 @@ test('bonus X: a path mark lands beside THAT path, past 256 cells down', () => {
   assert.gt(placed, 0, 'the path stream actually placed something');
 });
 
-test('bonus X: one grid pass feeds both streams', () => {
+test('bonus X: one grid pass feeds every stream', () => {
   // spawnInTile runs post-rasterize, where nothing slices — a second scan of
   // every cell would be a second unbroken 100k-cell block charged to no span
   // the boot profile can name.
   const src = SPAWN_IN_TILE_SRC;
   const scans = src.match(/for \(let cy = 0; cy < N; cy\+\+\)/g) || [];
   assert.eq(scans.length, 1, 'one walk of the grid, not one per stream');
-  assert.truthy(/sandCells\.push\(cy \* N \+ cx\)/.test(src), 'sand collected in it');
-  assert.truthy(/pathCells\.push\(cy \* N \+ cx\)/.test(src), 'paths collected in it');
+  assert.truthy(/const i = cy \* N \+ cx\b/.test(src), 'cells packed as their grid index');
+  for (const list of ['sandCells', 'pathCells', 'yardCells']) {
+    assert.truthy(new RegExp(`${list}\\.push\\(i\\)`).test(src), `${list} collected in it`);
+  }
   // (the comment above the pass still NAMES the old packing — what must not
   // come back is the expression itself, in a push or a decode)
   assert.falsy(/push\(cx \* 256 \+ cy\)/.test(src), 'nothing packs cells at 256 any more');
   assert.falsy(/Math\.floor\(cell \/ 256\)/.test(src), 'and nothing decodes them at 256 either');
+});
+
+// --- The front-yard stream --------------------------------------------------
+// Residential blocks with a road every 12 rows: the cells touching a road are
+// the front yards; a mark lands on one, never deeper in the lot. Rows of
+// yards behind a house would be refused by the gate anyway; here every yard
+// is open, so only the stream's own rule keeps marks at the street.
+const suburb = (grid) => {
+  for (let i = 0; i < N * N; i++) grid[i] = T.RESIDENTIAL;
+  for (let cy = 6; cy < N; cy += 12) for (let cx = 0; cx < N; cx++) grid[cy * N + cx] = T.ROAD;
+};
+const yardMarks = (entry) => entry.extraTreasures.filter(t => /^treasure_yard/.test(t.id));
+
+test('yard X: residential front yards carry their own marks, each beside the street', () => {
+  const entry = makeEntry(suburb);
+  run(entry, 7);
+  const marks = yardMarks(entry);
+  assert.eq(marks.length, YARD_X_MAX, 'a whole suburb tile fills the cap');
+  for (const t of marks) {
+    const { ix, iy } = cellOf(t);
+    assert.eq(entry.grid[iy * N + ix], T.RESIDENTIAL, `on a yard: ${ix},${iy}`);
+    const r = ((iy - 6) % 12 + 12) % 12;
+    assert.truthy(r === 1 || r === 11, `touching a road row: ${ix},${iy}`);
+  }
+  assert.eq(new Set(marks.map(t => t.id)).size, marks.length, 'no two on one cell');
+});
+
+test('yard X: the count follows the frontage, and no street means no yard marks', () => {
+  const lone = makeEntry((grid) => {
+    for (let i = 0; i < N * N; i++) grid[i] = T.RESIDENTIAL;
+    for (let cx = 0; cx < N; cx++) grid[150 * N + cx] = T.ROAD;   // one road across: 2N yard cells
+  });
+  run(lone, 3);
+  const want = Math.floor(2 * N * X_MARK_FREQUENCY / YARD_X_PER_CELLS);
+  assert.truthy(want > 0 && want < YARD_X_MAX, 'the fixture sits under the cap');
+  assert.eq(yardMarks(lone).length, want, 'one per YARD_X_PER_CELLS frontage cells');
+  const noStreet = makeEntry((grid) => { for (let i = 0; i < N * N; i++) grid[i] = T.RESIDENTIAL; });
+  run(noStreet, 3);
+  assert.eq(yardMarks(noStreet).length, 0);
+});
+
+test('yard X: two builds of the same tile bury the same yard marks', () => {
+  const a = makeEntry(suburb), b = makeEntry(suburb);
+  run(a, 7); run(b, 99);
+  assert.eq(JSON.stringify(yardMarks(a)), JSON.stringify(yardMarks(b)), 'its own stream, unmoved by the tile rng');
 });
 })();

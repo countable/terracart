@@ -64,6 +64,16 @@ const BEACH_X_PER_CELLS = 20;
 // stream, so no later draw moves), up to X_TOP_UP_TRIES per mark.
 const X_TOP_UP_MAX = 24;
 const X_TOP_UP_TRIES = 8;
+// ── Residential front-yard X marks ────────────────────────────────────────
+// A mark is hidden until the feet stand beside it, and half the yard cells
+// the flat scatter can draw lie two or three cells off the street, so a
+// player walking a residential street never met one. Front yards get their
+// own stream: a RESIDENTIAL cell touching a road, its band or a footpath
+// (4-neighbour), one mark per YARD_X_PER_CELLS of them × X_MARK_FREQUENCY,
+// at most YARD_X_MAX, spread out (Scenic.beachXCells) on a salted stream of
+// its own. Pinned by test/node/beach_treasure.test.js.
+const YARD_X_PER_CELLS = 400;
+const YARD_X_MAX = 20;
 // How far (cells, Chebyshev) from a street lair's point OPEN ground may lie
 // for the lair to stand (spawnInTile's attractor test): a gate's point is on
 // its own way, so the verge beside it is what answers.
@@ -465,13 +475,21 @@ class SceneCreatures {
     // …and the PIER cells, for the shore fauna below (the gull's perch) —
     // the same pass, so the tile is still walked once.
     const pierCells = [];
+    // …and the residential front-yard cells (YARD_X_PER_CELLS): a yard cell
+    // touching a road, its drawn band or a footpath.
+    const yardCells = [];
+    const yardMask = ambientSpawnOpts.roadMask || entry.roadMask;
+    const streetSide = (i, t) => t === 8 /* PATH */ || WorldGen.isRoadTerrain(t) || !!(yardMask && yardMask[i]);
     for (let cy = 0; cy < N; cy++) {
       if ((cy & 63) === 63) yield 'spawn path scan';
       for (let cx = 0; cx < N; cx++) {
-        const t = genGrid[cy * N + cx];
-        if (t === 8 /* PATH */) pathCells.push(cy * N + cx);
-        else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[cy * N + cx])) sandCells.push(cy * N + cx);
-        else if (t === WorldGen.T.PIER) pierCells.push(cy * N + cx);
+        const i = cy * N + cx, t = genGrid[i];
+        if (t === 8 /* PATH */) pathCells.push(i);
+        else if (t === WorldGen.T.SAND && !(shoreMask && shoreMask[i])) sandCells.push(i);
+        else if (t === WorldGen.T.PIER) pierCells.push(i);
+        else if (t === WorldGen.T.RESIDENTIAL && !(yardMask && yardMask[i])
+          && ((cx > 0 && streetSide(i - 1, genGrid[i - 1])) || (cx < N - 1 && streetSide(i + 1, genGrid[i + 1]))
+            || (cy > 0 && streetSide(i - N, genGrid[i - N])) || (cy < N - 1 && streetSide(i + N, genGrid[i + N])))) yardCells.push(i);
       }
     }
     yield 'spawn path scan';
@@ -760,6 +778,26 @@ class SceneCreatures {
         const scx = cell % N, scy = Math.floor(cell / N);
         const id = WorldGen.cellId('treasure_sand', tx, ty, scx, scy);
         entry.extraTreasures.push({ ...tileCellCentre(this.tileEdgeM, tx, ty, cellM, scx, scy), id });
+      }
+    }
+
+    // FRONT-YARD MARKS (YARD_X_PER_CELLS): beside the street, where a walker
+    // passes close enough to see one. Skipped in test mode like the scatter.
+    const yardWant = (typeof window !== 'undefined' && window.__TEST_MODE) ? 0
+      : Math.min(YARD_X_MAX, Math.floor(yardCells.length * X_MARK_FREQUENCY / YARD_X_PER_CELLS));
+    if (yardWant > 0 && typeof Scenic !== 'undefined') {
+      const yrng = WorldGen.makeRng(fnv1a(`yardx|${tx},${ty}`));
+      const eligible = yardCells.filter(cell => WorldGen.isSpawnCell(genGrid, N, N,
+        cell % N, Math.floor(cell / N), ambientSpawnOpts, 'minor'));
+      const taken = [...entry.extraTreasures, ...(entry.treasure ? [entry.treasure] : [])]
+        .map(t => ({ x: Math.floor((t.x - tx * this.tileEdgeM) / cellM),
+          y: Math.floor((t.y - ty * this.tileEdgeM) / cellM) }))
+        .filter(c => c.x >= 0 && c.y >= 0 && c.x < N && c.y < N)
+        .map(c => c.y * N + c.x);
+      for (const cell of Scenic.beachXCells(eligible, N, yardWant, yrng, taken)) {
+        const ycx = cell % N, ycy = Math.floor(cell / N);
+        entry.extraTreasures.push({ ...tileCellCentre(this.tileEdgeM, tx, ty, cellM, ycx, ycy),
+          id: WorldGen.cellId('treasure_yard', tx, ty, ycx, ycy) });
       }
     }
 
