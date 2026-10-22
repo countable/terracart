@@ -14,7 +14,7 @@ const shapes={narrow:[[-100,-26],[100,-26],[100,26],[-100,26]],rectangle:[[-100,
   await page.addInitScript(()=>{sessionStorage.setItem('terracart.safetySeen','1');localStorage.setItem('terracart.introSeen','1');localStorage.setItem('terracart.howtoSeen','1');});
   await page.route('**/src/app.js*',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace('type: Phaser.AUTO,',`type: Phaser.${renderer==='canvas'?'CANVAS':'WEBGL'},`)});});
   await page.goto(URL,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__scene?._bootOverlayGone,null,{timeout:90000});
-  await page.waitForTimeout(350);
+  await page.waitForFunction(()=>window.__scene?._fdrCastleLayouts?.size>0,null,{timeout:90000});
   await page.screenshot({path:`${OUT}/${renderer}-live-sandbox.png`});
   const live=await page.evaluate(()=>({renderer:__game.renderer.type,castles:__scene._fdrCastleLayouts?.size||0,blocks:__scene._wallPerspective?.castles?.blocks.length||0,atlas:__scene.textures.exists('fdr_castle_atlas'),legacyModelTowers:(__scene.towerPool||[]).filter(sprite=>sprite.visible&&__scene._fdrCastleLayouts?.has(sprite._staticObject?.castle)).length}));
   assert.equal(live.renderer,renderer==='canvas'?1:2);assert.equal(live.atlas,true);assert.equal(live.legacyModelTowers,0);report.cases.push({...live,renderer,stage:'live'});
