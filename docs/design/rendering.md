@@ -52,18 +52,19 @@ Trees remain unchanged and opt-in through `artTrial=trees-water` (or `trees` /
 comparison. The trial registers native textures only for that page load,
 preserves tree growth and saves, and never changes normal game defaults.
 
-## Rogue Adventure geographic terrain trial
+## Rogue Adventure default map art
 
-This is the primary map-tiling review variant under the
+The default map uses Rogue Adventure art under the
 [overworld scale direction](../art/art-direction-brief.md#overworld-scale-and-interaction):
 approximately 7m terrain and tap cells, with appropriately exaggerated props.
-Use `http://localhost:8000/index.html?artTrial=rogue&deepforest=on` for geographic
-playtesting with the RA reference-selected art. Evaluate textures as seven-metre
+Use the normal game URL for the RA reference-selected art, including terrain,
+props, palette adaptations and inventory icons. `?artTrial=rogue` is an explicit
+alias; `?artTrial=baseline` and `?artTrial=dreamland` retain comparison profiles. Evaluate textures as seven-metre
 areas, rather than subdividing the map to match close-up source art. Dreamland
 may supply selected compatible props; its terrain profile is a retained
 comparison experiment, not the direction for further map tiling work.
 
-`?artTrial=rogue` applies native Rogue Adventure ground to the normal geographic
+The default profile applies native Rogue Adventure ground to the normal geographic
 world. It does not install an authored scene. Grass, residential land and parks
 use village grass; forest and orchard use jungle grass; farmland uses olive soil;
 wetland uses dark olive soil; sand, water and civic/commercial/industrial ground

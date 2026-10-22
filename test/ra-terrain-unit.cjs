@@ -6,7 +6,7 @@ function load(search) {
   const art = new Function('location','ASSETS','window', source + '\nreturn RATerrainTrial;')({search},assets,{});
   return {art,assets};
 }
-for (const search of ['', '?raPreview=jungle','?artTrial=trees-water']) {
+for (const search of ['?artTrial=baseline','?artTrial=trees-water']) {
   const {art,assets}=load(search);
   assert.equal(art.enabled,false);
   assert.equal(Object.keys(assets).length,0);
@@ -150,3 +150,5 @@ for (let code = 0; code < 512; code++) {
 assert.equal(canvases,beforeSelectCanvases);
 assert.equal(reads,0);
 console.log('Dreamland grass: 512 native-scale composites, smaller world-stable islands, shared edge vertices and authored preservation passed');
+
+for(const search of ['', '?deepforest=on']) {const defaults=load(search);assert(defaults.art.enabled);assert.equal(defaults.assets.ra_terrain_source.path,assets.ra_terrain_source.path);}

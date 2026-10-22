@@ -1,7 +1,7 @@
-// Native tileset ground on the ordinary generated world. This optional
+// Native tileset ground on the ordinary generated world. This
 // presentation never writes grid, occupancy, source polygons, objects or saves.
 const RATerrainTrial = (() => {
-  const mode = new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get('artTrial');
+  const mode = new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get('artTrial') || 'rogue';
   const profiles = Object.freeze({
     rogue: {source:'ra_terrain_source', key:'ra_terrain_composite', path:'assets/ArtTrials/RogueTerrain/tiles.png'},
     dreamland: {source:'dreamland_terrain_source', key:'dreamland_terrain_composite', path:'assets/ArtTrials/DreamlandTerrain/terrain.png', road:'assets/ArtTrials/DreamlandTerrain/path.png'},

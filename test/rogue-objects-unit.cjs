@@ -9,7 +9,7 @@ function load(search) {
  const art=new Function('location','ASSETS','SpriteLayout','DreamlandObjects','treeArtFrame','mineralRockMaterial','CELL_PX','Houses','WorldLayers','CROP_SPRITE','BUSH_SPRITE','Elevators',code+'\nreturn RogueObjects;')({search},assets,layout,{},o=>o.stage||3,o=>o.material||'plain',32,{displayRole:()=> 'wreck'},{STANDING_PROP:'standing'},crops,bushes,{isRepaired:save=>!!save?.repaired});
  return {art,assets,layout,crops};
 }
-const off=load('');assert.equal(off.assets.selected_longgrass.kind,'atlas-alias');assert.equal(off.assets.bushes.path,'assets/Objects/CelProps/bushes.png');
+const off=load('?artTrial=baseline');assert.equal(off.assets.selected_longgrass.kind,'atlas-alias');assert.equal(off.assets.bushes.path,'assets/Objects/CelProps/bushes.png');
 const {art,assets,layout,crops}=load('?artTrial=rogue');assert.equal(Object.keys(assets).length,14+Object.keys(profile.assets).filter(key=>!['rogue_ladder_down','rogue_lamp_unlit'].includes(key)).length);
 assert.equal(assets.bushes.path,'assets/ArtTrials/RogueObjects/bushes-olive.png');
 assert.equal(off.assets.selected_shrub.path,'assets/Objects/SelectedFlora/selected_shrub.png');
@@ -101,3 +101,8 @@ for (const [key,frames] of Object.entries(profile.frameCrops)) {
   assert(layout.ART_BOUNDS[key+':'+frame].maxY<=height);
  }
 }
+
+for(const search of ['', '?deepforest=on']) {
+ const defaults=load(search);assert(defaults.art.enabled);assert.equal(defaults.assets.selected_longgrass.path,profile.assets.selected_longgrass.path);
+}
+assert.equal(load('?artTrial=dreamland').art.enabled,false);
