@@ -79,4 +79,15 @@
       assert.truthy(result);assert.eq(result.blocksAdded,0);assert.eq(result.height,52);
     } finally { WallPerspective.inView=old; }
   });
+  test('FDR castles: Canvas installs the complete camera matrix without composing it twice', () => {
+    const previous=globalThis.Phaser,calls=[];
+    const matrix={a:0,b:2,c:-2,d:0,e:100,f:200};
+    globalThis.Phaser={GameObjects:{GetCalcMatrix:()=>({calc:matrix})}};
+    const context={save(){},restore(){},getTransform:()=>({}),
+      setTransform(...args){calls.push(['set',...args]);},transform(...args){calls.push(['compose',...args]);}};
+    const target={_wallTriangles:[],_wallAtlas:{getSourceImage:()=>({width:512,height:512})},alpha:1};
+    try { FDRCastleCanvas.attach(target);target.renderCanvas({currentContext:context},target,{alpha:1,addToRenderList(){}},null);
+      assert.eq(JSON.stringify(calls),JSON.stringify([['set',0,2,-2,0,100,200]]));
+    } finally { globalThis.Phaser=previous; }
+  });
 })();
