@@ -1157,6 +1157,15 @@ reads or canvas texture creation occur during placement or compass updates. Home
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
 
+`AuthoredBuildingRenderer` reuses one depth target for the scene. On WebGL
+context restoration, Phaser rebuilds the target's texture and framebuffer;
+the renderer discards its raw shader and vertex-buffer handles and recreates
+them, their locations and the derivatives extension before drawing again.
+Lost-context draws are skipped. The scene removes its restore listener on
+shutdown. `test/authored-context-browser.cjs` checks two graphics resets with
+authored shops and wrecks together, requiring identical restored world pixels
+and no GL errors.
+
 The PP restyle uses registered source-sized PNGs, preserving the existing mesh
 UV coordinates and alpha silhouettes. Native PP flat-shop residential variants are
 also prewarmed under `native`, so their six source colorways retain their deck
