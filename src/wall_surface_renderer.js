@@ -19,7 +19,11 @@
   }
   function install(scene, target, atlas) {
     if (atlas) target._wallAtlas = atlas;
-    if (target._wallTriangles || typeof target.renderWebGL !== 'function') return;
+    if (target._wallTriangles) {
+      if (target._wallAtlas?.key === 'fdr_castle_atlas') global.FDRCastleCanvas?.attach(target);
+      return;
+    }
+    if (typeof target.renderWebGL !== 'function') return;
     const texture = atlas || WallMaterials.prepare(scene);
     if (!texture) return;
     target._wallTriangles = [];
@@ -66,6 +70,7 @@
       }
       g.restore();
     };
+    if (texture.key === 'fdr_castle_atlas') global.FDRCastleCanvas?.attach(target);
   }
   function paint(target, x1, y1, x2, y2, x3, y3, color, alpha, face) {
     if (target._wallTriangles) target._wallTriangles.push({

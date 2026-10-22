@@ -62,6 +62,8 @@ const ASSETS = {
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
   bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
+  fdr_castle_atlas: { kind: 'image', path: 'assets/Objects/Castle/FDR/atlas.png' },
+  fdr_castle_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/floor.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },

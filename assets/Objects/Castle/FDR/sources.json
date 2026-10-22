@@ -1,0 +1,348 @@
+{
+  "credit": "Fantasy Dreamland Reborn and Fantasy City by ElvGames",
+  "sources": {
+    "castle": {
+      "path": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Castle.png",
+      "sha256": "af1908c70613890b835dd588d6375eced4156fb3294740007a2e8e4f63c708ae",
+      "license": "extra_assets/16x16/Fantasy Dreamland World/License.txt"
+    },
+    "floor": {
+      "path": "extra_assets/Fantasy City ver1.3/Tiles/Floor.png",
+      "sha256": "ce48e1a8ad5de30b257bcccd1842cb94491e1f1ca7902b2fe411d9d62488a820"
+    }
+  },
+  "processing": "Source crops, nearest-neighbour scaling and padded atlas packing only; no generated imagery or recoloring.",
+  "palette": "Warm native palette; condition tint is applied by the renderer.",
+  "atlas": {
+    "size": [
+      512,
+      512
+    ],
+    "slotSize": 128,
+    "padding": 8,
+    "contentSize": 112,
+    "whitePatch": [
+      496,
+      496,
+      8,
+      8
+    ],
+    "unusedSlots": "Transparent"
+  },
+  "materials": [
+    {
+      "slot": 2,
+      "name": "cap",
+      "source": "castle",
+      "sourceRect": [
+        130,
+        30,
+        12,
+        8
+      ],
+      "normalizedSize": [
+        16,
+        16
+      ],
+      "atlasContentRect": [
+        264,
+        8,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 3,
+      "name": "wall",
+      "source": "castle",
+      "sourceRect": [
+        16,
+        64,
+        16,
+        16
+      ],
+      "normalizedSize": [
+        16,
+        16
+      ],
+      "atlasContentRect": [
+        392,
+        8,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 4,
+      "name": "floor",
+      "source": "floor",
+      "sourceRect": [
+        144,
+        48,
+        16,
+        16
+      ],
+      "normalizedSize": [
+        16,
+        16
+      ],
+      "atlasContentRect": [
+        8,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 5,
+      "name": "door",
+      "source": "castle",
+      "sourceRect": [
+        192,
+        256,
+        48,
+        32
+      ],
+      "normalizedSize": [
+        48,
+        32
+      ],
+      "atlasContentRect": [
+        136,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 6,
+      "name": "window",
+      "source": "castle",
+      "sourceRect": [
+        0,
+        160,
+        16,
+        16
+      ],
+      "normalizedSize": [
+        16,
+        16
+      ],
+      "atlasContentRect": [
+        264,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 7,
+      "name": "side-coping",
+      "source": "castle",
+      "sourceRect": [
+        128,
+        48,
+        8,
+        16
+      ],
+      "normalizedSize": [
+        8,
+        16
+      ],
+      "atlasContentRect": [
+        392,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 8,
+      "name": "merlon-top",
+      "source": "castle",
+      "sourceRect": [
+        131,
+        29,
+        10,
+        4
+      ],
+      "normalizedSize": [
+        10,
+        4
+      ],
+      "atlasContentRect": [
+        8,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 9,
+      "name": "merlon-face",
+      "source": "castle",
+      "sourceRect": [
+        131,
+        33,
+        10,
+        4
+      ],
+      "normalizedSize": [
+        10,
+        4
+      ],
+      "atlasContentRect": [
+        136,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 10,
+      "name": "rim",
+      "source": "castle",
+      "sourceRect": [
+        144,
+        76,
+        16,
+        4
+      ],
+      "normalizedSize": [
+        16,
+        4
+      ],
+      "atlasContentRect": [
+        264,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "clamp",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 11,
+      "name": "base",
+      "source": "castle",
+      "sourceRect": [
+        128,
+        104,
+        16,
+        8
+      ],
+      "normalizedSize": [
+        16,
+        8
+      ],
+      "atlasContentRect": [
+        392,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 12,
+      "name": "right-coping",
+      "source": "castle",
+      "sourceRect": [
+        168,
+        48,
+        8,
+        16
+      ],
+      "normalizedSize": [
+        8,
+        16
+      ],
+      "atlasContentRect": [
+        8,
+        392,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    }
+  ],
+  "outputs": {
+    "atlas.png": {
+      "sha256": "1b3a670d097912b29929b2db22b34b3dadbe3a8bafdceacde0a9966e69cbb3a6",
+      "size": [
+        512,
+        512
+      ]
+    },
+    "floor.png": {
+      "sha256": "3c5de0816da7d78710248393df429992050247d6619755903308c86b1d99db3f",
+      "size": [
+        16,
+        16
+      ]
+    }
+  },
+  "regenerate": "python3 tools/build_fdr_castle_assets.py"
+}

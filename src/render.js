@@ -214,6 +214,41 @@ Render.towerCrownHeight = function (textures, castle) {
   const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
   return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
 };
+// Only an emitted surface castle replaces its legacy tower artwork. Gameplay
+// tower records remain available to targeting, ownership and interaction.
+Render.fdrCastleLayout = function (scene, object) {
+  if (!scene || (scene.depth ?? 0) !== 0 || object.kind !== 'tower') return null;
+  return scene._fdrCastleLayouts?.get(object.castle) || null;
+};
+Render.castleFlagItems = function (scene, items, project) {
+  const occupied = new Map(), flags = [];
+  // Reserve the player's designated banner first when there are fewer model
+  // towers than gameplay turret cells. Never move or remove those data cells.
+  const candidates = items.filter(({ o }) => Render.castleFlagTexture(scene, o))
+    .sort((a, b) => Number(!!b.o.flagPost) - Number(!!a.o.flagPost));
+  for (const item of candidates) {
+    const castle = Render.fdrCastleLayout(scene, item.o);
+    if (!castle) { flags.push(item); continue; }
+    const group = scene._wallPerspective?.[castle.source || 'castles'];
+    if (!group) continue;
+    const used = occupied.get(castle) || new Set();
+    occupied.set(castle, used);
+    const original = project(item.dx, item.dy);
+    let tower = null, distance = Infinity;
+    for (const candidate of castle.layout.towers) {
+      if (used.has(candidate)) continue;
+      const d = (candidate.x + group.x - original.x) ** 2 + (candidate.y + group.y - original.y) ** 2;
+      if (d < distance) { distance = d; tower = candidate; }
+    }
+    if (!tower) continue;
+    used.add(tower);
+    flags.push({ ...item, _castleFlagSeat: {
+      x: tower.x + group.x, y: tower.y + group.y,
+      height: (tower.crownHeight ?? tower.height + 4) * (globalThis.BuildingLowPoly?.LOOK?.heightScale ?? 1),
+    } });
+  }
+  return flags;
+};
 
 Render.objectGroundOffsetPx = function (appearance, textures) {
   if (appearance?.groundGeometry) return appearance.dyPx;
@@ -5051,7 +5086,8 @@ Render.drawObjects = function drawObjects(scene) {
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
     configureObject, undefined, objectReuse);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer, towerList,
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer,
+    towerList.filter(({ o }) => !Render.fdrCastleLayout(scene, o)),
     configureObject, undefined, objectReuse);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
@@ -5078,17 +5114,20 @@ Render.drawObjects = function drawObjects(scene) {
   // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
   // bottom-anchored pole lands on the battlements. Read from the frame rather
   // than a copied number, so a retall of the turret can't leave the flag
-  // floating. The flag inherits its turret's ground depth.
-  const flagList = towerList.filter(({ o }) => Render.castleFlagTexture(scene, o));
+  // floating. Retained castles seat flags on their model crowns instead.
+  // The flag inherits its turret's ground depth.
+  const flagList = Render.castleFlagItems(scene, towerList, project);
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
     const { dx, dy } = item;
     const { x: sx, y: sy } = project(dx, dy);
-    const towerH = Render.towerCrownHeight(scene.textures, item.o.castle);
-    s._huAnchor = { x: Math.round(sx), y: Math.round(sy) + CELL_PX / 2 };
+    const seat = item._castleFlagSeat;
+    const towerH = seat ? seat.height : Render.towerCrownHeight(scene.textures, item.o.castle);
+    const x = seat ? seat.x : Math.round(sx), y = seat ? seat.y : Math.round(sy) + CELL_PX / 2;
+    s._huAnchor = { x, y };
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     setWorldDepth(s, (item._z ?? 0) + 0.1);
     s.setOrigin(0.5, 1)
-     .setPosition(Math.round(sx), Math.round(sy + CELL_PX * 0.5 - towerH + 2));
+     .setPosition(Math.round(x), Math.round(y - towerH + 2));
   });
 
   // POI pads — one rounded, slightly-oversized concrete slab under every
@@ -6457,7 +6496,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     },
     // Bottom-seat each sprite at its data cell. A castle's identity selects
     // one material family; restoring it changes only the condition palette.
-    tower: { key: (o, sc) => (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
+    tower: { key: (o, sc) => Render.fdrCastleLayout(sc, o) ? null : (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
                                && sc.textures.exists('tower_unclaimed'))
                               ? 'tower_unclaimed' : 'tower',
              frame: o => CastleStyles.get(o.castle).towerFrame,
