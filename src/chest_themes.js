@@ -27,7 +27,6 @@
     flowers: { ids: flowers },
     forage: { ids: flowers.filter(id => !magicalFlowers.includes(id)).concat(['berry', 'mushroom']) },
     growth: { ids: ['growth_powder'], fallback: { flora: 'flowers', farm: 'farmSupplies', default: 'parkSeeds' } },
-    farmAnimals: { ids: ['chicken', 'cow', 'rabbit'], fallback: 'farmProduce' },
     // Surface magic lanes keep place identity while making cave-only potions
     // available above ground. Lower-tier magic remains useful in larger stacks.
     magic: { ids: () => ITEMS.filter(i => i.kind === 'magic' && !i.uniqueJewelry && !i.progressionOnly).map(i => i.id), mixedTiers: true, fallback: 'antidote' },
@@ -61,7 +60,9 @@
   // THE OCT 2026 REBALANCE — one clean identity per theme:
   //   roadside  supplies, minerals, coins and furniture - never produce
   //   commerce  coins, gems and furniture
-  //   food      food, with a small animal chance - no seeds, no supplies
+  //   food      food - no seeds, no supplies (live animals are never a bag
+  //             item: Inventory.add refuses kind 'animal', so a chest that
+  //             rolled one could only say "bag full")
   //   flora     flowers or their seeds
   //   health    medical magic and the cherry-picked healing relics
   //   school    the story Book, and study magic
@@ -72,9 +73,9 @@
   const themes = {
     roadside: { weights: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 } },
     commerce: { weights: { cash: 63, gems: 27, furniture: 10 } },
-    food: { weights: { food: 95, farmAnimals: 5 } },
+    food: { weights: { food: 100 } },
     park: { weights: { parkSeeds: 70, forage: 20, growth: 10 } },
-    farm: { weights: { farmSeeds: 40, farmProduce: 30, farmAnimals: 15, farmSupplies: 10, growth: 5 } },
+    farm: { weights: { farmSeeds: 40, farmProduce: 45, farmSupplies: 10, growth: 5 } },
     flora: { weights: { flowerSeeds: 50, flowers: 50 } },
     health: { weights: { medicalMagic: 100 } },
     school: { weights: { books: 60, study: 40 } },
@@ -94,10 +95,10 @@
   const highTierWeights = {
     roadside: { supplies: 40.5, materials: 36, cash: 13.5, furniture: 10 },
     commerce: { cash: 63, gems: 27, furniture: 10 },
-    food: { food: 95, farmAnimals: 5 },
+    food: { food: 100 },
     // Crop seeds and tree seeds share the park's seed pool.
     park: { parkSeeds: 60, forage: 15, growth: 25 },
-    farm: { farmSeeds: 25, farmProduce: 30, farmAnimals: 15, farmSupplies: 5, growth: 25 },
+    farm: { farmSeeds: 25, farmProduce: 45, farmSupplies: 5, growth: 25 },
     flora: { flowerSeeds: 50, flowers: 50 },
     health: { medicalMagic: 100 },
     school: { books: 60, study: 40 },
@@ -190,7 +191,11 @@
     const def = groups[group];
     if (!def) throw new Error('Unknown chest group: ' + group);
     const ids = typeof def.ids === 'function' ? def.ids() : def.ids || [];
-    const result = Object.freeze(Array.isArray(ids) ? Object.fromEntries(ids.map(id => [id, ITEM_BY_ID[id]?.dropWeight || 1])) : { ...ids });
+    // A listed id weighs its dropWeight (default 1); a dropWeight of 0 (the
+    // hive's syrup) is not a member at all, as rarity.js dropEligible reads it.
+    const result = Object.freeze(Array.isArray(ids)
+      ? Object.fromEntries(ids.filter(id => ITEM_BY_ID[id]?.dropWeight !== 0).map(id => [id, ITEM_BY_ID[id]?.dropWeight || 1]))
+      : { ...ids });
     memberCache.set(group, result);
     return result;
   }

@@ -146,7 +146,7 @@ test('chest themes: high-tier weights use the chest tier, not jackpot quality', 
   assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 40.5);
   assert.eq(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 50);
   assert.eq(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 50);
-  assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).food, 95,
+  assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).food, 100,
     'a starter jackpot keeps the food chest identity');
 });
 

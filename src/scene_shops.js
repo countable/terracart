@@ -1642,6 +1642,13 @@ class SceneShops {
           this.flash(`Need ${offer.askQty - heldCount()} more ${askItem?.name || offer.askId}`, sx, sy);
           return;
         }
+        // The ask is paid only once the bag can hold the whole offer: the
+        // add's refusal is silent, so paying first would take the ask for
+        // nothing.
+        if (Inventory.roomFor(this.save, offer.giveId) < giveQty) {
+          this.flash(`No room for ${giveQty} ${giveItem?.name || offer.giveId}`, sx, sy);
+          return;
+        }
         Inventory.remove(this.save, offer.askId, offer.askQty);
         this._clampSelSlot();
         this.addToInv(offer.giveId, giveQty, false, { notWild: true, deferRefresh: true });
