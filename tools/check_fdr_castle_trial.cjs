@@ -18,10 +18,10 @@ const {chromium}=require('playwright-core'),assert=require('node:assert/strict')
    CanvasRenderingContext2D.prototype.getImageData=function(...args){reads++;return read.apply(this,args)};
    const textures=scene.textures.getTextureKeys().map(k=>scene.textures.get(k)).filter(t=>t.refresh),originals=textures.map(t=>t.refresh);
    textures.forEach(t=>{const refresh=t.refresh;t.refresh=function(...args){refreshes++;return refresh.apply(this,args)}});
-   const keys=scene.textures.getTextureKeys().sort().join(',');let finite=true;
-   try{for(let deg=0;deg<=360;deg++){document.getElementById('angle').value=deg;scene.update(0,0);for(const p of panels)for(const b of p.group.blocks){finite&&=[...b.projected].every(Number.isFinite);for(const f of b.materialFaces||[])finite&&=f.points.every(v=>[v.x,v.y,v.z,v.u,v.v].every(Number.isFinite));}}}
+   const keys=scene.textures.getTextureKeys().sort().join(',');let finite=true;const emitted=[];
+   try{for(let deg=0;deg<=360;deg++){document.getElementById('angle').value=deg;scene.update(0,0);emitted.push(panels[1].group.gfx._wallTriangles.length);for(const p of panels)for(const b of p.group.blocks){finite&&=[...b.projected].every(Number.isFinite);for(const f of b.materialFaces||[])finite&&=f.points.every(v=>[v.x,v.y,v.z,v.u,v.v].every(Number.isFinite));}}}
    finally{scene.textures.createCanvas=create;CanvasRenderingContext2D.prototype.getImageData=read;textures.forEach((t,i)=>t.refresh=originals[i]);}
-   return {headings:361,allocations,reads,refreshes,finite,textureKeysStable:keys===scene.textures.getTextureKeys().sort().join(','),blocksRetained:panels.every((p,i)=>blocks[i].every(b=>p.group.blocks.includes(b)))};
+   return {polycount:{prisms:panels[1].group.blocks.length,retainedTriangles:panels[1].group.blocks.reduce((sum,b)=>sum+(b.materialFaces?.length||0),0),submittedAt0:emitted[0],submittedAt45:emitted[45],submittedMin:Math.min(...emitted),submittedMax:Math.max(...emitted)},headings:361,allocations,reads,refreshes,finite,textureKeysStable:keys===scene.textures.getTextureKeys().sort().join(','),blocksRetained:panels.every((p,i)=>blocks[i].every(b=>p.group.blocks.includes(b)))};
   });
   assert.equal(rotation.allocations,0);assert.equal(rotation.reads,0);assert.equal(rotation.refreshes,0);for(const flag of ['finite','textureKeysStable','blocksRetained'])assert.equal(rotation[flag],true,flag);
   let combinations=0;
@@ -36,6 +36,12 @@ const {chromium}=require('playwright-core'),assert=require('node:assert/strict')
     for(const tower of candidate.towers){const overlapX=Math.min(bounds.right,tower.x+tower.width/2)-Math.max(bounds.left,tower.x-tower.width/2),overlapY=Math.min(bounds.bottom,tower.y+tower.depth/2)-Math.max(bounds.top,tower.y-tower.depth/2);assert.ok(overlapX<=0||overlapY<=0,'curtain geometry must not penetrate towers');}
    }
 
+   assert.equal(candidate.merlons.length,48,'four towers, keep and two curtain runs');
+   for(const merlon of candidate.merlons){
+    const x0=Math.min(...merlon.rim.map(p=>p.x)),x1=Math.max(...merlon.rim.map(p=>p.x)),y0=Math.min(...merlon.rim.map(p=>p.y)),y1=Math.max(...merlon.rim.map(p=>p.y));
+    assert.equal(merlon.base,merlon.rimTop,'merlon sits directly on coping');
+    assert.ok(merlon.points.every(p=>p.x>=x0&&p.x<=x1&&p.y>=y0&&p.y<=y1),'every merlon footprint is supported by its rim');
+   }
    for(const angle of [0,45,90,135,180,225,270,315]){
     await page.locator('#angle').fill(String(angle));await page.waitForTimeout(70);
     assert.equal(await page.evaluate(()=>fdrGeometryScene.panels[0].root.rotation),0,'2D reference stays at authored heading');

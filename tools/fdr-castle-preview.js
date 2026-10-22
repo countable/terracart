@@ -20,13 +20,19 @@
     for(let s=minS;s<maxS;s++)for(let t=minT;t<maxT;t++){
       let ring=clip(clip(poly,'s',s,true),'s',s+1,false);ring=clip(clip(ring,'t',t,true),'t',t+1,false);
       ring=ring.map(p=>({x:p.x,y:p.y,z:p.z,u:(slot%4*128+2+(p.s-s)*124)/512,v:(Math.floor(slot/4)*128+2+(p.t-t)*124)/512}));
-      for(let j=1;j+1<ring.length;j++)faces.push({points:[ring[0],ring[j],ring[j+1]],normal,color:0xffffff,flatColor:0xaaa694});
+      for(let j=1;j+1<ring.length;j++){
+        const a=ring[0],b=ring[j],c=ring[j+1],ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
+        // UV clipping can repeat a vertex at a tile boundary. Those triangles
+        // have no area and add no pixels; discard them once at build time.
+        if(Math.hypot(uy*vz-uz*vy,uz*vx-ux*vz,ux*vy-uy*vx)<1e-8)continue;
+        faces.push({points:[a,b,c],normal,color:0xffffff,flatColor:0xaaa694});
+      }
     }
   }
   function prismFaces(points,bottom,top,capped,side=3,cap=2){
     const faces=[];
     const area=points.reduce((sum,a,i)=>{const b=points[(i+1)%points.length];return sum+a.x*b.y-b.x*a.y},0),w=Math.sign(area);
-    for(let i=0;i<points.length;i++){
+    for(let i=0;top!==bottom&&i<points.length;i++){
       const a=points[i],b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(!l)continue;
       const uv=(p,z)=>({...p,z,s:(side===9||side===8||side===2&&l<=16)?((p.x-a.x)*dx+(p.y-a.y)*dy)/(l*l):(p.x*dx/l+p.y*dy/l)/16,t:[2,8,9,10,11].includes(side)?(top-z)/(top-bottom):-z/16});
       surface(faces,[uv(a,bottom),uv(b,bottom),uv(b,top),uv(a,top)],side,{x:dy/l*w,y:-dx/l*w});
@@ -80,7 +86,7 @@
       else {const floor=this.add.graphics();floor.fillStyle(style.floor);floor.fillPoints(points,true);root.addAt(floor,0);}
       // Curtains stop at tower boundaries: no full wall passes through a tower.
       const curtains=[{a:{x:-56,y:-80},b:{x:56,y:-80}}, {a:{x:100,y:-36},b:{x:100,y:36}}, {a:{x:56,y:80},b:{x:-56,y:80}}, {a:{x:-100,y:36},b:{x:-100,y:-36}}];
-      const wallFootprints=[];
+      const wallFootprints=[],merlons=[];
       for(let i=0;i<curtains.length;i++){
         const {a,b}=curtains[i],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy),nx=-dy/l,ny=dx/l;
         const strip=(lo,hi,thickness=8)=>[{x:a.x+dx*lo,y:a.y+dy*lo},{x:a.x+dx*hi,y:a.y+dy*hi},{x:a.x+dx*hi+nx*thickness,y:a.y+dy*hi+ny*thickness},{x:a.x+dx*lo+nx*thickness,y:a.y+dy*lo+ny*thickness}];
@@ -97,8 +103,10 @@
         }
         // The source has teeth on horizontal runs, continuous coping on sides.
         if(i%2===0)for(let j=0;j<Math.floor(l/16);j++){
-          const x=a.x+dx*(j*16+8)/l,y=a.y-1;
-          prism(rectangle(x,y,10,4),24,28,9,8,parts[Math.min(parts.length-1,j)].support);
+          const x=a.x+dx*(j*16+8)/l,y=a.y+ny*4;
+          const footprint=rectangle(x,y,10,4);
+          prism(footprint,24,28,9,8,parts[Math.min(parts.length-1,j)].support);
+          merlons.push({kind:'curtain',points:footprint,rim:strip(0,1),base:24,rimTop:24});
         }
       }
       // A single support anchor keeps each tower's stacked bands, roof and crown together.
@@ -109,13 +117,18 @@
         prism(rectangle(x,y,w,h),height-2,height,3,4,support);
         // Roof coping occupies its native 8px strip at roof level. A merlon
         // consists of one 4px top and one 4px face, not two copies of a sprite.
+        const roofBlock=group.blocks[group.blocks.length-1];
         for(const side of [-1,1]){
-          prism(rectangle(x+side*(w/2-4),y,8,h),height-2,height,10,7,support);
-          prism(rectangle(x,y+side*(h/2-4),w-16,8),height-2,height,10,10,support);
+          // Emit coping after the floor on the same roof block. Separate
+          // coplanar slabs can sort behind the full cap and lose their trim.
+          roofBlock.materialFaces.push(...prismFaces(rectangle(x+side*(w/2-4),y,8,h),height,height,true,10,7));
+          roofBlock.materialFaces.push(...prismFaces(rectangle(x,y+side*(h/2-4),w-16,8),height,height,true,10,10));
         }
-        for(const row of [-h/2+3,h/2-5])for(let j=0;j<w/16;j++){
+        for(const row of [-h/2+4,h/2-4])for(let j=0;j<w/16;j++){
           const tx=x-w/2+8+j*16,ty=y+row;
-          prism(rectangle(tx,ty,10,4),height,height+4,9,8,support);
+          const footprint=rectangle(tx,ty,10,4);
+          prism(footprint,height,height+4,9,8,support);
+          merlons.push({kind:isKeep?'keep':'tower',points:footprint,rim:rectangle(x,ty,w,8),base:height,rimTop:height});
         }
         // Decals are actual world-space planes attached to four sides, never billboards.
         const details=[];
@@ -131,9 +144,9 @@
       }
       for(const x of [-80,80])for(const y of [-60,60])towers.push(mass(x,y,48,48,32,false));
       keep=mass(0,0,80,64,48,true);
-      WallPerspective.finish(scene,'study');this.panels.push({root,label,scene,group,sprites,candidate:!!candidate,towers,keep,wallFootprints});
+      WallPerspective.finish(scene,'study');this.panels.push({root,label,scene,group,sprites,candidate:!!candidate,towers,keep,wallFootprints,merlons});
     }
-    window.fdrGeometryAudit={revision,projectionNote:'Native crown top and face are mapped separately. This is a geometric reconstruction, not pixel-identical at rotated headings.',shape:'rectangle',palette,condition:'restored',family,panels:this.panels.map(p=>({candidate:p.candidate,blocks:p.group.blocks.length,materialTriangles:p.group.blocks.reduce((n,b)=>n+(b.materialFaces?.length||0),0),billboards:p.sprites.length,curtainFootprints:p.wallFootprints||[],towers:p.towers,keep:p.keep,allMassesInside:[...p.towers,...(p.keep?[p.keep]:[])].every(t=>fits(t.x,t.y,t.width,t.depth,rectangle(0,0,214,174))),keepInsideCourtyard:!p.keep||fits(p.keep.x,p.keep.y,p.keep.width,p.keep.depth,points)}))};
+    window.fdrGeometryAudit={revision,projectionNote:'Native crown top and face are mapped separately. This is a geometric reconstruction, not pixel-identical at rotated headings.',shape:'rectangle',palette,condition:'restored',family,panels:this.panels.map(p=>({candidate:p.candidate,blocks:p.group.blocks.length,materialTriangles:p.group.blocks.reduce((n,b)=>n+(b.materialFaces?.length||0),0),billboards:p.sprites.length,curtainFootprints:p.wallFootprints||[],merlons:p.merlons||[],towers:p.towers,keep:p.keep,allMassesInside:[...p.towers,...(p.keep?[p.keep]:[])].every(t=>fits(t.x,t.y,t.width,t.depth,rectangle(0,0,214,174))),keepInsideCourtyard:!p.keep||fits(p.keep.x,p.keep.y,p.keep.width,p.keep.depth,points)}))};
     $('audit').textContent=JSON.stringify(window.fdrGeometryAudit,null,2);$('status').textContent='Ready · '+(this.game.renderer.type===2?'WebGL':'Canvas')+' · '+this.panels[1].towers.length+' geometry towers · '+(this.panels[1].keep?'central keep':'keep off / insufficient clearance');
   }
   window.fdrGeometryGame=new Phaser.Game({type:new URLSearchParams(location.search).has('canvas')?Phaser.CANVAS:Phaser.WEBGL,width:1260,height:640,parent:'game',backgroundColor:'#18231f',pixelArt:true,scene:{

@@ -12,12 +12,23 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Castle.png'
 
+FLOOR_SOURCE = SOURCE.parent / 'FDR_Dungeon.png'
+
+def quiet_floor(palette):
+    # Reuse the native sparse ground grain, recoloured as subdued stone.
+    grain = Image.open(FLOOR_SOURCE).convert('RGBA').crop((32,0,48,16))
+    base = (117,119,104) if palette == 'warm' else (112,116,130)
+    values = sorted(round(sum(pixel[:3])/3) for pixel in grain.getdata())
+    median = values[len(values)//2]
+    grain.putdata([tuple(max(0,min(255,c+round((sum(pixel[:3])/3-median)*.25))) for c in base)+(255,) for pixel in grain.getdata()])
+    return grain
+
 def assemble_castle(source, out, palette, dx):
     """Tile-only reference; every visible pixel comes from the supplied sheet."""
     canvas = Image.new('RGBA', (320,288))
     ox, oy = 160, 164
     def crop(x,y,w,h): return source.crop((x+dx,y,x+dx+w,y+h))
-    floor = crop(16,0,16,16)
+    floor = quiet_floor(palette)
     def fill(dest, tile, box):
         x,y,w,h=box
         for yy in range(y,y+h,tile.height):
@@ -25,9 +36,16 @@ def assemble_castle(source, out, palette, dx):
                 dest.alpha_composite(tile.crop((0,0,min(tile.width,x+w-xx),min(tile.height,y+h-yy))), (xx,yy))
     fill(canvas,floor,(ox-100,oy-80,200,160))
     tower=crop(128,28,48,84)
-    # The sheet already supplies a filled crown: preserve its floor registration
-    # and transparent merlon gaps instead of painting a guessed backing rectangle.
-    tower.paste(crop(128,124,48,52),(0,0))
+    # Centre both native crown rows on the physical 8px rim used in 3D.
+    back=tower.crop((0,0,48,12));front=tower.crop((0,40,48,52))
+    tower.paste((0,0,0,0),(0,0,48,12));tower.paste(back,(0,1))
+    tower.paste(front,(0,39));tower.paste(tower.crop((0,52,48,53)),(0,51))
+    # Fill only the open interior of the native unfilled crown. The source alpha
+    # preserves coping and teeth, with a quiet surface visible through the aperture.
+    backing=Image.new('RGBA',tower.size)
+    fill(backing,floor,(8,12,32,36))
+    backing.alpha_composite(tower)
+    tower=backing
     # Extend the centre tiles, preserving corners, native pixels and the base.
     wide=Image.new('RGBA',(80,84))
     for dest,src in [(0,0),(16,16),(32,16),(48,16),(64,32)]:
@@ -41,7 +59,7 @@ def assemble_castle(source, out, palette, dx):
     side=crop(128,48,8,16)
     def horizontal(y):
         fill(canvas,brick,(ox-100,oy+y-24,200,24))
-        fill(canvas,tooth,(ox-104,oy+y-32,208,16))
+        fill(canvas,tooth,(ox-104,oy+y-(27 if y<0 else 35),208,16))
     horizontal(-80)
     # Side coping is a native vertical roof edge, with brick foot faces.
     for x in [-100,92]:
@@ -69,7 +87,7 @@ def build(out, ref):
         rows.append(dict(id=f'{palette}-door',rect=[192,door_y,48,32],processing='Unchanged native door and frame'))
         for name, rect, size in [('wall', (16+dx,64,16,16), (16,16)),
                                  ('cap', (130+dx,30,12,8), (16,16)),
-                                 ('floor', (16+dx,0,16,16), (16,16)),
+                                 ('floor', (32,0,16,16), (16,16)),
                                  ('merlon-top', (131+dx,29,10,4), (10,4)),
                                  ('merlon-face', (131+dx,33,10,4), (10,4)),
                                  ('side-coping', (128+dx,48,8,16), (8,16)),
@@ -77,9 +95,11 @@ def build(out, ref):
                                  ('base', (128+dx,104,16,8), (16,8))]:
             x,y,w,h = rect
             crop = source.crop((x,y,x+w,y+h)).resize(size, Image.Resampling.NEAREST)
+            if name == 'floor': crop = quiet_floor(palette)
             crop.save(materials / f'{palette}-{name}.png')
             rows.append(dict(id=f'{palette}-{name}', rect=rect, size=size,
-                             processing='Native outlined capstone, nearest-neighbour normalized' if name=='cap' else 'Unchanged native pixels'))
+                             processing='Native sparse dungeon ground grain recoloured to low-contrast stone' if name=='floor' else 'Native outlined capstone, nearest-neighbour normalized' if name=='cap' else 'Unchanged native pixels',
+                             source='FDR_Dungeon.png' if name=='floor' else 'FDR_Castle.png'))
     for name, rect in [('door',(192,256,48,32)),('window',(0,160,16,16))]:
         x,y,w,h = rect
         source.crop((x,y,x+w,y+h)).save(materials / f'{name}.png')
@@ -87,10 +107,10 @@ def build(out, ref):
     (out/'assembly-layout.json').write_text(json.dumps(dict(
         source='FDR_Castle.png', sourcePixelToWorldUnit=1,
         canvas=[320,288], origin=[160,164], perimeter=[200,160],
-        tower=dict(centres=[[-80,-60],[80,-60],[-80,60],[80,60]], footprint=[48,48], roofHeight=32, sourceCrop=[128,28,48,84],filledCrownCrop=[128,124,48,52]),
+        tower=dict(centres=[[-80,-60],[80,-60],[-80,60],[80,60]], footprint=[48,48], roofHeight=32, sourceCrop=[128,28,48,84],crownRowAdjustments=[1,-1]),
         keep=dict(centre=[0,0],footprint=[80,64],roofHeight=48),
         wall=dict(height=24, crownHeight=4, thickness=8),
-        assembly='Native filled crowns and centre battlement strips, repeated central strips, and alpha compositing only. Keep extends tower centre strips; doors use warm row256/cool row288. No generated imagery.',
+        assembly='Native crown rows centred on 8px physical rims; centre battlement strips and repeated native centre strips. Quiet floor uses recoloured Dungeon ground grain. Keep extends tower centre strips; doors use warm row256/cool row288. No generated imagery.',
         projection='Fixed south-facing source convention; 3D uses the game projection, so baked source shading and exact pixel alignment differ.'
     ),indent=2)+'\n')
     source.save(out / 'source-castle.png')
@@ -105,7 +125,7 @@ def build(out, ref):
         for y in range(4):
             for x in range(4):board.alpha_composite(tile,(bx+x*32,40+y*32))
     board.save(out / 'materials-board.png')
-    (out/'sources.json').write_text(json.dumps(dict(credit='Fantasy Dreamland Reborn by ElvGames',source=str(SOURCE.relative_to(ROOT)),sha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),materials=rows,scope='Opt-in architecture trial only; no runtime replacements'),indent=2)+'\n')
+    (out/'sources.json').write_text(json.dumps(dict(credit='Fantasy Dreamland Reborn by ElvGames',source=str(SOURCE.relative_to(ROOT)),sha256=hashlib.sha256(SOURCE.read_bytes()).hexdigest(),floorSource=dict(path=str(FLOOR_SOURCE.relative_to(ROOT)),sha256=hashlib.sha256(FLOOR_SOURCE.read_bytes()).hexdigest()),materials=rows,scope='Opt-in architecture trial only; no runtime replacements'),indent=2)+'\n')
     # Pin the review to committed modules so concurrent development cannot
     # change a saved comparison or expose an in-progress merge to the browser.
     revision=subprocess.check_output(['git','rev-parse',ref],cwd=ROOT,text=True).strip()
