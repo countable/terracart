@@ -891,17 +891,21 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
 // (combat.js); the net takes GAME and livestock alike, on the same slot the
 // catch wheel already used. app.js/interact.js can't be driven headlessly this
 // deep, so the wiring is pinned as source text.
-test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
+test('hunt: the game wheel is the bug net\'s, not a weapon\'s', () => {
   const src = INTERACT_SRC;
   // WHICH kinds are game is no longer a set spelled out here: it is the
-  // creature table's `game` row, read through SpriteLayout.isGame — beside
-  // what a kill of that kind drops (app.js resolveDefeat), so the two halves
-  // of "crow and deer are hunted" cannot name different kinds.
-  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {");
-  const hunt = src.slice(huntStart, src.indexOf('const selItem =', huntStart));
+  // creature table, read through SpriteLayout.isGame (every wild animal by
+  // default since Oct 2026) — beside what a kill of that kind drops (app.js
+  // resolveDefeat), so the two halves of "it is hunted" cannot name
+  // different kinds. The tap hunts unless the hand holds its favourite, a
+  // producer's meal or other food.
+  const huntStart = src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind) && !likes && !producerMeal && !isEdible");
+  const hunt = src.slice(huntStart, src.indexOf('// Plant produce gives the species yield', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
-  assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
-    'deer,crow', 'and the table still calls exactly the crow and the deer game');
+  assert.truthy(/&& Gear\.activeWeapon\(save\)\) \{/.test(hunt), 'armed');
+  const game = Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k));
+  for (const k of ['deer', 'crow', 'rabbit', 'chicken', 'cow']) assert.includes(game, k, `${k} is game`);
+  for (const k of ['cat', 'dog', 'npc', 'slime', 'goblin']) assert.falsy(game.includes(k), `${k} is not`);
   // Named plainly since Sep 2026: an unowned slot is the bare-handed rung in
   // toolDurationMs, and "you own no net, so wear no badge" is answered once in
   // app.js _setWorkProgressIcon rather than re-tested here (see

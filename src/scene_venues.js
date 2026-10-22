@@ -772,8 +772,12 @@ class SceneVenues {
   // prize today; a relic, which is one of a kind, would not.
   fortSlotMachine(house) {
     const kinds = new Set(FORT_SLOT_KINDS);
+    // The same gates every loot roll keeps (rarity.js pickItemInClass): no
+    // progression ware (the serpent idol is the trail's prize), nothing
+    // cave-only, no shiny, and no dropWeight-0 item (the hive's syrup).
     const cands = ITEMS.filter((it) => kinds.has(it.kind) && (PRICES[it.id] ?? 0) > 0
-      && !FORT_SLOT_EXCLUDE.has(it.id)).map((it) => it.id);
+      && !FORT_SLOT_EXCLUDE.has(it.id) && !it.progressionOnly && !it.caveOnly && !it.shiny
+      && it.dropWeight !== 0).map((it) => it.id);
     const ids = ShopsMath.slotPrizes(`slots:${house.id}:${utcDayKey()}`, cands);
     return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0,
       (id) => ITEM_BY_ID[id]?.kind !== 'relic');
