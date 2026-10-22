@@ -24,7 +24,7 @@ const {chromium}=require('playwright-core'),assert=require('node:assert/strict')
    return {polycount:{prisms:panels[1].group.blocks.length,retainedTriangles:panels[1].group.blocks.reduce((sum,b)=>sum+(b.materialFaces?.length||0),0),submittedAt0:emitted[0],submittedAt45:emitted[45],submittedMin:Math.min(...emitted),submittedMax:Math.max(...emitted)},headings:361,allocations,reads,refreshes,finite,textureKeysStable:keys===scene.textures.getTextureKeys().sort().join(','),blocksRetained:panels.every((p,i)=>blocks[i].every(b=>p.group.blocks.includes(b)))};
   });
   assert.equal(rotation.allocations,0);assert.equal(rotation.reads,0);assert.equal(rotation.refreshes,0);for(const flag of ['finite','textureKeysStable','blocksRetained'])assert.equal(rotation[flag],true,flag);
-  let combinations=0;
+  let combinations=0;const nativeMatches={};
   for(const palette of ['warm','cool']){
    const audit=await page.evaluate(palette=>{document.getElementById('palette').value=palette;fdrGeometryScene.rebuild();return fdrGeometryAudit},palette);
    const candidate=audit.panels[1];assert.equal(candidate.allMassesInside,true);assert.equal(candidate.keepInsideCourtyard,true);assert.equal(candidate.billboards,0);assert.equal(candidate.towers.length,4);assert.ok(candidate.keep);
@@ -53,14 +53,21 @@ const {chromium}=require('playwright-core'),assert=require('node:assert/strict')
     assert.equal(merlon.base,merlon.rimTop,'merlon sits directly on coping');
     assert.ok(merlon.points.every(p=>p.x>=x0&&p.x<=x1&&p.y>=y0&&p.y<=y1),'every merlon footprint is supported by its rim');
    }
-   for(const angle of [0,45,90,135,180,225,270,315]){
+   await page.selectOption('#zoom','1');await page.locator('#angle').fill('0');await page.waitForTimeout(80);
+   const nativeCapture=`${out}/${renderer}-${palette}-native.png`;
+   await page.locator('canvas').screenshot({path:nativeCapture});
+   const nativeCheck=require('node:child_process').spawnSync('python3',['tools/check_fdr_native_pixels.py',nativeCapture],{encoding:'utf8'});
+   assert.equal(nativeCheck.status,0,nativeCheck.stdout+nativeCheck.stderr);
+   nativeMatches[palette]=JSON.parse(nativeCheck.stdout);
+   await page.selectOption('#zoom','1.6');
+   for(const angle of [0,1,45,89,90,91,135,179,180,181,225,269,270,271,315,359]){
     await page.locator('#angle').fill(String(angle));await page.waitForTimeout(70);
     assert.equal(await page.evaluate(()=>fdrGeometryScene.panels[0].root.rotation),0,'2D reference stays at authored heading');
     await page.locator('#game').screenshot({path:`${out}/${renderer}-${palette}-${angle}.png`});
    }
    combinations++;
   }
-  assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);results.push({renderer,combinations,rotation,errors,failed});await page.close();
+  assert.deepEqual(errors,[]);assert.deepEqual(failed,[]);results.push({renderer,combinations,rotation,nativeMatches,errors,failed});await page.close();
  }}finally{await browser.close()}
  fs.writeFileSync(out+'/checks.json',JSON.stringify(results,null,2)+'\n');console.log(JSON.stringify(results));
 })().catch(e=>{console.error(e);process.exit(1)});

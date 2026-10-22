@@ -58,7 +58,9 @@ def assemble_castle(source, out, palette, dx):
         canvas.alpha_composite(cap,(ox+x-4,oy+y-36))
         canvas.alpha_composite(face,(ox+x-4,oy+y-28))
     def horizontal(y):
-        fill(canvas,brick,(ox-100,oy+y-24,200,24))
+        # The rear wall shows its courtyard face, 8px inside the outer edge.
+        face_y=y+(8 if y<0 else 0)
+        fill(canvas,brick,(ox-100,oy+face_y-24,200,24))
         centre=y+(4 if y<0 else -4)
         rim=crop(144,76,16,4).resize((16,8),Image.Resampling.NEAREST)
         fill(canvas,rim,(ox-56,oy+centre-28,112,8))
@@ -68,9 +70,10 @@ def assemble_castle(source, out, palette, dx):
     for x in [-100,92]:
         fill(canvas,side,(ox+x,oy-104,8,160))
         fill(canvas,brick,(ox+x,oy+56,8,24))
+    for x in [-80,80]: canvas.alpha_composite(tower,(ox+x-24,oy-60-60))
+    # Side posts are closer than the rear towers, but behind the front towers.
     for x in [-96,96]:
         for y in [-24,-8,8,24]: merlon(x,y)
-    for x in [-80,80]: canvas.alpha_composite(tower,(ox+x-24,oy-60-60))
     canvas.alpha_composite(keep,(ox-40,oy+32-116))
     horizontal(80)
     canvas.alpha_composite(source.crop((192,256 if dx==0 else 288,240,288 if dx==0 else 320)).resize((48,24),Image.Resampling.NEAREST),(ox-24,oy+56))
@@ -96,6 +99,7 @@ def build(out, ref):
                                  ('merlon-top', (131+dx,29,10,4), (10,4)),
                                  ('merlon-face', (131+dx,33,10,4), (10,4)),
                                  ('side-coping', (128+dx,48,8,16), (8,16)),
+                                 ('right-coping', (168+dx,48,8,16), (8,16)),
                                  ('rim', (144+dx,76,16,4), (16,4)),
                                  ('base', (128+dx,104,16,8), (16,8))]:
             x,y,w,h = rect
@@ -145,6 +149,7 @@ def build(out, ref):
         text=page.read_text().replace('src="game-loader.js"','src="runtime-loader.js"').replace('src="fdr-castle-preview.js"','src="preview.js"')
         (out/'index.html').write_text(text)
     if script.exists(): (out/'preview.js').write_text(script.read_text())
+    (out/'fdr-canvas-review-adapter.js').write_text((ROOT/'tools/fdr-canvas-review-adapter.js').read_text())
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)

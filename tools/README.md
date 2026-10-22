@@ -99,6 +99,16 @@ The checker verifies both renderers and 361 headings without texture allocations
 refreshes or pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`,
 `STUDY_URL` and `CHROMIUM` override defaults.
 
+`check_fdr_native_pixels.py` compares four exposed masonry regions against the
+native assembly at 1× scale. Brick UVs use positive local axes; curtain courses
+start at their 24px coping, while tower/keep courses start at their own roof.
+Use the distinct native left/right coping crops. Do not mirror front-facing
+masonry merely because a polygon's vertex winding runs right to left.
+The review-only Canvas adapter overlaps internal opaque triangle clips within
+the exact face boundary; transparent source tiles keep their original clips.
+Eight-pixel atlas gutters prevent that coverage from sampling adjacent slots.
+
+
 ## Prerequisites
 
 - Node.js runs the headless suite and most audits without browser packages.

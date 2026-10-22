@@ -19,7 +19,7 @@
     const minT=Math.floor(Math.min(...poly.map(p=>p.t))),maxT=Math.ceil(Math.max(...poly.map(p=>p.t)));
     for(let s=minS;s<maxS;s++)for(let t=minT;t<maxT;t++){
       let ring=clip(clip(poly,'s',s,true),'s',s+1,false);ring=clip(clip(ring,'t',t,true),'t',t+1,false);
-      ring=ring.map(p=>({x:p.x,y:p.y,z:p.z,u:(slot%4*128+2+(p.s-s)*124)/512,v:(Math.floor(slot/4)*128+2+(p.t-t)*124)/512}));
+      ring=ring.map(p=>({x:p.x,y:p.y,z:p.z,u:(slot%4*128+8+(p.s-s)*112)/512,v:(Math.floor(slot/4)*128+8+(p.t-t)*112)/512}));
       for(let j=1;j+1<ring.length;j++){
         const a=ring[0],b=ring[j],c=ring[j+1],ux=b.x-a.x,uy=b.y-a.y,uz=b.z-a.z,vx=c.x-a.x,vy=c.y-a.y,vz=c.z-a.z;
         // UV clipping can repeat a vertex at a tile boundary. Those triangles
@@ -29,17 +29,23 @@
       }
     }
   }
-  function prismFaces(points,bottom,top,capped,side=3,cap=2,omitEdges=[]){
+  function prismFaces(points,bottom,top,capped,side=3,cap=2,omitEdges=[],uvOrigin=null){
     const faces=[];
     const area=points.reduce((sum,a,i)=>{const b=points[(i+1)%points.length];return sum+a.x*b.y-b.x*a.y},0),w=Math.sign(area);
+    const origin=uvOrigin||{x:Math.min(...points.map(p=>p.x)),y:Math.min(...points.map(p=>p.y)),z:0};
     for(let i=0;top!==bottom&&i<points.length;i++){
       if(omitEdges.includes(i))continue;
       const a=points[i],b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(!l)continue;
-      const uv=(p,z)=>({...p,z,s:(side===9||side===8||side===2&&l<=16)?((p.x-a.x)*dx+(p.y-a.y)*dy)/(l*l):(p.x*dx/l+p.y*dy/l)/16,t:[2,8,9,10,11].includes(side)?(top-z)/(top-bottom):-z/16});
+      const uv=(p,z)=>({...p,z,
+        // Read the native repeat in positive local coordinates. Opposite
+        // wall winding must not mirror the masonry or move its starting row.
+        s:(side===3||side===11)?(Math.abs(dx)>=Math.abs(dy)?p.x-origin.x:p.y-origin.y)/16:
+          (side===9||side===8||side===2&&l<=16)?(Math.abs(dx)>=Math.abs(dy)?(p.x-Math.min(a.x,b.x))/Math.abs(dx):(p.y-Math.min(a.y,b.y))/Math.abs(dy)):(p.x*dx/l+p.y*dy/l)/16,
+        t:[2,8,9,10,11].includes(side)?(top-z)/(top-bottom):((origin.z||0)-z)/16});
       surface(faces,[uv(a,bottom),uv(b,bottom),uv(b,top),uv(a,top)],side,{x:dy/l*w,y:-dx/l*w});
     }
     const minX=Math.min(...points.map(p=>p.x)),minY=Math.min(...points.map(p=>p.y)),wX=Math.max(...points.map(p=>p.x))-minX,wY=Math.max(...points.map(p=>p.y))-minY,stone=cap===8||(cap===2&&wX<=16&&wY<=16);
-    if(capped)for(const tri of PolygonGeometry.triangulate(points))surface(faces,tri.map(p=>({...p,z:top,s:stone?(p.x-minX)/wX:cap===4?(p.x-minX)/16:cap===7?(p.x-minX)/8:p.x/16,t:stone?(p.y-minY)/wY:cap===4?(p.y-minY)/16:cap===10?(p.y-minY)/wY:p.y/16})),cap,null);
+    if(capped)for(const tri of PolygonGeometry.triangulate(points))surface(faces,tri.map(p=>({...p,z:top,s:stone?(p.x-minX)/wX:cap===4?(p.x-minX)/16:(cap===7||cap===12)?(p.x-minX)/8:p.x/16,t:stone?(p.y-minY)/wY:(cap===7||cap===12)?(p.y-minY)/16:cap===4?(p.y-minY)/16:cap===10?(p.y-minY)/wY:p.y/16})),cap,null);
     return faces;
   }
   const rectangle=(x,y,w,h)=>[{x:x-w/2,y:y-h/2},{x:x+w/2,y:y-h/2},{x:x+w/2,y:y+h/2},{x:x-w/2,y:y+h/2}];
@@ -60,10 +66,18 @@
   function atlas(scene,palette,active){
     const key='fdr-atlas-'+palette+'-'+active;if(scene.textures.exists(key))return scene.textures.get(key);
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();ctx.drawImage(WallMaterials.prepare(scene).getSourceImage(),0,0);ctx.imageSmoothingEnabled=false;
-    const names={2:palette+'-cap',3:palette+'-wall',4:palette+'-floor',5:palette+'-door',6:'window',7:palette+'-side-coping',8:palette+'-merlon-top',9:palette+'-merlon-face',10:palette+'-rim',11:palette+'-base'};
-    for(const [slot,name] of Object.entries(names)){const x=slot%4*128,y=Math.floor(slot/4)*128;ctx.clearRect(x,y,128,128);ctx.drawImage(scene.textures.get('fdr-'+name).getSourceImage(),x+2,y+2,124,124);
-      if(!active){ctx.globalCompositeOperation='source-atop';ctx.fillStyle='rgba(27,35,27,.25)';ctx.fillRect(x+2,y+2,124,124);ctx.globalCompositeOperation='source-over';}
-      ctx.drawImage(tex.getSourceImage(),x+2,y+2,124,1,x+2,y,124,2);ctx.drawImage(tex.getSourceImage(),x+2,y+125,124,1,x+2,y+126,124,2);ctx.drawImage(tex.getSourceImage(),x+2,y,1,128,x,y,2,128);ctx.drawImage(tex.getSourceImage(),x+125,y,1,128,x+126,y,2,128);
+    // Eight-pixel gutters support Canvas seam coverage without sampling another slot.
+    // The 112px content region is an integer 7x scale of a native 16px tile.
+    const names={2:palette+'-cap',3:palette+'-wall',4:palette+'-floor',5:palette+'-door',6:'window',7:palette+'-side-coping',8:palette+'-merlon-top',9:palette+'-merlon-face',10:palette+'-rim',11:palette+'-base',12:palette+'-right-coping'};
+    for(const [slot,name] of Object.entries(names)){const x=slot%4*128,y=Math.floor(slot/4)*128;ctx.clearRect(x,y,128,128);ctx.drawImage(scene.textures.get('fdr-'+name).getSourceImage(),x+8,y+8,112,112);
+      if(!active){ctx.globalCompositeOperation='source-atop';ctx.fillStyle='rgba(27,35,27,.25)';ctx.fillRect(x+8,y+8,112,112);ctx.globalCompositeOperation='source-over';}
+      // Repeated surfaces need opposite-edge texels in their gutters; clamping
+      // would smear the edge colour into the neighbouring repeat during coverage.
+      const wrapX=[3,4,10].includes(+slot),wrapY=[3,4].includes(+slot);
+      ctx.drawImage(tex.getSourceImage(),x+8,y+(wrapY?112:8),112,wrapY?8:1,x+8,y,112,8);
+      ctx.drawImage(tex.getSourceImage(),x+8,y+(wrapY?8:119),112,wrapY?8:1,x+8,y+120,112,8);
+      ctx.drawImage(tex.getSourceImage(),x+(wrapX?112:8),y,wrapX?8:1,128,x,y,8,128);
+      ctx.drawImage(tex.getSourceImage(),x+(wrapX?8:119),y,wrapX?8:1,128,x+120,y,8,128);
     }tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
   function rebuild(){
@@ -78,7 +92,7 @@
       }
       if(candidate)group.atlas=atlas(this,palette,active);
       const colors={face:style.stone.FACE,top:style.stone.BODY,dark:style.stone.DARK};
-      const prism=(ring,bottom,top,side=3,cap=2,support=null,capped=true,omitEdges=[])=>WallPerspective.prism(scene,'study',ring,bottom,top,colors,support,capped,candidate?{materialFaces:prismFaces(ring,bottom,top,capped,side,cap,omitEdges)}:{});
+      const prism=(ring,bottom,top,side=3,cap=2,support=null,capped=true,omitEdges=[],uvOrigin=null)=>WallPerspective.prism(scene,'study',ring,bottom,top,colors,support,capped,candidate?{materialFaces:prismFaces(ring,bottom,top,capped,side,cap,omitEdges,uvOrigin)}:{});
       if(candidate){
         const key='fdr-floor-rectangle-'+palette+'-'+active;
         if(!this.textures.exists(key)){const texture=this.textures.createCanvas(key,220,180),ctx=texture.getContext();ctx.imageSmoothingEnabled=false;ctx.translate(110,90);ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.clip();const tile=document.createElement('canvas');tile.width=tile.height=16;const ink=tile.getContext('2d');ink.imageSmoothingEnabled=false;ink.drawImage(this.textures.get('fdr-'+palette+'-floor').getSourceImage(),0,0,16,16);const pattern=ctx.createPattern(tile,'repeat');pattern.setTransform(new DOMMatrix().translate(-100,-80));ctx.fillStyle=pattern;ctx.fillRect(-110,-90,220,180);if(!active){ctx.fillStyle='rgba(27,35,27,.25)';ctx.fillRect(-110,-90,220,180);}texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);}
@@ -97,7 +111,7 @@
           const body=strip(j/n,(j+1)/n),support={x:(body[0].x+body[2].x)/2,y:(body[0].y+body[2].y)/2,order:group.blocks.length};
           // The body cap is covered by coping. End faces meet another
           // curtain section or a tower, so they are internal, never visible.
-          prism(body,0,22,3,10,support,false,[1,3]);prism(body,22,24,10,i%2?7:10,support,true,[1,3]);parts.push({support,body});
+          prism(body,0,22,3,10,support,false,[1,3],{x:-100,y:-80,z:24});prism(body,22,24,10,i%2?7:10,support,true,[1,3]);parts.push({support,body});
         }
         if(i===2){
           const faces=[];surface(faces,[{x:24,y:80.05,z:0,s:1,t:1},{x:-24,y:80.05,z:0,s:0,t:1},{x:-24,y:80.05,z:24,s:0,t:0},{x:24,y:80.05,z:24,s:1,t:0}],5,{x:0,y:1});
@@ -127,14 +141,14 @@
         for(const side of [-1,1]){
           // Emit coping after the floor on the same roof block. Separate
           // coplanar slabs can sort behind the full cap and lose their trim.
-          roofBlock.materialFaces.push(...prismFaces(rectangle(x+side*(w/2-4),y,8,h),height,height,true,10,7));
+          roofBlock.materialFaces.push(...prismFaces(rectangle(x+side*(w/2-4),y,8,h),height,height,true,10,side>0?12:7));
           roofBlock.materialFaces.push(...prismFaces(rectangle(x,y+side*(h/2-4),w-16,8),height,height,true,10,10));
         }
-        for(const row of [-h/2+4,h/2-4])for(let j=0;j<w/16;j++){
+        for(const row of [-h/2+4,h/2-6])for(let j=0;j<w/16;j++){
           const tx=x-w/2+8+j*16,ty=y+row;
           const footprint=rectangle(tx,ty,10,4);
           prism(footprint,height,height+4,9,8,support);
-          merlons.push({kind:isKeep?'keep':'tower',points:footprint,rim:rectangle(x,ty,w,8),base:height,rimTop:height});
+          merlons.push({kind:isKeep?'keep':'tower',points:footprint,rim:rectangle(x,y+(row<0?-h/2+4:h/2-4),w,8),base:height,rimTop:height});
         }
         // Decals are actual world-space planes attached to four sides, never billboards.
         const details=[];
@@ -150,13 +164,13 @@
       }
       for(const x of [-80,80])for(const y of [-60,60])towers.push(mass(x,y,48,48,32,false));
       keep=mass(0,0,80,64,48,true);
-      WallPerspective.finish(scene,'study');this.panels.push({root,label,scene,group,sprites,candidate:!!candidate,towers,keep,wallFootprints,merlons});
+      WallPerspective.finish(scene,'study');FDRCanvasReviewAdapter.attach(group.gfx);this.panels.push({root,label,scene,group,sprites,candidate:!!candidate,towers,keep,wallFootprints,merlons});
     }
     window.fdrGeometryAudit={revision,projectionNote:'Native crown top and face are mapped separately. This is a geometric reconstruction, not pixel-identical at rotated headings.',shape:'rectangle',palette,condition:'restored',family,panels:this.panels.map(p=>({candidate:p.candidate,blocks:p.group.blocks.length,materialTriangles:p.group.blocks.reduce((n,b)=>n+(b.materialFaces?.length||0),0),billboards:p.sprites.length,curtainFootprints:p.wallFootprints||[],merlons:p.merlons||[],towers:p.towers,keep:p.keep,allMassesInside:[...p.towers,...(p.keep?[p.keep]:[])].every(t=>fits(t.x,t.y,t.width,t.depth,rectangle(0,0,214,174))),keepInsideCourtyard:!p.keep||fits(p.keep.x,p.keep.y,p.keep.width,p.keep.depth,points)}))};
     $('audit').textContent=JSON.stringify(window.fdrGeometryAudit,null,2);$('status').textContent='Ready · '+(this.game.renderer.type===2?'WebGL':'Canvas')+' · '+this.panels[1].towers.length+' geometry towers · '+(this.panels[1].keep?'central keep':'keep off / insufficient clearance');
   }
   window.fdrGeometryGame=new Phaser.Game({type:new URLSearchParams(location.search).has('canvas')?Phaser.CANVAS:Phaser.WEBGL,width:1260,height:640,parent:'game',backgroundColor:'#18231f',pixelArt:true,scene:{
-    preload(){for(const name of ['cool-wall','warm-wall','cool-cap','warm-cap','cool-floor','warm-floor','warm-door','cool-door','window','warm-side-coping','cool-side-coping','warm-rim','cool-rim','warm-base','cool-base','warm-merlon-top','cool-merlon-top','warm-merlon-face','cool-merlon-face'])this.load.image('fdr-'+name,base+name+'.png');for(const palette of ['warm','cool'])this.load.image('assembled-'+palette,'/fdr-castle-trial/assembled-'+palette+'.png');},
+    preload(){for(const name of ['cool-wall','warm-wall','cool-cap','warm-cap','cool-floor','warm-floor','warm-door','cool-door','window','warm-side-coping','cool-side-coping','warm-rim','cool-rim','warm-base','cool-base','warm-right-coping','cool-right-coping','warm-merlon-top','cool-merlon-top','warm-merlon-face','cool-merlon-face'])this.load.image('fdr-'+name,base+name+'.png');for(const palette of ['warm','cool'])this.load.image('assembled-'+palette,'/fdr-castle-trial/assembled-'+palette+'.png');},
     create(){this.panels=[];this.rebuild=rebuild.bind(this);window.fdrGeometryScene=this;for(const id of ['palette'])$(id).onchange=()=>this.rebuild();this.rebuild();window.ready=true;},
     update(t,dt){if(rotating)$('angle').value=(+$('angle').value+dt*.025)%360;const angle=+$('angle').value*Math.PI/180;$('heading').textContent=$('angle').value+'°';for(const p of this.panels||[]){p.scene.mapRot=p.candidate?angle:0;p.root.setRotation(p.candidate?angle:0).setScale(+$('zoom').value);for(const sprite of p.sprites)sprite.setRotation(-angle);WallPerspective.update(p.scene);}}
   }});
