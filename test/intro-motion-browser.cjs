@@ -54,7 +54,7 @@ const near = (actual, expected) => assert(Math.abs(actual - expected) < .002, `$
           assert.equal(s.animations.length, 0); assert(s.frames.every(f => f.opacity === 0));
         } else {
           assert(s.animations.every(a => Math.abs(a.duration - 16000 / 1.2) < .001 && a.iterations === 1));
-          [1 / 1.5, 1 / 1.92, 1 / 2.112].forEach((zoom, i) => near(s.frames[i].scale, zoom));
+          [1 / 1.5, 1 / 1.5, 1 / 2.112].forEach((zoom, i) => near(s.frames[i].scale, zoom));
           const dreamTime = progress => (200 + progress * 16000) / 1.2;
           const fadeLength = 8 / 45;
           const fadeStarts = [.02, .35, .68].map(start => start + 2 / 45);

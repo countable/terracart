@@ -1072,7 +1072,7 @@
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
     /* Match painted head sizes, not the nominal zoom requested for the art.
-       Measured adjacent ratios are about 1.5, 1.28 and 1.10; their cumulative
+       Measured adjacent ratios are about 1.5, 1.0 and 1.408; their cumulative
        inverse offsets keep scale stable throughout each shared-camera fade. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
@@ -1080,7 +1080,7 @@
       transform: scale(calc(1 / 1.5));
       animation: nightmare-frame-two var(--nightmare-pan-ms, 13.333333s) linear 166.666667ms both;
     }
-    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
+    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.5)); }
     #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; animation-timing-function: cubic-bezier(.75, 0, .25, 1); transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
       0%, 6.444444% { opacity: 0; }
