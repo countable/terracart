@@ -885,7 +885,8 @@
   // NOT the enemy registry: whether a kind is HOSTILE is combat.js's MONSTERS
   // table, asked through Combat.isEnemy, and nothing here may answer that. A
   // row says what thinks at all, what bolts from you and how far, what a tame
-  // pet hunts, what is GAME (crow + deer — netted, never shot at), what a kill
+  // pet hunts, what is GAME (every wild animal unless its row says `game:
+  // false` — netted on a bare-handed tap, never shot at; isGame), what a kill
   // drops, what a farm animal gives, what a scarecrow turns back.
   //
   // Separate from CREATURE_ART because tools/sprite_audit.js re-decodes the
@@ -917,7 +918,9 @@
     doubleYieldChance: 0.5,
   });
   const CREATURE_BEHAVIOUR = {
-    npc:           { wanders: true },
+    // A villager is nobody's game (`game: false`: the one opt-out from
+    // isGame's wild-animal default).
+    npc:           { wanders: true, game: false },
     // 6 s a step: 20% slower than the shared 5 s wander beat.
     chicken:       { wanders: true, stepMs: 6000, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
@@ -931,7 +934,8 @@
     // tamed with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag
     // it is a mount (items.js HORSE_RIDE).
     horse:         { wanders: true },
-    green_dragon:  { animal: true, wanders: true, follows: true },
+    // The story's dragon is raised, never hunted.
+    green_dragon:  { animal: true, wanders: true, follows: true, game: false },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
     // tamed (any animal can, and a sapphire tames a slime). `prey` is the
     // hoisted Set the per-step scan reads, so it allocates nothing.
@@ -947,7 +951,9 @@
                      flee: { cells: 5, jitter: 0.6, stepMs: 1300, stepCells: 1.2 } },
     // The rabbit: half-cell hops in 0.9 s idling (3.9 m/s) and a bolt of 0.6
     // cells (4.2 m) in 650 ms ≈ 6.5 m/s, quick short hops with a breath between.
-    rabbit:        { wanders: true, tameSettles: true,
+    // Hunted (owner, Oct 2026: every wild animal is game unless fed its
+    // favourite), it is the pelt the delivery board asks for.
+    rabbit:        { wanders: true, tameSettles: true, drop: 'rabbit_pelt',
                      stepMs: 900, stepCells: 0.5, pauseMs: [700, 1300],
                      flee: { cells: 4, jitter: 1.1, stepMs: 650, stepCells: 0.6,
                              pauseMs: [80, 120] } },
@@ -999,8 +1005,9 @@
   };
   // The sea turtle is the rabbit's row on the beach (seated by
   // biome_profiles.js SHORE_FAUNA): the same hops, bolt and settling, read
-  // from the rabbit's row so the two cannot drift.
-  CREATURE_BEHAVIOUR.sea_turtle = CREATURE_BEHAVIOUR.rabbit;
+  // from the rabbit's row so the two cannot drift — but no pelt: a hunted
+  // turtle drops nothing.
+  CREATURE_BEHAVIOUR.sea_turtle = { ...CREATURE_BEHAVIOUR.rabbit, drop: null };
   CREATURE_BEHAVIOUR.pirate_mercenary = CREATURE_BEHAVIOUR.mercenary;
   // Every roster base kind thinks (`wanders`); a ghost moves by its own mover
   // (creature_ai.js ghostTick — hover, then a committed rush at the player,
@@ -1023,7 +1030,20 @@
   // GAME: taken by a tap on the hunt wheel, with the bug net. Deliberately NOT
   // Combat.isEnemy's business — nothing auto-fires at game and no shot may hit
   // it, or hunting stops being a choice (CLAUDE.md).
-  function isGame(kind) { return !!creatureBehaviour(kind)?.game; }
+  // EVERY WILD ANIMAL IS GAME BY DEFAULT (owner, Oct 2026): a bare-handed tap
+  // hunts it; only its favourite in hand catches it instead (interact.js).
+  // Not game: a roster kind (fought, or — the shore crab, the gull, the
+  // raven — moved by its roster row and caught, never hunted), a summoned
+  // ally, a companion kind (`pet`: the cat and the dog), and a row that opts
+  // out (`game: false`: the villager, the story's dragon). `game: true` still
+  // forces it (the crow, the deer) so a row can say so beside its drop.
+  function isGame(kind) {
+    const b = creatureBehaviour(kind);
+    if (!b || b.game === false) return false;
+    if (b.game) return true;
+    const rosterKind = roster && (roster.get(kind) || roster.get(baseKind(kind)));
+    return !!b.wanders && !b.summoned && !b.pet && !rosterKind;
+  }
   // Never caught or kept as a pet, whatever is offered (the crow).
   function isUntameable(kind) { return !!creatureBehaviour(kind)?.untameable; }
   // What a tame pet of this kind hunts, as a Set — null for everything else.

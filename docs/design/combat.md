@@ -101,8 +101,8 @@ mechanics.
   change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
-  Game animals (crow/deer) are not enemies or projectile targets; released
-  slime pets are never targets.
+  Game animals (every wild animal: `SpriteLayout.isGame`) are not enemies or
+  projectile targets; released slime pets are never targets.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
@@ -276,7 +276,14 @@ mechanics.
   enemy until the attempt ends. A refused item is never consumed. Story foes
   and `untameable` kinds (the crow: hunted for its feather, never a pet; old
   saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
-  baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
+  baby/shiny variants. Every wild animal is GAME unless its row opts out
+  (`SpriteLayout.isGame`: not a foe, an ally, a companion kind, the villager
+  or the story's dragon): a tap with nothing or a non-food in hand hunts it on
+  the net wheel, its favourite in hand catches it, plant produce feeds a
+  producer, and other food is refused. A hunt pays the row's `drop` (deer:
+  meat; rabbit: pelt; crow: feather; livestock and the rest: nothing). A
+  roster kind is never game: it is fought, or (the crab, the gull, the raven)
+  caught.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.

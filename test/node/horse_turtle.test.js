@@ -48,7 +48,12 @@ test('horse: a T4 mount with a premium sale value and no milk', () => {
 });
 
 test('turtle: the rabbit\'s habits, seated on the shore', () => {
-  assert.eq(SpriteLayout.CREATURE_BEHAVIOUR.sea_turtle, SpriteLayout.CREATURE_BEHAVIOUR.rabbit, 'one gait row');
+  // One gait row — the turtle's is the rabbit's copied, differing only in
+  // what a hunt drops (the rabbit's pelt is the rabbit's alone).
+  const { drop: turtleDrop, ...turtleGait } = SpriteLayout.CREATURE_BEHAVIOUR.sea_turtle;
+  const { drop: rabbitDrop, ...rabbitGait } = SpriteLayout.CREATURE_BEHAVIOUR.rabbit;
+  assert.eq(JSON.stringify(turtleGait), JSON.stringify(rabbitGait), 'one gait row');
+  assert.eq(rabbitDrop, 'rabbit_pelt'); assert.eq(turtleDrop, null, 'no pelt from a turtle');
   assert.eq(ITEM_BY_ID.sea_turtle.kind, 'animal');
   assert.eq(ITEM_BY_ID.sea_turtle.baseTier, 3);
   assert.truthy(SHORE_FAUNA.sea_turtle, 'a shore species');
