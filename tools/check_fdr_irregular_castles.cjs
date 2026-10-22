@@ -43,15 +43,22 @@ function validate(layout,shape){
  assert.ok(layout,`${shape}: missing layout`);
  const {points:ring,towers,walls,merlons,keep}=layout;
  assert.ok(ring.length>=3);assert.ok(walls.length>0);assert.ok(merlons.length>0);
- const validPolygon=(poly,label)=>{
+ const validPolygon=(poly,label,contained=true)=>{
   assert.ok(poly.length>=3,label);assert.ok(poly.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)),label);
   assert.ok(area(poly)>EPS,`${label}: nonzero area`);
   const turns=poly.map((a,i)=>cross(a,poly[(i+1)%poly.length],poly[(i+2)%poly.length])).filter(v=>Math.abs(v)>EPS);
   assert.ok(turns.every(v=>v>0)||turns.every(v=>v<0),`${label}: convex piece required for SAT`);
-  assert.ok(contains(poly,ring),`${label}: outside footprint`);
+  if(contained)assert.ok(contains(poly,ring),`${label}: outside footprint`);
  };
- for(const [kind,pieces] of Object.entries({towers,walls,merlons}))pieces.forEach((p,i)=>validPolygon(p.points,`${shape}/${kind}/${i}`));
+ for(const [kind,pieces] of Object.entries({towers,walls,merlons}))pieces.forEach((p,i)=>validPolygon(p.points,`${shape}/${kind}/${i}`,kind!=='towers'));
  for(const [kind,pieces] of Object.entries({towers,walls,merlons}))for(let i=0;i<pieces.length;i++)for(let j=i+1;j<pieces.length;j++)assert.equal(overlap(pieces[i].points,pieces[j].points),false,`${shape}/${kind}: overlap ${i}/${j}`);
+ for(const tower of towers){
+  assert.equal(contains(tower.points,ring),false,'tower projects beyond outer footprint');
+  for(const i of [tower.corner,(tower.corner+ring.length-1)%ring.length]){
+   const edge=layout.edges[i];assert.ok(overlap(tower.points,edge.strip),'tower receives both adjacent curtains');
+   assert.ok(tower.points.some(p=>cross(edge.a,edge.b,p)<-EPS),'tower projects outside each adjacent wall');
+  }
+ }
  for(const wall of walls)for(const tower of towers)assert.equal(overlap(wall.points,tower.points),false,`${shape}: wall penetrates tower`);
  for(const m of merlons){
   assert.equal(m.base,m.rimTop,'merlon seated on coping');assert.ok(m.top>m.base);assert.ok(contains(m.points,m.rim),'merlon within rim');

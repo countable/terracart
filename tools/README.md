@@ -101,8 +101,8 @@ refreshes or pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`,
 
 The footprint selector also exercises concave, narrow, skewed and acute outlines.
 For these cases the left panel is a placement plan, not a native sprite assembly.
-`fdr-castle-layout.js` fits towers inside convex corners, clips curtain geometry
-against the footprint and towers, and places the keep only with 12px clearance.
+`fdr-castle-layout.js` straddles convex corners with continuously positioned towers, clips curtain geometry
+against the courtyard footprint and projecting towers, and places the keep only with 12px clearance.
 Curtain merlons follow each edge direction and require full coping support.
 Run `node tools/check_fdr_irregular_castles.cjs` for independent containment,
 overlap, rotation and renderer checks; its screenshots still require visual review.

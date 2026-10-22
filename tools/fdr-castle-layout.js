@@ -24,12 +24,14 @@
     const towers=[],omittedTowers=[];
     for(let i=0;i<points.length;i++){
       const p=points[i],previous=points[(i+points.length-1)%points.length],next=points[(i+1)%points.length];if(cross(previous,p,next)<=EPS)continue;
-      const choices=[];
-      for(let x=Math.ceil((p.x-56)/4)*4;x<=p.x+56;x+=4)for(let y=Math.ceil((p.y-56)/4)*4;y<=p.y+56;y+=4){
-        const box=rect(x,y,32,32);if(!contains(box,points)||!overlap(box,edges[i].strip)||!overlap(box,edges[(i+edges.length-1)%edges.length].strip)||towers.some(t=>overlap(rect(x,y,40,40),t.points)))continue;
-        choices.push({x,y,width:32,depth:32,height:32,points:box,corner:i,score:(x-p.x)**2+(y-p.y)**2});
-      }
-      choices.sort((a,b)=>a.score-b.score||a.y-b.y||a.x-b.x);if(choices.length)towers.push(choices[0]);else omittedTowers.push(i);
+      // Seat the corner inside the tower, with a small inward bias. Continuous
+      // bisector placement lets the tower project beyond both curtain lines.
+      const before=Math.hypot(p.x-previous.x,p.y-previous.y),after=Math.hypot(next.x-p.x,next.y-p.y);
+      const nx=-(p.y-previous.y)/before-(next.y-p.y)/after,ny=(p.x-previous.x)/before+(next.x-p.x)/after,length=Math.hypot(nx,ny);
+      const x=p.x+4*nx/length,y=p.y+4*ny/length,box=rect(x,y,32,32);
+      if(overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)&&!towers.some(t=>overlap(rect(x,y,40,40),t.points))){
+        towers.push({x,y,width:32,depth:32,height:32,points:box,corner:i});
+      }else omittedTowers.push(i);
     }
     const walls=[];
     for(let edge=0;edge<edges.length;edge++){
@@ -70,7 +72,7 @@
     choices.sort((a,b)=>a.score-b.score||a.y-b.y||a.x-b.x);const keep=choices[0]||null;
     const uncoveredPerimeter=[];
     for(let edge=0;edge<edges.length;edge++){const {a,b}=edges[edge],n=Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/2);for(let j=0;j<n;j++){const t=(j+.5)/n,p={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t};if(![...walls,...towers].some(v=>pointIn(p,v.points)))uncoveredPerimeter.push({edge,t,p});}}
-    return {shape,points,edges,towers,omittedTowers,walls,merlons,keep,uncoveredPerimeter,validity:{perimeterCovered:uncoveredPerimeter.length===0,towersContained:towers.every(t=>contains(t.points,points)),wallsContained:walls.every(w=>contains(w.points,points)),merlonsSupported:merlons.every(m=>Math.abs(m.coveredArea-64)<1e-3),keepClear:!keep||(contains(keep.clearance,points)&&![...towers,...walls].some(p=>overlap(keep.clearance,p.points))),wallTowerDisjoint:walls.every(w=>towers.every(t=>!overlap(w.points,t.points))),wallsDisjoint:walls.every((w,i)=>walls.slice(i+1).every(v=>!overlap(w.points,v.points)))}};
+    return {shape,points,edges,towers,omittedTowers,walls,merlons,keep,uncoveredPerimeter,validity:{perimeterCovered:uncoveredPerimeter.length===0,towersStraddleWalls:towers.every(t=>!contains(t.points,points)&&[t.corner,(t.corner+edges.length-1)%edges.length].every(i=>overlap(t.points,edges[i].strip))),wallsContained:walls.every(w=>contains(w.points,points)),merlonsSupported:merlons.every(m=>Math.abs(m.coveredArea-64)<1e-3),keepClear:!keep||(contains(keep.clearance,points)&&![...towers,...walls].some(p=>overlap(keep.clearance,p.points))),wallTowerDisjoint:walls.every(w=>towers.every(t=>!overlap(w.points,t.points))),wallsDisjoint:walls.every((w,i)=>walls.slice(i+1).every(v=>!overlap(w.points,v.points)))}};
   }
   const api={fixtures,build,area,rect,contains,overlap,intersect};global.FDRCastleLayout=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);
