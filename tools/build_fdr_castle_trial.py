@@ -12,23 +12,18 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Castle.png'
 
-FLOOR_SOURCE = SOURCE.parent / 'FDR_Dungeon.png'
+FLOOR_SOURCE = ROOT / 'extra_assets/Fantasy City ver1.3/Tiles/Floor.png'
 
-def quiet_floor(palette):
-    # Reuse the native sparse ground grain, recoloured as subdued stone.
-    grain = Image.open(FLOOR_SOURCE).convert('RGBA').crop((32,0,48,16))
-    base = (117,119,104) if palette == 'warm' else (112,116,130)
-    values = sorted(round(sum(pixel[:3])/3) for pixel in grain.getdata())
-    median = values[len(values)//2]
-    grain.putdata([tuple(max(0,min(255,c+round((sum(pixel[:3])/3-median)*.25))) for c in base)+(255,) for pixel in grain.getdata()])
-    return grain
+def paving_floor(palette):
+    """Native staggered stone paving, unchanged in both castle palettes."""
+    return Image.open(FLOOR_SOURCE).convert('RGBA').crop((144,48,160,64))
 
 def assemble_castle(source, out, palette, dx):
     """Tile-only reference; every visible pixel comes from the supplied sheet."""
     canvas = Image.new('RGBA', (320,288))
     ox, oy = 160, 164
     def crop(x,y,w,h): return source.crop((x+dx,y,x+dx+w,y+h))
-    floor = quiet_floor(palette)
+    floor = paving_floor(palette)
     def fill(dest, tile, box):
         x,y,w,h=box
         for yy in range(y,y+h,tile.height):
@@ -55,20 +50,30 @@ def assemble_castle(source, out, palette, dx):
         keep.alpha_composite(wide.crop((0,lo,80,hi)),(0,dest))
     keep.alpha_composite(source.crop((192,256 if dx==0 else 288,240,288 if dx==0 else 320)),(16,84))
     brick=crop(16,64,16,16)
-    tooth=crop(144,28,16,16)
     side=crop(128,48,8,16)
+    cap=crop(131,29,10,4).resize((8,8),Image.Resampling.NEAREST)
+    face=crop(131,33,10,4).resize((8,8),Image.Resampling.NEAREST)
+    def merlon(x,y):
+        # An 8px top plane and 8px front face; background remains in each gap.
+        canvas.alpha_composite(cap,(ox+x-4,oy+y-36))
+        canvas.alpha_composite(face,(ox+x-4,oy+y-28))
     def horizontal(y):
         fill(canvas,brick,(ox-100,oy+y-24,200,24))
-        fill(canvas,tooth,(ox-104,oy+y-(27 if y<0 else 35),208,16))
+        centre=y+(4 if y<0 else -4)
+        rim=crop(144,76,16,4).resize((16,8),Image.Resampling.NEAREST)
+        fill(canvas,rim,(ox-56,oy+centre-28,112,8))
+        for x in range(-48,49,16): merlon(x,centre)
     horizontal(-80)
     # Side coping is a native vertical roof edge, with brick foot faces.
     for x in [-100,92]:
         fill(canvas,side,(ox+x,oy-104,8,160))
         fill(canvas,brick,(ox+x,oy+56,8,24))
+    for x in [-96,96]:
+        for y in [-24,-8,8,24]: merlon(x,y)
     for x in [-80,80]: canvas.alpha_composite(tower,(ox+x-24,oy-60-60))
     canvas.alpha_composite(keep,(ox-40,oy+32-116))
     horizontal(80)
-    canvas.alpha_composite(source.crop((192,256 if dx==0 else 288,240,288 if dx==0 else 320)),(ox-24,oy+48))
+    canvas.alpha_composite(source.crop((192,256 if dx==0 else 288,240,288 if dx==0 else 320)).resize((48,24),Image.Resampling.NEAREST),(ox-24,oy+56))
     for x in [-80,80]: canvas.alpha_composite(tower,(ox+x-24,oy+60-60))
     canvas.save(out / f'assembled-{palette}.png')
     canvas.resize((960,864),Image.Resampling.NEAREST).save(out / f'assembled-{palette}-large.png')
@@ -87,7 +92,7 @@ def build(out, ref):
         rows.append(dict(id=f'{palette}-door',rect=[192,door_y,48,32],processing='Unchanged native door and frame'))
         for name, rect, size in [('wall', (16+dx,64,16,16), (16,16)),
                                  ('cap', (130+dx,30,12,8), (16,16)),
-                                 ('floor', (32,0,16,16), (16,16)),
+                                 ('floor', (144,48,16,16), (16,16)),
                                  ('merlon-top', (131+dx,29,10,4), (10,4)),
                                  ('merlon-face', (131+dx,33,10,4), (10,4)),
                                  ('side-coping', (128+dx,48,8,16), (8,16)),
@@ -95,11 +100,11 @@ def build(out, ref):
                                  ('base', (128+dx,104,16,8), (16,8))]:
             x,y,w,h = rect
             crop = source.crop((x,y,x+w,y+h)).resize(size, Image.Resampling.NEAREST)
-            if name == 'floor': crop = quiet_floor(palette)
+            if name == 'floor': crop = paving_floor(palette)
             crop.save(materials / f'{palette}-{name}.png')
             rows.append(dict(id=f'{palette}-{name}', rect=rect, size=size,
-                             processing='Native sparse dungeon ground grain recoloured to low-contrast stone' if name=='floor' else 'Native outlined capstone, nearest-neighbour normalized' if name=='cap' else 'Unchanged native pixels',
-                             source='FDR_Dungeon.png' if name=='floor' else 'FDR_Castle.png'))
+                             processing='Unchanged native Fantasy City staggered stone paving' if name=='floor' else 'Native outlined capstone, nearest-neighbour normalized' if name=='cap' else 'Unchanged native pixels',
+                             source='Fantasy City ver1.3/Tiles/Floor.png' if name=='floor' else 'FDR_Castle.png'))
     for name, rect in [('door',(192,256,48,32)),('window',(0,160,16,16))]:
         x,y,w,h = rect
         source.crop((x,y,x+w,y+h)).save(materials / f'{name}.png')
@@ -109,8 +114,8 @@ def build(out, ref):
         canvas=[320,288], origin=[160,164], perimeter=[200,160],
         tower=dict(centres=[[-80,-60],[80,-60],[-80,60],[80,60]], footprint=[48,48], roofHeight=32, sourceCrop=[128,28,48,84],crownRowAdjustments=[1,-1]),
         keep=dict(centre=[0,0],footprint=[80,64],roofHeight=48),
-        wall=dict(height=24, crownHeight=4, thickness=8),
-        assembly='Native crown rows centred on 8px physical rims; centre battlement strips and repeated native centre strips. Quiet floor uses recoloured Dungeon ground grain. Keep extends tower centre strips; doors use warm row256/cool row288. No generated imagery.',
+        wall=dict(height=24, crownHeight=8, thickness=8),
+        assembly='Native crown rows centred on 8px physical rims; centre battlement strips and repeated native centre strips. Floor uses native Fantasy City staggered paving. Curtains have 8px merlons and 8px open gaps on all four sides. Keep extends tower centre strips; doors use warm row256/cool row288. No generated imagery.',
         projection='Fixed south-facing source convention; 3D uses the game projection, so baked source shading and exact pixel alignment differ.'
     ),indent=2)+'\n')
     source.save(out / 'source-castle.png')

@@ -36,7 +36,18 @@ const {chromium}=require('playwright-core'),assert=require('node:assert/strict')
     for(const tower of candidate.towers){const overlapX=Math.min(bounds.right,tower.x+tower.width/2)-Math.max(bounds.left,tower.x-tower.width/2),overlapY=Math.min(bounds.bottom,tower.y+tower.depth/2)-Math.max(bounds.top,tower.y-tower.depth/2);assert.ok(overlapX<=0||overlapY<=0,'curtain geometry must not penetrate towers');}
    }
 
-   assert.equal(candidate.merlons.length,48,'four towers, keep and two curtain runs');
+   assert.equal(candidate.merlons.length,56,'four towers, keep and four curtain runs');
+   const curtains=candidate.merlons.filter(m=>m.kind==='curtain');
+   assert.equal(new Set(curtains.map(m=>m.run)).size,4,'all curtain directions have geometric crenellations');
+   for(const merlon of curtains){
+    assert.equal(merlon.top-merlon.base,8,'crenels have 8px geometric depth');
+    assert.equal(Math.max(...merlon.points.map(p=>p.x))-Math.min(...merlon.points.map(p=>p.x)),8);
+    assert.equal(Math.max(...merlon.points.map(p=>p.y))-Math.min(...merlon.points.map(p=>p.y)),8);
+   }
+   for(let run=0;run<4;run++){
+    const along=run%2?'y':'x',row=curtains.filter(m=>m.run===run).sort((a,b)=>a.points[0][along]-b.points[0][along]);
+    for(let i=1;i<row.length;i++)assert.equal(Math.min(...row[i].points.map(p=>p[along]))-Math.max(...row[i-1].points.map(p=>p[along])),8,'true 8px empty gap between merlons');
+   }
    for(const merlon of candidate.merlons){
     const x0=Math.min(...merlon.rim.map(p=>p.x)),x1=Math.max(...merlon.rim.map(p=>p.x)),y0=Math.min(...merlon.rim.map(p=>p.y)),y1=Math.max(...merlon.rim.map(p=>p.y));
     assert.equal(merlon.base,merlon.rimTop,'merlon sits directly on coping');

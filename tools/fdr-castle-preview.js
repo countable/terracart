@@ -29,10 +29,11 @@
       }
     }
   }
-  function prismFaces(points,bottom,top,capped,side=3,cap=2){
+  function prismFaces(points,bottom,top,capped,side=3,cap=2,omitEdges=[]){
     const faces=[];
     const area=points.reduce((sum,a,i)=>{const b=points[(i+1)%points.length];return sum+a.x*b.y-b.x*a.y},0),w=Math.sign(area);
     for(let i=0;top!==bottom&&i<points.length;i++){
+      if(omitEdges.includes(i))continue;
       const a=points[i],b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);if(!l)continue;
       const uv=(p,z)=>({...p,z,s:(side===9||side===8||side===2&&l<=16)?((p.x-a.x)*dx+(p.y-a.y)*dy)/(l*l):(p.x*dx/l+p.y*dy/l)/16,t:[2,8,9,10,11].includes(side)?(top-z)/(top-bottom):-z/16});
       surface(faces,[uv(a,bottom),uv(b,bottom),uv(b,top),uv(a,top)],side,{x:dy/l*w,y:-dx/l*w});
@@ -77,7 +78,7 @@
       }
       if(candidate)group.atlas=atlas(this,palette,active);
       const colors={face:style.stone.FACE,top:style.stone.BODY,dark:style.stone.DARK};
-      const prism=(ring,bottom,top,side=3,cap=2,support=null)=>WallPerspective.prism(scene,'study',ring,bottom,top,colors,support,true,candidate?{materialFaces:prismFaces(ring,bottom,top,true,side,cap)}:{});
+      const prism=(ring,bottom,top,side=3,cap=2,support=null,capped=true,omitEdges=[])=>WallPerspective.prism(scene,'study',ring,bottom,top,colors,support,capped,candidate?{materialFaces:prismFaces(ring,bottom,top,capped,side,cap,omitEdges)}:{});
       if(candidate){
         const key='fdr-floor-rectangle-'+palette+'-'+active;
         if(!this.textures.exists(key)){const texture=this.textures.createCanvas(key,220,180),ctx=texture.getContext();ctx.imageSmoothingEnabled=false;ctx.translate(110,90);ctx.beginPath();points.forEach((p,i)=>i?ctx.lineTo(p.x,p.y):ctx.moveTo(p.x,p.y));ctx.closePath();ctx.clip();const tile=document.createElement('canvas');tile.width=tile.height=16;const ink=tile.getContext('2d');ink.imageSmoothingEnabled=false;ink.drawImage(this.textures.get('fdr-'+palette+'-floor').getSourceImage(),0,0,16,16);const pattern=ctx.createPattern(tile,'repeat');pattern.setTransform(new DOMMatrix().translate(-100,-80));ctx.fillStyle=pattern;ctx.fillRect(-110,-90,220,180);if(!active){ctx.fillStyle='rgba(27,35,27,.25)';ctx.fillRect(-110,-90,220,180);}texture.refresh();texture.setFilter(Phaser.Textures.FilterMode.NEAREST);}
@@ -94,26 +95,31 @@
         const n=Math.ceil(l/16),parts=[];
         for(let j=0;j<n;j++){
           const body=strip(j/n,(j+1)/n),support={x:(body[0].x+body[2].x)/2,y:(body[0].y+body[2].y)/2,order:group.blocks.length};
-          prism(body,0,22,3,10,support);prism(body,22,24,10,i%2?7:10,support);parts.push({support,body});
+          // The body cap is covered by coping. End faces meet another
+          // curtain section or a tower, so they are internal, never visible.
+          prism(body,0,22,3,10,support,false,[1,3]);prism(body,22,24,10,i%2?7:10,support,true,[1,3]);parts.push({support,body});
         }
         if(i===2){
-          const faces=[];surface(faces,[{x:24,y:80.05,z:0,s:1,t:1},{x:-24,y:80.05,z:0,s:0,t:1},{x:-24,y:80.05,z:32,s:0,t:0},{x:24,y:80.05,z:32,s:1,t:0}],5,{x:0,y:1});
+          const faces=[];surface(faces,[{x:24,y:80.05,z:0,s:1,t:1},{x:-24,y:80.05,z:0,s:0,t:1},{x:-24,y:80.05,z:24,s:0,t:0},{x:24,y:80.05,z:24,s:1,t:0}],5,{x:0,y:1});
           // Door is a separate retained surface, supported at the actual gate.
-          const gate=rectangle(0,79.99,48,.02);WallPerspective.prism(scene,'study',gate,0,32,colors,{x:0,y:80.05,order:group.blocks.length},false,{materialFaces:faces});
+          const gate=rectangle(0,79.99,48,.02);WallPerspective.prism(scene,'study',gate,0,24,colors,{x:0,y:80.05,order:group.blocks.length},false,{materialFaces:faces});
         }
-        // The source has teeth on horizontal runs, continuous coping on sides.
-        if(i%2===0)for(let j=0;j<Math.floor(l/16);j++){
-          const x=a.x+dx*(j*16+8)/l,y=a.y+ny*4;
-          const footprint=rectangle(x,y,10,4);
-          prism(footprint,24,28,9,8,parts[Math.min(parts.length-1,j)].support);
-          merlons.push({kind:'curtain',points:footprint,rim:strip(0,1),base:24,rimTop:24});
+        // Earned geometry: 8px solid merlons alternate with 8px open
+        // crenels, standing 8px above the coping on every curtain direction.
+        const count=Math.floor(l/16),first=(l-(count-1)*16)/2;
+        for(let j=0;j<count;j++){
+          const distance=first+j*16,x=a.x+dx*distance/l+nx*4,y=a.y+dy*distance/l+ny*4;
+          const footprint=rectangle(x,y,8,8);
+          prism(footprint,24,32,9,8,parts[Math.min(parts.length-1,Math.floor(distance/l*n))].support);
+          merlons.push({kind:'curtain',run:i,points:footprint,rim:strip(0,1),base:24,top:32,rimTop:24,gap:8});
         }
+
       }
       // A single support anchor keeps each tower's stacked bands, roof and crown together.
       function mass(x,y,w,h,height,isKeep){
         const support={x,y,order:group.blocks.length},body=rectangle(x,y,w,h);
-        prism(rectangle(x,y,w,h),0,8,11,10,support);
-        prism(body,8,height-2,3,10,support);
+        prism(rectangle(x,y,w,h),0,8,11,10,support,false);
+        prism(body,8,height-2,3,10,support,false);
         prism(rectangle(x,y,w,h),height-2,height,3,4,support);
         // Roof coping occupies its native 8px strip at roof level. A merlon
         // consists of one 4px top and one 4px face, not two copies of a sprite.

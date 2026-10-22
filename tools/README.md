@@ -72,9 +72,12 @@ Dreamland Reborn tiles with matching retained 3D geometry. Four broad towers,
 connecting walls, a gated courtyard and a central keep share dimensions and
 native pixel scale. The fixed 2D view stays south-facing while the geometry rotates.
 Repeat the centre battlement tile on straight walls; corner tiles contain hanging
-side edges. The quiet stone floor reuses recoloured FDR Dungeon ground grain; the original
+side edges. The stone floor uses native Fantasy City staggered paving; the original
 open crown masks preserve native coping around it. Centre each merlon footprint
-on its supporting rim in both views.
+on its supporting rim in both views. Curtain merlons are 8px solids at 16px
+pitch on all four walls, leaving genuine 8px gaps above the 24px parapet.
+Keep the gate decal below that parapet. Remove covered caps and internal
+curtain end faces when reducing geometry; preserve crenellation silhouettes.
 Curtain walls must end at tower footprints: intersecting solids cannot be fixed
 reliably by changing their painter order.
 The builder repeats centre strips to enlarge the source tower into a keep;
