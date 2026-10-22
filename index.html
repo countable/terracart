@@ -503,10 +503,13 @@
        the whole message + stack can be read or copied on a phone where
        DevTools isn't reachable. */
     #errbar {
-      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
+      /* Body-level so the scaled game cannot trap this below the compass HUD. */
+      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px);
+      left: calc(var(--phone-left, 0px) + 8px); right: calc(var(--phone-right, 0px) + 8px);
+      margin: 0 auto; box-sizing: border-box; max-width: 560px;
+      max-height: 60vh; overflow: auto; touch-action: pan-y; overscroll-behavior: contain;
       background: var(--danger); color: #fff; padding: 8px 10px; border-radius: 8px;
-      font: 12px/1.45 var(--font-ui); display: none; z-index: 20;
+      font: 12px/1.45 var(--font-ui); display: none; z-index: 105;
       box-shadow: 0 4px 16px #0008;
       white-space: pre-wrap; word-break: break-word;
       -webkit-user-select: text; user-select: text;
@@ -516,8 +519,8 @@
       margin-top: 6px; font-size: 11px; opacity: .92; white-space: pre-wrap;
     }
     #errbar .errbtns {
-      display: flex; gap: 8px; margin-top: 8px;
-      position: sticky; bottom: 0;
+      display: flex; gap: 8px; margin-bottom: 8px; padding-bottom: 6px;
+      position: sticky; top: 0; z-index: 1; background: var(--danger);
     }
     #errbar button {
       font: 700 12px var(--font-ui); color: var(--danger); background: #fff;
@@ -1080,7 +1083,7 @@
       transform: scale(calc(1 / 1.5));
       animation: nightmare-frame-two var(--nightmare-pan-ms, 13.333333s) linear 166.666667ms both;
     }
-    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.5)); }
+    #story .nightmare-frame:nth-child(3) { animation-name: nightmare-frame-three; transform: scale(calc(1 / 1.92)); }
     #story .nightmare-frame:nth-child(4) { animation-name: nightmare-frame-four; animation-timing-function: cubic-bezier(.75, 0, .25, 1); transform: scale(calc(1 / 2.112)); }
     @keyframes nightmare-frame-two {
       0%, 6.444444% { opacity: 0; }
@@ -1351,15 +1354,15 @@
   <div id="frame">
     <div id="game">
       <div id="banner">can't reach the map — tap to retry</div>
-      <div id="errbar">
-        <div class="errmsg"></div>
-        <div class="errstack"></div>
-        <div class="errbtns">
-          <button type="button" data-act="copy">Copy</button>
-          <button type="button" data-act="dismiss">Dismiss</button>
-        </div>
-      </div>
     </div>
+  </div>
+  <div id="errbar">
+    <div class="errbtns">
+      <button type="button" data-act="copy">Copy</button>
+      <button type="button" data-act="dismiss">Dismiss</button>
+    </div>
+    <div class="errmsg"></div>
+    <div class="errstack"></div>
   </div>
   <div id="save-notice" role="status" hidden>Progress isn’t saving</div>
   <!-- All HUD overlays live OUTSIDE #game so position:fixed actually anchors
@@ -3258,7 +3261,7 @@
   <script src="src/authored-buildings/city-buildings.js?v=cde9efc7"></script>
   <script src="src/authored_roof_palette.js?v=72bd9c4d"></script>
   <script src="src/authored_buildings.js?v=7c871a72"></script>
-  <script src="src/authored_building_renderer.js?v=87e8df1e"></script>
+  <script src="src/authored_building_renderer.js?v=8da48b5e"></script>
   <script src="src/building_lowpoly.js?v=1997605f"></script>
   <script src="src/building_overlay.js?v=35e0bce6"></script>
   <script src="src/art_atlas.js?v=bcd97f7b"></script>
