@@ -3,7 +3,7 @@
 // building into one reused scene target, then composite it in the world's normal
 // object order. No canvas reads or per-building textures are needed.
 (function(global){
-  function create(scene,renderer){
+  function resources(renderer){
     const gl=renderer.gl;
     gl.getExtension('OES_standard_derivatives');
     const shader=(type,source)=>{const s=gl.createShader(type);gl.shaderSource(s,source);gl.compileShader(s);
@@ -33,16 +33,28 @@
     const program=gl.createProgram();gl.attachShader(program,vertex);gl.attachShader(program,fragment);gl.linkProgram(program);
     gl.deleteShader(vertex);gl.deleteShader(fragment);
     if(!gl.getProgramParameter(program,gl.LINK_STATUS))throw new Error(gl.getProgramInfoLog(program));
-    const state={program,buffer:gl.createBuffer(),position:gl.getAttribLocation(program,'aPosition'),
+    return {program,buffer:gl.createBuffer(),position:gl.getAttribLocation(program,'aPosition'),
       uv:gl.getAttribLocation(program,'aUV'),fallback:gl.getAttribLocation(program,'aFallback'),shade:gl.getAttribLocation(program,'aShade'),
-      size:gl.getUniformLocation(program,'uSize'),sampler:gl.getUniformLocation(program,'uTexture'),roguePalette:gl.getUniformLocation(program,'uRoguePalette'),width:0,height:0};
+      size:gl.getUniformLocation(program,'uSize'),sampler:gl.getUniformLocation(program,'uTexture'),roguePalette:gl.getUniformLocation(program,'uRoguePalette')};
+  }
+  function create(scene,renderer){
+    const gl=renderer.gl,state={...resources(renderer),width:0,height:0};
+    // Phaser restores its texture/framebuffer wrappers, but these raw shader,
+    // buffer and location handles belong to the lost context. Recreate them
+    // on the next draw, including re-enabling the shader's derivatives extension.
+    const restoreEvent=Phaser.Renderer.Events?.RESTORE_WEBGL||'restorewebgl';
+    const restored=()=>{state.program=null;state.buffer=null;};
+    renderer.on(restoreEvent,restored);
     scene.events?.once('shutdown',()=>{if(state.target)renderer.deleteFramebuffer(state.target);if(state.texture)renderer.deleteTexture(state.texture);
-      gl.deleteBuffer(state.buffer);gl.deleteProgram(state.program);delete scene._authoredDepthRenderer;});
+      renderer.off(restoreEvent,restored);
+      if(state.buffer)gl.deleteBuffer(state.buffer);if(state.program)gl.deleteProgram(state.program);delete scene._authoredDepthRenderer;});
     return state;
   }
   function draw(scene,renderer,src,camera,matrix){
+    if(renderer.contextLost||renderer.gl.isContextLost())return;
     const faces=src._lowpolyFaces.filter(f=>f.visible);if(!faces.length)return;
     const gl=renderer.gl,state=scene._authoredDepthRenderer||(scene._authoredDepthRenderer=create(scene,renderer));
+    if(!state.program)Object.assign(state,resources(renderer));
     const width=renderer.width,height=renderer.height;
     const previous=renderer.pipelines.current,framebuffer=renderer.currentFramebuffer;
     // Phaser owns the surrounding 2D state. Querying GL here synchronizes the
