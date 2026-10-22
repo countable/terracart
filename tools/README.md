@@ -99,6 +99,14 @@ The checker verifies both renderers and 361 headings without texture allocations
 refreshes or pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`,
 `STUDY_URL` and `CHROMIUM` override defaults.
 
+The footprint selector also exercises concave, narrow, skewed and acute outlines.
+For these cases the left panel is a placement plan, not a native sprite assembly.
+`fdr-castle-layout.js` fits towers inside convex corners, clips curtain geometry
+against the footprint and towers, and places the keep only with 12px clearance.
+Curtain merlons follow each edge direction and require full coping support.
+Run `node tools/check_fdr_irregular_castles.cjs` for independent containment,
+overlap, rotation and renderer checks; its screenshots still require visual review.
+
 `check_fdr_native_pixels.py` compares four exposed masonry regions against the
 native assembly at 1× scale. Brick UVs use positive local axes; curtain courses
 start at their 24px coping, while tower/keep courses start at their own roof.

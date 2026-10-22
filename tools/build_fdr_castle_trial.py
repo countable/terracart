@@ -150,6 +150,7 @@ def build(out, ref):
         (out/'index.html').write_text(text)
     if script.exists(): (out/'preview.js').write_text(script.read_text())
     (out/'fdr-canvas-review-adapter.js').write_text((ROOT/'tools/fdr-canvas-review-adapter.js').read_text())
+    (out/'fdr-castle-layout.js').write_text((ROOT/'tools/fdr-castle-layout.js').read_text())
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
