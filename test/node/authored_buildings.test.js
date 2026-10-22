@@ -20,16 +20,19 @@
       }
     }
   });
-  test('authored buildings: Home alone uses the cabin and residences retain stable palettes', () => {
+  test('authored buildings: residences use pitched PP stucco or log houses with stable palettes', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');
-    assert.falsy(AuthoredBuildings.RESIDENCES.includes('pp_cabin'), 'no other house is a log cabin');
+    assert.eq(AuthoredBuildings.RESIDENCES.join(','), 'pp_plaster,pp_cabin');
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
       assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
     for (let i = 0; i < 1000; i++) {
       const id = `house:${i}`, first = recipe('plain', id), again = recipe('plain', id, 7);
-      assert.eq(first.palette, AuthoredBuildings.SPECS[first.key].ppFlat ? 'native' : 'yellow');
+      assert.eq(first.palette, 'yellow');
+      assert.truthy(['pp_plaster','pp_cabin'].includes(first.key), 'only stucco/log homes');
+      assert.falsy(AuthoredBuildings.SPECS[first.key].flatRoof, 'no flat residential roof');
+      assert.truthy(AuthoredBuildings.SPECS[first.key].eave > AuthoredBuildings.SPECS[first.key].peak, 'roof rises above eaves');
       assert.eq(first.key, again.key, 'rank does not replace a residential facade');
       assert.truthy(AuthoredBuildings.SPECS[first.key]);
       seen.add(first.key);

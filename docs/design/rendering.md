@@ -1141,7 +1141,8 @@ validate on the target device before making that claim.
 ## Reviewed building exteriors
 
 `AuthoredBuildings` maps saved gameplay roles to reviewed closed meshes. Regular
-residences use yellow roofs; shop themes use signature roof colors on market or
+residences use pitched Pixel Plains stucco/plaster houses or log cabins with
+yellow roofs, selected deterministically by house ID; shop themes use signature roof colors on market or
 city storefront models, and forts use the copper-roof city gearhouse inside the
 existing palisade. Home, shop inventory, ownership, tiers and wizard story gates
 continue using their existing saved identities. The full mapping is maintained
@@ -1159,10 +1160,8 @@ its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
 
 The PP restyle uses registered source-sized PNGs, preserving the existing mesh
-UV coordinates and alpha silhouettes. Native PP flat-shop residential variants are
-also prewarmed under `native`, so their six source colorways retain their deck
-and fascia colors. They join the stable former-cabin replacement pool while
-other existing residential assignments keep their models. Source
+UV coordinates and alpha silhouettes. Native PP flat-shop models remain available
+to art review tools, but are excluded from residential selection. Source
 provenance and viewer commands live in the low-poly building styles document.
 
 ## Footprint building styles

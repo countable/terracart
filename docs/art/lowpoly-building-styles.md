@@ -8,8 +8,8 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 
 | Gameplay role | Exterior model | Roof |
 | --- | --- | --- |
-| Home | Pixel Plains timber cabin (Home's alone) | Orange |
-| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, steam home, or native Pixel Plains flat shops; stable ID selection | Yellow, or native flat-shop color |
+| Home | Pixel Plains timber cabin | Orange |
+| Regular residence | Pixel Plains stucco/plaster cottage or log cabin; stable ID selection, pitched roofs | Yellow |
 | Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
 | Trader T1 / T2+ | White plaster cottage / trader | Green |
 | Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
@@ -65,7 +65,7 @@ original alpha mask. The manifest records registration knots and source hashes.
 Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
 Pixel Plains houses keep their original source textures.
 
-Six `pp_flat_*` residential variants use native Pixel Plains flat-shop art, with a
+Six `pp_flat_*` review variants use native Pixel Plains flat-shop art, with a
 plain source-colored horizontal deck and colored fascia. The native viewer model tucks walls
 three source pixels inside the roof lip (4.8 ground units along depth). Production
 lot-outline meshes keep walls on the real polygon and extend only the roof
