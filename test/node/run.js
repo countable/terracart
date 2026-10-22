@@ -1466,6 +1466,24 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
   } });
 }
 
+// The rabbit pelt's inventory frame must carry light ink: Black rabbit
+// Fur.png's frame 0 is all near-black and vanished on the inventory's
+// near-black window, so a found pelt read as missing from the bag.
+ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory window', fn: () => {
+  const { loadPng } = require('../../tools/sprite_audit.js');
+  const m = /rabbit_pelt:\s*\{\s*sheet:\s*'icon_pelt',\s*frame:\s*(\d+)/.exec(fs.readFileSync(path.join(ROOT, 'src/items.js'), 'utf8'));
+  const sheet = /icon_pelt:\s*\{\s*url:\s*'([^']+)'/.exec(fs.readFileSync(path.join(ROOT, 'src/app.js'), 'utf8'));
+  ctx.assert.truthy(m && sheet, 'rabbit_pelt icon row (MINERAL_ICON_SHEET) and icon_pelt sheet found');
+  const row = { frame: Number(m[1]) };
+  const img = loadPng(sheet[1]);
+  let light = 0;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const i = (y * img.w + row.frame * 16 + x) * 4;
+    if (img.data[i + 3] > 128 && 0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2] > 128) light++;
+  }
+  ctx.assert.truthy(light >= 8, `frame ${row.frame} has ${light} light pixels`);
+} });
+
 // ── App-shell audit (tools/shell_audit.js) ────────────────────────────────
 // File-level checks that index.html and sw.js agree about what the app is made of.
 {

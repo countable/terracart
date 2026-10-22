@@ -704,15 +704,17 @@ const MINERAL_ICON_SHEET = {
   // MiniWorld spear: frame 0 points right; frame 1 points down.
   throwing_spear:        { sheet: 'icon_throwing_spear', frame: 0 },
   javelin:      { sheet: 'icon_javelin', frame: 0 },
-  // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
-  // variants, crow_feather uses the chicken-feather sheet's first frame.
+  // Wilderness drops — meat is beef, rabbit_pelt is the black fur's
+  // white-outlined frame (frame 0 is near-black on the inventory's
+  // near-black window, so a found pelt looked missing), crow_feather uses
+  // the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
   // Beef.png is 2×2: row 0 raw (plain, outlined), row 1 COOKED — frame 2.
   grilled_meat: { sheet: 'icon_meat',    frame: 2 },
   // The rest of the campfire's dishes — one baked sheet, see COOKED_FOODS.
   ...Object.fromEntries(Object.values(COOKED_FOODS).map((c, i) =>
     [c.id, { sheet: 'icon_cooked', frame: i }])),
-  rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
+  rabbit_pelt:  { sheet: 'icon_pelt',    frame: 1 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
   // Beach pickup — the original pink cowrie at frame 0 is shared by
   // the map, inventory, shops and pickup icons.
