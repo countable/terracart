@@ -65,8 +65,9 @@ test('feet anchor: ground marks sit on the point with no feet offset of their ow
   assert.falsy(/this\.viewCenterY \+ 13,/.test(app), 'no +13 shadow anchor');
   // GPS ring: on its point, not nudged to a sprite centre. It is the only
   // ground marker beside the body — the walk-target dot is gone (see below).
-  assert.truthy(/this\.gpsGhost\.setPosition\(Math\.round\(g\.x\), Math\.round\(g\.y\)\)/.test(app),
-    'GPS marker on the fix');
+  assert.truthy(/const gx = Math\.round\(g\.x\), gy = Math\.round\(g\.y\);/.test(app)
+    && /this\.gpsGhost\.setPosition\(gx, gy\)/.test(app) && /this\.gpsDisc\.setPosition\(gx, gy\)/.test(app),
+    'GPS marker and its disc on the fix');
   assert.falsy(/Math\.round\([gp]\.y \+ this\.playerFeetNudgeY\)/.test(app),
     'no marker is nudged to a sprite centre');
   // Walk-home line: both ends are ground points.
@@ -141,18 +142,27 @@ test('feet anchor: the creature hit-test scales pixels from cellPx, not from the
 });
 })();
 
-test('GPS marker: shadow nearby, yellow ring farther away, half radius at five cells', () => {
-  for (const d of [0, .5, 1]) {
+test('GPS marker: the ring darkens and fades into a translucent dark disc near the body, half radius at five cells', () => {
+  const F = GPS_RING.fade;
+  const at0 = Render.gpsMarkerStyle(0);
+  assert.eq(at0.ringAlpha, 0, 'at the feet: no ring');
+  assert.eq(at0.discAlpha, F.discAlpha, 'only the translucent disc');
+  assert.lt(at0.discAlpha, 1);
+  assert.eq(at0.tint, F.dark, 'fully darkened');
+  const far = Render.gpsMarkerStyle(F.ringCells);
+  assert.eq(far.ringAlpha, 1); assert.eq(far.discAlpha, 0); assert.eq(far.tint, 0xffffff, 'plain gold ring');
+  let prev = Render.gpsMarkerStyle(0);
+  for (let d = .1; d <= F.ringCells + .01; d += .1) {
     const m = Render.gpsMarkerStyle(d);
-    assert.eq(m.key, 'bldg_shadow'); assert.eq(m.width, GPS_RING.px); assert.lt(m.alpha, 1);
+    assert.truthy(m.ringAlpha >= prev.ringAlpha && m.discAlpha <= prev.discAlpha, `${d.toFixed(1)}: monotonic, no jump`);
+    assert.truthy((m.tint & 0xff) >= (prev.tint & 0xff), `${d.toFixed(1)}: lighter farther out`);
+    prev = m;
   }
-  for (const d of [1.01, 2, 3, 4, 5, 10]) {
+  for (const d of [0, .5, 1, 2, 3, 4, 5, 10]) {
     const m = Render.gpsMarkerStyle(d);
-    assert.eq(m.key, 'gps_ring'); assert.eq(m.alpha, 1);
-    assert.eq(m.width, GPS_RING.px * (1 - .5 * Math.min(1, (d - 1) / 4)));
+    assert.eq(m.width, GPS_RING.px * (1 - .5 * Math.max(0, Math.min(1, (d - 1) / 4))));
     assert.lt(Math.abs(m.height - m.width * GPS_RING.tilt), 1e-9);
   }
-  assert.eq(Render.gpsMarkerStyle(3).width, GPS_RING.px * .75);
   assert.eq(Render.gpsMarkerStyle(5).width, GPS_RING.px * .5);
   assert.eq(Render.gpsMarkerStyle(50).width, GPS_RING.px * .5);
 });

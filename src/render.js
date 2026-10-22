@@ -4341,10 +4341,18 @@ const GROUND_MARK = {
 const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
   line: 1.2, outline: 2.8, shadowPx: 1, ink: '#ffe066' };
 // Physical distance controls appearance independently of map zoom and heading.
+// Nearing the body the ring darkens toward `fade.dark` and turns translucent
+// while a dark disc (`fade.discAlpha` at full) fades in under it, so at the
+// feet it is only a translucent dark circle — a mark of its own on the ground,
+// never a second contact shadow that follows the fix. Fully the gold ring from
+// `fade.ringCells` out, fully the disc within `fade.discCells`.
+GPS_RING.fade = { discCells: 0.25, ringCells: 2.5, discAlpha: 0.35, dark: 0x1a1208 };
 Render.gpsMarkerStyle = function gpsMarkerStyle(distanceCells) {
-  const near = distanceCells <= 1;
+  const F = GPS_RING.fade;
+  const t = Math.max(0, Math.min(1, (distanceCells - F.discCells) / (F.ringCells - F.discCells)));
   const scale = 1 - .5 * Math.max(0, Math.min(1, (distanceCells - 1) / 4));
-  return {key: near ? 'bldg_shadow' : 'gps_ring', alpha: near ? .35 : 1,
+  const ch = (shift) => Math.round(255 - (255 - ((F.dark >> shift) & 0xff)) * (1 - t));
+  return {ringAlpha: t, tint: (ch(16) << 16) | (ch(8) << 8) | ch(0), discAlpha: F.discAlpha * (1 - t),
     width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
 };
 // The ring's stroke passes in bake px, [width, colour, alpha, dy]: dy shifts

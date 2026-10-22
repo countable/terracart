@@ -769,8 +769,10 @@ the surrounding grove’s shrub scale.
   shared tilt it read squashed) and the facing caret's paint instead of the
   halo: a gold line on a dark outline over a drop shadow down the screen
   (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
-  a soft shadow within one gameplay cell of the body, otherwise a yellow ring.
-  Radius decreases linearly from full at one cell to half at five cells,
+  the yellow ring, which darkens and turns translucent as it nears the body
+  while a dark disc (`gpsDisc`) fades in under it, until at the feet it is only
+  a translucent dark circle (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a
+  swap to a second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
   clamped there beyond five; distance is measured in world metres independently
   of zoom and heading. Once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
