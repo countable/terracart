@@ -65,3 +65,55 @@
     assert.eq(geometry.size, 4, 'families differ by emblem shape as well as colour');
   });
 })();
+
+(function () {
+  test('FDR castle geometry replaces only covered surface tower artwork', () => {
+    const tower = { kind: 'tower', id: 'turret-cell', castle: 'covered' };
+    const geometry = { source: 'castles', layout: { towers: [] } };
+    const scene = { depth: 0, _fdrCastleLayouts: new Map(),
+      textures: { exists: () => true, get: () => ({ get: () => ({ width: 48, height: 48 }) }) },
+      isClaimedKey: () => true };
+    const pass = Render.objectAppearance(scene, new Map());
+    const appearance = () => Render.resolveObjectAppearance(pass, tower);
+    const original = JSON.stringify(tower);
+    assert.eq(Render.objectAppearanceIsStable(tower), false, 'tower appearance is never cached as static scenery');
+    assert.truthy(appearance().visible, 'legacy tower appears before footprint geometry arrives');
+    scene._fdrCastleLayouts.set('covered', geometry);
+    assert.eq(appearance().visible, false, 'emitted model hides duplicate tower and its sprite shadow');
+    assert.eq(Render.fdrCastleLayout(scene, { kind: 'house', castle: 'covered' }), null, 'house turret and wizard roles stay separate');
+    assert.eq(Render.fdrCastleLayout(scene, { kind: 'temple', castle: 'covered' }), null, 'temples remain separate');
+    assert.eq(Render.fdrCastleLayout(scene, { kind: 'tower', castle: 'other' }), null, 'uncovered castles keep fallback');
+    scene.depth = 1;
+    assert.truthy(appearance().visible, 'surface cache cannot suppress underground artwork');
+    scene.depth = 0; scene._fdrCastleLayouts.clear();
+    assert.truthy(appearance().visible, 'removing geometry restores legacy artwork immediately');
+    assert.eq(JSON.stringify(tower), original, 'gameplay turret data unchanged');
+  });
+  test('FDR castle flags use distinct model crowns and follow overlay pan offsets', () => {
+    const model = { source: 'castles', layout: { towers: [
+      { x: 10, y: 20, height: 32 }, { x: 70, y: 20, height: 32 },
+    ] } };
+    const scene = { _fdrCastleLayouts: new Map([['covered', model]]),
+      _wallPerspective: { castles: { x: 100, y: 200 } }, isClaimedKey: () => false };
+    const items = [
+      { o: { kind: 'tower', castle: 'covered', id: 'a' }, dx: 110, dy: 220 },
+      { o: { kind: 'tower', castle: 'covered', id: 'b', flagPost: true }, dx: 110, dy: 220 },
+      { o: { kind: 'tower', castle: 'covered', id: 'c' }, dx: 170, dy: 220 },
+      { o: { kind: 'tower', castle: 'fallback', id: 'd' }, dx: 300, dy: 300 },
+    ];
+    const project = (x,y) => ({x,y}), before = JSON.stringify(items);
+    const flags = Render.castleFlagItems(scene, items, project);
+    assert.eq(flags.length, 3, 'one flag per emitted crown plus legacy fallback');
+    assert.eq(flags[0].o.id, 'b', 'designated banner gets a crown first');
+    assert.eq(flags[0]._castleFlagSeat.x, 110); assert.eq(flags[0]._castleFlagSeat.y, 220);
+    assert.eq(flags[0]._castleFlagSeat.height, 36);
+    assert.eq(flags[1]._castleFlagSeat.x, 170, 'second flag uses distinct tower');
+    assert.eq(flags[2], items[3], 'fallback keeps original seating');
+    scene.isClaimedKey = () => true;
+    scene._wallPerspective.castles.x += 7;
+    const restored = Render.castleFlagItems(scene, items, project);
+    assert.eq(restored.length, 1, 'restoration retains only the designated player banner');
+    assert.eq(restored[0]._castleFlagSeat.x, 117, 'current overlay offset is used after pan');
+    assert.eq(JSON.stringify(items), before, 'visual assignment never changes world records');
+  });
+})();

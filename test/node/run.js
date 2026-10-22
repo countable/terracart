@@ -132,7 +132,7 @@ const FILES = [
   'authored-buildings/steam-blacksmith.js', 'authored-buildings/steam-wizard.js',
   'authored-buildings/city-buildings.js',
   'authored_roof_palette.js', 'authored_buildings.js',
-  'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'prop_lowpoly.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'building_overlay.js',
+  'castle_styles.js', 'temple_art.js', 'wall_materials.js', 'wall_surface_renderer.js', 'prop_lowpoly.js', 'wall_perspective.js', 'building_styles.js', 'building_lowpoly.js', 'fdr_castle_layout.js', 'fdr_castle_geometry.js', 'fdr_castle_canvas.js', 'building_overlay.js',
   // The sandbox's pure tile builder: the same authored scenes, roads and dressing install() uses.
   'sandbox_destinations.js',
   'sandbox_scenarios.js',

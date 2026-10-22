@@ -490,7 +490,7 @@
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
       let p = null;
-      const key = scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+      const key = tier === 'fdr' ? 'fdr_castle_floor' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
         : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         const src = scene.textures.get(key).getSourceImage();
@@ -1265,10 +1265,12 @@
     if (!on) {
       clearUprights(scene);
       scene._proceduralBuildings = new Map();
+      scene._fdrCastleLayouts = new Map();
       if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
       if (typeof WallPerspective !== 'undefined') {
         WallPerspective.clear(scene, 'polygon');
         WallPerspective.clear(scene, 'home');
+        WallPerspective.clear(scene, 'castles');
       }
       // Wipe the canvas the first time it goes off: setEnabled() invalidates
       // on its way out, and a hidden container full of last frame's buildings
@@ -1314,6 +1316,7 @@
     if (container) container.setPosition(-offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     if (typeof WallPerspective !== 'undefined') {
       WallPerspective.offset(scene, 'polygon', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
+      WallPerspective.offset(scene, 'castles', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
       WallPerspective.offset(scene, 'home', -offset.fracX * CELL_PX, -offset.fracY * CELL_PX);
     }
     for (const p of scene._buildingUprightPieces || []) {
@@ -1379,6 +1382,11 @@
     // must not depend on a nearby temple or restored house enabling the group.
     if (perspective) WallPerspective.begin(scene, 'polygon').alwaysActive = true;
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
+    const fdrCastles = perspective && typeof FDRCastleGeometry !== 'undefined'
+      && scene.textures?.exists('fdr_castle_atlas');
+    scene._fdrCastleLayouts = new Map();
+    if (fdrCastles) WallPerspective.begin(scene, 'castles').alwaysActive = true;
+    else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'castles');
     const lowpoly = typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.active(scene);
     if (lowpoly) BuildingLowPoly.begin(scene);
     else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
@@ -1558,6 +1566,20 @@
       if (!d.retail && typeof WorldArtProfile !== 'undefined'
           && WorldArtProfile.houseKey(trialHouse, scene, Houses.displayRole(scene.save, trialHouse))) continue;
       const isMine = claimed(d.object?.id || d.key);
+      if (fdrCastles && d.tier === CASTLE && d.key !== scene.save?.starterShopId) {
+        const group = scene._wallPerspective.castles;
+        group.building = { key: d.key, footprint: d.pts,
+          anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 } };
+        const model = FDRCastleGeometry.draw(scene, 'castles', d.pts, { active: isMine, keep: true });
+        if (model) {
+          scene._fdrCastleLayouts.set(d.key, { ...model, source: 'castles' });
+          g.fillPoly(d.pts, 0xa99a75);
+          if (g.texturePoly) g.texturePoly(d.pts, 'fdr');
+          if (!isMine) g.fillPoly(d.pts, 0x1b231b, .25);
+          continue;
+        }
+      }
+
       // HOME — the player's house (HomeArea.HOUSE; its footprint is stamped by
       // scene_venues.js): the low-poly `home` role, open-roofed while the
       // player stands inside; without WebGL, its own prism walls (drawHome).
@@ -1750,6 +1772,7 @@
     }
     if (lowpoly) BuildingLowPoly.update(scene);
     if (perspective) WallPerspective.finish(scene, 'polygon');
+    if (fdrCastles) { scene._wallPerspective.castles.building = null; WallPerspective.finish(scene, 'castles'); }
     if (homeBegun) WallPerspective.finish(scene, 'home');
     if (g.commit) g.commit();
   }
