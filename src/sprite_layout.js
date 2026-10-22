@@ -922,10 +922,13 @@
     // isGame's wild-animal default).
     npc:           { wanders: true, game: false },
     // 6 s a step: 20% slower than the shared 5 s wander beat.
-    chicken:       { wanders: true, stepMs: 6000, produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
+    // LIVESTOCK HUNTED IS MEAT (owner, Oct 2026): a chicken, cow or horse
+    // taken on the hunt wheel — not fed its favourite and caught — drops
+    // meat, as the deer does.
+    chicken:       { wanders: true, stepMs: 6000, drop: 'meat', produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
     // catch's difficulty is current HP × 2, Pets.catchMs).
-    cow:           { wanders: true, produce: { item: 'milk', verb: 'milked' } },
+    cow:           { wanders: true, drop: 'meat', produce: { item: 'milk', verb: 'milked' } },
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.
     // Seated only on shore sand (scene_creatures.js, biome_profiles.js SHORE_FAUNA).
@@ -933,7 +936,7 @@
     // The horse is the cow's row without the milk: twice the netting (its HP),
     // tamed with the cow's favourite (items.js ANIMAL_FOOD.horse). In the bag
     // it is a mount (items.js HORSE_RIDE).
-    horse:         { wanders: true },
+    horse:         { wanders: true, drop: 'meat' },
     // The story's dragon is raised, never hunted.
     green_dragon:  { animal: true, wanders: true, follows: true, game: false },
     // A PET is a kind that hunts FOR you once tame — not a kind that can be
