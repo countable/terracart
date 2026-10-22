@@ -356,6 +356,10 @@ mechanics.
   road falls back to the nearest suitable cell one, then two, cells out from
   the player (`HomeArea.firepitCandidates`), so a new game always gets its pit
   when one fits. Later headings and reloads do not move it.
+  Home's footing sweep (`clearHomeFooting`) removes generated objects and
+  wild plants whose footprint touches the doorstep 3×3 or the pit, and any
+  tree up to `HomeArea.FIREPIT_CANOPY_CELLS` due south of the pit, whose
+  canopy would stand over the fire; saved and player-owned things stay.
   This step-over prop sits at its cell centre, with its ring, fire, smoke and
   step-up footprint sharing that anchor. On the first compass reading, older
   saved rings move to this southern cell too; a matching surface fire follows

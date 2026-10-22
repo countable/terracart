@@ -160,6 +160,10 @@ const HomeArea = {
   // never reports a heading (desktop, a phone without motion permission)
   // still gets its pit; the reading never changes which cell it takes.
   FIREPIT_COMPASS_GRACE_MS: 2000,
+  // A tree's canopy rises into the cells north of its trunk, so a tree up to
+  // this many cells due south of the pit would stand over the fire; Home's
+  // footing sweep (scene_venues.js clearHomeFooting) fells those too.
+  FIREPIT_CANOPY_CELLS: 2,
   // ── Your house ────────────────────────────────────────────────────────
   // A fallback Home is a 2×2-cell HOUSE anchored
   // on the wagon cell (WAGON_OFFSET keeps its name for the save's sake —
