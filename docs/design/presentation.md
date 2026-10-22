@@ -206,6 +206,8 @@ pixels and decorative details do not define additional tap cells.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   Body-level loading, opening-story, help, and location dialogs use the shared
   phone gutters, including their backdrops; they never span desktop margins.
+  Copyable diagnostics and load profiles also live on body, above the compass
+  and dialogs, with sticky Copy/Dismiss controls above the scrolling report.
   The dragon header reserves its full 750:220 aspect ratio at the phone-panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
