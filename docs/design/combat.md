@@ -280,8 +280,9 @@ mechanics.
   (`SpriteLayout.isGame`: not a foe, an ally, a companion kind, the villager
   or the story's dragon): a tap with nothing or a non-food in hand hunts it on
   the net wheel, its favourite in hand catches it, plant produce feeds a
-  producer, and other food is refused. A hunt pays the row's `drop` (deer:
-  meat; rabbit: pelt; crow: feather; livestock and the rest: nothing). A
+  producer, and other food is refused. A hunt pays the row's `drop` (deer,
+  chicken, cow and horse: meat; rabbit: pelt; crow: feather; the rest:
+  nothing) — livestock fed its favourite is caught alive instead. A
   roster kind is never game: it is fought, or (the crab, the gull, the raven)
   caught.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for

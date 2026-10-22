@@ -62,8 +62,9 @@ test('creature table: GAME is every wild animal but a companion, a foe, an ally 
   // A roster kind is never game: fought, or (the crab, the gull, the raven) caught.
   for (const k of ['slime', 'crab', 'gull', 'raven', 'cat', 'dog', 'npc', 'green_dragon', 'spirit_raven', 'mercenary'])
     assert.falsy(CT_SL.isGame(k), `${k} is not hunted`);
-  // What a hunt drops: the pelt the delivery board asks for.
+  // What a hunt drops: the pelt the delivery board asks for; livestock is meat.
   assert.eq(CT_SL.creatureDrop('rabbit'), 'rabbit_pelt');
+  for (const k of ['chicken', 'cow', 'horse']) assert.eq(CT_SL.creatureDrop(k), 'meat', `a hunted ${k} is meat`);
   assert.eq(CT_SL.creatureDrop('sea_turtle'), null, 'the turtle shares the rabbit\'s gait, not its pelt');
   // A giant of a hunted kind would be game too — but nothing hunted has one,
   // and the monsters are not game, so no giant is either.
@@ -91,18 +92,18 @@ test('creature table: a PET is exactly the cat and the dog, and each hunts its o
 test('creature table: what a kill drops is the kind\'s own row', () => {
   assert.eq(CT_SL.creatureDrop('crow'), 'crow_feather');
   assert.eq(CT_SL.creatureDrop('deer'), 'meat');
-  // GAME drops a body part (the rabbit's pelt since every wild animal became
-  // game, Oct 2026); livestock drops nothing. Two ENEMIES carry
+  // GAME drops a body part (the rabbit's pelt and livestock's meat since
+  // every wild animal became game, Oct 2026). Two ENEMIES carry
   // a drop too — the goblin trapper's Magic Trap and the tar yard's fire
   // slime's flint (src/zones.js) — paid ON TOP of the bounty (app.js
   // resolveDefeat asks Combat for the wage, this table for the drop).
-  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'crow,deer,fire_slime,goblin_trapper,rabbit');
+  assert.eq(ctKinds((k) => CT_BEH[k].drop), 'chicken,cow,crow,deer,fire_slime,goblin_trapper,horse,rabbit');
   assert.eq(CT_SL.creatureDrop('fire_slime'), 'flint_shard', 'a fire slime drops a flint');
   assert.eq(CT_SL.creatureDrop('goblin_trapper'), 'magic_trap', 'a trapper drops its trap');
   assert.eq(CT_SL.creatureDrop('giant_goblin_trapper'), 'magic_trap', 'and so does its giant');
   assert.truthy(ITEM_BY_ID.magic_trap, 'which is a real item');
   assert.eq(CT_SL.creatureDrop('rabbit'), 'rabbit_pelt', 'a hunted rabbit is its pelt');
-  for (const k of ['slime', 'chicken', 'cow', 'cat', 'dog', 'sea_turtle', 'butterfly', ...CT_MONSTERS])
+  for (const k of ['slime', 'cat', 'dog', 'sea_turtle', 'butterfly', ...CT_MONSTERS])
     assert.eq(CT_SL.creatureDrop(k), null, `${k} drops no item on defeat`);
   assert.eq(CT_SL.creatureDrop('giant_goblin'), null, 'and neither does a giant');
   // Both ids are real items — the drop is added to the bag by id.
