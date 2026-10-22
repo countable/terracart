@@ -1,7 +1,7 @@
 // The complete reference art profile changes presentation, never geographic data.
 const RogueObjects = (() => {
-  const enabled = typeof location !== 'undefined'
-    && new URLSearchParams(location.search).get('artTrial') === 'rogue';
+  const mode = new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get('artTrial') || 'rogue';
+  const enabled = mode === 'rogue';
   const trees = ['tree_wide_a','tree_wide_b','tree_root_a','tree_root_b','tree_rounded_2','tree_rounded_3'];
   function hash(id) { let value=2166136261; for (const c of String(id || '')) value=Math.imul(value ^ c.charCodeAt(0),16777619); return value >>> 0; }
   function install(assets) {
@@ -92,5 +92,5 @@ const RogueObjects = (() => {
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;
-// Both modules are no-ops outside their opt-in profile.
+// RA is the default; explicit artTrial values retain comparison profiles.
 const WorldArtProfile=RogueObjects.enabled ? RogueObjects : DreamlandObjects;
