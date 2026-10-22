@@ -2148,9 +2148,10 @@ test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts,
 });
 
 // ── Pottery Road ─────────────────────────────────────────────────────────
-// The road on row 6 of vergeFixture (halfW half a cell): its pots stand on
-// rows 4 and 8 (k = 2) or, where a seat is taken, rows 3 and 9 (k = 3) —
-// never on the kerb cells (rows 5 and 7).
+// The road on row 6 of vergeFixture (halfW half a cell): its front rank
+// stands on rows 4 and 8 (k = 2) or, where a seat is taken, rows 3 and 9
+// (k = 3); the back rank on rows 3 and 9 — never on the kerb cells (rows 5
+// and 7).
 function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
   const f = vergeFixture('pottery');
   f.index.dressingLines[0].key = key;
@@ -2163,30 +2164,31 @@ function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
     .map(o => ({ ...o, ix: cellOfM(o.x - tx * f.N * 7), iy: cellOfM(o.y) }));
   return { d, pots, f };
 }
-test('pottery road: a Small-road row, appended last, clay pots a cell back from the kerb on both verges', () => {
+test('pottery road: a Small-road row, appended last, two ranks of clay pots a cell back from the kerb on both verges', () => {
   const row = SV.VARIANT_BY_ID.pottery;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05); assert.eq(row.code, SV.STREET_VARIANTS.length - 1, 'appended after the older rows, Trade Row after it');
   assert.eq(row.art, 'street_golden', 'an existing painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('pottery'), 'its shrine kind');
-  assert.eq(SV.POTTERY_GAP, 0.35);
+  assert.eq(SV.POTTERY_GAP, 0.15); assert.eq(SV.POTTERY_BACK_GAP, 0.5);
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'pottery') plain++;
     if (SV.variantFor(`s${i}|0,0`, `Kiln ${i}`, 'minor') === 'pottery') named++;
   }
   assert.gt(named, plain * 2, `a kiln street is likelier a Pottery Road (${named} vs ${plain})`);
-  let total = 0, samples = 0, north = 0, south = 0;
+  let front = 0, back = 0, samples = 0, north = 0, south = 0;
   for (let tx = 0; tx < 200; tx++) {
     const { pots } = potteryRoad(tx);
-    samples += 10 * 2;   // ten cells of road, two sides
+    samples += 9 * 2;   // the line spans nine cells (x 1.5 to 10.5): a sample each, two sides
     for (const p of pots) {
       assert.truthy(p.kind === 'chest' && p.barrel === true && p.barrelStyle === 'clay_pot' && p._street === 'pottery', 'a generated clay pot');
-      assert.eq(p.iy, p.iy < 6 ? 4 : 8, `a cell back from the kerb: ${p.ix},${p.iy}`);
+      assert.truthy([3, 4, 8, 9].includes(p.iy), `a cell or two back from the kerb: ${p.ix},${p.iy}`);
       if (p.iy < 6) north++; else south++;
-      total++;
+      if (p.iy === 4 || p.iy === 8) front++; else back++;
     }
   }
-  assert.inRange(total / samples, 1 - SV.POTTERY_GAP - 0.05, 1 - SV.POTTERY_GAP + 0.05, 'POTTERY_GAP of the seats are left empty');
+  assert.inRange(front / samples, 1 - SV.POTTERY_GAP - 0.05, 1 - SV.POTTERY_GAP + 0.05, 'POTTERY_GAP of the front seats are left empty');
+  assert.inRange(back / samples, 1 - SV.POTTERY_BACK_GAP - 0.05, 1 - SV.POTTERY_BACK_GAP + 0.05, 'POTTERY_BACK_GAP of the back seats are left empty');
   assert.inRange(north / south, 0.8, 1.25, 'both verges');
   const a = potteryRoad(7), b = potteryRoad(7);
   assert.eq(JSON.stringify(a.pots), JSON.stringify(b.pots), 'a reload lays the same pots');

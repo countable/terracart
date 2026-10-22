@@ -55,7 +55,11 @@
   // Major-and-Medium kerb. Every pot is a generated clay pot (loot.js
   // CLAY_POT_LOOT: a coin a quarter of the time) — no guards, no POI. The
   // only street that stands pots: plain Small streets stand barrels alone.
-  const POTTERY_GAP = 0.35;
+  // A second, sparser rank stands one cell behind it (k = 3 alone, its own
+  // stream): POTTERY_BACK_GAP of those seats empty, so the road reads as
+  // crowded with pots rather than a thin row.
+  const POTTERY_GAP = 0.15;
+  const POTTERY_BACK_GAP = 0.5;
   // ── Trade Row ────────────────────────────────────────────────────────────
   // Barrels of goods line both verges (VERGE_ROWS.trade: a sample every cell,
   // TRADE_BARREL_GAP left empty, a cell back from the kerb on the reward
@@ -484,6 +488,8 @@
   //            the pottery row's pots are 'reward', off the Major-and-Medium
   //            kerb like every loot container);
   //   skip     a sample that lays nothing (the toadstool's breathing gap);
+  //   stream   the row's own rng for `draw` (true: keyed by the variant; a
+  //            string keys a second row's draws apart, Pottery Road's back rank);
   //   draw     per-sample draws off the row's `stream`, taken BEFORE the
   //            covers test so an uncovered sample spends them too (the burned
   //            row's side and tar rolls — the stream is pinned);
@@ -510,6 +516,9 @@
     D.WG.cellId('pot', D.tx, D.ty, c.ix, c.iy), { barrel: true, barrelStyle: 'clay_pot', _street: D.v }));
   const POTTERY_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < POTTERY_GAP; }, skip: (at) => at.gap,
+    emit: potteryPot },
+  { step: () => root.WorldGen.CELL_M, side: 'both', start: () => 3, walk: 3, gate: 'reward',
+    stream: 'pottery_back', draw: (at) => { at.gap = at.rng() < POTTERY_BACK_GAP; }, skip: (at) => at.gap,
     emit: potteryPot }];
   // One Trade Row barrel at cell c: a generated wooden barrel.
   const tradeBarrel = (D, at, c) => D.res.objects.push(D.WG.makeObject('chest', D.cx(c.ix), D.cy(c.iy),
@@ -2080,7 +2089,7 @@
       let lengthM = null;
       const D = { WG, res, tx, ty, cx, cy, rec, v, N,
         lengthM: () => (lengthM ??= rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0)) };
-      const rng = row.stream ? streamFor(rec, v) : null;
+      const rng = row.stream ? streamFor(rec, typeof row.stream === 'string' ? row.stream : v) : null;
       const step = typeof row.step === 'function' ? row.step() : row.step;
       const spClass = row.gate || 'minor';
       const ok = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
@@ -3061,7 +3070,7 @@
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
     hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
-    BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
+    BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
     THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
