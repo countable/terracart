@@ -769,8 +769,10 @@ the surrounding grove’s shrub scale.
   shared tilt it read squashed) and the facing caret's paint instead of the
   halo: a gold line on a dark outline over a drop shadow down the screen
   (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
-  a soft shadow within one gameplay cell of the body, otherwise a yellow ring.
-  Radius decreases linearly from full at one cell to half at five cells,
+  the yellow ring, which darkens and turns translucent as it nears the body
+  while a dark disc (`gpsDisc`) fades in under it, until at the feet it is only
+  a translucent dark circle (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a
+  swap to a second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
   clamped there beyond five; distance is measured in world metres independently
   of zoom and heading. Once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
@@ -1158,6 +1160,15 @@ renderer's per-face `shade` lights slopes the source art never painted. No pixel
 reads or canvas texture creation occur during placement or compass updates. Home switches to
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
+
+`AuthoredBuildingRenderer` reuses one depth target for the scene. On WebGL
+context restoration, Phaser rebuilds the target's texture and framebuffer;
+the renderer discards its raw shader and vertex-buffer handles and recreates
+them, their locations and the derivatives extension before drawing again.
+Lost-context draws are skipped. The scene removes its restore listener on
+shutdown. `test/authored-context-browser.cjs` checks two graphics resets with
+authored shops and wrecks together, requiring identical restored world pixels
+and no GL errors.
 
 The PP restyle uses registered source-sized PNGs, preserving the existing mesh
 UV coordinates and alpha silhouettes. Native PP flat-shop models remain available

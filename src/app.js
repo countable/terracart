@@ -3564,21 +3564,25 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // The fix is a quiet shadow within one cell, a yellow ring farther away.
-    // Ring radius falls linearly to half at five cells; the rim dot still
-    // indicates an offscreen fix. This is presentation only, at every depth.
+    // The fix is the yellow ring, darkening and turning translucent into a
+    // dark disc as it nears the body (Render.gpsMarkerStyle). Ring radius
+    // falls linearly to half at five cells; the rim dot still indicates an
+    // offscreen fix. This is presentation only, at every depth.
     if (this.gpsM) {
       const g = worldMetersToScreen(this,
         this.startWorldM.x + this.gpsM.x,
         this.startWorldM.y + this.gpsM.y);
       const marker = Render.gpsMarkerStyle(Math.hypot(this.gpsM.x - this.playerM.x,
         this.gpsM.y - this.playerM.y) / this.cellM);
-      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
-      if (this.gpsGhost.texture.key !== marker.key) this.gpsGhost.setTexture(marker.key);
-      if (marker.key === 'gps_ring') this.gpsGhost.setFrame(Render.groundMarkFrame(this, 'gps_ring'));
-      this.gpsGhost.setDisplaySize(marker.width, marker.height).setAlpha(marker.alpha);
+      const gx = Math.round(g.x), gy = Math.round(g.y);
+      this.gpsGhost.setPosition(gx, gy).setVisible(true)
+        .setFrame(Render.groundMarkFrame(this, 'gps_ring'))
+        .setDisplaySize(marker.width, marker.height).setAlpha(marker.ringAlpha).setTint(marker.tint);
+      this.gpsDisc.setPosition(gx, gy).setVisible(marker.discAlpha > 0)
+        .setDisplaySize(marker.width, marker.height).setAlpha(marker.discAlpha);
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
+      this.gpsDisc.setVisible(false);
     }
     this._drawWalkHomeHint(dt);
     this._updateWalkHomeCountdown();
