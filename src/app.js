@@ -4034,6 +4034,11 @@ class MapScene extends Phaser.Scene {
   // brief on-screen banner, since DevTools isn't reachable on a phone.
   _reportLoopError(e) {
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    // The latest error and a count, kept for the Developer page's lighting
+    // dump: a frame that breaks before the lightmap pass leaves the last
+    // uploaded lightmap on screen, and the overlay may have been dismissed.
+    this._lastLoopErr = { at: now, count: (this._lastLoopErr?.count || 0) + 1,
+      msg: (e && (e.message || e.toString())) || 'frame error', stack: (e && e.stack) || '' };
     if (this._lastLoopErrAt && now - this._lastLoopErrAt < 3000) return;   // throttle a per-frame storm
     this._lastLoopErrAt = now;
     try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
