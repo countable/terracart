@@ -32,13 +32,14 @@
     for (const kind of ['hedge', 'stone']) for (let mask = 0; mask < 16; mask++) {
       const { points, openEdges } = footprint(mask), height = 5;
       const faces = WallMaterials.geometry(kind, points, height, { openEdges });
-      const capPoints = faces.filter(f => f.normal === null).flatMap(f => f.points);
+      // The crown is the cap at full height; hedge shoulder bands also cull by winding.
+      const capPoints = faces.filter(f => f.normal === null && f.points.every(p => p.z === height)).flatMap(f => f.points);
       assert.truthy(capPoints.length, `${kind} mask ${mask} has a triangulated crown`);
       assert.lt(faces.length, 160, 'texture details do not create per-texel geometry');
       assert.truthy(faces.every(f => f.points.every(p => Object.values(p).every(Number.isFinite)
         && p.u >= 0 && p.u <= 1 && p.v >= 0 && p.v <= 1)), 'finite positions and normalized UVs');
-      assert.truthy(capPoints.every(p => p.z === height), 'crown matches obstacle support height');
-      const inset = kind === 'hedge' ? 1.6 : .7;
+      assert.eq(Math.max(...faces.flatMap(f => f.points.map(p => p.z))), height, 'crown matches obstacle support height');
+      const inset = kind === 'hedge' ? Math.min(WallMaterials.HEDGE.shoulder, WallMaterials.HEDGE.rise, height / 2) : .7;
       for (const [bit, axis, boundary, transverse] of [[1, 'y', 0, 'x'], [2, 'x', 32, 'y'], [4, 'y', 32, 'x'], [8, 'x', 0, 'y']]) {
         if (!(mask & bit)) continue;
         const seam = capPoints.filter(p => Math.abs(p[axis] - boundary) < 1e-8);
@@ -121,11 +122,12 @@
       assert.eq([...new Set(rogueSlots[1])].sort().join(','), '#525130,#5c5c36,#656539,#787840', 'approved side shades retain depth');
       const points = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }];
       const faces = WallMaterials.geometry('hedge', points, 5);
-      assert.eq(faces.find(f => f.normal === null).flatColor, 0x818143, 'flat fallback shares the RA crown palette');
+      const crown = list => list.find(f => f.normal === null && f.points.every(p => p.z === 5));
+      assert.eq(crown(faces).flatColor, 0x818143, 'flat fallback shares the RA crown palette');
       globalThis.RogueObjects = { enabled: false };
       assert.eq(WallMaterials.prepare(scene), baseline, 'baseline/Dreamland reuse the original atlas');
       assert.eq(creates, 2, 'one atlas per distinct palette');
-      assert.eq(WallMaterials.geometry('hedge', points, 5).find(f => f.normal === null).flatColor, 0x4f813b);
+      assert.eq(crown(WallMaterials.geometry('hedge', points, 5)).flatColor, 0x4f813b);
     } finally {
       if (previous) Object.defineProperty(globalThis, 'RogueObjects', previous);
       else delete globalThis.RogueObjects;

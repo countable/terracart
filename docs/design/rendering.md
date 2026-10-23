@@ -312,7 +312,11 @@ step-over lift in `ObstacleStep.PROFILES`, with thickness from
 they still interact, block and support steps from their data cells. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 `wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
-and bevels without a pale coping band, single-width stone caps with shaded edges and transverse joints, mortared sides
+and bevels without a pale coping band. Hedges have their own profile there
+(`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot
+undercuts the clipped face, and a quarter-round shoulder rolls into a flat crown
+at the step-over height, its rings dipping at hashed world points so runs read
+bushy while joined edges stay square and seams share vertices. Stone walls keep single-width caps with shaded edges and transverse joints, mortared sides
 and darker footing, and light crate wood. Only exposed edges bevel; shared cell
 boundaries keep exactly matching cap vertices. Texture coordinates follow world
 cells, so sub-cell movement and a view rebuild do not slide the material.
