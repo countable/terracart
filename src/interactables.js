@@ -516,7 +516,7 @@ const INTERACTABLES = {
   groundstack: {
     custom: (ctx, o) => {
       const { scene, save } = ctx;
-      if (save.picked.includes(o.id)) return 'skip';
+      if (isSpent(o, spentSets(scene, save))) return 'skip';
       save.picked = [...save.picked, o.id];
       const qty = Math.max(1, o.qty || 1);
       scene.addToInv(o.itemId, qty);
@@ -1124,8 +1124,11 @@ function isSpent(o, sets) {
     case 'mineralrock': return sets.broken.has(o.id);
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
-    case 'stakes':
-    case 'groundstack': return sets.picked.has(o.id);
+    case 'stakes': return sets.picked.has(o.id);
+    // Starter material crates became loose piles. Their old opened ids still
+    // spend every pile from that supply, so upgrading never refills the kit.
+    case 'groundstack': return sets.picked.has(o.id)
+      || (!!o.legacyChestId && sets.opened.has(o.legacyChestId));
     case 'bone_cache': return sets.opened.has(o.id);
     // A message bottle is picked up as it is read (INTERACTABLES.bottle),
     // back with the next day's tide (its daily row).

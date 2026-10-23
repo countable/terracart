@@ -137,7 +137,7 @@ const BIOME_TEX = {
   // The influence-zone halos (src/zones.js).
   28: { variants: 1, draw: drawGroveTex },        // GROVE — selected native sward; procedural fallback
   29: { variants: 2, draw: drawChurchyardTex },   // CHURCHYARD — worn sward, stone chips
-  32: { variants: 1, draw: drawRockTex }, // single selected solid bedrock tile
+  32: { variants: 1, draw: drawRockTex }, // flat slate bedrock; collision does not imply elevation
   31: { variants: 2, patternOpacity: 0.9, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
   18: { variants: 2, patternOpacity: 0.9, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
   19: { variants: 2, patternOpacity: 0.94, draw: drawPitchTex },        // PITCH — mown stripes + chalk
@@ -1291,7 +1291,8 @@ const SELECTED_TERRAIN = {
   0:[8,8], 1:[10,10], 2:[17,17], 3:[40], 4:[12,12], 5:[9], 6:[8,8],
   8:[11,15], 9:[0], 10:[35,35], 12:[56,57], 15:[8,8], 16:[20,21],
   17:[11], 18:[8,8], 19:[8,8], 20:[10,10], 21:[8,8], 22:[9,9],
-  23:[40], 24:[1], 26:[2,3], 27:[11,15], 28:[10], 29:[13,16], 31:[13,13], 32:[7],
+  // Exclusion bedrock shares the flat ROCK surface, never the legacy cliff-face crop (7).
+  23:[40], 24:[1], 26:[2,3], 27:[11,15], 28:[10], 29:[13,16], 31:[13,13], 32:[35],
 };
 let selectedTerrainSource = null;
 let selectedWaterTrialSource = null;

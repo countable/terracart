@@ -1072,6 +1072,7 @@ const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
 const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
+  if (goal?.kind === 'groundstack') return ITEM_BY_ID[goal.itemId]?.name || 'Supplies';
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
   return STARTER_GOAL_LABELS[step && step.event] || 'Supply crate';
 }
@@ -3179,16 +3180,18 @@ class MapScene extends Phaser.Scene {
   // The chest is the trail's END, so it is the target only once no supply
   // crate is left unopened.
   _nearestStarterCrate() {
-    const opened = setOf(this.save.opened);
+    const spent = spentSets(this, this.save);
     // The starter chests of each tile, derived once (util.js derivedObjects)
     // rather than picked out of every cached tile's every object on each ask.
     const starters = [];
     for (const e of WorldGen.tileCache.values()) {
-      for (const o of derivedObjects(e, '_starterChests', (o) => o.kind === 'chest' && !!o.id && String(o.id).startsWith('chest_start_'))) {
-        if (!opened.has(o.id)) starters.push(o);
+      for (const o of derivedObjects(e, '_starterChests', (o) => (o.kind === 'chest' || o.kind === 'groundstack') && !!o.id && String(o.id).startsWith('chest_start_'))) {
+        if (!isSpent(o, spent)) starters.push(o);
       }
     }
-    return this._nearestObject((o) => o.crate, { list: starters }) || this._nearestObject((o) => !o.crate, { list: starters });
+    return this._nearestObject((o) => o.crate, { list: starters })
+      || this._nearestObject((o) => o.kind === 'groundstack', { list: starters })
+      || this._nearestObject((o) => !o.crate, { list: starters });
   }
   // THE NEAREST-TO-THE-PLAYER SCAN: the closest thing `pred` accepts (every
   // thing when null), by squared distance from the player's feet (or
@@ -3252,8 +3255,8 @@ class MapScene extends Phaser.Scene {
         return nearest(open) || plotMiddle() || this._nearestStarterCrate();
       }
       case 'restore': {
-        // While the bag can't pay a wreck's flat restore price and crates
-        // remain unopened, the materials are in the crates — point there.
+        // While the bag can't pay a wreck's flat restore price, point at the
+        // remaining starter supplies, including loose ground materials.
         const cost = this._wreckRestoreCost(null);
         if (Inventory.count(sv, cost.id) < cost.qty) {
           const crate = this._nearestStarterCrate();
