@@ -553,7 +553,8 @@ the surrounding grove’s shrub scale.
   from UI projections and inverse taps. Depth ≥ 90 draws on an
   unturned `uiCam`. Upright art counterrotates around explicit ground anchors
   and sorts by rotated feet only between `prerender` and `postrender`.
-  Groundcover and ground decals retain the map rotation. Body effects, tree fruit and tower
+  Groundcover and ground decals retain the map rotation. Body effects (the
+  ghost's halo layer included), tree fruit and tower
   flags share their owner's anchor; transparent frame padding is not a foot.
   Roof signs and DOM delivery bubbles use that same footprint anchor; batched
   sign boards and smoke counterrotate their drawing commands. Contact shadows

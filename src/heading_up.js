@@ -297,7 +297,8 @@ const HeadingUp = {
       scene.playerWorldContainer._huAnchor = scene.playerScreen();
     }
     const up = (o) => HeadingUp._upright(o, -a, saved);
-    for (const c of [scene.worldContainer, scene.labelContainer, scene.coinContainer, scene._sandboxLabels]) {
+    for (const c of [scene.worldContainer, scene.labelContainer, scene.coinContainer, scene._sandboxLabels,
+      scene.ghostGlowContainer]) {
       if (c) for (const o of c.list) up(o);
     }
     // Contact shadows remain flat ellipses below upright art. Their centres
