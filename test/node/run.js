@@ -96,7 +96,7 @@ const FILES = [
   // Scenic paths, beaches and viewpoints. Pure, after street_variants.js like the page.
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
-  'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
+  'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'status_icons.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',

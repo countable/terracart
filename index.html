@@ -126,7 +126,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=91202c33" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=4d1e357e" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1343,7 +1343,7 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=4167c704">
+  <link rel="stylesheet" href="css/compass_hud.css?v=675d47cb">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
   <link rel="stylesheet" href="css/compass_panels.css?v=00ec4765">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
@@ -1430,6 +1430,7 @@
           <button id="debug-enemies">Spawn enemies</button>
           <button id="debug-items">Item cheats</button>
           <button id="debug-nearby-foes">Nearby foes (debug)</button>
+          <button id="debug-lighting">Lighting debug</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
           <button id="debug-gps-stick" aria-pressed="false">GPS stick: off</button>
@@ -2446,6 +2447,67 @@
       ];
       window.showError?.('NEARBY FOES (copy me)', out.join('\n'));
     });
+    // LIGHTING DEBUG — everything the lightmap pass reads, from the device that
+    // shows the picture: the camera (zoom, heading, peek), the body's screen
+    // point against the sprite that is drawn there, the lightmap image and
+    // its texture key (sampled twice a second apart, so a key that never moves
+    // while the body walks is a frozen lightmap), the lighting profile, the
+    // interior mask, and the last update() error even after its overlay was
+    // dismissed. For "the screen went black" reports that no desktop
+    // reproduces.
+    document.getElementById('debug-lighting').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene || !scene.playerM) { window.showError?.('lighting debug unavailable', 'scene not ready'); return; }
+      const f = (v, d = 2) => (typeof v === 'number' && Number.isFinite(v)) ? +v.toFixed(d) : String(v);
+      const hex = (c) => (typeof c === 'number') ? '#' + (c >>> 0).toString(16).padStart(6, '0') : String(c);
+      const cells = (px) => f(px / CELL_PX, 2);
+      const snap = () => {
+        const tex = scene.lightTex, img = scene.lightMap;
+        const ps = scene.playerScreen?.() || {};
+        return {
+          key: tex?.__lightKey || '', staticKey: tex?.__lightStaticKey || '',
+          ps: `${f(ps.x)},${f(ps.y)}`, sprite: scene.player ? `${f(scene.player.x)},${f(scene.player.y)}` : '-',
+          shadow: scene.playerShadow ? `${f(scene.playerShadow.x)},${f(scene.playerShadow.y)}` : '-',
+          img: img ? `${f(img.x)},${f(img.y)} ${f(img.displayWidth)}x${f(img.displayHeight)} vis ${img.visible} depth ${img.depth} camFilter ${img.cameraFilter} alpha ${f(img.alpha)}` : 'none',
+          body: `${f(scene.playerM.x)},${f(scene.playerM.y)}`,
+        };
+      };
+      const a = snap();
+      setTimeout(() => {
+        const b = snap();
+        const r = window.__game?.renderer, cam = scene.cameras?.main;
+        const prof = (typeof Lighting !== 'undefined' && Lighting.profile) ? Lighting.profile(scene, Lighting.daylight(scene, Date.now()), Date.now()) : null;
+        const interior = scene.activeInterior?.() || null;
+        const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : null;
+        const peek = scene.peekM || { x: 0, y: 0 };
+        const err = scene._lastLoopErr;
+        const lights = (scene._lights || []).map(L => `${L.kind}@${f(L.dx / scene.cellM, 1)},${f(L.dy / scene.cellM, 1)}`).slice(0, 12);
+        const out = [
+          `renderer ${r ? (r.type === Phaser.WEBGL ? 'WebGL' : 'Canvas') : '?'}, contextLost ${!!r?.contextLost}, canvas ${window.__game?.canvas?.width}x${window.__game?.canvas?.height}, RENDER_SCALE ${f(RENDER_SCALE)}, dpr ${f(window.devicePixelRatio)}`,
+          `view centre ${scene.viewCenterX},${scene.viewCenterY} left/top ${scene.viewLeft},${scene.viewTop} size ${scene.viewSize}`,
+          `zoom ${f(scene.mapZoom)} (rest ${f(scene._mapZoomRest)}), heading-up ${typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)}, mapRot ${f((scene.mapRot || 0) * 180 / Math.PI, 1)}°, compass ${f(scene.compassDeg, 1)}, locked ${!!scene._compassDirectionLocked}`,
+          `camera ${cam ? `${cam.x},${cam.y} ${cam.width}x${cam.height} zoom ${f(cam.zoom)} rot ${f(cam.rotation, 3)} scroll ${f(cam.scrollX)},${f(cam.scrollY)} origin ${cam.originX},${cam.originY} round ${cam.roundPixels}` : '-'}`,
+          `peek ${cells(peek.x * CELL_PX / scene.cellM)},${cells(peek.y * CELL_PX / scene.cellM)} cells, dragging ${!!scene._peekDragging}, returning ${!!scene._peekReturning}, pinch ${!!scene._pinch}, homeIntro ${scene._homeIntro?.phase || '-'}, wreckRepair ${!!scene._wreckRepair}`,
+          `depth ${scene.depth || 0}, energy ${scene.save?.energy}/${scene.save?.maxEnergy}, lightMul ${f(typeof Conditions !== 'undefined' ? Conditions.lightMul(scene.save) : 1)}, reach ${reachM == null ? '?' : f(reachM / scene.cellM) + ' cells'}, fullView ${!!(typeof Energy !== 'undefined' && Energy.fullViewReachActive(scene.save))}`,
+          `daylight ${f(scene._daylight?.value, 3)} (minute ${scene._daylight?.minute}), override ${window.__DAYLIGHT ?? '-'}`,
+          prof ? `profile dimA ${f(prof.dimA, 3)} edge ${f(prof.edge, 3)} lit ${f(prof.lit, 3)} ambient ${hex(prof.ambient)} dimColour ${hex(prof.dimColour)} night ${f(prof.night, 3)}` : 'profile -',
+          `interior ${interior ? `${interior.kind} ${interior.key} ring ${interior.ring?.length}` : 'none'}, homeInside ${!!scene.homeInside?.()}, fog ${typeof Fog !== 'undefined' && Fog.enabled}, gpu ${typeof LightingGPU !== 'undefined' && LightingGPU.active(scene)}`,
+          `lightTex ${scene.lightTex ? `${scene.lightTex.width}x${scene.lightTex.height}` : 'none'}, image ${a.img}`,
+          `lights now (${(scene._lights || []).length}): ${lights.join(' ') || '-'}`,
+          '',
+          `t0: body ${a.body} ps ${a.ps} sprite ${a.sprite} shadow ${a.shadow}`,
+          `t1: body ${b.body} ps ${b.ps} sprite ${b.sprite} shadow ${b.shadow}`,
+          `key moved between samples: ${a.key !== b.key}`,
+          `key t1: ${b.key.slice(0, 240)}`,
+          `static key t1: ${b.staticKey.slice(0, 120)}`,
+          '',
+          err ? `last update() error x${err.count} ${Math.round((performance.now() - err.at) / 1000)}s ago: ${err.msg}\n${(err.stack || '').slice(0, 600)}` : 'no update() errors this session',
+        ];
+        window.showError?.('LIGHTING DEBUG (copy me)', out.join('\n'));
+      }, 1000);
+    });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
     // whole projection re-initializes for the new latitude (player position is
@@ -3147,7 +3209,8 @@
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=de477ee0"></script>
   <script src="src/shrines.js?v=568066e5"></script>
-  <script src="src/buffs.js?v=9c6e04b6"></script>
+  <script src="src/status_icons.js?v=229d3571"></script>
+  <script src="src/buffs.js?v=4c8c6973"></script>
   <script src="src/zone_coverage.js?v=5fae9ba1"></script>
   <script src="src/quarry_layout.js?v=6b945d34"></script>
   <script src="src/zone_dressing.js?v=eed6eea0"></script>
@@ -3155,7 +3218,7 @@
   <script src="src/sprite_layout.js?v=76ec11f0"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=bc136083"></script>
+  <script src="src/home.js?v=49022604"></script>
   <script src="src/home_variant.js?v=d962f23f"></script>
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
@@ -3181,17 +3244,17 @@
   <script src="src/cave_areas.js?v=606a08ad"></script>
   <script src="src/underground.js?v=75e648ac"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
-  <script src="src/worldgen.js?v=69a0c7ea"></script>
+  <script src="src/worldgen.js?v=d2e7ba35"></script>
   <script src="src/castle_styles.js?v=8a4d031c"></script>
-  <script src="src/textures.js?v=8aaa6980"></script>
+  <script src="src/textures.js?v=d7095139"></script>
   <script src="src/floor_wall_materials.js?v=e3674686"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=946ddc58"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=7039ea8e"></script>
+  <script src="src/items.js?v=50a6fbd2"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=ebae5f35"></script>
+  <script src="src/conditions.js?v=12063166"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=286067fc"></script>
@@ -3214,13 +3277,13 @@
   <script src="src/temple_layout.js?v=1fd00fbe"></script>
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
-  <script src="src/interactables.js?v=390fecd5"></script>
-  <script src="src/boss_encounters.js?v=6b33000d"></script>
+  <script src="src/interactables.js?v=adb53ad1"></script>
+  <script src="src/boss_encounters.js?v=7515cc30"></script>
   <script src="src/houses.js?v=8e849dbb"></script>
   <script src="src/obstacle_step.js?v=f1298d3b"></script>
   <script src="src/visibility.js?v=aabd91f3"></script>
   <script src="src/spawn_ownership.js?v=cb498972"></script>
-  <script src="src/starter.js?v=01def13d"></script>
+  <script src="src/starter.js?v=9f8ed8c3"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=8d58779b"></script>
   <script src="src/pirates.js?v=c810956f"></script>
@@ -3238,9 +3301,9 @@
   <script src="src/interact.js?v=6583ca41"></script>
   <script src="src/play_tips.js?v=3ae15378"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=ce50d02b"></script>
+  <script src="src/lighting.js?v=eff3dc9d"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=eee7e97a"></script>
+  <script src="src/render.js?v=ccf536a5"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=f939dd1a"></script>
@@ -3275,7 +3338,7 @@
   <script src="src/dreamland_objects.js?v=7f3db73d"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
   <script src="src/rogue_prop_profile.js?v=db5c63e0"></script>
-  <script src="src/rogue_objects.js?v=82daefed"></script>
+  <script src="src/rogue_objects.js?v=808b55ce"></script>
   <script src="src/sandbox_destinations.js?v=b40995bb"></script>
   <script src="src/sandbox.js?v=def47b20"></script>
   <script src="src/sandbox_scenarios.js?v=277dff08"></script>
@@ -3291,7 +3354,7 @@
   <script src="src/scene_creatures.js?v=8baa6136"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=d21ce03a"></script>
-  <script src="src/heading_up.js?v=132f5072"></script>
+  <script src="src/heading_up.js?v=7edafbe8"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=09e52940"></script>
   <script src="src/scene_create.js?v=eb9ed65b"></script>
@@ -3373,7 +3436,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=91202c33';
+      const APP_SRC = 'src/app.js?v=4d1e357e';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

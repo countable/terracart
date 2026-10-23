@@ -363,6 +363,8 @@ const INTERACTABLES = {
   // gated and drops exactly one namesake bar + coal + tier-rolled gems.
   mineralrock: {
     tool: 'pickaxe',
+    // The smallest plain look is quick work (items.js mineralRockWorkMul).
+    workMul: (o) => mineralRockWorkMul(o),
     spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
@@ -516,10 +518,14 @@ const INTERACTABLES = {
   groundstack: {
     custom: (ctx, o) => {
       const { scene, save } = ctx;
-      if (save.picked.includes(o.id)) return 'skip';
-      save.picked = [...save.picked, o.id];
+      if (isSpent(o, spentSets(scene, save))) return 'skip';
       const qty = Math.max(1, o.qty || 1);
+      if (Inventory.roomFor(save, o.itemId) < qty) {
+        scene.flash(`Make room for ${qty} ${ITEM_BY_ID[o.itemId]?.name || o.itemId}.`, ctx.sx, ctx.sy);
+        return true;
+      }
       scene.addToInv(o.itemId, qty);
+      save.picked = [...save.picked, o.id];
       ctx.dirty = true;
       const item = ITEM_BY_ID[o.itemId];
       scene.flashLoot(`+${qty} ${item?.name || o.itemId}`, undefined, 1, o.itemId);
@@ -1124,8 +1130,11 @@ function isSpent(o, sets) {
     case 'mineralrock': return sets.broken.has(o.id);
     // Same key (save.picked) as the wildplant pickup tracking, so a save
     // doesn't grow a field for it.
-    case 'stakes':
-    case 'groundstack': return sets.picked.has(o.id);
+    case 'stakes': return sets.picked.has(o.id);
+    // Starter material crates became loose piles. Their old opened ids still
+    // spend every pile from that supply, so upgrading never refills the kit.
+    case 'groundstack': return sets.picked.has(o.id)
+      || (!!o.legacyChestId && sets.opened.has(o.legacyChestId));
     case 'bone_cache': return sets.opened.has(o.id);
     // A message bottle is picked up as it is read (INTERACTABLES.bottle),
     // back with the next day's tide (its daily row).
@@ -1264,7 +1273,10 @@ function runInteractable(ctx, o, definition) {
   // Tool pipeline: gate → spend energy → start the tier-driven work wheel.
   const blockMsg = def.gate ? def.gate(o, save) : null;
   if (blockMsg) return refuseToolGate(ctx, blockMsg, def.tierShort ? def.tierShort(o, save) : 0, job);
-  return job(toolDurationMs(save.relics, def.tool), def.energy ? def.energy(save, o) : 0);
+  // `workMul(o)`, when a row declares it, scales the tool's time for this
+  // object (the smallest rock art mines at double speed).
+  const workMul = def.workMul ? def.workMul(o) : 1;
+  return job(toolDurationMs(save.relics, def.tool) * workMul, def.energy ? def.energy(save, o) : 0);
 }
 
 

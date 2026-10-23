@@ -215,19 +215,23 @@ mechanics.
   there, never a timer, colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
-  never under one cell), the light
-  ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
+  never under one cell), the light ramp's and a carried torch's radius
+  (`Lighting.playerLightMul`) and the player's own light levels (the
+  profile's ramp `edge` and plateau `lit`, `Lighting.dimSight`) for fifteen
+  seconds; the world's ambient floor is untouched.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
-- Confusion chooses a random compass heading and turn direction, with a slow
-  rotation held for a complete circle before choosing another turn. Its share
+- Confusion chooses a random compass heading and turn direction, then rotates
+  at the condition row's constant `turnRadS` for the whole effect. Walking input
+  and collisions affect movement only, never this heading. The heading-up map
+  follows this spin without sensor smoothing or a dead zone. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control
   equally; at twenty seconds or more the compass fully takes over. As the
   timer falls, keyboard, stick and GPS steering recover gradually. Collision,
   holds and walking-speed caps still apply. Device headings keep sampling privately; expiry or cure
-  restores the latest real heading (or the prior movement fallback) and eases
+  restores the latest real heading (or the prior movement and map fallback) and eases
   the body back toward its GPS target at walking pace for at most
   `CONFUSED_RECOVER_MS`; then ordinary following (catch-up ramp, far snap)
   resumes, since walking pace never catches a walking player. Enemy puffs retain their normal duration;

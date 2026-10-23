@@ -97,7 +97,7 @@
     assert.truthy(EnemyRoster.get('vampire_bat').eliteDrops.some(d => d.id === 'vampire_ring'), 'an elite vampire bat may drop it');
   });
 
-  test('blinded: a ghost touch halves light and reach for 15 s; the cure clears it', () => {
+  test('blinded: a ghost touch halves and dims light and reach for 15 s; the cure clears it', () => {
     const def = Conditions.DEFINITIONS.blinded;
     assert.eq(def.durationMs, 15000);
     assert.eq(def.lightMul, 0.5);
@@ -110,6 +110,18 @@
     assert.eq(Conditions.lightMul(save), 0.5);
     assert.lt(reachRadiusM(scene), whole, 'blindness shrinks the base before upgrade steps');
     assert.eq(Lighting.playerLightMul(scene), 0.5, 'half the light');
+    // Blindness also DIMS the player's own light: the ramp and plateau levels
+    // run at lightMul while the world's ambient floor stands.
+    for (const depth of [0, 3]) {
+      const blind = Lighting.profile({ save, depth, cellM: 8 });
+      const clear = Lighting.profile({ save: { energy: 100, reachUpgrades: 6 }, depth, cellM: 8 });
+      assert.gt(clear.edge, 0); assert.gt(clear.lit, clear.edge);
+      assert.eq(blind.edge, clear.edge * 0.5, `depth ${depth}: half the ramp`);
+      assert.eq(blind.lit, clear.lit * 0.5, `depth ${depth}: half the plateau`);
+      assert.eq(blind.ambient, clear.ambient, `depth ${depth}: the ambient floor is the world's`);
+      assert.eq(blind.dimA, clear.dimA);
+      assert.gt(blind.lit, blind.edge, 'the plateau still steps up off the ramp');
+    }
     const deep = { save, depth: 9, cellM: 8 };
     assert.gt(reachRadiusM(deep), 8 + 1, 'upgrades still expand the minimum blinded base');
     Conditions.tick(save, 15000);

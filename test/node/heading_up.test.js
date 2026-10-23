@@ -289,6 +289,21 @@ test('heading up: direction lock holds the current nonzero rotation through chan
   }
 });
 
+test('heading up: confusion tracks a constant slow spin without dead-zone pauses', () => {
+  const scene = { ...huScene(0), _confusedLoop: {}, _compassHUD: {},
+    _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  for(let frame=1;frame<=120;frame++) {
+    const angle=0.3*frame/60;
+    scene.compassDeg=angle*180/Math.PI;
+    HeadingUp.tick(scene,1/60);
+    huNear(scene.mapRot,-angle);
+  }
+  scene._compassDirectionLocked=true;
+  scene.compassDeg=180;
+  HeadingUp.tick(scene,1/60);
+  huNear(scene.mapRot,-0.6);
+});
+
 test('heading up: unlocking eases from the held angle toward the latest compass reading', () => {
   const heldAngle = -Math.PI / 3, target = -Math.PI / 2;
   const scene = { ...huScene(heldAngle), compassDeg: 90, _compassDirectionLocked: true,
