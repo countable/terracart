@@ -118,9 +118,10 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   //   scrollContent — keep offer price/actions below the scrolling copy.
   //             Every dialog scrolls naturally when its content overflows.
+  //   artTrimPx — shorten a utility panel's painting while keeping its minimum.
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scrollContent = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, artTrimPx = 0, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scrollContent = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a 4:3 image above its copy.
@@ -421,7 +422,9 @@ class SceneModals {
         const footerHeight = body.querySelector('.modal-offer-footer')?.offsetHeight || 0;
         const available = Math.max(0, body.clientHeight - footerHeight);
         const minimum = Math.min(100, available * .35);
-        spacer.style.height = `${Math.min(full, Math.max(minimum, available * .5))}px`;
+        const height = Math.min(full, Math.max(minimum, available * .5));
+        const trim = Math.min(Math.max(0, artTrimPx), Math.max(0, height - minimum));
+        spacer.style.height = `${height - trim}px`;
       };
       const scheduleFit = () => {
         if (!frame) frame = requestAnimationFrame(fit);

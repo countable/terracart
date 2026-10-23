@@ -972,6 +972,7 @@ class SceneShops {
     persistSave(this.save);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', {
       kind: theme === 'relic' ? 'relics' : 'shop', onClose: () => {},
+      artTrimPx: 40,
       ...NPC.offerArt(this, house),
     });
     wrap.closeModal = () => { wrap.remove(); return true; };

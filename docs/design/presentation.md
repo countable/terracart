@@ -52,6 +52,8 @@ pixels and decorative details do not define additional tap cells.
   Themed item and relic offer builders return the shared quote for shelves and
   individual dialogs. Acceptance rechecks funds and capacity or gear upgrades,
   and returns purchase success; shelves replace a slot only on that success.
+  Shop and relic shelves trim 40px from the shared painting height through
+  `artTrimPx`, retaining its minimum so the item rows and secondary actions fit.
 
 - Rewards converted to coins show only the coin reward in dialogs and toasts,
   without naming the replaced item or explaining the conversion.
@@ -679,7 +681,7 @@ Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`
 ## Furniture
 
 Placed furniture opens a dismissible `makeModalShell` panel with its world
-sheet slot shown at exactly 4× above its name, rarity badge and description.
+sheet slot shown at exactly 3× (96×192px) above its name, rarity badge and description.
 Slots are 32×64 with bottom-seated 32×32 pieces, including both lamps; only
 the Grandfather Clock uses the full height. The
 portrait preserves the placed orientation; the category badge keeps the item icon.
