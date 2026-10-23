@@ -81,6 +81,9 @@ pixels and decorative details do not define additional tap cells.
   informational bubbles without passing the tap to the world. Explicit choices
   still require a response. The main menu, shops, story paintings and book list
   retain their mechanical panels.
+  Mechanical panels and the opening story sheet leave a 3.125% top gap,
+  one quarter of their former 12.5% gap. The shared `--panel-top-gap` owns
+  that spacing; long recipe and book catalogs keep their vertical scrolling.
   The original tall spirit painting remains available for scene art.
   Energy, distance and memories HUD help use this Spirit portrait and speech bubble.
   Energy briefly explains refills and capacity; distance reports true restored
