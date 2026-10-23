@@ -340,6 +340,10 @@ class SceneCreate {
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked
     // nothing like what gets planted. Bake the frame so all surfaces match.
     window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
+    // Barricade — the same: its 24×24 world frame keeps the timber X in its
+    // bottom ten rows, so the sheet route's 16×16 window (renderItemIcon)
+    // showed a few specks and the held item read as an empty slot.
+    window.ITEM_DATA_URLS.barricade = bakeSheetFrame('barricade', 0, 24, 24);
     // Badged icons (iconBadgeItem, items.js): the items whose own art is
     // shared — the Crops.png seeds' one bag, the saplings' one young tree —
     // wear the icon of what they yield in the corner. Baked at 32×32 off the

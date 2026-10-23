@@ -927,11 +927,18 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // HUNTING — GAME only, which is crow and deer: SpriteLayout.isGame reads
+    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
+    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
+    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
+    // HUNTING — GAME, which is every wild animal (SpriteLayout.isGame reads
     // the one creature table, so what may be hunted is written beside what
-    // that kill drops instead of in a set of its own here. A pet of any kind
-    // opens its individual menu above.
-    if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {
+    // that kill drops instead of in a set of its own here). HUNTED BY
+    // DEFAULT (owner, Oct 2026): a tap with nothing in hand, or anything
+    // that is not food, hunts it. Its favourite in hand is the catch above;
+    // plant produce feeds a producer (below); any other food is refused
+    // (below). A pet of any kind opens its individual menu above.
+    if (!isTame && SpriteLayout.isGame(target.kind) && !likes && !producerMeal && !isEdible
+        && Gear.activeWeapon(save)) {
       const r = save.relics || {};
       // ONE TOOL TAKES ANIMALS: the BUG NET. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
@@ -968,9 +975,6 @@ const TAP_HANDLERS = [
       // it never fights back, and the wheel fails if it runs out of reach.
       return true;
     }
-    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
-    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
-    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
     // Plant produce gives the species yield on its per-animal cooldown.
     //
     // Per-creature production cooldown: each chicken / cow only yields once

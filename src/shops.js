@@ -357,7 +357,10 @@
   function traderPrices() {
     if (!prices) {
       const gearIds = new Set(Gear.uniqueRelics().map(item => item.id));
-      prices = Object.fromEntries(ITEMS.filter(item => !item.progressionOnly && !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
+      // Live animals are catalog rows for the pet UI, never a bag item
+      // (Inventory.add refuses kind 'animal'): offered, the barter would take
+      // the ask and hand over nothing.
+      prices = Object.fromEntries(ITEMS.filter(item => !item.progressionOnly && item.kind !== 'animal' && !gearIds.has(item.id)).map(item => [item.id, itemValue(item.id)]));
     }
     return prices;
   }
