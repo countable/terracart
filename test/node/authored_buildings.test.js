@@ -51,7 +51,8 @@
     const onEdge = (p) => lot.some((a, i) => { const b = lot[(i + 1) % lot.length];
       const t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / ((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
       return t > -1e-6 && t < 1 + 1e-6 && Math.hypot(a.x + (b.x - a.x) * t - p.x, a.y + (b.y - a.y) * t - p.y) < 0.2; });
-    const ground = mesh.faces.filter((f) => f.kind === 'wall').flatMap((f) => f.points).filter((p) => p.z < 1e-6);
+    // The door overlay (layer .1) stands proud of its wall, clear of its depth.
+    const ground = mesh.faces.filter((f) => f.kind === 'wall' && f.layer !== .1).flatMap((f) => f.points).filter((p) => p.z < 1e-6);
     assert.truthy(ground.length > 0, 'walls reach the ground');
     for (const p of ground) assert.truthy(onEdge(p), `wall foot ${p.x.toFixed(1)},${p.y.toFixed(1)} lies on the lot outline`);
     for (const a of lot) assert.truthy(ground.some((p) => Math.hypot(p.x - a.x, p.y - a.y) < 1e-6), 'every lot corner is a wall corner');
