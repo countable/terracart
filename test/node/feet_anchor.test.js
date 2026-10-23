@@ -103,18 +103,20 @@ test('ground marks: the GPS marker stays visible with distance-based styling', (
     'baked by the shared ground-mark bake, in gold, as a ring with four ticks, a strip over the ticks\' period');
   assert.eq(GPS_RING.periodDeg, 90, 'four ticks repeat every quarter turn');
   assert.gt(GPS_RING.tilt, GROUND_MARK.tilt, 'rounder than the shared marks — at 0.5 it read squashed');
-  // The caret's paint (FACING_CHEVRON): a gold line on a dark outline, over a
-  // drop shadow that falls down the screen. Widths are on-screen px.
+  // The caret's paint (FACING_CHEVRON): a gold line on a dark outline, and
+  // no drop shadow — a soft shadow under the marker read as a blur. Widths
+  // are on-screen px.
   const k = GROUND_MARK.bakePx / GPS_RING.px;
-  const [shadow, outline, line] = GPS_RING.passes;
+  assert.eq(GPS_RING.passes.length, 2, 'outline and line only, no shadow pass');
+  const [outline, line] = GPS_RING.passes;
   assert.eq(outline[1], '#1a1208', 'the caret\'s dark outline');
   assert.lt(Math.abs(line[0] / k - GPS_RING.line), 1e-9, 'the gold line lands at its on-screen width');
   assert.gt(outline[0], line[0], 'the outline shows either side of the line');
-  assert.eq(shadow[1], '#000');
-  assert.gt(shadow[3], 0, 'the shadow is shifted DOWN the bake, which the tilt lays flat as screen-down');
-  assert.lt(Math.abs(shadow[3] / k * GPS_RING.tilt - GPS_RING.shadowPx), 1e-9, 'by shadowPx on screen');
-  // Everything stays inside the bake cell, shadow included.
-  const reach = GPS_RING.r + GPS_RING.tick + outline[0] / 2 + shadow[3];
+  assert.truthy(GPS_RING.passes.every(p => !p[3]), 'no pass is shifted into a drop shadow');
+  assert.truthy(/this\.gpsDisc = this\.add\.image\(this\.viewCenterX, this\.viewCenterY, 'gps_disc'\)/.test(app),
+    'the near-body disc is the crisp gps_disc bake, not the feathered contact shadow');
+  // Everything stays inside the bake cell.
+  const reach = GPS_RING.r + GPS_RING.tick + outline[0] / 2;
   assert.lt(reach, GROUND_MARK.bakePx / 2, 'no pass is clipped at the frame edge');
   assert.falsy(/gps_crosshair/.test(app), 'the old 20px crosshair bake is gone');
   // The walk-home lead stops on the ring's ellipse at the line's bearing.

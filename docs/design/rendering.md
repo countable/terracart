@@ -458,10 +458,16 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
-While `homeInside()` is true, a separate white luxury number sits above that
-sign in the same label pool and fades over the player. Its retained text key
-includes the active Home, indoor state and `Furniture.luxuryOf` score; the
-number never shares Home's typing clock.
+A separate white luxury number sits above that sign while `homeInside()` is
+true, and remains visible outside after dark (`Lighting.daylight < 0.5`). It
+uses the label pool and fades over the player. Its retained text key includes
+the active Home, indoor state, darkness and `Furniture.luxuryOf` score; the
+number never shares Home's typing clock. NPC house luxury appears in inspection.
+Once a resident moves in, their delivery bubble becomes a 24px portrait board
+on the front facade: dark green with a rounded brass rim and no speech tail.
+It follows the same heading, zoom, modal suppression and toast overlap rules as
+the existing delivery overlays. The portrait is the resident's conversation
+identity, including Tilly's housed face.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
@@ -767,10 +773,10 @@ the surrounding grove’s shrub scale.
   and the player's GPS ring (`gps_ring`, baked in gold) are its rows. The GPS
   ring's `GPS_RING` row carries its own on-screen width and tilt (at the
   shared tilt it read squashed) and the facing caret's paint instead of the
-  halo: a gold line on a dark outline over a drop shadow down the screen
-  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
+  halo: a gold line on a dark outline with no drop shadow (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
   the yellow ring, which darkens and turns translucent as it nears the body
-  while a dark disc (`gpsDisc`) fades in under it, until at the feet it is only
+  while a crisp dark disc (`gpsDisc`, the hard-edged `gps_disc` bake, not the
+  feathered contact shadow) fades in under it, until at the feet it is only
   a translucent dark circle (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a
   swap to a second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
   clamped there beyond five; distance is measured in world metres independently

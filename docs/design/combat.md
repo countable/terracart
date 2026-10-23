@@ -338,6 +338,22 @@ mechanics.
   Luxury milestones at 4/16/36/64/100 each bank one real memory once per save,
   with the normal immediate full heal and lifetime story progression. Pickup
   cannot remove or repeat an earned memory.
+- A housed neighbour's luxury also determines their help (`NPCBenefits`).
+  Tilly waters dry, immature surface crops within 15 cells of her house for
+  one minute per luxury point, followed by an hour's rest. She walks to a crop
+  or a cardinal neighbour through the NPC spawn gate and shared character
+  movement sweep; blocked crops are skipped, and she walks home afterwards.
+  Only foreground simulation waters crops: loading a save never backfills work.
+  Tilly's loaded-home chores continue beyond the player's normal 12-cell
+  creature simulation bubble, so she can reach the full crop radius and return
+  while the player stays home; other distant creatures remain frozen.
+  Actual watering records today's UTC date so talking to Tilly or visiting her
+  house can report, “Hey, I watered your crops today.” Other housed neighbours
+  offer daily gifts on a visit or conversation: Bryn gives Wood, Maud Apples,
+  Edda Flowers, Orrin Rock, and other residents Berries, one per luxury point.
+  Gifts reset by UTC day without accumulating missed days. A partly full bag
+  retains today's uncollected portion; successful collection fixes today's
+  allowance so furniture changes cannot repeat a gift.
 - The Quilted Cot restores all missing energy through `_restoreEnergy` and
   `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
   building cell and refuses full energy or `_zeroEnergyLocked()`, both before

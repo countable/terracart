@@ -1856,17 +1856,13 @@
   // offscreen` so nobody is watched appearing. PLACED, like the greeter:
   // they belong to this player's starting area, so their ids are the starter
   // tile's (`npc_<role>_<tx>_<ty>`) and they are seated off the frozen
-  // anchor, each on the nearest legal cell in the WARDEN_MIN..MAX_CELLS ring
-  // (the warden) or the wider NEIGHBOUR_MAX_CELLS ring (the rest), scanned
-  // in a fixed order. The warden is seated first so its cell never moves
-  // when the others arrive; the rest keep NEIGHBOUR_GAP_CELLS from every
-  // story neighbour already seated, so they spread round the trailer rather
-  // than queue along one ring. Idempotent per id; only a tile that has
-  // already spawned. Returns how many it seated just now.
+  // anchor. NPC.startingSeat chooses the legal wander centre farthest from
+  // the other village pins in the WARDEN_MIN..MAX_CELLS ring (the warden)
+  // or wider NEIGHBOUR_MAX_CELLS ring (the rest). Earlier pins never move as
+  // neighbours arrive. Idempotent per id; only an already spawned tile.
   const WARDEN_MIN_CELLS = 3;
   const WARDEN_MAX_CELLS = 6;
   const NEIGHBOUR_MAX_CELLS = 8;
-  const NEIGHBOUR_GAP_CELLS = 2;
   function placeSafeAreaWarden(scene, entry, tx, ty, seating = {}) {
     if (typeof NPC === 'undefined' || !entry || !entry.grid || !entry._spawned) return 0;
     const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor();
@@ -1875,39 +1871,26 @@
     entry.creatures = entry.creatures || [];
     const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
     const { N } = f;
-    const { ix: ax, iy: ay } = f.cellOf(anchor.x, anchor.y);
     // Everything standing on the tile, creatures included — the live
     // occupancy, handed to the gate with the entry's full options (the
     // same gate every other seat on the tile is judged by).
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants, entry.creatures);
     const opts = WorldGen.spawnOptsOf(entry, { occupied });
     const roles = (NPC.STORY_NEIGHBOURS || ['warden']).filter(role => !NPC.STORY_ROLES[role]?.radiusM && !NPC.STORY_ROLES[role]?.arrives);
-    const seated = [];   // story neighbours' cells, present already or seated now
-    for (const role of roles) {
-      const c = entry.creatures.find(o => o.id === `npc_${role}_${tx}_${ty}`);
-      if (c) seated.push(f.cellOf(c.x, c.y));
-    }
     let placed = 0;
     for (const role of roles) {
       const id = `npc_${role}_${tx}_${ty}`;
       if (entry.creatures.some(c => c.id === id) || scene.save.npcHomes?.[id]?.houseId) continue;
       if (!NPC.storyNeighbourDue(scene.save, role)) continue;
       const maxR = role === 'warden' ? WARDEN_MAX_CELLS : NEIGHBOUR_MAX_CELLS;
-      // The nearest ring cell (WorldGen.nearestRingCell — a fixed order)
-      // that the gate admits and no story neighbour crowds.
-      const seat = WorldGen.nearestRingCell(ax, ay, WARDEN_MIN_CELLS, maxR, (cx, cy) => {
-        if (!f.inTile(cx, cy)) return false;
-        if (role !== 'warden' && seated.some(s => Math.max(Math.abs(s.ix - cx), Math.abs(s.iy - cy)) < NEIGHBOUR_GAP_CELLS)) return false;
-        if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) return false;
-        return WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'npc');
-      });
+      const seat = NPC.startingSeat(scene, entry, tx, ty, anchor, WARDEN_MIN_CELLS, maxR, opts, id);
       if (!seat) continue;
       const { x, y } = f.centre(seat.ix, seat.iy);
       if (seating.offscreen && !seating.offscreen(x, y)) continue;
       const neighbour = WorldGen.makeCreature('npc', x, y, id, { ...NPC.storyNeighbour(id, role), homeX: x, homeY: y, _homeAnchor: '' });
       entry.creatures.push(neighbour);
+      if (NPC.rememberPin(scene, neighbour)) Save.persist(scene.save);
       occupied.add(seat.iy * N + seat.ix);
-      seated.push(seat);
       placed++;
     }
     return placed + placeDistantStoryNeighbours(scene, seating, { entry, tx, ty });
@@ -1953,7 +1936,7 @@
     for (const [role, row] of Object.entries(NPC.STORY_ROLES)) {
       if (!row.radiusM || !NPC.storyNeighbourDue(scene.save, role)) continue;
       const id = `npc_${role}_${Math.floor(anchor.x / edge)}_${Math.floor(anchor.y / edge)}`;
-      if ([...tiles.values()].some(e => e.creatures?.some(c => c.id === id))) continue;
+      if (scene.save.npcHomes?.[id]?.houseId || [...tiles.values()].some(e => e.creatures?.some(c => c.id === id))) continue;
       const owner = scene._sandboxMode ? scene : scene.save;
       const ledgerKey = scene._sandboxMode ? '_sandboxStoryNeighbourSeats' : 'storyNeighbourSeats';
       if (!owner[ledgerKey] || typeof owner[ledgerKey] !== 'object' || Array.isArray(owner[ledgerKey])) owner[ledgerKey] = {};

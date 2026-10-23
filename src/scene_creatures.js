@@ -1552,6 +1552,7 @@ class SceneCreatures {
     // covers it many times over.
     const RANGE_M = CREATURE_SIM_CELLS * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
+    const homeChoreActive = c => typeof NPCBenefits !== 'undefined' && NPCBenefits.shouldSimulate(this, c);
     // Per-frame loop hygiene: only the 3×3 tile neighbourhood is simmed (the sim
     // range is a handful of cells, a tile edge hundreds), and caught-membership is a
     // memoised Set.
@@ -1723,7 +1724,7 @@ class SceneCreatures {
       WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
         if (caughtSet.has(c.id)) return;
         const ddx = c.x - px, ddy = c.y - py;
-        if (ddx * ddx + ddy * ddy <= RANGE_SQ) {
+        if (ddx * ddx + ddy * ddy <= RANGE_SQ || homeChoreActive(c)) {
           bubble.push(c);
           return;
         }
@@ -1756,7 +1757,7 @@ class SceneCreatures {
     for (const c of bubble) {
       if (caughtSet.has(c.id)) continue;
       const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy > RANGE_SQ) {
+      if (ddx * ddx + ddy * ddy > RANGE_SQ && !homeChoreActive(c)) {
         c._walkHazardPrevious = null;
         if (c.kind === 'npc') c._moving = false;
         continue;
@@ -1776,7 +1777,7 @@ class SceneCreatures {
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
-      const far = ddx * ddx + ddy * ddy > RANGE_SQ;
+      const far = ddx * ddx + ddy * ddy > RANGE_SQ && !homeChoreActive(c);
       // Is this surface foe here for this player (EnemySpawns.surfaceActive —
       // it stamps `_surfaceInactive`, which Combat.isEnemy and the draw read)?
       // Asked every tick inside the bubble. Outside it — hundreds of seats

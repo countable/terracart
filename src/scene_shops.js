@@ -301,6 +301,12 @@ class SceneShops {
     // A delivery host (plain house, no shop role) takes ONE delivery ever
     // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house;
+    if (isDeliveryHost && Delivery.isSatisfied(this.save, house)) {
+      const resident = NPC.houseResident(this, house);
+      const visit = resident ? NPCBenefits.visit(this, resident) : null;
+      this.presentHouseFurniture(house, { resident, message: visit?.message });
+      return;
+    }
     // There is no per-hour deal cap (shops_math.js header). A deal is still
     // RECORDED against the house — it settles the shop: the shelf turns over
     // (the deal count is in shopRng's seed), the re-roll ladder drops back to
@@ -849,6 +855,7 @@ class SceneShops {
         // (keyed `house:<id>` so a house can't collide with an item id).
         const firstHere = this._bankDiscovery(`house:${house.id}`,
           'a first delivery to a new household');
+        NPC.markDelivery(this, house);
         // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         this._settleDeal(recordDeal, [`+${gain}`, UI_GOLD, 1, wanted[0]]);
