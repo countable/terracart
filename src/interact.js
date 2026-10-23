@@ -796,6 +796,9 @@ const TAP_HANDLERS = [
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.
     let target = null, bestD2 = Infinity;
+    // Heading-up turns the map but keeps every sprite upright on screen, so the
+    // body rises toward screen-up, not world north: measure the tap in that frame.
+    const upright = (x, y) => typeof HeadingUp !== 'undefined' ? HeadingUp.toScreenVec(scene, x, y) : { x, y };
     EnemySpawns.refreshHomeFauna(scene, false);
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id) || Combat.isConcealed(c) || !EnemySpawns.surfaceActive(scene, c)) return;
@@ -813,13 +816,14 @@ const TAP_HANDLERS = [
       const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
         || SpriteLayout.creatureTapSpanPx('chicken', inst);
       const halfW = (HALF_W[bk] ?? 2.0) * gMul + TAP_PAD_M;
-      const topY = c.y + span.top * px2m - TAP_PAD_M;                         // crown (or hop peak)
-      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M;   // under the feet
-      const bodyCY = c.y + (span.top + span.bottom) / 2 * px2m;   // drawn centre
-      if (Math.abs(wm.x - c.x) > halfW) return;
-      if (wm.y < topY || wm.y > botY) return;
+      const topY = span.top * px2m - TAP_PAD_M;                         // crown (or hop peak)
+      const botY = span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M;   // under the feet
+      const bodyCY = (span.top + span.bottom) / 2 * px2m;   // drawn centre
+      const tap = upright(wm.x - c.x, wm.y - c.y);           // from the foot, screen-aligned
+      if (Math.abs(tap.x) > halfW) return;
+      if (tap.y < topY || tap.y > botY) return;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, c.x, c.y)) return;
-      const ddx = wm.x - c.x, ddy = wm.y - bodyCY;
+      const ddx = tap.x, ddy = tap.y - bodyCY;
       const d2 = ddx * ddx + ddy * ddy;
       if (d2 < bestD2) { bestD2 = d2; target = c; }
     });

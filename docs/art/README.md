@@ -371,19 +371,28 @@ height vertical through compass rotation. It rebuilds a Graphics command
 buffer on heading changes without baking new Canvas textures. The legacy
 non-perspective path uses cached atlas wall sprites.
 
-For a representative 32px segment, an intact castle has one body plus four
-merlon prisms: 20 submitted triangles head-on, 30 diagonally. A fort uses
-eight separate post prisms: 32 head-on, 48 diagonally. These counts exclude
-separate tower sprites, corner joins and floors. Ruined castles can have fewer
-teeth. Thus forts currently spend more geometry on repeating small details.
+Fort runs use roughly six square posts per 32px cell. Each post retains
+20 triangles: four body faces split at the half-height colour boundary plus
+four pyramidal tip faces. Sparse grain stays in the shared texture atlas.
+Posts are one-sixth of a cell wide. Normal posts are 22.5 units tall with an
+8.5-unit carved point; alternating posts are 10% taller (24.75 units) with the
+same point length. Grain and face shades continue into the carved tip;
+compass changes reuse the geometry. Both polygonal and cell walls share these
+sizes and colours. Castle battlements retain their established renderer.
 
-The next useful fort optimization is a continuous wall strip with post spacing,
-grain and gaps in its texture, keeping corner posts as silhouette geometry.
-Castle masonry should likewise be textured, but its battlement outline merits
-retaining coarse geometry at close range. Alpha-cutout crowns could reduce
-farther walls, with view-angle and thin-edge checks before replacing the prisms.
-This change leaves both established perimeter renderers intact; it measures
-their costs rather than silently flattening their silhouettes.
+The central fort building is the full copper City hall, inset inside the lot
+and marked by one centered dice board, with no side sheds. The palisade uses
+the plank floor’s warm wood colour family. The original procedural plank floor
+remains visible around it. `tools/temple-fort-study/` previews that composition
+and the original pale temple floor with a low adobe-like brim.
+
+Temples use `TempleArt`'s small 16×12 running-bond bricks and native cyan runes,
+with dark stone for tar temples. Subtle light top/left and darker bottom/right
+edges give the bricks depth in the cached floor paint, without extra geometry.
+Brick faces meet edge to edge, with no mortar lines or gutters. A continuous three-unit-thick wall rises four units
+above the rune surface; the foundation extends seven units beneath it. The brim
+has no gate, battlements or corner towers. Polygon floors call the original
+slab painter directly; RA paving is not baked or substituted for temples.
 
 ## Third-party building art credit
 

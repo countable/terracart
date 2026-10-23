@@ -1678,13 +1678,6 @@ function makeBiomeTextures(scene, size) {
     bakeCanvas(scene, 'zone_ground_'+id, size, size, ctx => drawSelectedMaterial(ctx,size,id));
   }
   bakeCanvas(scene, 'selected_pier_deck', size, size, ctx => drawSelectedMaterial(ctx,size,'F08'));
-  // Temple floor materials only; architecture, runes and activation stay owned by TempleArt.
-  for (const active of [false,true]) for (const dark of [false,true]) {
-    bakeCanvas(scene, TempleArt.floorTexture(active,dark), size, size, ctx => {
-      drawSelectedMaterial(ctx,size,active ? 'F03' : 'F02');
-      if(dark) { ctx.globalCompositeOperation='multiply';ctx.fillStyle='#697080';ctx.fillRect(0,0,size,size); }
-    });
-  }
   makeSelectedRoundedTerrain(scene,size);
   makeCastlePavingTexture(scene, size);
   for (let v = 0; v < RIFT_GROUND_VARIANTS; v++) {

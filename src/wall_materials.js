@@ -1,12 +1,13 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v2', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v4', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
-  const WOOD = { height: 8, tipHeight: 3.4, thickness: 4.4, width: 4.4, pitch: 5.2, rounding: .26 };
+  // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
+  const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
   const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
-    stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xe3c8a1, woodSide: 0xcba47d };
+    stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xb59969, woodSide: 0x9e7e50 };
   // Approved shared RA olive ramp, continuously interpolated by source luminance
   // (+12), then given the review's 20% saturation lift. Bake the eight painted
   // shades instead of reading back or recoloring a canvas during scene rebuilds.
@@ -20,6 +21,10 @@
   const materialColor = material => rogueEnabled() && material.startsWith('hedge')
     ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
   const hash = (x, y) => ((Math.imul(x + 173, 374761393) ^ Math.imul(y + 97, 668265263)) >>> 0) / 4294967296;
+  function postHeight(index = 0) {
+    const total = WOOD.height + WOOD.tipHeight;
+    return (Math.trunc(index) & 1) ? total * WOOD.staggerScale - WOOD.tipHeight : WOOD.height;
+  }
   function multiplyColors(a, b) {
     const channel = shift => Math.round(((a >>> shift) & 255) * ((b >>> shift) & 255) / 255);
     return (channel(16) << 16) | (channel(8) << 8) | channel(0);
@@ -64,12 +69,12 @@
         fill('#827764', 0, n * .76, n, n * .24);
         fill('#746a58', 0, n - 15, n, 8); fill('#615b50', 0, n - 7, n, 7);
       } else if (name === 'woodSide') {
-        // Broad cel bands wrap once around the whole pole, across its facets.
-        fill('#9f7b61', 0, 0, 14, n); fill('#9f7b61', n - 14, 0, 14, n);
-        fill('#bd9673', 14, 0, 16, n); fill('#bd9673', n - 30, 0, 16, n);
-        fill('#dfc29b', 38, 0, 25, n - 15);
-        fill('#a17b60', 77, 44, 15, 30); fill('#a17b60', 91, 74, 12, 15);
-        fill('#876752', 0, n - 18, n, 18);
+        // Warm plank-floor browns with Rogue Adventure's sparse grain. Broad vertical
+        // bands give square faces weight; the mesh owns the half-height step.
+        fill('#675035', 0, 0, 10, n); fill('#675035', n - 10, 0, 10, n);
+        fill('#82653f', 10, 0, 15, n); fill('#82653f', n - 25, 0, 15, n);
+        fill('#b59969', 32, 0, 17, n);
+        fill('#82653f', 73, 38, 6, 26); fill('#82653f', 86, 81, 5, 17);
       }
       g.restore();
       // Duplicate border texels so affine Canvas and GPU filtering cannot bleed atlas neighbours.
@@ -198,14 +203,9 @@
   }
   function geometry(kind, points, height, options = {}) {
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
-    if (wood && points.length === 4) {
-      points = points.flatMap((p, i) => [points[(i + 3) % 4], points[(i + 1) % 4]].map(q => {
-        const length = Math.hypot(q.x - p.x, q.y - p.y), cut = length * WOOD.rounding;
-        return { x: p.x + (q.x - p.x) * cut / length, y: p.y + (q.y - p.y) * cut / length };
-      }));
-    }
     if (hedge && points.length >= 3 && height > 0) return hedgeGeometry(points, height, options);
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
+    const shadeHeight = wood ? (height + WOOD.tipHeight) / 2 : 0;
     if (n < 3 || height <= 0) return faces;
     const open = options.openEdges || [], d = hedge ? 1.6 : .7, bevel = Math.min(height / 3, hedge ? 1.5 : .65);
     const normals = points.map((a, i) => { const b = points[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.y - a.y) / l, y: (a.x - b.x) / l }; });
@@ -247,11 +247,25 @@
       const distance = Math.hypot(b.x - a.x, b.y - a.y);
       const sidePoint = (p, z, end) => ({ ...p, z,
         s: wood ? (across(p) - minAcross) / spanAcross : (alongX ? p.x + originX : p.y + originY) / repeat,
-        t: 1 - z / (hedge ? 124 : low) });
-      if (distance > 1e-8) surface(faces, [sidePoint(a, 0, 0), sidePoint(b, 0, 1), sidePoint(b, low, 1), sidePoint(a, low, 0)], (!wood && !hedge && distance <= 8 ? 'stoneEnd' : prefix + 'Side'), normal, wood ? (normal.x * .6 + normal.y * .8 > .35 ? 0xdfcdb8 : normal.x * .6 + normal.y * .8 < -.35 ? 0xffffff : 0xf1e4d2) : 0xffffff);
+        t: 1 - z / (hedge ? 124 : wood ? height + WOOD.tipHeight : low) });
+      const tint = wood ? (normal.x * .6 + normal.y * .8 > .35 ? 0xdfcdb8 : normal.x * .6 + normal.y * .8 < -.35 ? 0xffffff : 0xf1e4d2) : 0xffffff;
+      if (distance > 1e-8) {
+        // Two discrete bands also reach Canvas's flat-material fallback.
+        // UVs stay continuous: the colour step must not restart the grain.
+        const levels = wood ? [0, Math.min(shadeHeight, low), low] : [0, low];
+        for (let band = 1; band < levels.length; band++) {
+          const z0 = levels[band - 1], z1 = levels[band];
+          if (z1 <= z0) continue;
+          surface(faces, [sidePoint(a, z0, 0), sidePoint(b, z0, 1), sidePoint(b, z1, 1), sidePoint(a, z1, 0)],
+            (!wood && !hedge && distance <= 8 ? 'stoneEnd' : prefix + 'Side'), normal,
+            wood && z0 < shadeHeight ? multiplyColors(tint, WOOD.lowerTint) : tint);
+        }
+      }
       if (wood) {
-        surface(faces, [{ ...a, z: height, s: 0, t: 1 }, { ...b, z: height, s: 1, t: 1 },
-          { ...center, z: height + WOOD.tipHeight, s: .5, t: 0 }], 'woodTop', null, normal.x * .4 + normal.y * .6 > 0 ? 0xf6eadc : 0xffffff);
+        // One carved pole: carry the shaft's grain, UVs and face shade
+        // straight into its longer point instead of adding a bright cap.
+        surface(faces, [sidePoint(a, height), sidePoint(b, height),
+          sidePoint(center, height + WOOD.tipHeight)], 'woodSide', null, tint);
       } else {
         const edge = [topPoint(a), topPoint(b), topPoint(cap[j]), topPoint(cap[i])];
         edge[0].z = edge[1].z = low;
@@ -264,5 +278,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, WOOD, HEDGE, KEY, WHITE };
+  global.WallMaterials = { prepare, geometry, postHeight, WOOD, HEDGE, KEY, WHITE };
 })(globalThis);

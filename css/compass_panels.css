@@ -1,6 +1,8 @@
 /* Standalone dialogs live on body, outside the scaled game. Use the same
-   phone gutters as the HUD so their panels and backdrops stay in the device. */
-body > :is(#bootload, #story, #howto, #tooshort, #locating) {
+   phone gutters as the HUD so their panels and backdrops stay in the device.
+   #tooshort is left out on purpose: it only shows when that column is too
+   small to use, so it spans the whole viewport instead. */
+body > :is(#bootload, #story, #howto, #locating) {
   left: var(--phone-left, 0px);
   right: var(--phone-right, 0px);
   width: auto;

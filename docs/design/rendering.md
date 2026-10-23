@@ -424,7 +424,10 @@ house floor on the canvas and then the house. On the low-poly path it is the
 (`scene.homeInside`, part of the overlay's claim epoch) its recipe is
 `interior` — the roof off, the walls level at the eaves, inner faces and a
 thick timber top band (`interiorGeometry`) — and the lightmap masks the outside (see
-Lighting). An interior is one render object PER WALL (`interiorGeometry`
+Lighting). A skinned Home keeps its authored skin inside: the outer faces are
+the facade seen from outside, cut at its `eaveHeight`, and the tops take the
+skin's plain wall texel; only retail rooms and whole-shell landmarks fall back
+to procedural walls. An interior is one render object PER WALL (`interiorGeometry`
 tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
 edge), each sorted in the shared world sort at its wall's sort point
 (`WallPerspective.wallSortPoint`, the one rule both building paths share:
@@ -557,7 +560,8 @@ the surrounding grove’s shrub scale.
   from UI projections and inverse taps. Depth ≥ 90 draws on an
   unturned `uiCam`. Upright art counterrotates around explicit ground anchors
   and sorts by rotated feet only between `prerender` and `postrender`.
-  Groundcover and ground decals retain the map rotation. Body effects, tree fruit and tower
+  Groundcover and ground decals retain the map rotation. Body effects (the
+  ghost's halo layer included), tree fruit and tower
   flags share their owner's anchor; transparent frame padding is not a foot.
   Roof signs and DOM delivery bubbles use that same footprint anchor; batched
   sign boards and smoke counterrotate their drawing commands. Contact shadows
@@ -690,6 +694,8 @@ the surrounding grove’s shrub scale.
   buildings select the frontmost drawn owner, with no hits in empty corners of
   pitched roofs. The owner routes through the ordinary interaction registry and
   existing reach/visibility gates; ground-footprint taps remain supported.
+  Creature taps test the drawn body box from the foot along screen-up
+  (`HeadingUp.toScreenVec`), since bodies stay upright on a turned map.
   Seat upright cell props through `SpriteLayout.contactSeat` and `ART_BOUNDS`:
   pin the opaque art's ground contact at the cell centre. Standing props use a
   contact five source pixels above the opaque bottom (clamped for smaller art);

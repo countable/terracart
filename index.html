@@ -871,7 +871,8 @@
       padding: 20px;
     }
     #tooshort .box {
-      max-width: 340px; background: #000; color: #fff;
+      max-width: 340px; max-height: 100%; overflow-y: auto;
+      box-sizing: border-box; background: #000; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px var(--font-ui); line-height: 1.45;
@@ -879,6 +880,13 @@
     #tooshort .glyph { font-size: 34px; line-height: 1; margin-bottom: 12px; }
     #tooshort p { margin: 0 0 14px; }
     #tooshort .sub { font-size: 12px; opacity: .75; }
+    /* A phone on its side can be barely 320px tall: tighten the card. */
+    @media (max-height: 360px) {
+      #tooshort { padding: 12px; }
+      #tooshort .box { padding: 14px 18px; }
+      #tooshort .glyph { font-size: 26px; margin-bottom: 6px; }
+      #tooshort p { margin-bottom: 10px; }
+    }
     #tooshort button {
       background: transparent; color: var(--gold-dark);
       border: 1px solid #6b5a2c; border-radius: 8px;
@@ -1345,7 +1353,7 @@
   </style>
   <link rel="stylesheet" href="css/compass_hud.css?v=675d47cb">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=00ec4765">
+  <link rel="stylesheet" href="css/compass_panels.css?v=1e99fc64">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
   <link rel="stylesheet" href="css/book_reader.css?v=6c9148bc">
 </head>
@@ -3252,7 +3260,7 @@
   <script src="src/underground_stories.js?v=deb09860"></script>
   <script src="src/worldgen.js?v=d2e7ba35"></script>
   <script src="src/castle_styles.js?v=8a4d031c"></script>
-  <script src="src/textures.js?v=d7095139"></script>
+  <script src="src/textures.js?v=664f1bc5"></script>
   <script src="src/floor_wall_materials.js?v=e3674686"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=946ddc58"></script>
@@ -3304,21 +3312,21 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=6583ca41"></script>
+  <script src="src/interact.js?v=f982418a"></script>
   <script src="src/play_tips.js?v=3ae15378"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=eff3dc9d"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=ccf536a5"></script>
+  <script src="src/render.js?v=9e116b8d"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=f939dd1a"></script>
   <script src="src/road_overlay.js?v=3d102a43"></script>
-  <script src="src/temple_art.js?v=e102797a"></script>
-  <script src="src/wall_materials.js?v=c562bb11"></script>
+  <script src="src/temple_art.js?v=8e47066c"></script>
+  <script src="src/wall_materials.js?v=f139380d"></script>
   <script src="src/wall_surface_renderer.js?v=f688d056"></script>
   <script src="src/prop_lowpoly.js?v=7a976750"></script>
-  <script src="src/wall_perspective.js?v=df3f4464"></script>
+  <script src="src/wall_perspective.js?v=32757f00"></script>
   <script src="src/building_styles.js?v=d936c33a"></script>
   <script src="src/authored-buildings/roof-materials.js?v=5cb7dd3c"></script>
   <script src="src/authored-buildings/facade-materials.js?v=3c611157"></script>
@@ -3328,14 +3336,14 @@
   <script src="src/authored-buildings/steam-blacksmith.js?v=4c3070b4"></script>
   <script src="src/authored-buildings/steam-wizard.js?v=6dd87779"></script>
   <script src="src/authored-buildings/city-buildings.js?v=cde9efc7"></script>
-  <script src="src/authored_roof_palette.js?v=72bd9c4d"></script>
-  <script src="src/authored_buildings.js?v=7c871a72"></script>
+  <script src="src/authored_roof_palette.js?v=8c7edfba"></script>
+  <script src="src/authored_buildings.js?v=33b34fcd"></script>
   <script src="src/authored_building_renderer.js?v=8da48b5e"></script>
-  <script src="src/building_lowpoly.js?v=1997605f"></script>
+  <script src="src/building_lowpoly.js?v=ba5acd42"></script>
   <script src="src/fdr_castle_layout.js?v=39a4988f"></script>
   <script src="src/fdr_castle_geometry.js?v=4709b972"></script>
   <script src="src/fdr_castle_canvas.js?v=61b2dd7d"></script>
-  <script src="src/building_overlay.js?v=86249e3e"></script>
+  <script src="src/building_overlay.js?v=ed9fbfb2"></script>
   <script src="src/art_atlas.js?v=bcd97f7b"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>
   <script src="src/assets.js?v=c17b6393"></script>
@@ -3360,7 +3368,7 @@
   <script src="src/scene_creatures.js?v=8baa6136"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=d21ce03a"></script>
-  <script src="src/heading_up.js?v=7edafbe8"></script>
+  <script src="src/heading_up.js?v=c5a5fa95"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=09e52940"></script>
   <script src="src/scene_create.js?v=32062d2e"></script>
@@ -3370,7 +3378,7 @@
   <script src="src/scene_consumables.js?v=13f93c2c"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
   <script src="src/scene_venues.js?v=129baf5f"></script>
-  <script src="src/scene_furniture.js?v=884a0330"></script>
+  <script src="src/scene_furniture.js?v=e3330a79"></script>
   <script src="src/scene_streets.js?v=5dedf09e"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
