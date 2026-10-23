@@ -1837,7 +1837,28 @@
     faces.push(...decorations);
     return {mountedSign,ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
-  function authoredGeometry(model,ring,inset=1,door=null){
+  function authoredGeometry(model,ring,inset=1,door=null,emblem=null){
+    if(emblem?.sign&&model.authoredKey==='city_storefront'){
+      // Fit the solid dice board with the hall, above the entrance and centered
+      // on its native front facade. Source coordinates retain the city's scale.
+      const spec=AuthoredBuildings.SPECS[model.authoredKey],C=Math.cos(Math.PI/6),unit=16/spec.door[3];
+      const x=(spec.right-spec.left)/2*unit,y=(spec.depth*2+.4)*unit,z=((spec.base-spec.eave)/C-34)*unit;
+      const W=34*unit,H=32*unit,T=3*unit,faces=[],template=model.faces[0];
+      const emit=(ps,front=false,shade=1)=>{
+        const [u0,v0,u1,v1]=emblem.signUV,uv=front?[[u0,v1],[u1,v1],[u1,v0],[u0,v0]]:Array(4).fill(emblem.signSideUV);
+        for(const ids of [[0,1,2],[0,2,3]])faces.push({...template,kind:'wall',feature:front?'fort-sign':'fort-sign-side',layer:.2,
+          texture:emblem.sign,roofPalette:false,sourceArt:true,rawUV:true,preserveWalls:true,color:0xffffff,light:1,shade,
+          points:ids.map(i=>({...ps[i],tu:uv[i][0],tv:uv[i][1]}))});
+      };
+      const p=(xx,yy,zz)=>({x:xx,y:yy,z:zz}),l=x-W/2,r=x+W/2;
+      emit([p(r,y+T,z),p(l,y+T,z),p(l,y+T,z+H),p(r,y+T,z+H)],true);
+      emit([p(l,y,z),p(r,y,z),p(r,y,z+H),p(l,y,z+H)],false,.75);
+      emit([p(l,y+T,z),p(l,y,z),p(l,y,z+H),p(l,y+T,z+H)],false,.8);
+      emit([p(r,y,z),p(r,y+T,z),p(r,y+T,z+H),p(r,y,z+H)],false,.8);
+      emit([p(l,y,z+H),p(r,y,z+H),p(r,y+T,z+H),p(l,y+T,z+H)]);
+      emit([p(l,y+T,z),p(r,y+T,z),p(r,y,z),p(l,y,z)],false,.7);
+      model={...model,mountedSign:true,faces:[...model.faces,...faces]};
+    }
     if(door){const {x:nx,y:ny}=door.normal;
       model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,x:ny*p.x+nx*p.y*.5,y:(-nx*p.x+ny*p.y*.5)*2}))}))};
     }
@@ -1925,7 +1946,7 @@
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,(recipe.role==='fort'&&!recipe.authored.sourceShell) ? .65 : 1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,recipe.role==='fort' ? .65 : 1,authoredDoor,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};

@@ -80,6 +80,9 @@
     // Reuse the actual category signs, including the smith's armour symbol.
     // Traders already use this arrow for their barter; generic shops use supplies.
     if (role === 'trader') return typeof TRADE_ARROW_PX !== 'undefined' ? TRADE_ARROW_PX : null;
+    if (role === 'fort') return [
+      '#########', '#.......#', '#.#...#.#', '#.......#', '#...#...#',
+      '#.......#', '#.#...#.#', '#.......#', '#########'];
     return Render.shopSignGlyph(role === 'shop' ? 'supply' : role, role);
   }
 
@@ -142,7 +145,9 @@
       symbol(0, 0, roofInk(.92));
       rect(roofInk(.55), 80, 0, 4, 4);
 
-      const look = Render.shopSignLook(null);
+      const look = role === 'fort'
+        ? { background: roofInk(1.35), shadow: roofInk(.42), ink: roofInk(.3) }
+        : Render.shopSignLook(null);
       rect(look.background, 40, 0, EMBLEM_SIZE, EMBLEM_SIZE);
       for (let y = 5; y < EMBLEM_SIZE; y += 6) rect(look.shadow, 40, y, EMBLEM_SIZE, 1);
       symbol(40, 1, look.shadow);

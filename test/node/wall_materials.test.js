@@ -73,10 +73,35 @@
       for (const b of face.points.slice(1)) assert.lt(Math.abs((b.u - a.u) - (b[axis] - a[axis]) / 14 * 124 / 512), 1e-8, 'cap joints run across the arm');
     }
   });
-  test('wall materials: pointed timber retains a small mesh and fixed support height', () => {
-    const w = WallMaterials.WOOD, faces = WallMaterials.geometry('wood', [{ x: 0, y: 0 }, { x: w.width, y: 0 }, { x: w.width, y: w.width }, { x: 0, y: w.width }], w.height);
-    assert.eq(faces.length, 24, 'chamfered pole sides and eight pointed crown faces');
-    assert.eq(Math.max(...faces.flatMap(f => f.points.map(p => p.z))), w.height + w.tipHeight, 'point height');
+  test('wall materials: staggered timber shares a floor-coloured ramp and continuous carved points', () => {
+    const w = WallMaterials.WOOD;
+    assert.eq(w.width, 32 / 6, 'sixth-cell square pole');
+    assert.eq(w.thickness, w.width);
+    assert.eq(w.height + w.tipHeight, 22.5, 'short pole includes its shortened point');
+    assert.eq(w.tipHeight, 10 * .85, 'points are 15% shorter');
+    assert.lt(Math.abs((WallMaterials.postHeight(1) + w.tipHeight) / (WallMaterials.postHeight(0) + w.tipHeight) - 1.1), 1e-10, 'alternate total pole height is 10% greater');
+    assert.eq(WallMaterials.postHeight(2), WallMaterials.postHeight(0), 'two-post rhythm repeats');
+    for (const index of [0, 1]) {
+      const height = WallMaterials.postHeight(index), half = (height + w.tipHeight) / 2;
+      const faces = WallMaterials.geometry('wood', [{ x: 0, y: 0 }, { x: w.width, y: 0 }, { x: w.width, y: w.width }, { x: 0, y: w.width }], height);
+      assert.eq(faces.length, 20, 'four square sides in two shade bands and four pointed crown faces');
+      const body = faces.filter(f => f.normal), north = body.filter(f => f.normal.y === -1);
+      const dark = north.find(f => f.points.every(p => p.z <= half));
+      const light = north.find(f => f.points.every(p => p.z >= half));
+      assert.truthy(dark && light, 'each pole has its own half-height colour boundary');
+      assert.eq(light.flatColor, 0x9e7e50, 'upper wood matches the original plank-floor body');
+      assert.lt(dark.flatColor, light.flatColor, 'upper half stays lighter in flat fallback');
+      assert.truthy(body.flatMap(f => f.points).every(p => (p.x === 0 || p.x === w.width) && (p.y === 0 || p.y === w.width)), 'no rounded or chamfered footprint');
+      assert.eq(Math.max(...faces.flatMap(f => f.points.map(p => p.z))), height + w.tipHeight, 'point height');
+      for (const tip of faces.filter(f => f.normal === null)) {
+        const base = tip.points.filter(p => p.z === height);
+        const shaft = body.find(f => base.every(p => f.points.some(q => q.x === p.x && q.y === p.y && q.z === p.z)));
+        assert.truthy(shaft, 'point shares its complete base edge with a shaft face');
+        assert.eq(tip.flatColor, shaft.flatColor, 'point continues the shaft colour');
+        for (const p of base) { const q = shaft.points.find(q => q.x === p.x && q.y === p.y && q.z === p.z); assert.eq(p.u, q.u, 'grain U continues through point base'); assert.eq(p.v, q.v, 'grain V continues through point base'); }
+        assert.eq(Math.max(...tip.points.map(p => p.z)) - height, w.tipHeight, 'short and long logs keep the same point length');
+      }
+    }
   });
   test('wall materials: state tint colors both GPU and flat fallbacks', () => {
     const points = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }];
