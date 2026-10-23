@@ -447,8 +447,8 @@ class SceneFurniture {
 
     const art = document.createElement('div');
     art.className = 'furniture-art';
-    art.style.cssText = 'font-size:0;margin:0 auto 8px;width:128px;';
-    art.innerHTML = this.worldIconHTML('furniture', 128, furnitureFrame(item.id), 256);
+    art.style.cssText = 'font-size:0;margin:0 auto 8px;width:96px;';
+    art.innerHTML = this.worldIconHTML('furniture', 96, furnitureFrame(item.id), 192);
     art.style.transform = record.flip ? 'scaleX(-1)' : '';
     box.appendChild(art);
     const name = document.createElement('div');
