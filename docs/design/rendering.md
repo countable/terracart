@@ -694,6 +694,8 @@ the surrounding grove’s shrub scale.
   buildings select the frontmost drawn owner, with no hits in empty corners of
   pitched roofs. The owner routes through the ordinary interaction registry and
   existing reach/visibility gates; ground-footprint taps remain supported.
+  Creature taps test the drawn body box from the foot along screen-up
+  (`HeadingUp.toScreenVec`), since bodies stay upright on a turned map.
   Seat upright cell props through `SpriteLayout.contactSeat` and `ART_BOUNDS`:
   pin the opaque art's ground contact at the cell centre. Standing props use a
   contact five source pixels above the opaque bottom (clamped for smaller art);
