@@ -1435,13 +1435,14 @@ class SceneCreate {
     window.__chooseMode = (mode) => this.chooseMode(mode);
 
     // First arrival in the world — show the how-to card over the live map, so
-    // the reach bubble and the objective chip it points at are visible behind
-    // it. Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
+    // the reach bubble it points at is visible behind it (the Spirit's
+    // bubble waits for the card to close — _armStarterGuidance). Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
     // play" reopens it any time. Must sit BELOW the Sandbox.install above:
     // that call is what sets _sandboxMode, and the sandbox is a dev world that
     // has no use for the card. index.html queues the first-run card behind the
     // opening story slides, so calling it here can't jump the story.
     if (!this._sandboxMode) window.showHowTo?.();
+    this._armStarterGuidance();
 
     // Boot tile load. The initial 3×3 tile block can take seconds on a cold
     // cache and the in-world shimmer reads as stalled, not loading. Keep the overlay up (its bar

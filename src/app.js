@@ -9426,6 +9426,16 @@ class MapScene extends Phaser.Scene {
     // empty green field. Hold the chip until at least one tile is ready; the
     // #banner is what's talking to the player in that state.
     if (this._tilesReady === 0) { el.style.display = 'none'; return; }
+    // Held until the opening clears (_armStarterGuidance), then the hello.
+    if (this._starterWaiting) { el.style.display = 'none'; return; }
+    const hello = this._starterIntroLine;
+    if (hello != null) {
+      el.querySelector('.step').textContent  = '';
+      el.querySelector('.title').textContent = '';
+      el.querySelector('.body').textContent  = hello;
+      el.style.display = 'block';
+      return;
+    }
     const step = Quests.starterCurrent(this.save);
     if (!step) { el.style.display = 'none'; return; }
     const idx = Quests.starterStepIndex(this.save);
@@ -9433,6 +9443,40 @@ class MapScene extends Phaser.Scene {
     el.querySelector('.title').textContent = step.title;
     el.querySelector('.body').textContent  = step.body;
     el.style.display = 'block';
+  }
+
+  // Keep the Spirit quiet through the opening: wait until every boot overlay
+  // and the how-to card are gone (index.html __introUp) and the first tile is
+  // up, then STARTER_INTRO.revealMs more, then say hello and give the first step.
+  _armStarterGuidance() {
+    this._starterWaiting = true;
+    this.updateObjectiveDOM();
+    let clearAt = null;
+    const poll = setInterval(() => {
+      const now = performance.now();
+      // No tiles yet means no bubble to speak in (updateObjectiveDOM).
+      if (window.__introUp?.() || !(this._tilesReady > 0)) { clearAt = null; return; }
+      if (clearAt == null) clearAt = now;
+      if (now - clearAt < STARTER_INTRO.revealMs) return;
+      clearInterval(poll);
+      this._starterWaiting = false;
+      this._playStarterIntro(Quests.starterHidden(this.save) ? [] : Quests.starterIntroLines(this.save));
+    }, 250);
+  }
+
+  // One hello line per STARTER_INTRO.lineMs in the step bubble, then the
+  // ladder's current instruction. Marked heard only once the last line has
+  // shown, so a reload mid-hello replays it.
+  _playStarterIntro(lines) {
+    if (!lines.length) {
+      if (this._starterIntroLine != null) { Quests.starterMarkIntroduced(this.save); persistSave(this.save); }
+      this._starterIntroLine = null;
+      this.updateObjectiveDOM();
+      return;
+    }
+    this._starterIntroLine = lines[0];
+    this.updateObjectiveDOM();
+    setTimeout(() => this._playStarterIntro(lines.slice(1)), STARTER_INTRO.lineMs);
   }
 
   // Hide the chip for good (the × button). The ladder keeps tracking quietly

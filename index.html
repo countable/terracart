@@ -126,7 +126,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=4d1e357e" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=31a79544" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2964,6 +2964,12 @@
       syncHowToSkip();
       overlay.style.display = 'flex';
     };
+    // Is the opening still on screen — a boot overlay, or the how-to card
+    // showing or queued? app.js holds the Spirit's first bubble until not.
+    window.__introUp = function () {
+      return introOverlayUp() || __howtoPending
+        || document.getElementById('howto')?.style.display === 'flex';
+    };
     // Called from each boot overlay as it clears. No-ops until the LAST one is
     // gone, so it is safe to fire from all of them.
     window.__flushPendingHowTo = function () {
@@ -3270,7 +3276,7 @@
   <script src="src/rarity.js?v=0f8a8b17"></script>
   <script src="src/loot.js?v=759b31b7"></script>
   <script src="src/macros.js?v=8ebeca54"></script>
-  <script src="src/quests.js?v=0a05c736"></script>
+  <script src="src/quests.js?v=a5182540"></script>
   <script src="src/hidden_objects.js?v=e290e73d"></script>
   <script src="src/push_blocks.js?v=e0527454"></script>
   <script src="src/temple_puzzles.js?v=a09c5625"></script>
@@ -3357,7 +3363,7 @@
   <script src="src/heading_up.js?v=7edafbe8"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=09e52940"></script>
-  <script src="src/scene_create.js?v=eb9ed65b"></script>
+  <script src="src/scene_create.js?v=32062d2e"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3436,7 +3442,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=4d1e357e';
+      const APP_SRC = 'src/app.js?v=31a79544';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

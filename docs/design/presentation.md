@@ -246,7 +246,10 @@ pixels and decorative details do not define additional tap cells.
   for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
-  speech bubble on the upper map. Each step gives one spoken instruction;
+  speech bubble on the upper map. It stays hidden until the opening story,
+  safety card and how-to card have cleared and the first map tile is up, then
+  waits five more seconds; a save still on step 1 first hears Tori's
+  two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
   completion briefly acknowledges it in the same bubble. Only the dismiss
   button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps

@@ -39,4 +39,35 @@
     scene._tilesReady = 0; scene.updateObjectiveDOM();
     assert.eq(element.style.display, 'none', 'no advice about unloaded ground');
   });
+  test('tutorial guidance: Spirit waits for the opening, says hello once, then gives step 1', () => {
+    const fields = Object.fromEntries(['.step', '.title', '.body'].map(k => [k, { textContent: '' }]));
+    const element = { style: {}, querySelector: k => fields[k], classList: { add() {}, remove() {} } };
+    let tick, later = [], introUp = true, clock = 0;
+    const deps = { document: { getElementById: () => element }, persistSave() {},
+      window: { __introUp: () => introUp }, performance: { now: () => clock },
+      setInterval(fn) { tick = fn; return 1; }, clearInterval() { tick = null; },
+      setTimeout(fn) { later.push(fn); return 1; } };
+    const scene = { save: {}, _tilesReady: 0 };
+    for (const m of ['updateObjectiveDOM', '_armStarterGuidance', '_playStarterIntro']) scene[m] = liftSceneMethod(m, deps);
+    scene._armStarterGuidance();
+    assert.eq(element.style.display, 'none', 'hidden while the intro is up');
+    clock = 60000; tick();
+    assert.eq(element.style.display, 'none', 'still hidden: intro overlay showing');
+    introUp = false; tick(); clock += STARTER_INTRO.revealMs; tick();
+    assert.eq(element.style.display, 'none', 'the delay waits for ground to speak over');
+    scene._tilesReady = 1; tick(); clock += STARTER_INTRO.revealMs - 1; tick();
+    assert.eq(element.style.display, 'none', 'waits the full reveal delay after the intro clears');
+    clock += 1; tick();
+    assert.eq(tick, null, 'poll stops once revealed');
+    assert.eq(element.style.display, 'block');
+    assert.eq(fields['.body'].textContent, STARTER_INTRO.lines[0]);
+    for (let i = 1; i < STARTER_INTRO.lines.length; i++) {
+      later.shift()();
+      assert.eq(fields['.body'].textContent, STARTER_INTRO.lines[i]);
+    }
+    later.shift()();
+    assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body, 'first instruction follows the hello');
+    assert.eq(Quests.starterIntroLines(scene.save).length, 0, 'hello is heard once per save');
+    assert.eq(Quests.starterIntroLines({ starter: { step: 2 } }).length, 0, 'no hello mid-ladder');
+  });
 })();
