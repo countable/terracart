@@ -1148,8 +1148,8 @@ class SceneCreate {
       .setMask(mask);
     this.playerHalo.clearMask();
     this.playerWorldContainer.add(this.playerHalo);
-    // GPS marker: the yellow ring, fading dark and translucent into a dark
-    // disc (gpsDisc, under it) near the player (Render.gpsMarkerStyle).
+    // GPS marker: the yellow ring, fading out to nothing near the player
+    // (Render.gpsMarkerStyle).
     // Update scales its radius down to half at five cells.
     // Ground paint, so it lives with the shadows and the walk-home lead
     // (shadowContainer, under every standing sprite): the body stands ON the
@@ -1165,20 +1165,6 @@ class SceneCreate {
       .setVisible(false)
       .setMask(mask);
     this.gpsGhost.clearMask();
-    // The near-body disc: a hard-edged dark ellipse, not the feathered
-    // 'bldg_shadow' — the marker is ground paint and casts no soft shadow.
-    if (!this.textures.exists('gps_disc')) {
-      const dg = this.make.graphics({ x: 0, y: 0, add: false });
-      dg.fillStyle(GPS_RING.fade.dark, 1);
-      dg.fillEllipse(32, 16, 60, 30);
-      dg.generateTexture('gps_disc', 64, 32);
-      dg.destroy();
-    }
-    this.gpsDisc = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_disc')
-      .setOrigin(0.5, 0.5)
-      .setDepth(9.79)
-      .setVisible(false);
-    this.shadowContainer.add(this.gpsDisc);
     this.shadowContainer.add(this.gpsGhost);
     // Walk-home lead — the dashed line from the feet to the GPS dot while
     // the character is walking itself back (see _drawWalkHomeHint). Depth
