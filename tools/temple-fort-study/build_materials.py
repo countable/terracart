@@ -10,6 +10,7 @@ from PIL import Image, ImageDraw
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets'
 RECIPES = [
+    ('temple-closed-door', 'RA_Temple.png', (672, 152, 16, 24), False, 'Native shut double door with framed sacred panel; no open doorway pixels.'),
     ('temple-pale', 'RA_Sanctuary.png', (0, 0, 16, 16), False, 'Framed pale slab for floor and coping.'),
     ('temple-dark', 'RA_Sanctuary.png', (256, 0, 16, 16), False, 'Native matching dark slab.'),
     ('temple-wall', 'RA_Sanctuary.png', (2, 2, 12, 12), False, 'Quiet pale stone face, native pixels with frame removed.'),
