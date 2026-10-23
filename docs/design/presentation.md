@@ -246,7 +246,10 @@ pixels and decorative details do not define additional tap cells.
   for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
-  speech bubble on the upper map. Each step gives one spoken instruction;
+  speech bubble on the upper map. It stays hidden until the opening story,
+  safety card and how-to card have cleared and the first map tile is up, then
+  waits five more seconds; a save still on step 1 first hears Tori's
+  two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
   completion briefly acknowledges it in the same bubble. Only the dismiss
   button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
@@ -696,8 +699,10 @@ instructions and replacement explanations are omitted. A vacant delivered house
 shows its empty slots and explains that it is ready for an available neighbour;
 furnishing starts after the neighbour moves in.
 
-Home shows its current luxury as a white number above its sign while indoors
-and from outside after dark. The score updates immediately, separately from
+Home shows "House luxury level: N · Rank" in small white text a clear gap above
+its sign while indoors and from outside after dark. The rank is the
+`MemoryStory.luxuryRank` descriptor for the luxury milestone thresholds
+(Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). The score updates immediately, separately from
 Home's introductory typing, and fades when it overlaps the player.
 
 Old Archive Court's existing style deterministically selects delivery or luxury

@@ -235,6 +235,17 @@ const STARTER_CHAIN = [
   },
 ];
 
+// The Spirit's hello before step 1. The bubble stays down until the opening
+// (story slides, safety card, how-to card) has cleared and REVEAL_MS more has
+// passed, then speaks each line for LINE_MS before the first instruction.
+// Played once per save (save.starter.introduced), and only while the ladder
+// is still on its first step.
+const STARTER_INTRO = {
+  lines: ['Hey, it’s me! Tori!', 'Yes, a dragon spirit living in your compass.'],
+  revealMs: 5000,
+  lineMs: 3500,
+};
+
 // Starter-chain half of the Quests API. Namespaced with a `starter` prefix so
 // the castle-chain calls above keep their short names and no call site can
 // accidentally drive the wrong ladder.
@@ -267,6 +278,17 @@ Object.assign(Quests, {
   // dismiss it and never see it again.
   starterHidden(save) {
     return !!window.__sandboxSkipTutorial || !!this._ss(save).dismissed || this.starterAllDone(save);
+  },
+
+  // The hello lines still owed to this save; empty once heard, or for a save
+  // that is already past step 1.
+  starterIntroLines(save) {
+    const ss = this._ss(save);
+    return ss.introduced || (ss.step ?? 0) > 0 ? [] : STARTER_INTRO.lines;
+  },
+
+  starterMarkIntroduced(save) {
+    this._ss(save).introduced = true;
   },
 
   starterDismiss(save) {
