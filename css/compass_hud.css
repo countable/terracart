@@ -23,13 +23,21 @@ body.compass-hud #energy-label {position:relative;font:bold 12px var(--font-ui);
 body.compass-hud #menu {left:calc(var(--phone-left,0px) + 10px);top:16px;z-index:8;}
 body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradient(#f5e6ae,#baa05a);border:3px ridge #d7c48a;border-radius:50%;font:26px var(--font-ui);color:#54451f;box-shadow:0 2px 5px #31444a;}
 body.compass-hud #mode-badge,body.compass-hud #mp-btn {display:none!important;}
-/* THE STATUS ROW (app.js _syncStatusRow, STATUS_ROW_CSS): statuses, buffs and
-   timers as chips on the footer plate — left of the joystick, under the zoom
-   slider, clear of the round map (owner, Oct 2026: the skin had hidden them).
-   Wraps into rows from the top-left; clipped above the inventory tabs. The
-   objective bubble never re-seats it here (the top anchor is the skin's). */
-body.compass-hud #status-row {top:calc(var(--compass-map-top) + var(--compass-map-size) + 34px);bottom:212px;left:calc(var(--phone-left,0px) + 12px);right:auto;width:226px;flex-direction:row;flex-wrap:wrap;align-items:flex-start;align-content:flex-start;justify-content:flex-start;overflow:hidden;}
-@media (max-height:650px) {body.compass-hud #status-row {top:calc(var(--compass-map-top) + var(--compass-map-size) + 6px);bottom:186px;width:200px;}}
+/* Active effects share the inventory deck's live layout anchor. The old
+   map-based top and fixed bottom could collapse this area on short screens.
+   A single icon row stays left of the joystick; extra effects scroll instead
+   of being clipped, with harmful conditions first. */
+body.compass-hud #status-row {
+  top:auto; bottom:calc(100dvh - var(--compass-deck-top) + 6px);
+  left:calc(var(--phone-left,0px) + 12px); right:auto;
+  width:calc(var(--compass-map-size) - 170 * var(--compass-unit)); height:60px;
+  flex-direction:row; flex-wrap:nowrap; align-items:flex-start; justify-content:flex-start;
+  overflow-x:auto; overflow-y:hidden; pointer-events:auto; overscroll-behavior:contain;
+  scrollbar-width:thin; scrollbar-color:#c6b776 #232925;
+}
+body.compass-hud #status-row::-webkit-scrollbar {height:6px;}
+body.compass-hud #status-row::-webkit-scrollbar-thumb {background:#c6b776;border-radius:3px;}
+body.compass-hud #status-row::-webkit-scrollbar-track {background:#232925;border-radius:3px;}
 body.compass-hud #objective {z-index:9;top:118px;}
 body.compass-hud #hud {top:auto;bottom:174px;color:#20353a;text-shadow:0 1px #d1d8d1;font-size:10px;}
 body.compass-hud #inv-tabs,body.compass-hud #inv {background:transparent!important;}
@@ -381,6 +389,10 @@ body.compass-hud > #map-zoom {
  display:flex;flex-direction:row;align-items:center;gap:12px;padding:3px;
  border:2px solid #a6afb0;border-radius:8px;background:linear-gradient(#d6d9d6 0 3%,#626e70 8%,#354346 45%,#1d2b2f 52%,#687679 90%,#bcc3c0);
  box-shadow:0 2px 3px #080e10,inset 0 0 0 1px #27363b,inset 0 2px 1px #f0efdf88;
+}
+/* Reserve the effect strip on short viewports as well as the normal footer. */
+body.compass-hud:has(#status-row:not([hidden])) > #map-zoom {
+ top:min(calc(var(--compass-map-top) + var(--compass-map-size) - 22px),calc(var(--compass-deck-top) - 116px))!important;
 }
 body.compass-hud > #map-zoom::before {
  content:'';position:absolute;left:30px;right:auto;width:21px;top:7px;bottom:7px;border:1px solid #1d292d;border-radius:3px;

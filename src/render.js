@@ -4126,17 +4126,14 @@ Render.drawLowPolyProps = function (scene, items) {
   let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
   for (const item of items) {
     const o = item.o;
-    const kind = o.kind === 'mineralrock' ? 'rock'
-      : o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
+    const kind = o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
     if (!kind) continue;
     if (typeof WorldArtProfile !== 'undefined' && WorldArtProfile.enabled
         && WorldArtProfile.spec(o, scene, {}).key) continue;
     const cell = worldMetersToAbsCell(scene, o.x, o.y);
-    const mineral = kind === 'rock' ? mineralRockMaterial(o) : null;
-    const tint = kind === 'rock' ? mineralRockTint(o) : 0xffffff;
-    const frame = kind === 'rock' ? mineralRockArtFrame(o) : chestLook(o).frame;
-    drawn.add(item); pieces.push({ o, kind, cell, mineral, tint, frame });
-    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}:${kind}:${mineral}:${frame}:${tint}:${!!o.sightBlocking}`;
+    const frame = chestLook(o).frame;
+    drawn.add(item); pieces.push({ o, kind, cell, frame });
+    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}:${kind}:${frame}`;
   }
   if (!pieces.length) {
     WallPerspective.clear(scene, 'looseProps'); scene._loosePropKey = null; return drawn;
@@ -4146,11 +4143,9 @@ Render.drawLowPolyProps = function (scene, items) {
   const group = WallPerspective.begin(scene, 'looseProps');
   group.perWall = true; group.renderDepth = scene.depth ?? 0;
   group.atlas = scene.textures.get(PropLowPoly.ATLAS.key);
-  for (const { o, kind, cell, mineral, tint, frame } of pieces) {
+  for (const { o, kind, cell, frame } of pieces) {
     const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
-    const large = kind === 'rock' && o.sightBlocking;
-    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, mineral, tint, frame,
-      ...(large ? { width: 27, depth: 26, height: 7 } : {}) });
+    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, frame });
     WallPerspective.prism(scene, 'looseProps', mesh.points, 0, mesh.top, mesh.colors, null, true, mesh);
   }
   scene._loosePropKey = key;
@@ -4388,20 +4383,15 @@ const GROUND_MARK = {
 const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
   line: 1.2, outline: 2.8, ink: '#ffe066' };
 // Physical distance controls appearance independently of map zoom and heading.
-// Nearing the body the ring darkens toward `fade.dark` and turns translucent
-// while a dark disc (`fade.discAlpha` at full; the crisp-edged 'gps_disc'
-// bake, never the feathered contact-shadow texture) fades in under it, so at
-// the feet it is only a translucent dark circle — a mark of its own on the ground,
-// never a second contact shadow that follows the fix. Fully the gold ring from
-// `fade.ringCells` out, fully the disc within `fade.discCells`.
-GPS_RING.fade = { discCells: 0.25, ringCells: 2.5, discAlpha: 0.35, dark: 0x1a1208 };
+// Nearing the body the ring fades out, and at the feet nothing is drawn — no
+// disc or second shadow that follows the fix. Fully the gold ring from
+// `fade.ringCells` out, gone within `fade.hideCells`.
+GPS_RING.fade = { hideCells: 0.25, ringCells: 2.5 };
 Render.gpsMarkerStyle = function gpsMarkerStyle(distanceCells) {
   const F = GPS_RING.fade;
-  const t = Math.max(0, Math.min(1, (distanceCells - F.discCells) / (F.ringCells - F.discCells)));
+  const t = Math.max(0, Math.min(1, (distanceCells - F.hideCells) / (F.ringCells - F.hideCells)));
   const scale = 1 - .5 * Math.max(0, Math.min(1, (distanceCells - 1) / 4));
-  const ch = (shift) => Math.round(255 - (255 - ((F.dark >> shift) & 0xff)) * (1 - t));
-  return {ringAlpha: t, tint: (ch(16) << 16) | (ch(8) << 8) | ch(0), discAlpha: F.discAlpha * (1 - t),
-    width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
+  return {ringAlpha: t, width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
 };
 // The ring's stroke passes in bake px, [width, colour, alpha, dy].
 GPS_RING.passes = (() => {

@@ -82,6 +82,10 @@ families (also used by the village reference), stone lamps, plain rocks and
 paired stone down/up access. The approved RA prop profile replaces foliage,
 chest/wood/pot frames, fixtures and all eleven shrine frames through
 `ROGUE_PROP_PROFILE`; the baseline and Dreamland assets remain unchanged.
+All ore, gem and flint rocks in the Rogue profile use the default reference
+stone as a 2D sprite, including underground. Native-pixel colored veins and
+crystal facets are baked once on asset load by `RogueObjects`; these rocks
+bypass the low-poly mesh pass and retain their material and mining yields.
 `tools/build_ra_prop_profile.py` combines reproducible flora, container and fixture
 exports into asset, icon and seating registries. Inventory/offer icons use these
 same sheets; atlas aliases and old palette callbacks are replaced, not layered.
@@ -561,7 +565,9 @@ the surrounding grove’s shrub scale.
   The player facing chevron is omitted in heading-up mode when a device
   compass reports, unless direction lock is engaged. The gold lock beside zoom
   holds the current map rotation while sensor readings continue; the caret then
-  shows phone direction. Unlocking eases toward the current sensor heading. This
+  shows phone direction. Unlocking eases toward the current sensor heading.
+  Confusion's fixed-rate heading bypasses sensor easing and its dead zone, so
+  the map turns steadily; without a sensor, expiry restores the prior map angle. This
   scene-local choice resets on scene creation. Until a GPS fix is captured,
   direction is forced locked even if the heading sensor reports. Tapping the
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
@@ -774,11 +780,9 @@ the surrounding grove’s shrub scale.
   ring's `GPS_RING` row carries its own on-screen width and tilt (at the
   shared tilt it read squashed) and the facing caret's paint instead of the
   halo: a gold line on a dark outline with no drop shadow (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
-  the yellow ring, which darkens and turns translucent as it nears the body
-  while a crisp dark disc (`gpsDisc`, the hard-edged `gps_disc` bake, not the
-  feathered contact shadow) fades in under it, until at the feet it is only
-  a translucent dark circle (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a
-  swap to a second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
+  the yellow ring, which fades out as it nears the body until at the feet
+  nothing is drawn (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a disc
+  or second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
   clamped there beyond five; distance is measured in world metres independently
   of zoom and heading. Once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
@@ -1227,21 +1231,17 @@ cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
 by map and popup art. Barrels use only the cylindrical frame 3; the square
 variants are excluded. Crate popup icons and intact pots retain their stable ID-selected
-variants. On the map, box containers and mineral rocks use closed low-poly
-meshes from `prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. The source sprite pixels from `box.png` and `rocks-16.png` texture every
-face through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded,
-opaque atlas with `python3 tools/build_prop_materials.py`; its manifest records
-source crops and hashes. Crates retain all four frame variants and rocks retain
-all 65 material/zone frames. Stone UVs remain continuous across facets; source
-silhouette outlines are excluded from surface textures to avoid repeated dark
-rings. Only source colors are used, with restrained side shading. A one-pixel black
-outline follows only the upper silhouette: the renderer draws one-pixel strips along upper
-visible/hidden face boundaries before the textured faces, leaving bases and interior
-facet seams unoutlined at every compass heading. These props share the wall
-renderer’s elevation projection and actor depth sorting at every compass angle,
-including north-up and underground. Movement offsets cached geometry; rotation
-reprojects vertices without rebuilding textures. Opened crates and mined rocks
-leave the mesh batch through the existing spent-object filter. Inventory and
+variants. On the map, box containers use closed low-poly meshes from
+`prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. Mineral rocks always
+use 2D sprites, above and below ground; the Rogue profile uses its reference
+stone with colored ore veins and gem crystals. Rocks never enter the loose-prop
+mesh batch. Crates retain all four frame variants, textured from `box.png`
+through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded atlas
+with `python3 tools/build_prop_materials.py`. Crates share the wall renderer's
+elevation projection and actor depth sorting at every compass angle. Movement
+offsets cached geometry; rotation reprojects vertices without rebuilding
+textures. Opened crates leave the mesh batch through the existing spent-object
+filter. Inventory and
 popup art retain their existing atlas icons. `POT_SMASHED_FRAMES` pairs terracotta pots with shard frame 0 and
 cream pots with frame 3; zone, street and biome cannot change the broken pot's
 colour. Selection does not change rewards, material identity, saved IDs or
@@ -1297,4 +1297,9 @@ beside the image. `_objectArt: "dead_tree"` selects frame 0 before optional
 ArtTrials routing; trimmed bounds seat the roots and the scale matches the
 existing mature tree width. Ordinary grove trees keep their existing art.
 
-Permanent rear-lot bedrock uses one opaque 16px Rogue Adventure tile: `RA_Cavern.png`, crop `(16,32,16,16)`, selected-terrain frame 7. Terrain 32 bakes one nearest-neighbour texture at startup, with no mineral sprite, loot, animation or runtime pixel readback.
+Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary rock:
+`RA_Ground_Tiles.png`, crop `(352,208,16,16)`, selected-terrain frame 35
+(`G09-cold`). It stays level with adjacent ground, without the legacy frame 7
+cliff faces. Terrain 32 retains its movement and spawn collision and bakes one
+nearest-neighbour texture at startup, with no mineral sprite, loot, animation
+or runtime pixel readback.

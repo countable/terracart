@@ -937,6 +937,14 @@ Higher-priority placements and their access space take precedence in this order:
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
+   The starter trail has two seed crates (nine potato seeds and nine rockfruit
+   seeds). Its nine Rock and nine Wood are instant `groundstack` pickups,
+   normally three piles of three per material; cramped ground keeps the
+   remainder in fewer piles. All seats use the same spawn gate and avoid Home's
+   footing. Supplies stay deterministic, revealed and included in tutorial
+   guidance. `save.picked` spends individual piles; an opened legacy material
+   crate spends every replacement pile through `legacyChestId`. Hard mode
+   removes both seed crates and loose material supplies.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -1005,6 +1013,12 @@ Higher-priority placements and their access space take precedence in this order:
    Authored park/Nexus coverage already excludes imported trees and keeps
    its own tree choices; fruit trees keep their species. Outside forests,
    mapped trees retain their original mix.
+   Fruit-tree species roll once per stable cell through `fruitTreeSpecies`.
+   Planted rows (orchard landcover, Orchard streets, zone dressing) draw a
+   Worldpeach one time in `PEACH_ONE_IN` (50). A standalone fruit tree (an
+   `individual` OSM-mapped or DeepForest-detected tree in the sidecar bins)
+   is the lone rare find and draws one in `PEACH_ONE_IN_LONE` (10); the
+   DeepForest classifier's own apple/peach label is never used.
    Tree-bearing street variants declare their timber species on the variant
    row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
    Street timber also marks `treeSpeciesFixed`, so its type stays consistent

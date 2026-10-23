@@ -126,7 +126,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=1ed20856" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=7e04e915" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1343,7 +1343,7 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=4167c704">
+  <link rel="stylesheet" href="css/compass_hud.css?v=675d47cb">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
   <link rel="stylesheet" href="css/compass_panels.css?v=00ec4765">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
@@ -3209,7 +3209,8 @@
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=de477ee0"></script>
   <script src="src/shrines.js?v=568066e5"></script>
-  <script src="src/buffs.js?v=9c6e04b6"></script>
+  <script src="src/status_icons.js?v=229d3571"></script>
+  <script src="src/buffs.js?v=4c8c6973"></script>
   <script src="src/zone_coverage.js?v=5fae9ba1"></script>
   <script src="src/quarry_layout.js?v=6b945d34"></script>
   <script src="src/zone_dressing.js?v=eed6eea0"></script>
@@ -3217,7 +3218,7 @@
   <script src="src/sprite_layout.js?v=76ec11f0"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=bc136083"></script>
+  <script src="src/home.js?v=49022604"></script>
   <script src="src/home_variant.js?v=d962f23f"></script>
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
@@ -3243,9 +3244,9 @@
   <script src="src/cave_areas.js?v=606a08ad"></script>
   <script src="src/underground.js?v=75e648ac"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
-  <script src="src/worldgen.js?v=69a0c7ea"></script>
+  <script src="src/worldgen.js?v=d2e7ba35"></script>
   <script src="src/castle_styles.js?v=8a4d031c"></script>
-  <script src="src/textures.js?v=8aaa6980"></script>
+  <script src="src/textures.js?v=d7095139"></script>
   <script src="src/floor_wall_materials.js?v=e3674686"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=946ddc58"></script>
@@ -3253,7 +3254,7 @@
   <script src="src/items.js?v=7039ea8e"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=ebae5f35"></script>
+  <script src="src/conditions.js?v=12063166"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=286067fc"></script>
@@ -3276,13 +3277,13 @@
   <script src="src/temple_layout.js?v=1fd00fbe"></script>
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
-  <script src="src/interactables.js?v=390fecd5"></script>
-  <script src="src/boss_encounters.js?v=6b33000d"></script>
+  <script src="src/interactables.js?v=e13fe0b6"></script>
+  <script src="src/boss_encounters.js?v=7515cc30"></script>
   <script src="src/houses.js?v=8e849dbb"></script>
   <script src="src/obstacle_step.js?v=85052b4b"></script>
   <script src="src/visibility.js?v=aabd91f3"></script>
   <script src="src/spawn_ownership.js?v=cb498972"></script>
-  <script src="src/starter.js?v=01def13d"></script>
+  <script src="src/starter.js?v=9f8ed8c3"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=8d58779b"></script>
   <script src="src/pirates.js?v=c810956f"></script>
@@ -3302,7 +3303,7 @@
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=ce50d02b"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=5740a7ca"></script>
+  <script src="src/render.js?v=ccf536a5"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=f939dd1a"></script>
@@ -3337,7 +3338,7 @@
   <script src="src/dreamland_objects.js?v=7f3db73d"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
   <script src="src/rogue_prop_profile.js?v=db5c63e0"></script>
-  <script src="src/rogue_objects.js?v=82daefed"></script>
+  <script src="src/rogue_objects.js?v=808b55ce"></script>
   <script src="src/sandbox_destinations.js?v=b40995bb"></script>
   <script src="src/sandbox.js?v=def47b20"></script>
   <script src="src/sandbox_scenarios.js?v=277dff08"></script>
@@ -3353,10 +3354,10 @@
   <script src="src/scene_creatures.js?v=8baa6136"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
   <script src="src/scene_shops.js?v=d21ce03a"></script>
-  <script src="src/heading_up.js?v=132f5072"></script>
+  <script src="src/heading_up.js?v=7edafbe8"></script>
   <script src="src/compass_modules.js?v=7db0fb1f"></script>
   <script src="src/compass_hud.js?v=09e52940"></script>
-  <script src="src/scene_create.js?v=9bef9c5c"></script>
+  <script src="src/scene_create.js?v=eb9ed65b"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3435,7 +3436,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=1ed20856';
+      const APP_SRC = 'src/app.js?v=7e04e915';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

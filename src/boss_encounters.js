@@ -20,7 +20,7 @@ const BossEncounters = (() => {
     // `store` is the save key holding the kind's records (the citadel's is
     // the shape multiplayer shares; keep it). `chip` is the status-row chip.
     citadel: { store: 'citadelBattles', durationMs: 10 * 60 * 1000,
-      chip: { label: 'Citadel', ink: '#ffe9b0', bg: '#4a2a12e8' },
+      chip: { icon: 'boss', label: 'Citadel', ink: '#ffe9b0', bg: '#4a2a12e8' },
       resetLine: 'The garrison withdraws. The fight resets.' },
     // The head repeats roam → encircle → charge on the encounter clock.
     // Body spacing, steering and mode tuning live alongside that clock.
@@ -34,7 +34,7 @@ const BossEncounters = (() => {
       // the head and sends its pose every `feedMs`; a copy adopted by a
       // nearby player follows it and ends after `staleMs` of silence.
       feedMs: 300, staleMs: 4000,
-      chip: { label: 'Serpent', ink: '#c8ffd0', bg: '#123a24e8' },
+      chip: { icon: 'boss', label: 'Serpent', ink: '#c8ffd0', bg: '#123a24e8' },
       resetLine: 'The serpent sinks away. The idol is still yours.' },
   };
 

@@ -101,7 +101,7 @@
     assert.truthy(body.indexOf('Conditions.DEFINITIONS') < body.indexOf('Buffs.active'), 'statuses above buffs');
     assert.truthy(/`\$\{b\.name\} · \$\{shortDuration\(b\.remainingMs\)\}`/.test(body), 'name · shortDuration');
     assert.truthy(/if \(this\._statusRowDOM !== order\)/.test(body), 'the DOM is only rebuilt when the set or order changes');
-    assert.truthy(/if \(el && el\.textContent !== c\.text\) el\.textContent = c\.text;/.test(body), 'text writes guarded');
+    assert.truthy(/if \(el\._statusTimer\.textContent !== c\.time\) el\._statusTimer\.textContent = c\.time;/.test(body), 'text writes guarded');
     assert.truthy(/this\._syncStatusRow\(\);/.test(app.match(/\n  _tickConditions\(\) \{\n([\s\S]*?)\n  \}\n/)[1]), 'driven every frame from the condition tick');
     assert.truthy(/#status-row \{\n  position: fixed;\n  top: calc\(8px \+ env\(safe-area-inset-top, 0px\) \+ var\(--hud-chip-h\) \+ 6px\);/.test(app),
       'seated one chip height under the HUD row');
@@ -109,11 +109,19 @@
     // The compass skin SEATS the row (on the footer plate, left of the
     // joystick) — it had hidden it (owner, Oct 2026: "we no longer show buffs").
     assert.falsy(/#status-row[^\n]*display:none/.test(COMPASS_CSS_SRC), 'the compass skin never hides the status row');
-    assert.truthy(/body\.compass-hud #status-row \{top:calc\(var\(--compass-map-top\) \+ var\(--compass-map-size\) \+ 34px\);bottom:212px;left:calc\(var\(--phone-left,0px\) \+ 12px\);right:auto;width:226px;flex-direction:row;flex-wrap:wrap;/.test(COMPASS_CSS_SRC),
-      'seated under the map on the footer plate, wrapping into rows');
+    assert.truthy(COMPASS_CSS_SRC.includes('overflow-x:auto'), 'effects remain accessible by horizontal scrolling');
+    assert.truthy(COMPASS_CSS_SRC.includes('100dvh - var(--compass-deck-top)'), 'anchored above the inventory deck');
     assert.truthy(/&& !document\.body\.classList\.contains\('compass-hud'\);/.test(body), 'the objective bubble never re-seats it under the compass skin');
     assert.falsy(/TimerText|_tickBuffTimers|buffTimerTexts/.test(app), 'nothing is drawn over the player\'s head');
     assert.falsy(/boonRemainingMs|shrineBoon = /.test(app + Object.values(Shrines).join('')), 'the last-boon countdown is gone');
+  });
+
+  test('buffs: every effect has an atlas icon', () => {
+    for (const row of [...Object.values(Buffs.KINDS), ...Object.values(Conditions.DEFINITIONS), ...Object.values(Conditions.CONTEXT_STATUS)]) {
+      const frame = StatusIcons.frames[row.icon];
+      assert.truthy(Number.isInteger(frame), `icon ${row.icon}`);
+      assert.truthy(frame >= 0 && frame < StatusIcons.cols * StatusIcons.height / StatusIcons.cellSize);
+    }
   });
 
   test('buffs: a thrown potion times its creature on the field its drinker\'s row names', () => {

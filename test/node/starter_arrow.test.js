@@ -84,6 +84,21 @@
     });
   });
 
+  test('starter arrow: loose materials lead to the relic chest and respect pickup and legacy state', () => {
+    const pile = Object.assign({ kind: 'groundstack', itemId: 'wood', qty: 3,
+      id: 'chest_start_0_0_4_1', legacyChestId: 'chest_start_0_0_4' }, cellCentre(4, 0));
+    const relic = Object.assign({ kind: 'chest', id: 'chest_start_relic_0_0' }, cellCentre(0, 1));
+    withTiles([pile, relic], () => {
+      const scene = makeScene({ save: { picked: [], opened: [] } });
+      assert.eq(scene._starterGuidanceGoal(STEP.restore).id, pile.id, 'points at free wood before treasure');
+      scene.save.picked = [pile.id];
+      assert.eq(scene._nearestStarterCrate().id, relic.id, 'collected pile is skipped');
+      scene.save.picked = [];
+      scene.save.opened = [pile.legacyChestId];
+      assert.eq(scene._nearestStarterCrate().id, relic.id, 'legacy opened crate is skipped');
+    });
+  });
+
   test('starter arrow: "Break ground" points at the plot middle, crates only as a fallback', () => {
     const plotAt = cellCentre(5, 5);        // top-left cell centre
     const scene = makeScene({ save: { starterPlotAt: plotAt } });

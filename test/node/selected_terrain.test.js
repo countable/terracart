@@ -30,6 +30,20 @@
       assert.eq(JSON.stringify(water.draws),JSON.stringify(pier.draws));
     }
   });
+  test('selected terrain: impassable exclusion bedrock uses a flat rock surface without cliff faces', () => {
+    art.setSelectedTerrainSource(source);
+    const rock = canvas();
+    art.drawBiomeTexture(rock, 32, WorldGen.T.ROCK);
+    for (const phase of [0, 0.5, 0.99]) {
+      const bedrock = canvas();
+      art.drawBiomeTexture(bedrock, 32, WorldGen.T.EXCLUSION_ROCK, 0, phase);
+      assert.eq(bedrock.draws.length, 1, 'one ordinary ground tile, without a raised face');
+      assert.eq(bedrock.draws[0].slice(1).join(','), '560,0,16,16,0,0,32,32', 'flat cold-slate crop replaces cliff-face frame 7');
+      assert.eq(JSON.stringify(bedrock.draws), JSON.stringify(rock.draws), 'same level surface as ordinary rock');
+      assert.eq(bedrock.imageSmoothingEnabled, false, 'native pixels retain their scale');
+    }
+    assert.falsy(WorldGen.isWalkable(WorldGen.T.EXCLUSION_ROCK), 'flat appearance retains terrain collision');
+  });
   test('selected terrain: building polygon floors and grid cells share the same selected tile', () => {
     art.setSelectedTerrainSource(source);
     for (const type of [9, 12]) {
