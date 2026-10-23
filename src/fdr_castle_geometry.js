@@ -69,12 +69,19 @@
       return group.blocks[group.blocks.length-1];
     }
     const origin={x:layout.points[0].x,y:layout.points[0].y,z:24};
+    // Keep a curtain's clipped body pieces below all of its crowns. Sorting
+    // each fragment/tooth by its own centre lets a later cap erase the tooth
+    // beside it, especially when the wall points toward the camera.
+    const supports=layout.points.map((a,i)=>{
+      const b=layout.points[(i+1)%layout.points.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);
+      return {x:(a.x+b.x)/2-dy/l*4,y:(a.y+b.y)/2+dx/l*4,order:group.blocks.length+i};
+    });
     for(const wall of layout.walls){
-      const ring=wall.points,support={x:ring.reduce((n,p)=>n+p.x,0)/ring.length,y:ring.reduce((n,p)=>n+p.y,0)/ring.length,order:group.blocks.length};
+      const ring=wall.points,support=supports[wall.edge];
       prism(ring,0,22,3,10,support,false,wall.omitEdges,origin);
       prism(ring,22,24,10,8,support,true,wall.omitEdges,{repeatCap:true});
     }
-    for(let i=0;i<layout.merlons.length;i++){if(broken&&i%4===2)continue;const m=layout.merlons[i];prism(m.points,24,32,9,8);}
+    for(let i=0;i<layout.merlons.length;i++){if(broken&&i%4===2)continue;const m=layout.merlons[i];prism(m.points,24,32,9,8,supports[m.edge]);}
     function mass(part,isKeep){
       const {x,y,width:w,depth:h,height}=part,support={x,y,order:group.blocks.length},body=rect(x,y,w,h);
       if(!WallPerspective.inView(scene,body,0,height+4))return;
