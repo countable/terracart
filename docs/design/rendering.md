@@ -424,7 +424,10 @@ house floor on the canvas and then the house. On the low-poly path it is the
 (`scene.homeInside`, part of the overlay's claim epoch) its recipe is
 `interior` — the roof off, the walls level at the eaves, inner faces and a
 thick timber top band (`interiorGeometry`) — and the lightmap masks the outside (see
-Lighting). An interior is one render object PER WALL (`interiorGeometry`
+Lighting). A skinned Home keeps its authored skin inside: the outer faces are
+the facade seen from outside, cut at its `eaveHeight`, and the tops take the
+skin's plain wall texel; only retail rooms and whole-shell landmarks fall back
+to procedural walls. An interior is one render object PER WALL (`interiorGeometry`
 tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
 edge), each sorted in the shared world sort at its wall's sort point
 (`WallPerspective.wallSortPoint`, the one rule both building paths share:

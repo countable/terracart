@@ -61,6 +61,30 @@
     }
     assert.eq(seen.length, 1, 'the roof palette is applied once');
   });
+  test('authored buildings: Home\'s room keeps its skin on the walls, cut at the eaves', () => {
+    const spec = AuthoredBuildings.SPECS.pp_cabin;
+    const skin = { key: 'pp_cabin', spec, texture: {}, template: {}, texel: 0.5, flat: false,
+      facade: { v: 900, rows: spec.base - spec.eave }, roof: { u: 256, v: 616, w: 256, h: 240 },
+      door: { u: 32, v: 68, w: 32, h: 28, bottom: 0 }, wall: [16, 80], recolor: () => {} };
+    const lot = [{ x: 0, y: 0 }, { x: 64, y: 0 }, { x: 64, y: 64 }, { x: 0, y: 64 }];
+    const house = BuildingLowPoly.authoredOutline(skin, lot, 2);
+    const room = BuildingLowPoly.interiorGeometry(house, BuildingLowPoly.LOOK.wallThickness);
+    const H = house.eaveHeight;
+    assert.truthy(room.authored, 'the room is drawn as source art');
+    assert.eq(room.faces.filter(f => f.kind === 'roof').length, 0, 'no roof inside');
+    assert.truthy(room.faces.every(f => f.points.every(p => p.z <= H + 1e-6)), 'cut level at the eaves');
+    assert.truthy(room.faces.every(f => Number.isInteger(f.edge)), 'every face stands on a wall');
+    const outside = room.faces.filter(f => f.kind === 'wall' && !f.interior);
+    const skinned = house.faces.filter(f => f.kind === 'wall' && f.points.every(p => p.z <= H + 1e-6));
+    assert.eq(outside.length, skinned.length, 'every facade triangle stays outside');
+    for (const f of outside) assert.truthy(f.sourceArt && f.points.every(p => p.tu >= 0 && p.tu <= 1 && p.tv >= 0 && p.tv <= 1),
+      'outer faces wear the skin, not the procedural atlas');
+    assert.eq(room.faces.filter(f => f.interior).length, outside.length, 'each facade triangle has an inner face');
+    const tops = room.faces.filter(f => f.wallTop);
+    assert.eq(tops.length, 8, 'a top band per wall');
+    const [tu, tv] = house.faces.find(f => f.fallbackUV).fallbackUV;
+    assert.truthy(tops.every(f => f.points.every(p => p.tu === tu && p.tv === tv)), 'tops take the plain wall texel');
+  });
   test('authored buildings: every tier-one business uses the white cottage with its trade identity', () => {
     const colors = { blacksmith: 'slate', trader: 'green', seed: 'lime', supply: 'blue',
       potion: 'teal', relic: 'red', pet: 'rose', book: 'plum', shop: 'blue' };
