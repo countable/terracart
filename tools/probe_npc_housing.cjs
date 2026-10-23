@@ -104,15 +104,27 @@ const output = process.env.OUT_DIR || path.join(os.homedir(), '.artifacts', 'npc
     await page.waitForTimeout(400);
     assert.equal(await page.locator('#house-furniture-modal .house-furniture-slot').count(), 4);
     assert((await page.locator('#house-furniture-modal').innerText()).includes('Luxury 21'));
+    assert.equal(await page.locator('#house-furniture-modal p').innerText(), 'Tilly sometimes helps you water your crops.');
+    assert.equal(await page.locator('#house-furniture-modal .modal-kind').count(), 0);
+    assert.equal(await page.locator('#house-furniture-modal .house-resident-portrait').getAttribute('width'), '48');
     await page.screenshot({ path: path.join(output, 'house-inspect.png') });
-    // The same dialog must fit a phone without horizontal overflow.
-    await page.setViewportSize({ width: 390, height: 844 });
-    await page.waitForTimeout(300);
-    const geometry = await page.locator('#house-furniture-modal .modal-body').evaluate(e => ({
-      width: e.clientWidth, scrollWidth: e.scrollWidth,
-    }));
-    assert.equal(geometry.width, geometry.scrollWidth);
-    await page.screenshot({ path: path.join(output, 'house-inspect-mobile.png') });
+    // All four furnishings and their actions fit even a short phone.
+    const geometry = [];
+    for (const [width, height] of [[390, 844], [390, 667], [320, 568]]) {
+      await page.setViewportSize({ width, height });
+      await page.waitForTimeout(300);
+      const measured = await page.locator('#house-furniture-modal .modal-copy').evaluate(e => {
+        const copy = e.getBoundingClientRect(), last = e.querySelector('.house-furniture-slot:last-child').getBoundingClientRect();
+        return { width: e.clientWidth, scrollWidth: e.scrollWidth,
+          height: e.clientHeight, scrollHeight: e.scrollHeight, lastVisible: last.bottom <= copy.bottom + 1 };
+      });
+      assert.equal(measured.width, measured.scrollWidth);
+      assert(measured.scrollHeight <= measured.height + 1, JSON.stringify({ width, height, measured }));
+      assert(measured.lastVisible);
+      geometry.push({ viewport: [width, height], ...measured });
+      await page.screenshot({ path: path.join(output, width === 390 && height === 844
+        ? 'house-inspect-mobile.png' : `house-inspect-${width}x${height}.png`) });
+    }
     await page.locator('#house-furniture-modal [aria-label="Close panel"]').click();
     assert.equal(await page.locator('#house-furniture-modal').count(), 0);
     assert.deepEqual(errors, []);
