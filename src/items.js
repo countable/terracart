@@ -163,6 +163,11 @@ const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
   themedScale: ROCK_WORLD_SCALE, placedScale: 1.6 * 0.88,
   plainFrames: Object.freeze([0, 30, 32, 34]),
+  // The smallest plain look (frame 0: 11×9 opaque pixels, where the other
+  // three plain shapes are 11×10 or 11×11 and every large column and ore
+  // pair is bigger still) is QUICK WORK — mineralRockWorkMul runs its wheel
+  // at quickWorkMul of the tool's time. One row owns the frame and the rate.
+  quickFrame: 0, quickWorkMul: 0.5,
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
     'platinum', 'crimson', 'frost']),
@@ -454,6 +459,14 @@ function mineralRockArtFrame(o) {
     frame = ROCK_VARIANT_ART.plainFrames[shape];
   }
   return frame + (o?.sightBlocking === true ? 1 : 0);
+}
+// How long a rock takes relative to the tool's own time (toolDurationMs):
+// the smallest plain art (ROCK_VARIANT_ART.quickFrame) mines at quickWorkMul
+// (twice the speed); everything else — the other plain shapes, a boulder's
+// large column, zone-themed rubble, flint seams, ore and deposits — is 1.
+// Reads the frame the renderer draws, so the look and the pace cannot drift.
+function mineralRockWorkMul(o) {
+  return mineralRockArtFrame(o) === ROCK_VARIANT_ART.quickFrame ? ROCK_VARIANT_ART.quickWorkMul : 1;
 }
 function assignSurfaceBoulder(o) {
   if (o?.kind !== 'mineralrock' || o.id == null || o._cave || o.depth > 0 || o.caveVariant != null
