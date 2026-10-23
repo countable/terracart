@@ -1,11 +1,11 @@
 // Turret-free stone sanctuary. Coordinates and widths are canvas pixels.
 (function (global) {
-  const geometry = Object.freeze({ foundationDepth: 7, wallHeight: 6, wallThickness: 3 });
+  const geometry = Object.freeze({ foundationDepth: 7, wallHeight: 4, wallThickness: 3 });
   const colors = Object.freeze({ floor: '#d8d5c8', face: '#8b929a',
     shadow: '#687581', coping: '#edeadd', edge: '#fff9e8', dormant: '#586f7c', joint: '#b3b7b6',
-    active: '#b9fbff', glow: '#45d9ff' });
+    active: '#b9fbff', glow: '#45d9ff', brickLight: '#eae7da', brickShadow: '#aeb1a6' });
   const darkColors = Object.freeze({ ...colors, floor: '#565969', face: '#303744',
-    shadow: '#242c39', coping: '#858b99', edge: '#b0b6c2', dormant: '#91a6b1', joint: '#414958' });
+    shadow: '#242c39', coping: '#858b99', edge: '#b0b6c2', dormant: '#91a6b1', joint: '#414958', brickLight: '#727687', brickShadow: '#414755' });
   const backgroundPaint = paint => Object.fromEntries(Object.entries(paint).map(([key, css]) =>
     [key, '#' + buildingBackgroundColor(parseInt(css.slice(1), 16)).toString(16).padStart(6, '0')]));
   const backgroundColors = backgroundPaint(colors), backgroundDarkColors = backgroundPaint(darkColors);
@@ -112,11 +112,21 @@
       ctx.fillStyle=options.floorPattern;
       ctx.fillRect(b.left-x,b.top-y,b.right-b.left,b.bottom-b.top);ctx.restore();
     } else {
-      // Fallback for tools or a missing atlas; never add this second grid over RA paving.
-      const step = Math.max(20 * scale, (b.right - b.left) / 48, (b.bottom - b.top) / 48);
-      ctx.lineWidth = scale; ctx.strokeStyle = paint.joint;
-      for (let y = b.top, row = 0; y < b.bottom; y += step, row++) {
-        for (let x = b.left - (row % 2) * step / 2; x < b.right; x += step) ctx.strokeRect(x,y,step,step);
+      // Small running-bond bricks. One-pixel light and shadow edges give
+      // depth in the cached floor paint without adding per-brick geometry.
+      // Faces meet edge to edge: no inset gutter or mortar outline.
+      // Bound the count for very large source rings while retaining the taller brick proportions.
+      const unit = Math.max(scale, (b.right - b.left) / (16 * 48), (b.bottom - b.top) / (12 * 48));
+      const width = 16 * unit, height = 12 * unit;
+      for (let y = b.top, row = 0; y < b.bottom; y += height, row++) {
+        for (let x = b.left - (row % 2) * width / 2; x < b.right; x += width) {
+          ctx.fillStyle = paint.brickLight;
+          ctx.fillRect(x, y, width, unit);
+          ctx.fillRect(x, y + unit, unit, height - 2 * unit);
+          ctx.fillStyle = paint.brickShadow;
+          ctx.fillRect(x, y + height - unit, width, unit);
+          ctx.fillRect(x + width - unit, y + unit, unit, height - 2 * unit);
+        }
       }
     }
     trace(ctx, ring); ctx.lineWidth = 4 * scale; ctx.strokeStyle = paint.shadow; ctx.stroke();

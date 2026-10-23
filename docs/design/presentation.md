@@ -551,7 +551,10 @@ pixels and decorative details do not define additional tap cells.
   `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
   (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
-  flicks the row's ink, the word pops on the cell) — never at the writer.
+  flicks the row's ink, and the row's word pops over the player's head as a
+  `status`-tier toast in the row's own ink and chip background, bigger and
+  longer-lived than a cell number so it reads beside the "-N" and the dimmed
+  light a blinding touch brings) — never at the writer.
   Food energy and condition notices stay separate; the food receipt must not
   repeat the condition announcement. A creature's status (sleep, charm, frost,
   fear, psychosis) is a row of
@@ -682,15 +685,16 @@ ghost control in a separate top-right row. Flip saves the placed orientation and
 updates the map and portrait. Pickup checks bag capacity and accepted quantity
 before removing the placement, then refreshes inventory and persists explicitly.
 
-Tapping a delivered residential house opens its furniture inspector. An occupied
-house shows the resident's portrait, luxury score, benefit summary and current
-visit message. Four visible slots show furnishings from highest luxury to
-lowest, each with its art, name, contribution and Pick up control; unused slots
-remain visible with dashed borders. Copy explains that only the four most
-luxurious items are kept and a better fifth item returns the weakest to the
-bag. Select furniture and tap the house to attach it outside. A vacant delivered
-house shows its empty slots and explains that it is ready for an available
-neighbour; furnishing starts after the neighbour moves in.
+Tapping a delivered residential house opens its compact furniture inspector.
+The header pairs a 48px resident portrait with the house name and luxury score,
+without a category icon. Four slots in a two-column grid show furnishings from
+highest luxury to lowest, each with 24×48px art, name, contribution and Pick up
+control; unused slots retain dashed borders. All four slots fit without scrolling
+on phones. Tilly's only description is “Tilly sometimes helps you water your
+crops.” Other residents retain their benefit summary and visit message. Furnishing
+instructions and replacement explanations are omitted. A vacant delivered house
+shows its empty slots and explains that it is ready for an available neighbour;
+furnishing starts after the neighbour moves in.
 
 Home shows its current luxury as a white number above its sign while indoors
 and from outside after dark. The score updates immediately, separately from

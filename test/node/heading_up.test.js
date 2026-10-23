@@ -31,6 +31,18 @@ test('heading up: padded feet and airborne body use explicit ground anchor', () 
   assert.eq(sprite._huAnchor.y, 130);
 });
 
+test('heading up: a ghost\'s halo turns upright with its hovering body', () => {
+  const scene = huScene(Math.PI / 2), anchor = { x: 130, y: 130 };
+  const body = huSprite({ _huAnchor: anchor, originY: 0.5, y: 110 });
+  const glow = huSprite({ _huAnchor: anchor, originY: 0.5, y: 110 });
+  scene.worldContainer = { list: [body] };
+  scene.ghostGlowContainer = { list: [glow] };
+  HeadingUp._preRender(scene);
+  huNear(glow.x, body.x); huNear(glow.y, body.y);
+  HeadingUp._postRender(scene);
+  assert.eq(glow.x, 130); assert.eq(glow.y, 110);
+});
+
 test('heading up: flat ground keeps camera rotation and connected placement', () => {
   const sprite = huSprite({ _worldLayer: WorldLayers.GROUND_DECAL }), saved = [];
   HeadingUp._upright(sprite, -Math.PI / 2, saved);

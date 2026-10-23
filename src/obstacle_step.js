@@ -25,7 +25,7 @@ const ObstacleStep = (() => {
     rock: Object.freeze({ liftPx: 4, radius: 0.25, top: 0.185, shape: 'round' }),
     wall: Object.freeze({ liftPx: 5.5, radius: 0.29, top: 0.21, shape: 'band' }),
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
-    hedge: Object.freeze({ liftPx: 6, radius: 0.29, top: 0.21, shape: 'band' }),
+    hedge: Object.freeze({ liftPx: 11, radius: 0.29, top: 0.21, shape: 'band' }),
   });
   const KINDS = { mineralrock: 'rock', stronghold_wall: 'wall', _firepit: 'rock', _fire: 'rock' };
   const CROPS = { rubble: 'rock', shrub: 'bush', berry: 'bush', poisonberry: 'bush', goldenberry: 'bush' };
