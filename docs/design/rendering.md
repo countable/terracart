@@ -1229,21 +1229,17 @@ cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
 by map and popup art. Barrels use only the cylindrical frame 3; the square
 variants are excluded. Crate popup icons and intact pots retain their stable ID-selected
-variants. On the map, box containers and mineral rocks use closed low-poly
-meshes from `prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. The source sprite pixels from `box.png` and `rocks-16.png` texture every
-face through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded,
-opaque atlas with `python3 tools/build_prop_materials.py`; its manifest records
-source crops and hashes. Crates retain all four frame variants and rocks retain
-all 65 material/zone frames. Stone UVs remain continuous across facets; source
-silhouette outlines are excluded from surface textures to avoid repeated dark
-rings. Only source colors are used, with restrained side shading. A one-pixel black
-outline follows only the upper silhouette: the renderer draws one-pixel strips along upper
-visible/hidden face boundaries before the textured faces, leaving bases and interior
-facet seams unoutlined at every compass heading. These props share the wall
-renderer’s elevation projection and actor depth sorting at every compass angle,
-including north-up and underground. Movement offsets cached geometry; rotation
-reprojects vertices without rebuilding textures. Opened crates and mined rocks
-leave the mesh batch through the existing spent-object filter. Inventory and
+variants. On the map, box containers use closed low-poly meshes from
+`prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. Mineral rocks always
+use 2D sprites, above and below ground; the Rogue profile uses its reference
+stone with colored ore veins and gem crystals. Rocks never enter the loose-prop
+mesh batch. Crates retain all four frame variants, textured from `box.png`
+through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded atlas
+with `python3 tools/build_prop_materials.py`. Crates share the wall renderer's
+elevation projection and actor depth sorting at every compass angle. Movement
+offsets cached geometry; rotation reprojects vertices without rebuilding
+textures. Opened crates leave the mesh batch through the existing spent-object
+filter. Inventory and
 popup art retain their existing atlas icons. `POT_SMASHED_FRAMES` pairs terracotta pots with shard frame 0 and
 cream pots with frame 3; zone, street and biome cannot change the broken pot's
 colour. Selection does not change rewards, material identity, saved IDs or

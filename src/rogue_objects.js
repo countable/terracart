@@ -97,6 +97,11 @@ const RogueObjects = (() => {
         scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,
         groundAtOrigin:false, dxPx:0, dyPx:0, scaleYMul:1, artBounds:undefined, after:undefined};
     }
+    if (o.kind === 'mineralrock') {
+      return {...original, key:hash(o.id)%2 ? 'rogue_stone' : 'rogue_rock_mid', frame:'__BASE',
+        scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,
+        groundAtOrigin:false, dxPx:0, dyPx:0, scaleYMul:1, artBounds:undefined, after:undefined};
+    }
     // Access and shrine assets share the reviewed treatment above and below ground.
     if (o.kind === 'staircase') {
       const elevator = !!o.elevator, up = o.dir === 'up';
@@ -115,7 +120,6 @@ const RogueObjects = (() => {
       // smaller living stages retain their data and scale the native artwork.
       const stage=treeArtFrame(o); scale=stage===1 ? .35 : stage===2 ? .6 : .85;
     } else if (o.kind==='_streetlamp') {key=o.lit ? 'lamp':'lamp_unlit';scale=1.25;}
-    else if (o.kind==='mineralrock' && mineralRockMaterial(o)==='plain') {key=hash(o.id)%2 ? 'stone':'rock_mid';scale=o.sightBlocking ? 2.4 : 1.6;}
     if (!key) return original;
     return {...original,key:'rogue_'+key,frame:'__BASE',scale,origin:[.5,.5],seat:true,
       groundAtOrigin:false,dxPx:0,dyPx:0,scaleYMul:1,artBounds:undefined,after:undefined};
