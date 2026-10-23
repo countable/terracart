@@ -162,6 +162,9 @@ const ROCK_WORLD_SCALE = (24 / 16) * (16 / 15) * 0.92 * 0.88;
 const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
   themedScale: ROCK_WORLD_SCALE, placedScale: 1.6 * 0.88,
+  // The small planted pebble: a player-placed rock and a loose Rock stack on
+  // the ground both draw this crops.png produce frame, not the inventory boulder.
+  placedSheet: 'crops', placedFrame: CROP_ROW.rubble * CROPS_SHEET_COLS + PRODUCE_COL,
   plainFrames: Object.freeze([0, 30, 32, 34]),
   // The smallest plain look (frame 0: 11×9 opaque pixels, where the other
   // three plain shapes are 11×10 or 11×11 and every large column and ore
@@ -754,6 +757,17 @@ const MINERAL_ICON_SHEET = {
 // Inventory, drops, projectiles and world pickups share the approved source.
 Object.assign(MINERAL_ICON_SHEET, SelectedItemArt.icons);
 MINERAL_ICON_SHEET.flint_shard = { sheet: 'flint', frame: 0 };
+
+// A loose stack lying on the map (render.js RENDER_SPEC.groundstack) wears its
+// inventory icon, except Rock, which lies as the placed pebble. One scale for
+// every stack keeps a pickup smaller than the cell it lies in.
+const GROUND_STACK_ART = Object.freeze({
+  scale: 1.2,
+  items: Object.freeze({ rubble: Object.freeze({ sheet: ROCK_VARIANT_ART.placedSheet, frame: ROCK_VARIANT_ART.placedFrame }) }),
+});
+function groundStackArt(itemId) {
+  return GROUND_STACK_ART.items[itemId] || inventoryIconSource(itemId);
+}
 
 function inventoryIconSource(itemId) {
   // Minerals + gems use the dedicated sheet table above. Read BEFORE the item
