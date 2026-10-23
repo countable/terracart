@@ -902,9 +902,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   The same 16px
   frame uses the same `ROCK_WORLD_SCALE` for small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
-  frame (`placedSheet`/`placedFrame`, the small planted pebble) at 1.408×,
-  comfortably inside a cell. A loose Rock stack on the ground draws that same
-  pebble, not the inventory boulder. Every ground stack draws at
+  frame at 1.408×, comfortably inside a cell. A loose Rock stack on the ground
+  draws the smallest plain stone (`quickFrame`, the approved loose rock under
+  the Rogue profile), not the inventory boulder. Every ground stack draws at
   `GROUND_STACK_ART.scale` (1.2×), a pickup smaller than its cell; other items
   wear their inventory icon (`groundStackArt`).
   These display sizes leave mining

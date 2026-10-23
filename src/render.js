@@ -5816,8 +5816,9 @@ Render.drawObjects = function drawObjects(scene) {
     // Placed rockfruit stones use the produce-icon frame directly (col PRODUCE_COL)
     // rather than the in-world growth art. Stage clamping is skipped.
     if (p._placedRock) {
-      setTextureIfDifferent(s, ROCK_VARIANT_ART.placedSheet);
-      s.setFrame(ROCK_VARIANT_ART.placedFrame);
+      const frame = (CROP_ROW['rubble'] ?? 4) * CROPS_SHEET_COLS + PRODUCE_COL;
+      setTextureIfDifferent(s, 'crops');
+      s.setFrame(frame);
       // Centre on the rock cell (0.5, 0.5): this is the produce icon, not a
       // bottom-weighted seed frame, which the foot-anchor would float ~11px high.
       s.setOrigin(0.5, 0.5).setScale(ROCK_VARIANT_ART.placedScale).setPosition(Math.round(sx), Math.round(sy));
@@ -6824,7 +6825,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from groundStackArt(itemId): the item's inventory icon, so
     // any item can sit on the ground without per-kind plumbing, except Rock,
-    // which lies as the placed pebble (items.js GROUND_STACK_ART).
+    // which lies as the small loose pebble (items.js GROUND_STACK_ART).
     groundstack: {
       layer: WorldLayers.GROUND_DECAL,
       key: (o) => (groundStackArt(o.itemId) || {}).sheet || 'wood',
