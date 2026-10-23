@@ -17,18 +17,46 @@
     assert.includes(ChestThemes.eligible('parkSeeds', 7, { theme: 'park' }), 'worldpeach_sapling');
   });
 
-  test('peach rarity: both procedural lanes use one deterministic one-in-fifty selector', () => {
+  test('peach rarity: both procedural lanes use one deterministic selector; rows roll one in fifty, lone trees one in ten', () => {
     assert.eq(WorldGen.PEACH_ONE_IN, 50);
-    let peaches = 0;
+    assert.eq(WorldGen.PEACH_ONE_IN_LONE, 10);
+    let peaches = 0, lonePeaches = 0;
     for (let hash = 0; hash < 10000; hash++) {
       const species = WorldGen.fruitTreeSpecies(hash);
       assert.eq(species, WorldGen.fruitTreeSpecies(hash));
       if (species === 'worldpeach') peaches++;
       else assert.eq(species, 'apple');
+      const lone = WorldGen.fruitTreeSpecies(hash, WorldGen.PEACH_ONE_IN_LONE);
+      if (lone === 'worldpeach') lonePeaches++;
+      else assert.eq(lone, 'apple');
+      // The lone rate only adds peaches: a cell that is a peach in a row
+      // stays a peach when it stands alone.
+      if (species === 'worldpeach') assert.eq(lone, 'worldpeach');
     }
     assert.eq(peaches, 200);
+    assert.eq(lonePeaches, 1000);
+    // Planted rows (orchard landcover) keep the orchard rate.
     assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(cellHash(tx, ty, ix, iy))');
-    assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(ftHash),');
+    // Standalone mapped / detected fruit trees are the rare find.
+    assert.includes(WORLDGEN_SRC, 'species: fruitTreeSpecies(ftHash, PEACH_ONE_IN_LONE),');
+  });
+
+  test('peach rarity: a standalone sidecar fruit tree rolls its species at the lone rate by its settled cell', () => {
+    const lat = 49.0, lon = -119.5;
+    const gj = { features: [
+      { type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: { kind: 'fruittree', source: 'deepforest', species: 'peach', score: 0.9, crown_m: 6, size: 'medium' } },
+      { type: 'Feature', geometry: { type: 'Point', coordinates: [lon + 0.0004, lat] }, properties: { kind: 'fruittree', osm_id: 12345 } },
+    ] };
+    const bins = WorldGen.buildBinsFromGeoJSON(gj, lat);
+    const rows = [...bins.entries()].flatMap(([k, b]) => b.fruittrees.map(t => [k, t]));
+    assert.eq(rows.length, 2);
+    for (const [key, t] of rows) {
+      assert.truthy(t.individual, 'a sidecar fruit tree is a standalone tree');
+      const [tx, ty] = key.split('_').map(Number);
+      const hash = WorldGen.cellHash(tx, ty, t.lix, t.liy);
+      assert.eq(t.species, WorldGen.fruitTreeSpecies(hash, WorldGen.PEACH_ONE_IN_LONE));
+      assert.falsy(t.species === 'peach', 'the classifier label is never trusted as a species');
+    }
   });
 
   test('peach rarity: one orchard mixes species by cell and retains them in another metre frame', () => {
