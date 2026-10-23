@@ -7295,15 +7295,13 @@ class MapScene extends Phaser.Scene {
     if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
     if (!this._confusedLoop) this._confusedLoop = {
       angle: Math.random() * Math.PI * 2,
-      turn: (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.5),
-      left: null,
-      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing } },
+      turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
+      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing }, mapRot: this.mapRot },
     };
     const loop = this._confusedLoop;
     const takeover = Conditions.confusionSteering(this.save);
     const manual = intent && (intent.x || intent.y);
-    // Keep each random turn for a complete circle before choosing another.
-    if (loop.left == null) loop.left = Math.PI * 2 / Math.abs(loop.turn);
+    // Input and collisions affect translation only; the compass turns steadily.
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
     const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     let remaining = dt;
@@ -7311,7 +7309,6 @@ class MapScene extends Phaser.Scene {
       const step = Math.min(remaining, 0.05);
       remaining -= step;
       loop.angle += loop.turn * step;
-      loop.left -= step;
       let ux = 0, uy = 0;
       if (takeover < 1) {
         const target = manual ? intent : !this._followPaused && this._targetM;
@@ -7330,10 +7327,6 @@ class MapScene extends Phaser.Scene {
       const x = this.playerM.x + dx, y = this.playerM.y + dy;
       if (!this._cellBlocked(this.startWorldM.x + x, this.startWorldM.y + y + (this.feetOffsetM || 0))) {
         this.playerM.x = x; this.playerM.y = y;
-      } else { loop.angle += Math.PI / 2; }
-      if (loop.left <= 0) {
-        loop.turn = (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.5);
-        loop.left = Math.PI * 2 / Math.abs(loop.turn);
       }
     }
     this.facing = { x: Math.cos(loop.angle), y: Math.sin(loop.angle) };
@@ -7354,6 +7347,11 @@ class MapScene extends Phaser.Scene {
     const compass = this._deviceCompass || this._confusedLoop?.compassBefore;
     this.compassDeg = compass?.deg ?? null;
     if (compass?.facing) this.facing = { ...compass.facing };
+    // Without a sensor heading, heading-up otherwise keeps the last spun angle.
+    if (this.compassDeg == null && compass?.mapRot != null) {
+      this.mapRot = compass.mapRot;
+      this._huTurning = false;
+    }
     this._confusedLoop = null;
     this._confusedRecover = true;
   }

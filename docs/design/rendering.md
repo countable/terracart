@@ -561,7 +561,9 @@ the surrounding grove’s shrub scale.
   The player facing chevron is omitted in heading-up mode when a device
   compass reports, unless direction lock is engaged. The gold lock beside zoom
   holds the current map rotation while sensor readings continue; the caret then
-  shows phone direction. Unlocking eases toward the current sensor heading. This
+  shows phone direction. Unlocking eases toward the current sensor heading.
+  Confusion's fixed-rate heading bypasses sensor easing and its dead zone, so
+  the map turns steadily; without a sensor, expiry restores the prior map angle. This
   scene-local choice resets on scene creation. Until a GPS fix is captured,
   direction is forced locked even if the heading sensor reports. Tapping the
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
