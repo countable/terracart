@@ -40,8 +40,12 @@ function settleSingleTarget(q) {
   return true;
 }
 
+// The hunt board names game that is hunted FOR something (its row's `drop`:
+// meat from the deer and livestock, the rabbit's pelt, the crow's feather) —
+// not a butterfly, game that a bare-handed tap takes but no board would
+// send you after.
 function questAnimals() {
-  return Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter(kind => SpriteLayout.isGame(kind));
+  return Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter(kind => SpriteLayout.isGame(kind) && SpriteLayout.creatureDrop(kind));
 }
 
 const Quests = {

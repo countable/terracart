@@ -650,12 +650,13 @@ pixels and decorative details do not define additional tap cells.
   `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
   new story voice is a role there, not a new placer or dialog path. Ordinary
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
-  they return with memories to a restored house, off screen, or — until one
-  is assigned them — wait just outside Home's ring, beyond a stroll of the door
-  (`homeWaitBand`);
+  they return with memories, off screen, and wait on fixed, evenly spread
+  starting-area pins outside Home's ring (`homeWaitBand`). A completed delivery
+  opens a restored plain house after 15 seconds; an available live neighbour
+  may move in and wander near its entrance. Talking never claims a house.
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
   The stranger (Ayo in human form) is such a role, flagged `transient` so a
-  talk never houses her; the lane's gossip about her is one extra page per
+  delivery never houses her; the lane's gossip about her is one extra page per
   neighbour per round (`MemoryStory.STRANGER_RUMOURS`, recorded in
   `save.memoryStory.strangerRumours`), not a line of its own.
 
@@ -677,9 +678,19 @@ ghost control in a separate top-right row. Flip saves the placed orientation and
 updates the map and portrait. Pickup checks bag capacity and accepted quantity
 before removing the placement, then refreshes inventory and persists explicitly.
 
-Indoors, Home shows its current luxury as a white number above its sign. The
-score updates immediately, separately from Home's introductory typing, and
-fades when it overlaps the player.
+Tapping a delivered residential house opens its furniture inspector. An occupied
+house shows the resident's portrait, luxury score, benefit summary and current
+visit message. Four visible slots show furnishings from highest luxury to
+lowest, each with its art, name, contribution and Pick up control; unused slots
+remain visible with dashed borders. Copy explains that only the four most
+luxurious items are kept and a better fifth item returns the weakest to the
+bag. Select furniture and tap the house to attach it outside. A vacant delivered
+house shows its empty slots and explains that it is ready for an available
+neighbour; furnishing starts after the neighbour moves in.
+
+Home shows its current luxury as a white number above its sign while indoors
+and from outside after dark. The score updates immediately, separately from
+Home's introductory typing, and fades when it overlaps the player.
 
 Old Archive Court's existing style deterministically selects delivery or luxury
 jobs without changing castle style assignment. The luxury card is titled

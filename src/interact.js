@@ -581,6 +581,23 @@ function homeFurnitureTap(ctx, building) {
       .some(o => sameAbsCell(scene, o.x, o.y, wm.x, wm.y));
 }
 
+function npcHouseFurnitureTap(ctx, house) {
+  const held = getSelectedSlot(ctx.save);
+  if (!Furniture.isNpcHouse(ctx.scene, house) || !(held?.count > 0 && furnitureSpec(held.id))) return false;
+  if (tooFar(ctx, house.x, house.y)) return 'far';
+  const result = Furniture.furnishHouse(ctx.scene, house, held.id);
+  if (result.accepted) {
+    ctx.dirty = true;
+    ctx.scene.buildInventoryDOM();
+    if (result.replaced) ctx.scene.flash('Furnished; old item returned.', ctx.sx, ctx.sy);
+    else ctx.scene.flash('House furnished.', ctx.sx, ctx.sy);
+  } else {
+    const msg = result.reason;
+    ctx.scene.flash(msg, ctx.sx, ctx.sy);
+  }
+  return true;
+}
+
 function furnitureGround(ctx) {
   const { scene, cell, cwmx, cwmy } = ctx;
   if (cell.underRoad) return false;
@@ -736,6 +753,8 @@ const TAP_HANDLERS = [
   { name: 'building-art', try: (ctx) => {
     const o = ctx.building;
     if (!o) return false;
+    const furnishing = npcHouseFurnitureTap(ctx, o);
+    if (furnishing) return furnishing;
     if (homeFurnitureTap(ctx, o)) return false;
     if (tooFar(ctx, o.x, o.y)) return 'far';
     return runInteractable(ctx, o);
@@ -927,11 +946,18 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // HUNTING — GAME only, which is crow and deer: SpriteLayout.isGame reads
+    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
+    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
+    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
+    // HUNTING — GAME, which is every wild animal (SpriteLayout.isGame reads
     // the one creature table, so what may be hunted is written beside what
-    // that kill drops instead of in a set of its own here. A pet of any kind
-    // opens its individual menu above.
-    if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {
+    // that kill drops instead of in a set of its own here). HUNTED BY
+    // DEFAULT (owner, Oct 2026): a tap with nothing in hand, or anything
+    // that is not food, hunts it. Its favourite in hand is the catch above;
+    // plant produce feeds a producer (below); any other food is refused
+    // (below). A pet of any kind opens its individual menu above.
+    if (!isTame && SpriteLayout.isGame(target.kind) && !likes && !producerMeal && !isEdible
+        && Gear.activeWeapon(save)) {
       const r = save.relics || {};
       // ONE TOOL TAKES ANIMALS: the BUG NET. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
@@ -968,9 +994,6 @@ const TAP_HANDLERS = [
       // it never fights back, and the wheel fails if it runs out of reach.
       return true;
     }
-    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
-    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
-    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
     // Plant produce gives the species yield on its per-animal cooldown.
     //
     // Per-creature production cooldown: each chicken / cow only yields once
@@ -1367,7 +1390,7 @@ const TAP_HANDLERS = [
         building = o;
         return true;
       });
-      if (building) return runInteractable(ctx, building);
+      if (building) return npcHouseFurnitureTap(ctx, building) || runInteractable(ctx, building);
     }
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)

@@ -772,8 +772,12 @@ class SceneVenues {
   // prize today; a relic, which is one of a kind, would not.
   fortSlotMachine(house) {
     const kinds = new Set(FORT_SLOT_KINDS);
+    // The same gates every loot roll keeps (rarity.js pickItemInClass): no
+    // progression ware (the serpent idol is the trail's prize), nothing
+    // cave-only, no shiny, and no dropWeight-0 item (the hive's syrup).
     const cands = ITEMS.filter((it) => kinds.has(it.kind) && (PRICES[it.id] ?? 0) > 0
-      && !FORT_SLOT_EXCLUDE.has(it.id)).map((it) => it.id);
+      && !FORT_SLOT_EXCLUDE.has(it.id) && !it.progressionOnly && !it.caveOnly && !it.shiny
+      && it.dropWeight !== 0).map((it) => it.id);
     const ids = ShopsMath.slotPrizes(`slots:${house.id}:${utcDayKey()}`, cands);
     return ShopsMath.slotMachine(ids, (id) => PRICES[id] ?? 0,
       (id) => ITEM_BY_ID[id]?.kind !== 'relic');
@@ -1539,8 +1543,11 @@ class SceneVenues {
     return null;
   }
 
-  // Clear incidental clutter from Home's doorstep and firepit. Buildings,
-  // their source footprints, and saved player objects always remain intact.
+  // Clear incidental clutter from Home's doorstep and firepit: generated
+  // objects and wild plants whose footprint touches a footing cell, and any
+  // tree standing just south of the pit (HomeArea.FIREPIT_CANOPY_CELLS),
+  // whose canopy would rise over the fire. Buildings, their source
+  // footprints, and saved player objects always remain intact.
   clearHomeFooting() {
     if ((this.depth || 0) !== 0) return;
     const home = this._homeFootingAnchor();
@@ -1554,26 +1561,38 @@ class SceneVenues {
       cells.push(absCellOffset(this, hc.cellIX, hc.cellIY, dx, dy));
     }
     if (pc) cells.push(pc);
-    const onFooting = new Set(cells.map(c => c.cellIX + ',' + c.cellIY));
+    const key = c => c.cellIX + ',' + c.cellIY;
+    const onFooting = new Set(cells.map(key));
+    const canopy = new Set();
+    if (pc) for (let dy = 1; dy <= HomeArea.FIREPIT_CANOPY_CELLS; dy++) canopy.add(key(absCellOffset(this, pc.cellIX, pc.cellIY, 0, dy)));
     const savedOwnerIds = SpawnOwnership.savedIds(this.save);
     const tag = stamp;
+    const sweep = (o) => {
+      if (o === this._starterTrailerObj || o.id === home.id) return false;
+      if (isBuilding(o.kind) || SpawnOwnership.isProtected(o, this.save, savedOwnerIds)) return false;
+      const at = o._footprintCells || o.footprintCells
+        ? SpawnOwnership.footprintCells(this, o).map(key) : [key(worldMetersToAbsCell(this, o.x, o.y))];
+      if (at.some(k => onFooting.has(k))) return true;
+      return (isTreeLike(o.kind) || o.crop === 'palm') && at.some(k => canopy.has(k));
+    };
     // Only Home's own tile and its 8 neighbours can hold a cell of a building
-    // on the footing, so the rest of the cache is skipped.
+    // on the footing, so the rest of the cache is skipped. A tile is swept
+    // again whenever either live list is replaced or changes length.
     const htx = Math.floor(home.x / this.tileEdgeM), hty = Math.floor(home.y / this.tileEdgeM);
-    for (const [key, entry] of WorldGen.tileCache) {
+    for (const [tileKey, entry] of WorldGen.tileCache) {
       if (!entry || !entry.objects) continue;
-      const parts = key.split('/');
+      const parts = tileKey.split('/');
       if (Math.abs(+parts[1] - htx) > 1 || Math.abs(+parts[2] - hty) > 1) continue;
-      if (entry._homeFooting === tag && entry._homeFootingN === entry.objects.length) continue;
-      for (let i = entry.objects.length - 1; i >= 0; i--) {
-        const o = entry.objects[i];
-        if (o === this._starterTrailerObj || o.id === home.id) continue;
-        if (isBuilding(o.kind) || SpawnOwnership.isProtected(o, this.save, savedOwnerIds)) continue;
-        const oc = worldMetersToAbsCell(this, o.x, o.y);
-        if (onFooting.has(oc.cellIX + ',' + oc.cellIY)) entry.objects.splice(i, 1);
+      const seen = entry._homeFootingSeen;
+      if (entry._homeFooting === tag && seen && seen.objects === entry.objects && seen.n === entry.objects.length
+          && seen.plants === entry.wildplants && seen.plantN === (entry.wildplants || []).length) continue;
+      for (let i = entry.objects.length - 1; i >= 0; i--) if (sweep(entry.objects[i])) entry.objects.splice(i, 1);
+      if (entry.wildplants) {
+        for (let i = entry.wildplants.length - 1; i >= 0; i--) if (sweep(entry.wildplants[i])) entry.wildplants.splice(i, 1);
       }
       entry._homeFooting = tag;
-      entry._homeFootingN = entry.objects.length;
+      entry._homeFootingSeen = { objects: entry.objects, n: entry.objects.length,
+        plants: entry.wildplants, plantN: (entry.wildplants || []).length };
     }
   }
 

@@ -192,7 +192,7 @@
       const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.uniqueJewelry && !i.cooked && !i.shiny && !i.progressionOnly && i.baseTier <= tier);
       if (!items.length) return null;
       const top = Math.max(...items.map(i => i.baseTier));
-      return weightedPickBy(items.filter(i => i.baseTier === top), i => i.dropWeight || 1, rng).id;
+      return weightedPickBy(dropEligible(items.filter(i => i.baseTier === top)), i => i.dropWeight || 1, rng).id;
     }
     const byTier = ITEMS_BY_CLASS_TIER[cls];
     if (!byTier) return null;
@@ -200,11 +200,20 @@
     for (let t = tier - 1; t >= 1 && (!pool || !pool.length); t--) pool = (byTier[t] || []).filter(id => !_ITEM_BY_ID[id]?.uniqueJewelry);
     if (!pool || !pool.length) return null;
     // Weighted by item.dropWeight (default 1), so items can be rarer than tier
-    // peers without re-tiering; the pool's total is always positive.
-    return weightedPickBy(pool, (id) => {
+    // peers without re-tiering. A dropWeight of 0 (syrup: the hive's prize,
+    // never a roll) leaves the pool while any peer remains, so the pool's
+    // total stays positive.
+    return weightedPickBy(dropEligible(pool), (id) => {
       const w = _ITEM_BY_ID[id]?.dropWeight;
       return (typeof w === 'number' && w > 0) ? w : 1;
     }, rng);
+  }
+  // Members whose dropWeight is not 0 — or everyone, when that would empty
+  // the pool. Takes ids or item rows.
+  function dropEligible(pool) {
+    const row = (m) => (typeof m === 'string' ? _ITEM_BY_ID[m] : m);
+    const kept = pool.filter(m => row(m)?.dropWeight !== 0);
+    return kept.length ? kept : pool;
   }
 
   // ────────────────────────────────────────────────────────────────

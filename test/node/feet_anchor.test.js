@@ -66,8 +66,8 @@ test('feet anchor: ground marks sit on the point with no feet offset of their ow
   // GPS ring: on its point, not nudged to a sprite centre. It is the only
   // ground marker beside the body — the walk-target dot is gone (see below).
   assert.truthy(/const gx = Math\.round\(g\.x\), gy = Math\.round\(g\.y\);/.test(app)
-    && /this\.gpsGhost\.setPosition\(gx, gy\)/.test(app) && /this\.gpsDisc\.setPosition\(gx, gy\)/.test(app),
-    'GPS marker and its disc on the fix');
+    && /this\.gpsGhost\.setPosition\(gx, gy\)/.test(app),
+    'GPS marker on the fix');
   assert.falsy(/Math\.round\([gp]\.y \+ this\.playerFeetNudgeY\)/.test(app),
     'no marker is nudged to a sprite centre');
   // Walk-home line: both ends are ground points.
@@ -103,18 +103,19 @@ test('ground marks: the GPS marker stays visible with distance-based styling', (
     'baked by the shared ground-mark bake, in gold, as a ring with four ticks, a strip over the ticks\' period');
   assert.eq(GPS_RING.periodDeg, 90, 'four ticks repeat every quarter turn');
   assert.gt(GPS_RING.tilt, GROUND_MARK.tilt, 'rounder than the shared marks — at 0.5 it read squashed');
-  // The caret's paint (FACING_CHEVRON): a gold line on a dark outline, over a
-  // drop shadow that falls down the screen. Widths are on-screen px.
+  // The caret's paint (FACING_CHEVRON): a gold line on a dark outline, and
+  // no drop shadow — a soft shadow under the marker read as a blur. Widths
+  // are on-screen px.
   const k = GROUND_MARK.bakePx / GPS_RING.px;
-  const [shadow, outline, line] = GPS_RING.passes;
+  assert.eq(GPS_RING.passes.length, 2, 'outline and line only, no shadow pass');
+  const [outline, line] = GPS_RING.passes;
   assert.eq(outline[1], '#1a1208', 'the caret\'s dark outline');
   assert.lt(Math.abs(line[0] / k - GPS_RING.line), 1e-9, 'the gold line lands at its on-screen width');
   assert.gt(outline[0], line[0], 'the outline shows either side of the line');
-  assert.eq(shadow[1], '#000');
-  assert.gt(shadow[3], 0, 'the shadow is shifted DOWN the bake, which the tilt lays flat as screen-down');
-  assert.lt(Math.abs(shadow[3] / k * GPS_RING.tilt - GPS_RING.shadowPx), 1e-9, 'by shadowPx on screen');
-  // Everything stays inside the bake cell, shadow included.
-  const reach = GPS_RING.r + GPS_RING.tick + outline[0] / 2 + shadow[3];
+  assert.truthy(GPS_RING.passes.every(p => !p[3]), 'no pass is shifted into a drop shadow');
+  assert.falsy(/gpsDisc|gps_disc/.test(app), 'no disc or second shadow under the fix near the body');
+  // Everything stays inside the bake cell.
+  const reach = GPS_RING.r + GPS_RING.tick + outline[0] / 2;
   assert.lt(reach, GROUND_MARK.bakePx / 2, 'no pass is clipped at the frame edge');
   assert.falsy(/gps_crosshair/.test(app), 'the old 20px crosshair bake is gone');
   // The walk-home lead stops on the ring's ellipse at the line's bearing.
@@ -142,20 +143,16 @@ test('feet anchor: the creature hit-test scales pixels from cellPx, not from the
 });
 })();
 
-test('GPS marker: the ring darkens and fades into a translucent dark disc near the body, half radius at five cells', () => {
+test('GPS marker: the ring fades out to nothing near the body, half radius at five cells', () => {
   const F = GPS_RING.fade;
-  const at0 = Render.gpsMarkerStyle(0);
-  assert.eq(at0.ringAlpha, 0, 'at the feet: no ring');
-  assert.eq(at0.discAlpha, F.discAlpha, 'only the translucent disc');
-  assert.lt(at0.discAlpha, 1);
-  assert.eq(at0.tint, F.dark, 'fully darkened');
-  const far = Render.gpsMarkerStyle(F.ringCells);
-  assert.eq(far.ringAlpha, 1); assert.eq(far.discAlpha, 0); assert.eq(far.tint, 0xffffff, 'plain gold ring');
+  assert.eq(Render.gpsMarkerStyle(0).ringAlpha, 0, 'at the feet: nothing is drawn');
+  assert.eq(Render.gpsMarkerStyle(F.hideCells).ringAlpha, 0, 'gone within hideCells');
+  assert.eq(Render.gpsMarkerStyle(F.ringCells).ringAlpha, 1, 'the full gold ring from ringCells out');
+  assert.truthy(/\.setVisible\(marker\.ringAlpha > 0\)/.test(SCENE_SRC), 'hidden outright when fully faded');
   let prev = Render.gpsMarkerStyle(0);
   for (let d = .1; d <= F.ringCells + .01; d += .1) {
     const m = Render.gpsMarkerStyle(d);
-    assert.truthy(m.ringAlpha >= prev.ringAlpha && m.discAlpha <= prev.discAlpha, `${d.toFixed(1)}: monotonic, no jump`);
-    assert.truthy((m.tint & 0xff) >= (prev.tint & 0xff), `${d.toFixed(1)}: lighter farther out`);
+    assert.truthy(m.ringAlpha >= prev.ringAlpha, `${d.toFixed(1)}: monotonic, no jump`);
     prev = m;
   }
   for (const d of [0, .5, 1, 2, 3, 4, 5, 10]) {

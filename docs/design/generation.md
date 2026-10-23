@@ -1052,6 +1052,31 @@ Higher-priority placements and their access space take precedence in this order:
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
 
+### Village residents
+
+Village neighbours have fixed wander centres. Memory-driven arrivals prefer
+Home's starting area, choosing legal cells as far from the existing village
+pins as possible; story neighbours share that spacing rule. `save.npcVillagePins`
+retains legal wander centres across tile rebuilds, so existing pins stay put when
+more people arrive. A newly blocked pin is replaced by another legal seat. Ordinary waiters stay outside Home's ring with
+enough space for their four-cell wander radius. Waiting near another restored
+roof does not reserve it. Named-zone keepers and special story arrivals keep
+their authored places until eligible to move.
+
+A restored **plain** house becomes available only after its delivery discovery
+(`Delivery.isSatisfied`). `NPC.markDelivery` records a 15-second move-in delay
+in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
+One live, unhoused, unwounded resident may then move in; talking does not assign
+a roof, and absent pending records cannot create a resident. The transient
+stranger is excluded; Maud is eligible after her rescue reward. The move prefers
+an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
+one-resident-per-house assignment, identity and safe outside wander centre,
+plus the actual house position. Reloading reconstructs existing assignments
+without needing their origin tile. Seats prefer the renderer's source doorway
+when available, otherwise safe nearby cells within four cells of the house;
+movement keeps the four-cell leash and asks the live NPC spawn gate on each
+step. The player Home and specialty buildings never accept NPC assignments.
+
 ### Furniture
 
 Furniture is durable player property in `save.furniture`, exempt from history
@@ -1073,7 +1098,8 @@ occupancy without changing its generated set, so pickup releases only the
 furniture claim. Starter story seating and reward seats also respect saved pieces.
 
 `Furniture.recompute` is the sole writer of `save.houseLuxury`, a map from
-Home key to `{ score, footprintKey }`. Consumers use `Furniture.luxuryOf`.
+house key to `{ score, footprintKey }` (the footprint key is Home-only).
+Consumers use `Furniture.luxuryOf`.
 Saved indoor furniture contributes catalog tier squared (1/4/9/16/25), or its
 metadata `luxury` override. Outdoor and cave furniture contributes zero;
 one record counts once even when its future footprint spans several cells.
@@ -1084,6 +1110,17 @@ eviction does not erase luxury; unloaded geometry cannot authorize an ability.
 A new Home location invalidates that association even when its synthetic id
 is reused. Inactive Homes score zero. Reconciliation also refreshes luxury
 quests and banks newly reached milestone memories through the discovery ledger.
+
+Occupied NPC houses accept furniture by tapping their roof, walls or owned
+footprint with a furnishing selected. These exterior attachments live in
+`save.houseFurniture[houseId]`, separately from floor placements: they neither
+reserve ground cells nor enable furniture abilities. Each house keeps four
+items, ranked by `Furniture.itemLuxury` (the same tier-squared or override
+rule). A higher-scoring fifth item replaces the weakest furnishing and returns
+it to the bag. Equal or weaker items remain in hand; a full return stack
+refuses the transaction before consuming the upgrade. Pickup verifies inventory
+acceptance before removing an attachment. The player's indoor furniture and
+its luxury remain independent and retain their existing floor-placement rules.
 
 Placement uses `placeOnEmptyCell`: any owned Home floor cell, including its
 anchor and doorway, or ordinary open ground accepted by `isSpawnCell` with

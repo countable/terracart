@@ -458,10 +458,16 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
-While `homeInside()` is true, a separate white luxury number sits above that
-sign in the same label pool and fades over the player. Its retained text key
-includes the active Home, indoor state and `Furniture.luxuryOf` score; the
-number never shares Home's typing clock.
+A separate white luxury number sits above that sign while `homeInside()` is
+true, and remains visible outside after dark (`Lighting.daylight < 0.5`). It
+uses the label pool and fades over the player. Its retained text key includes
+the active Home, indoor state, darkness and `Furniture.luxuryOf` score; the
+number never shares Home's typing clock. NPC house luxury appears in inspection.
+Once a resident moves in, their delivery bubble becomes a 24px portrait board
+on the front facade: dark green with a rounded brass rim and no speech tail.
+It follows the same heading, zoom, modal suppression and toast overlap rules as
+the existing delivery overlays. The portrait is the resident's conversation
+identity, including Tilly's housed face.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
@@ -619,20 +625,20 @@ the surrounding grove’s shrub scale.
   and hedge meshes instead live in `raisedPropContainer`, above ground shadows
   and below world sprites, so the player's ground shadow cannot paint their
   raised tops. Both layers share the world viewport mask. Wall geometry
-  never adjusts an actor's feet or enters the world depth sort. Towers and
-  flags retain ordinary world ordering. Tower textures fade fully to transparent
+  never adjusts an actor's feet or enters the world depth sort. Legacy tower sprites and
+  flags retain ordinary world ordering; generated castle towers share the castle batch. Legacy tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct. Unclaimed house and fort floors
   retain a little more brick red and weathered timber warmth beneath the green
   wash; their existing slime, grain, cracks and dark foundation edges preserve
   the dilapidated state. Restored floors and castle materials keep their palettes.
-  Castle courtyards are cell-tiled using two native Dungeon Gathering slab
+  Legacy fallback castle courtyards are cell-tiled using two native Dungeon Gathering slab
   recipes: a horizontal half-cell slab with two small squares, and a vertical
   half-cell slab with two small squares. Polygon courtyards scatter these across
   a cached eight-cell-square repeat; tiled floors select by world-cell hash.
   Native recessed joints remain intact and polygon courts add no second grid.
-  Castle wall caps and faces use `CastleStyles.rampart` dimensions in both
+  Legacy fallback wall caps and faces use `CastleStyles.rampart` dimensions in both
   renderers. The cap stays narrow while the shaded face stands well over
   twice its depth, so walls read as three-quarter uprights rather than a
   top-down outline; polygon corners use bounded bevel joins with faces beneath them.
@@ -767,12 +773,10 @@ the surrounding grove’s shrub scale.
   and the player's GPS ring (`gps_ring`, baked in gold) are its rows. The GPS
   ring's `GPS_RING` row carries its own on-screen width and tilt (at the
   shared tilt it read squashed) and the facing caret's paint instead of the
-  halo: a gold line on a dark outline over a drop shadow down the screen
-  (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
-  the yellow ring, which darkens and turns translucent as it nears the body
-  while a dark disc (`gpsDisc`) fades in under it, until at the feet it is only
-  a translucent dark circle (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a
-  swap to a second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
+  halo: a gold line on a dark outline with no drop shadow (`GPS_RING.passes`). The caret is pushed off the ring as well as the body. The GPS marker (`gpsGhost`) is drawn while there is a fix:
+  the yellow ring, which fades out as it nears the body until at the feet
+  nothing is drawn (`GPS_RING.fade`, `Render.gpsMarkerStyle`) — never a disc
+  or second contact shadow that follows the fix. Radius decreases linearly from full at one cell to half at five cells,
   clamped there beyond five; distance is measured in world metres independently
   of zoom and heading. Once its centre is off the visible map, its
   bearing is a micro gold rim dot (`_drawGpsRimDot`, drawn with the MARKERS
@@ -1240,6 +1244,30 @@ popup art retain their existing atlas icons. `POT_SMASHED_FRAMES` pairs terracot
 cream pots with frame 3; zone, street and biome cannot change the broken pot's
 colour. Selection does not change rewards, material identity, saved IDs or
 restocking behavior.
+
+## Generated castle geometry
+
+Surface castle polygons use Fantasy Dreamland Reborn masonry and projecting
+square corner towers through `FDRCastleLayout` and `FDRCastleGeometry`. Towers
+straddle convex corners with continuous positions; curtain walls are clipped
+against their footprints so they meet the tower faces. Merlons are solid geometry
+with open crenels and full coping support. A keep is placed only where its full
+courtyard clearance fits. Layout computation is bounded and cached in local
+coordinates; invalid or excessively complex rings retain the existing fallback.
+
+`BuildingOverlay` owns the dedicated retained `castles` group, its camera offset,
+claim rebuilds and building hit metadata. The ground canvas repeats native Fantasy
+City paving. The shared preloaded FDR atlas is generated by
+`tools/build_fdr_castle_assets.py`; its adjacent manifest records source crops and
+hashes. Unclaimed masonry uses the existing castle palette treatment. Canvas
+closes paired opaque triangle seams within exact surface boundaries; transparent
+coping, doors and base art keep exact clips. Camera movement and rotation reuse
+geometry and materials rather than baking textures.
+
+Covered castles suppress their old tower sprites while retaining gameplay turret
+records, ownership, range and collision. Flags seat on distinct geometry crowns
+with the existing claim-state rules. Temple zones and house-role turrets keep
+their own renderers. Geometry hit testing includes projecting tower faces.
 
 ## Building sprite artwork
 

@@ -119,6 +119,35 @@
     } finally { WorldGen.tileCache.delete(key); }
   });
 
+  test('saved spawn: Home footing sweep clears the pit, its wild plants, a wide footprint and a tree in front of it', () => {
+    const lift = (name) => liftSceneMethod(name, { BUILDING_TYPES: new Set([9, 11, 12]) });
+    const st = { id: 'starter_trailer', ...at(30, 30) };
+    const s = Object.assign(scene({ starterTrailer: st, starterShopId: st.id, homeFirepit: at(30, 34) }), {
+      clearHomeFooting: lift('clearHomeFooting'), _homeFootingAnchor: lift('_homeFootingAnchor'),
+    });
+    const onPit = { kind: 'tree', id: 'on_pit', ...at(30, 34) };
+    const palm = { crop: 'palm', id: 'palm_on_pit', ...at(30, 34) };
+    const wide = { kind: 'rock', id: 'wide', ...at(31, 34), _footprintCells: { width: 3, height: 1 } };
+    const front = { kind: 'tree', id: 'front', ...at(30, 36) };
+    const frontRock = { kind: 'rock', id: 'front_rock', ...at(30, 35) };
+    const behind = { kind: 'tree', id: 'behind', ...at(30, 33) };
+    const far = { kind: 'tree', id: 'far', ...at(30, 37) };
+    const e = { objects: [onPit, wide, front, frontRock, behind, far], wildplants: [palm] };
+    const key = WorldGen.tileKey(0, 0);
+    WorldGen.tileCache.set(key, e);
+    try {
+      s.clearHomeFooting();
+      for (const o of [onPit, wide, front]) assert.falsy(e.objects.includes(o), `${o.id} swept`);
+      assert.eq(e.wildplants.length, 0, 'a wild plant on the pit is swept too');
+      for (const o of [frontRock, behind, far]) assert.truthy(e.objects.includes(o), `${o.id} stays`);
+      // A tree arriving later, in a replaced list of the same length, is swept on the next frame.
+      const late = { kind: 'tree', id: 'late', ...at(30, 35) };
+      e.objects = [late, ...e.objects.slice(1)];
+      s.clearHomeFooting();
+      assert.falsy(e.objects.includes(late), 'a replaced list is swept again');
+    } finally { WorldGen.tileCache.delete(key); }
+  });
+
   test('saved spawn: restored furniture clears generated clutter and preserves its host and snapshot', () => {
     const record = { id: 'bed', itemId: 'bed_quilted', ...at(30, 30), depth: 0, houseKey: 'home' };
     const s = scene({ furniture: [record], starterShopId: 'home' });

@@ -65,6 +65,58 @@ browser checker defaults. It covers 32 footprint/state/family/temple combination
 per renderer, eight screenshot headings, and 361 heading updates with retained
 geometry and no Canvas texture allocations, refreshes or pixel readback.
 
+## Fantasy Dreamland castle trial
+
+`tools/fdr-castle-preview.html` compares a castle assembled from native Fantasy
+Dreamland Reborn tiles with matching retained 3D geometry. Four broad towers,
+connecting walls, a gated courtyard and a central keep share dimensions and
+native pixel scale. The fixed 2D view stays south-facing while the geometry rotates.
+Repeat the centre battlement tile on straight walls; corner tiles contain hanging
+side edges. The stone floor uses native Fantasy City staggered paving; the original
+open crown masks preserve native coping around it. Centre each merlon footprint
+on its supporting rim in both views. Curtain merlons are 8px solids at 16px
+pitch on all four walls, leaving genuine 8px gaps above the 24px parapet.
+Keep the gate decal below that parapet. Remove covered caps and internal
+curtain end faces when reducing geometry; preserve crenellation silhouettes.
+Curtain walls must end at tower footprints: intersecting solids cannot be fixed
+reliably by changing their painter order.
+The builder repeats centre strips to enlarge the source tower into a keep;
+`assembly-layout.json` records the source crop, dimensions and projection limits.
+
+```sh
+python3 tools/build_fdr_castle_trial.py --out ~/.artifacts/fdr-castle-trial --ref HEAD
+node tools/check_fdr_castle_trial.cjs
+```
+
+Open `http://localhost:8765/fdr-castle-trial/`; use `?canvas` for the fallback.
+The builder snapshots committed renderer modules and records their revision in
+`runtime-revision.txt`, isolating reviews from concurrent edits. `sources.json`
+records ElvGames attribution, native crops and processing. Assemblies are saved
+as `assembled-warm.png` and `assembled-cool.png`, plus enlarged copies.
+This isolated fixture does not change live generation or collision; doors are
+surface details. Tower corners intentionally project beyond the curtain walls.
+The checker verifies both renderers and 361 headings without texture allocations,
+refreshes or pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`,
+`STUDY_URL` and `CHROMIUM` override defaults.
+
+The footprint selector also exercises concave, narrow, skewed and acute outlines.
+For these cases the left panel is a placement plan, not a native sprite assembly.
+`fdr-castle-layout.js` straddles convex corners with continuously positioned towers, clips curtain geometry
+against the courtyard footprint and projecting towers, and places the keep only with 12px clearance.
+Curtain merlons follow each edge direction and require full coping support.
+Run `node tools/check_fdr_irregular_castles.cjs` for independent containment,
+overlap, rotation and renderer checks; its screenshots still require visual review.
+
+`check_fdr_native_pixels.py` compares four exposed masonry regions against the
+native assembly at 1× scale. Brick UVs use positive local axes; curtain courses
+start at their 24px coping, while tower/keep courses start at their own roof.
+Use the distinct native left/right coping crops. Do not mirror front-facing
+masonry merely because a polygon's vertex winding runs right to left.
+The review-only Canvas adapter overlaps internal opaque triangle clips within
+the exact face boundary; transparent source tiles keep their original clips.
+Eight-pixel atlas gutters prevent that coverage from sampling adjacent slots.
+
+
 ## Prerequisites
 
 - Node.js runs the headless suite and most audits without browser packages.

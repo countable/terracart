@@ -117,9 +117,10 @@ ONBOARDING (the first session)
    on screen. The family's plea is what the warden SAYS ON A TAP — never
    splashed over the map. Everyone else comes back as memories are recovered:
    the story neighbours at their role's memory threshold, ordinary residents
-   beside a restored house (or just outside Home's ring until one is theirs),
-   off screen, never watched
-   appearing (`NPC.arrivals`, `NPC.tickArrivals`). Nexus keepers never left.
+   on evenly spaced starting-area pins outside Home's ring, arriving off screen
+   (`NPC.arrivals`, `NPC.tickArrivals`). Restoring a plain house and completing
+   its delivery lets an available neighbour move in after a short delay, then
+   wander near that house's entrance. Nexus keepers never left.
    CLAUDE.md ("Dialogs, feedback and teaching") owns the rule.
  - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
    reload), covering movement, reach, the farming loop, energy and home-only

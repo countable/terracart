@@ -101,8 +101,8 @@ mechanics.
   change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
-  Game animals (crow/deer) are not enemies or projectile targets; released
-  slime pets are never targets.
+  Game animals (every wild animal: `SpriteLayout.isGame`) are not enemies or
+  projectile targets; released slime pets are never targets.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
@@ -276,7 +276,15 @@ mechanics.
   enemy until the attempt ends. A refused item is never consumed. Story foes
   and `untameable` kinds (the crow: hunted for its feather, never a pet; old
   saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
-  baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
+  baby/shiny variants. Every wild animal is GAME unless its row opts out
+  (`SpriteLayout.isGame`: not a foe, an ally, a companion kind, the villager
+  or the story's dragon): a tap with nothing or a non-food in hand hunts it on
+  the net wheel, its favourite in hand catches it, plant produce feeds a
+  producer, and other food is refused. A hunt pays the row's `drop` (deer,
+  chicken, cow and horse: meat; rabbit: pelt; crow: feather; the rest:
+  nothing) — livestock fed its favourite is caught alive instead. A
+  roster kind is never game: it is fought, or (the crab, the gull, the raven)
+  caught.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
@@ -330,6 +338,22 @@ mechanics.
   Luxury milestones at 4/16/36/64/100 each bank one real memory once per save,
   with the normal immediate full heal and lifetime story progression. Pickup
   cannot remove or repeat an earned memory.
+- A housed neighbour's luxury also determines their help (`NPCBenefits`).
+  Tilly waters dry, immature surface crops within 15 cells of her house for
+  one minute per luxury point, followed by an hour's rest. She walks to a crop
+  or a cardinal neighbour through the NPC spawn gate and shared character
+  movement sweep; blocked crops are skipped, and she walks home afterwards.
+  Only foreground simulation waters crops: loading a save never backfills work.
+  Tilly's loaded-home chores continue beyond the player's normal 12-cell
+  creature simulation bubble, so she can reach the full crop radius and return
+  while the player stays home; other distant creatures remain frozen.
+  Actual watering records today's UTC date so talking to Tilly or visiting her
+  house can report, “Hey, I watered your crops today.” Other housed neighbours
+  offer daily gifts on a visit or conversation: Bryn gives Wood, Maud Apples,
+  Edda Flowers, Orrin Rock, and other residents Berries, one per luxury point.
+  Gifts reset by UTC day without accumulating missed days. A partly full bag
+  retains today's uncollected portion; successful collection fixes today's
+  allowance so furniture changes cannot repeat a gift.
 - The Quilted Cot restores all missing energy through `_restoreEnergy` and
   `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
   building cell and refuses full energy or `_zeroEnergyLocked()`, both before
@@ -356,6 +380,10 @@ mechanics.
   road falls back to the nearest suitable cell one, then two, cells out from
   the player (`HomeArea.firepitCandidates`), so a new game always gets its pit
   when one fits. Later headings and reloads do not move it.
+  Home's footing sweep (`clearHomeFooting`) removes generated objects and
+  wild plants whose footprint touches the doorstep 3×3 or the pit, and any
+  tree up to `HomeArea.FIREPIT_CANOPY_CELLS` due south of the pit, whose
+  canopy would stand over the fire; saved and player-owned things stay.
   This step-over prop sits at its cell centre, with its ring, fire, smoke and
   step-up footprint sharing that anchor. On the first compass reading, older
   saved rings move to this southern cell too; a matching surface fire follows
