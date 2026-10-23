@@ -6,7 +6,7 @@
     "selected": true,
     "family": "Selected / original marble floor",
     "name": "Rune terrace with roof brim",
-    "description": "The original pale stone and rune design, with its staggered slab floor restored. A low continuous wall rims the raised top like a flat adobe roof; no gate, door or separate altar."
+    "description": "The pale stone and cyan rune design now uses smaller staggered bricks with light top/left and darker bottom/right edges. A low continuous brim rims the raised top like a flat adobe roof; no gate, door or separate altar."
   },
   {
     "id": "selected-fort",
@@ -15,7 +15,7 @@
     "selected": true,
     "family": "Selected / pointed square timber",
     "name": "Palisaded copper compound",
-    "description": "The copper hall and supply sheds stand on the original plank floor. Touching square poles are one-third of a cell wide and one-and-a-half cells tall, with pointed tips and a subtly lighter upper half. One dice sign marks the middle of the hall."
+    "description": "The copper hall and supply sheds stand on the original plank floor. Square posts are one-sixth of a cell wide and three-quarters of a cell tall, with long carved points that continue the shaft grain and colour. The upper half stays subtly lighter; one dice sign marks the hall."
   },
   {
     "id": "sealed-hall",

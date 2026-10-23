@@ -371,10 +371,11 @@ height vertical through compass rotation. It rebuilds a Graphics command
 buffer on heading changes without baking new Canvas textures. The legacy
 non-perspective path uses cached atlas wall sprites.
 
-Fort runs use roughly three square posts per 32px cell. Each post retains
+Fort runs use roughly six square posts per 32px cell. Each post retains
 20 triangles: four body faces split at the half-height colour boundary plus
 four pyramidal tip faces. Sparse grain stays in the shared texture atlas.
-Posts are a third of a cell wide and 1.5 cells tall, including the point;
+Posts are one-sixth of a cell wide and three-quarters of a cell tall, including
+the long ten-unit point. Grain and face shades continue into the carved tip;
 compass changes reuse the geometry. Both polygonal and cell walls share these
 sizes and colours. Castle battlements retain their established renderer.
 
@@ -383,8 +384,9 @@ and marked by one centered dice board. Its original procedural plank floor
 remains visible around it. `tools/temple-fort-study/` previews that composition
 and the original pale temple floor with a low adobe-like brim.
 
-Temples use `TempleArt`'s pale staggered slabs and native cyan runes, with dark
-stone for tar temples. A continuous three-unit-thick wall rises four units
+Temples use `TempleArt`'s small 16×8 running-bond bricks and native cyan runes,
+with dark stone for tar temples. Subtle light top/left and darker bottom/right
+edges give the bricks depth in the cached floor paint, without extra geometry. A continuous three-unit-thick wall rises four units
 above the rune surface; the foundation extends seven units beneath it. The brim
 has no gate, battlements or corner towers. Polygon floors call the original
 slab painter directly; RA paving is not baked or substituted for temples.

@@ -71,7 +71,7 @@ function pointedPalisade(a){
   posts.push({x,y,width,height,shaft,half});
  };
  // Square posts touch on each run; the gate is the sole perimeter opening.
- const columns=13,rows=10,left=-columns*width/2,right=-left,back=-rows*width/2,front=-back;
+ const columns=Math.round(140/width),rows=Math.round(106/width),left=-columns*width/2,right=-left,back=-rows*width/2,front=-back;
  for(let i=0;i<columns;i++){const x=left+(i+.5)*width;post(x,back);if(Math.abs(x)>16)post(x,front);}
  for(let i=1;i<rows;i++){const y=back+i*width;post(left+width/2,y);post(right-width/2,y);}
  a.palisade={width,height,tip,shaft,lightBoundary:z+half,posts};

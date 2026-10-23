@@ -58,12 +58,14 @@ to existing game roles ship.
 The fort uses the full `city_storefront` shell, fitted at 65% of the available
 lot span, with one solid dice board centered above its entrance. It keeps the
 original procedural horizontal plank floor (`biome11_0`), rather than the
-interior sheet or RA paving. The shared palisade has true square posts 32/3
-units wide and 48 units tall including an eight-unit pyramidal point. Their
+interior sheet or RA paving. The shared palisade has true square posts 32/6
+units wide and 24 units tall, including a ten-unit carved point. Their
 Rogue Adventure Village brown ramp uses sparse vertical grain; a discrete
-colour step at height 24 makes the upper half about 12% lighter. Both textured
+colour step at height 12 makes the upper half about 12% lighter. Both textured
 and flat Canvas faces share that boundary. Cardinal and angled source edges
-retain square posts even when the final distribution interval is shorter.
+retain square posts even when the final distribution interval is shorter. Point
+faces continue the same grain coordinates and face shade as the shaft, avoiding
+a separate bright cap at their join.
 
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.

@@ -20,8 +20,8 @@ const path = require('node:path');
   const temple=study.panels.find(p=>p.recipe.id==='selected-temple').renderer.model;
   const levels=key=>{const data=[...fort.batches].filter(([name])=>name.startsWith(key)).flatMap(([,values])=>values),zs=data.filter((_,i)=>i%6===2);return [Math.min(...zs),Math.max(...zs)];};
   const wood=fort.palisade;
-  return wood.width===32/3&&wood.height===48&&wood.tip===8&&wood.posts.every(p=>p.width===32/3)
-   &&JSON.stringify(levels('palisade-lower'))==='[3,27]'&&JSON.stringify(levels('palisade-upper'))==='[27,51]'
+  return wood.width===32/6&&wood.height===24&&wood.tip===10&&wood.posts.every(p=>p.width===32/6)
+   &&JSON.stringify(levels('palisade-lower'))==='[3,15]'&&JSON.stringify(levels('palisade-upper'))==='[15,27]'
    &&fort.batches.has('original-planks')&&fort.batches.has('dice')
    &&temple.temple.continuousBrim&&temple.temple.wallHeight===TempleArt.geometry.wallHeight&&temple.temple.wallThickness===3
    &&temple.batches.has('original-temple-pale-active')&&!temple.batches.has('temple-closed-door')&&!temple.batches.has('rune');

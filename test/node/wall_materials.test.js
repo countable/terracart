@@ -75,9 +75,10 @@
   test('wall materials: pointed timber retains a small mesh and fixed support height', () => {
     const w = WallMaterials.WOOD, faces = WallMaterials.geometry('wood', [{ x: 0, y: 0 }, { x: w.width, y: 0 }, { x: w.width, y: w.width }, { x: 0, y: w.width }], w.height);
     assert.eq(faces.length, 20, 'four square sides in two shade bands and four pointed crown faces');
-    assert.eq(w.width, 32 / 3, 'third-cell square pole');
+    assert.eq(w.width, 32 / 6, 'sixth-cell square pole');
     assert.eq(w.thickness, w.width);
-    assert.eq(w.height + w.tipHeight, 48, 'point reaches 1.5 cells');
+    assert.eq(w.height + w.tipHeight, 24, 'pole is half the previous total height');
+    assert.gt(w.tipHeight, 8, 'carved point is taller than the previous short cap');
     const body=faces.filter(f=>f.normal), north=body.filter(f=>f.normal.y===-1);
     const dark=north.find(f=>f.points.every(p=>p.z<=w.shadeHeight));
     const light=north.find(f=>f.points.every(p=>p.z>=w.shadeHeight));
@@ -85,6 +86,14 @@
     assert.lt(dark.flatColor, light.flatColor, 'upper half stays lighter in flat fallback');
     assert.truthy(body.flatMap(f=>f.points).every(p=>(p.x===0||p.x===w.width)&&(p.y===0||p.y===w.width)), 'no rounded or chamfered footprint');
     assert.eq(Math.max(...faces.flatMap(f => f.points.map(p => p.z))), w.height + w.tipHeight, 'point height');
+    for(const tip of faces.filter(f=>f.normal===null)){
+      const base=tip.points.filter(p=>p.z===w.height);
+      const shaft=body.find(f=>base.every(p=>f.points.some(q=>q.x===p.x&&q.y===p.y&&q.z===p.z)));
+      assert.truthy(shaft,'point shares its complete base edge with a shaft face');
+      assert.eq(tip.flatColor,shaft.flatColor,'point continues the shaft colour');
+      for(const p of base){const q=shaft.points.find(q=>q.x===p.x&&q.y===p.y&&q.z===p.z);assert.eq(p.u,q.u,'grain U continues through point base');assert.eq(p.v,q.v,'grain V continues through point base');}
+    }
+
   });
   test('wall materials: state tint colors both GPU and flat fallbacks', () => {
     const points = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }];

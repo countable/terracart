@@ -19,14 +19,14 @@
   }
   function close(a, b, message) { assert.lt(Math.abs(a - b), 1e-8, message); }
 
-  test('wall perspective: short and angled palisade intervals keep square third-cell posts', () => {
+  test('wall perspective: short and angled palisade intervals keep square sixth-cell posts', () => {
     for(const [ax,ay,bx,by] of [[0,0,4,0],[0,0,8,8],[20,10,20,42]]){
       const s=scene(),group=WallPerspective.begin(s,'polygon');
       WallPerspective.palisade(s,'polygon',{ax,ay,bx,by});
       const block=group.blocks[0];
       assert.eq(block.points.length,4,'four true square corners');
-      block.points.forEach((p,i)=>{const q=block.points[(i+1)%4];close(Math.hypot(q.x-p.x,q.y-p.y),32/3,'equal square sides at arbitrary headings');});
-      close(block.top,48,'one and a half cells including the point');
+      block.points.forEach((p,i)=>{const q=block.points[(i+1)%4];close(Math.hypot(q.x-p.x,q.y-p.y),32/6,'equal square sides at arbitrary headings');});
+      close(block.top,24,'three quarters of a cell including the point');
       for(const angle of [0,Math.PI/4,Math.PI,Math.PI*1.5]){s.mapRot=angle;WallPerspective.update(s);assert.truthy(group.gfx.triangles.every(t=>t.points.every(Number.isFinite)));}
     }
   });

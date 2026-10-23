@@ -13,7 +13,8 @@
       fill() { this.ops.push({ op: 'fill', path: this.path.slice(), color: this.fillStyle }); },
       stroke() { this.ops.push({ op: 'stroke', path: this.path.slice(), color: this.strokeStyle,
         clipDepth: this.clipDepth, glow: this.shadowBlur }); },
-      strokeRect() { this.ops.push({ op: 'slab', clipDepth: this.clipDepth }); },
+      strokeRect(...rect) { this.ops.push({ op: 'slab', rect, color: this.strokeStyle, clipDepth: this.clipDepth }); },
+      fillRect(...rect) { this.ops.push({ op: 'brick-edge', rect, color: this.fillStyle, clipDepth: this.clipDepth }); },
     };
     return c;
   }
@@ -30,12 +31,32 @@
     for (const op of ctx.ops.filter(o => o.op === 'stroke' || o.op === 'slab')) assert.gt(op.clipDepth, 0);
     assert.eq(ctx.clipDepth, 0, 'restores caller clipping state');
   });
+  test('temple art: small staggered bricks retain light and dark relief in both stone palettes', () => {
+    for (const dark of [false, true]) {
+      const ctx = recorder(), paint = dark ? TempleArt.darkColors : TempleArt.colors;
+      TempleArt.draw(ctx, ring, { faces: false, dark });
+      const bricks = ctx.ops.filter(o => o.op === 'slab');
+      assert.truthy(bricks.length > 50, 'smaller brick courses replace the oversized square slabs');
+      assert.truthy(bricks.every(o => o.rect[2] === 15 && o.rect[3] === 7), 'one-pixel mortar around native 16 by 8 bricks');
+      const rows = [...new Set(bricks.map(o => o.rect[1]))];
+      const first = row => Math.min(...bricks.filter(o => o.rect[1] === row).map(o => o.rect[0]));
+      assert.eq(first(rows[0]) - first(rows[1]), 8, 'alternate courses offset half a brick');
+      const highlights = ctx.ops.filter(o => o.op === 'brick-edge' && o.color === paint.brickLight);
+      const shadows = ctx.ops.filter(o => o.op === 'brick-edge' && o.color === paint.brickShadow);
+      assert.eq(highlights.length, bricks.length * 2, 'top and left edges catch light');
+      assert.eq(shadows.length, bricks.length * 2, 'bottom and right edges are shaded');
+      assert.truthy([...highlights, ...shadows].every(o => o.clipDepth > 0), 'bevels stay clipped to concave floor');
+      const numeric = css => parseInt(css.slice(1), 16);
+      assert.gt(numeric(paint.brickLight), numeric(paint.floor));
+      assert.lt(numeric(paint.brickShadow), numeric(paint.floor));
+    }
+  });
   test('temple art: selected floor replaces only masonry grid and keeps coping and runes', () => {
     const patterned=recorder(),fallback=recorder(),pattern={selected:'F02'};
     patterned.fillRect=function(...rect){this.ops.push({op:'material',rect,color:this.fillStyle,clipDepth:this.clipDepth});};
     TempleArt.draw(patterned,ring,{faces:false,floorPattern:pattern,floorPhaseX:7,floorPhaseY:11});
     TempleArt.draw(fallback,ring,{faces:false});
-    assert.eq(patterned.ops.filter(o=>o.op==='slab').length,0,'no procedural grid over source paving');
+    assert.eq(patterned.ops.filter(o=>o.op==='slab'||o.op==='brick-edge').length,0,'no procedural bricks or bevels over source paving');
     const floor=patterned.ops.find(o=>o.op==='material');
     assert.eq(floor.color,pattern);assert.gt(floor.clipDepth,0,'native texture clipped to footprint');
     const strokes=c=>c.ops.filter(o=>o.op==='stroke');

@@ -3,8 +3,8 @@
   'use strict';
   const KEY = 'wall-materials-cel-v3', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
-  // 32px game cell: square third-cell posts, 1.5 cells to the point.
-  const WOOD = Object.freeze({ height: 40, tipHeight: 8, thickness: 32 / 3, width: 32 / 3, pitch: 32 / 3, shadeHeight: 24, lowerTint: 0xe4e4e4 });
+  // 32px game cell: square sixth-cell posts, three quarters of a cell to the point.
+  const WOOD = Object.freeze({ height: 14, tipHeight: 10, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 12, lowerTint: 0xe4e4e4 });
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
   const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0x7d5f3b, woodSide: 0x674a34 };
@@ -157,9 +157,9 @@
       const distance = Math.hypot(b.x - a.x, b.y - a.y);
       const sidePoint = (p, z, end) => ({ ...p, z,
         s: wood ? (across(p) - minAcross) / spanAcross : (alongX ? p.x + originX : p.y + originY) / repeat,
-        t: 1 - z / (hedge ? 124 : low) });
+        t: 1 - z / (hedge ? 124 : wood ? height + WOOD.tipHeight : low) });
+      const tint = wood ? (normal.x * .6 + normal.y * .8 > .35 ? 0xdfcdb8 : normal.x * .6 + normal.y * .8 < -.35 ? 0xffffff : 0xf1e4d2) : 0xffffff;
       if (distance > 1e-8) {
-        const tint = wood ? (normal.x * .6 + normal.y * .8 > .35 ? 0xdfcdb8 : normal.x * .6 + normal.y * .8 < -.35 ? 0xffffff : 0xf1e4d2) : 0xffffff;
         // Two discrete bands also reach Canvas's flat-material fallback.
         // UVs stay continuous: the colour step must not restart the grain.
         const levels = wood ? [0, Math.min(WOOD.shadeHeight, low), low] : [0, low];
@@ -172,8 +172,10 @@
         }
       }
       if (wood) {
-        surface(faces, [{ ...a, z: height, s: 0, t: 1 }, { ...b, z: height, s: 1, t: 1 },
-          { ...center, z: height + WOOD.tipHeight, s: .5, t: 0 }], 'woodTop', null, normal.x * .4 + normal.y * .6 > 0 ? 0xf6eadc : 0xffffff);
+        // One carved pole: carry the shaft's grain, UVs and face shade
+        // straight into its longer point instead of adding a bright cap.
+        surface(faces, [sidePoint(a, height), sidePoint(b, height),
+          sidePoint(center, height + WOOD.tipHeight)], 'woodSide', null, tint);
       } else {
         const edge = [topPoint(a), topPoint(b), topPoint(cap[j]), topPoint(cap[i])];
         edge[0].z = edge[1].z = low;
