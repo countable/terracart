@@ -312,7 +312,11 @@ step-over lift in `ObstacleStep.PROFILES`, with thickness from
 they still interact, block and support steps from their data cells. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 `wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
-and bevels without a pale coping band, single-width stone caps with shaded edges and transverse joints, mortared sides
+and bevels without a pale coping band. Hedges have their own profile there
+(`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot
+undercuts the clipped face, and a quarter-round shoulder rolls into a flat crown
+at the step-over height, its rings dipping at hashed world points so runs read
+bushy while joined edges stay square and seams share vertices. Stone walls keep single-width caps with shaded edges and transverse joints, mortared sides
 and darker footing, and light crate wood. Only exposed edges bevel; shared cell
 boundaries keep exactly matching cap vertices. Texture coordinates follow world
 cells, so sub-cell movement and a view rebuild do not slide the material.
@@ -553,7 +557,8 @@ the surrounding grove’s shrub scale.
   from UI projections and inverse taps. Depth ≥ 90 draws on an
   unturned `uiCam`. Upright art counterrotates around explicit ground anchors
   and sorts by rotated feet only between `prerender` and `postrender`.
-  Groundcover and ground decals retain the map rotation. Body effects, tree fruit and tower
+  Groundcover and ground decals retain the map rotation. Body effects (the
+  ghost's halo layer included), tree fruit and tower
   flags share their owner's anchor; transparent frame padding is not a foot.
   Roof signs and DOM delivery bubbles use that same footprint anchor; batched
   sign boards and smoke counterrotate their drawing commands. Contact shadows
@@ -991,7 +996,9 @@ the reach rim within the existing player-light radius.
   Upgrade thresholds use actual row grid widths, including the differently aligned cells at tile-row seams;
   the established nominal base radius remains unchanged,
   and are cached by the containing cell and projection. Depth and blindness
-  adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
+  adjust the base radius before upgrades, so every upgrade adds reachable cells; blindness also
+  scales the profile's ramp and plateau levels by the same fraction (`Lighting.dimSight`),
+  so the player's own light dims as well as shrinks while the ambient floor stands. Light conveys reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
   `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
   preserving nearby brightness on the surface and underground. It fades beyond

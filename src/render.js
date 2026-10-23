@@ -6049,6 +6049,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Where the body's centre landed — the glow pass below sits on it, so the
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
+    item._groundAnchor = s._huAnchor;
     if (c._meleeSwing && !down) {
       const pose = Render.meleePose(c._meleeSwing, performance.now(), 'sword',
         c._meleeSwing.reachCells * CELL_PX);
@@ -6083,6 +6084,10 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.5).setDisplaySize(glow.px * creatureInstScale(item.c), glow.px * creatureInstScale(item.c))
        .setPosition(Math.round(sx), Math.round(item._bodyY))
        .setAlpha(glow.alpha);
+      // The body's own ground anchor: heading-up turns the hovering body
+      // upright about its feet, and the halo must turn with it or it is
+      // left floating beside the ghost whenever the map is rotated.
+      s._huAnchor = item._groundAnchor;
     });
   }
 

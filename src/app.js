@@ -571,6 +571,13 @@ function applyRenderScale(cam) {
 //             at all (a road, a snowfield, a lit plot) and the number has to
 //             read against every one of them. Short and quick: a job pays one,
 //             a rest ticks one a second, and they must not pile up.
+//   status  — THE WORD a status pops over the player's head as it LANDS
+//             ("Blinded", "Poison", "Speed": _flashPlayerStatus, from
+//             _announceStatuses). A chip in the row's own ink and background
+//             (the status-row chip's colours), bigger, slower and longer than
+//             a cell number, because a touch that blinds also dims the light
+//             and pops a "-N" in the same instant, and a 10px word that lived
+//             a second under both went unseen. Stacks above the number.
 //   damage  — the "-N" over a foe as a hit lands (_popDamageNumber). The cell
 //             tier's dress at the health bar's scale (it sits ON the bar, so it
 //             is the smallest text on the map) and the cell tier's stroke and
@@ -591,6 +598,9 @@ const TOAST_TIER = {
   cell:    { font: 'bold 10px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 700, fade: 500, rise: 14, ease: 'Sine.In' },
+  status:  { font: 'bold 12px', stroke: 3, pad: 8,  padY: 4, depth: 102, dy:  -70,
+             shadow: { offsetX: 1, offsetY: 2, blur: 3 },
+             pop: 140, popScale: 0.6, overshoot: 1.15, hold: 1900, fade: 600, rise: 28, ease: 'Sine.In' },
   damage:  { font: 'bold 10px', stroke: 3, pad: 6,  padY: 4, depth: 96,  dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 90, fade: 520, rise: 13, ease: 'Sine.Out' },
@@ -4039,6 +4049,11 @@ class MapScene extends Phaser.Scene {
   // brief on-screen banner, since DevTools isn't reachable on a phone.
   _reportLoopError(e) {
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    // The latest error and a count, kept for the Developer page's lighting
+    // dump: a frame that breaks before the lightmap pass leaves the last
+    // uploaded lightmap on screen, and the overlay may have been dismissed.
+    this._lastLoopErr = { at: now, count: (this._lastLoopErr?.count || 0) + 1,
+      msg: (e && (e.message || e.toString())) || 'frame error', stack: (e && e.stack) || '' };
     if (this._lastLoopErrAt && now - this._lastLoopErrAt < 3000) return;   // throttle a per-frame storm
     this._lastLoopErrAt = now;
     try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
@@ -4454,7 +4469,7 @@ class MapScene extends Phaser.Scene {
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
       if (!Conditions.active(this.save, id)) continue;
       next['c:' + id] = 1;
-      if (seen && !seen['c:' + id]) this._flashPlayerStatus(def.label, def.ink);
+      if (seen && !seen['c:' + id]) this._flashPlayerStatus(def.label, def.ink, def.bg);
     }
     for (const [id, k] of Object.entries(Buffs.KINDS)) {
       const until = Buffs.until(id, this.save, this);
@@ -4463,11 +4478,13 @@ class MapScene extends Phaser.Scene {
       // Pushed out by more than a clock's jitter: a relit torch, a second
       // potion. A buff merely still running is not announced again.
       const prev = seen?.['b:' + id];
-      if (seen && (prev == null || until > prev + STATUS_EXTEND_SLACK_MS)) this._flashPlayerStatus(k.name, k.color);
+      if (seen && (prev == null || until > prev + STATUS_EXTEND_SLACK_MS)) this._flashPlayerStatus(k.name, k.color, k.stroke + 'e8');
     }
     this._statusSeen = next;
   }
-  _flashPlayerStatus(label, color) {
+  // `bg` is the row's chip background (a condition's `bg`, a buff's stroke
+  // at the status row's alpha) — the word wears the same chip as the row.
+  _flashPlayerStatus(label, color, bg) {
     this._statusFlashUntilT = performance.now() + Combat.STATUS_FLASH_MS;
     this._statusFlashTint = parseInt(String(color).slice(1), 16);
     let ix, iy;
@@ -4475,7 +4492,15 @@ class MapScene extends Phaser.Scene {
       const p = playerReachCell(this);
       ix = p.cellIX; iy = p.cellIY;
     }
-    this._popCellNumber(label, color, ix, iy);
+    this._popStatusWord(label, color, bg, ix, iy);
+  }
+  // The status word at the energy pop's seat on the player's cell — above
+  // the head (_energyPopAt), where the toast stack lifts it clear of the
+  // "-N" that landed with it — in the status tier.
+  _popStatusWord(text, color, bg, ix, iy) {
+    if (!this.add) return null;
+    const at = this._energyPopAt(ix, iy);
+    return this._toast(text, { tier: 'status', color, bg, ...at });
   }
 
   // One icon and countdown per active effect, conditions first. The compass

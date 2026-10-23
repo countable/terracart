@@ -48,7 +48,7 @@ test('bushes are centred, joined hedges follow their rendered frame, standing pl
   const hedge = { ...bush, _plantArt: 'zone_hedge', _hedgeFrame: 1 };
   assert.eq(ObstacleStep.sample(0, 0, [bush], 1).liftPx, 3);
   assert.eq(ObstacleStep.sample(0.45, 0, [hedge], 1).liftPx, 0);
-  assert.eq(ObstacleStep.sample(0, 0.45, [hedge], 1).liftPx, 6);
+  assert.eq(ObstacleStep.sample(0, 0.45, [hedge], 1).liftPx, ObstacleStep.PROFILES.hedge.liftPx);
   for (const crop of ['longgrass', 'mushroom', 'flint']) assert.eq(ObstacleStep.profile({ ...bush, crop }), null);
   assert.eq(ObstacleStep.profile({ kind: 'tree', size: 'large' }), null);
   assert.eq(ObstacleStep.profile({ kind: 'tar' }), null);

@@ -274,3 +274,48 @@ test('flint-bearing rocks: visible seams guarantee one flint and still yield sto
     }
   } finally { Math.random = original; }
 });
+
+
+// --- The smallest art is quick work -----------------------------------------
+// One row (ROCK_VARIANT_ART.quickFrame / quickWorkMul) names the smallest plain
+// look and its pace; the renderer's frame and the wheel's time both read it.
+test('quick rock: frame 0 is the smallest plain rock art in the sheet', () => {
+  assert.eq(ROCK_VARIANT_ART.quickFrame, 0);
+  assert.eq(ROCK_VARIANT_ART.quickWorkMul, 0.5, 'twice the speed');
+  const area = f => { const b = SpriteLayout.ART_BOUNDS['rock_variants:' + f]; return (b.maxX - b.minX) * (b.maxY - b.minY); };
+  const quick = area(ROCK_VARIANT_ART.quickFrame);
+  for (const f of ROCK_VARIANT_ART.plainFrames) {
+    if (f !== ROCK_VARIANT_ART.quickFrame) assert.lt(quick, area(f), `plain frame ${f} draws bigger than the quick frame`);
+    assert.lt(quick, area(f + 1), `large column ${f + 1} draws bigger than the quick frame`);
+  }
+});
+
+test('quick rock: the smallest plain look mines at half the tool time; every other rock keeps it', () => {
+  // A fresh scene per mine: a mined id is spent (brokenRockSet) and would
+  // skip the wheel on a second tap.
+  const seen = [];
+  const freshScene = () => makeScene({ startWorkProgress: (x, y, cb, durationMs) => { seen.push(durationMs); cb(); } });
+  const relics = { pickaxe: { tier: 4 } };
+  const full = toolDurationMs(relics, 'pickaxe');
+  const mine = (o, r = relics) => { seen.length = 0; assert.eq(runInteractable(makeCtx(freshScene(), { relics: r }), o), true); return seen[0]; };
+  // Walk surface ids until each plain shape shows up.
+  const byFrame = new Map();
+  for (let k = 0; byFrame.size < ROCK_VARIANT_ART.plainFrames.length; k++) {
+    const o = { kind: 'mineralrock', id: `mineralrock_7_7_${k}_0`, x: 0, y: 0, yieldTier: 1 };
+    const f = mineralRockArtFrame(o);
+    if (!byFrame.has(f)) byFrame.set(f, o);
+  }
+  for (const [f, o] of byFrame) {
+    assert.eq(mineralRockWorkMul(o), f === ROCK_VARIANT_ART.quickFrame ? 0.5 : 1, `frame ${f} work multiplier`);
+    assert.eq(mine(o), f === ROCK_VARIANT_ART.quickFrame ? full / 2 : full, `frame ${f} wheel time`);
+  }
+  // The quick shape's boulder column, a flint seam, a zone-themed rubble and
+  // bare hands on the quick shape: only the art decides, the tool only scales.
+  const quick = byFrame.get(ROCK_VARIANT_ART.quickFrame);
+  assert.eq(mine({ ...quick, sightBlocking: true }), full, 'a boulder of the same shape is full work');
+  assert.eq(mine({ ...quick, rockMaterial: 'flint' }), full, 'a flint seam is full work');
+  const zone = Object.keys(ZONE_ROCK_THEMES)[0];
+  assert.eq(mine({ ...quick, zoneVariant: zone }), full, 'themed rubble is full work');
+  assert.eq(mine(quick, {}), toolDurationMs({}, 'pickaxe') / 2, 'bare hands halve too');
+  assert.includes(INTERACTABLES_SRC, 'workMul: (o) => mineralRockWorkMul(o)');
+});
