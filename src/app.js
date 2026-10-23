@@ -3567,8 +3567,8 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // The fix is the yellow ring, darkening and turning translucent into a
-    // dark disc as it nears the body (Render.gpsMarkerStyle). Ring radius
+    // The fix is the yellow ring, fading out to nothing as it nears the body
+    // (Render.gpsMarkerStyle). Ring radius
     // falls linearly to half at five cells; the rim dot still indicates an
     // offscreen fix. This is presentation only, at every depth.
     if (this.gpsM) {
@@ -3578,14 +3578,11 @@ class MapScene extends Phaser.Scene {
       const marker = Render.gpsMarkerStyle(Math.hypot(this.gpsM.x - this.playerM.x,
         this.gpsM.y - this.playerM.y) / this.cellM);
       const gx = Math.round(g.x), gy = Math.round(g.y);
-      this.gpsGhost.setPosition(gx, gy).setVisible(true)
+      this.gpsGhost.setPosition(gx, gy).setVisible(marker.ringAlpha > 0)
         .setFrame(Render.groundMarkFrame(this, 'gps_ring'))
-        .setDisplaySize(marker.width, marker.height).setAlpha(marker.ringAlpha).setTint(marker.tint);
-      this.gpsDisc.setPosition(gx, gy).setVisible(marker.discAlpha > 0)
-        .setDisplaySize(marker.width, marker.height).setAlpha(marker.discAlpha);
+        .setDisplaySize(marker.width, marker.height).setAlpha(marker.ringAlpha);
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
-      this.gpsDisc.setVisible(false);
     }
     this._drawWalkHomeHint(dt);
     this._updateWalkHomeCountdown();
