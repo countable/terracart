@@ -170,21 +170,38 @@ test('status announce: the player\'s landings are read off the two tables, first
   assert.truthy(/poisonLearned/.test(apply), 'the Antidote lesson stays');
 });
 
-test('status announce: _flashPlayerStatus flicks the body in the row\'s ink and pops the word on the player\'s cell', () => {
-  const body = app.match(/\n  _flashPlayerStatus\(label, color\) \{([\s\S]*?)\n  \}\n/);
+test('status announce: _flashPlayerStatus flicks the body in the row\'s ink and pops the word, chipped, over the player', () => {
+  const body = app.match(/\n  _flashPlayerStatus\(label, color, bg\) \{([\s\S]*?)\n  \}\n/);
   assert.truthy(body, '_flashPlayerStatus exists');
-  const flash = new Function('label', 'color', 'Combat', 'performance', 'playerReachCell', body[1]);
+  const flash = new Function('label', 'color', 'bg', 'Combat', 'performance', 'playerReachCell', body[1]);
   const pops = [];
-  const scene = { startWorldM: {}, originPx: {}, _popCellNumber: (...a) => pops.push(a) };
-  flash.call(scene, 'Poison', '#d9b1ff', Combat, { now: () => 5000 }, () => ({ cellIX: 3, cellIY: 4 }));
+  const scene = { startWorldM: {}, originPx: {}, _popStatusWord: (...a) => pops.push(a) };
+  flash.call(scene, 'Poison', '#d9b1ff', '#22132ee8', Combat, { now: () => 5000 }, () => ({ cellIX: 3, cellIY: 4 }));
   assert.eq(scene._statusFlashUntilT, 5000 + Combat.STATUS_FLASH_MS, 'the foe\'s flick length');
   assert.eq(scene._statusFlashTint, 0xd9b1ff);
   assert.eq(pops.length, 1);
-  assert.eq(pops[0].join('|'), 'Poison|#d9b1ff|3|4', 'the word, in its ink, on the player\'s cell');
+  assert.eq(pops[0].join('|'), 'Poison|#d9b1ff|#22132ee8|3|4', 'the word, in its ink and chip, on the player\'s cell');
   // Before the camera exists the word still pops, at the toast's default seat.
-  const bare = { _popCellNumber: (...a) => pops.push(a) };
-  flash.call(bare, 'Speed', '#9fe8ff', Combat, { now: () => 5000 }, () => { throw new Error('not asked'); });
-  assert.eq(pops[1][2], undefined);
+  const bare = { _popStatusWord: (...a) => pops.push(a) };
+  flash.call(bare, 'Speed', '#9fe8ff', '#0b2a3ae8', Combat, { now: () => 5000 }, () => { throw new Error('not asked'); });
+  assert.eq(pops[1][3], undefined);
+  // The word is a STATUS toast at the energy pop's seat (above the head on
+  // the player's cell), not a cell number: bigger, chipped in the row's
+  // colours, and held longer than the "-N" it lands beside.
+  const pop = app.match(/\n  _popStatusWord\(text, color, bg, ix, iy\) \{([\s\S]*?)\n  \}\n/);
+  assert.truthy(pop, '_popStatusWord exists');
+  assert.truthy(/const at = this\._energyPopAt\(ix, iy\);\s*\n\s*return this\._toast\(text, \{ tier: 'status', color, bg, \.\.\.at \}\);/.test(pop[1]), 'the status tier, chipped, at the head seat');
+  const tier = app.match(/\n  status:  \{ font: 'bold (\d+)px'[^\n]*\n[^\n]*\n[^\n]*hold: (\d+), fade: (\d+), rise: (\d+)/);
+  const cell = app.match(/\n  cell:    \{ font: 'bold (\d+)px'[^\n]*\n[^\n]*\n[^\n]*hold: (\d+), fade: (\d+), rise: (\d+)/);
+  assert.truthy(tier && cell, 'both tiers in the table');
+  assert.gt(+tier[1], +cell[1], 'bigger type than a cell number');
+  assert.gt(+tier[2] + +tier[3], 2 * (+cell[2] + +cell[3]), 'on screen at least twice as long');
+  // The announcement hands each row's chip colours through: a condition's
+  // bg, a buff's stroke at the status row's alpha (the chips _syncStatusRow builds).
+  const announce = app.match(/\n  _announceStatuses\(\) \{([\s\S]*?)\n  \}\n/)[1];
+  assert.truthy(/this\._flashPlayerStatus\(def\.label, def\.ink, def\.bg\)/.test(announce), 'a condition wears its row chip');
+  assert.truthy(/this\._flashPlayerStatus\(k\.name, k\.color, k\.stroke \+ 'e8'\)/.test(announce), 'a buff wears its row chip');
+  for (const def of Object.values(Conditions.DEFINITIONS)) assert.truthy(def.bg && def.ink && def.label, 'every condition row has a label, ink and chip');
   // The aura reads the flick between the hit and the states.
   const aura = app.match(/\n  _updatePlayerAura\(\) \{([\s\S]*?)\n  \}\n/)[1];
   assert.truthy(/const flicked = \(this\._statusFlashUntilT \|\| 0\) > nowMs;/.test(aura));

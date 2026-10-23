@@ -551,7 +551,10 @@ pixels and decorative details do not define additional tap cells.
   `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
   (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
-  flicks the row's ink, the word pops on the cell) — never at the writer.
+  flicks the row's ink, and the row's word pops over the player's head as a
+  `status`-tier toast in the row's own ink and chip background, bigger and
+  longer-lived than a cell number so it reads beside the "-N" and the dimmed
+  light a blinding touch brings) — never at the writer.
   Food energy and condition notices stay separate; the food receipt must not
   repeat the condition announcement. A creature's status (sleep, charm, frost,
   fear, psychosis) is a row of
