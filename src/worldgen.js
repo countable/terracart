@@ -14,10 +14,14 @@
   // Forests and wooded parks take their fixed species from BiomeProfiles.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
   // Natural fruit trees share one Worldpeach chance per stable cell.
-  // No RNG draws or placement order affect the species.
+  // No RNG draws or placement order affect the species. Planted rows
+  // (orchard landcover, Orchard streets, zone dressing) use PEACH_ONE_IN; a
+  // lone standalone tree (an `individual` OSM or DeepForest fruit tree, with
+  // no row around it) is the rare find, so it rolls at PEACH_ONE_IN_LONE.
   const PEACH_ONE_IN = 50;
-  function fruitTreeSpecies(hash) {
-    return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'worldpeach' : 'apple';
+  const PEACH_ONE_IN_LONE = 10;
+  function fruitTreeSpecies(hash, oneIn = PEACH_ONE_IN) {
+    return (hash >>> 0) % oneIn === 0 ? 'worldpeach' : 'apple';
   }
   // Opt in to satellite detections for areas with extracted crowns. Elsewhere
   // keep the procedural residential canopy until detection coverage expands.
@@ -7987,12 +7991,13 @@
             if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
             const p = project(lon, lat0);
             const { lix, liy } = p;
-            // The classifier over-reported peaches; use the same rare-peach
-            // rate as orchards, keyed by the tree's stable cell identity.
+            // The classifier over-reported peaches; ignore its label and roll
+            // by the tree's stable cell identity. A standalone fruit tree is
+            // the lone rare find, so it uses the lone rate, not the orchard's.
             const ftHash = cellHash(p.tx, p.ty, lix, liy);
             binFor(p.tx, p.ty).fruittrees.push({
               kind: 'fruittree', lix, liy,
-              species: fruitTreeSpecies(ftHash),
+              species: fruitTreeSpecies(ftHash, PEACH_ONE_IN_LONE),
               // Named by osm_id when it has one, else by its settled cell at
               // injection (loadTile) — see the tree row above.
               id: osmId ? `ft_osm_${osmId}` : undefined,
@@ -9999,7 +10004,7 @@
     // headless tests that pin those odds.
     rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
     // Mixed-tree species and deterministic fruit/cave distribution helpers.
-    TREE_SPECIES, PEACH_ONE_IN, fruitTreeSpecies, rollVeinTable,
+    TREE_SPECIES, PEACH_ONE_IN, PEACH_ONE_IN_LONE, fruitTreeSpecies, rollVeinTable,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The

@@ -1013,6 +1013,12 @@ Higher-priority placements and their access space take precedence in this order:
    Authored park/Nexus coverage already excludes imported trees and keeps
    its own tree choices; fruit trees keep their species. Outside forests,
    mapped trees retain their original mix.
+   Fruit-tree species roll once per stable cell through `fruitTreeSpecies`.
+   Planted rows (orchard landcover, Orchard streets, zone dressing) draw a
+   Worldpeach one time in `PEACH_ONE_IN` (50). A standalone fruit tree (an
+   `individual` OSM-mapped or DeepForest-detected tree in the sidecar bins)
+   is the lone rare find and draws one in `PEACH_ONE_IN_LONE` (10); the
+   DeepForest classifier's own apple/peach label is never used.
    Tree-bearing street variants declare their timber species on the variant
    row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
    Street timber also marks `treeSpeciesFixed`, so its type stays consistent
