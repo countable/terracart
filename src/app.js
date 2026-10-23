@@ -1474,7 +1474,7 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // timers as small chips in a right-aligned column under the top HUD row —
 // the money / energy row's own anchor, one chip height plus a gap down. Each
 // chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
-// Buffs.KINDS); only a row with an action accepts pointer events.
+// Buffs.KINDS); chips expose their names through accessible labels and hover text.
 // Dimmed with the HUD chips while a dialog is up, hidden with them while the
 // page boots. While the objective chip shows, _syncStatusRow seats the row
 // under it instead (an inline top). The compass skin (css/compass_hud.css,
@@ -1489,16 +1489,21 @@ const STATUS_ROW_CSS = `
   display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
   z-index: 7; pointer-events: none;
 }
+#status-row[hidden] { display: none; }
 #status-row .status-chip {
-  white-space: nowrap; padding: 3px 7px; border-radius: 6px;
-  font: 700 11px var(--font-ui);
-  text-shadow: 0 1px 0 #000;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  box-sizing: border-box; flex: 0 0 auto; width: 44px; height: 50px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  padding: 2px; border: 1px solid currentColor; border-radius: 6px;
+  font: 700 11px/12px var(--font-ui); text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5); pointer-events: auto;
 }
-#status-row button.status-chip {
-  pointer-events: auto; cursor: pointer; border: 1px solid currentColor;
-  min-height: 32px; padding: 6px 10px;
+#status-row .status-icon {
+  display: block; width: 32px; height: 32px; flex: 0 0 32px;
+  background-repeat: no-repeat; image-rendering: pixelated;
 }
+#status-row .status-time { color: #fff4dc; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#status-row button.status-chip { cursor: pointer; }
+#status-row :focus-visible { outline: 2px solid #ffe066; outline-offset: -2px; }
 body.modal-open #status-row { opacity: 0.25; }
 body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
@@ -4476,18 +4481,9 @@ class MapScene extends Phaser.Scene {
     this._popCellNumber(label, color, ix, iy);
   }
 
-  // THE STATUS ROW — every status, buff and timer on the player, as chips
-  // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
-  // _buildStatusRow): first the conditions (the rows of
-  // Conditions.DEFINITIONS the player carries, in table order — label, time
-  // left and the drain it levies now, in the row's ink on its bg), then every running timed effect
-  // (Buffs.active — potions, powders, the torch, coffee, the bike, the
-  // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
-  // stroke). One chip per id, kept in that order; a chip whose effect has
-  // run out is removed. Runs every frame from _tickConditions, so every DOM
-  // write is guarded on the value having changed: the order string decides
-  // whether anything is re-appended, the text only rewrites when the
-  // shown second ticks over. Nothing is drawn over the player's head.
+  // One icon and countdown per active effect, conditions first. The compass
+  // skin seats this strip above inventory; names/drains are accessible labels.
+  // Reuse icons across ticks and write timers only when their display changes.
   _syncStatusRow() {
     const row = this.statusRowEl;
     if (!row) return;
@@ -4515,20 +4511,21 @@ class MapScene extends Phaser.Scene {
       const left = this.save.conditions[id].remainingMs;
       const loss = id === 'burning' ? Conditions.burnTickLoss(left) : def.energyLoss;
       const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
-      chips.push({ id, ink: def.ink, bg: def.bg, text: `${def.label} · ${shortDuration(left)}${drain}` });
+      chips.push({ id, icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: shortDuration(left), text: `${def.label} · ${shortDuration(left)}${drain}` });
     }
     if (this._bodyHold?.().slowed) {
       const def = Conditions.CONTEXT_STATUS.slowed;
-      chips.push({ id: 'slowed', ink: def.ink, bg: def.bg, text: def.label });
+      chips.push({ id: 'slowed', icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: 'Here', text: `${def.label} · while on this ground` });
     }
     for (const b of Buffs.active(this.save, this)) {
-      chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+      chips.push({ id: b.id, icon: b.icon, kind: 'buff', action: b.action, ink: b.color, bg: b.stroke + 'e8', time: shortDuration(b.remainingMs), text: `${b.name} · ${shortDuration(b.remainingMs)}` });
     }
     // A live boss fight's clock (BossEncounters — the citadel's, the serpent's).
     for (const e of BossEncounters.list(this.save)) {
       const chip = BossEncounters.KINDS[e.kind].chip;
-      chips.push({ id: `boss_${e.key}`, ink: chip.ink, bg: chip.bg, text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
+      chips.push({ id: `boss_${e.key}`, icon: chip.icon, kind: 'boss', ink: chip.ink, bg: chip.bg, time: shortDuration(e.remainingMs), text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
     }
+    row.hidden = chips.length === 0;
     const order = chips.map((c) => c.id).join(',');
     if (this._statusRowDOM !== order) {
       this._statusRowDOM = order;
@@ -4549,6 +4546,20 @@ class MapScene extends Phaser.Scene {
           }
           el.className = 'status-chip';
           el.dataset.id = c.id;
+          el.dataset.kind = c.kind;
+          if (!c.action) el.setAttribute('role', 'img');
+          const icon = document.createElement('span');
+          icon.className = 'status-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          const frame = StatusIcons.frames[c.icon], scale = 32 / StatusIcons.cellSize;
+          icon.style.backgroundImage = `url("${StatusIcons.src}")`;
+          icon.style.backgroundSize = `${StatusIcons.width * scale}px ${StatusIcons.height * scale}px`;
+          icon.style.backgroundPosition = `${-(frame % StatusIcons.cols) * 32}px ${-Math.floor(frame / StatusIcons.cols) * 32}px`;
+          const timer = document.createElement('span');
+          timer.className = 'status-time';
+          timer.setAttribute('aria-hidden', 'true');
+          el.append(icon, timer);
+          el._statusTimer = timer;
           el.style.color = c.ink;
           el.style.background = c.bg;
         }
@@ -4557,7 +4568,12 @@ class MapScene extends Phaser.Scene {
     }
     for (const c of chips) {
       const el = row.querySelector(`[data-id="${c.id}"]`);
-      if (el && el.textContent !== c.text) el.textContent = c.text;
+      if (!el) continue;
+      if (el._statusTimer.textContent !== c.time) el._statusTimer.textContent = c.time;
+      if (el.title !== c.text) {
+        el.title = c.text;
+        el.setAttribute('aria-label', c.text);
+      }
     }
   }
 
@@ -4571,9 +4587,13 @@ class MapScene extends Phaser.Scene {
     if (!el) {
       el = document.createElement('div');
       el.id = 'status-row';
+      el.setAttribute('role', 'group');
+      el.setAttribute('aria-label', 'Active effects');
+      el.tabIndex = 0;
       document.body.appendChild(el);
     }
     el.replaceChildren();
+    el.hidden = true;
     this.statusRowEl = el;
     this._statusRowDOM = null;
     this._statusRowSeat = null;

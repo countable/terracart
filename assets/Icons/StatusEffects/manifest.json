@@ -1,0 +1,1077 @@
+{
+  "src": "assets/Icons/StatusEffects/status-icons.png",
+  "cellSize": 32,
+  "cols": 8,
+  "width": 256,
+  "height": 192,
+  "frames": {
+    "burning": 0,
+    "poison": 1,
+    "confused": 2,
+    "jellyfish_stun": 3,
+    "frozen": 4,
+    "paralysis": 5,
+    "pinned": 6,
+    "blinded": 7,
+    "slowed": 8,
+    "boss": 9,
+    "portal": 10,
+    "dragon": 11,
+    "shadow": 12,
+    "moonbeam": 13,
+    "evertorch": 14,
+    "torch": 15,
+    "frostAura": 16,
+    "blight": 17,
+    "speed": 18,
+    "protection": 19,
+    "immortal": 20,
+    "fireResistance": 21,
+    "flight": 22,
+    "shrinking": 23,
+    "giant": 24,
+    "stoneskin": 25,
+    "shield": 26,
+    "reach": 27,
+    "skeleton": 28,
+    "wraith": 29,
+    "raven": 30,
+    "coffee": 31,
+    "dawnfruit": 32,
+    "lettuce": 33,
+    "fish": 34,
+    "bike": 18,
+    "field_scope": 35,
+    "wayfarer": 36,
+    "compass": 37,
+    "treasure": 38,
+    "mining": 39,
+    "hidden": 40,
+    "melee": 41,
+    "fortune": 42,
+    "work": 43,
+    "regen": 44,
+    "wand": 45
+  },
+  "method": "Unscaled native source pixels, alpha-trimmed and centered; static frames only.",
+  "credits": [
+    "ElvGames: Buff and Debuff Pixel VFX, elemental Spell VFX, Rogue Adventure item icons.",
+    "16x16 RPG Pack v3.0: original supplemental packed source.",
+    "Dungeon Gathering Full Ver. 1.1: enduring blue flame torch.",
+    "Pixel Plains PP Interiors Pack: lit flame torch."
+  ],
+  "entries": [
+    {
+      "frame": 0,
+      "source": "extra_assets/16x16/Fire Spells Pixel VFX/Fire Spells/Fireball.png",
+      "sourceSha256": "0788e491d798f7617d840e05f497a24bca21273e157571621b8e8472d595e523",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        1,
+        9,
+        23,
+        23
+      ],
+      "destination": [
+        5,
+        9
+      ],
+      "meaning": "Orange flame"
+    },
+    {
+      "frame": 1,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        432,
+        80,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        0,
+        13,
+        16
+      ],
+      "destination": [
+        11,
+        8
+      ],
+      "meaning": "Purple poison flask"
+    },
+    {
+      "frame": 2,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Slow_Glow.png",
+      "sourceSha256": "06447a015ed7417e3d7fd0210e80f0ba78d3f85972a0468caffdce968de5b570",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        1,
+        1,
+        31,
+        31
+      ],
+      "destination": [
+        1,
+        1
+      ],
+      "meaning": "Disorienting violet ring"
+    },
+    {
+      "frame": 3,
+      "source": "extra_assets/16x16/Light Spells Pixel VFX/Light Spells/Lightning_Bolt01_Y.png",
+      "sourceSha256": "7733b73d1a88154534032fd538d9e302e024ab03e3ea83ce97625cd7e6fda61e",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        6,
+        11,
+        26,
+        25
+      ],
+      "destination": [
+        6,
+        9
+      ],
+      "meaning": "Yellow electrical shock"
+    },
+    {
+      "frame": 4,
+      "source": "extra_assets/16x16/Ice Spells Pixel VFX/Ice Spells/Frozen_Crystal.png",
+      "sourceSha256": "d67bc4dc963f18f129250b1db5a1bfa56bf246d0469d65baadaf23d3c2cf2a62",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        2,
+        4,
+        29,
+        28
+      ],
+      "destination": [
+        2,
+        4
+      ],
+      "meaning": "Complete blue ice crystal"
+    },
+    {
+      "frame": 5,
+      "source": "extra_assets/16x16/Light Spells Pixel VFX/Light Spells/Lightning_Bolt01.png",
+      "sourceSha256": "c16a6fbd305c2457d7518a576948abc91c753c4acf221a456bd90559ed1eb245",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        6,
+        11,
+        26,
+        25
+      ],
+      "destination": [
+        6,
+        9
+      ],
+      "meaning": "Blue electrical shock"
+    },
+    {
+      "frame": 6,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Speed_Down.png",
+      "sourceSha256": "9f236eec273fe05851c0b3709b23f045a2060376fd1cbaed834343b091702772",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        11,
+        11,
+        26,
+        23
+      ],
+      "destination": [
+        8,
+        10
+      ],
+      "meaning": "Red immobilized boot"
+    },
+    {
+      "frame": 7,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Accurracy_Down.png",
+      "sourceSha256": "e54235176cacfff62ed973a8a4118eb20c2c3cb0b65c2618772d765dd42d955f",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        7,
+        10,
+        26,
+        23
+      ],
+      "destination": [
+        6,
+        9
+      ],
+      "meaning": "Red impaired eye"
+    },
+    {
+      "frame": 8,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Slow.png",
+      "sourceSha256": "429aad4f3c82c5759f9e8c1b084eb9f38cdf2b20ff223ab2954a8da3da38f007",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        3,
+        3,
+        29,
+        29
+      ],
+      "destination": [
+        3,
+        3
+      ],
+      "meaning": "Violet slowing ring"
+    },
+    {
+      "frame": 9,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        112,
+        480,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        1,
+        15,
+        14
+      ],
+      "destination": [
+        9,
+        9
+      ],
+      "meaning": "Red horned boss visage"
+    },
+    {
+      "frame": 10,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Haste.png",
+      "sourceSha256": "2c280d9f04b550322c93637d9f4d1f9cb63031333b77432d2855ea31e2a9e642",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        3,
+        3,
+        29,
+        29
+      ],
+      "destination": [
+        3,
+        3
+      ],
+      "meaning": "Green return ring"
+    },
+    {
+      "frame": 11,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        48,
+        480,
+        16,
+        16
+      ],
+      "inkBounds": [
+        2,
+        2,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        10
+      ],
+      "meaning": "Red horned dragon visage"
+    },
+    {
+      "frame": 12,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        64,
+        416,
+        16,
+        16
+      ],
+      "inkBounds": [
+        2,
+        1,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        9
+      ],
+      "meaning": "Dark hood"
+    },
+    {
+      "frame": 13,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        384,
+        368,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        1,
+        15,
+        15
+      ],
+      "destination": [
+        9,
+        9
+      ],
+      "meaning": "Blue light feather"
+    },
+    {
+      "frame": 14,
+      "source": "extra_assets/Dungeon Gathering Full Ver. 1.1/Torch/Torch Blue.png",
+      "sourceSha256": "bd6e0e67f32d1dc1989fbcd56ca77cee792e697efc6afc8a84844efa86286fe6",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "inkBounds": [
+        4,
+        3,
+        12,
+        15
+      ],
+      "destination": [
+        12,
+        10
+      ],
+      "meaning": "Enduring blue flame torch"
+    },
+    {
+      "frame": 15,
+      "source": "extra_assets/Pixel Plains/PP Interiors Pack/Torch 1.png",
+      "sourceSha256": "0dbbe583e1b1b37fecd36ab5acebace894aea97d55e512e69570223cf26dee9d",
+      "crop": [
+        0,
+        0,
+        16,
+        32
+      ],
+      "inkBounds": [
+        4,
+        11,
+        12,
+        31
+      ],
+      "destination": [
+        12,
+        6
+      ],
+      "meaning": "Lit flame torch"
+    },
+    {
+      "frame": 16,
+      "source": "extra_assets/16x16/Ice Spells Pixel VFX/Ice Spells/Frostball_Cast.png",
+      "sourceSha256": "f37d1b4009e4e590d1d9f576b944f3d373779eefb99c7d971944a3cf247a9263",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        7,
+        7,
+        27,
+        26
+      ],
+      "destination": [
+        6,
+        6
+      ],
+      "meaning": "Frost orb and surrounding aura"
+    },
+    {
+      "frame": 17,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        512,
+        192,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        2,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        10
+      ],
+      "meaning": "Violet blight skull"
+    },
+    {
+      "frame": 18,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Speed_Up.png",
+      "sourceSha256": "24aaad00a0f2133daef0a678b282aa4e01d0cad5a9f6a7a876fa3ea29a5f67fd",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        11,
+        11,
+        26,
+        23
+      ],
+      "destination": [
+        8,
+        10
+      ],
+      "meaning": "Boot with increase arrow"
+    },
+    {
+      "frame": 19,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Protect_Up.png",
+      "sourceSha256": "5f9b1a41f85fe16f707fe5d230a668b95e65b9d0cb197ba1b2dff44f49fc8254",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        11,
+        7,
+        22,
+        25
+      ],
+      "destination": [
+        10,
+        7
+      ],
+      "meaning": "Protective blue barrier"
+    },
+    {
+      "frame": 20,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Resistance_Up.png",
+      "sourceSha256": "f5fccef3b4b7952c4526178bc76b214d016aa8751d72316b0c9fef989a248af6",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        9,
+        9,
+        26,
+        23
+      ],
+      "destination": [
+        7,
+        9
+      ],
+      "meaning": "Resistance cycle with increase arrow"
+    },
+    {
+      "frame": 21,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        528,
+        320,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        1,
+        15,
+        15
+      ],
+      "destination": [
+        9,
+        9
+      ],
+      "meaning": "Red protective shield"
+    },
+    {
+      "frame": 22,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        464,
+        144,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        3,
+        14,
+        13
+      ],
+      "destination": [
+        10,
+        11
+      ],
+      "meaning": "White wing"
+    },
+    {
+      "frame": 23,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        304,
+        352,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        2,
+        13,
+        14
+      ],
+      "destination": [
+        11,
+        10
+      ],
+      "meaning": "Blue decrease arrow"
+    },
+    {
+      "frame": 24,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        272,
+        384,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        2,
+        13,
+        14
+      ],
+      "destination": [
+        11,
+        10
+      ],
+      "meaning": "Gold increase arrow"
+    },
+    {
+      "frame": 25,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Defense_Up.png",
+      "sourceSha256": "c453694259fe7ad1038b455d5272921b5b40b8825c78a4ed9c62d282270009b3",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        9,
+        9,
+        26,
+        23
+      ],
+      "destination": [
+        7,
+        9
+      ],
+      "meaning": "Armoured fist with increase arrow"
+    },
+    {
+      "frame": 26,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Block_Up.png",
+      "sourceSha256": "edeb8413f4b677f1fd66daa441772e9621ca39e210fe1ad300137690d736484a",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        9,
+        9,
+        26,
+        23
+      ],
+      "destination": [
+        7,
+        9
+      ],
+      "meaning": "Shield with increase arrow"
+    },
+    {
+      "frame": 27,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Aim_Up.png",
+      "sourceSha256": "93aa76dc27c91a3309652afc5a6fa64628d431fcf7a26cc09ba7c23e90b7f301",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        7,
+        7,
+        26,
+        24
+      ],
+      "destination": [
+        6,
+        7
+      ],
+      "meaning": "Extended targeting reticle"
+    },
+    {
+      "frame": 28,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        496,
+        176,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        2,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        10
+      ],
+      "meaning": "Bone skull"
+    },
+    {
+      "frame": 29,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        512,
+        160,
+        16,
+        16
+      ],
+      "inkBounds": [
+        3,
+        2,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        10
+      ],
+      "meaning": "Spirit skull"
+    },
+    {
+      "frame": 30,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        384,
+        400,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        1,
+        15,
+        15
+      ],
+      "destination": [
+        9,
+        9
+      ],
+      "meaning": "Golden spirit feather"
+    },
+    {
+      "frame": 31,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Haste_Glow.png",
+      "sourceSha256": "c20583719892d22101e45aab83383d3522583a72eb0153670510c4ae9bf1fe8d",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        1,
+        1,
+        31,
+        31
+      ],
+      "destination": [
+        1,
+        1
+      ],
+      "meaning": "Energizing haste ring"
+    },
+    {
+      "frame": 32,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        336,
+        32,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        1,
+        16,
+        15
+      ],
+      "destination": [
+        8,
+        9
+      ],
+      "meaning": "Bright golden fruit"
+    },
+    {
+      "frame": 33,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Luck_Up.png",
+      "sourceSha256": "1fa8cb4ba79ad069a6f1a341df456a221bb712b355139dbfeddec935922e6b79",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        9,
+        9,
+        26,
+        23
+      ],
+      "destination": [
+        7,
+        9
+      ],
+      "meaning": "Lucky green clover"
+    },
+    {
+      "frame": 34,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        256,
+        64,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        3,
+        15,
+        13
+      ],
+      "destination": [
+        9,
+        11
+      ],
+      "meaning": "Blue fish"
+    },
+    {
+      "frame": 35,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        320,
+        352,
+        16,
+        16
+      ],
+      "inkBounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "destination": [
+        8,
+        8
+      ],
+      "meaning": "Blue discovery reticle"
+    },
+    {
+      "frame": 36,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        320,
+        384,
+        16,
+        16
+      ],
+      "inkBounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "destination": [
+        8,
+        8
+      ],
+      "meaning": "Golden directions reticle"
+    },
+    {
+      "frame": 37,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        320,
+        416,
+        16,
+        16
+      ],
+      "inkBounds": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "destination": [
+        8,
+        8
+      ],
+      "meaning": "Green compass reticle"
+    },
+    {
+      "frame": 38,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        496,
+        144,
+        16,
+        16
+      ],
+      "inkBounds": [
+        2,
+        3,
+        14,
+        13
+      ],
+      "destination": [
+        10,
+        11
+      ],
+      "meaning": "Treasure chest"
+    },
+    {
+      "frame": 39,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        16,
+        160,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        2,
+        14,
+        15
+      ],
+      "destination": [
+        9,
+        9
+      ],
+      "meaning": "Mining pick"
+    },
+    {
+      "frame": 40,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        80,
+        416,
+        16,
+        16
+      ],
+      "inkBounds": [
+        2,
+        2,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        10
+      ],
+      "meaning": "Dark concealing hood"
+    },
+    {
+      "frame": 41,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Attack_Up.png",
+      "sourceSha256": "0bf662fb6bbb53e674293a6f76e28211933bf90476d08de76dc8b75b1490c965",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        8,
+        9,
+        26,
+        24
+      ],
+      "destination": [
+        7,
+        8
+      ],
+      "meaning": "Sword with increase arrow"
+    },
+    {
+      "frame": 42,
+      "source": "extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "sourceSha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8",
+      "crop": [
+        656,
+        272,
+        16,
+        16
+      ],
+      "inkBounds": [
+        2,
+        2,
+        14,
+        14
+      ],
+      "destination": [
+        10,
+        10
+      ],
+      "meaning": "Golden lucky clover"
+    },
+    {
+      "frame": 43,
+      "source": "extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png",
+      "sourceSha256": "c221744ec43f7edbae472babeae5aad81525e7a729e7648e948df0b34c2f2d3e",
+      "crop": [
+        352,
+        400,
+        16,
+        16
+      ],
+      "inkBounds": [
+        1,
+        1,
+        15,
+        15
+      ],
+      "destination": [
+        9,
+        9
+      ],
+      "meaning": "Golden working tool"
+    },
+    {
+      "frame": 44,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Health_Up.png",
+      "sourceSha256": "2503a4f2aa687610400f7e5878263d1d4d093cc8de9a95ce019ad4d010d0e2c3",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        10,
+        10,
+        26,
+        23
+      ],
+      "destination": [
+        8,
+        9
+      ],
+      "meaning": "Mending heart with increase arrow"
+    },
+    {
+      "frame": 45,
+      "source": "extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/Magic_Up.png",
+      "sourceSha256": "e6a468029bc5b243331f2faba38cc26e12e695988ead71d71c6038931a503987",
+      "crop": [
+        128,
+        0,
+        32,
+        32
+      ],
+      "inkBounds": [
+        9,
+        9,
+        26,
+        23
+      ],
+      "destination": [
+        7,
+        9
+      ],
+      "meaning": "Magic wand with increase arrow"
+    }
+  ]
+}
