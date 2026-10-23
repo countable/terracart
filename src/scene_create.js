@@ -1161,7 +1161,16 @@ class SceneCreate {
       .setVisible(false)
       .setMask(mask);
     this.gpsGhost.clearMask();
-    this.gpsDisc = this.add.image(this.viewCenterX, this.viewCenterY, 'bldg_shadow')
+    // The near-body disc: a hard-edged dark ellipse, not the feathered
+    // 'bldg_shadow' — the marker is ground paint and casts no soft shadow.
+    if (!this.textures.exists('gps_disc')) {
+      const dg = this.make.graphics({ x: 0, y: 0, add: false });
+      dg.fillStyle(GPS_RING.fade.dark, 1);
+      dg.fillEllipse(32, 16, 60, 30);
+      dg.generateTexture('gps_disc', 64, 32);
+      dg.destroy();
+    }
+    this.gpsDisc = this.add.image(this.viewCenterX, this.viewCenterY, 'gps_disc')
       .setOrigin(0.5, 0.5)
       .setDepth(9.79)
       .setVisible(false);
