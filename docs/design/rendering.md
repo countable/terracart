@@ -1297,4 +1297,9 @@ beside the image. `_objectArt: "dead_tree"` selects frame 0 before optional
 ArtTrials routing; trimmed bounds seat the roots and the scale matches the
 existing mature tree width. Ordinary grove trees keep their existing art.
 
-Permanent rear-lot bedrock uses one opaque 16px Rogue Adventure tile: `RA_Cavern.png`, crop `(16,32,16,16)`, selected-terrain frame 7. Terrain 32 bakes one nearest-neighbour texture at startup, with no mineral sprite, loot, animation or runtime pixel readback.
+Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary rock:
+`RA_Ground_Tiles.png`, crop `(352,208,16,16)`, selected-terrain frame 35
+(`G09-cold`). It stays level with adjacent ground, without the legacy frame 7
+cliff faces. Terrain 32 retains its movement and spawn collision and bakes one
+nearest-neighbour texture at startup, with no mineral sprite, loot, animation
+or runtime pixel readback.

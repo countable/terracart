@@ -937,6 +937,14 @@ Higher-priority placements and their access space take precedence in this order:
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
+   The starter trail has two seed crates (nine potato seeds and nine rockfruit
+   seeds). Its nine Rock and nine Wood are instant `groundstack` pickups,
+   normally three piles of three per material; cramped ground keeps the
+   remainder in fewer piles. All seats use the same spawn gate and avoid Home's
+   footing. Supplies stay deterministic, revealed and included in tutorial
+   guidance. `save.picked` spends individual piles; an opened legacy material
+   crate spends every replacement pile through `legacyChestId`. Hard mode
+   removes both seed crates and loose material supplies.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
