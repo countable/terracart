@@ -112,6 +112,90 @@
       for (let i = 1; i + 1 < ring.length; i++) result.push({ points: [ring[0], ring[i], ring[i + 1]], normal, color: tint, flatColor: multiplyColors(materialColor(material), tint) });
     }
   }
+  // Clipped hedges are bushes, not masonry: convex corners round off in plan,
+  // the exposed sides roll over a quarter-round shoulder into the crown, and
+  // the shoulder dips a little at hashed world positions so long runs read
+  // leafy. The crown cap stays flat at the step-over height: its long slivers
+  // would flip winding under projection if their vertices dipped apart.
+  // Open (joined) edges stay square and every wobble is keyed to the world
+  // point, so neighbouring cells still meet on identical vertices.
+  const HEDGE = { corner: 6, shoulder: 4.5, rise: 4.5, bands: 2, step: 8, dip: 1.8, footInset: 1.5, footRise: 2.5, repeat: 124 };
+  function roundHedgeOutline(points, open) {
+    const n = points.length, ring = [], flags = [];
+    for (let i = 0; i < n; i++) {
+      const prev = points[(i + n - 1) % n], p = points[i], next = points[(i + 1) % n];
+      const la = Math.hypot(p.x - prev.x, p.y - prev.y), lb = Math.hypot(next.x - p.x, next.y - p.y);
+      const u = { x: (p.x - prev.x) / la, y: (p.y - prev.y) / la }, w = { x: (next.x - p.x) / lb, y: (next.y - p.y) / lb };
+      const convex = u.x * w.y - u.y * w.x > 1e-8, r = Math.min(HEDGE.corner, la / 2, lb / 2);
+      if (!convex || open[(i + n - 1) % n] || open[i] || r <= 0) { ring.push(p); flags.push(!!open[i]); continue; }
+      // Quarter-round between the two tangent points (outlines are axis-aligned).
+      const nPrev = { x: u.y, y: -u.x }, centre = { x: p.x - u.x * r - nPrev.x * r, y: p.y - u.y * r - nPrev.y * r };
+      for (let k = 0; k <= 3; k++) {
+        const a = k / 3 * Math.PI / 2, last = ring[ring.length - 1];
+        // Two arcs that consume a whole edge share their tangent point.
+        if (k === 0 && last && Math.hypot(last.x - (p.x - u.x * r), last.y - (p.y - u.y * r)) < 1e-6) continue;
+        ring.push({ x: centre.x + nPrev.x * r * Math.cos(a) + u.x * r * Math.sin(a),
+          y: centre.y + nPrev.y * r * Math.cos(a) + u.y * r * Math.sin(a) });
+        flags.push(k === 3 ? !!open[i] : false);
+      }
+    }
+    if (ring.length > 1 && Math.hypot(ring[0].x - ring[ring.length - 1].x, ring[0].y - ring[ring.length - 1].y) < 1e-6) { ring.pop(); flags.pop(); }
+    // Split long closed runs so the crown has vertices to dip between.
+    const out = [], outFlags = [];
+    ring.forEach((a, i) => {
+      const b = ring[(i + 1) % ring.length], parts = flags[i] ? 1 : Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / HEDGE.step));
+      for (let k = 0; k < parts; k++) { out.push({ x: a.x + (b.x - a.x) * k / parts, y: a.y + (b.y - a.y) * k / parts }); outFlags.push(flags[i]); }
+    });
+    return { points: out, open: outFlags };
+  }
+  function hedgeGeometry(points, height, options) {
+    const faces = [], rounded = roundHedgeOutline(points, options.openEdges || []), open = rounded.open;
+    points = rounded.points;
+    const n = points.length, originX = options.textureOriginX || 0, originY = options.textureOriginY || 0;
+    const normals = points.map((a, i) => { const b = points[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.y - a.y) / l, y: (a.x - b.x) / l }; });
+    const inset = d => points.map((p, i) => {
+      const prev = (i + n - 1) % n, a = normals[prev], b = normals[i], da = open[prev] ? 0 : d, db = open[i] ? 0 : d;
+      const det = a.x * b.y - a.y * b.x;
+      if (Math.abs(det) < 1e-8) return { x: p.x - b.x * db, y: p.y - b.y * db };
+      return { x: p.x + (-da * b.y + db * a.y) / det, y: p.y + (-db * a.x + da * b.x) / det };
+    });
+    const rise = Math.min(HEDGE.rise, height / 2), shoulder = Math.min(HEDGE.shoulder, rise);
+    const wall = height - rise, foot = Math.min(HEDGE.footRise, wall);
+    const dip = p => hash(Math.round((p.x + originX) * 4), Math.round((p.y + originY) * 4)) * HEDGE.dip;
+    // The profile from the ground up: a tucked-in foot, the clipped face, then
+    // the quarter-round shoulder whose upper half takes the crown's leaves.
+    const rings = [{ ring: inset(HEDGE.footInset).map(p => ({ ...p, z: 0 })) }, { ring: inset(0).map(p => ({ ...p, z: foot })) }];
+    for (let k = 0; k <= HEDGE.bands; k++) {
+      const a = k / HEDGE.bands * Math.PI / 2, lift = Math.sin(a);
+      rings.push({ crown: k >= HEDGE.bands / 2 + 1, ring: inset(shoulder * (1 - Math.cos(a)))
+        .map(p => ({ ...p, z: k < HEDGE.bands ? wall + rise * lift - dip(p) * lift : height })) });
+    }
+    const top = p => ({ ...p, s: (p.x + originX) / HEDGE.repeat, t: (p.y + originY) / HEDGE.repeat });
+    const side = (p, alongX) => ({ ...p, s: ((alongX ? p.x + originX : p.y + originY)) / HEDGE.repeat, t: 1 - p.z / HEDGE.repeat });
+    // Every band culls by projected winding (normal null), so the leaning
+    // foot and shoulder show exactly when they face the camera: order each
+    // quad so its 3D normal points outward.
+    const outward = (quad, normal) => {
+      const [a, b, c] = quad, ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z, vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      return nx * normal.x + ny * normal.y + nz * .1 >= 0 ? quad : quad.slice().reverse();
+    };
+    for (let k = 0; k + 1 < rings.length; k++) {
+      const lo = rings[k].ring, hi = rings[k + 1].ring, crown = rings[k + 1].crown;
+      for (let i = 0; i < n; i++) {
+        if (open[i]) continue;
+        const j = (i + 1) % n, alongX = Math.abs(points[j].x - points[i].x) >= Math.abs(points[j].y - points[i].y);
+        const quad = outward([lo[i], lo[j], hi[j], hi[i]], normals[i]).map(p => crown ? top(p) : side(p, alongX));
+        surface(faces, quad, crown ? 'hedgeTop' : 'hedgeSide', null, k === 0 ? 0xc4cfc0 : 0xffffff);
+      }
+    }
+    for (const tri of global.PolygonGeometry.triangulate(rings[rings.length - 1].ring)) surface(faces, tri.map(top), 'hedgeTop', null);
+    if (options.tint != null) for (const face of faces) {
+      face.color = multiplyColors(face.color, options.tint);
+      face.flatColor = multiplyColors(face.flatColor, options.tint);
+    }
+    return faces;
+  }
   function geometry(kind, points, height, options = {}) {
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     if (wood && points.length === 4) {
@@ -120,6 +204,7 @@
         return { x: p.x + (q.x - p.x) * cut / length, y: p.y + (q.y - p.y) * cut / length };
       }));
     }
+    if (hedge && points.length >= 3 && height > 0) return hedgeGeometry(points, height, options);
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
     if (n < 3 || height <= 0) return faces;
     const open = options.openEdges || [], d = hedge ? 1.6 : .7, bevel = Math.min(height / 3, hedge ? 1.5 : .65);
@@ -179,5 +264,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, WOOD, KEY, WHITE };
+  global.WallMaterials = { prepare, geometry, WOOD, HEDGE, KEY, WHITE };
 })(globalThis);
