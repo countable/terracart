@@ -363,6 +363,8 @@ const INTERACTABLES = {
   // gated and drops exactly one namesake bar + coal + tier-rolled gems.
   mineralrock: {
     tool: 'pickaxe',
+    // The smallest plain look is quick work (items.js mineralRockWorkMul).
+    workMul: (o) => mineralRockWorkMul(o),
     spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
@@ -1264,7 +1266,10 @@ function runInteractable(ctx, o, definition) {
   // Tool pipeline: gate → spend energy → start the tier-driven work wheel.
   const blockMsg = def.gate ? def.gate(o, save) : null;
   if (blockMsg) return refuseToolGate(ctx, blockMsg, def.tierShort ? def.tierShort(o, save) : 0, job);
-  return job(toolDurationMs(save.relics, def.tool), def.energy ? def.energy(save, o) : 0);
+  // `workMul(o)`, when a row declares it, scales the tool's time for this
+  // object (the smallest rock art mines at double speed).
+  const workMul = def.workMul ? def.workMul(o) : 1;
+  return job(toolDurationMs(save.relics, def.tool) * workMul, def.energy ? def.energy(save, o) : 0);
 }
 
 

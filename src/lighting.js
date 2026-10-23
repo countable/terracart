@@ -22,7 +22,8 @@
 //   Lighting.collectMagicTraps(scene, ax, ay, halfM) — add the set magic traps
 //   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
 //   Lighting.collectPlayer(scene, ax, ay, halfM, now?) — add the player's torch, if lit
-//   Lighting.playerLightMul(scene) — the player's light as a fraction (blinded: ½)
+//   Lighting.playerLightMul(scene) — the player's light as a fraction (blinded: ½
+//                                   the reach AND half the ramp / plateau levels)
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.lowEnergyFrac(scene) — 0..1, how far into the low-energy warning
@@ -641,6 +642,21 @@
   // `daylight` defaults to noon so the derivation is pinned without a clock;
   // draw() passes the frame's real value.
   function profile(scene, daylightIn, nowIn) {
+    return dimSight(scene, profileLevels(scene, daylightIn, nowIn));
+  }
+  // Blindness dims the player's OWN light as well as shortening it: the ramp
+  // (`edge`) and the plateau (`lit`) run at Conditions.lightMul, the same
+  // fraction that shrinks their reach (playerLightMul, reachRadiusM). The
+  // ambient floor is the world's light, not the player's, so it stands. Both
+  // levels scale together, so `lit > edge`, PLATEAU_FALL's shading and the
+  // plateau colour's ratio all hold; frameKey and the player cookie's key
+  // carry both, so the picture repaints as the touch lands and lifts.
+  function dimSight(scene, prof) {
+    const sight = playerLightMul(scene);
+    if (sight >= 1) return prof;
+    return { ...prof, edge: prof.edge * sight, lit: prof.lit * sight };
+  }
+  function profileLevels(scene, daylightIn, nowIn) {
     const depth = scene.depth ?? 0;
     // This realm has no sun or cave darkness. Its violet sky lights the entire
     // square, while a small player glow still marks interaction reach. Keep
@@ -1101,10 +1117,11 @@
   // pushes nothing: the ramp IS that light, and a cookie on top of it would
   // brighten the surface picture the profile derivation pins.
   const PLAYER_OBJ = { kind: 'player', id: 'player' };
-  // How far the player's OWN light carries this frame, as a fraction of its
-  // row: Conditions.lightMul (a ghost's blinding touch halves it). Scales the
-  // ramp's extent (draw, playerLightAt) and a carried torch's cookie
-  // (collectPlayer's `r`); the reach plateau shrinks in reachRadiusM itself.
+  // How far — and how bright — the player's OWN light is this frame, as a
+  // fraction of its row: Conditions.lightMul (a ghost's blinding touch halves
+  // it). Scales the ramp's extent (draw, playerLightAt), a carried torch's
+  // cookie (collectPlayer's `r`) and the profile's `edge` / `lit` levels
+  // (dimSight); the reach plateau shrinks in reachRadiusM itself.
   function playerLightMul(scene) {
     return (window.Conditions && window.Conditions.lightMul) ? window.Conditions.lightMul(scene?.save) : 1;
   }
