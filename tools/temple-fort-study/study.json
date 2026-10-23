@@ -1,0 +1,8 @@
+[
+ {"id":"court","code":"T1","type":"temple","family":"Open / Sanctuary stone","name":"Rune court","description":"A stepped open sanctuary with a low stone boundary and a central altar. Closest to the current temple; the floor and runes stay visible at every heading."},
+ {"id":"cloister","code":"T2","type":"temple","family":"Colonnade / Temple tiles","name":"Pillared cloister","description":"Three sheltered sides frame an open ritual court. Native Temple columns and low stone roofs add a stronger silhouette while preserving a clear view of the altar."},
+ {"id":"sanctum","code":"T3","type":"temple","family":"Roofed / Temple tiles","name":"Stepped sanctum","description":"A compact shrine on two terraces, with an open front, corner columns and a shallow stone roof. Strongest landmark silhouette; toggle the roof to inspect its altar."},
+ {"id":"continuous","code":"F1","type":"fort","family":"Continuous / Steampunk City","name":"Copper courtyard block","description":"A continuous U-shaped steampunk building forms the fort perimeter. Copper roofs, native facade bays and a central entry frame an exposed courtyard."},
+ {"id":"palisade","code":"F2","type":"fort","family":"Timber fence / central gearhouse","name":"Palisade & gearhouse","description":"The current fort idea rebuilt with continuous tile-textured timber panels and a central 3D gearhouse. Open yard, clear gate and the smallest perimeter silhouette."},
+ {"id":"compound","code":"F3","type":"fort","family":"Stone fence / central hall","name":"Walled copper compound","description":"A low masonry enclosure surrounds a broad steampunk hall and two supply sheds. More substantial than timber fencing while leaving the central building distinct."}
+]
