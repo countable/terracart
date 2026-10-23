@@ -4371,14 +4371,16 @@ const GROUND_MARK = {
 // walk-home lead stops on the ring (app.js). Its own on-screen width and tilt
 // rather than GROUND_MARK's (at the shared 0.5 tilt it read squashed), and
 // the facing caret's paint rather than the rune circle's halo: a gold line on
-// a dark outline, with a soft drop shadow `shadowPx` down the screen. `line`
-// and `outline` are on-screen px, as the caret's are (FACING_CHEVRON).
+// a dark outline, and no drop shadow — the marker is paint on the ground, and
+// a soft shadow under it read as a blur. `line` and `outline` are on-screen
+// px, as the caret's are (FACING_CHEVRON).
 const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
-  line: 1.2, outline: 2.8, shadowPx: 1, ink: '#ffe066' };
+  line: 1.2, outline: 2.8, ink: '#ffe066' };
 // Physical distance controls appearance independently of map zoom and heading.
 // Nearing the body the ring darkens toward `fade.dark` and turns translucent
-// while a dark disc (`fade.discAlpha` at full) fades in under it, so at the
-// feet it is only a translucent dark circle — a mark of its own on the ground,
+// while a dark disc (`fade.discAlpha` at full; the crisp-edged 'gps_disc'
+// bake, never the feathered contact-shadow texture) fades in under it, so at
+// the feet it is only a translucent dark circle — a mark of its own on the ground,
 // never a second contact shadow that follows the fix. Fully the gold ring from
 // `fade.ringCells` out, fully the disc within `fade.discCells`.
 GPS_RING.fade = { discCells: 0.25, ringCells: 2.5, discAlpha: 0.35, dark: 0x1a1208 };
@@ -4390,13 +4392,10 @@ Render.gpsMarkerStyle = function gpsMarkerStyle(distanceCells) {
   return {ringAlpha: t, tint: (ch(16) << 16) | (ch(8) << 8) | ch(0), discAlpha: F.discAlpha * (1 - t),
     width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
 };
-// The ring's stroke passes in bake px, [width, colour, alpha, dy]: dy shifts
-// a pass down the bake before it turns, which the tilt lays flat as screen-down
-// (the ring is counter-rotated to stay screen-flat under heading-up).
+// The ring's stroke passes in bake px, [width, colour, alpha, dy].
 GPS_RING.passes = (() => {
   const k = GROUND_MARK.bakePx / GPS_RING.px;
-  return [[GPS_RING.outline * k, '#000', 0.45, GPS_RING.shadowPx * k / GPS_RING.tilt],
-    [GPS_RING.outline * k, '#1a1208', 1, 0],
+  return [[GPS_RING.outline * k, '#1a1208', 1, 0],
     [GPS_RING.line * k, GPS_RING.ink, 1, 0]];
 })();
 // The frame of rotation strip `key` showing the mark turned `turnDeg`
