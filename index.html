@@ -871,7 +871,8 @@
       padding: 20px;
     }
     #tooshort .box {
-      max-width: 340px; background: #000; color: #fff;
+      max-width: 340px; max-height: 100%; overflow-y: auto;
+      box-sizing: border-box; background: #000; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px var(--font-ui); line-height: 1.45;
@@ -879,6 +880,13 @@
     #tooshort .glyph { font-size: 34px; line-height: 1; margin-bottom: 12px; }
     #tooshort p { margin: 0 0 14px; }
     #tooshort .sub { font-size: 12px; opacity: .75; }
+    /* A phone on its side can be barely 320px tall: tighten the card. */
+    @media (max-height: 360px) {
+      #tooshort { padding: 12px; }
+      #tooshort .box { padding: 14px 18px; }
+      #tooshort .glyph { font-size: 26px; margin-bottom: 6px; }
+      #tooshort p { margin-bottom: 10px; }
+    }
     #tooshort button {
       background: transparent; color: var(--gold-dark);
       border: 1px solid #6b5a2c; border-radius: 8px;
@@ -1345,7 +1353,7 @@
   </style>
   <link rel="stylesheet" href="css/compass_hud.css?v=675d47cb">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=00ec4765">
+  <link rel="stylesheet" href="css/compass_panels.css?v=1e99fc64">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
   <link rel="stylesheet" href="css/book_reader.css?v=6c9148bc">
 </head>
