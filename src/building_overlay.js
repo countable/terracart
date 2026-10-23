@@ -490,7 +490,7 @@
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
       let p = null;
-      const key = tier === 'fdr' ? 'fdr_castle_floor' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+      const key = tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
         : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         const src = scene.textures.get(key).getSourceImage();
@@ -836,12 +836,9 @@
       templePoly(pts, activated, dark) {
         ctx.save();
         ctx.translate(-originX, -originY);
-        const floorKey = TempleArt.floorTexture(activated,dark);
-        const floorSource=scene.textures.exists(floorKey) ? scene.textures.get(floorKey).getSourceImage() : null;
-        if (!patterns.has(floorKey)) patterns.set(floorKey,floorSource ? ctx.createPattern(floorSource,'repeat') : null);
-        TempleArt.draw(ctx, pts, { activated, dark, faces: false, background: true,
-          floorPattern: patterns.get(floorKey),floorPhaseX: wrap(phaseX+originX,floorSource?.width || 32),
-          floorPhaseY: wrap(phaseY+originY,floorSource?.height || 32) });
+        // Native pale slabs and runes, before the RA paving substitution.
+        // The retained low wall supplies the continuous adobe-like brim.
+        TempleArt.draw(ctx, pts, { activated, dark, faces: false, background: true });
         ctx.restore();
       },
       texturePhase(x, y) { phaseX = Math.round(x - originX); phaseY = Math.round(y - originY); },
@@ -1640,7 +1637,7 @@
         g.fillPoly(d.pts,tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier,isMine))));continue;
       }
       // Forts keep their footprint palisade and plank floor; the reviewed
-      // gearhouse replaces only the central hall sprite.
+      // copper hall replaces only the central hall sprite.
       // Turrets retain the intact tower sprite inside standard castle walls.
       // Only this draw uses the castle tier; world ownership and gameplay stay house-based.
       if (role === 'turret') {
@@ -1694,7 +1691,7 @@
         const recipe=BuildingLowPoly.recipeFor('fort');
         recipe.authored=authoredRecipe(scene,d.object,'fort');
         const model=BuildingLowPoly.add(scene,d.pts,recipe,null,d.object.id);
-        if(model?.faces?.length)scene._proceduralBuildings.set(d.object.id,{height:model.height*BuildingLowPoly.LOOK.heightScale});
+        if(model?.faces?.length)scene._proceduralBuildings.set(d.object.id,{height:model.height*BuildingLowPoly.LOOK.heightScale,mountedSign:!!model.mountedSign});
       }
       const shade = shadeOf(isMine), tune = tuneOf(isMine);
       // The shaded floor is what the slime derives from (three shades deep —

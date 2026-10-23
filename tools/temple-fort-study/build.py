@@ -25,6 +25,23 @@ def build(out):
         path = ROOT / 'src/authored-buildings' / name
         shutil.copy2(path, lib / name)
         source_manifest.append(dict(path=str(path.relative_to(ROOT)), sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
+    # Preserve the actual pre-RA temple painter and original plank overlay.
+    # Neither is approximated with a new tileset in the selected designs.
+    temple = ROOT / 'src/temple_art.js'
+    shutil.copy2(temple, lib / 'temple-art.js')
+    texture = ROOT / 'src/textures.js'
+    source = texture.read_text()
+    plank = source.split('function drawWoodFloorTex(', 1)[1].split('\nfunction drawRockTex(', 1)[0]
+    dot = source.split('function dot(', 1)[1].split('\nfunction blob(', 1)[0]
+    (lib / 'original-surfaces.js').write_text(
+        '// Exact shipping plank painter and its disc helper.\n'
+        'window.buildingBackgroundColor = color => color;\n'
+        'function dot(' + dot + '\nfunction drawWoodFloorTex(' + plank + '\n')
+    for path in [temple, texture]:
+        source_manifest.append(dict(path=str(path.relative_to(ROOT)), sha256=hashlib.sha256(path.read_bytes()).hexdigest()))
+    walls = ROOT / 'src/wall_materials.js'
+    shutil.copy2(walls, lib / 'wall-materials.js')
+    source_manifest.append(dict(path=str(walls.relative_to(ROOT)), sha256=hashlib.sha256(walls.read_bytes()).hexdigest()))
     for name in ['city-storefront.png', 'city-gearhouse.png']:
         path = ROOT / 'assets/Objects/PPBuildings' / name
         shutil.copy2(path, out / name)

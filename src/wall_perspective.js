@@ -121,10 +121,14 @@
       const dx = bx - ax, dy = by - ay, length = Math.hypot(dx, dy);
       if (length < 1e-6) return;
       const nx = spec.nx ?? -dy / length, ny = spec.ny ?? dx / length;
-      this.material(scene, source, 'wood', [
-        { x: ax, y: ay }, { x: bx, y: by },
-        { x: bx + nx * wood.thickness, y: by + ny * wood.thickness },
-        { x: ax + nx * wood.thickness, y: ay + ny * wood.thickness },
+      // Segment distribution may leave a short final interval. Keep its pole
+      // square too, centred on that interval instead of flattening its end.
+      const cx = (ax + bx) / 2, cy = (ay + by) / 2, half = wood.width / 2;
+      const a = { x: cx - dx / length * half, y: cy - dy / length * half };
+      const b = { x: cx + dx / length * half, y: cy + dy / length * half };
+      this.material(scene, source, 'wood', [a, b,
+        { x: b.x + nx * wood.thickness, y: b.y + ny * wood.thickness },
+        { x: a.x + nx * wood.thickness, y: a.y + ny * wood.thickness },
       ], wood.height, { segment: { ax, ay, bx, by }, tint: spec.tint ?? 0xffffff });
     },
     addSegment(scene, source, spec) {

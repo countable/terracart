@@ -74,7 +74,16 @@
   });
   test('wall materials: pointed timber retains a small mesh and fixed support height', () => {
     const w = WallMaterials.WOOD, faces = WallMaterials.geometry('wood', [{ x: 0, y: 0 }, { x: w.width, y: 0 }, { x: w.width, y: w.width }, { x: 0, y: w.width }], w.height);
-    assert.eq(faces.length, 24, 'chamfered pole sides and eight pointed crown faces');
+    assert.eq(faces.length, 20, 'four square sides in two shade bands and four pointed crown faces');
+    assert.eq(w.width, 32 / 3, 'third-cell square pole');
+    assert.eq(w.thickness, w.width);
+    assert.eq(w.height + w.tipHeight, 48, 'point reaches 1.5 cells');
+    const body=faces.filter(f=>f.normal), north=body.filter(f=>f.normal.y===-1);
+    const dark=north.find(f=>f.points.every(p=>p.z<=w.shadeHeight));
+    const light=north.find(f=>f.points.every(p=>p.z>=w.shadeHeight));
+    assert.truthy(dark && light, 'continuous shaft has an explicit half-height boundary');
+    assert.lt(dark.flatColor, light.flatColor, 'upper half stays lighter in flat fallback');
+    assert.truthy(body.flatMap(f=>f.points).every(p=>(p.x===0||p.x===w.width)&&(p.y===0||p.y===w.width)), 'no rounded or chamfered footprint');
     assert.eq(Math.max(...faces.flatMap(f => f.points.map(p => p.z))), w.height + w.tipHeight, 'point height');
   });
   test('wall materials: state tint colors both GPU and flat fallbacks', () => {

@@ -1,6 +1,6 @@
 // Turret-free stone sanctuary. Coordinates and widths are canvas pixels.
 (function (global) {
-  const geometry = Object.freeze({ foundationDepth: 7, wallHeight: 6, wallThickness: 3 });
+  const geometry = Object.freeze({ foundationDepth: 7, wallHeight: 4, wallThickness: 3 });
   const colors = Object.freeze({ floor: '#d8d5c8', face: '#8b929a',
     shadow: '#687581', coping: '#edeadd', edge: '#fff9e8', dormant: '#586f7c', joint: '#b3b7b6',
     active: '#b9fbff', glow: '#45d9ff' });

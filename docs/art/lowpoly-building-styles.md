@@ -16,7 +16,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
 | Pet / book shop | T1: white plaster cottage; T2+: market / city storefront | Rose / plum |
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
-| Fort | City gearhouse inside existing palisade | Copper |
+| Fort | City copper hall inside pointed square timber palisade | Copper |
 
 All tier-one businesses, including blacksmiths, traders and generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
@@ -54,6 +54,17 @@ the lot with uniform scale. Their fitter tries dominant lot-edge orientations
 and interior triangle centres to avoid shrinking unnecessarily on diagonal
 wings; an explicit entrance direction remains fixed. Only models assigned
 to existing game roles ship.
+
+The fort uses the full `city_storefront` shell, fitted at 65% of the available
+lot span, with one solid dice board centered above its entrance. It keeps the
+original procedural horizontal plank floor (`biome11_0`), rather than the
+interior sheet or RA paving. The shared palisade has true square posts 32/3
+units wide and 48 units tall including an eight-unit pyramidal point. Their
+Rogue Adventure Village brown ramp uses sparse vertical grain; a discrete
+colour step at height 24 makes the upper half about 12% lighter. Both textured
+and flat Canvas faces share that boundary. Cardinal and angled source edges
+retain square posts even when the final distribution interval is shorter.
+
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 

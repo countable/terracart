@@ -1815,7 +1815,7 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
 
 // The WebGL low-poly path hands houses to BuildingLowPoly.add; a fort must
 // never reach it (the shell was the regression), while its pickets still draw.
-test('building overlay: the low-poly path gives forts a gearhouse while retaining their palisade', () => {
+test('building overlay: the low-poly path gives forts a copper hall and mounted dice while retaining their palisade', () => {
   clearTiles();
   const previousStyle = Render.buildingArtStyle;
   const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
@@ -1824,7 +1824,7 @@ test('building overlay: the low-poly path gives forts a gearhouse while retainin
   Render.buildingArtStyle = 'procedural';
   BuildingLowPoly.active = () => true;
   BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
-  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role, authored: recipe.authored }); return { faces: [1], height: 10 }; };
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role, authored: recipe.authored }); return { faces: [1], height: 10, mountedSign: recipe.role === 'fort' }; };
   try {
     const entry = putShapes(0, 0, [
       rectShape(0, 0, 10, 10, T.BUILDING_MED, 'fort'),
@@ -1835,8 +1835,10 @@ test('building overlay: the low-poly path gives forts a gearhouse while retainin
     scene.save = { restoredHouses: { house: 'plain' } };
     BuildingOverlay.draw(scene);
     assert.eq(added.map(a => a.id).sort().join(','), 'fort,house', 'both inhabited buildings become meshes');
-    assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_gearhouse');
-    assert.truthy(scene._proceduralBuildings.has('fort'), 'the gearhouse replaces the fort sprite');
+    assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_storefront');
+    assert.truthy(added.find(a => a.id === 'fort').authored.sourceShell, 'hall stays a separate central building');
+    assert.truthy(scene._proceduralBuildings.has('fort'), 'the copper hall replaces the fort sprite');
+    assert.truthy(scene._proceduralBuildings.get('fort').mountedSign, 'the mounted dice replaces the floating sign');
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'the palisade still rims the fort');
   } finally {

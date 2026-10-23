@@ -21,6 +21,23 @@ function painted(name,draw){const c=document.createElement('canvas');c.width=c.h
 painted('rune',c=>{c.strokeStyle='#a9f5e9';c.lineWidth=2;c.beginPath();c.moveTo(16,5);c.lineTo(24,13);c.lineTo(16,21);c.lineTo(8,13);c.closePath();c.moveTo(16,5);c.lineTo(16,27);c.stroke();});
 painted('rune-dormant',c=>{c.drawImage(images.rune,0,0);c.globalCompositeOperation='source-in';c.fillStyle='#627e80';c.fillRect(0,0,32,32);});
 painted('dice',c=>{c.fillStyle='#674731';c.fillRect(0,0,32,32);c.fillStyle='#d5b780';c.fillRect(3,3,26,26);c.fillStyle='#382c2b';for(const [x,y]of [[8,8],[20,8],[14,14],[8,20],[20,20]])c.fillRect(x,y,4,4);});
+// The original fort floor is a transparent procedural overlay on its shipping
+// grey-brown base; draw the overlay first because its painter clears the canvas.
+painted('original-planks',c=>{let seed=71;const rng=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};drawWoodFloorTex(c,32,rng);c.globalCompositeOperation='destination-over';c.fillStyle='#9e7e50';c.fillRect(0,0,32,32);});
+// The palisade uses the shipping atlas and geometry, including its exact square
+// profile and discrete half-height tint. Tint variants are prepared once here.
+const wallAtlas=document.createElement('canvas');
+WallMaterials.prepare({textures:{exists:()=>false,createCanvas:(key,w,h)=>{wallAtlas.width=w;wallAtlas.height=h;return {getContext:()=>wallAtlas.getContext('2d'),getSourceImage:()=>wallAtlas,refresh(){},setFilter(){}};}}});
+painted('palisade-swatch',c=>c.drawImage(wallAtlas,130,130,124,124,0,0,32,32));
+function wallMaterial(key,tint){
+ if(images[key])return key;const c=document.createElement('canvas');c.width=c.height=512;const ctx=c.getContext('2d');ctx.drawImage(wallAtlas,0,0);const p=ctx.getImageData(0,0,512,512),rgb=[tint>>>16&255,tint>>>8&255,tint&255];
+ for(let i=0;i<p.data.length;i+=4)for(let j=0;j<3;j++)p.data[i+j]=Math.round(p.data[i+j]*rgb[j]/255);ctx.putImageData(p,0,0);images[key]=c;return key;
+}
+for(const dark of [false,true])for(const active of [false,true]){
+ const key=`original-temple-${dark?'dark':'pale'}-${active?'active':'dormant'}`,c=document.createElement('canvas');c.width=148;c.height=116;
+ TempleArt.draw(c.getContext('2d'),[0,0,148,0,148,116,0,116],{faces:false,dark,activated:active});images[key]=c;
+}
+for(const [variant,palette]of [['pale',TempleArt.colors],['dark',TempleArt.darkColors]])for(const name of ['face','coping','edge','shadow'])painted(`original-stone-${variant}-${name}`,c=>{c.fillStyle=palette[name];c.fillRect(0,0,32,32);});
 class Assembly{
  constructor(){this.batches=new Map();this.faceCount=0;}
  poly(points,key,uv){const a=points[0],b=points[1],c=points[2],ab=P(b.x-a.x,b.y-a.y,b.z-a.z),ac=P(c.x-a.x,c.y-a.y,c.z-a.z),n=P(ab.y*ac.z-ab.z*ac.y,ab.z*ac.x-ab.x*ac.z,ab.x*ac.y-ab.y*ac.x),len=Math.hypot(n.x,n.y,n.z)||1;const light=.82+.18*Math.max(0,(-n.x*.3+n.y*.4+n.z*.85)/len);
@@ -42,6 +59,31 @@ function palisade(a,kind='timber'){
  // portal supports spend geometry on an upright silhouette.
  for(const [x,y]of [[-72,-56],[69,-56],[-72,53],[69,53],[-18,53],[15,53]]){a.box(x-1,y-1,5,5,3,21,kind);a.box(x-1.5,y-1.5,6,6,24,1,'stone-top');}
  a.box(-16,53,32,4,23,5,kind);a.sign(0,57.2,22);
+}
+function pointedPalisade(a){
+ const wood=WallMaterials.WOOD,width=wood.width,height=wood.height+wood.tipHeight,tip=wood.tipHeight,z=3,shaft=wood.height,half=wood.shadeHeight,posts=[];
+ const post=(x,y)=>{
+  const ring=[P(x-width/2,y-width/2,0),P(x+width/2,y-width/2,0),P(x+width/2,y+width/2,0),P(x-width/2,y+width/2,0)];
+  for(const face of WallMaterials.geometry('wood',ring,shaft)){
+   const lower=face.points.every(p=>p.z<=half),key=wallMaterial(`palisade-${lower?'lower':'upper'}-${face.color.toString(16)}`,face.color);
+   a.poly(face.points.map(p=>P(p.x,p.y,p.z+z)),key,face.points.map(p=>[p.u,p.v]));
+  }
+  posts.push({x,y,width,height,shaft,half});
+ };
+ // Square posts touch on each run; the gate is the sole perimeter opening.
+ const columns=13,rows=10,left=-columns*width/2,right=-left,back=-rows*width/2,front=-back;
+ for(let i=0;i<columns;i++){const x=left+(i+.5)*width;post(x,back);if(Math.abs(x)>16)post(x,front);}
+ for(let i=1;i<rows;i++){const y=back+i*width;post(left+width/2,y);post(right-width/2,y);}
+ a.palisade={width,height,tip,shaft,lightBoundary:z+half,posts};
+}
+function selectedTemple(a,dark){
+ const v=dark?'dark':'pale',stone=part=>`original-stone-${v}-${part}`,floor=`original-temple-${v}-${$('condition').value==='1'?'active':'dormant'}`,g=TempleArt.geometry;
+ a.box(-74,-58,148,116,0,g.foundationDepth,stone('face'));
+ a.poly([P(-74,-58,g.foundationDepth+.05),P(74,-58,g.foundationDepth+.05),P(74,58,g.foundationDepth+.05),P(-74,58,g.foundationDepth+.05)],floor,[[0,0],[1,0],[1,1],[0,1]]);
+ const z=g.foundationDepth,h=g.wallHeight,t=g.wallThickness;
+ a.box(-74,-58,148,t,z,h,stone('shadow'),stone('coping'));a.box(-74,58-t,148,t,z,h,stone('face'),stone('coping'));
+ for(const x of [-74,74-t])a.box(x,-58+t,t,116-2*t,z,h,stone('face'),stone('coping'));
+ a.temple={originalFloor:true,continuousBrim:true,foundationDepth:z,wallHeight:h,wallThickness:t};
 }
 function closedDoor(a,y,z,t,width=14,height=21){
  // The native closed door is a surface mounted on a solid wall, never a hole.
@@ -80,6 +122,15 @@ function closedTemple(a,recipe,t){
  a.enclosure='closed';a.sealedPortal=true;
 }
 function model(recipe){const a=new Assembly(),dark=$('stone').value==='dark';a.box(-108,-90,216,180,-2,1,'grass');a.box(-16,52,32,36,-.9,.3,'paving');
+ if(recipe.id==='selected-temple'){selectedTemple(a,dark);}
+ else if(recipe.id==='selected-fort'){
+  a.box(-74,-58,148,116,0,3,'timber','original-planks');pointedPalisade(a);
+  a.city('city_storefront',.38,-34.2,-35);
+  for(const x of [-52,38]){a.box(x,-44,14,24,3,10,'timber','timber');a.box(x-1,-45,16,26,13,2,'timber');}
+  // The single dice emblem sits on the middle of the hall, above the open gate.
+  a.sign(0,-1.3,32);a.selectedFort={centralDice:true,originalPlanks:true,compound:true};
+ }
+ else
  if(recipe.type==='temple'){
  const t=nativeTemple(recipe.id,dark);
  if(recipe.enclosure==='closed'){closedTemple(a,recipe,t);}else{foundation(a,t);
@@ -117,14 +168,15 @@ function model(recipe){const a=new Assembly(),dark=$('stone').value==='dark';a.b
  a.box(78,49,32,32,-.8,.2,'paving');return a;
 }
 const panels=[];let selected=null,spinning=false,last=0,dirty=true,largeRenderer=null;
-for(const recipe of designs){const article=document.createElement('article');article.className='card';article.dataset.design=recipe.id;article.innerHTML=`<canvas width="480" height="340" aria-label="${recipe.name}, rotatable 3D design"></canvas><div class="body"><span class="tag">${recipe.code} / ${recipe.family}</span><h3>${recipe.name}</h3><p>${recipe.description}</p><button class="pick">Inspect ${recipe.code} ↗</button></div>`;$(recipe.type==='temple'?(recipe.enclosure==='closed'?'temples':'open-temples'):'forts').append(article);const renderer=new TileReviewRenderer(article.querySelector('canvas'),images);panels.push({recipe,renderer,article});article.querySelector('button').onclick=()=>open(recipe);drag(article.querySelector('canvas'));}
+for(const recipe of designs){const article=document.createElement('article');article.className='card'+(recipe.selected?' selected':'');article.dataset.design=recipe.id;article.innerHTML=`<canvas width="480" height="340" aria-label="${recipe.name}, rotatable 3D design"></canvas><div class="body"><span class="tag">${recipe.code} / ${recipe.family}</span><h3>${recipe.name}</h3><p>${recipe.description}</p><button class="pick">Inspect ${recipe.code} ↗</button></div>`;$(recipe.selected?'selected-designs':recipe.type==='temple'?(recipe.enclosure==='closed'?'temples':'open-temples'):'forts').append(article);const renderer=new TileReviewRenderer(article.querySelector('canvas'),images);panels.push({recipe,renderer,article});article.querySelector('button').onclick=()=>open(recipe);drag(article.querySelector('canvas'));}
 function rebuild(){for(const p of panels)p.renderer.setModel(model(p.recipe));if(selected)largeRenderer.setModel(model(selected));dirty=true;}
 function open(recipe){selected=recipe;$('detail-title').textContent=recipe.code+' · '+recipe.name;$('detail-copy').textContent=recipe.description;$('detail').classList.add('open');$('close').focus();if(!largeRenderer){largeRenderer=new TileReviewRenderer($('large'),images);drag($('large'));}largeRenderer.setModel(model(recipe));dirty=true;}
 function close(){$('detail').classList.remove('open');selected=null;}
 function toggleSpin(){spinning=!spinning;for(const id of ['spin','detail-spin']){$(id).textContent=spinning?'Pause rotation':'Auto rotate';$(id).classList.toggle('active',spinning);}}
 function drag(canvas){let start=null;canvas.onpointerdown=e=>{start={x:e.clientX,heading:+$('heading').value};canvas.setPointerCapture(e.pointerId);};canvas.onpointermove=e=>{if(start){$('heading').value=(start.heading+(e.clientX-start.x)*.6+720)%360;dirty=true;}};canvas.onpointerup=canvas.onpointercancel=()=>start=null;}
 $('earlier').ontoggle=()=>dirty=true;$('close').onclick=close;document.onkeydown=e=>{if(e.key==='Escape')close();};$('spin').onclick=$('detail-spin').onclick=toggleSpin;$('north').onclick=$('detail-north').onclick=()=>{$('heading').value=0;dirty=true;};$('heading').oninput=$('scale').onchange=()=>dirty=true;for(const id of ['condition','stone','roofs'])$(id).onchange=rebuild;
-for(const [key,label]of [['temple-pale','Sanctuary slab'],['temple-warm-floor','Temple paving'],['column-shaft','Column shaft'],['temple-roof','Stone roof'],['timber','Village timber'],['paving','Ruins paving']]){$('materials').insertAdjacentHTML('beforeend',`<div class="swatch"><img src="materials/${key}.png" alt="${label}">${label}</div>`);}
-function frame(t){if(spinning){$('heading').value=(+$('heading').value+(t-last)*.012)%360;dirty=true;}if(dirty){const heading=+$('heading').value*Math.PI/180,zoom=+$('scale').value,condition=+$('condition').value;for(const p of panels)if(p.recipe.enclosure!=='open'||$('earlier').open)p.renderer.draw(heading,zoom,condition);if(selected)largeRenderer.draw(heading,zoom*1.8,condition);$('degrees').textContent=Math.round(+$('heading').value)+'°';dirty=false;}last=t;requestAnimationFrame(frame);}
-rebuild();$('status').textContent='3 closed temples · 3 forts · 3 earlier studies';window.study={panels,images,rebuild,get largeRenderer(){return largeRenderer;}};window.ready=true;requestAnimationFrame(frame);
+for(const [key,label]of [['original-temple-pale-active','Original rune floor'],['original-planks','Original plank floor'],['palisade-swatch','Square pole wood'],['temple-pale','Earlier Sanctuary slab'],['timber','Village wood source'],['paving','Scale reference slab']]){const im=images[key],src=im.src||im.toDataURL();$('materials').insertAdjacentHTML('beforeend',`<div class="swatch"><img src="${src}" alt="${label}">${label}</div>`);}
+
+function frame(t){if(spinning){$('heading').value=(+$('heading').value+(t-last)*.012)%360;dirty=true;}if(dirty){const heading=+$('heading').value*Math.PI/180,zoom=+$('scale').value,condition=+$('condition').value;for(const p of panels)if(p.recipe.selected||$('earlier').open)p.renderer.draw(heading,zoom,condition);if(selected)largeRenderer.draw(heading,zoom*1.8,condition);$('degrees').textContent=Math.round(+$('heading').value)+'°';dirty=false;}last=t;requestAnimationFrame(frame);}
+rebuild();$('status').textContent='2 selected designs · 9 earlier studies';window.study={panels,images,rebuild,get largeRenderer(){return largeRenderer;}};window.ready=true;requestAnimationFrame(frame);
 })().catch(error=>{document.getElementById('status').textContent=error.message;console.error(error);});
