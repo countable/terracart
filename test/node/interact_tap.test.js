@@ -784,11 +784,11 @@ test('staircase handler: fires on the stair\'s cell, not the cell above it', () 
 // helpers are stubbed so tooFar() returns true (→ 'far') whenever the creature
 // is FOUND — that lets us assert "found" (='far') vs "fell through" (=false)
 // without exercising the full catch/feed flow. cellInReach=false forces 'far'.
-function runCreatureTap(kind, wm, cellInReach) {
+function runCreatureTap(kind, wm, cellInReach, sceneOver = {}) {
   const orig = {
     WG: globalThis.WorldGen, CIR: globalThis.cellInReach, WMC: globalThis.worldMetersToAbsCell,
   };
-  const scene = Object.assign(makeScene(), { feetOffsetM: 0, cellM: 7, cellPx: 32, flash: () => {} });
+  const scene = Object.assign(makeScene(), { feetOffsetM: 0, cellM: 7, cellPx: 32, flash: () => {} }, sceneOver);
   const save  = { caught: [], inv: [], selSlot: 0 };
   const ctx   = Object.assign(makeCtx(scene, save), { wm });
   const h = TAP_HANDLERS.find(x => x.name === 'creature');
@@ -845,6 +845,23 @@ test('creature: touch padding accepts near misses for animals, NPCs and enemies'
     assert.eq(runCreatureTap(kind, { x: 0, y: span.top * 7 / 32 - 0.7 }, false), 'far');
     assert.eq(runCreatureTap(kind, { x: 0, y: span.bottom * 7 / 32 + 1 }, false), 'far');
   }
+});
+
+test('creature: a turned heading-up map still taps the upright body (Tilly)', () => {
+  // Heading-up keeps sprites upright on screen while the map turns. At a half
+  // turn the body rises toward world SOUTH; a world-north box missed it and
+  // the tap tilled the ground beside the neighbour.
+  const turned = { _headingUp: true, mapRot: Math.PI };
+  const enabled = HeadingUp.enabled;
+  HeadingUp.enabled = true;
+  try {
+    assert.eq(runCreatureTap('npc', { x: 0, y: 2.5 }, false, turned), 'far',
+      'tap on the upright body, south of the foot on a half-turned map, finds the NPC');
+    assert.eq(runCreatureTap('npc', { x: 0, y: -2.5 }, false, turned), false,
+      'world-north of the foot is below the sprite on a half-turned map');
+    assert.eq(runCreatureTap('chicken', { x: -1.6, y: 0 }, false, { _headingUp: true, mapRot: Math.PI / 2 }), 'far',
+      'a quarter turn puts the body world-west of the foot');
+  } finally { HeadingUp.enabled = enabled; }
 });
 
 test('creature: a tap two cells to the side finds nothing (false)', () => {
