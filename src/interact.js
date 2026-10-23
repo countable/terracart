@@ -787,6 +787,9 @@ const TAP_HANDLERS = [
     const px2m = scene.cellM / scene.cellPx;
     const TAP_PAD_M = 4 * px2m;           // extra touch forgiveness around every creature
     const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
+    // Bodies sit off the cell grid, so their whole padded box is grown a
+    // touch about the drawn centre: a moving target is harder to hit.
+    const TAP_GROW = 1.1;
     // Per-kind horizontal grab half-width (m).
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
@@ -815,12 +818,13 @@ const TAP_HANDLERS = [
       const gMul = SpriteLayout.creatureScale(c.kind) / SpriteLayout.creatureScale(bk) * inst;
       const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
         || SpriteLayout.creatureTapSpanPx('chicken', inst);
-      const halfW = (HALF_W[bk] ?? 2.0) * gMul + TAP_PAD_M;
-      const topY = span.top * px2m - TAP_PAD_M;                         // crown (or hop peak)
-      const botY = span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M;   // under the feet
       const bodyCY = (span.top + span.bottom) / 2 * px2m;   // drawn centre
+      const grow = y => bodyCY + (y - bodyCY) * TAP_GROW;
+      const halfW = (HALF_W[bk] ?? 2.0) * gMul + TAP_PAD_M;
+      const topY = grow(span.top * px2m - TAP_PAD_M);                         // crown (or hop peak)
+      const botY = grow(span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M);   // under the feet
       const tap = upright(wm.x - c.x, wm.y - c.y);           // from the foot, screen-aligned
-      if (Math.abs(tap.x) > halfW) return;
+      if (Math.abs(tap.x) > halfW * TAP_GROW) return;
       if (tap.y < topY || tap.y > botY) return;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, c.x, c.y)) return;
       const ddx = tap.x, ddy = tap.y - bodyCY;

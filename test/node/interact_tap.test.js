@@ -840,8 +840,12 @@ test('creature: touch padding accepts near misses for animals, NPCs and enemies'
   for (const [kind, halfW] of [['chicken', 1.5], ['npc', 1.8], ['slime', 2]]) {
     const span = SpriteLayout.creatureTapSpanPx(kind);
     const cy = (span.top + span.bottom) / 2 * 7 / 32;
-    assert.eq(runCreatureTap(kind, { x: halfW + 0.7, y: cy }, false), 'far');
-    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), false);
+    // The padded box (4 px pad = 0.875 m here) grows 10% for off-grid bodies.
+    const edge = (halfW + 0.875) * 1.1;
+    assert.eq(runCreatureTap(kind, { x: edge - 0.05, y: cy }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: edge + 0.05, y: cy }, false), false);
+    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), 'far',
+      'a tap just past the old edge now lands');
     assert.eq(runCreatureTap(kind, { x: 0, y: span.top * 7 / 32 - 0.7 }, false), 'far');
     assert.eq(runCreatureTap(kind, { x: 0, y: span.bottom * 7 / 32 + 1 }, false), 'far');
   }
