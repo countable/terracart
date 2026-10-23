@@ -539,7 +539,11 @@ pixels and decorative details do not define additional tap cells.
 - Statuses, buffs and timers on the player live in ONE place: the status
   row (`_syncStatusRow`, `STATUS_ROW_CSS`; under the top HUD, or on the
   compass skin's footer plate left of the joystick, `css/compass_hud.css`,
-  where it never covers the round map), one chip per
+  where it never covers the round map). The compass strip sits above the inventory
+  and scrolls horizontally when full. Each chip shows an extra-assets pixel icon
+  from `StatusIcons` and its remaining duration; names and drains remain in
+  accessible labels and hover text. Terrain slowing shows “Here” because it
+  lasts while standing on that terrain. Expired effects disappear. One chip per
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a

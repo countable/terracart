@@ -97,7 +97,8 @@
     function element(tag) {
       return { tag, style: {}, dataset: {}, children: [], textContent: '',
         addEventListener(name, fn) { this[name] = fn; },
-        append(el) { this.children = this.children.filter(c => c !== el); this.children.push(el); el.parent = this; },
+        setAttribute(name, value) { this[name] = value; },
+        append(...els) { for (const el of els) { this.children = this.children.filter(c => c !== el); this.children.push(el); el.parent = this; } },
         remove() { this.parent.children = this.parent.children.filter(c => c !== this); },
         querySelector(selector) { const id = selector.match(/data-id="([^"]+)"/)[1]; return this.children.find(c => c.dataset.id === id); },
       };
@@ -107,12 +108,27 @@
     s.statusRowEl = element('div');
     s._dialogOpen = () => false;
     s._syncStatusRow = method('_syncStatusRow', { document, window: {}, Buffs,
-      Conditions: { DEFINITIONS: {} }, shortDuration: ms => `${Math.ceil(ms / 1000)}s` });
+      Conditions, shortDuration: ms => `${Math.ceil(ms / 1000)}s` });
     s._syncStatusRow();
     const btn = s.statusRowEl.children.find(c => c.dataset.id === 'portal');
     assert.truthy(btn); assert.eq(btn.tag, 'button'); assert.eq(btn.type, 'button');
-    assert.truthy(btn.textContent.startsWith('Return · '));
+    assert.truthy(btn['aria-label'].startsWith('Return · '));
+    assert.truthy(btn._statusTimer.textContent.endsWith('s'));
+    assert.eq(btn.children[0].className, 'status-icon');
+    assert.truthy(btn.children[0].style.backgroundImage.includes(StatusIcons.src));
+    const icon = btn.children[0];
+    s.save.sapphireReturn.until = Date.now() + 20000;
+    s.save.conditions = { poison: { remainingMs: 12000 } };
+    s._syncStatusRow();
+    assert.eq(s.statusRowEl.children[0].dataset.id, 'poison', 'debuffs appear first');
+    assert.eq(btn._statusTimer.textContent, '20s');
+    assert.eq(btn.children[0], icon, 'timer updates preserve the icon');
+    s.save.conditions.poison.remainingMs = 0;
+    s._syncStatusRow();
+    assert.eq(s.statusRowEl.children.length, 1, 'expired debuff removed');
+    assert.eq(s.statusRowEl.children[0], btn, 'existing buff reused');
     btn.click({ stopPropagation() {} });
     assert.eq(s.depth, 2); assert.eq(s.statusRowEl.children.length, 0);
+    assert.eq(s.statusRowEl.hidden, true, 'empty row hidden');
   });
 })();
