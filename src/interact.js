@@ -581,6 +581,23 @@ function homeFurnitureTap(ctx, building) {
       .some(o => sameAbsCell(scene, o.x, o.y, wm.x, wm.y));
 }
 
+function npcHouseFurnitureTap(ctx, house) {
+  const held = getSelectedSlot(ctx.save);
+  if (!Furniture.isNpcHouse(ctx.scene, house) || !(held?.count > 0 && furnitureSpec(held.id))) return false;
+  if (tooFar(ctx, house.x, house.y)) return 'far';
+  const result = Furniture.furnishHouse(ctx.scene, house, held.id);
+  if (result.accepted) {
+    ctx.dirty = true;
+    ctx.scene.buildInventoryDOM();
+    if (result.replaced) ctx.scene.flash('Furnished; old item returned.', ctx.sx, ctx.sy);
+    else ctx.scene.flash('House furnished.', ctx.sx, ctx.sy);
+  } else {
+    const msg = result.reason;
+    ctx.scene.flash(msg, ctx.sx, ctx.sy);
+  }
+  return true;
+}
+
 function furnitureGround(ctx) {
   const { scene, cell, cwmx, cwmy } = ctx;
   if (cell.underRoad) return false;
@@ -736,6 +753,8 @@ const TAP_HANDLERS = [
   { name: 'building-art', try: (ctx) => {
     const o = ctx.building;
     if (!o) return false;
+    const furnishing = npcHouseFurnitureTap(ctx, o);
+    if (furnishing) return furnishing;
     if (homeFurnitureTap(ctx, o)) return false;
     if (tooFar(ctx, o.x, o.y)) return 'far';
     return runInteractable(ctx, o);
@@ -1371,7 +1390,7 @@ const TAP_HANDLERS = [
         building = o;
         return true;
       });
-      if (building) return runInteractable(ctx, building);
+      if (building) return npcHouseFurnitureTap(ctx, building) || runInteractable(ctx, building);
     }
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)

@@ -57,6 +57,7 @@ const StoryEncounters = (() => {
       (dx, dy) => seat(scene, x + dx * scene.cellM, y + dy * scene.cellM, kind, other));
   }
   function materialize(scene, q, prop, kind, id) {
+    if (kind === 'npc' && scene.save.npcHomes?.[id]?.houseId) return find(id) || null;
     if ((scene.save.caught || []).includes(id)) return null;
     const existing = find(id);
     if (existing) return existing;

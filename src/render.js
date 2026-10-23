@@ -4160,16 +4160,27 @@ Render.drawLowPolyProps = function (scene, items) {
 };
 
 // Score text has its own cache and never enters Home's session typing clock.
+// At night it stays readable from outside, above the unlit roof.
 Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
   const home = scene.save?.starterShopId;
   const inside = !!home && !!scene.homeInside?.();
+  const dark = (scene.depth || 0) === 0 && Lighting.daylight(scene, Date.now()) < 0.5;
   const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
-  const key = `${home}|${inside}|${score}`;
+  const key = `${home}|${inside}|${dark}|${score}`;
   if (scene._homeLuxuryLabel?.key !== key) {
-    scene._homeLuxuryLabel = { key, text: inside ? String(score) : null };
+    scene._homeLuxuryLabel = { key, text: home && (inside || dark) ? String(score) : null };
   }
   return scene._homeLuxuryLabel.text;
 };
+
+// The resident board replaces the delivery bubble. Portraits use the same
+// identity as conversation, including Tilly's housed face after moving in.
+Render.residentPlaque = function residentPlaque(scene, house) {
+  if ((scene.depth || 0) !== 0 || house?.id === scene.save?.starterShopId) return null;
+  const resident = NPC.residentOf(scene.save, house);
+  return resident ? { id: resident.id, name: resident.name, portrait: NPC.portrait(scene, resident) } : null;
+};
+Render.RESIDENT_PLAQUE = Object.freeze({ size: 24, fill: '#293c35', rim: '#d8bc83' });
 
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
@@ -5566,13 +5577,17 @@ Render.drawObjects = function drawObjects(scene) {
         // can't be mistaken for a house's white quest bubble.
         if (it.wide || it.o.kind !== 'house') continue;
         const deal = _houseRole(it.o) === 'trader' ? _traderDeal(it.o) : null;
-        if (!deal && !_houseIsHost(it.o)) continue;
+        const resident = Render.residentPlaque(scene, it.o);
+        if (!deal && !resident && !_houseIsHost(it.o)) continue;
         const happy = !deal && _houseSatisfied(it.o);
-        const wanted = deal || happy ? null : scene.wantedProduce(it.o);
+        const wanted = deal || resident || happy ? null : scene.wantedProduce(it.o);
         const look = deal ? TRADER_BUBBLE : QUEST_BUBBLE;
         const anchor = project(it.dx, it.dy);
         const mid = _houseArtMidPx(it.o);   // the bubble floats off the art's middle
         let sx = anchor.x + mid.x, sy = anchor.y + mid.y;
+        // A resident's oval board sits on the front facade; errands retain
+        // their floating roof bubble and tail.
+        let signY = resident ? _houseArtH(it.o) * 0.22 : -18;
         if (typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)) {
           const foot = Render.objectGroundAnchor(it._appearance, scene.textures, anchor);
           const drawn = HeadingUp.toOverlayPt(scene, foot.x, foot.y);
@@ -5580,7 +5595,8 @@ Render.drawObjects = function drawObjects(scene) {
           sx = drawn.x + (sx - foot.x) * z;
           // Keep the bubble's own 18px gap unscaled, matching its DOM size.
           sy = drawn.y + (sy - foot.y) * z;
-          if (Math.hypot(sx - scene.viewCenterX, sy - 18 - scene.viewCenterY) > scene.viewSize / 2 - 8) continue;
+          if (resident) signY *= z;
+          if (Math.hypot(sx - scene.viewCenterX, sy + signY - scene.viewCenterY) > scene.viewSize / 2 - 8) continue;
         }
         let slot = pool[psi];
         if (!slot) {
@@ -5601,14 +5617,25 @@ Render.drawObjects = function drawObjects(scene) {
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
         const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier, p.qty].join(':');
-        const key = it.o.id + '|' + (deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
+        const facePx = Math.max(12, Math.round(Render.RESIDENT_PLAQUE.size * scale));
+        const key = it.o.id + '|' + (resident ? 'resident>' + resident.id + '>' + resident.portrait
+          : deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
           : happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          slot.el.setAttribute('aria-label', deal ? 'Trader barter' : 'House delivery');
-          slot.el.style.background = look.fill;
-          slot.el.style.border = look.border;
-          if (deal) {
+          slot.el.className = resident ? 'delivery-callout resident-plaque' : 'delivery-callout';
+          slot.el.setAttribute('aria-label', resident ? `${resident.name}'s home` : deal ? 'Trader barter' : 'House delivery');
+          slot.el.style.background = resident ? Render.RESIDENT_PLAQUE.fill : look.fill;
+          slot.el.style.border = resident ? `2px solid ${Render.RESIDENT_PLAQUE.rim}` : look.border;
+          slot.el.style.borderRadius = resident ? '45% 45% 8px 8px' : '7px';
+          if (resident) {
+            const face = document.createElement('img');
+            face.src = resident.portrait;
+            face.alt = resident.name;
+            face.width = face.height = facePx;
+            face.style.cssText = 'display:block;image-rendering:pixelated;border-radius:40% 40% 4px 4px;';
+            slot.el.appendChild(face);
+          } else if (deal) {
             const piece = (p) => {
               let ic = null;
               if (p.kind === 'item') ic = scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
@@ -5646,26 +5673,28 @@ Render.drawObjects = function drawObjects(scene) {
           // Downward tail — a CSS triangle absolutely positioned at the bubble's
           // bottom centre so it points at the house. position:absolute keeps it
           // out of the flex flow, so it doesn't shift the icon row.
-          const tail = document.createElement('div');
-          tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
-            + 'border-left:5px solid transparent;border-right:5px solid transparent;'
-            + `border-top:6px solid ${look.tail};transform:translateX(-50%);`
-            + `filter:drop-shadow(0 1px 0 ${look.tailEdge});`;
-          slot.el.appendChild(tail);
+          if (!resident) {
+            const tail = document.createElement('div');
+            tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
+              + 'border-left:5px solid transparent;border-right:5px solid transparent;'
+              + `border-top:6px solid ${look.tail};transform:translateX(-50%);`
+              + `filter:drop-shadow(0 1px 0 ${look.tailEdge});`;
+            slot.el.appendChild(tail);
+          }
           slot.key = key;
         }
         // A callout floats ABOVE the house roof: translate(-50%,-100%) anchors
         // it by its bottom-centre at sy-18.
         const px = rect.left + sx * scale;
-        const py = rect.top  + (sy - 18) * scale;
+        const py = rect.top  + (sy + signY) * scale;
         setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
         setStyleOnce(slot.el, 'display', 'flex');
         // Box in game px: n icons + 3px gaps, 5px/3px padding, 1px border,
         // 6px tail (CSS px ÷ scale); a barter is two icons and the arrow.
-        const n = deal ? 2.6 : happy ? 1 : Math.max(1, wanted.length);
+        const n = resident ? Render.RESIDENT_PLAQUE.size / ICON_GAME : deal ? 2.6 : happy ? 1 : Math.max(1, wanted.length);
         const bw = n * ICON_GAME + ((Math.ceil(n) - 1) * 3 + 12) / scale;
-        const bh = ICON_GAME + (8 + 6) / scale;
-        const bb = sy - 18 + 6 / scale;
+        const bh = (resident ? Render.RESIDENT_PLAQUE.size : ICON_GAME) + (resident ? 10 : 14) / scale;
+        const bb = sy + signY + (resident ? 0 : 6) / scale;
         const bl = sx - bw / 2, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));

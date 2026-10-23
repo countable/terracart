@@ -194,4 +194,24 @@
       assert.eq(opened?.itemId, 'bed_quilted');
     });
   });
+  test('furniture: NPC roofs and owned footprint cells attach furniture instead of placing it indoors', () => {
+    for (const name of ['building-art','building-zone']) {
+      const f = fixture(); home(f);
+      const house = f.entry.objects[0];
+      f.scene.save.starterShopId = 'player-home';
+      f.scene.save.npcHomes = {tilly:{houseId:house.id}};
+      f.ctx.building = house;
+      let shops = 0; f.scene.shopInteract = () => shops++;
+      world(f, () => {
+        assert.eq(handler(name).try(f.ctx),true,name);
+        assert.eq(f.scene.save.inv[0].count,1,name);
+        assert.eq(f.scene.save.furniture.length,0,name);
+        assert.eq(Furniture.houseFurniture(f.scene.save,house.id).length,1,name);
+        assert.eq(Furniture.luxuryOf(f.scene.save,house.id),1,name);
+        assert.eq(shops,0,name);
+        assert.eq(f.entry.objects.length,1,name);
+        assert.truthy(f.ctx.dirty,name);
+      });
+    }
+  });
 })();

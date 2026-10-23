@@ -551,13 +551,11 @@ const MemoryStory = (() => {
     if (c.role === 'scout' && act(scene.save) >= 2) return survivorLine(scene.save);
     return null;
   }
-  // The child moves in Houses.STORY_RESTORES.childHome roofs after the
-  // restore count she was first met at — derived, so retuning it reaches
-  // children already met.
+  // Her words and portrait follow the actual move-in. Restoration, delivery
+  // and the waiting timer alone cannot put a roof over her head.
   function wandererHoused(save, c) {
-    if (save?.npcHomes?.[c.id]?.houseId) return true;
-    const met = save?.memoryStory?.met?.[c.id];
-    return Number.isFinite(met) && Houses.restoredCount(save) >= met + Houses.STORY_RESTORES.childHome;
+    const houseId = c?.id && save?.npcHomes?.[c.id]?.houseId;
+    return !!houseId && NPC.residentOf(save, houseId)?.id === c.id;
   }
   function wandererLine(scene, c) {
     const s = state(scene.save);
