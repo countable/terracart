@@ -5,6 +5,8 @@
     assert.eq(AuthoredRoofPalette.emblemGlyph('shop'), Render.shopSignGlyph('supply'));
     assert.eq(AuthoredRoofPalette.emblemGlyph('trader'), TRADE_ARROW_PX);
     assert.eq(AuthoredRoofPalette.emblemGlyph('plain'), null, 'no invented residential symbol');
+    const dice=AuthoredRoofPalette.emblemGlyph('fort');
+    assert.eq(dice.length,9);assert.eq(dice[4],'#...#...#','five-pip dice identity');
   });
 
   test('cottage embossing preserves roof paint and warms shared textures only once', () => {

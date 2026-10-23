@@ -340,7 +340,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate'};
   if(role==='trader')return {key:'trader',palette:'green'};
   if(role==='wizard')return {key:wizardSecond?'steam_wizard':'wizard',palette:'purple'};
-  if(role==='fort')return {key:'city_gearhouse',palette:'copper'};
+  if(role==='fort')return {key:'city_storefront',palette:'copper',sourceShell:true,emblem:'fort'};
   if(SHOP_ROOFS[role])return {key:['supply','relic','book'].includes(role)?'city_storefront':'market',palette:SHOP_ROOFS[role]};
   return null;
  }

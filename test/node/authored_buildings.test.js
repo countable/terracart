@@ -109,8 +109,10 @@
     assert.eq(recipe('blacksmith', 'smith', 3).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 4).key, 'steam_blacksmith');
     assert.eq(recipe('blacksmith', 'smith', 1).palette, recipe('blacksmith', 'smith', 7).palette);
-    assert.eq(recipe('fort', 'fort').key, 'city_gearhouse');
+    assert.eq(recipe('fort', 'fort').key, 'city_storefront');
     assert.eq(recipe('fort', 'fort').palette, 'copper');
+    assert.eq(recipe('fort', 'fort').sourceShell, true, 'fort keeps a central native shell inside its palisade');
+    assert.eq(recipe('fort', 'fort').emblem, 'fort', 'one mounted dice marker');
     assert.eq(recipe('trader', 'trader', 2).key, 'trader');
     assert.eq(recipe('trader', 'trader', 7).key, 'trader');
     assert.eq(recipe('trader', 'trader').palette, 'green');
@@ -120,6 +122,25 @@
     assert.eq(recipe('wizard', 'second', 1, true).palette, 'purple');
     assert.eq(recipe('potion', 'magic-shop').palette, 'teal');
     for (const role of ['turret', 'castle', 'wreck', 'unknown']) assert.eq(recipe(role, 'fixture'), null);
+  });
+  test('authored fort: centered solid dice board sits above the native entrance and fits with the hall', () => {
+    const spec=AuthoredBuildings.SPECS.city_storefront,C=Math.cos(Math.PI/6),unit=16/spec.door[3];
+    const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
+    for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const texture={},emblem={sign:texture,signUV:[0,.1,.1,.2],signSideUV:[.3,.3]};
+    const lot=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
+    const model=BuildingLowPoly.authoredGeometry(native,lot,.65,null,emblem);
+    const sign=model.faces.filter(f=>f.feature==='fort-sign'),sides=model.faces.filter(f=>f.feature==='fort-sign-side');
+    assert.eq(sign.length,2,'one front board');assert.eq(sides.length,10,'solid back and four sides');
+    assert.eq(model.mountedSign,true,'floating sign can be suppressed');
+    assert.truthy(sign.every(f=>f.texture===texture));
+    const ps=sign.flatMap(f=>f.points),center=(Math.min(...ps.map(p=>p.x))+Math.max(...ps.map(p=>p.x)))/2;
+    assert.lt(Math.abs(center-model.center.x),1e-6,'board centered on hall facade');
+    const scale=model.height/(Math.max(...native.faces.flatMap(f=>f.points.map(p=>p.z)))*C);
+    assert.gt(Math.min(...ps.map(p=>p.z)),spec.door[3]*unit*C*scale,'dice board clears the door');
+    assert.lt(Math.max(...model.faces.flatMap(f=>f.points.map(p=>p.x)))-Math.min(...model.faces.flatMap(f=>f.points.map(p=>p.x))),90,'hall leaves its surrounding plank deck');
+    assert.falsy(native.mountedSign,'shared startup model stays unmodified');
+    assert.falsy(BuildingLowPoly.authoredGeometry(native,lot,.65).mountedSign,'no marker unless requested');
   });
   test('authored buildings: Dreamland attic glazing stays source-sized on a larger real footprint', () => {
     const spec=AuthoredBuildings.SPECS.dreamland_house;
