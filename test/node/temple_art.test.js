@@ -35,10 +35,12 @@
     for (const dark of [false, true]) {
       const ctx = recorder(), paint = dark ? TempleArt.darkColors : TempleArt.colors;
       TempleArt.draw(ctx, ring, { faces: false, dark });
-      const bricks = ctx.ops.filter(o => o.op === 'slab');
+      const bricks = ctx.ops.filter(o => o.op === 'brick-edge' && o.color === paint.brickLight && o.rect[2] === 16 && o.rect[3] === 1);
+      assert.eq(ctx.ops.filter(o => o.op === 'slab').length, 0, 'no mortar outlines are drawn');
       assert.truthy(bricks.length > 50, 'smaller brick courses replace the oversized square slabs');
-      assert.truthy(bricks.every(o => o.rect[2] === 15 && o.rect[3] === 7), 'one-pixel mortar around native 16 by 8 bricks');
+      assert.truthy(bricks.every(o => o.rect[2] === 16), 'highlights cover each complete brick width without a mortar gutter');
       const rows = [...new Set(bricks.map(o => o.rect[1]))];
+      assert.eq(rows[1] - rows[0], 12, 'brick courses are taller: 12 units rather than 8');
       const first = row => Math.min(...bricks.filter(o => o.rect[1] === row).map(o => o.rect[0]));
       assert.eq(first(rows[0]) - first(rows[1]), 8, 'alternate courses offset half a brick');
       const highlights = ctx.ops.filter(o => o.op === 'brick-edge' && o.color === paint.brickLight);

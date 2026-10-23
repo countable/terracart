@@ -1,13 +1,13 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v3', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v4', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
-  // 32px game cell: square sixth-cell posts, three quarters of a cell to the point.
-  const WOOD = Object.freeze({ height: 14, tipHeight: 10, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 12, lowerTint: 0xe4e4e4 });
+  // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
+  const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
   const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
-    stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0x7d5f3b, woodSide: 0x674a34 };
+    stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xb59969, woodSide: 0x9e7e50 };
   // Approved shared RA olive ramp, continuously interpolated by source luminance
   // (+12), then given the review's 20% saturation lift. Bake the eight painted
   // shades instead of reading back or recoloring a canvas during scene rebuilds.
@@ -21,6 +21,10 @@
   const materialColor = material => rogueEnabled() && material.startsWith('hedge')
     ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
   const hash = (x, y) => ((Math.imul(x + 173, 374761393) ^ Math.imul(y + 97, 668265263)) >>> 0) / 4294967296;
+  function postHeight(index = 0) {
+    const total = WOOD.height + WOOD.tipHeight;
+    return (Math.trunc(index) & 1) ? total * WOOD.staggerScale - WOOD.tipHeight : WOOD.height;
+  }
   function multiplyColors(a, b) {
     const channel = shift => Math.round(((a >>> shift) & 255) * ((b >>> shift) & 255) / 255);
     return (channel(16) << 16) | (channel(8) << 8) | channel(0);
@@ -65,12 +69,12 @@
         fill('#827764', 0, n * .76, n, n * .24);
         fill('#746a58', 0, n - 15, n, 8); fill('#615b50', 0, n - 7, n, 7);
       } else if (name === 'woodSide') {
-        // Rogue Adventure Village's sparse brown pole ramp. Broad vertical
+        // Warm plank-floor browns with Rogue Adventure's sparse grain. Broad vertical
         // bands give square faces weight; the mesh owns the half-height step.
-        fill('#392e24', 0, 0, 10, n); fill('#392e24', n - 10, 0, 10, n);
-        fill('#4e3a2e', 10, 0, 15, n); fill('#4e3a2e', n - 25, 0, 15, n);
-        fill('#7d5f3b', 32, 0, 17, n);
-        fill('#4e3a2e', 73, 38, 6, 26); fill('#4e3a2e', 86, 81, 5, 17);
+        fill('#675035', 0, 0, 10, n); fill('#675035', n - 10, 0, 10, n);
+        fill('#82653f', 10, 0, 15, n); fill('#82653f', n - 25, 0, 15, n);
+        fill('#b59969', 32, 0, 17, n);
+        fill('#82653f', 73, 38, 6, 26); fill('#82653f', 86, 81, 5, 17);
       }
       g.restore();
       // Duplicate border texels so affine Canvas and GPU filtering cannot bleed atlas neighbours.
@@ -116,6 +120,7 @@
   function geometry(kind, points, height, options = {}) {
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
+    const shadeHeight = wood ? (height + WOOD.tipHeight) / 2 : 0;
     if (n < 3 || height <= 0) return faces;
     const open = options.openEdges || [], d = hedge ? 1.6 : .7, bevel = Math.min(height / 3, hedge ? 1.5 : .65);
     const normals = points.map((a, i) => { const b = points[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.y - a.y) / l, y: (a.x - b.x) / l }; });
@@ -162,13 +167,13 @@
       if (distance > 1e-8) {
         // Two discrete bands also reach Canvas's flat-material fallback.
         // UVs stay continuous: the colour step must not restart the grain.
-        const levels = wood ? [0, Math.min(WOOD.shadeHeight, low), low] : [0, low];
+        const levels = wood ? [0, Math.min(shadeHeight, low), low] : [0, low];
         for (let band = 1; band < levels.length; band++) {
           const z0 = levels[band - 1], z1 = levels[band];
           if (z1 <= z0) continue;
           surface(faces, [sidePoint(a, z0, 0), sidePoint(b, z0, 1), sidePoint(b, z1, 1), sidePoint(a, z1, 0)],
             (!wood && !hedge && distance <= 8 ? 'stoneEnd' : prefix + 'Side'), normal,
-            wood && z0 < WOOD.shadeHeight ? multiplyColors(tint, WOOD.lowerTint) : tint);
+            wood && z0 < shadeHeight ? multiplyColors(tint, WOOD.lowerTint) : tint);
         }
       }
       if (wood) {
@@ -188,5 +193,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, WOOD, KEY, WHITE };
+  global.WallMaterials = { prepare, geometry, postHeight, WOOD, KEY, WHITE };
 })(globalThis);

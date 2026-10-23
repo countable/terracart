@@ -1768,7 +1768,7 @@ test('building overlay: retail floor survives dissolved building shapes', () => 
 // ─── Forts: a palisade rim plus the gambling hall ──────────────────────────
 // A fort (tier 11, Houses.displayRole 'fort') is never a generated body. The
 // overlay paints its plank floor and the tier-11 pickets of perspectiveEdges
-// (separate 3px posts round the footprint, compass-aware like every wall),
+// (separate square posts round the footprint, compass-aware like every wall),
 // and leaves scene._proceduralBuildings alone so the RENDER_SPEC house row
 // still seats the gambling-hall sprite (house_fort) on the footprint's centre.
 // Pinned after a low-poly fort shell replaced the rim and hid the hall.
@@ -1793,14 +1793,16 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
     // Fort planks under the hall, as before.
     assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === T.BUILDING_MED), 'plank floor');
     // The rim: short posts, not continuous wall strips. A 64px side carries
-    // broader rounded pickets at the shared material pitch (perspectiveEdges).
+    // square pickets at the shared material pitch (perspectiveEdges).
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'pickets on every side of the footprint');
-    for (const b of pickets) {
+    const orderedPickets=pickets.slice().sort((a,b)=>a.order-b.order);
+    for (const [index,b] of orderedPickets.entries()) {
       const xs = b.points.map(p => p.x), ys = b.points.map(p => p.y);
       assert.lte(Math.max(...xs) - Math.min(...xs), WallMaterials.WOOD.width + .01, 'a picket, not a wall run');
       assert.lte(Math.max(...ys) - Math.min(...ys), WallMaterials.WOOD.width + .01, 'a picket, not a wall run');
-      assert.eq(b.top, WallMaterials.WOOD.height + WallMaterials.WOOD.tipHeight, 'pointed palisade height');
+      const expected=(WallMaterials.WOOD.height+WallMaterials.WOOD.tipHeight)*(index%2?1.1:1);
+      assert.lt(Math.abs(b.top-expected),1e-8,'every second perimeter log is ten percent taller');
       assert.truthy(b.materialFaces?.length, 'pickets carry the shared wood texture');
     }
     // Compass turns reuse the retained pickets rather than rebaking.

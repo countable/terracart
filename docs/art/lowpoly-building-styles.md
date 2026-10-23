@@ -59,9 +59,11 @@ The fort uses the full `city_storefront` shell, fitted at 65% of the available
 lot span, with one solid dice board centered above its entrance. It keeps the
 original procedural horizontal plank floor (`biome11_0`), rather than the
 interior sheet or RA paving. The shared palisade has true square posts 32/6
-units wide and 24 units tall, including a ten-unit carved point. Their
-Rogue Adventure Village brown ramp uses sparse vertical grain; a discrete
-colour step at height 12 makes the upper half about 12% lighter. Both textured
+units wide. Short logs are 22.5 units tall, with an 8.5-unit carved point; every
+second log is 10% taller (24.75 units), with the same point length. Sparse
+Rogue Adventure-style vertical grain uses the original plank floor’s warm brown
+colour family. A discrete step halfway up each log makes its upper half about
+12% lighter. Both textured
 and flat Canvas faces share that boundary. Cardinal and angled source edges
 retain square posts even when the final distribution interval is shorter. Point
 faces continue the same grain coordinates and face shade as the shaft, avoiding

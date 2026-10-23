@@ -114,19 +114,18 @@
     } else {
       // Small running-bond bricks. One-pixel light and shadow edges give
       // depth in the cached floor paint without adding per-brick geometry.
-      // Bound the count for very large source rings while preserving 2:1 bricks.
-      const unit = Math.max(scale, (b.right - b.left) / (16 * 48), (b.bottom - b.top) / (8 * 48));
-      const width = 16 * unit, height = 8 * unit;
-      ctx.lineWidth = unit; ctx.strokeStyle = paint.joint;
+      // Faces meet edge to edge: no inset gutter or mortar outline.
+      // Bound the count for very large source rings while retaining the taller brick proportions.
+      const unit = Math.max(scale, (b.right - b.left) / (16 * 48), (b.bottom - b.top) / (12 * 48));
+      const width = 16 * unit, height = 12 * unit;
       for (let y = b.top, row = 0; y < b.bottom; y += height, row++) {
         for (let x = b.left - (row % 2) * width / 2; x < b.right; x += width) {
           ctx.fillStyle = paint.brickLight;
-          ctx.fillRect(x + unit, y + unit, width - 2 * unit, unit);
-          ctx.fillRect(x + unit, y + 2 * unit, unit, height - 4 * unit);
+          ctx.fillRect(x, y, width, unit);
+          ctx.fillRect(x, y + unit, unit, height - 2 * unit);
           ctx.fillStyle = paint.brickShadow;
-          ctx.fillRect(x + unit, y + height - 2 * unit, width - 2 * unit, unit);
-          ctx.fillRect(x + width - 2 * unit, y + 2 * unit, unit, height - 4 * unit);
-          ctx.strokeRect(x + unit / 2, y + unit / 2, width - unit, height - unit);
+          ctx.fillRect(x, y + height - unit, width, unit);
+          ctx.fillRect(x + width - unit, y + unit, unit, height - 2 * unit);
         }
       }
     }

@@ -26,8 +26,25 @@
       const block=group.blocks[0];
       assert.eq(block.points.length,4,'four true square corners');
       block.points.forEach((p,i)=>{const q=block.points[(i+1)%4];close(Math.hypot(q.x-p.x,q.y-p.y),32/6,'equal square sides at arbitrary headings');});
-      close(block.top,24,'three quarters of a cell including the point');
+      close(block.top,22.5,'short post includes its shortened point');
       for(const angle of [0,Math.PI/4,Math.PI,Math.PI*1.5]){s.mapRot=angle;WallPerspective.update(s);assert.truthy(group.gfx.triangles.every(t=>t.points.every(Number.isFinite)));}
+    }
+  });
+
+  test('wall perspective: explicit and tiled pole indices alternate height without changing square footprints', () => {
+    const w = WallMaterials.WOOD;
+    for (const explicit of [false, true]) {
+      const s = scene(), group = WallPerspective.begin(s, 'polygon');
+      for (let i = 0; i < 6; i++) WallPerspective.palisade(s, 'polygon', {
+        ax: i * w.pitch, ay: 0, bx: (i + 1) * w.pitch, by: 0,
+        ...(explicit ? { postIndex: i } : {}),
+      });
+      group.blocks.forEach((block, i) => {
+        close(block.top, i % 2 ? 24.75 : 22.5, 'every second log is 10% longer');
+        const half = block.top / 2;
+        assert.truthy(block.materialFaces.some(f => f.points.some(p => p.z === half)), 'shade boundary follows actual log height');
+        assert.truthy(block.materialFaces.every(f => f.points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y) && Number.isFinite(p.z))));
+      });
     }
   });
 

@@ -62,18 +62,19 @@ function palisade(a,kind='timber'){
 }
 function pointedPalisade(a){
  const wood=WallMaterials.WOOD,width=wood.width,height=wood.height+wood.tipHeight,tip=wood.tipHeight,z=3,shaft=wood.height,half=wood.shadeHeight,posts=[];
- const post=(x,y)=>{
+ const post=(x,y,index)=>{
+  const shaft=WallMaterials.postHeight(index),height=shaft+tip,half=height/2;
   const ring=[P(x-width/2,y-width/2,0),P(x+width/2,y-width/2,0),P(x+width/2,y+width/2,0),P(x-width/2,y+width/2,0)];
   for(const face of WallMaterials.geometry('wood',ring,shaft)){
    const lower=face.points.every(p=>p.z<=half),key=wallMaterial(`palisade-${lower?'lower':'upper'}-${face.color.toString(16)}`,face.color);
    a.poly(face.points.map(p=>P(p.x,p.y,p.z+z)),key,face.points.map(p=>[p.u,p.v]));
   }
-  posts.push({x,y,width,height,shaft,half});
+  posts.push({x,y,width,height,shaft,half,index});
  };
  // Square posts touch on each run; the gate is the sole perimeter opening.
  const columns=Math.round(140/width),rows=Math.round(106/width),left=-columns*width/2,right=-left,back=-rows*width/2,front=-back;
- for(let i=0;i<columns;i++){const x=left+(i+.5)*width;post(x,back);if(Math.abs(x)>16)post(x,front);}
- for(let i=1;i<rows;i++){const y=back+i*width;post(left+width/2,y);post(right-width/2,y);}
+ for(let i=0;i<columns;i++){const x=left+(i+.5)*width;post(x,back,i);if(Math.abs(x)>16)post(x,front,i);}
+ for(let i=1;i<rows;i++){const y=back+i*width;post(left+width/2,y,i);post(right-width/2,y,columns-1+i);}
  a.palisade={width,height,tip,shaft,lightBoundary:z+half,posts};
 }
 function selectedTemple(a,dark){
@@ -126,9 +127,8 @@ function model(recipe){const a=new Assembly(),dark=$('stone').value==='dark';a.b
  else if(recipe.id==='selected-fort'){
   a.box(-74,-58,148,116,0,3,'timber','original-planks');pointedPalisade(a);
   a.city('city_storefront',.38,-34.2,-35);
-  for(const x of [-52,38]){a.box(x,-44,14,24,3,10,'timber','timber');a.box(x-1,-45,16,26,13,2,'timber');}
   // The single dice emblem sits on the middle of the hall, above the open gate.
-  a.sign(0,-1.3,32);a.selectedFort={centralDice:true,originalPlanks:true,compound:true};
+  a.sign(0,-1.3,32);a.selectedFort={centralDice:true,originalPlanks:true,compound:true,sideStructures:false};
  }
  else
  if(recipe.type==='temple'){

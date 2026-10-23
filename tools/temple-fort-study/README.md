@@ -19,18 +19,20 @@ shared. The detached paving slab is one 32-unit game cell.
 The selected pair are:
 
 - **T7, rune terrace with roof brim:** the original marble-like stone floor,
-  small 16×8 staggered bricks and runes, with a continuous low stone brim around the
+  small 16×12 staggered bricks and runes, with a continuous low stone brim around the
   raised top. Light top/left and dark bottom/right edges give each brick depth.
+  The taller faces meet edge to edge, without mortar lines or gutters.
   No separate altar, doorway or walking entrance. It calls the
   shipping `TempleArt.draw` with no RA floor pattern and derives its brim and
   foundation dimensions from `TempleArt.geometry`.
-- **F4, palisaded copper compound:** the F3 copper hall and two supply sheds,
+- **F4, palisaded copper compound:** the F3 copper hall, without the side sheds,
   with one central dice sign and the original procedural grey-brown plank floor.
   Square poles touch along the perimeter, with pointed tops and a central gate.
   The study uses the shipping `WallMaterials.geometry` and atlas: poles are
-  32/6 units wide and 24 units tall including their 10-unit carved points. The
-  point continues the shaft grain and face colour. A discrete tint boundary at 12 units makes the upper half subtly lighter. The wood ramp
-  matches Rogue Adventure Village's subdued brown poles.
+  32/6 units wide, alternating between 22.5 and 24.75 units tall (10% taller).
+  Their 8.5-unit points are 15% shorter than the previous version, and continue
+  the shaft grain and face colour. A discrete tint boundary halfway up each log
+  makes its upper half subtly lighter. The warm wood ramp matches the plank floor.
 
 `study.json` owns names and descriptions; `study.js` owns assemblies. `build.py`
 copies the shipping City mesh builders, wall material module and temple painter

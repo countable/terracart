@@ -958,6 +958,7 @@
       area += a.x * b.y - b.x * a.y;
     }
     const winding = Math.sign(area);
+    let palisadeIndex = 0;
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length];
       const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
@@ -981,7 +982,7 @@
         const count = Math.max(1, Math.round(length / WallMaterials.WOOD.pitch));
         for (let j = 0; j < count; j++) {
           const lo = j / count, hi = Math.min(1, lo + WallMaterials.WOOD.width / length);
-          WallPerspective.palisade(scene, 'polygon', { ...spec, tint: tune(shade(0xffffff)),
+          WallPerspective.palisade(scene, 'polygon', { ...spec, postIndex: palisadeIndex++, tint: tune(shade(0xffffff)),
             ax: a.x + dx * lo, ay: a.y + dy * lo, bx: a.x + dx * hi, by: a.y + dy * hi });
         }
       } else {
