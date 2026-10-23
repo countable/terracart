@@ -155,48 +155,68 @@ class SceneFurniture {
         && (this.depth || 0) === 0 && Delivery.isSatisfied(this.save, house))) return false;
     const options = { resident, message, onClose };
     const { wrap, box, mount, mkBtn } = this.makeModalShell('house-furniture-modal', {
-      kind: 'use', kindLabel: resident?.name ? `${resident.name}'s home` : occupied ? 'Neighbour home' : 'Vacant house',
-      portrait: resident && NPC.portrait(this, resident), art: false, onClose,
+      kind: 'use', header: false, art: false, onClose,
     });
+    const heading = document.createElement('div');
+    heading.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 8px;';
+    if (resident) {
+      const face = document.createElement('img');
+      face.className = 'house-resident-portrait';
+      face.src = NPC.portrait(this, resident);
+      face.alt = resident.name;
+      face.width = face.height = 48;
+      face.style.cssText = 'width:48px;height:48px;object-fit:contain;image-rendering:pixelated;';
+      heading.appendChild(face);
+    }
+    const identity = document.createElement('div');
     const title = document.createElement('h2');
-    title.textContent = `Luxury ${Furniture.luxuryOf(this.save, house.id)}`;
-    title.style.cssText = 'font-size:22px;margin:8px 0;';
-    box.appendChild(title);
+    title.textContent = resident?.name ? `${resident.name}'s home` : occupied ? 'Neighbour home' : 'Vacant house';
+    title.style.cssText = 'font-size:18px;margin:0;';
+    identity.appendChild(title);
+    const score = document.createElement('div');
+    score.textContent = `Luxury ${Furniture.luxuryOf(this.save, house.id)}`;
+    score.style.cssText = 'font-size:14px;color:#d5b879;margin-top:4px;';
+    identity.appendChild(score);
+    heading.appendChild(identity);
+    box.appendChild(heading);
     const benefit = resident && typeof NPCBenefits !== 'undefined' ? NPCBenefits.summary(this, resident) : '';
     const greeting = message || (!occupied ? 'Delivery received. This house is ready for an available neighbour.' : '');
     if (greeting || benefit) {
       const speech = document.createElement('p');
-      speech.textContent = [...new Set([greeting, benefit].filter(Boolean))].join(' ');
-      speech.style.cssText = 'font-size:14px;line-height:1.5;';
+      speech.textContent = resident?.role === 'wanderer' ? 'Tilly sometimes helps you water your crops.'
+        : [...new Set([greeting, benefit].filter(Boolean))].join(' ');
+      speech.style.cssText = 'font-size:13px;line-height:1.35;margin:4px 0 8px;';
       box.appendChild(speech);
     }
-    const explanation = document.createElement('p');
-    explanation.textContent = 'Only the four most luxurious items are kept. A better item returns the weakest one to your bag.';
-    explanation.style.cssText = 'font-size:12px;line-height:1.4;opacity:.8;';
-    box.appendChild(explanation);
     const grid = document.createElement('div');
     grid.className = 'house-furniture-slots';
-    grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin:14px 0;';
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 0;';
     const records = Furniture.houseFurniture(this.save, house.id);
     for (let i = 0; i < Furniture.HOUSE_SLOTS; i++) {
       const record = records[i], slot = document.createElement('div');
       slot.className = record ? 'house-furniture-slot occupied' : 'house-furniture-slot empty';
-      slot.style.cssText = 'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:10px 6px;min-height:130px;border:1px solid #af9768;border-radius:12px;background:rgba(175,151,104,.08);';
+      slot.style.cssText = 'display:flex;flex-direction:column;justify-content:center;gap:4px;padding:6px;min-height:104px;box-sizing:border-box;border:1px solid #af9768;border-radius:10px;background:rgba(175,151,104,.08);';
       if (record) {
+        const details = document.createElement('div');
+        details.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;';
         const art = document.createElement('div');
-        art.innerHTML = this.worldIconHTML('furniture', 64, furnitureFrame(record.itemId), 128);
-        art.style.cssText = 'font-size:0;';
+        art.innerHTML = this.worldIconHTML('furniture', 24, furnitureFrame(record.itemId), 48);
+        art.style.cssText = 'font-size:0;flex:0 0 24px;';
         art.style.transform = record.flip ? 'scaleX(-1)' : '';
-        slot.appendChild(art);
+        details.appendChild(art);
+        const caption = document.createElement('div');
+        caption.style.cssText = 'min-width:0;flex:1;text-align:left;';
         const name = document.createElement('div');
         name.textContent = itemName(record.itemId);
-        name.style.cssText = 'font-size:12px;font-weight:700;text-align:center;';
-        slot.appendChild(name);
+        name.style.cssText = 'font-size:11px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;';
+        caption.appendChild(name);
         const luxury = document.createElement('div');
         luxury.textContent = `${Furniture.itemLuxury(record.itemId)} luxury`;
-        luxury.style.cssText = 'font-size:12px;color:#d5b879;';
-        slot.appendChild(luxury);
-        const pickup = mkBtn('Pick up', { variant: 'ghost' });
+        luxury.style.cssText = 'font-size:11px;color:#d5b879;margin-top:3px;';
+        caption.appendChild(luxury);
+        details.appendChild(caption);
+        slot.appendChild(details);
+        const pickup = mkBtn('Pick up', { variant: 'ghost', css: 'padding:4px 8px;min-height:32px;font-size:12px;' });
         pickup.addEventListener('click', () => {
           if (!this.pickupHouseFurniture(house, record)) return;
           wrap.remove();
@@ -213,11 +233,6 @@ class SceneFurniture {
       grid.appendChild(slot);
     }
     box.appendChild(grid);
-    const tip = document.createElement('p');
-    tip.textContent = occupied ? 'Select furniture in your bag, then tap this house to furnish it.'
-      : 'Furnish this house after a neighbour moves in.';
-    tip.style.cssText = 'font-size:12px;line-height:1.4;opacity:.8;';
-    box.appendChild(tip);
     mount();
     return true;
   }
