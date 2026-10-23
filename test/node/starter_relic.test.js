@@ -579,6 +579,23 @@
     assert.eq(save.energy, 0, 'no energy spent');
   });
 
+  test('starter supplies: a full or nearly full stack leaves the whole pile for later', () => {
+    const pile = srTrail(srEntry()).materials.find(o => o.itemId === 'wood');
+    const scene = makeScene();
+    const save = { picked: [], opened: [], inv: [{ id: 'wood', count: 9 }] };
+    for (const count of [9, 8]) {
+      save.inv[0].count = count;
+      assert.lt(Inventory.roomFor(save, 'wood'), pile.qty, 'the pile cannot fully fit');
+      runInteractable(makeCtx(scene, save), pile);
+      assert.falsy(isSpent(pile, spentSets(scene, save)), 'rejected pile stays on the ground');
+      assert.eq(scene.invCount('wood'), 0, 'no partial grant');
+    }
+    save.inv[0].count = 6;
+    runInteractable(makeCtx(scene, save), pile);
+    assert.includes(save.picked, pile.id, 'pickup succeeds once the whole pile fits');
+    assert.eq(scene.invCount('wood'), 3, 'the full pile is still available');
+  });
+
   test('starter supplies: opened legacy material crates spend all their replacement piles', () => {
     const { materials } = srTrail(srEntry());
     const scene = makeScene();

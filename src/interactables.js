@@ -517,9 +517,13 @@ const INTERACTABLES = {
     custom: (ctx, o) => {
       const { scene, save } = ctx;
       if (isSpent(o, spentSets(scene, save))) return 'skip';
-      save.picked = [...save.picked, o.id];
       const qty = Math.max(1, o.qty || 1);
+      if (Inventory.roomFor(save, o.itemId) < qty) {
+        scene.flash(`Make room for ${qty} ${ITEM_BY_ID[o.itemId]?.name || o.itemId}.`, ctx.sx, ctx.sy);
+        return true;
+      }
       scene.addToInv(o.itemId, qty);
+      save.picked = [...save.picked, o.id];
       ctx.dirty = true;
       const item = ITEM_BY_ID[o.itemId];
       scene.flashLoot(`+${qty} ${item?.name || o.itemId}`, undefined, 1, o.itemId);
