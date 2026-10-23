@@ -991,7 +991,9 @@ the reach rim within the existing player-light radius.
   Upgrade thresholds use actual row grid widths, including the differently aligned cells at tile-row seams;
   the established nominal base radius remains unchanged,
   and are cached by the containing cell and projection. Depth and blindness
-  adjust the base radius before upgrades, so every upgrade adds reachable cells; light conveys reach and live POIs without outline rings. The radial player glow uses
+  adjust the base radius before upgrades, so every upgrade adds reachable cells; blindness also
+  scales the profile's ramp and plateau levels by the same fraction (`Lighting.dimSight`),
+  so the player's own light dims as well as shrinks while the ambient floor stands. Light conveys reach and live POIs without outline rings. The radial player glow uses
   `PLAYER_OUTPUT_K = 0.44`; the added circular reach light is halved by
   `REACH_OUTPUT_K = 0.5`. The smooth player glow carries the removed half,
   preserving nearby brightness on the surface and underground. It fades beyond

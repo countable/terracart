@@ -215,8 +215,10 @@ mechanics.
   there, never a timer, colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
-  never under one cell), the light
-  ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
+  never under one cell), the light ramp's and a carried torch's radius
+  (`Lighting.playerLightMul`) and the player's own light levels (the
+  profile's ramp `edge` and plateau `lit`, `Lighting.dimSight`) for fifteen
+  seconds; the world's ambient floor is untouched.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
