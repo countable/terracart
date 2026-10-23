@@ -21,12 +21,12 @@
 (function (root) {
   'use strict';
 
-  // Fixed supply-crate payloads, shared with the item catalogue.
+  // Starter supplies: seeds in crates, materials loose on the ground.
   const STARTER_LOOT = [
     { id: 'potato_seed',    qty: 9 },
     { id: 'rubble_seed', qty: 9 },
-    { id: 'rubble',      qty: 9 },
-    { id: 'wood',           qty: 9 },
+    { id: 'rubble',      qty: 9, loose: true },
+    { id: 'wood',           qty: 9, loose: true },
   ];
 
 
@@ -118,15 +118,15 @@
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
-  // (save.starterCratesAt). Four starter chests, one stack of 9 each, in the
+  // (save.starterCratesAt). Four starter supplies, nine of each, in the
   // order the ladder wants them (see STARTER_LOOT): potato seeds then rockfruit
   // seeds (the player's first crops — the inventory starts empty), then
   // rockfruit (the "Rock" stone — restoring themed shops) and wood (restoring
-  // plain houses + unsealing forts). Per-chest counts stay within the
-  // no-bag stack cap (9) so nothing overflows. These are real kind:'chest'
-  // objects carrying a `fixedLoot` payload, so they open through the
-  // standard chest path (the ceremony modal + one-time save.opened) instead
-  // of the rarity picker. (No free scarecrow — a workbench crafts one for wood,
+  // plain houses + unsealing forts). Seeds are kind:'chest' with `fixedLoot`,
+  // opened through the standard chest ceremony. Materials are groundstacks,
+  // scattered into small piles after the main trail seats are reserved;
+  // tapping collects them instantly without tools, work or energy.
+  // (No free scarecrow — a workbench crafts one for wood,
   // HOME_RECIPES.)
   //
   // The crates are a TRAIL, and where they lie depends on the ground:
@@ -251,7 +251,8 @@
     // crate seated there would be swept away with its starter loot, so the
     // trail skips the footing rather than losing a chest to it.
     const inTrailerMoat = (cx, cy) => HomeArea.inFooting(cx - spawnIX, cy - spawnIY);
-    const seatCrate = (cx, cy, i) => {
+    const looseSupplies = [];
+    const seatSupply = (cx, cy, i) => {
       // Snap to the canonical global-cell centre. The tile-relative basis
       // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
       // because tileEdgeM is not an exact multiple of cellM, leaving the
@@ -261,14 +262,13 @@
       const raw = f.centre(cx, cy);
       const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
       const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
-      // A real chest with hardcoded contents — opens via the standard chest
-      // handler (interact.js), which reads o.fixedLoot and shows the same
-      // reward modal as POI chests. `crate: true` renders the humble lowtier
-      // crate (box) sprite instead of the tier-2 treasure chest, matching
-      // their role as starter supplies. No poiClass → no POI label.
-      entry.objects.push(WorldGen.makeObject('chest', wmx, wmy,
-        `chest_start_${tx}_${ty}_${i + 1}`,
-        { fixedLoot: STARTER_LOOT[i], crate: true }));
+      const loot = STARTER_LOOT[i], id = `chest_start_${tx}_${ty}_${i + 1}`;
+      const object = loot.loose
+        ? WorldGen.makeObject('groundstack', wmx, wmy, id,
+          { itemId: loot.id, qty: loot.qty, legacyChestId: id })
+        : WorldGen.makeObject('chest', wmx, wmy, id, { fixedLoot: loot, crate: true });
+      entry.objects.push(object);
+      if (loot.loose) looseSupplies.push({ object, cx, cy });
       usedSeats.add(cx + ',' + cy);
       placedIdx.add(i);
     };
@@ -389,7 +389,7 @@
           }
         }
         if (!seat) continue;
-        seatCrate(seat.cx, seat.cy, i);
+        seatSupply(seat.cx, seat.cy, i);
         lastSeat = seat;
       }
     };
@@ -453,7 +453,7 @@
           seat = { nx, ny }; break;
         }
         if (!seat) continue;
-        seatCrate(seat.nx, seat.ny, nextIdx);
+        seatSupply(seat.nx, seat.ny, nextIdx);
         lastSeat = seat;
         nextIdx++;
       }
@@ -479,15 +479,33 @@
             ncy += Math.sign(bdy) || 0;
           }
           if (!f.inTile(ncx, ncy) || !ringOK(ncx, ncy)) continue;
-          seatCrate(ncx, ncy, i);
+          seatSupply(ncx, ncy, i);
           seated = true;
         }
+      }
+    }
+    // Scatter each material supply into up to three piles. Reserve all four
+    // trail stops first so extra pickups cannot displace a seed crate. Tight
+    // ground keeps the remainder in its original pile, preserving nine total.
+    for (const { object, cx, cy } of looseSupplies) {
+      let part = 0;
+      for (const [dx, dy] of [[0, -1], [1, 1], [-1, 0], [1, 0], [0, 1], [-1, -1], [1, -1], [-1, 1]]) {
+        if (part === 2) break;
+        const nx = cx + dx, ny = cy + dy;
+        if (!seatOK(nx, ny)) continue;
+        const raw = f.centre(nx, ny);
+        const cell = worldMetersToAbsCell(scene, raw.x, raw.y);
+        const { x, y } = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+        entry.objects.push(WorldGen.makeObject('groundstack', x, y, `${object.id}_${++part}`,
+          { itemId: object.itemId, qty: 3, legacyChestId: object.legacyChestId }));
+        object.qty -= 3;
+        usedSeats.add(nx + ',' + ny);
       }
     }
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
     // ladder's "Break ground" step needs, then the wood / rock / wreck the
     // rest of the ladder needs to have something to act on.
-    dbg.push(`crates=${placedIdx.size}/${COUNT}`);
+    dbg.push(`supplies=${placedIdx.size}/${COUNT}`);
     scene._trailDebug = dbg.join(' | ');
     scene._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
     scene._provisionStarterHome(entry, tx, ty, spawnIX, spawnIY, usedSeats);
@@ -2014,13 +2032,14 @@
     return placeSafeAreaWarden(scene, home.entry, home.tx, home.ty, { offscreen });
   }
 
-  // Hard mode has no supply handout: drop the starter crates (the `crate: true`
-  // chests _placeStarterTrail seats) from a tile. The relic chest at the end of
+  // Hard mode has no supply handout: drop the crates and loose starter
+  // materials from a tile. The relic chest at the end of
   // the trail is TREASURE, not supplies, and stays. Idempotent; a no-op on easy.
   function stripStarterCrates(scene, entry) {
     if (typeof Difficulty === 'undefined' || Difficulty.get().starterCrates) return;
     if (!entry || !Array.isArray(entry.objects)) return;
-    const kept = entry.objects.filter(o => !(o.kind === 'chest' && o.crate));
+    const kept = entry.objects.filter(o => !(o.kind === 'chest' && o.crate)
+      && !(o.kind === 'groundstack' && String(o.id).startsWith('chest_start_')));
     if (kept.length !== entry.objects.length) entry.objects = kept;
   }
 

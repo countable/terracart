@@ -22,7 +22,7 @@
     }, methods);
   }
   test('edge dots: the starter tutorial wears the same labelled rim dot, never the arrow', () => {
-    const lifted = new Function(SCENE_SRC.match(/\nconst STARTER_MARK = [\s\S]*?\nfunction starterGoalLabel[\s\S]*?\n}/)[0] + 'return { STARTER_MARK, starterGoalLabel };')();
+    const lifted = new Function('ITEM_BY_ID', SCENE_SRC.match(/\nconst STARTER_MARK = [\s\S]*?\nfunction starterGoalLabel[\s\S]*?\n}/)[0] + 'return { STARTER_MARK, starterGoalLabel };')(ITEM_BY_ID);
     const s = fixture();
     const labelled = [];
     s._drawEdgeDotLabel = (row, target, marker, point) => labelled.push({ row, marker, point });
@@ -33,6 +33,7 @@
     assert.eq(labelled[0].marker.label, 'Plot');
     assert.eq(lifted.starterGoalLabel({ event: 'plant' }, { id: 'chest_start_1', crate: true }), 'Supply crate');
     assert.eq(lifted.starterGoalLabel({ event: 'chest' }, { id: 'chest_start_9' }), 'Relic chest');
+    assert.eq(lifted.starterGoalLabel({ event: 'restore' }, { kind: 'groundstack', itemId: 'wood', id: 'chest_start_4' }), ITEM_BY_ID.wood.name);
     const block = SCENE_SRC.slice(SCENE_SRC.indexOf('// Starter guidance'), SCENE_SRC.indexOf('// Starter guidance') + 3000);
     assert.truthy(block.includes('_drawEdgeDot(goal.x') && !block.includes('_drawEdgeCompass('), 'the starter bearing is a dot');
   });
