@@ -82,6 +82,10 @@ families (also used by the village reference), stone lamps, plain rocks and
 paired stone down/up access. The approved RA prop profile replaces foliage,
 chest/wood/pot frames, fixtures and all eleven shrine frames through
 `ROGUE_PROP_PROFILE`; the baseline and Dreamland assets remain unchanged.
+All ore, gem and flint rocks in the Rogue profile use the default reference
+stone as a 2D sprite, including underground. Native-pixel colored veins and
+crystal facets are baked once on asset load by `RogueObjects`; these rocks
+bypass the low-poly mesh pass and retain their material and mining yields.
 `tools/build_ra_prop_profile.py` combines reproducible flora, container and fixture
 exports into asset, icon and seating registries. Inventory/offer icons use these
 same sheets; atlas aliases and old palette callbacks are replaced, not layered.

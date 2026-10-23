@@ -4,6 +4,36 @@ const RogueObjects = (() => {
   const enabled = mode === 'rogue';
   const trees = ['tree_wide_a','tree_wide_b','tree_root_a','tree_root_b','tree_rounded_2','tree_rounded_3'];
   function hash(id) { let value=2166136261; for (const c of String(id || '')) value=Math.imul(value ^ c.charCodeAt(0),16777619); return value >>> 0; }
+  // Native-pixel seams and crystal facets over the reference stone. Bake once
+  // at load time; moving or rotating the camera only reuses the flat frames.
+  const mineralColors = {
+    flint: ['#49474d', '#96949a'], quartz: ['#b9b9b3', '#f1efdc'],
+    topaz: ['#b87e32', '#f4ce67'], amethyst: ['#85558f', '#d5a0dd'],
+    sapphire: ['#365e9e', '#83bee0'], ruby: ['#9c3e52', '#e78a91'],
+    emerald: ['#387957', '#8bc98b'], diamond: ['#83abb5', '#e5f8eb'],
+    copper: ['#a56543', '#dfaa72'], iron: ['#65737c', '#b3c0c3'],
+    gold: ['#b18a37', '#f0d275'], platinum: ['#8d9199', '#dde1e4'],
+    crimson: ['#973d48', '#df7781'], frost: ['#518ca7', '#b0e1ed'],
+  };
+  function bakeMinerals(scene) {
+    const texture = scene.textures.createCanvas('rogue_minerals', 16 * Object.keys(mineralColors).length, 16);
+    const ctx = texture.context, source = scene.textures.get('rogue_stone').getSourceImage();
+    Object.entries(mineralColors).forEach(([material, colors], frame) => {
+      ctx.save(); ctx.translate(frame * 16, 0);
+      ctx.drawImage(source, 0, 0);
+      const crystal = ['quartz', 'topaz', 'amethyst', 'sapphire', 'ruby', 'emerald', 'diamond'].includes(material);
+      const pixels = crystal
+        ? [[6,4,2,6],[5,5,1,4],[8,6,2,5],[10,5,1,4]]
+        : [[5,5,2,1],[6,6,2,1],[7,7,1,2],[8,9,2,1],[10,10,2,1],[4,9,2,1]];
+      ctx.fillStyle = colors[0];
+      for (const [x,y,w,h] of pixels) ctx.fillRect(x,y,w,h);
+      ctx.fillStyle = colors[1];
+      for (const [x,y,w,h] of pixels) ctx.fillRect(x,y,1,crystal ? Math.max(1,h-2) : 1);
+      ctx.restore();
+      texture.add(frame, 0, frame * 16, 0, 16, 16);
+    });
+    texture.refresh();
+  }
   function install(assets) {
     if (!enabled) return;
     // Source-preserving palette adaptation; the existing berry baker derives
@@ -27,6 +57,10 @@ const RogueObjects = (() => {
       assets[key]={kind:'image',path:'assets/ArtTrials/RogueObjects/'+name.replaceAll('_','-')+'.png'};
       if (typeof SpriteLayout !== 'undefined') SpriteLayout.ART_BOUNDS[key+':__BASE']=bounds;
     }
+    assets.rogue_stone.onLoad = bakeMinerals;
+    Object.keys(mineralColors).forEach((material, frame) => {
+      SpriteLayout.ART_BOUNDS['rogue_minerals:' + frame] = ROGUE_OBJECT_BOUNDS.stone;
+    });
     // Replace atlas aliases and their legacy callbacks entirely. Reviewed PNGs
     // already contain alpha/palette treatment and must not be muted a second time.
     if (typeof ROGUE_PROP_PROFILE !== 'undefined') {
@@ -58,6 +92,11 @@ const RogueObjects = (() => {
   function houseKey() { return null; }
   function spec(o,scene,original) {
     if (!enabled) return original;
+    if (o.kind === 'mineralrock' && mineralRockMaterial(o) !== 'plain') {
+      return {...original, key:'rogue_minerals', frame:Object.keys(mineralColors).indexOf(mineralRockMaterial(o)),
+        scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,
+        groundAtOrigin:false, dxPx:0, dyPx:0, scaleYMul:1, artBounds:undefined, after:undefined};
+    }
     // Access and shrine assets share the reviewed treatment above and below ground.
     if (o.kind === 'staircase') {
       const elevator = !!o.elevator, up = o.dir === 'up';
