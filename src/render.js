@@ -4126,17 +4126,14 @@ Render.drawLowPolyProps = function (scene, items) {
   let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
   for (const item of items) {
     const o = item.o;
-    const kind = o.kind === 'mineralrock' ? 'rock'
-      : o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
+    const kind = o.kind === 'chest' && chestLook(o).texKey === 'box' ? 'crate' : null;
     if (!kind) continue;
     if (typeof WorldArtProfile !== 'undefined' && WorldArtProfile.enabled
         && WorldArtProfile.spec(o, scene, {}).key) continue;
     const cell = worldMetersToAbsCell(scene, o.x, o.y);
-    const mineral = kind === 'rock' ? mineralRockMaterial(o) : null;
-    const tint = kind === 'rock' ? mineralRockTint(o) : 0xffffff;
-    const frame = kind === 'rock' ? mineralRockArtFrame(o) : chestLook(o).frame;
-    drawn.add(item); pieces.push({ o, kind, cell, mineral, tint, frame });
-    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}:${kind}:${mineral}:${frame}:${tint}:${!!o.sightBlocking}`;
+    const frame = chestLook(o).frame;
+    drawn.add(item); pieces.push({ o, kind, cell, frame });
+    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}:${kind}:${frame}`;
   }
   if (!pieces.length) {
     WallPerspective.clear(scene, 'looseProps'); scene._loosePropKey = null; return drawn;
@@ -4146,11 +4143,9 @@ Render.drawLowPolyProps = function (scene, items) {
   const group = WallPerspective.begin(scene, 'looseProps');
   group.perWall = true; group.renderDepth = scene.depth ?? 0;
   group.atlas = scene.textures.get(PropLowPoly.ATLAS.key);
-  for (const { o, kind, cell, mineral, tint, frame } of pieces) {
+  for (const { o, kind, cell, frame } of pieces) {
     const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
-    const large = kind === 'rock' && o.sightBlocking;
-    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, mineral, tint, frame,
-      ...(large ? { width: 27, depth: 26, height: 7 } : {}) });
+    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, frame });
     WallPerspective.prism(scene, 'looseProps', mesh.points, 0, mesh.top, mesh.colors, null, true, mesh);
   }
   scene._loosePropKey = key;
