@@ -699,8 +699,10 @@ instructions and replacement explanations are omitted. A vacant delivered house
 shows its empty slots and explains that it is ready for an available neighbour;
 furnishing starts after the neighbour moves in.
 
-Home shows its current luxury as a white number above its sign while indoors
-and from outside after dark. The score updates immediately, separately from
+Home shows "House luxury level: N · Rank" in small white text a clear gap above
+its sign while indoors and from outside after dark. The rank is the
+`MemoryStory.luxuryRank` descriptor for the luxury milestone thresholds
+(Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). The score updates immediately, separately from
 Home's introductory typing, and fades when it overlaps the player.
 
 Old Archive Court's existing style deterministically selects delivery or luxury

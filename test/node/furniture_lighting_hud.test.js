@@ -54,21 +54,22 @@
     }
   }
 
-  const visible = scene => scene.shopLabelPool.filter(slot => slot.visible);
+  const visible = scene => [...scene.shopLabelPool, ...(scene.homeLuxuryPool || [])].filter(slot => slot.visible);
+  const line = score => `House luxury level: ${score} · ${MemoryStory.luxuryRank(score)}`;
 
   test('furniture HUD: indoor score renders instantly in white above Home and fades over the player', () => withHome((scene, labels) => {
     assert.truthy(scene.homeInside(), 'player stands in the owned Home cell');
     Render.drawObjects(scene);
-    assert.eq(visible(scene).length, 2, 'Home sign and luxury share the shop label pool');
+    assert.eq(visible(scene).length, 2, 'Home sign plus its luxury line');
     const [sign, score] = visible(scene);
     assert.truthy(labels.list.includes(score), 'score is attached to the label container');
     assert.eq(sign.text, '', 'Home is still waiting to type');
-    assert.eq(score.text, '9', 'luxury appears immediately during the Home introduction');
+    assert.eq(score.text, 'House luxury level: 9 · Homely', 'luxury appears immediately during the Home introduction');
     assert.eq(score.style.color, '#ffffff');
     assert.eq(scene._homeSignT0, undefined, 'luxury does not start the Home typing clock');
     assert.eq(score.x, Math.round(scene.viewCenterX + HomeArea.SIGN_NUDGE_PX.x));
     assert.eq(sign.y, Math.round(scene.viewCenterY - HomeArea.HOUSE.signLiftPx - sign.height + HomeArea.SIGN_NUDGE_PX.y));
-    assert.eq(score.y, sign.y - score.height - 4, 'one text height plus four pixels above the sign');
+    assert.eq(score.y, sign.y - score.height - 10, 'one text height plus ten pixels above the sign');
     assert.eq(score.alpha, 1, 'unobstructed score is opaque');
 
     // Complete Home's typing, then move the screen-space player box over each
@@ -94,18 +95,18 @@
     scene.playerM.x = 2.5;
     Render.drawObjects(scene);
     const score = visible(scene)[1], cached = scene._homeLuxuryLabel;
-    assert.eq(score.text, '9');
+    assert.eq(score.text, line(9));
     Render.drawObjects(scene);
     assert.eq(scene._homeLuxuryLabel, cached, 'unchanged state reuses the cached label');
     assert.eq(visible(scene)[1], score, 'unchanged frames reuse the pooled text');
     scene.save.houseLuxury.home.score = 16;
     Render.drawObjects(scene);
     assert.eq(visible(scene)[1], score, 'score changes update the existing text slot');
-    assert.eq(score.text, '16');
+    assert.eq(score.text, line(16));
     assert.truthy(scene._homeLuxuryLabel.key !== cached.key, 'luxury invalidates the cache key');
     scene.save.houseLuxury.home.score = 0;
     Render.drawObjects(scene);
-    assert.eq(score.text, '0', 'empty Home still shows its score');
+    assert.eq(score.text, line(0), 'empty Home still shows its score');
     scene.playerM.x = 7.5;
     assert.falsy(scene.homeInside(), 'one cell east is outside Home');
     Render.drawObjects(scene);
@@ -115,7 +116,7 @@
     scene.playerM.x = 2.5;
     Render.drawObjects(scene);
     assert.eq(visible(scene)[1], score, 're-entering Home reuses the retired slot');
-    assert.eq(score.text, '0');
+    assert.eq(score.text, line(0));
     assert.truthy(score.active);
   }));
 
@@ -126,13 +127,20 @@
     Render.drawObjects(scene);
     assert.eq(visible(scene).length, 2);
     const score = visible(scene)[1];
-    assert.eq(score.text, '9');
+    assert.eq(score.text, line(9));
     assert.eq(score.style.color, '#ffffff');
     scene._daylight.value = 1;
     Render.drawObjects(scene);
     assert.eq(visible(scene).length, 1);
     assert.falsy(score.visible);
   }));
+
+  test('furniture HUD: luxury descriptor follows the milestone thresholds', () => {
+    assert.eq(MemoryStory.luxuryRank(0), MemoryStory.LUXURY_BARE);
+    assert.eq(MemoryStory.luxuryRank(3), MemoryStory.LUXURY_BARE);
+    for (const row of MemoryStory.LUXURY_MILESTONES) assert.eq(MemoryStory.luxuryRank(row.luxury), row.rank);
+    assert.eq(MemoryStory.luxuryRank(500), 'Regal');
+  });
 
   test('resident plaque: saved housing selects the matching face and excludes player Home', () => withHome(scene => {
     const house = { id: 'tilly-house', kind: 'house', tier: 9 };
