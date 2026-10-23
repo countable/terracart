@@ -70,6 +70,35 @@
       a.forEach((p,i)=>{assert.lt(Math.abs(p.u-b[i].u),1e-7);assert.lt(Math.abs(p.v-b[i].v),1e-7);});
     } finally { WallPerspective.inView=oldView;WallPerspective.prism=oldPrism; }
   });
+  test('FDR castles: clipped curtain bodies cannot paint over their own crowns at any heading', () => {
+    const ringKey=points=>JSON.stringify(points.map(p=>[p.x,p.y]));
+    for(const points of [L.rect(0,0,240,180),concave,concave.slice().reverse(),
+      [{x:0,y:0},{x:180,y:20},{x:120,y:140},{x:-30,y:90}]]) {
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,
+        buildingWallContainer:{add(){}},add:{graphics:()=>gfx},
+        textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      const {layout}=FDRCastleGeometry.draw(scene,'castles',points,{family:'citadel'});
+      const edges=new Map(layout.walls.map(w=>[ringKey(w.points),w.edge]));
+      for(const m of layout.merlons)edges.set(ringKey(m.points),m.edge);
+      const retained=new Set(group.blocks);
+      for(const degrees of [0,30,45,90,135,180,225,270,315]) {
+        scene.mapRot=degrees*Math.PI/180;WallPerspective.update(scene);
+        const lastBody=new Map(),firstCrown=new Map();
+        group.blocks.forEach((block,index)=>{
+          const edge=edges.get(ringKey(block.points));
+          if(edge==null)return;
+          if(block.top<=24)lastBody.set(edge,index);
+          if(block.bottom===24&&!firstCrown.has(edge))firstCrown.set(edge,index);
+        });
+        assert.gt(firstCrown.size,0,'the fixture emits raised curtain crowns');
+        for(const [edge,index] of firstCrown)
+          assert.lt(lastBody.get(edge),index,`${degrees}° curtain ${edge}: every body/coping piece precedes its crowns`);
+        assert.truthy(group.blocks.every(b=>retained.has(b)),'rotation reuses retained prisms');
+      }
+    }
+  });
   test('FDR castles: culled masses never append decals to absent geometry', () => {
     const old=WallPerspective.inView;
     WallPerspective.inView=()=>false;

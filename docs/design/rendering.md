@@ -1253,7 +1253,11 @@ Surface castle polygons use Fantasy Dreamland Reborn masonry and projecting
 square corner towers through `FDRCastleLayout` and `FDRCastleGeometry`. Towers
 straddle convex corners with continuous positions; curtain walls are clipped
 against their footprints so they meet the tower faces. Merlons are solid geometry
-with open crenels and full coping support. A keep is placed only where its full
+with open crenels and full coping support. All clipped body and coping pieces of
+one source curtain edge share its sorting anchor with their merlons, so the
+entire curtain support draws before its crowns at every heading. Independent
+fragment anchors let adjacent coping paint over raised teeth. Towers and the
+keep retain their own support anchors. A keep is placed only where its full
 courtyard clearance fits. Layout computation is bounded and cached in local
 coordinates; invalid or excessively complex rings retain the existing fallback.
 
