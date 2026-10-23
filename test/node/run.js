@@ -112,7 +112,7 @@ const FILES = [
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
-  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'character_portraits.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'character_portraits.js', 'companions.js', 'creature_ai.js', 'npc.js', 'npc_benefits.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
@@ -162,7 +162,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   SceneFurniture, Furniture,
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, NPCBenefits, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,

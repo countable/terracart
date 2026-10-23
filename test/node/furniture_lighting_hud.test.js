@@ -38,6 +38,7 @@
       playerToWorldCell() { return viewAnchorCell(this); },
       // A footprint-rendered Home has no sprite texture; its sign uses signLiftPx.
       textures: { exists: () => false }, add: { text: textSlot, sprite: () => textSlot() },
+      _daylight: { minute: Math.floor(Date.now() / 60000), value: 1 },
       labelContainer: labels, objectsContainer: { add() {} },
       shopPlateGfx: { clear() {} }, tierGfx: { clear() {} }, _homeIntro: { phase: 'wait' },
     };
@@ -116,5 +117,36 @@
     assert.eq(visible(scene)[1], score, 're-entering Home reuses the retired slot');
     assert.eq(score.text, '0');
     assert.truthy(score.active);
+  }));
+
+  test('furniture HUD: Home luxury is readable outside after dark and hides again at dawn', () => withHome(scene => {
+    scene.playerM.x = 7.5;
+    assert.falsy(scene.homeInside());
+    scene._daylight.value = 0;
+    Render.drawObjects(scene);
+    assert.eq(visible(scene).length, 2);
+    const score = visible(scene)[1];
+    assert.eq(score.text, '9');
+    assert.eq(score.style.color, '#ffffff');
+    scene._daylight.value = 1;
+    Render.drawObjects(scene);
+    assert.eq(visible(scene).length, 1);
+    assert.falsy(score.visible);
+  }));
+
+  test('resident plaque: saved housing selects the matching face and excludes player Home', () => withHome(scene => {
+    const house = { id: 'tilly-house', kind: 'house', tier: 9 };
+    scene.save.restoredHouses = { [house.id]: 'plain' };
+    scene.save.discovered = { ['house:' + house.id]: true };
+    scene.save.npcHomes = { tilly: { role: 'wanderer', houseId: house.id, x: 20, y: 20 } };
+    const plaque = Render.residentPlaque(scene, house);
+    assert.eq(plaque.id, 'tilly');
+    assert.eq(plaque.name, 'Tilly');
+    assert.eq(plaque.portrait, 'assets/portraits/wanderer_housed.png');
+    assert.eq(Render.residentPlaque(scene, { id: 'empty' }), null);
+    scene.save.starterShopId = house.id;
+    assert.eq(Render.residentPlaque(scene, house), null);
+    scene.save.starterShopId = 'home'; scene.depth = 1;
+    assert.eq(Render.residentPlaque(scene, house), null);
   }));
 })();

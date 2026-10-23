@@ -458,10 +458,16 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
-While `homeInside()` is true, a separate white luxury number sits above that
-sign in the same label pool and fades over the player. Its retained text key
-includes the active Home, indoor state and `Furniture.luxuryOf` score; the
-number never shares Home's typing clock.
+A separate white luxury number sits above that sign while `homeInside()` is
+true, and remains visible outside after dark (`Lighting.daylight < 0.5`). It
+uses the label pool and fades over the player. Its retained text key includes
+the active Home, indoor state, darkness and `Furniture.luxuryOf` score; the
+number never shares Home's typing clock. NPC house luxury appears in inspection.
+Once a resident moves in, their delivery bubble becomes a 24px portrait board
+on the front facade: dark green with a rounded brass rim and no speech tail.
+It follows the same heading, zoom, modal suppression and toast overlap rules as
+the existing delivery overlays. The portrait is the resident's conversation
+identity, including Tilly's housed face.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
