@@ -850,8 +850,12 @@ access or tile lifecycle mechanics.
   does not repair live fetching. After the centre is playable, surface rings
   prefetch at most three raw tile payloads ahead through `prefetchTileBytes`;
   decode, generation and spawning remain serial and sliced. Cache hits and
-  retry backoff skip lookahead; a newer centre stops the older ring. Prefetched
-  failures enter the normal tile failure path when their build turn arrives.
+  retry backoff skip lookahead; a newer centre stops the older ring. Repeated
+  checks of the same centre and depth retain its unfinished ring and byte
+  lookahead while the exact centre entry remains ready and spawned. Replacing
+  or evicting that entry still starts a fresh pass for Overpass or recovery.
+  Prefetched failures enter the normal tile failure path when their build turn
+  arrives.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
