@@ -32,7 +32,7 @@
       label: 'Burning', tint: 0xff8c42, flicker: true, ink: '#ffb36b', bg: '#2e1a0ee8' }),
     poison: Object.freeze({ durationMs: 60000, intervalMs: 2000, energyLoss: 1,
       label: 'Poison', tint: 0x9fdc8c, flicker: false, ink: '#d9b1ff', bg: '#22132ee8' }),
-    confused: Object.freeze({ durationMs: 10000, maxDurationMs: 60000, steeringTakeoverMs: 20000,
+    confused: Object.freeze({ durationMs: 10000, maxDurationMs: 60000, steeringTakeoverMs: 20000, turnRadS: 0.3,
       label: 'Confused', tint: 0xc68ee8, flicker: false, ink: '#e8c2ff', bg: '#321b40e8' }),
     jellyfish_stun: Object.freeze({ durationMs: 5000, attackSpeedMul: 0.5, blocksMovement: true,
       label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),

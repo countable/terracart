@@ -19,8 +19,8 @@
     try {
       Math.random=()=>0.5;
       for(let i=0;i<100;i++)step.call(s,.05,null,2);
-      assert.inRange(Math.abs(s._confusedLoop.turn),0.6,1.1,'confusion turns slowly');
-      assert.lt(Math.hypot(s.playerM.x,s.playerM.y),5,'curved loops stay local');
+      assert.eq(Math.abs(s._confusedLoop.turn),0.3,'confusion turns slowly at a fixed rate');
+      assert.lt(Math.hypot(s.playerM.x,s.playerM.y),10,'curved loops stay within walking distance');
       assert.eq(s._targetM.x,1000);assert.eq(s.gpsM.x,2000,'the real fix is never overwritten');
       const busy=body();busy._busyWheel=()=>true;
       step.call(busy,1,null,2);assert.eq(busy.playerM.x,0,'active work keeps its body hold');
@@ -29,6 +29,28 @@
       const slow=body();step.call(slow,.1,.2,2);
       assert.lte(Math.hypot(slow.playerM.x,slow.playerM.y),.020001);
       const down=body();down.save.energy=0;step.call(down,1,null,2);assert.eq(down.playerM.x,0);
+    } finally {Math.random=random;}
+  });
+  test('confused: walking input and collisions change movement without changing the steady heading', () => {
+    const random=Math.random;
+    try {
+      Math.random=()=>0.5;
+      const idle=body(), walking=body(), blocked=body();
+      for(const s of [idle,walking,blocked]) s.save.conditions.confused.remainingMs=5000;
+      blocked._cellBlocked=()=>true;
+      // More than one revolution: neither speed nor direction resets at a circle.
+      for(let i=0;i<500;i++) {
+        const intent=i<250?{x:1,y:0}:{x:0,y:-1};
+        step.call(idle,.05,null,2);
+        step.call(walking,.05,null,2,intent);
+        step.call(blocked,.05,null,2,intent);
+        assert.eq(walking.compassDeg,idle.compassDeg);
+        assert.eq(blocked.compassDeg,idle.compassDeg);
+      }
+      assert.inRange(idle._confusedLoop.angle-(Math.PI+0.3*25),-1e-9,1e-9);
+      assert.truthy(Math.hypot(walking.playerM.x-idle.playerM.x,walking.playerM.y-idle.playerM.y)>1,
+        'walking input still affects translation');
+      assert.eq(blocked.playerM.x,0);assert.eq(blocked.playerM.y,0);
     } finally {Math.random=random;}
   });
   test('confused: remaining duration blends manual and GPS steering continuously into the compass', () => {
@@ -85,7 +107,7 @@
     }
   });
   test('confused: compass rotates with the forced circular walk and restores the fallback', () => {
-    const s=body();s.facing={x:0,y:-1};s.compassDeg=null;
+    const s=body();s.facing={x:0,y:-1};s.compassDeg=null;s.mapRot=-0.8;
     const finish=new Function(lift('_endConfusedWalk'));
     step.call(s,.05,null,2);
     const before=s.compassDeg;
@@ -94,10 +116,29 @@
     const rad=s.compassDeg*Math.PI/180;
     assert.inRange(s.facing.x-Math.sin(rad),-1e-9,1e-9);
     assert.inRange(s.facing.y+Math.cos(rad),-1e-9,1e-9);
+    s.mapRot=1.7;
     finish.call(s);
     assert.eq(s.compassDeg,null,'movement facing fallback restored without device compass');
     assert.eq(s.facing.x,0);assert.eq(s.facing.y,-1);
+    assert.eq(s.mapRot,-0.8,'map returns to its prior heading without a device sensor');
     assert.eq(s._confusedLoop,null);assert.truthy(s._confusedRecover);
+  });
+  test('confused: expiry and cure restore the usual heading even while movement is pinned', () => {
+    const a=SCENE_SRC.indexOf('const bodyHold = this._bodyHold();');
+    const b=SCENE_SRC.indexOf('\n    // THE DRAIN ROLL-UP flushes here',a);
+    const move=new Function('stick','vx','vy','speedMul','dt',SCENE_SRC.slice(a,b));
+    const finish=new Function(lift('_endConfusedWalk'));
+    for(const end of ['expiry','cure']) {
+      const s=body();s.facing={x:1,y:0};s.compassDeg=90;
+      step.call(s,.1,null,2);
+      s._bodyHold=()=>({pinned:true});s._tickWalkHazards=()=>{};
+      s._endConfusedWalk=()=>finish.call(s);
+      if(end==='expiry') Conditions.tick(s.save,20000);
+      else Conditions.cure(s.save,'confused');
+      move.call(s,null,0,0,1,.05);
+      assert.eq(s.compassDeg,90,end);assert.eq(s.facing.x,1);assert.eq(s.facing.y,0);
+      assert.eq(s._confusedLoop,null);
+    }
   });
   test('confused: live orientation cannot overwrite spinning compass and latest heading restores', () => {
     const callbacks={};
