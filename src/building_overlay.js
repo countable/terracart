@@ -1594,7 +1594,9 @@
           const recipe = BuildingLowPoly.recipeFor('home',
             { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
           recipe.interior = inside;
-          recipe.authored = authoredRecipe(scene,object,'home');
+          // A retail room keeps its procedural walls; Home wears its skin
+          // inside and out (BuildingLowPoly.interiorGeometry).
+          recipe.authored = d.retail ? null : authoredRecipe(scene,object,'home');
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
           // Home's door is the save's doorway wall (the shape's door point,
           // chosen toward the nearest street at placement — scene_venues.js
