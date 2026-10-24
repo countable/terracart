@@ -469,12 +469,8 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
-A separate small white luxury line ("House luxury level: N · Rank") sits
-`HOME_LUXURY_GAP_PX` above that sign while `homeInside()` is true, and remains
-visible outside after dark (`Lighting.daylight < 0.5`). It has its own label
-pool (`homeLuxuryPool`, `LABEL_STYLES.luxury`) and fades over the player. Its retained text key includes
-the active Home, indoor state, darkness and `Furniture.luxuryOf` score; the
-line never shares Home's typing clock. NPC house luxury appears in inspection.
+That sign carries Home's luxury rank ("Home (Homely)", `_houseSignText`);
+there is no separate luxury line. NPC house luxury appears in inspection.
 Once a resident moves in, their delivery bubble becomes a 24px portrait board
 on the front facade: dark green with a rounded brass rim and no speech tail.
 It follows the same heading, zoom, modal suppression and toast overlap rules as

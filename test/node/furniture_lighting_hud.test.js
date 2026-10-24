@@ -54,85 +54,50 @@
     }
   }
 
-  const visible = scene => [...scene.shopLabelPool, ...(scene.homeLuxuryPool || [])].filter(slot => slot.visible);
-  const line = score => `House luxury level: ${score} · ${MemoryStory.luxuryRank(score)}`;
+  const visible = scene => scene.shopLabelPool.filter(slot => slot.visible);
+  const sign = rank => `${Shops.BUILDING_LABEL.trailer} (${rank})`;
 
-  test('furniture HUD: indoor score renders instantly in white above Home and fades over the player', () => withHome((scene, labels) => {
+  test('Home sign: names the luxury rank with no score, in the sign position, and fades over the player', () => withHome(scene => {
     assert.truthy(scene.homeInside(), 'player stands in the owned Home cell');
     Render.drawObjects(scene);
-    assert.eq(visible(scene).length, 2, 'Home sign plus its luxury line');
-    const [sign, score] = visible(scene);
-    assert.truthy(labels.list.includes(score), 'score is attached to the label container');
-    assert.eq(sign.text, '', 'Home is still waiting to type');
-    assert.eq(score.text, 'House luxury level: 9 · Homely', 'luxury appears immediately during the Home introduction');
-    assert.eq(score.style.color, '#ffffff');
-    assert.eq(scene._homeSignT0, undefined, 'luxury does not start the Home typing clock');
-    assert.eq(score.x, Math.round(scene.viewCenterX + HomeArea.SIGN_NUDGE_PX.x));
-    assert.eq(sign.y, Math.round(scene.viewCenterY - HomeArea.HOUSE.signLiftPx - sign.height + HomeArea.SIGN_NUDGE_PX.y));
-    assert.eq(score.y, sign.y - score.height - 10, 'one text height plus ten pixels above the sign');
-    assert.eq(score.alpha, 1, 'unobstructed score is opaque');
-
-    // Complete Home's typing, then move the screen-space player box over each
-    // label. World feet stay in Home, just as when sprite art overlaps its roof.
+    assert.eq(visible(scene).length, 1, 'one Home sign, no separate luxury line');
+    const [label] = visible(scene);
+    assert.eq(label.text, '', 'Home is still waiting to type');
+    scene._homeIntro = null;
     scene._homeSignT0 = performance.now() - 10000;
-    scene.player = { visible: true, x: score.x, y: score.y + score.height / 2,
+    Render.drawObjects(scene);
+    assert.eq(label.text, sign('Homely'));
+    assert.falsy(/\d/.test(label.text), 'no luxury number on the sign');
+    assert.eq(label.x, Math.round(scene.viewCenterX + HomeArea.SIGN_NUDGE_PX.x));
+    assert.eq(label.y, Math.round(scene.viewCenterY - HomeArea.HOUSE.signLiftPx - label.height + HomeArea.SIGN_NUDGE_PX.y));
+    assert.eq(label.alpha, 1, 'unobstructed sign is opaque');
+    scene.player = { visible: true, x: label.x, y: label.y + label.height / 2,
       displayWidth: 24, displayHeight: 20, originX: 0.5, originY: 0.5 };
     Render.drawObjects(scene);
-    assert.eq(score.alpha, 0.3, 'score fades when its text overlaps the player');
-    assert.eq(sign.alpha, 1, 'non-overlapping Home label stays opaque');
-    scene.player.y = sign.y + sign.height / 2;
-    Render.drawObjects(scene);
-    assert.eq(sign.text, Shops.BUILDING_LABEL.trailer);
-    assert.eq(sign.alpha, 0.3, 'ordinary Home label uses the same overlap alpha');
-    assert.eq(score.alpha, 1, 'score opacity recovers after the overlap ends');
+    assert.eq(label.alpha, 0.3, 'sign fades when its text overlaps the player');
   }));
 
-  test('furniture HUD: retained score updates with luxury and disappears when the player leaves Home', () => withHome(scene => {
-    scene.playerM.x = 7.5;
-    assert.falsy(scene.homeInside());
+  test('Home sign: rank follows luxury indoors, outdoors, by day and by night', () => withHome(scene => {
+    scene._homeIntro = null;
+    scene._homeSignT0 = performance.now() - 10000;
     Render.drawObjects(scene);
-    assert.eq(visible(scene).length, 1, 'no score is allocated while outside');
-    scene.playerM.x = 2.5;
-    Render.drawObjects(scene);
-    const score = visible(scene)[1], cached = scene._homeLuxuryLabel;
-    assert.eq(score.text, line(9));
-    Render.drawObjects(scene);
-    assert.eq(scene._homeLuxuryLabel, cached, 'unchanged state reuses the cached label');
-    assert.eq(visible(scene)[1], score, 'unchanged frames reuse the pooled text');
+    const [label] = visible(scene);
+    assert.eq(label.text, sign('Homely'));
     scene.save.houseLuxury.home.score = 16;
     Render.drawObjects(scene);
-    assert.eq(visible(scene)[1], score, 'score changes update the existing text slot');
-    assert.eq(score.text, line(16));
-    assert.truthy(scene._homeLuxuryLabel.key !== cached.key, 'luxury invalidates the cache key');
+    assert.eq(visible(scene)[0], label, 'rank changes update the existing text slot');
+    assert.eq(label.text, sign('Comfortable'));
     scene.save.houseLuxury.home.score = 0;
     Render.drawObjects(scene);
-    assert.eq(score.text, line(0), 'empty Home still shows its score');
+    assert.eq(label.text, sign(MemoryStory.LUXURY_BARE), 'empty Home still shows its rank');
     scene.playerM.x = 7.5;
     assert.falsy(scene.homeInside(), 'one cell east is outside Home');
-    Render.drawObjects(scene);
-    assert.eq(visible(scene).length, 1, 'only the Home sign remains visible outside');
-    assert.falsy(score.visible, 'retained score slot is hidden');
-    assert.falsy(score.active, 'retained score slot is deactivated');
-    scene.playerM.x = 2.5;
-    Render.drawObjects(scene);
-    assert.eq(visible(scene)[1], score, 're-entering Home reuses the retired slot');
-    assert.eq(score.text, line(0));
-    assert.truthy(score.active);
-  }));
-
-  test('furniture HUD: Home luxury is readable outside after dark and hides again at dawn', () => withHome(scene => {
-    scene.playerM.x = 7.5;
-    assert.falsy(scene.homeInside());
-    scene._daylight.value = 0;
-    Render.drawObjects(scene);
-    assert.eq(visible(scene).length, 2);
-    const score = visible(scene)[1];
-    assert.eq(score.text, line(9));
-    assert.eq(score.style.color, '#ffffff');
-    scene._daylight.value = 1;
-    Render.drawObjects(scene);
-    assert.eq(visible(scene).length, 1);
-    assert.falsy(score.visible);
+    for (const daylight of [1, 0]) {
+      scene._daylight.value = daylight;
+      Render.drawObjects(scene);
+      assert.eq(visible(scene).length, 1);
+      assert.eq(visible(scene)[0].text, sign(MemoryStory.LUXURY_BARE));
+    }
   }));
 
   test('furniture HUD: luxury descriptor follows the milestone thresholds', () => {

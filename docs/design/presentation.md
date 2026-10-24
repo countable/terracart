@@ -699,11 +699,11 @@ instructions and replacement explanations are omitted. A vacant delivered house
 shows its empty slots and explains that it is ready for an available neighbour;
 furnishing starts after the neighbour moves in.
 
-Home shows "House luxury level: N · Rank" in small white text a clear gap above
-its sign while indoors and from outside after dark. The rank is the
+Home's sign reads "Home (Rank)", with no score: the rank is the
 `MemoryStory.luxuryRank` descriptor for the luxury milestone thresholds
-(Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). The score updates immediately, separately from
-Home's introductory typing, and fades when it overlaps the player.
+(Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). It is the one
+Home label, shown at all hours, typed out with Home's introduction, and
+re-read from `Furniture.luxuryOf` every frame so it changes as furniture does.
 
 Old Archive Court's existing style deterministically selects delivery or luxury
 jobs without changing castle style assignment. The luxury card is titled
