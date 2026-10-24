@@ -1035,7 +1035,24 @@ Higher-priority placements and their access space take precedence in this order:
    row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
    Street timber also marks `treeSpeciesFixed`, so its type stays consistent
    through the starter area. Unfixed trees keep the existing near-home pine rule.
-   Residential yard trees are the newest ambient fill: while the DeepForest
+   Live Gemini crowns are fetched for the player's current z18 tile by
+   `Geometry` (`src/geometry.js`) from the multiplayer relay's HTTP origin.
+   Each success is permanent shared server evidence, with origin/schema-scoped
+   IndexedDB copies; failures retain existing trees and retry with backoff.
+   The request never blocks base geometry. `WorldGen.warmGeometry` refreshes
+   the surface through serialized detached rebuilds when its observed coverage
+   changes, including movement within one z14 game tile. Deferred/failed
+   rebuilds retry; an underground response never installs a cave as a surface.
+   Within successful coverage, including an empty result, crowns replace
+   imported static/Overpass trees and ambient ordinary/yard timber. Authored
+   zones, themed streets, planted/player trees and hard placement gates remain
+   authoritative. Outside coverage the existing sources remain. Conifer maps
+   to game pine and broadleaf to maple with `treeSpeciesFixed`; unknown uses
+   the existing seeded mix. These are crown-center estimates, not trunk surveys
+   or exact species identification. Gemini trees work independently of
+   `?deepforest=on`; `?geometry=off` disables their use and requests. Sandbox
+   and test modes never warm the geometry service.
+   Residential yard trees are ambient fill: while the DeepForest
    layer is off (enable it with `?deepforest=on`), each residential polygon
    seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
    (`BiomeProfiles.yardTrees`). They seat after every older object and wild

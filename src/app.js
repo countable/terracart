@@ -3900,6 +3900,7 @@ class MapScene extends Phaser.Scene {
       // eight idle waits cost about 3.2 s despite every tile already being ready.
       // Missing, rebuilt and unspawned entries fail the predicate and still heal
       // through this path; boot, retries and Overpass re-entry bypass it entirely.
+      this._warmGeometryAround();
       const tileCell = this.playerToWorldCell();
       if (!this._walkTileBlockSettled(tileCell)) {
         window.__boot?.mark('walked 20m — checking tiles');
