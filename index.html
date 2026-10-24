@@ -126,7 +126,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d0cadded" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=3b7f4d05" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3309,7 +3309,7 @@
 
   <script src="src/wizard.js?v=cc6328ca"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=a604399b"></script>
+  <script src="src/memory_story.js?v=1579b1d0"></script>
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
@@ -3362,9 +3362,9 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=ce1e6e2f"></script>
-  <script src="src/modal_shell.js?v=d7b8b5b9"></script>
+  <script src="src/modal_shell.js?v=ecbf12d8"></script>
   <script src="src/scene_geo.js?v=5f8030e6"></script>
-  <script src="src/npc.js?v=349e2112"></script>
+  <script src="src/npc.js?v=15f26c8a"></script>
   <script src="src/npc_benefits.js?v=2fa75978"></script>
   <script src="src/scene_creatures.js?v=8baa6136"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
@@ -3451,7 +3451,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=d0cadded';
+      const APP_SRC = 'src/app.js?v=3b7f4d05';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
