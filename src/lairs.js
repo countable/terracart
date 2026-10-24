@@ -804,6 +804,8 @@
   // building footing, and a guard drawn over a roof reads as a bug however it
   // got there. One cell out is close enough to read as "this ruin is held".
   const LAIR_RING_PAD_CELLS = 1;
+  // Ordinary ruin guards gather by the doorway, before the nearest street.
+  const LAIR_FRONTAGE_CELLS = 3;
   // Preserve the original polar draws first, then exhaust legal seats in
   // the same feature ring. Core/floor/cloud formations retain exact authored
   // placement: their geometry is part of the building encounter.
@@ -935,7 +937,7 @@
       const wx = ox + lx, wy = oy + ly;
       const cand = {
         tx, ty, ix: Math.floor(lx / tcM), iy: Math.floor(ly / tcM),
-        tier: sh.tier, key: sh.key || null,
+        tier: sh.tier, key: sh.key || null, shape: sh,
         wx, wy,                                  // absolute metres
         lx, ly,                                  // tile-local metres (seating)
         // The origin of the tile THIS SHAPE BELONGS TO, carried rather than
@@ -994,6 +996,35 @@
     if (!idx) idx = entry._lairIndex = newIndex(cellM);
     if (!idx.done) indexChunk(idx, entry, tx, ty, cellM, tileEdgeM, LAIR_INDEX_CHUNK);
     return idx;
+  }
+
+  // Use the renderer's doorway-side selection on source geometry, independent
+  // of loaded neighbours or the camera. Buffered MVT streets cover tile seams.
+  function buildingFront(entry, cand, cellM, tileEdgeM) {
+    const shape = cand.shape, B = root.BuildingLowPoly, R = root.RoadOverlay;
+    if (!shape?.ring || !B?.streetDoor || !R?.transportLines) return null;
+    const scale = root.SpriteLayout.CELL_PX / cellM;
+    const points = [];
+    for (let i = 0; i < shape.ring.length; i += 2)
+      points.push({ x: shape.ring[i] * scale, y: shape.ring[i + 1] * scale });
+    let door;
+    if (shape.door) {
+      const at = { x: shape.door.x * scale, y: shape.door.y * scale };
+      door = B.edgeDoor(points, B.ringEdgeNearest(points, at));
+      if (door) door = { ...door, center: at, distance: Infinity };
+    } else {
+      if (!entry.layers) return null;
+      const streets = [];
+      for (const { line, mvtToM } of R.transportLines([{ entry: { ...entry, tileEdgeM }, tx: 0, ty: 0 }]))
+        for (let i = 1; i < line.length; i++)
+          streets.push([line[i - 1], line[i]].map(p => ({ x: p.x * mvtToM * scale, y: p.y * mvtToM * scale })));
+      door = B.streetDoor(points, streets);
+    }
+    if (!door) return null;
+    return { x: door.center.x / scale, y: door.center.y / scale,
+      normal: door.normal, along: door.along,
+      depth: Math.min(LAIR_FRONTAGE_CELLS * cellM, door.distance / scale),
+      halfSpan: Math.min(LAIR_FRONTAGE_CELLS * cellM, Math.max(cellM, Math.hypot(cand.halfW, cand.halfH))) };
   }
 
   // ── Waking one ruin ──────────────────────────────────────────────────────
@@ -1115,8 +1146,8 @@
       return entry.grid !== genGrid && entry.grid[at] !== genGrid[at]
         && !WG.isWalkable(entry.grid[at]);
     };
-    // A keep seats inside (CORE_SEATED_TIERS); every other lair on a ring
-    // just off its footprint. seatR is the knot's / ring's radius either way,
+    // A keep seats inside (CORE_SEATED_TIERS); an ordinary ruin uses its
+    // street-facing doorway frontage, or its old ring when no door is known. seatR is the knot's / ring's radius either way,
     // and it is the `lairR` both chase rings are offset by — for a GROUP too,
     // whatever mix of placements its members take, so the garrison still
     // notices and gives up as one. A group member is placed by its own spec
@@ -1124,6 +1155,7 @@
     const core = CORE_SEATED_TIERS.has(cand.tier);
     const radii = seatRadii(cand.halfW, cand.halfH, cellM);
     const seatR = core ? radii.core : radii.ring;
+    const front = !core ? buildingFront(entry, cand, cellM, tileEdgeM) : null;
     const plainSpec = { place: core ? 'core' : 'ring', of: nWorld };
     const C = root.Combat;
     const reservedSeats = new Set();
@@ -1156,6 +1188,13 @@
         : root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
       let seat = null;
       let inKeep = false;
+      const frontage = front && (!spec.place || spec.place === 'ring');
+      const onFront = (lx, ly) => {
+        const dx = lx - front.x, dy = ly - front.y;
+        const out = dx * front.normal.x + dy * front.normal.y;
+        return out >= cellM * .5 && out <= front.depth
+          && Math.abs(dx * front.along.x + dy * front.along.y) <= front.halfSpan;
+      };
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         // Spaced round the ring by the WORLD's count (nWorld, the spec's
         // `of`), not the woken one, so a mode that wakes fewer (Difficulty
@@ -1164,10 +1203,14 @@
         // try), for the plain ring / knot and every group placement alike.
         const p = seatPolar(spec, a, facing, rng);
         const r = radii[p.base] * p.rMul;
-        const lx = cand.lx + Math.cos(p.ang) * r;
-        const ly = cand.ly + Math.sin(p.ang) * r;
+        const offset = frontage ? Math.sin(p.ang) * front.halfSpan : 0;
+        const outward = frontage ? Math.min(front.depth, cellM * p.rMul) : 0;
+        const lx = frontage ? front.x + front.normal.x * outward + front.along.x * offset : cand.lx + Math.cos(p.ang) * r;
+        const ly = frontage ? front.y + front.normal.y * outward + front.along.y * offset : cand.ly + Math.sin(p.ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
+        if (frontage && (!onFront((ix + .5) * cellM, (iy + .5) * cellM)
+          || reservedSeats.has(iy * N + ix))) continue;
         // A keep's guard stands on its own floor — the one building cell the
         // shared rule (rightly) refuses everything else — at the exact drawn
         // point, not the cell centre, or a knot of them would stack into one.
@@ -1187,8 +1230,7 @@
         // THE ENTRY (spawnInTile stashes the very object it spawned the tile's
         // fauna, traps and treasure with), never rebuilt here: a second
         // reading of "is this a road" is how the two drift. Only the VERDICT
-        // changed: the draws are the same, so every seat that passes both rules is
-        // the seat it always was.
+        // changed for frontage: these checks still own every legal seat.
         if (!guardCell(ix, iy)) continue;
         seat = (p.core || p.over) ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
           : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
@@ -1196,19 +1238,22 @@
       }
       if (!seat && (!spec.place || spec.place === 'ring')) {
         const band = spec.band || [1, 1.35], outer = radii.ring * band[1];
-        const r = Math.ceil(outer / cellM + 1), centreX = Math.floor(cand.lx / cellM), centreY = Math.floor(cand.ly / cellM);
+        const r = Math.ceil((frontage ? Math.hypot(front.halfSpan, front.depth) : outer) / cellM + 1);
+        const centreX = Math.floor((frontage ? front.x : cand.lx) / cellM), centreY = Math.floor((frontage ? front.y : cand.ly) / cellM);
         let best = null, rank = Infinity;
         for (let iy = Math.max(0, centreY - r); iy <= Math.min(N - 1, centreY + r); iy++)
           for (let ix = Math.max(0, centreX - r); ix <= Math.min(N - 1, centreX + r); ix++) {
             const at = iy * N + ix, lx = (ix + .5) * cellM, ly = (iy + .5) * cellM;
             const distance = Math.hypot(lx - cand.lx, ly - cand.ly);
-            // Cell centres approximate continuous polar seats by at most half
-            // a cell diagonal. Never widen the feature's declared ring.
-            if (distance < radii.ring * band[0] - cellM * Math.SQRT1_2
-                || distance > outer + cellM * Math.SQRT1_2
+            // Frontage stays between the door and street. Other ring seats
+            // allow only half a cell diagonal of centre-sampling tolerance.
+            if ((frontage ? !onFront(lx, ly) : distance < radii.ring * band[0] - cellM * Math.SQRT1_2
+                || distance > outer + cellM * Math.SQRT1_2)
                 || reservedSeats.has(at) || !sameOwner(at)
                 || !guardCell(ix, iy)) continue;
-            const score = hashKey(`${id}:fallback:${ix}:${iy}`);
+            const score = frontage ? Math.hypot(lx - front.x, ly - front.y) / cellM
+              + hashKey(`${id}:fallback:${ix}:${iy}`) / 0x100000000
+              : hashKey(`${id}:fallback:${ix}:${iy}`);
             if (score < rank) { rank = score; best = { x: ox + lx, y: oy + ly, ix, iy }; }
           }
         seat = best;

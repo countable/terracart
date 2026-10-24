@@ -80,6 +80,12 @@ access or tile lifecycle mechanics.
   encounters retain their explicit budgets. Mobile guards exhaust legal seats
   within their feature before reporting a shortfall. Rooted pattern inhabitants
   and core/roof formations retain their exact authored layout seats.
+  Ordinary ruin guards use the street-facing doorway selected by
+  `BuildingLowPoly.streetDoor`, matching building rendering. Seats stay within
+  three cells of the doorway and before the street, subject to the normal
+  spawn gate. A blocked frontage drops its guards instead of moving them behind
+  the building. With no detected doorway, the existing ring remains. Fort and
+  castle core/roof formations keep their authored seats.
 - Triggered bush fauna and ambient haunting consult the owning habitat. Headstone
   ghosts, starter/story creatures, crop pests, saved pets and summons remain
   feature/progression/player-driven exceptions; all placement still uses the
