@@ -152,7 +152,7 @@ const way = (cls) => ({ id: 9, type: 2, tags: { class: cls },
 const mkEntry = (cls) => ({ cellsPerEdge: N, tileEdgeM: TILE_EDGE_M,
   layers: [{ name: 'transportation', extent: EXTENT, features: [way(cls)] }] });
 const scene = (over) => Object.assign({
-  depth: 0, save: { energy: 10, reachUpgrades: 0 }, cellM: CELL_M, cellsPerTile: N, mPerPx: M_PER_PX,
+  depth: 0, save: { energy: 10, reachUpgrades: 0, trail: { greeted: true } }, cellM: CELL_M, cellsPerTile: N, mPerPx: M_PER_PX,
   originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, feetOffsetM: 0,
   playerM: { x: 0, y: 0 }, peekM: { x: 0, y: 0 }, gpsM: { x: 0, y: 0 },
   toasts: [], _toast(text, opts) { this.toasts.push({ text, opts }); },

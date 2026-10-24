@@ -19,8 +19,8 @@ class SceneStreets {
   // (road_overlay.js's base pass) — and wherever a stretch of it has sat
   // inside the player's lit reach CONTINUOUSLY for PATH_STONE_DWELL_MS it is
   // rebuilt: clean black cobble with a hairline kerb, forever, saved. There is
-  // no tap and no step to make. Linger by a street and it comes back under
-  // you, which is what the reach circle is already telling you it covers.
+  // one initial decision: tap a damaged road and agree to fix it. From then
+  // on, linger by a street and it comes back under you.
   //
   // A STRETCH IS METRES, NOT CELLS. What restores is an interval of arclength
   // along ONE LINE of one OSM way (src/streets.js), because that is the
@@ -50,6 +50,7 @@ class SceneStreets {
   // waiting on is the clock, not the player.
   _sweepStreets() {
     if (typeof Streets === 'undefined') return;
+    if (!Trail.repairEnabled(this.save)) { this._resetStreetSight(); return; }
     this._openTrailIntroIfDue();
     const surface = (this.depth ?? 0) === 0;
     // Cave levels carry no streets at all, so don't pay for the scan down
@@ -67,6 +68,23 @@ class SceneStreets {
       this._rescanStreets(p, reachM, now, sight);
     }
     this._ripenStreets(now, sight);
+  }
+
+  _offerRoadRepair() {
+    if (Trail.repairEnabled(this.save)) return false;
+    this.showConfirmModal({ id: 'road-repair-confirm', kind: 'note',
+      body: 'Road is in disrepair. Fix it?', acceptLabel: 'Yes', cancelLabel: 'No',
+      onAccept: () => {
+        if (Trail.repairEnabled(this.save)) return;
+        this._trailIntroAt = 0;
+        this._resetStreetSight();
+        // The accepted tap opens the introduction now, not through the
+        // idle ceremony queue or the legacy first-metres delay.
+        this._showTrailIntro();
+        this._sweepStreets();
+      },
+    });
+    return true;
   }
 
   // The player point the sweep and the lamp visit are memoised on, to a
