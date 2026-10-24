@@ -79,8 +79,13 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   width: 100%; height: auto; aspect-ratio: 1;
   border-radius: 0 !important;
 }
+/* Story scenes keep their whole 4:3 frame: they start half a rail lower so
+   the dragons overlap only their top edge (fit() adds the drop back). */
 .compass-panel[data-kind='story'] .modal-art,
-.compass-panel[data-kind='story'] .modal-art-mosaic { height: 100%; aspect-ratio: 4 / 3; }
+.compass-panel[data-kind='story'] .modal-art-mosaic {
+  top: calc(var(--panel-rail-height) * .5) !important;
+  height: calc(100% - var(--panel-rail-height) * .5); aspect-ratio: 4 / 3;
+}
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#fff0a0, #f4c844 22%, #d79a20 78%, #f4cd63) !important;

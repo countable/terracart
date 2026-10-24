@@ -416,7 +416,8 @@ class SceneModals {
       const fit = () => {
         frame = 0;
         if (!wrap.isConnected || !spacer) return;
-        const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
+        // A story scene sits lower under the rail (compass_panels.css).
+        const full = (fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9) + artLayer.offsetTop;
         // Reserve most of a short sheet for readable text and whole controls.
         // Art stays independent of content length, so long copy never erases it.
         const footerHeight = body.querySelector('.modal-offer-footer')?.offsetHeight || 0;
