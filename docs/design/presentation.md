@@ -429,7 +429,8 @@ pixels and decorative details do not define additional tap cells.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
-  window top behind the fixed silver dragon rail. Paintings keep their top
+  window top behind the fixed silver dragon rail; story scenes start half a
+  rail lower, so the dragons overlap only their top edge. Paintings keep their top
   edge and use at most half the available body height, independently of copy
   length. This leaves readable copy space on short phones without collapsing
   art as more text is added. Story crops preserve uniform image scaling.
