@@ -29,7 +29,7 @@
   function over(scene, hole) {
     return root.EnvironmentHazards.overlaps(scene, hole);
   }
-  async function fall(scene, hole) {
+  async function fall(scene, hole, { collapsing = false } = {}) {
     if (scene._hazardFallPending || scene._caveFallPending || scene.depth !== hole.depth || hole.phase !== 'open'
         || !over(scene, hole) || root.Combat.playerDowned(scene.save.energy) || root.Conditions.flying(scene.save)) return false;
     const depth = scene.depth;
@@ -38,6 +38,7 @@
     // minting side reads - DungeonProgression.ROPE_SEALED_FLOORS).
     if (root.DungeonProgression && !root.DungeonProgression.ropeCanDescend(depth)) return false;
     scene._hazardFallPending = true;
+    let awaitingAcknowledgement = false;
     try {
       const edge = scene.tileEdgeM, tx = Math.floor(hole.x / edge), ty = Math.floor(hole.y / edge);
       const latitude = typeof START_LAT === 'number' ? START_LAT : 0;
@@ -53,13 +54,28 @@
       if (!destination) return false;
       const changed = scene.changeDepth(1, { ...destination, descentSource: 'sinkhole' });
       if (changed === false || scene.depth !== depth + 1) return false;
-      scene.flashAtPlayer?.('The ground gives way!');
+      const story = collapsing
+        ? { art: 'fall_cave_in', title: 'The ground gives way',
+          body: 'Cracks split beneath your boots. The floor breaks apart, dropping you with the rubble into the dark below.' }
+        : { art: 'fall_open_pit', title: 'Into the pit',
+          body: 'Your foot slips over the open edge. You fall through the dark and land on the floor below.' };
+      if (scene.showMessageModal) {
+        // Keep both fall lanes locked until the landing story is acknowledged.
+        // The transition has already succeeded; dismissal never repeats it.
+        awaitingAcknowledgement = true;
+        scene.showMessageModal({ kind: 'story', ...story, okLabel: 'Continue', mustAcknowledge: true,
+          onDismiss() {
+            if (!awaitingAcknowledgement) return;
+            awaitingAcknowledgement = false; scene._hazardFallPending = false;
+          } });
+      } else scene.flashAtPlayer?.(story.title);
       return true;
     } catch (_) {
+      awaitingAcknowledgement = false;
       // A failed tile request leaves the player on the loaded floor. Contact
       // retries while the pit remains open; no partial depth/save changes.
       return false;
-    } finally { scene._hazardFallPending = false; }
+    } finally { if (!awaitingAcknowledgement) scene._hazardFallPending = false; }
   }
   // ── CREATURES FALL TOO ────────────────────────────────────────────────
   // The open floor gap under (x, y) on the current floor, or null: an opened

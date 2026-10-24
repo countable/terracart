@@ -70,7 +70,7 @@ for(const role of Object.keys(api.ROLES)){
   const width=m=>Math.max(...m.ring.map(p=>p.x))-Math.min(...m.ring.map(p=>p.x));
   assert(Math.abs(width(mesh)-width(large))<1e-8,role+' ignores footprint dimensions');
  }
- if(role==='wreck'){assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'broken plinth has no roof or framing');assert(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=8)),'all wreck geometry stays low');}
+ if(role==='wreck'){assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'broken plinth has no roof or framing');assert(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=2)),'all wreck geometry stays low');}
 }
 console.log('All role variants: bounded geometry, footprint-independent towers, broken plinth passed.');
 // Every slope is tiled from its own eave (v grows downhill, courses level),
@@ -107,7 +107,7 @@ console.log('Awning skirt orientation passed.');
 const wreckPoints=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
 const wreck=api.specialGeometry(wreckPoints,api.recipeFor('wreck'));
 assert(!wreck.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof remnants or framing survive');
-assert(wreck.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=8)),'wall crowns and rubble stay at most eight pixels high');
+assert(wreck.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=2)),'wall crowns and rubble stay at most two pixels high');
 assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
 const crowns=wreck.faces.filter(f=>f.wallTop&&!f.rubble);
 assert(crowns.every(f=>f.rawUV),'top faces carry explicit masonry texture coordinates');
@@ -161,7 +161,7 @@ for(const fixture of fixtures){
    assert(contains(points,p),fixture.name+': floor triangle does not bridge a courtyard');
   }
  }
- assert(mesh.faces.every(f=>f.points.every(p=>Number.isFinite(p.z)&&p.z>=0&&p.z<=8)),
+ assert(mesh.faces.every(f=>f.points.every(p=>Number.isFinite(p.z)&&p.z>=0&&p.z<=2)),
   fixture.name+': narrow returns never fall back to full-height walls');
  assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),
   fixture.name+': only masonry and ground rubble remain');
@@ -190,7 +190,7 @@ for(const f of crowns){
  if(wreckPoints.some(p=>Math.hypot(p.x-b.x,p.y-b.y)<1e-6))continue;
  thicknesses.push(Math.hypot(c.x-b.x,c.y-b.y));
 }
-assert(thicknesses.length>0&&thicknesses.every(w=>w>=5.5&&w<=6.5),'ordinary wall prisms are about six pixels thick');
+assert(thicknesses.length>0&&thicknesses.every(w=>w>=2.5&&w<=3.5),'ordinary wall prisms are about three pixels thick');
 // Reusing the same identity with a street on a different side must move
 // the opening without changing its broad, unobstructed entrance.
 for(const street of [

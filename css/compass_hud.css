@@ -25,7 +25,7 @@ body.compass-hud #menu summary {width:44px;height:44px;background:linear-gradien
 body.compass-hud #mode-badge,body.compass-hud #mp-btn {display:none!important;}
 /* A stationary, unpadded overlay between the direction lock and purse. */
 body.compass-hud #status-row {top:max(92px,calc(var(--compass-map-top) + 20px));}
-body.compass-hud #objective {z-index:9;top:118px;}
+body.compass-hud #objective {z-index:9;top:93px;}
 body.compass-hud #hud {top:auto;bottom:174px;color:#20353a;text-shadow:0 1px #d1d8d1;font-size:10px;}
 body.compass-hud #inv-tabs,body.compass-hud #inv {background:transparent!important;}
 body.compass-hud #inv-tabs .hud-tab {background:transparent;border:none;box-shadow:none;opacity:1!important;}
@@ -154,8 +154,8 @@ body.compass-hud .compass-energy-needle {bottom:calc(29 * var(--compass-header-u
 body.compass-hud #energy-label {font:10px var(--font-ui)!important;margin-bottom:1px;color:#333b2f!important;}
 body.compass-hud #hud-row > #money {position:absolute;left:88.5%;right:1%;top:calc(79 * var(--compass-header-unit));display:flex;flex-direction:column;gap:0;font:italic bold calc(22 * var(--compass-header-unit))/1 var(--font-ui);color:#f3dfa0;text-shadow:0 2px 2px #161b16;}
 body.compass-hud #money .coin-ico {width:calc(35 * var(--compass-header-unit));height:calc(35 * var(--compass-header-unit));}
-body.compass-hud #objective {top:calc(var(--compass-map-top) + 62px);}
-@media (max-height:650px) {body.compass-hud #objective {top:calc(var(--compass-map-top) + var(--compass-map-size) * .5 + 24px);}}
+body.compass-hud #objective {top:calc(var(--compass-map-top) + 12px);}
+@media (max-height:650px) {body.compass-hud #objective {top:calc(var(--compass-map-top) + var(--compass-map-size) * .5 - 26px);}}
 .compass-round .compass-aperture {outline:3px ridge #d2d0c4;box-shadow:inset 0 0 0 3px #33382f,0 0 0 1px #151c15,0 0 0 5px #9c9f95;}
 body.compass-hud #move-pad {right:calc(var(--phone-right,0px) + 13 * var(--compass-unit));bottom:auto;top:calc(var(--compass-map-top) + var(--compass-map-size) - 93 * var(--compass-unit));width:calc(125 * var(--compass-unit));height:calc(125 * var(--compass-unit));border:3px ridge #c5c5b9;background:#303832 url('../assets/ui/compass/joystick.webp') center/cover;box-shadow:0 0 0 2px #222922,0 0 0 5px #b0b3a5,0 3px 6px #132017;backdrop-filter:none;}
 body.compass-hud #move-pad::before {inset:13%;opacity:1;background:radial-gradient(circle,#202722 50%,#303a32 65%,#9ca091 69%,#30372c 73%,transparent 75%);}

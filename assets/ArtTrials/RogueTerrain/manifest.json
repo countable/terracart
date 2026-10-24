@@ -1658,7 +1658,7 @@
       "selectedMaterial": "G06-purple",
       "selectedFrame": 58,
       "maskFamily": "oliveSoil",
-      "sourceSHA256": "664456898642ed2c454b055ff9e524442fee67c5579fb8ee0a6644f18c041146"
+      "sourceSHA256": "ce68dd276260bd1175ae664c392bcf397634cb0c871202bcb07eef48d2294d40"
     },
     {
       "id": "tarYard",
@@ -1667,7 +1667,7 @@
       "selectedMaterial": "G09-smooth-grey",
       "selectedFrame": 59,
       "maskFamily": "oliveSoil",
-      "sourceSHA256": "664456898642ed2c454b055ff9e524442fee67c5579fb8ee0a6644f18c041146"
+      "sourceSHA256": "ce68dd276260bd1175ae664c392bcf397634cb0c871202bcb07eef48d2294d40"
     }
   ],
   "notes": "Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground."
