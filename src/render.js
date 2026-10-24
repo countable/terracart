@@ -3010,7 +3010,11 @@ Render.drawCells = function drawCells(scene) {
             // cells along its rotation, which is fine — map labels do too.
             // worldgen pre-normalizes angle into (-90°, 90°] so the text is
             // never upside down.
-            lt.setText(info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+            // The street's variant name follows its official one, read off
+            // the dressed tile's per-cell marks (none until it is dressed).
+            const mark = entry.streetMarks ? entry.streetMarks[iy2 * entry.cellsPerEdge + ix2] : 0;
+            const variant = mark ? StreetVariants.labelName(StreetVariants.variantByCode(mark)) : '';
+            lt.setText(variant ? `${info.text} ${variant}` : info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
               .setRotation(info.angle).setVisible(true);
           } else {
             lt.setVisible(false);

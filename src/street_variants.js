@@ -269,7 +269,7 @@
       stone: { weathered: '#737f69', restored: '#8c9b7f' }, lampDensity: 1,
       words: /(park|wood|forest|grove|glen|heath|moor|green|meadow|wald|heide|hain|wiese|garten|garden|fern|brook)/i,
       lampGlow: '#9be08a', fauna: { rabbit: [2, 5], butterfly: [2, 5] },
-      story: 'street_overgrown', title: 'Gone to seed',
+      story: 'street_overgrown', title: 'Gone to seed', label: 'Overgrown Lane',
       body: 'Saplings crowd the verge beneath tall pines. You push past branches reaching into the street.',
       flash: 'The green is taking it back.' },
     { id: 'orchard', terrain: 'ORCHARD', treeSpecies: 'maple', affinities: ['cultivated'], size: 'minor', share: 0.08, rung: 'uncommon',
@@ -460,7 +460,7 @@
     { id: 'rocky_path', baseline: true, size: 'minor', share: 0.24, pathWeight: 0.24, rung: 'common',
       terrain: 'ROCK', affinities: ["ruined"],
       stone: { weathered: '#929088', restored: '#929088' }, lampGlow: '#d8cf9c',
-      story: 'street_rocky_path', art: 'street_golden', title: 'Rocky Road / Path',
+      story: 'street_rocky_path', art: 'street_golden', title: 'Rocky Road / Path', label: 'Rocky Road',
       body: 'Loose stones and low rocks line this simple route.', flash: 'Rocky Road / Path.' },
     { id: 'grassy_lane', baseline: true, size: 'minor', share: 0.28, pathWeight: 0.28, rung: 'common',
       terrain: 'GRASS', affinities: ["cultivated"],
@@ -697,6 +697,17 @@
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
+  // The variant's name as a map label shows it after the street's official
+  // name ("Athalmer Pottery Road"): the row's `label` where its story title is
+  // not a name, else the title without a leading article, title-cased
+  // ("of", "the" and "and" stay lower case inside it).
+  function labelName(row) {
+    if (!row) return '';
+    if (row.label) return row.label;
+    return String(row.title || '').replace(/^(the|a)\s+/i, '')
+      .replace(/(^|\s)(\S+)/g, (m, gap, word) => gap +
+        (gap && /^(of|the|and)$/i.test(word) ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1)));
+  }
 
   // ── Names and keys ──────────────────────────────────────────────────────
   function normName(name) {
@@ -3157,7 +3168,7 @@
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode, labelName,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,

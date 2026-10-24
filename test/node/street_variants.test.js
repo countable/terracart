@@ -125,6 +125,23 @@ test('street key: the same street keys alike across a seam, its lineKeys do not'
   assert.eq(SV.normName('Café Row'), 'cafe row', 'diacritics strip');
 });
 
+// ── Map labels ──────────────────────────────────────────────────────────
+// A road label reads "<official first word> <variant name>"; every variant
+// that can mark a road cell has a short, article-free name for it.
+test('labels: each variant names itself for a road label after the official name', () => {
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.pottery), 'Pottery Road');
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.hedgerow), 'Hedged Lane', 'the leading article drops');
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.way_of_variety), 'Way of Variety', 'small words stay lower case');
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.overgrown), 'Overgrown Lane', 'a row label overrides a story title');
+  assert.eq(SV.labelName(SV.variantByCode(SV.STREET_VARIANTS.indexOf(SV.VARIANT_BY_ID.pottery) + 1)), 'Pottery Road',
+    'the per-cell mark code resolves to the same name');
+  assert.eq(SV.labelName(null), '', 'a plain street adds nothing');
+  for (const row of SV.STREET_VARIANTS) {
+    const name = SV.labelName(row);
+    assert.truthy(/^[A-Z][\w'-]*( ([A-Z][\w'-]*|of|the|and))*$/.test(name), `${row.id}: "${name}" reads as a name`);
+  }
+});
+
 test('street key: an unnamed way keys off its own geometry in its own tile', () => {
   const line = pts([[0, 3], [9, 3]]);
   assert.eq(SV.anonKey(1, 2, line), SV.anonKey(1, 2, pts([[0, 3], [9, 3]])), 'deterministic');

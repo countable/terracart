@@ -292,7 +292,7 @@ function makeRng32(seed) {
 // memory the first time per kind and a relic-biased treasure roll
 // every time after (app.js › resolveDefeat). The surface slime, the tutorial
 // foe, never does.
-// Spawn rates per category. Tuned per the design: flora + trees 1%, animals
+// Spawn rates per category. Tuned per the design: flora + trees 0.25%, animals
 // and monsters 5%.
 // `rock` is the GLINT ROCK (interactables.js isGlintRock): one plain rock in
 // twenty, the same rocks for every player off the rock's id. It wears no gold
@@ -303,7 +303,7 @@ function makeRng32(seed) {
 // bush's id, that wiggles every 10-30 s (nestBushPhase) and hides a BABY PET
 // (items.js BABY_KINDS) — found once, when the bush is chopped. The same
 // hash as the shiny flora roll, so every shiny bush is a nest bush too.
-const SHINY_RATE = { flora: 0.01, tree: 0.01, animal: 0.05, monster: 0.05, fish: 0.05, rock: 0.05, nest: 0.05 };
+const SHINY_RATE = { flora: 0.0025, tree: 0.0025, animal: 0.05, monster: 0.05, fish: 0.05, rock: 0.05, nest: 0.05 };
 
 // ── A thing's own BEAT: a brief show once every so-many seconds ─────────────
 // The glint rock (interactables.js glintRockPhase) and the nest bush (items.js

@@ -520,6 +520,9 @@ the surrounding grove’s shrub scale.
 - Named booth signs show the booth kind above at most two words of the rusticified
   place name. If the second word is an article or connector (such as “the” or
   “of”), only the first word appears. Full names remain available in dialogs.
+- Road labels show the first word of the street's official name, then its
+  street variant's name (`StreetVariants.labelName`, read off the dressed
+  tile's `streetMarks`): "Athalmer Pottery Road". Plain streets show the word alone.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The resting view a game opens on spans seven cells
