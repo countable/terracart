@@ -275,8 +275,9 @@ pixels and decorative details do not define additional tap cells.
   safety card and how-to card have cleared and the first map tile is up, then
   waits five more seconds; a save still on step 1 first hears Tori's
   two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
-  completion briefly acknowledges it in the same bubble. Only the dismiss
-  button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  completion briefly acknowledges it in the same bubble. The portrait and bubble
+  sit 25px higher, and a 44px-tall “Got it” button acknowledges only the current
+  instruction. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
   grant no bonus coins; ordinary loot and sales retain their own rewards.
 
@@ -595,7 +596,10 @@ pixels and decorative details do not define additional tap cells.
   add with `Buffs.withMark`: a mark on the same target replaces or extends,
   a new target adds a mark, and nothing refuses or clears another mark.
   The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
-  aimed per step by `_starterGuidanceGoal` rather than stored as marks.
+  aimed per step by `_starterGuidanceGoal` rather than stored as marks. It appears
+  only after its instruction is visible. Location dots sit on their target when
+  onscreen, otherwise on the compass edge: a bright 3px core with a translucent
+  pulse expanding to a 6px radius every 3 seconds.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

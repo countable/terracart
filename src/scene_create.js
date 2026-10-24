@@ -1411,7 +1411,7 @@ class SceneCreate {
     this._buildZoomControl();
 
     document.getElementById('objective-hide')
-      ?.addEventListener('click', (e) => { e.stopPropagation(); this.dismissObjective(); });
+      ?.addEventListener('click', (e) => { e.stopPropagation(); this.acknowledgeObjective(); });
     this.updateObjectiveDOM();
 
     // Sandbox mode (`?sandbox=true`): pre-seed the start tile + 8 neighbours

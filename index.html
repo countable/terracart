@@ -126,7 +126,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=036094dc" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d3236be3" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -604,7 +604,7 @@
     }
     /* The Spirit teaches on the map; only dismiss intercepts world taps. */
     #objective {
-      position:fixed;top:calc(72px + env(safe-area-inset-top,0px));
+      position:fixed;top:calc(47px + env(safe-area-inset-top,0px));
       left:calc(var(--phone-left,0px) + 32px);right:calc(var(--phone-right,0px) + 32px);
       z-index:9;pointer-events:none;font-family:var(--font-ui);
       padding-left:54px;min-height:64px;
@@ -630,12 +630,12 @@
     #objective .step {font:600 9px/1.2 var(--font-ui);color:#647254;white-space:nowrap;}
     #objective .title {display:none;}
     #objective .body {position:relative;margin-top:5px;font:13px/1.35 var(--font-ui);}
-    #objective .close {
-      position:absolute;right:0;top:-7px;min-width:44px;min-height:44px;
+    #objective .acknowledge {
+      position:relative;display:block;margin:8px 0 0 auto;min-width:96px;min-height:44px;
       display:grid;place-items:center;pointer-events:auto;cursor:pointer;
-      border:0;background:none;color:#58694b;font:20px/1 var(--font-ui);
+      border:1px solid #9eae8d;border-radius:10px;background:#f5f7e9;color:#34472d;font:600 14px/1 var(--font-ui);
     }
-    #objective .close:focus-visible {outline:2px solid #927024;outline-offset:-6px;border-radius:12px;}
+    #objective .acknowledge:focus-visible {outline:2px solid #927024;outline-offset:-6px;border-radius:12px;}
     #objective.done .tutorial-bubble {background:#e5efd7;border-color:#bbd59e;}
     @keyframes tutorial-spirit-float {50% {transform:translateY(-4px);}}
     @media (max-width:360px), (max-height:650px) {
@@ -1396,7 +1396,7 @@
     <div class="tutorial-bubble">
       <div class="row"><span class="speaker">Dragon Spirit</span><span class="step"></span><span class="title"></span></div>
       <div class="body" role="status" aria-live="polite" aria-atomic="true"></div>
-      <button type="button" class="close" id="objective-hide" aria-label="Hide tutorial">&times;</button>
+      <button type="button" class="acknowledge" id="objective-hide">Got it</button>
     </div>
   </div>
   <details id="menu">
@@ -2071,6 +2071,8 @@
       const sc = window.__scene;
       if (sc && typeof Quests !== 'undefined' && Quests.starterShow) {
         Quests.starterShow(sc.save);
+        sc._objectiveAcknowledged = null;
+        sc._objectiveAcknowledgedIntro = null;
         if (typeof persistSave === 'function') persistSave(sc.save);
         sc.updateObjectiveDOM?.();
       }
@@ -2741,7 +2743,9 @@
       if (!btn) return;
       const sc = window.__scene;
       const on = !!(sc && typeof Quests !== 'undefined'
-        && Quests.starterDismissed && Quests.starterDismissed(sc.save));
+        && ((Quests.starterDismissed && Quests.starterDismissed(sc.save))
+          || (sc._objectiveAcknowledged != null
+            && sc._objectiveAcknowledged === Quests.starterCurrent(sc.save)?.id)));
       btn.style.display = on ? '' : 'none';
     });
     // Safety splash dismiss (the CTA under the STAY SAFE message — tapping it
@@ -3373,7 +3377,7 @@
   <script src="src/heading_up.js?v=c5a5fa95"></script>
   <script src="src/compass_modules.js?v=f8bc41b9"></script>
   <script src="src/compass_hud.js?v=4b87bec3"></script>
-  <script src="src/scene_create.js?v=32062d2e"></script>
+  <script src="src/scene_create.js?v=89c9e16e"></script>
   <script src="src/scene_elevators.js?v=8b85ffeb"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3452,7 +3456,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=036094dc';
+      const APP_SRC = 'src/app.js?v=d3236be3';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

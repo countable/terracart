@@ -1094,7 +1094,7 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // the same 0xffe066 the 'gps_ring' bake and the walk-home lead wear), and a
 // MICRO dot — smaller than a find's (EDGE_DOT_R) because it is not a place
 // to walk to, it is where you are.
-const EDGE_DOT_R = 3;
+const EDGE_DOT_R = 1.5;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
 const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
@@ -3018,15 +3018,14 @@ class MapScene extends Phaser.Scene {
     return mag;
   }
 
-  // Small, persistent bearings sit on the visible map rim, including while
-  // their target is on screen. Intersect the ray with the rectangle so diagonal
+  // Location guides follow visible targets and otherwise sit on the map rim. Intersect the ray with the rectangle so diagonal
   // bearings reach the edge too, and keep the whole dot inside the mask.
   // `r` is the dot's radius in game px (EDGE_DOT_R for a find; the GPS fix's
   // micro dot passes its own); the dark keyline is a pixel wider.
   _drawEdgeDot(targetWX, targetWY, fillColor, r = EDGE_DOT_R) {
     const dx = targetWX - this.startWorldM.x - this.playerM.x;
     const dy = targetWY - this.startWorldM.y - this.playerM.y;
-    if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
     // The visible square in unzoomed coordinates: the map zooms about the
     // view centre (_applyMapZoom), so at zoom z only viewSize / z of it shows
     // — a rim measured on the full square sat outside the picture.
@@ -3042,7 +3041,7 @@ class MapScene extends Phaser.Scene {
     const y = Math.max(top, Math.min(bottom, ps.y));
     const tx = dx > 0 ? (right - x) / dx : dx < 0 ? (left - x) / dx : Infinity;
     const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
-    const t = Math.min(tx, ty);
+    const t = Number.isFinite(Math.min(tx, ty)) ? Math.min(tx, ty) : 0;
     let px = x + dx * t, py = y + dy * t;
     if (HeadingUp.active(this)) {
       // Intersect the player bearing with the visible circle in unzoomed
@@ -3052,13 +3051,25 @@ class MapScene extends Phaser.Scene {
       let ox = ps.x - cx, oy = ps.y - cy;
       const length = Math.hypot(ox, oy);
       if (length >= radius) { ox *= (radius - 1) / length; oy *= (radius - 1) / length; }
-      const mag = Math.hypot(dx, dy), ux = dx / mag, uy = dy / mag;
+      const mag = Math.hypot(dx, dy) || 1, ux = dx / mag, uy = dy / mag;
       const dot = ox * ux + oy * uy;
       const ray = -dot + Math.sqrt(Math.max(0, dot * dot + radius * radius - ox * ox - oy * oy));
       px = cx + ox + ux * ray; py = cy + oy + uy * ray;
     }
-    this.facingGfx.fillStyle(0x000000, 0.85);
-    this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
+    const guide = r === EDGE_DOT_R;
+    if (guide) {
+      const target = this.worldMetersToScreen(targetWX, targetWY);
+      const inside = HeadingUp.active(this)
+        ? Math.hypot(target.x - this.viewCenterX, target.y - this.viewCenterY) <= (this.viewSize / 2 - inset) / zoom
+        : target.x >= left && target.x <= right && target.y >= top && target.y <= bottom;
+      if (inside) { px = target.x; py = target.y; }
+      const pulse = (performance.now() % 3000) / 3000;
+      this.facingGfx.fillStyle(fillColor, 0.35 * (1 - pulse));
+      this.facingGfx.fillCircle(px, py, (r + (6 - r) * pulse) / zoom);
+    } else {
+      this.facingGfx.fillStyle(0x000000, 0.85);
+      this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
+    }
     this.facingGfx.fillStyle(fillColor, 1);
     this.facingGfx.fillCircle(px, py, r / zoom);
     return { x: px, y: py, left, right, top, bottom };
@@ -3846,6 +3857,7 @@ class MapScene extends Phaser.Scene {
         prints.push(sx2, sy2);
         printKey += `${sx2},${sy2},${fp.alpha},${fp.ux},${fp.uy},${fp.side};`;
       }
+
       if (printKey !== this._footprintKey) {
         this._footprintKey = printKey;
         this.footprintGfx.clear();
@@ -3865,23 +3877,8 @@ class MapScene extends Phaser.Scene {
     this._drawMarkers();
     this._drawGpsRimDot();
 
-    // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
-    // ladder step actually wants, shown only while the first-session ladder is
-    // running. It is the same labelled dot as every MARKERS bearing (tap
-    // toggles its label), so the tutorial teaches the rim the rest of the game
-    // uses. Green is the tutorial's colour: the chip's step tag, the
-    // step-complete toast and this dot all wear --green (#a7ffb0), so
-    // everything the ladder owns reads as one system.
-    //
-    // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
-    // chip says to open one, the carved plot for "Break ground", and the
-    // tilled soil / the nearest wreck / the crop / Home for the steps that
-    // happen at those places. (The crates pack into the first cells of the walk,
-    // TRAIL_SPAN, so a crate fallback pointed away from the tap the chip asked for.)
-    //
-    // Retires itself the moment the ladder finishes or is dismissed, and stops
-    // pointing once the player is on top of the target (it is in reach by
-    // then).
+    // Starter guidance follows the location once visible, after its instruction
+    // has actually appeared (including after opening dialogs finish).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
       // Stepping outside releases step one's chip (_starterAwaitsOutside).
@@ -3901,10 +3898,14 @@ class MapScene extends Phaser.Scene {
           goal: step ? this._starterGuidanceGoal(step) : null,
         };
       }
+      const objective = document.getElementById('objective');
+      if (step && this._starterIntroducedStep !== step.id && this._objectiveStep === step.id
+          && !this._dialogOpen() && objective?.getClientRects().length) {
+        this._starterIntroducedStep = step.id;
+      }
       const goal = indoors ? null : this._starterGoalMemo.goal;
       if (goal) {
-        const { x: pWX, y: pWY } = playerWorldM(this);
-        if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
+        if (this._starterIntroducedStep === step?.id) {
           const point = this._drawEdgeDot(goal.x, goal.y, STARTER_MARK.color);
           this._drawEdgeDotLabel(STARTER_MARK, {}, { label: starterGoalLabel(step, goal) }, point);
         }
@@ -9459,7 +9460,8 @@ class MapScene extends Phaser.Scene {
       el.querySelector('.step').textContent  = '';
       el.querySelector('.title').textContent = '';
       el.querySelector('.body').textContent  = hello;
-      el.style.display = 'block';
+      this._objectiveStep = null;
+      el.style.display = this._objectiveAcknowledgedIntro === hello ? 'none' : 'block';
       return;
     }
     const step = Quests.starterCurrent(this.save);
@@ -9468,7 +9470,14 @@ class MapScene extends Phaser.Scene {
     el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
     el.querySelector('.title').textContent = step.title;
     el.querySelector('.body').textContent  = step.body;
-    el.style.display = 'block';
+    this._objectiveStep = step.id;
+    el.style.display = this._objectiveAcknowledged === step.id ? 'none' : 'block';
+  }
+
+  acknowledgeObjective() {
+    if (this._starterIntroLine != null) this._objectiveAcknowledgedIntro = this._starterIntroLine;
+    else this._objectiveAcknowledged = this._objectiveStep;
+    this.updateObjectiveDOM();
   }
 
   // Step one waits for the door: while a new player is still inside Home the
@@ -9520,7 +9529,7 @@ class MapScene extends Phaser.Scene {
     setTimeout(() => this._playStarterIntro(lines.slice(1)), STARTER_INTRO.lineMs);
   }
 
-  // Hide the chip for good (the × button). The ladder keeps tracking quietly
+  // Hide the tutorial for good (the skip action). The ladder keeps tracking quietly
   // underneath, so nothing downstream has to care that it was dismissed.
   dismissObjective() {
     if (typeof Quests === 'undefined') return;

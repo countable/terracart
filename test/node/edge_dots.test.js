@@ -17,6 +17,7 @@
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
       viewLeft: 0, viewTop: 96, viewSize: 352, viewCenterX: 176, viewCenterY: 272,
       playerScreen: () => ({ x: 176, y: 272 }),
+      worldMetersToScreen(x, y) { const p = this.playerScreen(); return { x: p.x + x * 10, y: p.y + y * 10 }; },
       facingGfx: { fillStyle() {}, fillCircle(x, y, r) { circles.push({ x, y, r }); } },
       circles, save: {}, depth: 0,
     }, methods);
@@ -56,7 +57,7 @@
     s._drawGpsRimDot();
     assert.eq(s.circles.length, 2, 'off the map: keyline and dot');
     assert.eq(s.circles[1].r, DOTS.GPS_RIM_DOT.r, 'a micro dot, smaller than a find\'s');
-    assert.lt(DOTS.GPS_RIM_DOT.r, DOTS.EDGE_DOT_R);
+    assert.eq(DOTS.EDGE_DOT_R * 2, 3);
     assert.eq(s.circles[0].r, DOTS.GPS_RIM_DOT.r + 1, 'its keyline a pixel wider');
     assert.truthy(s.circles[1].x > 300 && Math.abs(s.circles[1].y - 272) < 1, 'on the right rim, toward the fix');
     // Zoomed in, the same screen point is off the map sooner.
@@ -89,7 +90,7 @@
     assert.eq(p.right, 176 + 176 / 2 - 5, 'at 2×: half the square shows, so the rim is half as far');
     assert.eq(p.left, 176 - 176 / 2 + 5); assert.eq(p.top, 272 - 88 + 5); assert.eq(p.bottom, 272 + 88 - 5);
     assert.truthy(Math.abs(s.circles[1].x - p.right) < 1e-9, 'the dot sits on that rim');
-    assert.eq(s.circles[1].r, 3 / 2, 'and shrinks with the zoom so it stays the same size on screen');
+    assert.eq(s.circles[1].r, 1.5 / 2, 'and shrinks with the zoom so it stays the same size on screen');
   });
   test('edge dots: the rim layer is wiped every frame before the bearings draw', () => {
     const at = SCENE_SRC.indexOf('\n    this._drawMarkers();');
@@ -187,7 +188,7 @@
       const p = s.circles[1];
       assert.truthy(p.x === 5 || p.x === 347 || p.y === 101 || p.y === 443, 'dot touches an inset edge');
       assert.truthy(p.x >= 5 && p.x <= 347 && p.y >= 101 && p.y <= 443, 'whole dot remains visible');
-      assert.eq(p.r, 3);
+      assert.eq(p.r, 1.5);
     }
   });
   test('edge dots: rotated diagonal bearings stay on the circular rim through zoom and peek', () => {
@@ -201,20 +202,22 @@
         const point = s._drawEdgeDot(100, 100, 0xffd24a);
         const screen = HeadingUp.toOverlayPt(s, point.x, point.y);
         assert.inRange(Math.hypot(screen.x - 176, screen.y - 272), 170.999, 171.001);
-        assert.inRange(s.circles[1].r * zoom, 2.999, 3.001, 'dot stays touch-visible at pinch zoom');
+        assert.inRange(s.circles[1].r * zoom, 1.499, 1.501, 'dot stays touch-visible at pinch zoom');
         s._edgeDotPoints = { target: point };
         assert.truthy(s._tapEdgeDot(point.x, point.y), 'inverse-transformed tap finds the visible dot');
       }
     } finally { HeadingUp.enabled = wasEnabled; }
   });
-  test('edge dots: close targets retain bearings and a peek uses the player location', () => {
+  test('edge dots: close targets mark their actual location through a peek', () => {
     const s = fixture();
     s.playerScreen = () => ({ x: 80, y: 190 });
     s._drawEdgeDot(2, 1, 0xffd24a);
-    assert.eq(s.circles[1].x, 347);
-    assert.eq(s.circles[1].y, 323.5);
+    assert.eq(s.circles[1].x, 100);
+    assert.eq(s.circles[1].y, 200);
     s._drawEdgeDot(0, 0, 0xffd24a);
-    assert.eq(s.circles.length, 2, 'no undefined bearing when already on target');
+    assert.eq(s.circles.length, 4, 'target at the player remains marked');
+    assert.eq(s.circles[3].x, 80);
+    assert.eq(s.circles[3].y, 190);
   });
   test('edge dots: clipped map boundaries stay within the screen', () => {
     const s = fixture();
