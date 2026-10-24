@@ -36,6 +36,36 @@
     assert.eq(f.scene.depth, 1); assert.eq(f.scene.persisted, 1);
     assert.eq(f.hole.phase, 'open', 'falling never closes the source pit');
   }));
+  for (const collapsing of [false, true]) test(`hazard falls: ${collapsing ? 'fresh collapse' : 'open pit'} has its own landing story`, () => fixture(async f => {
+    const gate = deferred(); let modal;
+    f.world.loadTile.atDepth = () => gate.promise;
+    f.scene.showMessageModal = m => { modal = m; };
+    f.hole.type = 'cavein';
+    const pending = HazardFalls.fall(f.scene, f.hole, { collapsing });
+    assert.eq(modal, undefined, 'no fall story before a safe landing is ready');
+    gate.resolve(f.ready); assert.truthy(await pending);
+    assert.eq(modal.art, collapsing ? 'fall_cave_in' : 'fall_open_pit');
+    const dims = webpDims(`assets/art/${modal.art}.webp`);
+    assert.truthy(dims && Math.abs(dims.w / dims.h - 4 / 3) < .01, 'fall event has its own 4:3 painting');
+    assert.truthy(ART_THUMBS_SRC.includes(`  ${modal.art}: 'data:image/webp;base64,`), 'fall painting has an inline thumbnail');
+    assert.eq(modal.title, collapsing ? 'The ground gives way' : 'Into the pit');
+    assert.truthy(modal.mustAcknowledge);
+    assert.eq(f.scene.depth, 1); assert.eq(f.scene.save.energy, 50);
+    assert.truthy(f.scene._hazardFallPending, 'story holds the shared fall lock');
+    assert.falsy(await HazardFalls.fall(f.scene, { ...f.hole, depth: 1 }));
+    modal.onDismiss(); modal.onDismiss();
+    assert.falsy(f.scene._hazardFallPending);
+    assert.eq(f.transitions.length, 1, 'acknowledgement never repeats the fall');
+    f.scene._hazardFallPending = true;
+    modal.onDismiss();
+    assert.truthy(f.scene._hazardFallPending, 'a stale dismissal cannot unlock another fall');
+  }));
+  test('hazard falls: unavailable story UI releases the fall lock', () => fixture(async f => {
+    f.scene.showMessageModal = () => { throw Error('modal unavailable'); };
+    await HazardFalls.fall(f.scene, f.hole, { collapsing: true });
+    assert.eq(f.scene.depth, 1, 'the safe landing was already committed');
+    assert.falsy(f.scene._hazardFallPending, 'failed presentation never strands the pending lock');
+  }));
   for (const depth of [2, 3, 4, 6]) test(`hazard falls: a sealed floor (${depth} -> ${depth + 1}) never gives way`, () => fixture(async f => {
     const { scene, hole, calls, transitions } = f;
     assert.falsy(DungeonProgression.canUseDescent(scene.save, depth, depth + 1, 'rope'), 'sanity: the seal reads the same table');
@@ -71,6 +101,7 @@
     assert.eq(await HazardFalls.fall(f.scene, f.hole), false);
     assert.eq(loads, 1); assert.eq(f.scene.depth, 1);
     gate.resolve(f.ready); assert.eq(await pending, true); assert.truthy(modal);
+    assert.eq(modal.art, 'fall_open_pit', 'an existing chasm never uses the cave entrance painting');
     assert.eq(await HazardFalls.fall(f.scene, f.hole), false);
     assert.eq(loads, 1); assert.eq(damage, 0); assert.eq(f.scene._caveFallPending, true);
     modal.onDismiss(); modal.onDismiss();

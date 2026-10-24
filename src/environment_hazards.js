@@ -377,7 +377,9 @@
           && !h.fallPending && !scene._hazardFallPending && h.elapsedMs >= (h.nextFallMs || 0)) {
         h.fallPending = true;
         h.nextFallMs = h.elapsedMs + CONFIG.contactMs;
-        Promise.resolve(root.HazardFalls.fall(scene, h)).then(ok => { h.fallTriggered = ok === true; })
+        // Capture the opening edge now: loading the landing may outlast this
+        // tick. Returning later to the same cave-in is an already-open pit.
+        Promise.resolve(root.HazardFalls.fall(scene, h, { collapsing: before !== 'open' })).then(ok => { h.fallTriggered = ok === true; })
           .catch(() => {}).finally(() => { h.fallPending = false; });
         break; // A depth transition must not process the old floor again.
       }

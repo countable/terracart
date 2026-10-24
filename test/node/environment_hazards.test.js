@@ -360,11 +360,12 @@
     dungeon(s, entries); EnvironmentHazards.observe(s);
     const h = EnvironmentHazards.lists(s).caveins[0], old = globalThis.HazardFalls;
     for (const member of EnvironmentHazards.lists(s).caveins) member.elapsedMs = 4900;
-    let calls = 0;
-    globalThis.HazardFalls = { fall: async () => { calls++; s.depth = 2; return true; } };
+    let calls = 0; const collapsing = [];
+    globalThis.HazardFalls = { fall: async (scene, hole, reason) => { calls++; collapsing.push(reason.collapsing); s.depth = 2; return true; } };
     try {
       EnvironmentHazards.tick(s, .1); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
       assert.eq(calls, 1); assert.eq(h.phase, 'open');
+      assert.eq(collapsing[0], true, 'the opening beneath the player is a fresh collapse');
       for (const member of s._environmentHazards.get(1).caveins) {
         assert.eq(member.phase, 'open', 'whole cluster opens before descent');
         assert.eq(s.save.caveIns[member.id].elapsedMs, 5000);
@@ -372,6 +373,7 @@
       s.depth = 1; advance(s, 1000);
       await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
       assert.eq(calls, 2, 'returning to the same open pit falls again');
+      assert.eq(collapsing[1], false, 'returning to an existing cave-in is an open-pit fall');
       assert.eq(s.save.caveIns[h.id].elapsedMs, 5000);
     } finally { globalThis.HazardFalls = old; }
   }));
