@@ -22,6 +22,18 @@
         assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, cls), cls + ' excluded on road');
     }
   });
+  test('exclusion bedrock: building ownership protects cells even when their ground was repainted', () => {
+    const f = lot();
+    f.owners = new Uint16Array(49);
+    f.owners[24] = 1;
+    f.owners[25] = 1;
+    f.residentialGrid = f.grid.slice();
+    f.grid[25] = T.PARK;
+    assert.eq(stamp(f), 47);
+    assert.eq(f.grid[24], T.RESIDENTIAL, 'house cell retains its ground');
+    assert.eq(f.grid[25], T.PARK, 'repainted building footprint retains its ground');
+    assert.eq(f.grid[23], T.EXCLUSION_ROCK, 'unoccupied private land still becomes rock');
+  });
   test('exclusion bedrock: source water and building footprints remain physical surfaces', () => {
     for (const type of [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.WATER]) {
       const f = lot(); f.grid[24] = type; stamp(f);

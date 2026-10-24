@@ -502,7 +502,8 @@ access or tile lifecycle mechanics.
 - Excluded ground uses permanent `EXCLUSION_ROCK`, which blocks player movement
   and cannot be mined or tilled. Medium/large road surfaces remain visible roads
   while refusing every spawn. Water and building footprints retain their
-  physical surfaces and remain Excluded. Tier classification precedes final placement so
+  physical surfaces and remain Excluded. Building ownership protects house/footprint
+  cells even if their terrain was repainted. Tier classification precedes final placement so
   a rejected cell cannot retain an object from an earlier placement pass.
 - Source access evidence still records private/restricted/quiet land, sensitive
   sites, kindergarten grounds, public pier access and farm/golf restrictions.
