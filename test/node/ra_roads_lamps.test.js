@@ -1,9 +1,9 @@
 // Phase 1 changes material selection, not street geometry or restoration IDs.
 test('RA roads: restoration keeps variant material and repairs ordinary pavers', () => {
-  assert.eq(RoadOverlay.roadMaterialFor('', false), 'R02');
-  assert.eq(RoadOverlay.roadMaterialFor('', true), 'R01');
-  for (const [variant, material] of Object.entries({ lantern:'R03', hedgerow:'R04',
-      toadstool:'R05', burned:'R06', poison_path:'R07' })) {
+  assert.eq(RoadOverlay.roadMaterialFor('', false), 'ROAD-natural');
+  assert.eq(RoadOverlay.roadMaterialFor('', true), 'ROAD-natural');
+  for (const [variant, material] of Object.entries({ lantern:'ROAD-warm', hedgerow:'ROAD-moss',
+      toadstool:'ROAD-mauve', burned:'ROAD-charcoal', poison_path:'ROAD-marsh' })) {
     assert.eq(RoadOverlay.roadMaterialFor(variant, false), material);
     assert.eq(RoadOverlay.roadMaterialFor(variant, true), material);
   }

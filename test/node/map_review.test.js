@@ -69,6 +69,20 @@ test('map review: source road bands have biome ground rather than a second raste
   assert.eq(keys.join(','),'biome0_0,biome1_0,biome0_0,biome1_0','all road cells match their biome texture');
 });
 
+test('map review: winning Nexus texture replaces the ordinary biome', () => {
+  const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},
+    setOptions:(layer,options)=>{layer.options=options;}};
+  const art=new Function('L','WorldGen','BIOME_TEX','COLORS','zoneGroundColor','zoneGroundTexture',
+    MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(L,WorldGen,{2:{variants:1}},{2:0xccaa88},()=>null,
+    (entry,index)=>index===0?'zone_ground_G10':null);
+  const layer=art.layer({getEdge:()=>32}), keys=[];
+  layer._world={tiles:[{tx:0,ty:0,cellsPerEdge:2,grid:[2,2,2,2]}],scene:{}};
+  layer._assets={textures:{get:key=>({getSourceImage:()=>{keys.push(key);return key;}})}};
+  layer._roadsForTile=()=>[];
+  layer._paintGround({fillRect(){},drawImage(){}},{x:32,y:32},(x,y)=>({x,y}));
+  assert.eq(keys.join(','),'zone_ground_G10,biome2_0,biome2_0,biome2_0');
+});
+
 test('map review: spawn overlays derive verdicts from tier permissions, not legacy source flags', () => {
   const review=new Function('WorldGen','GameplayTiers',MAP_REVIEW_GROUND_SRC+'\nreturn MapReviewGround;')(WorldGen,GameplayTiers);
   assert.eq(review.spawnVerdict(GameplayTiers.CORE),WorldGen.SPAWN_OPEN);
@@ -111,3 +125,32 @@ test('tool pages: the shared loader\'s own pattern still finds the game\'s modul
   assert.truthy(/const APP_SRC = 'src\/app\.js/.test(INDEX_HTML_SRC), 'app.js is still the boot line\'s (the loader appends it)');
 });
 })();
+
+test('map review: tinted Nexus grounds use native masks while other Nexus textures retain ownership', () => {
+  const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},setOptions:(layer,options)=>{layer.options=options;}};
+  const native=new Function(ALL_SRC['ra_terrain_trial.js']+'\nreturn RATerrainTrial;')();
+  const art=new Function('L','WorldGen','RATerrainTrial','tileCellToAbs','zoneGroundColor','zoneGroundTexture','isBuildingType',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
+    L,WorldGen,native,(_,tx,ty,x,y)=>({cellIX:tx*2+x,cellIY:ty*2+y}),()=>0x777777,()=> 'zone_ground',()=>false);
+  const e={tx:0,ty:0,cellsPerEdge:2,grid:[29,31,2,28]};
+  const layer=art.layer({});layer._world={tiles:[e],scene:{}};
+  const ring=layer._terrainRing(e);
+  assert.eq(ring.materials[5],8,'Churchyard uses native tinted masks');
+  assert.eq(ring.materials[6],9,'Tar Yard uses native tinted masks');
+  assert.eq(ring.materials[9],-1,'beach retains its selected Nexus texture');
+  assert.eq(ring.materials[10],-1,'grove retains its selected Nexus texture');
+});
+
+test('map review: layered terrain paints the base and masks in the same cell rectangle', () => {
+  const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},setOptions:(layer,options)=>{layer.options=options;}};
+  const native={select:()=>({key:'ra_terrain_source',frame:15,layers:[33,76]})};
+  const art=new Function('L','WorldGen','RATerrainTrial','tileCellToAbs','zoneGroundTexture','MountainEdges',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
+    L,WorldGen,native,()=>({cellIX:0,cellIY:0}),()=>null,{select:()=>null});
+  const layer=art.layer({getEdge:()=>32}),calls=[];
+  layer._world={tiles:[{tx:0,ty:0,cellsPerEdge:1,grid:[0]}],scene:{}};
+  layer._terrainRing=()=>({types:[],materials:[],stride:3});
+  layer._assets={scene:{_raTerrainReady:true},textures:{get:()=>({get:f=>({cutX:f,cutY:0,width:16,height:16}),getSourceImage:()=> 'source'})}};
+  layer._roadsForTile=()=>[];
+  layer._paintGround({drawImage(...args){calls.push(args);}},{x:32,y:32},(x,y)=>({x,y}));
+  assert.eq(calls.map(a=>a[1]).join(','),'15,33,76','base then masks');
+  for(const args of calls)assert.eq(args.slice(5).join(','),'0,0,32,32','same full cell footprint');
+});
