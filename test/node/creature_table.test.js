@@ -130,8 +130,6 @@ test('creature table: animal interaction timing has one owner beside behaviour',
   assert.eq(a.produceCooldownMs, 60 * 60 * 1000, 'one yield per hour');
   assert.truthy(/ANIMAL_INTERACTION\.produceCooldownMs/.test(INTERACT_SRC),
     'production reads its cooldown from the owner');
-  assert.truthy(/SpriteLayout\.creatureProduce\(c\.kind\)/.test(SCENE_SRC),
-    'honey asks the producer predicate instead of naming chicken and cow again');
 });
 
 test('creature table: a scarecrow turns back the crow and the deer, and nothing else', () => {

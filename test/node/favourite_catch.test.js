@@ -154,6 +154,51 @@ test('favourite: a wrong gem is refused and kept, and the tap names what it love
   assert.eq(rec.flashes[0], 'Goblin\nLoves Amethyst');
 });
 
+test('sugar: setting it out calms all nearby wild animals and leaves other bodies alone', () => {
+  const start = SCENE_SRC.indexOf('  useSugar() {');
+  const end = SCENE_SRC.indexOf('\n  }\n', start) + 4;
+  const useSugar = new Function('return ({' + SCENE_SRC.slice(start, end) + '}).useSugar;')();
+  const animals = ['chicken', 'cow', 'horse', 'deer', 'rabbit', 'butterfly',
+    'cat', 'dog', 'sea_turtle', 'crow', 'green_dragon', 'shiny_horse']
+    .map(kind => ({ id: 'sugar_' + kind, kind, x: 10, y: 0 }));
+  const excluded = [
+    { id: 'sugar_foe', kind: 'goblin' },
+    { id: 'sugar_hostile_producer', kind: 'crab' },
+    { id: 'sugar_neighbour', kind: 'npc' },
+    { id: 'sugar_pet', kind: 'horse', pet: true },
+    { id: 'sugar_summon', kind: 'spirit_raven' },
+    { id: 'sugar_caught', kind: 'deer' },
+    { id: 'sugar_far', kind: 'rabbit', x: CONSUMABLE_SPEC.sugar_potion.radiusM + 1 },
+  ].map(c => ({ x: 10, y: 0, ...c }));
+  const save = newSave({ caught: ['sugar_caught'] });
+  Inventory.add(save, 'sugar_potion', 1);
+  save.selSlot = 0;
+  let spent = 0;
+  const scene = {
+    save, startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
+    _selectedConsumable: id => getSelectedSlot(save)?.id === id,
+    _finishConsumable: () => { spent++; Inventory.remove(save, 'sugar_potion', 1); return true; },
+  };
+  const original = globalThis.WorldGen;
+  try {
+    globalThis.WorldGen = { ...original, tileCache: new Map([
+      ['0,0', { creatures: [...animals, ...excluded] }],
+    ]) };
+    assert.truthy(useSugar.call(scene));
+    for (const c of animals) {
+      assert.truthy(Combat.isCalm(c), c.kind + ' calmed');
+      assert.eq(c._nextChooseT, 0, c.kind + ' drawn toward the player');
+    }
+    for (const c of excluded) {
+      assert.falsy(Combat.isCalm(c), c.id + ' unaffected');
+      assert.eq(c._homeX, undefined, c.id + ' not redirected');
+    }
+    assert.eq(spent, 1, 'one potion spent');
+    assert.falsy(useSugar.call(scene), 'empty selection cannot use another potion');
+    assert.eq(spent, 1);
+  } finally { globalThis.WorldGen = original; }
+});
+
 test('favourite: a story foe is not catchable — its gem is kept and no wheel starts', () => {
   const g = foe('goblin', { storyEncounter: 'story_key' });
   assert.falsy(Pets.catchable(g)); assert.falsy(Pets.canCatch(newSave(), g));

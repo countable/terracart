@@ -58,3 +58,16 @@ test('polygon geometry: ear clipping covers concave footprints and preserves inp
   assert.eq(PolygonGeometry.triangulate(Array.from({length:4}, () => ({x:0,y:0}))).length, 0,
     'failed ear selection never returns a partial mesh');
 });
+
+test('polygon geometry: cell union integrates crossing edges, clipped strips and concave footprints exactly', () => {
+  const ring = points => points.map(([x,y])=>({x,y}));
+  const a=ring([[0,0],[1,0],[0,1]]), b=ring([[0,0],[1,0],[1,1]]);
+  const area=(rings,expected)=>assert.inRange(PolygonGeometry.unionAreaInCell(rings,0,0),expected-1e-12,expected+1e-12);
+  area([a,b],.75);
+  area([b,a,a],.75);
+  area([a,[...b].reverse()],.75);
+  area([ring([[-1,.45],[2,.45],[2,.55],[-1,.55]])],.1);
+  const concave=ring([[-1,0],[1,0],[1,.1],[-.5,.1],[-.5,.9],[1,.9],[1,1],[-1,1]]);
+  area([concave],.2);
+  area([concave,ring([[.4,-1],[.5,-1],[.5,2],[.4,2]])],.28);
+});

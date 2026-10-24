@@ -102,8 +102,10 @@ test('tilled bed: render.js paints no soil fill and no rounded path for a tilled
 
 test('tilled bed: the watered tint rides the pad sprite, on every frame', () => {
   const src = RENDER_SRC;
-  const m = src.match(/ns\.setTint\(isWatered \? WATERED_TINT : 0xffffff\);/);
-  assert.truthy(m, 'the tilled pad sprite is tinted from isWatered, and cleared when not');
+  assert.truthy(/ns\.setTint\(isWatered && !selected \? WATERED_TINT : 0xffffff\);/.test(src),
+    'fallback beds are tinted without tinting native transition ground');
+  assert.truthy(/bed\.setPosition[^\n]+setTint\(isWatered \? WATERED_TINT : 0xffffff\)/.test(src),
+    'native-ground beds are tinted from isWatered, and cleared when not');
   const tint = src.match(/const WATERED_TINT = (0x[0-9a-f]{6});/);
   assert.truthy(tint, 'WATERED_TINT is a module constant');
   // The old wash was 22% black: a multiply of ~0.78 per channel.

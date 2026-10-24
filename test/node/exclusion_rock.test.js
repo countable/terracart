@@ -41,16 +41,48 @@
     assert.eq(f.grid[25], T.ROCKY_GROUND, 'repainted footprint gets rocky ground');
     assert.eq(f.grid[23], T.EXCLUSION_ROCK, 'unoccupied private land still becomes rock');
   });
-  test('exclusion bedrock: even unowned building footprint slivers exclude rocks', () => {
+  test('exclusion bedrock: house coverage below 15% admits solid rock while the threshold stays passable', () => {
     const f = lot();
     f.cellWidthM = 10;
     f.buildingShapes = [{ ring: [39, 30, 41, 30, 41, 40, 39, 40] }];
-    assert.eq(stamp(f), 47);
-    assert.eq(f.grid[24], T.ROCKY_GROUND, 'left sliver');
-    assert.eq(f.grid[25], T.ROCKY_GROUND, 'right sliver');
-    assert.truthy(W.isWalkable(f.grid[24]), 'trimmed ground stays passable');
+    assert.eq(stamp(f), 49);
+    assert.eq(f.grid[24], T.EXCLUSION_ROCK, '10% left sliver');
+    assert.eq(f.grid[25], T.EXCLUSION_ROCK, '10% right sliver');
+    assert.falsy(W.isWalkable(f.grid[24]), 'small slivers no longer create a passable gap');
     assert.falsy(isTillableCell({ type: f.grid[24] }));
     assert.eq(f.grid[23], T.EXCLUSION_ROCK, 'uncovered land still becomes rock');
+    for (const [width, expected] of [[1.4999,T.EXCLUSION_ROCK],[1.5,T.ROCKY_GROUND],[1.5001,T.ROCKY_GROUND]]) {
+      const edge = lot(); edge.cellWidthM = 10;
+      edge.buildingShapes = [{ ring: [30,30,30+width,30,30+width,40,30,40] }];
+      stamp(edge); assert.eq(edge.grid[24],expected,width+' metres of a ten-metre cell');
+    }
+  });
+  test('exclusion bedrock: overlapping and duplicate houses use their union rather than summed coverage', () => {
+    const rectangle = (left,right) => ({ ring: [left,30,right,30,right,40,left,40] });
+    for (const [shapes,expected] of [
+      [[rectangle(30,31),rectangle(30,31)],T.EXCLUSION_ROCK],
+      [[rectangle(30,31),rectangle(30.4,31.4)],T.EXCLUSION_ROCK],
+      [[rectangle(30,31),rectangle(30.5,31.5)],T.ROCKY_GROUND],
+      [[rectangle(30,30.8),rectangle(39.2,40)],T.ROCKY_GROUND],
+    ]) for (const ordered of [shapes,[...shapes].reverse()]) {
+      const f=lot(); f.cellWidthM=10; f.buildingShapes=ordered;
+      stamp(f); assert.eq(f.grid[24],expected,'union is independent of footprint order');
+    }
+  });
+  test('exclusion bedrock: narrow diagonal slivers and clipped tile edges obey actual area', () => {
+    const f=lot(); f.cellWidthM=10;
+    f.buildingShapes=[{ring:[30,30,40,30,30,32]}, {ring:[-9,0,1,0,1,70,-9,70]}];
+    f.owners=new Uint16Array(49); f.owners[24]=1;
+    stamp(f);
+    assert.eq(f.grid[24],T.EXCLUSION_ROCK,'10% triangular house sliver overrides conservative cell ownership');
+    for(let y=0;y<7;y++) assert.eq(f.grid[y*7],T.EXCLUSION_ROCK,'10% seam sliver at row '+y);
+    for(const [width,expected] of [[.14999,T.EXCLUSION_ROCK],[.15,T.ROCKY_GROUND]]) {
+      const N=512,grid=new Uint8Array(N*N).fill(T.RESIDENTIAL);
+      W.stampExclusionRock(grid,N,N,{cellWidthM:1,gameplayTiers:new Uint8Array(N*N).fill(4),
+        spawnWhy:new Uint32Array(N*N).fill(S.PRIVATE),
+        buildingShapes:[{ring:[500,500,500+width,500,500+width,501,500,501]}]});
+      assert.eq(grid[500*N+500],expected,'coverage remains accurate far from the tile origin');
+    }
   });
   test('exclusion bedrock: fills every footprint-free cell right up to an aligned building edge', () => {
     const f = lot();

@@ -267,8 +267,10 @@ mechanics.
   `GEM_DEPOSITS`, never typed per row); the Potion of Taming (T7, loot only;
   thrown, a minute of charm) is every one's favourite too
   (`UNIVERSAL_FAVOURITE`, read in `animalLikesFood`). The Sugar Potion (T2,
-  two berries at Home) is the cheap half: offered, thrown or set out, it lands
-  the `calm` status (`Combat.calm`, animals only) and the animal does not
+  two berries at a workshop) is the cheap half: offered, thrown or set out, it lands
+  the `calm` status (`Combat.calm`, animals only); setting it out draws in
+  every nearby wild animal, including species that give no produce. Owned
+  pets, summoned allies, foes and neighbours are excluded. The animal does not
   bolt, flee a blow or run from the net while it holds. A golden berry
   (`CONSUMABLE_SPEC.goldenberry.charmsFoe`) offered to an enemy lands the
   `charm` status through `Combat.applyCharm` for `charmFeedMs`: a minute less

@@ -60,15 +60,16 @@ def pieces(mask, variant):
 def main():
     OUT.mkdir(parents=True,exist_ok=True)
     atlas=Image.new('RGBA',(1024,1024))
-    # The RA olive soil is the visible substrate under transparent cliff edges.
-    ground=Image.open(ROOT/'assets/ArtTrials/RogueTerrain/tiles.png').convert('RGBA').crop((240,32,256,48)).resize((32,32),Image.Resampling.NEAREST)
     for variant in range(4):
         for mask in range(256):
-            tile=ground.copy()
+            # TerrainTransitions supplies the live neighbouring ground below.
+            # Preserve source transparency so narrow edges cannot stamp an
+            # unrelated square of soil over that substrate.
+            tile=Image.new('RGBA',(32,32))
             for key,box in pieces(mask,variant): tile.alpha_composite(source(key).crop(box),(box[0],box[1]))
             frame=variant*256+mask
             atlas.paste(tile,(frame%32*32,frame//32*32))
     atlas.save(OUT/'mountain-edges.png',optimize=True)
-    (OUT/'mountain-edges.json').write_text(json.dumps(dict(source=str(SOURCE.relative_to(ROOT)),frameSize=32,columns=32,frames=1024,variants=4,neighbours=OFFSETS,palette=RAMP,sourceSHA256=sources,notes='Purchased pack; RA olive-grey palette. No stair or deep-notch edges. Full cells where possible, quarter corners for narrow/complex boundaries.'),indent=2)+'\n')
+    (OUT/'mountain-edges.json').write_text(json.dumps(dict(source=str(SOURCE.relative_to(ROOT)),frameSize=32,columns=32,frames=1024,variants=4,neighbours=OFFSETS,palette=RAMP,sourceSHA256=sources,notes='Purchased pack; RA olive-grey palette. Transparent source exteriors reveal the runtime ground substrate. No stair or deep-notch edges. Full cells where possible, quarter corners for narrow/complex boundaries.'),indent=2)+'\n')
     print('Exported 1024 mountain edge frames')
 if __name__ == '__main__': main()
