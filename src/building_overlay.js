@@ -1606,7 +1606,7 @@
           if (d.retail) for (const [i, hole] of (d.holes || []).entries()) {
             BuildingLowPoly.add(scene, hole, recipe, variant, `${object.id}:court:${i}`, []);
           }
-          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale });
+          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale, wallOutset: model.wallOutset || 0 });
         }
         if (!model?.faces?.length) {
           if (homePrisms) {
