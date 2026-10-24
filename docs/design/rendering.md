@@ -1090,7 +1090,10 @@ the reach rim within the existing player-light radius.
   named themes retain their selected family across restoration. The source
   texture replaces procedural stone grain, mushroom spots and slime decoration;
   existing road geometry, widths, keep-outs, rail furniture and edge transitions
-  stay unchanged. Source wear replaces the duplicate weathering wash.
+  stay unchanged. Worn bands use a world-phased chipped fringe extending
+  3px inward per side, exposing the surrounding terrain through larger bites.
+  This reuses the existing noise and interior-repair passes without adding blur
+  or per-frame work. Source wear replaces the duplicate weathering wash.
   Burned Row retains its existing ember warning over the charcoal source stone.
   Rift suppression uses the same RA paver with a cached turquoise wash beneath its
   existing explicit mineral-fracture treatment.
