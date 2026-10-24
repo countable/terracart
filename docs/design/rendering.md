@@ -71,12 +71,13 @@ areas, rather than subdividing the map to match close-up source art. Selected
 compatible props may come from other packs; inactive comparison profiles are archived.
 
 The default profile applies native Rogue Adventure ground to the normal geographic
-world. It does not install an authored scene. Grass, residential land and parks
-use village grass; forest and orchard use jungle grass; farmland uses olive soil;
+world. It does not install an authored scene. Parks use village grass; grass,
+forest and orchard use jungle grass; residential land uses the selected light
+slate (see the RA ground materials rule below); farmland uses olive soil;
 wetland uses dark olive soil; sand, water and civic/commercial/industrial ground
 use the corresponding sand, water and stone families. Piers retain their existing
-deck over water. Ordinary RA roads repeat 8×4px stones in running bond inside
-each 32px/approximately 7m cell, rather than 16px slabs; these are texture details,
+deck over water. Ordinary RA roads use the sparse cobbles described below,
+several to each 32px/approximately 7m cell; these are texture details,
 not smaller gameplay cells. Special pavement identities remain unchanged.
 Roads keep their vector widths and inherit the existing source
 landcover/theme lookup beneath it. Polygonal buildings retain their architecture
@@ -340,10 +341,11 @@ opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wrecks are broken plinths: sparse 4–8-unit masonry courses, broad breaches,
-stepped tops, and a few 2–4-unit fallen blocks. There are no roofs or raised
-framing. The native pixel wall texture matches the FDR system walls; pale caps
-and fine Rogue Adventure rubble share one prebuilt atlas. The flat floor follows
+Wrecks follow the Foundation trace preview: sparse 1–2-unit stone footings,
+broad breaches, stepped tops, and a few low fallen fragments. About a quarter
+of the perimeter survives, with three-unit thickness. There are no roofs or
+raised framing. Native Ruined Medieval Village stone and fine Rogue Adventure
+rubble share one prebuilt atlas. The flat floor follows
 the exact triangulated footprint and sorts as a ground decal beneath the player.
 Each raised section sorts independently at its baseline, so the player can walk
 between near and far remains. Surface player movement already permits wrecks.
@@ -1048,14 +1050,16 @@ the reach rim within the existing player-light radius.
   source landcover (`roadUnder` / `pathUnder`), then the surrounding biome and grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
 - Native RA ground materials follow resolved landcover, never coordinate-noise
-  soil islands. Grass shares the Orchard native family; Residential uses selected
-  Rock. Churchyard and Tar Yard (including their Nexus variants) use their tinted
+  soil islands. Grass shares the Orchard native family; Residential uses
+  `G09-light-slate`, the Rock crop lifted 30 levels so suburbs do not read dark
+  (Rock, quarries and bedrock keep `G09-cold`). Churchyard and Tar Yard (including their Nexus variants) use their tinted
   interiors with RA earth masks; water layers last to preserve its authored banks.
   Game and map review share these transitions. Other Nexus materials retain their
   selected texture owner. Ten families bound the startup atlas to 1600 × 1600 pixels
   (9.8 MiB RGBA); no runtime pixel reads or per-cell canvases are added.
 - Road surfaces use sparse, individually shaded cobbles with transparent ground
-  gaps. Each theme has its approved colour; unrestored stones retain 35% colour
+  gaps, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
+  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
   saturation, while restored stones regain colour and add missing cobbles at the
   same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.

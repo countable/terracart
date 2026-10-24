@@ -49,16 +49,10 @@
 
 const Render = {};
 
-// Picked fruit can leave its plant standing. This is a render-only view:
-// the original id stays spent, including after reloading the saved ledger.
+// Picked fruit remains choppable scenery until the plant itself is cleared.
 Render.wildplantView = function (plant, sets) {
-  if (sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
-  const picked = !plant.tide && sets.picked.has(plant.id);
-  if (picked) {
-    const crop = wildplantRule(plant.crop)?.pickedCrop;
-    return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary', _hedgeFrame: undefined,
-      _zoneObjectFrame: undefined, _streetArt: undefined } : null;
-  }
+  if (sets.chopped?.has(plant.id) || sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  if (!plant.tide && sets.picked.has(plant.id)) return wildplantRemnant(plant, sets);
   return isSpent(plant, sets) ? null : plant;
 };
 

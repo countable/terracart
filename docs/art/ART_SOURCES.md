@@ -173,3 +173,14 @@ atlas to `assets/terrain/mountain-edges.png`, with source hashes and palette in
 `mountain-edges.json`. The derivative uses 32px tiles, an RA-compatible olive-grey
 ramp and RA olive-soil substrate. Original sheets remain in the local source pack;
 the game does not load them or the earlier rock-option study assets.
+
+### Falling through the ground
+
+`assets/art/fall_open_pit.webp` and `fall_cave_in.webp` are separate 4:3 event
+paintings generated with the built-in image tool on 2026-10-24, using the
+approved `story-style-references/cave.png` master for Hood and the painterly
+pixel treatment. The first shows a fall past an intact, already-open edge;
+the second shows the floor breaking beneath Hood amid falling fragments.
+Full-resolution masters are archived at `~/.artifacts/fall-event-art/` as
+`fall_open_pit-master.png` and `fall_cave_in-master.png`. Runtime exports are
+512×384 WebP at quality 85; `tools/art_thumbs.js` builds their loading previews.

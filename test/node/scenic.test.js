@@ -557,12 +557,13 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const src = INTERACT_SRC;
   const at = src.indexOf("{ name: 'wildplant', try: (ctx) => {");
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
-  assert.truthy(/const award = \(\) => \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return false;/.test(body),
-    'the award asks the one spent predicate first');
+  assert.truthy(body.includes('const current = spentSets(scene, save);')
+      && body.includes(': isSpent(wp, current)) return false;'),
+    'ordinary and tide awards recheck the shared spent predicate; remnants recheck their own state');
   assert.truthy(/if \(wp\.tide\) \{\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => \(!ctx\.grassOnly \|\| WorldGen\.isGrassCover\(wp\)\)\s*&& !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
-    'and the tap asks the one spent predicate');
+  assert.truthy(body.includes('!isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id))'),
+    'ordinary and tide tap targets use the shared spent predicate');
 });
 
 // ── Safety and seams on the real fixtures ───────────────────────────────
