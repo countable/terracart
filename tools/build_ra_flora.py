@@ -52,9 +52,9 @@ def build():
                 sha256=hashlib.sha256(output.read_bytes()).hexdigest())
     # Rocks render as 3D meshes. Update just the two approved stone materials;
     # preserve every crate material and every other rock frame byte-for-byte.
-    material = Image.open(ROOT / 'assets/Objects/LowPolyProps/materials.png').convert('RGBA')
-    manifest = json.loads((ROOT / 'assets/Objects/LowPolyProps/manifest.json').read_text())
-    stones = sheets['assets/Objects/Rocks/rocks-16.png']['image']
+    material = Image.open(ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps/materials.png').convert('RGBA')
+    manifest = json.loads((ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps/manifest.json').read_text())
+    stones = sheets['extra_assets/inactive/assets/Objects/Rocks/rocks-16.png']['image']
     for entry in manifest['entries']:
         if entry['kind'] != 'rock' or entry['frame'] not in (0, 20):
             continue

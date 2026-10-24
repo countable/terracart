@@ -307,6 +307,7 @@
   // floor rhythm and trim stay authored. No per-frame randomness.
   const WALL_RECIPES = Object.freeze({
     plain: { material:'plaster', body:0xb9a78a, trim:0x735741, roof:0x985c49, stories:1 },
+    workshop: { material:'timber', body:0xb69a70, trim:0x70533d, roof:0x66837e, stories:1 },
     blacksmith: { material:'stone', body:0x92958f, trim:0x626961, roof:0x555b60, stories:1 },
     trader: { material:'sandstone', body:0xc1a77c, trim:0x73573b, roof:0x927349, stories:1 },
     seed: { material:'plaster', body:0xa4ac87, trim:0x64714a, roof:0x507957, stories:1 },
@@ -1341,8 +1342,6 @@
   function authoredRecipe(scene,object,role){
     if(typeof AuthoredBuildings==='undefined')return null;
     const display=Houses.displayRole(scene.save,object);
-    const themed=typeof DreamlandObjects!=='undefined'&&DreamlandObjects.buildingRecipe(object,scene,role);
-    if(themed)return themed;
     return AuthoredBuildings.recipeFor(role,object.id,Shops.shopTier(scene.save,object,display)||1,
       role==='wizard'&&Houses.wizardTowerIdentity(scene.save,object)==='second');
   }
@@ -1668,9 +1667,7 @@
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
                 trim:role==='turret'?paint(palette.wall):undefined},Render.buildingStoreysFor(object, scene),isMine);
-          if(typeof DreamlandObjects!=='undefined'&&DreamlandObjects.enabled
-              &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='dreamland';
-          else if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled
+          if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled
               &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='rogue';
           recipe.authored = styleId==='ruin'?null:authoredRecipe(scene,object,role);
           // Restored recipes own their brass/copper palette; apply the same

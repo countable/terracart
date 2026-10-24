@@ -1,5 +1,5 @@
 {
-  "source": "assets/Objects/CelProps/bushes.png",
+  "source": "extra_assets/inactive/assets/Objects/CelProps/bushes.png",
   "sourceSHA256": "a3a792213211f481f47f9899ef4ff9f90ae5889af93c9a52af4d11a89f1db73c",
   "paletteReference": "assets/ArtTrials/RogueObjects/tree-wide-a.png",
   "paletteReferenceSHA256": "72639d55929a5a3abee9478d3deb85ed0b9f32efa4ce3344334fa1f83180fda6",

@@ -39,8 +39,10 @@ test('startup memory: shinies keep fallback markers when WebGL FX is disabled', 
     const scene = { sys: { game: { renderer: { type: 2, pipelines: { FX_PIPELINE: null } } } } };
     assert.falsy(Render.canShine(scene), 'WebGL without FX keeps the spark fallback');
     let created = 0;
-    const sprite = { scene, preFX: { padding: 0, setPadding() {},
-      addGlow() { created++; return {}; }, addShine() { created++; return {}; } } };
+    const glowCalls = [], removed = [];
+    const sprite = { scene, preFX: { padding: 0, setPadding(value) { this.padding = value; },
+      remove(effect) { removed.push(effect); },
+      addGlow(...args) { created++; glowCalls.push(args); return {}; }, addShine() { created++; return {}; } } };
     assert.falsy(Render.setShine(sprite, true, 'shiny'), 'disabled pipeline cannot attach effects');
     assert.eq(created, 0, 'no lazy effect allocation');
     scene.sys.game.renderer.pipelines.FX_PIPELINE = {};
@@ -49,6 +51,13 @@ test('startup memory: shinies keep fallback markers when WebGL FX is disabled', 
     assert.eq(created, 2, 'enabled pipeline creates glow and shine once');
     Render.setShine(sprite, true, 'shiny');
     assert.eq(created, 2, 'pooled sprite keeps its existing effects');
+    assert.eq(glowCalls[0][2], 0, 'no inner gold fill covers the sprite');
+    assert.lt(glowCalls[0][1], 4, 'outer glow remains below the original heavy halo');
+    Render.setShine(sprite, false, 'plain');
+    assert.eq(removed.length, 2, 'pooled plain sprite loses both effects');
+    assert.eq(sprite.preFX.padding, 0, 'plain sprite recovers its original padding');
+    assert.falsy(sprite._shineFx);
+    assert.falsy(sprite._shinyGlowFx);
     scene.sys.game.renderer.type = 1;
     assert.falsy(Render.canShine(scene), 'Canvas retains the same fallback');
   } finally { globalThis.Phaser = previous; }

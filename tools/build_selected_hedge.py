@@ -6,7 +6,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path('extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Forest.png')
-OUT = ROOT / 'assets/Objects/SelectedFlora/selected_clipped_hedge.png'
+OUT = ROOT / 'extra_assets/inactive/assets/Objects/SelectedFlora/selected_clipped_hedge.png'
 CROP = (128, 96, 32, 24)
 
 

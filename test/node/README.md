@@ -1,16 +1,61 @@
 # Headless node tests
 
-Fast, browser-free tests for Dragon Hood's **pure logic, data tables and the
-interactable registry**, plus the repo's static audits. No Phaser, no DOM, no
-Playwright/Chromium.
+Browser-free tests for Dragon Hood's pure logic, data tables, simulations,
+world generation and static audits. No Phaser, DOM or Chromium is needed.
 
 ```sh
-node test/node/run.js
+npm run test:fast               # everyday development loop
+npm run test:stress             # slow simulation/generation files
+npm test                       # all checks, unchanged default
+npm run test:runner             # tests of selection, reporting and exit codes
+npm test -- --file particles.test.js
+npm test -- --file '*wreck*' --match 'repair'
+npm test -- --match 'compass circuits'
+npm test -- --suite fast --list
+npm test -- --quiet --report /tmp/terracart-test-times.json
 ```
 
-Exit code is `0` when everything passes, `1` on any failure, `2` if a test
-file fails to load. There is no name filter — the whole suite runs every time
-(a couple of minutes).
+`node test/node/run.js` accepts the same options and defaults to `--suite all`.
+`--file` matches an exact basename or repository-relative path, with `*` and `?`
+wildcards; quote patterns so the shell does not expand them. Repeat `--file` to
+select several files. `--match` is a case-insensitive substring of the test name.
+Suite, file and name filters intersect. Use `npm test -- --file ...` when a file
+may belong to stress: adding a file filter to `test:fast` does not widen its suite.
+`--list` registers and lists cases without executing their callbacks.
+
+Every run shows selected/registered counts, setup and execution time, and the
+10 slowest cases. Normal output summarizes each completed file; `--quiet` keeps
+only runner failures and the final summary (test code may still log). `--report` writes JSON with every case's
+status and duration, per-file totals, registration timings, filters and totals.
+Reports use a monotonic host clock, so game tests that fake `Date.now` do not
+corrupt the measurements. Times are local wall time, not phone performance.
+
+Exit codes: `0` for a passing run or a successful list/help command, `1` for test
+failures, `2` for invalid options, no matching cases, load or report-write errors.
+A typo must never produce an empty green run. Filtered runs state their scope.
+
+### Choosing suites
+
+`test/node/suites.cjs` explicitly lists measured slow files. Unlisted/new files
+remain in fast; fast and stress are disjoint and together contain every check.
+No tests are deleted or disabled. `npm test` / `npm run test:all` retain complete
+coverage, including all source syntax, assets, cache, layout and layer audits.
+
+During iteration run fast plus the relevant stress files. Before publication
+run all. After a concurrent merge run affected files and cache checks, expanding
+to all if behavior conflicts or uncertain scope warrant it. See `CLAUDE.md`.
+
+The runner deliberately registers every test file before filtering: registration
+is cheap, and files share one VM with mutable globals. Cases remain sequential;
+parallelizing callbacks in that context would let clock, random and world-cache
+fixtures interfere. Run the two suites separately when changing the partition,
+then run all to check for hidden fixture dependencies.
+
+To revisit the split, profile `npm test -- --quiet --report /tmp/test-times.json`.
+Review the slowest **file totals and individual cases**, move inherently expensive
+simulation/stress coverage into the manifest, and investigate accidental slowness
+rather than automatically hiding every slow test. Membership is checked in, not
+chosen dynamically from timings on the current machine.
 
 ## What it covers
 

@@ -310,7 +310,7 @@ mechanics.
   Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  workbench recipe. Growth Powder is crafted at a workbench from three Nettles
+  workshop recipe. Growth Powder is crafted at a workshop from three Nettles
   and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
 - Home light and ward retain `HOME_R` and surface-only `homeWorldPos()`.
   Home rest uses `isRestingAtHome`: the player's owned Home building cells

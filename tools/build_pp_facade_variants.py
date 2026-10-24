@@ -10,8 +10,8 @@ import json
 from PIL import Image, ImageColor, ImageDraw
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'assets/Objects/BuildingMaterials/source/b4d-pp'
-PACK = ROOT / 'extra_assets/PP Interiors Pack'
+OUT = ROOT / 'extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp'
+PACK = ROOT / 'extra_assets/Pixel Plains/PP Interiors Pack'
 INK = '#32131e'
 # Original-pixel [x,y,w,h]. Wall trims are excluded so motifs can repeat.
 CROPS = {
@@ -103,7 +103,7 @@ def main():
             im.putdata([ink if c[3] and max(c[:3])<115 and sum(c[:3])<230 else c for c in im.getdata()])
         if name in WALLS: im=wall(im,name)
         im.save(OUT/('A'+name+'.png'),optimize=True)
-        provenance['crops'][name]={'source':'extra_assets/PP Interiors Pack/'+file,'crop':rect,'texelSize':size,'outputSize':list(im.size)}
+        provenance['crops'][name]={'source':'extra_assets/Pixel Plains/PP Interiors Pack/'+file,'crop':rect,'texelSize':size,'outputSize':list(im.size)}
     if args.generated_master:
         source=Image.open(args.generated_master)
         for name,rect in GENERATED.items():

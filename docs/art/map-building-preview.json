@@ -69,6 +69,6 @@
     "minimumCastleFloorBodyLuminanceGap": 15,
     "maximumStoneOutlineLuminance": 60,
     "rule": "Keep floors light and desaturated. Wall and tower bodies stay darker, with deep outlines, distinct shadow planes and bright top surfaces; do not wash out the whole object.",
-    "benchmark": "assets/Objects/trunk.png, closed frame 0: original dark edge / shaded body / lit top contrast."
+    "benchmark": "extra_assets/inactive/assets/Objects/trunk.png, closed frame 0: original dark edge / shaded body / lit top contrast."
   }
 }

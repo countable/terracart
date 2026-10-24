@@ -33,7 +33,7 @@ const { chromium } = require('playwright-core');
           source: [x + l, y + t, cw, ch], width: 32, height: 48 });
       });
       return { png: sheet.toDataURL(), crops };
-    }, [process.argv[2] || 'assets/Objects/Castle/tower_master.png', 'assets/Objects/Castle/tower_ruin_master.png']
+    }, [process.argv[2] || 'extra_assets/inactive/assets/Objects/Castle/tower_master.png', 'extra_assets/inactive/assets/Objects/Castle/tower_ruin_master.png']
       .map(path => 'data:image/png;base64,' + fs.readFileSync(path).toString('base64')));
     fs.writeFileSync('assets/Objects/Castle/tower_shapes.png', Buffer.from(result.png.split(',')[1], 'base64'));
     fs.writeFileSync('assets/Objects/Castle/frames.json', JSON.stringify(result.crops, null, 2) + '\n');

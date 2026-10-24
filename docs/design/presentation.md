@@ -15,10 +15,25 @@ pixels and decorative details do not define additional tap cells.
 
 ## Dialogs, feedback and teaching
 
+- Crossing a surface building footprint holds the player until the GPS or
+  steering target is at least two metres beyond the wall, measured perpendicular
+  to its edge. A brief wind-up then shows
+  “SMASH!” through the regular map-note helper, a dust puff, and a fading crack at the wall. Buildings remain
+  passable and undamaged. Reversing away cancels the wind-up; a short per-edge
+  cooldown prevents jitter from repeatedly stopping travel. Reduced motion
+  retains the text and crack without flying dust or text bounce. Wall dust uses
+  the shared `Particles` preset/emitter helper used by wreck-restoration bursts;
+  GPS clearance, crack lifetime and repair sequencing remain separate.
+
 - Every road and path identity, including the fixed medium and large roads,
   has a dedicated story painting matching its visible props. The variant row
   owns its art key; distinct routes do not borrow one another’s paintings.
   New paintings ship with regenerated loading thumbnails and cache hashes.
+
+- Wreck restoration lists building types first. Tapping a type with multiple
+  available ranks opens the rank picker immediately; its type card omits cost.
+  Each rank shows its own price, and Back returns to the type picker. A type
+  with one available rank keeps its price and the existing Restore action.
 
 - Restoring a wreck runs a three-second work sequence before charging materials:
   the player's sprite scurries around all four footprint sides and swings a
@@ -260,8 +275,9 @@ pixels and decorative details do not define additional tap cells.
   safety card and how-to card have cleared and the first map tile is up, then
   waits five more seconds; a save still on step 1 first hears Tori's
   two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
-  completion briefly acknowledges it in the same bubble. Only the dismiss
-  button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  completion briefly acknowledges it in the same bubble. The portrait and bubble
+  sit 25px higher, and a 44px-tall “Got it” button acknowledges only the current
+  instruction. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
   grant no bonus coins; ordinary loot and sales retain their own rewards.
 
@@ -397,19 +413,17 @@ pixels and decorative details do not define additional tap cells.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
-- Home, workbenches and brewing share `_presentRecipePicker` for discovery,
+- Workshops and brewing share `_presentRecipePicker` for discovery,
   selection and capacity, above `_presentRecipeOffer` transactions.
-  `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
-  workbench (three Wood and one Rubble). Every former Home recipe, including
-  the starter-known Spear, belongs at a placed workbench. A station with
-  several known recipes opens on `showPickGridModal`: every recipe as an icon
-  card (green when it can be made now), scrolling when long, with the station
-  controls (a workbench's ghost Pick up, Home's or Brewing's tabs) above it. A
-  card opens that recipe's counter, whose ‹ Back (`back`) returns to the grid;
-  a station with one known recipe opens its counter directly. Lists may scroll;
-  a counter never pages or splits its ingredients from Craft — the ingredient
-  list and actions stay pinned. Recheck the station before spending and
-  reopen the same workbench and selected recipe after crafting.
+  `HOME_RECIPES.station` assigns crafting recipes to restored Workshops.
+  Workshop is available from the second restoration and uses the ordinary
+  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell.
+  The portable workbench is removed; loading old saves removes its inventory
+  stacks and placed records. The starter-known Spear and all ingredient and
+  discovery requirements are unchanged. Several known recipes open an icon
+  grid; one known recipe opens its counter directly. A card's Back returns
+  to the grid. Recheck the workshop's restored role before spending and
+  reopen the same workshop and selected recipe after crafting.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
@@ -423,7 +437,7 @@ pixels and decorative details do not define additional tap cells.
   no confirmation chain or auto-selection of a spell. Inventory labels mark
   borrowed quantities. Returns at any Book Club preserve spell cooldowns.
 - Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
-  recipes, using the same ingredient counts and picker as workbench crafting, plus a
+  recipes, using the same ingredient counts and picker as workshop crafting, plus a
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
@@ -580,13 +594,16 @@ pixels and decorative details do not define additional tap cells.
   add with `Buffs.withMark`: a mark on the same target replaces or extends,
   a new target adds a mark, and nothing refuses or clears another mark.
   The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
-  aimed per step by `_starterGuidanceGoal` rather than stored as marks.
+  aimed per step by `_starterGuidanceGoal` rather than stored as marks. It appears
+  only after its instruction is visible. Location dots sit on their target when
+  onscreen, otherwise on the compass edge: a bright 3px core with a translucent
+  pulse expanding to a 6px radius every 3 seconds.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
 - A repeat offer (an offer with `repeat`: a stall counter, the smelter,
-  Home Sell / Craft, a workbench) reopens over the map, hiding its own toasts. The
+  Home Sell, a Workshop) reopens over the map, hiding its own toasts. The
   confirmation lives in the dialog: an explicit `receipt` line, or else
   the `flashLoot` / `flash` toasts its accept raised, captured by
   `showOfferModal` and reprinted as the reopened dialog's status line.

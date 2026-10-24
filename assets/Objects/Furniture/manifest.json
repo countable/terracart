@@ -4,21 +4,9 @@
   "iconCell": 16,
   "items": [
     {
-      "itemId": "workbench",
-      "frame": 0,
-      "source": "assets/Objects/Furniture/source/concept_workbench.png",
-      "box": null,
-      "mode": "concept",
-      "pick": null,
-      "frameSize": [
-        32,
-        32
-      ]
-    },
-    {
       "itemId": "bed_quilted",
       "frame": 1,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         0,
         0,
@@ -36,7 +24,7 @@
     {
       "itemId": "washtub",
       "frame": 2,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         0,
         32,
@@ -54,7 +42,7 @@
     {
       "itemId": "mirror_brass",
       "frame": 3,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         32,
         160,
@@ -72,7 +60,7 @@
     {
       "itemId": "table_oak",
       "frame": 4,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         0,
         64,
@@ -90,7 +78,7 @@
     {
       "itemId": "dresser_oak",
       "frame": 5,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         0,
         96,
@@ -108,7 +96,7 @@
     {
       "itemId": "planter_clay",
       "frame": 6,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         0,
         192,
@@ -126,7 +114,7 @@
     {
       "itemId": "rug_burgundy",
       "frame": 7,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         32,
         224,
@@ -144,7 +132,7 @@
     {
       "itemId": "bookshelf_frontier",
       "frame": 8,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         32,
         128,
@@ -162,7 +150,7 @@
     {
       "itemId": "lamp_floor",
       "frame": 9,
-      "source": "assets/Objects/Furniture/source/stock-floor-lamp.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/stock-floor-lamp.png",
       "box": null,
       "mode": "native48",
       "pick": null,
@@ -174,7 +162,7 @@
     {
       "itemId": "clock_grandfather",
       "frame": 10,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         64,
         288,
@@ -192,7 +180,7 @@
     {
       "itemId": "statue_pedestal",
       "frame": 11,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         32,
         320,
@@ -210,7 +198,7 @@
     {
       "itemId": "planter_copper",
       "frame": 12,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         32,
         192,
@@ -228,7 +216,7 @@
     {
       "itemId": "candelabra_floor",
       "frame": 13,
-      "source": "assets/Objects/Furniture/source/floorlamp_T1.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/floorlamp_T1.png",
       "box": null,
       "mode": "concept",
       "pick": null,
@@ -245,7 +233,7 @@
     {
       "itemId": "globe_brass",
       "frame": 14,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         64,
         352,
@@ -263,7 +251,7 @@
     {
       "itemId": "telescope_brass",
       "frame": 15,
-      "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
       "box": [
         64,
         384,
@@ -282,7 +270,7 @@
   "tierArt": "Approved native-24 overrides take precedence; other frames retain their existing tier-sheet art.",
   "worldFrameHeight": 64,
   "tierSheet": {
-    "source": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+    "source": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
     "columns": 7,
     "firstFrame": 16,
     "rows": [
@@ -312,7 +300,7 @@
     "provenance": "Approved Pixel Plains-reference generated furniture, pixel-plains-transparent-r1. Exact 32px exported frames; original alpha retained.",
     "rowSources": {
       "floorlamp": {
-        "source": "assets/Objects/Furniture/source/stock-floor-lamp.png",
+        "source": "extra_assets/inactive/assets/Objects/Furniture/source/stock-floor-lamp.png",
         "box": null,
         "mode": "native48",
         "frameSize": [
@@ -323,76 +311,76 @@
     }
   },
   "approvedOverrides": {
-    "rug:Crude": "assets/Objects/Furniture/source/approved/rug-crude.png",
-    "rug:Simple": "assets/Objects/Furniture/source/approved/rug-simple.png",
-    "rug:Fine": "assets/Objects/Furniture/source/approved/rug-fine.png",
-    "rug:Veblen": "assets/Objects/Furniture/source/approved/rug-veblen.png",
-    "rug:Masterwork": "assets/Objects/Furniture/source/approved/rug-masterwork.png",
-    "rug:Royal": "assets/Objects/Furniture/source/approved/rug-royal.png",
-    "rug:Ancient": "assets/Objects/Furniture/source/approved/rug-ancient.png",
-    "tub:Crude": "assets/Objects/Furniture/source/approved/tub-crude.png",
-    "tub:Simple": "assets/Objects/Furniture/source/approved/tub-simple.png",
-    "tub:Fine": "assets/Objects/Furniture/source/approved/tub-fine.png",
-    "tub:Veblen": "assets/Objects/Furniture/source/approved/tub-veblen.png",
-    "tub:Masterwork": "assets/Objects/Furniture/source/approved/tub-masterwork.png",
-    "tub:Royal": "assets/Objects/Furniture/source/approved/tub-royal.png",
-    "tub:Ancient": "assets/Objects/Furniture/source/approved/tub-ancient.png",
-    "table:Crude": "assets/Objects/Furniture/source/approved/table-crude.png",
-    "table:Simple": "assets/Objects/Furniture/source/approved/table-simple.png",
-    "table:Fine": "assets/Objects/Furniture/source/approved/table-fine.png",
-    "table:Veblen": "assets/Objects/Furniture/source/approved/table-veblen.png",
-    "table:Masterwork": "assets/Objects/Furniture/source/approved/table-masterwork.png",
-    "table:Royal": "assets/Objects/Furniture/source/approved/table-royal.png",
-    "table:Ancient": "assets/Objects/Furniture/source/approved/table-ancient.png",
-    "dresser:Crude": "assets/Objects/Furniture/source/approved/dresser-crude.png",
-    "dresser:Simple": "assets/Objects/Furniture/source/approved/dresser-simple.png",
-    "dresser:Fine": "assets/Objects/Furniture/source/approved/dresser-fine.png",
-    "dresser:Veblen": "assets/Objects/Furniture/source/approved/dresser-veblen.png",
-    "dresser:Masterwork": "assets/Objects/Furniture/source/approved/dresser-masterwork.png",
-    "dresser:Royal": "assets/Objects/Furniture/source/approved/dresser-royal.png",
-    "dresser:Ancient": "assets/Objects/Furniture/source/approved/dresser-ancient.png",
-    "globe:Crude": "assets/Objects/Furniture/source/approved/globe-crude.png",
-    "globe:Fine": "assets/Objects/Furniture/source/approved/globe-fine.png",
-    "globe:Veblen": "assets/Objects/Furniture/source/approved/globe-veblen.png",
-    "bed:Crude": "assets/Objects/Furniture/source/approved/bed-crude.png",
-    "bookshelf:Crude": "assets/Objects/Furniture/source/approved/bookshelf-crude.png",
-    "bed:Simple": "assets/Objects/Furniture/source/approved/bed-simple.png",
-    "bookshelf:Simple": "assets/Objects/Furniture/source/approved/bookshelf-simple.png",
-    "bed:Fine": "assets/Objects/Furniture/source/approved/bed-fine.png",
-    "bookshelf:Fine": "assets/Objects/Furniture/source/approved/bookshelf-fine.png",
-    "bed:Veblen": "assets/Objects/Furniture/source/approved/bed-veblen.png",
-    "bookshelf:Veblen": "assets/Objects/Furniture/source/approved/bookshelf-veblen.png",
-    "bed:Masterwork": "assets/Objects/Furniture/source/approved/bed-masterwork.png",
-    "bookshelf:Masterwork": "assets/Objects/Furniture/source/approved/bookshelf-masterwork.png",
-    "bed:Royal": "assets/Objects/Furniture/source/approved/bed-royal.png",
-    "bookshelf:Royal": "assets/Objects/Furniture/source/approved/bookshelf-royal.png",
-    "bed:Ancient": "assets/Objects/Furniture/source/approved/bed-ancient.png",
-    "bookshelf:Ancient": "assets/Objects/Furniture/source/approved/bookshelf-ancient.png",
-    "statue:Crude": "assets/Objects/Furniture/source/generated/statue-crude-24.png",
-    "statue:Simple": "assets/Objects/Furniture/source/generated/statue-simple-24.png",
-    "statue:Fine": "assets/Objects/Furniture/source/generated/statue-fine-24.png",
-    "statue:Veblen": "assets/Objects/Furniture/source/generated/statue-veblen-24.png",
-    "statue:Masterwork": "assets/Objects/Furniture/source/generated/statue-masterwork-24.png",
-    "statue:Royal": "assets/Objects/Furniture/source/generated/statue-royal-24.png",
-    "statue:Ancient": "assets/Objects/Furniture/source/generated/statue-ancient-24.png",
-    "clock:Crude": "assets/Objects/Furniture/source/generated/clock-crude-24.png",
-    "clock:Simple": "assets/Objects/Furniture/source/generated/clock-simple-24.png",
-    "clock:Fine": "assets/Objects/Furniture/source/generated/clock-fine-24.png",
-    "clock:Veblen": "assets/Objects/Furniture/source/generated/clock-veblen-24.png",
-    "clock:Masterwork": "assets/Objects/Furniture/source/generated/clock-masterwork-24.png",
-    "clock:Royal": "assets/Objects/Furniture/source/generated/clock-royal-24.png",
-    "clock:Ancient": "assets/Objects/Furniture/source/generated/clock-ancient-24.png",
-    "planter:Crude": "assets/Objects/Furniture/source/generated/planter-crude-24.png",
-    "planter:Simple": "assets/Objects/Furniture/source/generated/planter-simple-24.png",
-    "planter:Fine": "assets/Objects/Furniture/source/generated/planter-fine-24.png",
-    "planter:Veblen": "assets/Objects/Furniture/source/generated/planter-veblen-24.png",
-    "planter:Masterwork": "assets/Objects/Furniture/source/generated/planter-masterwork-24.png",
-    "planter:Royal": "assets/Objects/Furniture/source/generated/planter-royal-24.png",
-    "planter:Ancient": "assets/Objects/Furniture/source/generated/planter-ancient-24.png"
+    "rug:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-crude.png",
+    "rug:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-simple.png",
+    "rug:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-fine.png",
+    "rug:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-veblen.png",
+    "rug:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-masterwork.png",
+    "rug:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-royal.png",
+    "rug:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-ancient.png",
+    "tub:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-crude.png",
+    "tub:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-simple.png",
+    "tub:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-fine.png",
+    "tub:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-veblen.png",
+    "tub:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-masterwork.png",
+    "tub:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-royal.png",
+    "tub:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-ancient.png",
+    "table:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-crude.png",
+    "table:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-simple.png",
+    "table:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-fine.png",
+    "table:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-veblen.png",
+    "table:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-masterwork.png",
+    "table:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-royal.png",
+    "table:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-ancient.png",
+    "dresser:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-crude.png",
+    "dresser:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-simple.png",
+    "dresser:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-fine.png",
+    "dresser:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-veblen.png",
+    "dresser:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-masterwork.png",
+    "dresser:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-royal.png",
+    "dresser:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-ancient.png",
+    "globe:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/globe-crude.png",
+    "globe:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/globe-fine.png",
+    "globe:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/globe-veblen.png",
+    "bed:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-crude.png",
+    "bookshelf:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-crude.png",
+    "bed:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-simple.png",
+    "bookshelf:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-simple.png",
+    "bed:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-fine.png",
+    "bookshelf:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-fine.png",
+    "bed:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-veblen.png",
+    "bookshelf:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-veblen.png",
+    "bed:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-masterwork.png",
+    "bookshelf:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-masterwork.png",
+    "bed:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-royal.png",
+    "bookshelf:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-royal.png",
+    "bed:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-ancient.png",
+    "bookshelf:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-ancient.png",
+    "statue:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-crude-24.png",
+    "statue:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-simple-24.png",
+    "statue:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-fine-24.png",
+    "statue:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-veblen-24.png",
+    "statue:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-masterwork-24.png",
+    "statue:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-royal-24.png",
+    "statue:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-ancient-24.png",
+    "clock:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-crude-24.png",
+    "clock:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-simple-24.png",
+    "clock:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-fine-24.png",
+    "clock:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-veblen-24.png",
+    "clock:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-masterwork-24.png",
+    "clock:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-royal-24.png",
+    "clock:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-ancient-24.png",
+    "planter:Crude": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-crude-24.png",
+    "planter:Simple": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-simple-24.png",
+    "planter:Fine": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-fine-24.png",
+    "planter:Veblen": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-veblen-24.png",
+    "planter:Masterwork": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-masterwork-24.png",
+    "planter:Royal": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-royal-24.png",
+    "planter:Ancient": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-ancient-24.png"
   },
   "nativeCell": 24,
   "stockSources": {
-    "assets/Objects/Furniture/source/stock-floor-lamp.png": {
+    "extra_assets/inactive/assets/Objects/Furniture/source/stock-floor-lamp.png": {
       "source": "extra_assets/themed-tilesets/Arcane Library/tile-B-01.png",
       "box": [
         384,

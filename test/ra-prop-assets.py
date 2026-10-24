@@ -36,8 +36,8 @@ for key, row in mapping.items():
             assert frame(original, n, fw, fh).tobytes() == frame(actual, n, fw, fh).tobytes(), (key, n)
 
 # Mesh materials must preserve all crate slots and every unapproved rock frame.
-manifest = json.loads((ROOT / 'assets/Objects/LowPolyProps/manifest.json').read_text())
-original = read('assets/Objects/LowPolyProps/materials.png')
+manifest = json.loads((ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps/manifest.json').read_text())
+original = read('extra_assets/inactive/assets/Objects/LowPolyProps/materials.png')
 actual = read(PROPS / 'flora-lowpoly-materials.png')
 for row in manifest['entries']:
     if row['kind'] == 'rock' and row['frame'] in (0, 20):
@@ -68,5 +68,5 @@ for row in fixtures:
     expected = read(PROPS / f'fixtures/source/{name}.png')
     actual = frame(read(PROPS / f'fixtures/{filename}.png'), n, *expected.size)
     assert actual.tobytes() == expected.tobytes(), name
-assert frame(read('assets/Objects/Handmade/waystone.png'), 1).tobytes() == frame(read(PROPS / 'fixtures/waystone.png'), 1).tobytes()
+assert frame(read('extra_assets/inactive/assets/Objects/Handmade/waystone.png'), 1).tobytes() == frame(read(PROPS / 'fixtures/waystone.png'), 1).tobytes()
 print('Approved RA pixels, foliage silhouettes, untouched atlas frames, crate mesh materials and fixture packing passed.')

@@ -280,10 +280,6 @@ const DialogItemArt = {
       "sheet": "assets/Icons/DialogItems/items-01.png?v=a6070585",
       "frame": 57
     },
-    "workbench": {
-      "sheet": "assets/Icons/DialogItems/items-02.png?v=3b7d0d1e",
-      "frame": 0
-    },
     "bed_quilted": {
       "sheet": "assets/Icons/DialogItems/items-02.png?v=3b7d0d1e",
       "frame": 1

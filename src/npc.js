@@ -860,10 +860,24 @@ const NPC = (() => {
             onClick: () => {
               if (answered) return;
               answered = true;
+              // Validate before granting: a stale dialog cannot duplicate a gift.
+              if (MemoryStory.archaeologistConversation(scene.save).id !== conversation.id) return;
+              const gift = conversation.gift;
+              if (gift && scene.addToInv(gift.id, gift.qty, false, { notWild: true, deferRefresh: true }) !== gift.qty) {
+                scene.showMessageModal({ ...speech(c), body: 'Make room in your bag. I will keep the table here for you.',
+                  portrait: face, source: dialogSource(scene, c) });
+                return;
+              }
               const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
               if (!reply) return;
               Save.persist(scene.save);
-              scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face, source: dialogSource(scene, c) });
+              if (gift) {
+                scene._finishInventoryChange?.();
+                Rewards.present(scene, gift, { extra: { kind: 'talk', header: speech(c).kindLabel,
+                  portrait: face, source: dialogSource(scene, c), sub: reply.body } });
+              } else {
+                scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face, source: dialogSource(scene, c) });
+              }
             },
           })),
           // Leaving or reloading does not consume an introduction or a topic.

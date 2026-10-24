@@ -1,5 +1,12 @@
 # Rendering, lighting and streets
 
+Rogue is the sole active map-art profile, including normal URLs without an
+`artTrial` query. Old profile URLs do not select an alternate renderer.
+Inactive exports and profile tools are archived under `extra_assets/inactive/`;
+visual reviews must resolve current runtime textures instead of hardcoding
+legacy asset paths. The reference inventory is `tools/asset_inventory.js`.
+
+
 Detail doc for projection, sprite seating, performance, lighting and street
 restoration. The root `CLAUDE.md` owns the overview; read this before changing
 rendering, lighting or street mechanics. Camera and art geometry live in
@@ -59,10 +66,9 @@ The default map uses Rogue Adventure art under the
 approximately 7m terrain and tap cells, with appropriately exaggerated props.
 Use the normal game URL for the RA reference-selected art, including terrain,
 props, palette adaptations and inventory icons. `?artTrial=rogue` is an explicit
-alias; `?artTrial=baseline` and `?artTrial=dreamland` retain comparison profiles. Evaluate textures as seven-metre
-areas, rather than subdividing the map to match close-up source art. Dreamland
-may supply selected compatible props; its terrain profile is a retained
-comparison experiment, not the direction for further map tiling work.
+alias; older profile query values also use Rogue. Evaluate textures as seven-metre
+areas, rather than subdividing the map to match close-up source art. Selected
+compatible props may come from other packs; inactive comparison profiles are archived.
 
 The default profile applies native Rogue Adventure ground to the normal geographic
 world. It does not install an authored scene. Grass, residential land and parks
@@ -81,7 +87,7 @@ building fallback. The Rogue profile uses the reference-selected jungle canopy
 families (also used by the village reference), stone lamps, plain rocks and
 paired stone down/up access. The approved RA prop profile replaces foliage,
 chest/wood/pot frames, fixtures and all eleven shrine frames through
-`ROGUE_PROP_PROFILE`; the baseline and Dreamland assets remain unchanged.
+`ROGUE_PROP_PROFILE`; inactive baseline and Dreamland assets are archived.
 All ore, gem and flint rocks in the Rogue profile use the default reference
 stone as a 2D sprite, including underground. Native-pixel colored veins and
 crystal facets are baked once on asset load by `RogueObjects`; these rocks
@@ -122,75 +128,17 @@ contour within a cell; collision and logical terrain stay on the original grid.
 Only biome borders replaced by these native transitions skip the old blend strips;
 structural borders continue rendering. `tools/build_ra_terrain_trial.py` exports
 eight source-native mask families into `assets/ArtTrials/RogueTerrain/tiles.png`.
-One bounded startup atlas caches all 4096 Rogue combinations (2401 plus 63 interior-phase and 512 fine-grass frames for Dreamland); ordinary draws only select
+One bounded startup atlas caches all 4096 Rogue combinations; ordinary draws only select
 frames before the terrain cache receives them, with no per-cell pixel reads or
 texture creation. Stable world-coordinate noise introduces native brown-soil patches in village
 grass and olive/dark-olive patches in forest grass. These are appearance samples,
 not logical terrain changes. `tools/build_rogue_objects.py` exports native objects,
 source assembly provenance and measured bounds; `WorldArtProfile` selects the
-active opt-in object module without per-frame canvases or pixel reads. Water uses
+active Rogue object module without per-frame canvases or pixel reads. Water uses
 the calm study palette, without animated ripples.
-Omitting the query loads no trial assets and preserves the default renderer.
-`?artTrial=dreamland` selects the separate Fantasy Dreamland Reborn source
-families using the same geographic mapping and native-mask renderer. Its normal
-roads use native grass-backed flagstones inside the existing vector pavement
-masks: cracked/split pieces before restoration, intact pieces after restoration.
-Hazard and special road variants retain their existing art. Both condition
-repeats bake once at 96px wide (24px per native slab), and road phase follows
-the actual repeat width. Road widths and gameplay cells remain unchanged. Its source-native
-olive grass islands use deterministic absolute-cell patchwork: unchanged logical
-landcover, with authored lime edges and no spawned grass interactables. Dreamland
-frames bake at 32px: native 16px bank silhouettes retain their 2x scale, while
-source grass speckles repeat at 1:1 pixels and islands use the source highlight
-palette internally. Homogeneous ground cells repeat that 32px source frame at
-24px, using nine baked world-coordinate phases to fill the unchanged 32px cell
-without seams. Geographic grass uses four 16px art subtiles per 32px gameplay
-cell, with nine shared world-coordinate vertices and noise sampled every two
-cells. Its 512 baked arrangements make islands and their native edge pixels
-smaller while retaining one cached draw per cell. Ring corners remain shared;
-structural mixed-material transitions keep their original masks and scale.
-Authored ground layouts bypass this finer grass treatment. No per-frame texture
-work is added.
-Authored FAKEMAP
-studies may supply `_dreamlandGroundFamilyAt(ax, ay, type)` for explicit material
-layout; ordinary geographic play keeps its world-stable patchwork.
-`DreamlandObjects` supplies native round trees, wooden hanging lamps, fountains,
-crates and signs. On WebGL its houses use the existing retained 3D house renderer:
-`dreamland_house` lends source red roof tiles, beige plaster, timber and doorway
-art to each actual geographic lot outline. Native roof pixels are rectified once
-at startup and remain their original palette. Footprint geometry, roofs and
-occlusion rotate with the compass; cell rebuilds reuse shared material textures.
-Canvas retains the matching source facade sprites as its fallback. The explicit
-reference fixture sets `scene.dreamlandReferenceShell`: its designed footprints
-fit closed native house shells at source scale instead of normalizing the door
-to geographic gameplay scale. The wide hall has two shorter wings joined to a
-projecting central gable; the corner model keeps only its right wing. Optional
-reference chimneys are closed roof penetrations with source-native brick fronts
-and caps, sharing startup-baked textures. All source-facing planes use native
-roof/facade UVs.
-This fixture option does not alter ordinary geographic house dimensions.
-`WorldArtProfile` selects the opt-in object module; normal and RA appearances
-remain independent. Roads, collisions, identities and restoration roles are
-unchanged. Home keeps its existing open-roof interior when entered. Tier-9 wrecks
-use the existing broken 3D wall/roof geometry with matching native red tiles,
-plaster and brown timber; Canvas uses the source-fragment collapsed assembly.
-Forts do not acquire a wreck state.
-Temples, castles, wizard and turret roles retain their state-specific artwork. Fruit trees retain their
-harvest cues, and deliberately dead trees retain their variant. Existing DeepForest
-positions remain the source of tree placement. Lamps retain their lit state and
-existing light; source-measured foot/glass offsets align the native lantern and
-emitter. Fountain water cycles four offline frames without moving stone pixels; one scene
-listener gives trees a restrained 0.4% canopy sway and lit lanterns a small color
-flicker. Pooled sprites only animate while their current texture matches their
-registered identity. Surface Dreamland daylight uses neutral color and a 0.54
-ambient floor; night, cave lighting, hazards, emitter radii and reach remain intact.
-`build_enrichment.py` exports native shrubs, flowers, paving pieces, well and crate
-stack for authored scene placement, with crop provenance. These are passive
-presentation assets, not extra geographic interactables.
-No scenery objects are added to the geographic world. Rebuild the bundled exports with
-`python3 tools/dreamland-square-study/build_assets.py --out assets/ArtTrials/DreamlandTerrain`;
-normal play loads only `assets/ArtTrials/DreamlandTerrain`, never study files or
-`extra_assets`. The source manifest records crops and hashes.
+Rogue loads for normal URLs and legacy profile query values. Older Dreamland
+profile code, exports and study tools are preserved under
+`extra_assets/inactive/` and are not loaded by the game.
 
 `RATerrainTrial.status(scene)` exposes readiness and current material coverage for
 visual validation; `node test/ra-terrain-unit.cjs` checks selection and bake rules.
@@ -232,8 +180,8 @@ follow the same seating. Mutable furniture
 appearances are not cached. The complete piece is fitted proportionally into a
 16×16 icon for item surfaces. `tierSheetFrame` maps catalog tiers to the seven
 styles: Crude, Simple, Fine, Veblen, Masterwork, Royal and Ancient. The shared
-`furnitureFrame` resolver keeps world and inventory art together; workbenches
-and candelabras retain their roster art. Existing catalog tiers select the style;
+`furnitureFrame` resolver keeps world and inventory art together;
+candelabras retain their roster art. Existing catalog tiers select the style;
 these images do not introduce per-instance tiers or alter item progression.
 Crops carrying a `planter` furniture id use
 `RENDER_SPEC.furniture.planterCrop`: a 16px frame starting 3px below
@@ -250,13 +198,12 @@ approved kind/tier pairs; all other art remains in the legacy 32×32 atlas.
 `source/approved/approvals.json` records provenance, source/export hashes and
 backdrop removal. Both roster and tier frames use the same approved source.
 Icons fit the complete piece proportionally. Roster frames occupy 0–15 and the 91 tier frames
-follow them. The original workbench and candelabra source crops still use their
-existing fit rules. The sprite audit covers every frame and permitted flip.
+follow them. Frame 0 is retired; the candelabra source crop keeps its existing fit rules. The sprite audit covers every frame and permitted flip.
 After rebuilding art, regenerate `ART_BOUNDS` and the DOM icon atlas so map,
 inventory, shop and pickup-toast surfaces agree. Indoor lamps emit through the
 shared lighting pass.
 
-The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
+The 15-piece roster is Quilted Cot, Washing Tub (basin), Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
 Frontier Bookshelf, Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
 (T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
@@ -774,8 +721,14 @@ the surrounding grove’s shrub scale.
   height and outline ink while retaining the shared feet anchor; map animations,
   dialogue portraits and the NPC roster use that same transform.
 - An elite (`Combat.isElite`) keeps its own colours, baked vivid once per
-  sheet (`Render.vividTexture`), under every renderer; the gold tint is for
-  shiny animals. Its twin rune circle is two white rotation strips
+  sheet (`Render.vividTexture`), under every renderer. Shiny animals also
+  retain their original or individual pet palette. Shiny objects use a moderate
+  outer gold rim with zero inner fill and a moving glint; the body is
+  never tinted gold for rarity. When foreground overlap fades an object,
+  suspend its outer glow: Phaser interprets translucent interior pixels as
+  outside edges and otherwise fills the faded body gold. Restore the same
+  glow controller when the object becomes opaque; retain the glint. Canvas and FX-disabled WebGL retain the
+  sparkle marker and shared light source. Its twin rune circle is two white rotation strips
   (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
   tinted copy under Canvas, which ignores sprite tint. A sprite rotated after
@@ -923,7 +876,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   retain the shared material silhouettes and readable inclusions.
   One 144×264 atlas holds 65 used frames and one empty trailing cell: shared material/shape pairs 0–35,
   neutral zone pairs 36–51, and environmental designs 52–64. The source
-  images and `assets/Objects/Rocks/export.cjs` rebuild the atlas.
+  images and `extra_assets/inactive/assets/Objects/Rocks/export.cjs` rebuild the atlas.
   All earlier approved art remains available: `rockStyle: 'plain'` selects the original
   neutral zone pair where one exists, otherwise the common plain shapes;
   `rockStyle: 'shared'` always selects the common plain shapes. Stronghold
@@ -1258,7 +1211,7 @@ not saved. Original sprites also supply restoration cards and Home icons.
 coastal palms, barrels and pots. Stable plant IDs select canopy frames. Berry
 textures bake red, teal or gold fruit onto all eight canopies once at startup;
 picking retains the same foliage frame and transparency. Standalone clipped hedges use the rounded Fantasy Dreamland crown in
-`assets/Objects/SelectedFlora/selected_clipped_hedge.png`, extracted by
+`extra_assets/inactive/assets/Objects/SelectedFlora/selected_clipped_hedge.png`, extracted by
 `tools/build_selected_hedge.py` into a 24px cell. Both clipped-shrub aliases
 use its single frame. Connected hedges retain their fifteen
 cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
@@ -1271,7 +1224,7 @@ variants. On the map, box containers use closed low-poly meshes from
 use 2D sprites, above and below ground; the Rogue profile uses its reference
 stone with colored ore veins and gem crystals. Rocks never enter the loose-prop
 mesh batch. Crates retain all four frame variants, textured from `box.png`
-through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded atlas
+through `extra_assets/inactive/assets/Objects/LowPolyProps/materials.png`. Rebuild that padded atlas
 with `python3 tools/build_prop_materials.py`. Crates share the wall renderer's
 elevation projection and actor depth sorting at every compass angle. Movement
 offsets cached geometry; rotation reprojects vertices without rebuilding

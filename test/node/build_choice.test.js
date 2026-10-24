@@ -55,12 +55,13 @@ test('build choice: the type first, then the rank where more than one is open, e
   assert.eq(modal.acceptLabel, 'Restore');
   assert.eq(modal.cancelLabel, 'Later');
   // STEP ONE lists TYPES, one card each, in table order: the House, then the smithy.
-  assert.eq(modal.choices.map(c => c.key).join(), 'plain,blacksmith', 'one card per type');
+  assert.eq(modal.choices.map(c => c.key).join(), 'plain,blacksmith,workshop', 'one card per type');
   const smithCard = modal.choices.find(c => c.key === 'blacksmith');
   const smith = Houses.buildOptions(scene.save, house).find(r => r.key === 'blacksmith:1');
   const cost = Houses.buildCost(scene.save, house, smith);
   assert.truthy(smithCard.label.includes(`${cost.qty}\u00d7`), 'its sole rank\'s price rides the card');
   assert.falsy(smithCard.label.includes('from '), 'a sole rank is a plain price, not "from"');
+  assert.eq(smithCard.onSelect, undefined, 'a sole rank keeps the select-and-restore flow');
   assert.eq(smithCard.acceptLabel, 'Restore', 'a sole open rank restores straight off the type screen');
   assert.falsy(smithCard.label.includes('quality-'), 'no rank badge on a type card');
   assert.eq(smithCard.info, undefined, 'no blurb on the card: the cards and the Restore row fit without a scroll');
@@ -99,7 +100,7 @@ test('build choice: the type first, then the rank where more than one is open, e
   modal.onAccept('blacksmith');
   assert.eq(scene.save.restoredHouses.new, 'blacksmith', 'a second wooden smithy stands');
   // STEP TWO — several ranks open: the type card says "Choose rank" and
-  // quotes "from" its cheapest; accept opens the rank screen, a card per rank.
+  // omits the price; tapping opens the rank screen, a card per rank.
   scene.save = {
     restoredHouses: { s1: 'blacksmith', s2: 'blacksmith', s3: 'blacksmith',
       a: 'plain', b: 'plain', c: 'plain', d: 'plain', e: 'plain', f: 'plain', g: 'plain' },
@@ -116,9 +117,10 @@ test('build choice: the type first, then the rank where more than one is open, e
   assert.eq(modal.choices.filter(c => c.key.startsWith('blacksmith')).length, 1, 'still ONE smithy card on the type screen');
   const typeCard = modal.choices.find(c => c.key === 'blacksmith');
   assert.eq(typeCard.acceptLabel, 'Choose rank');
-  assert.truthy(typeCard.label.includes('from ' + Math.min(...prices) + '\u00d7'), 'the type quotes "from" its cheapest rank');
-  assert.truthy(typeCard.canAfford, 'affordable while any rank is');
-  modal.onAccept('blacksmith');
+  assert.falsy(typeCard.label.includes('×'), 'multi-rank types omit the price');
+  assert.eq(typeCard.cost, '', 'the type has no price until a rank is chosen');
+  assert.truthy(typeCard.canAfford, 'browsing ranks does not require materials');
+  typeCard.onSelect();
   assert.eq(modal.title, 'Rank');
   assert.eq(modal.cancelLabel, 'Back');
   assert.eq(modal.choices.map(c => c.key).join(), smithRanks.map(r => r.key).join(), 'one card per open rank');
@@ -180,6 +182,39 @@ test('build choice: the offer modal has a choice row that pays only the selected
   assert.truthy(/const applyChoiceCost = \(\) => \{\n\s+if \(!selected \|\| selected\.cost == null\) return;\n\s+liveCanAfford = selected\.canAfford !== false;/.test(MODAL_SHELL_SRC), 'the selected card\'s cost and affordability');
   assert.truthy(/applyChoiceCost\(\);\n\s+syncAccept\(\);/.test(MODAL_SHELL_SRC), 'applied on every pick, before accept is armed');
   assert.truthy(/\(hasChoices && choices\.some\(\(c\) => c\.cost != null\)\)/.test(MODAL_SHELL_SRC), 'a cost line exists when any card prices itself');
+});
+
+test('build choice: tapping a navigation card closes the old modal without cancelling', () => {
+  const oldCreate = document.createElement;
+  let removed = 0, cancelled = 0, navigated = 0, accepted = 0;
+  const el = () => ({ style: {}, children: [], events: {},
+    appendChild(child) { this.children.push(child); },
+    addEventListener(name, fn) { this.events[name] = fn; },
+    remove() { removed++; },
+    click() { this.events.click({ stopPropagation() {} }); },
+  });
+  document.createElement = el;
+  try {
+    const scene = new SceneModals(), buttons = [];
+    scene.makeModalShell = () => ({ wrap: el(), box: el(), mount() {},
+      mkBtn(label) {
+        const b = Object.assign(el(), { innerHTML: label, _setEnabled(on) { this.disabled = !on; } });
+        buttons.push(b); return b;
+      },
+    });
+    scene.showOfferModal({ choices: [{ key: 'smith', label: 'Smithy', onSelect(key) {
+      assert.eq(key, 'smith');
+      assert.eq(removed, 1, 'previous modal removed before opening ranks');
+      navigated++;
+    } }], canAfford: false, onCancel() { cancelled++; }, onAccept() { accepted++; } });
+    assert.eq(navigated, 0, 'automatic selection never advances the screen');
+    buttons[0].click();
+    assert.eq(navigated, 1, 'tap opens ranks even without materials');
+    assert.eq(cancelled, 0, 'navigation retains pending restoration');
+    assert.eq(accepted, 0, 'navigation does not restore anything');
+    buttons[0].click();
+    assert.eq(navigated, 1, 'a closed card cannot navigate twice');
+  } finally { document.createElement = oldCreate; }
 });
 
 test('build choice: the scarecrow shop is gone, and nothing pins a house by position', () => {

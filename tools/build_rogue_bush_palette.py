@@ -6,7 +6,7 @@ import json
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-SOURCE = ROOT / 'assets/Objects/CelProps/bushes.png'
+SOURCE = ROOT / 'extra_assets/inactive/assets/Objects/CelProps/bushes.png'
 REFERENCE = ROOT / 'assets/ArtTrials/RogueObjects/tree-wide-a.png'
 OUT = ROOT / 'assets/ArtTrials/RogueObjects'
 # Actual dark-to-light canopy colours in the installed reference-selected RA tree.
