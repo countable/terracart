@@ -424,7 +424,8 @@ access or tile lifecycle mechanics.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
-  surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
+  surface, plus the unopened starter relic chest (from Home's door); supply
+  crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
   (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
   approaching feet and returns when walking away. Segment clipping preserves dash positions and
@@ -950,7 +951,12 @@ Higher-priority placements and their access space take precedence in this order:
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
    The starter trail has two seed crates (nine potato seeds and nine rockfruit
-   seeds). Its nine Rock and nine Wood are instant `groundstack` pickups,
+   seeds). The potato crate seats first, within `STARTER_DOORSTEP_CELLS` of the
+   anchor (the doorway row the player starts on), so it is in view on the first
+   step outside; step one's chip and arrow wait for that step
+   (`_starterAwaitsOutside`, latched in `save.starter.wentOutside`). The
+   unopened starter relic chest gets a treasure trail of its own from the
+   reachable cell nearest Home's door (`Starter.trailPaths`). Its nine Rock and nine Wood are instant `groundstack` pickups,
    normally three piles of three per material; cramped ground keeps the
    remainder in fewer piles. All seats use the same spawn gate and avoid Home's
    footing. Supplies stay deterministic, revealed and included in tutorial
@@ -959,7 +965,8 @@ Higher-priority placements and their access space take precedence in this order:
    trail, `STARTER_STASH_PILES` scatters more loose Rock and Wood piles
    (`stash_pile_*`, outside tutorial guidance) through the stash ring
    (`STARTER_STASH_R_CELLS`) on a seeded stream of their own, after the stash
-   crates. Hard mode removes both seed crates and all loose material supplies.
+   crates. Its `near` rows (nine single Rock and nine single Wood) scatter inside
+   Home's 50 m circle (`HomeVariant.RADIUS_M`) on a third stream. Hard mode removes both seed crates and all loose material supplies.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles

@@ -727,10 +727,14 @@ const STARTER_STASH = [
 const STARTER_STASH_R_CELLS = [8, 16];
 // Loose Rock and Wood scattered through the same ring: `piles` instant
 // groundstack pickups of `qty` per material, on top of the trail's nine of
-// each. They seat after the crates, so a crate keeps its cell.
+// each. They seat after the crates, so a crate keeps its cell. `near` rows
+// scatter inside Home's circle instead (HomeVariant.RADIUS_M, 50 m), from two
+// cells out, so the first steps outside already pass something to pick up.
 const STARTER_STASH_PILES = [
   { id: 'rubble', qty: 3, piles: 6 },
   { id: 'wood',   qty: 3, piles: 6 },
+  { id: 'rubble', qty: 1, piles: 9, near: true },
+  { id: 'wood',   qty: 1, piles: 9, near: true },
 ];
 // How long a wounded enemy keeps its floating health bar after the last hit.
 // A bow shot lands from clear across the screen, so without this the only
@@ -842,6 +846,11 @@ const TRAIL_REVEAL_CELLS = 5;
 // is in view from the doorstep, so the trail still starts with a crate the
 // player can see.
 const NEAR_ROAD_CELLS = 6;
+// The potato seed crate seats within this many cells (Chebyshev) of the
+// anchor, the doorway row the player starts on: inside the opening view
+// (VIEW_CELLS across, the player in the middle), so it is in sight the
+// moment they step outside (starter.js placeStarterTrail).
+const STARTER_DOORSTEP_CELLS = 2;
 // THE FISHING POND (see _carveStarterPond). A 2x2 of open water carved TWO
 // SCREENS out from Home — POND_MIN_CELLS is 2 × VIEW_CELLS (11), pinned by
 // starter_pond.test.js — so it sits past the relic chest (one screen) and the
@@ -3875,6 +3884,9 @@ class MapScene extends Phaser.Scene {
     // then).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
+      // Stepping outside releases step one's chip (_starterAwaitsOutside).
+      const indoors = this._starterAwaitsOutside();
+      if (indoors !== this._starterWasIndoors) { this._starterWasIndoors = indoors; this.updateObjectiveDOM(); }
       // Memoise the goal on a 500 ms clock. _starterGuidanceGoal walks every
       // object in every cached tile (crates, wrecks) — fine as a tap-time
       // query, far too heavy per frame, and it ran per frame for the entire
@@ -3889,7 +3901,7 @@ class MapScene extends Phaser.Scene {
           goal: step ? this._starterGuidanceGoal(step) : null,
         };
       }
-      const goal = this._starterGoalMemo.goal;
+      const goal = indoors ? null : this._starterGoalMemo.goal;
       if (goal) {
         const { x: pWX, y: pWY } = playerWorldM(this);
         if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
@@ -9445,12 +9457,27 @@ class MapScene extends Phaser.Scene {
       return;
     }
     const step = Quests.starterCurrent(this.save);
-    if (!step) { el.style.display = 'none'; return; }
+    if (!step || this._starterAwaitsOutside()) { el.style.display = 'none'; return; }
     const idx = Quests.starterStepIndex(this.save);
     el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
     el.querySelector('.title').textContent = step.title;
     el.querySelector('.body').textContent  = step.body;
     el.style.display = 'block';
+  }
+
+  // Step one waits for the door: while a new player is still inside Home the
+  // supply-crate instruction and its arrow stay down, so the first thing the
+  // Spirit points at is outside, where the doorstep crate is in view
+  // (STARTER_DOORSTEP_CELLS). Latched in save.starter.wentOutside the first
+  // time the feet are outside, so walking back in never hides it again.
+  _starterAwaitsOutside() {
+    const ss = this.save.starter;
+    if (!ss || ss.wentOutside || !this.save.starterShopId || typeof this.homeInside !== 'function') return false;
+    if (Quests.starterCurrent(this.save)?.event !== 'chest') return false;
+    if (this.homeInside()) return true;
+    ss.wentOutside = true;
+    persistSave(this.save);
+    return false;
   }
 
   // Keep the Spirit quiet through the opening: wait until every boot overlay

@@ -328,6 +328,21 @@
     assert.eq(new Set(cells).size, cells.length, 'every crate, pile and chest gets its own cell');
   });
 
+  test('starter trail: the potato crate waits in view of the door, wherever the trail runs', () => {
+    // Step one's chip waits until the player first walks outside
+    // (_starterAwaitsOutside); the crate it names must be in sight right there.
+    for (const roadAt of [null, 3, NEAR_ROAD_CELLS]) {
+      const entry = srEntry();
+      if (roadAt != null) for (let cy = 0; cy < N; cy++) entry.grid[cy * N + SPAWN + roadAt] = T.ROAD;
+      const { crates } = srTrail(entry);
+      const potato = crates.find(c => c.fixedLoot && c.fixedLoot.id === 'potato_seed');
+      assert.truthy(potato, 'the potato crate is seated');
+      const d = srCheb(srCell(potato), { cx: SPAWN, cy: SPAWN });
+      assert.truthy(d >= 1 && d <= STARTER_DOORSTEP_CELLS,
+        `road ${roadAt ?? 'none'}: potato crate ${d} cells from the door`);
+    }
+  });
+
   test('starter trail: the supplies carry what the ladder asks for next', () => {
     // STARTER_CHAIN runs open a crate → till → SOW A SEED → rebuild a wreck, and
     // the inventory starts empty. So the nearest crate — the one step 1 sends

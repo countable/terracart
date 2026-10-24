@@ -20,7 +20,7 @@
     if (root.SpawnOwnership?.isProtected(object, scene.save, saved) || object.pet || object.summoned || root.SpriteLayout?.isSummoned(object.kind)) return true;
     const id = String(object.id || '');
     if (scene.save?.starterHome?.tamed?.includes(id)) return true;
-    if (/^(starter_|chest_start_|stash_start_|homeup_)/.test(id) || object._homeFootprint) return true;
+    if (/^(starter_|chest_start_|stash_start_|stash_pile_|homeup_)/.test(id) || object._homeFootprint) return true;
     if (/_greeter_-?\d+_-?\d+$/.test(id)) return true;
     // Story neighbours are deliberately seated by Starter, unlike generic NPCs.
     if (object.kind === 'npc' && Object.keys(typeof NPC !== 'undefined' ? NPC.STORY_ROLES : {}).some(role => id.startsWith(`npc_${role}_`))) return true;

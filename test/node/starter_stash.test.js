@@ -52,7 +52,9 @@ test('starter stash: every crate and pile is seated, in the resource ring, one t
   }
   for (const c of all) {
     const d = Math.max(Math.abs(Math.floor(c.x) - 32), Math.abs(Math.floor(c.y) - 32));
-    assert.truthy(d >= R[0] - 1 && d <= R[1] + 1, `${c.id} ${d} cells out, inside the ring`);
+    // Near piles scatter inside Home's circle (1 m cells here, so 2..50).
+    const [lo, hi] = /^stash_pile_near_/.test(c.id) ? [2, HomeVariant.RADIUS_M] : R;
+    assert.truthy(d >= lo - 1 && d <= hi + 1, `${c.id} ${d} cells out, inside its ring`);
     cells.add(Math.floor(c.x) + ',' + Math.floor(c.y));
   }
   assert.eq(cells.size, all.length, 'no two share a cell');
@@ -61,14 +63,19 @@ test('starter stash: every crate and pile is seated, in the resource ring, one t
 test('starter stash: loose Rock and Wood piles add to the trail supplies', () => {
   const piles = run().filter((o) => o.kind === 'groundstack');
   for (const row of pileRows) {
-    const mine = piles.filter((p) => p.itemId === row.id);
-    assert.eq(mine.length, row.piles, `${row.id} piles`);
+    const near = /^stash_pile_near_/;
+    const mine = piles.filter((p) => p.itemId === row.id && near.test(p.id) === !!row.near);
+    assert.eq(mine.length, row.piles, `${row.id}${row.near ? ' near' : ''} piles`);
     for (const p of mine) {
       assert.eq(p.qty, row.qty);
       assert.truthy(/^stash_pile_/.test(p.id), 'its own id — never the trail\'s chest_start_');
     }
   }
-  assert.eq(pileRows.map((p) => p.id).sort().join(), 'rubble,wood', 'Rock and Wood');
+  assert.eq([...new Set(pileRows.map((p) => p.id))].sort().join(), 'rubble,wood', 'Rock and Wood');
+  for (const id of ['rubble', 'wood']) {
+    assert.eq(pileRows.filter((p) => p.id === id && p.near).reduce((n, p) => n + p.piles * p.qty, 0), 9,
+      `nine single ${id} pickups inside Home's 50 m circle`);
+  }
   assert.truthy(/stash_pile/.test(starter.slice(starter.indexOf('function stripStarterCrates'))),
     'hard mode strips the scattered piles with the other loose supplies');
 });

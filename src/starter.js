@@ -368,10 +368,29 @@
     // how far the player actually walks. Each crate tries the cells at
     // `offsets` from its path cell, in order, and slides up to three steps
     // along the path either way when none of them will take it.
+    // THE DOORSTEP CRATE: the potato seeds (STARTER_LOOT[0], step one's
+    // errand) wait just outside the door, in view the moment the player steps
+    // out (STARTER_DOORSTEP_CELLS), whichever way the rest of the trail runs.
+    // The nearest legal cell wins; among equals, the one toward the trail.
+    const lead = (kerbPath && kerbPath[0]) || (trailPath && trailPath[Math.min(trailPath.length - 1, 3)]) || null;
+    let doorstep = null;
+    for (let r = 1; r <= STARTER_DOORSTEP_CELLS && !doorstep; r++) {
+      let best = Infinity;
+      for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) {
+        if (Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const cx = spawnIX + dx, cy = spawnIY + dy;
+        if (!seatOK(cx, cy)) continue;
+        const toward = lead ? Math.hypot(cx - lead.cx, cy - lead.cy) : 0;
+        if (toward < best) { best = toward; doorstep = { cx, cy }; }
+      }
+    }
+    if (doorstep) seatSupply(doorstep.cx, doorstep.cy, 0);
+    dbg.push(doorstep ? `doorstep@(${doorstep.cx},${doorstep.cy})` : 'no doorstep seat');
     const seatAlong = (path, offsets) => {
       const L = path.length - 1;         // steps from the anchor to the far end
-      let lastSeat = null;
+      let lastSeat = doorstep;
       for (let i = 0; i < COUNT; i++) {
+        if (placedIdx.has(i)) continue;
         const want = Math.round((TRAIL_SPAN * L * (i + 1)) / COUNT);
         let seat = null;
         for (let off = 0; off <= 3 && !seat; off++) {
@@ -410,7 +429,7 @@
     // breadcrumbs even though it leads nowhere in particular. Only when
     // NOTHING was seated above — a half-laid trail is topped up by the ring
     // below instead, which never double-seats a loot index.
-    if (roadCell && placedIdx.size === 0) {
+    if (roadCell && placedIdx.size === (doorstep ? 1 : 0)) {
       // BFS-collect connected road cells from the nearest road cell, in
       // nearest-first order, then seat crates on walkable, non-road
       // neighbours spaced at least MIN_GAP apart. Following the road's
@@ -433,6 +452,7 @@
       let nextIdx = 0;
       let lastSeat = null;
       for (const [rcx, rcy] of roadCells) {
+        while (placedIdx.has(nextIdx)) nextIdx++;
         if (nextIdx >= COUNT) break;
         let seat = null;
         for (const [adx, ady] of [[0,-1],[0,1],[1,0],[-1,0]]) {
@@ -539,17 +559,24 @@
     // live occupancy (the crates seated so far claim into it).
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
     const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
-    const [R0, R1] = STARTER_STASH_R_CELLS;
+    const RING = STARTER_STASH_R_CELLS;
+    // Home's circle, from two cells out: past the house and its doorstep.
+    const NEAR = [2, Math.floor(HomeVariant.RADIUS_M / scene.cellM)];
     // Piles alternate material, so each sector of the compass gets both.
-    const piles = [];
-    for (let k = 0; k < Math.max(...STARTER_STASH_PILES.map(p => p.piles)); k++) {
-      for (const p of STARTER_STASH_PILES) if (k < p.piles) piles.push(p);
-    }
+    const interleave = (rows) => {
+      const piles = [];
+      for (let k = 0; k < Math.max(0, ...rows.map(p => p.piles)); k++) {
+        for (const p of rows) if (k < p.piles) piles.push(p);
+      }
+      return piles;
+    };
+    const makePile = (x, y, id, p) => WorldGen.makeObject('groundstack', x, y, id, { itemId: p.id, qty: p.qty });
     scatterRing(STARTER_STASH, 'starter_stash', 'stash_start', (x, y, id, loot) =>
-      WorldGen.makeObject('chest', x, y, id, { fixedLoot: loot, crate: true }));
-    scatterRing(piles, 'starter_piles', 'stash_pile', (x, y, id, p) =>
-      WorldGen.makeObject('groundstack', x, y, id, { itemId: p.id, qty: p.qty }));
-    function scatterRing(list, salt, prefix, make) {
+      WorldGen.makeObject('chest', x, y, id, { fixedLoot: loot, crate: true }), RING);
+    scatterRing(interleave(STARTER_STASH_PILES.filter(p => !p.near)), 'starter_piles', 'stash_pile', makePile, RING);
+    // Their own stream and ids, so adding them moved no ring crate or pile.
+    scatterRing(interleave(STARTER_STASH_PILES.filter(p => p.near)), 'starter_near_piles', 'stash_pile_near', makePile, NEAR);
+    function scatterRing(list, salt, prefix, make, [R0, R1]) {
       const rng = WorldGen.makeRng(fnv1a(`${salt}:${tx}:${ty}:${spawnIX}:${spawnIY}`));
       const n = list.length;
       for (let i = 0; i < n; i++) {
@@ -563,6 +590,7 @@
           if (!f.inTile(cx, cy)) continue;
           if (isBlocked(entry.grid[cy * N + cx])) continue;
           if (usedSeats.has(cx + ',' + cy)) continue;
+          if (HomeArea.inFooting(cx - spawnIX, cy - spawnIY)) continue;   // swept by clearHomeFooting
           if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor')) continue;
           const raw = f.centre(cx, cy);
           const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
@@ -2049,11 +2077,14 @@
   const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
   const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 
-  function trailRoute(start, goal, passable, neighbour, seed = 0) {
+  // With no goal, the route starts at a seeded cell startCells out — or, given
+  // `near` (an absolute cell), at the reached cell closest to it.
+  function trailRoute(start, goal, passable, neighbour, seed = 0, near = null) {
     const sk = trailCellKey(start), gk = goal && trailCellKey(goal);
     if (!passable(start) || (goal && !passable(goal))) return [];
     const queue = [start], parents = new Map([[sk, null]]), cells = new Map([[sk, start]]);
     const steps = new Map([[sk, 0]]), candidates = [];
+    let nearest = null, nearestD2 = Infinity;
     const unwind = key => {
       const route = [];
       for (let k = key; k != null; k = parents.get(k)) route.push(cells.get(k));
@@ -2062,17 +2093,22 @@
     for (let head = 0; head < queue.length && head < 1200; head++) {
       const c = queue[head], ck = trailCellKey(c), distance = steps.get(ck);
       if (ck === gk) return unwind(ck).reverse();
+      if (near) {
+        const d2 = (c.cellIX - near.cellIX) ** 2 + (c.cellIY - near.cellIY) ** 2;
+        if (d2 < nearestD2) { nearestD2 = d2; nearest = ck; }
+      }
       // An extra trail begins at a seeded reachable point TRAIL_STYLE.startCells
       // walking cells from its chest. One reverse flood chooses it; no
       // repeated pathfinding.
-      if (!goal && distance >= TRAIL_STYLE.startCells[0]) candidates.push(ck);
-      if (!goal && distance >= TRAIL_STYLE.startCells[1]) continue;
+      if (!goal && !near && distance >= TRAIL_STYLE.startCells[0]) candidates.push(ck);
+      if (!goal && !near && distance >= TRAIL_STYLE.startCells[1]) continue;
       for (const [dx, dy] of TRAIL_STEPS) {
         const next = neighbour(c, dx, dy), nk = trailCellKey(next);
         if (parents.has(nk) || !passable(next)) continue;
         parents.set(nk, ck); cells.set(nk, next); steps.set(nk, distance + 1); queue.push(next);
       }
     }
+    if (near) return nearest ? unwind(nearest) : [];
     return !goal && candidates.length ? unwind(candidates[(seed >>> 0) % candidates.length]) : [];
   }
 
@@ -2119,9 +2155,23 @@
     return from < to ? [from, to] : null;
   }
 
+  // The starter relic chest — the wooden tool at the trail's end — while it
+  // is unopened: the one `chest_start_*` that is not a crate.
+  function starterRelicChest(scene) {
+    const spent = spentSets(scene, scene.save);
+    for (const e of WorldGen.tileCache.values()) {
+      for (const o of derivedObjects(e, '_starterChests', (o) => (o.kind === 'chest' || o.kind === 'groundstack') && !!o.id && String(o.id).startsWith('chest_start_'))) {
+        if (o.kind === 'chest' && !o.crate && !isSpent(o, spent)) return o;
+      }
+    }
+    return null;
+  }
+
   // The treasure trails (HomeArea.chestTrailCandidates) follow the player
   // anywhere on the surface, each a short seeded lead-in to its chest or X.
-  // Crates get no guide.
+  // The starter relic chest's trail instead starts at Home's door (the
+  // reachable cell nearest the frozen anchor) and leads out to it. Supply
+  // crates get no guide.
   function trailPaths(scene, now) {
     if ((scene.depth || 0) !== 0) return [];
     const player = playerWorldM(scene);
@@ -2132,8 +2182,10 @@
     const paths = [];
     scene._starterTrailPaths = { key, at: now, paths };
     const targets = HomeArea.chestTrailCandidates?.(scene, player) || [];
-    if (!targets.length) return paths;
-    const targetIds = new Set(targets.map(o => o.id));
+    const home = scene.save.starterCratesAt;
+    const relic = home && Number.isFinite(home.x) ? starterRelicChest(scene) : null;
+    if (!targets.length && !relic) return paths;
+    const targetIds = new Set([...targets, ...(relic ? [relic] : [])].map(o => o.id));
     const spent = spentSets(scene, scene.save);
     const tiles = new Map(), checked = new Map();
     // Ground a trail may cross.
@@ -2160,11 +2212,17 @@
       return ok;
     };
     const neighbour = (c, dx, dy) => absCellOffset(scene, c.cellIX, c.cellIY, dx, dy);
+    const lay = (target, route) => {
+      if (route.length > 1) paths.push({ id: target.id, target: { x: target.x, y: target.y }, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
+    };
+    if (relic) {
+      lay(relic, trailRoute(worldMetersToAbsCell(scene, relic.x, relic.y), null, passable, neighbour, 0,
+        worldMetersToAbsCell(scene, home.x, home.y)));
+    }
     for (const target of targets) {
       if (paths.length >= HomeArea.CHEST_TRAIL_LIMIT) break;
       const end = worldMetersToAbsCell(scene, target.x, target.y);
-      const route = trailRoute(end, null, passable, neighbour, strHash31(target.id));
-      if (route.length > 1) paths.push({ id: target.id, target: { x: target.x, y: target.y }, points: smoothTrail(route.map(c => absCellCenterMeters(scene, c.cellIX, c.cellIY)), scene.cellM) });
+      lay(target, trailRoute(end, null, passable, neighbour, strHash31(target.id)));
     }
     return paths;
   }

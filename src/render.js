@@ -6797,8 +6797,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true, shadow: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
     // frame come from groundStackArt(itemId): the item's inventory icon, so
-    // any item can sit on the ground without per-kind plumbing, except Rock,
-    // which lies as the small loose pebble (items.js GROUND_STACK_ART).
+    // any item can sit on the ground without per-kind plumbing (items.js
+    // GROUND_STACK_ART).
     groundstack: {
       layer: WorldLayers.GROUND_DECAL,
       key: (o) => (groundStackArt(o.itemId) || {}).sheet || 'wood',

@@ -20,6 +20,7 @@
       setTimeout(fn) { finish = fn; return 1; }, clearTimeout() {}, persistSave() {} };
     const scene = { save: {}, _tilesReady: 1 };
     scene.updateObjectiveDOM = liftSceneMethod('updateObjectiveDOM', deps);
+    scene._starterAwaitsOutside = liftSceneMethod('_starterAwaitsOutside', deps);
     const cheer = liftSceneMethod('_playStarterCheer', deps);
     scene.updateObjectiveDOM();
     assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body);
@@ -48,7 +49,7 @@
       setInterval(fn) { tick = fn; return 1; }, clearInterval() { tick = null; },
       setTimeout(fn) { later.push(fn); return 1; } };
     const scene = { save: {}, _tilesReady: 0 };
-    for (const m of ['updateObjectiveDOM', '_armStarterGuidance', '_playStarterIntro']) scene[m] = liftSceneMethod(m, deps);
+    for (const m of ['updateObjectiveDOM', '_armStarterGuidance', '_playStarterIntro', '_starterAwaitsOutside']) scene[m] = liftSceneMethod(m, deps);
     scene._armStarterGuidance();
     assert.eq(element.style.display, 'none', 'hidden while the intro is up');
     clock = 60000; tick();
@@ -69,5 +70,25 @@
     assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body, 'first instruction follows the hello');
     assert.eq(Quests.starterIntroLines(scene.save).length, 0, 'hello is heard once per save');
     assert.eq(Quests.starterIntroLines({ starter: { step: 2 } }).length, 0, 'no hello mid-ladder');
+  });
+  test('tutorial guidance: step 1 waits until the player first walks out of Home', () => {
+    const fields = Object.fromEntries(['.step', '.title', '.body'].map(k => [k, { textContent: '' }]));
+    const element = { style: {}, querySelector: k => fields[k], classList: { add() {}, remove() {} } };
+    let saves = 0;
+    const deps = { document: { getElementById: () => element }, persistSave() { saves++; } };
+    let inside = true;
+    const scene = { save: { starterShopId: 'home', starter: { step: 0, introduced: true } }, _tilesReady: 1,
+      homeInside: () => inside };
+    for (const m of ['updateObjectiveDOM', '_starterAwaitsOutside']) scene[m] = liftSceneMethod(m, deps);
+    scene.updateObjectiveDOM();
+    assert.eq(element.style.display, 'none', 'no supply-crate message indoors');
+    inside = false; scene.updateObjectiveDOM();
+    assert.eq(element.style.display, 'block');
+    assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body, 'the crate step shows outside');
+    assert.truthy(scene.save.starter.wentOutside && saves === 1, 'latched in the save');
+    inside = true; scene.updateObjectiveDOM();
+    assert.eq(element.style.display, 'block', 'walking back in never hides it again');
+    assert.truthy(/const goal = indoors \? null : this\._starterGoalMemo\.goal;/.test(SCENE_SRC),
+      'the guidance arrow waits for the door too');
   });
 })();

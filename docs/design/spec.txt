@@ -366,8 +366,8 @@ MINING
 ================================================================================
  - all mining is via MINERAL ROCKS — clusters on quarry / industrial /
    residential / scree polygons. A plain rock is open to bare hands and pays
-   stone with a chance of more (the smallest plain rock art mines at double
-   speed: `ROCK_VARIANT_ART.quickFrame` / `mineralRockWorkMul`); an ORE rock pays coal and its tier's bar, the
+   stone with a chance of more (map rocks draw only the bigger plain shapes,
+   `ROCK_VARIANT_ART.plainFrames`); an ORE rock pays coal and its tier's bar, the
    higher ones a gem, and needs a pick near its tier (see the tool gate in
    MOVEMENT & REACH; drops: `interactables.js` `mineralrock`).
  - density by zone: residential sparse and low-tier; industrial dense mid-tier;

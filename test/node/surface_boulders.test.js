@@ -57,7 +57,7 @@
       }
     }
   });
-  test('plain rocks: four stable shapes share size pairs without changing mining yields', () => {
+  test('plain rocks: three stable shapes share size pairs without changing mining yields', () => {
     const seen = new Set();
     for (let i = 0; i < 128; i++) {
       const o = rock(`shape-${i}`), frame = mineralRockArtFrame(o), before = JSON.stringify(o);
@@ -72,7 +72,7 @@
       assert.eq(wildplantFrame({ crop: 'rubble', wildId: o.id }), 0, 'render view preserves shape');
       assert.eq(JSON.stringify(o), before, 'appearance never mutates the mining record');
     }
-    assert.eq(seen.size, 4);
+    assert.eq(seen.size, ROCK_VARIANT_ART.plainFrames.length);
     for (let i = 0; i < 16; i++) {
       assert.eq(mineralRockArtFrame(rock(`ore-${i}`, { yieldTier: 2 })), 18);
       assert.eq(mineralRockArtFrame(rock(`flint-${i}`, { rockMaterial: 'flint' })), 2);
@@ -148,10 +148,10 @@
   });
   test('neutral rocks: lucky cave rubble never advertises an ore or gem deposit', () => {
     assert.eq(mineralRockMaterial({ caveVariant: 2, yieldTier: 7 }), 'plain');
-    assert.eq(mineralRockArtFrame({ caveVariant: 2, yieldTier: 7 }), 0);
+    assert.eq(mineralRockArtFrame({ caveVariant: 2, yieldTier: 7 }), ROCK_VARIANT_ART.plainFrames[0]);
     assert.eq(mineralRockArtFrame({ caveVariant: 2, yieldTier: 7, deposit: 'ruby' }), 12);
     assert.eq(mineralRockArtFrame({ deposit: 'crystal' }), 10, 'legacy crystal is sapphire');
-    assert.eq(mineralRockArtFrame({ rockArtFrame: 13, zoneVariant: 'unknown' }), 0,
+    assert.eq(mineralRockArtFrame({ rockArtFrame: 13, zoneVariant: 'unknown' }), ROCK_VARIANT_ART.plainFrames[0],
       'unrelated old frame overrides cannot turn plain stone into ruby');
   });
 })();

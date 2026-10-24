@@ -493,12 +493,11 @@ test('fallen wood shares inventory art for every quantity without changing the s
   }
 });
 
-test('a loose Rock stack lies as the small loose pebble, and stacks sit inside their cell', () => {
+test('a loose Rock stack wears its inventory icon, and stacks sit inside their cell', () => {
   const spec = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map(),false).RENDER_SPEC.groundstack;
   const rock={kind:'groundstack',itemId:'rubble',qty:3};
-  assert.eq(spec.key(rock),'rock_variants');
-  assert.eq(spec.frame(rock),ROCK_VARIANT_ART.quickFrame);
-  assert.truthy(spec.key(rock)!==inventoryIconSource('rubble').sheet,'not the inventory boulder');
+  assert.eq(spec.key(rock),inventoryIconSource('rubble').sheet);
+  assert.eq(spec.frame(rock),inventoryIconSource('rubble').frame);
   assert.eq(spec.scale,GROUND_STACK_ART.scale);
   assert.lte(16*spec.scale,CELL_PX*0.6,'a 16px stack covers at most 60% of its cell');
 });

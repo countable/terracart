@@ -363,8 +363,6 @@ const INTERACTABLES = {
   // gated and drops exactly one namesake bar + coal + tier-rolled gems.
   mineralrock: {
     tool: 'pickaxe',
-    // The smallest plain look is quick work (items.js mineralRockWorkMul).
-    workMul: (o) => mineralRockWorkMul(o),
     spent: (o, ctx) => isSpent(o, spentSets(ctx.scene, ctx.save)),
     spentAction: 'consume',
     gate: (o, save) => {
