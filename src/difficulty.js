@@ -100,7 +100,7 @@
     [HARD]: {
       id: HARD,
       label: 'Hard mode',
-      blurb: 'Thin purse, greedy traders, more damage taken.',
+      blurb: 'Greedy traders, more damage taken.',
       tutorial: false,
       starterCrates: false,
       pestAmnesty: false,

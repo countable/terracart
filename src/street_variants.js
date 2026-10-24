@@ -563,7 +563,7 @@
       } }],
     burned: [
       // The debris: tar pits and stakes, side and kind off the row's stream.
-      { step: BURNED_STEP_M, max: BURNED_MAX, stream: true,
+      { step: BURNED_STEP_M, max: BURNED_MAX, stream: true, gate: 'streetObstacle',
         draw: (at) => { at.side = at.rng() < 0.5 ? 1 : -1; at.tar = at.rng() < 0.5; },
         side: (at) => at.side,
         emit: (D, at, c) => {
@@ -2118,7 +2118,6 @@
     // Existing pieces from this pass are transparent to repeated samples;
     // every unrelated obstacle terminates the ray instead of being skipped.
     const crossSection = (rec, x, y, nx, ny, depth, owned, emit, groundOk = cellOk) => {
-      const roadSeats = new Set(), gate = { ...spawnOpts, roadClass: rc, streetObstacleCells: roadSeats, streetObstacleKind: rec.variant };
       for (const side of [1, -1]) {
         const start = 0;
         for (let distance = start; distance <= rec.halfW + depth(side) * CELL_M - CELL_M / 2; distance += CELL_M / 2) {
@@ -2126,15 +2125,13 @@
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) break;
           const i = iy * N + ix;
           if (owned.has(i)) continue;
-          // A diagonal road's rasterized tile can overlap the band while its
-          // center sits outside it. Include that tile in a barricade crossing,
-          // or the ordinary road exclusion stops the line at the pavement.
+          // Include diagonal road cells when choosing where the authored
+          // cross-section ends; the shared tier policy still gates each cell.
           const normalDistance = Math.abs(((ix + .5) * CELL_M - x) * nx + ((iy + .5) * CELL_M - y) * ny);
           const cellReach = rec.variant === 'barricade' && WG.isRoadTerrain(grid[i])
             ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
           const road = normalDistance <= rec.halfW + cellReach;
-          if (road) roadSeats.add(i);
-          if (!WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle')
+          if (!WG.isSpawnCell(grid,N,N,ix,iy,foeOpts,'streetObstacle')
             || !road && !groundOk(ix,iy)) break;
           owned.add(i); emit(ix,iy);
         }
@@ -2801,8 +2798,7 @@
         const ix = i % N, iy = (i - ix) / N;
         // The shared hazard policy excludes Passing and Excluded cells.
         const ok = road
-          ? WG.isSpawnCell(grid, N, N, ix, iy, { ...spawnOpts, roadClass: rc,
-            streetObstacleCells: new Set([i]), streetObstacleKind: 'snare' }, 'streetObstacle')
+          ? WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'streetObstacle')
           : WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard');
         if (ok) cands.push({ ix, iy, u: hash01(WG.cellId('snare_stray', tx, ty, ix, iy) + '|' + key) });
       }

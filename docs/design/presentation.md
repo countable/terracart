@@ -406,6 +406,10 @@ pixels and decorative details do not define additional tap cells.
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
   counts and the existing receipt. Recipe selection never spends ingredients;
   acceptance still rechecks unlocks, bag room, and ingredients before spending.
+- Curio Halls collect held items from `Macros.CURIO_COLLECTION`. Books read
+  immediately on pickup, so they are neither accepted nor listed as missing.
+  Retired donations do not count toward the current collection; previously
+  earned milestone memories stay in the discovery ledger.
 - The Book Club is a lending catalog shared across scholars. Keep total/free
   credit visible above the scrolling shelf, with every matching tome listed; All tomes and On loan filters
   support preparing spells and returning them. Each row shows its effect,

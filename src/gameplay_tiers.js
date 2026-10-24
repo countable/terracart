@@ -34,7 +34,7 @@
     hazard:[1,2], fastEnemy:[1], reward:[1,2,3], streetObstacle:[1,2],
   });
   const allowed=(tier,cls)=>!!CLASS_TIERS[cls]?.includes(tier);
-  const RECORD_CLASSES=Object.freeze({pressure_plate:'hazard',stakes:'streetObstacle'});
+  const RECORD_CLASSES=Object.freeze({pressure_plate:'hazard',stakes:'streetObstacle',tar:'streetObstacle'});
   const classForRecord=(record,fallback='minor')=>record?._spawnClass || RECORD_CLASSES[record?.kind] || fallback;
   const CORE = new Set(['park', 'garden', 'beach', 'dog_park']);
   const REC = new Set(['recreation_ground', 'sports_centre', 'sports', 'pitch', 'playground', 'stadium', 'school', 'college', 'university', 'education']);

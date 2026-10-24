@@ -523,7 +523,9 @@ access or tile lifecycle mechanics.
 - Place-bound producers, including POI chests and authored road cross-sections,
   share the same Excluded and Passing policy. Authored seats retain their own
   layout and habitat requirements, but cannot reopen an Excluded cell. Street
-  obstacles count as hazards when applying Passing restrictions.
+  obstacles, including tar pits and stakes, count as hazards when applying
+  Passing restrictions. Their record classes also govern cleanup and live
+  replay, so rejected slowing debris cannot become an active slowdown later.
 - The live Overpass fence veto (`privateVetoAt`) is for per-player
   things only and fails open when no successful mask is known. Its last known
   mask stays active during a background refresh or outage; successful masks

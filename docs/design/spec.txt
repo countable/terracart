@@ -537,16 +537,16 @@ CREATURES
    animals are limited to chickens and at most one living deer. Owned pets
    are exempt. This is a per-save presence filter, including animals that
    wander in; generated identities and positions are preserved.
- - FEED THEN CATCH: favourite food makes that individual catchable, without
-   bonding it. A catch wheel finishes the bond; a net speeds the wheel. Fed
-   slimes are caught by tapping. Unfed animals cannot be caught.
+ - Giving a wild creature its favourite spends the food and immediately starts
+   the catch wheel. A net speeds the wheel; the creature becomes a pet only
+   when the attempt succeeds. There is no separate feeding preparation step.
  - One owned animal per species, including carried and deployed pets. Release
    the current individual before catching another. Variants share species.
  - Plant produce fed to a producer gives its species yield on a per-animal
    cooldown. Other food on a wild animal is refused.
- - Unfed GAME (crow / deer) can still be deliberately hunted with an equipped
-   weapon and empty hand. The hunt uses the Bug Net's timed work wheel. Fed
-   game animals follow the ordinary catching rules.
+ - GAME (crow / deer) can be deliberately hunted with an equipped weapon and
+   empty hand. The hunt uses the Bug Net's timed work wheel. Deer can also be
+   caught with their favourite food; crows are hunted, never kept as pets.
  - Owned pets open their individual menu on tap. Carrying and setting down
    preserve identity, colour, growth, energy, bonuses and accessories. Release
    relinquishes ownership and returns accessories.
@@ -555,8 +555,8 @@ CREATURES
  - Eggs and nest discoveries reveal wild babies. They still need favourite
    food and catching before becoming pets.
  - SCARECROW: a placeable item that wild crows and deer steer around.
- - SLIMES are hostile when wild. Sapphire prepares a slime for catching;
-   feeding it alone does not make it a pet.
+ - SLIMES are hostile when wild. Giving a slime sapphire immediately starts
+   its catch attempt; a successful wheel makes it a pet.
 
 ================================================================================
 COMBAT

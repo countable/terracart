@@ -1,5 +1,5 @@
 // The horse (an individually owned mount) and the sea turtle (the rabbit of
-// the beach). Riding reads one row, items.js CONSUMABLE_SPEC.horse.
+// the beach). Riding reads one row, items.js HORSE_RIDE.
 test('horse: riding requires an owned horse that is not resting', () => {
   const horse = kind => ({ id: 'pet_horse', pet: true, kind, hp: 4, carried: true });
   assert.falsy(isRiding({ riding: true, inv: [{ id: 'horse', count: 1 }] }), 'retired stacks cannot ride');
@@ -32,7 +32,8 @@ test('horse: the stick walk goes speedMul as fast and costs energyMul as much', 
   assert.truthy(/const costMul = riding \? HORSE_RIDE\.energyMul : 1;/.test(SCENE_SRC), '_walkRelics charges the ride');
   assert.truthy(/return \{ boots: \{ tier: speedTier, costTier, boost, costMul \} \};/.test(SCENE_SRC),
     'on the boots (the amulet slot retired), to steerEnergyCost');
-  assert.truthy(/\n  toggleHorseRide\(\) \{/.test(SCENE_SRC), 'MapScene implements the toggle');
+  assert.falsy(CONSUMABLE_SPEC.horse, 'individual mounts have no inventory action');
+  assert.falsy(CONSUMABLE_SPEC.shiny_horse, 'shiny mounts use the same pet panel');
 });
 
 test('horse: a T4 mount with a premium sale value and no milk', () => {

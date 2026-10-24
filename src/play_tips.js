@@ -57,7 +57,7 @@ const PLAY_TIPS = [
   "Heavy line. Splendid catch. Slime. I shall tell my brother it was a fish.",
   "The fish were gone, but I cast again. A little treasure came up. Supper remains an unsolved problem.",
   "The hoe struck something buried. We had been calling this empty ground.",
-  "Find a door whose number ends in nine. There will be a smith behind it. Tell them Brann sent you.",
+  "Restore a ruined house as a blacksmith. There will be a forge behind its door. Tell them Brann sent you.",
   "Every shop we restore has something new to sell. I used to complain about shopping for the family.",
   "I took the household exactly what its wishlist asked for. They paid generously, and called me by my name.",
   "Their wishlist was unchanged when I returned. They had waited for my bundle. I had not expected anyone to wait for me.",
