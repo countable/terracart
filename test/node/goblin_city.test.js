@@ -61,7 +61,7 @@
 
   test('goblin city: safety exclusions and building footprints remain untouched', () => {
     const f = fixture(), excluded = new Set();
-    const reasons = [W.SPAWN_WHY.FARM_INTERIOR, W.SPAWN_WHY.GOLF, W.SPAWN_WHY.JUNCTION,
+    const reasons = [W.SPAWN_WHY.FARM_INTERIOR, W.SPAWN_WHY.GOLF, W.SPAWN_WHY.QUIET,
       W.SPAWN_WHY.RESTRICTED];
     for (let r = 0; r < reasons.length; r++) for (let y = 10; y < 14; y++) {
       const i = y * N + 8 + r * 7;

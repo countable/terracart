@@ -29,8 +29,12 @@
       assert.falsy(shrine(ZoneDressing.dress(blocked)));
     }
     const blocked=context();blocked.field.anchors[0].variant='quarry-crater';
-    blocked.spawnOpts.spawnWhy[altar._iy*N+altar._ix]=WorldGen.SPAWN_WHY.SENSITIVE;
-    assert.falsy(shrine(ZoneDressing.dress(blocked)),'center-only altar cannot move to a safe rim');
+    blocked.spawnOpts.gameplayTiers=new Uint8Array(N*N).fill(GameplayTiers.CORE);
+    blocked.spawnOpts.gameplayTiers[altar._iy*N+altar._ix]=GameplayTiers.EXCLUDED;
+    const relocated=shrine(ZoneDressing.dress(blocked));
+    if(relocated) assert.falsy(relocated._iy===altar._iy && relocated._ix===altar._ix, 'Excluded cell cannot retain the altar');
+    blocked.spawnOpts.gameplayTiers.fill(GameplayTiers.EXCLUDED);
+    assert.falsy(shrine(ZoneDressing.dress(blocked)), 'no layout may reopen Excluded ground');
   });
   test('stronghold rewards: three tier-two chests, some foundation pots and no shrine', () => {
     const out=ZoneDressing.dress(context()), finds=out.objects.filter(o=>o.zoneLayer==='find');

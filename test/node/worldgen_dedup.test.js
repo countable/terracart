@@ -32,6 +32,7 @@ const shift = (ring, dx) => ring.map((p) => ({ x: p.x + dx, y: p.y }));
 const POI_A = { x: EXTENT + 0.6 * CELL_MVT, y: 40.5 * CELL_MVT };
 function layersFor(dx) {
   return [
+    {name:'landcover',features:[{type:3,tags:{class:'grass'},geom:[rect(-4096,-4096,8192,8192)]}]},
     { name: 'building', features: [{ type: 3, tags: {}, geom: [shift(HOUSE_A, dx)] }] },
     { name: 'poi', features: [
       { type: 1, tags: { class: 'restaurant', name: 'Seam Cafe' }, geom: [[{ x: POI_A.x + dx, y: POI_A.y }]] },

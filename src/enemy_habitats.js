@@ -190,7 +190,7 @@
   function* surfaceEncounterProfileSteps(entry, tx, ty, occupied, theme) {
     const WG = root.WorldGen, N = entry.cellsPerEdge, grid = entry.baseGrid || entry.grid;
     const out = [], cfg = SURFACE_ENCOUNTER_PROFILES[theme] || SURFACE_ENCOUNTERS;
-    const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy,
+    const opts = { ...entry._spawnOpts, roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers,
       roadClass: entry.roadClass, occupied };
     if (!entry.zone?.coverage) return out;
     // Population rolls use coverage before safety exclusions. Legal seats are
@@ -445,7 +445,7 @@
       x: (o.x - tx * entry.tileEdgeM) / cellM - .5,
       y: (o.y - ty * entry.tileEdgeM) / cellM - .5,
     }));
-    const opts = { roadMask: null, spawnWhy: entry.spawnWhy, occupied, pois: [] }, out = [];
+    const opts = { roadMask: null, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers, occupied, pois: [] }, out = [];
     const cls = root.creatureSpawnClass?.('red_dragon') || 'enemy';
     for (let by = 0; by < EXT / REGION; by++) for (let bx = 0; bx < EXT / REGION; bx++) {
       const rx = tx * EXT / REGION + bx, ry = ty * EXT / REGION + by;

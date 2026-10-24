@@ -18,13 +18,9 @@
 // The two placements:
 //   • SURFACE — BESIDE A FOOTPATH (a walkable cell 8-adjacent to T.PATH, never
 //     the path itself) or on the EDGE OF A PARK (a park cell 8-adjacent to
-//     other ground), and NEVER near a road: no road cell (any tier, or the
-//     drawn band `roadMask`) within TRAP_ROAD_CLEAR_CELLS, and never inside
-//     the major roads' kerb buffer (WorldGen.inMajorBuffer). The owner's
-//     safety pass, Sep 2026: a trap must never be a reason to step toward a
-//     road, and never force a detour onto one. The cell a trap lands on is
-//     cleared by the shared WorldGen.isSpawnCell rule (mask + occupied + the
-//     no-spawn masks) like every other spawner. See trapGroundKind.
+//     other ground). The shared hazard gate refuses Passing and Excluded
+//     tiers, including road buffers unless a core path interrupts them.
+//     Occupancy and live terrain still apply. See trapGroundKind.
 //   • CAVES — on CAVE_FLOOR, around the level's up-staircases (the same anchors
 //     the monsters and the loose coins use), off any cell an object already
 //     holds so a trap is never hidden under a rock sprite.
@@ -169,28 +165,9 @@
   //     steps on one and never has to leave it.
   //   PARK EDGE (2) — a T.PARK cell (the LAND's class: the zone halo's
   //     `under` first) 8-adjacent to ground that is not park.
-  //   Either way: not on the drawn band (roadMask), not inside the kerb
-  //     buffer (WorldGen.inMajorBuffer off roadClass), and no road cell —
-  //     any road tier on the grid, or a roadMask cell — within
-  //     TRAP_ROAD_CLEAR_CELLS (Chebyshev). A sidewalk's far side is two cells
-  //     from its road's band edge, so a sidewalk carries no snare.
-  //
-  // What this is NOT: a verge rule (isRoadside is gone) and not the goblin
-  // trapper's snare (canLay — session state, but it refuses the same buffer).
-  const TRAP_ROAD_CLEAR_CELLS = 2;
+  // Geographic eligibility comes only from the hazard spawn gate: Passing
+  // and Excluded refuse hazards; a core path can interrupt a road buffer.
   const landAt = (grid, under, i) => root.Zones.landAt(grid, under, i);
-  // Is any road cell within TRAP_ROAD_CLEAR_CELLS of (cx, cy)? ALLOWLISTED
-  // raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not the gate —
-  // this defines the SHAPE of trap ground (how close a road may come before
-  // a cell stops counting as path-side/park-edge at all), read by
-  // trapGroundKind/sampleTrapCells to build the candidate pool. Whether a
-  // candidate may actually be SEATED is spawnSurface's isSpawnCell('hazard')
-  // call below, the gate proper.
-  function nearRoad(grid, roadMask, w, h, cx, cy) {
-    const WG = root.WorldGen;
-    return !!WG.boxCells(w, h, cx, cy, TRAP_ROAD_CLEAR_CELLS,
-      (x, y, i) => WG.isRoadTerrain(grid[i]) || (roadMask && roadMask[i]));
-  }
   // `under` (optional): the codes an influence zone's HALO painted over
   // (src/zones.js — entry.zone.under, optional presence mask): the park test reads the
   // LAND's class, so the zones never move a trap. `roadMask` (optional): the
@@ -206,22 +183,13 @@
     const T = WG.T;
     const i = cy * w + cx;
     const here = grid[i];
-    if (here === T.PATH || !WG.isWalkable(here)) return 0;
-    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY, not
-    // the gate — see the note below.
-    if (roadMask && roadMask[i]) return 0;
-    // The GROUND's shape, not the gate: the pool (and so the per-ground caps)
-    // counts only ground a snare could ever hold. Whether one may be SEATED
-    // is the spawn gate's answer ('enemy' — spawnSurface). The kerb buffer is
-    // the snare's own ground rule, here: a snare does not move, so the gate's
-    // KERB reason (fast movers only) is not its.
-    if (WG.inMajorBuffer && WG.inMajorBuffer(roadClass, w, cx, cy)) return 0;
+    if (here === T.PATH || !WG.isSpawnCell(grid, w, h, cx, cy, { roadClass, roadMask }, 'hazard')) return 0;
     let kind = 0;
     if (WG.anyNeighbour8(w, h, cx, cy, (x, y, j) => grid[j] === T.PATH)) kind = 1;
     else if (landAt(grid, under, i) === T.PARK
       && WG.anyNeighbour8(w, h, cx, cy, (x, y, j) => landAt(grid, under, j) !== T.PARK)) kind = 2;
     if (!kind) return 0;
-    return nearRoad(grid, roadMask, w, h, cx, cy) ? 0 : kind;
+    return kind;
   }
 
   // Up to `k` trap-ground cells, sampled UNIFORMLY across the tile in a single
@@ -285,8 +253,7 @@
   // other spawner in spawnInTile passes to WorldGen.isSpawnCell (roadMask +
   // occupied + the tile's POI anchors + the no-spawn masks), so a trap obeys
   // the road rule and the private-yard frontage rule by construction rather
-  // than by a copy of them; its roadMask is also the band the trap ground
-  // keeps TRAP_ROAD_CLEAR_CELLS clear of.
+  // than by a copy of them.
   // A tile with no footpath and no park edge clear of the roads gets no traps.
   // `countMul` scales the base 10..18 rate — the caller passes
   // Difficulty.get().trapCountMul (10x easy / 25x hard) and tileDanger's
@@ -470,12 +437,7 @@
     if (!(N > 0) || lix < 0 || liy < 0 || lix >= N || liy >= N) return false;
     const i = liy * N + lix;
     if (root.WorldGen.variantOwnerAt(entry, i) === 'home') return false;
-    if (!root.WorldGen.isWalkable(entry.grid[i])) return false;
-    // THE SPAWN GATE: a snare is a 'hazard' spawn. The entry's full options
-    // apply sensitive ground, every hard reason, the kerb and the Small-road
-    // junction buffer through the one class row. trapGroundKind still owns
-    // the broader road-clearance shape. Underground entries carry no mask, so
-    // a cave reads through isSpawnCell's own no-mask fallback.
+    // The shared hazard policy owns geographic eligibility and live terrain.
     const WG = root.WorldGen;
     if (!WG.isSpawnCell(entry.grid, N, N, lix, liy, WG.spawnOptsOf(entry), 'hazard')) return false;
     return !trapAt(entry, lix, liy);
@@ -611,7 +573,7 @@
     DUNGEON_DENSITY_MUL,
     isSprung, spring,
     isDisarmed, disarm,
-    TRAP_ROAD_CLEAR_CELLS, isTrapGround, trapGroundKind, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, TRAP_GROUND_DENSITY_MUL, spawnSurface, spawnSurfaceSteps, spawnCave, trapAt,
+    isTrapGround, trapGroundKind, sampleTrapCells, TRAP_GROUND_SHARE_PER_MUL, TRAP_GROUND_DENSITY_MUL, spawnSurface, spawnSurfaceSteps, spawnCave, trapAt,
     LAID_MAX, LAID_LIFE_MS, isLive, isTrapSprung, isTrapDisarmed, springTrap, disarmTrap,
     canLay, layTrap, trapPower, pruneLaid, laidOut, layPoints,
     magicTrapId,

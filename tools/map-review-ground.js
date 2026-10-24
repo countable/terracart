@@ -5,6 +5,12 @@
   }[c]));
   const label = value => String(value ?? 'unknown').toLowerCase().replace(/_/g, ' ');
 
+  function spawnVerdict(tier) {
+    const classes=Object.keys(GameplayTiers.CLASS_TIERS);
+    const permitted=classes.filter(cls=>GameplayTiers.allowed(tier,cls)).length;
+    return !permitted?WorldGen.SPAWN_INVALID:permitted===classes.length?WorldGen.SPAWN_OPEN:WorldGen.SPAWN_SUPPRESSED;
+  }
+
   function inspect(world, point, edge) {
     const tx = Math.floor(point.x / edge), ty = Math.floor(point.y / edge);
     const entry = world?.tiles.find(e => e.tx === tx && e.ty === ty);
@@ -29,10 +35,12 @@
       row('Anchor', a.key || `${a.gx}, ${a.gy}`);
     }
     const reasons = Object.entries(WorldGen.SPAWN_WHY).filter(([, bit]) => entry.spawnWhy?.[i] & bit).map(([name]) => label(name));
-    row('Spawn restrictions', reasons.join(', ') || 'none');
+    const tier=WorldGen.spawnTierAt(entry.grid,i,{gameplayTiers:entry.gameplayTiers,spawnWhy:entry.spawnWhy});
+    row('Gameplay tier', GameplayTiers.TIERS.find(t=>t.id===tier)?.label || 'Excluded');
+    row('Source restriction evidence', reasons.join(', ') || 'none');
     row('Level', world.scene?.depth || 0);
     rows.push(`<small>Tile ${tx}, ${ty} · cell ${x}, ${y}</small>`);
     return { entry, x, y, cell: i, content: rows.join('<br>') };
   }
-  root.MapReviewGround = { inspect };
+  root.MapReviewGround = { inspect, spawnVerdict };
 })(globalThis);

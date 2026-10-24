@@ -699,6 +699,45 @@
     });
   });
 
+  test('move home: an NPC house refuses adoption without choosing another house or open ground', () => {
+    const occupied = { kind: 'house', id: NORTH.key, ...at(30, 27), tier: 9 };
+    const vacant = { key: 'vacant', x0: 33, x1: 35, y0: 29, y1: 31 };
+    const e = tile([NORTH, vacant], [occupied, { kind: 'house', id: vacant.key, ...at(34, 30), tier: 9 }]), s = scene();
+    withTile(e, () => {
+      const start = at(10, 10); s._placeHome(start.x, start.y);
+      s.save.npcHomes = { neighbour: { houseId: NORTH.key } };
+      s.save.houseFurniture = { [NORTH.key]: [{ id: 'lamp', itemId: 'lamp_floor' }] };
+      Furniture.recompute(s);
+      const before = JSON.stringify(s.save), oldHome = e.objects.find(o => o.id === 'starter_trailer');
+      const p = at(30, 30);
+      assert.truthy(s._newHomeSite(p.x, p.y), 'open ground would otherwise permit a fallback');
+      assert.eq(s._homeFootingAt(p.x, p.y)?.npcHouse, NORTH.key, 'the closest occupied house explains the refusal');
+      assert.falsy(s.moveHomeTrailerHere(p.x, p.y), 'the move refuses instead of falling back');
+      assert.eq(JSON.stringify(s.save), before, 'Home, resident, furniture and luxury remain unchanged');
+      assert.truthy(e.objects.includes(oldHome), 'the old Home object remains');
+      assert.eq(cellsOf(e, 'starter_trailer'), 4, 'the old footprint remains');
+      assert.falsy(s._placeHome(p.x, p.y), 'the final placement also refuses direct adoption');
+      assert.eq(JSON.stringify(s.save), before, 'direct placement leaves the save intact');
+      e.objects.splice(e.objects.indexOf(occupied), 1);
+      assert.eq(s._homeFootingAt(p.x, p.y)?.npcHouse, NORTH.key, 'an unloaded resident or missing house sprite cannot bypass the saved assignment');
+    });
+  });
+
+  test('move home: an occupied house tells the player to move elsewhere before confirmation', () => {
+    const house = { kind: 'house', id: NORTH.key, ...at(30, 27), tier: 9 };
+    const s = scene({ npcHomes: { neighbour: { houseId: NORTH.key } } });
+    s.playerM = at(30, 30);
+    let message = null, confirmations = 0;
+    s.showMessageModal = options => { message = options; };
+    s.showConfirmModal = () => { confirmations++; };
+    withTile(tile([NORTH], [house]), () => {
+      lift('confirmMoveHomeTrailer').call(s);
+      assert.eq(confirmations, 0, 'no paid move is offered');
+      assert.truthy(message?.body.includes('A neighbour lives in this house.'), 'explains the occupied house');
+      assert.truthy(message?.body.includes('Move somewhere else'), 'asks the player to move');
+    });
+  });
+
   test('move home: preflight accepts an alternative clear site beside a blocked preferred site', () => {
     const e = tile([]), s = scene(), p = at(30, 30);
     e.grid[29 * N + 30] = WorldGen.T.WATER;

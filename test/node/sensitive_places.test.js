@@ -122,7 +122,7 @@
   });
 
   // ── Quiet land ────────────────────────────────────────────────────────────
-  test('quiet land: military, railway, reserve and cemetery cells stamp the mask; the look is kept', () => {
+  test('quiet land: military, railway, reserve and cemetery cells retain evidence and become Excluded rock', () => {
     const r = build([
       { name: 'landuse', features: [
         { type: 3, tags: { class: 'military' }, geom: cellRect(4, 4, 14, 14) },
@@ -144,8 +144,8 @@
     assert.eq(at(25, 45), 1, 'reserve land (boundary aboriginal_lands)');
     assert.eq(at(8, 45), 0, 'brownfield is ordinary waste ground');
     assert.eq(at(60, 60), 0, 'public grass is not quiet');
-    assert.eq(r.grid[8 * CPE + 8], T.WASTELAND, 'military keeps the scrub look');
-    assert.eq(r.grid[8 * CPE + 25], T.WASTELAND, 'railway land too');
+    assert.eq(r.grid[8 * CPE + 8], T.EXCLUSION_ROCK, 'military is Excluded rock');
+    assert.eq(r.grid[8 * CPE + 25], T.EXCLUSION_ROCK, 'railway land too');
     // The shared rule refuses a quiet cell and nothing else changes.
     assert.falsy(W.isSpawnCell(r.grid, CPE, CPE, 8, 8, { quiet: q }), 'isSpawnCell refuses quiet land');
     assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, 60, 60, { quiet: q }), 'and passes open ground');

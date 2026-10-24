@@ -3,6 +3,8 @@
   const point = (x, y) => ({ x: (x + .5) * unit, y: (y + .5) * unit });
   const commercial = { name: 'landuse', features: [{ type: 3, tags: { class: 'commercial' },
     geom: [[point(0, 0), point(63, 0), point(63, 63), point(0, 63), point(0, 0)]] }] };
+  const privateGround = (layer,whole=false) => ({...layer,features:layer.features.map(f=>({...f,
+    tags:{...f.tags,access:'private'},geom:whole?f.geom:[[point(40,0),point(63,0),point(63,63),point(40,63),point(40,0)]]}))});
   const poi = (kind, x, y) => ({ type: 1, tags: { class: kind }, geom: [[point(x, y)]] });
   const publicPois = { name: 'poi', features: [poi('clothing_store', 20, 32), poi('office', 48, 32)] };
   const roads = { name: 'transportation', features: [{ type: 2, tags: { class: 'primary' },
@@ -32,14 +34,15 @@
   });
 
   test('commercial pots: private ground and roads refuse pots; special areas clear them as ambient fill', () => {
-    const closed = W.rasterizeTile([commercial], N, 0, 0, edge);
+    const closed = W.rasterizeTile([privateGround(commercial,true)], N, 0, 0, edge);
     assert.eq(pots(closed).length, 0, 'a pot cannot make private commercial land public');
-    const out = W.rasterizeTile([commercial, publicPois, roads], N, 0, 0, edge);
+    const out = W.rasterizeTile([{...commercial,features:[...commercial.features,...privateGround(commercial).features]}, publicPois, roads], N, 0, 0, edge);
     assert.gt(pots(out).length, 0, 'public roadside paving still gets pots');
     for (const o of pots(out)) {
       const [x, y] = cell(o), i = y * N + x;
       assert.falsy(out.roadMask[i], 'never in the road band');
-      assert.falsy(out.spawnWhy[i] & W.SPAWN_WHY.PRIVATE, 'never on the office side');
+      assert.truthy(out.gameplayTiers[i]!==GameplayTiers.EXCLUDED,'only tier-eligible paving');
+      assert.lt(x,40,'never inside explicitly private source polygon');
     }
     const list = pots(out), area = new Uint8Array(N * N).fill(1);
     const clear = W.clearStreetAmbientSteps({ area, objects: list, wildplants: [], tx: 0, ty: 0, N, tileEdgeM: edge });
@@ -49,14 +52,15 @@
   test('industrial salvage: public empty seats hold stable barrels, private lots do not', () => {
     const industrial={...commercial,features:commercial.features.map(f=>({...f,tags:{class:'industrial'}}))};
     const salvage=out=>out.objects.filter(o=>o.id.startsWith('ibarrel_'));
-    const out=W.rasterizeTile([industrial,publicPois,roads],N,0,0,edge), barrels=salvage(out);
+    const out=W.rasterizeTile([{...industrial,features:[...industrial.features,...privateGround(industrial).features]},publicPois,roads],N,0,0,edge), barrels=salvage(out);
     assert.gt(barrels.length,0,'public industrial frontage has salvage');
-    assert.eq(salvage(W.rasterizeTile([industrial],N,0,0,edge)).length,0,'barrels cannot make private lots public');
-    assert.eq(JSON.stringify(barrels),JSON.stringify(salvage(W.rasterizeTile([industrial,publicPois,roads],N,0,0,edge))),
+    assert.eq(salvage(W.rasterizeTile([privateGround(industrial,true)],N,0,0,edge)).length,0,'barrels cannot make private lots public');
+    assert.eq(JSON.stringify(barrels),JSON.stringify(salvage(W.rasterizeTile([{...industrial,features:[...industrial.features,...privateGround(industrial).features]},publicPois,roads],N,0,0,edge))),
       'barrel locations and identities survive rebuilding');
     for(const o of barrels){
       const [x,y]=cell(o),i=y*N+x;
-      assert.falsy(out.roadMask[i]); assert.falsy(out.spawnWhy[i]&W.SPAWN_WHY.PRIVATE);
+      assert.falsy(out.roadMask[i]); assert.truthy(out.gameplayTiers[i]!==GameplayTiers.EXCLUDED);
+      assert.lt(x,40,'never inside explicitly private source polygon');
       assert.eq(out.grid[i],W.T.INDUSTRIAL);
       assert.eq([...out.objects,...out.wildplants].filter(p=>p.x===o.x&&p.y===o.y).length,1,'one object per seat');
       assert.eq(o.barrel,true);

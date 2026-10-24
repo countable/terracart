@@ -1,34 +1,51 @@
-// Permanent backyard bedrock uses actual terrain collision, not only spawn refusal.
+// Excluded tier ground becomes permanent bedrock with real terrain collision.
 (function () {
   const W = WorldGen, T = W.T, S = W.SPAWN_WHY;
   function lot() {
     return { grid: new Uint8Array(49).fill(T.RESIDENTIAL), w: 7, h: 7,
       spawnWhy: new Uint32Array(49).fill(S.PRIVATE), roadMask: new Uint8Array(49),
-      occupied: new Set(), coverage: new Uint16Array(49) };
+      gameplayTiers: new Uint8Array(49).fill(4), occupied: new Set(), coverage: new Uint16Array(49) };
   }
   function stamp(f) { return W.stampExclusionRock(f.grid, f.w, f.h, f); }
-  test('exclusion bedrock: deep private lot gets one-cell clearance and blocks spawn', () => {
-    const f = lot(); assert.eq(stamp(f), 25);
-    assert.eq(f.grid[0], T.RESIDENTIAL); assert.eq(f.grid[24], T.EXCLUSION_ROCK);
+  test('exclusion bedrock: every excluded ground cell becomes permanent rock, including tile edges', () => {
+    const f = lot(), before = f.spawnWhy.slice(); assert.eq(stamp(f), 49);
+    assert.eq(f.grid[0], T.EXCLUSION_ROCK); assert.eq(f.grid[24], T.EXCLUSION_ROCK);
     assert.falsy(W.isWalkable(f.grid[24]));
-    assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f));
-    assert.truthy(f.spawnWhy[24] & S.TERRAIN);
+    assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, 'minor'));
+    assert.eq([...f.spawnWhy].join(), [...before].join(), 'painting preserves diagnostic evidence');
   });
-  test('exclusion bedrock: roads paths buildings water and public ground keep clearance', () => {
-    for (const type of [T.ROAD, T.ROAD_MD, T.PATH, T.BUILDING, T.WATER, T.PARK, T.COMMERCIAL]) {
+  test('exclusion bedrock: medium and large streets retain road appearance and reject all spawn classes', () => {
+    for (const type of [T.ROAD_MD, T.ROAD_LG]) {
+      const f = lot(); f.grid[24] = type; assert.eq(stamp(f), 48);
+      assert.eq(f.grid[24], type); assert.eq(f.grid[23], T.EXCLUSION_ROCK);
+      for (const cls of W.SPAWN_CLASSES)
+        assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, cls), cls + ' excluded on road');
+    }
+  });
+  test('exclusion bedrock: source water and building footprints remain physical surfaces', () => {
+    for (const type of [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.WATER]) {
       const f = lot(); f.grid[24] = type; stamp(f);
-      assert.eq(f.grid[24], type); assert.eq(f.grid[23], T.RESIDENTIAL);
-      assert.eq(f.grid[16], T.RESIDENTIAL);
+      assert.eq(f.grid[24], type); assert.eq(f.grid[23], T.EXCLUSION_ROCK);
+      assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, 'minor'));
     }
   });
-  test('exclusion bedrock: props zones road bands and sensitive reasons stay open', () => {
-    for (const edit of [f => f.occupied.add(24), f => f.coverage[24] = 1,
-      f => f.roadMask[24] = 1, f => f.spawnWhy[24] |= S.RESTRICTED,
-      f => f.spawnWhy[24] = 0]) {
-      const f = lot(); edit(f); stamp(f);
-      assert.eq(f.grid[24], T.RESIDENTIAL); assert.eq(f.grid[23], T.RESIDENTIAL);
+  test('exclusion bedrock: tier authority applies across landcover, props and nexus coverage', () => {
+    for (const type of [T.WASTELAND, T.PARK, T.COMMERCIAL, T.ROAD, T.PATH]) {
+      const f = lot(); f.grid.fill(type); f.occupied.add(24); f.coverage[24] = 1; f.roadMask[24] = 1;
+      f.spawnWhy.fill(0);
+      assert.eq(stamp(f), 49, 'Excluded wins regardless of original landcover or old occupants');
+      assert.eq(f.grid[24], T.EXCLUSION_ROCK);
     }
-    const f = lot(); f.spawnWhy.fill(S.BEHIND_HOUSE); assert.eq(stamp(f), 25);
+    const f = lot(); f.gameplayTiers.set([1,2,3]); stamp(f);
+    for (let i = 0; i < 3; i++) assert.eq(f.grid[i], T.RESIDENTIAL, 'eligible tier keeps its surface');
+  });
+  test('exclusion bedrock: registered tier field is shared with callers that only have a grid', () => {
+    const f = lot(); W.registerGameplayTiers(f.grid, f.spawnWhy, f.gameplayTiers);
+    delete f.gameplayTiers;
+    assert.eq(stamp(f), 49);
+    assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, { spawnWhy: f.spawnWhy }, 'minor'));
+    const unclassified = new Uint8Array(4).fill(T.RESIDENTIAL);
+    assert.eq(W.stampExclusionRock(unclassified, 2, 2), 0, 'no invented classification without a tier field');
   });
   test('exclusion bedrock: tilling and planting gates refuse permanent rock with a clear label', () => {
     assert.falsy(isTillableCell({ type: T.EXCLUSION_ROCK }), 'hoe and planting share this gate');

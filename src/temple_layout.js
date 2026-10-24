@@ -47,7 +47,7 @@
                 || root.WorldGen.isBuildingTerrain(e.grid[i])
                 || root.WorldGen.isCobbleTerrain(e.grid[i])
                 || !root.WorldGen.isSpawnCell(e.grid, n, n, ix, iy,
-                  { roadMask: e.roadMask, spawnWhy: e.spawnWhy }, 'reward')) return false;
+                  { roadMask: e.roadMask, spawnWhy: e.spawnWhy, gameplayTiers: e.gameplayTiers }, 'reward')) return false;
           }
         }
       }

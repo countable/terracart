@@ -1,29 +1,8 @@
-// THE SPAWN GATE (Sep 2026): entry.spawnWhy + isSpawnCell's spawn class.
-//
-// One per-tile mask (WorldGen.stampSpawnWhySteps, beside the road mask, in
-// the sliced build) records WHY each cell is refused — reason bits
-// (WorldGen.SPAWN_WHY): HARD ones refuse every spawn, TYPED ones only the
-// classes whose row of WorldGen.SPAWN_CLASS_BLOCKS names them. Every spawner
-// names its class; a creature's comes from creature_ai.js creatureSpawnClass.
-//
-// What is pinned:
-//   · each reason on a synthetic tile: ROAD = the roadMask exactly, water /
-//     buildings, restricted and kindergarten land (hard), farmland and orchards (edge open, interior hard), commercial / industrial ground by its nearest POI
-//     (public open, private or none within reach PRIVATE), behind-a-house, private
-//     ways, golf, the kerb (fast movers only), sensitive ground, churchyards,
-//     quiet land;
-//   · RESTRICTED / KINDERGARTEN only hold where the ground's FINAL paint
-//     still agrees with the class's own look — a later or higher-priority
-//     commercial polygon overlapping one lifts the reason (commercial ground
-//     welcomes visitors), but a real hospital campus IS its own commercial
-//     paint and keeps RESTRICTED;
-//   · (Sep 2026: HOUSE — the 40 m house buffer — and SCHOOL — school /
-//     college grounds plus its school-hours timing — are both dropped.
-//     KINDERGARTEN stays hard. Orchard and farmland outer rims stay open.)
-//   · the class table, and the POI lift of PRIVATE;
-//   · every spawner in src/ passes a class (a source sweep);
-//   · cave entrances only ever stand on cave ground (the fixture tiles);
-//   · the live private-ground veto is per-player only and fails open.
+// The shared gate consumes authoritative gameplay tiers plus live placement
+// checks. Legacy spawnWhy bits remain source evidence for classification and
+// diagnostics; their old typed verdict does not independently veto a tier.
+// These tests cover evidence geometry, Excluded rock, tier permissions,
+// occupancy/building clearance, runtime placement and deterministic fixtures.
 (function () {
 const W = WorldGen;
 const T = W.T;
@@ -133,7 +112,7 @@ test('spawn gate: SCHOOL grounds carry no reason at all (dropped Sep 2026, with 
     assert.eq(raw(r, 30, 30), 0, `${cls}: no bits at all`);
     const g = r.grid;
     for (const c of W.SPAWN_CLASSES) {
-      assert.truthy(W.isSpawnCell(g, CPE, CPE, 30, 30, { spawnWhy: r.spawnWhy }, c), `${c}: school grounds host it now`);
+      assert.eq(W.isSpawnCell(g, CPE, CPE, 30, 30, { spawnWhy: r.spawnWhy }, c), GameplayTiers.allowed(r.gameplayTiers[30*CPE+30],c), `${c}: school grounds follow their tier`);
     }
   }
   // No school-hours timing anywhere: the reason, the function and every
@@ -156,7 +135,7 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   const r = build([grass(), { name: 'landuse', features: [kinder, retail1, railway, retail2, hospital] },
     poiLayer(poiAt('clothing_store', 20, 15), poiAt('clothing_store', 20, 40))]);
   // Kindergarten grounds stay hard where they actually paint as one.
-  assert.eq(r.grid[10 * CPE + 8], T.SCHOOL, 'kindergarten-only cell paints SCHOOL');
+  assert.eq(r.grid[10 * CPE + 8], T.EXCLUSION_ROCK, 'kindergarten-only cell is Excluded rock');
   assert.truthy(has(r, 8, 10, WHY.KINDERGARTEN), 'and carries KINDERGARTEN');
   assert.eq(at(r, 8, 10), INV, 'so it is hard-blocked');
   // A commercial polygon also covering the ground outranks it (PRIO), and
@@ -167,14 +146,14 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   assert.eq(at(r, 20, 10), OPEN, 'commercial ground welcomes visitors');
   // The same story for RESTRICTED off a non-hospital class (railway): it
   // only holds where the ground still paints as that class's own look.
-  assert.eq(r.grid[35 * CPE + 8], T.WASTELAND, 'railway-only cell paints WASTELAND');
+  assert.eq(r.grid[35 * CPE + 8], T.EXCLUSION_ROCK, 'railway-only cell is Excluded rock');
   assert.truthy(has(r, 8, 35, WHY.RESTRICTED), 'and carries RESTRICTED');
   assert.eq(at(r, 8, 35), INV, 'so it is hard-blocked');
   assert.eq(r.grid[35 * CPE + 20], T.COMMERCIAL, 'the overlap paints COMMERCIAL');
   assert.falsy(has(r, 20, 35, WHY.RESTRICTED), 'no RESTRICTED bled onto commercial ground');
   assert.eq(at(r, 20, 35), OPEN, 'open, not railway land');
   // A real hospital campus IS its own commercial paint, and keeps RESTRICTED.
-  assert.eq(r.grid[15 * CPE + 45], T.COMMERCIAL, 'a hospital campus paints COMMERCIAL, same as any other');
+  assert.eq(r.grid[15 * CPE + 45], T.EXCLUSION_ROCK, 'a hospital campus is Excluded rock');
   assert.truthy(has(r, 45, 15, WHY.RESTRICTED), 'and still carries RESTRICTED');
   assert.eq(at(r, 45, 15), INV, 'a hospital stays off-limits');
 });
@@ -185,18 +164,17 @@ test('spawn gate: orchard and farmland rims remain open while interiors are hard
       { type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] },
       { type: 3, tags, geom: [box(10, 10, 50, 50)] }] }]);
     const t = r.grid[30 * CPE + 30];
-    assert.truthy(W.FARM_TYPES.has(t), `${tags.subclass} paints a field (${t})`);
+    assert.eq(t,T.EXCLUSION_ROCK, `${tags.subclass} interior is Excluded rock`);
     assert.truthy(has(r, 30, 30, WHY.FARM_INTERIOR), `${tags.subclass}: the interior is FARM_INTERIOR`);
     assert.eq(at(r, 30, 30), INV, 'nothing grows or stands mid-field');
     // Find the field's west edge on row 30 and check the edge band: no
     // reason at all (the typed FARM reason was dropped Sep 2026 — the edge
     // is now plain open ground for every class, same as any other terrain).
-    let x0 = 0;
-    while (x0 < CPE && !W.FARM_TYPES.has(r.grid[30 * CPE + x0])) x0++;
+    const x0 = 10; // source field edge, retained even after the interior becomes rock
     for (let k = 0; k < W.FARM_EDGE_CELLS; k++) {
       assert.eq(raw(r, x0 + k, 30), 0, `${k} in from the edge: no reason`);
       for (const c of W.SPAWN_CLASSES) {
-        assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, x0 + k, 30, { spawnWhy: r.spawnWhy }, c), `${c}: welcome on the field's edge`);
+        assert.eq(W.isSpawnCell(r.grid, CPE, CPE, x0 + k, 30, { spawnWhy: r.spawnWhy }, c), GameplayTiers.allowed(r.gameplayTiers[30*CPE+x0+k],c), `${c}: edge follows its geographic tier`);
       }
     }
     assert.truthy(has(r, x0 + W.FARM_EDGE_CELLS + 1, 30, WHY.FARM_INTERIOR), 'past the edge band: interior');
@@ -215,7 +193,7 @@ test('spawn gate: source field interiors stay closed across road and POI paint',
       ] },
       poiLayer({ type: 1, tags: { class: 'park', name: 'Orchard interior' }, geom: [[pt(30,20)]] }),
     ]);
-    assert.eq(r.grid[30*CPE+30], T.PATH, 'a path repaints the source field');
+    assert.eq(r.grid[30*CPE+30], T.EXCLUSION_ROCK, 'the excluded source field remains rock across its path');
     assert.truthy(r.grid[20*CPE+30] !== T.ORCHARD, 'POI pad repaints the source field');
     for (const [x,y] of [[30,30],[30,29],[30,20],[30,22]]) {
       const i = y*CPE+x;
@@ -278,7 +256,7 @@ const MVT_TO_CELL = CPE / EXTENT, MVT_TO_M = TILE_EDGE_M / EXTENT;
 test('spawn gate: COMMERCIAL ground — a cell nearer a shop is open, nearer an office is PRIVATE', () => {
   for (const cls of ['commercial', 'retail', 'industrial']) {
     const r = build([commercial(cls), poiLayer(poiAt('clothing_store', 20, 32), poiAt('office', 40, 32))]);
-    assert.truthy(W.COMMERCIAL_GROUND.has(r.grid[32 * CPE + 30]), `${cls} paints commercial ground`);
+    assert.eq(r.gameplayTiers[32*CPE+30],cls==='industrial'?4:2, `${cls} uses its tier rather than inferred frontage`);
     assert.eq(raw(r, 25, 32), 0, `${cls}: nearer the shop — no reason`);
     assert.eq(raw(r, 29, 28), 0, `${cls}: just on the shop's side of the bisector`);
     assert.truthy(has(r, 31, 28, WHY.PRIVATE), `${cls}: just on the office's side — PRIVATE`);
@@ -302,9 +280,9 @@ test('spawn gate: COMMERCIAL ground — no POI within NEAREST_POI_MAX_M is PRIVA
   const r2 = build([commercial(), poiLayer(poiAt('cafe', 0, 10))]);
   assert.eq(raw(r2, Math.floor(R) - 1, 10), 0, 'inside the reach: open');
   assert.truthy(has(r2, Math.ceil(R) + 1, 10, WHY.PRIVATE), 'past the reach: PRIVATE');
-  // A POI chest's doorstep still lifts it (the PRIVATE lane's own lift).
+  // Explicitly classified commercial ground no longer needs a POI lift.
   assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, 32, 32, { spawnWhy: r.spawnWhy, pois: [{ ix: 33, iy: 32 }] }, 'minor'),
-    'a chest within SPAWN_FRONTAGE lifts PRIVATE, as on a lot');
+    'classified public-facing ground accepts minor finds');
 });
 
 test('spawn gate: COMMERCIAL ground — seam determinism: each tile answers from its own buffer what the whole world says', () => {
@@ -411,7 +389,7 @@ test('spawn gate: a golf course vouches for nobody', () => {
     { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'golf_course' }, geom: [box(0, 0, CPE - 1, 30)] }] },
     { name: 'landuse', features: [{ type: 3, tags: { class: 'residential' }, geom: [box(0, 31, CPE - 1, CPE - 1)] }] },
   ]);
-  assert.eq(r.grid[20 * CPE + 20], T.GOLF, 'the course paints golf');
+  assert.eq(r.grid[20 * CPE + 20], T.EXCLUSION_ROCK, 'the excluded course paints solid rock');
   assert.eq(at(r, 20, 20), INV, 'the whole course is private ground');
   assert.truthy(has(r,20,20,WHY.GOLF));
   for(const cls of W.SPAWN_CLASSES) assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,20,20,{},cls),'golf is excluded even without the mask');
@@ -482,7 +460,7 @@ test('spawn gate: THE BUILDING MOAT — the ring about a footprint is typed BUIL
     if (!inside) {
       assert.eq(at(r, cx, cy), SUP, 'the ring is SUPPRESSED, never INVALID');
       for (const cls of ['minor', 'fauna', 'fastFauna', 'enemy', 'fastEnemy', 'attractor', 'hazard'])
-        assert.truthy(W.isSpawnCell(r.grid, CPE, CPE, cx, cy, opts, cls), `${cls} at ${cx},${cy} stands against the wall`);
+        assert.eq(W.isSpawnCell(r.grid, CPE, CPE, cx, cy, opts, cls),GameplayTiers.allowed(r.gameplayTiers[cy*CPE+cx],cls), `${cls} follows its tier beside the wall`);
     }
   }
   assert.gt(interior, 0, 'a footprint was painted'); assert.gt(ring, 0, 'with a ring about it');
@@ -499,52 +477,26 @@ test('spawn gate: THE BUILDING MOAT — the ring about a footprint is typed BUIL
 
 // ── The classes ────────────────────────────────────────────────────────────
 
-test('isSpawnCell: each class refuses every hard reason and its own row\'s typed ones (SPAWN_CLASS_BLOCKS)', () => {
-  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,hazard,fastEnemy,reward,streetObstacle', 'the classes');
-  const B = W.SPAWN_CLASS_BLOCKS;
-  // The owner's table (Sep 2026).
-  assert.eq(B.minor, 0, 'minor: hard reasons only');
-  assert.eq(B.headstone, WHY.SENSITIVE, 'headstone: sensitive ground');
-  assert.eq(B.cave, WHY.SENSITIVE, 'cave: sensitive ground');
-  assert.eq(B.fauna, WHY.SENSITIVE, 'fauna: sensitive');
-  assert.eq(B.fastFauna, B.fauna | WHY.KERB | WHY.JUNCTION_SOFT, 'fast fauna: + kerb and Small-road junctions');
-  assert.eq(B.npc, WHY.SENSITIVE | WHY.BUILDING_MOAT, 'npc: sensitive, and never against a wall (the building moat)');
-  assert.eq(B.attractor, WHY.SENSITIVE, 'attractor: sensitive (HOUSE / SCHOOL / FARM dropped Sep 2026)');
-  assert.eq(B.enemy, B.attractor, 'enemy: the attractor row');
-  assert.eq(B.hazard, B.enemy | WHY.KERB | WHY.JUNCTION_SOFT, 'hazard: + kerb and Small-road junctions');
-  assert.eq(B.fastEnemy, B.enemy | WHY.KERB | WHY.JUNCTION_SOFT, 'fast enemy: + kerb and Small-road junctions');
-  assert.eq(B.reward, B.attractor | WHY.KERB, 'reward (src/scenic.js): the attractor row + the kerb');
-  const reasons = Object.values(WHY);
-  const g = new Uint8Array(reasons.length + 1).fill(T.GRASS);
-  const mask = Uint32Array.from([0, ...reasons]);
-  const ok = (i, cls, extra) => W.isSpawnCell(g, g.length, 1, i, 0, { spawnWhy: mask, ...extra }, cls);
-  for (const cls of W.SPAWN_CLASSES) {
-    assert.truthy(ok(0, cls), `${cls}: a cell with no reason`);
-    reasons.forEach((bit, k) => {
-      const want = !(bit & W.SPAWN_WHY_HARD) && !(bit & B[cls]);
-      assert.eq(ok(k + 1, cls), want, `${cls} on ${Object.keys(WHY)[k]}`);
-    });
-  }
-  assert.truthy(ok(0, undefined), 'no class reads as minor');
-  // PRIVATE (no frontage) is lifted by a POI in reach.
-  const iP = reasons.indexOf(WHY.PRIVATE) + 1;
-  assert.truthy(ok(iP, 'enemy', { pois: [{ ix: iP, iy: 0 }] }), 'a POI in reach vouches for a PRIVATE cell');
-  assert.truthy(W.isSpawnCell(g, g.length, 1, 0, 0, { spawnWhy: mask }, 'fastEnemy'), 'fastEnemy: the fast foe row');
-  assert.falsy(W.isSpawnCell(g, g.length, 1, reasons.indexOf(WHY.KERB) + 1, 0, { spawnWhy: mask }, 'fastEnemy'), 'kerb included');
-  // Live terrain still refuses (a pond carved after the mask was stamped).
-  const pond = g.slice(); pond[0] = T.WATER;
-  assert.falsy(W.isSpawnCell(pond, g.length, 1, 0, 0, { spawnWhy: mask }, 'minor'), 'water on the live grid');
-  assert.falsy(ok(0, 'minor', { occupied: new Set([0]) }), 'and what stands there');
+test('isSpawnCell: central tier table governs every spawn class and excludes all profiles', () => {
+  assert.eq(W.SPAWN_CLASSES.join(), 'minor,headstone,cave,fauna,fastFauna,npc,attractor,enemy,hazard,fastEnemy,reward,streetObstacle');
+  const grid=new Uint8Array(4).fill(T.GRASS),gameplayTiers=Uint8Array.from([1,2,3,4]);
+  // Legacy typed evidence cannot independently veto a tier-approved seat.
+  const spawnWhy=new Uint32Array(4).fill(WHY.KERB|WHY.SENSITIVE|WHY.JUNCTION_SOFT);
+  for(const cls of W.SPAWN_CLASSES) for(let i=0;i<4;i++)
+    assert.eq(W.isSpawnCell(grid,4,1,i,0,{gameplayTiers,spawnWhy},cls),GameplayTiers.allowed(i+1,cls),`${cls} on tier ${i+1}`);
+  assert.falsy(W.isSpawnCell(grid,4,1,3,0,{gameplayTiers,pois:[{ix:3,iy:0}]},'minor'),'POI cannot reopen Excluded');
+  assert.falsy(W.isSpawnCell(grid,4,1,0,0,{gameplayTiers,occupied:new Set([0])},'minor'),'occupied cell remains blocked');
+  const pond=grid.slice();pond[0]=T.WATER;
+  assert.falsy(W.isSpawnCell(pond,4,1,0,0,{gameplayTiers},'minor'),'new water remains blocked');
 });
 
-test('relocateToSpawnCell: walks to the nearest cell THE CLASS may take', () => {
-  const g = new Uint8Array(25).fill(T.GRASS);
-  const mask = new Uint16Array(25).fill(WHY.SENSITIVE);
-  mask[2 * 5 + 4] = 0;
-  const opts = { spawnWhy: mask };
-  assert.eq(JSON.stringify(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 3, 'minor')), JSON.stringify({ ix: 2, iy: 2 }), 'minor stays put on sensitive ground (unblocked)');
-  assert.eq(JSON.stringify(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 3, 'attractor')), JSON.stringify({ ix: 4, iy: 2 }), 'an attractor walks off it');
-  assert.eq(W.relocateToSpawnCell(g, 5, 5, 2, 2, opts, 1, 'enemy'), null, 'or is dropped');
+test('relocateToSpawnCell: walks to the nearest cell allowed by the spawn class tier', () => {
+  const grid=new Uint8Array(25).fill(T.GRASS),gameplayTiers=new Uint8Array(25).fill(3);
+  gameplayTiers[2*5+4]=1;
+  const opts={gameplayTiers};
+  assert.eq(JSON.stringify(W.relocateToSpawnCell(grid,5,5,2,2,opts,3,'minor')),JSON.stringify({ix:2,iy:2}),'minor stays in Passing');
+  assert.eq(JSON.stringify(W.relocateToSpawnCell(grid,5,5,2,2,opts,3,'fastEnemy')),JSON.stringify({ix:4,iy:2}),'fast foe moves to Core');
+  assert.eq(W.relocateToSpawnCell(grid,5,5,2,2,opts,1,'fastEnemy'),null,'drops when no eligible cell is in range');
 });
 
 // ── Seams and determinism ──────────────────────────────────────────────────
@@ -610,7 +562,7 @@ test('spawn gate: every isSpawnCell / relocateToSpawnCell call in src/ passes a 
 
 // ── Cave entrances (the owner's "ladders") ─────────────────────────────────
 
-test('cave entrances: a CAVE spawn — never on hard ground, sensitive ground or a field (the fixture tiles)', () => {
+test('cave entrances: every fixture mouth passes the authoritative cave spawn gate', () => {
   let stairs = 0;
   for (const key of Object.keys(FIXTURE_TILES)) {
     const [tx, ty] = key.split('_').map(Number);
@@ -622,8 +574,7 @@ test('cave entrances: a CAVE spawn — never on hard ground, sensitive ground or
       if (o.kind !== 'staircase') continue;
       stairs++;
       const ix = Math.floor((o.x - tx * edge) / (edge / N)), iy = Math.floor((o.y - ty * edge) / (edge / N));
-      const v = r.spawnWhy[iy * N + ix];
-      assert.eq(v & (W.SPAWN_WHY_HARD | W.SPAWN_CLASS_BLOCKS.cave), 0, `${o.id} on cave ground`);
+      assert.truthy(W.isSpawnCell(r.grid,N,N,ix,iy,{gameplayTiers:r.gameplayTiers},'cave'), `${o.id} on cave-eligible tier ground`);
     }
   }
   assert.gt(stairs, 0, `the fixtures hold mine mouths (${stairs})`);
@@ -632,14 +583,14 @@ test('cave entrances: a CAVE spawn — never on hard ground, sensitive ground or
 });
 
 test('cave entrances: a displaced mouth walks off its rock to cave ground, deterministically', () => {
-  // A rock cluster on sensitive ground: the cells round the rock are
-  // SENSITIVE, clear ground three cells east.
+  // A rock cluster on Excluded ground, with Core three cells east.
   const N = 16, edge = N * 7;
   const grid = new Uint8Array(N * N).fill(T.GRASS);
-  const spawnWhy = new Uint16Array(N * N).fill(WHY.SENSITIVE);
-  for (let y = 0; y < N; y++) for (let x = 11; x < N; x++) spawnWhy[y * N + x] = 0;
+  const spawnWhy = new Uint32Array(N * N);
+  const gameplayTiers=new Uint8Array(N*N).fill(4);
+  for (let y = 0; y < N; y++) for (let x = 11; x < N; x++) gameplayTiers[y * N + x] = 1;
   const rock = W.makeObject('mineralrock', 8.5 * 7, 8.5 * 7, 'mr_x', { caveVariant: 0, _clusterId: 'c1' });
-  const mk = () => ({ grid, cellsPerEdge: N, objects: [rock], wildplants: [], roadMask: new Uint8Array(N * N), spawnWhy });
+  const mk = () => ({ grid, cellsPerEdge: N, objects: [rock], wildplants: [], roadMask: new Uint8Array(N * N), spawnWhy, gameplayTiers });
   const a = mk(), b = mk();
   W.maybePlaceCaveEntrance(a, 0, 0, edge, [rock], []);
   W.maybePlaceCaveEntrance(b, 0, 0, edge, [rock], []);
@@ -649,10 +600,10 @@ test('cave entrances: a displaced mouth walks off its rock to cave ground, deter
   assert.gte(ix, 11, 'on the clear ground');
   assert.lte(ix - 8, W.CAVE_MOUTH_RELOCATE_CELLS, 'within the walk');
   assert.eq(sa[0].id, b.objects.find((o) => o.kind === 'staircase').id, 'the same cell every build');
-  // …and the kerb buffer is NOT a cave's reason (only fast movers read it):
-  // a mouth beside a busy road's verge stays put.
+  // Passing permits cave entrances, so a mouth beside its rock stays put.
   const kerb = mk();
-  kerb.spawnWhy = new Uint16Array(N * N).fill(WHY.KERB);
+  kerb.spawnWhy = new Uint32Array(N * N).fill(WHY.KERB);
+  kerb.gameplayTiers=new Uint8Array(N*N).fill(3);
   W.maybePlaceCaveEntrance(kerb, 0, 0, edge, [rock], []);
   const sk = kerb.objects.filter((o) => o.kind === 'staircase');
   assert.eq(sk.length, 1, 'a mouth by the kerb');
@@ -661,15 +612,15 @@ test('cave entrances: a displaced mouth walks off its rock to cave ground, deter
 
 // ── Headstones and the churchyard ──────────────────────────────────────────
 
-test('headstones: a HEADSTONE spawn — by the kerb is fine, sensitive ground never (the zone dressing names it)', () => {
+test('headstones: Calm and Passing permit them; Excluded does not', () => {
   assert.truthy(/what\.what === 'headstone'\) \? 'headstone'/.test(ALL_SRC['zones.js']), 'a pattern headstone');
   assert.truthy(/HEADSTONE_P \* s && ok\(ix, iy, 'headstone'\)/.test(ALL_SRC['zones.js']), 'a grave-lattice headstone too');
   assert.truthy(/ok\(ix, iy, 'attractor'\)/.test(ALL_SRC['zones.js']), 'the grove shrine is an attractor');
   const g = new Uint8Array(3).fill(T.CHURCHYARD);
   const mask = Uint16Array.from([0, WHY.KERB, WHY.SENSITIVE]);
-  const ok = (i) => W.isSpawnCell(g, 3, 1, i, 0, { spawnWhy: mask }, 'headstone');
+  const ok = (i) => W.isSpawnCell(g, 3, 1, i, 0, { spawnWhy: mask,gameplayTiers:Uint8Array.from([2,3,4]) }, 'headstone');
   assert.truthy(ok(0) && ok(1), 'on plain ground or by a busy road');
-  assert.falsy(ok(2), 'never on sensitive ground (round a real graveyard, a memorial)');
+  assert.falsy(ok(2), 'never on Excluded ground');
 });
 
 // ── The live private-ground veto (per-player only) ─────────────────────────

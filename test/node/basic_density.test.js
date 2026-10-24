@@ -4,6 +4,7 @@
     const layers=[{name:'landcover',features:[{type:3,tags:{class:'rock'},geom:[[
       {x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096},{x:0,y:0},
     ]]}]}];
+    layers.unshift({name:'landcover',features:[{...layers[0].features[0],tags:{class:'grass'}}]});
     const rocks=()=>W.rasterizeTile(layers,N,12,5615,edge).objects.filter(o=>o.kind==='mineralrock'&&!o._street);
     const tuning=BiomeProfiles.staticObjects(W.T.ROCK),keep=tuning.rockPlainKeep;
     const reduced=rocks();let full;
@@ -33,7 +34,7 @@
   test('basic rocks: wetland rejects overlap rubble; sand uses single shell stone art', () => {
     const W=WorldGen,N=64,edge=N*W.CELL_M;
     const polygon=tags=>({type:3,tags,geom:[[{x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096},{x:0,y:0}]]});
-    const render=type=>W.rasterizeTile([{name:'landcover',features:[polygon({class:'rock'}),polygon({class:type})]}],N,12,5615,edge);
+    const render=type=>W.rasterizeTile([{name:'landcover',features:[polygon({class:'grass'})]},{name:'landcover',features:[polygon({class:'rock'}),polygon({class:type})]}],N,12,5615,edge);
     const wet=render('wetland');
     assert.truthy(wet.grid.every(t=>t===W.T.WETLAND));
     assert.eq(wet.objects.filter(o=>o.kind==='mineralrock').length,0);

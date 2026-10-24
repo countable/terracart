@@ -395,6 +395,7 @@
     const protectedLand = W.QUIET | W.RESTRICTED | W.KINDERGARTEN
       | W.SENSITIVE_SITE | W.SENSITIVE | W.GOLF | W.PIER_ACCESS
       | W.FARM_INTERIOR | W.FARMLAND;
+    const tiers = WG.gameplayTiersOf(grid, { spawnWhy });
     const under = field.under || (field.under = new Uint8Array(N * N));
     const present = under.present || (under.present = new Uint8Array(N * N));
     let painted = 0;
@@ -413,7 +414,7 @@
         if (code == null) continue;
         // A park union cannot repaint protected source ground into public
         // Nexus scenery. Earlier halo/fringe paint is undone from its ledger.
-        if (spawnWhy && (spawnWhy[i] & protectedLand)) {
+        if (tiers ? tiers[i] === root.GameplayTiers.EXCLUDED : spawnWhy && (spawnWhy[i] & protectedLand)) {
           if (zoneGround.has(here)) grid[i] = root.Zones.landAt(grid, under, i);
           continue;
         }

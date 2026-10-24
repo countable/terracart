@@ -325,7 +325,7 @@
   // class, no quiet land, no POI-frontage lift, no shared occupancy).
   function spawnOptsOf(entry, extra) {
     const opts = Object.assign({}, entry._spawnOpts,
-      { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass, quiet: entry.quietMask },
+      { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass, quiet: entry.quietMask, gameplayTiers: entry.gameplayTiers },
       extra);
     // Saved overlays reserve live cells without mutating generated occupancy;
     // pickup then releases only their claim, preserving the underlying gate.
@@ -526,139 +526,30 @@
     T.PARK, T.PLAYGROUND, T.PITCH, T.SAND, T.PIER,
   ]);
 
-  // Is (cx,cy) a legitimate place to spawn a pickup? THE single rule every
-  // spawner shares. Walkable (never water/road/building) AND not deep in
-  // private property. Lot cells (isLotTerrain: RESIDENTIAL, WASTELAND) model someone's yard/lot, so a spawn is
-  // only allowed there when — within `frontage` cells (Chebyshev) — there's a
-  // public anchor: a road/path, a detectable public area (PUBLIC_NEAR), or a
-  // POI. Unifies the legacy _xRoadOK (app.js) and _mrNearRoadWithin (worldgen).
-  //   grid/w/h : flat terrain array + its cell dimensions
-  //   opts.frontage : override the default radius (SPAWN_FRONTAGE)
-  //   opts.pois     : array of {ix,iy} cell coords of nearby POIs/chests —
-  //                   a residential cell within `frontage` of one is fair game
-  //   opts.roadMask : the tile's road-footprint mask (see rasterizeTile). The
-  //                   terrain code alone under-reports the road: every way
-  //                   rasterizes one cell wide however wide it really is, and
-  //                   parking aisles rasterize to nothing at all, so a cell
-  //                   the grid calls grass can be ground the player sees as
-  //                   asphalt. Pass it and those cells are refused too.
-  //   opts.occupied : a Set of flat cell indices (cy*w+cx) already claimed by
-  //                   an existing object or wild plant — a rock, a tree, a
-  //                   chest, a produce stand, a tuft of grass. Terrain alone
-  //                   can't see this: the cell reads as ordinary walkable
-  //                   ground, but something is already drawn on it. Without
-  //                   this a trap could be sprung under a rock sprite (the art
-  //                   is its only warning) or an X mark could bury itself
-  //                   under a tree, undiggable until the tree is felled. Caves
-  //                   check the same thing directly (Traps.spawnCave's
-  //                   `occupiedIdx`); this is the surface side of that rule.
-  //   opts.quiet    : the tile's QUIET-LAND mask (entry.quietMask — see
-  //                   QUIET_LAND below): military ground, railway land, First
-  //                   Nations reserve land and real cemeteries. A quiet cell
-  //                   keeps its look and stays walkable, but hosts NOTHING —
-  //                   no creature, trap, pickup, chest or hoard. It is the
-  //                   roadMask's lane (a masked cell just can't host a spawn)
-  //                   with a different reason, not a new gate.
-  //   opts.spawnWhy : THE SPAWN GATE (entry.spawnWhy — see below). With it
-  //                   the mask answers every land question (quiet, restricted,
-  //                   frontage, behind a house, the typed buffers) and
-  //                   `quiet` / `roadClass` / `frontage` are not read; without
-  //                   it (a synthetic grid) those parts answer as they always
-  //                   did.
-  // THE KERB BUFFER (ROAD_CLASS_MAJOR_BUFFER, off entry.roadClass) is the
-  // mask's KERB reason. inMajorBuffer / onMajorBand stay for the MOVEMENT
-  // rules (where a chase may go), which are not spawns.
+  // Road geometry remains available for movement and chase limits. Spawn
+  // eligibility instead reads GameplayTiers through isSpawnCell below.
   function inMajorBuffer(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BUFFER));
   }
   function onMajorBand(roadClass, w, cx, cy) {
     return !!(roadClass && (roadClass[cy * w + cx] & ROAD_CLASS_MAJOR_BAND));
   }
-  // ── THE SPAWN GATE (Sep 2026): entry.spawnWhy + the spawn's CLASS ─────────
-  // One per-tile mask (stampSpawnWhySteps, beside roadMask, in the sliced
-  // build) records WHY each cell is refused - a Uint32 of reason bits, never
-  // a single verdict - and every spawner names what it is seating. Two kinds
-  // of reason:
-  //   HARD (SPAWN_WHY_HARD) — refuse EVERY class:
-  //     TERRAIN       water / building / road tier on the terrain grid
-  //     ROAD          the drawn band covers ≥ half the cell (the roadMask,
-  //                   ROAD_MASK_MIN_COVER) — nothing narrower: a cell a band
-  //                   only licks is not road (road proximity is KERB)
-  //     RESTRICTED    hospital, railway, military, garages, building sites
-  //     QUIET         quiet land (QUIET_LAND)
-  //     KINDERGARTEN  kindergarten grounds
-  //     SENSITIVE_SITE a sensitive POI's own point (3×3)
-  //     BEHIND_HOUSE  a lot cell whose line to its nearest public way crosses
-  //                   a building (somebody's back garden)
-  //     PRIVATE       a lot cell no public anchor fronts within
-  //                   SPAWN_FRONTAGE (private ways vouch for nobody), or a
-  //                   commercial / industrial cell whose nearest POI is not a
-  //                   PUBLIC one (COMMERCIAL_POI_KIND — none within
-  //                   NEAREST_POI_MAX_M counts as private) — lifted by a POI
-  //                   within SPAWN_FRONTAGE (opts.pois: a chest is a public
-  //                   place)
-  //     FARMLAND      legacy whole-field exclusion bit (no longer stamped)
-  //     GOLF          private golf grounds, including all later overlays
-  //     PIER_ACCESS   pier footprint without affirmative public access tags
-  //     FARM_INTERIOR orchard / farmland further than FARM_EDGE_CELLS from
-  //                   any other ground: nothing grows or stands in a field.
-  //                   Orchard edges remain open unless mapped farmland
-  //                   underneath them carries the FARMLAND reason.
-  //     JUNCTION      an MD/LG road junction's overlapping bands plus its
-  //                   two-cell safety buffer
-  //   TYPED SUPPRESSION - refuse only the classes whose row names them:
-  //     KERB          a Major-and-Medium road's band touches the cell, or its kerb buffer
-  //                   - refused ONLY by FAST MOVERS (fastEnemy / fastFauna:
-  //                   creature_ai.js creatureSpawnClass, off BRISK_WALK_MPS)
-  //     JUNCTION_SOFT a Small-road junction's overlapping bands plus one cell;
-  //                   fast movers and player-facing hazards refuse it
-  //     SENSITIVE     round a sensitive POI, real cemetery land, a church on
-  //                   cemetery land (churchyardBufferM)
-  //     BUILDING_MOAT the cell touching a building footprint (THE BUILDING
-  //                   MOAT, nearBuildingCell: a wall's base overhangs the
-  //                   cells about it, so whoever stands there reads as
-  //                   standing on the house) — refused ONLY by villagers
-  //                   ('npc'), who are watched; scatter asks the moat itself
-  // (Superseded Sep 2026: the typed HOUSE reason — a 40 m buffer round every
-  // house on lot land — and the typed SCHOOL reason — school / college /
-  // university grounds, plus the school-hours timing — are both dropped: the
-  // owner reviewed the table and decided a house's yard is covered by
-  // PRIVATE/BEHIND_HOUSE already and a school field is ordinary public ground.
-  // KINDERGARTEN stays hard. Orchard and farmland outer rims are open.)
-  // The spawn's class — isSpawnCell's 7th argument, required of every caller
-  // (test/node/spawn_class.test.js sweeps the source) — is a ROW of
-  // SPAWN_CLASS_BLOCKS: which typed reasons it refuses (hard ones always).
-  //   'minor'     flora, rocks, X marks, crates, scenery, gate posts, boards
-  //   'headstone' a churchyard stone (it raises a ghost) — SENSITIVE only,
-  //               like most rows: stones stand on the streets round a church
-  //   'cave'      a cave entrance ("the ladder") — SENSITIVE only
-  //   'fauna'     friendly / wild animals at a walk (cats, dogs, crows, …)
-  //   'fastFauna' an animal that out-runs a brisk walk (deer, rabbits, …)
-  //   'npc'       villagers — fauna's row plus BUILDING_MOAT: a neighbour is
-  //               never seated against a wall (a field's interior is hard
-  //               for all)
-  //   'attractor' hoards, lair points, events (coin bursts), grove shrines
-  //   'enemy'     anything hostile seated at a walk: slow foes, guards and
-  //               park plants
-  //   'hazard'    a trap seated for the player - SENSITIVE, KERB and the
-  //               Small-road junction buffer
-  //   'fastEnemy' a foe that out-runs a brisk walk - the enemy row + KERB
-  //               and the Small-road junction buffer
-  //   'reward'    a find the player WALKS TO on purpose (src/scenic.js: a
-  //               viewpoint's scope, a vista chest, the tide line) — the
-  //               attractor row + KERB: never a reason to step to the kerb
-  //               of a road in the Major-and-Medium road group (the safety rule)
-  // A creature's class is never typed at the call site: creature_ai.js
-  // creatureSpawnClass(kind) derives fauna / enemy and fast / slow from the
-  // kind's own speed data.
-  // An unknown / missing class reads as 'minor'.
-  // POI chests are the PLACE itself: they sit at their POI point and read
-  // only the land (landRefused) — they are the anchor other spawns' frontage
-  // reads, never a spawn.
-  // What this is NOT: a movement rule. A fast foe's leash at the kerb reads
-  // roadClass (inMajorBuffer) because it is about where a chase may GO.
-  // Bit values kept stable across the Sep 2026 drop of HOUSE (512), SCHOOL
-  // (2048). Retain the legacy FARMLAND bit for older cached masks.
+  // Source evidence recorded by stampSpawnWhySteps. These bits describe
+  // mapped land and geometry; they are not a spawn permission table.
+  // TERRAIN/ROAD describe the original terrain and drawn road footprint.
+  // RESTRICTED, QUIET, KINDERGARTEN, SENSITIVE_SITE, GOLF and PIER_ACCESS
+  // record mapped access constraints. PRIVATE and BEHIND_HOUSE describe
+  // frontage and building occlusion; FARM_INTERIOR describes field interiors.
+  // KERB and JUNCTION/JUNCTION_SOFT retain road-buffer geometry; SENSITIVE
+  // records sensitive surroundings, and BUILDING_MOAT records wall proximity.
+  // GameplayTiers resolves geographic precedence, including path corridors,
+  // then its class policy is combined with live placement checks by
+  // isSpawnCell. Passing rejects hazards and fast movers; Excluded rejects
+  // every class. POIs do not grant exceptions to that policy.
+  // Creature classes derive from their own speed/hostility data through
+  // creatureSpawnClass(kind); an unknown or missing class defaults to minor.
+  // Keep bit values stable, including the legacy FARMLAND bit and the gaps
+  // left by retired HOUSE (512) and SCHOOL (2048) evidence.
   const SPAWN_WHY = {
     TERRAIN: 1, ROAD: 2, RESTRICTED: 4, QUIET: 8, KINDERGARTEN: 16,
     SENSITIVE_SITE: 32, BEHIND_HOUSE: 64, PRIVATE: 128, FARM_INTERIOR: 256,
@@ -669,58 +560,64 @@
   const SPAWN_WHY_HARD = W_.TERRAIN | W_.ROAD | W_.RESTRICTED | W_.QUIET | W_.KINDERGARTEN
     | W_.SENSITIVE_SITE | W_.BEHIND_HOUSE | W_.PRIVATE | W_.FARM_INTERIOR | W_.FARMLAND | W_.GOLF
     | W_.PIER_ACCESS | W_.JUNCTION;
-  // Surface access and safety survive every dungeon floor. Only terrain is
-  // re-evaluated from the current floor; digging never removes safety zones.
+  // Carry source evidence and the authoritative surface tiers to every
+  // dungeon floor. Physical terrain is checked on the current floor.
   const SPAWN_WHY_ALL_FLOORS = (SPAWN_WHY_HARD | W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT) & ~W_.TERRAIN;
   function floorSpawnWhy(surface) {
     const source = surface.zone?.caveSource || surface.caveSource || surface;
     const grid = source.baseGrid || source.grid;
     const why = source.spawnWhy || surface.spawnWhy;
-    return Uint32Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
+    const result = Uint32Array.from(grid, (terrain, i) => ((why?.[i] || 0) & SPAWN_WHY_ALL_FLOORS)
       | (terrain === T.GOLF ? W_.GOLF : 0));
+    registerGameplayTiers(null, result, surface.gameplayTiers || source.gameplayTiers
+      || gameplayTiersOf(grid, { spawnWhy: why }));
+    return result;
   }
   const SPAWN_WHY_TYPED = W_.KERB | W_.SENSITIVE | W_.JUNCTION_SOFT | W_.BUILDING_MOAT;
-  // Hard access reasons that place-bound producers obey even when they own
-  // their terrain or road band. This includes the junction exclusion zone.
+  // Legacy land-evidence subset for source classification and synthetic
+  // inputs. Production placement uses the registered tier field.
   const SPAWN_WHY_LAND = SPAWN_WHY_HARD & ~(W_.TERRAIN | W_.ROAD);
-  // THE ONE TABLE: what each spawn class refuses beyond the hard reasons.
-  const SPAWN_CLASS_BLOCKS = {
-    minor: 0,
-    headstone: W_.SENSITIVE,
-    cave: W_.SENSITIVE,
-    fauna: W_.SENSITIVE,
-    fastFauna: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
-    npc: W_.SENSITIVE | W_.BUILDING_MOAT,
-    attractor: W_.SENSITIVE,
-    enemy: W_.SENSITIVE,
-    hazard: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
-    fastEnemy: W_.SENSITIVE | W_.KERB | W_.JUNCTION_SOFT,
-    reward: W_.SENSITIVE | W_.KERB,
-    streetObstacle: 0, // declared static cross-sections only; default gate stays hard
-  };
-  const SPAWN_CLASSES = Object.keys(SPAWN_CLASS_BLOCKS);
-  function spawnBlocks(cls) {
-    const b = SPAWN_CLASS_BLOCKS[cls];
-    return b == null ? 0 : b;
-  }
-  // The derived VERDICT of a cell (the overlays' and measurements'
-  // convenience — never what a spawner reads): INVALID for any hard reason,
-  // SUPPRESSED for any typed one, else OPEN.
+  // Legacy evidence summary for diagnostic overlays and measurements.
+  // GameplayTiers, not this summary, determines spawn permissions.
   const SPAWN_OPEN = 0, SPAWN_SUPPRESSED = 1, SPAWN_INVALID = 2;
   function spawnClassOf(v) {
     return (v & SPAWN_WHY_HARD) ? SPAWN_INVALID : (v & SPAWN_WHY_TYPED) ? SPAWN_SUPPRESSED : SPAWN_OPEN;
   }
-  // Does the mask refuse cell `i` for a reason of the LAND — restricted,
-  // quiet, kindergarten, sensitive site, behind a house, a field's interior,
-  // no frontage (lifted by a POI in `pois`) — rather than of its terrain
-  // (water, building) or the road band? For the passes that have their own
-  // terrain rule and seat on a road on purpose (a POI chest, a well that
-  // repaints the cobble, a gate on its way).
+  // Generated grids and their evidence masks share one policy, including
+  // helpers that receive only the mask. Weak keys do not retain evicted tiles.
+  const tierFields = new WeakMap();
+  function registerGameplayTiers(grid, spawnWhy, tiers) {
+    if (!tiers) return;
+    if (grid) tierFields.set(grid, tiers);
+    if (spawnWhy) tierFields.set(spawnWhy, tiers);
+  }
+  function gameplayTiersOf(grid, opts) {
+    return opts?.gameplayTiers || (grid && tierFields.get(grid))
+      || (opts?.spawnWhy && tierFields.get(opts.spawnWhy));
+  }
+  function spawnTierAt(grid, i, opts = {}) {
+    opts ||= {};
+    const tiers = gameplayTiersOf(grid, opts);
+    if (tiers) return tiers[i] || 4;
+    // Synthetic/sandbox inputs lack source geometry. Resolve their explicit
+    // evidence into the same policy instead of maintaining another gate.
+    const here = grid?.[i], why = opts.spawnWhy?.[i] || 0;
+    const hardLand = SPAWN_WHY_LAND & ~W_.JUNCTION;
+    if (why & hardLand || opts.quiet?.[i] || here === T.ROAD_MD || here === T.ROAD_LG
+      || here === T.EXCLUSION_ROCK || here === T.GOLF || isBuildingTerrain(here) || here === T.WATER) return 4;
+    if (here === T.PIER && !opts.spawnWhy) return 4;
+    if (here === T.PATH) return 1;
+    if (here === T.ROAD) return 2;
+    // A band/restriction without source classification cannot prove a safe
+    // street/path type. Synthetic callers may supply a tier to resolve it.
+    if (opts.roadMask?.[i] || why & (W_.TERRAIN | W_.ROAD | W_.SENSITIVE)) return 4;
+    if (why & (W_.KERB | W_.JUNCTION | W_.JUNCTION_SOFT)
+      || opts.roadClass?.[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_JUNCTION_EXCLUDE | ROAD_CLASS_JUNCTION_SOFT)) return 3;
+    return 1;
+  }
   function landRefused(mask, i, pois, cx, cy) {
     if (!mask) return false;
-    const v = mask[i];
-    if (v & SPAWN_WHY_LAND & ~W_.PRIVATE) return true;
-    return !!(v & W_.PRIVATE) && !poiWithin(pois, cx, cy, SPAWN_FRONTAGE);
+    return !global.GameplayTiers.allowed(spawnTierAt(null, i, { spawnWhy: mask }), 'minor');
   }
   function poiWithin(pois, cx, cy, r) {
     if (!pois) return false;
@@ -731,61 +628,19 @@
   }
   function isSpawnCell(grid, w, h, cx, cy, opts, cls) {
     if (cx < 0 || cy < 0 || cx >= w || cy >= h) return false;
-    const here = grid[cy * w + cx];
-    if (here === T.GOLF) return false;
-    if (here === T.PIER && !(opts && opts.spawnWhy)) return false;
-    // Only authored thorny/barricade/snare cross-sections may occupy their own
-    // road band. Declared seats never relax any other spawn class.
-    const obstacle = cls === 'streetObstacle' && opts?.streetObstacleCells?.has(cy * w + cx);
-    const obstacleRoad = obstacle && (here === T.ROAD || here === T.PATH);
-    if (obstacle && (isLotTerrain(here) || here === T.ROAD_MD || here === T.ROAD_LG
-        || onMajorBand(opts.roadClass, w, cx, cy) || inMajorBuffer(opts.roadClass, w, cx, cy))) return false;
-    // Terrain and band are read LIVE as well as through the mask: a live grid
-    // (the starter pond, a dug wall) can differ from the one the mask was
-    // stamped over.
-    // Reef scenery and shore-reachable finds explicitly require actual water;
-    // all other callers keep the ordinary walkable-terrain gate.
-    const waterOnly = !!(opts && opts.waterOnly);
-    if (waterOnly ? here !== T.WATER : !isWalkable(here) && !obstacleRoad) return false;
-    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): this IS THE
-    // GATE — every other spawner's roadMask question resolves here.
-    const roadMask = opts && opts.roadMask;
-    if (roadMask && roadMask[cy * w + cx] && !obstacle) return false;   // under a drawn road band
-    const occupied = opts && opts.occupied;
-    if (occupied && occupied.has(cy * w + cx)) return false;   // already holds an object/wild plant
-    // THE BUILDING MOAT, read LIVE like terrain (a class that refuses it): a
-    // footprint stamped after the mask (Home's house) and a synthetic grid
-    // both keep a villager off the cells touching a wall.
-    if ((spawnBlocks(cls) & W_.BUILDING_MOAT) && nearBuildingCell(grid, w, h, cx, cy)) return false;
-    const mask = opts && opts.spawnWhy;
-    if (mask) {
-      const v = mask[cy * w + cx] & ~((waterOnly || obstacleRoad ? W_.TERRAIN : 0) | (obstacle ? W_.ROAD : 0));
-      if (obstacle && (v & (W_.PRIVATE | W_.KERB))) return false;
-      if (v & (SPAWN_WHY_HARD & ~W_.PRIVATE)) return false;
-      if (v & spawnBlocks(cls)) return false;
-      if (!(v & W_.PRIVATE)) return true;
-      return poiWithin(opts.pois, cx, cy, SPAWN_FRONTAGE);
-    }
-    // ── No mask (a synthetic grid, a caller outside a built tile): the same
-    // rules read from their parts - quiet land, lot frontage, road junctions
-    // and, for a class that refuses KERB, the kerb buffer.
-    const quiet = opts && opts.quiet;
-    if (quiet && quiet[cy * w + cx]) return false;         // quiet land (QUIET_LAND)
-    const roadBits = opts?.roadClass?.[cy * w + cx] || 0;
-    if (roadBits & ROAD_CLASS_JUNCTION_EXCLUDE) return false;
-    if ((spawnBlocks(cls) & W_.KERB) && inMajorBuffer(opts && opts.roadClass, w, cx, cy)) return false;
-    if ((spawnBlocks(cls) & W_.JUNCTION_SOFT) && (roadBits & ROAD_CLASS_JUNCTION_SOFT)) return false;
-    if (!isLotTerrain(here)) return true;         // public / open ground — always ok
-    const frontage = (opts && opts.frontage != null) ? opts.frontage : SPAWN_FRONTAGE;
-    for (let dy = -frontage; dy <= frontage; dy++) {
-      for (let dx = -frontage; dx <= frontage; dx++) {
-        const nx = cx + dx, ny = cy + dy;
-        if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
-        if (PUBLIC_NEAR.has(grid[ny * w + nx])) return true;
-      }
-    }
-    return poiWithin(opts && opts.pois, cx, cy, frontage);
+    const i = cy * w + cx, here = grid[i];
+    const tier = spawnTierAt(grid, i, opts);
+    if (!global.GameplayTiers.allowed(tier, cls || 'minor')) return false;
+    // Geography is decided above. These are live physical placement checks:
+    // a new wall or occupied seat must not be reopened by a cached tier.
+    if (isBuildingTerrain(here) || here === T.WATER || here === T.EXCLUSION_ROCK
+      || here === T.CAVE_WALL) return false;
+    if (opts?.waterOnly) return false; // water is Excluded for every spawn profile
+    if (opts?.occupied?.has(i)) return false;
+    if (cls === 'npc' && nearBuildingCell(grid, w, h, cx, cy)) return false;
+    return true;
   }
+
   // ── GATES and NOTICE BOARDS (POI_GATE_CLASS / POI_INFO_CLASS) ───────────
   // Where a gate's two POSTS stand: either side of the gate's own cell, along
   // the FENCE — i.e. across the way that runs through the gate. The cheap
@@ -6233,6 +6088,34 @@
     // first cull below reads it. Pure MVT, re-derived by a rebuild.
     const spawnWhy = yield* stampSpawnWhySteps({ layers, grid, w, h, mvtToCell, mvtToM,
       roadMask, roadClass, quietMask });
+    const tierInput = { tx, ty, cellsPerEdge: w, tileEdgeM, layers, spawnWhy, roadClass, grid };
+    const initialTierField = yield* global.GameplayTiers.buildTileSteps(tierInput);
+    const gameplayTiers = initialTierField.tiers, gameplayReasons = initialTierField.reasons;
+    registerGameplayTiers(grid, spawnWhy, gameplayTiers);
+    // Preserve physical landcover before any Nexus or road-theme paint.
+    // The per-player Home overlay uses this; shared cave inputs stay untouched.
+    const variantBaseGrid = grid.slice();
+    let zone = null, zoneDress = null, fringe = null;
+    if (typeof Zones !== 'undefined') {
+      zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
+      if (zone) yield* Zones.haloSteps(zone, grid, w, pathUnder);
+      fringe = parkPolys.length
+        ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
+      if (fringe && !zone) zone = fringe.field;
+      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
+        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, beachLayer: layersByName['landcover'], waterLayer: layersByName['water'], tx, ty, N: w,
+        chests: objects, tileEdgeM, grid });
+      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
+        field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
+        tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
+    }
+    // Coverage is planned before any cull. Keep physical substrate intact
+    // through the baseline passes, then apply this already-planned paint.
+    const zonePlannedGrid = grid.slice();
+    grid.set(variantBaseGrid);
+    const finalTierField = yield* global.GameplayTiers.buildTileSteps({ ...tierInput, zone });
+    gameplayTiers.set(finalTierField.tiers);
+    gameplayReasons.set(finalTierField.reasons);
     // Replace polygon grass on final field terrain with one clustered cover
     // pass. Other plants keep their identities underneath the cover; the
     // shared spawn gate and special Nexus/Road Variant replacement still apply.
@@ -6275,20 +6158,9 @@
       // the two answer the same question, and the tier alone gets it wrong on
       // exactly the cells players notice (the flanks of a big road, the
       // whole of a parking lot).
-      const _underRoadBand = (ix, iy) => roadMask[iy * w + ix] === 1;
-      const _mrIsBlocked = (ix, iy, ground = grid) => {
-        const tc = ground[iy * w + ix];
-        return isCobbleTerrain(tc) || tc === T.WATER || tc === T.PIER
-            || isBuildingTerrain(tc)
-            || _underRoadBand(ix, iy);
-      };
-      // No interactable may sit on a road tier or a building footprint. This is
-      // the blanket rule for EVERY scatter object (rocks, trees, wells,
-      // …); the sole exception is a POI chest, handled explicitly below.
-      const _onRoadOrBuilding = (tc, ix, iy) =>
-           tc === T.ROAD     || tc === T.ROAD_LG    || tc === T.ROAD_MD
-        || isBuildingTerrain(tc)
-        || _underRoadBand(ix, iy);
+      const _mrIsBlocked = (ix, iy, ground = grid) =>
+        !isSpawnCell(ground, w, h, ix, iy, { spawnWhy, gameplayTiers }, 'minor');
+      const _onRoadOrBuilding = (tc, ix, iy) => _mrIsBlocked(ix, iy);
       // The grid is indexed in the TILE's cell basis — cell width =
       // tileEdgeM / cellsPerEdge, NOT the global CELL_M (5 m). Round-up
       // from cellsPerEdge × CELL_M to tileEdgeM produces ~0.03 m of
@@ -6329,7 +6201,7 @@
         // Quiet land, private grounds and unverified piers host nothing — not even a POI chest
         // (a farm shop or kiosk): the mask's whole promise is that
         // nothing there asks to be walked to.
-        if (quietMask[iy * w + ix] || (spawnWhy[iy * w + ix] & (W_.FARM_INTERIOR | W_.GOLF | W_.PIER_ACCESS))) return true;
+        if (!isSpawnCell(ground, w, h, ix, iy, { spawnWhy, gameplayTiers }, 'minor')) return true;
         // Blanket cull: nothing but a POI chest may sit on a road tier or a
         // building footprint. A chest is a real-world destination deliberately
         // placed at its coordinates — and a POI inside a building is allowed
@@ -6782,7 +6654,8 @@
     // surface gives the special street its whole corridor, even empty cells.
     // Capture after ordinary dedupe, before either Road Variant or Nexus replacement.
     const caveSource = { grid: grid.slice(), objects: deduped.slice(),
-      wildplants: filtered.slice(), spawnWhy: spawnWhy.slice() };
+      wildplants: filtered.slice(), spawnWhy: spawnWhy.slice(), gameplayTiers };
+    registerGameplayTiers(caveSource.grid, caveSource.spawnWhy, gameplayTiers);
     // Surface shrines change POI kind, theme and sometimes position in place.
     // A slice alone would let those mutations rewrite the cave snapshot.
     for (let i = 0; i < caveSource.objects.length; i++) {
@@ -6804,7 +6677,7 @@
     // The dressings' spawn options — one shape, built per pass (a pass that
     // extends its options never hands the next one its extras).
     const dressOpts = (extra) => Object.assign(
-      { roadMask, quiet: quietMask, spawnWhy, roadClass, occupied: dressOcc, pois: dressPois }, extra);
+      { roadMask, quiet: quietMask, spawnWhy, roadClass, gameplayTiers, occupied: dressOcc, pois: dressPois }, extra);
     const dressSpawn = () => {
       if (dressOcc) return;
       dressOcc = occupiedIndexSet(tileFrame({ cellsPerEdge: w }, tx, ty, tileEdgeM), deduped, filtered);
@@ -6824,23 +6697,7 @@
     // character's filler a little further out. A tile with parks but no Nexus
     // still gets a (stub) field, so the land's class (`under`) reaches the
     // trap ground the same way.
-    // Preserve physical landcover before any Nexus or road-theme paint.
-    // The per-player Home overlay uses this; shared cave inputs stay untouched.
-    const variantBaseGrid = grid.slice();
-    let zone = null, zoneDress = null, fringe = null;
-    if (typeof Zones !== 'undefined') {
-      zone = yield* Zones.fieldSteps(layersByName['poi'], tx, ty, w);
-      if (zone) yield* Zones.haloSteps(zone, grid, w, pathUnder);
-      fringe = parkPolys.length
-        ? yield* Zones.fringeSteps({ parks: parkPolys, grid, N: w, tx, ty, field: zone, pathUnder }) : null;
-      if (fringe && !zone) zone = fringe.field;
-      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.buildSteps({
-        field: zone, poiLayer: layersByName['poi'], parks: parkPolys, beachLayer: layersByName['landcover'], waterLayer: layersByName['water'], tx, ty, N: w,
-        chests: deduped, tileEdgeM, grid });
-      if (typeof ZoneCoverage !== 'undefined') zone = yield* ZoneCoverage.quarrySteps({
-        field: zone, parkingLanes: layersByName['transportation']?.parkingLanes,
-        tx, ty, N: w, grid, tileEdgeM, roadMask, spawnWhy });
-    }
+    grid.set(zonePlannedGrid);
     if (zone) for (const o of deduped) {
       if (o.kind !== 'temple') continue;
       const anchor = zone.anchors.find(a => String(a.key ?? Zones.anchorKey(a.gx, a.gy)) === o.templeZone);
@@ -6919,7 +6776,8 @@
           if (zone.under[i]) caveGrid[i] = zone.under[i];
         }
         zone.caveSource = { grid: caveGrid, objects: caveSource.objects,
-          wildplants: caveSource.wildplants, spawnWhy: caveSource.spawnWhy };
+          wildplants: caveSource.wildplants, spawnWhy: caveSource.spawnWhy, gameplayTiers };
+        registerGameplayTiers(caveGrid, caveSource.spawnWhy, gameplayTiers);
       }
       if (typeof ZoneCoverage !== 'undefined') yield* ZoneCoverage.paintSteps(zone, grid, w, pathUnder, roadMask, spawnWhy);
       zone.legacyRemoved = yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
@@ -7017,46 +6875,45 @@
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       landcoverGrid: caveSource.grid, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
-    // All dressing has reserved its seats before permanent backyard bedrock.
-    const bedrockOccupied = new Set([...dressOcc, ...lampReservations]);
-    for (const list of [deduped, filtered, zoneDress?.objects, streetDress?.objects, scenicDress?.objects]) {
-      for (const o of list || []) {
-        const c = o._ix != null && o._iy != null ? { x: o._ix, y: o._iy }
-          : { x: Math.floor((o.x - tileOriginMx) / cellWidthM), y: Math.floor((o.y - tileOriginMy) / cellWidthM) };
-        if (c.x >= 0 && c.y >= 0 && c.x < w && c.y < h) bedrockOccupied.add(c.y * w + c.x);
-      }
+    // Final policy cleanup precedes permanent Excluded ground treatment.
+    const streams = [[deduped, 'minor'], [filtered, 'minor'], [parkingTreasures, 'reward']];
+    for (const dressing of [zoneDress, streetDress, scenicDress]) if (dressing) {
+      for (const [key, cls] of [['objects','minor'],['wildplants','minor'],['treasures','reward'],
+        ['traps','hazard'],['webs','hazard'],['vents','hazard'],['guards','creature'],['corals','minor']])
+        streams.push([dressing[key], cls]);
     }
-    const hasExclusionRock = stampExclusionRock(grid, w, h, { spawnWhy, roadMask, occupied: bedrockOccupied,
-      coverage: zone?.coverage || zone?.idx }) > 0;
+    for (const [list, profile] of streams) {
+      if (!list) continue;
+      let keep = 0;
+      for (const o of list) {
+        const ix = Math.floor((o.x - tileOriginMx) / cellWidthM), iy = Math.floor((o.y - tileOriginMy) / cellWidthM);
+        const cls = global.GameplayTiers.classForRecord(o,
+          profile === 'creature' ? creatureSpawnClass(o.kind) : profile);
+        if (isBuilding(o.kind) || o.kind === 'temple' || ix < 0 || iy < 0 || ix >= w || iy >= h
+          || isSpawnCell(grid, w, h, ix, iy, { gameplayTiers }, cls)) list[keep++] = o;
+      }
+      list.length = keep;
+      yield 'tier placement cleanup';
+    }
+    const hasExclusionRock = stampExclusionRock(grid, w, h, { gameplayTiers, gameplayReasons }) > 0;
     assignScholarFallback(deduped);
-    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
+    return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
   }
 
-  // A material/collision treatment for deep private backyards, not a new
-  // general access rule. Keep one full cell of clearance around every path,
-  // footprint, public edge, authored zone and existing prop. Test eligibility
-  // against the unchanged grid, then stamp together so scan order cannot
-  // change the shape. Tile borders stay open without neighbouring-tile data.
+  // Material follows the shared policy, including tile borders. Preserve
+  // structural water/buildings and the MD/LG carriageway's drawn surface.
   function stampExclusionRock(grid, w, h, opts = {}) {
-    const reasons = SPAWN_WHY.PRIVATE | SPAWN_WHY.BEHIND_HOUSE;
-    const { spawnWhy, roadMask, occupied, coverage } = opts;
-    if (!spawnWhy) return 0;
-    const eligible = i => isLotTerrain(grid[i]) && !!(spawnWhy[i] & reasons)
-      && !(spawnWhy[i] & ~reasons) && !roadMask?.[i]
-      && !coverage?.[i] && !occupied?.has(i);
-    const cells = [];
-    for (let y = 1; y < h - 1; y++) for (let x = 1; x < w - 1; x++) {
-      let clear = true;
-      for (let dy = -1; dy <= 1 && clear; dy++) for (let dx = -1; dx <= 1; dx++) {
-        if (!eligible((y + dy) * w + x + dx)) { clear = false; break; }
-      }
-      if (clear) cells.push(y * w + x);
-    }
-    for (const i of cells) {
+    const tiers = gameplayTiersOf(grid, opts);
+    if (!tiers) return 0;
+    let count = 0;
+    for (let i = 0; i < grid.length; i++) {
+      if (tiers[i] !== 4 || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
+        || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
+        || isBuildingTerrain(grid[i]) || grid[i] === T.WATER) continue;
       grid[i] = T.EXCLUSION_ROCK;
-      spawnWhy[i] |= SPAWN_WHY.TERRAIN;
+      count++;
     }
-    return cells.length;
+    return count;
   }
 
   // Run the whole build now, in one go. The shipping contract for callers that
@@ -7264,7 +7121,7 @@
         MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
       if (_endDecode) _endDecode(`${layers.length} layers`);
       const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
+      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
       if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
         `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
       // NO cross-tile dedup. A seam used to hand the same POI / the same
@@ -7305,6 +7162,9 @@
       // cell may host — OPEN, SUPPRESSED (minor things only) or INVALID.
       // Every spawner reads it through isSpawnCell's opts.spawnWhy.
       entry.spawnWhy = spawnWhy;
+      entry.gameplayTiers = gameplayTiers;
+      entry.gameplayReasons = gameplayReasons;
+      registerGameplayTiers(entry.grid, spawnWhy, gameplayTiers);
       // The MAJOR road's band and verge (see ROAD_CLASS_MAJOR_BAND) and the
       // street index (src/street_variants.js) — both pure MVT, re-derived by a
       // rebuild like the mask. spawnInTile dresses the streets off the index.
@@ -7357,6 +7217,7 @@
       //   genObjects  — the rasterized objects + generated mine mouths (no
       //                 bin injections, nothing app.js pushes).
       entry.baseGrid = grid.slice();
+      registerGameplayTiers(entry.baseGrid, spawnWhy, gameplayTiers);
       entry.genObjects = entry.objects.slice();
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
@@ -7694,13 +7555,15 @@
       }
       wps.length = wr;
     }
-    // DeepForest crowns may replace road dressing, but Nexus coverage owns
-    // every cell. Older cached bins predate the explicit source flag.
+    // Detected crowns own their seats over generated scenery, including
+    // variant dressing. Buildings and player property remain protected.
     const detectedTree = t => t._treeSource === 'gemini' || t._treeSource === 'deepforest' ||
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
-    const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
+    const generatedScenery = new Set([...entry.objects, ...entry.wildplants]);
+    const replaceable = o => generatedScenery.has(o) && !o.placed && !o.planted && !o.playerOwned &&
       !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
-      !!(o._street || o.zoneVariant || o._scenic || o._yardTree);
+      !!(o._street || o.zoneVariant || o._scenic || o._yardTree
+        || o.kind === 'tree' || o.kind === 'mineralrock' || o.crop);
     const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set(), yardTreeCells = new Set();
     const objectCells = o => {
       const {ix, iy} = _sxCell(o.x, o.y);
@@ -7722,7 +7585,7 @@
     }
     const tryTreeCell = (ix, iy, detected) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-      if (variantOwnerAt(entry, iy * cpe + ix) === 'zone' || (!detected && _sxReserved(ix, iy))) return null;
+      if (!detected && _sxReserved(ix, iy)) return null;
       if (_sxHardCell(ix, iy, detected)) return null;
       const cell = iy * cpe + ix;
       if (fixedCells.has(cell)) return null;
@@ -7760,8 +7623,26 @@
       if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
       if (detected && t._treeSource !== 'gemini') t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
-      // Use the settled cell's habitat, including a tree relocated off an
-      // occupied cell. Authored zones already win through _sxReserved above.
+      // Use the final seat's explicit variant mapping, never the source cell
+      // or a displaced object's incidental species. Coverage wins even in gaps.
+      if (detected && t.kind === 'tree') {
+        const i = r.iy * cpe + r.ix, owner = variantOwnerAt(entry, i);
+        let row = null;
+        if (owner === 'zone' && typeof ZoneVariants !== 'undefined') {
+          const coverage = entry.zone.coverage || entry.zone.idx;
+          const anchor = entry.zone.anchors?.[coverage[i] - 1];
+          if (anchor) row = ZoneVariants.pick(anchor);
+        } else if (owner === 'road' && typeof StreetVariants !== 'undefined') {
+          row = StreetVariants.variantByCode((entry.streetAreaVariants || entry.streetArea?.variants)?.[i]);
+        }
+        const material = row?.materialReplacements?.tree;
+        const mapped = material && typeof ZoneVariants !== 'undefined' ? ZoneVariants.materials[material] : null;
+        const species = row?.treeSpecies || (mapped?.kind === 'tree' && mapped.species);
+        if (species) { t.species = species; t.treeSpeciesFixed = true; delete t.crown_color; }
+        const look = row?.materialLooks?.[material || 'tree'];
+        if (look) { t._objectArt = look; delete t.crown_color; }
+      }
+      // Ordinary imported trees keep the existing forest habitat rule.
       if (t.kind === 'tree' && !detected && grid[r.iy * cpe + r.ix] === T.FOREST) {
         t.species = BiomeProfiles.staticObjects(T.FOREST).treeSpecies;
         t.treeSpeciesFixed = true;
@@ -8838,7 +8719,7 @@
     // (quiet / restricted land, a back yard, a field's interior) and
     // SENSITIVE ground — the cave row's one typed reason (the kerb does not
     // refuse a mouth; a field's edge is open ground).
-    const stairOpts = { roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass };
+    const stairOpts = { roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, roadClass: entry.roadClass, gameplayTiers: entry.gameplayTiers };
     // Surface zones can reopen inferred lot ground; existing mine identities
     // still use the mask saved alongside their original terrain and objects.
     if (source && source.spawnWhy) stairOpts.spawnWhy = source.spawnWhy;
@@ -9732,7 +9613,9 @@
     if (surface.status === 'loading') await surface.promise;
     const { grid, areas } = undergroundTerrain(surface, aboveGrid, depth);
     const spawnWhy = floorSpawnWhy(surface);
-    for (let i = 0; i < areas.length; i++) if (spawnWhy[i] & (SPAWN_WHY_HARD | spawnBlocks('attractor'))) areas[i] = 0;
+    const gameplayTiers = surface.gameplayTiers || gameplayTiersOf(null, { spawnWhy });
+    registerGameplayTiers(grid, spawnWhy, gameplayTiers);
+    for (let i = 0; i < areas.length; i++) if (!global.GameplayTiers.allowed(spawnTierAt(grid, i, { spawnWhy }), 'attractor')) areas[i] = 0;
     // THE LAVA LEVEL. By here a building's footprint is indistinguishable from
     // a road's or a lake's — every cave level carries them all as CAVE_WALL —
     // so ask the SURFACE, the one grid that still knows (its generated layer,
@@ -9760,7 +9643,7 @@
     for (const s of downAbove) {
       const { lix: ulix, liy: uliy } = cellIndexOf(x, y, s.x, s.y, tileEdgeM, N);
       const inTile = ulix >= 0 && ulix < N && uliy >= 0 && uliy < N;
-      if (!inTile || (spawnWhy[uliy * N + ulix] & (SPAWN_WHY_HARD | spawnBlocks('cave')))) continue;
+      if (!inTile || !global.GameplayTiers.allowed(spawnTierAt(grid, uliy * N + ulix, { spawnWhy }), 'cave')) continue;
       // Way back up: stand on it the moment you descend.
       objects.push(makeObject('staircase', s.x, s.y, caveStairId('up', depth, x, y, ulix, uliy),
         { dir: 'up', depth }));
@@ -9783,7 +9666,7 @@
       const floor = randomFloorCell(grid, N, x, y, tileEdgeM, rng, -1, spawnWhy);
       const seat = floor || { lix: Math.floor(N / 2), liy: Math.floor(N / 2) };
       const p = floor || cellCentreM(x, y, seat.lix, seat.liy, tileEdgeM, N);
-      if (!(spawnWhy[seat.liy * N + seat.lix] & (SPAWN_WHY_HARD | spawnBlocks('cave'))))
+      if (global.GameplayTiers.allowed(spawnTierAt(grid, seat.liy * N + seat.lix, { spawnWhy }), 'cave'))
         objects.push(makeObject('staircase', p.x, p.y, caveStairId('down', depth, x, y, seat.lix, seat.liy), { dir: 'down', depth }));
     }
     const landingCells = new Set();
@@ -9796,7 +9679,7 @@
         const cx = c.lix + dx, cy = c.liy + dy;
         if (cx < 0 || cy < 0 || cx >= N || cy >= N) continue;
         const i = cy * N + cx;
-        if (spawnWhy[i] & SPAWN_WHY_HARD) continue;
+        if (!global.GameplayTiers.allowed(spawnTierAt(grid, i, { spawnWhy }), 'minor')) continue;
         grid[i] = T.CAVE_FLOOR; landingCells.add(i);
       }
     }
@@ -9813,7 +9696,7 @@
     for (const i of landingCells) occupied.add(i);
     // Every cave placement pass shares these reservations, including mirrors,
     // torches, gem seams and rewards. Keep the actual terrain walkable.
-    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i] & SPAWN_WHY_HARD) occupied.add(i);
+    for (let i = 0; i < spawnWhy.length; i++) if (!global.GameplayTiers.allowed(spawnTierAt(grid, i, { spawnWhy }), 'minor')) occupied.add(i);
     // Reuse the pure Nexus focal-layout planner as a reservation prepass: generic clearing
     // settlements must not consume its shrine/cache/encounter space first.
     // Final planning below sees the surviving, tiered mirrored caches.
@@ -9825,7 +9708,7 @@
     const chestSources = profile.chestSource === 'surface'
       ? (surface.genObjects || surface.objects || []) : aboveObjects;
     const chestOccupied = new Set(occupied);
-    for (let i = 0; i < spawnWhy.length; i++) if (spawnWhy[i] & spawnBlocks('reward')) chestOccupied.add(i);
+    for (let i = 0; i < spawnWhy.length; i++) if (!global.GameplayTiers.allowed(spawnTierAt(grid, i, { spawnWhy }), 'reward')) chestOccupied.add(i);
     for (const c of caveChestsFrom(chestSources, grid, N, x, y, tileEdgeM, depth, chestOccupied)) {
       objects.push(c);
       const cell = cellIndexOf(x, y, c.x, c.y, tileEdgeM, N);
@@ -9872,7 +9755,7 @@
     stampCaveQuarryRocks(objects, profile.quarryProvenance ? surface : above, N, x, y, tileEdgeM, depth);
     const extraTreasures = level.treasures, caveCoinSeeds = level.coins;
     const entry = {
-      status: 'ready', grid, spawnWhy, roadClass: surface.roadClass?.slice(), geologyGrid, caveAreas, underground, cellsPerEdge: N, tileEdgeM, depth,
+      status: 'ready', grid, spawnWhy, gameplayTiers, roadClass: surface.roadClass?.slice(), geologyGrid, caveAreas, underground, cellsPerEdge: N, tileEdgeM, depth,
       undergroundBiome: profile.biome,
       undergroundAreas: areas, undergroundClearings: clearings, undergroundResidents: residents,
       undergroundReserved: ambientOccupied, surfaceRoadMask: surface.roadMask,
@@ -9883,6 +9766,7 @@
       // the live lists.
       baseGrid: grid.slice(), genObjects: objects.slice(), genWildplants: wildplants.slice(),
     };
+    registerGameplayTiers(entry.baseGrid, spawnWhy, gameplayTiers);
     cache.set(key, entry);
     pruneCache(cache, key);
     return entry;
@@ -10065,9 +9949,10 @@
     hedgeMazeCell, hedgeMazePotCell, HEDGE_LATTICE_P,
     // THE SPAWN GATE (entry.spawnWhy): the mask's encoding, the classes, the
     // stamp and its numbers, and the live per-player private-ground veto.
-    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_ALL_FLOORS, floorSpawnWhy, SPAWN_WHY_TYPED, SPAWN_WHY_LAND, SPAWN_CLASS_BLOCKS, SPAWN_CLASSES,
+    SPAWN_WHY, SPAWN_WHY_HARD, SPAWN_WHY_ALL_FLOORS, floorSpawnWhy, SPAWN_WHY_TYPED, SPAWN_WHY_LAND,
+    get SPAWN_CLASSES() { return Object.keys(global.GameplayTiers.CLASS_TIERS); },
     SPAWN_OPEN, SPAWN_SUPPRESSED, SPAWN_INVALID, spawnClassOf,
-    landRefused, stampExclusionRock, stampSpawnWhySteps, isPrivateWay, isPublicPier, churchyardBufferM, SPAWN_FRONTAGE,
+    registerGameplayTiers, gameplayTiersOf, spawnTierAt, landRefused, stampExclusionRock, stampSpawnWhySteps, isPrivateWay, isPublicPier, churchyardBufferM, SPAWN_FRONTAGE,
     SPAWN_SENSITIVE_BUFFER_M,
     RESTRICTED_LAND, KINDERGARTEN_LAND, COMMERCIAL_GROUND, NEAREST_POI_MAX_M, COMMERCIAL_POI_KIND, commercialPoiKind, commercialPoiField, POI_PUBLIC, POI_PRIVATE, FARM_TYPES, FARM_EDGE_CELLS, BEHIND_HOUSE_MAX_CELLS, CAVE_MOUTH_RELOCATE_CELLS, PUBLIC_NEAR,
     PRIVATE_VETO_IDB_PREFIX, privateVetoMask, privateVetoAt, setPrivateVeto, warmPrivateVeto, buildPrivateVetoQL,
@@ -10118,7 +10003,7 @@
     // …and the width it actually COVERS, large-tier weighting included. The
     // overlay strokes with this and rasterizeTile stamps roadMask with it, so
     // "drawn as road" and "no spawns here" are the same number.
-    roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
+    roadJunctionPoint, roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
     ROAD_CLASS_LOT_BUFFER, ROAD_CLASS_PATH_SIDE, ROAD_CLASS_PATH, nightZoneBits,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,

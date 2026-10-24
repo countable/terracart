@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 """Build the design directory; preserve review artifacts and use relative URLs.
 
-Run with --output ~/.artifacts/dragon-hood-dashboards. The artifact server
-must serve the checkout's tools, src, assets, docs and index.html read-only
-alongside the saved review folders. Live tools load current game definitions;
-saved visual audits remain snapshots and should be regenerated when needed.
-The default output also gets a relative /design/ alias for a short bookmark.
+Run without arguments to rebuild the checked-in design/ directory.
+Serve the repository root over HTTP. Historical reviews link explicitly to
+the local artifact server; live tools use the same checkout as this directory.
 Requires Python Markdown (python3 -m pip install Markdown).
 """
 import argparse
@@ -105,11 +103,12 @@ def build(output):
     sandbox = (Path(__file__).resolve().parent / 'sandbox-directory.html').read_text()
     (output/'sandbox.html').write_text(sandbox.replace('href="floor-viewer.html"', 'href="../tools/floor-viewer.html"'))
     primary=[
-      ('../zone-variants/layout-lab.html','Layout generator lab','Interactive terrain layout algorithms, seeds, object placement and density controls.','Layout testing'),
-      ('http://localhost:8000/tools/rockwall-3d-preview.html','3D rockwall trial','Full-cell rockwalls with original materials, compass rotation, corner fixtures and a visibility marker.','Floor geometry testing'),
-      ('http://localhost:8000/tools/floor-viewer.html','Floor viewer','Fabricated 60×35 region: choose a floor, seed and variant, then play the same map in the sandbox.','Floor asset testing'),
-      ('http://localhost:8000/extra_assets/preview/level-table.html','Floor asset table','Proposed L1–L7 grounds, building treatments, roads, dressings and mechanics for asset exploration.','Art exploration'),
-      ('../story-art-final/index.html','Approved story art','Current story and event paintings, with approved style references.','Art reference'),
+      ('layout-lab.html','Layout generator lab','Interactive terrain layout algorithms, seeds, object placement and density controls.','Layout testing'),
+      ('../tools/rockwall-3d-preview.html','3D rockwall trial','Full-cell rockwalls with original materials, compass rotation, corner fixtures and a visibility marker.','Floor geometry testing'),
+      ('../tools/floor-viewer.html','Floor viewer','Fabricated 60×35 region: choose a floor, seed and variant, then play the same map in the sandbox.','Floor asset testing'),
+      ('floor-asset-table.html','Floor asset table','Floor treatments and mechanics for asset exploration. Source-pack links require the local extra_assets collection.','Art exploration'),
+      ('approved-story-art.html','Approved story art','Approved paintings and style references preserved alongside current game art.','Art reference'),
+      ('storyboards.html','Storyboards and story panels','Current game paintings and saved story references.','Art reference'),
       ('sandbox.html','Sandbox test directory','One-click test setups for castle and forts, service booths, nexuses, terrains, combat, roads and underground labs.','Playable fixtures'),
       ('glossary.html','Terminology glossary','Shared game concepts, preferred names, usage distinctions and scoped synonym replacements.','Design reference'),
       ('chests.html','Chest index','Live POI sources, chest artwork, vista and cave rewards, and four-city expectations.','Live game data'),
@@ -133,7 +132,7 @@ def build(output):
     (output/'story-art.html').write_text(story_art_page())
     (output/'chests.html').write_text('<!doctype html><html lang="en"><meta charset="utf-8"><title>Chest index</title><meta http-equiv="refresh" content="0;url=../tools/chest-report.html"><a href="../tools/chest-report.html">Open the live chest index</a></html>')
     (output/'world-art.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>World art</title><meta http-equiv="refresh" content="0;url=../tools/world-art.html"></head><body><a href="../tools/world-art.html">Open current world art</a></body></html>')
-    (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Nexuses and Landcover</title><meta http-equiv="refresh" content="0;url=../zone-variants/index.html"></head><body><a href="../zone-variants/index.html">Open Nexus variants, Road Variants and Landcover</a></body></html>')
+    (output/'zones.html').write_text('<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Nexuses and Landcover</title><meta http-equiv="refresh" content="0;url=zone-variants/index.html"></head><body><a href="zone-variants/index.html">Open Nexus variants, Road Variants and Landcover</a></body></html>')
     balance_links = [('../tools/map-distribution.html', 'Map distribution', 'Placement and value tables for Kelowna, Vancouver, Seattle and Berlin.'), ('../tools/treasure-balancing.html', 'Treasure balancing', 'Live reward simulator by location, tier and player equipment.')]
     (output/'balance.html').write_text(page('Balance', '<p>Choose the part of game balance to inspect.</p><div class="grid">'+''.join(card(*row) for row in balance_links)+'</div>').replace('<meta charset="utf-8">', '<meta charset="utf-8"><meta name="artifact-review" content="disabled">', 1).replace('padding:80px 24px 32px', 'padding:32px 24px 32px'))
     developer=[('../tools/building-poly-preview.html','Building footprints','Fixture preview using the current building renderer.'),('../tools/compass-test.html','Compass diagnostics','Device heading and orientation debugging.'),('../tools/poi-preview.html','Procedural POI ideas','Earlier procedural design experiments; not a shipping sprite catalogue.')]
@@ -157,9 +156,18 @@ def build(output):
             updated = re.sub(r'(<body\b[^>]*>)', lambda m: m[1] + banner, old, count=1, flags=re.I)
             archived.write_text(updated)
     (output/'glossary.html').write_text(glossary)
+    # Historical artifacts are separate from the maintained repository tools.
+    repo_dirs = {'tools', 'src', 'assets', 'docs', 'design', 'extra_assets'}
+    for generated in output.glob('*.html'):
+        text = generated.read_text()
+        text = re.sub(r'(?P<prefix>(?:href|src|data-url)=["\'])\.\./(?P<folder>[^/]+)(?P<rest>/[^"\']*)',
+            lambda m: m[0] if m['folder'] in repo_dirs else
+            m['prefix'] + 'http://localhost:8765/' + m['folder'] + m['rest'], text)
+        generated.write_text(text)
+
     print(f'Wrote design directory pages to {output}')
 
 if __name__=='__main__':
     parser=argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--output',type=Path,default=Path.home()/'.artifacts/dragon-hood-dashboards')
+    parser.add_argument('--output',type=Path,default=Path(__file__).resolve().parents[1]/'design')
     build(parser.parse_args().output)

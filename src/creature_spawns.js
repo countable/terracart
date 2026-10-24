@@ -22,10 +22,16 @@
     if (!(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return false;
     const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
     const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(tx, ty));
-    if (!entry) return false;
+    return gateAtEntry(scene, entry, x, y, kind, overrides);
+  }
+  // Tile replay may run before its entry is published in the cache.
+  function gateAtEntry(scene, entry, x, y, kind, overrides) {
+    const edge = entry?.tileEdgeM || scene?.tileEdgeM || scene?.cellsPerTile * scene?.cellM;
+    if (!entry || !(edge > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return false;
+    const tx = Math.floor(x / edge), ty = Math.floor(y / edge);
     const measuredN = scene.cellM > 0 ? Math.round(edge / scene.cellM) : 0;
     const N = entry.cellsPerEdge || scene.cellsPerTile || measuredN || 1;
-    const grid = entry.baseGrid || entry.grid;
+    const grid = entry.grid || entry.baseGrid;
     const cellM = edge / N;
     const cx = Math.floor((x - tx * edge) / cellM);
     const cy = Math.floor((y - ty * edge) / cellM);
@@ -34,6 +40,7 @@
       ...(entry.roadMask ? { roadMask: entry.roadMask } : {}),
       ...(entry.roadClass ? { roadClass: entry.roadClass } : {}),
       ...(entry.spawnWhy ? { spawnWhy: entry.spawnWhy } : {}),
+      ...(entry.gameplayTiers ? { gameplayTiers: entry.gameplayTiers } : {}),
       ...(overrides || {}),
     };
     if (grid) return root.WorldGen.isSpawnCell(grid, N, N, cx, cy, opts, creatureSpawnClass(kind));
@@ -51,7 +58,8 @@
       ...opts,
       roadMask: one(opts.roadMask, Uint8Array),
       roadClass: one(opts.roadClass, Uint16Array),
-      spawnWhy: one(opts.spawnWhy, Uint16Array),
+      spawnWhy: one(opts.spawnWhy, Uint32Array),
+      gameplayTiers: one(opts.gameplayTiers, Uint8Array),
       occupied,
     };
     return root.WorldGen.isSpawnCell(Uint8Array.of(cell.type), 1, 1, 0, 0,
@@ -123,6 +131,6 @@
   }
 
   root.CreatureSpawns = {
-    isSpawnCell, gateAt, frequencyCount, pickWeighted, expandMembers, generateSteps,
+    isSpawnCell, gateAt, gateAtEntry, frequencyCount, pickWeighted, expandMembers, generateSteps,
   };
 })(globalThis);

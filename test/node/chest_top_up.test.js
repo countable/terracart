@@ -65,13 +65,12 @@
     const empty = context(); empty.streetDress = null;
     assert.eq(run(empty).shortfall[1], 18); assert.eq(added(empty).length, 0);
     const c = context();
-    c.spawnOpts.spawnWhy.fill(W.SPAWN_WHY.PRIVATE);
-    // Four eligible cells: a fifth is occupied, a sixth under the road,
-    // a seventh in its kerb, an eighth water, and a ninth sensitive.
-    for (let i = 0; i < 9; i++) c.spawnOpts.spawnWhy[i] = 0;
-    c.spawnOpts.occupied.add(4); c.spawnOpts.roadMask[5] = 1;
-    c.spawnOpts.spawnWhy[6] = W.SPAWN_WHY.KERB;
-    c.grid[7] = W.T.WATER; c.spawnOpts.spawnWhy[8] = W.SPAWN_WHY.SENSITIVE;
+    c.spawnOpts.gameplayTiers=new Uint8Array(N*N).fill(GameplayTiers.EXCLUDED);
+    // Four eligible cells; a fifth is occupied, a sixth/seventh are Excluded
+    // road/access ground, an eighth is live water, and a ninth is Excluded.
+    for(let i=0;i<5;i++) c.spawnOpts.gameplayTiers[i]=GameplayTiers.CORE;
+    c.spawnOpts.occupied.add(4);
+    c.spawnOpts.gameplayTiers[7]=GameplayTiers.CORE;c.grid[7]=W.T.WATER;
     const r = run(c);
     assert.eq(added(c).length, 4); assert.eq(r.added[1], 2); assert.eq(r.added[2], 2);
     assert.eq(r.shortfall[1], 16); assert.eq(r.shortfall[2], 5);
@@ -140,10 +139,11 @@
     for (const o of c.objects) assert.gte(Math.floor(o.y / 7) % c.N, c.N / 2);
     const repeat = ambientRun(c);
     assert.eq(repeat.target, 100); assert.eq(repeat.added, 0);
-    for (const block of ['water', 'restricted', 'kerb']) {
+    for (const block of ['water', 'restricted', 'excluded']) {
       const d = ambientContext();
       if (block === 'water') d.grid.fill(W.T.WATER);
-      else d.spawnOpts.spawnWhy.fill(block === 'kerb' ? W.SPAWN_WHY.KERB : W.SPAWN_WHY.RESTRICTED);
+      else if(block==='excluded') d.spawnOpts.gameplayTiers=new Uint8Array(d.N*d.N).fill(GameplayTiers.EXCLUDED);
+      else d.spawnOpts.spawnWhy.fill(W.SPAWN_WHY.RESTRICTED);
       const empty = ambientRun(d);
       assert.eq(empty.target, 0); assert.eq(empty.deficit, 0); assert.eq(empty.added, 0);
     }

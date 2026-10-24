@@ -48,11 +48,11 @@
   });
   test('covered treasure: a covering rock cannot bypass the treasure spawn gate', () => {
     const {ctx}=fixture();ctx.spawnOpts.occupied.clear();
-    ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
+    ctx.spawnOpts.gameplayTiers = new Uint8Array(ctx.grid.length).fill(4);
     const dress=ZoneDressing.dress(ctx);
     assert.eq(dress.treasures.length,0);
     assert.falsy(dress.objects.some(o=>o.zoneLayer==='cover'));
-    assert.gt(dress.objects.filter(o=>o.kind==='mineralrock').length,0,'ordinary stones still fit sensitive ground');
+    assert.eq(dress.objects.length,0,'Excluded ground permits neither the reward nor its cover');
   });
   test('covered treasure: mining exposes the same saved mark and permits only one dig', () => {
     const {dress}=fixture(),mark=dress.treasures[0],cover=dress.objects.find(o=>o.id===mark.coverRockId);

@@ -1,51 +1,21 @@
-// Review-only presentation of the proposed gameplay tiers. The pure classifier
-// owns policy and geometry; this layer never changes the generated world.
+// Presentation of the authoritative per-cell gameplay tiers.
 (function (root) {
   'use strict';
   const esc = value => String(value ?? '').replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
-  // Centroids of actual polygons in the four cached research samples. These
-  // are navigation shortcuts, not canned overlays: the current loaded source
-  // geometry is classified at every destination, including unseen places.
-  const SITES = [
-    ['Mission Recreation Park', 'Kelowna', 49.840122, -119.478114],
-    ['Mission Creek Greenway', 'Kelowna', 49.848356, -119.465315],
-    ['Munson Pond Park', 'Kelowna', 49.863568, -119.460689],
-    ['Stanley Park — southern sample', 'Vancouver', 49.294466, -123.144238],
-    ['English Bay Beach Park', 'Vancouver', 49.283500, -123.141500],
-    ['Vanier Park', 'Vancouver', 49.276137, -123.143068],
-    ['Kitsilano Beach Park', 'Vancouver', 49.274865, -123.153277],
-    ['Seattle Center', 'Seattle', 47.622061, -122.351266],
-    ['Volunteer Park', 'Seattle', 47.630389, -122.315597],
-    ['Judkins Park', 'Seattle', 47.593716, -122.303883],
-    ['Volkspark Friedrichshain', 'Berlin', 52.527255, 13.435355],
-    ['Görlitzer Park', 'Berlin', 52.497175, 13.436156],
-    ['Fernsehturm / Neptunbrunnen plaza', 'Berlin', 52.520189, 13.408785],
-  ];
-
-  const AREA_TYPES = [
-    { id: 'pedestrian', label: 'Pedestrian area polygons', color: '#b66cff', layer: 'transportation', cls: 'path', sub: 'pedestrian' },
-    { id: 'recreation', label: 'Recreation-ground polygons', color: '#63d34f', layer: 'landcover', cls: 'grass', sub: 'recreation_ground' },
-    { id: 'footway', label: 'Footway area polygons', color: '#40bfff', layer: 'transportation', cls: 'path', sub: 'footway' },
-  ];
-
-  function create({ map, toLL, getEdge, toggle, legend, summary, details, opacity, sitePick }) {
+  function create({ map, toLL, getEdge, toggle, legend, summary, details, opacity }) {
     const pane = map.createPane('gameplayTiers');
     pane.style.zIndex = 425;
     pane.style.pointerEvents = 'none';
-    const areaPane = map.createPane('gameplayAreas');
-    areaPane.style.zIndex = 426;
-    const areaRenderer = L.canvas({ pane: 'gameplayAreas' });
-    const shownAreas = new Set(AREA_TYPES.map(a => a.id));
     const layer = L.layerGroup(), shown = new Set([1, 2, 3]);
     let world, source, result, pending, revision = 0;
     const tiers = GameplayTiers.TIERS;
     const row = id => tiers.find(t => t.id === id);
-    const defaultDetails = 'Click coloured ground for its tier and source evidence. This proposal does not change current spawns.';
+    const defaultDetails = 'Click coloured ground for its tier and source evidence. These tiers govern spawn eligibility.';
     details.textContent = defaultDetails;
 
-    for (const id of [1, 2, 3, 0, 4]) {
+    for (const id of [1, 2, 3, 4]) {
       const tier = row(id), label = document.createElement('label');
       label.innerHTML = `<input type="checkbox" data-tier="${id}"${shown.has(id) ? ' checked' : ''}>`
         + `<span class="sw sq" style="background:${esc(tier.color)}"></span> ${esc(tier.label)}`;
@@ -56,32 +26,6 @@
       };
       legend.appendChild(label);
     }
-    const areaHeading = document.createElement('p');
-    areaHeading.textContent = 'Area treatment gaps · source polygons';
-    legend.appendChild(areaHeading);
-    for (const area of AREA_TYPES) {
-      const label = document.createElement('label');
-      label.innerHTML = `<input type="checkbox" data-area="${area.id}" checked>`
-        + `<span class="sw sq" style="background:${area.color}"></span> ${area.label}`;
-      label.querySelector('input').onchange = event => {
-        event.target.checked ? shownAreas.add(area.id) : shownAreas.delete(area.id);
-        paint();
-      };
-      legend.appendChild(label);
-    }
-    for (const [index, site] of SITES.entries()) {
-      const option = document.createElement('option');
-      option.value = index; option.textContent = `${site[1]} · ${site[0]}`;
-      sitePick.appendChild(option);
-    }
-    sitePick.onchange = () => {
-      if (sitePick.value === '') return;
-      const site = SITES[Number(sitePick.value)], url = new URL(location.href);
-      url.searchParams.set('lat', site[2]); url.searchParams.set('lon', site[3]);
-      url.searchParams.set('r', '1'); url.searchParams.set('tiers', '1');
-      url.searchParams.set('site', site[0]); url.searchParams.set('base', 'osm');
-      location.assign(url.href);
-    };
 
     function sync() {
       if (toggle.checked) layer.addTo(map); else map.removeLayer(layer);
@@ -110,48 +54,19 @@
           toLL((e.tx + 1) * edge, e.ty * edge, edge),
         ], { pane: 'gameplayTiers', opacity: Number(opacity.value), interactive: false }).addTo(layer);
       }
-      // Draw the original area footprints, not buffered path lines. These
-      // diagnostic shapes deliberately retain portions excluded by tier rules.
-      const rawByTile = new Map((source || []).map(r => [`${r.tx},${r.ty}`, r]));
-      for (const { entry: e } of result.tiles) {
-        for (const sourceLayer of e.layers || rawByTile.get(`${e.tx},${e.ty}`)?.layers || []) {
-          for (const f of sourceLayer.features || []) {
-            if (f.type !== 3 || !f.geom) continue;
-            const area = AREA_TYPES.find(a => shownAreas.has(a.id) && sourceLayer.name === a.layer
-              && f.tags?.class === a.cls && f.tags?.subclass === a.sub);
-            if (!area) continue;
-            const extent = sourceLayer.extent || 4096;
-            // Clip buffered tile geometry to its owning tile to avoid dark seams.
-            const rings = f.geom.map(ring => L.PolyUtil.clipPolygon(ring.map(p => L.point(p.x, p.y)),
-              L.bounds([0, 0], [extent, extent]))).filter(ring => ring.length >= 3);
-            if (!rings.length) continue;
-            const shape = L.polygon(rings.map(ring => ring.map(p =>
-              toLL((e.tx + p.x / extent) * edge, (e.ty + p.y / extent) * edge, edge))), {
-              renderer: areaRenderer, color: area.color, weight: 1.5,
-              fillColor: area.color, fillOpacity: Number(opacity.value), opacity: 1,
-              fillRule: 'evenodd', bubblingMouseEvents: false,
-            });
-            const content = `<b>${esc(area.label)}</b>`
-              + (f.tags.name ? `<p>${esc(f.tags.name)}</p>` : '')
-              + `<p>${esc(area.layer)} · class=${esc(area.cls)} · subclass=${esc(area.sub)}</p>`
-              + '<p>Mapped polygon footprint, before road buffers and access exclusions. Colour identifies the treatment gap, not final Tier 1 eligibility.</p>';
-            shape.bindPopup(content).on('click', () => { details.innerHTML = content; });
-            shape.addTo(layer);
-          }
-        }
-      }
       const stats = result.stats;
-      summary.innerHTML = [1, 2, 3, 0, 4].map(id =>
+      summary.innerHTML = [1, 2, 3, 4].map(id =>
         `<div><span style="color:${esc(row(id).color)}">${esc(row(id).label)}</span>`
         + ` <b>${(stats.ha[id] || 0).toFixed(2)} ha</b></div>`).join('')
-        + '<p>Cell-centre estimates across all loaded tiles, including hidden tiers. Unknown and excluded land are not gameplay recommendations.</p>';
+        + '<p>Cell-centre estimates across all loaded tiles, including hidden tiers. Excluded land includes areas without qualifying mapped evidence.</p>';
       sync();
     }
     async function refresh() {
       if (!world || result || pending) return;
       const token = revision, next = world, raw = source;
       summary.textContent = 'Classifying source geometry…';
-      const task = WorldGen.runStepsSliced(() => GameplayTiers.buildSteps(next, raw));
+      const task = Promise.resolve(GameplayTiers.fromEntries(next))
+        .then(value => value || WorldGen.runStepsSliced(() => GameplayTiers.buildSteps(next, raw)));
       pending = task;
       try {
         const value = await task;
@@ -182,19 +97,18 @@
       const x = Math.floor((gx - e.tx) * n), y = Math.floor((gy - e.ty) * n), i = y * n + x;
       if (x < 0 || y < 0 || x >= n || y >= n) return null;
       const tier = row(tile.tiers[i]), reason = GameplayTiers.REASONS[tile.reasons[i]];
+      const allowed = Object.keys(GameplayTiers.CLASS_TIERS).filter(cls => GameplayTiers.allowed(tier.id, cls));
       const content = `<b>${esc(tier.label)}</b><p>${esc(tier.description)}</p>`
         + `<p><b>Evidence:</b> ${esc(reason?.label || 'No matching mapped evidence')}</p>`
-        + '<p>Road and designated walking-path corridors extend 3 game cells beyond their edges. Road buffers take precedence over Tier 1 path buffers. Tiers infer intended gameplay from map features, not live traffic.</p>'
-        + '<small>Road surfaces and current access/spawn exclusions still apply. Review overlay only.</small>';
+        + `<p><b>Allowed spawn classes:</b> ${allowed.length ? allowed.map(esc).join(', ') : 'None'}</p>`
+        + '<p>MD/LG road buffers extend 3 game cells beyond their edges; intersection buffers extend 5 cells. Mapped paths and their 1-cell buffer interrupt Passing ground. Street surfaces override zones: medium/large are excluded, small through streets are calm, and small dead ends are passing. Passing excludes hazards and fast movers.</p>'
+        + '<small>Excluded cells cannot host spawns. Live occupancy and placement constraints also apply.</small>';
       details.innerHTML = content;
       return { tier: tier.id, reason: reason?.id, content, entry: e, cell: i };
     }
     toggle.onchange = sync;
-    opacity.oninput = () => layer.eachLayer(item => {
-      if (item.setStyle) item.setStyle({ fillOpacity: Number(opacity.value) });
-      else item.setOpacity(Number(opacity.value));
-    });
+    opacity.oninput = () => layer.eachLayer(item => item.setOpacity(Number(opacity.value)));
     return { update, inspect, layer, get result() { return result; } };
   }
-  root.MapReviewGameplay = { create, SITES, AREA_TYPES };
+  root.MapReviewGameplay = { create };
 })(globalThis);

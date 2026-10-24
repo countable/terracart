@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Render zone patterns and shipping street dressing on synthetic straight roads.
 Usage: python3 tools/preview_zone_variants.py [table.json] [output-directory]
+Defaults to the checked-in design/zone-variants preview.
 Requires Node.js and Pillow; sprite frames come directly from shipped assets.
 """
 import collections
@@ -35,7 +36,7 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
     path = pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
     with Image.open(path) as source:
         image = source.convert('RGBA')
-    if row['kind'] == 'spritesheet':
+    if row['kind'] in ('spritesheet', 'atlas-alias'):
         w, h = row['frameWidth'], row['frameHeight']
         cols = image.width // w
         x, y = frame % cols * w, frame // cols * h
@@ -724,6 +725,7 @@ const contexts=JSON.parse(control.dataset.affinityContexts);
 const select=document.getElementById('affinity-context');
 function update(){for(const target of document.querySelectorAll('[data-affinity-row]')){
 const row=contexts[select.value][target.dataset.roadSize].find(row=>row.id===target.dataset.affinityRow);
+if(!row){target.textContent='Baseline road theme · selected separately from special road themes';continue;}
 target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).toFixed(1)}% of special minor roads` : `${row.contextMultiplier.toFixed(2)}× surroundings weight · ${(row.probability*100).toFixed(1)}% of special ${target.dataset.roadSize} roads`;
 }}
 select.addEventListener('change',update);update();
@@ -952,7 +954,9 @@ def signature_overview_cell(slot, terrain):
 
 
 def basic_signature_card(terrain):
-    row = basic_signatures()['zones'][terrain]
+    row = basic_signatures()['zones'].get(terrain)
+    if not row:
+        return '<p class="signature-note">No signature proposal recorded for this terrain.</p>'
     if row['excluded']:
         return '<p class="signature-note">No signature slots: keep this ground unpopulated.</p>'
     parts = ['<div class="signature-card"><h4>Distinctive finds · ideas</h4>']
@@ -1228,6 +1232,12 @@ def render(d, out):
         page += ''.join(card for variant, card in zip(d['variants'], cards) if variant['zone'] == key)
         page += '</div></section>'
     page += beach_park_section(d) + '</section>' + street_section(streets).replace('<section id="streets">', '<section id="streets" data-view-panel hidden>') + basic_tile_section().replace('<section id="basic-zones">', '<section id="basic-zones" data-view-panel>') + underground_section(globals(), out) + ambient_section + viewer_navigation_script() + ambient_script + art_script() + basic_tile_script() + '</body></html>'
+    if out.resolve() == (pathlib.Path(__file__).resolve().parents[1] / 'design/zone-variants'):
+        page = page.replace('href="layout-lab.html', 'href="../layout-lab.html')
+        page = page.replace('href="/nexus-review/"', 'href="../../tools/map-review.html"')
+        page = page.replace('href="/zone-object-sheets/', 'href="http://localhost:8765/zone-object-sheets/')
+        page = page.replace('href="../ambient-layer-plan/', 'href="http://localhost:8765/ambient-layer-plan/')
+        page = page.replace('<h1>Zones and roads</h1>', '<nav><a href="../index.html">Design dashboards</a></nav><h1>Zones and roads</h1>')
     (out/'index.html').write_text(page)
     def art_licenses(value):
         if isinstance(value, dict):
@@ -1249,10 +1259,27 @@ def render(d, out):
     for variant in d['variants']:
         if variant.get('quarryLayout'):
             (out/(variant['id'] + '.json')).write_text(json.dumps(quarry_fixture(variant['id']), indent=2)+'\n')
+    compact_preview_images(out)
     print(f'Validated and rendered {len(d["variants"])} zone variants: {dict(counts)}; {len(streets["rows"])} street variants')
+
+
+def compact_preview_images(out):
+    """Store each repeated PNG crop once across the generated HTML pages."""
+    image_dir = out / 'images'
+    image_dir.mkdir(exist_ok=True)
+    def external_image(match):
+        data = base64.b64decode(match[1])
+        name = hashlib.sha256(data).hexdigest()[:20] + '.png'
+        (image_dir / name).write_bytes(data)
+        return 'images/' + name
+    for page in out.glob('*.html'):
+        text = re.sub(r'data:image/png;base64,([A-Za-z0-9+/=]+)', external_image, page.read_text())
+        if out.resolve() == (pathlib.Path(__file__).resolve().parents[1] / 'design/zone-variants'):
+            text = text.replace('http://localhost:8000/', '../../')
+        page.write_text(text)
 
 
 if __name__ == '__main__':
     source = pathlib.Path(sys.argv[1]) if len(sys.argv)>1 else pathlib.Path(__file__).resolve().parents[1]/'docs/data/zone-variants.json'
-    output = pathlib.Path(sys.argv[2]) if len(sys.argv)>2 else pathlib.Path('/tmp/zone-variants-preview')
+    output = pathlib.Path(sys.argv[2]) if len(sys.argv)>2 else pathlib.Path(__file__).resolve().parents[1]/'design/zone-variants'
     render(json.loads(source.read_text()), output)

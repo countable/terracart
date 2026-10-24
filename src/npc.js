@@ -456,7 +456,7 @@ const NPC = (() => {
       }
       return occupied;
     };
-    const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers };
     const housed = new Set(Object.values(scene.save.npcHomes || {}).map(h => h.houseId).filter(Boolean));
     let anchors = null;
     const added = [];

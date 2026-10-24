@@ -48,10 +48,10 @@
       assert.gt(world.zone.coverage[far], 0, kind + ': real park footprint still expands the grove');
     }
     const cemetery = WorldGen.rasterizeTile([{name:'landuse',features:[polygon({class:'cemetery'})]}], N, 0, 0, edge);
-    assert.eq(cemetery.grid[far], WorldGen.T.PARK);
+    assert.eq(cemetery.grid[far], WorldGen.T.EXCLUSION_ROCK);
     assert.truthy(cemetery.quietMask[far], 'cemetery retains its quiet lawn');
     const reserve = build([polygon({class:'aboriginal_lands'})]);
-    assert.eq(reserve.grid[far], WorldGen.T.RESIDENTIAL, 'designation preserves underlying terrain');
+    assert.eq(reserve.grid[far], WorldGen.T.EXCLUSION_ROCK, 'quiet designation becomes Excluded rock');
     assert.truthy(reserve.quietMask[far], 'quiet restriction survives skipped designation paint');
   });
 

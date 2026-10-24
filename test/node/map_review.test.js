@@ -69,6 +69,17 @@ test('map review: source road bands have biome ground rather than a second raste
   assert.eq(keys.join(','),'biome0_0,biome1_0,biome0_0,biome1_0','all road cells match their biome texture');
 });
 
+test('map review: spawn overlays derive verdicts from tier permissions, not legacy source flags', () => {
+  const review=new Function('WorldGen','GameplayTiers',MAP_REVIEW_GROUND_SRC+'\nreturn MapReviewGround;')(WorldGen,GameplayTiers);
+  assert.eq(review.spawnVerdict(GameplayTiers.CORE),WorldGen.SPAWN_OPEN);
+  assert.eq(review.spawnVerdict(GameplayTiers.CALM),WorldGen.SPAWN_SUPPRESSED);
+  assert.eq(review.spawnVerdict(GameplayTiers.PASSING),WorldGen.SPAWN_SUPPRESSED);
+  assert.eq(review.spawnVerdict(GameplayTiers.EXCLUDED),WorldGen.SPAWN_INVALID);
+  assert.eq(review.spawnVerdict(0),WorldGen.SPAWN_INVALID);
+  assert.falsy(/spawnClassOf\(/.test(MAP_REVIEW_HTML_SRC),'legacy evidence no longer drives overlay eligibility');
+  assert.truthy(MAP_REVIEW_GROUND_SRC.includes('Source restriction evidence'));
+});
+
 test('map review: no game code sets the review salt', () => {
   assert.truthy(typeof WorldGen.setReviewSalt === 'function', 'the hook exists');
   for (const [name, src] of Object.entries(ALL_SRC)) {

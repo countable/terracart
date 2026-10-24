@@ -2,12 +2,9 @@
 //
 // The three things this file exists to hold still:
 //
-//  1. NOTHING SPAWNS ON — OR BY — A ROAD (CLAUDE.md, and the owner's safety
-//     pass, Sep 2026). A trap lies BESIDE A FOOTPATH or on a PARK'S EDGE,
-//     never within TRAP_ROAD_CLEAR_CELLS of any road and never inside the
-//     major roads' kerb buffer. The terrain grid under-reports the road, so
-//     the test drives the REAL rasterizer over synthetic MVT layers and
-//     judges every trap against `roadMask` and `roadClass`.
+//  1. The shared hazard tier policy owns access. Passing and Excluded
+//     refuse traps; core paths can interrupt a road buffer. Ambient snares
+//     retain their path-side/park-edge habitat shape.
 //
 //  2. NOTHING IS STORED UNTIL IT IS SPRUNG. Placement is a pure function of the
 //     tile's coordinates: the same tile rasterized twice lays the same traps in
@@ -82,19 +79,15 @@ const roadWithin = (r, x0, y0, R) => {
 
 // ─── Surface placement ───────────────────────────────────────────────────────
 
-test('traps: a tile with paths lays some, and every one is clear of every road', () => {
+test('traps: a tile with paths lays some, and every one obeys the hazard tier policy', () => {
   const r = rasterize(roadyLayers());
   for (const mul of [undefined, 25, 100]) {
     const traps = Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), mul);
     assert.gt(traps.length, 0, 'the fixture produced traps to check');
     for (const tp of traps) {
       const ix = cellOf(tp.x), iy = cellOf(tp.y), i = iy * CPE + ix;
-      assert.falsy(ROAD_TIERS.has(r.grid[i]), `trap on road terrain at ${ix},${iy}`);
-      assert.eq(r.roadMask[i], 0, `trap under the drawn road band at ${ix},${iy}`);
-      assert.falsy(roadWithin(r, ix, iy, Traps.TRAP_ROAD_CLEAR_CELLS),
-        `trap at ${ix},${iy} is within ${Traps.TRAP_ROAD_CLEAR_CELLS} cells of a road`);
-      assert.falsy(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_VERGE, `trap at ${ix},${iy} on a major verge`);
-      assert.falsy(WorldGen.inMajorBuffer(r.roadClass, CPE, ix, iy), `trap at ${ix},${iy} inside the kerb buffer`);
+      assert.truthy(WorldGen.isSpawnCell(r.grid, CPE, CPE, ix, iy,
+        { ...optsFor(r), roadClass: r.roadClass }, 'hazard'), `hazard policy allows ${ix},${iy}`);
     }
   }
 });
@@ -160,7 +153,7 @@ test('traps: BESIDE the path, never on it', () => {
     }
   }
   assert.gt(path, 0, 'the footpaths carry traps');
-  assert.gt(park, 0, 'Park Path paints eligible park edges beside the grass fixture paths');
+  assert.eq(path + park, traps.length, 'every trap belongs to one habitat');
   // The predicate itself: the open park interior and plain grass are not
   // trap ground; the footpath cell never is.
   assert.eq(kindAt(r, 12, 30), 0, 'the park interior');
@@ -178,21 +171,18 @@ test('traps: raw park ground predicate keeps its edge rule before Nexus conversi
   assert.eq(Traps.trapGroundKind(grid,null,N,N,4,4),0,'outside the park');
 });
 
-test('traps: a footpath hard by a major road carries none — the kerb buffer and the road clearance win', () => {
-  const r = rasterize(roadyLayers());
-  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) {
-    const k = kindAt(r, x, y);
-    if (WorldGen.inMajorBuffer(r.roadClass, CPE, x, y)) assert.eq(k, 0, `buffer cell ${x},${y} is no trap ground`);
-    if (roadWithin(r, x, y, Traps.TRAP_ROAD_CLEAR_CELLS)) assert.eq(k, 0, `cell ${x},${y} by a road is no trap ground`);
-  }
-  // The minor street across the park: its park-edge cells are cleared too.
-  for (const y of [8, 9, 10, 11, 12]) assert.eq(kindAt(r, 5, y), 0, `row ${y} by the street`);
-  // No roadClass / no bandit bit is read any more: the old trade road's
-  // stretches are no trap ground at all.
-  assert.eq(Traps.isRoadside, undefined, 'the verge predicate is gone');
-  assert.eq(Traps.isBanditVerge, undefined, 'and the bandit lane with it');
-  assert.falsy(/ROAD_CLASS_BANDIT_VERGE|ROAD_CLASS_MAJOR_VERGE/.test(ALL_SRC['traps.js'].replace(/\/\/.*$/gm, '')),
-    'traps.js reads neither verge bit in code');
+test('traps: habitat candidates do not duplicate the road-buffer spawn policy', () => {
+  const N = 8, grid = new Uint8Array(N*N).fill(T.GRASS);
+  for(let y=0;y<N;y++) grid[y*N+3]=T.PATH;
+  const mask = new Uint8Array(N*N).fill(1);
+  const roadClass = new Uint16Array(N*N).fill(WorldGen.ROAD_CLASS_MAJOR_BUFFER);
+  WorldGen.registerGameplayTiers(grid,null,new Uint8Array(N*N).fill(1));
+  assert.eq(Traps.trapGroundKind(grid,roadClass,N,N,4,4,null,mask),1,
+    'path-side habitat remains a candidate even inside old buffer geometry');
+  const tiers = new Uint8Array(N*N).fill(3);
+  assert.falsy(WorldGen.isSpawnCell(grid,N,N,4,4,{gameplayTiers:tiers},'hazard'));
+  tiers[4*N+4]=1;
+  assert.truthy(WorldGen.isSpawnCell(grid,N,N,4,4,{gameplayTiers:tiers},'hazard'));
 });
 
 test('traps: wasteland is no longer trap ground (only paths and park edges)', () => {
@@ -202,9 +192,8 @@ test('traps: wasteland is no longer trap ground (only paths and park edges)', ()
       { type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
   ];
   const r = rasterize(layers);
-  let waste = 0;
-  for (let i = 0; i < r.grid.length; i++) if (r.grid[i] === T.WASTELAND) waste++;
-  assert.gt(waste, 0, 'the fixture is waste ground');
+  assert.gt(Array.from(r.grid).filter(t => t === T.EXCLUSION_ROCK).length, 0,
+    'restricted railway ground becomes Excluded solid rock');
   assert.eq(Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25).length, 0,
     'waste ground holds no traps');
 });
@@ -286,20 +275,15 @@ test('traps: a tile with no footpath and no park has no trap ground, so it has n
     'not even at 100x');
 });
 
-test('traps: a goblin trapper\'s snare refuses the kerb buffer (canLay reads entry.roadClass)', () => {
-  const r = rasterize(roadyLayers());
-  const entry = { grid: r.grid, cellsPerEdge: CPE, roadMask: r.roadMask, roadClass: r.roadClass,
-    _spawnOpts: { occupied: new Set() }, traps: [] };
-  let inBuf = 0, outside = 0;
-  for (let y = 0; y < CPE; y++) for (let x = 0; x < CPE; x++) {
-    if (!WorldGen.isWalkable(r.grid[y * CPE + x]) || r.roadMask[y * CPE + x]) continue;
-    if (WorldGen.inMajorBuffer(r.roadClass, CPE, x, y)) {
-      inBuf++;
-      assert.falsy(Traps.canLay(entry, x, y), `no snare in the buffer at ${x},${y}`);
-    } else if (Traps.canLay(entry, x, y)) outside++;
-  }
-  assert.gt(inBuf, 0, 'the fixture has walkable buffer cells');
-  assert.gt(outside, 0, 'and a snare still goes down beyond it');
+test('traps: a goblin trapper snare follows Passing and Excluded tiers', () => {
+  const N=8, entry={grid:new Uint8Array(N*N).fill(T.GRASS),cellsPerEdge:N,
+    gameplayTiers:new Uint8Array(N*N).fill(3),_spawnOpts:{occupied:new Set()},traps:[]};
+  WorldGen.registerGameplayTiers(entry.grid,null,entry.gameplayTiers);
+  assert.falsy(Traps.canLay(entry,3,3),'Passing blocks the snare');
+  entry.gameplayTiers[3*N+3]=4;
+  assert.falsy(Traps.canLay(entry,3,3),'Excluded blocks the snare');
+  entry.gameplayTiers[3*N+3]=1;
+  assert.truthy(Traps.canLay(entry,3,3),'a core interruption allows the snare');
 });
 
 test('traps: countMul scales the surface density, and every extra trap still obeys the rules', () => {

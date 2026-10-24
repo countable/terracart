@@ -139,10 +139,10 @@ test('lot lanes: removed tagged and inferred geometry remains generation-only qu
   }
   const ownerAt = (x, y) => r.zone?.anchors[r.zone.coverage[y * CPE + x] - 1];
   for (const y of [41, 43]) {
-    assert.falsy(ownerAt(40, y), 'removed lanes cannot claim an excluded residential lot');
-    assert.truthy(r.spawnWhy[y * CPE + 40] & WorldGen.SPAWN_WHY.PRIVATE, 'lot retains its private-land exclusion');
-    assert.falsy(WorldGen.isSpawnCell(r.grid, CPE, CPE, 40, y,
-      { spawnWhy: r.spawnWhy, roadMask: r.roadMask }, 'minor'), 'no quarry dressing on excluded land');
+    assert.eq(ownerAt(40,y)?.kind, 'quarry', 'mapped parking lanes may claim inferred residential lots');
+    assert.truthy(r.spawnWhy[y * CPE + 40] & WorldGen.SPAWN_WHY.PRIVATE, 'legacy private inference remains diagnostic');
+    assert.truthy(WorldGen.isSpawnCell(r.grid, CPE, CPE, 40, y,
+      { spawnWhy: r.spawnWhy, roadMask: r.roadMask }, 'minor'), 'passing quarry allows ordinary dressing');
   }
   assert.eq(r.roadMask[41 * CPE + 40], 0, 'the lane never regains a carriageway');
   assert.falsy(hasLine(by.transportation, IN_LOT), 'lamps, restoration and road overlays still cannot see the lane');

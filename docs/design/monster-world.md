@@ -71,6 +71,14 @@ boars and, on a third of streets, a giant bear (the variant row's
 Scenic path themes gain no guards. Road Variant fauna are supplied locally,
 while attraction may still draw existing residents onto eligible ground.
 
+Ordinary wrecks have a one-half base occupancy rate. The tile budget allows
+500 expected building groups, reserving room for forts and castles before
+thinning wrecks. Only nearby groups become resident.
+
+Fifteen percent of occupied houses use `Lairs.GROUPS.thieves`: one or two
+thieves seated around the wreck, with the existing ambush and steal-and-flee
+behavior. They retain normal mode caps, Home safety and saved defeat rules.
+
 Ten percent of occupied ordinary houses use `Lairs.GROUPS.grunt_gang`: a
 seeded uniform group of three to eight weak goblin runts around the house.
 This authored group keeps its full size in both modes through `modeCap: false`;

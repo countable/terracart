@@ -121,10 +121,18 @@
     });
   });
 
+  test('furniture: a calm small street uses the shared placement policy', () => {
+    const f=fixture();
+    f.entry.grid[0]=f.ctx.cell.type=WorldGen.T.ROAD;
+    f.entry.gameplayTiers=new Uint8Array(1024).fill(2);
+    world(f,()=>handler('place-furniture').try(f.ctx));
+    assert.eq(f.scene.save.inv[0].count,1);
+    assert.eq(f.scene.save.furniture.length,1);
+  });
   test('furniture: blocked terrain, safety masks and every occupied lane preserve the stack', () => {
     const blockers = [
       f => { f.entry.grid[0] = WorldGen.T.WATER; },
-      f => { f.entry.grid[0] = WorldGen.T.ROAD; },
+      f => { f.entry.grid[0] = WorldGen.T.ROAD_MD; },
       f => { f.entry.grid[0] = WorldGen.T.BUILDING; },
       f => { f.entry.roadMask = new Uint8Array(1024); f.entry.roadMask[0] = 1; },
       f => { f.entry.spawnWhy = new Uint16Array(1024); f.entry.spawnWhy[0] = WorldGen.SPAWN_WHY.RESTRICTED; },

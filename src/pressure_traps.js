@@ -40,6 +40,7 @@
     const cls = typeof root.creatureSpawnClass === 'function' ? root.creatureSpawnClass('ghost') : 'fastEnemy';
     if (!cell.loaded || !opts || !W.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
         cell.ix, cell.iy, { ...opts, occupied: null, spawnWhy: entry.spawnWhy || opts.spawnWhy,
+          gameplayTiers: entry.gameplayTiers || opts.gameplayTiers,
           roadMask: entry.roadMask || opts.roadMask, roadClass: entry.roadClass || opts.roadClass }, cls)
         || W.privateVetoAt(cell.tx, cell.ty, cell.ix, cell.iy)) return false;
     // A temporarily full ghost budget leaves the plate available on a later step.
@@ -61,6 +62,7 @@
     const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
     if (!e?._spawnOpts) return false;
     const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
+        gameplayTiers: e.gameplayTiers || e._spawnOpts.gameplayTiers,
       roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
     const index = p.iy * e.cellsPerEdge + p.ix;
     const city = e.caveAreas?.areas?.find(a => a.city && a.reserved.has(index));

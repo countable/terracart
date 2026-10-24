@@ -51,16 +51,17 @@
   button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
   #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
   #game{display:none}
-  #reviewDepth,#zonePick,#sourceFilter,#laneFilter,#gameplaySite{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
-  #gameplaySummary,#gameplayDetails,.gameplay-policy{font-size:11px;line-height:1.5;margin:7px 0}
+  #reviewDepth,#zonePick,#sourceFilter,#laneFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #gameplaySummary,#gameplayDetails{font-size:11px;line-height:1.5;margin:7px 0}
   #gameplaySummary b{float:right} #gameplayDetails{padding:8px;background:#242c2c}
-  .gameplay-policy p,#gameplaySummary p,#gameplayDetails p{margin:6px 0}
+  #gameplaySummary p,#gameplayDetails p{margin:6px 0}
   #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
   #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
   #legend button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;margin:2px 0;padding:5px 6px;background:transparent;border:1px solid transparent}
   #legend button[aria-pressed="true"]{border-color:#fff;background:#3a3a3a;color:#fff}
   #legend button:focus-visible{outline:2px solid #fff;outline-offset:1px}
-  .zone-label{background:#122f2be8;border:1px solid #3c8f80;color:#fff;font-weight:600;font-size:11px}
+  .zone-label{background:transparent;border:0;box-shadow:none;color:#fff;font-weight:600;font-size:calc(11px - 2pt);text-shadow:0 1px 2px #16140f,1px 0 2px #16140f,-1px 0 2px #16140f}
+  .zone-label::before{display:none}
   .poi-label{background:transparent;border:0;box-shadow:none;padding:1px 3px;color:#eee8dc;font-size:10px;font-weight:400;text-shadow:0 1px 2px #16140f,1px 0 2px #16140f,-1px 0 2px #16140f}
   .poi-label::before{display:none}
   .path-label{background:#17201cdd;border:1px solid #ffffff66;border-radius:3px;color:#fff;box-shadow:none;padding:2px 4px;font-size:10px;white-space:nowrap;pointer-events:none}
@@ -76,64 +77,57 @@
   <select id="reviewDepth" aria-label="Map level"></select>
   <div id="levelSummary" role="status"></div>
   <div><button id="placeHome">Place Home</button></div>
-  <details class="review-section" open><summary>Gameplay tiers (proposed)</summary><div class="section-body">
+  <div><button id="detectTrees">Detect trees at map centre</button></div>
+  <div id="geometryStatus" role="status">Cached tree detections load with the map.</div>
+  <details class="review-section"><summary>Gameplay tiers</summary><div class="section-body">
   <label><input id="gameplayTiers" type="checkbox"> Show gameplay-tier layer</label>
   <div id="gameplayLegend"></div>
   <label>Layer opacity <input id="gameplayOpacity" aria-label="Gameplay tier opacity" type="range" min="0.15" max="0.85" step="0.05" value="0.45"></label>
-  <label for="gameplaySite">Suggested area</label>
-  <select id="gameplaySite"><option value="">Explore a researched site…</option></select>
   <div id="gameplaySummary" role="status">Enable the layer to classify the loaded area.</div>
   <div id="gameplayDetails"></div>
-  <details class="gameplay-policy"><summary>Policy and map evidence</summary>
-  <p><b>Tier 1:</b> core daily value, fast/ranged enemies and elites, butterflies, easily extracted resources. Parks/beaches, designated walking paths, plazas, rec grounds and footway areas.</p>
-  <p><b>Tier 2:</b> slow enemies, pets and other animals, basic resources. Grassland/forest, roadside paths, residential through roads, churches and public-facing commercial sites.</p>
-  <p><b>Tier 3:</b> occasional or one-time edge finds, passive/static threats, simple taps and passive walking progress. Parking, residential dead ends and major/medium roads without paths.</p>
-  <p>Three-cell road buffers use current game dimensions. Measured traffic volumes and speeds are not available. Restricted ground remains excluded; missing evidence remains unknown. This layer does not alter gameplay.</p>
-  </details>
   </div></details>
-  <details class="review-section" open><summary>Park / zone variants</summary><div class="section-body">
-  <label><input id="zoneLabels" type="checkbox" checked> Show zone names and variants</label>
-  <select id="zonePick" aria-label="Park or zone"><option value="">Loading zones…</option></select>
-  <div id="zoneDetails">Select a park or zone to inspect its layout and other spawns.</div>
+  <details class="review-section"><summary>Nexus zones</summary><div class="section-body">
+  <label><input id="zoneLabels" type="checkbox" checked> Show nexus names and variants</label>
+  <div id="nexusOverlays"></div>
+  <select id="zonePick" aria-label="Nexus zone"><option value="">Loading zones…</option></select>
+  <div id="zoneDetails">Select a nexus zone to inspect its layout and other spawns.</div>
   <label for="sourceFilter">Show placements</label>
   <select id="sourceFilter"><option value="all">All sources</option><option value="ground">Ground placements (hide fauna)</option><option value="variant">Variant only + POIs</option><option value="other">Other spawns + POIs</option></select>
   <label><input id="sourceColors" type="checkbox"> Color markers by source</label>
   <details><summary>Source colors</summary><div id="sourceLegend"></div></details>
 </div></details>
-  <details class="review-section" open><summary>Difficulty</summary><div class="section-body"><div id="modes"></div>
+  <details class="review-section"><summary>Difficulty</summary><div class="section-body"><div id="modes"></div>
 </div></details>
-  <details class="review-section" open><summary>Base map</summary><div class="section-body"><div id="bases"></div>
+  <details class="review-section"><summary>Base map</summary><div class="section-body"><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
 </div></details>
-  <details class="review-section"><summary>Parking-lane review</summary><div class="section-body">
+  <details class="review-section"><summary>Road variants</summary><div class="section-body">
+  <div id="roadVariantControls"></div>
+  <label><input id="pathEndpoints" type="checkbox" checked> Path endpoints (yellow: theme change; orange: inferred; white: original)</label>
+  <label title="Visible at zoom level 17 and closer"><input id="pathLabels" type="checkbox" checked> Path names (zoom in)</label>
+  <p id="pathSummary" style="font-size:11px;color:#aaa;line-height:1.5"></p>
   <label><input id="removedLanes" type="checkbox"><span class="sw" style="background:#ff40c8"></span> Removed lanes (pink dashed)</label>
   <label><input id="keptServiceRoads" type="checkbox"><span class="sw" style="background:#31d9ff"></span> Kept service roads (cyan)</label>
   <label for="laneFilter">Removed-lane evidence</label>
   <select id="laneFilter"><option value="all">All removed lanes</option><option value="inferred">Inferred removals only</option><option value="explicit">Explicit parking-aisle tags only</option></select>
   <div id="laneSummary" style="font-size:11px;color:#aaa;line-height:1.5"></div>
 </div></details>
-  <details class="review-section" open><summary>Quarry clusters</summary><div class="section-body">
-  <label><input id="quarryClusters" type="checkbox"> Colour quarry footprints</label>
-  <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
-</div></details>
-  <details class="review-section" open><summary>Overlays</summary><div class="section-body">
-  <label><input id="pathEndpoints" type="checkbox" checked> Path endpoints (yellow: theme change; orange: inferred; white: original)</label>
-  <label title="Visible at zoom level 17 and closer"><input id="pathLabels" type="checkbox" checked> Path names (zoom in)</label>
-  <p id="pathSummary" style="font-size:11px;color:#aaa;line-height:1.5"></p>
+  <details class="review-section"><summary>Overlays</summary><div class="section-body">
   <label title="Visible at zoom level 18 and closer"><input id="poiLabels" type="checkbox" checked> POI names (zoom in)</label><div id="ovl"></div>
 </div></details>
-  <details class="review-section" open><summary>Density band</summary><div class="section-body">
+  <details class="review-section"><summary>DENSITY BAND</summary><div class="section-body">
+  <label><input id="densityView" type="checkbox"> Density per game view</label>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
     <input id="dmax" type="number" value="20" min="0" style="width:3.5em"></div>
   <div id="dstats" style="margin-top:4px"></div>
 </div></details>
-  <details class="review-section" open><summary>Placed things</summary><div class="section-body">
+  <details class="review-section"><summary>Placed things</summary><div class="section-body">
   <div id="scope" style="color:#888;margin:-2px 0 6px"></div>
   <div><button id="all">all</button><button id="none">none</button></div>
   <div id="kinds"></div>
 </div></details>
-  <details class="review-section" open><summary>Terrain legend</summary><div class="section-body"><p id="terrainStatus" role="status" style="font-size:12px;color:#bbb">Click a ground type to outline it. Click again to clear.</p><p><span class="sw sq" style="background:#c98f73"></span> Pirate Cove sand (review tint)</p><div id="legend"></div>
+  <details class="review-section"><summary>Terrain legend</summary><div class="section-body"><p id="terrainStatus" role="status" style="font-size:12px;color:#bbb">Click a ground type to outline it. Click again to clear.</p><p><span class="sw sq" style="background:#c98f73"></span> Pirate Cove sand (review tint)</p><div id="legend"></div>
 </div></details>
 </div>
 <div id="game"></div>
@@ -141,10 +135,9 @@
 <script src="map-review-zones.js"></script>
 <script src="map-review-lanes.js"></script>
 <script src="map-review-paths.js"></script>
-<script src="map-review-quarries.js"></script>
 <script src="map-review-art.js"></script>
 <script src="map-review-terrain.js"></script>
-<script src="map-review-gameplay.js"></script>
+<script src="../src/gameplay_tiers.js"></script>
 <script src="map-review-gameplay-layer.js"></script>
 <script src="map-review-ground.js"></script>
 <script src="map-review-routes.js"></script>
@@ -335,13 +328,10 @@ const pathReview = MapReviewPaths.create({map, toLL, getEdge:()=>EDGE,
 $('removedLanes').checked = Q.get('removedLanes') === '1';
 const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
   removedToggle:$('removedLanes'),keptToggle:$('keptServiceRoads'),filter:$('laneFilter'),summary:$('laneSummary')});
-$('quarryClusters').checked = Q.get('quarryClusters') === '1';
-const quarryReview = MapReviewQuarries.create({map,toLL,getEdge:()=>EDGE,toggle:$('quarryClusters'),summary:$('quarrySummary'),
-  onSelect:id=>{selectZone(id,false);zoneSelection.clearLayers();}});
 $('gameplayTiers').checked = Q.get('tiers') === '1';
 const gameplayReview = MapReviewGameplay.create({ map, toLL, getEdge: () => EDGE,
   toggle: $('gameplayTiers'), legend: $('gameplayLegend'), summary: $('gameplaySummary'),
-  details: $('gameplayDetails'), opacity: $('gameplayOpacity'), sitePick: $('gameplaySite') });
+  details: $('gameplayDetails'), opacity: $('gameplayOpacity') });
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
   onStatus: (message) => { $('artStatus').textContent = message; },
@@ -488,6 +478,7 @@ function popupHTML(e, o, label) {
   const rows = [`<b>${esc(o.name || label)}</b>`];
   const category = (e.creatures || []).includes(o) ? 'creature' : '';
   rows.push(`Source: <b>${esc(ZoneReview.SOURCES[ZoneReview.source(e,o,category)].label)}</b>`);
+  if (o._treeSource) rows.push(`Tree evidence: <b>${esc(o._treeSource === 'gemini' ? 'Relay satellite detection' : o._treeSource)}</b>`);
   if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
   if (o.kind === 'npc') {
     rows.push(`Role: <b>${esc(o.roleLabel || o.role)}</b> (${esc(o.role)})`);
@@ -538,7 +529,7 @@ function selectZone(id, focus) {
   $('zonePick').value = id;
   zoneSelection.clearLayers();
   const z = zoneReviews.get(id);
-  if (!z) { $('zoneDetails').textContent = 'Select a park or zone to inspect its layout and other spawns.'; return; }
+  if (!z) { $('zoneDetails').textContent = 'Select a nexus zone to inspect its layout and other spawns.'; return; }
   const bg = z.background;
   const lines = [`<b>${esc(z.variant?.name || 'No variant')}</b> · ${esc(z.name || z.anchor.kind)}`,
     `${z.coverage} coverage cells · ${z.eligible} free eligible cells before placement`,
@@ -588,7 +579,7 @@ function updateZoneReview(world) {
   const selected = $('zonePick').value;
   zoneReviews = ZoneReview.analyse(world, EDGE);
   zoneLabels.clearLayers();
-  $('zonePick').replaceChildren(new Option('Select a park or zone…', ''));
+  $('zonePick').replaceChildren(new Option('Select a nexus zone…', ''));
   // Keep zero-coverage records in diagnostics, but do not advertise a site
   // that has no mapped ground in the loaded area.
   for (const z of [...zoneReviews.values()].filter(z=>z.coverage>0).sort((a,b)=>zoneTitle(a).localeCompare(zoneTitle(b)))) {
@@ -599,7 +590,6 @@ function updateZoneReview(world) {
       .on('click',()=>selectZone(z.id,true)).addTo(zoneLabels);
   }
   selectZone(zoneReviews.has(selected) ? selected : '', false);
-  quarryReview.update(world,zoneReviews);
   updatePoiLabels(world);
 }
 function updatePoiLabels(world) {
@@ -733,6 +723,10 @@ function draw(world, home) {
 // is not an object and never counts.
 const densityLayer = L.layerGroup();
 let densityOn = false;
+$('densityView').onchange = event => {
+  densityOn = event.target.checked;
+  densityOn ? densityLayer.addTo(map) : map.removeLayer(densityLayer);
+};
 function density() {
   const w = window.__world;
   if (!w || !state.groups) return;
@@ -815,10 +809,11 @@ function overlays(world) {
   pathReview.update(world);
   reviewOverlays.forEach(layer => map.removeLayer(layer));
   reviewOverlays = [];
-  map.removeLayer(densityLayer); densityOn = false;
-  $('ovl').replaceChildren();
+  map.removeLayer(densityLayer); densityOn = false; $('densityView').checked = false;
+  for (const id of ['ovl', 'nexusOverlays', 'roadVariantControls']) $(id).replaceChildren();
   const groups = { 'Terrain codes': L.layerGroup(),
     'Global no-spawn zone': L.layerGroup(), 'Suppression zone': L.layerGroup() };
+  const tierVerdicts=Object.fromEntries(GameplayTiers.TIERS.map(t=>[t.id,MapReviewGround.spawnVerdict(t.id)]));
   const gate = [0, 0, 0];   // OPEN, SUPPRESSED, INVALID cells over the loaded tiles
   const tileBounds = [];
   const names = Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
@@ -829,14 +824,13 @@ function overlays(world) {
     const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
     const terr = mk((g) => { for (let i = 0; i < N * N; i++) { used.add(e.grid[i]); g.fillStyle = MapReviewArt.pirateSand(e,i)?.colour || hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
     // Count and paint the shared spawn verdict.
-    const sw = e.spawnWhy || null;
-    const cls = sw ? Uint8Array.from(sw, (v) => WorldGen.spawnClassOf(v)) : null;
-    if (cls) for (let i = 0; i < N * N; i++) {
-      gate[cls[i]]++;
-    }
-    const gateImg = (test, colour) => mk((g) => { g.fillStyle = colour; if (sw) for (let i = 0; i < N * N; i++) if (test(sw[i], i)) g.fillRect(i % N, (i / N) | 0, 1, 1); });
-    const inv = gateImg((v, i) => cls[i] === WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
-    const sup = gateImg((v, i) => cls[i] === WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
+    const cls=Uint8Array.from(e.grid,(_,i)=>tierVerdicts[WorldGen.spawnTierAt(e.grid,i,
+      {gameplayTiers:e.gameplayTiers,spawnWhy:e.spawnWhy})] ?? WorldGen.SPAWN_INVALID);
+    for(const verdict of cls) gate[verdict]++;
+    const gateImg = (verdict, colour) => mk((g) => { g.fillStyle=colour;
+      for(let i=0;i<N*N;i++) if(cls[i]===verdict) g.fillRect(i%N,(i/N)|0,1,1); });
+    const inv = gateImg(WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
+    const sup = gateImg(WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
     const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
     const b = [[latOf(e.ty + 1), e.tx / n * 360 - 180], [latOf(e.ty), (e.tx + 1) / n * 360 - 180]];
     L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
@@ -845,7 +839,8 @@ function overlays(world) {
     tileBounds.push({ e, b, N, mk });
     reviewOverlays.push(L.rectangle(b, { color: '#fff', weight: 1, fill: false, dashArray: '4 4' }).bindTooltip(`tile ${e.tx}/${e.ty}`).addTo(map));
   }
-  const coverageLayer = groups['Variant coverage (influence + park + fringe)'] = L.layerGroup();
+  const coverageLayer = groups['Nexus coverage'] = L.layerGroup();
+  const nexusLayers = new Set([coverageLayer]);
   for (const { e, b, N, mk } of tileBounds) {
     if (!e.zone || !e.zone.coverage) continue;
     const img = mk(g => {
@@ -897,7 +892,8 @@ function overlays(world) {
   // Influence zones (src/zones.js): each anchor's disc at its R, by kind,
   // with its numbers on click.
   if (typeof Zones !== 'undefined') {
-    const zg = groups['Influence zones (anchors, R)'] = L.layerGroup();
+    const zg = groups['Nexus influence (anchors, R)'] = L.layerGroup();
+    nexusLayers.add(zg);
     const ZC = { grove: '#3fd06a', stones: '#b8c0d0', tar: '#ff8a2a', beach: '#e1c481', quarry: '#9d9b8b' };
     const seen = new Set();
     for (const e of world.tiles) {
@@ -924,7 +920,7 @@ function overlays(world) {
   for (const [k, g] of Object.entries(groups)) {
     if (world.scene.depth > 0 && k !== 'Terrain codes') continue;
     reviewOverlays.push(g);
-    mkRow($('ovl'), 'checkbox', k, false, (on) => on ? g.addTo(map) : map.removeLayer(g));
+    mkRow($(nexusLayers.has(g) ? 'nexusOverlays' : 'ovl'), 'checkbox', k, false, (on) => on ? g.addTo(map) : map.removeLayer(g));
   }
   // Surface-only spawn gates do not describe underground placement rules.
   if (!world.scene.depth) {
@@ -936,19 +932,20 @@ function overlays(world) {
     const div = document.createElement('div');
     div.style.margin = '4px 0 2px';
     div.innerHTML = `<div style="color:#aaa">Spawn zones</div>`
-      + row(SPAWN_GATE_COLOUR.invalid, 'no-spawn', 'all spawn classes blocked', gate[2])
-      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'some spawn classes blocked', gate[1])
-      + row('transparent;border:1px solid #666', 'open', 'no zone restriction', gate[0]);
+      + row(SPAWN_GATE_COLOUR.invalid, 'no-spawn', 'Excluded tier', gate[2])
+      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'tier limits spawn classes', gate[1])
+      + row('transparent;border:1px solid #666', 'open', 'Core tier', gate[0]);
     // Commercial ground by its nearest POI (the overlay above).
     const ctot = com.pub + com.priv + com.none || 1;
     const crow = (colour, name, what, n) => `<div style="display:flex;gap:6px;align-items:baseline">`
       + `<span class="sw sq" style="background:${colour}"></span><span>${name} <span style="color:#888">— ${what}</span></span>`
       + `<span class="n">${n.toLocaleString()} · ${(100 * n / ctot).toFixed(1)}%</span></div>`;
-    div.innerHTML += `<div style="color:#aaa;margin-top:4px">Commercial / industrial ground by nearest POI `
+    div.innerHTML += `<div style="color:#aaa;margin-top:4px">Commercial / industrial source evidence by nearest POI `
       + `(≤ ${WorldGen.NEAREST_POI_MAX_M} m; ${com.seedsPub} public · ${com.seedsPriv} private seeds)</div>`
-      + crow(COM_COLOUR.pub, 'public', 'a shop, café, bank … nearest — open', com.pub)
-      + crow(COM_COLOUR.priv, 'private', 'an office, hotel, clinic … nearest — PRIVATE', com.priv)
-      + crow(COM_COLOUR.none, 'no POI', `none within ${WorldGen.NEAREST_POI_MAX_M} m — PRIVATE`, com.none);
+      + crow(COM_COLOUR.pub, 'public', 'a shop, café, bank … nearest — public signal', com.pub)
+      + crow(COM_COLOUR.priv, 'private', 'an office, hotel, clinic … nearest — private signal', com.priv)
+      + crow(COM_COLOUR.none, 'no POI', `none within ${WorldGen.NEAREST_POI_MAX_M} m — no signal`, com.none)
+      + '<small>Source evidence does not override the gameplay tier.</small>';
     $('ovl').appendChild(div);
   }
   // STREET VARIANTS (src/street_variants.js): every indexed transportation
@@ -995,7 +992,7 @@ function overlays(world) {
       }
     }
     // Path variants come from the same assignment records as the game.
-    mkRow($('ovl'), 'checkbox', 'Street variants', false, (on) => on ? layer.addTo(map) : map.removeLayer(layer));
+    mkRow($('roadVariantControls'), 'checkbox', 'Show road variants', false, (on) => on ? layer.addTo(map) : map.removeLayer(layer));
     const order = [...rows.map((r) => r.id), '__minor', '__path'].filter((id) => keys[id]);
     for (const id of Object.keys(keys)) if (!order.includes(id)) order.push(id);
     const div = document.createElement('div');
@@ -1005,7 +1002,7 @@ function overlays(world) {
       + `<span class="n">${keys[id].size.toLocaleString()}</span></div>`).join('')
       + `<div style="display:flex;gap:6px;align-items:baseline"><span style="color:#888">dashed: rock-lined</span>`
       + `<span class="n">${rocky.size.toLocaleString()}</span></div>`;
-    $('ovl').appendChild(div);
+    $('roadVariantControls').appendChild(div);
   }
   // Markers off keeps them COUNTED — the density heatmap reads best bare.
   markersToggle = mkRow($('ovl'), 'checkbox', 'Show markers', !state.markersOff, (on) => {
@@ -1013,7 +1010,6 @@ function overlays(world) {
     syncMarkers();
   });
   syncMarkers();
-  mkRow($('ovl'), 'checkbox', 'Density per game view', false, (on) => { densityOn = on; on ? densityLayer.addTo(map) : map.removeLayer(densityLayer); });
   // Legend grouped by family, in the families' order, members in theirs.
   const present = new Set([...used].map((c) => names[c] || String(c)));
   const blocks = [];
@@ -1041,12 +1037,12 @@ function setBuilding(value) {
 async function finishReview(world, home, initial) {
   window.__world = world;
   $('levelSummary').textContent = `${levelLabel(world.scene.depth)} · Generated terrain and spawns; no fog.`;
-  for (const id of ['gameplayTiers', 'zonePick', 'laneFilter', 'quarryClusters']) {
+  for (const id of ['gameplayTiers', 'zonePick', 'laneFilter']) {
     $(id).closest('details.review-section').hidden = world.scene.depth > 0;
   }
   if (world.scene.depth > 0) {
     $('sourceFilter').value = 'all';
-    for (const id of ['gameplayTiers', 'removedLanes', 'keptServiceRoads', 'quarryClusters']) {
+    for (const id of ['gameplayTiers', 'removedLanes', 'keptServiceRoads']) {
       $(id).checked = false; $(id).dispatchEvent(new Event('change'));
     }
   }
@@ -1080,10 +1076,54 @@ async function rebuild(home) {
     setBuilding(false);
   }
 }
+// Request one z18 observation at a time, just as walking does in the game.
+// Re-read bins before rebuilding: raw is otherwise a snapshot from initial load.
+async function detectTreesAtCentre() {
+  if (building || !window.__world) return;
+  if (typeof Geometry === 'undefined' || typeof WorldGen.warmGeometry !== 'function') {
+    $('geometryStatus').textContent = 'Tree detection is unavailable in this game build.';
+    return;
+  }
+  if (!Geometry.enabled()) {
+    $('geometryStatus').textContent = 'Tree detection is disabled by the URL.';
+    return;
+  }
+  const { lat, lng } = map.getCenter();
+  const tile = Geometry.tileAt(lng, lat);
+  const parent = raw.find(e => e.tx === Math.floor(tile.x / 16) && e.ty === Math.floor(tile.y / 16));
+  if (!parent) {
+    $('geometryStatus').textContent = 'Move the map centre inside the loaded area to detect trees.';
+    return;
+  }
+  setBuilding(true);
+  $('geometryStatus').textContent = 'Requesting satellite trees at map centre…';
+  try {
+    await WorldGen.warmGeometry(lng, lat, WorldGen.latOfRowCentre(parent.ty));
+    for (const e of raw) e.bin = await WorldGen.getTileBin(e.tx, e.ty, WorldGen.latOfRowCentre(e.ty));
+    const covered = (parent.bin?._geometryRevision || '').split('|').some(key => key.endsWith(`/trees/18/${tile.x}/${tile.y}`));
+    if (covered) {
+      const world = await buildWorld(window.__home);
+      await finishReview(world, window.__home, false);
+      $('status').textContent = world.errors.length ? `${world.errors.length} error(s), see console` : 'ready';
+    }
+    $('geometryStatus').textContent = covered
+      ? 'Relay evidence loaded for the centre tile, including any confirmed empty coverage. Pan and detect to inspect another tile.'
+      : 'No relay evidence available for the centre tile. Existing trees retained; retry when the relay is available.';
+  } catch (error) {
+    $('geometryStatus').textContent = 'Tree detection failed: ' + error.message;
+    console.error(error);
+  } finally {
+    setBuilding(false);
+  }
+}
+
 (async () => {
   setBuilding(true);
   try {
+    // Optional relay override also scopes the game's persistent detection cache.
+    if (Q.get('relay')) window.MP_SERVER_URL = Q.get('relay');
     await loadGame();
+    $('detectTrees').onclick = detectTreesAtCentre;
     for (let depth = 0; depth <= 99; depth++) {
       const option = document.createElement('option');
       option.value = depth; option.textContent = levelLabel(depth);
@@ -1144,6 +1184,7 @@ async function rebuild(home) {
   } finally {
     setBuilding(false);
   }
+  if (window.__world) await detectTreesAtCentre();
 })();
 </script>
 </body>

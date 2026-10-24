@@ -1,0 +1,898 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Dragon Hood · Game terminology glossary</title><style>
+:root{color-scheme:dark;background:#101919;color:#ecf3e9;font:16px/1.6 system-ui,sans-serif}*{box-sizing:border-box}body{margin:0}main{max-width:1180px;margin:auto;padding:80px 24px 32px}h1{font-size:clamp(32px,5vw,48px);line-height:1.15}h2{margin-top:32px}p{color:#afc1b7;max-width:850px}a{color:#c7e991}nav{display:flex;flex-wrap:wrap;gap:20px;margin:12px 0 24px}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px}.card{display:block;background:#192525;border:1px solid #344545;border-radius:12px;padding:22px;text-decoration:none;color:inherit}.card h2,.card h3{margin:0 0 8px}.card p{margin:0}.tag{font-size:12px;color:#c7e991}a:focus-visible,button:focus-visible{outline:3px solid #efca79;outline-offset:4px}button{font:inherit;padding:10px 16px;background:#192525;border:1px solid #52675f;border-radius:8px;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#35482b;border-color:#c7e991}.view-controls{display:flex;gap:10px;flex-wrap:wrap;margin:20px 0}iframe{width:100%;height:78vh;min-height:500px;border:1px solid #344545;border-radius:8px;background:#101919}.wide{max-width:1700px;padding-top:32px}.note{border-left:3px solid #efca79;padding:10px 16px;background:#252a20}footer{margin-top:32px;border-top:1px solid #344545;padding-top:16px;font-size:13px}li{margin-bottom:10px}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:600px){.grid{grid-template-columns:1fr}}
+</style><style>table{border-collapse:collapse;width:100%;font-size:14px}th,td{border:1px solid #344545;padding:12px;text-align:left;vertical-align:top}th{background:#192525}.concept-group th{background:#30402b;color:#d9edb8;padding:10px 12px}td{min-width:160px}.glossary{overflow-x:auto}code{overflow-wrap:anywhere}main{padding-top:32px}</style></head><body><main class="wide"><nav aria-label="Design navigation"><a href="index.html">Design dashboards</a><a href="developer-tools.html">Developer tools</a><a href="archive.html">Archive</a></nav><h1>Game terminology glossary</h1><div class="glossary"><p><a href="../docs/design/glossary.md">Markdown source</a></p><h2 id="purpose">Purpose</h2>
+<p>Use one vocabulary for game design, comments and documentation. This glossary
+separates naming ambiguities, valid subconcepts and redundant synonyms. Inventory
+categories also define shared code keys; naming changes preserve mechanics.</p>
+<h2 id="scope">Scope</h2>
+<p>This covers shared world-generation, layout, progression and interaction concepts
+in maintained source and design docs. It is not an exhaustive item, creature or
+story-character catalogue. Evidence links show representative definitions and uses.</p>
+<p><strong>These terms are approved for design prose, comments and documentation.</strong>
+The owning source and docs continue to define behavior. The inventory category
+policy below applies to code keys as well as prose. Other runtime identifiers
+and data keys retain their existing meanings.</p>
+<ul>
+<li><strong>Ambiguous use:</strong> a name has competing meanings; the column defines the terms for each meaning.</li>
+<li><strong>Subconcepts:</strong> valid narrower concepts or components to keep. Related concepts at the same level are identified as such rather than treated as synonyms.</li>
+<li><strong>Synonyms:</strong> wording to replace in design prose only when it means the same concept. This does not remove story language, map tags, API names or data keys.</li>
+<li><strong>Technical names:</strong> backticked identifiers remain intact unless the inventory category policy explicitly renames them.</li>
+</ul>
+<p>Grouped rows keep related concepts together within each table. Title case is
+appropriate for category headings; lowercase common nouns in prose are fine.
+Preserve proper names such as Home and Dragon Hood.</p>
+<h2 id="world-and-object-placement">World and object placement</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+<th>Usage distinctions</th>
+<th>Subconcepts (valid)</th>
+<th>Synonyms to replace in this meaning</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="concept-group"><th colspan="6">Special places: identity, selection and focal objects</th></tr>
+<tr>
+<td><strong>Shrine</strong></td>
+<td>A site activated daily for a boon or reward.</td>
+<td>Use shrine in daily-activation names and copy. Existing saved identifiers stay stable.</td>
+<td>Golden Shrine; Golden Path Shrine; Harvest Shrine; Toad Shrine.</td>
+<td>Idol when referring to a daily activation.</td>
+<td><a href="/src/shrines.js">Shrine definitions</a>; <a href="/docs/design/presentation.md">daily visits</a>.</td>
+</tr>
+<tr>
+<td><strong>Idol</strong></td>
+<td>An item used to summon a boss.</td>
+<td>Reserve idol for boss-summoning items.</td>
+<td>Serpent Idol.</td>
+<td>None.</td>
+<td><a href="/src/boss_encounters.js">Boss encounters</a>.</td>
+</tr>
+<tr>
+<td><strong>Nexus</strong></td>
+<td>A complete anchored special place, including its authored objects and owned area.</td>
+<td>Use <strong>Nexus</strong> for the whole place; <strong>Nexus focal layout</strong> for its central arrangement; <strong>Temple-bearing Nexus</strong> for the temple-capable subset. This broadens the narrow temple-only use.</td>
+<td>Nexus variants; focal layouts; coverage; temple-bearing subset.</td>
+<td>Special zone / zone only when naming the whole special place.</td>
+<td><a href="/src/zones.js#L75">Local pattern</a>; <a href="/docs/design/generation.md#spawn-precedence">whole coverage</a>; <a href="/src/zones.js#L175">temple-bearing kinds</a>.</td>
+</tr>
+<tr>
+<td><strong>Nexus focal layout</strong></td>
+<td>Compact arrangement around a Nexus POI.</td>
+<td>Replace the compact-pattern sense of bare “nexus” with this term.</td>
+<td>Rings, crosses, symmetric beds and POI arrangements.</td>
+<td>None beyond the ambiguous bare “nexus” use.</td>
+<td><a href="/src/zones.js#L75">Local pattern</a>; <a href="/docs/design/generation.md#spawn-precedence">whole coverage</a>; <a href="/src/zones.js#L175">temple-bearing kinds</a>.</td>
+</tr>
+<tr>
+<td><strong>Temple-bearing Nexus</strong></td>
+<td>Subset of special places permitted to claim a temple building.</td>
+<td>Replace the temple-only sense of bare “Nexus” with this explicit subset name.</td>
+<td>Grove, Old Stones and Tar Yard under the current flags.</td>
+<td>None beyond the ambiguous bare “Nexus” use.</td>
+<td><a href="/src/zones.js#L75">Local pattern</a>; <a href="/docs/design/generation.md#spawn-precedence">whole coverage</a>; <a href="/src/zones.js#L175">temple-bearing kinds</a>.</td>
+</tr>
+<tr>
+<td><strong>Nexus variant</strong></td>
+<td>One selected authored configuration of a Nexus; technical owner <code>ZoneVariants</code>.</td>
+<td>Reserve <strong>variant</strong> for the complete configuration and <strong>layout</strong> for its spatial arrangement.</td>
+<td>Background, materials, POI arrangement, finds, guards, atmosphere.</td>
+<td>Zone variant.</td>
+<td><a href="/docs/design/zone-variants.md">Nexus variants</a>; <a href="/src/zone_variants.js#L7">data-key explanation</a>.</td>
+</tr>
+<tr>
+<td><strong>Anchor</strong></td>
+<td>Stable geographic identity and origin used to select and place a special feature.</td>
+<td>“An anchor is a POI POINT” is too narrow. Use <strong>POI anchor</strong> and <strong>generated-site anchor</strong> for the two sources.</td>
+<td>POI anchors; generated quarry-site anchors.</td>
+<td>None.</td>
+<td><a href="/src/zones.js#L23">POI-only wording</a>; <a href="/docs/design/zone-variants.md#generated-quarries">generated quarry anchors</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Special places: area geometry</th></tr>
+<tr>
+<td><strong>Influence zone</strong></td>
+<td>The distance/strength field around an anchor, rather than the whole authored place.</td>
+<td>Reserve this term for the field; use <strong>Nexus</strong> for the place and <strong>coverage</strong> for its full ownership union. <code>Zones</code>/<code>ZONE_KINDS</code> stay technical names.</td>
+<td>Influence footprint; per-cell strength.</td>
+<td>Bare zone when the field is meant.</td>
+<td><a href="/src/zones.js#L2">Zone model</a>; <a href="/docs/design/zone-variants.md">variant contract</a>.</td>
+</tr>
+<tr>
+<td><strong>Coverage</strong></td>
+<td>Full area owned by a feature, including deliberately empty cells.</td>
+<td>Use <strong>coverage</strong> for ownership and <strong>occupancy</strong> for actual space taken by objects/access requirements.</td>
+<td>Influence footprint; associated park; placement fringe.</td>
+<td>None.</td>
+<td><a href="/docs/design/zone-variants.md#coverage-union">Coverage union</a>; <a href="/docs/design/generation.md#spawn-precedence">precedence</a>.</td>
+</tr>
+<tr>
+<td><strong>Occupancy</strong></td>
+<td>Cells unavailable because objects or access requirements occupy them.</td>
+<td>Keep separate from coverage: an empty owned cell is still covered.</td>
+<td>Object footprints; reserved access cells.</td>
+<td>None.</td>
+<td><a href="/docs/design/zone-variants.md#coverage-union">Coverage union</a>; <a href="/docs/design/generation.md#spawn-precedence">precedence</a>.</td>
+</tr>
+<tr>
+<td><strong>Halo</strong></td>
+<td>Terrain influence applied around an anchored place.</td>
+<td>Use <strong>halo</strong> for anchored influence and <strong>park fringe</strong> for a park polygon extension.</td>
+<td>Halo terrain repaint.</td>
+<td>None.</td>
+<td><a href="/src/zones.js#L39">Halo and fringe definitions</a>.</td>
+</tr>
+<tr>
+<td><strong>Park fringe</strong></td>
+<td>Extension of a park polygon beyond its mapped boundary.</td>
+<td>A fringe can exist without a Nexus. Qualify bare fringe as <strong>park fringe</strong> when several boundaries are discussed.</td>
+<td>Placement fringe; fringe fill.</td>
+<td>None.</td>
+<td><a href="/src/zones.js#L39">Halo and fringe definitions</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Ordinary ground and populations</th></tr>
+<tr>
+<td><strong>Landcover</strong></td>
+<td>Ordinary ground category and its ambient population, such as grass, forest or rock.</td>
+<td>Use <strong>source landcover layer</strong> / <strong>source landuse layer</strong> for map inputs; <strong>terrain</strong> for final cell paint; <strong>biome profile</strong> for population/behavior rules.</td>
+<td>Grass, forest and rock categories; associated ambient object populations.</td>
+<td>Basic zone; basic tile when naming the ground category, not a map-data tile.</td>
+<td><a href="/docs/design/generation.md#spawn-precedence">Ambient fill precedence</a>; <a href="/docs/data/basic-zone-signatures.json">basic-zone data scope</a>; <a href="/src/biome_profiles.js#L1">biome registry</a>; <a href="/src/worldgen.js#L1171">map classification</a>.</td>
+</tr>
+<tr>
+<td><strong>Source landcover layer</strong></td>
+<td>The literal <code>landcover</code> map-data input layer.</td>
+<td>Qualify it as <strong>source landcover layer</strong> when contrasting it with the broader game-design Landcover concept.</td>
+<td>Source polygons and class/subclass tags.</td>
+<td>None; preserve <code>landcover</code>.</td>
+<td><a href="/docs/design/generation.md#spawn-precedence">Ambient fill precedence</a>; <a href="/docs/data/basic-zone-signatures.json">basic-zone data scope</a>; <a href="/src/biome_profiles.js#L1">biome registry</a>; <a href="/src/worldgen.js#L1171">map classification</a>.</td>
+</tr>
+<tr>
+<td><strong>Source landuse layer</strong></td>
+<td>The separate literal <code>landuse</code> map-data input layer.</td>
+<td>Do not collapse it into the source landcover layer merely because both contribute ground.</td>
+<td>Source land-use polygons and tags.</td>
+<td>None; preserve <code>landuse</code>.</td>
+<td><a href="/docs/design/generation.md#spawn-precedence">Ambient fill precedence</a>; <a href="/docs/data/basic-zone-signatures.json">basic-zone data scope</a>; <a href="/src/biome_profiles.js#L1">biome registry</a>; <a href="/src/worldgen.js#L1171">map classification</a>.</td>
+</tr>
+<tr>
+<td><strong>Terrain</strong></td>
+<td>Final ground type recorded in a cell, including roads, buildings and cave walls.</td>
+<td>Use <strong>terrain type</strong> for a grid code and <strong>biome profile</strong> for the behavior registry; avoid bare biome when either could be meant.</td>
+<td>Natural ground; roads; paths; buildings; cave terrain.</td>
+<td>None.</td>
+<td><a href="/src/worldgen.js#L353">Terrain enum</a>; <a href="/src/biome_profiles.js#L21">profile enum</a>.</td>
+</tr>
+<tr>
+<td><strong>Biome profile</strong></td>
+<td>Registry of a ground type’s flora, static objects, fauna and atmosphere.</td>
+<td>Qualify bare biome as <strong>biome profile</strong> when referring to registry behavior. <code>BiomeProfiles</code> remains the API.</td>
+<td>Flora rules; fauna rules; object rules; atmosphere.</td>
+<td>Per-biome feel when used as the registry’s formal name.</td>
+<td><a href="/src/biome_profiles.js#L1">Registry definition</a>.</td>
+</tr>
+<tr>
+<td><strong>Ambient fill</strong></td>
+<td>Ordinary procedural objects outside higher-priority authored ownership.</td>
+<td>Use <strong>ambient fill</strong> for the generic placement role; <strong>authored dressing</strong> for variant-owned objects. Dressing alone includes both.</td>
+<td>Ordinary flora; scattered rocks; generic scenery.</td>
+<td>General fill; general zone/biome fill; ordinary scatter or biome scatter when naming this role rather than its distribution algorithm.</td>
+<td><a href="/docs/design/generation.md#spawn-precedence">Precedence</a>; <a href="/docs/design/zone-variants.md#placement-contract">ownership</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Reusable object arrangements and spatial units</th></tr>
+<tr>
+<td><strong>Layout</strong></td>
+<td>Spatial arrangement of objects in discrete game cells.</td>
+<td>Reserve <strong>layout</strong> for geometry and <strong>variant</strong> for geometry plus content/atmosphere. The proposed allowed-layout catalogue is not yet a shared runtime schema.</td>
+<td>Repeating motif; fixed composition; POI arrangement.</td>
+<td>Pattern / arrangement only when used as an unqualified name for the same reusable layout.</td>
+<td><a href="/src/zone_variants.js#L1">Integer-cell interpreter</a>; <a href="/docs/design/zone-variants.md#placement-contract">placement contract</a>.</td>
+</tr>
+<tr>
+<td><strong>Object set</strong></td>
+<td>Name for the allowed object types supplied to a layout.</td>
+<td>Distinguish <strong>object set</strong> (types) from <strong>placed objects</strong> (instances). Existing material/flora/static-object tables need an explicit mapping before schema changes.</td>
+<td>Material choices; flora choices; static-object choices.</td>
+<td>None.</td>
+<td><a href="/docs/data/zone-variants.json">Variant materials</a>; <a href="/src/biome_profiles.js#L15">biome accessors</a>.</td>
+</tr>
+<tr>
+<td><strong>Cell</strong></td>
+<td>One allowed discrete ground location in the game grid.</td>
+<td>Use <strong>cell</strong> for placement coordinates and <strong>map tile</strong> for a source-data chunk.</td>
+<td>Local cell coordinates; absolute cell coordinates.</td>
+<td>Tile when it incorrectly means one game-grid location.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Generation coordinates</a>; <a href="/docs/design/generation.md#spawn-precedence">footprint reservation</a>; <a href="/docs/design/rendering.md">render seating</a>.</td>
+</tr>
+<tr>
+<td><strong>Map tile</strong></td>
+<td>Source-data chunk containing many game cells.</td>
+<td>Use <strong>Landcover preview</strong> for a ground-category sample currently called a basic tile preview.</td>
+<td>Tile-local grid; buffered source geometry.</td>
+<td>None.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Generation coordinates</a>; <a href="/docs/design/generation.md#spawn-precedence">footprint reservation</a>; <a href="/docs/design/rendering.md">render seating</a>.</td>
+</tr>
+<tr>
+<td><strong>Footprint</strong></td>
+<td>Set of cells occupied by an object or feature.</td>
+<td>Qualify <strong>object footprint</strong> versus <strong>influence footprint</strong>; neither means visible sprite bounds.</td>
+<td>Single-cell and multi-cell object footprints.</td>
+<td>None.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Generation coordinates</a>; <a href="/docs/design/generation.md#spawn-precedence">footprint reservation</a>; <a href="/docs/design/rendering.md">render seating</a>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="roads-and-paths">Roads and paths</h2>
+<p>The requested four terrain labels are kept below. The new aggregate label makes
+the existing MD/LG safety group explicit without silently changing its membership.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+<th>Usage distinctions</th>
+<th>Subconcepts (valid)</th>
+<th>Synonyms to replace in this meaning</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="concept-group"><th colspan="6">Terrain tiers and eligibility groups</th></tr>
+<tr>
+<td><strong>Major road</strong></td>
+<td>Proposed single-tier label for <code>T.ROAD_LG</code>: motorway, trunk, primary.</td>
+<td>Current “major” also includes Medium roads. Use <strong>Major-and-Medium road group</strong> for that aggregate.</td>
+<td>Motorway, trunk and primary source classes.</td>
+<td>Large road; big ways when naming this tier. Keep <code>lg_road</code> and <code>LARGE_ROAD_CLASSES</code>.</td>
+<td><a href="/src/worldgen.js#L1226">Terrain and tags</a>; <a href="/src/street_variants.js#L443">variant groups</a>; <a href="/docs/data/underground-zone-variants.draft.json">reference names</a>.</td>
+</tr>
+<tr>
+<td><strong>Medium road</strong></td>
+<td><code>T.ROAD_MD</code>: secondary and tertiary source classes.</td>
+<td>This tier currently belongs to the internal <code>major</code> group. Name that aggregate explicitly.</td>
+<td>Secondary and tertiary source classes.</td>
+<td>None; keep <code>md_road</code>.</td>
+<td><a href="/src/worldgen.js#L1226">Terrain and tags</a>; <a href="/src/street_variants.js#L443">variant groups</a>; <a href="/docs/data/underground-zone-variants.draft.json">reference names</a>.</td>
+</tr>
+<tr>
+<td><strong>Major-and-Medium road group</strong></td>
+<td>Explicit name for <code>ROAD_LG + ROAD_MD</code> in safety and variant selection.</td>
+<td>Use this row instead of bare <strong>major</strong> for the combined group. Existing <code>ROAD_CLASS_MAJOR_*</code>, <code>inMajorBuffer</code> and <code>size: major</code> retain their current meaning.</td>
+<td>Major roads; Medium roads.</td>
+<td>Major roads when it denotes the aggregate rather than the single tier.</td>
+<td><a href="/src/worldgen.js#L1226">Terrain and tags</a>; <a href="/src/street_variants.js#L443">variant groups</a>; <a href="/docs/data/underground-zone-variants.draft.json">reference names</a>.</td>
+</tr>
+<tr>
+<td><strong>Small road</strong></td>
+<td><code>T.ROAD</code>: minor, street and service classes, plus classifier fallback.</td>
+<td>Distinguish all Small road terrain from <strong>Variant-eligible Small roads</strong>, which exclude service ways.</td>
+<td>Residential streets; service ways.</td>
+<td>Minor road when it means the entire Small tier. Keep <code>sm_road</code> and source class <code>minor</code>.</td>
+<td><a href="/src/worldgen.js#L1226">Terrain and tags</a>; <a href="/src/street_variants.js#L443">variant groups</a>; <a href="/docs/data/underground-zone-variants.draft.json">reference names</a>.</td>
+</tr>
+<tr>
+<td><strong>Variant-eligible Small roads</strong></td>
+<td>Name for Small roads selected by the minor/street source classes.</td>
+<td>Use this name for the narrow <code>size: minor</code> group; it does not include every Small road cell.</td>
+<td>Minor/street source classes.</td>
+<td>Minor streets when used as the formal eligibility-group label.</td>
+<td><a href="/src/worldgen.js#L1226">Terrain and tags</a>; <a href="/src/street_variants.js#L443">variant groups</a>; <a href="/docs/data/underground-zone-variants.draft.json">reference names</a>.</td>
+</tr>
+<tr>
+<td><strong>Path</strong></td>
+<td><code>T.PATH</code>: path, footway, track, pedestrian, cycleway and steps.</td>
+<td>Use <strong>Path terrain</strong> for the whole class; <strong>scenic path</strong> for the narrower classified route. Source class <code>path</code> is only one member.</td>
+<td>Footways; tracks; pedestrian ways; cycleways; steps.</td>
+<td>Walking path / footpath when naming the entire terrain category, not a specific source type.</td>
+<td><a href="/src/worldgen.js#L1226">Terrain and tags</a>; <a href="/src/street_variants.js#L443">variant groups</a>; <a href="/docs/data/underground-zone-variants.draft.json">reference names</a>.</td>
+</tr>
+<tr>
+<td><strong>Pier</strong></td>
+<td>Separate <code>T.PIER</code> terrain: walkway over water.</td>
+<td>A pier may participate in scenic walking routes but is not Path terrain.</td>
+<td>Pier walkway segments.</td>
+<td>None.</td>
+<td><a href="/src/worldgen.js#L1250">Classifier</a>; <a href="/src/scenic.js#L8">scenic routes</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Route identity, appearance and rewards</th></tr>
+<tr>
+<td><strong>Street</strong></td>
+<td>Named route within a parish for variant identity.</td>
+<td>Use <strong>street identity</strong> for this grouping and <strong>restoration segment</strong> for the source geometry measured by restoration.</td>
+<td>Named route fragments; canonical unnamed groups where implemented.</td>
+<td>None.</td>
+<td><a href="/src/street_variants.js#L4">Variant identity</a>; <a href="/src/streets.js#L18">restoration geometry</a>.</td>
+</tr>
+<tr>
+<td><strong>Restoration segment</strong></td>
+<td>Proposed explanatory name for a measured piece of source route geometry.</td>
+<td>Separates geometry used to restore metres from the whole street identity.</td>
+<td>Restored intervals within a segment.</td>
+<td>None; street piece is existing technical prose.</td>
+<td><a href="/src/street_variants.js#L4">Variant identity</a>; <a href="/src/streets.js#L18">restoration geometry</a>.</td>
+</tr>
+<tr>
+<td><strong>Road Variant</strong></td>
+<td>Authored theme assigned to an eligible road, implemented by <code>StreetVariants</code>.</td>
+<td>Use <strong>scenic path theme</strong> for path looks selected by <code>Scenic</code>, rather than implying they use the same road rarity roll.</td>
+<td>Minor/major eligibility groups; background, obstacles and atmosphere.</td>
+<td>Street variant; street theme / special road when naming the selected variant.</td>
+<td><a href="/docs/design/zone-variants.md#choosing-a-variant">Road choice</a>; <a href="/src/street_variants.js#L2">street module</a>; <a href="/src/scenic.js#L20">path themes</a>.</td>
+</tr>
+<tr>
+<td><strong>Scenic path</strong></td>
+<td>Off-road route meeting the scenic classification rules.</td>
+<td>Keep separate from generic Path terrain and from a Nexus.</td>
+<td>Coastal, park and greenway scenic routes.</td>
+<td>None.</td>
+<td><a href="/src/scenic.js#L8">Scenic definitions</a>; <a href="/src/scenic.js#L68">zone distinction</a>.</td>
+</tr>
+<tr>
+<td><strong>Scenic path theme</strong></td>
+<td>Scenic route looks read from path-sized <code>STREET_VARIANTS</code> rows.</td>
+<td>Separates scenic-class selection from randomized Road Variant selection.</td>
+<td>Promenade; greenway; parkpath themes.</td>
+<td>None.</td>
+<td><a href="/docs/design/zone-variants.md#choosing-a-variant">Road choice</a>; <a href="/src/street_variants.js#L2">street module</a>; <a href="/src/scenic.js#L20">path themes</a>.</td>
+</tr>
+<tr>
+<td><strong>Viewpoint</strong></td>
+<td>Mapped scenic landmark with its own reward and scope.</td>
+<td>Use <strong>viewpoint</strong> for the place and <strong>vista chest</strong> for its chest; a viewpoint has no zone field.</td>
+<td>Scope; rest spot; viewpoint reward.</td>
+<td>None.</td>
+<td><a href="/src/scenic.js#L8">Scenic definitions</a>; <a href="/src/scenic.js#L68">zone distinction</a>.</td>
+</tr>
+<tr>
+<td><strong>Vista chest</strong></td>
+<td>One-time reward owned by the scenic system.</td>
+<td>Distinguish the chest from a viewpoint or scenic stretch that owns it.</td>
+<td>Viewpoint reward; scenic-stretch reward.</td>
+<td>None.</td>
+<td><a href="/src/scenic.js#L8">Scenic definitions</a>; <a href="/src/scenic.js#L68">zone distinction</a>.</td>
+</tr>
+<tr>
+<td><strong>Old Trade Road</strong></td>
+<td>Narrative/thematic treatment of the existing combined MD/LG road group.</td>
+<td>Treat as a named road treatment, never a fourth vehicle-road size.</td>
+<td>Associated wagon-stop look; lamp/story treatment.</td>
+<td>Bandit road when naming this treatment in design prose; preserve internal <code>bandit</code> keys.</td>
+<td><a href="/src/street_variants.js#L14">Declared old internal name</a>.</td>
+</tr>
+<tr>
+<td><strong>Thorny Path</strong></td>
+<td>Proper name of a Road Variant assigned to variant-eligible Small roads.</td>
+<td>Show <strong>Road Variant: Thorny Path (Small road)</strong> in eligibility lists; its title does not imply Path terrain.</td>
+<td>Declared bramble/obstacle arrangement.</td>
+<td>None; retain the proper name.</td>
+<td><a href="/src/street_variants.js#L320">Variant row</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Road geometry and safety</th></tr>
+<tr>
+<td><strong>Road band</strong></td>
+<td>Actual drawn carriageway width.</td>
+<td>Distinguish the geometric <strong>road band</strong>, cell <strong>road mask</strong>, and final <strong>road terrain</strong>.</td>
+<td>Road-band segments.</td>
+<td>None.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Road mask</a>.</td>
+</tr>
+<tr>
+<td><strong>Kerb buffer</strong></td>
+<td>Safety area around the Major-and-Medium road group.</td>
+<td>Use <strong>kerb buffer</strong> for the safety mask and <strong>verge</strong> for a roadside placement location.</td>
+<td>Band-adjacent safety cells.</td>
+<td>Bare kerb / buffer when the full safety region is meant.</td>
+<td><a href="/src/worldgen.js#L2075">Safety bits</a>; <a href="/docs/design/generation.md#generation-saves-and-tiles">safety rule</a>.</td>
+</tr>
+<tr>
+<td><strong>Verge</strong></td>
+<td>Roadside location used for placement.</td>
+<td>A verge is not necessarily identical to the kerb safety buffer; qualify the relevant geometry.</td>
+<td>Variant-object seats; reward seats.</td>
+<td>None.</td>
+<td><a href="/src/worldgen.js#L2075">Safety bits</a>; <a href="/docs/design/generation.md#generation-saves-and-tiles">safety rule</a>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="special-place-families">Special-place families</h2>
+<p>Keep family identity, painted ground and place components separate. These family
+rows use Nexus for the whole place.</p>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+<th>Usage distinctions</th>
+<th>Subconcepts (valid)</th>
+<th>Synonyms to replace in this meaning</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="concept-group"><th colspan="6">Families</th></tr>
+<tr>
+<td><strong>Grove</strong></td>
+<td>Special-place family keyed by <code>grove</code>.</td>
+<td>Use <strong>Grove Nexus</strong>, <strong>park Landcover</strong> and <strong>grove terrain</strong> when contrasting the place, underlying ordinary ground and paint.</td>
+<td>Grove variants; focal layout; temple when eligible.</td>
+<td>None; Sacred Grove is a valid display/story name.</td>
+<td><a href="/src/zones.js#L188">Family row</a>.</td>
+</tr>
+<tr>
+<td><strong>Old Stones</strong></td>
+<td>Special-place family keyed by <code>stones</code>.</td>
+<td>Use <strong>Old Stones Nexus</strong> for the place and <strong>churchyard terrain</strong> for its paint. Real cemetery land is a different, quiet category.</td>
+<td>Old Stones variants; churchyard terrain; authored graves.</td>
+<td>Churchyard when naming the Nexus family.</td>
+<td><a href="/src/zones.js#L194">Family row</a>; <a href="/src/zones.js#L17">sensitive places</a>.</td>
+</tr>
+<tr>
+<td><strong>Tar Yard</strong></td>
+<td>Special-place family keyed by <code>tar</code>.</td>
+<td>Use <strong>Tar Yard Nexus</strong> for the place and <strong>tar pool</strong> for a hazard; hazard cells do not define ownership coverage.</td>
+<td>Tar pools; focal layout; eligible temple.</td>
+<td>None.</td>
+<td><a href="/src/zones.js#L199">Family row</a>; <a href="/docs/design/zone-variants.md#placement-contract">geometry versus density</a>.</td>
+</tr>
+<tr>
+<td><strong>Shore</strong></td>
+<td>Special-place family keyed by <code>beach</code>.</td>
+<td>Use <strong>Shore Nexus</strong>, <strong>sand Landcover</strong> and <strong>scenic shoreline</strong> for the three different meanings of beach.</td>
+<td>Shore variants; authored shore rewards.</td>
+<td>Beach family when naming this Nexus category; keep <code>beach</code> data keys.</td>
+<td><a href="/src/zones.js#L184">Family row</a>; <a href="/docs/design/zone-variants.md#beach-family">beach contract</a>; <a href="/src/scenic.js#L37">scenic beaches</a>.</td>
+</tr>
+<tr>
+<td><strong>Quarry</strong></td>
+<td>Special-place family with generated site coverage.</td>
+<td>Use <strong>Quarry Nexus</strong> for the special place and <strong>rock Landcover</strong> for ordinary rocky ground.</td>
+<td>Crater; abandoned quarry; strip mine; stronghold variants.</td>
+<td>Parking-lane site when used as the place’s category rather than its generation source.</td>
+<td><a href="/docs/design/zone-variants.md#generated-quarries">Generated quarries</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Place components</th></tr>
+<tr>
+<td><strong>Temple</strong></td>
+<td>Building or room feature associated with eligible Nexuses.</td>
+<td>Keep <strong>temple</strong> for the structure and <strong>Temple-bearing Nexus</strong> for the containing place/subset.</td>
+<td>Temple rooms; upper floors.</td>
+<td>None.</td>
+<td><a href="/src/zones.js#L171">Temple and keeper flags</a>; <a href="/docs/design/zone-variants.md#placement-contract">shrine contract</a>.</td>
+</tr>
+<tr>
+<td><strong>Shrine</strong></td>
+<td>Daily interactable that can grant gifts or boons.</td>
+<td>Keep <strong>shrine</strong> distinct from the containing temple or Nexus.</td>
+<td>Shrine kinds; daily gift; boon.</td>
+<td>None.</td>
+<td><a href="/src/zones.js#L171">Temple and keeper flags</a>; <a href="/docs/design/zone-variants.md#placement-contract">shrine contract</a>.</td>
+</tr>
+<tr>
+<td><strong>Keeper</strong></td>
+<td>NPC role tending a special place.</td>
+<td>Use <strong>Nexus keeper</strong> when the owning place matters; “keeper” names a resident, not the place.</td>
+<td>Family-specific keeper dialogue.</td>
+<td>Zone keeper.</td>
+<td><a href="/src/zones.js#L171">Temple and keeper flags</a>; <a href="/docs/design/zone-variants.md#placement-contract">shrine contract</a>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="inventory-categories-and-treasure-rewards">Inventory categories and treasure rewards</h2>
+<p>Inventory categories use the same names in the UI, code and design prose.
+<code>INV_CATS</code> in <a href="/src/items.js">items.js</a> owns their labels and lowercase keys:</p>
+<table>
+<thead>
+<tr>
+<th>Inventory label</th>
+<th>Code category key</th>
+<th>Membership rule</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Seeds</td>
+<td><code>seeds</code></td>
+<td>Items with kind <code>seed</code>.</td>
+</tr>
+<tr>
+<td>Produce</td>
+<td><code>produce</code></td>
+<td>Items with kind <code>produce</code>, except explicit category overrides; also the fallback for unmapped kinds, including <code>animal</code>.</td>
+</tr>
+<tr>
+<td>Pets</td>
+<td><code>pets</code></td>
+<td>Items with kind <code>pet_accessory</code>, plus owned pets from the pet lifecycle.</td>
+</tr>
+<tr>
+<td>Relics</td>
+<td><code>relics</code></td>
+<td>Relic equipment and items with kind <code>unique_relic</code>.</td>
+</tr>
+<tr>
+<td>Armour</td>
+<td><code>armour</code></td>
+<td>Armour equipment.</td>
+</tr>
+<tr>
+<td>Ores</td>
+<td><code>ores</code></td>
+<td>Items with kind <code>ores</code>, including wood, metals and gems; Rock (<code>rubble</code>) joins through its category override.</td>
+</tr>
+<tr>
+<td>Magic</td>
+<td><code>magic</code></td>
+<td>Items with kind <code>magic</code>.</td>
+</tr>
+<tr>
+<td>Supplies</td>
+<td><code>supplies</code></td>
+<td>Items with kind <code>supply</code>.</td>
+</tr>
+</tbody>
+</table>
+<p>Use <strong>Ores</strong> / <code>ores</code> for the former <strong>Minerals</strong> / <code>mineral</code> category, item
+kind and generic treasure reward class. Other item kinds, such as <code>seed</code>,
+<code>supply</code>, <code>animal</code> and <code>unique_relic</code>, and equipment types <code>relic</code> and <code>armor</code>
+describe behavior rather than inventory categories, so they retain their names.
+<code>invCatForItem(id)</code> maps an item to its official category; Rock keeps its
+<code>produce</code> kind for crop behavior and its <code>ores</code> category for inventory display.</p>
+<p>Treasure rewards expose their official inventory category through
+<code>reward.category</code>, derived by <code>rewardCategory(reward)</code>. The reward's <code>cls</code>
+selects its roll or handling path and need not equal its inventory category.
+Coins are currency, so coin rewards have no inventory category.</p>
+<p><strong>Reward pools</strong> are named selection subgroups, owned by
+<code>ChestThemes.groups</code> in <a href="/src/chest_themes.js">chest_themes.js</a>. They keep
+their own membership, weights and fallbacks. <code>materials</code> and <code>gems</code> are separate
+pools whose items appear under Ores; naming the category Ores does not add gems
+to a materials roll. <code>books</code> is a Supplies subgroup. A pool can cross inventory
+categories: <code>medicalMagic</code> includes Magic items and healing amulets under Relics.
+The category alignment preserves existing pool membership and reward odds.
+See <a href="/docs/design/CHEST_THEMES.md">themed chests</a> for selection rules.</p>
+<h2 id="progression-and-interactions">Progression and interactions</h2>
+<table>
+<thead>
+<tr>
+<th>Term</th>
+<th>Meaning</th>
+<th>Usage distinctions</th>
+<th>Subconcepts (valid)</th>
+<th>Synonyms to replace in this meaning</th>
+<th>Evidence</th>
+</tr>
+</thead>
+<tbody>
+<tr class="concept-group"><th colspan="6">World identity and player context</th></tr>
+<tr>
+<td><strong>Dragon Hood</strong></td>
+<td>Current game title.</td>
+<td>Use <strong>Mending Lane</strong> for the starting neighbourhood; preserve <code>terracart.*</code> storage keys.</td>
+<td>None; the neighbourhood is a setting within the game.</td>
+<td>TerraCart; Pocket Acres; Mending Lane when used as the current game title.</td>
+<td><a href="/docs/design/spec.txt#L1">Title history</a>; <a href="/CLAUDE.md#purpose">root policy</a>.</td>
+</tr>
+<tr>
+<td><strong>The Hood</strong></td>
+<td>Protagonist’s story name.</td>
+<td>Survivor can describe the apparent role; it is not a second canonical character name.</td>
+<td>None identified.</td>
+<td>None; descriptive story language is valid.</td>
+<td><a href="/docs/design/story.txt#L15">Story premise and world</a>.</td>
+</tr>
+<tr>
+<td><strong>The Breaking</strong></td>
+<td>World-changing story event.</td>
+<td>None identified.</td>
+<td>None identified.</td>
+<td>None; “the night the roofs fell” is an intentional in-world expression.</td>
+<td><a href="/docs/design/story.txt#L15">Story premise and world</a>.</td>
+</tr>
+<tr>
+<td><strong>Home</strong></td>
+<td>Player’s home location and its rest, light and ward context.</td>
+<td>Use <strong>starting location</strong> for initial spawn and <strong>Home</strong> for the ongoing home mechanic; the house is its physical representation.</td>
+<td>Home light; Home rest; Home ward.</td>
+<td>None; keep <code>HomeArea</code> and <code>homeWorldPos()</code>.</td>
+<td><a href="/docs/design/combat.md">Home rules</a>; <a href="/docs/design/spec.txt#L1083">home context</a>.</td>
+</tr>
+<tr>
+<td><strong>Floor</strong></td>
+<td>Playable vertical layer.</td>
+<td>Use <strong>underground floor</strong> or <strong>tower floor</strong> to make direction explicit; <strong>depth</strong> is the underground index.</td>
+<td>Underground floors; tower floors.</td>
+<td>Cave level / dungeon level when naming a floor in shared design tables.</td>
+<td><a href="/docs/design/floors.md">Floor catalogue</a>; <a href="/docs/design/generation.md#generation-saves-and-tiles">surface-owned geometry</a>.</td>
+</tr>
+<tr>
+<td><strong>Depth</strong></td>
+<td>Index indicating how far underground a floor lies.</td>
+<td>Reserve <strong>depth</strong> for underground position; use the specific progression name for other uses of “level.”</td>
+<td>Depth-dependent content rules.</td>
+<td>Level when it means underground depth.</td>
+<td><a href="/docs/design/floors.md">Floor catalogue</a>; <a href="/docs/design/generation.md#generation-saves-and-tiles">surface-owned geometry</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Player resources and actions</th></tr>
+<tr>
+<td><strong>Energy</strong></td>
+<td>Player resource spent on jobs and reduced by incoming damage; pets have their own energy.</td>
+<td>Use <strong>enemy health</strong> for foe HP, <strong>player energy</strong> and <strong>pet energy</strong> for their respective pools.</td>
+<td>Player energy; pet energy.</td>
+<td>None evidenced as a redundant pool name; enemy HP is valid.</td>
+<td><a href="/docs/design/combat.md">Energy and damage</a>; <a href="/docs/design/spec.txt#L228">energy definition</a>; <a href="/docs/design/spec.txt#L498">foe health</a>.</td>
+</tr>
+<tr>
+<td><strong>Enemy health</strong></td>
+<td>Foe’s combat-health pool and associated bar.</td>
+<td>Use this explicit term when contrasting with player/pet energy.</td>
+<td>Current and maximum enemy HP; health bar display.</td>
+<td>None; HP is a legitimate technical abbreviation.</td>
+<td><a href="/docs/design/combat.md">Energy and damage</a>; <a href="/docs/design/spec.txt#L228">energy definition</a>; <a href="/docs/design/spec.txt#L498">foe health</a>.</td>
+</tr>
+<tr>
+<td><strong>Reach</strong></td>
+<td>Current player interaction range.</td>
+<td>Use <strong>interaction reach</strong>, <strong>sight range</strong> and <strong>projectile range</strong> when several ranges appear together.</td>
+<td>Lit reach display.</td>
+<td>Lit range when it means interaction reach rather than lighting.</td>
+<td><a href="/docs/design/spec.txt#L206">Reach rules</a>; <a href="/docs/design/rendering.md">rendering</a>.</td>
+</tr>
+<tr>
+<td><strong>Work wheel</strong></td>
+<td>Timed-action interface for jobs.</td>
+<td>Use <strong>job</strong> for the action and <strong>work wheel</strong> for its interface.</td>
+<td>Timed work progress display.</td>
+<td>None.</td>
+<td><a href="/docs/design/spec.txt#L220">Interaction rules</a>; <a href="/docs/design/combat.md">job energy</a>.</td>
+</tr>
+<tr>
+<td><strong>Condition</strong></td>
+<td>Status effect represented by <code>Conditions.DEFINITIONS</code>.</td>
+<td>Use <strong>condition</strong>, <strong>buff</strong> or <strong>shrine boon</strong> for mechanics; <strong>status chip</strong> for shared UI presentation.</td>
+<td>Poison; burning; paralysis and other defined conditions.</td>
+<td>None; status effect is a valid umbrella phrase.</td>
+<td><a href="/docs/design/combat.md">Status and buff rules</a>; <a href="/docs/design/story.txt#L45">shrine story</a>.</td>
+</tr>
+<tr>
+<td><strong>Buff</strong></td>
+<td>Timed benefit represented in <code>Buffs.KINDS</code>.</td>
+<td>Keep separate from the condition registry; shared status-row display does not merge them.</td>
+<td>Timed movement and consumable benefits.</td>
+<td>None.</td>
+<td><a href="/docs/design/combat.md">Status and buff rules</a>; <a href="/docs/design/story.txt#L45">shrine story</a>.</td>
+</tr>
+<tr>
+<td><strong>Shrine boon</strong></td>
+<td>Benefit lent by a shrine.</td>
+<td>Name the source as <strong>shrine boon</strong>; document separately which effect mechanism implements it.</td>
+<td>Shrine-specific granted benefits.</td>
+<td>Bare boon where its source would otherwise be ambiguous.</td>
+<td><a href="/docs/design/combat.md">Status and buff rules</a>; <a href="/docs/design/story.txt#L45">shrine story</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Restoration, discoveries and rewards</th></tr>
+<tr>
+<td><strong>Restoration</strong></td>
+<td>Repairing buildings or road bands.</td>
+<td>Use <strong>building restoration</strong> / <strong>road restoration</strong>; preserve <strong>fort unsealing</strong> and <strong>castle claiming</strong> as distinct actions.</td>
+<td>Building restoration; road restoration.</td>
+<td>None; street restoration is the established mechanism name and mending is valid story language.</td>
+<td><a href="/src/houses.js#L1">Building roles</a>; <a href="/src/houses.js#L21">fort unlocking</a>; <a href="/docs/design/spec.txt#L580">street restoration</a>.</td>
+</tr>
+<tr>
+<td><strong>Restoration ladder</strong></td>
+<td>Shared progression banking restored road/path metres for prizes; technical owner <code>Trail</code>.</td>
+<td>Use <strong>restoration ladder</strong> for prize progression and <strong>starter trail</strong> for onboarding placements.</td>
+<td>Prize goals; banked restoration metres.</td>
+<td>Trail when used as the ladder’s standalone design name; retain the API.</td>
+<td><a href="/src/trail.js#L2">Ladder</a>; <a href="/docs/design/spec.txt#L137">starter trail</a>.</td>
+</tr>
+<tr>
+<td><strong>Starter trail</strong></td>
+<td>Onboarding sequence and nearby starting placements.</td>
+<td>Distinguish this physical/tutorial sequence from <code>Trail</code> restoration progression.</td>
+<td>Starter crates; starter relic reward.</td>
+<td>Onboarding trail / crate trail as competing formal labels for the same starter sequence; descriptive uses remain valid.</td>
+<td><a href="/src/trail.js#L2">Ladder</a>; <a href="/docs/design/spec.txt#L137">starter trail</a>.</td>
+</tr>
+<tr>
+<td><strong>Living lamps</strong></td>
+<td>Restored route lamps providing recurring re-walk credit.</td>
+<td>Use <strong>lamp credit</strong> for the recurring reward and <strong>lamp light</strong> for its visual/light-source role.</td>
+<td>Path lamps; street lamps.</td>
+<td>None.</td>
+<td><a href="/src/scenic.js#L14">Lamp credit distinction</a>; <a href="/docs/design/spec.txt#L606">street lamps</a>.</td>
+</tr>
+<tr>
+<td><strong>Memory</strong></td>
+<td>Discovery-triggered story progression event.</td>
+<td>Use <strong>discovery</strong> for the recorded first find; <strong>memory</strong> for its story result.</td>
+<td>Story memories.</td>
+<td>None.</td>
+<td><a href="/docs/design/spec.txt#L878">Memories</a>.</td>
+</tr>
+<tr>
+<td><strong>Discovery</strong></td>
+<td>Recorded first find that can trigger a memory; stored in <code>save.discovered</code>.</td>
+<td>Do not use memory for both the trigger record and the resulting story event.</td>
+<td>First shiny-kind finds; first elite-kind finds.</td>
+<td>None.</td>
+<td><a href="/docs/design/spec.txt#L878">Memories</a>.</td>
+</tr>
+<tr>
+<td><strong>Chest</strong></td>
+<td>One-time chest reward interaction.</td>
+<td>Use <strong>crate</strong> for a restocking container. Qualify cache/hoard by its actual interaction, e.g. <strong>hoard chest</strong> or <strong>finite find</strong>.</td>
+<td>Vista chest; Nexus chest; starter relic chest.</td>
+<td>None: cache/hoard may describe distinct content rather than an alias.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Rewards and restocking</a>.</td>
+</tr>
+<tr>
+<td><strong>Crate</strong></td>
+<td>Container eligible for restocking.</td>
+<td>Use <strong>restocking crate</strong> when its recurrence is the distinction; pots/barrels sharing ledgers do not automatically become crates.</td>
+<td>Restock schedules.</td>
+<td>None.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Rewards and restocking</a>.</td>
+</tr>
+<tr>
+<td><strong>Service venue</strong></td>
+<td>Reusable service interaction, such as an inn, chapel, apothecary or guildhall.</td>
+<td>Technical identifiers <code>macroFor</code>, <code>MACRO_KIND_BY_CLASS</code> and <code>Macros</code> remain unchanged. Surface venues provide services; eligible cave mirrors use chest rewards.</td>
+<td>Inn; chapel; apothecary; scriptorium; guildhall; curio hall; sundries; training; book club; bank.</td>
+<td>Macro / macro stall when naming the gameplay category.</td>
+<td><a href="/src/loot.js">Venue selection</a>; <a href="/src/macros.js">Service behavior</a>.</td>
+</tr>
+<tr>
+<td><strong>Product stall</strong></td>
+<td>Shop selling the product identified by its POI class, subclass or name.</td>
+<td>Technical owner <code>produceStandFor</code>. A matching product takes precedence over the generic shop's Sundries service venue.</td>
+<td>Produce and prepared-food stalls.</td>
+<td>Market stand / market stall / produce stand when naming this category.</td>
+<td><a href="/src/loot.js">Product selection</a>.</td>
+</tr>
+<tr>
+<td><strong>Booth</strong></td>
+<td>Physical presentation of a stall or service venue.</td>
+<td>A presentation term, not a separate reward route or synonym for service venue alone. Specify service venue or product stall when behavior matters.</td>
+<td>Booth artwork; service introduction.</td>
+<td>None.</td>
+<td><a href="/src/macros.js">Booth presentation</a>; <a href="/src/render.js">Rendering</a>.</td>
+</tr>
+<tr>
+<td><strong>Breakable container</strong></td>
+<td>Barrel or clay pot that yields a small reward or nothing when permanently smashed.</td>
+<td>Surface waste-basket/recycling POIs and objects explicitly marked <code>barrel: true</code>; not the result of excess chest-tier quotas. Stable appearance selects the loot profile.</td>
+<td>Barrel; clay pot.</td>
+<td>Barrel when incorrectly naming the combined barrel-and-pot category.</td>
+<td><a href="/src/loot.js">Container identity and loot</a>.</td>
+</tr>
+<tr>
+<td><strong>Chest tier quota</strong></td>
+<td>Per-tile allocation of base tier seeds to eligible POIs, with excess POIs remaining T1.</td>
+<td>Quotas scale with budgeted POI count and include service/product POIs; they are not strict final counts of openable chests. Vistas sit outside the budget; Nexus focal chests do not spend a slot. Cave bonuses apply after allocation.</td>
+<td>Base tier quotas; density multiplier; category rotation.</td>
+<td>Tier cap when it incorrectly implies a hard limit on all final chest rewards.</td>
+<td><a href="/src/worldgen.js">Allocation</a>; <a href="/docs/design/generation.md#generation-saves-and-tiles">Tier rules</a>.</td>
+</tr>
+<tr>
+<td><strong>Reward budget</strong></td>
+<td>Coin-value allowance used to size an item stack or coin payout.</td>
+<td>Derived from rolled tier and budget brackets, or supplied explicitly by a source such as a breakable container. Category shares, rounding and item caps affect the actual payout.</td>
+<td>Base budget; budget bracket; source allowance.</td>
+<td>Quantity bonus when it describes the allowance rather than the final item count.</td>
+<td><a href="/docs/design/CHEST_THEMES.md">Budget rules</a>; <a href="/src/chest_themes.js">Conversion</a>.</td>
+</tr>
+<tr>
+<td><strong>Budget bracket</strong></td>
+<td>One additional 50% of a reward's base tier budget.</td>
+<td>Boost chains, jackpots and Full Measure can add brackets. A bracket does not guarantee an extra item or promote its tier.</td>
+<td>Chain budget boost; jackpot budget boost.</td>
+<td>Quantity bracket / quantity bump for this mechanic.</td>
+<td><a href="/src/rarity.js">Reward quality</a>; <a href="/docs/design/CHEST_THEMES.md">Budget rules</a>.</td>
+</tr>
+<tr>
+<td><strong>Full Measure</strong></td>
+<td>Wizard upgrade increasing the chance of one extra budget bracket on eligible treasure rolls.</td>
+<td>Three levels, up to 35% chance; <code>qtyUpgrades</code> remains the legacy save field. Item caps can prevent an increased stack.</td>
+<td>Budget upgrade levels.</td>
+<td>Wizard quantity upgrade / quantity luck for this upgrade.</td>
+<td><a href="/src/wizard.js">Wizard tracks</a>; <a href="/docs/design/CHEST_THEMES.md">Budget rules</a>.</td>
+</tr>
+<tr>
+<td><strong>Relic</strong></td>
+<td>Equipment or special tool/reward in the relic system.</td>
+<td>Use <strong>starter relic chest</strong> for that reward source; relic does not name the container.</td>
+<td>Tool relics; weapon relics; bag relics.</td>
+<td>None; gear/tool/weapon describe broader or role-specific categories.</td>
+<td><a href="/docs/design/spec.txt#L850">Tools and equipment</a>; <a href="/docs/design/spec.txt#L144">starter relic chest</a>.</td>
+</tr>
+<tr class="concept-group"><th colspan="6">Creatures, ownership and placement</th></tr>
+<tr>
+<td><strong>Lair</strong></td>
+<td>Occupied derelict structure.</td>
+<td>Use <strong>lair</strong> for the occupied place and <strong>garrison</strong> for its authored enemy group.</td>
+<td>Building lairs.</td>
+<td>None.</td>
+<td><a href="/src/lairs.js#L2">Lairs</a>; <a href="/docs/design/zone-variants.md#placement-contract">finite guards versus encounters</a>.</td>
+</tr>
+<tr>
+<td><strong>Garrison</strong></td>
+<td>Authored group of enemies attached to a structure or feature.</td>
+<td>Distinguish group membership from an individual <strong>guard</strong> and from encounter spawning.</td>
+<td>Authored group compositions.</td>
+<td>None.</td>
+<td><a href="/src/lairs.js#L2">Lairs</a>; <a href="/docs/design/zone-variants.md#placement-contract">finite guards versus encounters</a>.</td>
+</tr>
+<tr>
+<td><strong>Guard</strong></td>
+<td>Creature protecting an authored feature or reward.</td>
+<td>Use <strong>finite guard</strong> where the budget/lifecycle differs from generic encounters.</td>
+<td>Nexus guards; road-variant guards.</td>
+<td>None.</td>
+<td><a href="/src/lairs.js#L2">Lairs</a>; <a href="/docs/design/zone-variants.md#placement-contract">finite guards versus encounters</a>.</td>
+</tr>
+<tr>
+<td><strong>Encounter</strong></td>
+<td>Themed encounter-spawn mechanism.</td>
+<td>Use <strong>themed encounter</strong> for its specific runtime system rather than calling every guard or lair an encounter in budget rules.</td>
+<td>Surface encounter families.</td>
+<td>None.</td>
+<td><a href="/src/lairs.js#L2">Lairs</a>; <a href="/docs/design/zone-variants.md#placement-contract">finite guards versus encounters</a>.</td>
+</tr>
+<tr>
+<td><strong>Pet</strong></td>
+<td>Individually owned animal record.</td>
+<td>Use <strong>pet state</strong> for carried/deployed/released status; <code>save.released</code> does not by itself mean unowned.</td>
+<td>Carried pets; deployed pets; pet growth and recovery.</td>
+<td>None.</td>
+<td><a href="/docs/design/combat.md">Pet and follower ownership</a>.</td>
+</tr>
+<tr>
+<td><strong>Companion</strong></td>
+<td>Follower managed by the companion lifecycle, including timed contracts.</td>
+<td>Use <strong>timed companion</strong> where duration/contract distinguishes it from a pet. Shared combat behavior does not imply shared ownership.</td>
+<td>Timed follower kinds.</td>
+<td>None.</td>
+<td><a href="/docs/design/combat.md">Pet and follower ownership</a>.</td>
+</tr>
+<tr>
+<td><strong>Fauna</strong></td>
+<td>Ordinary world animals.</td>
+<td>Use <strong>wild fauna</strong> for ambient animals and <strong>pet</strong> after ownership is established.</td>
+<td>Ambient species; habitat preferences.</td>
+<td>None; animal remains ordinary language.</td>
+<td><a href="/docs/design/combat.md">Pet and follower ownership</a>.</td>
+</tr>
+<tr>
+<td><strong>Spawn gate</strong></td>
+<td>Shared cell-placement permission mechanism.</td>
+<td>Use <strong>spawn gate</strong> for the permission check and <strong>spawn class</strong> for the category requesting access.</td>
+<td>Reason bits; class-specific blocks.</td>
+<td>None.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Spawn gate and classes</a>.</td>
+</tr>
+<tr>
+<td><strong>Spawn class</strong></td>
+<td>Category of object asking the spawn gate for access.</td>
+<td>Use <strong>minor spawn class</strong> for <code>minor</code> scenery/flora; <strong>Variant-eligible Small roads</strong> for the unrelated road group.</td>
+<td>Enemy, fauna, headstone, attractor and minor spawn classes.</td>
+<td>None; retain class keys.</td>
+<td><a href="/docs/design/generation.md#generation-saves-and-tiles">Spawn gate and classes</a>.</td>
+</tr>
+</tbody>
+</table>
+<h2 id="cleanup-boundaries">Cleanup boundaries</h2>
+<ol>
+<li>Use Nexus for the whole place, Nexus focal layout for its central arrangement,
+   and Temple-bearing Nexus for the subset permitted to claim a temple.</li>
+<li>Use Major, Medium, Small and Path for the four road tiers. Name the
+   Major-and-Medium road group and Variant-eligible Small roads explicitly;
+   preserve their safety and variant memberships.</li>
+<li>Replace synonyms only in the meanings stated in each row. Keep source-map
+   tags, proper names and valid subconcepts. Runtime identifiers follow the
+   explicit inventory category policy; other identifiers retain their names.</li>
+<li>Keep this glossary about shared vocabulary. Detailed mechanics, numeric tuning,
+   item/creature catalogues and story canon stay in their owning sources.</li>
+</ol></div><footer>Live tools use current game definitions. Saved reviews are snapshots; their original findings and artwork are preserved.</footer></main></body></html>

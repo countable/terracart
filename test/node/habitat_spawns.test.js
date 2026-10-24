@@ -212,7 +212,7 @@
     assert.falsy(HabitatSpawns.enemyRows(inland, 'SAND').some(row => row.id === 'jellyfish'));
   });
 
-  test('habitat populations: ordinary shoreline uses its explicit aquatic enemy pool and water seats', () => {
+  test('habitat populations: ordinary shoreline retains shore crabs while Excluded water refuses aquatic seats', () => {
     const entry = fixture(WorldGen.T.SAND), mask = new Uint8Array(4096);
     for (let y = 0; y < 64; y++) for (let x = 0; x < 64; x++) {
       const i = y * 64 + x;
@@ -222,7 +222,7 @@
     entry.scenic = { shore: { mask } };
     const enemies = generate(entry).filter(c => c._surfaceSpawn);
     assert.truthy(enemies.some(c => c.kind === 'giant_crab'));
-    assert.truthy(enemies.some(c => c.kind === 'jellyfish'));
+    assert.falsy(enemies.some(c => c.kind === 'jellyfish'));
     for (const c of enemies) {
       assert.includes(['giant_crab', 'jellyfish'], c.kind);
       const index = Math.floor(c.y / 10) * 64 + Math.floor(c.x / 10);

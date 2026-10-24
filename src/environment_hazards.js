@@ -79,6 +79,7 @@
       // strip-mine pit) reads as blocked and stays inert.
       if (h.type === 'cavein' && !caveInGround(scene, p)) return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
+        gameplayTiers: e.gameplayTiers || e._spawnOpts.gameplayTiers,
         roadMask: e.roadMask || e._spawnOpts.roadMask, roadClass: e.roadClass || e._spawnOpts.roadClass };
       // Authored seats own their generation occupancy, but never bypass land
       // safety or a structure subsequently placed over the vent.

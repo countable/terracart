@@ -3,6 +3,45 @@
 Run commands from the repository root. Tool paths stay stable so existing
 scripts, imports and documentation continue to work. The game has no build step.
 
+## Official design tools
+
+`design/index.html` is the maintained design directory. Serve the repository
+root with `python3 -m http.server 8000` and open `/design/`; its live viewers
+load the same checkout's game code and assets. `tools/map-review.html` is the
+canonical map review, including cached tree-detection evidence and a request
+for fresh evidence at the map centre. The detection button requests another
+centre tile after panning. `?geometry=off` disables detection;
+`?relay=https://host` selects a relay instead of the local default on port 8787.
+This previews generated placements, not a saved player's runtime state.
+
+To make the shared artifact server serve these repository files and forward
+old `/road-review/` bookmarks to the canonical tools (including an optional
+read-only mount of the local `extra_assets/` collection for source-pack previews):
+
+```sh
+python3 tools/install-design-server.py
+docker compose -f ~/.config/artifact-server/compose.yaml up -d --force-recreate
+```
+
+The hub, glossary and story-painting catalogue are checked-in generated pages.
+The nexus/road/landcover preview is a labelled static snapshot generated from
+current game definitions, with repeated sprite crops stored once in `images/`.
+Regenerate and review their changes when the source definitions or art change:
+
+```sh
+python3 tools/build_dashboard_directory.py
+python3 tools/preview_zone_variants.py
+```
+
+The first command requires Python Markdown; the second requires Node.js and
+Pillow. The layout lab is maintained directly in `design/layout-lab.html` and
+loads the checkout's terrain modules. Historical storyboards and reviews stay
+on the artifact server and are explicitly linked there. The floor asset table and approved-story-art reference viewer are maintained
+in `design/`, including their preview images. The floor table links to optional
+source packs under ignored `extra_assets/`; those source links require the local
+collection. The approved art viewer preserves approved reference pixels even
+when the current game painting has since changed.
+
 ## Common commands
 
 | Command | Result |
@@ -178,7 +217,17 @@ material-colour variants where the source pack provides suitable choices.
 
 In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
 variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
-The gameplay tier is included when its overlay is enabled.
+The gameplay tier is included when its overlay is enabled. Parking polygons and
+the source-derived lot safety mask (including point-only lots and inferred aisles)
+are Tier 3 passing. Old Stones nexus coverage, including absorbed adjoining lots,
+is Tier 2 calm. Medium and major street surfaces (without buffers) are Excluded.
+Regular small street surfaces are calm; dead-end small street surfaces are passing.
+These surface rules override all zones and path bands; larger streets win crossings.
+Medium/major road buffers remain passing, except where mapped paths and their
+one-cell buffers are core. Source building/water footprints and access exclusions
+still win.
+Areas without qualifying mapped evidence are Excluded, with the reason retained
+in the inspection popup.
 Click a road or path for its source name/type, rendered variant and width,
 assignment length, affinity context, name influences and source feature IDs.
 At crossings the popup includes up to three nearby routes; ground details remain expandable.

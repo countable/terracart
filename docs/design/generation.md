@@ -64,9 +64,11 @@ access or tile lifecycle mechanics.
   Nexus keeps its own declared inhabitants and excludes generic shoreline
   top-ups, including after captures. Safety only removes destinations;
   `entry.shorePopulation` records placement shortfalls.
-- Ordinary beach enemy slots favour Jellyfish (80%) over Giant Crabs (20%).
-  Jellyfish occupy legal shoreline water; crabs occupy sand. The shared enemy
-  budget and Home restrictions still apply; Nexus encounters keep their own mix.
+- Beach encounter tables retain their declared species mix, but Excluded water
+  cannot receive creatures, coral scenery or reef treasure, even with shore reach
+  or a water-only placement profile. Dry-shore inhabitants, ore and the reef
+  shrine still use the shared tier gate. A refused aquatic candidate leaves a
+  shortfall rather than moving onto land or borrowing another species slot.
 - Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
   extent), including ragged edges and park-derived beach companions. Larger
   mapped beaches remain ordinary sand outside that cap, with normal beach
@@ -80,6 +82,12 @@ access or tile lifecycle mechanics.
   encounters retain their explicit budgets. Mobile guards exhaust legal seats
   within their feature before reporting a shortfall. Rooted pattern inhabitants
   and core/roof formations retain their exact authored layout seats.
+  Ordinary ruin guards use the street-facing doorway selected by
+  `BuildingLowPoly.streetDoor`, matching building rendering. Seats stay within
+  three cells of the doorway and before the street, subject to the normal
+  spawn gate. A blocked frontage drops its guards instead of moving them behind
+  the building. With no detected doorway, the existing ring remains. Fort and
+  castle core/roof formations keep their authored seats.
 - Triggered bush fauna and ambient haunting consult the owning habitat. Headstone
   ghosts, starter/story creatures, crop pests, saved pets and summons remain
   feature/progression/player-driven exceptions; all placement still uses the
@@ -225,20 +233,15 @@ access or tile lifecycle mechanics.
   Retired save formats may be discarded; keep current-state defaults, validation
   and runtime cleanup separate from compatibility conversion.
 
-- Surface access exclusions and typed safety suppression apply at every dungeon depth.
-  Road bands, junctions, private/restricted/quiet land and sensitive sites retain
-  their reason bits; kerb and sensitive-area buffers retain their spawn-class rules.
-  Terrain alone is recalculated for the current floor. Underground tiles also
-  inherit road geometry for chase boundaries, warnings and night-road hiding/drain.
-  Farm and orchard interiors, and entire golf courses, exclude spawns at every dungeon depth.
-  Fields keep an eligible outer rim of `WorldGen.FARM_EDGE_CELLS` cells,
-  measured from the source footprint; roads, POIs and later paint cannot create
-  interior edges. Farmland rims scatter static T1–T2 wild crops at seeded growth
-  stages, directly on the ground, through the ordinary wildplant lane. They have
-  no dirt bed or watering interaction.
-  `WorldGen.SPAWN_WHY_ALL_FLOORS` owns the inherited reasons; `floorSpawnWhy`
-  derives them from immutable surface evidence. Preserve that mask through cave
-  generation and runtime spawns; repainting or digging never grants spawn access.
+- Surface gameplay tiers apply at every dungeon depth. Each floor inherits the
+  immutable surface tier field with its access reasons; digging and floor paint
+  cannot reopen Excluded ground or remove Passing restrictions. Live terrain and
+  occupancy are checked on the current floor. `floorSpawnWhy` preserves the
+  source evidence, and cave source snapshots carry the tier field alongside it.
+  Underground tiles retain road geometry for chase boundaries, warnings and
+  night-road hiding/drain. Farm and orchard interiors and golf grounds retain
+  their source access restrictions. Eligible field rims remain measured from
+  source footprints; roads, POIs and later paint cannot create interior edges.
 
 - L3 fills eligible ground between authored areas with connected goblin-warren
   rooms (`CaveAreas.planCity`, configured by `floorProfile(3).warren`).
@@ -492,91 +495,49 @@ access or tile lifecycle mechanics.
 - Reward rolls, recurring events, mode-dependent creature/trap counts and
   player progress may differ. Restoration remains per-save. Deduplication uses
   data/anchor ownership, not tile load order; cached Overpass bins are frame-free.
-- Rear-lot bedrock: `stampExclusionRock` paints the interior of residential or
-  wasteland cells refused solely by PRIVATE/BEHIND_HOUSE as `EXCLUSION_ROCK`
-  (32), after all zone and prop placement. A one-cell margin preserves roads,
-  paths, building edges, other access/safety reasons, Nexus coverage and props;
-  tile borders remain open when neighbour data is unavailable. This terrain
-  blocks player movement through `_cellBlocked`, unlike ordinary surface road
-  and water spawn exclusions, and is not mineable or tillable. Other spawn
-  exclusions do not become physical barriers. Bedrock keeps the pre-overlay cave
-  substrate and entrance occupancy snapshot, so adding a surface barrier does
-  not reroll cave floors or mine-mouth locations.
-- THE SPAWN GATE is `entry.spawnWhy` (`WorldGen.stampSpawnWhySteps`, beside
-  the road mask in the sliced build): per cell, the REASONS it is refused
-  (`WorldGen.SPAWN_WHY` bits), never a single verdict. HARD reasons refuse
-  every spawn: TERRAIN, ROAD (the roadMask only - at least half the cell under
-  the band; road proximity is KERB, never hard), JUNCTION (an intersection
-  involving an MD/LG road, including the overlapping bands and a 2-cell
-  buffer), RESTRICTED land, QUIET land,
-  KINDERGARTEN grounds, a SENSITIVE_SITE point, BEHIND_HOUSE, PRIVATE (a
-  lot with no public frontage; OR — Sep 2026, the Voronoi rule — exterior
-  COMMERCIAL / INDUSTRIAL ground whose NEAREST POI, over the tile's whole poi
-  layer incl. its buffer, is not PUBLIC in the one table
-  `WorldGen.COMMERCIAL_POI_KIND` (office / hotel / clinic nearest, or none
-  within `NEAREST_POI_MAX_M`; `commercialPoiField` is the one field the gate
-  and map-review read); a POI chest in reach lifts it), FARM_INTERIOR (a field past
-  `FARM_EDGE_CELLS` of other ground — the EDGE band itself carries no reason
-  at all: every class may spawn there). TYPED reasons refuse only the classes
-  whose row of ONE table, `WorldGen.SPAWN_CLASS_BLOCKS`, names them: KERB
-  (fast movers only), JUNCTION_SOFT (fast movers and hazards), SENSITIVE,
-  BUILDING_MOAT (the `npc` class only).
-  (Sep 2026, owner's call: the typed HOUSE
-  reason — a 40 m house buffer on lot land — and the typed SCHOOL reason —
-  school / college grounds, plus its school-hours timing — are both dropped
-  entirely; KINDERGARTEN stays hard. FARM was inverted the same day: the
-  field EDGE band used to be typed-suppressed, now it carries no reason.)
-  RESTRICTED and KINDERGARTEN hold only where the cell's FINAL terrain paint
-  still agrees with the class's own look (`restrictedExpectedTerrain`,
-  T.SCHOOL for kindergarten) — COMMERCIAL WELCOMES VISITORS (Sep 2026): a
-  later or higher-priority commercial/retail polygon overlapping a stray
-  restricted-class or kindergarten polygon in the source data wins the cell
-  and reopens it (to be judged by its nearest POI like any commercial
-  cell), though a real hospital campus IS its own commercial paint
-  and keeps RESTRICTED. The military/railway rows of QUIET_LAND get the same
-  paint check (`stampQuietLandSteps`'s optional `grid` arg); cemetery and the
-  boundary/park aboriginal_lands rows do not (no own paint to compare, or
-  never ours to reopen on a data coincidence). Every static spawner calls
-  `WorldGen.isSpawnCell(grid, w, h, cx, cy, opts, cls)` with `_spawnOpts`
-  (`spawnWhy`, `roadMask`, `occupied`) AND its class. Creature generators call
-  `CreatureSpawns.isSpawnCell` or `gateAt` with the kind; the wrapper derives
-  the class and delegates to that same gate (the source sweep in
-  `test/node/spawn_class.test.js`): `minor` (flora, rocks, scenery — hard
-  reasons only), `headstone`, `cave`, `fauna` / `fastFauna`, `npc`,
-  `attractor`, `enemy` / `fastEnemy`, and `hazard` (surface traps). Fast
-  movers and hazards refuse JUNCTION_SOFT, the overlapping bands and 1-cell
-  buffer at a Small-road junction. A creature's class is DERIVED
-  (creature_ai.js `creatureSpawnClass`: fast = top speed over
-  `BRISK_WALK_MPS`), never typed at a call site. A new refusal is a new
-  reason bit plus its column in the table, never a separate check at a
-  spawner. A building footprint — any tier of `WorldGen.BUILDING_TYPES`,
-  a synthetic civic building, an unrestored wreck, Home's stamped house —
-  is BUILDING terrain, so the gate's TERRAIN reason and its live
-  `isWalkable` read seat no spawn on it and `creatureStepRefused`
-  (creature_ai.js, through `Combat.faunaBlocksCell`) lets no NPC, animal or
-  foe walk onto one (a keep's garrison on its own floor excepted). Villagers
-  also keep THE BUILDING MOAT: the cells touching a footprint
-  (`WorldGen.nearBuildingCell`, the 3×3 scatter already keeps clear because a
-  wall's base overhangs them) carry the typed BUILDING_MOAT reason, refused by
-  the `npc` row alone and read live as well as off the mask, and an NPC
-  outside the moat may not step into it (`inBuildingMoatAt` in
-  `creatureStepRefused`; one already against a wall walks out rather than
-  freezing). Every NPC seat search (`NPC.spawn`, `shrineResidents`,
-  `lingerSeat`, `houseNeighbours`, the starter's story neighbours) asks the
-  gate over a ring or a bounded draw, so a refused moat cell moves the seat
-  outward rather than dropping the neighbour. Home's footprint lands on the
-  live grid after the shared draw, so `_cullOffLiveGround` takes back whoever
-  was seated under it (`test/node/npc.test.js`, the footprint and moat cases;
-  `safe_area_warden.test.js` for the starter trailer). Neither half reads a
-  building-specific predicate of its own. Authored Thorny Path, Snare Lane and Barricade Road cross-sections are the
-  narrow exception: `streetObstacle` may occupy explicitly declared cells
-  of its own road band. Thorny Path and snare clusters (and a Snare Lane's few lone stray snares, declared one band cell at a time) cross variant-eligible Small roads only; removable
-  barricade/spike lines belong on paths. Every authored cross-section refuses
-  Major/Medium road bands and their kerb buffers. All keep
-  private, quiet, restricted, water/building and occupancy exclusions. Ordinary
-  spawn classes cannot use that declaration to cross a road.
-  POI chests are the place itself (`landRefused` —
-  land reasons only). The live Overpass fence veto (`privateVetoAt`) is for per-player
+- Geographic spawn eligibility comes from `GameplayTiers` in
+  `src/gameplay_tiers.js`. The tile's `gameplayTiers` field and its reasons are
+  shared by generation, runtime births and map review. The classifier uses
+  source geometry and access evidence, then resolves overlaps in one place.
+  Street surfaces take precedence over surrounding zones: medium/large streets
+  are Excluded, ordinary small streets are Calm, and small dead ends are Passing.
+  Old Stones coverage includes its absorbed adjoining parking lots as Calm;
+  other parking lots are Passing. Missing qualifying evidence is Excluded.
+- Core mapped paths include a one-cell band beyond their edges. They interrupt
+  Passing buffers around medium/large roads and intersections, but cannot open
+  an Excluded road surface or restricted ground. Intersections receive a wider
+  Passing buffer than ordinary road stretches. Buffer dimensions belong to the
+  classifier; renderers and spawners consume its result.
+- `WorldGen.isSpawnCell` is the sole placement gate. On classified tiles it
+  checks the tier policy before live terrain, occupancy and building clearance.
+  Excluded refuses every spawn. Passing refuses fast creatures and hazards;
+  Calm and Core use the shared class policy. A small street or path no longer
+  fails solely because the old road footprint covered its cell. The source
+  `spawnWhy` bits retain access evidence and diagnostics rather than acting as
+  a second geographic policy on classified tiles. Synthetic fixtures without
+  source geometry derive tiers from their explicit terrain and reason evidence,
+  then use the same permission table.
+- Every static spawner passes its class to `WorldGen.isSpawnCell`; creature
+  producers call `CreatureSpawns.isSpawnCell` or `gateAt` with the kind. Creature
+  classes derive from the roster and speed tables. Runtime summons, restored
+  creatures and generated placements use the same tile field. A new geographic
+  rule belongs in `GameplayTiers`, not in a spawner. Occupancy, habitat choice,
+  finite encounter budgets and live building clearance remain placement rules.
+- Excluded ground uses permanent `EXCLUSION_ROCK`, which blocks player movement
+  and cannot be mined or tilled. Medium/large road surfaces remain visible roads
+  while refusing every spawn. Water and building footprints retain their
+  physical surfaces and remain Excluded. Tier classification precedes final placement so
+  a rejected cell cannot retain an object from an earlier placement pass.
+- Source access evidence still records private/restricted/quiet land, sensitive
+  sites, kindergarten grounds, public pier access and farm/golf restrictions.
+  `SPAWN_WHY` preserves those source reasons for inspection. Geographic decisions
+  consume them centrally through the tier classifier. Villagers retain the live
+  building moat, and newly stamped buildings invalidate placements beneath them.
+- Place-bound producers, including POI chests and authored road cross-sections,
+  share the same Excluded and Passing policy. Authored seats retain their own
+  layout and habitat requirements, but cannot reopen an Excluded cell. Street
+  obstacles count as hazards when applying Passing restrictions.
+- The live Overpass fence veto (`privateVetoAt`) is for per-player
   things only and fails open when no successful mask is known. Its last known
   mask stays active during a background refresh or outage; successful masks
   stay fresh for 30 days. Overpass decoration bins are cached indefinitely.
@@ -588,8 +549,8 @@ access or tile lifecycle mechanics.
   requests run in the background and never gate base map geometry.
   Road terrain alone misses drawn roads; the mask uses
   `WorldGen.roadOverlayWidthM` and masks cells when the drawn bands cover
-  `WorldGen.ROAD_MASK_MIN_COVER` of their area. Coins never land on road cells
-  or in yards, and every timed reward (coin bursts, bounty packs,
+  `WorldGen.ROAD_MASK_MIN_COVER` of their area. Static rewards use the tier
+  gate, including Passing. Every timed reward (coin bursts, bounty packs,
   `findWalkableDestination`) stays on the player's SIDE of any MD/LG road
   (`sameSideField`, creature_ai.js) — nothing urgent across a Major or Medium road.
   L1 sewer uses the base ambient snare count (6–10 attempts per tile), rather
@@ -686,31 +647,25 @@ access or tile lifecycle mechanics.
   clears every overlapping night zone, including crossings and grade-separated
   paths. Off-path carriageway cells and buffers without a same-level parallel
   path on their side remain dark. Private or inaccessible paths grant neither
-  exemption. Road warnings and spawn exclusions remain unchanged.
-- Parking lots join the MD/LG kerb buffer's suppression at every hour
-  (`ROAD_CLASS_MAJOR_BUFFER`, stamped into the spawn gate as `KERB`) without
-  acquiring a road surface, the standing-on-carriageway warning or the night
-  zone: a cell only a lot puts in the buffer also carries
-  `ROAD_CLASS_LOT_BUFFER`, and every night-zone reader (blood aura,
-  interaction hiding, energy drain) goes through `WorldGen.nightZoneBits`.
-  A lot never removes a road buffer's night zone. Mapped parking polygons
-  supply their footprint; retained tagged/inferred parking aisles use the lot
-  detector's 12 m radius, and non-streetside parking POIs its 30 m radius.
-  Fast movers cannot spawn or enter; traps, whirlwinds and other
-  `hazard`-gated placements stay out. Repainting a lot as a Quarry Nexus keeps
-  this suppression.
+  exemption. Road warnings retain their geometry; spawn eligibility uses tiers.
+- Parking footprints feed the tier classifier. Mapped polygons supply their
+  exact footprint; retained tagged/inferred aisles use the lot detector's 12 m
+  radius, and non-streetside parking POIs its 30 m radius. Lots are Passing,
+  except coverage absorbed by Old Stones, which is Calm. A Quarry repaint keeps
+  the parking tier. `ROAD_CLASS_LOT_BUFFER` remains available to the independent
+  movement and night-road rules; a lot alone does not acquire the night zone.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings
-  the same threshold as `roadMask`. `ROAD_CLASS_JUNCTION_EXCLUDE` marks every
-  MD/LG-involved junction's overlap plus 2 cells: every spawn and every
-  non-allied creature refuses it. `ROAD_CLASS_JUNCTION_SOFT` marks a Small-road
-  junction plus 1 cell: fast movers and hazards refuse it. Bridge, tunnel and
-  causeway crossings do not create ground-level junctions. The Major-and-Medium road group carries a kerb
-  buffer (`ROAD_CLASS_MAJOR_BUFFER`): no hostile steps onto the band, no FAST
-  mover (foe or animal over `BRISK_WALK_MPS` — `isFastMover`; the wild
-  slime's charge is under it) spawns in or enters the buffer, and a player standing in
-  it is left alone — the pavement ends a chase, the street adds nothing
+  the same threshold as `roadMask`. Junction bits remain movement geometry:
+  `ROAD_CLASS_JUNCTION_EXCLUDE` marks an MD/LG junction's overlap plus 2 cells,
+  and `ROAD_CLASS_JUNCTION_SOFT` marks a Small-road junction plus 1 cell.
+  Bridge, tunnel and causeway crossings do not create ground-level junctions.
+  Spawn eligibility reads the tier field instead: junction surroundings are
+  Passing, paths can interrupt them, and the MD/LG street surfaces are Excluded.
+  Existing movement rules retain their kerb geometry (`ROAD_CLASS_MAJOR_BUFFER`):
+  no hostile steps onto the band, no fast mover enters the buffer, and a player
+  standing in it is left alone - the pavement ends a chase, the street adds nothing
   (`test/node/kerb_refuge_sim.test.js`). Above a run (`util.js` speed helper,
   shared with egg hatching) nothing restores, pays or taps and foes ignore the
   player via `unnoticed`. `HabitatSpawns` allocates the base population from
@@ -812,8 +767,9 @@ access or tile lifecycle mechanics.
   associated park footprint plus park fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
   ambient fill, including procedural residential yard trees; roads and buildings
-  remain visible. Mapped and detected trees also yield to Nexus coverage,
-  including its empty cells. Nexus painting and
+  remain visible. Ordinary mapped trees yield to Nexus coverage, including its empty cells.
+  DeepForest and Gemini crowns supersede generated scenery there, using an
+  explicit owning-variant tree species or material mapping when one is defined. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
   A connected parking-lane footprint adjoining a church's Old Stones coverage
@@ -1051,7 +1007,7 @@ Higher-priority placements and their access space take precedence in this order:
    the near-home softwood overlay preserves their habitat. Species changes
    do not consume random draws or move trees. Residential yards keep their
    mixed maple/pine selection. Imported ordinary trees on forest cells become pine.
-   Authored park/Nexus coverage already excludes imported trees and keeps
+   Authored park/Nexus coverage excludes ordinary imported trees and keeps
    its own tree choices; fruit trees keep their species. Outside forests,
    mapped trees retain their original mix.
    Fruit-tree species roll once per stable cell through `fruitTreeSpecies`.

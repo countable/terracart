@@ -1496,41 +1496,36 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // TOTAL road restored in small type under it (Trail.totalMetres through
 // Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
-// The STATUS ROW (_buildStatusRow / _syncStatusRow): statuses, buffs and
-// timers as small chips in a right-aligned column under the top HUD row —
-// the money / energy row's own anchor, one chip height plus a gap down. Each
-// chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
-// Buffs.KINDS); chips expose their names through accessible labels and hover text.
-// Dimmed with the HUD chips while a dialog is up, hidden with them while the
-// page boots. While the objective chip shows, _syncStatusRow seats the row
-// under it instead (an inline top). The compass skin (css/compass_hud.css,
-// body.compass-hud) seats the row on the footer plate instead — left of the
-// joystick, under the zoom slider, off the round map — and the objective
-// bubble never moves it there.
+// Statuses, buffs and timers occupy a fixed three-column grid at the top.
+// The wrapper has no padding or hit area; only actionable chips take taps.
+// CSS owns placement so objectives and changing chip text never move the row.
 const STATUS_ROW_CSS = `
 #status-row {
   position: fixed;
   top: calc(8px + env(safe-area-inset-top, 0px) + var(--hud-chip-h) + 6px);
-  right: calc(var(--phone-right, 0px) + 10px);
-  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
-  z-index: 7; pointer-events: none;
+  left: calc(var(--phone-left, 0px) + 64px);
+  right: calc(var(--phone-right, 0px) + 88px);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start; gap: 4px; padding: 0; margin: 0;
+  z-index: 10; pointer-events: none;
 }
 #status-row[hidden] { display: none; }
 #status-row .status-chip {
-  box-sizing: border-box; flex: 0 0 auto; width: 44px; height: 50px;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  padding: 2px; border: 1px solid currentColor; border-radius: 6px;
-  font: 700 11px/12px var(--font-ui); text-shadow: 0 1px 0 #000;
-  box-shadow: 0 1px 2px rgba(0,0,0,0.5); pointer-events: auto;
+  min-width: 0; white-space: normal; overflow-wrap: anywhere;
+  padding: 3px 7px; border-radius: 6px; pointer-events: none;
+  font: 700 11px var(--font-ui);
+  text-shadow: 0 1px 0 #000;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
 #status-row .status-icon {
   display: block; width: 32px; height: 32px; flex: 0 0 32px;
   background-repeat: no-repeat; image-rendering: pixelated;
 }
 #status-row .status-time { color: #fff4dc; white-space: nowrap; font-variant-numeric: tabular-nums; }
-#status-row button.status-chip { cursor: pointer; }
+#status-row button.status-chip { cursor: pointer; pointer-events: auto; }
 #status-row :focus-visible { outline: 2px solid #ffe066; outline-offset: -2px; }
-body.modal-open #status-row { opacity: 0.25; }
+body.modal-open #status-row { visibility: hidden; }
 body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
 `;
@@ -4524,27 +4519,11 @@ class MapScene extends Phaser.Scene {
     return this._toast(text, { tier: 'status', color, bg, ...at });
   }
 
-  // One icon and countdown per active effect, conditions first. The compass
-  // skin seats this strip above inventory; names/drains are accessible labels.
-  // Reuse icons across ticks and write timers only when their display changes.
+  // One icon and countdown per effect in the fixed top grid. Accessible
+  // labels retain names and drains; only changed timers write to the DOM.
   _syncStatusRow() {
     const row = this.statusRowEl;
     if (!row) return;
-    // The objective chip (#objective, the starter ladder) hangs under the
-    // same HUD row, full width: while it shows, the status row seats under
-    // IT. Its bottom is read back only when what decides it changes (the
-    // chip's display, its text, a dialog hiding it, a resize) — a rect read
-    // every frame would force a layout every frame.
-    // The compass skin seats the row on the footer plate (css/compass_hud.css);
-    // the objective bubble over the map never re-seats it there.
-    const obj = document.getElementById('objective');
-    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen()
-      && !document.body.classList.contains('compass-hud');
-    const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
-    if (this._statusRowSeat !== seatKey) {
-      this._statusRowSeat = seatKey;
-      row.style.top = shown ? `${Math.round(obj.getBoundingClientRect().bottom) + 6}px` : '';
-    }
     const chips = [];
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
       if (!Conditions.active(this.save, id)) continue;
@@ -4620,7 +4599,7 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // The row itself, under the HUD row's right edge (its CSS in
+  // The row itself, at the top centre (its CSS in
   // STATUS_ROW_CSS, injected once like the road chip's). Built in create()
   // beside the other chips; _syncStatusRow fills it.
   _buildStatusRow() {
@@ -4639,7 +4618,6 @@ class MapScene extends Phaser.Scene {
     el.hidden = true;
     this.statusRowEl = el;
     this._statusRowDOM = null;
-    this._statusRowSeat = null;
   }
 
   // ── Fire on the body ──────────────────────────────────────────────────────
@@ -5443,7 +5421,7 @@ class MapScene extends Phaser.Scene {
     // coin at the player's own feet): a foe felled off legitimate ground
     // leaves its coin on the nearest THE SPAWN GATE allows (a 'minor' spawn),
     // within three cells. Not just the road band: every hard spawn reason counts.
-    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
+    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers };
     const blocked = (x, y) => !WorldGen.isSpawnCell(entry.grid, N, N, x, y, spawnOpts, 'minor');
     if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && blocked(cx, cy)) {
       const seat = WorldGen.nearestRingCell(cx, cy, 1, 3, (x, y) => x >= 0 && y >= 0 && x < N && y < N && !blocked(x, y));
@@ -6518,7 +6496,7 @@ class MapScene extends Phaser.Scene {
     // alone, which exists before `_spawned`), so fall back to no occupancy
     // check rather than crash on a missing entry._spawnOpts.
     const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
-    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
+    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers,
       roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     // Cells within `r` that will take a coin: the shared spawn rule (the pot
     // itself is the public anchor, so the cells right round it pass the
@@ -6578,7 +6556,7 @@ class MapScene extends Phaser.Scene {
         for (const coin of coinEntry.coinDrops || []) if (coin.expiresAt > Date.now())
           occupied.add(Math.floor((coin.y - y0) / unit) * coinN + Math.floor((coin.x - x0) / unit));
         const opts = { roadMask: coinEntry.roadMask, quiet: coinEntry.quietMask,
-          spawnWhy: coinEntry.spawnWhy, roadClass: coinEntry.roadClass, occupied,
+          spawnWhy: coinEntry.spawnWhy, gameplayTiers: coinEntry.gameplayTiers, roadClass: coinEntry.roadClass, occupied,
           pois: coinTX === tx && coinTY === ty ? [{ ix: poiLocalCX, iy: poiLocalCY }] : undefined };
         const minX = Math.max(0, Math.ceil((anchor.x - half - x0) / unit - .5));
         const maxX = Math.min(coinN - 1, Math.floor((anchor.x + half - x0) / unit - .5));
@@ -6684,7 +6662,7 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.grid) return out;
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
+    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers,
       occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];

@@ -32,21 +32,16 @@
   // Keep these tight — a looser regex here would silently wave through a
   // new, unrelated read on the same file.
   const ALLOW = [
+    { file: 'zone_coverage.js', re: /^if \(roadMask && roadMask\[i\]\) \{/ },
     // ── worldgen.js: the gate's own construction and definition ──────────
-    { file: 'worldgen.js', re: /^if \(roadMask && roadMask\[cy \* w \+ cx\] && !obstacle\) return false;/ },
     { file: 'worldgen.js', re: /^if \(roadMask\[i\]\) v \|= W_\.ROAD;/ },
     // ── worldgen.js: geometry (a separate isSpawnCell call gates the seat) ─
     { file: 'worldgen.js', re: /isCobbleTerrain\(grid\[y \* N \+ x\]\) \|\| \(roadMask && roadMask\[y \* N \+ x\] === 1\)\)/ },
-    { file: 'worldgen.js', re: /^const _underRoadBand = \(ix, iy\) => roadMask\[iy \* w \+ ix\] === 1;/ },
     // ── traps.js: geometry (trap-ground SHAPE; spawnSurface's isSpawnCell
     //    ('enemy') call is the actual seat gate) ──────────────────────────
-    { file: 'traps.js', re: /WG\.isRoadTerrain\(grid\[i\]\) \|\| \(roadMask && roadMask\[i\]\)\);/ },
-    { file: 'traps.js', re: /^if \(roadMask && roadMask\[i\]\) return 0;/ },
     // ── zone_dressing.js: geometry (the connecting avenue's own walk stops
     //    at a road; place()/allowed() always calls WG.isSpawnCell) ────────
-    { file: 'zone_dressing.js', re: /opts\.roadMask && opts\.roadMask\[i\]/ },
     // ── zone_coverage.js: terrain paint retains the visible road band ───
-    { file: 'zone_coverage.js', re: /^if \(roadMask && roadMask\[i\]\) \{/ },
     // ── app.js: cellAt()'s general-purpose .underRoad flag (tilling /
     //    NPC movement / flavour text read it; nothing here places anything) ─
     { file: 'app.js', re: /entry\.roadMask\[iy \* N \+ ix\]/ },
@@ -55,7 +50,6 @@
     { file: 'creature_ai.js', re: /^return !!t && \(!!\(t\.entry\.roadMask && t\.entry\.roadMask\[t\.i\]\) \|\| WorldGen\.isRoadTerrain/ },
     // ── starter.js: the doorstep greeter's documented road-only fallback,
     //    which deliberately skips the gate's softer reasons ────────────────
-    { file: 'starter.js', re: /^const onRoad = \(cx, cy\) => !!entry\.roadMask && entry\.roadMask\[cy \* N \+ cx\] === 1;/ },
   ];
 
   test('spawn gate sweep: no raw roadMask read outside a short named allowlist', () => {
@@ -72,7 +66,7 @@
         if (!allowed) bad.push(`${file}:${li + 1}: ${trimmed}`);
       }
     }
-    assert.gt(total, 5, `the sweep found roadMask reads to check (${total})`);
+    assert.gt(total, 0, `the sweep found roadMask reads to check (${total})`);
     assert.eq(bad.length, 0,
       `every roadMask read must route through WorldGen.isSpawnCell or be on the named allowlist:\n${bad.join('\n')}`);
     // The allowlist itself must not silently grow stale — an entry that

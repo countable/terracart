@@ -336,7 +336,7 @@ test('mechanics: ruined buildings roll the expected garrisons', () => {
   assert.gt(Lairs.TIER_GUARDS[12], Lairs.TIER_GUARDS[9]);
   assert.truthy(Difficulty.PROFILES.easy.derelictLairs);
   assert.truthy(Difficulty.PROFILES.hard.derelictLairs);
-  assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 3, 'a third of wrecks are occupied');
+  assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 2, 'half of wrecks are occupied');
   assert.eq(Lairs.OCCUPANCY[11].rate, 2 / 3, 'and "most forts"');
   assert.gte(Lairs.OCCUPANCY[12].rate, 0.9, 'and "nearly every castle"');
   assert.eq(Lairs.kindsAt(9, 1).join(), 'slime');

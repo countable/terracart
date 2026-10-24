@@ -28,19 +28,24 @@
   Combat.registerMonsters(MONSTERS);
 
   function mkEntry(shapes, opts = {}) {
-    const grid = new Uint8Array(N * N);
-    // Paint each footprint as building ground, as a real tile would.
-    for (const sh of shapes) {
+    const grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
+    const gameplayTiers = new Uint8Array(N * N).fill(1);
+    // Formation tests use permitted ground under the authored geometry.
+    // The explicit exclusion fixture below models a real solid building.
+    for (const sh of opts.excludedFootprint ? shapes : []) {
       const r = sh.ring;
       for (let y = Math.floor(r[1] / CELL_M); y < Math.ceil(r[5] / CELL_M); y++) {
         for (let x = Math.floor(r[0] / CELL_M); x < Math.ceil(r[4] / CELL_M); x++) {
-          if (x >= 0 && y >= 0 && x < N && y < N) grid[y * N + x] = WorldGen.T.BUILDING;
+          if (x >= 0 && y >= 0 && x < N && y < N) {
+            grid[y * N + x] = WorldGen.T.BUILDING;
+            gameplayTiers[y * N + x] = 4;
+          }
         }
       }
     }
     const roadMask = new Uint8Array(N * N);
-    const entry = { grid, roadMask, cellsPerEdge: N, tileEdgeM: TILE_M, buildingShapes: shapes, creatures: [],
-      _spawnOpts: { roadMask } };
+    const entry = { grid, roadMask, gameplayTiers, cellsPerEdge: N, tileEdgeM: TILE_M, buildingShapes: shapes, creatures: [],
+      _spawnOpts: { roadMask, gameplayTiers } };
     if (opts.shore) entry.scenic = { shore: { mask: opts.shore } };
     return entry;
   }
@@ -272,6 +277,13 @@
   // ── The wake, end to end ─────────────────────────────────────────────────
   const HALF = 3 * CELL_M;    // the test castle: six cells a side
   const insideKeep = (g, cx, cy) => Math.abs(g.x - cx) <= HALF && Math.abs(g.y - cy) <= HALF;
+  test('guard groups: authored group geometry cannot bypass an Excluded building footprint', () => {
+    for (const group of ['horde', 'decoy', 'elite_orc', 'warband']) {
+      const { guards } = wakeGroup(group, 12, 2 * HALF, { excludedFootprint: true });
+      assert.eq(guards.length, 0, group + ' cannot spawn inside Excluded building ground');
+    }
+  });
+
   test('guard groups: a horde wakes fifteen runts inside the keep, every one a guard that may walk out', () => {
     const { guards, cx, cy } = wakeGroup('horde', 12, 2 * HALF);
     assert.gte(guards.length, 13, `the horde woke ${guards.length} — a six-cell keep should seat nearly all fifteen`);

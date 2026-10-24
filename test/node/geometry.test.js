@@ -35,7 +35,7 @@
     assert.falsy(trees[2].treeSpeciesFixed);
     assert.truthy(trees.every(t => t._treeSource === 'gemini' && Number.isInteger(t.lix)));
   });
-  test('geometry: successful coverage replaces ambient trees and respects authored and player ownership', () => {
+  test('geometry: successful coverage replaces generated scenery and respects player ownership', () => {
     const N = 32, grid = new Uint8Array(N * N).fill(WorldGen.T.FOREST);
     const at = (ix, iy) => ({ x: (ix + 0.5) * 7, y: (iy + 0.5) * 7 });
     const e = { cellsPerEdge: N, tileEdgeM: N * 7, grid, roadMask: new Uint8Array(N * N),
@@ -52,7 +52,8 @@
     assert.eq(tree.id, 'tree_sx_0_0_10_10');
     const authored = { ...e, objects: [], zone: { coverage: new Uint16Array(N * N).fill(1) } };
     WorldGen.injectTileBin(authored, bin, 0, 0);
-    assert.eq(authored.objects.length, 0);
+    assert.eq(authored.objects.filter(o => o._treeSource === 'gemini').length, 1,
+      'Nexus coverage alone does not override committed detected-crown priority');
   });
   test('geometry: invalid coverage and malformed points remain retryable', async () => {
     const tile = Geometry.tileAt(0, 0), bbox = Geometry.bounds(tile);

@@ -192,7 +192,7 @@
   // structure's own strength `t` picks the rung within it — the same two
   // facts the count is already made of, saying a second thing.
   //
-  //   A WRECKED HOUSE IS INFESTED. Nobody holds it; slimes are nesting in
+  //   An ordinary WRECKED HOUSE roll is INFESTED: slimes nest in
   //   the damp — the SURFACE slime and nothing else (the cave keeps its own
   //   kinds), so a wreck's escalation is its COUNT (countFor), not its kind.
   //
@@ -206,7 +206,7 @@
   //   surface is a different decision about where the cave ends"), and the
   //   tier is what makes it safe to cross: a goblin is not loose in the
   //   fields, it is inside a fort, which is exactly where a player expects to
-  //   meet one. Every wreck on the map is still slimes.
+  //   meet one. Authored house groups can instead seat goblin runts or thieves.
   //
   // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
   // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
@@ -341,6 +341,9 @@
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
       members: [{ kind: 'goblin_runt', nRange: [3, 8], place: 'ring' }] },
+    thieves: { label: 'House thieves', tiers: [9], minT: 0, chance: .15,
+      story: 'One or two thieves hide around the wreck, steal a purse and flee.',
+      members: [{ kind: 'thief', nRange: [1, 2], place: 'ring' }] },
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
@@ -547,12 +550,11 @@
   //   would be the anticlimax, not the surprise.
   //   a FORT usually is. Rarer on a real map than a house and a fortification
   //   besides, so "probably" reads better than either certainty.
-  //   a WRECKED HOUSE is a third of the time. That is the number that makes a
-  //   street worth walking down: two you can loot, one you cannot.
+  //   a WRECKED HOUSE is held half the time before dense-tile thinning.
   //
   // `thinned` is which of them the per-tile budget below is allowed to touch.
   const OCCUPANCY = {
-    9:  { rate: 1 / 3, thinned: true  },   // T.BUILDING       — the commons
+    9:  { rate: 1 / 2, thinned: true  },   // T.BUILDING       — the commons
     11: { rate: 2 / 3, thinned: false },   // T.BUILDING_MED   — a fort
     12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
     cafe:  { rate: 1, thinned: false },    // a café hoard
@@ -597,9 +599,9 @@
 
   // ── The per-tile budget ──────────────────────────────────────────────────
   // A tile is ~1.6 km on a side (~2.5 km² at mid-latitudes) and a dense urban
-  // one carries thousands of wrecks, so a flat one-in-three would put over a
+  // one carries thousands of wrecks, so a flat one-in-two would put over a
   // THOUSAND held ruins on it — a warzone rather than a walk, and a rate the
-  // player could no more read as "a third" than they could count them. So the
+  // player could no more read as "half" than they could count them. So the
   // tile gets a ceiling on how many of its ruins are held, and the rates above
   // are scaled to meet it.
   //
@@ -615,9 +617,9 @@
   //   Scaling every tier equally instead would make a castle in a city 5%
   //   likely to be held, which is the opposite of what the table promises —
   //   and castles and forts are rare by construction, so they can never be the
-  //   flood the budget exists for. On a village (100 buildings, ~33 expected)
-  //   nothing is thinned and one house in three really is held; on a
-  //   3000-building city the wrecks drop to ~8% and the landmarks are
+  //   flood the budget exists for. On a village (100 buildings, 50 expected)
+  //   nothing is thinned and one house in two really is held; on a
+  //   3000-building city the wrecks drop to ~17% and the landmarks are
   //   untouched.
   //
   //   OVER BUDGET ON LANDMARKS ALONE (a tile of nothing but castles — not a
@@ -626,7 +628,7 @@
   //   lands on the ceiling. This is what makes the cap a promise rather than a
   //   hope: there is no composition of buildings that puts more than
   //   LAIR_MAX_PER_TILE expected garrisons on one tile.
-  const LAIR_MAX_PER_TILE = 250;
+  const LAIR_MAX_PER_TILE = 500;
 
   // The two factors this tile's rates are multiplied by — `common` for the
   // THINNED tiers, `landmark` for the rest. Both are 1 on a tile inside its
@@ -802,6 +804,8 @@
   // building footing, and a guard drawn over a roof reads as a bug however it
   // got there. One cell out is close enough to read as "this ruin is held".
   const LAIR_RING_PAD_CELLS = 1;
+  // Ordinary ruin guards gather by the doorway, before the nearest street.
+  const LAIR_FRONTAGE_CELLS = 3;
   // Preserve the original polar draws first, then exhaust legal seats in
   // the same feature ring. Core/floor/cloud formations retain exact authored
   // placement: their geometry is part of the building encounter.
@@ -933,7 +937,7 @@
       const wx = ox + lx, wy = oy + ly;
       const cand = {
         tx, ty, ix: Math.floor(lx / tcM), iy: Math.floor(ly / tcM),
-        tier: sh.tier, key: sh.key || null,
+        tier: sh.tier, key: sh.key || null, shape: sh,
         wx, wy,                                  // absolute metres
         lx, ly,                                  // tile-local metres (seating)
         // The origin of the tile THIS SHAPE BELONGS TO, carried rather than
@@ -992,6 +996,35 @@
     if (!idx) idx = entry._lairIndex = newIndex(cellM);
     if (!idx.done) indexChunk(idx, entry, tx, ty, cellM, tileEdgeM, LAIR_INDEX_CHUNK);
     return idx;
+  }
+
+  // Use the renderer's doorway-side selection on source geometry, independent
+  // of loaded neighbours or the camera. Buffered MVT streets cover tile seams.
+  function buildingFront(entry, cand, cellM, tileEdgeM) {
+    const shape = cand.shape, B = root.BuildingLowPoly, R = root.RoadOverlay;
+    if (!shape?.ring || !B?.streetDoor || !R?.transportLines) return null;
+    const scale = root.SpriteLayout.CELL_PX / cellM;
+    const points = [];
+    for (let i = 0; i < shape.ring.length; i += 2)
+      points.push({ x: shape.ring[i] * scale, y: shape.ring[i + 1] * scale });
+    let door;
+    if (shape.door) {
+      const at = { x: shape.door.x * scale, y: shape.door.y * scale };
+      door = B.edgeDoor(points, B.ringEdgeNearest(points, at));
+      if (door) door = { ...door, center: at, distance: Infinity };
+    } else {
+      if (!entry.layers) return null;
+      const streets = [];
+      for (const { line, mvtToM } of R.transportLines([{ entry: { ...entry, tileEdgeM }, tx: 0, ty: 0 }]))
+        for (let i = 1; i < line.length; i++)
+          streets.push([line[i - 1], line[i]].map(p => ({ x: p.x * mvtToM * scale, y: p.y * mvtToM * scale })));
+      door = B.streetDoor(points, streets);
+    }
+    if (!door) return null;
+    return { x: door.center.x / scale, y: door.center.y / scale,
+      normal: door.normal, along: door.along,
+      depth: Math.min(LAIR_FRONTAGE_CELLS * cellM, door.distance / scale),
+      halfSpan: Math.min(LAIR_FRONTAGE_CELLS * cellM, Math.max(cellM, Math.hypot(cand.halfW, cand.halfH))) };
   }
 
   // ── Waking one ruin ──────────────────────────────────────────────────────
@@ -1113,8 +1146,8 @@
       return entry.grid !== genGrid && entry.grid[at] !== genGrid[at]
         && !WG.isWalkable(entry.grid[at]);
     };
-    // A keep seats inside (CORE_SEATED_TIERS); every other lair on a ring
-    // just off its footprint. seatR is the knot's / ring's radius either way,
+    // A keep seats inside (CORE_SEATED_TIERS); an ordinary ruin uses its
+    // street-facing doorway frontage, or its old ring when no door is known. seatR is the knot's / ring's radius either way,
     // and it is the `lairR` both chase rings are offset by — for a GROUP too,
     // whatever mix of placements its members take, so the garrison still
     // notices and gives up as one. A group member is placed by its own spec
@@ -1122,6 +1155,7 @@
     const core = CORE_SEATED_TIERS.has(cand.tier);
     const radii = seatRadii(cand.halfW, cand.halfH, cellM);
     const seatR = core ? radii.core : radii.ring;
+    const front = !core ? buildingFront(entry, cand, cellM, tileEdgeM) : null;
     const plainSpec = { place: core ? 'core' : 'ring', of: nWorld };
     const C = root.Combat;
     const reservedSeats = new Set();
@@ -1145,15 +1179,18 @@
         : cand.tier === 'barricade' ? (i === 0 ? 'spear_goblin' : 'archer_goblin')
         : family ? family[i % Math.min(family.length, 1 + Math.floor(t * family.length))] : legacyKind;
       if (!kind) continue;                    // no ladder for this tier
-      const flier = plan && flies(kind);
-      // Its seat class (the spawn gate): a fast guard also keeps off the kerb.
-      const guardClass = Object.hasOwn(STREET_TIER_GUARDS, cand.tier) ? 'fastEnemy' : (typeof root.creatureSpawnClass === 'function')
-        ? root.creatureSpawnClass(kind) : 'fastEnemy';
-      const guardCell = (ix, iy) => Object.hasOwn(STREET_TIER_GUARDS, cand.tier)
-        ? WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)
-        : root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
+      // Every member uses its actual roster profile; street ownership does
+      // not turn a slow guard into a fast one or grant an access exception.
+      const guardCell = (ix, iy) => root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
       let seat = null;
       let inKeep = false;
+      const frontage = front && (!spec.place || spec.place === 'ring');
+      const onFront = (lx, ly) => {
+        const dx = lx - front.x, dy = ly - front.y;
+        const out = dx * front.normal.x + dy * front.normal.y;
+        return out >= cellM * .5 && out <= front.depth
+          && Math.abs(dx * front.along.x + dy * front.along.y) <= front.halfSpan;
+      };
       for (let a = 0; a < LAIR_SEAT_TRIES && !seat; a++) {
         // Spaced round the ring by the WORLD's count (nWorld, the spec's
         // `of`), not the woken one, so a mode that wakes fewer (Difficulty
@@ -1162,31 +1199,16 @@
         // try), for the plain ring / knot and every group placement alike.
         const p = seatPolar(spec, a, facing, rng);
         const r = radii[p.base] * p.rMul;
-        const lx = cand.lx + Math.cos(p.ang) * r;
-        const ly = cand.ly + Math.sin(p.ang) * r;
+        const offset = frontage ? Math.sin(p.ang) * front.halfSpan : 0;
+        const outward = frontage ? Math.min(front.depth, cellM * p.rMul) : 0;
+        const lx = frontage ? front.x + front.normal.x * outward + front.along.x * offset : cand.lx + Math.cos(p.ang) * r;
+        const ly = frontage ? front.y + front.normal.y * outward + front.along.y * offset : cand.ly + Math.sin(p.ang) * r;
         const ix = Math.floor(lx / cellM), iy = Math.floor(ly / cellM);
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-        // A keep's guard stands on its own floor — the one building cell the
-        // shared rule (rightly) refuses everything else — at the exact drawn
-        // point, not the cell centre, or a knot of them would stack into one.
-        // A flier of a cloud may hang over the roof the same way.
-        if ((p.core || (p.over && flier)) && WG.isBuildingTerrain(genGrid[iy * N + ix])) {
-          seat = { x: ox + lx, y: oy + ly, ix, iy };
-          inKeep = !!p.core;
-          break;
-        }
-        // The shared seat rule (WorldGen.isSpawnCell at the guard's own
-        // class): road mask included - a guard on the carriageway is the bug
-        // CLAUDE.md's road invariant is about - AND outside the major roads'
-        // kerb buffer (ROAD_CLASS_MAJOR_BUFFER), so no guard of any lair
-        // stands where a chase would begin at the kerb. The verdict runs on
-        // the GENERATED grid (baseGrid): player edits cull seats afterwards,
-        // they never reroll them. The options come off
-        // THE ENTRY (spawnInTile stashes the very object it spawned the tile's
-        // fauna, traps and treasure with), never rebuilt here: a second
-        // reading of "is this a road" is how the two drift. Only the VERDICT
-        // changed: the draws are the same, so every seat that passes both rules is
-        // the seat it always was.
+        if (frontage && (!onFront((ix + .5) * cellM, (iy + .5) * cellM)
+          || reservedSeats.has(iy * N + ix))) continue;
+        // Authored keeps and clouds use the same tier gate as other seats.
+        // Excluded buildings never grant a special floor/roof spawn exception.
         if (!guardCell(ix, iy)) continue;
         seat = (p.core || p.over) ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
           : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };
@@ -1194,19 +1216,22 @@
       }
       if (!seat && (!spec.place || spec.place === 'ring')) {
         const band = spec.band || [1, 1.35], outer = radii.ring * band[1];
-        const r = Math.ceil(outer / cellM + 1), centreX = Math.floor(cand.lx / cellM), centreY = Math.floor(cand.ly / cellM);
+        const r = Math.ceil((frontage ? Math.hypot(front.halfSpan, front.depth) : outer) / cellM + 1);
+        const centreX = Math.floor((frontage ? front.x : cand.lx) / cellM), centreY = Math.floor((frontage ? front.y : cand.ly) / cellM);
         let best = null, rank = Infinity;
         for (let iy = Math.max(0, centreY - r); iy <= Math.min(N - 1, centreY + r); iy++)
           for (let ix = Math.max(0, centreX - r); ix <= Math.min(N - 1, centreX + r); ix++) {
             const at = iy * N + ix, lx = (ix + .5) * cellM, ly = (iy + .5) * cellM;
             const distance = Math.hypot(lx - cand.lx, ly - cand.ly);
-            // Cell centres approximate continuous polar seats by at most half
-            // a cell diagonal. Never widen the feature's declared ring.
-            if (distance < radii.ring * band[0] - cellM * Math.SQRT1_2
-                || distance > outer + cellM * Math.SQRT1_2
+            // Frontage stays between the door and street. Other ring seats
+            // allow only half a cell diagonal of centre-sampling tolerance.
+            if ((frontage ? !onFront(lx, ly) : distance < radii.ring * band[0] - cellM * Math.SQRT1_2
+                || distance > outer + cellM * Math.SQRT1_2)
                 || reservedSeats.has(at) || !sameOwner(at)
                 || !guardCell(ix, iy)) continue;
-            const score = hashKey(`${id}:fallback:${ix}:${iy}`);
+            const score = frontage ? Math.hypot(lx - front.x, ly - front.y) / cellM
+              + hashKey(`${id}:fallback:${ix}:${iy}`) / 0x100000000
+              : hashKey(`${id}:fallback:${ix}:${iy}`);
             if (score < rank) { rank = score; best = { x: ox + lx, y: oy + ly, ix, iy }; }
           }
         seat = best;

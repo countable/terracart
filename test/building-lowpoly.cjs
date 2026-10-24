@@ -70,9 +70,9 @@ for(const role of Object.keys(api.ROLES)){
   const width=m=>Math.max(...m.ring.map(p=>p.x))-Math.min(...m.ring.map(p=>p.x));
   assert(Math.abs(width(mesh)-width(large))<1e-8,role+' ignores footprint dimensions');
  }
- if(role==='wreck'){const roofs=mesh.faces.filter(f=>f.kind==='roof'&&f.standingRoof);assert(roofs.length&&roofs.reduce((n,f)=>n+area(f.points),0)<area(points)*.7,'wreck roof is partly missing');}
+ if(role==='wreck'){assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'broken plinth has no roof or framing');assert(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=8)),'all wreck geometry stays low');}
 }
-console.log('All role variants: bounded geometry, footprint-independent towers, damaged cottage passed.');
+console.log('All role variants: bounded geometry, footprint-independent towers, broken plinth passed.');
 // Every slope is tiled from its own eave (v grows downhill, courses level),
 // and a ridge's flat cap continues its near slope without a seam.
 for(const fixture of fixtures)for(const variant of ['ridge','shallow','inset']){
@@ -106,18 +106,15 @@ console.log('Awning skirt orientation passed.');
 
 const wreckPoints=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
 const wreck=api.specialGeometry(wreckPoints,api.recipeFor('wreck'));
-assert.equal(wreck.roofPatches.length,1,'the surviving roof is grouped at one supported end');
-const patchArea=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof).reduce((n,f)=>n+area(f.points),0);
-assert(patchArea>0&&patchArea<area(wreckPoints)*.45,'most of the roof is gone');
-for(const f of wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof))for(const p of f.points)
- assert(wreck.roofPatches.some(b=>p.x>=b.x0-1e-6&&p.x<=b.x1+1e-6&&p.y>=b.y0-1e-6&&p.y<=b.y1+1e-6),'surviving tiles lie inside a patch');
+assert(!wreck.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof remnants or framing survive');
+assert(wreck.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=8)),'wall crowns and rubble stay at most eight pixels high');
 assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
-const crowns=wreck.faces.filter(f=>f.wallTop);
-assert(crowns.every(f=>f.rawUV),'top faces carry the side-wall brick pattern');
-assert(crowns.filter(f=>f.localBreak).length>0&&crowns.filter(f=>f.localBreak).length<=12&&crowns.some(f=>!f.localBreak),'small height steps are confined to two short stretches');
+const crowns=wreck.faces.filter(f=>f.wallTop&&!f.rubble);
+assert(crowns.every(f=>f.rawUV),'top faces carry explicit masonry texture coordinates');
+assert(new Set(crowns.map(f=>f.points[0].z)).size>1,'broken wall crowns have varied heights');
 for(const f of crowns)for(const p of f.points){
- const aligned=wreck.faces.filter(f=>f.wreckMasonry||f.interior).flatMap(f=>f.points).some(q=>Math.abs(p.x-q.x)<1e-6&&Math.abs(p.y-q.y)<1e-6&&Math.abs(p.z-q.z)<1e-6&&Math.abs(p.u-q.u)<1e-6);
- assert(aligned,'brick joints align across wall sides and tops');
+ const aligned=wreck.faces.filter(f=>f.wreckMasonry||f.interior).flatMap(f=>f.points).some(q=>Math.abs(p.x-q.x)<1e-6&&Math.abs(p.y-q.y)<1e-6&&Math.abs(p.z-q.z)<1e-6);
+ assert(aligned,'wall lids meet their masonry side faces without cracks');
 }
 // One section of the longest side has fallen entirely: no wall face touches its span.
 assert(wreck.gap,'the collapsed end has a breach');
@@ -126,30 +123,76 @@ const inGap=p=>{const t=((p.x-ga.x)*gdx+(p.y-ga.y)*gdy)/(glen*glen);return t>=-1
 assert(!wreck.faces.some(f=>f.kind==='wall'&&f.points.every(inGap)),'the fallen section has no wall');
 assert(wreck.faces.some(f=>f.kind==='wall'&&f.points.some(p=>!inGap(p))),'walls outside the breach still stand');
 assert(wreck.faces.some(f=>f.interior&&f.rawUV&&new Set(f.points.map(p=>p.u)).size>1),'inner walls have masonry UVs');
-assert(wreck.faces.some(f=>f.rafter),'the standing end has spanning rafters');
-const roofFaces=wreck.faces.filter(f=>f.kind==='roof'&&!f.debris&&f.standingRoof);
-assert(roofFaces.every(f=>f.points.every(p=>p.z>=wreck.height-1e-6)),'surviving roof stays above the wall eaves');
-assert(wreckPoints.some(corner=>!roofFaces.some(f=>f.points.some(p=>Math.hypot(p.x-corner.x,p.y-corner.y)<1e-6))),
- 'the roof has lost at least one outer corner');
-assert(new Set(roofFaces.flatMap(f=>f.points.map(p=>p.x.toFixed(5)+','+p.y.toFixed(5)))).size>4,
- 'surviving roof has broken edges rather than a rectangular cap');
-for(const f of wreck.faces.filter(f=>f.rafter))for(const p of f.points)
- assert(Math.abs(p.z-wreck.roofZ(p)+.3)<.6,'rafters follow the roof underside, not the lower wall tops');
-assert(wreck.faces.some(f=>f.rafter&&f.points.some(p=>p.y<0||p.y>100)),'short rafter tails project beyond the eaves');
-const topHeights=wreck.faces.filter(f=>f.wallTop).map(f=>f.points[0].z);
-assert(new Set(topHeights).size>1,'wall crowns retain different heights');
-assert(wreck.faces.filter(f=>f.rubbleTop&&f.points.some(p=>p.x<0||p.x>120||p.y<0||p.y>100)).length>=6,'several fallen chunks spill outside the breach');
-
-// Roof supports must keep their relative position on angled OSM footprints,
-// even when the polygon is expressed in a different local coordinate frame.
+// The low masonry must remain attached to angled footprints when the local
+// coordinate origin changes, with identical height and damage choices.
 const rotated=wreckPoints.map(p=>({x:p.x*.8-p.y*.6,y:p.x*.6+p.y*.8}));
 const shifted=rotated.map(p=>({x:p.x+500,y:p.y+300}));
-const beams=pts=>api.specialGeometry(pts,api.recipeFor('wreck'),[],'angled').faces.filter(f=>f.rafter).flatMap(f=>f.points);
-const rb=beams(rotated),sb=beams(shifted);
-assert(rb.length>0&&rb.length===sb.length,'angled wreck retains its rafters after translation');
-for(let i=0;i<rb.length;i++)assert(Math.abs(sb[i].x-rb[i].x-500)<1e-6&&Math.abs(sb[i].y-rb[i].y-300)<1e-6&&Math.abs(sb[i].z-rb[i].z)<1e-6,'angled rafters stay attached to the same roof section');
+const walls=pts=>api.specialGeometry(pts,api.recipeFor('wreck'),[],'angled').faces.filter(f=>f.wallTop).flatMap(f=>f.points);
+const rb=walls(rotated),sb=walls(shifted);
+assert(rb.length>0&&rb.length===sb.length,'angled wreck retains the same low walls after translation');
+for(let i=0;i<rb.length;i++)assert(Math.abs(sb[i].x-rb[i].x-500)<1e-6&&Math.abs(sb[i].y-rb[i].y-300)<1e-6&&Math.abs(sb[i].z-rb[i].z)<1e-6,'wall prisms remain attached to the footprint');
+// Broken plinths retain the complete concave footprint without bridging a
+// courtyard or replacing a stepped plan with its bounding rectangle.
+const contains=(ring,p)=>{
+ for(let i=0;i<ring.length;i++){
+  const a=ring[i],b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y;
+  if(Math.abs(dx*(p.y-a.y)-dy*(p.x-a.x))<1e-6
+    &&(p.x-a.x)*(p.x-b.x)+(p.y-a.y)*(p.y-b.y)<=1e-6)return true;
+ }
+ let hit=false;
+ for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+  const a=ring[i],b=ring[j];
+  if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
+ }
+ return hit;
+};
+for(const fixture of fixtures){
+ const points=fixture.points.map(([x,y])=>({x,y}));
+ const mesh=api.specialGeometry(points,api.recipeFor('wreck'),[],'plinth:'+fixture.name);
+ const floor=mesh.faces.filter(f=>f.debris&&!f.castShadow&&f.points.every(p=>p.z===0));
+ assert(floor.length>0,fixture.name+': rubble floor exists');
+ assert(Math.abs(floor.reduce((sum,f)=>sum+area(f.points),0)-area(points))<1e-5,
+  fixture.name+': floor covers the polygon exactly once');
+ for(const f of floor){
+  // Interior samples catch triangles spanning a concave notch even when all
+  // their corner vertices lie on the footprint boundary.
+  for(const weights of [[1/3,1/3,1/3],[.5,.5,0],[0,.5,.5],[.5,0,.5]]){
+   const p={x:0,y:0};f.points.forEach((q,i)=>{p.x+=q.x*weights[i];p.y+=q.y*weights[i];});
+   assert(contains(points,p),fixture.name+': floor triangle does not bridge a courtyard');
+  }
+ }
+ assert(mesh.faces.every(f=>f.points.every(p=>Number.isFinite(p.z)&&p.z>=0&&p.z<=8)),
+  fixture.name+': narrow returns never fall back to full-height walls');
+ assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),
+  fixture.name+': only masonry and ground rubble remain');
+}
+// Deterministic breaches survive cache eviction and do not depend on camera
+// coordinates. Different houses retain their own broken wall profiles.
+const damage=id=>{
+ const mesh=api.specialGeometry(wreckPoints,api.recipeFor('wreck'),[],id);
+ return JSON.stringify({gap:mesh.gap,walls:mesh.faces.filter(f=>f.wallTop).map(f=>f.points)});
+};
+const damageBefore=damage('plinth-stable');
+for(let i=0;i<100;i++)api.specialGeometry(wreckPoints,api.recipeFor('wreck'),[],'plinth-cache:'+i);
+assert.equal(damage('plinth-stable'),damageBefore,'rebuilding after cache eviction preserves gaps and heights');
+assert(new Set(Array.from({length:8},(_,i)=>damage('plinth-house:'+i))).size>=4,
+ 'same-sized houses have distinct deterministic damage');
+const thicknesses=[];
+for(const f of crowns){
+ const [a,b,c]=f.points;
+ if(Math.hypot(a.x-b.x,a.y-b.y)<1e-6)continue;
+ // The first top triangle follows an outer edge, then crosses the wall.
+ if(!wreckPoints.some((p,i)=>{
+  const q=wreckPoints[(i+1)%wreckPoints.length];
+  const cross=r=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
+  return Math.abs(cross(a))<1e-6&&Math.abs(cross(b))<1e-6;
+ }))continue;
+ if(wreckPoints.some(p=>Math.hypot(p.x-b.x,p.y-b.y)<1e-6))continue;
+ thicknesses.push(Math.hypot(c.x-b.x,c.y-b.y));
+}
+assert(thicknesses.length>0&&thicknesses.every(w=>w>=5.5&&w<=6.5),'ordinary wall prisms are about six pixels thick');
 // Reusing the same identity with a street on a different side must move
-// the opening, including when that side would otherwise support the roof.
+// the opening without changing its broad, unobstructed entrance.
 for(const street of [
  [{x:-20,y:-20},{x:140,y:-20}], [{x:140,y:-20},{x:140,y:120}],
  [{x:-20,y:120},{x:140,y:120}], [{x:-20,y:-20},{x:-20,y:120}],
@@ -261,11 +304,7 @@ assert(deckWallPairs>0,'market draw-order regression exercises terrace/wall junc
  }
 }
 
-for(const source of ['roof','wall','strut'])assert(wreck.faces.some(f=>f.castShadow&&f.shadowSource===source),source+' casts a floor shadow');
-assert(wreck.faces.filter(f=>f.standingRoof).every(f=>f.layer>Math.max(...wreck.faces.filter(f=>f.wallTop).map(f=>f.layer))),'solid roof covers wall tops');
-
-assert(wreck.faces.some(f=>f.fallenRoof),'collapsed roof panels rest against inner walls');
-for(const f of wreck.faces.filter(f=>f.fallenRoof))assert(Math.min(...f.points.map(p=>p.z))<=1&&Math.max(...f.points.map(p=>p.z))>=3,'fallen panel slopes from wall to rubble');
+assert(!wreck.faces.some(f=>f.castShadow&&['roof','strut'].includes(f.shadowSource)),'removed roof and struts cast no ghost shadows');
 
 // Broken ends face away from their taller adjoining wall, into the breach.
 let exposedEnds=0;

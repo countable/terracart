@@ -18,7 +18,8 @@
         const n = entry.cellsPerEdge;
         if (!W.isSpawnCell(entry.grid, n, n, t.ix, t.iy,
             { ...entry._spawnOpts, roadMask: entry.roadMask || entry._spawnOpts?.roadMask,
-              spawnWhy: entry.spawnWhy || entry._spawnOpts?.spawnWhy, roadClass: entry.roadClass }, 'reward')
+              spawnWhy: entry.spawnWhy || entry._spawnOpts?.spawnWhy,
+              gameplayTiers: entry.gameplayTiers || entry._spawnOpts?.gameplayTiers, roadClass: entry.roadClass }, 'reward')
             || W.privateVetoAt(t.tx, t.ty, t.ix, t.iy)) continue;
         const occupied = o => SpawnOwnership.footprintCells(scene, o).some(p => p.cellIX === c.cellIX && p.cellIY === c.cellIY);
         if (['objects', 'wildplants', 'extraTreasures', 'parkingTreasures'].some(k => (entry[k] || []).some(occupied))

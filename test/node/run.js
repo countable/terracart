@@ -112,7 +112,7 @@ const FILES = [
   'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
-  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'geometry.js', 'worldgen.js', 'save.js',
+  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'geometry.js', 'gameplay_tiers.js', 'worldgen.js', 'save.js',
   'compass_modules.js', 'art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
@@ -211,8 +211,6 @@ const BRIDGE = `;Object.assign(globalThis, {
   Quests, questEnemies, questAnimals, STARTER_CHAIN, STARTER_INTRO,
 });`;
 try {
-  vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,
-    { filename: 'map-review-gameplay.js' });
   // The floor viewer's fake region: loaded here so its regression test runs
   // the same data the browser page loads.
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/floor-viewer-region.js'), 'utf8'), ctx,
@@ -1214,6 +1212,8 @@ ctx.INTERACT_SRC = readSrc('interact.js');
 ctx.WORLDGEN_SRC = readSrc('worldgen.js');   // map_review.test.js (the review salt)
 ctx.STREET_VARIANTS_SRC = readSrc('street_variants.js');   // goldenberry.test.js (the plain verges' golden roll)
 ctx.GAME_LOADER_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'game-loader.js'), 'utf8');   // map_review.test.js
+ctx.MAP_REVIEW_GROUND_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review-ground.js'), 'utf8');
+ctx.MAP_REVIEW_HTML_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review.html'), 'utf8');
 ctx.MAP_REVIEW_ART_SRC = fs.readFileSync(path.join(ROOT, 'tools', 'map-review-art.js'), 'utf8');
 // The multiplayer relay mirrors client regexes (multiplayer_shared.test.js).
 ctx.RELAY_SRC = fs.readFileSync(path.join(ROOT, 'server', 'index.js'), 'utf8');

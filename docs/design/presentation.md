@@ -565,13 +565,12 @@ pixels and decorative details do not define additional tap cells.
 - Map messages fit `MAP_MSG_MAX` (30 characters) per rendered line, including
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status
-  row (`_syncStatusRow`, `STATUS_ROW_CSS`; under the top HUD, or on the
-  compass skin's footer plate left of the joystick, `css/compass_hud.css`,
-  where it never covers the round map). The compass strip sits above the inventory
-  and scrolls horizontally when full. Each chip shows an extra-assets pixel icon
-  from `StatusIcons` and its remaining duration; names and drains remain in
-  accessible labels and hover text. Terrain slowing shows “Here” because it
-  lasts while standing on that terrain. Expired effects disappear. One chip per
+  row (`_syncStatusRow`, `STATUS_ROW_CSS`), fixed at the top centre between
+  the direction lock and money widgets. Three equal columns wrap additional
+  chips into new rows. The unpadded container and passive chips pass taps
+  through; only action buttons accept taps. The row floats above HUD controls
+  and below dialogs, with no objective-dependent repositioning. Chips show pixel icons and
+  countdowns; names and drains stay in accessible labels and hover text. One chip per
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a

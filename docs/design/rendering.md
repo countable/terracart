@@ -118,8 +118,16 @@ temple masonry use the matching colour mapping. Geometry, material detail and
 functional light colours remain intact. Growth stages retain proportional sizes
 and ore identities remain unchanged. Gameplay, source object IDs/positions and
 saves are unchanged.
-Nexus-specific ground, rift buffers, quarry/exclusion rock, tilled beds, synthetic
+Nexus-specific ground, rift buffers, quarry rock, tilled beds, synthetic
 building floors and underground terrain retain their existing treatments.
+
+Private residential exclusion rock uses the purchased Top Down Mountain Edges
+pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
+olive-grey ramp and RA olive-soil substrate. `MountainEdges` selects among 256
+neighbour masks and four stable variants from the shared geographic ring. Full
+edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
+Stair and deep-notch variants are excluded. Selection does no runtime image
+processing; collision remains the permanent residential bedrock rule.
 
 `RATerrainTrial` combines four adjacent samples from the renderer's geographic
 ring, including its tile-row seam resolution. The full native 16px masks preserve
@@ -332,17 +340,18 @@ opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wreck meshes sort with standing props by their ground anchor, so a crate
-behind the building cannot cover its surviving roof. They remain opaque. Damage is seeded by the building
-identity, so roof ends, surviving slopes and wall breaks vary between houses
-and stay stable across reloads and camera movement. Roof remnants and their
-raised framing are omitted below 4,096 square map pixels or a 48-pixel minimum
-bounding dimension. A doorway bay on the nearest street-facing wall stays
-open even where the roof support would otherwise restore it. Broken wall sections vary in
-height; their interior step cuts run perpendicular to each wall, while corners
-retain their mitred joins. Their roof remnant has an irregular broken edge,
-short projecting rafters, and chipped supporting crowns. Dense opaque rubble
-with dark gaps covers the floor; loose blocks spill beyond the main breach.
+Wrecks are broken plinths: sparse 4–8-unit masonry courses, broad breaches,
+stepped tops, and a few 2–4-unit fallen blocks. There are no roofs or raised
+framing. The native pixel wall texture matches the FDR system walls; pale caps
+and fine Rogue Adventure rubble share one prebuilt atlas. The flat floor follows
+the exact triangulated footprint and sorts as a ground decal beneath the player.
+Each raised section sorts independently at its baseline, so the player can walk
+between near and far remains. Surface player movement already permits wrecks.
+Damage is seeded by building identity and stays stable across reloads and camera
+movement. The nearest street-facing doorway stays clear. Interior step cuts run
+perpendicular to each wall; corners retain their mitred joins. Narrow annexes
+use a thinner inset. Geometry and material are shared and retained across camera
+rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
 Legacy wreck sprites use the ground layer and
@@ -920,15 +929,23 @@ the reach rim within the existing player-light radius.
   it — creatures, peers, coins, shots — with their labels, shadows and
   target affordances. Scenery (objects, plants, crops, traps, hazards) and
   the ground stay drawn and tappable in the shadow so the player keeps their
-  bearings; full cover is black and removes scenery as well. The cover
-  mask's feather spreads outward only, so every hidden cell keeps its full
-  darkness, including the occupied cells of concealing bushes and trees.
+  bearings; full cover is black and removes scenery as well. Partial-cover
+  boundaries use a symmetric five-tap Gaussian feather, so narrow wedges do
+  not retain hard half-cell steps. Opaque cave samples retain full darkness;
+  softening the visual wash never changes actor hiding.
   At zero energy, cover stops hiding actors/scenery and the obstruction mask
   clears; both return on revival. Physical cover for enemy sight is unchanged.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
-  existing lightmap after light sources. It reuses the exploration fog's
-  low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
-  feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
+  existing lightmap after light sources. `Render.protectCoverScenery` then
+  replaces the ground field under drawn sprite silhouettes in painter order.
+  Scenery uses `Visibility.coverBetween` to its ground anchor: a facing tree
+  stays clear, while a tree behind another blocker receives partial shading
+  across its whole silhouette. Visible actors stay clear of the visual wash;
+  hidden actors are absent, not dimmed. The silhouette pass preserves ordinary
+  lighting and uses two retained canvases without pixel readback.
+  The field reuses the exploration fog's low-resolution smooth upscale and
+  world-keyed wisps, with a wider separable feather instead of the exploration
+  ramp. Noise coordinates and both field canvases
   are reused; only changes to the sight field repaint the alpha buffer. Cover queries always
   originate at the player's body, including during camera peeks; the mask alone
   traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
@@ -1082,7 +1099,8 @@ the reach rim within the existing player-light radius.
 - Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
   lamps, distinct from the turquoise rift palette.
 - Generate lamps on paths and Small roads from `Streets.lampSpacingM()`
-  (independent of restoration ladder goals), with sparse lamps on Medium/Large
+  (50 m on Small roads; paths use half that spacing and retain a 50 m minimum
+  line length, independent of restoration ladder goals), with sparse lamps on Medium/Large
   roads. Street variants tint emitted light; an enclosing nexus takes precedence.
   Suppressed roads retain their own turquoise emission even inside a nexus.
   All bodies use the native FD L01 wooden hanging lamp, with the authored

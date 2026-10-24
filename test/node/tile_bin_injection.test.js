@@ -11,8 +11,8 @@
   }
   const point = (ix, iy, cellM = 7) => ({ x: (ix + 0.5) * cellM, y: (iy + 0.5) * cellM });
 
-  test('tile bin: DeepForest opt-in seats real crowns while preserving Nexus ownership and cached bins', () => {
-    const enabled = { location: { search: '?deepforest=on' } };
+  test('tile bin: DeepForest opt-in seats real crowns through Nexus coverage without mutating cached bins', () => {
+    const enabled = { GameplayTiers, location: { search: '?deepforest=on' } };
     new Function('window', WORLDGEN_SRC)(enabled);
     const bin = { trees: [{ kind: 'tree', lix: 10, liy: 10, crown_m: 8, _treeSource: 'deepforest' }] };
     const before = JSON.stringify(bin), ordinary = entry(), nexus = entry();
@@ -21,8 +21,65 @@
     enabled.WorldGen.injectTileBin(nexus, bin, 0, 0);
     assert.eq(ordinary.objects.length, 1, 'query enables the detected crown');
     assert.eq(ordinary.objects[0]._treeSource, 'deepforest');
-    assert.eq(nexus.objects.length, 0, 'authored Nexus layout still owns its cells');
+    assert.eq(nexus.objects.length, 1, 'detected crowns supersede Nexus coverage');
     assert.eq(JSON.stringify(bin), before, 'shared crown coordinates remain unchanged');
+  });
+
+  test('tile bin: detected trees keep their seats and inherit explicit variant species', () => {
+    const enabled = { GameplayTiers, location: { search: '?deepforest=on' } };
+    new Function('window', WORLDGEN_SRC)(enabled);
+    for (const source of ['deepforest', 'gemini']) {
+      const e = entry(), here = point(10, 10), cell = 10 * N + 10;
+      e.streetArea = new Uint8Array(N * N).fill(1);
+      e.streetAreaVariants = new Uint8Array(N * N).fill(StreetVariants.VARIANT_BY_ID.overgrown.code);
+      const rock = { kind: 'mineralrock', id: 'ordinary-rock', ...here };
+      e.objects.push(rock);
+      e.wildplants.push({ id: 'grass', crop: 'shrub', ...here });
+      const bin = { trees: [{ kind: 'tree', species: 'maple', crown_m: 8, crown_color: '#998822',
+        _treeSource: source, lix: 10, liy: 10 }] };
+      const before = JSON.stringify(bin);
+      enabled.WorldGen.injectTileBin(e, bin, 0, 0);
+      assert.eq(e.objects.length, 1, 'generated rock yields to the crown');
+      assert.eq(e.wildplants.length, 0, 'generated plants yield too');
+      const tree = e.objects[0];
+      assert.eq(tree.x, here.x); assert.eq(tree.y, here.y);
+      assert.eq(tree.species, 'pine'); assert.truthy(tree.treeSpeciesFixed);
+      assert.eq(tree.crown_m, 8); assert.eq(tree._treeSource, source);
+      assert.eq(tree.crown_color, undefined, 'variant appearance replaces the observed tint');
+      assert.eq(JSON.stringify(bin), before, 'cached observations keep their original species');
+      // The final seat owns the mapping after a road-band relocation.
+      const moved = entry();
+      moved.roadMask[cell] = 1;
+      moved.streetArea = new Uint8Array(N * N).fill(1);
+      moved.streetAreaVariants = new Uint8Array(N * N).fill(StreetVariants.VARIANT_BY_ID.orchard.code);
+      moved.streetAreaVariants[cell] = StreetVariants.VARIANT_BY_ID.overgrown.code;
+      enabled.WorldGen.injectTileBin(moved, bin, 0, 0);
+      assert.eq(moved.objects[0].x, point(11, 10).x);
+      assert.eq(moved.objects[0].species, 'maple', 'relocated crown takes orchard mapping');
+      const unmapped = entry();
+      unmapped.zone = { coverage: new Uint16Array(N * N).fill(1), anchors: [{ kind: 'grove', variant: 'meadow' }] };
+      enabled.WorldGen.injectTileBin(unmapped, bin, 0, 0);
+      assert.eq(unmapped.objects[0].species, 'maple', 'no mapping retains detected species');
+      assert.eq(unmapped.objects[0].crown_color, '#998822');
+    }
+  });
+
+  test('tile bin: Nexus mapping wins over a road mapping without replacing player property', () => {
+    const row = ZoneVariants.byId('meadow'), original = row.treeSpecies;
+    row.treeSpecies = 'maple';
+    try {
+      const e = entry(), here = point(10, 10);
+      e.zone = { coverage: new Uint16Array(N * N).fill(1), anchors: [{ kind: 'grove', variant: 'meadow' }] };
+      e.streetArea = new Uint8Array(N * N).fill(1);
+      e.streetAreaVariants = new Uint8Array(N * N).fill(StreetVariants.VARIANT_BY_ID.overgrown.code);
+      const owned = { kind: 'tree', id: 'owned', planted: true, ...here };
+      e.objects.push(owned);
+      WorldGen.injectTileBin(e, { trees: [{ kind: 'tree', species: 'pine', _treeSource: 'gemini', lix: 10, liy: 10 }] }, 0, 0);
+      assert.truthy(e.objects.includes(owned));
+      const detected = e.objects.find(o => o._treeSource === 'gemini');
+      assert.eq(detected.x, point(11, 10).x, 'player tree forces a safe neighbouring seat');
+      assert.eq(detected.species, 'maple'); assert.truthy(detected.treeSpeciesFixed);
+    } finally { if (original === undefined) delete row.treeSpecies; else row.treeSpecies = original; }
   });
 
   test('tile bin: imported forest trees are pine; fruit and yards keep species', () => {

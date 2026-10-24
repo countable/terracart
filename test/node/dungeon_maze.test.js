@@ -89,7 +89,7 @@
     for (const depth of [2, 3]) {
       const f = fixture(depth), protectedCells = [];
       for (const [k, terrain, why] of [[0, T.BUILDING, 0], [1, T.WATER, 0],
-        [2, T.ROAD, W.SPAWN_WHY.ROAD], [3, T.PARK, W.SPAWN_WHY.FARMLAND],
+        [2, T.ROAD_MD, W.SPAWN_WHY.ROAD], [3, T.PARK, W.SPAWN_WHY.FARMLAND],
         [4, T.PARK, W.SPAWN_WHY.GOLF]]) {
         const i = (f.cy - 7) * N + f.cx - 8 + k;
         f.surface.zone.caveSource.grid[i] = terrain;

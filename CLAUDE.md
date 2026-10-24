@@ -109,14 +109,13 @@ One line each; the linked purpose doc owns the detail.
   local cell or OSM id, never array indices or timestamps; every player with
   the same tile data sees the same world
   ([generation](docs/design/generation.md)).
-- Spawn access is per-cell REASON bits behind one gate —
-  `WorldGen.isSpawnCell` with `SPAWN_CLASS_BLOCKS` — never a check at a
-  spawner ([generation](docs/design/generation.md)).
-- The road is never a refuge or a lure: the kerb buffer ends chases and
-  excludes fast movers; at night its red MD/LG zone hides interactions and
-  drains energy; MD/LG junctions exclude every spawn and non-allied creature,
-  while Small-road junctions suppress fast movers and hazards; nothing urgent
-  sits across the Major-and-Medium road group
+- `GameplayTiers` owns geographic spawn eligibility; `WorldGen.isSpawnCell`
+  applies that policy with live placement checks. Generation, runtime births
+  and map review share the same tier field
+  ([generation](docs/design/generation.md)).
+- Passing suppresses fast movers and hazards; paths interrupt road and
+  junction Passing buffers. MD/LG street surfaces are Excluded. Movement,
+  chase and night-road rules retain their separate road geometry
   ([generation](docs/design/generation.md)).
 - `Energy.set` is the only runtime energy writer; all incoming damage routes
   through `Combat.playerDamage` and armour ([combat](docs/design/combat.md)).

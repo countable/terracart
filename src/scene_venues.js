@@ -1175,6 +1175,7 @@ class SceneVenues {
   // Both initial placement and "Move Home here" use this path.
   _placeHome(x, y, heading = 0, searchLoaded = false) {
     const existing = this._nearbyHomeBuilding(x, y);
+    if (existing && Object.values(this.save.npcHomes || {}).some(home => home.houseId === existing.id)) return false;
     const wagon = existing ? null : this._newHomeSite(x, y, heading, searchLoaded);
     if (!existing && !wagon) return false;
     this.save.homeFirepit = null;
@@ -1666,7 +1667,9 @@ class SceneVenues {
     const footing = this._homeFootingAt(px, py);
     if (footing?.blocked) {
       this.showMessageModal({ title: 'Move Home',
-        body: 'There is no clear space for Home here. Move to open ground or near a house.' });
+        body: footing.npcHouse
+          ? 'A neighbour lives in this house. Move somewhere else before moving Home.'
+          : 'There is no clear space for Home here. Move to open ground or near a house.' });
       return;
     }
     const cost = Math.min(500, Math.floor((this.save.money ?? 0) / 2));
@@ -1680,7 +1683,7 @@ class SceneVenues {
       acceptLabel: `Move (${this.moneyHTML(cost, 12)})`,
       onAccept: () => {
         if (!this.moveHomeTrailerHere(px, py)) {
-          this.showMessageModal({ title: 'Move Home', body: 'That spot is no longer available. Your Home has stayed where it is.' });
+          this.showMessageModal({ title: 'Move Home', body: 'That spot is no longer available. Your Home has stayed where it is. Move somewhere else.' });
           return;
         }
         addMoney(this.save, -cost);
@@ -1694,6 +1697,11 @@ class SceneVenues {
   // A move adopts the nearby footprint or requires a clear 2×2 site.
   _homeFootingAt(x, y) {
     const house = this._nearbyHomeBuilding(x, y);
+    // Keep the nearest occupied house as a refusal, rather than silently
+    // selecting another building or constructing Home beside the neighbour.
+    if (house && Object.values(this.save.npcHomes || {}).some(home => home.houseId === house.id)) {
+      return { blocked: true, npcHouse: house.id };
+    }
     if (house) return { house: house.id };
     return this._newHomeSite(x, y) ? null : { blocked: true };
   }
