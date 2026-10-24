@@ -9311,7 +9311,7 @@ class MapScene extends Phaser.Scene {
     this.showMessageModal({ kind: 'spirit', title: 'Distance', okLabel: 'Got it',
       source: document.getElementById('roadchip'),
       body: `${Trail.distanceLabel(doneM)} of roads restored. ${toGoM}m to your next treasure.\n\n`
-        + 'Walking along damaged roads repairs them and earns treasure. '
+        + 'Tap a damaged road and choose Yes to start repairs. Then walking along damaged roads repairs them and earns treasure. '
         + 'This counter records newly restored distance, not every step. '
         + 'Scenic paths boost treasure progress without inflating the distance.' });
   }

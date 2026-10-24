@@ -645,7 +645,12 @@ pixels and decorative details do not define additional tap cells.
   player's own act (a receipt, a Book read, a neighbour's talk) asks only
   `_dialogOpen`. A new deferred lane asks the hold and adds to the count.
 - The first road-repair panel shows the Hood working alone: “You Start Fixing
-  The Roads” / “They are the arteries of civilization.” It keeps the existing
+  The Roads” / “They are the arteries of civilization.” New saves repair no
+  roads until the player taps a damaged road and accepts “Road is in disrepair.
+  Fix it?” Yes enables proximity repair and opens that story immediately;
+  No leaves roads untouched and a later tap can ask again. The story's existing
+  `trail.greeted` flag remembers consent. Saves with restored metres, prizes,
+  or a streets epoch retain automatic repair; ungreeted legacy saves keep the
   50 m threshold and two-second delay. Neighbours enter the story at the first
   reward, headed “The survivors are watching”; later rewards use the thank-you
   heading. The first repair and first gift remain separate moments.

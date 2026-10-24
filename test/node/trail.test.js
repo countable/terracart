@@ -603,7 +603,11 @@ const sweepScene = (over) => Object.assign({
   bursts: [],
   _burstAtWorld(kind, wmx, wmy, opts) { this.bursts.push({ kind, wmx, wmy, opts }); return 1; },
   ...SW,
-}, over || {});
+  _offerRoadRepair: liftSceneMethod('_offerRoadRepair'),
+}, over || {}, {
+  // Existing restoration tests exercise an already-started legacy save.
+  save: { streetsEpoch: 1, energy: 10, reachUpgrades: 0, ...over?.save },
+});
 
 // Run `fn` with the clock frozen, over a tile carrying one transportation way.
 const withStreet = (fn, feature) => {
@@ -635,6 +639,51 @@ const restoredIvs = (s, tileKey) => {
   const tile = (s.save.streets || {})[tileKey] || {};
   return Object.values(tile).map((flat) => Streets.unflatten(flat));
 };
+
+test('streets: fresh saves repair nothing at startup or while following GPS/body movement', () => {
+  withStreet(clock => {
+    const s = sweepScene({ save: { streetsEpoch: 0 } });
+    for (const [time, x] of [[0, MID_M], [5000, MID_M], [10000, MID_M + CELL_M * 5], [15000, MID_M + CELL_M * 5]]) {
+      s.playerM.x = x; s.gpsM.x = x;
+      clock.at(time); s._sweepStreets();
+    }
+    assert.eq(restoredM(s), 0, 'no road intervals were written');
+    assert.eq(s.toasts.length, 0, 'no reward metres were banked');
+    assert.eq(s.intros.length, 0, 'no unsolicited repair story');
+    assert.falsy(s._streetSight, 'no dwell accumulated before consent');
+  });
+});
+
+test('streets: No leaves repair disabled; Yes opens the story immediately and enables the sweep', () => {
+  withStreet(clock => {
+    const s = sweepScene({ save: { streetsEpoch: 0 } }), decisions = [];
+    s.showConfirmModal = decision => decisions.push(decision);
+    assert.truthy(s._offerRoadRepair());
+    assert.eq(decisions[0].body, 'Road is in disrepair. Fix it?');
+    assert.eq(decisions[0].acceptLabel, 'Yes'); assert.eq(decisions[0].cancelLabel, 'No');
+    decisions[0].onCancel?.();
+    clock.at(10000); s._sweepStreets();
+    assert.eq(restoredM(s), 0); assert.falsy(Trail.repairEnabled(s.save));
+    assert.truthy(s._offerRoadRepair(), 'a later tap asks again');
+    decisions[1].onAccept();
+    assert.truthy(Trail.repairEnabled(s.save));
+    assert.truthy(Trail.repairEnabled(JSON.parse(JSON.stringify(s.save))), 'consent survives reload');
+    assert.eq(s.intros.length, 1, 'Yes opens the story before any dwell or metres');
+    assert.eq(s.intros[0].title, TRAIL_INTRO_TITLE); assert.eq(s.intros[0].art, 'road_repair');
+    assert.eq(restoredM(s), 0, 'repair still uses the normal dwell');
+    clock.at(10000 + PATH_STONE_DWELL_MS); s._sweepStreets();
+    assert.gt(restoredM(s), 0, 'the normal automatic sweep repairs after consent');
+    decisions[1].onAccept();
+    assert.falsy(s._offerRoadRepair()); assert.eq(s.intros.length, 1, 'no duplicate introduction');
+  });
+});
+
+test('streets: legacy progress retains automatic repair without a new save flag', () => {
+  for (const save of [{ trail: { greeted: true } }, { trail: { metres: 1 } }, { trail: { prizes: 1 } }, { streetsEpoch: 1 }]) {
+    assert.truthy(Trail.repairEnabled(save));
+  }
+  assert.falsy(Trail.repairEnabled({ trail: { greeted: false, metres: 0, prizes: 0 }, streetsEpoch: 0 }));
+});
 
 test('streets: a stretch seen for less than two seconds is not rebuilt', () => {
   withStreet((clock) => {
@@ -1212,7 +1261,7 @@ test('streets: the greeting is armed ONCE and read by the pass that runs every f
   // surface and reach gates: a greeting armed by a repair the player then
   // walked away from (into a cave, onto an empty bar) is still owed.
   const body = SCENE_SRC.slice(SCENE_SRC.indexOf('  _sweepStreets() {'));
-  assert.truthy(/_sweepStreets\(\) \{\n\s+if \(typeof Streets === 'undefined'\) return;\n\s+this\._openTrailIntroIfDue\(\);/
+  assert.truthy(/_sweepStreets\(\) \{\n\s+if \(typeof Streets === 'undefined'\) return;\n\s+if \(!Trail.repairEnabled\(this.save\)\) \{ this\._resetStreetSight\(\); return; \}\n\s+this\._openTrailIntroIfDue\(\);/
     .test(body), 'the wait is read before the sweep gates on depth or reach');
 });
 

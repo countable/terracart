@@ -31,6 +31,25 @@ test('TAP_HANDLERS: no duplicate handler names', () => {
 // Current pinned order (as of 2026-06-06):
 const HANDLER_NAMES = TAP_HANDLERS.map(h => h.name);
 
+test('road repair: bare surface roads ask only before opt-in, after object taps', () => {
+  const handler = TAP_HANDLERS.find(h => h.name === 'road-repair');
+  assert.truthy(HANDLER_NAMES.indexOf('road-repair') > HANDLER_NAMES.indexOf('object'));
+  assert.truthy(HANDLER_NAMES.indexOf('road-repair') > HANDLER_NAMES.indexOf('cell-resolve'));
+  assert.truthy(HANDLER_NAMES.indexOf('road-repair') < HANDLER_NAMES.indexOf('flavor'));
+  let asked = 0;
+  const scene = { depth: 0, save: {}, _offerRoadRepair() { asked++; return true; } };
+  for (const cell of [{ type: TERRAIN.ROAD }, { type: TERRAIN.ROAD_MD }, { type: TERRAIN.ROAD_LG },
+    { type: TERRAIN.PATH }, { type: TERRAIN.GRASS, underRoad: true }]) {
+    assert.truthy(handler.try({ scene, cell }));
+  }
+  assert.eq(asked, 5);
+  assert.falsy(handler.try({ scene, cell: { type: TERRAIN.GRASS } }));
+  scene.depth = 1; assert.falsy(handler.try({ scene, cell: { type: TERRAIN.ROAD } }));
+  scene.depth = 0; scene.save.trail = { greeted: true };
+  assert.falsy(handler.try({ scene, cell: { type: TERRAIN.ROAD } }));
+  assert.eq(asked, 5, 'ordinary terrain, underground and opted-in roads keep their own actions');
+});
+
 test('TAP_HANDLERS: work-progress is the FIRST handler (priority guard)', () => {
   assert.eq(HANDLER_NAMES[0], 'work-progress',
     'work-progress must be index 0 so an in-progress wheel eats every tap first');
@@ -660,6 +679,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'planted',
     'fishing',
     'cave-wall',
+    'road-repair',
     'flavor',
     'plant',
     'till',
