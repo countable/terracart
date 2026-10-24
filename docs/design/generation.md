@@ -1020,7 +1020,11 @@ Higher-priority placements and their access space take precedence in this order:
    step outside; step one's chip and arrow wait for that step
    (`_starterAwaitsOutside`, latched in `save.starter.wentOutside`). The unopened
    starter relic chest has a dotted trail from the reachable cell nearest Home's
-   door (`Starter.trailPaths`), with supply crates along the route. All seats
+   door (`Starter.trailPaths`), with supply crates along the route. The Rock
+   crate stays within the opening screen's circular inset around Home whenever
+   legal ground is available, so Tori can point out repair supplies onscreen.
+   A farther route seat moves to the closest eligible nearby cell without
+   changing its id or remaining contents. All seats
    use the spawn gate and avoid Home's footing. Supply ids retain suffixes 1, 3
    and 4 so old opened crates stay spent. Picked former satellite piles deduct
    their known three items each from the replacement crate. A picked main pile

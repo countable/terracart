@@ -12,6 +12,7 @@
     let done, refund;
     const scene = { save, depth: 0, cellM: 5, tileEdgeM: 100, tilledSet: bindIdSet(save, 'tilled'), placedRockSet: new Set(),
       cellAt: () => cell, flash: text => messages.push(text), buildInventoryDOM() {},
+      _busyWheel: liftSceneMethod('_busyWheel'),
       questEvent: event => events.push(event),
       spendEnergy(cost) { if (save.energy < cost) return false; Energy.set(save, save.energy - cost); return true; },
       startWorkProgress(x, y, callback, ms, cost) { done = callback; refund = cost; },
@@ -30,6 +31,18 @@
     assert.eq(f.save.tilled[0], '2_2');
     assert.eq(Inventory.count(f.save, 'potato_seed'), 1);
   }));
+  test('seed action: house repairs and manual work block planting before resolving the target', () => {
+    for (const state of ['_wreckRepair', '_workProgress']) fixture(f => {
+      f.scene[state] = {};
+      f.scene.cellAt = () => { throw new Error('busy action must not resolve a planting target'); };
+      assert.falsy(plantSelectedSeed(f.scene));
+      assert.falsy(f.pending());
+      assert.eq(f.save.energy, 100);
+      assert.eq(Inventory.count(f.save, 'potato_seed'), 2);
+      assert.eq(f.save.planted.length, 0);
+      assert.eq(f.scene.tilledSet.size, 0);
+    });
+  });
   test('seed action: map taps never till, even with a seed held', () => fixture(f => {
     delete f.ctx.seedAction;
     assert.falsy(handler('till').try(f.ctx));
@@ -48,6 +61,17 @@
     assert.eq(f.events.join(','), 'till,plant');
     assert.eq(JSON.parse(JSON.stringify(f.save)).tilled[0], 'plot', 'bound soil set is persisted');
     assert.eq(f.save.planted[0].watered_t, 0, 'watering remains a separate action');
+  }));
+  test('seed action: preparing a cleared tuft keeps origin terrain regrowth suppressed', () => fixture(f => {
+    const tuft = { id: 'cleared-grass', crop: 'longgrass', x: 10, y: 10 };
+    f.save.picked.push(tuft.id);
+    SaveState.rememberClearedGrass(f.save, tuft, 1000, () => 0.5);
+    WorldGen.tileCache.set('seed-regrowth', { wildplants: [tuft], objects: [] });
+    handler('till').try(f.ctx); f.complete();
+    const restored = JSON.parse(JSON.stringify(f.save));
+    assert.falsy(SaveState.regrowGrass(restored, 1e15));
+    assert.truthy(restored.picked.includes(tuft.id), 'grass stays cleared beneath the planted bed');
+    assert.eq(restored.planted[0].crop, 'potato');
   }));
   test('seed action: invalidated seed, terrain, depth or occupancy refunds work without preparing soil', () => {
     for (const invalidate of [
