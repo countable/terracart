@@ -243,7 +243,7 @@ test('tool stories: interact.js hooks fire at action start, one per call site', 
     else assert.truthy(c > a, `${what}: the story fires after the anchor`);
     return { c, a };
   };
-  hook('till', "onDone: () => {\n      scene.tilledSet.add(cellKey);", 'the till wheel');
+  hook('till', "scene.tilledSet.add(cellKey);", 'the till wheel');
   hook('dig', 'scene.digCaveWall(cell.tx, cell.ty, cell.ix, cell.iy, cellIX, cellIY);',
        'the pick wheel');
   hook('catch', 'scene.startCatchProgress(victim, Pets.catchMs(save, victim),', 'the catch wheel');

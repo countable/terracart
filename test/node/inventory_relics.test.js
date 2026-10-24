@@ -25,6 +25,7 @@
       iconSpanHTML: () => '<item>', syncEatButton() { this.eatId = getSelectedSlot(this.save)?.id; },
       syncConsumableButton() { this.useMethod = CONSUMABLE_SPEC[getSelectedSlot(this.save)?.id]?.method; },
       syncEquipButton() { this.equipSlot = this.save.selGear?.slot; },
+      syncSeedButton() {},
       _effectLineEl(nameLbl, text) { const row = el('div'); row.textContent = text; return row; },
     };
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
