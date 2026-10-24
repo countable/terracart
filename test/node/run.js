@@ -5,7 +5,7 @@
 // This runner covers the logic that needs no rendering: it loads the pure /
 // data modules into a single vm context with light browser stubs, then runs
 // plain assertion tests with `node test/node/run.js`. No Phaser, no DOM, no
-// jsdom — fast enough for every commit / CI.
+// jsdom. Use --suite fast during iteration and the full suite before publishing.
 //
 // How the load works (mirrors how the browser shares one global scope across
 // <script> tags): all modules are concatenated into ONE script so their
@@ -14,6 +14,15 @@
 // the `const` exports (INTERACTABLES, ITEM_BY_ID, …) are copied onto globalThis
 // by a bridge appended to the bundle, so the separately-loaded *.test.js files
 // can reach them by bare name — exactly like the browser.
+
+const Runner = require('./runner.cjs');
+const { stressFiles } = require('./suites.cjs');
+const runStarted = Runner.now();
+let options;
+try { options = Runner.parseArgs(process.argv.slice(2)); }
+catch (e) { console.error(e.message); process.exit(2); }
+if (options.help) { console.log(Runner.HELP); process.exit(0); }
+const registration = [];
 
 const fs = require('fs');
 const vm = require('vm');
@@ -1294,8 +1303,11 @@ const testFiles = fs.readdirSync(__dirname)
   .filter((f) => f.endsWith('.test.js'))
   .sort();
 for (const f of testFiles) {
+  const firstTest = ctx.__tests.length, started = Runner.now();
   try {
     vm.runInContext(fs.readFileSync(path.join(__dirname, f), 'utf8'), ctx, { filename: f });
+    for (const t of ctx.__tests.slice(firstTest)) t.file = `test/node/${f}`;
+    registration.push({ file: `test/node/${f}`, durationMs: Runner.now() - started });
   } catch (e) {
     console.error(`Failed to load ${f}:\n`, e && e.stack || e);
     process.exit(2);
@@ -1491,13 +1503,13 @@ ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory
 // File-level checks that index.html and sw.js agree about what the app is made of.
 {
   const shell = require('../../tools/shell_audit.js');
-  for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of shell.CHECKS) ctx.__tests.push({ file: "tools/shell_audit.js", name: c.name, fn: c.run });
 }
 
 // Cache lifecycle checks use the real worker with isolated network and storage.
 {
   const worker = require('../../tools/service_worker_checks.js');
-  for (const c of worker.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of worker.CHECKS) ctx.__tests.push({ file: "tools/service_worker_checks.js", name: c.name, fn: c.run });
 }
 
 // ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────
@@ -1505,7 +1517,7 @@ ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory
 // stale beside a fresh app.js ("Combat.playerDowned is not a function").
 {
   const cachebust = require('../../tools/cachebust.js');
-  for (const c of cachebust.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of cachebust.CHECKS) ctx.__tests.push({ file: "tools/cachebust.js", name: c.name, fn: c.run });
 }
 
 // ── Vertical-layout audit (tools/layout_audit.js) ─────────────────────────
@@ -1514,7 +1526,7 @@ ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory
 // player, no big empty band).
 {
   const layout = require('../../tools/layout_audit.js');
-  for (const c of layout.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of layout.CHECKS) ctx.__tests.push({ file: "tools/layout_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Viewport-vignette audit (tools/vignette_audit.js) ─────────────────────
@@ -1523,7 +1535,7 @@ ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory
 // screen edges, get the soft ramp alone (no black side bars).
 {
   const vignette = require('../../tools/vignette_audit.js');
-  for (const c of vignette.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of vignette.CHECKS) ctx.__tests.push({ file: "tools/vignette_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Offer-modal audit (tools/modal_audit.js) ──────────────────────────────
@@ -1531,7 +1543,7 @@ ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory
 // with the same text (the castle quest board once printed its progress twice).
 {
   const modal = require('../../tools/modal_audit.js');
-  for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of modal.CHECKS) ctx.__tests.push({ file: "tools/modal_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Display-layer audit (tools/layer_audit.js) ────────────────────────────
@@ -1541,24 +1553,30 @@ ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory
 // seams) and stay below the sprites.
 {
   const layers = require('../../tools/layer_audit.js');
-  for (const c of layers.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of layers.CHECKS) ctx.__tests.push({ file: "tools/layer_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
-  let pass = 0, fail = 0;
-  for (const t of ctx.__tests) {
-    try {
-      await t.fn();
-      console.log('  ✓ ' + t.name);
-      pass++;
-    } catch (e) {
-      console.log('  ✗ ' + t.name);
-      const lines = String((e && e.stack) || e).split('\n').slice(0, 4);
-      for (const ln of lines) console.log('      ' + ln);
-      fail++;
-    }
+  const tests = ctx.__tests.map(t => ({ ...t, file: t.file || 'test/node/run.js' }));
+  const knownFiles = new Set(tests.map(t => t.file));
+  for (const file of stressFiles) {
+    if (!knownFiles.has(file)) throw new Error(`Stale stress-suite entry: ${file}`);
   }
-  console.log(`\n${pass} passed, ${fail} failed (${ctx.__tests.length} total)`);
-  process.exit(fail ? 1 : 0);
-})();
+  const selected = Runner.selectTests(tests, options, stressFiles);
+  if (!selected.length) throw new Error('No tests matched the requested suite/file/name filters');
+  if (options.list) {
+    for (const t of selected) console.log(`${t.suite}  ${t.file}  ${t.name}`);
+    console.log(`${selected.length} selected / ${tests.length} registered`);
+    return;
+  }
+  const setupMs = Runner.now() - runStarted;
+  const result = await Runner.runTests(selected, options);
+  const report = { schemaVersion: 1, suite: options.suite,
+    filters: { files: options.files, match: options.match },
+    registered: tests.length, selected: selected.length, setupMs,
+    totalMs: Runner.now() - runStarted, registration, ...result };
+  Runner.printSummary(report);
+  if (options.report) Runner.writeReport(options.report, report);
+  process.exitCode = result.failed ? 1 : 0;
+})().catch(e => { console.error(e.stack || e); process.exitCode = 2; });

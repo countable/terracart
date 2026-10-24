@@ -13,7 +13,11 @@
     "qa:play": "node tools/qa/play.js",
     "qa:report": "node tools/qa/report.js",
     "test:qa": "node test/qa-clock.test.js && node test/qa-runner.test.js && node test/qa-bridge.test.js",
-    "test:lowpoly": "node test/building-lowpoly.cjs"
+    "test:lowpoly": "node test/building-lowpoly.cjs",
+    "test:all": "node test/node/run.js --suite all",
+    "test:fast": "node test/node/run.js --suite fast",
+    "test:stress": "node test/node/run.js --suite stress",
+    "test:runner": "node --test test/runner.test.cjs"
   },
   "devDependencies": {
     "playwright-core": "^1.62.1"
