@@ -774,7 +774,7 @@ Object.assign(ctx, {
 // (chip step X → the arrow points at X's own space, never a leftover crate fallback).
 {
   // The wreck rules are houses.js now; the scene keeps one-line wrappers.
-  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate(itemId = null) {',
     "_nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {"]
     .map(sceneMethodSource).concat([
       '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',

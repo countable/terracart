@@ -1032,7 +1032,7 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // to walk to, it is where you are.
 const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
-const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
+const STARTER_GOAL_LABELS = { plant: 'Plot', water: 'Crop', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
   if (goal?.kind === 'groundstack') return ITEM_BY_ID[goal.itemId]?.name || 'Supplies';
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
@@ -3173,7 +3173,7 @@ class MapScene extends Phaser.Scene {
   // nearer it than the crates — "it pointed south but the crates were east".
   // The chest is the trail's END, so it is the target only once no supply
   // crate is left unopened.
-  _nearestStarterCrate() {
+  _nearestStarterCrate(itemId = null) {
     const spent = spentSets(this, this.save);
     // The starter chests of each tile, derived once (util.js derivedObjects)
     // rather than picked out of every cached tile's every object on each ask.
@@ -3182,6 +3182,10 @@ class MapScene extends Phaser.Scene {
       for (const o of derivedObjects(e, '_starterChests', (o) => (o.kind === 'chest' || o.kind === 'groundstack') && !!o.id && String(o.id).startsWith('chest_start_'))) {
         if (!isSpent(o, spent)) starters.push(o);
       }
+    }
+    if (itemId) {
+      const match = this._nearestObject(o => o.fixedLoot?.id === itemId || o.itemId === itemId, { list: starters });
+      if (match) return match;
     }
     return this._nearestObject((o) => o.crate, { list: starters })
       || this._nearestObject((o) => o.kind === 'groundstack', { list: starters })
@@ -3206,9 +3210,9 @@ class MapScene extends Phaser.Scene {
   // the chip is actually talking about, not a generic breadcrumb.
   //
   //   chest   → nearest unopened starter crate (the relic chest included)
-  //   till    → the carved 2x2 starter plot
   //   plant   → the tilled-but-empty soil — or the crates while the bag holds
   //             no seed, since the seeds are in them (nearest crate first)
+  //   water   → the nearest dry planted crop
   //   restore → the nearest wreck — or the crates while the bag can't pay the
   //             restore cost, since the materials are in them
   //   harvest → the nearest crop the player planted
@@ -3227,15 +3231,15 @@ class MapScene extends Phaser.Scene {
       ? { x: sv.starterPlotAt.x + this.cellM / 2, y: sv.starterPlotAt.y + this.cellM / 2 }
       : null;
     switch (step.event) {
-      case 'till':
-        return plotMiddle() || this._nearestStarterCrate();
+      case 'chest':
+        return this._nearestStarterCrate('potato_seed');
       case 'plant': {
         // An empty seed pocket means the crates are the step's real errand —
         // the nearest one is seeded first (STARTER_LOOT's order of need).
         const hasSeed = (sv.inv || []).some(s =>
           s && (s.count || 0) > 0 && ITEM_BY_ID[s.id]?.kind === 'seed');
-        if (!hasSeed) return this._nearestStarterCrate() || plotMiddle();
-        // The soil the chip says to tap: tilled cells nothing is planted in.
+        if (!hasSeed) return this._nearestStarterCrate('potato_seed') || plotMiddle();
+        // Prefer an existing empty bed; otherwise guide the seed action to the plot.
         const plantedCells = new Set((sv.planted || []).map(p => {
           const c = worldMetersToAbsCell(this, p.x, p.y);
           return cellKeyFromAbsCell(c.cellIX, c.cellIY);
@@ -3253,7 +3257,7 @@ class MapScene extends Phaser.Scene {
         // remaining starter supplies, including loose ground materials.
         const cost = this._wreckRestoreCost(null);
         if (Inventory.count(sv, cost.id) < cost.qty) {
-          const crate = this._nearestStarterCrate();
+          const crate = this._nearestStarterCrate(cost.id);
           if (crate) return crate;
         }
         const wrecks = [];
@@ -3264,6 +3268,9 @@ class MapScene extends Phaser.Scene {
         }
         return nearest(wrecks) || this._nearestStarterCrate();
       }
+      case 'water':
+        return nearest((sv.planted || []).filter(p => !p.watered_t && (p.stage ?? 0) < Crops.maxStage()))
+          || nearest(sv.planted || []) || plotMiddle() || this._nearestStarterCrate('potato_seed');
       case 'harvest':
         return nearest(sv.planted || []) || this._nearestStarterCrate();
       case 'sell': {
@@ -9405,7 +9412,9 @@ class MapScene extends Phaser.Scene {
     const idx = Quests.starterStepIndex(this.save);
     el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
     el.querySelector('.title').textContent = step.title;
-    el.querySelector('.body').textContent  = step.body;
+    el.querySelector('.body').textContent = step.event === 'restore'
+      && Inventory.count(this.save, 'rubble') >= this._wreckRestoreCost(null).qty
+      ? 'You have the rocks. Tap a ruined house to repair it while your crop grows.' : step.body;
     this._objectiveStep = step.id;
     el.style.display = this._objectiveAcknowledged === step.id ? 'none' : 'block';
   }
@@ -11335,6 +11344,16 @@ class MapScene extends Phaser.Scene {
     this.syncConsumableButton();
     this.syncEquipButton();
     this.syncFurnitureFlipButton();
+    this.syncSeedButton();
+  }
+
+  syncSeedButton() {
+    const seed = getSelectedSlot(this.save);
+    const existing = document.getElementById('seed-plant-btn');
+    if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) { existing?.remove(); return; }
+    const button = existing || this._hudActionButton('seed-plant-btn', { onClick: () => plantSelectedSeed(this) });
+    button.textContent = 'Till & plant';
+    button.title = 'Prepare soil and plant this seed where you stand';
   }
 
   // Facing belongs to the held preview, never to a fungible inventory stack.

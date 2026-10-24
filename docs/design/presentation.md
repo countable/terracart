@@ -134,7 +134,8 @@ pixels and decorative details do not define additional tap cells.
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
   46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
   white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
-  floats inside the upper map as a Dragon Spirit portrait and speech bubble. Equal responsive
+  floats inside the upper map as a Dragon Spirit portrait and speech bubble. The portrait
+  sits 10 pixels higher beside the tutorial steps; watering has its own step after planting. Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.

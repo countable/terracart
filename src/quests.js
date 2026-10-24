@@ -184,10 +184,10 @@ const Quests = {
 // change castle ownership. This answers "what do I do now?" for a player
 // who just watched the intro, and it retires itself once the loop is learned.
 //
-// The steps trace one full pass of the economy — pick up supplies, till, plant,
+// The steps trace one full pass of the economy — pick up supplies, till and plant, water,
 // rebuild a neighbour, harvest, cash out — in the order the world actually
 // affords them. `restore` sits BEFORE `harvest` on purpose: a fresh crop needs
-// real time to mature, so the player gets something to do with the wood from
+// real time to mature, so the player gets something to do with the stone from
 // the crates while the seed grows, instead of standing over a sprout.
 //
 // Each step is completed by an EVENT fired from the gameplay site that performs
@@ -204,21 +204,21 @@ const STARTER_CHAIN = [
     completion: 'These supplies will help you begin.',
   },
   {
-    id: 's2_till', event: 'till',
-    title: 'Break ground',
-    body: 'Till a patch of grass to make a bed for seeds.',
-    completion: 'Good. The earth is ready.',
+    id: 's2_plant', event: 'plant',
+    title: 'Plant your first seed',
+    body: 'Choose a seed from your bag, stand on grass, then tap Till & plant.',
+    completion: 'Your seed is planted. Now give it some water.',
   },
   {
-    id: 's3_plant', event: 'plant',
-    title: 'Sow a seed',
-    body: 'Choose a seed from your bag and plant it in the tilled soil.',
-    completion: 'Let it take root.',
+    id: 's3_water', event: 'water',
+    title: 'Water your seed',
+    body: 'Tap your planted seed to water it and help it grow.',
+    completion: 'That will help it grow. Let’s mend a house while we wait.',
   },
   {
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
-    body: 'While your crop grows, use your supplies to mend a ruined house.',
+    body: 'Open the nearby rock crate, then use the rocks to repair a ruined house.',
     completion: 'A little more of the neighbourhood is home again.',
   },
   {
@@ -252,7 +252,13 @@ const STARTER_INTRO = {
 Object.assign(Quests, {
   _ss(save) {
     // (Older saves also carry a write-only `done` map here; nothing reads it.)
-    if (!save.starter) save.starter = { step: 0, dismissed: false };
+    if (!save.starter) save.starter = { step: 0, dismissed: false, sequence: 'seed-water' };
+    if (save.starter.sequence !== 'seed-water') {
+      // The old third step awaited planting. Do not strand that player on
+      // watering before they have a crop; later/completed steps keep their index.
+      if (save.starter.step === 2 && !(save.planted || []).length) save.starter.step = 1;
+      save.starter.sequence = 'seed-water';
+    }
     return save.starter;
   },
 

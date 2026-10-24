@@ -30,7 +30,7 @@
     const decl = ['INV_RELIC_ORDER', 'INV_ARMOR_ORDER', 'WEAPON_SLOTS'].map(name =>
       SCENE_SRC.match(new RegExp('const ' + name + ' = [^;]+;'))[0]).join('\n');
     for (const name of ['invEntriesForCat', 'invDisplayEntriesForCat', 'gearEntriesForCat', '_settleInvCatOnBoot',
-      'syncFurnitureFlipButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot', '_equipGear']) {
+      'syncFurnitureFlipButton', 'syncSeedButton', '_hudActionButton', 'selectInvCat', 'buildInventoryDOM', 'refreshInventoryHighlight', 'addToInv', '_finishInventoryChange', '_clampSelSlot', '_equipGear']) {
       const match = SCENE_SRC.match(new RegExp('^  ' + name + '\\([^\\n]*\\) \\{[\\s\\S]*?^  \\}', 'm'));
       assert.truthy(match, `${name} exists`);
       scene[name] = new Function('document', 'persistSave', decl + '\nreturn ({' + match[0] + '})')(document, () => {})[name];

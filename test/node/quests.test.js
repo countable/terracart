@@ -28,7 +28,9 @@ test('starter chain: step ids and events are unique', () => {
 test('starter chain: teaches the loop in a playable order', () => {
   const order = STARTER_CHAIN.map((s) => s.event);
   assert.eq(order.indexOf('chest'), 0, 'supplies come first');
-  assert.lt(order.indexOf('till'), order.indexOf('plant'), 'till before plant');
+  assert.falsy(order.includes('till'), 'tilling and planting are one seed action');
+  assert.lt(order.indexOf('plant'), order.indexOf('water'), 'plant before watering');
+  assert.lt(order.indexOf('water'), order.indexOf('restore'), 'water before repair errand');
   assert.lt(order.indexOf('plant'), order.indexOf('harvest'), 'plant before harvest');
   assert.lt(order.indexOf('harvest'), order.indexOf('sell'), 'harvest before sell');
   // A crop needs real time to mature - the restore step is what fills it.

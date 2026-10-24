@@ -55,7 +55,7 @@
   const crate = (cx, cy, n) => Object.assign(
     { kind: 'chest', id: `chest_start_test_${n}`, crate: true }, cellCentre(cx, cy));
   const STEP = Object.fromEntries(
-    ['chest', 'till', 'plant', 'restore', 'harvest', 'sell'].map(e => [e, { event: e }]));
+    ['chest', 'plant', 'water', 'restore', 'harvest', 'sell'].map(e => [e, { event: e }]));
 
   test('starter arrow: step 1 points at the nearest unopened crate', () => {
     const scene = makeScene({ save: { opened: ['chest_start_test_1'] } });
@@ -99,16 +99,16 @@
     });
   });
 
-  test('starter arrow: "Break ground" points at the plot middle, crates only as a fallback', () => {
+  test('starter arrow: "Plant your first seed" points at the plot middle, crates only as a fallback', () => {
     const plotAt = cellCentre(5, 5);        // top-left cell centre
-    const scene = makeScene({ save: { starterPlotAt: plotAt } });
+    const scene = makeScene({ save: { starterPlotAt: plotAt, inv: [{ id: 'potato_seed', count: 1 }] } });
     withTiles([crate(2, 0, 1)], () => {
-      const g = scene._starterGuidanceGoal(STEP.till);
+      const g = scene._starterGuidanceGoal(STEP.plant);
       assert.eq(g.x, plotAt.x + CELL_M / 2, 'aims at the 2x2 middle (x)');
       assert.eq(g.y, plotAt.y + CELL_M / 2, 'aims at the 2x2 middle (y)');
       // No plot carved (mid-river spawn) → the crate bearing.
       const bare = makeScene();
-      assert.eq(bare._starterGuidanceGoal(STEP.till).id, 'chest_start_test_1',
+      assert.eq(bare._starterGuidanceGoal(STEP.plant).id, 'chest_start_test_1',
         'no plot → nearest crate');
     });
   });
@@ -181,6 +181,28 @@
       const g = scene._starterGuidanceGoal(STEP.harvest);
       assert.eq(g.x, plant.x, 'the crop, not the nearer crate (x)');
       assert.eq(g.y, plant.y, 'the crop, not the nearer crate (y)');
+    });
+  });
+
+  test('starter arrow: watering points at a dry crop before a nearer wet crop', () => {
+    const wet = { ...cellCentre(1, 1), crop: 'potato', stage: 0, watered_t: 123 };
+    const dry = { ...cellCentre(3, 2), crop: 'potato', stage: 0, watered_t: 0 };
+    const scene = makeScene({ save: { planted: [wet, dry] } });
+    withTiles([crate(0, 0, 1)], () => {
+      assert.eq(scene._starterGuidanceGoal(STEP.water), dry);
+    });
+  });
+  test('starter arrow: supplies follow the needed seed or rock, not an unrelated nearer crate', () => {
+    const seed = { ...crate(3, 1, 1), fixedLoot: { id: 'potato_seed', qty: 9 } };
+    const rock = { ...crate(2, 1, 3), fixedLoot: { id: 'rubble', qty: 9 } };
+    const wood = { ...crate(1, 1, 4), fixedLoot: { id: 'wood', qty: 9 } };
+    const scene = makeScene({ save: { inv: [] } });
+    withTiles([wood, rock, seed], () => {
+      assert.eq(scene._starterGuidanceGoal(STEP.chest), seed);
+      assert.eq(scene._starterGuidanceGoal(STEP.plant), seed);
+      assert.eq(scene._starterGuidanceGoal(STEP.restore), rock);
+      scene.save.opened = [rock.id];
+      assert.falsy(scene._starterGuidanceGoal(STEP.restore) === rock, 'opened supply never remains the target');
     });
   });
 

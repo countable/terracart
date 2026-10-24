@@ -127,7 +127,7 @@ ONBOARDING (the first session)
    selling. Reopenable from ☰ "How to play".
  - SPIRIT GUIDANCE: the floating Dragon Spirit dialogue sprite speaks the
    ONE next thing to do in a compact map speech bubble (`quests.js`
-   `STARTER_CHAIN` — open a crate → till → plant → restore a wreck → harvest
+   `STARTER_CHAIN` — open a crate → till and plant → water → restore a wreck → harvest
    → sell at Home). Steps auto-advance on gameplay events fired from the sites
    that perform them (`scene.questEvent`), with a spoken acknowledgement and
    no tutorial coin bonus. Ordinary crate contents and sale proceeds are
@@ -138,16 +138,17 @@ ONBOARDING (the first session)
  - STARTER COMPASS: a light-green rim dot (the tutorial's colour), drawn and
    labelled like every other map-rim bearing, toward
    the ACTIVE step's own space (`app.js` `_starterGuidanceGoal`): the nearest
-   crate, the plot, the soil, a wreck, the crop, Home. When a step needs
+   seed crate, the plot, the dry crop, a wreck, the crop, Home. When a step needs
    something the bag lacks (a seed, the restore price) it points back at the
-   crates. The dot must never lead away from what the Spirit asks for.
- - THE STARTER TRAIL: four supply crates are laid along the walk from spawn to
-   the relic chest, packed into its near part (`starter.js` `TRAIL_SPAN`) so
-   all four are met early. Each stop is in view from the one before. A road
-   near the anchor takes the trail onto its kerb; otherwise it follows a
-   walkable route that bends round water and buildings. Contents run in the LADDER's order of need, nearest first —
-   seeds before the stone and wood a rebuild needs. Crates seat only on legal
-   ground, never the road band or the trailer's moat.
+   crate holding the needed item. The dot must never lead away from what the Spirit asks for.
+ - THE STARTER TRAIL: three supply crates hold nine potato seeds, nine Rock
+   and nine Wood. They follow the near part of the walk from Home to the relic
+   chest (`starter.js` `TRAIL_SPAN`). A nearby road takes the trail onto its
+   kerb; otherwise it follows a walkable route around water and buildings.
+   The Rock crate stays inside the opening screen's circular inset whenever
+   legal ground is available, so Tori can point to repair supplies nearby.
+   Seeds come first along the trail. Seats avoid roads, occupied cells and
+   Home's footing. Stable crate ids preserve opened state after relocation.
  - THE RELIC CHEST: one real treasure chest a screen from spawn, on a cell the
    anchor can walk to, holding ONE random wooden relic — the only thing in the
    opening that hands out a TOOL. Derived from the frozen spawn anchor, so a
@@ -404,16 +405,17 @@ INTERACTION MODEL
    cell it stands in, however tall its art (CLAUDE.md "Coordinates, rendering
    and performance"). Creatures are tapped by their drawn sprite. A tap on any
    building cell routes to that building.
- - the auto-till fallthrough never tills a cell occupied by something, so a
-   near-miss never silently tills under it.
+ - Ordinary map taps never till. The selected seed’s Till & plant action
+   prepares clear ground and plants at the player’s cell.
  - routine actions flash briefly; bigger loot pops are rarity-coloured. Map
    copy and toast tiers: CLAUDE.md ("Dialogs, feedback and teaching").
 
 ================================================================================
 FARMING LOOP
 ================================================================================
- - all farming is tap-driven; tools are implicit (a Hoe only helps).
-     1) tap untilled tillable cell → TILL.
+ - Seeds expose a Till & plant action at the player’s feet; tools are implicit.
+     1) select a seed and press Till & plant on clear soil → prepare the bed
+        and plant that seed in one work action. Ordinary map taps never till.
      2) tap tilled empty cell with a seed selected → PLANT. With no seed
         selected the tap only says so — soil is NEVER un-tilled by tapping
         it. (That toggle existed until Aug 2026 and fired on exactly the tap a
@@ -423,7 +425,11 @@ FARMING LOOP
         (`Crops.STAGE_HOLD_MS`).
      5) tap mature crop → HARVEST: produce, the plant is gone, a chance of a
         bonus seed.
- - any tillable cell (non-water, non-building, unoccupied) can be tilled.
+ - Any tillable cell (non-water, non-building, unoccupied) can be prepared
+   through the seed action. It captures the seed, reserves tilling plus planting
+   energy, and rechecks the target before completion. Cancellation or an invalid
+   target refunds energy without consuming a seed. The shared busy-work guard
+   prevents overlapping this action with house repairs or other manual work.
  - PRODUCE QUALITY IS THE BED'S, AND THE HOE SETS IT. Tilling banks the hoe's
    tier on the cell; planting spends it onto the crop, and quality raises the
    bonus-seed chance and the yield at harvest (`Crops.bedQuality`). A tame

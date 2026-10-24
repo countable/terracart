@@ -1,4 +1,24 @@
 (function () {
+  test('tutorial guidance: planting leads to a distinct watering step before repairs', () => {
+    const save = {};
+    Quests.onStarterEvent(save, 'chest');
+    assert.eq(Quests.starterCurrent(save).event, 'plant');
+    assert.eq(Quests.onStarterEvent(save, 'till'), null, 'preparing soil alone is not planting');
+    Quests.onStarterEvent(save, 'plant');
+    assert.eq(Quests.starterCurrent(save).event, 'water');
+    assert.eq(Quests.onStarterEvent(save, 'restore'), null, 'repair cannot skip watering');
+    Quests.onStarterEvent(save, 'water');
+    assert.eq(Quests.starterCurrent(save).event, 'restore');
+  });
+  test('tutorial guidance: existing planting progress remains actionable and completed tutorials stay complete', () => {
+    const waiting = { starter: { step: 2, dismissed: false } };
+    assert.eq(Quests.starterCurrent(waiting).event, 'plant');
+    Quests.onStarterEvent(waiting, 'plant');
+    assert.eq(Quests.starterCurrent(waiting).event, 'water');
+    assert.truthy(Quests.starterAllDone({ starter: { step: 6 } }));
+    assert.eq(Quests.starterCurrent({ starter: { step: 3 } }).event, 'restore');
+  });
+
   test('tutorial guidance: completing every step preserves the purse and does not introduce coins', () => {
     const scene = { save: { money: 0 }, completed: [], buildInventoryDOM() {},
       _celebrateStarterStep(step) { this.completed.push(step.id); } };

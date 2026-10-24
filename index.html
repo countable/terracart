@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-9093b08b';
+    window.__shellVersion = 'shell-20eab856';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -103,7 +103,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=f7d8cc64" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=fd1f048a" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -587,7 +587,7 @@
       padding-left:54px;min-height:64px;
     }
     #objective .tutorial-spirit {
-      position:absolute;left:-4px;top:5px;width:60px;height:76px;
+      position:absolute;left:-4px;top:-5px;width:60px;height:76px;
       object-fit:contain;image-rendering:pixelated;
       filter:drop-shadow(0 2px 2px #10251bcc) drop-shadow(0 0 5px #dbeab84d);
       animation:tutorial-spirit-float 3.6s ease-in-out infinite;
@@ -3280,7 +3280,7 @@
   <script src="src/rarity.js?v=0f8a8b17"></script>
   <script src="src/loot.js?v=759b31b7"></script>
   <script src="src/macros.js?v=bf577fa0"></script>
-  <script src="src/quests.js?v=a5182540"></script>
+  <script src="src/quests.js?v=6956ea30"></script>
   <script src="src/hidden_objects.js?v=20e79e34"></script>
   <script src="src/push_blocks.js?v=e0527454"></script>
   <script src="src/temple_puzzles.js?v=a09c5625"></script>
@@ -3294,7 +3294,7 @@
   <script src="src/obstacle_step.js?v=ff794c3e"></script>
   <script src="src/visibility.js?v=d44ced3c"></script>
   <script src="src/spawn_ownership.js?v=cb498972"></script>
-  <script src="src/starter.js?v=0944c9aa"></script>
+  <script src="src/starter.js?v=0e17b897"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=8d58779b"></script>
   <script src="src/pirates.js?v=362fddf3"></script>
@@ -3309,7 +3309,7 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=c4be0671"></script>
+  <script src="src/interact.js?v=811972ea"></script>
   <script src="src/play_tips.js?v=4d1075a6"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
   <script src="src/lighting.js?v=0e8fc63e"></script>
@@ -3446,7 +3446,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=f7d8cc64';
+      const APP_SRC = 'src/app.js?v=fd1f048a';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
