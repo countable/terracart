@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Pack approved RA fixture PNGs losslessly; no resampling or alpha cleanup.
 
-Approved source exports are committed beside the resulting atlases. Regenerate
-from any checkout with Python/Pillow; no private review artifacts are required.
+Approved source exports live in extra_assets/inactive with their checksum manifest.
+Regeneration requires that local source archive and Python/Pillow.
 """
 from pathlib import Path
 import hashlib
@@ -11,7 +11,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[2]
 DEST = ROOT / 'assets/ArtTrials/RogueProps/fixtures'
-SOURCE = DEST / 'source'
+SOURCE = ROOT / 'extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source'
 
 
 def read(name):
@@ -66,7 +66,7 @@ def main():
         rows.append(export(key, name, [read(name)], is_image))
     rows.append(export('rogue_elevators', 'elevators', [read('elevator-0'), read('elevator-1')]))
     rows.append(export('shrines', 'shrines', [read('shrine-'+str(n)) for n in range(11)]))
-    original = Image.open(ROOT / 'assets/Objects/Handmade/waystone.png').convert('RGBA')
+    original = Image.open(ROOT / 'extra_assets/inactive/assets/Objects/Handmade/waystone.png').convert('RGBA')
     rows.append(export('waystone', 'waystone', [read('waystone-0'), original.crop((16, 0, 32, 16))]))
     result = dict(assets=rows, notes=[
         'Install only under Rogue Adventure profile; keep all gameplay kind/frame identities.',

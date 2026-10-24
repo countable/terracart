@@ -176,3 +176,24 @@ test('save state: retired data is not converted into current progress', () => {
   assert.eq(Quests.completedCount(save), 0, 'no retired quest progress transfer');
   assert.falsy(save.castlesLegacyOpen);
 });
+
+
+test('save normalization removes retired workbenches without changing other property', () => {
+  const save = { inv: [{ id: 'wood', count: 4 }, { id: 'workbench', count: 2 }], selSlot: 1,
+    furniture: [{ id: 'old', itemId: 'workbench', depth: 0 },
+      { id: 'cave', itemId: 'workbench', depth: 2 },
+      { id: 'bed', itemId: 'bed_quilted', depth: 0 }],
+    restoredHouses: { workshop: 'workshop' } };
+  assert.truthy(SaveState.normalize(save), 'migration requests persistence');
+  assert.eq(save.inv.length, 1);
+  assert.eq(save.inv[0].id, 'wood');
+  assert.eq(save.inv[0].count, 4);
+  assert.eq(save.selSlot, -1);
+  assert.eq(save.furniture.length, 1);
+  assert.eq(save.furniture[0].id, 'bed');
+  assert.eq(save.restoredHouses.workshop, 'workshop');
+  SaveState.normalize(save);
+  assert.eq(save.inv.length, 1, 'migration is idempotent');
+  assert.falsy(ITEM_BY_ID.workbench, 'retired item cannot be generated');
+  assert.falsy(furnitureSpec('workbench'), 'retired furniture cannot be placed');
+});

@@ -6,7 +6,7 @@ neighbours (the Props.png wildplants and the rocks-16 stones). Petnip had
 borrowed a recoloured long-grass tuft; waystones borrowed the plain rock.
 
   assets/Objects/Handmade/petnip.png    16x16, 1 frame
-  assets/Objects/Handmade/waystone.png  32x16, frame 0 dormant, frame 1 lit
+  extra_assets/inactive/assets/Objects/Handmade/waystone.png  32x16, frame 0 dormant, frame 1 lit
 
 Run from the repository root: python3 tools/art/export_petnip_waystone.py
 """

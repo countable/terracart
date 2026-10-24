@@ -29,6 +29,15 @@
   function normalize(save) {
     let needsPersist = false;
     defaults(save);
+    // Retired portable stations cannot remain as unknown bag items or placements.
+    for (const [key, field] of [['inv', 'id'], ['furniture', 'itemId']]) {
+      if (!Array.isArray(save[key])) continue;
+      if (!save[key].some(row => row?.[field] === 'workbench')) continue;
+      save[key] = save[key].filter(row => row?.[field] !== 'workbench');
+      if (key === 'inv') save.selSlot = -1;
+      needsPersist = true;
+    }
+
     if (regrowGrass(save)) needsPersist = true;
     if (Campfires.migrate(save)) needsPersist = true;
     if (typeof ITEM_BY_ID !== 'undefined' && Array.isArray(save.inv) && save.inv.some(row => ITEM_BY_ID[row.id]?.kind === 'animal')) {

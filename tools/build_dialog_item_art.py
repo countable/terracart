@@ -8,6 +8,7 @@ from PIL import Image, ImageChops
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / 'assets/Icons/DialogItems'
+SOURCE = ROOT / 'extra_assets/inactive/assets/Icons/DialogItems/source'
 CELL = 96
 COLUMNS = ROWS = 8
 PADDING = 6
@@ -71,7 +72,7 @@ def build():
     catalog = json.loads((DEST / 'catalog.json').read_text())
     entries, sheets = {}, []
     for number in range(1, 6):
-        source = DEST / 'source' / f'generated-{number:02}.png'
+        source = SOURCE / f'generated-{number:02}.png'
         output = DEST / f'items-{number:02}.png'
         with Image.open(source) as master:
             image = export_master(master)

@@ -10,7 +10,7 @@ import json
 from PIL import Image, ImageDraw, ImageColor
 from build_approved_materials import STEAMPUNK_RAMPS
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'assets/Objects/BuildingMaterials/source/b4-facade'
+OUT = ROOT / 'extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade'
 INK='#32131e'
 BRASS=['#795431','#b98546','#e7c47a']
 WOOD=['#302731','#493529','#735039']
@@ -48,7 +48,7 @@ RAMPS = {'white':['#cfcdc3','#eeeee4','#faf6e9'],
          'wood':WOOD, 'stone':STONE, **STEAMPUNK_RAMPS}
 
 def pp_parts():
-    source=ROOT/'extra_assets/PP Interiors Pack/Exterior set.png'
+    source=ROOT/'extra_assets/Pixel Plains/PP Interiors Pack/Exterior set.png'
     sheet=Image.open(source).convert('RGBA'); result={}; provenance={}
     for name,(rect,size,material) in PP_CROPS.items():
         x,y,w,h=rect; im=sheet.crop((x,y,x+w,y+h)).resize(size,Image.Resampling.NEAREST)
@@ -108,7 +108,7 @@ def pp_parts():
                     for xx in range(-12 if yy%24 else 0,96,24):
                         d.line((xx,yy,xx,yy+11),fill=STONE[0]);d.line((xx+1,yy,xx+22,yy),fill=STONE[3])
         result[name]=im
-        provenance[name]={'source':'extra_assets/PP Interiors Pack/Exterior set.png','crop':rect,'texelSize':list(size),'outputSize':list(im.size),'material':material}
+        provenance[name]={'source':'extra_assets/Pixel Plains/PP Interiors Pack/Exterior set.png','crop':rect,'texelSize':list(size),'outputSize':list(im.size),'material':material}
     return result,provenance
 
 def main():

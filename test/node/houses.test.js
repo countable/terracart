@@ -75,18 +75,18 @@ test('render: each visible house carries one owner-resolved display role', () =>
 
 test('buildOptions: the catalogue unlocks by how many wrecks already stand', () => {
   const from = Object.fromEntries(Houses.BUILD_OPTIONS.map((r) => [r.key, r.from]));
-  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, wizard: 30, blacksmith: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15 }), 'the ladder');
+  assert.eq(JSON.stringify(from), JSON.stringify({ plain: 1, wizard: 30, blacksmith: 2, workshop: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15 }), 'the ladder');
   const mem = (n) => Object.fromEntries(Array.from({ length: n }, (_, i) => ['memory:' + i, 1]));
   const keys = (order, save = { restoredHouses: {}, discovered: {} }) => Houses.buildOptions(save, plainHouse, order).map((r) => r.key).join();
   assert.eq(keys(0), 'plain', 'the first restore is a House and nothing else');
-  assert.eq(keys(1), 'plain,blacksmith:1', 'the second adds the smithy');
-  assert.eq(keys(2), 'plain,blacksmith:1,shop:seed:1,shop:supply:1,shop:potion:1', 'the third adds the available T1 shop lines; Relic starts at T2');
+  assert.eq(keys(1), 'plain,blacksmith:1,workshop', 'the second adds the smithy and workshop');
+  assert.eq(keys(2), 'plain,blacksmith:1,workshop,shop:seed:1,shop:supply:1,shop:potion:1', 'the third adds the available T1 shop lines; Relic starts at T2');
   assert.eq(keys(3), keys(2), 'the fourth adds nothing');
   assert.eq(keys(4), keys(2) + ',trader:1');
   assert.eq(keys(7), keys(4) + ',turret');
   assert.eq(keys(9), keys(7), 'the tenth: still T1 only — ranks climb by memories, not wrecks');
   // Five memories open T2, whatever the restore count.
-  assert.eq(keys(9, { restoredHouses: {}, discovered: mem(5) }), 'plain,blacksmith:1,blacksmith:2,shop:seed:1,shop:seed:2,shop:supply:1,shop:supply:2,shop:potion:1,shop:relic:2,trader:1,trader:2,turret', 'five memories: a card per rank, T2 unlocked');
+  assert.eq(keys(9, { restoredHouses: {}, discovered: mem(5) }), 'plain,blacksmith:1,blacksmith:2,workshop,shop:seed:1,shop:seed:2,shop:supply:1,shop:supply:2,shop:potion:1,shop:relic:2,trader:1,trader:2,turret', 'five memories: a card per rank, T2 unlocked');
   assert.truthy(keys(4, { restoredHouses: {}, discovered: mem(5) }).includes('blacksmith:2'), 'even at the fifth restore');
   assert.truthy(keys(11).endsWith(',turret,petshop'), 'the twelfth: the Pet Shop');
   assert.truthy(keys(14, { restoredHouses: {}, discovered: mem(10) }).includes('shop:seed:3') && keys(14).endsWith(',turret,petshop,bookshop'), 'ten memories: T3; the fifteenth: the Book Shop');
@@ -217,12 +217,12 @@ test('buildTypes: the catalogue grouped by type in table order — a row per ope
   const types = (s = save) => Houses.buildTypes(s, plainHouse).map((t) => t.key);
   assert.eq(types().join(), 'plain', 'the first wreck: a House and nothing else');
   Houses.restoreAs(save, h('h0'), 'plain');
-  assert.eq(types().join(), 'plain,blacksmith', 'the second adds the smithy');
+  assert.eq(types().join(), 'plain,blacksmith,workshop', 'the second adds the smithy and workshop');
   Houses.restoreAs(save, h('h1'), 'blacksmith:1');
-  assert.eq(types().join(), 'plain,blacksmith,shop:seed,shop:supply,shop:potion', 'the third: each shop line is a type; the smithy stays listed though one stands');
+  assert.eq(types().join(), 'plain,blacksmith,workshop,shop:seed,shop:supply,shop:potion', 'the third: each shop line is a type; the smithy stays listed though one stands');
   assert.eq(Houses.restoreAs(save, h('h2'), 'blacksmith:1').role, 'blacksmith', 'a second T1 smithy is just another pick');
   for (let i = 3; i < 8; i++) Houses.restoreAs(save, h('h' + i), 'plain');
-  assert.eq(types().join(), 'plain,blacksmith,shop:seed,shop:supply,shop:potion,trader,turret', 'the ninth: the trader and the turret; nothing rotates, nothing is windowed');
+  assert.eq(types().join(), 'plain,blacksmith,workshop,shop:seed,shop:supply,shop:potion,trader,turret', 'the ninth: the trader and the turret; nothing rotates, nothing is windowed');
   for (const t of Houses.buildTypes(save, plainHouse)) assert.eq(t.ranks.length, 1, `${t.key}: T1 only, a single rank row`);
   // Five memories: a ranked type carries a row per open rank; an unranked type still one.
   for (let i = 0; i < 5; i++) save.discovered['memory:' + i] = 1;
@@ -419,4 +419,20 @@ test('isClaimedKey: Home, a rebuilt wreck, an unsealed fort, a claimed castle', 
   assert.truthy(Houses.isClaimedKey({ unlockedForts: { f1: true } }, 'f1'), 'unsealed fort');
   assert.truthy(Houses.isClaimedKey({ claimedCastles: { c1: 0 } }, 'c1'), 'claimed castle, presence not truthiness');
   assert.falsy(Houses.isClaimedKey({ restoredHouses: { h1: 'trader' } }, 'h2'), 'a different key');
+});
+
+
+test('workshop restoration persists its role and uses the ordinary wreck price', () => {
+  const save = { restoredHouses: {}, discovered: {} };
+  const home = { kind: 'house', tier: 9, id: 'home' };
+  const workshop = { kind: 'house', tier: 9, id: 'workshop' };
+  assert.eq(Houses.restoreAs(save, workshop, 'workshop'), null, 'first restore remains a home');
+  Houses.restoreAs(save, home, 'plain');
+  const row = Houses.buildOptions(save, workshop).find(r => r.key === 'workshop');
+  assert.truthy(row);
+  assert.eq(JSON.stringify(Houses.buildCost(save, workshop, row)), JSON.stringify(Houses.wreckRestoreCost(save, workshop)));
+  assert.eq(Houses.restoreAs(save, workshop, 'workshop').role, 'workshop');
+  assert.eq(Houses.houseShopRole(save, workshop), 'workshop');
+  assert.eq(Shops.roleLabel('workshop'), 'Workshop');
+  assert.eq(Houses.restoreAs(save, workshop, 'plain'), null, 'restored workshop cannot be relabelled');
 });

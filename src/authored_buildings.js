@@ -333,6 +333,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   return RESIDENCES[n%RESIDENCES.length];}
  function recipeFor(role,id,tier=1,wizardSecond=false){
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
+  if(role==='workshop')return {key:'pp_cabin',palette:'green'};
   if(role==='plain'){const key=residenceFor(id);return {key,palette:residencePalette(key)};}
   // First-tier businesses share the white cottage; color and emblem identify the trade.
   const shopPalette=role==='blacksmith'?'slate':role==='trader'?'green':SHOP_ROOFS[role];
@@ -349,7 +350,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   if(caches.has(scene.textures))return;
   const models=new Map(),variants=new Map(),emblems=new Map();
   for(const key of RESIDENCES){const palette=residencePalette(key);variants.set(key+':'+palette,{key,palette});}
-  for(const role of ['home','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
+  for(const role of ['home','workshop','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
    if(r.emblem)emblems.set(r.emblem,r);
   }

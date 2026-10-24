@@ -413,19 +413,17 @@ pixels and decorative details do not define additional tap cells.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
-- Home, workbenches and brewing share `_presentRecipePicker` for discovery,
+- Workshops and brewing share `_presentRecipePicker` for discovery,
   selection and capacity, above `_presentRecipeOffer` transactions.
-  `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
-  workbench (three Wood and one Rubble). Every former Home recipe, including
-  the starter-known Spear, belongs at a placed workbench. A station with
-  several known recipes opens on `showPickGridModal`: every recipe as an icon
-  card (green when it can be made now), scrolling when long, with the station
-  controls (a workbench's ghost Pick up, Home's or Brewing's tabs) above it. A
-  card opens that recipe's counter, whose ‹ Back (`back`) returns to the grid;
-  a station with one known recipe opens its counter directly. Lists may scroll;
-  a counter never pages or splits its ingredients from Craft — the ingredient
-  list and actions stay pinned. Recheck the station before spending and
-  reopen the same workbench and selected recipe after crafting.
+  `HOME_RECIPES.station` assigns crafting recipes to restored Workshops.
+  Workshop is available from the second restoration and uses the ordinary
+  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell.
+  The portable workbench is removed; loading old saves removes its inventory
+  stacks and placed records. The starter-known Spear and all ingredient and
+  discovery requirements are unchanged. Several known recipes open an icon
+  grid; one known recipe opens its counter directly. A card's Back returns
+  to the grid. Recheck the workshop's restored role before spending and
+  reopen the same workshop and selected recipe after crafting.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
@@ -439,7 +437,7 @@ pixels and decorative details do not define additional tap cells.
   no confirmation chain or auto-selection of a spell. Inventory labels mark
   borrowed quantities. Returns at any Book Club preserve spell cooldowns.
 - Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
-  recipes, using the same ingredient counts and picker as workbench crafting, plus a
+  recipes, using the same ingredient counts and picker as workshop crafting, plus a
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
@@ -605,7 +603,7 @@ pixels and decorative details do not define additional tap cells.
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
 - A repeat offer (an offer with `repeat`: a stall counter, the smelter,
-  Home Sell / Craft, a workbench) reopens over the map, hiding its own toasts. The
+  Home Sell, a Workshop) reopens over the map, hiding its own toasts. The
   confirmation lives in the dialog: an explicit `receipt` line, or else
   the `flashLoot` / `flash` toasts its accept raised, captured by
   `showOfferModal` and reprinted as the reopened dialog's status line.

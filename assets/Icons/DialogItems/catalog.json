@@ -1,29 +1,5 @@
 [
   {
-    "id": "workbench",
-    "name": "Tinker's Workbench",
-    "kind": "furniture",
-    "sheet": "furniture_icons",
-    "frame": 0,
-    "source": "assets/Objects/Furniture/furniture-icons-16.png",
-    "crop": [
-      0,
-      0,
-      16,
-      16
-    ],
-    "badge": null,
-    "referenceSheet": 2,
-    "referenceCell": 0,
-    "pixelHash": "c45cc426aae5bd8c50a628c9306edfa6e4f5b14a5421b0db468980d40f05f3ab",
-    "outputCrop": [
-      0,
-      0,
-      96,
-      96
-    ]
-  },
-  {
     "id": "bed_quilted",
     "name": "Quilted Cot",
     "kind": "furniture",

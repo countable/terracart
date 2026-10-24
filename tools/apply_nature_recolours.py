@@ -15,14 +15,14 @@ from PIL import Image
 from playwright.async_api import async_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
-DEST = ROOT / 'assets/Objects/Rustic'
+DEST = ROOT / 'extra_assets/inactive/assets/Objects/Rustic'
 SOURCES = {
-    'default-grass': ('assets/Objects/Wilderness/Props.png', (160, 0, 16, 16)),
-    'default-mushroom': ('assets/Objects/Wilderness/Props.png', (208, 0, 16, 16)),
-    'default-bush': ('assets/Objects/Wilderness/bushes.png', (48, 0, 48, 32)),
-    'default-tree': ('assets/Objects/Tree.png', (64, 0, 32, 48)),
-    'default-clay-pot': ('assets/Objects/Generated/pot.png', (0, 0, 16, 16)),
-    'broken-clay-pot': ('assets/Objects/Generated/pot_smashed.png', (0, 0, 16, 16)),
+    'default-grass': ('extra_assets/inactive/assets/Objects/Wilderness/Props.png', (160, 0, 16, 16)),
+    'default-mushroom': ('extra_assets/inactive/assets/Objects/Wilderness/Props.png', (208, 0, 16, 16)),
+    'default-bush': ('extra_assets/inactive/assets/Objects/Wilderness/bushes.png', (48, 0, 48, 32)),
+    'default-tree': ('extra_assets/inactive/assets/Objects/Tree.png', (64, 0, 32, 48)),
+    'default-clay-pot': ('extra_assets/inactive/assets/Objects/Generated/pot.png', (0, 0, 16, 16)),
+    'broken-clay-pot': ('extra_assets/inactive/assets/Objects/Generated/pot_smashed.png', (0, 0, 16, 16)),
 }
 
 
@@ -32,7 +32,7 @@ async def main():
     recipes = plan['defaults'] + [c for c in plan['variants'] if c['id'] == 'broken-clay-pot']
     sources = dict(SOURCES)
     for stage in range(2):
-        sources[f'tree-stage-{stage}'] = ('assets/Objects/Tree.png', (stage * 32, 0, 32, 48))
+        sources[f'tree-stage-{stage}'] = ('extra_assets/inactive/assets/Objects/Tree.png', (stage * 32, 0, 32, 48))
     originals, canvases = {}, []
     for ident, (path, (x, y, w, h)) in sources.items():
         original = Image.open(ROOT / path).convert('RGBA').crop((x, y, x+w, y+h))
@@ -62,7 +62,7 @@ async def main():
         assert image.getchannel('A').tobytes() == originals[ident].getchannel('A').tobytes()
         images[ident] = image
     DEST.mkdir(parents=True, exist_ok=True)
-    props = Image.open(ROOT / 'assets/Objects/Wilderness/Props.png').convert('RGBA')
+    props = Image.open(ROOT / 'extra_assets/inactive/assets/Objects/Wilderness/Props.png').convert('RGBA')
     props.paste(images['default-grass'], (160, 0))
     props.paste(images['default-mushroom'], (35 % 22 * 16, 35 // 22 * 16))
     props.save(DEST / 'Props.png')

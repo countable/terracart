@@ -824,7 +824,7 @@
     "method": "Nearest-neighbor packing with a transparent frame border; detached neighboring-cell fragments excluded",
     "originals": "<enemy-id>-source.png",
     "references": [
-      "assets/Enemy/spr_big_monsters_spritesheet.png",
+      "extra_assets/inactive/assets/Enemy/spr_big_monsters_spritesheet.png",
       "assets/Enemy/Brute/1Fullsheet_Brute.png"
     ],
     "validation": "Six 256x128 RGBA sheets; 192 nonempty frames; transparent frame borders"

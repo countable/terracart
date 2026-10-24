@@ -1,7 +1,7 @@
 {
   "tool": "Built-in imagegen",
   "references": [
-    "assets/Enemy/spr_big_monsters_spritesheet.png",
+    "extra_assets/inactive/assets/Enemy/spr_big_monsters_spritesheet.png",
     "assets/Enemy/Brute/1Fullsheet_Brute.png"
   ],
   "prompts": {

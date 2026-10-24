@@ -14,7 +14,7 @@
   "assets": [
     {
       "name": "steam-home",
-      "original": "assets/Objects/AuthoredBuildings/steam-home.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/steam-home.png",
       "file": "steam-home.png",
       "size": [
         1086,
@@ -34,7 +34,7 @@
     },
     {
       "name": "steam-wizard",
-      "original": "assets/Objects/AuthoredBuildings/steam-wizard.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/steam-wizard.png",
       "file": "steam-wizard.png",
       "size": [
         768,
@@ -44,7 +44,7 @@
     },
     {
       "name": "city-storefront",
-      "original": "assets/Objects/AuthoredBuildings/city-storefront.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-storefront.png",
       "file": "city-storefront.png",
       "size": [
         1254,
@@ -54,7 +54,7 @@
     },
     {
       "name": "city-gearhouse",
-      "original": "assets/Objects/AuthoredBuildings/city-gearhouse.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-gearhouse.png",
       "file": "city-gearhouse.png",
       "size": [
         887,
@@ -104,7 +104,7 @@
     },
     {
       "name": "com_houses_05",
-      "original": "assets/Objects/AuthoredBuildings/com_houses_05.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/com_houses_05.png",
       "file": "com_houses_05.png",
       "size": [
         1138,
@@ -124,7 +124,7 @@
     },
     {
       "name": "wizard",
-      "original": "assets/Objects/AuthoredBuildings/wizard.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/wizard.png",
       "file": "wizard.png",
       "size": [
         1555,
@@ -134,7 +134,7 @@
     },
     {
       "name": "city-factory",
-      "original": "assets/Objects/AuthoredBuildings/city-factory.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-factory.png",
       "file": "city-factory.png",
       "size": [
         1254,
@@ -144,7 +144,7 @@
     },
     {
       "name": "city-clock",
-      "original": "assets/Objects/AuthoredBuildings/city-clock.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-clock.png",
       "file": "city-clock.png",
       "size": [
         887,
@@ -154,7 +154,7 @@
     },
     {
       "name": "city-chimney",
-      "original": "assets/Objects/AuthoredBuildings/city-chimney.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-chimney.png",
       "file": "city-chimney.png",
       "size": [
         887,
@@ -164,7 +164,7 @@
     },
     {
       "name": "dreamland-house",
-      "original": "assets/ArtTrials/DreamlandObjects/house.png",
+      "original": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/house.png",
       "file": "dreamland-house.png",
       "size": [
         957,
@@ -174,7 +174,7 @@
     },
     {
       "name": "dreamland-wide",
-      "original": "assets/ArtTrials/DreamlandObjects/house-wide.png",
+      "original": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/house-wide.png",
       "file": "dreamland-wide.png",
       "size": [
         1512,

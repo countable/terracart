@@ -308,7 +308,6 @@ class SceneFurniture {
     }
     if (ability === 'reflect') { this._presentFurnitureReflect(record); return true; }
     if (ability === 'plant') { this.flashAtPlayer('Select a seed; tap the planter.'); return true; }
-    if (ability === 'craft') { this.presentWorkbench(record); return true; }
     return false;
   }
 
@@ -402,35 +401,10 @@ class SceneFurniture {
     return true;
   }
 
-  presentWorkbench(o, targetId = null) {
-    const record = this._placedFurniture(o);
-    if (!record || furnitureSpec(record.itemId).ability !== 'craft') return false;
-    const sx = this.scale?.width / 2 || 0, sy = this.scale?.height / 2 || 0;
-    this._presentRecipePicker(sx, sy, {
-      recipes: HOME_RECIPES.filter(r => r.station === 'workbench'), targetId,
-      present: id => this.presentWorkbench(record, id),
-      kind: 'craft', kindLabel: itemName(record.itemId),
-      kindIcon: this.iconSpanHTML(record.itemId, 32),
-      acceptLabel: 'Craft', costLabel: 'Ingredients',
-      topAction: { label: 'Pick up', onClick: () => this.pickupFurniture(record) },
-      validate: () => {
-        if (this._placedFurniture(record)) return true;
-        this.flashAtPlayer('Place a workbench first.');
-        return false;
-      },
-      onCraft: rec => {
-        this._finishInventoryChange();
-        this.flashLoot(`✨ ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id);
-      },
-    });
-    return true;
-  }
-
   presentFurniture(o) {
     const record = this._placedFurniture(o);
     if (!record) return false;
     const item = ITEM_BY_ID[record.itemId], spec = furnitureSpec(record.itemId);
-    if (spec.ability === 'craft') return this.presentWorkbench(record);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('furniture-modal', {
       kind: 'use', kindLabel: 'Furniture', kindIcon: this.iconSpanHTML(item.id, 32),
       art: false, onClose: () => {},

@@ -26,7 +26,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 10,
           "rect": [
             160,
@@ -103,7 +103,7 @@
       "current": [
         {
           "key": "bushes",
-          "path": "assets/Objects/Rustic/bush.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/bush.png",
           "frame": 0,
           "rect": [
             0,
@@ -152,7 +152,7 @@
         "recolourMode": "bush-foliage",
         "preserveLuminance": false,
         "candidate": {
-          "path": "assets/Objects/Wilderness/bushes.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/bushes.png",
           "rect": [
             48,
             0,
@@ -165,7 +165,7 @@
         "name": "Clipped hedge",
         "usage": "Cut hedge for manicured roads and formal planting; shared shrub mechanics.",
         "candidate": {
-          "path": "assets/Objects/Generated/hedge_end.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/hedge_end.png",
           "rect": [
             0,
             0,
@@ -191,7 +191,7 @@
       "current": [
         {
           "key": "trees",
-          "path": "assets/Objects/Rustic/trees.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/trees.png",
           "frame": 1,
           "rect": [
             32,
@@ -203,7 +203,7 @@
         },
         {
           "key": "trees",
-          "path": "assets/Objects/Rustic/trees.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/trees.png",
           "frame": 2,
           "rect": [
             64,
@@ -215,7 +215,7 @@
         },
         {
           "key": "trees",
-          "path": "assets/Objects/Rustic/trees.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/trees.png",
           "frame": 3,
           "rect": [
             96,
@@ -278,7 +278,7 @@
       "current": [
         {
           "key": "pine_tree",
-          "path": "assets/Objects/Wilderness/Pine Tree.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Pine Tree.png",
           "frame": 3,
           "rect": [
             96,
@@ -340,7 +340,7 @@
       "current": [
         {
           "key": "birch_tree",
-          "path": "assets/Objects/Wilderness/Birch Tree.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Birch Tree.png",
           "frame": 3,
           "rect": [
             96,
@@ -401,7 +401,7 @@
       "current": [
         {
           "key": "mahogany_tree",
-          "path": "assets/Objects/Wilderness/Mahogany Tree.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Mahogany Tree.png",
           "frame": 3,
           "rect": [
             96,
@@ -462,7 +462,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 168,
           "rect": [
             48,
@@ -474,7 +474,7 @@
         },
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 169,
           "rect": [
             64,
@@ -486,7 +486,7 @@
         },
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 170,
           "rect": [
             80,
@@ -498,7 +498,7 @@
         },
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 171,
           "rect": [
             96,
@@ -543,7 +543,7 @@
         "usage": "Stone Garden only; the existing rock silhouettes and yields stay unchanged.",
         "candidate": {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 171,
           "rect": [
             96,
@@ -576,7 +576,7 @@
       "current": [
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "frame": 40,
           "rect": [
             64,
@@ -588,7 +588,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             112,
             64,
@@ -654,7 +654,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 35,
           "rect": [
             208,
@@ -731,7 +731,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 127,
           "rect": [
             272,
@@ -743,7 +743,7 @@
         },
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 128,
           "rect": [
             288,
@@ -798,7 +798,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 76,
           "rect": [
             160,
@@ -866,7 +866,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 34,
           "rect": [
             192,
@@ -934,7 +934,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 0,
           "rect": [
             0,
@@ -996,7 +996,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 1,
           "rect": [
             16,
@@ -1058,7 +1058,7 @@
       "current": [
         {
           "key": "apple_tree",
-          "path": "assets/Objects/Wilderness/Apple Tree.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Apple Tree.png",
           "frame": 4,
           "rect": [
             128,
@@ -1141,7 +1141,7 @@
       "current": [
         {
           "key": "shell_sheet",
-          "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+          "path": "extra_assets/inactive/assets/Icons/Fish/Sea/Creatures/Shell.png",
           "frame": 0,
           "rect": [
             0,
@@ -1153,7 +1153,7 @@
         },
         {
           "key": "shell_sheet",
-          "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+          "path": "extra_assets/inactive/assets/Icons/Fish/Sea/Creatures/Shell.png",
           "frame": 1,
           "rect": [
             16,
@@ -1165,7 +1165,7 @@
         },
         {
           "key": "shell_sheet",
-          "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+          "path": "extra_assets/inactive/assets/Icons/Fish/Sea/Creatures/Shell.png",
           "frame": 2,
           "rect": [
             32,
@@ -1201,7 +1201,7 @@
       "current": [
         {
           "key": "flint",
-          "path": "assets/Objects/Generated/flint.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/flint.png",
           "frame": 0,
           "rect": [
             0,
@@ -1254,7 +1254,7 @@
       "current": [
         {
           "key": "tar",
-          "path": "assets/Objects/Generated/tar.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/tar.png",
           "frame": 0,
           "rect": [
             0,
@@ -1403,7 +1403,7 @@
       "current": [
         {
           "key": "stakes",
-          "path": "assets/Objects/Generated/stakes_a.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/stakes_a.png",
           "frame": 0,
           "rect": [
             0,
@@ -1446,7 +1446,7 @@
         "usage": "Burned Row street variant only (5% major-road assignment share before placement filters).",
         "candidate": {
           "key": "stakes",
-          "path": "assets/Objects/Generated/stakes_a.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/stakes_a.png",
           "frame": 0,
           "rect": [
             0,
@@ -1526,7 +1526,7 @@
       "current": [
         {
           "key": "barrel",
-          "path": "assets/Objects/Generated/barrel.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/barrel.png",
           "frame": 0,
           "rect": [
             0,
@@ -1596,7 +1596,7 @@
       "current": [
         {
           "key": "clay_pot",
-          "path": "assets/Objects/Rustic/pot.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/pot.png",
           "frame": 0,
           "rect": [
             0,
@@ -1608,7 +1608,7 @@
         },
         {
           "key": "clay_pot_smashed",
-          "path": "assets/Objects/Rustic/pot_smashed.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/pot_smashed.png",
           "frame": 0,
           "rect": [
             0,
@@ -1664,7 +1664,7 @@
       "current": [
         {
           "key": "box",
-          "path": "assets/Objects/Wilderness/Box_Single_16x16.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Box_Single_16x16.png",
           "frame": 0,
           "rect": [
             0,
@@ -1717,7 +1717,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 30,
           "rect": [
             128,
@@ -1785,7 +1785,7 @@
       "current": [
         {
           "key": "chest",
-          "path": "assets/Objects/Gold Chest.png",
+          "path": "extra_assets/inactive/assets/Objects/Gold Chest.png",
           "frame": 0,
           "rect": [
             0,
@@ -1878,7 +1878,7 @@
       "current": [
         {
           "key": "bike_rack",
-          "path": "assets/Objects/Generated/bike_rack.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/bike_rack.png",
           "frame": 0,
           "rect": [
             0,
@@ -1985,7 +1985,7 @@
       "current": [
         {
           "key": "torch",
-          "path": "assets/Objects/Wilderness/torch.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/torch.png",
           "frame": 0,
           "rect": [
             0,
@@ -1996,7 +1996,7 @@
         },
         {
           "key": "torch",
-          "path": "assets/Objects/Wilderness/torch.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/torch.png",
           "frame": 1,
           "rect": [
             16,
@@ -2007,7 +2007,7 @@
         },
         {
           "key": "torch",
-          "path": "assets/Objects/Wilderness/torch.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/torch.png",
           "frame": 2,
           "rect": [
             32,
@@ -2018,7 +2018,7 @@
         },
         {
           "key": "torch",
-          "path": "assets/Objects/Wilderness/torch.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/torch.png",
           "frame": 3,
           "rect": [
             48,
@@ -2186,7 +2186,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 2,
           "rect": [
             32,
@@ -2305,7 +2305,7 @@
       "current": [
         {
           "key": "worldpeach_tree",
-          "path": "assets/Objects/Wilderness/Peach Tree.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Peach Tree.png",
           "frame": 3,
           "rect": [
             96,
@@ -2368,7 +2368,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 3,
           "rect": [
             48,
@@ -2426,7 +2426,7 @@
       "current": [
         {
           "key": "driftwood",
-          "path": "assets/Objects/Generated/driftwood.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/driftwood.png",
           "frame": 0,
           "rect": [
             0,
@@ -2492,7 +2492,7 @@
       "current": [
         {
           "key": "props",
-          "path": "assets/Objects/Rustic/Props.png",
+          "path": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
           "frame": 102,
           "rect": [
             224,
@@ -2560,7 +2560,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 5,
           "rect": [
             80,
@@ -2618,7 +2618,7 @@
       "current": [
         {
           "key": "mineralrock",
-          "path": "assets/Objects/Wilderness/stone with minerals.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
           "frame": 6,
           "rect": [
             96,
@@ -2680,7 +2680,7 @@
       "current": [
         {
           "key": "bottle",
-          "path": "assets/Objects/Generated/bottle.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/bottle.png",
           "frame": 0,
           "rect": [
             0,
@@ -2733,7 +2733,7 @@
       "current": [
         {
           "key": "vista_scope",
-          "path": "assets/Objects/Generated/scope.png",
+          "path": "extra_assets/inactive/assets/Objects/Generated/scope.png",
           "frame": 0,
           "rect": [
             0,
@@ -2793,7 +2793,7 @@
       "current": [
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "frame": 22,
           "rect": [
             64,
@@ -2858,7 +2858,7 @@
       "current": [
         {
           "key": "scarecrow",
-          "path": "assets/Objects/Scarecrow_16x16.png",
+          "path": "extra_assets/inactive/assets/Objects/Scarecrow_16x16.png",
           "rect": [
             0,
             0,
@@ -2897,7 +2897,7 @@
       "current": [
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             0,
@@ -2909,7 +2909,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             16,
@@ -2921,7 +2921,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             32,
@@ -2933,7 +2933,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             80,
@@ -2945,7 +2945,7 @@
         },
         {
           "key": "springcrops",
-          "path": "assets/Objects/Spring Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Spring Crops.png",
           "rect": [
             64,
             80,
@@ -2957,7 +2957,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             112,
@@ -2969,7 +2969,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             128,
@@ -2981,7 +2981,7 @@
         },
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             144,
@@ -2993,7 +2993,7 @@
         },
         {
           "key": "springcrops",
-          "path": "assets/Objects/Spring Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Spring Crops.png",
           "rect": [
             64,
             16,
@@ -3005,7 +3005,7 @@
         },
         {
           "key": "springcrops",
-          "path": "assets/Objects/Spring Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Spring Crops.png",
           "rect": [
             64,
             48,
@@ -3017,7 +3017,7 @@
         },
         {
           "key": "springcrops",
-          "path": "assets/Objects/Spring Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Spring Crops.png",
           "rect": [
             64,
             112,
@@ -3058,7 +3058,7 @@
       "current": [
         {
           "key": "crops",
-          "path": "assets/Objects/Crops.png",
+          "path": "extra_assets/inactive/assets/Objects/Crops.png",
           "rect": [
             64,
             48,

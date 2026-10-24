@@ -79,7 +79,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
 });
 
 (function () {
-  function furnitureScene(itemId = 'workbench') {
+  function furnitureScene(itemId = 'bed_quilted') {
     const scene = new SceneFurniture();
     scene.depth = 0;
     scene.save = { inv: [], selSlot: -1, furniture: [

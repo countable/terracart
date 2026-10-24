@@ -38,7 +38,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // until then a fixed opening run and the OSM address digit decided). The
   // cards unlock by how many wrecks already stand, in the order a player can
   // use them: the first rebuild offers only a House, the second adds the
-  // Blacksmith, the third a Shop, the fifth a Trader, the eighth a Turret;
+  // Blacksmith and Workshop, the third a Shop, the fifth a Trader, the eighth a Turret;
   // the Book Shop is on offer from the fifteenth (once), the Wizard Tower from
   // the thirtieth, and his second tower from the fifty-second once the first
   // stands and 21 memories are home (MemoryStory LEAVE_MEMORIES — the first
@@ -48,7 +48,7 @@ const FORT_UNLOCK_WOOD_STEP = 6;
   // 2nd rebuild may be a Blacksmith"); `earlyMending` and `childHome` are the
   // story's restoration-count gates (memory_story.js).
   const STORY_RESTORES = Object.freeze({
-    house: 1, blacksmith: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15,
+    house: 1, blacksmith: 2, workshop: 2, shop: 3, trader: 5, turret: 8, petshop: 12, bookshop: 15,
     firstTower: 30, secondTower: 52, earlyMending: 2, childHome: 1,
   });
   // Old unstamped saves retain the tower identities their original schedule
@@ -108,6 +108,8 @@ const FORT_UNLOCK_WOOD_STEP = 6;
         // the wooden tools come from nowhere else. Any number may stand.
         suggested: (s) => tier === 1 && !hasBlacksmith(s),
       })) },
+    { key: 'workshop', role: 'workshop', from: STORY_RESTORES.workshop, art: 'kind_craft',
+      blurb: 'The repaired workshop is ready. Craft tools, supplies and remembered scrolls here.' },
     { key: 'shop', role: 'shop', ranked: true, from: STORY_RESTORES.shop, art: 'restore_market',
       blurb: 'A family opens the shop shutters again. ',
       variants: (save) => Shops.THEMES.flatMap((theme) => ranks(save)

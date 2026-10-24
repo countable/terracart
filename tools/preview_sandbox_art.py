@@ -49,7 +49,7 @@ def plan(reserve):
     ground = {str(r['terrainId']):r['proposedColor'] for r in json.loads((ROOT/'docs/art/map-audit-ground.json').read_text())['rows'] if 'terrainId' in r and r.get('proposedColor')}
     buildings=json.loads((ROOT/'docs/art/map-building-preview.json').read_text())
     ground.update(buildings['claimed']['floors'])
-    hedge=raster(dict(path='assets/Objects/Generated/hedge_end.png',rect=[0,0,16,16]),reserve)
+    hedge=raster(dict(path='extra_assets/inactive/assets/Objects/Generated/hedge_end.png',rect=[0,0,16,16]),reserve)
     bush=next(row for row in sprites if row['id']=='shrub')
     hedge_choice=next(row for row in json.loads((ROOT/'docs/art/map-audit-interactables.json').read_text())['rows'] if row['id']=='shrub')['zoneVariant']
     hedge.update(palette=bush['palette'],strength=hedge_choice.get('recolourStrength',bush['strength']),mode=hedge_choice.get('recolourMode',bush['mode']))

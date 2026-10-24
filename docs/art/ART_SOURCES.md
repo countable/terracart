@@ -1,11 +1,18 @@
 # Art sources
 
-Keep original paintings and unused sprite packs outside the checkout. Only
-runtime exports and inputs required by repository tools belong in `assets/`.
+`assets/` contains the art used by the active Rogue runtime profile. Superseded
+profiles, unused exports, and offline generator inputs live under
+`extra_assets/inactive/`, preserving their original paths (for example,
+`extra_assets/inactive/assets/Objects/Furniture/source/`). Generator output
+still goes into `assets/`; generator inputs point into the archive.
+`docs/art/inactive-art-manifest.json` records moved files and SHA-256 hashes.
+The local `extra_assets` library is ignored by Git; preserve it when backing up
+art. Runtime play does not need it. Rebuilding art requires the relevant inputs.
 
-The default archive is `~/.artifacts/terracart-art/`. Set `TERRACART_ART_ROOT`
-to an absolute path to use another location. Python preview tools also accept
-`--reserve-root` for the unused-pack directory.
+The earlier painting-master archive remains at `~/.artifacts/terracart-art/`.
+Set `TERRACART_ART_ROOT` to an absolute path to use another master location.
+Python preview tools also accept `--reserve-root` for that unused-pack directory.
+Its existing contents are:
 
 - `approved-story-art/`: approved full-resolution story masters.
 - `story-style-references/`: unchanged approved visual references.
@@ -98,7 +105,7 @@ stay upright as the compass turns. See the geometry in
 
 ## Map chest tiers
 
-`assets/Objects/Approved/chest-tiers.png` is the approved seven-frame 112×16
+`extra_assets/inactive/assets/Objects/Approved/chest-tiers.png` is the approved seven-frame 112×16
 map sheet. Frames 0–6 are Wood, Copper, Iron, Gold, lavender-Platinum, Crimson
 and Frost. Load the authored colors directly; do not recolor the first frame
 at runtime. Ordinary T1 supplies still use crates through `chestLook`.
@@ -125,7 +132,7 @@ The final masters, prompts and runtime hashes are recorded in
 
 ## Book-reading page
 
-`assets/art/book_page.webp` is the blank half-book background for live reading
+`extra_assets/inactive/assets/art/book_page.webp` is the blank half-book background for live reading
 text; the library list and non-book scenes keep their existing paintings.
 The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
 `book-reading.png` beside it records the panel composition.

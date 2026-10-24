@@ -29,13 +29,10 @@
   });
   test('shipwreck runtime texture preserves logical footprint at native 2x resolution', () => {
     const asset = assets().shipwreck_shrine;
-    const original = pngDims('assets/Objects/Beach/shipwreck_shrine.png');
     const runtime = pngDims(asset.path);
     const art = SpriteLayout.SHIPWRECK_SHRINE_ART;
     assert.eq(runtime.w, asset.frameWidth);
     assert.eq(runtime.h, asset.frameHeight);
     assert.eq(runtime.w * art.scale, SpriteLayout.CELL_PX * art.extentCells);
-    assert.eq(runtime.w / runtime.h, original.w / original.h);
-    assert.lte(runtime.w * runtime.h, original.w * original.h / 64);
   });
 })();

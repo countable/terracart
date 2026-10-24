@@ -711,7 +711,7 @@
         "mystic_reef",
         "shellwater_strand"
       ],
-      "source": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+      "source": "extra_assets/inactive/assets/Icons/Fish/Sea/Creatures/Shell.png",
       "frames": [
         0,
         1,

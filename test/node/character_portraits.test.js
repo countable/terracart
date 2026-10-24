@@ -1,16 +1,12 @@
 // Portrait selection follows gameplay identity without asking Phaser for pixels.
-test('character portraits: every portrait ships as an 80px square and sheets have sixteen cells', () => {
+test('character portraits: every active portrait ships as an 80px square', () => {
   for (const id of [...CharacterPortraits.PET_IDS, ...CharacterPortraits.NPC_IDS]) {
     const size = pngDims(`assets/portraits/${id}.png`);
     assert.truthy(size, id);
     assert.eq(size.w, CharacterPortraits.CELL_PX, id);
     assert.eq(size.h, CharacterPortraits.CELL_PX, id);
   }
-  for (const sheet of ['pets', 'npcs-1', 'npcs-2']) {
-    const size = pngDims(`assets/portraits/${sheet}.png`);
-    assert.eq(size.w, 320, sheet);
-    assert.eq(size.h, 320, sheet);
-  }
+
 });
 
 test('character portraits: speech bubbles draw the face at its cell size with pixelated edges', () => {

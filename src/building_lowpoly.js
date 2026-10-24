@@ -41,6 +41,7 @@
     // Home — the player's house (building_overlay.js drawHome): one storey of
     // plaster under a clay ridge, and the one role with an `interior` recipe.
     home:{window:'casement',material:'plaster',finish:'cottage',roofMaterial:'clay',stories:1,style:'multistorey',variant:'ridge'},
+    workshop:{window:'woodShutters',material:'timber',finish:'siding',roofMaterial:'slate',stories:1,style:'whitewash',variant:'ridge'},
     blacksmith:{window:'woodShutters',material:'stone',finish:'workshop',roofMaterial:'slate',stories:1,style:'brick',smoke:true,chimneyFlare:1.12},
     trader:{window:'slateShutters',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},
     shop:{window:'shop',material:'plaster',finish:'plaster',roofMaterial:'flat',stories:2,style:'multistorey',terraced:true},

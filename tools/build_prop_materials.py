@@ -9,10 +9,10 @@ import json
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'assets/Objects/LowPolyProps'
+OUT = ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps'
 SIZE, STRIDE, PAD, COLS = 256, 20, 2, 8
 SOURCES = {'crate': 'assets/Objects/SelectedProps/box.png',
-           'rock': 'assets/Objects/Rocks/rocks-16.png'}
+           'rock': 'extra_assets/inactive/assets/Objects/Rocks/rocks-16.png'}
 
 def opaque_crop(image, box, stone=False):
     crop = image.crop(box)
