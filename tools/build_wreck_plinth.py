@@ -2,7 +2,7 @@
 """Build the wreck atlas from the approved Foundation v2 option B materials."""
 from pathlib import Path
 import argparse
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser(description=__doc__)
@@ -43,18 +43,33 @@ rng = random_values(87)
 for i in range(18):
     x, y = int(next(rng) * 240), int(next(rng) * 180)
     w, h = 10 + int(next(rng) * 22), 6 + int(next(rng) * 12)
-    shade = (89, 82, 70, 128) if i % 2 else (100, 92, 78, 128)
+    # Grime and worn areas expose more of the underlying terrain. Keep the
+    # variation broad and low contrast, with no fine noise or hard patch edges.
+    shade = (87, 79, 67, 100) if i % 2 else (98, 90, 76, 60 + i % 4 * 10)
+    if i % 2:
+        shade = tuple(round(v * .8) for v in shade[:3]) + (shade[3],)
     draw.polygon([(x-w, y-h//2), (x-w//2, y-h), (x+w//2, y-h),
                   (x+w, y), (x+w//2, y+h), (x-w//2, y+h)], fill=shade)
+floor = floor.filter(ImageFilter.GaussianBlur(2))
+# Adjust only the background before compositing the stone scatter.
+r, g, b, alpha = floor.split()
+floor = Image.merge('RGBA', (
+    r.point(lambda v: round(v * .8)),
+    g.point(lambda v: round(v * .8)),
+    b.point(lambda v: round(v * .8)),
+    alpha.point(lambda v: min(255, round(round(v * 1.2) * 1.2))),
+))
 
 # These are restrained mixtures of the wall cap, mortar and brown ground.
-# All options keep the brown background exactly 128/255 (50%, byte-rounded).
+# Untouched ground stays 185/255 (73%); the broad worn patches are translucent.
 styles = {
     'quiet': (90, 2, 4, [(151, 139, 117, 185), (130, 118, 99, 170), (100, 90, 75, 150)]),
     'buried': (65, 3, 6, [(132, 121, 102, 145), (120, 109, 92, 145), (105, 95, 80, 145)]),
     'worn': (35, 2, 5, [(145, 133, 112, 165), (126, 115, 96, 155), (104, 94, 79, 145)]),
 }
 count, lo, hi, palette = styles[args.ground_style]
+# Only the painted chips brighten; raised masonry uses the untouched atlas top.
+palette = [tuple(min(255, round(v * 1.2)) for v in rgba) for rgba in palette]
 rng = random_values(126)
 scatter = Image.new('RGBA', floor.size)
 draw = ImageDraw.Draw(scatter)
@@ -70,6 +85,15 @@ floor.alpha_composite(scatter)
 # Its outline remains geometry-owned; the atlas supplies only the material.
 floor = floor.crop((46, 40, 191, 137)).resize((384, 384), Image.Resampling.NEAREST)
 atlas.paste(floor, (0, 128))
+# Shared border mask: one repeating strip replaces individual dash geometry.
+# White RGB lets the renderer tint the border independently of the wall palette.
+dash = Image.new('RGBA', (66, 8), (255, 255, 255, 0))
+draw = ImageDraw.Draw(dash)
+for start, end in [(0, 7), (13, 18), (26, 34), (39, 45), (52, 56)]:
+    draw.rectangle((start + 1, 0, end, 7), fill='white')
+# Left padding repeats pixel63 (transparent); right repeats pixel0 (opaque).
+draw.rectangle((65, 0, 65, 7), fill='white')
+atlas.paste(dash, (399, 136))
 ImageDraw.Draw(atlas).rectangle((508, 124, 511, 127), fill='white')
 atlas.save(OUT)
 print(OUT)

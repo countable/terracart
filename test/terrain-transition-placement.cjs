@@ -28,7 +28,7 @@ function draw(ring,stride,index,x,y,options={}){
 function coverage(vertices,family){
   const stride=7,ring=new Int8Array(stride*stride).fill(15);
   for(const [x,y]of vertices)ring[y*stride+x]=family;
-  const points=[];
+  const visible=new Map();
   for(let y=0;y<stride-1;y++)for(let x=0;x<stride-1;x++){
     // Each lookup sees a reconstructed world halo, including cells across a tile seam.
     const index=y*stride+x;
@@ -38,14 +38,13 @@ function coverage(vertices,family){
     assert.deepEqual(acrossSeam.map(s=>[s.key,s.frame,s.x,s.y]),sprites.map(s=>[s.key,s.frame,s.x,s.y]),
       'reconstructed tile/row halos preserve frame choice and placement');
     for(const s of sprites){
-      if(Math.floor(s.frame/16)!==family)continue;
       for(let py=0;py<16;py++)for(let px=0;px<16;px++){
         const alpha=atlas.data[((Math.floor(s.frame/16)*16+py)*atlas.w+s.frame%16*16+px)*4+3];
-        if(alpha)points.push([s.x+px+.5,s.y+py+.5]);
+        if(alpha)visible.set((s.x+px)+','+(s.y+py),{family:Math.floor(s.frame/16),point:[s.x+px+.5,s.y+py+.5]});
       }
     }
   }
-  return points;
+  return [...visible.values()].filter(pixel=>pixel.family===family).map(pixel=>pixel.point);
 }
 for(const [name,vertices,cx,cy]of[
   ['isolated',[[1,1]],24,24],
