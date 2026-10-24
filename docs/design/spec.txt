@@ -158,6 +158,89 @@ ONBOARDING (the first session)
    weapon and an empty bag; a pest on the tutorial plot interrupts the ladder
    rather than teaching a fight. A spawn rule, not a cull, baked at tile build.
 
+--------------------------------------------------------------------------------
+PLANNED ONBOARDING REVISION: a deliberate first walk
+--------------------------------------------------------------------------------
+ Status: approved direction to implement; the current ladder described above
+ still runs through harvest and selling. This section owns the replacement
+ sequence. It also changes Tilly's first move-in, the starter chicken's arrival,
+ the first road prize, and combat while deliberately unarmed.
+
+ The opening teaches gathering, growing and rebuilding, then gives those acts
+ a human payoff. The Spirit guides one action at a time through step 5. After
+ that, the world introduces animals, weapons and danger through exploration.
+
+ 1. PICK UP ITEMS. Lead the player to nearby supplies and have them collect
+    something. Opening a supply crate and taking its contents can teach this;
+    merely opening the inventory does not complete the step. Keep seeds and
+    restoration materials available before their respective lessons need them.
+ 2. PLANT AND WATER. Guide planting, then watering as two distinct actions.
+    Complete this lesson after the planted crop is watered. The crop keeps
+    growing while the player does other things; harvesting and selling no
+    longer hold up the introduction.
+ 3. RESTORE A WRECK. Point to a nearby wreck that can become a home for Tilly,
+    with enough accessible supplies to finish it. Let restoration complete
+    before introducing the next instruction: speak to Tilly.
+ 4. TILLY MOVES IN WHEN SPOKEN TO. After the restoration, Tilly thanks the
+    player in conversation and moves into that restored home. This is the
+    visible payoff for rebuilding. For this first move-in, talking replaces
+    the ordinary delivery requirement and automatic delayed assignment.
+    Restoring alone must not silently house her before the conversation.
+ 5. MENTION ROADS, THEN END THE TUTORIAL. After Tilly moves in, the Spirit
+    briefly mentions repairing roads if the player has not already repaired
+    any. If they have, acknowledge their progress instead of asking again.
+    End guidance here without requiring road repair or another objective.
+ 6. THE CHICKEN WANDERS IN. Only after the tutorial ends, bring the starting
+    chicken into view from outside the screen. Leave the player to discover
+    feeding and catching through the existing animal interactions. Catching
+    it is optional and never gates exploration or the first road reward.
+ 7. FIRST ROAD REPAIR REWARD: CHOOSE A WEAPON. The player's first earned road
+    milestone offers exactly three fixed choices: a starting Sword, Bow or
+    Staff, at the starting tier (Wood). Grant only the selected weapon and
+    autoequip it through the normal equipment flow. Later road prizes keep
+    their normal reward rules. Preserve earned road progress: if this prize
+    arrives early, retain the choice until the opening guidance and chicken
+    arrival have had their turn. Never require the player to catch the chicken.
+    Manual weapon unequip means the player stops attacking, including the
+    automatic bare-handed melee fallback. Keep that choice through ticks,
+    inventory refreshes and reloads; normal explicit equip and new-weapon
+    autoequip still work. This lets a player approach and catch a slime without
+    killing it. Unequipping does not make enemies passive.
+ 8. A THIEF IN THE NEXT WRECK. Place an authored thief encounter in a wreck
+    just outside the starting zone, on a reachable onward route. Keep it out
+    of the gathering, crop and Tilly lessons. Present it after the weapon
+    choice so the player encounters danger with a way to respond. Reuse the
+    ordinary thief's theft and combat behaviour; entering the wreck remains
+    an exploration choice, not another tutorial task.
+
+ Sequencing and implementation contract:
+ - Use saved action milestones and one pending introduction at a time, rather
+   than elapsed-time scripts. Advance from actual collection, planting,
+   watering, restoration and Tilly conversation events. Acknowledgement may
+   finish before the next instruction appears.
+ - Players may act ahead. Recognize completed actions when their lesson comes
+   up instead of requiring a second crop, wreck or road repair. Reserve a
+   suitable restored home for Tilly until her conversation completes move-in.
+ - Separate hiding guidance from finishing it. Dismissing a bubble must not
+   strand the chicken or subsequent encounters. Hard mode and explicitly
+   skipped tutorials bypass the lessons and release the later introductions.
+ - Persist arrivals, the pending weapon choice and encounter identity so a
+   reload or tile rebuild cannot duplicate a chicken, reward or thief. Older
+   completed tutorials stay complete; already-claimed road prizes are not
+   granted again.
+ - Existing owners: quests.js / scene.questEvent for lesson progress;
+   starter.js for starter placements and arrivals; npc.js / memory_story.js
+   for Tilly's conversation and housing; trail.js / rewards.js for the first
+   road prize; app.js / combat.js for equipped and unarmed attack behaviour;
+   the existing authored encounter and spawn rules for the thief. Extend
+   these systems instead of running a second tutorial alongside them.
+
+ Verification when implemented: walk a fresh save through all eight beats;
+ repeat with early road repair, actions done ahead, dismissed/skipped guidance,
+ a reload before Tilly's conversation and during the weapon choice, and tile
+ rebuilds after each arrival. Check all three weapon choices autoequip, manual
+ unequip stops attacks, re-equipping resumes them, and catching remains optional.
+
 ================================================================================
 CORE
 ================================================================================
