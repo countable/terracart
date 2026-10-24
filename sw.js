@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-08cd1530';
+const SHELL_VERSION = 'shell-0fa6e3bb';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -668,7 +668,7 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/source/painterly-tileset-v1.png": "528ca2a1",
   "assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png": "d3d5415a",
   "assets/Objects/BuildingMaterials/wreck-floor-cel.png": "8a303ad2",
-  "assets/Objects/Castle/FDR/atlas.png": "1b3a670d",
+  "assets/Objects/Castle/FDR/atlas.png": "6050c667",
   "assets/Objects/Castle/FDR/floor.png": "3c5de081",
   "assets/Objects/Castle/tower_master.png": "195b2576",
   "assets/Objects/Castle/tower_ruin_master.png": "42d55bee",
@@ -1152,7 +1152,7 @@ const ASSET_HASHES = {
   "assets/art/shrine_waystone.webp": "a3469fa3",
   "assets/art/shrine_wishing_well.webp": "a880c80f",
   "assets/art/story_ayo_arrival.webp": "879abc27",
-  "assets/art/story_compass.webp": "14eb2290",
+  "assets/art/story_compass.webp": "0f16f4e9",
   "assets/art/story_compass_frame2.webp": "4c9e1536",
   "assets/art/story_dragon_hunters_arrive.webp": "06db0f57",
   "assets/art/story_nightmare.webp": "18322b9d",

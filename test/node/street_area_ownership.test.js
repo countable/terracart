@@ -6,7 +6,8 @@
   const name = (() => {
     for (let i = 0; i < 2000; i++) {
       const s = `Orchard Lane ${i}`;
-      if (StreetVariants.variantFor(StreetVariants.streetKey(s, tx, ty), s, 'minor')) return s;
+      const row = StreetVariants.VARIANT_BY_ID[StreetVariants.variantFor(StreetVariants.streetKey(s, tx, ty), s, 'minor')];
+      if (row && !row.baseline) return s;
     }
     throw new Error('no special street');
   })();
@@ -34,10 +35,10 @@
     assert.eq(WorldGen.variantOwnerAt({ streetArea: r.streetArea, zone }, owned[0]), 'zone');
   });
 
-  test('plain road has no special street reservation', () => {
+  test('service roads own their variant corridor too', () => {
     const r = WorldGen.rasterizeTile(layers(null), N, tx, ty, tileEdgeM);
-    assert.falsy(r.streetArea.some(Boolean));
-    assert.eq(WorldGen.variantOwnerAt(r, 16 * N + 16), null);
+    assert.truthy(r.streetArea.some(Boolean));
+    assert.eq(WorldGen.variantOwnerAt(r, 16 * N + 16), 'road');
   });
 
   test('corridor covers horizontal and diagonal verges without sample gaps', () => {
@@ -91,10 +92,10 @@
     for (const r of [west1, east1, west2, east2]) {
       assert.truthy(r.streetArea.some(Boolean), 'a clipped street retains its compact themed corridor');
       assert.eq(r.streetIndex.lines[0].variant, west1.streetIndex.lines[0].variant, 'same theme in both tiles and build orders');
-      for (const rec of r.streetIndex.dressingLines) {
+      for (const rec of r.streetIndex.dressingLines.filter(rec => !rec.baselineGap)) {
         assert.lte(Streets.lineLengthM(rec.line, seamEdgeM / E), StreetVariants.MAX_VARIANT_LENGTH_M);
       }
-      assert.truthy(StreetVariants.lineParts(r.streetIndex.lines[0], seamEdgeM / E).some(part => !part.variant), 'plain gaps separate the patches');
+      assert.truthy(StreetVariants.lineParts(r.streetIndex.lines[0], seamEdgeM / E).some(part => StreetVariants.VARIANT_BY_ID[part.variant]?.baseline), 'ordinary variants separate the special patches');
     }
     // A short road wholly inside a tile still receives its rolled theme.
     const contained = WorldGen.rasterizeTile(layers(name), N, tx, ty, tileEdgeM);

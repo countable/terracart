@@ -39,7 +39,7 @@ Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
-entrance wall, its roof material in roof space, and source texels for
+entrance wall (0.2 units proud of it, clear of the facade's depth), its roof material in roof space, and source texels for
 fascia and ridge beams. FDR gables repeat native stone and timber at facade
 texel density, with a continuous native timber crossbeam tying the upper-storey
 posts together below the gables; their ridge rise is capped at the native half-depth (24 texels)

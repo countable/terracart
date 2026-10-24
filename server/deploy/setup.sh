@@ -75,11 +75,14 @@ Group=terracart
 WorkingDirectory=/opt/terracart/server
 Environment=PORT=8787
 Environment=NODE_ENV=production
+Environment=GEOMETRY_CACHE_DIR=/var/lib/terracart/geometry
+EnvironmentFile=-/etc/terracart/geometry.env
+StateDirectory=terracart
 ExecStart=/usr/bin/node index.js
 Restart=always
 RestartSec=2
 
-# Hardening: the relay holds no state and writes no files.
+# Only the persistent StateDirectory is writable under ProtectSystem.
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true

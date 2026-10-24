@@ -143,7 +143,7 @@
         budget[0] += range[0]; budget[1] += range[1];
       }
       roadCache.set(id, Object.freeze({ id, owner: 'road', fauna: weightedRows(mix),
-        faunaBudget: Object.freeze(budget), haunting: id === 'pilgrim' }));
+        faunaBudget: Object.freeze(budget), haunting: row.haunting === true || id === 'pilgrim' }));
     }
     return roadCache.get(id);
   }

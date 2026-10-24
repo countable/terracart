@@ -101,6 +101,12 @@ plus pan/zoom. It checks perimeter coverage, screen-vertical height and retained
 geometry, and captures screenshots for corner and occlusion review. It also
 checks the baked tower-base alpha for every material in both restoration states.
 
+Castle atlas treatment has a small source-pack-independent test:
+`python3 test/fdr_castle_assets_test.py`. It checks reduced masonry contrast,
+retained mean colour and alpha, brighter top materials, and unchanged decals.
+`fdr_castles.test.js` checks one discrete mid-height shade per full structure,
+continuous UV phase through that boundary, and stable tint under rotation.
+
 ## GPU lighting prototype
 
 `gpu_lighting.test.js` checks backend selection, cached texture revisions and

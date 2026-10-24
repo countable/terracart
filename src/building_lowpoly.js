@@ -1713,7 +1713,9 @@
       for(const [l,r,u0,u1] of parts)emit([at(l*d,0),at(r*d,0),at(r*d,H),at(l*d,H)],[[u0,F.v+F.rows],[u1,F.v+F.rows],[u1,F.v],[u0,F.v]],'wall',dir);
       if(i===g.entranceEdge){const D=skin.door,W=skin.spec.right-skin.spec.left;
         const center=F.period?len/2:sourceFacadeSlices(skin.spec,len).center,from=Math.max(0,Math.min(len-D.w,F.period?center-D.w/2:center+W/2-(D.u-skin.spec.left)-D.w));
-        if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+nx,y:p.y+ny}),z0=D.bottom*d,z1=z0+D.h*d;
+        // The door stands 0.2 clear of its wall, as the flat shops' overlays
+        // do: at 0.1 it z-fought the facade on a phone, flickering in place.
+        if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+2*nx,y:p.y+2*ny}),z0=D.bottom*d,z1=z0+D.h*d;
           emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});
           if(emblem?.sign){
             const width=6,gap=1.5,doorLeft=from*d,doorRight=(from+D.w)*d;

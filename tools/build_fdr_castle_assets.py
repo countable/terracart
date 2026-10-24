@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export the approved warm FDR castle textures without generated imagery."""
+"""Export subdued FDR castle masonry from the approved native source crops."""
 import argparse
 import hashlib
 import json
@@ -56,6 +56,27 @@ def padded(tile, wrap_x, wrap_y):
     return result
 
 
+
+# Only the castle atlas is treated; the separately exported ground paving keeps
+# its native pixels. Compression preserves average stone colour and pixel detail.
+MASONRY_SLOTS = {2, 3, 7, 8, 9, 10, 11, 12}
+SKY_SLOTS = {2, 4, 7, 8, 12}
+CONTRAST, SKY_LIFT = 0.60, 0.07
+
+
+def treatment(tile, slot):
+    contrast = CONTRAST if slot in MASONRY_SLOTS else 1
+    lift = SKY_LIFT if slot in SKY_SLOTS else 0
+    pixels = list(tile.getdata())
+    opaque = [p for p in pixels if p[3]]
+    average = [sum(p[i] for p in opaque) / len(opaque) for i in range(3)]
+    result = Image.new('RGBA', tile.size)
+    result.putdata([tuple(round((average[i] + (p[i] - average[i]) * contrast) * (1 - lift)
+                              + 255 * lift) for i in range(3)) + (p[3],) if p[3] else p
+                    for p in pixels])
+    return result, dict(contrast=contrast, skyLift=lift)
+
+
 def build(out):
     out.mkdir(parents=True, exist_ok=True)
     source = Image.open(SOURCE).convert('RGBA')
@@ -67,7 +88,8 @@ def build(out):
         native = (floor_source if name == 'floor' else source).crop((x, y, x + w, y + h))
         if name == 'floor':
             native.save(out / 'floor.png')
-        tile = native.resize(normalized, Image.Resampling.NEAREST) if normalized else native
+        tile, paint = treatment(native, slot)
+        tile = tile.resize(normalized, Image.Resampling.NEAREST) if normalized else tile
         wrap_x, wrap_y = slot in (3, 4, 10), slot in (3, 4)
         ox, oy = slot % 4 * SLOT, slot // 4 * SLOT
         atlas.paste(padded(tile, wrap_x, wrap_y), (ox, oy))
@@ -75,7 +97,7 @@ def build(out):
                          sourceRect=list(rect), normalizedSize=list(tile.size),
                          atlasContentRect=[ox + PAD, oy + PAD, CONTENT, CONTENT],
                          gutterX='wrap' if wrap_x else 'clamp', gutterY='wrap' if wrap_y else 'clamp',
-                         alphaRange=list(native.getchannel('A').getextrema())))
+                         alphaRange=list(native.getchannel('A').getextrema()), treatment=paint))
     # Shared retained renderer samples its untextured triangles at (500, 500).
     atlas.paste((255, 255, 255, 255), (496, 496, 504, 504))
     atlas.save(out / 'atlas.png')
@@ -86,8 +108,8 @@ def build(out):
                            license='extra_assets/16x16/Fantasy Dreamland World/License.txt'),
             'floor': dict(path=str(FLOOR_SOURCE.relative_to(ROOT)), sha256=digest(FLOOR_SOURCE)),
         },
-        processing='Source crops, nearest-neighbour scaling and padded atlas packing only; no generated imagery or recoloring.',
-        palette='Warm native palette; condition tint is applied by the renderer.',
+        processing='Source crops with mean-preserving masonry contrast compression, a modest sky-facing material lift, nearest-neighbour scaling and padded atlas packing; no generated imagery.',
+        palette='Warm source-derived palette; the renderer applies condition tint and one lower-half wall shade band.',
         atlas=dict(size=[SIZE, SIZE], slotSize=SLOT, padding=PAD, contentSize=CONTENT,
                    whitePatch=[496, 496, 8, 8], unusedSlots='Transparent'),
         materials=rows,
