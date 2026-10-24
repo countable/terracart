@@ -1470,27 +1470,22 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // TOTAL road restored in small type under it (Trail.totalMetres through
 // Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
-// The STATUS ROW (_buildStatusRow / _syncStatusRow): statuses, buffs and
-// timers as small chips in a right-aligned column under the top HUD row —
-// the money / energy row's own anchor, one chip height plus a gap down. Each
-// chip's ink and bg come from its owning row (Conditions.DEFINITIONS,
-// Buffs.KINDS); only a row with an action accepts pointer events.
-// Dimmed with the HUD chips while a dialog is up, hidden with them while the
-// page boots. While the objective chip shows, _syncStatusRow seats the row
-// under it instead (an inline top). The compass skin (css/compass_hud.css,
-// body.compass-hud) seats the row on the footer plate instead — left of the
-// joystick, under the zoom slider, off the round map — and the objective
-// bubble never moves it there.
+// Statuses, buffs and timers occupy a fixed three-column grid at the top.
+// The wrapper has no padding or hit area; only actionable chips take taps.
+// CSS owns placement so objectives and changing chip text never move the row.
 const STATUS_ROW_CSS = `
 #status-row {
   position: fixed;
   top: calc(8px + env(safe-area-inset-top, 0px) + var(--hud-chip-h) + 6px);
-  right: calc(var(--phone-right, 0px) + 10px);
-  display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
-  z-index: 7; pointer-events: none;
+  left: calc(var(--phone-left, 0px) + 64px);
+  right: calc(var(--phone-right, 0px) + 88px);
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start; gap: 4px; padding: 0; margin: 0;
+  z-index: 10; pointer-events: none;
 }
 #status-row .status-chip {
-  white-space: nowrap; padding: 3px 7px; border-radius: 6px;
+  min-width: 0; white-space: normal; overflow-wrap: anywhere;
+  padding: 3px 7px; border-radius: 6px; pointer-events: none;
   font: 700 11px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
@@ -1499,7 +1494,7 @@ const STATUS_ROW_CSS = `
   pointer-events: auto; cursor: pointer; border: 1px solid currentColor;
   min-height: 32px; padding: 6px 10px;
 }
-body.modal-open #status-row { opacity: 0.25; }
+body.modal-open #status-row { visibility: hidden; }
 body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
 `;
@@ -4473,7 +4468,7 @@ class MapScene extends Phaser.Scene {
   }
 
   // THE STATUS ROW — every status, buff and timer on the player, as chips
-  // under the top HUD row (#status-row, STATUS_ROW_CSS; built by
+  // at the top centre (#status-row, STATUS_ROW_CSS; built by
   // _buildStatusRow): first the conditions (the rows of
   // Conditions.DEFINITIONS the player carries, in table order — label, time
   // left and the drain it levies now, in the row's ink on its bg), then every running timed effect
@@ -4487,21 +4482,6 @@ class MapScene extends Phaser.Scene {
   _syncStatusRow() {
     const row = this.statusRowEl;
     if (!row) return;
-    // The objective chip (#objective, the starter ladder) hangs under the
-    // same HUD row, full width: while it shows, the status row seats under
-    // IT. Its bottom is read back only when what decides it changes (the
-    // chip's display, its text, a dialog hiding it, a resize) — a rect read
-    // every frame would force a layout every frame.
-    // The compass skin seats the row on the footer plate (css/compass_hud.css);
-    // the objective bubble over the map never re-seats it there.
-    const obj = document.getElementById('objective');
-    const shown = obj && obj.style.display !== 'none' && !this._dialogOpen()
-      && !document.body.classList.contains('compass-hud');
-    const seatKey = shown ? `${obj.textContent}|${window.innerWidth}x${window.innerHeight}` : '';
-    if (this._statusRowSeat !== seatKey) {
-      this._statusRowSeat = seatKey;
-      row.style.top = shown ? `${Math.round(obj.getBoundingClientRect().bottom) + 6}px` : '';
-    }
     const chips = [];
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
       if (!Conditions.active(this.save, id)) continue;
@@ -4557,7 +4537,7 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // The row itself, under the HUD row's right edge (its CSS in
+  // The row itself, at the top centre (its CSS in
   // STATUS_ROW_CSS, injected once like the road chip's). Built in create()
   // beside the other chips; _syncStatusRow fills it.
   _buildStatusRow() {
@@ -4572,7 +4552,6 @@ class MapScene extends Phaser.Scene {
     el.replaceChildren();
     this.statusRowEl = el;
     this._statusRowDOM = null;
-    this._statusRowSeat = null;
   }
 
   // ── Fire on the body ──────────────────────────────────────────────────────
