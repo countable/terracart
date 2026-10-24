@@ -2874,6 +2874,25 @@
     } catch {}
   }
 
+  // Read-modify-write within one transaction so concurrent tabs cannot lose
+  // each other's geometry children in a shared z14 aggregate.
+  async function idbMergeGeometry(parentKey, childKey, fc) {
+    try {
+      const db = await openIDB();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('tiles', 'readwrite'), store = tx.objectStore('tiles');
+        const read = store.get(parentKey); let value;
+        read.onsuccess = () => {
+          value = { ...(read.result || {}), [childKey]: fc };
+          store.put(value, parentKey);
+        };
+        tx.oncomplete = () => resolve(value);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } catch (_) { return null; }
+  }
+
   // --- External map data caching -------------------------------------------
   // The OpenFreeMap MVT bytes for a tile are cached in IndexedDB and served
   // from there FOREVER. Age never invalidates anything: once the bytes are
@@ -7396,6 +7415,7 @@
   }
   function* injectTileBinSteps(entry, bin, x, y) {
     if (!bin) return;
+    entry._geometryRevision = bin._geometryRevision || '';
     let _yi = 0;
     // One yield per 256 rows of any loop below (the label names the stream).
     const tick = (label) => ((_yi++) & 255) === 255 ? label : null;
@@ -7447,6 +7467,17 @@
       if (isSensitivePoi({ class: r.poiClass, name: r.name })) continue;
       if (r.poiClass === POI_GATE_CLASS) { if (r.lix != null && r.liy != null) gateCells.push({ ix: r.lix, iy: r.liy }); continue; }
       binChests.push(r);
+    }
+    // Successful observations (including empty ones) replace only ambient tree
+    // fill in their covered cells. Authored variants and player trees retain ownership.
+    if (bin._geometryCoverage?.length) {
+      entry.objects = entry.objects.filter(o => {
+        if (o.kind !== 'tree' || o.placed || o.planted || o.playerOwned ||
+            !(o._yardTree || /^(tree_|ptree_)/.test(o.id || ''))) return true;
+        const c = _sxCell(o.x, o.y);
+        if (_sxReserved(c.ix, c.iy)) return true;
+        return !bin._geometryCoverage.some(b => c.ix + 0.5 >= b[0] && c.ix + 0.5 < b[2] && c.iy + 0.5 >= b[1] && c.iy + 0.5 < b[3]);
+      });
     }
     const sx = {
       chests: _sxRows(binChests), trees: _sxRows(bin.trees),
@@ -7653,7 +7684,7 @@
     }
     // DeepForest crowns may replace road dressing, but Nexus coverage owns
     // every cell. Older cached bins predate the explicit source flag.
-    const detectedTree = t => t._treeSource === 'deepforest' ||
+    const detectedTree = t => t._treeSource === 'gemini' || t._treeSource === 'deepforest' ||
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
     const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
       !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
@@ -7705,17 +7736,17 @@
       return null;
     };
     const allTrees = [...sx.trees, ...sx.fruittrees]
-      .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+      .sort((a, b) => Number(b._treeSource === 'gemini') - Number(a._treeSource === 'gemini') || (b.crown_m || 0) - (a.crown_m || 0));
     for (const t of allTrees) {
       { const y1 = tick('bin trees'); if (y1) yield y1; }
       const detected = detectedTree(t);
-      if (detected && !DEEPFOREST_TREES_ENABLED) continue;
+      if (detected && t._treeSource !== 'gemini' && !DEEPFOREST_TREES_ENABLED) continue;
       const r = placeTree(t.x, t.y, detected);
       if (!r) continue;
       occupied.add(r.key);
       fixedCells.add(r.iy * cpe + r.ix);
       if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
-      if (detected) t._treeSource = 'deepforest';
+      if (detected && t._treeSource !== 'gemini') t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
       // Use the settled cell's habitat, including a tree relocated off an
       // occupied cell. Authored zones already win through _sxReserved above.
@@ -7969,7 +8000,9 @@
               // OSM trees have none → fall back to the seeded random species.
               // The WORLD's species: softwood-near-home is a per-player overlay
               // (HomeArea.applySoftwood, app.js), never baked into a bin.
-              species: TREE_SPECIES.includes(props.species) ? props.species
+              species: props.source === 'gemini' && props.tree_type === 'conifer' ? 'pine'
+                : props.source === 'gemini' && props.tree_type === 'broadleaf' ? 'maple'
+                : TREE_SPECIES.includes(props.species) ? props.species
                 : TREE_SPECIES[seed % TREE_SPECIES.length],
               // An OSM tree is named by its osm_id; a detection (no id) is
               // named by the cell it SETTLES on, at injection (loadTile).
@@ -7977,7 +8010,8 @@
               // DeepForest crown diameter (metres) + discrete size class + sampled
               // crown colour → sprite size / tint in render.js. Undefined for OSM
               // trees, which fall back to the flat species scale and no tint.
-              _treeSource: props.score != null ? 'deepforest' : undefined,
+              _treeSource: props.source === 'gemini' ? 'gemini' : props.score != null ? 'deepforest' : undefined,
+              treeSpeciesFixed: props.source === 'gemini' && ['conifer', 'broadleaf'].includes(props.tree_type),
               crown_m: props.crown_m,
               size: props.size === 'bush' ? 'small' : props.size,
               crown_color: props.crown_color,
@@ -8001,7 +8035,8 @@
               // Named by osm_id when it has one, else by its settled cell at
               // injection (loadTile) — see the tree row above.
               id: osmId ? `ft_osm_${osmId}` : undefined,
-              _treeSource: props.score != null ? 'deepforest' : undefined,
+              _treeSource: props.source === 'gemini' ? 'gemini' : props.score != null ? 'deepforest' : undefined,
+              treeSpeciesFixed: props.source === 'gemini' && ['conifer', 'broadleaf'].includes(props.tree_type),
               crown_m: props.crown_m,
               size: props.size,
               wild: true,            // mature & fruiting (vs a planted sapling)
@@ -8389,7 +8424,7 @@
   // isn't cached yet, we kick the fetch (to fill IDB for next time) and return
   // null now, so this load renders the MVT base immediately. Decoration shows
   // up on the next load of the tile (revisit / reset), served from cache.
-  async function getTileBin(x, y, lat) {
+  async function getBaseTileBin(x, y, lat) {
     const sx = await ensureSatextract(lat);
     const stat = sx && sx.get(`${x}_${y}`);
     if (stat) { ovpNote(x, y, 'static', stat); return stat; }
@@ -8406,6 +8441,56 @@
       }
     }
     return null;   // not cached yet; caller must call warmOverpass() to schedule the fetch
+  }
+
+  let _geometryClient = null;
+  function geometryClient() {
+    if (typeof Geometry === 'undefined' || !Geometry.enabled() || typeof Multiplayer === 'undefined') return null;
+    return _geometryClient || (_geometryClient = Geometry.createClient({
+      origin: () => Multiplayer.httpUrl(), get: idbGet, put: idbPut, merge: idbMergeGeometry,
+    }));
+  }
+  async function getTileBin(x, y, lat) {
+    const base = await getBaseTileBin(x, y, lat);
+    const client = geometryClient();
+    if (!client) return base;
+    let observations, geometryRevision;
+    try {
+      const aggregate = await client.readParent(x, y);
+      observations = Object.values(aggregate);
+      geometryRevision = Geometry.revision(aggregate);
+    } catch (_) { return base; }
+    if (!observations.length) return base;
+    const merged = { ...(base || emptyBin()) };
+    const features = observations.flatMap(fc => fc.features.filter(f => f.geometry?.type === 'Point' && f.properties?.source === 'gemini' && f.properties.kind === 'tree'));
+    const trees = buildBinsFromGeoJSON({ features }, lat).get(`${x}_${y}`)?.trees || [];
+    const N = cellsPerEdgeForTile(y);
+    merged._geometryRevision = geometryRevision;
+    merged._geometryCoverage = observations.map(fc => {
+      const [w, south, east, north] = fc.coverage.bbox;
+      const nw = lonLatToWorldPx(w, north, Z), se = lonLatToWorldPx(east, south, Z);
+      return [(nw.x / TILE_PX - x) * N, (nw.y / TILE_PX - y) * N,
+        (se.x / TILE_PX - x) * N, (se.y / TILE_PX - y) * N];
+    });
+    const covered = t => merged._geometryCoverage.some(b => t.lix + 0.5 >= b[0] && t.lix + 0.5 < b[2] && t.liy + 0.5 >= b[1] && t.liy + 0.5 < b[3]);
+    merged.trees = [...trees, ...(base?.trees || []).filter(t => !covered(t))];
+    merged.fruittrees = (base?.fruittrees || []).filter(t => !covered(t));
+    return merged;
+  }
+  async function warmGeometry(lon, lat, frameLat) {
+    const client = geometryClient();
+    if (!client) return false;
+    await client.warm(lon, lat);
+    const tile = Geometry.tileAt(lon, lat), x = Math.floor(tile.x / 16), y = Math.floor(tile.y / 16);
+    const revision = Geometry.revision(await client.readParent(x, y));
+    if (!revision) return false;
+    let entry = cacheFor(0).get(tileKey(x, y));
+    if (entry?.status === 'loading' && entry.promise) {
+      try { await entry.promise; } catch (_) { return false; }
+      entry = cacheFor(0).get(tileKey(x, y));
+    }
+    if (!entry || entry._geometryRevision === revision) return false;
+    return rebuildTileWithBin(x, y, frameLat);
   }
 
   // ── THE LIVE PRIVATE-GROUND VETO (Sep 2026) — per-player things ONLY ──────
@@ -8564,7 +8649,18 @@
   //
   // (The build has no cross-tile dedup to confuse with the live entry any
   // more — ownership is decided per tile from its own data; see loadTile.)
+  const _binRebuilds = new Map();
   async function rebuildTileWithBin(x, y, lat) {
+    const key = tileKey(x, y);
+    // Each queued rebuild reads the latest aggregate. A late Overpass rebuild
+    // cannot overwrite the Geometry rebuild (or vice versa) with stale content.
+    const previous = _binRebuilds.get(key) || Promise.resolve();
+    const next = previous.catch(() => false).then(() => rebuildTileWithBinNow(x, y, lat));
+    _binRebuilds.set(key, next);
+    return next.finally(() => { if (_binRebuilds.get(key) === next) _binRebuilds.delete(key); });
+  }
+  async function rebuildTileWithBinNow(x, y, lat) {
+    if (activeDepth !== 0) return false;
     const cache = cacheFor(0);
     const key = tileKey(x, y);
     const prev = cache.get(key);
@@ -8576,7 +8672,7 @@
     } catch (_) {
       fresh = null;                      // rebuild failed — the original stands
     }
-    if (!fresh || fresh.status !== 'ready') return false;
+    if (activeDepth !== 0 || !fresh || fresh.status !== 'ready' || (fresh.depth != null && fresh.depth !== 0)) return false;
     // Carry over live per-session state the rebuild can't reconstruct.
     if (prev.creatures && !fresh.creatures) fresh.creatures = prev.creatures;
     if (prev.coinDrops && !fresh.coinDrops) fresh.coinDrops = prev.coinDrops;
@@ -10047,6 +10143,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
-    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, MIN_VARIANT_CELLS, getTileBin,
+    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, MIN_VARIANT_CELLS, getTileBin, warmGeometry,
   };
 })(window);

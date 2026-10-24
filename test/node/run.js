@@ -103,7 +103,7 @@ const FILES = [
   'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
-  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'worldgen.js', 'save.js',
+  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'geometry.js', 'worldgen.js', 'save.js',
   'compass_modules.js', 'art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
@@ -159,6 +159,7 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
+  Geometry,
   SceneFurniture, Furniture,
   Arena,
   GasRender,
@@ -917,7 +918,7 @@ Object.assign(ctx, {
     return function (entry, tx, ty) { return WorldGen.runSteps(steps.call(this, entry, tx, ty)); };
   };`, ctx, { filename: 'run.js#spawnPassFn' });
   ctx.SPAWN_CAVE_SRC         = slice(creaturesSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Catch wheel:', 'spawnCaveCreatures');
-  ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
+  ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBinNow(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBinNow');
   // The trail placer (scene methods read `scene.`, not `this.`); the slice runs to the reveal.
   ctx.STARTER_TRAIL_SRC      = slice(ctx.STARTER_JS_SRC, '  function placeStarterTrail(scene, entry, tx, ty) {\n',
     '\n  function revealStarterTrail', 'the starter trail');
