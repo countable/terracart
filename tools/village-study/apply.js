@@ -35,7 +35,7 @@ window.applyVillage = async () => {
   const cells=new Map(__fixture.grid.map(c=>[c.x+','+c.y,c.groundType]));
   const get=(x,y)=>cells.get(x+','+y)??1;
   window.__villageGround=()=>{
-    s.borderGfx.clear();s.borderContainer.setVisible(false);s.cellGfx.clear();
+    s.cellGfx.clear();
     for(const ns of s.noisePool)if(ns.visible){
       const x=Math.round((ns.x-s.viewCenterX)/32),y=Math.round((ns.y-s.viewCenterY+26)/32);
       const mask=JungleAutotile.dualMaskAt(x,y,get,v=>v===4);

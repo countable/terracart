@@ -60,36 +60,24 @@ test('baked gfx: calls land in the canvas in game coordinates, one upload per re
   assert.eq(tex.refreshed, 1, 'uploaded once, and not again with nothing new');
 });
 
-test('baked gfx: the grid and the borders are baked, and the grid skips crossings it cannot change', () => {
+test('baked gfx: only the grid is baked, and it skips crossings it cannot change', () => {
   assert.truthy(/this\.gridGfx = new Render\.BakedGfx\(this, 'grid_baked', this\.gridContainer\);/.test(SCENE_SRC));
-  assert.truthy(/this\.borderGfx = new Render\.BakedGfx\(this, 'border_baked', this\.borderContainer\);/.test(SCENE_SRC));
+  assert.falsy(/borderGfx|borderContainer|border_baked/.test(SCENE_SRC), 'retired terrain border allocates no graphics or container');
   const render = RENDER_SRC;
-  assert.truthy(/if \(gb2 && gb2\.flush\) gb2\.flush\(\);/.test(render), 'the border rebuild is uploaded');
+  assert.falsy(/borderGfx|borderContainer|gb2/.test(render), 'terrain draws no empty border layer');
   assert.truthy(/if \(gg\.flush\) gg\.flush\(\);/.test(render), 'the grid rebuild is uploaded');
   assert.truthy(/\|\| \(_bandKey && \(baseCellIX !== scene\._lastGridIX/.test(render),
     'with no row band in view a crossing does not repaint the grid');
 });
 })();
 
-test('corner fan: a quarter disc of CORNER_FAN triangles, on the arc, in its quadrant', () => {
-  const tris = [];
-  Render.fillCornerFan({ fillTriangle: (...a) => tris.push(a) }, 6, 6, 6, -1, -1);
-  assert.eq(tris.length, 6, 'six triangles');
-  for (const [cx, cy, ax, ay, bx, by] of tris) {
-    assert.eq(cx, 6); assert.eq(cy, 6);
-    for (const [x, y] of [[ax, ay], [bx, by]]) {
-      assert.truthy(Math.abs(Math.hypot(x - 6, y - 6) - 6) < 1e-9, 'every rim point is on the arc');
-      assert.truthy(x <= 6 + 1e-9 && y <= 6 + 1e-9, 'inside the top-left quadrant');
-    }
-  }
-  assert.truthy(Math.abs(tris[0][2] - 0) < 1e-9 && Math.abs(tris[0][3] - 6) < 1e-9, 'starts on the west edge');
-  assert.truthy(Math.abs(tris[5][4] - 6) < 1e-9 && Math.abs(tris[5][5] - 0) < 1e-9, 'ends on the north edge');
+test('terrain transitions: native masks retire the old corner-fan geometry', () => {
+  assert.eq(typeof Render.fillCornerFan,'undefined','retired fan helper is no longer exported');
+  for (const symbol of ['fillCornerFan','CORNER_FAN','FLAT_ROUNDABLE'])
+    assert.falsy(RENDER_SRC.includes(symbol),symbol+' is absent from the cell renderer');
 });
 
-test('corner fan: the cell pass draws no fillRoundedRect, and the rim is baked', () => {
-  const render = RENDER_SRC;
-  assert.falsy(/g\.fillRoundedRect\(/.test(render), 'no earcut arcs in the per-frame cell pass');
-  assert.truthy(/fillCornerFan\(g, cx, cy, R, dx, dy\)/.test(render), 'rounded corners are fans');
+test('baked gfx: atmosphere rims retain their independent haze-change upload', () => {
   assert.truthy(/this\.atmosRimGfx = new Render\.BakedGfx\(this, 'atmos_rim_baked', null\);/.test(SCENE_SRC));
-  assert.truthy(/if \(g\.flush\) g\.flush\(\);   \/\/ BAKED/.test(render), 'the rim uploads once per haze change');
+  assert.truthy(/if \(g\.flush\) g\.flush\(\);   \/\/ BAKED/.test(RENDER_SRC), 'the rim uploads once per haze change');
 });

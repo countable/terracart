@@ -16,6 +16,20 @@
     const scene = Object.assign({ depth: 0, _neighborZoneCache: new Map([[0, 4], [8388608, 4]]) }, methods);
     return { entry, scene, read: (x=0) => scene.neighborNonRoadType(x, 0) };
   }
+  test('street ground: neighbourhood sampling includes new rocky terrain and reuses its histogram', () => {
+    const world = { T: WorldGen.T, tileCache: new Map(), tileKey: () => 'tile' };
+    const method = new Function('WorldGen', 'absCellToTile', 'absCellOffset',
+      `return ({${lift('neighborNonRoadType')}}).neighborNonRoadType`)(world,
+      (_s, _x, _y, out) => Object.assign(out, { tx: 0, ty: 0, ix: 0, iy: 0, n: 1 }),
+      (_s, x, y, dx, dy) => ({ cellIX: x + dx, cellIY: y + dy }));
+    const scene = { streetGroundType: () => null };
+    for (const type of [WorldGen.T.ROCKY_GROUND, WorldGen.T.EXCLUSION_ROCK, WorldGen.T.GRASS]) {
+      world.tileCache.set('tile', { grid: new Uint8Array([type]) });
+      scene._neighborZoneCache?.clear();
+      assert.eq(method.call(scene, 0, 0), type, 'all terrain enum values can supply the road backdrop');
+      assert.eq(scene._neighborTerrainCounts[type], 48, 'each sample starts with a cleared histogram');
+    }
+  });
   test('street ground: explicit terrain including grass wins over memoized fallback', () => {
     const f=fixture();
     assert.eq(f.read(),0,'terrain+1 represents grass without colliding with absent');

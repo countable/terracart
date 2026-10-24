@@ -536,21 +536,6 @@ Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'sh
 const GRID_LINE = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
 Render.GRID_LINE = GRID_LINE;
 
-// A quarter disc of radius r about (cx, cy), in the quadrant (dx, dy) = ±1,
-// as CORNER_FAN triangles: the rounded zone corner (drawCells) without the
-// ~100-point earcut'd arc a fillRoundedRect costs every frame.
-const CORNER_FAN = 6;
-function fillCornerFan(g, cx, cy, r, dx, dy) {
-  let px = cx + dx * r, py = cy;
-  for (let i = 1; i <= CORNER_FAN; i++) {
-    const a = (i / CORNER_FAN) * (Math.PI / 2);
-    const nx = cx + dx * r * Math.cos(a), ny = cy + dy * r * Math.sin(a);
-    g.fillTriangle(cx, cy, px, py, nx, ny);
-    px = nx; py = ny;
-  }
-}
-Render.fillCornerFan = fillCornerFan;
-
 // ── BAKED GRAPHICS ─────────────────────────────────────────────────────────
 // A cached Graphics layer is NOT free between rebuilds: Phaser's WebGL
 // renderer replays the whole command buffer every frame — every dash of the
@@ -1361,83 +1346,13 @@ Render.announceElites = function announceElites(scene, list, project) {
   }
 };
 
-// Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b. Same as
-// BiomeProfiles.mixHex, aliased locally for the per-bordered-edge hot path.
+// Shared colour arithmetic for UI, creature and building material tints.
+// Terrain transitions use native atlas masks, never colour ramps.
 const mixHex = BiomeProfiles.mixHex;
 
-// Biome border wave — precomputed once. Values are integer pixel offsets
-// (±WAVE_AMP) for each column/row index 0..CELL_PX-1.
-const BORDER_W   = 2;
-const WAVE_AMP   = 1;
-const WAVE_LEN   = 16;
-// How far a biome seam darkens the cell's OWN colour. This is now only the
-// SHORELINE case: a land cell facing water keeps its dark wet margin, which is
-// what gives a shore its dark-margin-then-white-surf band (see the surf comment
-// in drawCells). Every other seam blends instead — see BLUR_MIX.
-const BORDER_DIM = 0.86;
-// Biome seams BLEND rather than outline: each cell paints a short inward ramp
-// of its own colour mixed toward the NEIGHBOUR's, and the neighbour paints the
-// mirror, so the seam is BLUR_STEPS*BLUR_W px wide on each side (12px in total
-// across a 32px cell).
-//
-// The two innermost values matter more than they look: the outermost step is
-// 0.55 rather than 0.5 on purpose. At exactly 0.5 both sides of the boundary
-// resolve to the identical colour and the seam goes completely flat, which
-// loses the zone edge as a readable thing. Slightly past halfway, each side
-// leans a hair toward the other and the transition still has a direction.
-const BLUR_STEPS = 3;
-const BLUR_W     = 2;                      // px per step
-const BLUR_MIX   = [0.55, 0.32, 0.14];     // toward the neighbour, outermost first
-const BORDER_TRANS_SKIP = new Set([9, 11, 12, 25]); // buildings and cave walls have hard boundaries
-// Surf: the colour a WATER cell paints its biome-seam edge, in place of the
-// darkened own-colour edge every other terrain uses. Pale blue-white rather
-// than pure white so it reads as foam lit by the same flat daylight as the
-// rest of the map, not as a hard highlight.
-const SURF_COLOR = 0xdff0f7;
-// Lava is drawn as water (the same tile, red — T.CAVE_LAVA), shore and all:
-// its seam edge is this bright crust where water paints its foam.
-const LAVA_CRUST_COLOR = 0xb96628;
-// Does the edge between a cell painted `color` and a neighbour of terrain
-// `nbrType` painted `nbrColor` get the wavy biome border? Rule: the painted
-// colours differ, buildings opted out (their own outline draws the seam).
-// Road/path cells are painted the majority biome AROUND them
-// (neighborNonRoadColor), so two same-tier road cells can differ where a road
-// runs along a zone seam; the border must draw there. See drawCells.
-function edgeNeedsBorder(color, nbrType, nbrColor) {
-  if (BORDER_TRANS_SKIP.has(nbrType)) return false;
-  return nbrColor !== color;
-}
-if (typeof window !== 'undefined') window.edgeNeedsBorder = edgeNeedsBorder;
-// Darkened-edge colours (the cell colour blended BORDER_DIM of the way from
-// black — per channel round(c * BORDER_DIM)) — stable across frames, ~25
-// entries max.
-const _darkCache = new Map();
-const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = mixHex(0x000000, c, BORDER_DIM); _darkCache.set(c, d); } return d; };
-// Seam blend results, cached like the darkened edges above. Bounded by
-// (palette x palette x BLUR_STEPS) and in practice far smaller — only colour
-// pairs that actually border each other are ever asked for. The key packs both
-// colours and the step into one number rather than a template string: this runs
-// per bordered cell edge on every cell-crossing rebuild.
-const _mixCache = new Map();
-const getBlend = (own, nbr, k) => {
-  const key = (own * 0x1000000 + nbr) * BLUR_STEPS + k;
-  let m = _mixCache.get(key);
-  if (m === undefined) { m = mixHex(own, nbr, BLUR_MIX[k]); _mixCache.set(key, m); }
-  return m;
-};
-const _WAVE_TABLE = (() => {
-  const t = new Int8Array(32); // CELL_PX = 32 (also SpriteLayout.CELL_PX)
-  for (let i = 0; i < 32; i++)
-    t[i] = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-  return t;
-})();
-
-// Flat-only terrain types (no tileset art) get rounded corners at zone
-// boundaries. Module-level: the membership never changes.
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Neutral grey separates unexplored land from night and cave darkness.
@@ -2330,7 +2245,6 @@ Render.drawCells = function drawCells(scene) {
     if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'tiled');
     scene._tiledWallFrame = null;
   }
-  const gb2 = scene.borderGfx;
   scene._uprightPieces = [];
   scene._rampartPoolUsed = 0;
   for (const piece of scene._rampartPool || []) piece.clear().setVisible(false);
@@ -2369,10 +2283,8 @@ Render.drawCells = function drawCells(scene) {
     window.__boot?.count?.('crop candidates', cropWork.candidates);
     window.__boot?.count?.('crop index rebuild entries', cropWork.rebuiltEntries);
   }
-  // Border layer: only redraw geometry when the camera crosses a cell boundary.
-  // Between crossings scroll the container for sub-cell fractional movement.
-  // This keeps the Graphics object's draw-command list stable across frames,
-  // eliminating the GC churn from clear()+rebuild every frame.
+  // Crossing key is shared by atmosphere, fog and profiling. Native atlas
+  // masks own biome seams; no separate border graphics layer remains.
   // A row band on a different grid has its own column phase (viewBand), and
   // it can step on a band-cell crossing that isn't an anchor-cell crossing —
   // so the band layout is part of the key. '' on every uniform view.
@@ -2380,7 +2292,7 @@ Render.drawCells = function drawCells(scene) {
   const borderDirty = baseCellIX !== scene._lastBorderIX || baseCellIY !== scene._lastBorderIY
     || _bandKey !== scene._lastBorderBands;
   if (borderDirty) {
-    gb2.clear(); scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY;
+    scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY;
     scene._lastBorderBands = _bandKey;
   }
   // Stamped for the profiler: app.js's drawCells/update wrappers read this
@@ -2388,7 +2300,6 @@ Render.drawCells = function drawCells(scene) {
   // (see the 'update @crossing' / 'drawCells @crossing' ticks). Plain
   // assignment, no allocation — cheap even when nobody's measuring.
   scene._boot_crossing = borderDirty;
-  scene.borderContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
@@ -2401,12 +2312,10 @@ Render.drawCells = function drawCells(scene) {
   // support legs). Pier cells are NOT roads and NOT paths.
   const PIER = 23;
   const PIER_FRAME = 20;
-  const WATER = 3;
-  const LAVA = 26;   // WorldGen.T.CAVE_LAVA — takes water's shore, in LAVA_CRUST_COLOR
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
-  // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
-  // rounding to read its diagonal neighbor.
+  // gap at the viewport edge mid-step) PLUS another 1-cell halo for transition
+  // masks to read neighbouring materials.
   const RING = VIEW_CELLS + 4;
   if (!_ringTypes || _ringTypes.length !== RING * RING) {
     _ringTypes  = new Int8Array(RING * RING);
@@ -2561,69 +2470,54 @@ Render.drawCells = function drawCells(scene) {
     castleKeys.set(owner, key);
     return key;
   };
-  // An unclaimed castle's COURT is painted in the shaded colour, so every place
-  // that resolves a cell's painted colour has to agree: the fill, the rounded
-  // corners' diagonal fills, and the wavy-border test that asks whether two
-  // cells differ. Disagreeing put a border between every pair of unclaimed
-  // court cells — the whole castle floor came out gridded.
+  // Structural courts retain their own shaded base beneath floor art.
   const baseColor = (type, fallback = GRASS_FALLBACK_COLOR) => Render.groundBaseColor(type, COLORS[type] ?? fallback);
   const groundColor = (colour, c, r) => {
     const accent = _ringGroundColor[(r + 2) * RING + (c + 2)];
     return accent >= 0 ? accent : colour;
   };
   const courtShaded = (t, colour, c, r) =>
+    t === 32 && !scene.depth && typeof MountainEdges !== 'undefined'
+      ? baseColor(MountainEdges.groundType(types, RING, (r + 2) * RING + c + 2), colour) :
     t === 12 ? buildingBackgroundMaterial(CastleStyles.get(castleOwner(c, r), !UNCLAIMED(c, r))).floor :
     UNCLAIMED(c, r) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined' && UNCLAIMED_BUILDING_BASE.floors[t] != null
       ? buildingBackgroundColor(unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t])))
       : t === 9 || t === 11 ? buildingBackgroundColor(colour) : groundColor(colour, c, r);
-  // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
-  // test has to look THROUGH to the zone underneath. Road and path cells are
-  // painted the majority biome around them; in polygonal mode a building cell
-  // is too (see the base fill below), so the wavy biome borders and the
-  // rounded-corner fills have to resolve it the same way or a building would
-  // be ringed by a seam against the ground it was just painted to match.
   // Generated civic blocks have no source polygon. Keep their exact-cell
-  // floor and walls visible even while mapped buildings use polygon art.
+  // floor and walls while mapped buildings inherit the surrounding ground.
   const polygonBuilding = (c, r) => POLY
     && !_ringSyntheticBuilding[(r + 2) * RING + (c + 2)];
-  const lookThrough = (t, c, r) => isRoadType(t) || t === T_PATH
-    || (polygonBuilding(c, r) && isBuildingType(t));
-  // Optional RA native transitions use the same generated ring and geographic
+  // Native atlas transitions use the same generated ring and geographic
   // row bands as every other terrain pass; no authored fixture or grid rewrite.
-  const raActive = typeof RATerrainTrial !== 'undefined' && RATerrainTrial.enabled
-    && scene._raTerrainReady && !scene.depth && !skyLevel;
-  let raMaterials = null;
-  if (raActive) {
-    raMaterials = scene._raTerrainRing;
-    if (!raMaterials || raMaterials.length !== types.length) raMaterials = scene._raTerrainRing = new Int8Array(types.length);
-    raMaterials.fill(-1);
-    scene._raTerrainAudit = {drawnCells:0, materials:{}};
+  const transitionsActive = typeof TerrainTransitions !== 'undefined'
+    && scene._terrainTransitionsReady && !scene.depth && !skyLevel;
+  let transitionMaterials = null;
+  if (transitionsActive) {
+    transitionMaterials = scene._terrainMaterialRing;
+    if (!transitionMaterials || transitionMaterials.length !== types.length) transitionMaterials = scene._terrainMaterialRing = new Int8Array(types.length);
+    transitionMaterials.fill(-1);
+    scene._terrainTransitionAudit = {drawnCells:0, materials:{}};
     for (let r = -2; r <= VIEW_CELLS + 1; r++) for (let c = -2; c <= VIEW_CELLS + 1; c++) {
       const i = (r + 2) * RING + c + 2;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
       let t = types[i];
-      // Keep special zone grounds, rift buffers and synthetic building floors.
+      if (t === 32 && typeof MountainEdges !== 'undefined') t = MountainEdges.groundType(types, RING, i);
+      // Source ground and selected Nexus textures share one transition atlas.
+      // Keep authored accent-only fills, rift buffers and synthetic floors.
+      if (!entry?.grid || _ringRiftGround[i]) continue;
+      const textureKey = zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t);
       const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
-      if (!entry?.grid || _ringRiftGround[i] || (!tintedNative && _ringGroundColor[i] >= 0)) continue;
-      if (!tintedNative && zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t)) continue;
+      if (!textureKey && !tintedNative && _ringGroundColor[i] >= 0) continue;
       if (isRoadType(t) || t === T_PATH) t = Render.roadBackdropType(scene, t, AX(c,r), AY(c,r));
       else if (isBuildingType(t)) {
         if (!polygonBuilding(c,r)) continue;
         t = scene.neighborNonRoadType(AX(c,r), AY(c,r));
       }
-      if (t != null) raMaterials[i] = RATerrainTrial.material(t, AX(c,r), AY(c,r));
+      if (t != null) transitionMaterials[i] = TerrainTransitions.materialForGround(t, textureKey, AX(c,r), AY(c,r));
     }
   }
-  const raAt = (c,r) => raMaterials ? raMaterials[(r+2)*RING+c+2] : -1;
-  // Only substitute biome seams covered by native bank/edge art. Structural
-  // borders remain in the ordinary renderer and the shared border layer stays.
-  const raSeam = (c,r,dc,dr) => raAt(c,r) >= 0 && raAt(c+dc,r+dr) >= 0;
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
-  const CORNER_R = typeof TERRAIN_CORNER_RADIUS !== 'undefined' ? TERRAIN_CORNER_RADIUS : 6;
-  // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
-  //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
-  const TRANS_SKIP = BORDER_TRANS_SKIP;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2662,6 +2556,10 @@ Render.drawCells = function drawCells(scene) {
       // sits within the sample (deep inside a big footprint) it stays -1 and
       // the tier colour shows through — which is under the polygon anyway.
       let polyGround = -1;
+      if (type === 32 && !scene.depth && typeof MountainEdges !== 'undefined') {
+        polyGround = MountainEdges.groundType(types, RING, (row + 2) * RING + col + 2);
+        color = baseColor(polyGround, color);
+      }
       const polyB = polygonBuilding(col, row) && isBuildingType(type);
       if (isRoadType(type) || type === T_PATH || polyB) {
         const wcx = _absIX, wcy = _absIY;
@@ -2733,159 +2631,10 @@ Render.drawCells = function drawCells(scene) {
         if (veil > 0 && veil < 1) _fadeRects.push(sx, sy, veil);
       }
 
-      // Per-corner rounding: a corner rounds only when both orthogonal neighbors AND the
-      // diagonal are a different type (avoids notches between two already-square zones).
-      // Sprite-art zones cover the full 32×32 box, so we skip rounding there entirely.
-      let tl = 0, tr = 0, bl = 0, br = 0;
-      if (FLAT_ROUNDABLE.has(type)) {
-        const tn = T(col, row - 1), ts_ = T(col, row + 1);
-        const tw = T(col - 1, row), te = T(col + 1, row);
-        const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
-        const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
-        // Road/path cells only paint a BACKDROP here (the inherited zone
-        // colour — the carriageway itself is the band drawn above), so for
-        // rounding purposes all road/path tiers count as ONE type: a tier
-        // change must not round corners, and a road-like diagonal's corner
-        // paint must use its inferred backdrop colour, never the raw road
-        // grey from COLORS (which left grey notches at elbows/junctions).
-        const roadish = (t) => isRoadType(t) || t === T_PATH;
-        const selfRoadish = roadish(type);
-        const sameAs = (t) => t === type || (selfRoadish && roadish(t));
-        if (!sameAs(tn) && !sameAs(tw) && !sameAs(tnw)) tl = CORNER_R;
-        if (!sameAs(tn) && !sameAs(te) && !sameAs(tne)) tr = CORNER_R;
-        if (!sameAs(ts_) && !sameAs(tw) && !sameAs(tsw)) bl = CORNER_R;
-        if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
-        // Paint diagonal-neighbor color in each rounded corner first so the pixels
-        // revealed outside the curve are the correct adjacent-zone colour.
-        const cornerColor = (t, dnx, dny) => lookThrough(t, col + dnx, row + dny)
-          ? groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny)
-          : courtShaded(t, baseColor(t), col + dnx, row + dny);
-        if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
-        if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
-        if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-        if (br) { g.fillStyle(cornerColor(tse, 1, 1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-      }
-      // The cell, then its rounded corners. Not a fillRoundedRect: Phaser
-      // steps each of its arcs at 1% of the sweep (~100 points a cell) and
-      // re-triangulates the lot through earcut every frame, since cellGfx is
-      // cleared every frame. A rounded corner is the cell's colour over the
-      // corner square just painted in the neighbour's, as a fan of
-      // CORNER_FAN triangles about the arc's centre — triangles batch
-      // straight, with no earcut, and at CORNER_R the fan is within a tenth
-      // of a pixel of the arc.
-      if (tl || tr || bl || br) {
-        g.fillStyle(color, 1);
-        g.fillRect(sx + CORNER_R, sy, CELL_PX - 2 * CORNER_R, CELL_PX);
-        g.fillRect(sx, sy + CORNER_R, CORNER_R, CELL_PX - 2 * CORNER_R);
-        g.fillRect(sx + CELL_PX - CORNER_R, sy + CORNER_R, CORNER_R, CELL_PX - 2 * CORNER_R);
-        const R = CORNER_R, E = CELL_PX - CORNER_R;
-        // Each corner square: rounded → a quarter fan; square → filled solid.
-        const corner = (on, x0, y0, dx, dy) => {
-          if (!on) { g.fillRect(x0, y0, R, R); return; }
-          const cx = dx < 0 ? x0 + R : x0, cy = dy < 0 ? y0 + R : y0;
-          fillCornerFan(g, cx, cy, R, dx, dy);
-        };
-        corner(tl, sx, sy, -1, -1);
-        corner(tr, sx + E, sy, 1, -1);
-        corner(bl, sx, sy + E, -1, 1);
-        corner(br, sx + E, sy + E, 1, 1);
-      } else {
-        g.fillStyle(color, 1);
-        g.fillRect(sx, sy, CELL_PX, CELL_PX);
-      }
-
-      // Wavy dark-border at arbitrary biome boundaries.
-      // Skip entirely on non-dirty frames — no closures, no neighborNonRoadColor calls.
-      if (borderDirty && !TRANS_SKIP.has(type)) {
-        const tN = T(col, row - 1), tS = T(col, row + 1);
-        const tW = T(col - 1, row), tE = T(col + 1, row);
-        // Resolve the inferred colour of a road/path neighbour by looking through it.
-        const nbrInferred = (dnx, dny) =>
-          groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
-        // An edge needs the wavy border exactly when the PAINTED colours differ across
-        // it (edgeNeedsBorder, above). A road cell is painted the majority biome of its
-        // 7×7 neighbourhood, so a road running ALONG a seam changes colour mid-run and
-        // still needs the border there. Two cells of one non-road type always agree.
-        // The neighbour's PAINTED colour, which both the needs-a-border test
-        // and the blend ramp want — resolved once per side rather than twice.
-        const nbrColorOf = (t, dnx, dny) =>
-          lookThrough(t, col + dnx, row + dny) ? nbrInferred(dnx, dny)
-            : courtShaded(t, baseColor(t), col + dnx, row + dny);
-        const cN = nbrColorOf(tN,  0, -1);
-        const cS = nbrColorOf(tS,  0, +1);
-        const cW = nbrColorOf(tW, -1,  0);
-        const cE = nbrColorOf(tE, +1,  0);
-        const drawN = !raSeam(col, row, 0, -1) && edgeNeedsBorder(color, tN, cN);
-        const drawS = !raSeam(col, row, 0, 1) && edgeNeedsBorder(color, tS, cS);
-        const drawW = !raSeam(col, row, -1, 0) && edgeNeedsBorder(color, tW, cW);
-        const drawE = !raSeam(col, row, 1, 0) && edgeNeedsBorder(color, tE, cE);
-        if (drawN || drawS || drawW || drawE) {
-          // Draw at integer-snapped positions — the borderContainer scrolls by
-          // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
-          // so geometry only needs to be rebuilt when baseCellIX/IY changes.
-          const bx = scene.viewCenterX + ox * CELL_PX + Math.round(PHASE(row));
-          const by = scene.viewCenterY + oy * CELL_PX;
-          // One wavy strip of thickness BLUR_W along `side`, `inset` px in from
-          // that edge. Runs are coalesced by wave offset exactly as before —
-          // consecutive columns sharing an offset become a single fillRect.
-          //   side: 0=N 1=S 2=W 3=E
-          const strip = (side, inset) => {
-            for (let i = 0, s = 0; i <= CELL_PX; i++) {
-              if (i !== CELL_PX && _WAVE_TABLE[i] === _WAVE_TABLE[s]) continue;
-              const w = _WAVE_TABLE[s], len = i - s;
-              if      (side === 0) gb2.fillRect(bx + s, by + inset + w, len, BLUR_W);
-              else if (side === 1) gb2.fillRect(bx + s, by + CELL_PX - inset - BLUR_W + w, len, BLUR_W);
-              else if (side === 2) gb2.fillRect(bx + inset + w, by + s, BLUR_W, len);
-              else                 gb2.fillRect(bx + CELL_PX - inset - BLUR_W + w, by + s, BLUR_W, len);
-              s = i;
-            }
-          };
-          // Water draws foam, not a blend: a shore is where the world's one
-          // genuinely hard edge lives, and blurring land into sea would lose
-          // both the surf line and the coast. It stays a single BORDER_W strip
-          // in SURF_COLOR. The land cell opposite likewise keeps its darkened
-          // wet margin (see nbrDark below), preserving the dark-margin-then-
-          // white-surf band a real shoreline has.
-          //
-          // PIER deliberately stays hard-edged too: foam on its own outline
-          // traced the decking in white like a sticker, and the water cells
-          // around it already lap it with their own foam.
-          if (type === WATER || type === LAVA) {
-            gb2.fillStyle(type === LAVA ? LAVA_CRUST_COLOR : SURF_COLOR, 1);
-            if (drawN) strip(0, 0);
-            if (drawS) strip(1, 0);
-            if (drawW) strip(2, 0);
-            if (drawE) strip(3, 0);
-            if (drawN && drawW) gb2.fillCircle(bx + BORDER_W, by + BORDER_W, BORDER_W);
-            if (drawN && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + BORDER_W, BORDER_W);
-            if (drawS && drawW) gb2.fillCircle(bx + BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
-            if (drawS && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
-          } else {
-            // Facing water, keep the old darkened margin rather than blending
-            // toward the sea colour — that margin is half of the shoreline.
-            const liquid = (t) => t === WATER || t === LAVA;
-            const edgeCol = (t, nbr, k) =>
-              liquid(t) ? getDark(color) : getBlend(color, nbr, k);
-            for (let k = 0; k < BLUR_STEPS; k++) {
-              const inset = k * BLUR_W;
-              // A water-facing side has no ramp to walk: draw its flat margin
-              // once, on the outermost step only.
-              if (drawN && (!liquid(tN) || k === 0)) { gb2.fillStyle(edgeCol(tN, cN, k), 1); strip(0, inset); }
-              if (drawS && (!liquid(tS) || k === 0)) { gb2.fillStyle(edgeCol(tS, cS, k), 1); strip(1, inset); }
-              if (drawW && (!liquid(tW) || k === 0)) { gb2.fillStyle(edgeCol(tW, cW, k), 1); strip(2, inset); }
-              if (drawE && (!liquid(tE) || k === 0)) { gb2.fillStyle(edgeCol(tE, cE, k), 1); strip(3, inset); }
-              // Round each step's inner corner, as the single-line border did.
-              // The N/S colour wins the shared pixel; at BLUR_W the difference
-              // from the E/W ramp is under a level.
-              const o = inset + BLUR_W;
-              if (drawN && drawW) { gb2.fillStyle(edgeCol(tN, cN, k), 1); gb2.fillCircle(bx + o, by + o, BLUR_W); }
-              if (drawN && drawE) { gb2.fillStyle(edgeCol(tN, cN, k), 1); gb2.fillCircle(bx + CELL_PX - o, by + o, BLUR_W); }
-              if (drawS && drawW) { gb2.fillStyle(edgeCol(tS, cS, k), 1); gb2.fillCircle(bx + o, by + CELL_PX - o, BLUR_W); }
-              if (drawS && drawE) { gb2.fillStyle(edgeCol(tS, cS, k), 1); gb2.fillCircle(bx + CELL_PX - o, by + CELL_PX - o, BLUR_W); }
-            }
-          }
-        }
-      }
+      // Native transition masks own surface contours. Special materials keep
+      // an ordinary rectangular base beneath their independent texture owner.
+      g.fillStyle(color, 1);
+      g.fillRect(sx, sy, CELL_PX, CELL_PX);
 
       // (Building outlines are drawn in a second pass after every cell is
       // filled — drawing them inline gets overpainted by the next cell's
@@ -2913,78 +2662,65 @@ Render.drawCells = function drawCells(scene) {
       // opaque, inset, rounded bed — see textures.js TILLED_INSET_PX — and the
       // terrain colour just painted is what shows in the ring around it.)
 
-      // Procedural biome texture overlay for every ground cell (water and sand
-      // included); transitions are the wavy border drawn above.
+      // Base ground texture, replaced by stacked atlas masks where the shared
+      // material ring provides a native transition.
       {
         const ns = Render.terrainSpriteAt(scene, noiseIdx++);
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
-        let texKey = null;
-        if (isTilled) {
-          texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
-        } else {
-          // Road/path colour and texture share one backdrop. Painting path
-          // pebbles or an untextured road-coloured tile here leaves a second,
-          // grid-aligned lane beside the continuous source-geometry paving.
-          let baseType = type;
-          // Roads and polygonal buildings wear the same
-          // biome texture as their base fill, including beneath the paving.
-          if (polyGround >= 0) baseType = polyGround;
-          // Baked grit and sparse mineral glints cover the rift buffer.
-          // These static texture pixels never enter the lighting pass.
-          if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
-          const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
-          if (spec) {
-            const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
-            texKey = `biome${baseType}_${variantHash % spec.variants}`;
-            // Animated biome (water/pier): pick the pre-baked phase frame from
-            // the wall clock. The key is compared every frame anyway, so a
-            // time-varying one costs a swap only when the phase turns — the
-            // phases were rasterized once at startup (textures.js makeBiomeTextures).
-            // All cells share the clock, so the water drifts as one body.
-            if (spec.animPhases) {
-              const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
-              if (p) texKey += `p${p}`;
+        const selected = transitionsActive && !isTilled && type === T(col, row)
+          ? TerrainTransitions.select(scene, transitionMaterials, RING, _si) : null;
+        let texKey = selected?.key || null;
+        let damageFrame = selected?.frame, terrainLayers = selected?.layers, rockOverlay;
+        if (!selected) {
+          if (isTilled) {
+            texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
+          } else {
+            // Road/path colour and texture share one backdrop. Painting path
+            // pebbles or an untextured road-coloured tile here leaves a second,
+            // grid-aligned lane beside the continuous source-geometry paving.
+            let baseType = type;
+            // Roads and polygonal buildings wear the same
+            // biome texture as their base fill, including beneath the paving.
+            if (polyGround >= 0) baseType = polyGround;
+            // Baked grit and sparse mineral glints cover the rift buffer.
+            // These static texture pixels never enter the lighting pass.
+            if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
+            const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
+            if (spec) {
+              const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
+              texKey = `biome${baseType}_${variantHash % spec.variants}`;
+              // Animated biome (water/pier): pick the pre-baked phase frame from
+              // the wall clock. The key is compared every frame anyway, so a
+              // time-varying one costs a swap only when the phase turns — the
+              // phases were rasterized once at startup (textures.js makeBiomeTextures).
+              // All cells share the clock, so the water drifts as one body.
+              if (spec.animPhases) {
+                const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
+                if (p) texKey += `p${p}`;
+              }
+            }
+          }
+          if (!isTilled && scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
+            const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+            const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+            texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type, texNow) || texKey;
+          }
+          if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
+            const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+            const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+            texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+          }
+          if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
+            const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
+            if (damaged) {
+              texKey = damaged;
+              damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
             }
           }
         }
-        if (!isTilled && !scene.depth && typeof zoneGroundTexture === 'function') {
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = zoneGroundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
-        }
-        if (!isTilled && scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type, texNow) || texKey;
-        }
-        if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
-        }
-        let damageFrame, terrainLayers;
-        // Reuse the exact corner decisions above; all cutouts were baked once.
-        const roundMask = (tl ? 1 : 0) | (tr ? 2 : 0) | (bl ? 4 : 0) | (br ? 8 : 0);
-        if (!isTilled && roundMask && ![9,11,12].includes(type)
-            && typeof selectedRoundedTerrainFrames !== 'undefined'
-            && selectedRoundedTerrainFrames.has(texKey)) {
-          damageFrame = selectedRoundedTerrainFrames.get(texKey) + roundMask - 1;
-          texKey = 'selected_rounded_terrain';
-        }
-        if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
-          const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
-          if (damaged) {
-            texKey = damaged;
-            damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
-          }
-        }
-        if (raActive && !isTilled && type === T(col, row)) {
-          const selected = RATerrainTrial.select(scene, raMaterials, RING, _si, AX(col, row), AY(col, row));
-          if (selected) { texKey = selected.key; damageFrame = selected.frame; terrainLayers = selected.layers; }
-        }
         if (!scene.depth && !skyLevel && !isTilled && typeof MountainEdges !== 'undefined') {
           const rock = MountainEdges.select(types, RING, _si, AX(col, row), AY(col, row));
-          if (rock) { texKey = rock.key; damageFrame = rock.frame; terrainLayers = null; }
+          if (rock) rockOverlay = rock;
         }
         if (texKey) {
           // Only on a swap: Phaser's setTexture re-derives frame, size and crop even for
@@ -3009,6 +2745,12 @@ Render.drawCells = function drawCells(scene) {
             scene.terrainCache?.offer(overlay);
           }
 
+          if (rockOverlay) {
+            const overlay = Render.terrainSpriteAt(scene, noiseIdx++);
+            if (setTextureIfDifferent(overlay, rockOverlay.key, rockOverlay.frame)) overlay.setDisplaySize(CELL_PX, CELL_PX);
+            overlay.setPosition(Math.round(sx), Math.round(sy)).setTint(0xffffff).setVisible(true);
+            scene.terrainCache?.offer(overlay);
+          }
         } else {
           ns.setVisible(false);
         }
@@ -3490,9 +3232,6 @@ Render.drawCells = function drawCells(scene) {
     scene.atmosRimGfx?.flush?.();
     scene._atmos.rimKey = -1;   // force a rebuild when we surface again
   }
-
-  // The border layer's rebuild (if this was a crossing) is done: one upload.
-  if (gb2 && gb2.flush) gb2.flush();
 
   // Grid lines align with cell edges. Cells are positioned at
   //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)

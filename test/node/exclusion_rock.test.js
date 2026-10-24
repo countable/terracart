@@ -22,6 +22,13 @@
         assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, cls), cls + ' excluded on road');
     }
   });
+  test('exclusion bedrock: source water and building footprints remain physical surfaces', () => {
+    for (const type of [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.WATER]) {
+      const f = lot(); f.grid[24] = type; stamp(f);
+      assert.eq(f.grid[24], type); assert.eq(f.grid[23], T.EXCLUSION_ROCK);
+      assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, 'minor'));
+    }
+  });
   test('exclusion bedrock: building ownership protects cells even when their ground was repainted', () => {
     const f = lot();
     f.owners = new Uint16Array(49);
@@ -30,16 +37,33 @@
     f.residentialGrid = f.grid.slice();
     f.grid[25] = T.PARK;
     assert.eq(stamp(f), 47);
-    assert.eq(f.grid[24], T.RESIDENTIAL, 'house cell retains its ground');
-    assert.eq(f.grid[25], T.PARK, 'repainted building footprint retains its ground');
+    assert.eq(f.grid[24], T.ROCKY_GROUND, 'trimmed house cell gets rocky ground');
+    assert.eq(f.grid[25], T.ROCKY_GROUND, 'repainted footprint gets rocky ground');
     assert.eq(f.grid[23], T.EXCLUSION_ROCK, 'unoccupied private land still becomes rock');
   });
-  test('exclusion bedrock: source water and building footprints remain physical surfaces', () => {
-    for (const type of [T.BUILDING, T.BUILDING_MED, T.BUILDING_LARGE, T.WATER]) {
-      const f = lot(); f.grid[24] = type; stamp(f);
-      assert.eq(f.grid[24], type); assert.eq(f.grid[23], T.EXCLUSION_ROCK);
-      assert.falsy(W.isSpawnCell(f.grid, 7, 7, 3, 3, f, 'minor'));
+  test('exclusion bedrock: even unowned building footprint slivers exclude rocks', () => {
+    const f = lot();
+    f.cellWidthM = 10;
+    f.buildingShapes = [{ ring: [39, 30, 41, 30, 41, 40, 39, 40] }];
+    assert.eq(stamp(f), 47);
+    assert.eq(f.grid[24], T.ROCKY_GROUND, 'left sliver');
+    assert.eq(f.grid[25], T.ROCKY_GROUND, 'right sliver');
+    assert.truthy(W.isWalkable(f.grid[24]), 'trimmed ground stays passable');
+    assert.falsy(isTillableCell({ type: f.grid[24] }));
+    assert.eq(f.grid[23], T.EXCLUSION_ROCK, 'uncovered land still becomes rock');
+  });
+  test('exclusion bedrock: fills every footprint-free cell right up to an aligned building edge', () => {
+    const f = lot();
+    f.cellWidthM = 10;
+    f.buildingShapes = [{ ring: [20, 20, 40, 20, 40, 50, 20, 50] }];
+    assert.eq(stamp(f), 43, 'only the six intersecting cells trim solid rock');
+    for (let y = 0; y < 7; y++) for (let x = 0; x < 7; x++) {
+      const trimmed = x >= 2 && x < 4 && y >= 2 && y < 5;
+      assert.eq(f.grid[y * 7 + x], trimmed ? T.ROCKY_GROUND : T.EXCLUSION_ROCK,
+        'no buffer beyond the footprint at ' + x + ',' + y);
     }
+    assert.falsy(W.isSpawnCell(f.grid, 7, 7, 2, 2, { gameplayTiers: new Uint8Array(49).fill(1) }, 'minor'),
+      'cached public tiers cannot seed props on rocky private ground');
   });
   test('exclusion bedrock: other Excluded ground retains its material and blocks spawns', () => {
     for (const type of [T.WASTELAND, T.PARK, T.COMMERCIAL, T.GRASS]) {

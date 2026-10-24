@@ -38,7 +38,7 @@ function inventory() {
   const modules = ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js',
     'src/selected_item_art.js', 'src/items.js', 'src/art_atlas.js',
     'src/selected_world_atlas.js', 'src/assets.js',
-    'src/ra_terrain_trial.js', 'src/rogue_object_bounds.js',
+    'src/ground_materials.js', 'src/terrain_transitions.js', 'src/rogue_object_bounds.js',
     'src/rogue_prop_profile.js', 'src/rogue_objects.js', 'src/street_variants.js',
     'src/character_portraits.js'];
   let context;

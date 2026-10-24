@@ -70,7 +70,7 @@ const MapReviewArt = (() => {
           drawSelectedMaterial(t.getContext(),32,id);
         }
       }
-      if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(scene);
+      if (typeof TerrainTransitions !== 'undefined') TerrainTransitions.prepare(scene);
       return {textures,failures,scene};
     })();
     return assetsPromise;
@@ -222,10 +222,22 @@ const MapReviewArt = (() => {
         let type=types[j]=e.grid[i];
         const cell=tileCellToAbs(this._world.scene,tx,ty,ix,iy);
         const tintedNative=type===WorldGen.T.CHURCHYARD||type===WorldGen.T.TAR_YARD;
-        if(!tintedNative&&(zoneGroundColor(e,ix,iy,type)!=null || zoneGroundTexture(e,i,type)))continue;
+        const textureKey=zoneGroundTexture(e,i,type);
+        if(!tintedNative&&!textureKey&&zoneGroundColor(e,ix,iy,type)!=null)continue;
         if(WorldGen.isCobbleTerrain(type))type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
         else if(isBuildingType(type)&&!e.syntheticBuildingCells?.[i])type=this._world.scene.neighborNonRoadType(cell.cellIX,cell.cellIY);
-        if(type!=null)materials[j]=RATerrainTrial.material(type,cell.cellIX,cell.cellIY);
+        if(type!=null)materials[j]=TerrainTransitions.materialForGround(type,textureKey,cell.cellIX,cell.cellIY);
+      }
+      if(typeof MountainEdges!=='undefined') for(let j=0;j<types.length;j++) {
+        if(types[j]!==32)continue;
+        const x=j%stride-1,y=Math.floor(j/stride)-1;
+        const gx=entry.tx+(x+.5)/n,gy=entry.ty+(y+.5)/n;
+        const tx=Math.floor(gx),ty=Math.floor(gy),e=byTile.get(`${tx},${ty}`);
+        const m=e.cellsPerEdge,ix=Math.floor((gx-tx)*m),iy=Math.floor((gy-ty)*m);
+        const type=MountainEdges.groundType(types,stride,j);
+        const textureKey=zoneGroundTexture(e,iy*m+ix,type);
+        const cell=tileCellToAbs(this._world.scene,tx,ty,ix,iy);
+        materials[j]=TerrainTransitions.materialForGround(type,textureKey,cell.cellIX,cell.cellIY);
       }
       const result={types,materials,stride};this._terrainRings.set(entry,result);return result;
     },
@@ -299,7 +311,7 @@ const MapReviewArt = (() => {
       for(const e of this._world.tiles) {
         const a=project(e.tx*edge,e.ty*edge),b=project((e.tx+1)*edge,(e.ty+1)*edge),N=e.cellsPerEdge;
         const dx=(b.x-a.x)/N,dy=(b.y-a.y)/N;
-        const native=!this._world.scene.depth&&this._assets.scene?._raTerrainReady?this._terrainRing(e):null;
+        const native=!this._world.scene.depth&&this._assets.scene?._terrainTransitionsReady?this._terrainRing(e):null;
         // Include road caps that extend beyond the source tile.
         if(a.x>size.x+128||a.y>size.y+128||b.x < -128||b.y < -128)continue;
         const x0=Math.max(0,Math.floor(-a.x/dx)),y0=Math.max(0,Math.floor(-a.y/dy));
@@ -311,11 +323,17 @@ const MapReviewArt = (() => {
             type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
           }
           const zoneTexture=typeof zoneGroundTexture==='function' && zoneGroundTexture(e,y*N+x,e.grid[y*N+x]);
-          let selected=null;
-          if(native&&dx>=4&&(!zoneTexture||type===WorldGen.T.CHURCHYARD||type===WorldGen.T.TAR_YARD)) {
+          let selected=null,rock=null;
+          if(native&&type===32&&typeof MountainEdges!=='undefined') {
             const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y),index=(y+1)*native.stride+x+1;
-            selected=(typeof MountainEdges!=='undefined'&&MountainEdges.select(native.types,native.stride,index,cell.cellIX,cell.cellIY))
-              ||RATerrainTrial.select(this._assets.scene,native.materials,native.stride,index,cell.cellIX,cell.cellIY);
+            rock=MountainEdges.select(native.types,native.stride,index,cell.cellIX,cell.cellIY);
+            type=MountainEdges.groundType(native.types,native.stride,index);
+          }
+          if(native&&dx>=4) {
+            const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y),index=(y+1)*native.stride+x+1;
+            // Review the actual material interior without blending neighbouring cells.
+            const material=native.materials[index];
+            selected=TerrainTransitions.select(this._assets.scene,[material,material,material,material],2,0);
           }
           const texture=selected&&textures.get(selected.key),frame=texture?.get(selected.frame);
           if(frame) {
@@ -333,6 +351,11 @@ const MapReviewArt = (() => {
             const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
             g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
             if((zoneTexture||spec)&&dx>=4)g.drawImage(textures.get(zoneTexture||`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+          }
+          if(rock&&dx>=4) {
+            const texture=textures.get(rock.key),frame=texture?.get(rock.frame);
+            if(frame)g.drawImage(texture.getSourceImage(),frame.cutX,frame.cutY,frame.width,frame.height,
+              a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           }
           const sand=pirateSand(e,y*N+x);
           if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}

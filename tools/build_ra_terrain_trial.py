@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Export native RA terrain corners for the opt-in geographic renderer trial."""
+"""Export stackable native terrain corners and selected-material transitions."""
 from pathlib import Path
 import hashlib
 import json
@@ -11,27 +11,16 @@ SOURCE = Path('extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [S
 OUT = ROOT / 'assets/ArtTrials/RogueTerrain'
 OUT.mkdir(parents=True, exist_ok=True)
 
-def regular(x, y):
-    return dict(x=x, y=y, tileSize=16, inner=dict(nw=[x+32,y-16], ne=[x,y-16], sw=[x+32,y-48], se=[x,y-48]))
-
-def jungle(x):
-    return dict(x=x, y=528, tileSize=16, inner=dict(nw=[x+64,544], ne=[x+48,544], sw=[x+64,528], se=[x+48,528]))
-
-families = [
-    dict(id='villageGrass', source='RA_Ground_Tiles.png', options=regular(80,64)),
-    dict(id='forestGrass', source='RA_Jungle.png', options=jungle(0)),
-    dict(id='oliveSoil', source='RA_Jungle.png', options=jungle(80)),
-    dict(id='darkSoil', source='RA_Jungle.png', options=jungle(160)),
-    dict(id='water', source='RA_Animated_Water.png', options=dict(x=0,y=64,tileSize=16,inner=dict(nw=[32,48],ne=[0,48],sw=[32,16],se=[0,16])), calmWater=True),
-    dict(id='sand', source='RA_Overworld_Ground.png', options=regular(144,48)),
-    dict(id='stone', source='RA_Ground_Tiles.png', options=regular(272,64)),
-    dict(id='brownSoil', source='RA_Ground_Tiles.png', options=regular(208,64)),
-]
+# This dependency-free registry is also loaded by the browser. The exporter
+# reads exactly the same family order, material frames and source rectangles.
+registry_script = "const fs=require('fs');const registry=new Function(fs.readFileSync('src/ground_materials.js','utf8')+';return GroundMaterials;')();process.stdout.write(JSON.stringify(registry));"
+registry = json.loads(subprocess.check_output(['node','-e',registry_script], cwd=ROOT))
+families = [row for row in registry['families'] if row.get('source')]
 # Use the tested selector from the studies at export time. The running game
 # needs only the exported atlas, never this tool or the original art pack.
 resolver = "const a=require('./tools/jungle-autotile.js');const rows=JSON.parse(process.argv[1]);process.stdout.write(JSON.stringify(rows.map(r=>Array.from({length:16},(_,m)=>a.dualTiles(m,r.options)))));"
 choices = json.loads(subprocess.check_output(['node','-e',resolver,json.dumps(families)], cwd=ROOT))
-atlas = Image.new('RGBA',(256,(len(families)+2)*16))
+atlas = Image.new('RGBA',(256,len(registry['families'])*16))
 rows = []
 for family_index, (family, masks) in enumerate(zip(families, choices)):
     source_path = SOURCE / family['source']
@@ -58,18 +47,46 @@ for family_index, (family, masks) in enumerate(zip(families, choices)):
 # Water remains the last composite layer, retaining its original bank pixels.
 selected = Image.open(ROOT/'assets/selected-terrain/selected-terrain.png').convert('RGBA')
 selected_entries = json.loads((ROOT/'assets/selected-terrain/sources.json').read_text())['entries']
-for name, material in [('churchyard','G06-purple'), ('tarYard','G09-smooth-grey')]:
-    entry = next(e for e in selected_entries if e['id'] == material)
+def selected_family(name, material, center=None, variant=None):
+    entry = next((e for e in selected_entries if e['id'] == material), None)
+    if entry is not None:
+        assert entry['frame'] == registry['selectedMaterialFrames'][material], material
     family_index = len(rows)
-    center = selected.crop((entry['frame']*16,0,(entry['frame']+1)*16,16))
+    if center is None:
+        center = selected.crop((entry['frame']*16,0,(entry['frame']+1)*16,16))
     for mask in range(16):
         alpha = atlas.crop((mask*16,2*16,(mask+1)*16,3*16)).getchannel('A')
         tile = center.copy()
         tile.putalpha(alpha)
         atlas.paste(tile,(mask*16,family_index*16))
-    rows.append(dict(id=name,index=family_index,source='assets/selected-terrain/selected-terrain.png',
-        selectedMaterial=material,selectedFrame=entry['frame'],maskFamily='oliveSoil',
-        sourceSHA256=hashlib.sha256((ROOT/'assets/selected-terrain/selected-terrain.png').read_bytes()).hexdigest()))
+    rows.append(dict(id=name,index=family_index,selectedMaterial=material,
+        selectedFrame=entry['frame'] if entry else None,maskFamily='oliveSoil',
+        variant=variant,source='assets/selected-terrain/selected-terrain.png' if entry else 'src/textures.js:drawRockyGroundTex'))
+
+# Preserve row order, including selected materials added after recipe families.
+# Match drawRockyGroundTex at its native 16px scale, including its seeded RNG.
+for row in registry['families']:
+    if row.get('source'):
+        continue
+    if row.get('selectedMaterial'):
+        selected_family(row['id'],row['selectedMaterial'])
+        continue
+    if row.get('recipe') != 'rockyGround':
+        raise ValueError('Unknown ground recipe: '+row['id'])
+    variant = row['variant']
+    center = Image.new('RGBA',(16,16),'#646351')
+    draw = ImageDraw.Draw(center)
+    state = 34001 + variant
+    def rng():
+        global state
+        state = (state * 1664525 + 1013904223) & 0xffffffff
+        return state / 0xffffffff
+    for i in range(26):
+        x,y,w = int(rng()*16),int(rng()*16),1+int(rng()*3)
+        draw.rectangle((x,y,min(15,x+w-1),y),fill='#504f40' if i%3==0 else '#7a7964')
+        if i%4==0: draw.point((x,y),fill='#919079')
+    selected_family(row['id'],'ROCKY_GROUND',center,variant)
+assert [row['id'] for row in rows] == [row['id'] for row in registry['families']]
 atlas.save(OUT/'tiles.png')
 manifest=dict(frameSize=16,columns=16,rows=len(rows),families=rows,notes='Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground.')
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
