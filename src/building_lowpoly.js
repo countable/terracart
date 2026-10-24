@@ -379,7 +379,7 @@
       for(const tri of [[top[0],top[1],top[2]],[top[0],top[2],top[3]]])
         faces.push({points:tri.map(p=>({...p,z:H})),kind:'trim',rawUV:true,light:1,layer:1,wallTop:true,edge:i});
     });
-    const mesh={...base,faces,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
+    const mesh={...base,faces,wallOutset:outer?thickness:0,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
       edges:ring.map((a,i)=>({a,b:ring[(i+1)%ring.length],index:i}))};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;

@@ -1271,4 +1271,14 @@ test('lighting: retail mask uses its own wall height and keeps courtyard ground 
   const fills = ops.filter(o => o[0] === 'fill');
   assert.eq(fills[fills.length - 1][1], 'source-over', 'courtyard darkness restored after room cuts');
   assert.eq(fills[fills.length - 1][2], HomeArea.HOUSE.maskAlpha, 'same outdoor darkness as Home');
+
+  scene._proceduralBuildings.get('mall').wallOutset = 2.8;
+  ops.length = 0;
+  Lighting.paintIndoorMask(ctx, scene, { key: 'mall', buildingKey: 'mall', ring }, 0, 0, 0, 0, 352, 352);
+  const shell = ops.slice(0, ops.findIndex(o => o[0] === 'fill'));
+  const near = (a, b) => assert.truthy(Math.abs(a - b) < 1e-8, 'mask follows the exterior wall shell');
+  near(Math.min(...shell.map(o => o[1])), 176 - 32 - 2.8);
+  near(Math.max(...shell.map(o => o[1])), 176 + 32 + 2.8);
+  near(Math.min(...shell.map(o => o[2])), 176 - 32 - 2.8 - 70);
+  near(Math.max(...shell.map(o => o[2])), 176 + 32 + 2.8);
 });
