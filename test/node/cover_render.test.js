@@ -84,13 +84,11 @@
     }
   });
 
-  test('cover render: a narrow partial shadow stays visible with a soft peak', () => {
-    // A lone bush casts a narrow wedge; soften its peak without losing the cue.
+  test('cover render: a one-sample-wide shadow keeps its full darkness', () => {
+    // A lone bush casts a narrow wedge; the feather must not average it away.
     const f = fixture(x => Math.abs(x - 9) < 1 ? 1 : 0);
     f.frame(f.scene, 0, 0, 128, 64);
-    const peak = Math.max(...alphas(f.rasters[0]));
-    assert.gte(peak, 40, 'a narrow shadow still has a visible cue');
-    assert.lt(peak, 100, 'partial samples do not preserve a hard half-cell plateau');
+    assert.gte(Math.max(...alphas(f.rasters[0])), 126, 'the covered sample keeps its full darkness');
   });
 
   test('cover render: the boundary has graded alpha and world-fixed wisps after player movement', () => {

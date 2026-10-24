@@ -936,23 +936,15 @@ the reach rim within the existing player-light radius.
   it — creatures, peers, coins, shots — with their labels, shadows and
   target affordances. Scenery (objects, plants, crops, traps, hazards) and
   the ground stay drawn and tappable in the shadow so the player keeps their
-  bearings; full cover is black and removes scenery as well. Partial-cover
-  boundaries use a symmetric five-tap Gaussian feather, so narrow wedges do
-  not retain hard half-cell steps. Opaque cave samples retain full darkness;
-  softening the visual wash never changes actor hiding.
+  bearings; full cover is black and removes scenery as well. The cover
+  mask's feather spreads outward only, so every hidden cell keeps its full
+  darkness, including the occupied cells of concealing bushes and trees.
   At zero energy, cover stops hiding actors/scenery and the obstruction mask
   clears; both return on revival. Physical cover for enemy sight is unchanged.
   `Lighting.coverFrame` caches a world-aligned mask and composites it into the
-  existing lightmap after light sources. `Render.protectCoverScenery` then
-  replaces the ground field under drawn sprite silhouettes in painter order.
-  Scenery uses `Visibility.coverBetween` to its ground anchor: a facing tree
-  stays clear, while a tree behind another blocker receives partial shading
-  across its whole silhouette. Visible actors stay clear of the visual wash;
-  hidden actors are absent, not dimmed. The silhouette pass preserves ordinary
-  lighting and uses two retained canvases without pixel readback.
-  The field reuses the exploration fog's low-resolution smooth upscale and
-  world-keyed wisps, with a wider separable feather instead of the exploration
-  ramp. Noise coordinates and both field canvases
+  existing lightmap after light sources. It reuses the exploration fog's
+  low-resolution smooth upscale and world-keyed wisps, with a roughly one-cell
+  feather from a small separable filter instead of the exploration ramp. Noise coordinates and both canvases
   are reused; only changes to the sight field repaint the alpha buffer. Cover queries always
   originate at the player's body, including during camera peeks; the mask alone
   traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
