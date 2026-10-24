@@ -61,8 +61,9 @@ test('level 1: a dozen-odd barrels on free floor cells, off their own stream, po
   // Wired after the floor torches and before drill shrines in CAVE_PASSES;
   // loadCaveTile lays the table in order so earlier finds stay in place.
   const order = WorldGen.CAVE_PASSES.map(r => r.id);
-  assert.eq(order[order.length - 2], 'barrels', 'before drill shrines');
-  assert.eq(order[order.length - 3], 'floorTorches', 'after the floor torches');
+  assert.eq(order.indexOf('barrels'), order.indexOf('floorTorches') + 1, 'after the floor torches');
+  assert.eq(order.indexOf('drills'), order.indexOf('barrels') + 1, 'before drill shrines');
+  assert.lt(order.indexOf('barrels'), order.indexOf('grass'), 'grass cannot consume barrel seats');
   assert.truthy(/for \(const row of CAVE_PASSES\) runCavePass\(row, level\);/.test(WORLDGEN_SRC), 'loadCaveTile runs the table');
 });
 

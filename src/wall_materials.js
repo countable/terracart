@@ -201,28 +201,64 @@
     }
     return faces;
   }
-  // Selected native RA tuft treatment: four crossed pairs, no opaque core.
-  const GRASS = Object.freeze({ texture: 'selected_longgrass', width: 23, offset: 8, lowHeight: 21, height: 24 });
-  function grassGeometry(points) {
-    const faces = [], cx = points.reduce((sum, p) => sum + p.x, 0) / points.length,
-      cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
-    for (let tuft = 0; tuft < 4; tuft++) {
-      const x = cx + (tuft % 2 ? GRASS.offset : -GRASS.offset), y = cy + (tuft < 2 ? -GRASS.offset : GRASS.offset);
-      const height = tuft % 2 ? GRASS.height : GRASS.lowHeight;
-      for (let axis = 0; axis < 2; axis++) {
-        const dx = axis ? 0 : GRASS.width / 2, dy = axis ? GRASS.width / 2 : 0;
-        const quad = [{ x: x - dx, y: y - dy, z: 0, u: .001, v: .999 },
-          { x: x + dx, y: y + dy, z: 0, u: .999, v: .999 },
-          { x: x + dx, y: y + dy, z: height, u: .999, v: .001 },
-          { x: x - dx, y: y - dy, z: height, u: .001, v: .001 }];
-        for (const ids of [[0, 1, 2], [0, 2, 3]]) faces.push({ points: ids.map(i => quad[i]),
-          normal: null, twoSided: true, color: 0xffffff, flatColor: 0x7f7f46 });
+  // Approved dense field: global blade seats avoid seams when cells rebuild.
+  const GRASS = Object.freeze({ texture: 'grass-blades-v1', width: 5.6, height: 11.9, spacing: 4.2, stagger: 1, rootShade: .45 });
+  function prepareGrass(scene) {
+    if (!scene.textures?.createCanvas) return null;
+    if (scene.textures.exists(GRASS.texture)) return scene.textures.get(GRASS.texture);
+    const texture = scene.textures.createCanvas(GRASS.texture, 16, 16), g = texture.getContext();
+    for (let style = 0; style < 2; style++) {
+      g.save(); g.translate(style * 8, 0);
+      g.fillStyle = style ? '#955878' : '#87963d'; g.beginPath();
+      if (!style) {
+        const points = [[3,16],[1,10],[1,5],[2,1],[5,0],[6,3],[7,7],[6,11],[5,16]];
+        points.forEach(([x,y], i) => i ? g.lineTo(x,y) : g.moveTo(x,y));
+      } else {
+        g.moveTo(3,16); g.quadraticCurveTo(3,12,2,10); g.quadraticCurveTo(1,8,1,6);
+        g.quadraticCurveTo(1,2,3,0); g.lineTo(6,0); g.quadraticCurveTo(7,3,7,6);
+        g.quadraticCurveTo(7,8,6,10); g.quadraticCurveTo(5,12,5,16);
+      }
+      g.closePath(); g.fill(); g.save(); g.clip();
+      g.fillStyle = style ? '#e5a0c0' : '#c2c966'; g.beginPath();
+      if (!style) { g.moveTo(4,16); g.lineTo(3,7); g.lineTo(4,0); g.lineTo(8,0); g.lineTo(8,16); }
+      else {
+        g.moveTo(4,16); g.quadraticCurveTo(4,12,3,10); g.quadraticCurveTo(2,8,2,6);
+        g.quadraticCurveTo(2,2,4,0); g.lineTo(6,0); g.quadraticCurveTo(7,3,7,6);
+        g.quadraticCurveTo(7,8,6,10); g.quadraticCurveTo(5,12,5,16);
+      }
+      g.closePath(); g.fill(); g.restore();
+      g.globalCompositeOperation = 'source-atop';
+      for (let y = 0; y < 16; y++) { g.fillStyle = `rgba(0,0,0,${GRASS.rootShade*y/15})`; g.fillRect(0,y,8,1); }
+      g.restore();
+    }
+    texture.refresh(); texture.setFilter(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);
+    return texture;
+  }
+  function grassGeometry(points, options = {}) {
+    const faces = [], size = options.cellSize || 32, spacing = GRASS.spacing;
+    const cellX = options.cellIX || 0, cellY = options.cellIY || 0;
+    const minX = cellX * size, minY = cellY * size;
+    const ox = points.reduce((n,p) => n+p.x,0)/points.length-size/2;
+    const oy = points.reduce((n,p) => n+p.y,0)/points.length-size/2;
+    const u0 = options.underdark ? .5005 : .0005, u1 = options.underdark ? .9995 : .4995;
+    for (let row = Math.ceil(minY/spacing-.5); row < Math.ceil((minY+size)/spacing-.5); row++) {
+      for (let col = Math.ceil((minX-GRASS.stagger)/spacing-.5); col < Math.ceil((minX+size+GRASS.stagger)/spacing-.5); col++) {
+        let h = Math.imul(col,374761393)^Math.imul(row,668265263);
+        h = Math.imul(h^(h>>>13),1274126177); h = (h^(h>>>16))>>>0;
+        const wx = (col+.5)*spacing+(h%3-1)*GRASS.stagger;
+        if (wx < minX || wx >= minX+size) continue;
+        const x = ox+wx-minX, y = oy+(row+.5)*spacing-minY, half = GRASS.width/2;
+        const quad = [{x:x-half,y,z:0,u:u0,v:.999},{x:x+half,y,z:0,u:u1,v:.999},
+          {x:x+half,y,z:GRASS.height,u:u1,v:.001},{x:x-half,y,z:GRASS.height,u:u0,v:.001}];
+        const billboard = { x, y };
+        for (const ids of [[0,1,2],[0,2,3]]) faces.push({points:ids.map(i=>quad[i]), billboard,
+          normal:null,twoSided:true,color:0xffffff,flatColor:options.underdark?0xb36f91:0x87963d});
       }
     }
     return faces;
   }
   function geometry(kind, points, height, options = {}) {
-    if (kind === 'grass') return grassGeometry(points);
+    if (kind === 'grass') return grassGeometry(points, options);
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     if (hedge && points.length >= 3 && height > 0) return hedgeGeometry(points, height, options);
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
@@ -299,5 +335,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, postHeight, WOOD, HEDGE, GRASS, KEY, WHITE };
+  global.WallMaterials = { prepare, prepareGrass, geometry, postHeight, WOOD, HEDGE, GRASS, KEY, WHITE };
 })(globalThis);

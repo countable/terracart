@@ -617,10 +617,11 @@ the surrounding grove’s shrub scale.
   compensate for sprite seating by changing the projection. Step-over support
   re-seats the shadow at the current ground point after movement, alongside
   the raised body; its shadow never inherits the support lift.
-- Long grass covers its full square and clipped hedges cover their foliage
-  footprint (connected arms for rows, a rounded crown for lone hedges). They
-  share the water half-body crop, never supply step lift or balancing slowdown,
-  and stop covering immediately when removed from the drawn plant list.
+- Long grass leaves the player at the normal feet-on-ground position, with no
+  half-body crop, sinking, step lift or balancing slowdown. Only foreground
+  blades naturally obscure the body. Clipped hedges retain the water half-body
+  crop within their foliage footprint (connected arms for rows, a rounded crown
+  for lone hedges), and stop covering when removed from the drawn plant list.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
   Furniture with height `basin` does the same at the player's feet cell on the
@@ -1393,22 +1394,23 @@ cliff faces. Terrain 32 retains its movement and spawn collision and bakes one
 nearest-neighbour texture at startup, with no mineral sprite, loot, animation
 or runtime pixel readback.
 
-### Native tall-grass tufts
+### Dense grass blades
 
-Harvestable wild longgrass (excluding reeds) uses four retained crossed tuft
-pairs per cell in `Render.drawGrassPrisms`: 16 triangles, widths of 23 pixels,
-alternating heights of 21/24 pixels, and centres offset by +/-8 pixels on each
-axis. `WallMaterials.GRASS` owns those dimensions. Each pair sorts individually
-among props and actors so the front tufts can cover the lower parts of objects.
+Harvestable wild longgrass (excluding reeds) uses retained upright textured
+blades in `Render.drawGrassPrisms`. `WallMaterials.GRASS` owns the approved
+11.9px height, 5.6px width and 4.2px spacing. Absolute world coordinates choose
+independent -1/0/+1px X offsets, with ownership assigned after the offset so
+adjacent cells have neither missing nor duplicate blades. Roots remain at Z=0;
+individual blades sort among actors and props. The planes face the camera at
+all headings without moving their roots.
 
-The mesh reads the actual native RA 16px grass sprite through
-`selected_longgrass`, with its original binary alpha, nearest-neighbour pixels,
-and two-sided faces. There is no opaque core, crown, or procedural grass atlas.
-Natural gaps reveal co-located props and plants; gameplay does not suppress their
-sprites or announce a hidden find on entry. Player lower-half cover, normal
-harvesting, deterministic eggs, and the separate hedge treatment remain intact.
-Only visible cell candidates enter the retained batch; heading and subcell
-movement reuse its geometry. Reeds retain their existing sprite presentation.
+A shared 16×16 texture is created once: green soft-chisel surface blades and
+pink rounded original blades for the Underdark biome. Both gradually darken
+45% toward the root. No pixel readback or per-blade texture creation occurs
+when cells rebuild; movement within a cell reuses the retained geometry.
+Grass neither crops nor sinks the player: only foreground blades obscure the
+normally grounded body. Other submerged terrain and basin behavior is separate.
+Harvesting, hidden finds and reed presentation remain unchanged.
 
 - Stacked native terrain is unconditional, including for old `terrainLayers`
   URLs. It draws one complete local material plus up to three source-mask

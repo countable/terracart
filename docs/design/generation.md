@@ -313,6 +313,11 @@ access or tile lifecycle mechanics.
   fallback. Tunnels do not become settlement clearings or surface street
   overlays. Open terrain
   does not relax inherited spawn safety.
+  The Underdark floor opts into harvestable longgrass via its floor-profile
+  `grass` flag. A final cave pass reuses the surface grass-stand candidate mask,
+  then applies the ordinary floor, spawn-safety and occupancy gates; it never
+  displaces landings, rewards, authored areas or existing cave flora. IDs are
+  stable per depth and absolute cell.
   `docs/design/floors.md` owns the per-floor catalog.
 
 - Player movement permits wading through actual water on every floor, including
