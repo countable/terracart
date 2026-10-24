@@ -8,7 +8,7 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards']) {
+for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'gameplay_tiers', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards']) {
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
