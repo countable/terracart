@@ -1,19 +1,20 @@
 {
   "generator": "Built-in image_gen",
-  "direction": "Aligned portrait discovery frames with current gold celestial rim, cardinal fittings and beads; continuous leather glove with no fingernail impression.",
+  "direction": "Portrait discovery begins with the compass roughly half hidden under fallen brown and olive leaves; the pickup frame reveals the gold celestial rim, cardinal fittings and beads in a continuous leather glove.",
   "reference": "http://localhost:8765/compass-art-options/celestial-gold-beads.png",
   "sourceArchive": "~/.artifacts/opening-story-refresh/",
   "frames": [
     {
       "asset": "assets/art/story_compass.webp",
-      "source": "exec-9e564b3f-1a49-4e77-af6d-ed276f077fda.png",
-      "sourceSha256": "faa1b4350e87605b58d6fb434a08d3203ec0f35c9ce3a3a313c63f0701a8860b",
+      "source": "exec-12379495-d982-4113-be2e-de6c5b7b26e7.png",
+      "sourceSha256": "ed701a823c06e4cbb6a66fdfc78bdee92c610a7ff8b46380fbf94362dc1aa8bd",
       "dimensions": [
         1024,
         1536
       ],
       "export": "WebP quality 90, method 6; original framing and dimensions, no crop or visual edits",
-      "archivedSource": "story_compass.png"
+      "archivedSource": "~/.artifacts/compass-leaves/story_compass.png",
+      "prompt": "Preserve the original portrait composition, compass design and neighborhood. Cover approximately half of the compass with natural overlapping brown and olive leaves, concentrated across its lower half and left edge, leaving the compass rose recognizable."
     },
     {
       "asset": "assets/art/story_compass_frame2.webp",
