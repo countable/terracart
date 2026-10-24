@@ -378,17 +378,18 @@ opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wreck meshes sort with standing props by their ground anchor, so a crate
-behind the building cannot cover its surviving roof. They remain opaque. Damage is seeded by the building
-identity, so roof ends, surviving slopes and wall breaks vary between houses
-and stay stable across reloads and camera movement. Roof remnants and their
-raised framing are omitted below 4,096 square map pixels or a 48-pixel minimum
-bounding dimension. A doorway bay on the nearest street-facing wall stays
-open even where the roof support would otherwise restore it. Broken wall sections vary in
-height; their interior step cuts run perpendicular to each wall, while corners
-retain their mitred joins. Their roof remnant has an irregular broken edge,
-short projecting rafters, and chipped supporting crowns. Dense opaque rubble
-with dark gaps covers the floor; loose blocks spill beyond the main breach.
+Wrecks are broken plinths: sparse 4–8-unit masonry courses, broad breaches,
+stepped tops, and a few 2–4-unit fallen blocks. There are no roofs or raised
+framing. The native pixel wall texture matches the FDR system walls; pale caps
+and fine Rogue Adventure rubble share one prebuilt atlas. The flat floor follows
+the exact triangulated footprint and sorts as a ground decal beneath the player.
+Each raised section sorts independently at its baseline, so the player can walk
+between near and far remains. Surface player movement already permits wrecks.
+Damage is seeded by building identity and stays stable across reloads and camera
+movement. The nearest street-facing doorway stays clear. Interior step cuts run
+perpendicular to each wall; corners retain their mitred joins. Narrow annexes
+use a thinner inset. Geometry and material are shared and retained across camera
+rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
 Legacy wreck sprites use the ground layer and

@@ -163,17 +163,20 @@ These settings do not stretch or add floors to the reviewed exterior models.
 
 ## Wrecks
 
-Wrecks retain broken wall sections around the footprint, an opaque rubble floor,
-a surviving roof slope, exposed steel rafters and inward wall faces. Every wall
-height step has an outward-facing end cap. Fallen panels lean into the rubble,
-with their lower edges buried. Wrecks have no ridge beams or chimney.
+Wrecks use the Broken plinth design: a sparse perimeter of 4–8-unit masonry
+courses with broad breaches, chipped height steps and roughly six-unit thickness
+where the footprint allows it. A few fallen blocks stand 2–4 units high. Roofs,
+rafters and leaning panels are absent. Every height step has an outward-facing
+end cap. Arbitrary concave footprints retain their exact ground area.
 
-The generated cel material uses touching staggered brick courses, weathered
-rusty roof tiles and pale steel highlights. `wreck-floor-cel.png` supplies dense
-dark fragments with sparse larger pieces. Warm floor masonry colors match
-`LOOK.wreck.top`. Roof, wall and strut silhouettes cast one clipped shadow onto
-the rubble floor; overlapping shadows do not accumulate. Solid roof faces sort
-above wall crowns to prevent masonry bleeding through the tiles.
+`tools/build_wreck_plinth.py` builds `wreck-plinth.png` from the FDR wall atlas
+(slot 3, reduced back to native 16-pixel scale) and the Rogue Adventure Cavern
+fine dirt and grit tiles at (224,16) and (272,16). Pale caps use sparse pixel
+grain. The shared 512px atlas holds side masonry in its upper-left quarter,
+caps in the upper-right, and flat rubble below y=128. No per-building material
+is generated. Rogue/Dreamland retain their prepared profile palette variants.
+The floor sorts below actors; individual raised sections sort at their wall
+baselines. Breaches, doorway clearance and scattered blocks use stable IDs.
 
 ## Generated material sheets
 
