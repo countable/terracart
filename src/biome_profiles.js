@@ -90,11 +90,12 @@
   // clumps with the lawn between nearly bare.
   const FLORA_PATCH = { units: 64, salt: 5.1, share: 0.30, cut: 0.585, dense: 2.0, sparse: 0.15 };
   const fix = (crop, dMin, dMax, salt) => ({ crop, dMin, dMax, salt });
-  // Ordinary grass, including ground with no mapped polygon. Each 24-cell
-  // region has a sparse background and one dense circular stand. Worldgen
-  // seats this once on the final GRASS grid, never once per overlapping polygon.
+  // Roughly half of field ground carries tallgrass: dense circular stands,
+  // open gaps and sparse stray tufts. Absolute regions continue across tiles;
+  // one final-grid pass also covers unmapped grassland without polygon overlap.
   const GRASS_FILL = { crop: 'longgrass', pattern: 'grassfill', salt: S.LONGGRASS,
-    dMin: 0.09, dMax: 0.36, spacing: 24, radiusMin: 3, radiusMax: 5, dense: 0.90 };
+    terrains: Object.freeze([T.GRASS, T.SCHOOL, T.PITCH]),
+    dMin: 0.08, dMax: 0.16, spacing: 16, radiusMin: 5.5, radiusMax: 7.5, dense: 0.94 };
 
   // ── Families ──────────────────────────────────────────────────────────────
   // Every biome belongs to a base family. Unknown / unwired types fall back to
@@ -214,7 +215,7 @@
       yard: { ...FAMILY_PROFILE.urban.yard, min: 3, span: 4,
         crops: [{crop: 'longgrass', share: 0.33}, {crop: 'shrub', share: 0.67}] } },
     [T.SCHOOL]: { blockedFlora: ['marigold'],
-      flora: [fix('longgrass', 0.055, 0.085, S.LONGGRASS),
+      flora: [GRASS_FILL,
               { ...fix('petnip', 0.012, 0.020, S.PETNIP), terrainOnly: true },
               { ...fix('nettle', 0.002, 0.004, S.NETTLE), terrainOnly: true },
               { ...fix('forgetmenot', 0.011, 0.023, S.FORGETMENOT), terrainOnly: true }],
@@ -228,7 +229,7 @@
       flora: [fix('longgrass', 0.007, 0.013, S.LONGGRASS),
               fix('flowers', 0.007, 0.015, S.FORGETMENOT)],
     },
-    [T.PITCH]: { staticObjects: { noRocks: true }, flora: [fix('longgrass', 0.003, 0.007, S.LONGGRASS)] },
+    [T.PITCH]: { staticObjects: { noRocks: true }, flora: [GRASS_FILL] },
     [T.WETLAND]: { staticObjects: { noRocks: true }, blockedFlora: ['flowers', 'forgetmenot', 'marigold', 'wildrose', 'starflower'],
       flora: [fix('longgrass', 0.15, 0.21, S.WET_LG),
               fix('shrub', 0.035, 0.070, S.WET_SHRUB),

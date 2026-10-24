@@ -561,7 +561,7 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
     'the award asks the one spent predicate first');
   assert.truthy(/if \(wp\.tide\) \{\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
+  assert.truthy(/\(wp\) => \(!ctx\.grassOnly \|\| WorldGen\.isGrassCover\(wp\)\)\s*&& !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');
 });
 

@@ -746,8 +746,11 @@ test('wild plant contact shadows centre on the seated art foot with the prop ell
         const p = { kind: 'wildplant', crop: 'shrub', wildId: 'wp_1_2_3', _plantArt: name === 'palm' ? 'palm' : name, _biome: name === 'palm' ? 2 : 0 };
         if (wildplantFrame(p) === frame) {
           const live = Render.wildplantShadow(p);
-          const liveSeat = SpriteLayout.contactSeat(bb, 0.5, 0.5, scl, scl, true);
-          assert.inRange(live.dyPx - liveSeat.footFromCentre, -1e-9, 1e-9, `${name}: live hoppable plant shares its contact seat`);
+          const stepOver = name !== 'clipped';
+          assert.eq(WorldLayers.forObject(p), stepOver ? WorldLayers.STEP_OVER_PROP : WorldLayers.STANDING_PROP,
+            'clipped hedges are walk-through cover; ordinary bushes retain their step support');
+          const liveSeat = SpriteLayout.contactSeat(bb, 0.5, 0.5, scl, scl, stepOver);
+          assert.inRange(live.dyPx - liveSeat.footFromCentre, -1e-9, 1e-9, `${name}: live plant shares its category's contact seat`);
           const place = Render.plantPlacement(p, wildplantSprite(p), frame, MAX_GROWTH_STAGE);
           assert.eq(place.scl, scl); assert.eq(place.oy, 0.5);
           assert.inRange(place.dyPx - liveSeat.dyPx, -1e-9, 1e-9, 'the planted pass seats where the shadow expects');

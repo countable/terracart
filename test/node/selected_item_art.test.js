@@ -78,3 +78,13 @@ test('dialog item art: large icons use detailed frames and preserve variant iden
   assert.truthy(draw('shiny', 96).includes('saturate(3.2)'), 'shiny variant keeps gold tint');
   assert.truthy(draw('filtered', 96).includes('filter:sepia(1)'), 'fallback retains palette treatment');
 });
+
+test('selected item art: longgrass fallback uses the native tuft without a profile override', () => {
+  const source = inventoryIconSource('longgrass');
+  const sheet = selectedIconSheetsForTest()[source.sheet];
+  assert.eq(sheet.url, 'assets/ArtTrials/RogueProps/flora-selected_longgrass.png');
+  assert.eq(source.frame, 0); assert.eq(sheet.cols, 1);
+  const dims = pngDims(sheet.url);
+  assert.eq(sheet.srcW, dims.w); assert.eq(sheet.srcH, dims.h);
+  assert.eq(dims.w, 16); assert.eq(dims.h, 16);
+});

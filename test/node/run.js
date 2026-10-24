@@ -205,7 +205,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   // What a WILD plant does when tapped (drop, work relic, cost, bonus, glow);
   // wildplant_table.test.js drives the accessors.
   WILDPLANT_CONTEXT_ART, WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
-  wildplantWorkCost, wildplantTreasure, wildplantLight,
+  wildplantWorkCost, wildplantTreasure, wildplantHiddenItem, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
   Quests, questEnemies, questAnimals, STARTER_CHAIN, STARTER_INTRO,

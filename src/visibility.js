@@ -30,7 +30,7 @@ const Visibility = (() => {
     if (!o || objectCover(o) !== PARTIAL) return false;
     if (o.kind === 'tree' || o.kind === 'fruittree') return true;
     const prof = ObstacleStep.profile(o);
-    return prof === ObstacleStep.PROFILES.bush || prof === ObstacleStep.PROFILES.hedge;
+    return prof === ObstacleStep.PROFILES.bush || !!prof?.cover;
   }
   function key(c) { return c.cellIX + '_' + c.cellIY; }
   // Cover lives in a dense typed array over the local blocker's bounding box:

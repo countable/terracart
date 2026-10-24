@@ -4001,7 +4001,8 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // join as the map turns. Each piece is a core block plus an arm to every
 // connected edge, so neighbours meet exactly at the shared cell edge at any
 // heading. Height is the step-over lift (ObstacleStep.PROFILES): the top the
-// player stands on is the top the camera sees. Thickness and colours follow
+// player stands on is the top the camera sees. Hedges keep their visual height
+// while the player walks through their cover. Thickness and colours follow
 // the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
 // north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
 // garden bush its rounded sprite: neither is a wall.
@@ -4105,7 +4106,8 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   for (const { piece, cell } of pieces) {
     const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
     const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
-    const height = ObstacleStep.PROFILES[piece.art.profile].liftPx;
+    const profile = ObstacleStep.PROFILES[piece.art.profile];
+    const height = profile.heightPx ?? profile.liftPx;
     const outline = Render.connectedWallOutline(piece.mask, piece.art.thickness);
     WallPerspective.material(scene, 'props', piece.art.profile === 'hedge' ? 'hedge' : 'stone',
       outline.points.map(p => ({ x: x0 + p.x, y: y0 + p.y })), height,
@@ -4116,6 +4118,43 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   }
   WallPerspective.finish(scene, 'props');
   return drawn;
+};
+
+// Native RA grass is four retained crossed tufts per harvestable square.
+// Each tuft sorts among actors and props; texture alpha leaves natural gaps.
+Render.drawGrassPrisms = function (scene, plantItems) {
+  const drawn = new Set();
+  if (typeof WallPerspective === 'undefined' || !scene.textures?.exists(WallMaterials.GRASS.texture)) return drawn;
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
+  const pieces = [];
+  let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
+  for (const item of plantItems) {
+    if (!WorldGen.isGrassCover({ ...item.p, kind: 'wildplant' }) || !item.p.wildId || item.p._pickedRemnant) continue;
+    const cell = worldMetersToAbsCell(scene, item.p.x, item.p.y);
+    pieces.push(cell); drawn.add(item); key += `|${cell.cellIX}:${cell.cellIY}`;
+  }
+  if (!pieces.length) { WallPerspective.clear(scene, 'grass'); scene._grassPrismKey = null; return drawn; }
+  WallPerspective.offset(scene, 'grass', -fx, -fy);
+  if (scene._grassPrismKey === key && scene._wallPerspective?.grass) return drawn;
+  const group = WallPerspective.begin(scene, 'grass'); group.renderDepth = scene.depth ?? 0;
+  group.perWall = true; group.atlas = scene.textures.get(WallMaterials.GRASS.texture);
+  for (const cell of pieces) {
+    const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+    const x = at.x + fx - CELL_PX / 2, y = at.y + fy - CELL_PX / 2;
+    const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
+    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height);
+    for (let tuft = 0; tuft < 4; tuft++) {
+      const cx = x + CELL_PX / 2 + (tuft % 2 ? WallMaterials.GRASS.offset : -WallMaterials.GRASS.offset), cy = y + CELL_PX / 2 + (tuft < 2 ? -WallMaterials.GRASS.offset : WallMaterials.GRASS.offset);
+      const half = WallMaterials.GRASS.width / 2;
+      WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
+        { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
+        { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
+        { materialFaces: faces.slice(tuft * 4, tuft * 4 + 4) });
+    }
+  }
+  scene._grassPrismKey = key; WallPerspective.offset(scene, 'grass', -fx, -fy);
+  WallPerspective.finish(scene, 'grass'); return drawn;
 };
 
 // Loose props share the wall mesh projection and actor depth sorting. Keep
@@ -4423,7 +4462,7 @@ Render.foeCells = function foeCells(scene) {
 // (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
 Render.lurkBush = function lurkBush(p) {
   const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
-  return prof === ObstacleStep.PROFILES.bush || prof === ObstacleStep.PROFILES.hedge;
+  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover;
 };
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
@@ -4922,6 +4961,7 @@ Render.drawObjects = function drawObjects(scene) {
   // The buildings that sort with the world: the low-poly meshes, and the
   // prism path's per-wall parts (Home's interior without low-poly).
   const lowPolyProps = Render.drawLowPolyProps(scene, filteredObj);
+  const grassPrisms = Render.drawGrassPrisms(scene, plantedList);
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
   Render.cullCovered(scene, whirlwindList, 'h');
@@ -5077,6 +5117,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Heading-up draws connected walls and hedges as ground-attached prisms in
   // the building background; their sprite slots stay empty this frame.
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
+  for (const item of grassPrisms) prismDrawn.add(item);
   for (const item of lowPolyProps) prismDrawn.add(item);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
   const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)

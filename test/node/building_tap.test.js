@@ -212,6 +212,8 @@
       try {
         const s = Object.assign(makeScene(), scene(), {
           viewLeft: 0, viewTop: 0, viewSize: 200,
+          originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
+          playerM: { x: 2, y: 2 }, cellM: 5, mPerPx: 1, cellsPerTile: 64,
           screenToWorldMeters: () => ({ x: 500, y: 500 }),
           playerToWorldCell: () => ({ tx: 0, ty: 0 }),
           shopInteract: () => { throw new Error('invalid owner activated'); },

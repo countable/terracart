@@ -36,9 +36,9 @@ test('TAP_HANDLERS: work-progress is the FIRST handler (priority guard)', () => 
     'work-progress must be index 0 so an in-progress wheel eats every tap first');
 });
 
-test('TAP_HANDLERS: treasure is second (use-consumable removed — Use button now)', () => {
-  assert.eq(HANDLER_NAMES[1], 'treasure',
-    'treasure must be index 1 — the tap-on-feet use-consumable handler was removed in favour of the persistent Use button');
+test('TAP_HANDLERS: grass cover precedes concealed rewards after the work guard', () => {
+  assert.eq(HANDLER_NAMES[1], 'grass-cover');
+  assert.eq(HANDLER_NAMES[2], 'treasure');
 });
 
 test('TAP_HANDLERS: creature precedes wildplant (animals eat taps near plants)', () => {
@@ -633,6 +633,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
   // fails loudly so the ordering tests above can be updated.
   const EXPECTED = [
     'work-progress',
+    'grass-cover',
     'treasure',
     'coindrop',
     'building-art',

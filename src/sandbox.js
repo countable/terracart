@@ -872,15 +872,20 @@
   function scatterSandboxFlora(originIX, originIY, c) {
     if (typeof BiomeProfiles === 'undefined' || typeof WorldGen === 'undefined') return;
     const { grid, objects, wildplants, cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM } = c;
-    const occupied = new Set();
+    const occupied = new Set(), grassCells = new Set(), grassBlocked = new Set();
     let grassCandidates = null;
     const key = (ix, iy) => `${ix}_${iy}`;
     for (const o of objects) {
       const ix = Math.round((o.x - tx * tileEdgeM) / cellM - 0.5);
       const iy = Math.round((o.y - ty * tileEdgeM) / cellM - 0.5);
       occupied.add(key(ix, iy));
+      if (isBuilding(o.kind) || o.kind === 'temple') grassBlocked.add(key(ix, iy));
     }
     for (const wp of wildplants) {
+      if (WorldGen.isGrassCover(wp)) {
+        grassCells.add(key(Math.floor((wp.x - tx * tileEdgeM) / cellM), Math.floor((wp.y - ty * tileEdgeM) / cellM)));
+        continue;
+      }
       if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
       else {
         const ix = Math.floor((wp.x - tx * tileEdgeM) / cellM);
@@ -893,12 +898,16 @@
     const zoneCoverage = c.zone && (c.zone.coverage || c.zone.idx);
     const streetArea = c.streetArea;
     if (zoneCoverage || streetArea) for (let i = 0; i < cellsPerEdge * cellsPerEdge; i++) {
-      if (zoneCoverage?.[i] || streetArea?.[i]) occupied.add(key(i % cellsPerEdge, Math.floor(i / cellsPerEdge)));
+      if (zoneCoverage?.[i] || streetArea?.[i]) {
+        const k = key(i % cellsPerEdge, Math.floor(i / cellsPerEdge));
+        occupied.add(k); grassBlocked.add(k);
+      }
     }
     const place = (ix, iy, crop, t, clayPot = false) => {
       const kk = key(ix, iy);
-      if (occupied.has(kk)) return false;
-      occupied.add(kk);
+      const cover = crop === 'longgrass' && BiomeProfiles.GRASS_FILL.terrains.includes(t);
+      if (cover ? grassBlocked.has(kk) || grassCells.has(kk) : occupied.has(kk)) return false;
+      if (cover) grassCells.add(kk); else occupied.add(kk);
       const { x, y } = wmAt(ix, iy);
       if (clayPot) objects.push(WorldGen.makeObject('chest', x, y,
         WorldGen.cellId('hmpot', tx, ty, ix, iy), { barrel: true, barrelStyle: 'clay_pot', _biome: t }));

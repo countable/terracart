@@ -57,6 +57,9 @@
     assert.eq(JSON.stringify(f.centre(4, 9)), JSON.stringify({ x: 140 + 4.5 * 7, y: 210 + 9.5 * 7 }));
     const occ = W.occupiedIndexSet(f, [{ x: 141, y: 211 }, { x: 0, y: 0 }], [{ x: f.centre(9, 9).x, y: f.centre(9, 9).y }]);
     assert.eq([...occ].sort((a, b) => a - b).join(), '0,99', 'in-tile records only, flat indices');
+    const cover = W.makeWildplant('longgrass', 141, 211, 'grass');
+    assert.eq(W.occupiedIndexSet(f, [cover]).size, 0, 'walk-through cover leaves spawn seats free');
+    assert.eq(W.occupiedIndexSet(f, [{ ...cover, _plantArt: 'reeds' }]).size, 1, 'wetland reeds keep their existing seat rule');
   });
 
   test('spawn options of a live entry: the stamped options under the entry\'s masks, the caller\'s extras on top', () => {

@@ -1,0 +1,13 @@
+const {chromium}=require('playwright-core'),assert=require('node:assert/strict'),fs=require('node:fs');
+const out=process.env.ART_OUTPUT||'/tmp/ra-grass-check';fs.mkdirSync(out,{recursive:true});
+(async()=>{const env={...process.env};delete env.DISPLAY;const browser=await chromium.launch({env,executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--ozone-platform=headless','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
+try{const page=await browser.newPage({viewport:{width:1260,height:1200}}),errors=[];page.on('pageerror',e=>errors.push(String(e)));page.on('response',r=>{if(r.status()>=400)errors.push(`${r.status()} ${r.url()}`);});await page.goto(process.env.VIEWER_URL||'http://localhost:8765/ra-grass-study/');await page.waitForFunction(()=>window.raGrass);
+ assert.deepEqual(await page.evaluate(()=>raGrass.variants.map(v=>{const m=raGrass.model();raGrass.grass(m,v,0,0);return [...m.batches.values()].reduce((n,a)=>n+a.length/18,0);})),[16,20,20,28]);
+ const uploads=await page.evaluate(()=>raGrass.renderers.map(r=>r.uploads));
+ for(const angle of [0,45,90,135,180,270]){await page.evaluate(a=>{raGrass.state.angle=a*Math.PI/180;raGrass.draw();},angle);assert.equal(await page.evaluate(()=>[...raGrass.renderers,raGrass.detail].every(r=>r.gl.getError()===0)),true);}
+ assert.deepEqual(await page.evaluate(()=>raGrass.renderers.map(r=>r.uploads)),uploads,'camera retains textures');
+ await page.evaluate(()=>{raGrass.state.angle=0;raGrass.draw();});await page.screenshot({path:out+'/comparison.png',fullPage:true});
+ for(let i=0;i<4;i++){await page.locator(`[data-select="${i}"]`).click();assert.equal(await page.evaluate(()=>raGrass.state.variant),i);await page.locator('#clear').click();assert.match(await page.locator('#count').textContent(),new RegExp(String(24*[16,20,20,28][i])+' grass triangles'));await page.locator('#walk').click();await page.locator('.detail').screenshot({path:out+`/variant-${i+1}.png`});await page.locator('#reset').click();}
+ await page.selectOption('#light','0');await page.locator('#quarter').click();await page.locator('.detail').screenshot({path:out+'/muted-45.png'});
+ await page.setViewportSize({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:out+'/mobile.png',fullPage:true});assert.deepEqual(errors,[]);console.log('PASS: four triangle counts, six headings, retained textures, field selection, clearing, player, lighting, mobile and browser/GL errors');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exitCode=1;});

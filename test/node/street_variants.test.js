@@ -91,14 +91,9 @@ function openStreetTile(sourceLayers) {
 }
 const rasterize = () => openStreetTile(layers());
 const cellOf = (v, t) => Math.floor((v - t * TILE_EDGE_M) / (TILE_EDGE_M / CPE));
-const occupiedOf = (r) => {
-  const occ = new Set();
-  for (const o of [...r.objects, ...r.wildplants]) {
-    const ix = cellOf(o.x, TX), iy = cellOf(o.y, TY);
-    if (ix >= 0 && iy >= 0 && ix < CPE && iy < CPE) occ.add(iy * CPE + ix);
-  }
-  return occ;
-};
+// Use the production occupancy rule: grass covers a seat but does not reserve it.
+const occupiedOf = r => WorldGen.occupiedIndexSet(
+  WorldGen.tileFrame({ cellsPerEdge: CPE }, TX, TY, TILE_EDGE_M), r.objects, r.wildplants);
 const dressed = (r) => {
   const spawnOpts = { roadMask: r.roadMask, occupied: occupiedOf(r), pois: [] };
   const before = new Set(spawnOpts.occupied);
@@ -1890,7 +1885,10 @@ test('authored street obstacles: only declared minor-road seats relax the road g
 });
 
 test('barricade scenery: perpendicular lines reach four cells from the verge', () => {
-  const {d}=dressedVariants();
+  const {d,r}=dressedVariants();
+  const generated = [...(r.streetDress?.objects || []), ...(r.streetDress?.wildplants || [])]
+    .filter(o => o._street === 'barricade' && o._streetScenery);
+  assert.gt(generated.length, 6, 'actual rasterization keeps barricades through clustered grass cover');
   const pieces=[...d.objects,...d.wildplants].filter(o=>o._street==='barricade'&&o._streetScenery);
   const rows=new Map();
   for(const o of pieces){const y=cellOf(o.y,TY);if(!rows.has(y))rows.set(y,[]);rows.get(y).push(cellOf(o.x,TX));}

@@ -207,7 +207,7 @@ Use these terms for object presentation and walking behavior, not pixel height:
 | Standing props | `WorldLayers.STANDING_PROP` | Saplings, trees, lamps, dropped-item icons, houses | Upright; ordinary feet-based depth ordering; no support lift |
 
 `WorldLayers.forObject` uses the explicit `RENDER_SPEC.layer` for decals and
-`ObstacleStep.profile` for step-over props; all other objects are standing props.
+`ObstacleStep.profile` with positive lift for step-over props; all other objects are standing props.
 Do not infer a category from image size, shadows, or whether an object is lit.
 Saplings are standing props despite their small size. `ObstacleStep` measures
 support continuously from world coordinates, so stopping on a prop keeps the
@@ -307,9 +307,11 @@ orders short wall prisms by screen depth. Connected stronghold wall runs and
 clipped hedge walls (the `connectedArtForTile` masks) join that batch through
 `Render.drawConnectedWallPrisms` (source `props`): one union mesh for a core
 and its connected arms, seated on the cells' terrain slots, rising by the
-step-over lift in `ObstacleStep.PROFILES`, with thickness from
+step-over lift (walls) or separate `heightPx` (walk-through hedges) in
+`ObstacleStep.PROFILES`, with thickness from
 `Render.CONNECTED_WALL_ART` and surfaces from `WallMaterials`. Those pieces leave the sprite pools for the frame;
-they still interact, block and support steps from their data cells. An isolated
+they still interact from their data cells. Walls support steps; hedges provide
+waist-high cover without a hop or balancing slowdown. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 `wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
 and bevels without a pale coping band. Hedges have their own profile there
@@ -609,6 +611,10 @@ the surrounding grove’s shrub scale.
   compensate for sprite seating by changing the projection. Step-over support
   re-seats the shadow at the current ground point after movement, alongside
   the raised body; its shadow never inherits the support lift.
+- Long grass covers its full square and clipped hedges cover their foliage
+  footprint (connected arms for rows, a rounded crown for lone hedges). They
+  share the water half-body crop, never supply step lift or balancing slowdown,
+  and stop covering immediately when removed from the drawn plant list.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
   Furniture with height `basin` does the same at the player's feet cell on the
@@ -1337,3 +1343,20 @@ Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary roc
 cliff faces. Terrain 32 retains its movement and spawn collision and bakes one
 nearest-neighbour texture at startup, with no mineral sprite, loot, animation
 or runtime pixel readback.
+
+### Native tall-grass tufts
+
+Harvestable wild longgrass (excluding reeds) uses four retained crossed tuft
+pairs per cell in `Render.drawGrassPrisms`: 16 triangles, widths of 23 pixels,
+alternating heights of 21/24 pixels, and centres offset by +/-8 pixels on each
+axis. `WallMaterials.GRASS` owns those dimensions. Each pair sorts individually
+among props and actors so the front tufts can cover the lower parts of objects.
+
+The mesh reads the actual native RA 16px grass sprite through
+`selected_longgrass`, with its original binary alpha, nearest-neighbour pixels,
+and two-sided faces. There is no opaque core, crown, or procedural grass atlas.
+Natural gaps reveal co-located props and plants; gameplay does not suppress their
+sprites or announce a hidden find on entry. Player lower-half cover, normal
+harvesting, deterministic eggs, and the separate hedge treatment remain intact.
+Only visible cell candidates enter the retained batch; heading and subcell
+movement reuse its geometry. Reeds retain their existing sprite presentation.
