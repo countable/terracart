@@ -15,6 +15,16 @@ pixels and decorative details do not define additional tap cells.
 
 ## Dialogs, feedback and teaching
 
+- Crossing a surface building footprint holds the player until the GPS or
+  steering target is at least two metres beyond the wall, measured perpendicular
+  to its edge. A brief wind-up then shows
+  “SMASH!” through the regular map-note helper, a dust puff, and a fading crack at the wall. Buildings remain
+  passable and undamaged. Reversing away cancels the wind-up; a short per-edge
+  cooldown prevents jitter from repeatedly stopping travel. Reduced motion
+  retains the text and crack without flying dust or text bounce. Wall dust uses
+  the shared `Particles` preset/emitter helper used by wreck-restoration bursts;
+  GPS clearance, crack lifetime and repair sequencing remain separate.
+
 - Every road and path identity, including the fixed medium and large roads,
   has a dedicated story painting matching its visible props. The variant row
   owns its art key; distinct routes do not borrow one another’s paintings.

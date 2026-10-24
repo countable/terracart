@@ -6006,6 +6006,7 @@ class MapScene extends Phaser.Scene {
   }
   drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
   drawObjects() {
+    if (typeof WallSmash !== 'undefined') WallSmash.draw(this);
     const B = window.__boot;
     if (!B) return Render.drawObjects(this);
     const t0 = performance.now();
@@ -7390,6 +7391,7 @@ class MapScene extends Phaser.Scene {
       const dx = (ux * (1 - takeover) + Math.cos(loop.angle) * takeover) * speed * step;
       const dy = (uy * (1 - takeover) + Math.sin(loop.angle) * takeover) * speed * step;
       const x = this.playerM.x + dx, y = this.playerM.y + dy;
+      if (typeof WallSmash !== 'undefined' && WallSmash.hold(this, x, y)) continue;
       if (!this._cellBlocked(this.startWorldM.x + x, this.startWorldM.y + y + (this.feetOffsetM || 0))) {
         this.playerM.x = x; this.playerM.y = y;
       }
@@ -7481,6 +7483,10 @@ class MapScene extends Phaser.Scene {
       !this._cellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
     const beforeX = body.x, beforeY = body.y;
     const nx = body.x + ux * move, ny = body.y + uy * move;
+    if (typeof WallSmash !== 'undefined' && WallSmash.hold(this, nx, ny)) {
+      this._playDirected(this.player, 'idle');
+      return;
+    }
     if ((ux !== 0) && open(nx, body.y)) body.x = nx;
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
     // Heading is the facing FALLBACK only — a real compass reading wins, same
