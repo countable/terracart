@@ -3059,22 +3059,22 @@
       ],
       "material": "crimson_ore",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_minerals",
         "frames": [
-          26
+          12
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 13288915,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
-        "dxPx": 0.6476800000000001,
-        "dyPx": -3.454293333333333,
-        "footFromCentre": 4.317866666666668
+        "width": 25.6,
+        "height": 25.6,
+        "dxPx": 0,
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3095,22 +3095,22 @@
       ],
       "material": "crimson_ore",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_minerals",
         "frames": [
-          26
+          12
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 13288915,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
-        "dxPx": 0.6476800000000001,
-        "dyPx": -3.454293333333333,
-        "footFromCentre": 4.317866666666668
+        "width": 25.6,
+        "height": 25.6,
+        "dxPx": 0,
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3150,22 +3150,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 2.4,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 38.4,
+        "height": 38.4,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -5.600000000000001,
+        "footFromCentre": 8.799999999999999
       }
     },
     {
@@ -3187,22 +3187,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3224,22 +3224,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3261,22 +3261,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3298,22 +3298,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3335,22 +3335,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3372,22 +3372,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3409,22 +3409,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3446,22 +3446,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3483,22 +3483,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3520,22 +3520,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3557,22 +3557,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3594,22 +3594,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3631,22 +3631,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3668,22 +3668,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3705,22 +3705,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3742,22 +3742,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3779,22 +3779,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3816,22 +3816,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3853,22 +3853,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3890,22 +3890,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -3927,22 +3927,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -3964,22 +3964,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4001,22 +4001,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4038,22 +4038,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4075,22 +4075,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4112,22 +4112,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4149,22 +4149,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4186,22 +4186,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4223,22 +4223,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4260,22 +4260,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4297,22 +4297,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4334,22 +4334,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4371,22 +4371,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4408,22 +4408,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4445,22 +4445,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4482,22 +4482,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4519,22 +4519,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4556,22 +4556,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4593,22 +4593,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4630,22 +4630,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4667,22 +4667,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4704,22 +4704,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4741,22 +4741,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4779,22 +4779,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 2.4,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 38.4,
+        "height": 38.4,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -5.600000000000001,
+        "footFromCentre": 8.799999999999999
       }
     },
     {
@@ -4816,22 +4816,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4853,22 +4853,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -4890,22 +4890,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4927,22 +4927,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -4964,22 +4964,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5001,22 +5001,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5038,22 +5038,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5075,22 +5075,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5112,22 +5112,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5149,22 +5149,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5186,22 +5186,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5223,22 +5223,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5260,22 +5260,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5297,22 +5297,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5334,22 +5334,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5371,22 +5371,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5408,22 +5408,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5445,22 +5445,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5482,22 +5482,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5520,22 +5520,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 2.4,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 38.4,
+        "height": 38.4,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -5.600000000000001,
+        "footFromCentre": 8.799999999999999
       }
     },
     {
@@ -5557,22 +5557,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5594,22 +5594,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5631,22 +5631,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5668,22 +5668,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5705,22 +5705,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -3.7333333333333343,
+        "footFromCentre": 5.866666666666667
       }
     },
     {
@@ -5743,22 +5743,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 2.4,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 38.4,
+        "height": 38.4,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -2.4,
+        "footFromCentre": 4.8
       }
     },
     {
@@ -5780,22 +5780,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {
@@ -5818,22 +5818,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_stone",
         "frames": [
-          62
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 2.4,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 38.4,
+        "height": 38.4,
         "dxPx": 0,
-        "dyPx": -3.4542933333333354,
-        "footFromCentre": 5.613226666666668
+        "dyPx": -5.600000000000001,
+        "footFromCentre": 8.799999999999999
       }
     }
   ],

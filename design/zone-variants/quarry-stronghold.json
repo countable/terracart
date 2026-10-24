@@ -5547,22 +5547,22 @@
       ],
       "material": "stone",
       "previewArt": {
-        "sheet": "rock_variants",
+        "sheet": "rogue_rock_mid",
         "frames": [
-          61
+          "__BASE"
         ],
-        "scale": 1.2953600000000003,
+        "scale": 1.6,
         "tint": 16777215,
         "preserveFrame": true,
         "origin": [
           0.5,
           0.5
         ],
-        "width": 20.725760000000005,
-        "height": 20.725760000000005,
+        "width": 25.6,
+        "height": 25.6,
         "dxPx": 0,
-        "dyPx": -2.158933333333333,
-        "footFromCentre": 4.317866666666668
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
       }
     },
     {

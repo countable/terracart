@@ -33,8 +33,8 @@ python3 tools/build_dashboard_directory.py
 python3 tools/preview_zone_variants.py
 ```
 
-The first command requires Python Markdown; the second requires Node.js and
-Pillow. The layout lab is maintained directly in `design/layout-lab.html` and
+The first command requires Python Markdown; the second requires Node.js,
+Pillow, Playwright Core and Chromium (`PW_CHROMIUM` can select its executable). The layout lab is maintained directly in `design/layout-lab.html` and
 loads the checkout's terrain modules. Historical storyboards and reviews stay
 on the artifact server and are explicitly linked there. The floor asset table and approved-story-art reference viewer are maintained
 in `design/`, including their preview images. The floor table links to optional
@@ -296,7 +296,9 @@ exporters; they are not separate commands.
 
 ## Art previews, generators and data
 
-The Nexus review’s Width and Height controls change the sampled cell area independently and keep the dimensions in the URL. Pattern samples support up to 49 cells per axis; quarry samples stop at their generated fixture bounds. Containers use the game’s `chestLook` art choices, and Formal/Hedge Garden shrubs use cardinally connected hedge frames. Each shipping Nexus and road card has an Open in sandbox button that selects that exact variant and skips the intro and tutorial.
+The Nexus review’s Width and Height controls change the sampled cell area independently and keep the dimensions in the URL. Pattern samples support up to 49 cells per axis; quarry samples stop at their generated fixture bounds. The exporter installs the same active Rogue profile as the game, resolves its native terrain and object art, and runs the game’s mineral and berry texture callbacks in Chromium. Containers use the game’s `chestLook` art choices, and Formal/Hedge Garden shrubs use cardinally connected hedge frames. Each shipping Nexus and road card has an Open in sandbox button that selects that exact variant and skips the intro and tutorial.
+
+Run `node test/variant-art-parity.cjs http://localhost:8765` after regeneration to compare review pixels with textures from a running sandbox, including generated minerals/berries, foliage, fixtures and ground.
 
 `preview_zone_variants.py` includes shipping path weights, slime paving and guards, and permanent seeded spider webs in its street showcase. Geyser paths show their seeded vents in the active phase and describe their daily shrine. Walking-path samples use half the road sample length and twice the visual scale.
 

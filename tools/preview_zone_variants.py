@@ -33,7 +33,7 @@ def art_registry():
 @functools.lru_cache(maxsize=None)
 def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=None):
     row = art_registry()['assets'][sheet]
-    path = pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
+    path = io.BytesIO(base64.b64decode(row['dataUrl'].split(',', 1)[1])) if row.get('dataUrl') else pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
     with Image.open(path) as source:
         image = source.convert('RGBA')
     if row['kind'] in ('spritesheet', 'atlas-alias'):
@@ -48,7 +48,7 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
     if sheet == 'stair_down':
         image = image.crop((0, 16, 32, 32))  # ASSETS.stair_down named down frame.
     # Match ASSETS.crops.onLoad; raw Crops.png has an opaque white key.
-    if row['whiteKey']:
+    if row.get('whiteKey'):
         image.putdata([(r, g, b, 0 if min(r, g, b) > 240 else a) for r, g, b, a in image.getdata()])
     palette = art_registry().get('enemyPalettes', {}).get(sheet)
     if palette_key:
@@ -88,9 +88,9 @@ def material_art(material):
         container = material['kind']
     if container:
         art = r['containerArt'][container]
-        return {**art, 'source': r['assets'][art['sheet']]['path'].split('?')[0] + ' · frame ' + str(art['frames'][0])}
+        return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     kind = material['kind']
-    if kind in ('mineralrock', 'headstone', 'waystone'):
+    if kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase'):
         fields = r['materialArtFields']
         key = json.dumps([material.get(field) for field in fields], separators=(',', ':'))
         if key not in r['materialArt']:
@@ -99,16 +99,25 @@ def material_art(material):
             r['materialArt'][key] = json.loads(subprocess.check_output(
                 ['node', str(helper), '--resolve-material-art'], input=json.dumps(record), text=True))
         art = r['materialArt'][key]
-        return {**art, 'source': r['assets'][art['sheet']]['path'].split('?')[0] + ' · frame ' + str(art['frames'][0])}
+        return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     if material.get('_objectArt'):
         key = ':'.join([kind, material['_objectArt'], material.get('species', ''), material.get('size', '')])
         art = r['objectArt'].get(key)
         if art:
-            return {**art, 'source': r['assets'][art['sheet']]['path'].split('?')[0] + ' · frame ' + str(art['frames'][0])}
+            return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     if kind == 'tidepool':
         return {'ground': 'WATER', 'source': 'src/textures.js · shipping water terrain'}
     if material.get('_plantArt') in ('zone_hedge', 'zone_hedge_single'):
         return {'sheet': material['_plantArt'], 'frames': [material.get('_hedgeFrame', 0)], 'preserveFrame': True}
+    if kind == 'wildplant':
+        fields = r['plantArtFields']
+        key = json.dumps([material.get(field) for field in fields], separators=(',', ':'))
+        if key not in r['plantArt']:
+            helper = pathlib.Path(__file__).with_name('preview_variant_art.js')
+            record = {field: material[field] for field in fields if field in material}
+            r['plantArt'][key] = json.loads(subprocess.check_output(['node', str(helper), '--resolve-plant-art'], input=json.dumps(record), text=True))
+        art = r['plantArt'][key]
+        return {**art, 'frames': art['choices']}
     if kind == 'wildplant' and material.get('gasEmitter') and material.get('crop') in r['gasMushrooms']:
         crop = 'giant_mushroom' if material.get('_zoneObjectFrame') == 40 else material['crop']
         art = r['gasMushrooms'][crop]
@@ -167,6 +176,9 @@ def material_art(material):
 
 def art_image(art, extra='', frame=None):
     if art.get('ground'):
+        native = ground_frame(art['ground'])
+        if native:
+            return art_image(native, extra)
         terrain = next(t for t in art_registry()['terrainTiles'] if t['name'] == art['ground'])
         return f'<image data-ground-type="{terrain["type"]}" {extra}/>'
     if art.get('procedural'):
@@ -181,6 +193,18 @@ def sprite_symbols(materials, prefix):
 
 
 def sprite_cell(prefix, material, x, y, size, definition=None):
+    if definition and definition.get('kind') in ('tree', 'wildplant') and definition.get('_plantArt') not in ('zone_hedge', 'zone_hedge_single'):
+        art = material_art(definition)
+        if definition['kind'] == 'tree':
+            fields = art_registry()['materialArtFields']
+            key = json.dumps([definition.get(field) for field in fields], separators=(',', ':'))
+            choices = art_registry()['treeArtPools'].get(key, [art])
+            art = choices[int(hash_unit('tree-art', int(x), int(y), material) * len(choices))]
+        frame = art['frames'][int(hash_unit('plant-art', int(x), int(y), material) * len(art['frames']))]
+        unit = size / .8 / art_registry()['cellPx']
+        width, height = art['width'] * unit, art['height'] * unit
+        origin = art.get('origin', [.5, .5])
+        return art_image(art, f'class="sprite-cell" data-game-art="{art["sheet"]}" x="{x+size/2+art.get("dxPx",0)*unit-origin[0]*width}" y="{y+size/2+art.get("dyPx",0)*unit-origin[1]*height}" width="{width}" height="{height}"', frame)
     if definition and (definition.get('_objectArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone')):
         art = material_art(definition)
         if 'width' in art:
@@ -453,11 +477,30 @@ def creature_at(kind, x, y, unit, label):
     return f'<g class="monster-layer"><circle cx="{x}" cy="{y}" r="{unit*.52}" fill="#4a2527" fill-opacity=".75" stroke="#ff827b" stroke-width=".65"><title>{html.escape(label)}</title></circle>' + art_image(art, f'class="sprite-cell" x="{x-unit*.45}" y="{y-unit*.65}" width="{unit*.9}" height="{unit*.9}"') + '</g>'
 
 
-def ground_pattern(terrain_name, prefix, unit):
+def ground_frame(terrain_name, zone_id=None):
+    registry = art_registry()
+    tile = next(t for t in registry['terrainTiles'] if t['name'] == terrain_name)
+    ground = registry['groundArt']
+    frame = ground['zoneTerrainFrames'].get(f'{tile["type"]}:{zone_id}') if zone_id else None
+    if frame is None:
+        frames = ground['terrainFrames'].get(str(tile['type']))
+        frame = frames[0] if frames else None
+    if frame is not None:
+        return {'sheet': ground['key'], 'frames': [frame], 'preserveFrame': True}
+    fallback = ground.get('selectedFallback')
+    frames = fallback['terrainFrames'].get(str(tile['type'])) if fallback else None
+    if frames is not None:
+        return {'sheet': fallback['key'], 'frames': [frames[0] if isinstance(frames, list) else frames], 'preserveFrame': True}
+    return None
+
+
+def ground_pattern(terrain_name, prefix, unit, zone_id=None):
     tile = next(t for t in art_registry()['terrainTiles'] if t['name'] == terrain_name)
+    native = ground_frame(terrain_name, zone_id)
+    image = art_image(native, f'width="{unit}" height="{unit}"') if native else f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/>'
     return (f'<defs><pattern id="{prefix}" patternUnits="userSpaceOnUse" width="{unit}" height="{unit}">'
             f'<rect width="{unit}" height="{unit}" fill="#{tile["color"]:06x}"/>'
-            f'<image data-ground-type="{tile["type"]}" width="{unit}" height="{unit}"/></pattern></defs>')
+            + image + '</pattern></defs>')
 
 
 def nexus_preview(svg, focus=None, resizable=False):
@@ -498,10 +541,11 @@ def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None, resiz
     slots = [s for s in v['poi']['slots'] if not reserved(*s['at'])]
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} {"POI pattern" if detail else "background and POI"}" viewBox="0 0 {side*unit} {side*unit}">', '<rect width="100%" height="100%" fill="#172820"/>']
     ground_id = f'{prefix}zone-ground-{v["id"]}-{int(detail)}'
-    parts.append(ground_pattern(ground or v.get('ground') or ('SAND' if v['zone'] == 'beach' else registry['zoneKinds'][v['zone']]['terrain']), ground_id, unit))
+    ground_name = ground or v.get('ground') or ('SAND' if v['zone'] == 'beach' else registry['zoneKinds'][v['zone']]['terrain'])
+    parts.append(ground_pattern(ground_name, ground_id, unit, v['id']))
     parts.append(f'<rect width="100%" height="100%" fill="url(#{ground_id})"/>')
     accent = registry['groundAccents'].get(v['id'])
-    if accent:
+    if accent and not ground_frame(ground_name, v['id']):
         for y in range(side):
             for x in range(side):
                 material = background_at(v, x + poi_x - draw_x, y + poi_y - draw_y)
@@ -593,18 +637,11 @@ def svg_for(v, d, detail=False, prefix="", ground=None, sample_cells=None, resiz
     color = '#%06x' % light['colour']
     parts.append(light_guide(cx,cy,unit*light['radiusCells'],color))
     if shrine:
-        art = wreck if shipwreck else registry['groveShrines'][0]
-        mapped = next((row for row in registry['shrineKinds'].values() if v['id'] in row.get('zoneVariants', [])), None)
-        if not shipwreck and v.get('shrineFrame') is not None:
-            art = {'key': 'zone_objects', 'frame': v['shrineFrame'], 'scale': 4 / 3}
-        elif not shipwreck and mapped:
-            art = {'key': 'shrines', 'frame': mapped['frame'], 'scale': 2}
-
-        asset = registry['assets'][art['key']]
-        # Preserve native sprite proportions and the shipping scale.
-        width = asset.get('frameWidth',1536 if shipwreck else 48)*art['scale']/registry['cellPx']*unit
-        height = asset.get('frameHeight',1024 if shipwreck else 48)*art['scale']/registry['cellPx']*unit
-        parts.append(art_image({'sheet':art['key'],'frames':[art['frame']],'preserveFrame':True},f'class="sprite-cell" x="{cx-width/2}" y="{cy-height/2}" width="{width}" height="{height}"'))
+        art = registry['shrineArt'][v['id']]
+        factor = unit / registry['cellPx']
+        width, height = art['width'] * factor, art['height'] * factor
+        origin = art['origin']
+        parts.append(art_image(art, f'class="sprite-cell" data-game-art="{art["sheet"]}" x="{cx+art["dxPx"]*factor-origin[0]*width}" y="{cy+art["dyPx"]*factor-origin[1]*height}" width="{width}" height="{height}"'))
     parts.append(f'<circle class="geometry-cell" cx="{cx}" cy="{cy}" r="4" fill="#fff6ca" stroke="#171b12" stroke-width=".8"><title>POI / settled interactable</title></circle>')
     parts.append('</g>')
     # Finds use the runtime radius-relative/plot-relative offsets. This ideal
@@ -746,8 +783,11 @@ def street_svg(v, cell_m, detail=False):
     for lamp in v['lamps']:
         parts.append(light_guide(lamp['x'],lamp['y'],cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
         parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{v["lampGlow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {v["lampGlow"]}</title></circle>')
-        lamp_size = cell_m * art_registry()['lampDrawCells']
-        parts.append(art_image({'procedural': 'lamp:' + lamp['glow']}, f'class="sprite-cell" x="{lamp["x"]-lamp_size/2}" y="{lamp["y"]-lamp_size*art_registry()["lampGroundFrac"]}" width="{lamp_size}" height="{lamp_size}"'))
+        art = art_registry()['lampArt']
+        factor = cell_m / art_registry()['cellPx']
+        width, height = art['width'] * factor, art['height'] * factor
+        parts.append(art_image(art, f'class="sprite-cell" data-game-art="{art["sheet"]}" x="{lamp['x']+art['dxPx']*factor-art['origin'][0]*width}" y="{lamp['y']+art['dyPx']*factor-art['origin'][1]*height}" width="{width}" height="{height}"'))
+
     for p in (a, b):
         parts.append(f'<circle cx="{p["x"]}" cy="{p["y"]}" r="2" fill="#e1d1b4"><title>Source line endpoint</title></circle>')
     if not detail:
@@ -824,7 +864,7 @@ def quarry_card(v, d):
     materials = {name: next(o for o in fixture['objects'] if o['material'] == name) for name in names if name != 'treasure_x'}
     parts = [f'<svg role="img" aria-label="{html.escape(v["name"])} layout" viewBox="0 0 {side*unit} {side*unit}">',
              '<rect width="100%" height="100%" fill="#172820"/>', sprite_symbols(materials, prefix)]
-    parts.append(ground_pattern('RESIDENTIAL', prefix+'-outside', unit))
+    parts.append(ground_pattern('GRASS', prefix+'-outside', unit))
     parts.append(f'<rect width="100%" height="100%" fill="url(#{prefix}-outside)"/>')
     parts.append(ground_pattern('ROCK', prefix+'-ground', unit))
     ground = f'url(#{prefix}-ground)'
@@ -1123,15 +1163,51 @@ def basic_tile_section():
 
 def basic_tile_script():
     registry = art_registry()
+    # Surface ground comes from the active transition atlas. Cave-only types
+    # use the same selected strip that makeBiomeTextures installs in game.
+    # Keep the procedural painter only for types with no authored source.
+    ground = registry['groundArt']
+    native_sources = {}
+    for tile in registry['terrainTiles']:
+        art = ground_frame(tile['name'])
+        if not art:
+            continue
+        frames = ground['terrainFrames'].get(str(tile['type']))
+        if frames is None:
+            fallback = ground.get('selectedFallback')
+            frames = fallback['terrainFrames'].get(str(tile['type'])) if fallback else None
+        if not isinstance(frames, list):
+            frames = [frames] if frames is not None else art['frames']
+        native_sources[tile['type']] = [sprite_png(art['sheet'], frame, True) for frame in frames]
+    selected_source = sprite_png('selected_terrain', 0, True) if 'selected_terrain' in registry['assets'] else None
     script = registry['biomePainter'] + '\nconst tiles=' + json.dumps(registry['terrainTiles']) + ';'
+    script += '\nconst nativeGroundSources=' + json.dumps(native_sources) + ';'
+    script += '\nconst selectedGroundSource=' + json.dumps(selected_source) + ';'
     script += """
+const images = new Map();
+const sources = new Set(Object.values(nativeGroundSources).flat());
+if (selectedGroundSource) sources.add(selectedGroundSource);
+await Promise.all([...sources].map(async source => {
+  const image = new Image(); image.src = source; await image.decode();
+  images.set(source, image);
+}));
+if (selectedGroundSource) setSelectedTerrainSource(images.get(selectedGroundSource));
+function paintGround(ctx, size, tile, variant=0) {
+  ctx.imageSmoothingEnabled=false;
+  const sources=nativeGroundSources[tile.type];
+  if(sources?.length) {
+    ctx.drawImage(images.get(sources[variant % sources.length]),0,0,size,size);
+  } else if(tile.variants) {
+    drawBiomeTexture(ctx,size,tile.type,variant % tile.variants);
+  }
+}
 for (const canvas of document.querySelectorAll('[data-terrain]')) {
   const tile=tiles.find(row=>row.type===Number(canvas.dataset.terrain)),ctx=canvas.getContext('2d');
   ctx.fillStyle='#'+(tile.color??0x333333).toString(16).padStart(6,'0');
   ctx.fillRect(0,0,canvas.width,canvas.height);
-  if(tile.variants)for(let y=0;y<3;y++)for(let x=0;x<6;x++) {
+  for(let y=0;y<3;y++)for(let x=0;x<6;x++) {
     const texture=document.createElement('canvas');texture.width=texture.height=32;
-    drawBiomeTexture(texture.getContext('2d'),32,tile.type,(x+y)%tile.variants);
+    paintGround(texture.getContext('2d'),32,tile,x+y);
     ctx.drawImage(texture,x*32,y*32);
   }
 }
@@ -1141,14 +1217,16 @@ for (const image of document.querySelectorAll('[data-ground-type]')) {
   if(!groundTextures.has(type)) {
     const tile=tiles.find(row=>row.type===type),texture=document.createElement('canvas');
     texture.width=texture.height=32;
-    if(tile.variants)drawBiomeTexture(texture.getContext('2d'),32,type,0);
+    const ctx=texture.getContext('2d');
+    ctx.fillStyle='#'+(tile.color??0x333333).toString(16).padStart(6,'0');
+    ctx.fillRect(0,0,32,32); paintGround(ctx,32,tile);
     groundTextures.set(type,texture.toDataURL());
   }
   image.setAttribute('href',groundTextures.get(type));
 }
 document.documentElement.dataset.tilesReady='true';
 """
-    return '<script>(()=>{\n' + script.replace('</script', '<\\/script') + '\n})();</script>'
+    return '<script>(async()=>{\n' + script.replace('</script', '<\\/script') + '\n})().catch(error=>{document.documentElement.dataset.tilesError=error.message;throw error;});</script>'
 
 
 def beach_park_section(d):
@@ -1296,7 +1374,7 @@ def render(d, out):
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     page += '<div class="controls zone-size-controls" aria-label="Zone sample size"><label>Width (cells) <input id="zone-width" type="number" min="3" max="49" step="1" value="29"></label><label>Height (cells) <input id="zone-height" type="number" min="3" max="49" step="1" value="29"></label><button id="zone-size-reset" type="button">Reset size</button><output id="zone-size-status" aria-live="polite"></output></div>'
     generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
-    page += f'<p>Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
+    page += f'<p>Art profile: {art_registry()["activeProfile"]}. Static snapshot generated {generated_at} from the checked-out game definitions and shipped art. This page does not fetch live game data; regenerate it after changes.</p>'
     page += '<section id="zones" data-view-panel hidden><h2>Nexus</h2><nav class="page-nav" aria-label="Nexus categories">' + quick_links + '</nav><p>Runtime definitions at generation time. Previews show representative patterns before terrain and occupied cells clip placement. <a href="zone-variants.json">Zone data</a></p>'
     for key in categories:
         page += f'<section id="category-{key}"><h2>{category_names.get(key, key.title())}</h2>'
