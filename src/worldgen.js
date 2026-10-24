@@ -6896,7 +6896,7 @@
       yield 'tier placement cleanup';
     }
     const hasExclusionRock = stampExclusionRock(grid, w, h,
-      { gameplayTiers, gameplayReasons, spawnWhy, roadMask, residentialGrid: variantBaseGrid }) > 0;
+      { gameplayTiers, gameplayReasons, spawnWhy, roadMask, owners, residentialGrid: variantBaseGrid }) > 0;
     assignScholarFallback(deduped);
     return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
   }
@@ -6911,7 +6911,7 @@
     let count = 0;
     for (let i = 0; i < grid.length; i++) {
       if (tiers[i] !== 4 || residential[i] !== T.RESIDENTIAL
-        || !(opts.spawnWhy?.[i] & privateLand) || opts.roadMask?.[i]
+        || !(opts.spawnWhy?.[i] & privateLand) || opts.roadMask?.[i] || opts.owners?.[i]
         || (opts.spawnWhy?.[i] & W_.ROAD)
         || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
         || grid[i] === T.ROAD || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
