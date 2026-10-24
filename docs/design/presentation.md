@@ -597,6 +597,9 @@ pixels and decorative details do not define additional tap cells.
   onscreen, otherwise on the compass edge: a bright 3px-radius core with a translucent
   pulse expanding to a 12px radius every 3 seconds. Labels use their dot’s
   colour and stay beside it; crowded labels do not stack away from their dots.
+  Only an edge dot takes a tap (`_tapEdgeDot` toggles its label); a dot on
+  its target leaves the tap to the target, so the starter crate under its
+  guide still opens.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
