@@ -15,6 +15,11 @@ pixels and decorative details do not define additional tap cells.
 
 ## Dialogs, feedback and teaching
 
+- Every road and path identity, including the fixed medium and large roads,
+  has a dedicated story painting matching its visible props. The variant row
+  owns its art key; distinct routes do not borrow one another’s paintings.
+  New paintings ship with regenerated loading thumbnails and cache hashes.
+
 - Restoring a wreck runs a three-second work sequence before charging materials:
   the player's sprite scurries around all four footprint sides and swings a
   pixel hammer. The body/GPS and interaction origin stay put while movement

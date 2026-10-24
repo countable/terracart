@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-aff50e06';
+const SHELL_VERSION = 'shell-e4772f43';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -1169,18 +1169,37 @@ const ASSET_HASHES = {
   "assets/art/story_wrecks_frame2.webp": "ac032e0a",
   "assets/art/street_bandit.webp": "1cfc0793",
   "assets/art/street_barricade.webp": "d23eb43e",
+  "assets/art/street_berry.webp": "2afa8398",
+  "assets/art/street_berry_trail.webp": "bfd3530f",
   "assets/art/street_burned.webp": "f638e5bc",
+  "assets/art/street_confusion_path.webp": "0af2c225",
+  "assets/art/street_fire_path.webp": "afb9ee43",
+  "assets/art/street_goblin_gang.webp": "175abbe5",
   "assets/art/street_golden.webp": "46f58cf8",
+  "assets/art/street_golden_path.webp": "1c0e78bf",
+  "assets/art/street_grassy_lane.webp": "3176146a",
   "assets/art/street_greenway.webp": "cd40a3a1",
+  "assets/art/street_haunted_forest_path.webp": "b0fb122a",
   "assets/art/street_hedgerow.webp": "b4546581",
+  "assets/art/street_highway.webp": "468359b7",
   "assets/art/street_lantern.webp": "b8f7364f",
+  "assets/art/street_old_growth_path.webp": "63a63a52",
   "assets/art/street_orchard.webp": "d0f0ca35",
   "assets/art/street_overgrown.webp": "62b910f4",
+  "assets/art/street_paralysis_path.webp": "a39ebff3",
   "assets/art/street_parkpath.webp": "7c604f6e",
   "assets/art/street_pilgrim.webp": "4d6c11d0",
+  "assets/art/street_poison_path.webp": "93023880",
+  "assets/art/street_pottery.webp": "fa866cb8",
+  "assets/art/street_rocky_path.webp": "19bcb3a9",
   "assets/art/street_scenic.webp": "d7dba731",
+  "assets/art/street_slime_trail.webp": "8d5469f7",
   "assets/art/street_snare.webp": "1fcf3780",
+  "assets/art/street_spider_path.webp": "9a7b4116",
+  "assets/art/street_thorny.webp": "fa7f2022",
   "assets/art/street_toadstool.webp": "80bb0127",
+  "assets/art/street_trade.webp": "ffe397fe",
+  "assets/art/street_way_of_variety.webp": "a337a002",
   "assets/art/temple_activated.webp": "ac50f2db",
   "assets/art/tool_catch.webp": "b7ba8745",
   "assets/art/tool_catch_chicken.webp": "f9051b59",
