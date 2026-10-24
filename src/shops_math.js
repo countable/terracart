@@ -8,7 +8,8 @@
 // sub-hour offset staggers rotations. Deal counts + rerolls live in
 // save.shopState.
 //
-// Shops carry three shelf entries. Buying replaces only that entry and lowers
+// Shops carry a shelf of entries (SHELF_SIZE, or the line's own count —
+// shops.js LINE_RULES `shelf`). Buying replaces only that entry and lowers
 // the paid re-roll ladder by one rung. Hourly easing still applies, and the
 // shared UTC game-day boundary clears any remaining penalty overnight.
 // Only traders keep a short deal cooldown; other counters stay open.
@@ -207,12 +208,16 @@
     return next;
   }
 
-  // Shelf snapshots preserve the two unbought offers, including their price.
-  // A draw may return null when a relic shop has no upgrades left.
+  // Shelf snapshots preserve the unbought offers, including their price.
+  // A draw may return null when a relic shop has no upgrades left. `size` is
+  // the line's count (Shops.shelfSize); a saved shelf of another length is
+  // trimmed or topped up to it, keeping the offers it still holds.
   const SHELF_SIZE = 3;
-  function shelf(cur, draw, replace = null) {
-    if (!Array.isArray(cur.shelf)) cur.shelf = Array(SHELF_SIZE).fill(null);
-    for (let i = 0; i < SHELF_SIZE; i++) {
+  function shelf(cur, draw, replace = null, size = SHELF_SIZE) {
+    if (!Array.isArray(cur.shelf)) cur.shelf = [];
+    cur.shelf.length = size;
+    for (let i = 0; i < size; i++) if (cur.shelf[i] === undefined) cur.shelf[i] = null;
+    for (let i = 0; i < size; i++) {
       if (replace !== null && i !== replace) continue;
       if (replace === null && cur.shelf[i]) continue;
       const previous = cur.shelf[i];

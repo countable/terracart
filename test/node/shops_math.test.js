@@ -866,6 +866,23 @@ test('shop shelf: purchase replaces only its slot and survives save round trip',
   assert.eq(next, 4, 'reopening draws nothing');
 });
 
+test('shop shelf: Seed and Relic shops show two offers, the other lines three', () => {
+  assert.eq(Shops.shelfSize('seed'), 2);
+  assert.eq(Shops.shelfSize('relic'), 2);
+  for (const line of ['supply', 'potion', 'pet', 'book']) assert.eq(Shops.shelfSize(line), ShopsMath.SHELF_SIZE, line);
+  assert.eq(ShopsMath.SHELF_SIZE, 3);
+  let next = 0;
+  const draw = () => ({ id: `stock-${next++}` });
+  const cur = {};
+  assert.eq(ShopsMath.shelf(cur, draw, null, 2).length, 2, 'a two-offer counter');
+  assert.eq(next, 2, 'draws only its own slots');
+  // A shelf saved at three before the line showed two keeps its first two offers.
+  const saved = { shelf: [{ id: 'a' }, { id: 'b' }, { id: 'c' }] };
+  const trimmed = ShopsMath.shelf(saved, draw, null, 2);
+  assert.eq(trimmed.map(o => o.id).join(), 'a,b', 'trimmed, not redrawn');
+  assert.eq(next, 2);
+});
+
 test('shop penalty: overnight resets remaining rungs even inside one shop bucket', () => {
   const house = { id: 'night-shop' }, save = {};
   const midnight = Date.UTC(2026, 9, 20);

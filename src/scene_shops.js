@@ -962,13 +962,15 @@ class SceneShops {
     };
   }
 
-  // Three offers share one counter. Snapshot each slot so buying one leaves
-  // the other two goods, quantities and prices unchanged, including on reopen.
+  // The line's offers share one counter (Shops.shelfSize). Snapshot each
+  // slot so buying one leaves the other goods, quantities and prices
+  // unchanged, including on reopen.
   presentThemedShop(sx, sy, house, recordDeal) {
     const { theme } = this.shopLine(house);
     const cur = this.shopBucketState(house);
     const draw = (slot, others, previous) => this._drawShopShelf(house, slot, others, previous);
-    const shelf = ShopsMath.shelf(cur, draw);
+    const size = Shops.shelfSize(theme);
+    const shelf = ShopsMath.shelf(cur, draw, null, size);
     persistSave(this.save);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', {
       kind: theme === 'relic' ? 'relics' : 'shop', onClose: () => {},
@@ -1019,7 +1021,7 @@ class SceneShops {
           wrap.remove(); this.presentThemedShop(sx, sy, house, recordDeal); return;
         }
         if (!offer.onAccept()) return;
-        ShopsMath.shelf(cur, draw, slot);
+        ShopsMath.shelf(cur, draw, slot, size);
         persistSave(this.save);
         wrap.remove();
         this.presentThemedShop(sx, sy, house, recordDeal);
@@ -1040,7 +1042,7 @@ class SceneShops {
       const reroll = this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
         () => { wrap.remove(); this.presentThemedShop(sx, sy, house, recordDeal); }, {
           cost: ShopsMath.themedRerollCost, current: shelf,
-          peek: () => { delete cur.shelf; return ShopsMath.shelf(cur, draw); },
+          peek: () => { delete cur.shelf; return ShopsMath.shelf(cur, draw, null, size); },
         });
       const button = mkBtn(reroll.label, false, reroll.disabled);
       button.addEventListener('click', reroll.onClick);

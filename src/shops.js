@@ -107,17 +107,23 @@
   // a Shop card can open — the tiers a line exists at (`maxTier`) and how
   // many may stand at one tier (`perTier`; unlimited when absent). Seed and
   // Supply stop at T3, the Magic Shop is one per tier, the Relic Shop runs
-  // even tiers T2/T4/T6 any number deep; Magic uses T1/T3/T5/T7. The Ore Shop is gone. The Book and Pet
+  // even tiers T2/T4/T6 any number deep; Magic uses T1/T3/T5/T7. `shelf` is
+  // how many offers the counter shows (ShopsMath.SHELF_SIZE when absent):
+  // Seed and Relic show two. The Ore Shop is gone. The Book and Pet
   // lines are NOT here — they are one-offs, SOLO_LINES. THEMES is the
   // table's keys, in this order: the legacy cycle (themeAt, for a shop
   // restored before lines were stored) walks it.
   const SHOP_TIER_MAX = 7;
   const LINE_RULES = Object.freeze({
-    seed:   { maxTier: 3 },
+    seed:   { maxTier: 3, shelf: 2 },
     supply: { maxTier: 3 },
     potion: { maxTier: SHOP_TIER_MAX, tiers: [1, 3, 5, 7], perTier: 1 },
-    relic:  { maxTier: 6, tiers: [2, 4, 6] },
+    relic:  { maxTier: 6, tiers: [2, 4, 6], shelf: 2 },
   });
+  // How many offers a shop of this line shows together.
+  function shelfSize(theme) {
+    return LINE_RULES[theme]?.shelf ?? ShopsMath.SHELF_SIZE;
+  }
   const THEMES = Object.keys(LINE_RULES);
   // ONE-OFF LINES (owner, Oct 2026): a line exactly ONE shop per save
   // sells, outside the cycle — the Book Shop (save.bookshopId, from the 15th
@@ -375,7 +381,7 @@
     shopType, shopInk,
     ROLE_LABEL, roleLabel, BUILDING_LABEL, TOWER_LABEL,
     THEMED_BATCH_CHANCE, batchStock, themedOfferStock, themedQuantity, traderPrices, traderStock,
-    LINE_RULES, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, shopLineLedger, lineFor, lineCount, lineBuildable, themedStock, itemTier,
+    LINE_RULES, shelfSize, THEMES, SOLO_LINES, soloLine, isSoloShop, THEME_LABEL, THEME_BLURB, THEME_POOL, themeAt, shopOrder, isBookshop, shopLineLedger, lineFor, lineCount, lineBuildable, themedStock, itemTier,
     MEMORIES_PER_TIER, SHOP_TIER_MAX, memoryTotal, tierCap, tierUnlockMemories, storedTier, smithTier, traderTierAt, traderTier, shopTier, roleTierCount, pickThemed,
   };
 })(window);

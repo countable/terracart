@@ -879,7 +879,8 @@ ECONOMY (buying & selling)
    The THIRD purchase is a one-time CALLING (`Wizard.CLASSES`: Hunter,
    Runner, Enforcer, Enchanter). What each rung does lives with the module
    that applies it; printed numbers come from that module, never a copy.
- - SHOP COUNTER: three offers visible together, each with its price and Buy
+ - SHOP COUNTER: three offers visible together (two at Seed and Relic shops,
+   `Shops.LINE_RULES` `shelf`), each with its price and Buy
    button (greyed if unaffordable or the bag cannot fit the purchase). Buying
    replaces only that slot; the other offers survive reopening. Tiny stock
    pools can repeat items; exhausted relic slots show no upgrades left. Shops
