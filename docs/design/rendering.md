@@ -632,7 +632,9 @@ the surrounding grove’s shrub scale.
   centroid ordering handles ordinary joined walls; intersecting walls are not
   split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
-- Standing props fade to half their normal opacity only when their art overlaps
+- Only buildings and trees of medium canopy or larger (`fadesOverPlayer`,
+  over `treeSizeClass`) fade over the player; small trees, rocks, lamps and
+  every other prop stay opaque. They fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
   `artBounds` for procedural art that declares one (the street lamp's

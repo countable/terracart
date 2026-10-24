@@ -367,17 +367,28 @@ function tillBlockerLine(o) {
 // profile keeps broken art. The one "is something lying here?" scan, shared
 // by the till and the campfire.
 function groundObjectBlocker(scene, save, cwmx, cwmy, cellHalfM) {
-  const pickedAll = new Set([...save.picked, ...(save.burnedObjects || [])]);
   const spent = spentSets(scene, save);
   const inCell = o => Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM;
   for (const e of WorldGen.tileCache.values()) {
-    const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && inCell(wp));
-    if (wp) return `Pick ${cropName(wp.crop)} first.`;
+    // What STANDS, as drawn (Render.wildplantView): a picked berry bush stays
+    // a bare bush and holds its cell like any other.
+    const wp = (e.wildplants || []).map(wp => inCell(wp) && Render.wildplantView(wp, spent)).find(Boolean);
+    if (wp) return wp._pickedRemnant ? 'A bush stands here.' : `Pick ${cropName(wp.crop)} first.`;
     const oo = (e.objects || []).find(o =>
       !(isSpent(o, spent) && !(isBarrel(o) && chestLook(o).smashedKey)) && inCell(o));
     if (oo) return tillBlockerLine(oo);
   }
   return null;
+}
+
+// Turning a cell's soil ends the regrowth of every cleared wild plant on it
+// (SaveState.stopRegrowth), so grass never grows back through the bed.
+function stopRegrowthUnder(save, cwmx, cwmy, cellHalfM) {
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of e.wildplants || []) {
+      if (Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) SaveState.stopRegrowth(save, wp);
+    }
+  }
 }
 
 // Which ground takes a CAMPFIRE: any open ground — soil, a parking lot, a
@@ -2024,6 +2035,7 @@ const TAP_HANDLERS = [
     return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'hoe', durationMs: tillMs, cost: tillCost, action: 'till',
       after: (startingTier) => scene._barehandWorkStory?.('hoe', startingTier), onDone: () => {
       scene.tilledSet.add(cellKey);
+      stopRegrowthUnder(save, cwmx, cwmy, at.half);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
       // therefore a better harvest, not just a cheaper one.
