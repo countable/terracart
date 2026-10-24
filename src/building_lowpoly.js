@@ -524,11 +524,11 @@
       // Stable identity seeds the broad breaches and scattered masonry.
       const seed=Array.from(String(identity||points.map(p=>p.x+','+p.y).join(';'))).reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261)>>>0;
       const random=(n,salt)=>hash(seed+n,salt);
-      const H=8,SECTION=11,base=geometry(points,'ridge',H,0),faces=[],W=wreckLook(recipe);
+      const H=2,SECTION=7,base=geometry(points,'ridge',H,0),faces=[],W=wreckLook(recipe);
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
       // Narrow annexes may reject a thick inset. Keep damage and doorway cuts
       // even when only a thin (or zero-thickness) wall strip can fit.
-      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,6)||BuildingStyles.inset(ring,2)||BuildingStyles.inset(ring,.5)))||ring;
+      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,3)||BuildingStyles.inset(ring,1)||BuildingStyles.inset(ring,.5)))||ring;
       let piece=null;const pieces=[];
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,piece,...extra});return faces.at(-1);};
       const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
@@ -550,8 +550,8 @@
             return {x:ai.x+dx*u,y:ai.y+dy*u};
           };
           for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count;
-            // Four low bays survive in each nine-bay run.
-            parts.push({edge:i,len,dir,t0,t1,h:((k+Math.floor(random(i,19)*9))%9<4?[4,7,8,4][(k+Math.floor(random(i,19)*9))%9]:0),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
+            // Two shallow footing stones survive in each nine-bay run.
+            parts.push({edge:i,len,dir,t0,t1,h:((k+Math.floor(random(i,19)*9))%9<2?[1,2][(k+Math.floor(random(i,19)*9))%9]:0),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
         const longest=parts.reduce((a,b)=>b.len>a.len?b:a).edge,span=parts.filter(p=>p.edge===longest);
         const start=Math.max(0,Math.floor(span.length/2)-1),gone=span[start],last=span[Math.min(start+1,span.length-1)];
         gone.h=0;last.h=0;gap={o0:gone.o0,o1:last.o1,i0:gone.i0,i1:last.i1};
@@ -574,7 +574,7 @@
             return {x:p.i0.x+dx*u,y:p.i0.y+dy*u};};
           return [0,1,2].map(j=>({...p,t0:p.t0+(p.t1-p.t0)*j/3,t1:p.t0+(p.t1-p.t0)*(j+1)/3,
             o0:outer(j/3),o1:outer((j+1)/3),i0:innerAt(j/3),i1:innerAt((j+1)/3),
-            h:Math.min(H,Math.max(1,p.h+(random(k*3+j,73)-.5)*1.6)),localBreak:true}));
+            h:Math.min(H,Math.max(1,p.h+(random(k*3+j,73)-.5)*.5)),localBreak:true}));
         });
         for(const p of parts)p.gone=p.h<.5;
         parts.forEach((p,k)=>{const {dir,len,t0,t1,h,o0,o1,i0,i1}=p;
@@ -607,7 +607,7 @@
       // sides. Several spill out through the gap; the rest lie inside along the
       // walls. The same building seed keeps rubble consistent with its damage.
       const chunk=(k,x,y)=>{piece=pieces.length;pieces.push({a:{x:x-2,y},b:{x:x+2,y}});const n=hash(seed+k,29),m=hash(seed+k,31),a=n*Math.PI,dx=Math.cos(a),dy=Math.sin(a);
-        const L=(3+3.5*m)/2,w=(2.2+2*n)/2,h=1.6+2.2*hash(seed+k,37);
+        const L=(3+2*m)/2,w=(2+1.2*n)/2,h=.6+1.2*hash(seed+k,37);
         const base=[{x:x-dx*L+dy*w,y:y-dy*L-dx*w},{x:x+dx*L+dy*w,y:y+dy*L-dx*w},{x:x+dx*L-dy*w,y:y+dy*L+dx*w},{x:x-dx*L-dy*w,y:y-dy*L+dx*w}];
         const ccw=cross(base[0],base[1],base[2])>0,ring=ccw?base:[...base].reverse();
         ring.forEach((p,i)=>{const q=ring[(i+1)%4],e=[{...p,z:0},{...q,z:0},{...q,z:h},{...p,z:h}].map((v,j)=>({...v,u:8+(j===1||j===2?Math.hypot(q.x-p.x,q.y-p.y):0),v:16-v.z}));
