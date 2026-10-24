@@ -1558,11 +1558,6 @@
         else { g.fillPoly(d.pts, palette.floor); g.strokePoly(d.pts, OUTLINE_PX, palette.outline); }
         continue;
       }
-      // Dreamland's native facade replaces only an existing eligible house.
-      // Keep its source ring for collision, roads and all other geometry.
-      const trialHouse = d.object || houses.get(d.key);
-      if (!d.retail && typeof WorldArtProfile !== 'undefined'
-          && WorldArtProfile.houseKey(trialHouse, scene, Houses.displayRole(scene.save, trialHouse))) continue;
       const isMine = claimed(d.object?.id || d.key);
       if (fdrCastles && d.tier === CASTLE && d.key !== scene.save?.starterShopId) {
         const group = scene._wallPerspective.castles;

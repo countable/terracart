@@ -666,21 +666,8 @@ class SceneCreate {
       this.cobblePool.push(s);
     }
 
-    // THE STREET LAMPS — the gilded lamps a restored street carries, one every
-    // Streets.lampSpacingM() metres of rebuilt carriageway. Baked ONCE here
-    // (road_overlay.js paints the lamp; a canvas, because the glow is a radial
-    // gradient and Phaser's Graphics has no gradient primitive), and drawn by
-    // the shared world sprite pass — RENDER_SPEC._streetlamp, into
-    // worldContainer with every other standing thing, so a lamp sorts by
-    // SCREEN ROW against the trees, houses and animals around it (not a
-    // ground-decoration pool, which would hide it under building footprints).
-    //
-    // Sized in CELLS (RoadOverlay.LAMP_DRAW_CELLS) by that spec, so the lamp
-    // keeps its proportion to the carriageway at any latitude's cell size.
-    // The default glow is baked here at boot; a themed street's colour is
-    // baked the first time a lit lamp of it comes near (_updateStreetLamps).
-    this._ensureStreetLampTex(UI_LAMP_GLOW);
-    this._ensureBrokenLampTex();
+    // Native Rogue lamp frames are already preloaded with the world art.
+    // They join the standing-object pass and need no per-colour canvas bake.
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
     // road cells, rotated along the road by render.js), drawn low-alpha in

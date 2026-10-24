@@ -4,6 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 const vm = require('vm');
+const { execFileSync } = require('child_process');
 const root = path.resolve(__dirname, '..');
 const read = name => fs.readFileSync(path.join(root, name), 'utf8');
 
@@ -44,9 +45,9 @@ function bundle() {
     }
   };\n${hook}`);
   let building = read('src/building_overlay.js');
-  const buildingHook = 'global.BuildingOverlay = { draw, enabled, setEnabled };';
+  const buildingHook = 'global.BuildingOverlay = {';
   if (!building.includes(buildingHook)) throw new Error('Cannot find building painter export');
-  building = building.replace(buildingHook, 'global.BuildingOverlay = { draw, enabled, setEnabled, rebuild };');
+  building = building.replace(buildingHook, 'global.BuildingOverlay = { rebuild,');
   const functionText = (source, name, indent = '') => {
     const start = source.indexOf(indent + 'function ' + name + '(');
     const end = source.indexOf('\n' + indent + '}', start);
@@ -54,6 +55,23 @@ function bundle() {
     return source.slice(start, end + indent.length + 2);
   };
   const render = read('src/render.js');
+  // Offline painters stay synchronous: embed the active native lamp pixels
+  // after asking the same asset installer and key selector as the game.
+  const lampKey = render.match(/_streetlamp:\s*\{\s*key:\s*([^,\n]+)/);
+  if (!lampKey) throw new Error('Cannot find native street-lamp selector');
+  const lampContext = { ASSETS:{bushes:{}}, SpriteLayout:{ART_BOUNDS:{}} };
+  vm.createContext(lampContext);
+  for (const name of ['rogue_object_bounds','rogue_prop_profile','rogue_objects'])
+    vm.runInContext(read('src/' + name + '.js'),lampContext);
+  const lampSelector = vm.runInContext('(' + lampKey[1] + ')',lampContext);
+  const lampPixels = Object.fromEntries([false,true].map(lit => {
+    const key = lampSelector({kind:'_streetlamp',lit}), asset = lampContext.ASSETS[key];
+    if (!asset?.path) throw new Error('Missing native lamp asset: ' + key);
+    const source = JSON.parse(execFileSync('python3',['-c',
+      'import json,sys;from PIL import Image;im=Image.open(sys.argv[1]).convert("RGBA");print(json.dumps(dict(width=im.width,height=im.height,pixels=list(im.tobytes()))))',
+      path.join(root,asset.path)],{encoding:'utf8'}));
+    return [lit ? 'lit' : 'unlit',{...source,key,path:asset.path}];
+  }));
   const renderValues = {};
   for (const key of ['BUILDING_FACE_COLOR', 'BUILDING_FACE_PX', 'GRID_LINE']) {
     const match = render.match(new RegExp('const ' + key + ' = (\\{[^\\n]+\\});'));
@@ -66,6 +84,7 @@ function bundle() {
   const WorldGen = { PATH_CLASSES: new Set(['path','footway','track','pedestrian','cycleway','steps']), T: { WATER:3 } };
   const SpriteLayout = { CELL_PX:32 };
   const CELL_PX = 32;
+  const MAP_ART_LAMPS = ${JSON.stringify(lampPixels)};
   const COLORS = ${JSON.stringify(colors)};
   const MAP_ART_BUILDING_PROPOSAL = ${JSON.stringify(buildingProposal)};
   const MAP_ART_GROUND_PROPOSALS = ${JSON.stringify(groundProposals)};
@@ -85,6 +104,7 @@ ${functionText(util, 'luminance')}
   const overlayProjection = () => ({ projX:x=>x,projY:y=>y,minX:-64,maxX:192,minY:-64,maxY:192 });
 ${read('src/biome_profiles.js')}
   const BiomeProfiles = window.BiomeProfiles;
+${read('src/ground_materials.js')}
 ${read('src/textures.js').replace('const TILLED_COLOR =', 'let TILLED_COLOR =')}
 ${read('src/castle_styles.js')}
   const CastleStyles = window.CastleStyles;

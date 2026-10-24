@@ -11,9 +11,9 @@ assert.equal(art.spec({kind:'_streetlamp',lit:true},scene,{}).key,'dreamland_lam
 assert.equal(art.spec({kind:'well'},scene,{}).key,'dreamland_fountain_water');assert.equal(art.spec({kind:'chest',crate:true},scene,{}).key,'dreamland_crate');
 const untouched={key:'native'};assert.equal(art.spec({kind:'tree',_objectArt:'dead_tree'},scene,untouched),untouched);assert.equal(art.spec({kind:'tree'},{depth:1},untouched),untouched);
 for(const asset of Object.values(assets))assert(fs.existsSync(asset.path),asset.path);
-const terrainSource=fs.readFileSync('src/ra_terrain_trial.js','utf8');const terrain=new Function('location',terrainSource+';return RATerrainTrial;')({search:'?artTrial=dreamland'});const seen=new Set();
+const terrainSource=fs.readFileSync('src/ground_materials.js','utf8')+'\n'+fs.readFileSync('src/terrain_transitions.js','utf8');const terrain=new Function('location',terrainSource+';return TerrainTransitions;')({search:'?artTrial=dreamland'});const seen=new Set();
 for(let y=-100;y<100;y++)for(let x=-100;x<100;x++){const m=terrain.material(0,x,y);seen.add(m);assert.equal(m,terrain.material(0,x,y));assert.equal(terrain.material(3,x,y),4);}
-assert.deepEqual([...seen].sort(),[0,1]);console.log('Dreamland: profile isolation, source assets, growth, restoration, special roles, interiors and stable native patches passed');
+assert.deepEqual([...seen].sort(),[1]);console.log('Dreamland: profile isolation, source assets, growth, restoration, special roles, interiors and stable native patches passed');
 assert.deepEqual(art.lampLightOffset(scene),{dxPx:22,dyPx:-18});
 assert.equal(art.lampLightOffset({depth:1}),null);
 const lamp=art.spec({kind:'_streetlamp',lit:true},scene,{});

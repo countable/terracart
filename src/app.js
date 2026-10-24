@@ -151,61 +151,8 @@ const STREET_SHINE_ALPHA = 0;
 // raising this thins how many land on each point rather than adding more
 // particles overall.
 const GATHER_SPREAD_POINTS = 6;
-// THE STREET LAMPS. A restored street lights its own way: one glowing cobble
-// every Streets.lampSpacingM() metres of rebuilt carriageway (its own
-// constant, LAMP_SPACING_M — deliberately NOT the treasure ladder's rung, so
-// an ordinary block shorter than a rung still qualifies). Where they stand is
-// generated from the way's geometry and never stored (streets.js); the lamp
-// itself is baked art (RoadOverlay.paintLamp) and the light it throws after
-// dark is Lighting.KINDS.cobble, on the same point — lifted off it to the
-// LANTERN, which is where a lamp burns (RoadOverlay.LAMP_LANTERN_RISE_CELLS).
-const STREET_LAMP_TEX = 'street_lamp';
-// …and ONE BAKE PER GLOW COLOUR, never per lamp. A lamp sheds its street's
-// colour (StreetVariants.lampGlowFor off the street index — the same value
-// Lighting.collectLamps throws, carried on the lamp entry as `glow`), so the
-// baked art is keyed by that colour: the default UI_LAMP_GLOW keeps the plain
-// STREET_LAMP_TEX key it always had, any other glow is `street_lamp@#rrggbb`.
-// The handful of theme colours is the whole store, however many lamps.
-function streetLampTexKey(glow) {
-  const g = (typeof glow === 'string') ? glow.toLowerCase() : '';
-  return (!g || g === String(UI_LAMP_GLOW).toLowerCase()) ? STREET_LAMP_TEX : `${STREET_LAMP_TEX}@${g}`;
-}
-// WHERE THE ART SITS ON THE POINT. The baked lamp STANDS on its point: its
-// plinth, its shadow and its pool of glow are all on the square's ground line
-// (RoadOverlay.LAMP_GROUND_FRAC), which is below the middle because a lamp is
-// mostly post — so the sprite's origin is that line rather than its centre,
-// and the lamp stands on the point rather than hovering a post's height over
-// it. The light lighting.js stamps is on that same one point, lifted to the
-// lantern the way the art rises to it (see the note at RoadOverlay.paintLamp).
-// The dark cobble is a stone LYING on the point and keeps a centred origin;
-// one RENDER_SPEC row draws both arts, so the origin is picked per lamp beside
-// the texture (render.js RENDER_SPEC._streetlamp).
-const STREET_LAMP_ORIGIN_Y =
-  (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_GROUND_FRAC) || 0.62;
-// …and then a nudge, by eye: the seated lamp read as standing a hair proud of
-// the verge it is on, so the POST is drawn a few screen pixels lower — three,
-// until the base still sat a shade low in its cell and the whole art came up
-// two (to one); now nudged back down 2px, to three, having read a shade high
-// again. The ART alone moves. The lamp's POINT does not — the verge offset that
-// stands it clear of the carriageway (STREET_LAMP_R_CELLS → Streets.lampOffsetM)
-// and the light lighting.js stamps on that point are both unmoved, which is why
-// this is a draw offset on the sprite (RENDER_SPEC._streetlamp's dyPx) and not a
-// shift of LAMP_GROUND_FRAC: moving the art's own ground line would take the
-// baked pool of glow and the plinth's footprint down with it and re-open the
-// question of where the lamp actually stands. The dark cobble keeps its seat
-// — it LIES on the point, and a stone in the road has nothing to stand proud
-// of.
-const STREET_LAMP_DY_PX = 3;
-// Unrestored streets carry a SNAPPED-OFF lamp post: the same casting as the
-// lit lamp (RoadOverlay.paintBrokenLamp — its plinth, base and a column broken
-// off below the lantern, in weathered metal, no glass and no glow), baked at
-// runtime into STREET_LAMP_BROKEN_TEX exactly as the lit lamp is baked for
-// its glow (_ensureBrokenLampTex beside _ensureStreetLampTex), and drawn at
-// the same size, on the same ground line, with the same nudge — so the lamp
-// that lights is visibly the lamp that stood broken. Until Oct 2026 the dark
-// lamp was a 16 px frame of the old cobble sheet at a quarter the size and
-// 57% alpha: a smudge beside the lit one (owner's call).
-const STREET_LAMP_BROKEN_TEX = 'street_lamp_broken';
+// Restored streets use native Rogue lamp sprites. Site geometry and light
+// anchors live in RoadOverlay; restoration and visit brightness stay in Streets.
 // THE SITE'S FOOTPRINT. RoadOverlay.LAMP_DARK_CELLS is the width the old
 // cobble stone drew at, and it is still what RoadOverlay.LAMP_SITE_R_CELLS
 // (the verge offset every lamp is placed by, and the cells rasterization

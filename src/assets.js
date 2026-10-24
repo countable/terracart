@@ -31,7 +31,6 @@ const ASSETS = {
   selected_rubble: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_rubble.png', 'frameWidth': 16, 'frameHeight': 16},
   selected_mushroom: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_mushroom.png', 'frameWidth': 16, 'frameHeight': 16},
   selected_longgrass: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_longgrass.png', 'frameWidth': 16, 'frameHeight': 16},
-  selected_streetlamp: { kind: 'image', path: 'assets/Objects/SelectedProps/selected_streetlamp.png' },
   selected_grave_pillar: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/selected_grave_pillar.png', 'frameWidth': 16, 'frameHeight': 32},
   bone_cache: { kind: 'image', path: 'assets/Objects/Approved/bone_pile.png' },
   floor_wall_sources: { kind: 'image', path: 'assets/Objects/Cave/floor-wall-sources.png' },

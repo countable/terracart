@@ -118,10 +118,6 @@ def material_art(material):
             r['plantArt'][key] = json.loads(subprocess.check_output(['node', str(helper), '--resolve-plant-art'], input=json.dumps(record), text=True))
         art = r['plantArt'][key]
         return {**art, 'frames': art['choices']}
-    if kind == 'wildplant' and material.get('gasEmitter') and material.get('crop') in r['gasMushrooms']:
-        crop = 'giant_mushroom' if material.get('_zoneObjectFrame') == 40 else material['crop']
-        art = r['gasMushrooms'][crop]
-        return {'sheet': art['sheet'], 'frames': [art['frame']]}
     if material.get('_zoneObjectFrame') is not None:
         return {'sheet': 'zone_objects', 'frames': [material['_zoneObjectFrame']]}
     if kind == 'grove_shrine' and material.get('shrineKind'):
@@ -133,40 +129,8 @@ def material_art(material):
     if kind in r['creatures']:
         creature = r['creatures'][kind]
         sheet, frames = creature['sheet'], [creature.get('directions', {}).get('down', {}).get('idle', [0])[0]]
-    elif kind == 'wildplant':
-        crop = material['crop']
-        ov = r['crops'].get(crop)
-        look = material.get('_plantArt') or material.get('_streetArt')
-        if crop == 'shrub':
-            if look == 'trimmed':
-                look = 'clipped'
-            if not look and not material.get('_cave') and material.get('_biome') in (5, 16):
-                look = 'clipped'
-        if look in r['contextLooks'] and r['contextLooks'][look]['crop'] == crop:
-            ov = r['contextLooks'][look]
-        elif ov and look:
-            ov = ov.get('looks', {}).get(look, ov)
-        if ov and ov.get('mature'):
-            ov = ov['mature']
-        if ov and ov.get('custom'):
-            sheet, frames = ov['sheet'], ov.get('frames', [ov.get('frame', 0)])
-        elif ov and ov.get('sheet') == 'springcrops':
-            sheet, frames = 'springcrops', [ov['row'] * 14 + r['matureStage']]
-        else:
-            sheet, frames = 'crops', [r['cropRows'][crop] * r['cropColumns'] + r['matureStage']]
-    elif kind == 'staircase':
-        sheet, frames = ('stair_up' if material.get('dir') == 'up' else 'stair_down'), [0]
     elif kind == 'coindrop':
         sheet, frames = 'coin_drop', [0]
-    elif kind == 'tree':
-        species = material.get('species', 'maple')
-        sheet = 'trees' if species == 'maple' else species + '_tree'
-        # Explicit canopy sizes select authored growth frames for both species.
-        stage = str(max(1, min(3, round(material.get('variant', 2)))))
-        frames = [r['treeArt'][species][material['size']]['frame'] if material.get('size') else r['treeStages'][stage]['frame']]
-    elif kind == 'fruittree':
-        species = material.get('species', 'apple')
-        sheet, frames = species + '_tree', [r['fruitFrames'][species]['mature']]
     else:
         sheet, frames = ('approved_charred_stakes' if kind == 'stakes' else kind), [0]
     assert sheet in r['assets'], f'No shipping art for {material}'
@@ -219,30 +183,7 @@ def sprite_cell(prefix, material, x, y, size, definition=None):
         # Connected 24px frames at the game's 4/3 scale fill one 32px cell.
         width = unit if definition['_plantArt'] == 'zone_hedge' else unit * .6
         return art_image(material_art(definition), f'class="sprite-cell" data-game-art="{definition["_plantArt"]}" x="{x+size/2-width/2}" y="{y+size/2-width/2}" width="{width}" height="{width}"')
-    if definition and definition.get('kind') == 'wildplant' and definition.get('crop') in ('shrub', 'giant_mushroom'):
-        art = material_art(definition)
-        placement = art_registry()['plantPlacements'][art['sheet'] + ':' + str(art['frames'][0])]
-        unit = size / .8 / art_registry()['cellPx']
-        width, height = placement['width'] * unit, placement['height'] * unit
-        cx, cy = x + size / 2, y + size / 2
-        shadow = placement.get('shadow')
-        shadow_svg = ''
-        if shadow:
-            for ring in range(12, 0, -1):
-                t = ring / 12
-                shadow_svg += f'<ellipse class="sprite-cell" cx="{cx}" cy="{cy + shadow["dyPx"] * unit}" rx="{shadow["width"] * unit * 30/64 * t}" ry="{shadow["height"] * unit * 15/32 * t}" fill="black" opacity="{shadow["alpha"] * (.05 + .16 * (1-t))}"/>'
-        return shadow_svg + art_image(art, f'class="sprite-cell" x="{cx + placement["dxPx"] * unit - width / 2}" y="{cy + placement["dyPx"] * unit - height / 2}" width="{width}" height="{height}"')
-    if definition and definition.get('kind') == 'tree' and definition.get('size'):
-        factor = 48 * art_registry()['treeArt'][definition.get('species', 'maple')][definition['size']]['scale'] / 32
-        x -= size * (factor - 1) / 2
-        y -= size * (factor - 1)
-        size *= factor
     glow = ''
-    if definition and definition.get('kind') == 'wildplant':
-        source = art_registry()['wildplantRules'].get(definition.get('crop'), {}).get('light')
-        if source:
-            light = art_registry()['lighting'][source]
-            glow = light_guide(x+size/2,y+size/2,size/.8*light['radiusCells'],'#%06x' % light['colour'])
     if definition and definition.get('kind') == 'torch':
         light = art_registry()['lighting']['torch']
         glow = light_guide(x+size/2,y+size/2,size/.8*light['radiusCells'],'#%06x' % light['colour'])
@@ -270,7 +211,7 @@ def art_styles():
 def art_script():
     r = art_registry()
     # Self-contained Canvas2D painters: no network, Phaser or external assets.
-    code = f'const UI_LAMP_GLOW={json.dumps(r["lampGlow"])}, UI_LAMP_GOLD={json.dumps(r["lampGold"])};\n' + r['painters']
+    code = f'const UI_LAMP_GLOW={json.dumps(r["lampGlow"])};\n' + r['painters']
     code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
     code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
     code += r['variantSource'] + '\n' + r['roadPainter']
@@ -288,10 +229,6 @@ for(const image of document.querySelectorAll('[data-procedural]')){
     const c=document.createElement('canvas');c.width=c.height=RoadOverlay.CLEAN_TILE_PX;
     RoadOverlay.paintPavementTile(c.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath==='true',state==='restored',variant);
     baked.set(key,c.toDataURL());
-  }
-  if(!baked.has(key)&&key.startsWith('lamp:')){
-    const c=document.createElement('canvas');c.width=c.height=RoadOverlay.LAMP_TEX_PX;
-    RoadOverlay.paintLamp(c.getContext('2d'),RoadOverlay.LAMP_TEX_PX,key.slice(5));baked.set(key,c.toDataURL());
   }
   if(!baked.has(key))throw new Error('Missing preview painter: '+key);
   image.setAttribute('href',baked.get(key));
@@ -743,13 +680,6 @@ def street_svg(v, cell_m, detail=False):
         kind = o.get('crop', o['kind'])
         color = STREET_COLORS.get(kind, '#d4d4d4')
         size = cell_m * .8
-        if o.get('_streetArt') and kind != 'shrub':
-            registry = art_registry()
-            look = registry['crops'][kind]['looks'][o['_streetArt']]
-            size = cell_m * registry['assets'][look['sheet']]['frameWidth'] * look['scale'] / 32
-        if kind == 'tree':
-            stage = str(max(1, min(3, round(o.get('variant', 2)))))
-            size = cell_m * 1.8 * art_registry()['treeStages'][stage]['scale'] / art_registry()['treeStages']['3']['scale']
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size, o))

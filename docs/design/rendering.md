@@ -1,5 +1,12 @@
 # Rendering, lighting and streets
 
+Rogue is the sole active map-art profile, including normal URLs without an
+`artTrial` query. Old profile URLs do not select an alternate renderer.
+Inactive exports and profile tools are archived under `extra_assets/inactive/`;
+visual reviews must resolve current runtime textures instead of hardcoding
+legacy asset paths. The reference inventory is `tools/asset_inventory.js`.
+
+
 Detail doc for projection, sprite seating, performance, lighting and street
 restoration. The root `CLAUDE.md` owns the overview; read this before changing
 rendering, lighting or street mechanics. Camera and art geometry live in
@@ -23,48 +30,36 @@ robe variants; calling choices remain local.
 
 ## Selected world artwork
 
-Approved dashboard ALT IDs are recorded beside their native crop exports in
-`assets/Objects/SelectedProps`, `assets/Objects/SelectedFlora` and
-`assets/selected-terrain`. Containers and surface mushrooms choose among the
-approved alternatives by stable object identity; terrain uses existing spatial
-variant indices. Never vary these choices with time. Colour-matched pot shards,
-underground mushroom art, crop growth stages, berry-bush remnants and loot
-behavior remain separate from the new standing artwork. Retired reference
-assets and planned cave mechanisms do not gain placement merely by changing art.
+The effective `ASSETS` registry after `RogueObjects.install` owns map artwork.
+`ROGUE_PROP_PROFILE` replaces the foliage, container and fixture keys used by the
+renderer; reviews and inventories must load that installer before resolving art.
+Trees and minerals also pass through `WorldArtProfile.spec`, the Rogue object
+resolver. Mineral seams and berry fruit are baked through the same callbacks in
+both the game and the review exporter.
 
-Runtime loads selected art from local spritesheets: `SelectedWorld/world.png`
-for world props and flora, `Icons/SelectedItems/items.png` for item choices,
-and the existing `selected-terrain` strip for terrain. Rebuild the world atlas
-with `tools/build_selected_world_atlas.py` after changing its source exports;
-`tools/build_selected_items.py` owns selected item crops and frame metadata.
-The exporters preserve native pixels and record their source ALT IDs.
+Selected world and item atlases remain shared texture sources where the Rogue
+registry retains their logical keys. `ArtAtlas` registers those aliases using the
+master sheet's shared Phaser `TextureSource`; generated `frameRects` preserve
+local frame numbers and dimensions. The master alone owns source destruction.
+`tools/build_selected_world_atlas.py` and `tools/build_selected_items.py` rebuild
+those retained atlases. An atlas source does not select an alternate art profile.
 
-`ArtAtlas` registers logical texture aliases using the master sheet's shared
-Phaser `TextureSource`, so aliases add neither image requests nor GPU uploads.
-Their generated `frameRects` preserve local frame numbers and dimensions;
-the master alone owns source destruction. World objects that are also items
-(such as torch, rubble and wood) point at the selected item's exact rectangle.
-DOM icons, dashboard previews and sprite audits resolve those same rectangles
-rather than inferring frame positions from the packed sheet width.
+Container and mushroom alternatives use stable object identity, while terrain
+uses stable world-cell variants. Crop growth, berry remnants, tool tiers and loot
+keep their gameplay owners. Never use art replacement to change placement,
+quantities or saved identities.
 
-Trees remain unchanged and opt-in through `artTrial=trees-water` (or `trees` /
-`water`); normal water now uses the selected RA animation; `artTree=ALT-0038`, `ALT-0176`, or `ALT-0245` fixes the broadleaf
-comparison. The trial registers native textures only for that page load,
-preserves tree growth and saves, and never changes normal game defaults.
+## Rogue Adventure map artwork
 
-## Rogue Adventure geographic terrain trial
-
-This is the primary map-tiling review variant under the
+Rogue Adventure is the game's sole map-art path under the
 [overworld scale direction](../art/art-direction-brief.md#overworld-scale-and-interaction):
 approximately 7m terrain and tap cells, with appropriately exaggerated props.
-Use `http://localhost:8000/index.html?artTrial=rogue&deepforest=on` for geographic
-playtesting with the RA reference-selected art. Evaluate textures as seven-metre
-areas, rather than subdividing the map to match close-up source art. Dreamland
-may supply selected compatible props; its terrain profile is a retained
-comparison experiment, not the direction for further map tiling work.
+Open `http://localhost:8000/index.html` for normal geographic play, or add
+`?sandbox=true` for the authored test world. No art-profile query is required;
+legacy art-profile parameters do not choose another renderer. Evaluate textures
+as seven-metre areas rather than subdividing the map to match close-up source art.
 
-`?artTrial=rogue` applies native Rogue Adventure ground to the normal geographic
-world. It does not install an authored scene. Grass, residential land and parks
+Grass, residential land and parks
 use village grass; forest and orchard use jungle grass; farmland uses olive soil;
 wetland uses dark olive soil; sand, water and civic/commercial/industrial ground
 use the corresponding sand, water and stone families. Piers retain their existing
@@ -80,7 +75,7 @@ building fallback. The Rogue profile uses the reference-selected jungle canopy
 families (also used by the village reference), stone lamps, plain rocks and
 paired stone down/up access. The approved RA prop profile replaces foliage,
 chest/wood/pot frames, fixtures and all eleven shrine frames through
-`ROGUE_PROP_PROFILE`; the baseline and Dreamland assets remain unchanged.
+`ROGUE_PROP_PROFILE`. Retired profile assets and builders stay in the archive.
 All ore, gem and flint rocks in the Rogue profile use the default reference
 stone as a 2D sprite, including underground. Native-pixel colored veins and
 crystal facets are baked once on asset load by `RogueObjects`; these rocks
@@ -116,90 +111,56 @@ building floors and underground terrain retain their existing treatments.
 
 Private residential exclusion rock uses the purchased Top Down Mountain Edges
 pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
-olive-grey ramp and RA olive-soil substrate. `MountainEdges` selects among 256
+olive-grey ramp and transparent source exteriors. `MountainEdges` selects among 256
 neighbour masks and four stable variants from the shared geographic ring. Full
 edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
 Stair and deep-notch variants are excluded. Selection does no runtime image
-processing; collision remains the permanent residential bedrock rule.
+processing; collision remains the permanent residential bedrock rule. Trimmed
+building-intersection cells use flat `ROCKY_GROUND` rubble from the transition
+atlas, with the same olive-grey ramp. Solid edges prefer that rubble as their substrate
+when adjacent, so the exposed apron belongs visually to the rock zone.
+The mountain atlas contains only the purchased rock artwork; transparent pixels
+show that live substrate. It never bakes an opaque soil square beneath narrow
+strips, isolated cells or diagonal corners.
 
-`RATerrainTrial` combines four adjacent samples from the renderer's geographic
-ring, including its tile-row seam resolution. The full native 16px masks preserve
-authored outer/inner corners and disconnected diagonals. This changes the visual
-contour within a cell; collision and logical terrain stay on the original grid.
-Only biome borders replaced by these native transitions skip the old blend strips;
-structural borders continue rendering. `tools/build_ra_terrain_trial.py` exports
-eight source-native mask families into `assets/ArtTrials/RogueTerrain/tiles.png`.
-One bounded startup atlas caches all 4096 Rogue combinations (2401 plus 63 interior-phase and 512 fine-grass frames for Dreamland); ordinary draws only select
-frames before the terrain cache receives them, with no per-cell pixel reads or
-texture creation. Stable world-coordinate noise introduces native brown-soil patches in village
-grass and olive/dark-olive patches in forest grass. These are appearance samples,
-not logical terrain changes. `tools/build_rogue_objects.py` exports native objects,
-source assembly provenance and measured bounds; `WorldArtProfile` selects the
-active opt-in object module without per-frame canvases or pixel reads. Water uses
-the calm study palette, without animated ripples.
-Omitting the query loads no trial assets and preserves the default renderer.
-`?artTrial=dreamland` selects the separate Fantasy Dreamland Reborn source
-families using the same geographic mapping and native-mask renderer. Its normal
-roads use native grass-backed flagstones inside the existing vector pavement
-masks: cracked/split pieces before restoration, intact pieces after restoration.
-Hazard and special road variants retain their existing art. Both condition
-repeats bake once at 96px wide (24px per native slab), and road phase follows
-the actual repeat width. Road widths and gameplay cells remain unchanged. Its source-native
-olive grass islands use deterministic absolute-cell patchwork: unchanged logical
-landcover, with authored lime edges and no spawned grass interactables. Dreamland
-frames bake at 32px: native 16px bank silhouettes retain their 2x scale, while
-source grass speckles repeat at 1:1 pixels and islands use the source highlight
-palette internally. Homogeneous ground cells repeat that 32px source frame at
-24px, using nine baked world-coordinate phases to fill the unchanged 32px cell
-without seams. Geographic grass uses four 16px art subtiles per 32px gameplay
-cell, with nine shared world-coordinate vertices and noise sampled every two
-cells. Its 512 baked arrangements make islands and their native edge pixels
-smaller while retaining one cached draw per cell. Ring corners remain shared;
-structural mixed-material transitions keep their original masks and scale.
-Authored ground layouts bypass this finer grass treatment. No per-frame texture
-work is added.
-Authored FAKEMAP
-studies may supply `_dreamlandGroundFamilyAt(ax, ay, type)` for explicit material
-layout; ordinary geographic play keeps its world-stable patchwork.
-`DreamlandObjects` supplies native round trees, wooden hanging lamps, fountains,
-crates and signs. On WebGL its houses use the existing retained 3D house renderer:
-`dreamland_house` lends source red roof tiles, beige plaster, timber and doorway
-art to each actual geographic lot outline. Native roof pixels are rectified once
-at startup and remain their original palette. Footprint geometry, roofs and
-occlusion rotate with the compass; cell rebuilds reuse shared material textures.
-Canvas retains the matching source facade sprites as its fallback. The explicit
-reference fixture sets `scene.dreamlandReferenceShell`: its designed footprints
-fit closed native house shells at source scale instead of normalizing the door
-to geographic gameplay scale. The wide hall has two shorter wings joined to a
-projecting central gable; the corner model keeps only its right wing. Optional
-reference chimneys are closed roof penetrations with source-native brick fronts
-and caps, sharing startup-baked textures. All source-facing planes use native
-roof/facade UVs.
-This fixture option does not alter ordinary geographic house dimensions.
-`WorldArtProfile` selects the opt-in object module; normal and RA appearances
-remain independent. Roads, collisions, identities and restoration roles are
-unchanged. Home keeps its existing open-roof interior when entered. Tier-9 wrecks
-use the existing broken 3D wall/roof geometry with matching native red tiles,
-plaster and brown timber; Canvas uses the source-fragment collapsed assembly.
-Forts do not acquire a wreck state.
-Temples, castles, wizard and turret roles retain their state-specific artwork. Fruit trees retain their
-harvest cues, and deliberately dead trees retain their variant. Existing DeepForest
-positions remain the source of tree placement. Lamps retain their lit state and
-existing light; source-measured foot/glass offsets align the native lantern and
-emitter. Fountain water cycles four offline frames without moving stone pixels; one scene
-listener gives trees a restrained 0.4% canopy sway and lit lanterns a small color
-flicker. Pooled sprites only animate while their current texture matches their
-registered identity. Surface Dreamland daylight uses neutral color and a 0.54
-ambient floor; night, cave lighting, hazards, emitter radii and reach remain intact.
-`build_enrichment.py` exports native shrubs, flowers, paving pieces, well and crate
-stack for authored scene placement, with crop provenance. These are passive
-presentation assets, not extra geographic interactables.
-No scenery objects are added to the geographic world. Rebuild the bundled exports with
-`python3 tools/dreamland-square-study/build_assets.py --out assets/ArtTrials/DreamlandTerrain`;
-normal play loads only `assets/ArtTrials/DreamlandTerrain`, never study files or
-`extra_assets`. The source manifest records crops and hashes.
+`TerrainTransitions` samples four adjacent materials from the renderer's geographic
+ring, including tile-row seam resolution. Every surface material and selected
+Nexus ground has a stackable transition family: one opaque local base and up to
+three transparent native masks, with water last. The base and its masks start
+half a cell southeast of the sampled cell's top-left, so the four sampled cell
+centres coincide with the dual-grid vertices. This keeps one-cell islands and
+strips centred on their logical cells. Exact-cell mountain overlays, tilled
+beds and structural floors retain their own positions. The renderer's halo
+covers the offset, and the terrain cache records the actual sprite bounds.
+Tilled beds overlay the continuous native ground without removing its dual tile;
+otherwise the neighbouring half-cells would lose their texture.
+Map review deliberately displays each owning material without transitions.
+Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 25 families
+(400 frames, 256 × 400 pixels), including cold slate, original square commercial
+concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
+Grove ground uses the green Meadow grass interior in both native masks and
+fallback tiles. Grove variants retain green ground beneath their authored props
+and accents; the game and map review share these material choices.
+`tools/build_ra_terrain_trial.py` records each interior and mask source in the
+export manifest. Both rendering backends select these frames without a
+permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
+use stable world-cell hashes; variants within one material share a boundary
+mask, so concrete grout and rubble do not acquire internal soil cutouts.
+Collision and logical terrain remain unchanged. `GroundMaterials` owns family
+rows, selected crops, terrain mappings and variant groups for both export and
+runtime. Surface atlas selection precedes fallback texture lookup. The retired
+rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
+and empty border layer are removed.
+The colour-ramp blur and legacy shoreline strips are removed; structural
+floors, source road paving, mountain edges and rift ground keep their owners.
 
-`RATerrainTrial.status(scene)` exposes readiness and current material coverage for
+Retired tree/water and Dreamland profile notes are preserved in
+`extra_assets/inactive/docs/art/legacy-map-art-profiles.md`. Their renderer
+switches and historical source assets are outside the runtime load path.
+Shared building geometry, active compatible props and required licences retain
+their existing owners; a source pack is not an alternate runtime profile.
+
+`TerrainTransitions.status(scene)` exposes readiness and current material coverage for
 visual validation; `node test/ra-terrain-unit.cjs` checks selection and bake rules.
 
 ## World layers
@@ -214,7 +175,7 @@ Use these terms for object presentation and walking behavior, not pixel height:
 | Standing props | `WorldLayers.STANDING_PROP` | Saplings, trees, lamps, dropped-item icons, houses | Upright; ordinary feet-based depth ordering; no support lift |
 
 `WorldLayers.forObject` uses the explicit `RENDER_SPEC.layer` for decals and
-`ObstacleStep.profile` for step-over props; all other objects are standing props.
+`ObstacleStep.profile` with positive lift for step-over props; all other objects are standing props.
 Do not infer a category from image size, shadows, or whether an object is lit.
 Saplings are standing props despite their small size. `ObstacleStep` measures
 support continuously from world coordinates, so stopping on a prop keeps the
@@ -239,8 +200,8 @@ follow the same seating. Mutable furniture
 appearances are not cached. The complete piece is fitted proportionally into a
 16×16 icon for item surfaces. `tierSheetFrame` maps catalog tiers to the seven
 styles: Crude, Simple, Fine, Veblen, Masterwork, Royal and Ancient. The shared
-`furnitureFrame` resolver keeps world and inventory art together; workbenches
-and candelabras retain their roster art. Existing catalog tiers select the style;
+`furnitureFrame` resolver keeps world and inventory art together;
+candelabras retain their roster art. Existing catalog tiers select the style;
 these images do not introduce per-instance tiers or alter item progression.
 Crops carrying a `planter` furniture id use
 `RENDER_SPEC.furniture.planterCrop`: a 16px frame starting 3px below
@@ -257,13 +218,12 @@ approved kind/tier pairs; all other art remains in the legacy 32×32 atlas.
 `source/approved/approvals.json` records provenance, source/export hashes and
 backdrop removal. Both roster and tier frames use the same approved source.
 Icons fit the complete piece proportionally. Roster frames occupy 0–15 and the 91 tier frames
-follow them. The original workbench and candelabra source crops still use their
-existing fit rules. The sprite audit covers every frame and permitted flip.
+follow them. Frame 0 is retired; the candelabra source crop keeps its existing fit rules. The sprite audit covers every frame and permitted flip.
 After rebuilding art, regenerate `ART_BOUNDS` and the DOM icon atlas so map,
 inventory, shop and pickup-toast surfaces agree. Indoor lamps emit through the
 shared lighting pass.
 
-The 16-piece roster is Tinker’s Workbench, Quilted Cot, Washing Tub (basin), Gear-Rim
+The 15-piece roster is Quilted Cot, Washing Tub (basin), Gear-Rim
 Looking Glass, Oak Side Table, Four-Drawer Dresser, Clay Planter, Burgundy Rug,
 Frontier Bookshelf, Floor Lamp (T3), Grandfather Clock (T3), Pedestal Owl
 (T2), Riveted Copper Planter, Floor Candelabra (T1), Surveyor’s Globe and Brass
@@ -314,9 +274,11 @@ orders short wall prisms by screen depth. Connected stronghold wall runs and
 clipped hedge walls (the `connectedArtForTile` masks) join that batch through
 `Render.drawConnectedWallPrisms` (source `props`): one union mesh for a core
 and its connected arms, seated on the cells' terrain slots, rising by the
-step-over lift in `ObstacleStep.PROFILES`, with thickness from
+step-over lift (walls) or separate `heightPx` (walk-through hedges) in
+`ObstacleStep.PROFILES`, with thickness from
 `Render.CONNECTED_WALL_ART` and surfaces from `WallMaterials`. Those pieces leave the sprite pools for the frame;
-they still interact, block and support steps from their data cells. An isolated
+they still interact from their data cells. Walls support steps; hedges provide
+waist-high cover without a hop or balancing slowdown. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 `wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
 and bevels without a pale coping band, single-width stone caps with shaded edges and transverse joints, mortared sides
@@ -386,18 +348,41 @@ opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wrecks follow the Foundation trace preview: sparse 1–2-unit stone footings,
-broad breaches, stepped tops, and a few low fallen fragments. About a quarter
-of the perimeter survives, with three-unit thickness. There are no roofs or
-raised framing. Native Ruined Medieval Village stone and fine Rogue Adventure
-rubble share one prebuilt atlas. The flat floor follows
-the exact triangulated footprint and sorts as a ground decal beneath the player.
+Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
+Individual 3D blocks centre on the old wall line, with eight-unit thickness,
+half-unit joints and one-unit clipped corners. Five bays in each nine-bay run
+rise through approximately 5, 10, 14, 11 and 5 units; long sides and the street
+entrance retain broad openings. Seeded wear varies the heights slightly. Loose
+fallen blocks are 2–4 units tall; their count scales with footprint area up to
+24. No roofs or raised framing remain.
+`tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
+speckled caps, and a restrained ground scatter using the same warm stone
+palette. Broad tarnish patches replace the study’s fine tiled grain and red
+brick flecks. The generator also supports buried-rubble and worn-ground previews.
+A five-unit brown border follows the footprint at 72% opacity. A shared
+64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
+replacing individual dash polygons without a custom shader or per-building bake.
+All profiles use the shared mask; their masonry palettes remain independent.
+The border stays on the ground
+beneath actors and masonry. Loose rubble uses the same clipped-corner
+footprints as the wall blocks, without sharp highlight strips. Their side
+vertices shade from 65% brightness at ground contact to unchanged brightness
+at the top, adding no geometry and leaving the lids unchanged.
+The subdued brown base has alpha 185/255 (73%, byte-rounded). Broad, softly
+blended grime and worn patches reduce ground alpha to 86–144/255, exposing
+more underlying terrain without adding fine grain. The background alone is
+20% darker, with grime another 20% darker. Embedded stone scatter is 20%
+lighter and more opaque; raised masonry keeps its original palette.
+Sparse ground chips are composited separately, while raised
+masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
+this atlas. Ground follows the exact triangulated footprint and sorts below
+the player. Rogue preparation preserves the approved colors and alpha without
+an additional olive wash. No per-building material is generated.
 Each raised section sorts independently at its baseline, so the player can walk
 between near and far remains. Surface player movement already permits wrecks.
 Damage is seeded by building identity and stays stable across reloads and camera
-movement. The nearest street-facing doorway stays clear. Interior step cuts run
-perpendicular to each wall; corners retain their mitred joins. Narrow annexes
-use a thinner inset. Geometry and material are shared and retained across camera
+movement. The nearest street-facing doorway stays clear. Block end faces cut perpendicular to each wall; clipped corners separate
+the individual stones. Narrow annexes use a thinner band. Geometry and material are shared and retained across camera
 rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
@@ -416,7 +401,8 @@ mask with detected malls and strip malls. Retail footprints come from the same
 POI census as indoor-mall placement (`entry.retailInteriors`); two contained
 public commercial booths qualify, including small strip centres. The player's
 exact ground position opens the room, and stepping out restores its normal
-building rendering. Retail uses the sheet's square tiles and Home keeps wood.
+building rendering. Retail uses the sheet's square tiles and Home keeps wood, with its texture
+repeat scaled to 60% of the original size while its footprint stays unchanged.
 The overlay replaces the host shell with Home's open-roof, per-wall geometry;
 courtyards are excluded from both the floor and the lit interior. This changes
 rendering only: shop rewards retain their existing interior/frontage positions.
@@ -471,10 +457,16 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
-While `homeInside()` is true, a separate white luxury number sits above that
-sign in the same label pool and fades over the player. Its retained text key
-includes the active Home, indoor state and `Furniture.luxuryOf` score; the
-number never shares Home's typing clock.
+A separate white luxury number sits above that sign while `homeInside()` is
+true, and remains visible outside after dark (`Lighting.daylight < 0.5`). It
+uses the label pool and fades over the player. Its retained text key includes
+the active Home, indoor state, darkness and `Furniture.luxuryOf` score; the
+number never shares Home's typing clock. NPC house luxury appears in inspection.
+Once a resident moves in, their delivery bubble becomes a 24px portrait board
+on the front facade: dark green with a rounded brass rim and no speech tail.
+It follows the same heading, zoom, modal suppression and toast overlap rules as
+the existing delivery overlays. The portrait is the resident's conversation
+identity, including Tilly's housed face.
 
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
@@ -493,6 +485,11 @@ same rim from cell edges (`render.js`, tier 11). Turrets, wizard towers and
 castles keep their own treatments.
 
 ## Coordinates, rendering and performance
+
+The static map review resolves native terrain materials only for visible cells
+at texture zooms. Its cached terrain border still samples adjacent tiles for
+mountain edges; material sampling must not eagerly resolve offscreen road and
+building backdrops. Leaflet is vendored so review startup works without a CDN.
 
 Enemy roster sheets load when their kind enters the active creature bubble, before
 viewport culling; a depth change or new spawn uses the same path. Sheets needed
@@ -568,7 +565,9 @@ the surrounding grove’s shrub scale.
   The player facing chevron is omitted in heading-up mode when a device
   compass reports, unless direction lock is engaged. The gold lock beside zoom
   holds the current map rotation while sensor readings continue; the caret then
-  shows phone direction. Unlocking eases toward the current sensor heading. This
+  shows phone direction. Unlocking eases toward the current sensor heading.
+  Confusion's fixed-rate heading bypasses sensor easing and its dead zone, so
+  the map turns steadily; without a sensor, expiry restores the prior map angle. This
   scene-local choice resets on scene creation. Until a GPS fix is captured,
   direction is forced locked even if the heading sensor reports. Tapping the
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
@@ -602,6 +601,10 @@ the surrounding grove’s shrub scale.
   compensate for sprite seating by changing the projection. Step-over support
   re-seats the shadow at the current ground point after movement, alongside
   the raised body; its shadow never inherits the support lift.
+- Long grass covers its full square and clipped hedges cover their foliage
+  footprint (connected arms for rows, a rounded crown for lone hedges). They
+  share the water half-body crop, never supply step lift or balancing slowdown,
+  and stop covering immediately when removed from the drawn plant list.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
   Furniture with height `basin` does the same at the player's feet cell on the
@@ -764,8 +767,14 @@ the surrounding grove’s shrub scale.
   height and outline ink while retaining the shared feet anchor; map animations,
   dialogue portraits and the NPC roster use that same transform.
 - An elite (`Combat.isElite`) keeps its own colours, baked vivid once per
-  sheet (`Render.vividTexture`), under every renderer; the gold tint is for
-  shiny animals. Its twin rune circle is two white rotation strips
+  sheet (`Render.vividTexture`), under every renderer. Shiny animals also
+  retain their original or individual pet palette. Shiny objects use a moderate
+  outer gold rim with zero inner fill and a moving glint; the body is
+  never tinted gold for rarity. When foreground overlap fades an object,
+  suspend its outer glow: Phaser interprets translucent interior pixels as
+  outside edges and otherwise fills the faded body gold. Restore the same
+  glow controller when the object becomes opaque; retain the glint. Canvas and FX-disabled WebGL retain the
+  sparkle marker and shared light source. Its twin rune circle is two white rotation strips
   (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
   tinted copy under Canvas, which ignores sprite tint. A sprite rotated after
@@ -812,11 +821,21 @@ the surrounding grove’s shrub scale.
   hide an 8.3 ms refresh as a 16.7 ms frame. Per-frame tile scans use
   `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
+  Pirate ticks retain per-tile membership but read live positions and truce
+  state; moving creatures never use the static spatial index. Grove plates
+  use a derived plate-only index with the same chunk bounds and ordering as
+  the object query, and read pressed state on every visit.
 - Ground coins pulled by the Ring of Gathering move every scene frame using
   elapsed time, capped at 100 ms after a stall. Their speed is independent of
   display cadence; collection still resolves at the player's feet.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
+  Retained walls reuse their projected geometry at a fixed heading while
+  player-relative fading and sort anchors remain live. Canvas triangles retain
+  their paths and UV transforms until geometry or atlas dimensions change;
+  off-camera rejection uses transformed bounds with an antialiasing fringe.
+  Building coverage rejects nonoverlapping bounds before allocating projected
+  triangles, then uses the exact triangle-union test so courtyards stay opaque.
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
@@ -899,7 +918,7 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   retain the shared material silhouettes and readable inclusions.
   One 144×264 atlas holds 65 used frames and one empty trailing cell: shared material/shape pairs 0–35,
   neutral zone pairs 36–51, and environmental designs 52–64. The source
-  images and `assets/Objects/Rocks/export.cjs` rebuild the atlas.
+  images and `extra_assets/inactive/assets/Objects/Rocks/export.cjs` rebuild the atlas.
   All earlier approved art remains available: `rockStyle: 'plain'` selects the original
   neutral zone pair where one exists, otherwise the common plain shapes;
   `rockStyle: 'shared'` always selects the common plain shapes. Stronghold
@@ -981,7 +1000,10 @@ the reach rim within the existing player-light radius.
   Reach and street restoration follow movement within a cell, independently of
   camera peeks. Canvas and GPU share one circular mask, rebuilt only when its screen position,
   radius or viewport changes. Stable world cookies use padded caches
-  by their exact whole-pixel phase. Player-attached, breathing, flickering and
+  by their exact whole-pixel phase. The Canvas reach gradient retains its
+  coloured mask until its source/revision, position, radius, viewport or
+  lighting profile changes; moving world lights do not recolour it.
+  Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting uses a circle centred on the player's
   whole-pixel screen point with the interaction radius. `cellInReach` accepts a cell exactly when its square overlaps the
@@ -1005,7 +1027,10 @@ the reach rim within the existing player-light radius.
   roofless silhouette: the exterior ring swept by the walls' drawn height
   (`indoorSilhouette`, filled nonzero, so an L-shaped adopted house keeps its
   notch dark; `liftPx`, so the lift is screen-up at every heading, and the
-  drawn height alone, never plus the wall thickness). Low-poly interiors pass
+  drawn height alone, never plus the wall thickness). Home starts with one
+  storey; its saved upgrade selects two storeys for both walls and mask. The
+  mask reads the matching roofless model's `interiorHeight`, never the cached
+  exterior shell's height on entry or after upgrading. Low-poly interiors pass
   their actual `wallOutset` to lighting so the cut expands with the exterior
   wall in the ground plane before lifting; prism walls retain their footprint. The cut's edge feathers
   `maskFeatherPx` into the room across the walls' outline, built on the
@@ -1052,13 +1077,44 @@ the reach rim within the existing player-light radius.
   biome texture (`Render.roadBackdropType`): explicit street ground, then recorded
   source landcover (`roadUnder` / `pathUnder`), then the surrounding biome and grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Opaque selected terrain supplies its dominant ink for existing fills and seam blends,
+- Map review uses cached flat source building polygons with the shared building
+  face colours and a thin outline. Surrounding ground replaces raster building
+  floors beneath source footprints; synthetic floors keep their treatment.
+  This static preview omits runtime roofs, walls, lighting and saved restoration.
+  At zoom 17+, cached role symbols replace legacy building sprites, with one
+  marker per footprint and collision suppression. Shop glyphs share the game's
+  sign table. Creatures freeze the shared idle pose and retain mirroring, size
+  and elite palettes; plants share `Render.plantPlacement`. Pressure plates
+  show the current mechanism frame; intentionally invisible objects do not
+  become missing-art markers. Pirate sand's review tint is opt-in.
+  Path variant names use a single canvas with tangent-aligned, upright halo
+  text at zoom 17+, including unnamed paths. Length, bend and collision checks
+  suppress clutter; source names join at zoom 19+ where they fit.
+  Hidden terrain, spawn-gate and Nexus diagnostic images rasterize on first
+  enable and are reused until the reviewed world is rebuilt.
+- Native RA ground materials follow resolved landcover. Grass shares the Orchard
+  family; Residential and Rock share cold slate. Commercial uses the original
+  R01/R02 square concrete interiors. Churchyard, Tar Yard, Grove, scrub, trimmed
+  rocky ground and selected Nexus textures all use their own masked interiors.
+  Water layers last to preserve its authored banks. Map review selects the same
+  material interiors without geographic transitions. Mountain boundary artwork
+  still follows its separate neighbour mask above the transitioning substrate.
+- Road surfaces use sparse, individually shaded cobbles with transparent ground
+  gaps. Each theme has its approved colour; unrestored stones retain 35% colour
+  saturation, while restored stones regain colour and add missing cobbles at the
+  same positions. Both states keep the approved Promenade light–dark contrast.
+  Palette pixels are calculated once per cached theme/state, never per frame.
+  Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
+  its solid charcoal surface and ember warning. Rail ballast stays solid.
+  Theme ground verges are disabled: source landcover remains beneath and beside
+  roads, while existing props, hazard rules and route identities remain in place.
+  Commercial ground uses square concrete, independently of road stone.
+- Opaque selected terrain supplies its dominant ink for existing fills,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
-  to RA ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
+  to selected ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
   changing ownership, props, trees or gameplay. Keep the existing transition masks.
-  One bounded startup atlas holds the 15 rounded-corner combinations for surface
-  materials, reusing the renderer’s existing corner flags. Transparent cutouts reveal
-  neighbour fills; existing blend and shoreline strips remain above the textures.
+  Stacked native masks own surface edges. Underground, structural floors, tilled
+  beds, rift ground and unmapped fog retain their dedicated fallback materials.
   Houses keep their existing floor owner. Temple polygons use F02 weathered RA slabs
   until activation, then F03 pale restored slabs; tar sanctuaries bake a dark palette
   onto the same source tiles. Existing coping, foundations and rune illumination remain.
@@ -1072,16 +1128,11 @@ the reach rim within the existing player-light radius.
   frame stride), never the transparent bank family. `sources.json` records every crop,
   palette and composition; `tools/build_selected_terrain.py` reproduces the strip.
   No per-cell pixel reads or new resource-looking decorative sprites are introduced.
-- Roads assemble the selected RA R01–R07 pavers into a cached native-scale,
-  staggered repeat with subdued bevels, repeated in world space
-  inside the existing vector masks. Ordinary worn R02 repairs to clean R01;
-  named themes retain their selected family across restoration. The source
-  texture replaces procedural stone grain, mushroom spots and slime decoration;
-  existing road geometry, widths, keep-outs, rail furniture and edge transitions
-  stay unchanged. Source wear replaces the duplicate weathering wash.
-  Burned Row retains its existing ember warning over the charcoal source stone.
-  Rift suppression uses the same RA paver with a cached turquoise wash beneath its
-  existing explicit mineral-fracture treatment.
+- Road materials repeat in world space inside the existing vector masks. Their
+  source texture replaces procedural stone grain, mushroom spots and slime
+  decoration; geometry, widths, keep-outs, rail furniture and edge transitions
+  remain owned by the road overlay. Burned Row retains its ember warning; rift
+  suppression retains its cached turquoise wash and explicit fracture treatment.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
@@ -1092,30 +1143,36 @@ the reach rim within the existing player-light radius.
   suppression), on the surface and outside water/buildings. Dry wasteland texture with sparse baked turquoise gem/star flecks
   replaces lush biome detail there. Flecks are static paint, never light sources. This render-only palette never enters street
   theme selection or dressing; runtime and preview share the pavement painter.
+- Churchyard and every Old Stones Nexus variant use purple RA earth; Tar Yard
+  and every tar Nexus variant use smooth neutral-grey RA ground. The atlas bakes
+  these palettes once, with low-contrast grain for tar and no paving joints.
 - Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
   lamps, distinct from the turquoise rift palette.
 - Generate lamps on paths and Small roads from `Streets.lampSpacingM()`
-  (50 m on Small roads; paths use half that spacing and retain a 50 m minimum
+  (33⅓ m on Small roads; paths use half that spacing and retain a 50 m minimum
   line length, independent of restoration ladder goals), with sparse lamps on Medium/Large
   roads. Street variants tint emitted light; an enclosing nexus takes precedence.
   Suppressed roads retain their own turquoise emission even inside a nexus.
-  All bodies use the native FD L01 wooden hanging lamp, with the authored
-  snapped-shaft derivative from `tools/build_selected_streetlamp.py`. This is
-  source pixel art, not a generated impression. The seven amber glass pixels
-  receive the emitted-light palette in the per-colour cached bake; the wooden
-  post and violet metal cage retain their native pixels. Both frames share the original
-  foot; the derivative removes the arm, lantern and excess intact-post shadow.
-  A lamp's `restored` flag chooses intact geometry independently of `lit`, which
-  feeds Lighting. Both currently derive from the street restoration interval,
-  so whole posts remain whole during daylight. IDs and reserved footprints stay.
-  The hanging light's screen offsets (`dxPx`, `dyPx`) derive from the same native
-  source anchors. `Lighting.liftPx` rotates both into the map frame to keep the
-  glow on the upright lantern at every heading; only Lighting emits radiance.
+  Standing lamps use the native Rogue lit/unlit assets selected by
+  `RENDER_SPEC._streetlamp`. Their source pixels and contact seating stay in
+  the normal object renderer; there is no alternate foundation painter,
+  per-colour lamp bake or selected-streetlamp derivative. Road restoration
+  and brightness retain their existing site data and gameplay rules.
+  Variant and Nexus colours tint emitted light through `Lighting`, not the
+  lamp image. Screen-space emission anchors use the shared
+  `RoadOverlay.LAMP_LIGHT_OFFSET_CELLS` and `LAMP_LIGHT_RISE_CELLS` fractions.
+  `Lighting.liftPx` rotates the offsets into the map frame, keeping radiance
+  aligned through camera rotation without depending on a retired canvas size.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
   A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
   dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and
   `isTillableCell` refuses it.
-- Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
+- Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward offers the fixed
+  `Trail.firstWeaponChoices()` row. Its earned choice remains in
+  `save.trail.firstWeaponPending` until selected, so reloads preserve it while onboarding
+  delays its presentation. The second reward uses `Trail.secondDistanceChoices(save)`:
+  nine Throwing Spears, the next useful Boots tier (Wood first), or three Pairys; fully
+  upgraded boots use their normal duplicate-gear cash value.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
 
@@ -1177,6 +1234,9 @@ renderer's per-face `shade` lights slopes the source art never painted. No pixel
 reads or canvas texture creation occur during placement or compass updates. Home switches to
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
+Wreck masonry uses rounded, irregular fieldstone pixels with broken highlights;
+its footprint floor stays dark with sparse, low-contrast rubble. The shared
+`wreck-plinth.png` atlas is rebuilt by `tools/build_wreck_plinth.py`.
 
 `AuthoredBuildingRenderer` reuses one depth target for the scene. On WebGL
 context restoration, Phaser rebuilds the target's texture and framebuffer;
@@ -1228,14 +1288,15 @@ not saved. Original sprites also supply restoration cards and Home icons.
 
 ## Bush and container artwork
 
-`assets/Objects/CelProps/` supplies native 24px bushes, brambles,
-coastal palms, barrels and pots. Stable plant IDs select canopy frames. Berry
-textures bake red, teal or gold fruit onto all eight canopies once at startup;
-picking retains the same foliage frame and transparency. Standalone clipped hedges use the rounded Fantasy Dreamland crown in
-`assets/Objects/SelectedFlora/selected_clipped_hedge.png`, extracted by
-`tools/build_selected_hedge.py` into a 24px cell. Both clipped-shrub aliases
-use its single frame. Connected hedges retain their fifteen
-cardinal masks and use matched edge pixels from `assets/Objects/Hedges/`.
+The effective Rogue asset registry owns each bush and container source.
+Ordinary bushes use `assets/ArtTrials/RogueObjects/bushes-olive.png`; brambles,
+standalone hedges and pots use the reviewed `ROGUE_PROP_PROFILE` exports.
+Coastal palms and retained barrel atlas frames remain shared active sources.
+Stable plant IDs select canopy frames. Berry textures bake red, teal or gold
+fruit onto all eight olive canopies once at startup; picking retains the same
+foliage frame and transparency. Both clipped-shrub aliases use
+`assets/ArtTrials/RogueProps/flora-zone_hedge_single.png`. Connected hedges retain
+their fifteen cardinal masks and matched edge pixels from `assets/Objects/Hedges/`.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
 by map and popup art. Barrels use only the cylindrical frame 3; the square
@@ -1244,9 +1305,10 @@ variants. On the map, box containers use closed low-poly meshes from
 `prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. Mineral rocks always
 use 2D sprites, above and below ground; the Rogue profile uses its reference
 stone with colored ore veins and gem crystals. Rocks never enter the loose-prop
-mesh batch. Crates retain all four frame variants, textured from `box.png`
-through `assets/Objects/LowPolyProps/materials.png`. Rebuild that padded atlas
-with `python3 tools/build_prop_materials.py`. Crates share the wall renderer's
+mesh batch. Crates retain all four frame variants in the active
+`prop_materials` texture, currently
+`assets/ArtTrials/RogueProps/flora-lowpoly-materials.png`. Its reviewed profile
+export preserves the crate slots from `tools/build_prop_materials.py`. Crates share the wall renderer's
 elevation projection and actor depth sorting at every compass angle. Movement
 offsets cached geometry; rotation reprojects vertices without rebuilding
 textures. Opened crates leave the mesh batch through the existing spent-object
@@ -1262,7 +1324,11 @@ Surface castle polygons use Fantasy Dreamland Reborn masonry and projecting
 square corner towers through `FDRCastleLayout` and `FDRCastleGeometry`. Towers
 straddle convex corners with continuous positions; curtain walls are clipped
 against their footprints so they meet the tower faces. Merlons are solid geometry
-with open crenels and full coping support. A keep is placed only where its full
+with open crenels and full coping support. All clipped body and coping pieces of
+one source curtain edge share its sorting anchor with their merlons, so the
+entire curtain support draws before its crowns at every heading. Independent
+fragment anchors let adjacent coping paint over raised teeth. Towers and the
+keep retain their own support anchors. A keep is placed only where its full
 courtyard clearance fits. Layout computation is bounded and cached in local
 coordinates; invalid or excessively complex rings retain the existing fallback.
 
@@ -1270,7 +1336,15 @@ coordinates; invalid or excessively complex rings retain the existing fallback.
 claim rebuilds and building hit metadata. The ground canvas repeats native Fantasy
 City paving. The shared preloaded FDR atlas is generated by
 `tools/build_fdr_castle_assets.py`; its adjacent manifest records source crops and
-hashes. Unclaimed masonry uses the existing castle palette treatment. Canvas
+hashes. Castle masonry keeps its source pixel detail with compressed contrast
+around each crop's average colour; sky-facing coping, crown and roof materials
+receive a modest light lift. The separate ground paving export stays native.
+Vertical faces have one discrete darker lower half, measured from ground to the
+full curtain, tower or keep wall height. Triangle splits preserve the material
+UVs at that elevation; base, shaft and coping layers do not start their own
+shade bands. Door decals follow the same structure's halfway line. This shading
+stays fixed in world elevation through camera rotation. Unclaimed masonry
+combines it with the existing castle palette treatment. Canvas
 closes paired opaque triangle seams within exact surface boundaries; transparent
 coping, doors and base art keep exact clips. Camera movement and rotation reuse
 geometry and materials rather than baking textures.
@@ -1306,9 +1380,31 @@ beside the image. `_objectArt: "dead_tree"` selects frame 0 before optional
 ArtTrials routing; trimmed bounds seat the roots and the scale matches the
 existing mature tree width. Ordinary grove trees keep their existing art.
 
-Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary rock:
-`RA_Ground_Tiles.png`, crop `(352,208,16,16)`, selected-terrain frame 35
-(`G09-cold`). It stays level with adjacent ground, without the legacy frame 7
-cliff faces. Terrain 32 retains its movement and spawn collision and bakes one
-nearest-neighbour texture at startup, with no mineral sprite, loot, animation
-or runtime pixel readback.
+### Native tall-grass tufts
+
+Harvestable wild longgrass (excluding reeds) uses four retained crossed tuft
+pairs per cell in `Render.drawGrassPrisms`: 16 triangles, widths of 23 pixels,
+alternating heights of 21/24 pixels, and centres offset by +/-8 pixels on each
+axis. `WallMaterials.GRASS` owns those dimensions. Each pair sorts individually
+among props and actors so the front tufts can cover the lower parts of objects.
+
+The mesh reads the actual native RA 16px grass sprite through
+`selected_longgrass`, with its original binary alpha, nearest-neighbour pixels,
+and two-sided faces. There is no opaque core, crown, or procedural grass atlas.
+Natural gaps reveal co-located props and plants; gameplay does not suppress their
+sprites or announce a hidden find on entry. Player lower-half cover, normal
+harvesting, deterministic eggs, and the separate hedge treatment remain intact.
+Only visible cell candidates enter the retained batch; heading and subcell
+movement reuse its geometry. Reeds retain their existing sprite presentation.
+
+- Stacked native terrain is unconditional, including for old `terrainLayers`
+  URLs. It draws one complete local material plus up to three source-mask
+  overlays in stable priority order, with water last. The reusable sprite pool
+  preserves per-cell ordering; Canvas folds the sprites into its viewport cache.
+  No material-permutation atlas or colour-blur fallback remains.
+
+Underground floor transitions remain separate from the surface stack.
+`FloorWallMaterials.groundTexture` selects a complete tile by depth and role
+(ground, route, accent, pad or sewer channel). Role changes do not sample four
+neighbouring materials. Cave wall crowns and faces use their own neighbour-mask
+atlas and retained geometry.

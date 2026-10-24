@@ -167,9 +167,8 @@ const MapReviewArt = (() => {
         connectedArt=Render.connectedArtForTile(e,e.tx,e.ty,edge,spent,
           (e.tx+.5)*edge,(e.ty+.5)*edge,edge/2);
         // Lamps are generated infrastructure, outside the spawned-object filters.
-        // Share geometry, procedural art and sprite appearance with the game.
+        // Share native Rogue geometry and sprite appearance with the game.
         for(const lamp of MapScene.prototype._streetLampsForTile.call(scene,e.tx,e.ty,e)) {
-          if(this._restoredLamps)MapScene.prototype._ensureStreetLampTex.call(scene,lamp.glow);
           add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
         }
         for(const o of e.reefCorals||[])add(e,o,'scenery');

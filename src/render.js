@@ -1899,13 +1899,11 @@ Render.buildingStoreysFor = (o, scene) => {
   return tier == null ? null : tier >= 2 ? 2 : 1;
 };
 Render.buildingStyleFor = (o, scene) => Render.buildingProfileFor(o, scene).style;
-Render.proceduralHouse = (o, scene) => !(typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, Houses.displayRole(scene.save, o)))
-  && Render.proceduralBuildings()
+Render.proceduralHouse = (o, scene) => Render.proceduralBuildings()
   && typeof BuildingOverlay !== 'undefined' && BuildingOverlay.enabled()
   && (scene.depth ?? 0) === 0 && scene._proceduralBuildings?.has(o.id);
 // Map sprites and restoration cards use the original role artwork.
 Render.houseTextureFrame = (role, o, scene, theme) => {
-  if (typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, role)) return '__BASE';
   if (role === 'plain') return 'front';
   if (role === 'wizard') return 3;
   if (role === 'turret') return CastleStyles.get(CastleStyles.TURRET_STYLE).towerFrame;
@@ -1913,8 +1911,6 @@ Render.houseTextureFrame = (role, o, scene, theme) => {
 };
 // Baked unclaimed art already contains its wear: never apply a second wash.
 Render.houseTextureKey = (role, o, scene) => {
-  const trial = typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, role);
-  if (trial) return trial;
   // Home (the player's house) has no sprite: the building overlay draws it
   // from its footprint — walls, doorway and roof (building_overlay.js
   // drawHome). A null key is an invisible sprite (resolveAppearance).
@@ -6442,9 +6438,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     return ((fr && fr.height) || 0) * _houseScale(o, scene, pass);
   };
   const _houseScale = (o, scene, pass) =>
-    typeof WorldArtProfile !== 'undefined' && WorldArtProfile.houseKey(o, scene, _houseRole(o, scene, pass))
-      ? WorldArtProfile.houseScale(o, scene, _houseFrameW(o, scene, pass))
-      : houseArtScale(o.area, _houseFrameW(o, scene, pass), _houseRole(o, scene, pass), scene.cellM, CELL_PX);
+    houseArtScale(o.area, _houseFrameW(o, scene, pass), _houseRole(o, scene, pass), scene.cellM, CELL_PX);
   // Where a house's art stands, game px from its anchor cell's centre: the
   // centre of mass of its footprint (worldgen footprintFootOffset, in cells).
   // A house with no recorded footprint stands on its anchor cell's centre.
@@ -6535,49 +6529,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
              origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
              // The logs' contact sits 2px above the art's bottom row.
              shadowInsetPx: 2 },
-    // A STREET LAMP on a restored street. ONE row, two arts, picked by the same
-    // `lit` flag Lighting.collectLamps reads: the baked lamp (RoadOverlay.paintLamp,
-    // a CANVAS texture, so its frame is '__BASE') or, dark, the broken post
-    // (STREET_LAMP_BROKEN_TEX: the same painter with the column snapped, no glass,
-    // no glow), in the same square on the same ground line.
-    //
-    // NOT seated: SpriteLayout has no trimmed bounds for a canvas bake, and needs
-    // none — where the art sits on its point was decided where it was MADE, by the
-    // ground line road_overlay.js paints the plinth, shadow and glow on
-    // (LAMP_GROUND_FRAC → STREET_LAMP_ORIGIN_Y). Sized through `after` rather than
-    // `scale`: the art is sized in CELLS (LAMP_DRAW_CELLS) via setDisplaySize.
+    // Native Rogue lamps share the gameplay list and restoration flag with
+    // Lighting. Art is preloaded once; glow colour belongs to the emitter.
     _streetlamp: {
-      // The origin is the painted plinth's ground line. Canvas padding below
-      // it belongs to the glow, not the base used to sort against feet.
-      groundAtOrigin: true,
-      // A lit lamp draws the bake for ITS glow (streetLampTexKey — the plain
-      // STREET_LAMP_TEX for the default, one texture per colour otherwise,
-      // baked by app.js _ensureStreetLampTex before this pass runs); a dark
-      // one the broken post app.js _ensureBrokenLampTex baked at boot.
-      key: (o) => ((o.restored ?? o.lit) ? streetLampTexKey(o.glow)
-        : o.suppressed ? streetLampTexKey(o.glow) + '_broken' : STREET_LAMP_BROKEN_TEX),
-      frame: '__BASE',
-      // Read lazily (functions, not values): both constants live in app.js,
-      // which loads after this table is built.
-      origin: () => [0.5, STREET_LAMP_ORIGIN_Y],
-      // The post's own nudge (see STREET_LAMP_DY_PX): the ART sits a pixel
-      // lower than its point, the point itself is untouched. Live
-      // rather than decorative because this row is NOT seated — a seated spec
-      // has its dxPx/dyPx overwritten by the seat pass.
-      dyPx: () => STREET_LAMP_DY_PX,
-      scale: 1,
-      // The fade box: the ironwork, not the square's glow padding (2.4 cells
-      // wide, which faded the lamp with the player a cell to its side).
-      artBounds: (s) => {
-        const b = typeof RoadOverlay !== 'undefined' && (RoadOverlay.SELECTED_LAMP_BODY_FRAC || RoadOverlay.LAMP_BODY_FRAC);
-        const fw = s.frame?.realWidth ?? s.frame?.width ?? s.width;
-        const fh = s.frame?.realHeight ?? s.frame?.height ?? s.height;
-        return b ? { fw, fh, minX: b.minX * fw, maxX: b.maxX * fw, minY: b.minY * fh, maxY: b.maxY * fh } : null;
-      },
-      after: (s) => {
-        const px = CELL_PX * ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_DRAW_CELLS) || 2.4);
-        s.setDisplaySize(px, px).setAlpha(1);
-      },
+      key: (o) => o.lit ? 'rogue_lamp' : 'rogue_lamp_unlit',
+      frame: '__BASE', scale: 1.25, origin: [0.5, 0.5],
+      seat: true,
     },
     // Selected native16 torch is static; the existing lighting emitter remains.
     torch: { key: 'torch',

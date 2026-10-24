@@ -29,19 +29,36 @@ function walk(dir) {
 function inventory() {
   const references = new Map();
   function add(file, evidence) {
+    if (typeof file !== 'string' || !file) return; // Procedural textures have no file.
     file = file.split(/[?#]/)[0];
     if (!references.has(file)) references.set(file, new Set());
     references.get(file).add(evidence);
   }
-  const context = { console, addEventListener() {} };
+  const modules = ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js',
+    'src/selected_item_art.js', 'src/items.js', 'src/art_atlas.js',
+    'src/selected_world_atlas.js', 'src/assets.js',
+    'src/ground_materials.js', 'src/terrain_transitions.js', 'src/rogue_object_bounds.js',
+    'src/rogue_prop_profile.js', 'src/rogue_objects.js', 'src/street_variants.js',
+    'src/character_portraits.js'];
+  const context = { console, URLSearchParams, location: {search: ''}, addEventListener() {} };
   context.window = context;
   vm.createContext(context);
-  for (const file of ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js', 'src/selected_item_art.js', 'src/items.js', 'src/art_atlas.js', 'src/selected_world_atlas.js', 'src/assets.js', 'src/street_variants.js']) {
-    vm.runInContext(read(file), context, { filename: file });
-  }
+  for (const file of modules) vm.runInContext(read(file), context, { filename: file });
   for (const [key, asset] of Object.entries(context.ASSETS)) {
-    add(asset.path, `src/assets.js: ASSETS.${key} (preload, including enemy roster)`);
+    add(asset.path, `ASSETS.${key} (Rogue runtime preload)`);
   }
+  for (const id of vm.runInContext('[...CharacterPortraits.PET_IDS, ...CharacterPortraits.NPC_IDS]', context)) {
+    add(`assets/portraits/${id}.png`, 'CharacterPortraits dynamic portrait');
+  }
+  // Compass emission filenames are assembled from this local source table.
+  for (const match of read('src/compass_shine.js').matchAll(/['"](reference-[a-z-]+)['"]/g)) {
+    add(`assets/ui/compass/shine/${match[1]}.webp`, 'CompassShine source layer');
+  }
+
+  const declared = read('src/assets.js').match(/const ASSETS = (\{[\s\S]*?\n\});/);
+  const baseAssets = vm.runInContext('(' + declared[1] + ')', context);
+  const overrides = Object.entries(baseAssets).filter(([key, asset]) => asset.path && context.ASSETS[key]?.path !== asset.path)
+    .map(([key, asset]) => ({key, from: asset.path, to: context.ASSETS[key]?.path, metadata: context.ASSETS[key], preserveOnLoad: !!asset.onLoad && String(asset.onLoad) === String(context.ASSETS[key]?.onLoad)}));
 
   // Street story IDs can select a different painting through an explicit art override.
   for (const row of [...context.StreetVariants.STREET_VARIANTS, context.StreetVariants.BANDIT_STORY]) {
@@ -64,9 +81,18 @@ function inventory() {
     add(row.path, `src/items.js: gearAssetPath(${row.kind}, ${row.slot}, ${row.tier})`);
   }
 
-  for (const file of walk('src').filter((file) => file.endsWith('.js'))) {
+  const loadedScripts = new Set([...read('index.html').matchAll(/<script[^>]+src=["'](src\/[^"'?]+)(?:\?[^"']*)?["']/g)].map(match => match[1]));
+  loadedScripts.add('src/app.js');
+  const paintingStems = new Set(walk('assets/art').filter(file => file.endsWith('.webp')).map(file => path.basename(file, '.webp')));
+  for (const file of [...loadedScripts].filter(file => fs.existsSync(path.join(ROOT, file)))) {
     const source = uncomment(read(file));
     const line = (match) => source.slice(0, match.index).split('\n').length;
+    // Paintings also occur in arrays, returns and conditional expressions.
+    // The generated thumbnail index is coverage metadata, not a consumer.
+    if (file !== 'src/art_thumbs.js') for (const match of source.matchAll(/['"]([a-z][a-z0-9_]+)['"]/g)) {
+      if (paintingStems.has(match[1])) add(`assets/art/${match[1]}.webp`, `${file}:${line(match)} painting stem`);
+    }
+
     // ASSETS has already been evaluated; overridden literals are not live references.
     for (const match of (file === 'src/assets.js' ? '' : source).matchAll(/['"`](assets\/[^'"`\n]*?\.(?:png|webp|jpe?g|gif|svg|avif)(?:\?[^'"`\n]*)?)['"`]/g)) {
       if (!match[1].includes('${')) add(match[1], `${file}:${line(match)} literal reference`);
@@ -75,18 +101,20 @@ function inventory() {
       add(`assets/art/${match[1]}.webp`, `${file}:${line(match)} scene painting stem`);
     }
   }
-  // Restore paintings are assembled from the local role INFO table.
-  const restoreInfo = uncomment(app).match(/const INFO = \{([\s\S]*?)\n\s*\};\s*const info = INFO\[role\]/);
-  if (!restoreInfo) throw new Error('Cannot locate restoration roles; update the inventory scanner.');
-  for (const match of restoreInfo[1].matchAll(/^\s*(\w+):/gm)) {
-    const role = match[1] === 'plain' ? 'house' : match[1];
-    add(`assets/art/restore_${role}.webp`, `src/app.js: restoration INFO.${match[1]}`);
+  for (const tier of vm.runInContext('Object.keys(TIER_BY_NUM)', context)) {
+    add(`assets/art/chest_t${tier}.webp`, 'chestOpeningArt dynamic tier painting');
   }
   const index = read('index.html').replace(/<!--[\s\S]*?-->|\/\*[\s\S]*?\*\//g,
     (m) => m.replace(/[^\n]/g, ' '));
   for (const match of index.matchAll(/assets\/[^'"<>\n]*?\.(?:png|webp|jpe?g|gif|svg|avif)/g)) {
     if (!match[0].includes('${')) {
       add(match[0], `index.html:${index.slice(0, match.index).split('\n').length} image/CSS reference`);
+    }
+  }
+
+  for (const file of walk('css').filter(file => file.endsWith('.css'))) {
+    for (const match of uncomment(read(file)).matchAll(/(?:\.\.\/)?(assets\/[^'"()\n]*?\.(?:png|webp|jpe?g|gif|svg|avif))(?:\?[^'"()\n]*)?/g)) {
+      add(match[1], `${file}: CSS image`);
     }
   }
 
@@ -107,7 +135,16 @@ function inventory() {
     path: file, evidence: [...evidence],
   }));
   const missing = used.filter((row) => !fs.existsSync(path.join(ROOT, row.path)));
-  const candidates = walk('assets').filter((file) => IMAGE.test(file) && !references.has(file)).map(record);
+  const supportFiles = ['tools', 'docs', 'test', 'assets'].flatMap(walk)
+    .filter(file => /\.(?:js|cjs|mjs|py|json|md|html|css|txt)$/.test(file)
+      && !['tools/asset_inventory.js', 'tools/art-usage-audit.json'].includes(file));
+  const support = supportFiles.map(file => ({file, text:read(file)}));
+  const candidates = walk('assets').filter((file) => IMAGE.test(file) && !references.has(file)).map(file => {
+    const evidence = support.filter(row => row.text.includes(file)).map(row => row.file);
+    const source = /\/(?:sources?|masters?|originals?|raw|candidates?)(?:\/|$)/i.test(file);
+    return {...record(file), category: source ? 'source' : evidence.length ? 'tool-or-documentation' : 'unreferenced',
+      supportReferences: evidence};
+  });
   const sourceRoot = path.resolve(process.env.TERRACART_ART_ROOT || path.join(require('os').homedir(), '.artifacts', 'terracart-art'));
   const sources = fs.existsSync(sourceRoot) ? fs.readdirSync(sourceRoot, { recursive: true })
     .filter((file) => IMAGE.test(file) && fs.statSync(path.join(sourceRoot, file)).isFile())
@@ -117,11 +154,11 @@ function inventory() {
   return {
     summary: { referenced: used.length, missing: missing.length,
       candidates: byStatus(candidates), sources: { external: sources.length } },
-    references: used, missing, candidates, sources,
+    references: used, missing, candidates, sources, overrides,
   };
 }
 
-try {
+if (require.main === module) try {
   if (process.argv.slice(2).some((arg) => arg !== '--json')) throw new Error('Usage: node tools/asset_inventory.js [--json]');
   const result = inventory();
   if (process.argv.includes('--json')) {
@@ -139,3 +176,5 @@ try {
   console.error(error.message);
   process.exitCode = 1;
 }
+
+module.exports = { inventory, uncomment };

@@ -1,0 +1,65 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "path": "assets/Objects/SelectedProps/selected_streetlamp.png",
+      "archive": "extra_assets/inactive/assets/Objects/SelectedProps/selected_streetlamp.png",
+      "bytes": 738,
+      "sha256": "4ff7cf12bdc8cd12f2f442d575d09b53ed9e61a53e78acb8f567ee7ef5d651dc"
+    },
+    {
+      "path": "test/dreamland-objects-unit.cjs",
+      "archive": "extra_assets/inactive/test/dreamland-objects-unit.cjs",
+      "bytes": 6453,
+      "sha256": "a70b74f5d82036cdaefa42dd23912af39e394cc70612fbba308160f87c11982e"
+    },
+    {
+      "path": "test/legacy_ra_roads_lamps.test.js",
+      "archive": "extra_assets/inactive/test/legacy_ra_roads_lamps.test.js",
+      "bytes": 2636,
+      "sha256": "35df66e14e734eab73460bc5816ff225af5f86b553d2439ab0bad9072cf8b5a0"
+    },
+    {
+      "path": "test/legacy_road_overlay.test.js",
+      "archive": "extra_assets/inactive/test/legacy_road_overlay.test.js",
+      "bytes": 94648,
+      "sha256": "2d65e1736cdc2cc5a20e9b963f0fde25fd9636336286b0c6b9d572d9205cf0a5"
+    },
+    {
+      "path": "test/legacy_street_lamps.test.js",
+      "archive": "extra_assets/inactive/test/legacy_street_lamps.test.js",
+      "bytes": 46300,
+      "sha256": "cd7e4ad4053e8b360aa1e7d6c7efa44f2e930eb702d6c9ec8b48c831c3e9dc71"
+    },
+    {
+      "path": "test/legacy_world_depth.test.js",
+      "archive": "extra_assets/inactive/test/legacy_world_depth.test.js",
+      "bytes": 5905,
+      "sha256": "06191a07de5ed64ce01750137a83f4e3a70fe50c66c78c938892ae385449750d"
+    },
+    {
+      "path": "test/node/art_trial_cache.test.js",
+      "archive": "extra_assets/inactive/test/node/art_trial_cache.test.js",
+      "bytes": 3348,
+      "sha256": "31fcef6ad05d6037ee05e4770c8c22788ae1a67091182c00cd606ac4f70a157d"
+    },
+    {
+      "path": "tools/build_selected_hedge.py",
+      "archive": "extra_assets/inactive/tools/build_selected_hedge.py",
+      "bytes": 1079,
+      "sha256": "08e6163ffa3cd12181ef5773de4b5b6e0f5e554ba3f755093f468443f9b74ca4"
+    },
+    {
+      "path": "tools/build_selected_streetlamp.py",
+      "archive": "extra_assets/inactive/tools/build_selected_streetlamp.py",
+      "bytes": 844,
+      "sha256": "7e43e10b26026cdeb11f9e179b02d31a57bf53c96e40f34ba7b3abd98979e8fc"
+    },
+    {
+      "path": "tools/legacy_streetlamp_art.js",
+      "archive": "extra_assets/inactive/tools/legacy_streetlamp_art.js",
+      "bytes": 20162,
+      "sha256": "e35e042b4047364544ddfe67d26156d89bc5d211359d2bfeddc2b5c68e80e17d"
+    }
+  ]
+}

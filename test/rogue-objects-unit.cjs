@@ -30,16 +30,11 @@ assert.equal(art.spec({kind:'mineralrock',material:'gold'},{},original),original
 assert(['rogue_rock_mid','rogue_stone'].includes(art.spec({kind:'mineralrock',material:'plain'},{},original).key));
 assert.equal(art.spec({kind:'staircase',dir:'down'},{},original).key,'rogue_ladder_down');
 assert.equal(art.spec({kind:'staircase',dir:'up'},{},original).key,'rogue_ladder_up');
-for (const tier of [9,11,12]) for (const role of ['plain','trailer','shop','trader','blacksmith','fort','wreck']) {
- assert.equal(art.houseKey({tier},{game:{renderer:{type:2}}},role),null,'RA keeps the shared 3D house scheme');
-}
 assert(!Object.keys(assets).some(key=>key.startsWith('rogue_house_')),'unused facade images are not loaded');
-assert.equal(art.houseKey({tier:9},{},'wreck'),null,'retain authentic ruined art until restored');
-assert.equal(art.houseKey({tier:11},{},'temple'),null);
-assert.equal(art.houseKey({tier:9},{homeInside:()=>true},'trailer'),null);
-assert.equal(art.spec({kind:'_streetlamp',lit:true},{},original).key,'rogue_lamp');
-assert.equal(art.spec({kind:'_streetlamp',lit:false},{},original).key,'rogue_lamp_unlit');
-console.log('RA reference objects: opt-in isolation, assets/bounds, growth, source palette, semantic exclusions and restoration conditions passed');
+assert.equal(art.houseKey,undefined,'retired facade-profile extension is removed');
+assert.equal(art.spec({kind:'_streetlamp',lit:true},{},original),original,'native lamp art belongs to the shared render row');
+assert.equal(art.spec({kind:'_streetlamp',lit:false},{},original),original);
+console.log('RA reference objects: default and retired-URL routing, assets/bounds, growth, source palette, semantic exclusions and restoration conditions passed');
 
 
 assert.equal(off.crops.shrub.sheet,'selected_shrub');
