@@ -886,6 +886,21 @@ access or tile lifecycle mechanics.
   or evicting that entry still starts a fresh pass for Overpass or recovery.
   Prefetched failures enter the normal tile failure path when their build turn
   arrives.
+- `WorldGen.prepareTile` shares a persistent surface-base cache between the
+  game and map review. Its key includes the existing shell content version,
+  source MVT SHA-256, tile coordinates, cell count, metre frame and review salt.
+  The page exposes the same derived version as the worker's `SHELL_VERSION`;
+  tool loaders copy it from that page. Algorithm/table changes therefore miss
+  older entries automatically, and changed source bytes invalidate only that
+  tile. Old versions age out within the same 64-entry disk LRU.
+  Records preserve typed arrays, Maps, Sets, shared references and source-layer
+  parking edits through IndexedDB structured cloning. Hits skip decode and
+  rasterization, then restore geographic-policy registrations for the surface
+  and both cave-source grids. Cave entrances, current tree/Overpass bins,
+  creatures and player overlays still run afterward. Await each base write
+  before callers can mutate it; never persist a live tile entry. Missing build
+  versions, denied/quota-limited storage and invalid records fall back to
+  sliced generation. Reset this game clears generated and raw tile caches.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
