@@ -1306,8 +1306,7 @@ const TAP_HANDLERS = [
     return false;
   }},
 
-  // No 'path-stone' handler: a street is rebuilt by PROXIMITY (app.js
-  // _sweepStreets), not by tapping a cobble.
+  // After the initial road-repair decision, streets rebuild by proximity.
 
   // 2-disarm-trap) With a Trap Disarm Kit selected, tap a trap's own cell —
   // the hidden scuff or the already-sprung jaw, surface or cave — to remove
@@ -1840,6 +1839,13 @@ const TAP_HANDLERS = [
         const item = ITEM_BY_ID['rubble'];
         scene.flashLoot(`+${qty} ${item?.name || 'Stone'}`, '#a7ffb0', 1, 'rubble');
       } });
+  }},
+
+  // Object actions keep priority; only a bare road offers the initial repair.
+  { name: 'road-repair', try: ({ scene, cell }) => {
+    if ((scene.depth ?? 0) !== 0 || Trail.repairEnabled(scene.save)) return false;
+    if (!cell.underRoad && !WorldGen.isRoadTerrain(cell.type) && cell.type !== TERRAIN.PATH) return false;
+    return scene._offerRoadRepair?.() || false;
   }},
 
   // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in

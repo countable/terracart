@@ -82,6 +82,12 @@
     const bonus = Math.max(0, Number.isFinite(t.bonusM) ? t.bonusM : 0);
     return Math.max(0, totalMetres(t.metres, t.prizes, playerClass) - bonus);
   }
+  // The first repair story is the player's opt-in. Existing road progress
+  // keeps older saves repairing without asking them to start over.
+  function repairEnabled(save) {
+    const t = save?.trail;
+    return !!t?.greeted || (t?.metres || 0) > 0 || (t?.prizes || 0) > 0 || (save?.streetsEpoch || 0) > 0;
+  }
   // A distance at a glance: kilometres to TWO significant figures (0.72km,
   // 1.5km, 26km, 130km) — the road chip's number and the tap hint both print
   // the running total through this one formatter. FLOORED, never rounded up
@@ -377,7 +383,7 @@
 
   root.Trail = {
     STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, CASH_PER_SQRT_KM, cashPrize, prizeCardClasses, rollCardRow,
-    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, distanceLabel, progress, bank, readout, label,
+    GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, repairEnabled, distanceLabel, progress, bank, readout, label,
     PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize, FIXED_PRIZES, fixedPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, RELIC_MILESTONES, relicChoices, rewardFor, rewardsBetween, rewardProgress,
     PRIZE_ROLL_BONUS, PRIZE_TIER_PER_PRIZE, PRIZE_ROLL_BONUS_MAX, rollBonusFor,

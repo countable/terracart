@@ -1038,7 +1038,11 @@ the reach rim within the existing player-light radius.
 - Streets restore metre intervals along each transportation line, keyed by
   `Streets.lineKey(feature, lineIdx)`, clipped to tile spans. Keep reach tied
   to the player and visuals keyed by `Streets.epoch`; do not add per-cell road
-  state. The reach sweep rejects tile squares outside the padded reach, then
+  state. `Trail.repairEnabled(save)` gates the entire reach/dwell sweep until
+  the first road-tap decision is accepted; disabled sweeps clear sight history,
+  so startup, GPS fixes and body movement cannot repair before consent.
+  Existing restoration progress retains the legacy automatic behavior.
+  The reach sweep rejects tile squares outside the padded reach, then
   caches eligible line records, bounds and tile spans on each tile entry. A new
   entry or replacement `layers` array invalidates the geometry, so a cell move
   rejects distant lines without walking their vertices.
