@@ -43,12 +43,16 @@ test('corner and junction support respects arms and leaves unused corners on gro
   for (const [x, y] of [[0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) assert.eq(at(cross, x, y), 5.5);
 });
 
-test('bushes are centred, joined hedges follow their rendered frame, standing plants do not lift the player', () => {
+test('bushes are centred, joined hedges give cover without lift, standing plants do not lift the player', () => {
   const bush = { kind: 'wildplant', crop: 'shrub', x: 0, y: 0 };
   const hedge = { ...bush, _plantArt: 'zone_hedge', _hedgeFrame: 1 };
   assert.eq(ObstacleStep.sample(0, 0, [bush], 1).liftPx, 3);
   assert.eq(ObstacleStep.sample(0.45, 0, [hedge], 1).liftPx, 0);
-  assert.eq(ObstacleStep.sample(0, 0.45, [hedge], 1).liftPx, ObstacleStep.PROFILES.hedge.liftPx);
+  assert.eq(ObstacleStep.sample(0, 0.45, [hedge], 1).liftPx, 0);
+  assert.truthy(ObstacleStep.sample(0, 0.45, [hedge], 1).covered);
+  assert.falsy(ObstacleStep.sample(0.45, 0, [hedge], 1).covered);
+  assert.eq(ObstacleStep.sample(0, 0.45, [hedge], 1).supports.length, 0);
+  assert.eq(WorldLayers.forObject(hedge), WorldLayers.STANDING_PROP);
   for (const crop of ['longgrass', 'mushroom', 'flint']) assert.eq(ObstacleStep.profile({ ...bush, crop }), null);
   assert.eq(ObstacleStep.profile({ kind: 'tree', size: 'large' }), null);
   assert.eq(ObstacleStep.profile({ kind: 'tar' }), null);
@@ -160,5 +164,23 @@ test('furniture support: only mid pieces keep continuous support on pause and re
     at(0);
     assert.eq(at(edge),pause);
     assert.eq(at(profile.radius),0);
+  }
+});
+
+test('foliage cover: grass fills its cell and clipped hedges never lift or slow walking', () => {
+  const grass = {kind:'wildplant',crop:'longgrass',x:10,y:20};
+  for (const [dx,dy] of [[0,0],[-.5,-.5],[.49,.49]]) {
+    const sample = ObstacleStep.sample(10+dx*8,20+dy*8,[grass],8);
+    assert.truthy(sample.covered); assert.eq(sample.liftPx,0); assert.eq(sample.supports.length,0);
+    assert.eq(ObstacleStep.speedMul(sample),1);
+  }
+  for (const [dx,dy] of [[.5,0],[0,.5],[-.51,0]])
+    assert.falsy(ObstacleStep.sample(10+dx*8,20+dy*8,[grass],8).covered);
+  assert.falsy(ObstacleStep.sample(10,20,[],8).covered, 'harvested grass stops covering');
+  assert.falsy(ObstacleStep.sample(10,20,[{...grass,_plantArt:'reeds'}],8).covered, 'wetland reeds retain their ordinary presentation');
+  for (const art of ['zone_hedge','zone_hedge_single','clipped','trimmed']) {
+    const hedge={...grass,crop:'shrub',_plantArt:art};
+    const sample=ObstacleStep.sample(10,20,[hedge],8);
+    assert.truthy(sample.covered); assert.eq(sample.liftPx,0); assert.eq(ObstacleStep.speedMul(sample),1);
   }
 });

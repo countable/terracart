@@ -10,7 +10,7 @@ const WorldLayers = Object.freeze({
   forObject(object, spec = {}) {
     const layer = typeof spec.layer === 'function' ? spec.layer(object) : spec.layer;
     return layer || (object?.kind === 'wildplant' && this.FLAT_CROPS.includes(object.crop)
-      ? this.GROUND_DECAL : ObstacleStep.profile(object) ? this.STEP_OVER_PROP : this.STANDING_PROP);
+      ? this.GROUND_DECAL : (ObstacleStep.profile(object)?.liftPx > 0) ? this.STEP_OVER_PROP : this.STANDING_PROP);
   },
 });
 
@@ -25,7 +25,9 @@ const ObstacleStep = (() => {
     rock: Object.freeze({ liftPx: 4, radius: 0.25, top: 0.185, shape: 'round' }),
     wall: Object.freeze({ liftPx: 5.5, radius: 0.29, top: 0.21, shape: 'band' }),
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
-    hedge: Object.freeze({ liftPx: 11, radius: 0.29, top: 0.21, shape: 'band' }),
+    grass: Object.freeze({ liftPx: 0, heightPx: 18, cover: true, shape: 'cell' }),
+    hedge: Object.freeze({ liftPx: 0, heightPx: 11, radius: 0.29, shape: 'band', cover: true }),
+    hedgeSingle: Object.freeze({ liftPx: 0, radius: 0.4, shape: 'round', cover: true }),
   });
   const KINDS = { mineralrock: 'rock', stronghold_wall: 'wall', _firepit: 'rock', _fire: 'rock' };
   const CROPS = { rubble: 'rock', shrub: 'bush', berry: 'bush', poisonberry: 'bush', goldenberry: 'bush' };
@@ -35,7 +37,11 @@ const ObstacleStep = (() => {
     if (furnitureSpec(o)?.height === 'mid') return PROFILES.furniture;
     if (o.kind === 'tree' && o.size === 'bush') return PROFILES.bush;
     if (o.kind === 'wildplant') {
-      if (o.crop === 'shrub' && o._plantArt === 'zone_hedge') return PROFILES.hedge;
+      if (o.crop === 'shrub') {
+        const art = o._plantArt || o._streetArt;
+        if (art === 'zone_hedge') return PROFILES.hedge;
+        if (['zone_hedge_single', 'clipped', 'trimmed'].includes(art)) return PROFILES.hedgeSingle;
+      }
       return PROFILES[CROPS[o.crop]] || null;
     }
     return PROFILES[KINDS[o.kind]] || null;
@@ -59,21 +65,28 @@ const ObstacleStep = (() => {
   // passes only present/uncleared props. Max support (never sum) also lets a
   // connected row of walls share its flat top instead of bouncing each cell.
   function sample(x, y, objects, cellM) {
-    let liftPx = 0, obstacle = null, support = null;
+    let liftPx = 0, obstacle = null, support = null, covered = false;
     const supports = [];
-    if (!(cellM > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return { liftPx, obstacle, profile: support, supports };
+    if (!(cellM > 0) || !Number.isFinite(x) || !Number.isFinite(y)) return { liftPx, obstacle, profile: support, supports, covered };
     for (const o of objects || []) {
-      const p = profile(o);
-      if (!p || !Number.isFinite(o.x) || !Number.isFinite(o.y)) continue;
+      if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y)) continue;
       const dx = (x - o.x) / cellM, dy = (y - o.y) / cellM;
+      // Grass occupies its whole square; cover never becomes foot support.
+      if (WorldGen.isGrassCover(o)) {
+        if (dx >= -0.5 && dx < 0.5 && dy >= -0.5 && dy < 0.5) covered = true;
+        continue;
+      }
+      const p = profile(o);
+      if (!p) continue;
       const distance = p.shape === 'band' ? bandDistance(o, dx, dy) : Math.hypot(dx, dy);
       if (distance >= p.radius) continue;
+      if (p.cover) { covered = true; continue; }
       const t = Math.max(0, Math.min(1, (p.radius - distance) / (p.radius - p.top)));
       const height = p.liftPx * t * t * (3 - 2 * t);
       supports.push(o);
       if (height > liftPx) { liftPx = height; obstacle = o; support = p; }
     }
-    return { liftPx, obstacle, profile: support, supports };
+    return { liftPx, obstacle, profile: support, supports, covered };
   }
   function balance(phaseCells, amount) {
     return Math.sin(phaseCells * Math.PI * 2 / 1.3) * 0.035 * Math.max(0, Math.min(1, amount));

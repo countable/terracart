@@ -265,7 +265,7 @@ const WILDPLANT_RULES = {
   // day's; that it was TAKEN today is the day ledger's (interact.js
   // 'wildplant' — never save.picked).
   driftwood: { output: 'wood' },
-  longgrass: { treasure: { chance: 0.01, coins: 1 } },
+  longgrass: { treasure: { chance: 0.01, coins: 1 }, hiddenItem: { chance: 0.01, item: 'egg' } },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
   // `workCharged`. Occasionally hides a gemfruit.
@@ -333,6 +333,11 @@ function wildplantWorkCost(crop, relics, rng) {
 }
 // The surprise bonus a pick may also hand over: { chance, bonus } or null.
 function wildplantTreasure(crop) { return wildplantRule(crop)?.treasure || null; }
+// A fixed hidden find shared by every visitor; it never opts into nest wiggles.
+function wildplantHiddenItem(crop, id) {
+  const find = wildplantRule(crop)?.hiddenItem;
+  return find && id != null && hash01(`${id}|hidden-item`) < find.chance ? find.item : null;
+}
 // Which Lighting.KINDS row this plant lights as, null for everything else.
 function wildplantLight(crop) { return wildplantRule(crop)?.light || null; }
 

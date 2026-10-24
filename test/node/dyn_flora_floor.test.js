@@ -1,7 +1,6 @@
-// Sparse basic grounds use measured occupied-cell budgets, not a universal
-// four-percent minimum. Small fields may be completely open for a given seed.
+// Clustered field cover shares the same final-grid rule across seeds.
 (function () {
-test('basic flora: sparse pitches stay open over many deterministic seeds', () => {
+test('basic flora: pitches average half cover over deterministic seeds', () => {
   const N = 32, ring = [{x:256,y:256},{x:3584,y:256},{x:3584,y:3584},{x:256,y:3584}];
   let total = 0, cells = 0;
   for (let tx = 0; tx < 40; tx++) {
@@ -9,7 +8,7 @@ test('basic flora: sparse pitches stay open over many deterministic seeds', () =
     total += out.wildplants.filter(w => w.crop === 'longgrass' && w._biome === WorldGen.T.PITCH).length;
     cells += out.grid.filter(t => t === WorldGen.T.PITCH).length;
   }
-  assert.inRange(total / cells, .001, .015, 'pitch tufts occupy a small fraction, without a four-percent floor');
+  assert.inRange(total / cells, 0.45, 0.55, 'roughly half of eligible pitch ground carries grass');
 });
 test('basic flora: approved exclusions survive overlapping source polygons', () => {
   const T = WorldGen.T;

@@ -1604,7 +1604,7 @@ const ICON_SHEETS = {
   flint: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.flint.frameRects },
   selected_items: { url: SelectedItemArt.url, cols: SelectedItemArt.cols, srcW: SelectedItemArt.width, srcH: SelectedItemArt.height },
   selected_mushroom: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_mushroom.frameRects },
-  selected_longgrass: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_longgrass.frameRects },
+  selected_longgrass: { url: 'assets/ArtTrials/RogueProps/flora-selected_longgrass.png', cols: 1, srcW: 16, srcH: 16 },
   furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 432 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_lantern: { url: 'assets/Icons/Items/Lantern.png', cols: 1, srcW: 16, srcH: 16 },
@@ -6091,7 +6091,7 @@ class MapScene extends Phaser.Scene {
     const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
     let submerged = false;
     if (!airborne && !Combat.playerDowned(this.save.energy)
-        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
+        && (!(this._obstacleStep?.liftPx > 0) || this._obstacleStep?.covered) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
       if (cell.loaded) {
         const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
@@ -6101,7 +6101,7 @@ class MapScene extends Phaser.Scene {
         const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
         const channel = FloorWallMaterials.isSewerChannel(entry, cell.iy * (entry?.cellsPerEdge || 0) + cell.ix, cell.type);
-        submerged = basin || channel || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+        submerged = !!this._obstacleStep?.covered || basin || channel || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }

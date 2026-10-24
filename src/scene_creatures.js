@@ -198,7 +198,8 @@ class SceneCreatures {
     // for exactly this check in the per-frame wander/render loops.
     const caughtSet = setOf(this.save.caught);
     // Cells the tile's own rasterize pass already put something on — a tree,
-    // a rock, a chest, a produce stand, a tuft of grass. Snapshotted ONCE,
+    // a rock, a chest or a produce stand. Grass cover leaves the seat free.
+    // Snapshotted ONCE,
     // before this method adds anything of its own, into the same flat-index
     // shape roadMask already uses (cy*N+cx), so isSpawnCell can check both
     // with one lookup. Without it a trap could spring under a rock sprite (the
@@ -209,6 +210,7 @@ class SceneCreatures {
     let _nOcc = 0;
     for (const records of [genObjects, entry.wildplants || []]) for (const o of records) {
       if (((_nOcc++) & 511) === 511) yield 'spawn occupancy';
+      if (WorldGen.isGrassCover(o)) continue;
       for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) _occupiedIdx.add(i);
     }
     // Even pets only belong near street frontage / public space inside a

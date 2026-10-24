@@ -658,6 +658,20 @@ const TAP_HANDLERS = [
     return true;
   }},
 
+  // The covering square is the first interaction, even when a flower, chest
+  // or treasure shares its cell. Delegate to the ordinary harvest transaction.
+  { name: 'grass-cover', try: (ctx) => {
+    if (ctx.building || (typeof RoadSafety !== 'undefined'
+        && RoadSafety.nightRoadZone(ctx.scene, ctx.wm.x, ctx.wm.y))) return false;
+    const previous = ctx.grassOnly;
+    ctx.grassOnly = true;
+    try { return TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx); }
+    finally {
+      if (previous === undefined) delete ctx.grassOnly;
+      else ctx.grassOnly = previous;
+    }
+  }},
+
   // (Eat-by-tapping-the-player and the honey/book/potion/sapphire tap-on-feet
   // gestures removed — the persistent Eat and consumable Use buttons below the
   // inventory bar (syncEatButton / syncConsumableButton in app.js) cover those
@@ -1100,7 +1114,8 @@ const TAP_HANDLERS = [
     // spent predicate (isSpent — on the waterline today, not taken today).
     const tideSets = spentSets(scene, save);
     const bestWp = findItemInTapCell(scene, 'wildplants', wm,
-      (wp) => !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
+      (wp) => (!ctx.grassOnly || WorldGen.isGrassCover(wp))
+        && !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
@@ -1138,15 +1153,17 @@ const TAP_HANDLERS = [
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
         for (const reward of rewards) scene.addToInv(reward.id, reward.qty);
-        let bonus = '';
+        const hiddenItem = WorldGen.isGrassCover(wp) ? wildplantHiddenItem(wp.crop, wp.id) : null;
+        if (hiddenItem) scene.addToInv(hiddenItem, 1);
+        let bonus = hiddenItem ? ` ✨${itemName(hiddenItem)}` : '';
         const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
           if (treasure.coins) {
             addMoney(save, treasure.coins);
-            bonus = ` ✨${treasure.coins} coin`;
+            bonus += ` ✨${treasure.coins} coin`;
           } else {
             scene.addToInv(treasure.bonus, 1);
-            bonus = ` ✨${itemName(treasure.bonus)}`;
+            bonus += ` ✨${itemName(treasure.bonus)}`;
           }
         }
         persistSave(save);

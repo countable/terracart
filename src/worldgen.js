@@ -303,13 +303,15 @@
     const centre = (ix, iy) => ({ x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM });
     return { N, cellM, ox, oy, inTile, cellOf, idxOf, centre };
   }
-  // The flat cell indices every record of `lists` stands on (records outside
-  // the square are skipped) — THE occupancy set, keyed the way isSpawnCell's
+  // Grass is cover above a seat, not a reservation against props or creatures.
+  function isGrassCover(o) { return o?.kind === 'wildplant' && o.crop === 'longgrass' && o._plantArt !== 'reeds'; }
+  // The flat cell indices reserved by records of `lists` (outside records and
+  // walk-through grass cover are skipped), keyed the way isSpawnCell's
   // `occupied` reads it, so a placer's own occupancy can be handed to the gate.
   function occupiedIndexSet(frame, ...lists) {
     const out = new Set();
     for (const list of lists) {
-      for (const o of list || []) { const i = frame.idxOf(o.x, o.y); if (i >= 0) out.add(i); }
+      for (const o of list || []) { if (isGrassCover(o)) continue; const i = frame.idxOf(o.x, o.y); if (i >= 0) out.add(i); }
     }
     return out;
   }
@@ -6231,15 +6233,15 @@
     // first cull below reads it. Pure MVT, re-derived by a rebuild.
     const spawnWhy = yield* stampSpawnWhySteps({ layers, grid, w, h, mvtToCell, mvtToM,
       roadMask, roadClass, quietMask });
-    // Replace polygon grass on final GRASS cells, so overlapping mapped
-    // polygons and the unclassified fallback get the same single fill pass.
-    // Other plants stay first in the occupancy queue; landmarks, special
-    // Nexus/Road Variant areas and the shared spawn gate still own their cells.
+    // Replace polygon grass on final field terrain with one clustered cover
+    // pass. Other plants keep their identities underneath the cover; the
+    // shared spawn gate and special Nexus/Road Variant replacement still apply.
+    const grassTerrains = new Set(BiomeProfiles.GRASS_FILL.terrains);
     let grassKeep = 0;
     for (let i = 0; i < wildplants.length; i++) {
       if ((i & 63) === 0) yield 'grass polygon cleanup';
       const wp = wildplants[i];
-      if (wp.crop === 'longgrass' && grid[wp._iy * w + wp._ix] === T.GRASS) continue;
+      if (wp.crop === 'longgrass' && grassTerrains.has(grid[wp._iy * w + wp._ix])) continue;
       wildplants[grassKeep++] = wp;
     }
     wildplants.length = grassKeep;
@@ -6247,7 +6249,7 @@
     for (let iy = 0; iy < h; iy++) {
       if ((iy & 7) === 0) yield 'grass placement rows';
       for (let ix = 0; ix < w; ix++) {
-        if (grid[iy * w + ix] !== T.GRASS || !grassCandidates[iy * w + ix]) continue;
+        if (!grassTerrains.has(grid[iy * w + ix]) || !grassCandidates[iy * w + ix]) continue;
         const { mx, my } = cellCenterMeters(ix, iy);
         wildplants.push(makeWildplant(BiomeProfiles.GRASS_FILL.crop, mx, my,
           cellId('wp', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
@@ -6497,10 +6499,8 @@
     }
 
     yield 'castle towers';
-    // Unified occupancy pass — at most one object per cell.
-    // Strict priority: chest > house > tree > wildplant.
-    // The first one to claim a cell wins; everything else in that cell is
-    // dropped so we never have shrubs hiding under chests or pads.
+    // One prop/plant seat per cell, plus a separate tallgrass cover layer.
+    // Strict seat priority: chest > house > tree > ordinary wildplant.
     const occupiedCells = new Set();
     const cellKeyOfWorld = (x, y) => {
       const { ix, iy } = cellOfWorldM(x, y);
@@ -6574,7 +6574,8 @@
       keptStructs.push(o);
     }
 
-    // 2) Wildplants — biome-appropriate cells only, never on a structure cell.
+    // 2) Wildplants — biome-appropriate cells only. Ordinary flora reserves
+    // one seat; tallgrass is a separate cover layer above low props/plants.
     //    Roads/paths/water/buildings are painted AFTER landuse, so a residential
     //    polygon may have had debris dropped into a cell that later became
     //    road, OR a park polygon's shrubs may have ended up under a residential
@@ -6597,6 +6598,9 @@
         yield* forEachPolygonCellSteps(w, h, p.rings, mvtToCell, (x, y) => { parkCells[y * w + x] = 1; });
       }
     }
+    const grassBlockedCells = new Set(keptStructs.filter(o => isBuilding(o.kind) || o.kind === 'temple')
+      .map(o => cellKeyOfWorld(o.x, o.y)));
+    const grassCoverCells = new Set(), plantIds = new Set();
     let wpOccI = 0;
     for (const wp of wildplants) {
       if ((wpOccI & 63) === 0) yield 'wildplant occupancy sweep';
@@ -6605,8 +6609,16 @@
       const cellKey = `${wp._ix}_${wp._iy}`;
       const grows = (wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t))
         && !(parkCells && parkCells[wp._iy * w + wp._ix] && BiomeProfiles.exclusive(wp.crop));
-      if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && !occupiedCells.has(cellKey)) {
-        occupiedCells.add(cellKey);
+      const cover = wp.crop === 'longgrass' && grassTerrains.has(t);
+      const free = cover ? !grassBlockedCells.has(cellKey) && !grassCoverCells.has(cellKey) : !occupiedCells.has(cellKey);
+      if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && free) {
+        if (cover) {
+          grassCoverCells.add(cellKey);
+          // Old grass seats retain their save IDs. Only newly shared seats
+          // need a second identity, so picking cover never picks its hidden herb.
+          if (plantIds.has(wp.id)) wp.id += '_grass';
+        } else occupiedCells.add(cellKey);
+        plantIds.add(wp.id);
         wp._biome = t;
         // Reed silhouettes identify the one-cell wetland margin. Only art
         // changes: keep this plant's generated id, density and harvest.
@@ -10035,7 +10047,7 @@
     // stair id built from it.
     cellHash, cellId, tileStreamSeed, caveStairId,
     // The tile frame and what every placer derives from it (see tileFrame).
-    tileFrame, occupiedIndexSet, spawnOptsOf, dressFrame, footprintFree, compactSteps,
+    tileFrame, isGrassCover, occupiedIndexSet, spawnOptsOf, dressFrame, footprintFree, compactSteps,
     // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,

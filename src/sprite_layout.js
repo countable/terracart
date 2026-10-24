@@ -39,7 +39,7 @@
     'selected_mushroom:2': { fw: 16, fh: 16, minX: 3, minY: 4, maxX: 14, maxY: 15 },
     'selected_mushroom:1': { fw: 16, fh: 16, minX: 2, minY: 2, maxX: 15, maxY: 14 },
     'selected_mushroom:0': { fw: 16, fh: 16, minX: 5, minY: 2, maxX: 15, maxY: 14 },
-    'selected_longgrass:0': { fw: 16, fh: 16, minX: 2, minY: 0, maxX: 15, maxY: 15 },
+    'selected_longgrass:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'flint:0': { fw: 16, fh: 16, minX: 3, minY: 3, maxX: 13, maxY: 13 },
     'cave_mechanisms:19': { fw: 24, fh: 24, minX: 4, minY: 5, maxX: 19, maxY: 19 },
     'cave_mechanisms:18': { fw: 24, fh: 24, minX: 4, minY: 5, maxX: 19, maxY: 19 },

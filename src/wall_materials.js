@@ -201,7 +201,28 @@
     }
     return faces;
   }
+  // Selected native RA tuft treatment: four crossed pairs, no opaque core.
+  const GRASS = Object.freeze({ texture: 'selected_longgrass', width: 23, offset: 8, lowHeight: 21, height: 24 });
+  function grassGeometry(points) {
+    const faces = [], cx = points.reduce((sum, p) => sum + p.x, 0) / points.length,
+      cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    for (let tuft = 0; tuft < 4; tuft++) {
+      const x = cx + (tuft % 2 ? GRASS.offset : -GRASS.offset), y = cy + (tuft < 2 ? -GRASS.offset : GRASS.offset);
+      const height = tuft % 2 ? GRASS.height : GRASS.lowHeight;
+      for (let axis = 0; axis < 2; axis++) {
+        const dx = axis ? 0 : GRASS.width / 2, dy = axis ? GRASS.width / 2 : 0;
+        const quad = [{ x: x - dx, y: y - dy, z: 0, u: .001, v: .999 },
+          { x: x + dx, y: y + dy, z: 0, u: .999, v: .999 },
+          { x: x + dx, y: y + dy, z: height, u: .999, v: .001 },
+          { x: x - dx, y: y - dy, z: height, u: .001, v: .001 }];
+        for (const ids of [[0, 1, 2], [0, 2, 3]]) faces.push({ points: ids.map(i => quad[i]),
+          normal: null, twoSided: true, color: 0xffffff, flatColor: 0x7f7f46 });
+      }
+    }
+    return faces;
+  }
   function geometry(kind, points, height, options = {}) {
+    if (kind === 'grass') return grassGeometry(points);
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     if (hedge && points.length >= 3 && height > 0) return hedgeGeometry(points, height, options);
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
@@ -278,5 +299,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, postHeight, WOOD, HEDGE, KEY, WHITE };
+  global.WallMaterials = { prepare, geometry, postHeight, WOOD, HEDGE, GRASS, KEY, WHITE };
 })(globalThis);

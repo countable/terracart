@@ -151,8 +151,17 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
-- School fields carry denser wild grass plus common PetNip and rarer
-  Nettle, with densities owned by `BiomeProfiles`. Plain Small-road verges
+- Grassland (including unmapped ground), schoolyards and pitches share a
+  harvestable tallgrass pattern covering roughly half their eligible ground.
+  `BiomeProfiles.GRASS_FILL` places dense circular stands with open gaps and
+  sparse random tufts between them; globally seeded regions continue across
+  tile boundaries. Roads, building footprints, restricted sites
+  and authored zone/road replacements still take precedence. Cover coexists
+  with ordinary props and herbs; it does not reserve their spawn seats.
+  Existing grass IDs remain unchanged; a newly shared grass cell receives a
+  `_grass` suffix only when its underlying plant already owns that ID.
+  School fields retain common PetNip and rarer Nettle beneath the cover.
+  Plain Small-road verges
   sample herb seats on both sides every 21 metres; PetNip is the common roll,
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
@@ -182,6 +191,11 @@ access or tile lifecycle mechanics.
   basket or recycling point) wears the full pad (`padShapeKeyForPoi`). One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
+- One percent of wild longgrass cells hide an egg, selected deterministically
+  from the plant ID by `wildplantHiddenItem`. Clearing the cell gives the egg
+  alongside the grass and preserves the independent coin bonus. These cells
+  do not use the nest-bush wiggle. The `grass-cover` tap handler clears one
+  covering square before co-located plants, chests or treasure can react.
 - Cleared wild longgrass, the wild herbs (the wild flowers, PetNip and
   the nettle) and the picked berry and poisonberry bushes (the rows of
   `SaveState.WILD_REGROWTH`, read through `SaveState.regrows`) return after
