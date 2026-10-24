@@ -1,9 +1,11 @@
 // Consolidating generation must preserve defeated identities, member kinds,
 // owned seats, concealed states and clustered placement for existing seeds.
+// Reef water births are removed by Excluded; the remaining dry-shore records
+// retain a deterministic signature.
 (function () {
   const expected = {
     orchard: [38,3262347237], mushroom_grove: [76,1987794954],
-    ordered_graves: [38,1026512128], mystic_reef: [38,675033643],
+    ordered_graves: [38,1026512128], mystic_reef: [18,3495088911],
   };
   test('Nexus rules: use their existing family and frequency owners without duplicate tuning', () => {
     for (const [variant,rule] of Object.entries(EnemyHabitats.NEXUS_RULES)) {
@@ -25,6 +27,10 @@
       assert.eq(creatures.length,count,variant);
       assert.eq(EnemySpawns.hash(JSON.stringify(creatures)),hash,variant + ' identity, kind, seat and state');
       assert.eq(occupied.size,count,variant + ' distinct claimed seats');
+      for(const creature of creatures) {
+        const x=Math.floor((creature.x-3*N*7)/7),y=Math.floor((creature.y-5*N*7)/7);
+        assert.truthy(grid[y*N+x]!==WorldGen.T.WATER,variant+' never seats a birth in Excluded water');
+      }
     }
   });
 })();

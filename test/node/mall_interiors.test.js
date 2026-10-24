@@ -116,7 +116,7 @@
     const pois=inside().map((f,i)=>({...f,tags:{class:i===8?'office':'shop'}}));
     assert.eq(infer([hall()],pois).poiKeys.size,9,'office POI contributes to mapped density');
   });
-  test('mall interiors: raster keeps mall source cells beside a road', () => {
+  test('mall interiors: structural mall classification does not permit loot on Excluded building cells', () => {
     const source=Array.from({length:9},(_,i)=>poi(1200+(i%3)*300,1200+Math.floor(i/3)*300,'restaurant', {name:'Hall '+i}));
     const layers=[
       {name:'building',extent:4096,features:[building([rect(900,900,2200,2200)])]},
@@ -125,11 +125,11 @@
     ];
     const raster=WorldGen.rasterizeTile(layers,64,10,5,448);
     const chests=raster.objects.filter(o=>o.kind==='chest'&&o.name&&o.name.startsWith('Hall '));
-    assert.eq(chests.length,9,'all separated indoor shops survive placement');
-    for (const chest of chests) {
-      const [x,y]=chest._poiAt.split(',').map(Number);
-      assert.eq(chest.id,`c_10_5_${Math.floor(x/64)}_${Math.floor(y/64)}`,'original source cell remains the persistent id');
-      assert.truthy(chest.indoorMall,'mall placement is identified');
+    assert.eq(chests.length,0,'indoor POIs cannot bypass Excluded building ground');
+    assert.truthy(raster.buildingShapes.length>0,'structural building footprints remain');
+    for(const f of source) {
+      const p=f.geom[0][0],i=Math.floor(p.y/64)*64+Math.floor(p.x/64);
+      assert.eq(raster.gameplayTiers[i],GameplayTiers.EXCLUDED);
     }
   });
   test('mall interiors: multipolygon components cannot pool shops', () => {
@@ -142,7 +142,7 @@
     const pois=Array.from({length:9},(_,i)=>poi(20+i*7,15));
     assert.eq(infer([court],pois).poiKeys.size,0,'5000 exterior minus1520 courtyard is below threshold');
   });
-  test('mall interiors: a lone civic POI still moves toward its road', () => {
+  test('mall interiors: a civic POI cannot use frontage relocation to bypass Excluded source ground', () => {
     const layers=[
       {name:'building',extent:4096,features:[building([rect(900,900,2200,2200)])]},
       {name:'transportation',extent:4096,features:[{type:2,tags:{class:'minor'},geom:[[{x:500,y:2700},{x:3000,y:2700}]]}]},
@@ -150,8 +150,7 @@
     ];
     const raster=WorldGen.rasterizeTile(layers,64,10,5,448);
     const chest=raster.objects.find(o=>o.kind==='chest'&&o.name==='Civic library');
-    assert.truthy(chest,'civic chest still exists');
-    assert.truthy(!chest.indoorMall,'single civic pin not classified as mall');
-    assert.truthy(chest.id!=='c_10_5_23_23','ordinary civic frontage relocation remains');
+    assert.falsy(chest,'a civic chest cannot bypass excluded building ground');
+    assert.truthy(raster.buildingShapes.length>0,'structural civic footprint remains');
   });
 })();

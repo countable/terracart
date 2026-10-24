@@ -79,7 +79,7 @@
   <div><button id="placeHome">Place Home</button></div>
   <div><button id="detectTrees">Detect trees at map centre</button></div>
   <div id="geometryStatus" role="status">Cached tree detections load with the map.</div>
-  <details class="review-section"><summary>Gameplay tiers (proposed)</summary><div class="section-body">
+  <details class="review-section"><summary>Gameplay tiers</summary><div class="section-body">
   <label><input id="gameplayTiers" type="checkbox"> Show gameplay-tier layer</label>
   <div id="gameplayLegend"></div>
   <label>Layer opacity <input id="gameplayOpacity" aria-label="Gameplay tier opacity" type="range" min="0.15" max="0.85" step="0.05" value="0.45"></label>
@@ -137,7 +137,7 @@
 <script src="map-review-paths.js"></script>
 <script src="map-review-art.js"></script>
 <script src="map-review-terrain.js"></script>
-<script src="map-review-gameplay.js"></script>
+<script src="../src/gameplay_tiers.js"></script>
 <script src="map-review-gameplay-layer.js"></script>
 <script src="map-review-ground.js"></script>
 <script src="map-review-routes.js"></script>
@@ -813,6 +813,7 @@ function overlays(world) {
   for (const id of ['ovl', 'nexusOverlays', 'roadVariantControls']) $(id).replaceChildren();
   const groups = { 'Terrain codes': L.layerGroup(),
     'Global no-spawn zone': L.layerGroup(), 'Suppression zone': L.layerGroup() };
+  const tierVerdicts=Object.fromEntries(GameplayTiers.TIERS.map(t=>[t.id,MapReviewGround.spawnVerdict(t.id)]));
   const gate = [0, 0, 0];   // OPEN, SUPPRESSED, INVALID cells over the loaded tiles
   const tileBounds = [];
   const names = Object.fromEntries(Object.entries(WorldGen.T).map(([k, v]) => [v, k]));
@@ -823,14 +824,13 @@ function overlays(world) {
     const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
     const terr = mk((g) => { for (let i = 0; i < N * N; i++) { used.add(e.grid[i]); g.fillStyle = MapReviewArt.pirateSand(e,i)?.colour || hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
     // Count and paint the shared spawn verdict.
-    const sw = e.spawnWhy || null;
-    const cls = sw ? Uint8Array.from(sw, (v) => WorldGen.spawnClassOf(v)) : null;
-    if (cls) for (let i = 0; i < N * N; i++) {
-      gate[cls[i]]++;
-    }
-    const gateImg = (test, colour) => mk((g) => { g.fillStyle = colour; if (sw) for (let i = 0; i < N * N; i++) if (test(sw[i], i)) g.fillRect(i % N, (i / N) | 0, 1, 1); });
-    const inv = gateImg((v, i) => cls[i] === WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
-    const sup = gateImg((v, i) => cls[i] === WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
+    const cls=Uint8Array.from(e.grid,(_,i)=>tierVerdicts[WorldGen.spawnTierAt(e.grid,i,
+      {gameplayTiers:e.gameplayTiers,spawnWhy:e.spawnWhy})] ?? WorldGen.SPAWN_INVALID);
+    for(const verdict of cls) gate[verdict]++;
+    const gateImg = (verdict, colour) => mk((g) => { g.fillStyle=colour;
+      for(let i=0;i<N*N;i++) if(cls[i]===verdict) g.fillRect(i%N,(i/N)|0,1,1); });
+    const inv = gateImg(WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
+    const sup = gateImg(WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
     const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
     const b = [[latOf(e.ty + 1), e.tx / n * 360 - 180], [latOf(e.ty), (e.tx + 1) / n * 360 - 180]];
     L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
@@ -932,19 +932,20 @@ function overlays(world) {
     const div = document.createElement('div');
     div.style.margin = '4px 0 2px';
     div.innerHTML = `<div style="color:#aaa">Spawn zones</div>`
-      + row(SPAWN_GATE_COLOUR.invalid, 'no-spawn', 'all spawn classes blocked', gate[2])
-      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'some spawn classes blocked', gate[1])
-      + row('transparent;border:1px solid #666', 'open', 'no zone restriction', gate[0]);
+      + row(SPAWN_GATE_COLOUR.invalid, 'no-spawn', 'Excluded tier', gate[2])
+      + row(SPAWN_GATE_COLOUR.suppressed, 'suppressed', 'tier limits spawn classes', gate[1])
+      + row('transparent;border:1px solid #666', 'open', 'Core tier', gate[0]);
     // Commercial ground by its nearest POI (the overlay above).
     const ctot = com.pub + com.priv + com.none || 1;
     const crow = (colour, name, what, n) => `<div style="display:flex;gap:6px;align-items:baseline">`
       + `<span class="sw sq" style="background:${colour}"></span><span>${name} <span style="color:#888">— ${what}</span></span>`
       + `<span class="n">${n.toLocaleString()} · ${(100 * n / ctot).toFixed(1)}%</span></div>`;
-    div.innerHTML += `<div style="color:#aaa;margin-top:4px">Commercial / industrial ground by nearest POI `
+    div.innerHTML += `<div style="color:#aaa;margin-top:4px">Commercial / industrial source evidence by nearest POI `
       + `(≤ ${WorldGen.NEAREST_POI_MAX_M} m; ${com.seedsPub} public · ${com.seedsPriv} private seeds)</div>`
-      + crow(COM_COLOUR.pub, 'public', 'a shop, café, bank … nearest — open', com.pub)
-      + crow(COM_COLOUR.priv, 'private', 'an office, hotel, clinic … nearest — PRIVATE', com.priv)
-      + crow(COM_COLOUR.none, 'no POI', `none within ${WorldGen.NEAREST_POI_MAX_M} m — PRIVATE`, com.none);
+      + crow(COM_COLOUR.pub, 'public', 'a shop, café, bank … nearest — public signal', com.pub)
+      + crow(COM_COLOUR.priv, 'private', 'an office, hotel, clinic … nearest — private signal', com.priv)
+      + crow(COM_COLOUR.none, 'no POI', `none within ${WorldGen.NEAREST_POI_MAX_M} m — no signal`, com.none)
+      + '<small>Source evidence does not override the gameplay tier.</small>';
     $('ovl').appendChild(div);
   }
   // STREET VARIANTS (src/street_variants.js): every indexed transportation

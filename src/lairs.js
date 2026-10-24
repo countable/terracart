@@ -1179,13 +1179,9 @@
         : cand.tier === 'barricade' ? (i === 0 ? 'spear_goblin' : 'archer_goblin')
         : family ? family[i % Math.min(family.length, 1 + Math.floor(t * family.length))] : legacyKind;
       if (!kind) continue;                    // no ladder for this tier
-      const flier = plan && flies(kind);
-      // Its seat class (the spawn gate): a fast guard also keeps off the kerb.
-      const guardClass = Object.hasOwn(STREET_TIER_GUARDS, cand.tier) ? 'fastEnemy' : (typeof root.creatureSpawnClass === 'function')
-        ? root.creatureSpawnClass(kind) : 'fastEnemy';
-      const guardCell = (ix, iy) => Object.hasOwn(STREET_TIER_GUARDS, cand.tier)
-        ? WG.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, guardClass)
-        : root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
+      // Every member uses its actual roster profile; street ownership does
+      // not turn a slow guard into a fast one or grant an access exception.
+      const guardCell = (ix, iy) => root.CreatureSpawns.isSpawnCell(genGrid, N, N, ix, iy, foeOpts, kind);
       let seat = null;
       let inKeep = false;
       const frontage = front && (!spec.place || spec.place === 'ring');
@@ -1211,26 +1207,8 @@
         if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
         if (frontage && (!onFront((ix + .5) * cellM, (iy + .5) * cellM)
           || reservedSeats.has(iy * N + ix))) continue;
-        // A keep's guard stands on its own floor — the one building cell the
-        // shared rule (rightly) refuses everything else — at the exact drawn
-        // point, not the cell centre, or a knot of them would stack into one.
-        // A flier of a cloud may hang over the roof the same way.
-        if ((p.core || (p.over && flier)) && WG.isBuildingTerrain(genGrid[iy * N + ix])) {
-          seat = { x: ox + lx, y: oy + ly, ix, iy };
-          inKeep = !!p.core;
-          break;
-        }
-        // The shared seat rule (WorldGen.isSpawnCell at the guard's own
-        // class): road mask included - a guard on the carriageway is the bug
-        // CLAUDE.md's road invariant is about - AND outside the major roads'
-        // kerb buffer (ROAD_CLASS_MAJOR_BUFFER), so no guard of any lair
-        // stands where a chase would begin at the kerb. The verdict runs on
-        // the GENERATED grid (baseGrid): player edits cull seats afterwards,
-        // they never reroll them. The options come off
-        // THE ENTRY (spawnInTile stashes the very object it spawned the tile's
-        // fauna, traps and treasure with), never rebuilt here: a second
-        // reading of "is this a road" is how the two drift. Only the VERDICT
-        // changed for frontage: these checks still own every legal seat.
+        // Authored keeps and clouds use the same tier gate as other seats.
+        // Excluded buildings never grant a special floor/roof spawn exception.
         if (!guardCell(ix, iy)) continue;
         seat = (p.core || p.over) ? { x: ox + lx, y: oy + ly, ix, iy }   // a knot, not a stack
           : { x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM, ix, iy };

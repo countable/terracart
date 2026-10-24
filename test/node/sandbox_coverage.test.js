@@ -5,6 +5,9 @@
 test('sandbox coverage: the synthetic tile uses real map pipelines', () => {
   const built = Sandbox.buildForTest({ cellsPerEdge: 128, tx: 3, ty: 4 });
   const e = built.entry;
+  assert.eq(e.gameplayTiers.length, e.grid.length, 'authored geography has one tier per cell');
+  assert.truthy(e._spawnOpts.gameplayTiers === e.gameplayTiers, 'runtime reads the authored tier field');
+  assert.truthy(WorldGen.gameplayTiersOf(e.baseGrid) === e.gameplayTiers, 'base grid retains policy after visual paint');
   const terrain = new Set(Array.from(e.grid));
   for (const code of [
     WorldGen.T.GRASS, WorldGen.T.FOREST, WorldGen.T.SAND, WorldGen.T.WATER,

@@ -30,24 +30,14 @@
   function surfaceData(surface) {
     const source = surface.zone?.caveSource || surface.caveSource;
     return { grid: source?.grid || surface.baseGrid || surface.grid,
-      why: source?.spawnWhy || surface.spawnWhy, zone: surface.zone };
+      why: source?.spawnWhy || surface.spawnWhy, gameplayTiers: surface.gameplayTiers || source?.gameplayTiers, zone: surface.zone };
   }
   function allowed(data, i, street = false, cls = 'minor') {
-    const W = root.WorldGen, t = data.grid[i], bits = data.why?.[i] || 0;
-    const ignored = street ? W.SPAWN_WHY.TERRAIN | W.SPAWN_WHY.ROAD : 0;
-    // Suppressed land stays suppressed even where small streets carve rock.
-    if ((bits & ~ignored) || !(W.isWalkable(t) || (street && t === W.T.ROAD))
-      || t === W.T.WATER || t === W.T.PIER) return false;
-    if (!data.gateGrid) {
-      data.gateGrid = data.grid.slice(); data.gateWhy = Uint32Array.from(data.why || new Uint32Array(data.grid.length));
-      for (let j = 0; j < data.grid.length; j++) if (data.grid[j] === W.T.ROAD) {
-        data.gateGrid[j] = W.T.CAVE_FLOOR;
-        data.gateWhy[j] &= ~(W.SPAWN_WHY.TERRAIN | W.SPAWN_WHY.ROAD);
-      }
-    }
-    const N = Math.sqrt(data.grid.length);
-    return W.isSpawnCell(data.gateGrid, N, N, i % N, Math.floor(i / N), { spawnWhy: data.gateWhy }, cls);
+    const W = root.WorldGen, N = Math.sqrt(data.grid.length);
+    return W.isSpawnCell(data.grid, N, N, i % N, Math.floor(i / N),
+      { spawnWhy: data.why, gameplayTiers: data.gameplayTiers }, cls);
   }
+
   function segmentKey(id, a, b) {
     const points = [a, b].map(p => `${Math.round(p.x * 1000)},${Math.round(p.y * 1000)}`).sort();
     return `underground-route/${id ?? 'geometry'}/${points.join('/')}`;
@@ -168,7 +158,8 @@
       seats.sort((a, b) => distance(a) - distance(b) || a - b);
       const cluster = seats.filter(i => distance(i) <= 4).slice(0, 7);
       if (cluster.length < 4) continue;
-      const pool = root.EnemySpawns.caveRows(depth);
+      const pool = root.EnemySpawns.caveRows(depth).filter(row =>
+        cluster.some(i => allowed(data, i, true, creatureSpawnClass(row.id))));
       const maxTier = Math.max(...pool.map(row => row.tier));
       const strongest = pool.filter(row => row.tier === maxTier).sort((a, b) => b.hp * b.dmg - a.hp * a.dmg);
       if (!strongest.length) continue;

@@ -20,7 +20,7 @@
       assert.truthy(r.spawnWhy[i]&W.SPAWN_WHY.PIER_ACCESS,'source pier footprint stays blocked after POI paint');
       assert.truthy(W.landRefused(r.spawnWhy,i,[{ix:16,iy:16}],16,16),'POI cannot lift pier access');
       assert.falsy(r.objects.some(o=>Math.floor((o.x-4*E)/W.CELL_M)===16&&Math.floor((o.y-5615*E)/W.CELL_M)===16),'POI reward removed');
-      for(const cls of Object.keys(W.SPAWN_CLASS_BLOCKS))
+      for(const cls of W.SPAWN_CLASSES)
         assert.falsy(W.isSpawnCell(r.grid,N,N,16,16,{spawnWhy:r.spawnWhy,pois:[{ix:16,iy:16}]},cls),cls);
     }
   });
@@ -29,7 +29,7 @@
     assert.eq(r.grid[i],W.T.PIER);
     assert.falsy(r.spawnWhy[i]&W.SPAWN_WHY.PIER_ACCESS);
     assert.truthy(W.isSpawnCell(r.grid,N,N,16,16,{spawnWhy:r.spawnWhy},'minor'));
-    assert.falsy(W.isSpawnCell(r.grid,N,N,16,16,null,'minor'),'no mask is not public evidence');
+    assert.falsy(W.isSpawnCell(new Uint8Array(N*N).fill(W.T.PIER),N,N,16,16,null,'minor'),'no mask is not public evidence');
     for(const features of [[pier({}),pier({access:'yes'})],[pier({access:'yes'}),pier({})]]) {
       const blocked=tile(features);
       assert.truthy(blocked.spawnWhy[i]&W.SPAWN_WHY.PIER_ACCESS,'independent of feature order');

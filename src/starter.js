@@ -1532,20 +1532,13 @@
     }
     // Nothing goes on Home's footing (clearHomeFooting would sweep it away)
     // or on a crate seat.
-    // Every kind seated here (tree, rock, wreck, mushroom, and the 'ladder' —
-    // a real cave entrance, see _starterHomeObject) shares this one candidate
-    // pool, so it reads as the loosest class the ring seats: 'minor'. The
-    // ladder's own row (SPAWN_CLASS_BLOCKS.cave) would also refuse SENSITIVE
-    // ground (a churchyard corner) — a difference from 'minor' only a starter
-    // ring beside a real graveyard would ever hit, and not worth splitting
-    // this shared pool per kind for.
+    // This shared candidate pool uses minor for static starter objects.
+    // Cave entrances share its tier permissions; live occupancy and terrain
+    // checks still apply to every seat.
     const free = (cx, cy) => {
       if (HomeArea.inFooting(cx - spawnIX, cy - spawnIY)) return false;
       if (usedSeats.has(key(cx, cy)) || taken.has(key(cx, cy))) return false;
-      // BLOCKED covers the road TERRAIN; THE SPAWN GATE covers the rest of
-      // the band the player sees drawn over it, plus a quiet corner or a
-      // yard behind a house. The first thing a new player is taught to chop
-      // cannot be standing in the street.
+      // Apply the shared tier policy before the starter's terrain checks.
       if (!spawnOkAt(cx, cy, 'minor')) return false;
       const t = gridAt(cx, cy);
       return t != null && !blocked(t);
@@ -1798,25 +1791,13 @@
     // Cells already carrying something drawn — a chicken standing inside a
     // starter crate reads as a bug whichever the renderer draws second.
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
-    // The doorstep greeter is the starting area's (a MINOR spawn — see the
-    // starter trail's note): the land the spawn gate refuses, not its
-    // buffers — the entry's full options with this pass's live occupancy.
+    // The greeter uses its creature profile and live occupancy, just like
+    // other births. A guaranteed request never grants a geographic exception.
     const opts = WorldGen.spawnOptsOf(entry, { occupied });
-    // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): NOT the seat
-    // test (that's `pickaxe`'s primary pass below, THE SPAWN GATE via
-    // isSpawnCell(..., opts, 'minor')). This is the "always" greeter's
-    // fallback ONLY — a mode that promises a seat on every save must still
-    // never stand an animal in the carriageway, but is allowed to ignore
-    // every softer reason (frontage, a yard behind a house, quiet land) the
-    // gate would otherwise refuse. Deliberately not isSpawnCell: routing the
-    // fallback through the gate would refuse cells "always" is supposed to
-    // still fill. See the doorstep-greeter comment above.
-    const onRoad = (cx, cy) => !!entry.roadMask && entry.roadMask[cy * N + cx] === 1;
-    const standable = (cx, cy) =>
-      f.inTile(cx, cy) &&
-      !occupied.has(cy * N + cx) &&
-      !Combat.faunaBlocksCell(entry.grid[cy * N + cx]) &&
-      !WorldGen.isRoadTerrain(entry.grid[cy * N + cx]);   // a seat is never on a street
+    // Even an always-on greeter needs a legal seat. Missing space leaves
+    // the request unplaced instead of bypassing Excluded ground.
+    const standable = (cx, cy) => f.inTile(cx, cy)
+      && CreatureSpawns.isSpawnCell(entry.grid, N, N, cx, cy, opts, kind);
     // The mode's own distance, never nearer than the placer's floor.
     const dist = Math.max(HOME_GREETER_MIN_CELLS, prof.homeGreeterCells || 0);
     // Nearest cell to (ix, iy) that `accept`s, within `slack` of it and still
@@ -1850,8 +1831,7 @@
       const ix = ax + (vec ? vec[0] * dist : 0);
       const iy = ay + (vec ? vec[1] * dist : 0);
       const slack = vec ? HOME_GREETER_SLACK_CELLS : dist + HOME_GREETER_SLACK_CELLS;
-      const seat = pick(ix, iy, slack, (cx, cy) => WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, opts, 'minor'))
-                || pick(ix, iy, slack, (cx, cy) => !onRoad(cx, cy));
+      const seat = pick(ix, iy, slack, () => true);
       if (!seat) continue;
       occupied.add(seat.cy * N + seat.cx);   // no two seats on the one cell
       const at = f.centre(seat.cx, seat.cy);
@@ -2158,8 +2138,7 @@
         tiles.set(tk, { entry, opts });
       }
       const { entry, opts } = tiles.get(tk);
-      // 'reward' refuses both KERB and SENSITIVE, as well as all hard
-      // reasons. The guide never invites a walk through suppressed land.
+      // Guide destinations obey the reward tier policy and live placement checks.
       const ok = !!opts && WorldGen.isSpawnCell(entry.grid, t.n, t.n, t.ix, t.iy, opts, 'reward');
       checked.set(ck, ok);
       return ok;

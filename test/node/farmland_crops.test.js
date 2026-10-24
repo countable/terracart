@@ -3,7 +3,7 @@
 (function () {
   const T = WorldGen.T, N = 64, edgeM = N * 7;
   const ring = [{x:512,y:512},{x:3584,y:512},{x:3584,y:3584},{x:512,y:3584}];
-  const layers = [{name:'landuse',features:[{type:3,tags:{class:'farmland'},geom:[ring]}]}];
+  const layers = [{name:'landcover',features:[{type:3,tags:{class:'grass'},geom:[[{x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096}]]}]},{name:'landuse',features:[{type:3,tags:{class:'farmland'},geom:[ring]}]}];
   const crops = BiomeProfiles.flora(T.FARMLAND).map(fl => fl.crop);
   test('farmland crops: T1-T2 ground plants have stable stages and stay on the open rim', () => {
     let count = 0, eligible = 0;

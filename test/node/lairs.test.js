@@ -624,9 +624,8 @@
     const all = mkEntry([castle]);
     all._spawnOpts.roadClass = new Uint8Array(N * N).fill(WorldGen.ROAD_CLASS_MAJOR_BUFFER);
     assert.eq(wake(all).length, 0, 'a lair wholly inside the buffer seats no guard');
-    assert.truthy(/WG\.isSpawnCell\(genGrid, N, N, ix, iy, foeOpts, guardClass\)/.test(ALL_SRC['lairs.js'])
-      && /root\.creatureSpawnClass\(kind\)/.test(ALL_SRC['lairs.js']),
-      'the generated-grid seat asks the shared rule at the guard\'s own class (a fast guard keeps off the kerb)');
+    assert.truthy(/root\.CreatureSpawns\.isSpawnCell\(genGrid, N, N, ix, iy, foeOpts, kind\)/.test(ALL_SRC['lairs.js']),
+      'the generated-grid seat derives its shared policy from the actual guard kind');
   });
 
   test('lairs: a live-grid blocker drops its guard without moving the others', () => {
@@ -1159,10 +1158,8 @@
     }
   });
 
-  test('lairs: a keep\'s garrison stands on its own floor, and only its own', () => {
-    // The real grid paints a footprint as building terrain, which the shared
-    // spawn rule refuses — a keep's guard is seated there anyway, and may walk
-    // it (inOwnKeep), while every other building stays solid to it.
+  test('lairs: a keep cannot seat guards on Excluded building ground', () => {
+    // Authored ownership cannot bypass the shared geographic spawn policy.
     const shape = mkHeldShape(12, CENTRE.x, CENTRE.y, 5 * CELL_M);
     const entry = mkEntry([shape]);
     const r = shape.ring;
@@ -1172,18 +1169,7 @@
     }
     step(entry, CENTRE);
     const gs = guardsOf(entry);
-    assert.gt(gs.length, 1, 'the castle holds a garrison');
-    const cells = new Set();
-    for (const g of gs) {
-      const ix = Math.floor(g.x / CELL_M), iy = Math.floor(g.y / CELL_M);
-      assert.eq(entry.grid[iy * N + ix], 12, 'a castle guard stands on the castle floor');
-      assert.truthy(Lairs.inOwnKeep(g, g.x, g.y), 'and that floor is its own');
-      assert.falsy(Lairs.inOwnKeep(g, g.lairX + g.keepHW + CELL_M, g.lairY), 'past its walls is not');
-      cells.add(`${g.x.toFixed(3)},${g.y.toFixed(3)}`);
-    }
-    assert.eq(cells.size, gs.length, 'no two guards stacked on one point');
-    assert.falsy(Lairs.inOwnKeep({ lairX: 0, lairY: 0 }, 0, 0), 'a ringed guard has no floor');
-    assert.truthy(/Lairs\.inOwnKeep\(c, x, y\)/.test(CREATURE_AI_SRC), 'the roster step asks inOwnKeep');
+    assert.eq(gs.length, 0, 'Excluded building cells never host a garrison');
   });
 
   test('chase: a keep notices only a player near its knot', () => {

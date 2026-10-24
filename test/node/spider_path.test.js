@@ -1,14 +1,18 @@
 (function () {
-  function dressing(block) {
+  function dressing(block, tier) {
     const N = 64, extent = 4096, edge = N * 7;
     const grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
     const spawnOpts = { occupied: new Set(), roadMask: new Uint8Array(N * N),
       roadClass: new Uint8Array(N * N), spawnWhy: new Uint16Array(N * N), pois: [] };
     if (block) spawnOpts.spawnWhy.fill(block);
+    if (tier) spawnOpts.gameplayTiers = new Uint8Array(N*N).fill(tier);
     const rec = { variant: 'spider_path', key: 'spider-test', lineKey: 'spider-test', size: 'path',
       line: [{x: 512, y: 2048}, {x: 3584, y: 2048}], halfW: 1.5 };
     const index = { extent, lines: [rec], vehicleLines: [], hoardPois: [] };
-    return StreetVariants.dress({ index, tx: 0, ty: 0, N, tileEdgeM: edge, grid, spawnOpts });
+    const result = StreetVariants.dress({ index, tx: 0, ty: 0, N, tileEdgeM: edge, grid, spawnOpts });
+    result.fixture = { grid, cellsPerEdge:N, tileEdgeM:edge, _spawnOpts:spawnOpts,
+      streetLairs:result.lairs, buildingShapes:[], creatures:[] };
+    return result;
   }
   test('Spider Path: deterministic webs and one two-spider garrison preserve path provenance', () => {
     const a = dressing(), b = dressing();
@@ -20,10 +24,24 @@
     assert.eq(Lairs.GROUPS.street_spider_path.members[0].kind, 'spider');
     assert.eq(Lairs.GROUPS.street_spider_path.members[0].n, 2);
   });
-  test('Spider Path: private land and road kerbs reject webs and spiders', () => {
-    for (const reason of [WorldGen.SPAWN_WHY.PRIVATE, WorldGen.SPAWN_WHY.KERB]) {
-      const a = dressing(reason); assert.eq(a.webs.length, 0); assert.eq(a.lairs.length, 0);
-    }
+  test('Spider Path: Passing and Excluded reject hazards while Core paths interrupt old kerb buffers', () => {
+    const spawn = result => {
+      const entry = result.fixture;
+      if (!entry.streetLairs.length) return [];
+      const post = entry.streetLairs[0];
+      Lairs.stepResidency([{entry,tx:0,ty:0}], {cellM:7,tileEdgeM:entry.tileEdgeM,
+        playerM:{x:post.lx,y:post.ly},homeM:{x:-5000,y:0},caughtSet:new Set(),buildings:false});
+      return entry.creatures;
+    };
+    const privateGround = dressing(WorldGen.SPAWN_WHY.PRIVATE);
+    assert.eq(privateGround.webs.length,0);
+    assert.eq(spawn(privateGround).length,0);
+    const passing = dressing(WorldGen.SPAWN_WHY.KERB,3);
+    assert.eq(passing.webs.length,0);
+    assert.eq(spawn(passing).length,0,'an encounter post cannot grant fast spiders a Passing seat');
+    const corePath = dressing(WorldGen.SPAWN_WHY.KERB,1);
+    assert.gt(corePath.webs.length,0,'the core path overrides old kerb evidence');
+    assert.gt(spawn(corePath).length,0,'its spiders use the same core tier');
   });
   test('Spider Path: permanent silk survives days, shots, and reloading without save duplication', () => {
     const original = WorldGen.tileCache, cache = new Map();

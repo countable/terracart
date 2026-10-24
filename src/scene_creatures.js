@@ -76,6 +76,7 @@ class SceneCreatures {
     const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?.creatures || entry.creatures.some(c => c.id === id)) return;
+    if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, 'skeleton', { occupied: null })) return;
     entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('skeleton', o.x, o.y, id,
       { depth: o.depth, shiny: false, _hunting: true })));
   }
@@ -85,6 +86,7 @@ class SceneCreatures {
     const tx = Math.floor(o.x / this.tileEdgeM), ty = Math.floor(o.y / this.tileEdgeM);
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx, ty));
     if (!entry?.creatures) return false;
+    if (!CreatureSpawns.gateAtEntry(this, entry, o.x, o.y, 'mimic', { occupied: null })) return false;
     const id = 'mimic:' + o.id;
     const revealed = (this.save.revealedMimics ||= []);
     if (!revealed.some(c => c.id === id)) revealed.push({ id, chestId: o.id, x: o.x, y: o.y });
@@ -103,6 +105,7 @@ class SceneCreatures {
       if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !c.id
           || Math.floor(c.x / this.tileEdgeM) !== tx || Math.floor(c.y / this.tileEdgeM) !== ty
           || caught.has(c.id) || liveIds.has(c.id)) continue;
+      if (!CreatureSpawns.gateAtEntry(this, entry, c.x, c.y, 'mimic', { occupied: null })) continue;
       entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature('mimic', c.x, c.y, c.id, {
         depth: 0, shiny: false, _hunting: true,
       })));
@@ -201,28 +204,12 @@ class SceneCreatures {
       if (((_nOcc++) & 511) === 511) yield 'spawn occupancy';
       for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) _occupiedIdx.add(i);
     }
-    // Even pets only belong near street frontage / public space inside a
-    // residential block, so creature placement shares the spawn rule too.
-    // POI chests (already placed by worldgen) count as public anchors.
+    // All surface births use the tile's authoritative tier policy. Source
+    // geometry remains available for legacy/synthetic entries and diagnostics.
     const _spawnOpts = {
-      // The tile's road footprint — wider than the road TERRAIN wherever the
-      // real carriageway is (a motorway's band covers a cell either side of
-      // the one it paints). Without it a candidate reads the grid, is told
-      // "grass", and lands in the middle of the asphalt. A parking lot is
-      // open ground: its aisles draw no band (WorldGen.isParkingAisle), so
-      // the mask is silent there and spawns are legal.
       roadMask: entry.roadMask,
-      // THE SPAWN GATE (worldgen stampSpawnWhySteps — entry.spawnWhy): WHY
-      // each cell is refused, as reason bits. Every spawner below names its
-      // class to isSpawnCell (WorldGen.SPAWN_CLASS_BLOCKS — a creature's via
-      // creatureSpawnClass), and the class's row says which typed reasons
-      // (kerb, sensitive) it refuses; the hard ones (road band, quiet /
-      // restricted land, kindergartens, back yards, a field's interior, …)
-      // refuse all.
       spawnWhy: entry.spawnWhy,
-      // The major roads' band / verge / KERB BUFFER bits (worldgen
-      // ROAD_CLASS_*) and the QUIET LAND: read by isSpawnCell only on an
-      // entry built without a mask (the parts the mask folds together).
+      gameplayTiers: entry.gameplayTiers,
       roadClass: entry.roadClass,
       quiet: entry.quietMask,
       occupied: _occupiedIdx,
@@ -242,9 +229,12 @@ class SceneCreatures {
     entry.streetMarks = null;
     const sDress = entry.scenicDress;
     if (sDress && !testMode) {
-      const lay = (p) => {
+      const lay = (p, cls = 'minor') => {
+        cls = GameplayTiers.classForRecord(p, cls);
         const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
-        if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
+        const structural = cls === 'minor' && (isBuilding(p.kind) || p.kind === 'temple');
+        if (!cells.length || cells.some(i => _occupiedIdx.has(i) || !structural
+          && !WorldGen.isSpawnCell(genGrid, N, N, i % N, Math.floor(i / N), _spawnOpts, cls))) return false;
         for (const i of cells) _occupiedIdx.add(i);
         return true;
       };
@@ -256,16 +246,22 @@ class SceneCreatures {
     yield 'spawn scenic dressing';
     const zoneTraps = [], zoneGuards = [], zoneTreasures = [];
     const zDress = entry.zoneDress;
-    entry.reefCorals = !testMode ? (zDress?.corals || []).map(o => ({ ...o, kind: 'reef_coral' })) : [];
+    entry.reefCorals = !testMode ? (zDress?.corals || []).filter(o => {
+      const cells = SpawnOwnership.tileCells(this, entry, o, tx, ty);
+      return cells.length && cells.every(i => WorldGen.isSpawnCell(genGrid, N, N, i % N, Math.floor(i / N), _spawnOpts, 'minor'));
+    }).map(o => ({ ...o, kind: 'reef_coral' })) : [];
     if (zDress && !testMode) {
       const cellIdx = (p) => {
         const ix = Math.floor((p.x - tx * this.tileEdgeM) / cellM);
         const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
         return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
       };
-      const lay = (p) => {
+      const lay = (p, cls = 'minor') => {
+        cls = GameplayTiers.classForRecord(p, cls);
         const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
-        if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
+        const structural = cls === 'minor' && (isBuilding(p.kind) || p.kind === 'temple');
+        if (!cells.length || cells.some(i => _occupiedIdx.has(i) || !structural
+          && !WorldGen.isSpawnCell(genGrid, N, N, i % N, Math.floor(i / N), _spawnOpts, cls))) return false;
         for (const i of cells) _occupiedIdx.add(i);
         return true;
       };
@@ -282,10 +278,12 @@ class SceneCreatures {
       for (const wp of zDress.wildplants) if (lay(wp)) entry.wildplants.push(wp);
       // Claim every generated seat even after a kill/disarm. Player progress
       // may hide a piece, but must never reveal a different spawn underneath.
-      for (const trap of (zDress.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
-      for (const guard of (zDress.guards || [])) if (lay(guard)) zoneGuards.push(guard);
+      for (const trap of (zDress.traps || [])) if (lay(trap, 'hazard')) zoneTraps.push({ ...trap });
+      for (const guard of (zDress.guards || [])) if (lay(guard, creatureSpawnClass(guard.kind))) zoneGuards.push(guard);
       for (const treasure of (zDress.treasures || [])) {
-        const placed = treasure.coverRockId ? placedZoneObjects.has(treasure.coverRockId) : lay(treasure);
+        const cells = SpawnOwnership.tileCells(this, entry, treasure, tx, ty);
+        const allowed = cells.length && cells.every(i => WorldGen.isSpawnCell(genGrid, N, N, i % N, Math.floor(i / N), { ..._spawnOpts, occupied: null }, 'reward'));
+        const placed = allowed && (treasure.coverRockId ? placedZoneObjects.has(treasure.coverRockId) : lay(treasure, 'reward'));
         if (placed) zoneTreasures.push(treasure);
       }
       for (const L of (zDress.lairs || [])) entry.streetLairs.push(L);
@@ -302,9 +300,12 @@ class SceneCreatures {
         const iy = Math.floor((p.y - ty * this.tileEdgeM) / cellM);
         return (ix >= 0 && iy >= 0 && ix < N && iy < N) ? iy * N + ix : -1;
       };
-      const lay = (p) => {
+      const lay = (p, cls = 'minor') => {
+        cls = GameplayTiers.classForRecord(p, cls);
         const cells = SpawnOwnership.tileCells(this, entry, p, tx, ty);
-        if (!cells.length || cells.some(i => _occupiedIdx.has(i))) return false;
+        const structural = cls === 'minor' && (isBuilding(p.kind) || p.kind === 'temple');
+        if (!cells.length || cells.some(i => _occupiedIdx.has(i) || !structural
+          && !WorldGen.isSpawnCell(genGrid, N, N, i % N, Math.floor(i / N), _spawnOpts, cls))) return false;
         for (const i of cells) _occupiedIdx.add(i);
         return true;
       };
@@ -317,10 +318,10 @@ class SceneCreatures {
       }
       entry.wildplants = entry.wildplants || [];
       for (const wp of dressing.wildplants) if (lay(wp)) entry.wildplants.push(wp);
-      for (const trap of (dressing.traps || [])) if (lay(trap)) zoneTraps.push({ ...trap });
-      entry.spiderPathWebs = (dressing.webs || []).filter(lay);
-      entry.pathVents = (dressing.vents || []).filter(lay);
-      streetTreasures = dressing.treasures.filter(lay);
+      for (const trap of (dressing.traps || [])) if (lay(trap, 'hazard')) zoneTraps.push({ ...trap });
+      entry.spiderPathWebs = (dressing.webs || []).filter(p => lay(p, 'hazard'));
+      entry.pathVents = (dressing.vents || []).filter(p => lay(p, 'hazard'));
+      streetTreasures = dressing.treasures.filter(p => lay(p, 'reward'));
       entry.streetLairs.push(...dressing.lairs);
       entry.slowCells = slow.size ? slow : null;
       entry.streetMarks = dressing.marks;
@@ -1048,28 +1049,31 @@ class SceneCreatures {
       for (const i of SpawnOwnership.tileCells(this, footprintFrame, plant, tx, ty)) held.set(i, null);
     }
     const repainted = grid !== genGrid;
-    const off = (t, allowOverlap = false) => {
+    const off = (t, allowOverlap = false, cls = 'minor') => {
       const i = idxOf(t.x, t.y);
       if (i < 0) return false;
       if (!allowOverlap && held.has(i)
           && !(t.coverRockId && held.get(i) === t.coverRockId)) return true;
       const waterOnly = EnemyRoster.get(t.kind)?.movement.waterOnly;
       return repainted && grid[i] !== genGrid[i]
-        && (waterOnly ? grid[i] !== WorldGen.T.WATER : !WorldGen.isWalkable(grid[i]));
+        && !WorldGen.isSpawnCell(grid, N, N, i % N, Math.floor(i / N), {
+          ...entry._spawnOpts, gameplayTiers: entry.gameplayTiers, spawnWhy: entry.spawnWhy,
+          roadMask: entry.roadMask, roadClass: entry.roadClass, occupied: null, waterOnly,
+        }, cls);
     };
     if (!held.size && !repainted) return;
-    const keep = (arr, faunaOverlap = false) => {
+    const keep = (arr, faunaOverlap = false, spawnClass = 'minor') => {
       if (!arr) return arr;
       let w = 0;
       for (const record of arr) {
-        const cls = faunaOverlap && record.kind !== 'npc' && creatureSpawnClass(record.kind);
-        if (!off(record, cls === 'fauna' || cls === 'fastFauna')) arr[w++] = record;
+        const cls = faunaOverlap ? creatureSpawnClass(record.kind) : spawnClass;
+        if (!off(record, cls === 'fauna' || cls === 'fastFauna', cls)) arr[w++] = record;
       }
       arr.length = w;
       return arr;
     };
     keep(creatures, true);
-    keep(entry.traps);
+    keep(entry.traps, false, 'hazard');
     keep(entry.extraTreasures);
     if (entry.treasure && off(entry.treasure)) entry.treasure = null;
   }
@@ -1138,8 +1142,8 @@ class SceneCreatures {
     // an object sitting on top of it, same as the surface roadMask can't see
     // an object sitting on top of a grass cell.
     const occupiedIdx = new Set();
-    for (let i = 0; i < (entry.spawnWhy?.length || 0); i++) {
-      if (entry.spawnWhy[i] & WorldGen.SPAWN_WHY_ALL_FLOORS) occupiedIdx.add(i);
+    for (let i = 0; i < (entry.gameplayTiers?.length || entry.spawnWhy?.length || 0); i++) {
+      if (WorldGen.spawnTierAt(entry.baseGrid || entry.grid, i, entry) === 4) occupiedIdx.add(i);
     }
     for (const o of [...genObjects, ...genWildplants]) {
       const ox = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
@@ -1150,6 +1154,7 @@ class SceneCreatures {
     for (const i of entry.undergroundReserved || []) occupiedIdx.add(i);
     for (const resident of entry.undergroundResidents || []) {
       const { x, y, id, culture, dwarf } = resident;
+      if (!CreatureSpawns.gateAtEntry(this, entry, x, y, 'npc', { occupied: null })) continue;
       const identity = NPC.identity(id, culture, dwarf ? 'merchant' : null);
       creatures.push(WorldGen.makeCreature('npc', x, y, id, {
         ...identity, depth, homeX: x, homeY: y,
@@ -1158,7 +1163,7 @@ class SceneCreatures {
     }
     // Cave spawners share this generated occupancy because terrain alone
     // cannot reveal a rock, mushroom or floor torch seated on its floor cell.
-    entry._spawnOpts = { roadMask: null, spawnWhy: entry.spawnWhy, occupied: occupiedIdx, pois: [] };
+    entry._spawnOpts = { roadMask: null, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers, occupied: occupiedIdx, pois: [] };
     // Cells THIS player's live entry holds that the generated layer doesn't —
     // their stairs. A seat drawn onto one is dropped (the attempt still ends
     // exactly where it would for anyone else).
@@ -1217,7 +1222,7 @@ class SceneCreatures {
     // Compatibility identities use a parallel population on raw floor. Safety
     // holes change actual seats, never which old defeat belongs to a request.
     const canonicalOccupied = new Set([...occupiedIdx].filter(i =>
-      !(entry.spawnWhy?.[i] & WorldGen.SPAWN_WHY_ALL_FLOORS)));
+      WorldGen.spawnTierAt(entry.baseGrid || entry.grid, i, entry) !== 4));
     for (const o of [...genObjects, ...genWildplants]) {
       const cx = Math.floor((o.x - tx * entry.tileEdgeM) / cellSizeM);
       const cy = Math.floor((o.y - ty * entry.tileEdgeM) / cellSizeM);
@@ -1462,7 +1467,8 @@ class SceneCreatures {
       }
     }
     for (const guard of entry.underground?.boneGuards || []) {
-      if (!caughtSet.has(guard.id) && !entry.creatures.some(c => c.id === guard.id)) {
+      if (!caughtSet.has(guard.id) && !entry.creatures.some(c => c.id === guard.id)
+        && CreatureSpawns.gateAtEntry(this, entry, guard.x, guard.y, guard.kind, { occupied: null })) {
         entry.creatures.push(EnemySpawns.markShared(WorldGen.makeCreature(guard.kind, guard.x, guard.y, guard.id,
           { depth, shiny: guard.shiny, _hunting: true })));
       }

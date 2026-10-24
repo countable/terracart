@@ -5355,7 +5355,7 @@ class MapScene extends Phaser.Scene {
     // coin at the player's own feet): a foe felled off legitimate ground
     // leaves its coin on the nearest THE SPAWN GATE allows (a 'minor' spawn),
     // within three cells. Not just the road band: every hard spawn reason counts.
-    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy };
+    const spawnOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers };
     const blocked = (x, y) => !WorldGen.isSpawnCell(entry.grid, N, N, x, y, spawnOpts, 'minor');
     if ((this.depth || 0) === 0 && entry.grid && cx >= 0 && cy >= 0 && cx < N && cy < N && blocked(cx, cy)) {
       const seat = WorldGen.nearestRingCell(cx, cy, 1, 3, (x, y) => x >= 0 && y >= 0 && x < N && y < N && !blocked(x, y));
@@ -6429,7 +6429,7 @@ class MapScene extends Phaser.Scene {
     // alone, which exists before `_spawned`), so fall back to no occupancy
     // check rather than crash on a missing entry._spawnOpts.
     const occupiedIdx = (entry._spawnOpts && entry._spawnOpts.occupied) || null;
-    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
+    const burstOpts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers,
       roadClass: entry.roadClass, occupied: occupiedIdx, pois: [{ ix: poiLocalCX, iy: poiLocalCY }] };
     // Cells within `r` that will take a coin: the shared spawn rule (the pot
     // itself is the public anchor, so the cells right round it pass the
@@ -6489,7 +6489,7 @@ class MapScene extends Phaser.Scene {
         for (const coin of coinEntry.coinDrops || []) if (coin.expiresAt > Date.now())
           occupied.add(Math.floor((coin.y - y0) / unit) * coinN + Math.floor((coin.x - x0) / unit));
         const opts = { roadMask: coinEntry.roadMask, quiet: coinEntry.quietMask,
-          spawnWhy: coinEntry.spawnWhy, roadClass: coinEntry.roadClass, occupied,
+          spawnWhy: coinEntry.spawnWhy, gameplayTiers: coinEntry.gameplayTiers, roadClass: coinEntry.roadClass, occupied,
           pois: coinTX === tx && coinTY === ty ? [{ ix: poiLocalCX, iy: poiLocalCY }] : undefined };
         const minX = Math.max(0, Math.ceil((anchor.x - half - x0) / unit - .5));
         const maxX = Math.min(coinN - 1, Math.floor((anchor.x + half - x0) / unit - .5));
@@ -6595,7 +6595,7 @@ class MapScene extends Phaser.Scene {
     if (!entry || !entry.grid) return out;
     const N = entry.cellsPerEdge || rowCells(this, ty);
     const cellM = tileEdgeM / N;
-    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy,
+    const opts = { roadMask: entry.roadMask, quiet: entry.quietMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers,
       occupied: (entry._spawnOpts && entry._spawnOpts.occupied) || null };
     for (let ring = 1; ring <= r && out.length < count; ring++) {
       const cells = [];

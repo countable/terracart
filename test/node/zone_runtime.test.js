@@ -29,6 +29,27 @@
     return { entry, scene, guard, trap };
   }
 
+  test('zone runtime: stale authored records are rechecked by their actual tier profiles', () => {
+    const N=64, tiers=new Uint8Array(N*N).fill(3);
+    tiers[10*N+20]=4;
+    tiers[10*N+16]=1;
+    const scene=Object.assign(new SceneCreatures(),{tileEdgeM:640,save:{caught:[]},
+      startWorldM:{x:-5000,y:0},_pestFreeZone:()=>null});
+    const entry={cellsPerEdge:N,grid:new Uint8Array(N*N).fill(WorldGen.T.GRASS),gameplayTiers:tiers,
+      objects:[],zoneDress:{objects:[{kind:'mineralrock',id:'blocked_rock',x:205,y:105}],
+        wildplants:[{crop:'barricade',id:'blocked_barricade',x:175,y:105,_spawnClass:'streetObstacle'}],lairs:[],
+        guards:[{kind:'rabbit',id:'blocked_fast',x:125,y:105},{kind:'slime',id:'allowed_slow',x:135,y:105}],
+        traps:[{id:'blocked_trap',x:145,y:105,_ix:14,_iy:10},{id:'core_trap',x:165,y:105,_ix:16,_iy:10}]}};
+    const previous=window.__TEST_MODE;window.__TEST_MODE=false;
+    try {spawn.call(scene,entry,0,0);} finally {window.__TEST_MODE=previous;}
+    assert.falsy(entry.objects.some(o=>o.id==='blocked_rock'));
+    assert.falsy(entry.wildplants.some(o=>o.id==='blocked_barricade'));
+    assert.falsy(entry.creatures.some(c=>c.id==='blocked_fast'));
+    assert.truthy(entry.creatures.some(c=>c.id==='allowed_slow'));
+    assert.falsy(entry.traps.some(t=>t.id==='blocked_trap'));
+    assert.truthy(entry.traps.some(t=>t.id==='core_trap'));
+  });
+
   test('zone runtime: guards survive the surface roster and use the existing guard leash', () => {
     const { entry, guard } = fixture();
     const live = entry.creatures.find(c => c.id === guard.id);
@@ -137,10 +158,11 @@
     assert.eq(entry._spawnOpts.occupied.size, N * N, 'animals do not alter static occupancy');
   });
 
-  test('fauna overlap: habitat populations share interactables but retain road and private gates', () => {
+  test('fauna overlap: habitat populations share interactables but retain Excluded and private gates', () => {
     const N = 16, grid = new Uint8Array(N * N).fill(WorldGen.T.GRASS);
     const e = { cellsPerEdge: N, tileEdgeM: N * 10, grid, zone: { coverage: new Uint16Array(N * N).fill(1), anchors: [{ kind: 'stones', variant: 'overgrown_graves', key: 'fauna_overlap' }] } };
-    const opts = { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)), spawnWhy: new Uint16Array(N * N) };
+    const opts = { occupied: new Set(Array.from({ length: N * N }, (_, i) => i)), spawnWhy: new Uint32Array(N * N),
+      gameplayTiers: Uint8Array.from({length:N*N}, (_, i) => i < N*N*3/4 ? 4 : 1) };
     for (let i = 0; i < N * N / 2; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.ROAD;
     for (let i = N * N / 2; i < N * N * 3 / 4; i++) opts.spawnWhy[i] = WorldGen.SPAWN_WHY.PRIVATE;
     const out = WorldGen.runSteps(HabitatSpawns.populationSteps({ tileEdgeM: N * 10, cellM: 10 }, e, 0, 0, { spawnOpts: opts }));

@@ -61,20 +61,24 @@
 
   test('spawn options of a live entry: the stamped options under the entry\'s masks, the caller\'s extras on top', () => {
     const occupied = new Set([3]), pois = [{ ix: 1, iy: 1 }];
-    const entry = { roadMask: 'rm', spawnWhy: 'sw', roadClass: 'rc', quietMask: 'qm',
+    const entry = { roadMask: 'rm', spawnWhy: 'sw', roadClass: 'rc', quietMask: 'qm', gameplayTiers: 'tiers',
       _spawnOpts: { roadMask: 'stale', spawnWhy: 'stale', occupied, pois } };
     const o = W.spawnOptsOf(entry);
+    assert.eq(o.gameplayTiers, 'tiers');
     assert.eq(o.roadMask, 'rm'); assert.eq(o.spawnWhy, 'sw'); assert.eq(o.roadClass, 'rc'); assert.eq(o.quiet, 'qm');
     assert.truthy(o.occupied === occupied && o.pois === pois, 'the generated occupancy and the POI frontage ride along');
     const mine = new Set();
     assert.truthy(W.spawnOptsOf(entry, { occupied: mine }).occupied === mine, 'a placer\'s own occupancy replaces the generated one');
     assert.truthy(o !== entry._spawnOpts, 'a fresh object: a pass that extends it never writes the entry\'s');
-    // The gate reads them: a private lot cell is lifted by a POI in reach,
-    // which a thin { roadMask, spawnWhy } pair never carried.
+    // A tier field carries the authoritative geographic decision. POIs no
+    // longer reopen Excluded ground through a placement-specific exception.
     const N = 8, grid = new Uint8Array(N * N).fill(T.RESIDENTIAL);
-    const lot = { roadMask: null, spawnWhy: null, _spawnOpts: { pois: [{ ix: 4, iy: 4 }] } };
-    assert.truthy(W.isSpawnCell(grid, N, N, 4, 5, W.spawnOptsOf(lot), 'minor'), 'frontage by the POI');
-    assert.falsy(W.isSpawnCell(grid, N, N, 4, 5, { roadMask: null, spawnWhy: null }, 'minor'), 'the thin pair refuses it');
+    const gameplayTiers = new Uint8Array(N * N).fill(4);
+    const lot = { gameplayTiers, _spawnOpts: { pois: [{ ix: 4, iy: 4 }] } };
+    assert.falsy(W.isSpawnCell(grid, N, N, 4, 5, W.spawnOptsOf(lot), 'minor'), 'Excluded wins despite nearby POI');
+    gameplayTiers[5*N+4]=2;
+    assert.truthy(W.isSpawnCell(grid, N, N, 4, 5, W.spawnOptsOf(lot), 'minor'), 'Calm allows placement');
+
   });
 
   test('cave floor passes: one ordered table, each scatter row off its own stream salt', () => {

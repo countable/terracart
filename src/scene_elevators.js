@@ -147,7 +147,7 @@ class SceneElevators {
       if (!entry?._spawned || !entry.grid || occupied.has(cellKey(cell))) return null;
       const n = entry.cellsPerEdge;
       if (!WorldGen.isSpawnCell(entry.grid, n, n, t.ix, t.iy,
-          { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'cave')) return null;
+          { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers }, 'cave')) return null;
       if (WorldGen.privateVetoAt?.(t.tx, t.ty, t.ix, t.iy)) return null;
       return { entry, point: absCellCenterMeters(this, cell.cellIX, cell.cellIY) };
     };

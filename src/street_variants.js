@@ -2045,16 +2045,12 @@
     // A hoard is an ATTRACTOR: OPEN ground only.
     const hoardOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
       && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
-    // THE KERB BUFFER: the caller's roadClass, else the one the stamp pass
-    // left on the index (nearestSeat keeps a seat on its side of the band).
-    // A STREET GUARD'S POINT (a waystone's, a barricade's, a guarded hoard's)
-    // is where a runner stands — the barricade's goblin, the hoard's giant —
-    // so it takes the FAST foe's class ('fastEnemy': the attractor row plus
-    // the kerb): a point in the buffer would leave its guard ring nowhere to
-    // seat. Found by foeSeat, seated BACK from the kerb.
+    // Reserve a possible encounter point using the ordinary enemy profile.
+    // Lairs gates each actual member with its roster-derived profile, so a
+    // slow guard can inhabit Calm without granting access to a fast guard.
     const rc = spawnOpts.roadClass || idx.roadClass || null;
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
-    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'fastEnemy');
+    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
     // within FOE_SEAT_BACK_CELLS on the same side of any Major-and-Medium road band — or null
     // (the foe is dropped).
@@ -2138,7 +2134,8 @@
             ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
           const road = normalDistance <= rec.halfW + cellReach;
           if (road) roadSeats.add(i);
-          if (!(road ? WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle') : groundOk(ix,iy))) break;
+          if (!WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle')
+            || !road && !groundOk(ix,iy)) break;
           owned.add(i); emit(ix,iy);
         }
       }
@@ -2407,7 +2404,7 @@
           brambleSeats.add(iy * N + ix);
           claim(ix, iy);
           res.wildplants.push(WG.makeWildplant('shrub', cx(ix), cy(iy),
-            WG.cellId('bramble', tx, ty, ix, iy), { _street: v, _streetArt: 'bramble' }));
+            WG.cellId('bramble', tx, ty, ix, iy), { _street: v, _streetArt: 'bramble', _spawnClass: 'streetObstacle' }));
         };
         // Reserve the selected shrine before filling its verge. Two complete
         // shrub rings enclose it, connected to the verge but clear of the road.
@@ -2424,7 +2421,7 @@
               for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
                 if (dx || dy) ring.push({ ix: ix + dx, iy: iy + dy });
               }
-              if (!ring.every(c => cellOk(c.ix, c.iy))) continue;
+              if (!ring.every(c => WG.isSpawnCell(grid,N,N,c.ix,c.iy,spawnOpts,'streetObstacle'))) continue;
               claim(ix, iy);
               res.objects.push(WG.makeObject('grove_shrine', cx(ix), cy(iy),
                 WG.cellId('street_shrine', tx, ty, ix, iy),
@@ -2475,7 +2472,7 @@
           if (!S.covers(spans, s)) return;
           crossSection(rec,x,y,nx,ny,()=>BARRICADE_VERGE_MAX_CELLS,barricadeSeats,(ix,iy)=>{
             claim(ix,iy);
-            const extra = { _street: v, _streetScenery: true };
+            const extra = { _street: v, _streetScenery: true, _spawnClass: 'streetObstacle' };
             if (hash01(WG.cellId('barr-kind',tx,ty,ix,iy)) < 1/3) res.objects.push(WG.makeObject('stakes',cx(ix),cy(iy),
               WG.cellId('stakes_barr',tx,ty,ix,iy),extra));
             else res.wildplants.push(WG.makeWildplant('barricade',cx(ix),cy(iy),
@@ -2645,8 +2642,10 @@
           if (c) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const k = verge(rec, x, y, nx, ny, side);
-            c = k && nearestSeat(k.ix, k.iy, N, rc, hoardOffsets(), hoardOk);
+            // The search origin may already be occupied. Let nearestSeat
+            // test surrounding legal cells instead of dropping the shrine.
+            const k = vergeCell(rec, x, y, nx, ny, side, 1);
+            c = nearestSeat(k.ix, k.iy, N, rc, hoardOffsets(), hoardOk);
             if (c) break;
           }
         });
@@ -2800,12 +2799,11 @@
       const cands = [];
       for (const [i, road] of near) {
         const ix = i % N, iy = (i - ix) / N;
-        // Snares keep off every Major-and-Medium road and its kerb buffer.
-        if (rc && (rc[i] & (WG.ROAD_CLASS_MAJOR_BAND | WG.ROAD_CLASS_MAJOR_BUFFER))) continue;
+        // The shared hazard policy excludes Passing and Excluded cells.
         const ok = road
           ? WG.isSpawnCell(grid, N, N, ix, iy, { ...spawnOpts, roadClass: rc,
             streetObstacleCells: new Set([i]), streetObstacleKind: 'snare' }, 'streetObstacle')
-          : foeOk(ix, iy);
+          : WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard');
         if (ok) cands.push({ ix, iy, u: hash01(WG.cellId('snare_stray', tx, ty, ix, iy) + '|' + key) });
       }
       cands.sort((a, b) => a.u - b.u);

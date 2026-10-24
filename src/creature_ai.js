@@ -375,7 +375,7 @@ function isFastMover(c, cellM) {
   const mps = hostileSpecies ? foeChaseMps(c, cellM) : faunaTopMps(c.kind, cellM);
   return mps > BRISK_WALK_MPS;
 }
-// A creature's SPAWN CLASS (WorldGen.SPAWN_CLASS_BLOCKS): enemy or fauna, and
+// A creature's spawn class for GameplayTiers: enemy or fauna, and
 // fast or not — derived from the kind's own data, never typed at a call
 // site. Read at the GENERATION cell size (WorldGen.CELL_M) so every player's
 // tile seats the same creatures.
@@ -743,13 +743,12 @@ function ringSeat(cx, cy, r, base, ok) {
 //   SAME SIDE, always: a destination is only one the player can reach without
 // crossing a major road's band (sameSideAs — the flood from their cell), so
 // nothing it seats ever sits across a busy road from them.
-//   `opts.cls`: the spawn class of what is seated (WorldGen.SPAWN_CLASS_BLOCKS
+//   `opts.cls`: the spawn class of what is seated (GameplayTiers.CLASS_TIERS
 // — a bounty's pack passes its foes' class); default 'attractor' (a
 // destination a timed reward waits at).
 //   PRIVATE GROUND: a destination is per-player already, so it also reads this
 // player's live fence / private-area veto (WorldGen.privateVetoAt — none when
 // the fetch failed or has not landed).
-// (the minor class never applies: nothing is sent to wait on SUPPRESSED ground)
 function walkableDestinationRings(dist) {
   const d = Math.max(1, Math.round(dist));
   const out = [d];

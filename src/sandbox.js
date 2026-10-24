@@ -738,6 +738,7 @@
     }
     if (finalize) finalize(entry, context);
     entry.baseGrid = entry.grid.slice();
+    WorldGen.registerGameplayTiers(entry.baseGrid, entry.spawnWhy, entry.gameplayTiers);
     entry.genObjects = entry.objects.slice();
     return entry;
   }
@@ -1107,8 +1108,13 @@
         }
       }
     }
-    Object.assign(entry, { roadMask: roadBand, roadClass, spawnWhy, quietMask });
-    return { roadMask: roadBand, roadClass, spawnWhy, quiet: quietMask };
+    // Snapshot authored geography before street/nexus visual paint changes it.
+    // Sandbox terrain supplies the evidence normally provided by source polygons.
+    const gameplayTiers = Uint8Array.from(entry.grid, (_, i) =>
+      WorldGen.spawnTierAt(entry.grid, i, { spawnWhy, roadClass, quiet: quietMask }));
+    WorldGen.registerGameplayTiers(entry.grid, spawnWhy, gameplayTiers);
+    Object.assign(entry, { roadMask: roadBand, roadClass, spawnWhy, quietMask, gameplayTiers });
+    return { roadMask: roadBand, roadClass, spawnWhy, quiet: quietMask, gameplayTiers };
   }
 
   function buildScenic(entry, originIX, originIY, c, transport, spawnOpts) {
@@ -1839,8 +1845,10 @@
       entry.spawnWhy = surface?.spawnWhy?.slice() || new Uint32Array(n * n);
       entry.roadMask = surface?.roadMask?.slice() || new Uint8Array(n * n);
       entry.roadClass = surface?.roadClass?.slice() || new Uint8Array(n * n);
+      entry.gameplayTiers = surface?.gameplayTiers?.slice() || new Uint8Array(n * n).fill(GameplayTiers.CORE);
+      WorldGen.registerGameplayTiers(entry.grid, entry.spawnWhy, entry.gameplayTiers);
       entry._spawnOpts = { spawnWhy: entry.spawnWhy, roadMask: entry.roadMask,
-        roadClass: entry.roadClass, occupied: new Set() };
+        roadClass: entry.roadClass, gameplayTiers: entry.gameplayTiers, occupied: new Set() };
       WorldGen.tileCacheFor(depth).set(WorldGen.tileKey(x, y), entry);
     }
   }

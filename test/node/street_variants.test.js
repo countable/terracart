@@ -283,7 +283,7 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   const seen = new Set();
   for (const p of [...d.wildplants, ...d.objects]) {
     const ix = cellOf(p.x, TX), iy = cellOf(p.y, TY), i = iy * CPE + ix;
-    assert.eq(r.roadMask[i], 0, `${p.id} under the band`);
+    assert.truthy(GameplayTiers.allowed(r.gameplayTiers[i], 'minor'), `${p.id} on eligible tier`);
     assert.falsy(before.has(i), `${p.id} on a cell something already held`);
     assert.falsy(seen.has(i), `${p.id} stacked on another piece`);
     seen.add(i);
@@ -323,7 +323,7 @@ test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles'
 // ── Café hoards ─────────────────────────────────────────────────────────
 const inBuf = (r, i) => !!(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BUFFER);
 const onBand = (r, i) => !!(r.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND);
-test('café hoards: beside the café, public ground, guarded only outside the kerb buffer', () => {
+test('café hoards: beside the café on eligible ground, with shared guard reservations', () => {
   const r = rasterize();
   const { d } = dressed(r);
   assert.eq(d.treasures.length, 2, 'one hoard per café (both under the per-tile cap)');
@@ -339,7 +339,7 @@ test('café hoards: beside the café, public ground, guarded only outside the ke
     assert.falsy(SV.crossesMajorBand(r.roadClass, CPE, Math.floor(near.x / CELL_MVT), Math.floor(near.y / CELL_MVT), ix, iy),
       `${t.id} is on its café's side of the road`);
     if (t.guarded) {
-      assert.falsy(inBuf(r, i), `${t.id}: a guarded hoard is outside the kerb buffer`);
+      assert.truthy(GameplayTiers.allowed(r.gameplayTiers[i], 'enemy'), `${t.id}: post permits a slow guard; roster gates each birth`);
       const L = cafeLairs.find((c) => cellOf(TX * TILE_EDGE_M + c.lx, TX) === ix && cellOf(TY * TILE_EDGE_M + c.ly, TY) === iy);
       assert.truthy(L, `${t.id}: its guard post is the hoard's cell`);
       assert.eq(L.sid, `cafe:${near.gk}`, 'keyed on the café\'s global point');
@@ -353,7 +353,7 @@ test('café hoards: beside the café, public ground, guarded only outside the ke
   assert.gt(cellOf(kerb.x, TX), 44, 'the kerb café\'s hoard stays EAST of the motorway (never across the band)');
 });
 
-test('café hoards: a distinct guard is seated by Lairs outside the buffer', () => {
+test('café hoards: actual guards require their own permitted tier', () => {
   assert.eq(Lairs.capFor('cafe', 1), 1, 'a strong hoard is still one guard');
   assert.truthy(Lairs.KIND_ORDER.cafe.every((kind) => {
     const row = EnemyRoster.get(kind);
@@ -368,13 +368,15 @@ test('café hoards: a distinct guard is seated by Lairs outside the buffer', () 
   const entry = { grid: r.grid, cellsPerEdge: CPE, buildingShapes: [], _spawnOpts: spawnOpts,
     roadClass: r.roadClass, streetLairs: posts, creatures: [] };
   const playerM = { x: TX * TILE_EDGE_M + posts[0].lx, y: TY * TILE_EDGE_M + posts[0].ly };
+  const coreTiers = new Uint8Array(CPE*CPE).fill(1);
+  entry._spawnOpts = { ...entry._spawnOpts, gameplayTiers: coreTiers };
   const rep = Lairs.stepResidency([{ entry, tx: TX, ty: TY }], {
     cellM: TILE_EDGE_M / CPE, tileEdgeM: TILE_EDGE_M, playerM, homeM: { x: 0, y: 0 },
     caughtSet: new Set(), buildings: false });
   assert.gt(rep.woken, 0, 'easy (buildings off) still wakes the hoard\'s giant');
   for (const g of entry.creatures) {
     const i = cellOf(g.y, TY) * CPE + cellOf(g.x, TX);
-    assert.falsy(inBuf(r, i), `${g.id} seated outside the kerb buffer`);
+    assert.truthy(GameplayTiers.allowed(coreTiers[i], creatureSpawnClass(g.kind)), `${g.id} respects its roster class`);
   }
 });
 
@@ -629,14 +631,20 @@ test('barricade support follows difficulty, independently of building garrisons'
   } finally { Difficulty.setMode(previous); }
 });
 
-test('kerb buffer: a barricade whose every seat is in the buffer gets no goblin (dropped, never forced)', () => {
+test('Passing tier: street dressing suppresses hazards and fast guard births', () => {
   const { r, spawnOpts } = dressedVariants();
-  // Paint the whole tile as buffer: no foe cell anywhere.
-  const rc = Uint8Array.from(r.roadClass, (v) => v | WorldGen.ROAD_CLASS_MAJOR_BUFFER);
-  const d = SV.dress({ index: r.streetIndex, tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M, grid: r.grid,
-    spawnOpts: Object.assign({}, spawnOpts, { occupied: new Set(), roadClass: rc }) });
-  assert.gt(d.wildplants.filter((w) => w.crop === 'barricade').length, 0, 'the barricade still stands (scenery)');
-  assert.eq(d.lairs.filter((L) => L.tier === 'barricade' || L.tier === 'burned').length, 0, 'but no foe is seated');
+  const gameplayTiers = new Uint8Array(CPE*CPE).fill(3);
+  const opts = { ...spawnOpts, gameplayTiers, occupied: new Set() };
+  const d = SV.dress({ index: r.streetIndex, tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M,
+    grid: r.grid, spawnOpts: opts });
+  assert.eq(d.traps.length,0,'Passing has no traps');
+  const entry = { grid:r.grid, cellsPerEdge:CPE, buildingShapes:[], _spawnOpts:opts,
+    gameplayTiers, roadClass:r.roadClass, streetLairs:d.lairs, creatures:[] };
+  for(const post of d.lairs) {
+    const guards = Lairs.garrisonFor(entry, post, { tileEdgeM:TILE_EDGE_M, caughtSet:new Set() });
+    for(const guard of guards) assert.truthy(GameplayTiers.allowed(3,creatureSpawnClass(guard.kind)),
+      guard.kind+' must be eligible in Passing');
+  }
 });
 
 test('burned row: placed torches share the spawn gate and red lamps have twice the spacing', () => {
@@ -659,6 +667,7 @@ test('burned row: placed torches share the spawn gate and red lamps have twice t
   }
   const blocked = withBarricadePaths(() => WorldGen.rasterizeTile(variantLayers(), CPE, TX, TY, TILE_EDGE_M));
   blocked.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+  blocked.gameplayTiers.fill(GameplayTiers.EXCLUDED);
   const blockedResult = SV.dress({ index: blocked.streetIndex, tx: TX, ty: TY, N: CPE,
     tileEdgeM: TILE_EDGE_M, grid: blocked.grid,
     spawnOpts: { roadMask: blocked.roadMask, spawnWhy: blocked.spawnWhy, occupied: new Set() } });
@@ -1220,7 +1229,8 @@ test('golden path: exact diagonal centreline seats, no verge coins, and blocked 
     const index = { extent: EXTENT, lines: [rec], dressingLines: [rec], hoardPois: [] };
     return SV.dress({ index, tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M,
       grid: new Uint8Array(CPE * CPE).fill(T.PATH),
-      spawnOpts: { spawnWhy, occupied, roadMask, roadClass: new Uint8Array(CPE * CPE) } });
+      spawnOpts: { spawnWhy, occupied, roadMask, roadClass: new Uint8Array(CPE * CPE),
+        gameplayTiers: Uint8Array.from(roadMask, bit => blocked || bit ? 4 : 1) } });
   };
   const result = build(), seats = [...result.coinSeats.get(rec.key).values()];
   assert.truthy(seats.length > 20, 'a line of coins along the path');
@@ -1386,7 +1396,8 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
     const grid = new Uint8Array(CPE*CPE).fill(T.PARK);
     for (let x=10; x<=54; x++) { roadMask[25*CPE+x]=1; grid[25*CPE+x]=T.ROAD; }
     if (major) roadClass.fill(WorldGen.ROAD_CLASS_MAJOR_BAND | WorldGen.ROAD_CLASS_MAJOR_BUFFER);
-    const opts = {roadMask, roadClass, spawnWhy, occupied};
+    const opts = {roadMask, roadClass, spawnWhy, occupied,
+      gameplayTiers: new Uint8Array(CPE*CPE).fill(blocked ? 4 : major ? 3 : 1)};
     return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
   };
   const {result,opts,grid} = build([line]);
@@ -1852,25 +1863,20 @@ test('street shrines: half of canonical street keys qualify and every road varia
   }
 });
 
-test('authored street obstacles: only declared minor-road seats relax the road gate', () => {
+test('authored street obstacles: the shared tier policy replaces special road permissions', () => {
   const W=WorldGen, grid=new Uint8Array([T.ROAD]), roadMask=new Uint8Array([1]);
-  const mask=new Uint16Array([W.SPAWN_WHY.ROAD|W.SPAWN_WHY.TERRAIN]);
-  const opts={roadMask,spawnWhy:mask,occupied:new Set(),roadClass:new Uint8Array(1),streetObstacleCells:new Set([0])};
+  const mask=new Uint32Array([W.SPAWN_WHY.ROAD|W.SPAWN_WHY.TERRAIN]);
+  const opts={roadMask,spawnWhy:mask,occupied:new Set(),gameplayTiers:new Uint8Array([2])};
   const ok=cls=>W.isSpawnCell(grid,1,1,0,0,opts,cls);
-  assert.truthy(ok('streetObstacle'));
-  for(const cls of W.SPAWN_CLASSES.filter(c=>c!=='streetObstacle')) assert.falsy(ok(cls),'ordinary '+cls+' still refuses road');
-  opts.streetObstacleCells.clear();assert.falsy(ok('streetObstacle'));opts.streetObstacleCells.add(0);
-  for(const reason of ['PRIVATE','RESTRICTED','QUIET','KINDERGARTEN','KERB']) {
-    mask[0]|=W.SPAWN_WHY[reason];assert.falsy(ok('streetObstacle'),reason);mask[0]&=~W.SPAWN_WHY[reason];
+  for(const cls of W.SPAWN_CLASSES) assert.eq(ok(cls),GameplayTiers.allowed(2,cls),'Calm '+cls);
+  opts.gameplayTiers[0]=3;assert.falsy(ok('streetObstacle'),'Passing refuses obstacle hazards');
+  assert.truthy(ok('minor'),'Passing permits ordinary scenery');
+  opts.gameplayTiers[0]=4;
+  for(const cls of W.SPAWN_CLASSES) assert.falsy(ok(cls),'Excluded '+cls);
+  opts.gameplayTiers[0]=2;opts.occupied.add(0);assert.falsy(ok('streetObstacle'));opts.occupied.clear();
+  for(const t of [T.WATER,T.BUILDING,T.CAVE_WALL,T.EXCLUSION_ROCK]) {
+    grid[0]=t;assert.falsy(ok('streetObstacle'),'live physical terrain '+t);
   }
-  opts.occupied.add(0);assert.falsy(ok('streetObstacle'));opts.occupied.clear();
-  opts.roadClass[0]=W.ROAD_CLASS_MAJOR_BAND;assert.falsy(ok('streetObstacle'));opts.roadClass[0]=0;
-  for(const t of [T.WATER,T.BUILDING,T.ROAD_MD,T.ROAD_LG]) {grid[0]=t;assert.falsy(ok('streetObstacle'),'terrain '+t);}
-  opts.streetObstacleKind='barricade';opts.roadClass[0]=W.ROAD_CLASS_MAJOR_BAND;
-  mask[0]|=W.SPAWN_WHY.KERB;
-  assert.falsy(ok('streetObstacle'),'barricades cannot cross medium or large roads');
-  opts.streetObstacleCells.clear();assert.falsy(ok('streetObstacle'),'no exception beyond declared crossing');
-  opts.streetObstacleCells.add(0);grid[0]=T.BUILDING;assert.falsy(ok('streetObstacle'),'barricades still stop at buildings');
 });
 
 test('barricade scenery: perpendicular lines reach four cells from the verge', () => {
@@ -2036,10 +2042,10 @@ test('house barrels: a cluster a cell back from the kerb, the reward gate, and s
   const one = houseFixture(f.tx, f.ty);
   for (const x of [3, 4, 5]) { one.grid[4 * one.N + x] = T.BUILDING; one.spawnWhy[4 * one.N + x] = WorldGen.SPAWN_WHY.TERRAIN; }
   assert.truthy(northOf(one).every(c => c.iy === 5), 'a one-deep frontage uses its only cell');
-  // A Major-and-Medium kerb (the reward gate's KERB) refuses the seat.
+  // Passing replaces the old kerb reward veto for static barrels.
   const k = houseFixture(f.tx, f.ty);
   for (let x = 0; x < k.N; x++) for (const y of [4, 5]) k.spawnWhy[y * k.N + x] |= WorldGen.SPAWN_WHY.KERB;
-  assert.eq(northOf(k).length, 0, 'none on a kerb');
+  assert.eq(northOf(k).length, 2, 'Passing permits static barrel rewards');
   // A themed street or a Major road dresses no house barrels.
   assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { variant: 'hedgerow' })).length, 0, 'a themed street');
   assert.eq(houseBarrels(houseFixture(f.tx, f.ty, { size: 'major', variant: null })).length, 0, 'a Major road');
@@ -2193,8 +2199,8 @@ test('pottery road: a Small-road row, appended last, clay pots a cell back from 
   // A taken k = 2 seat pushes the pot a cell further out, never onto the kerb.
   const g = potteryRoad(7, 'pottery-7', { occupied: Array.from({ length: 12 }, (_, x) => 4 * 12 + x) });
   assert.truthy(g.pots.length > 0 && g.pots.filter(p => p.iy < 6).every(p => p.iy === 3), 'the next cell out');
-  // The reward gate: a Major-and-Medium kerb refuses every pot.
-  assert.eq(potteryRoad(7, 'pottery-7', { kerb: true }).pots.length, 0, 'none on a kerb');
+  // Passing keeps static pots eligible while suppressing hazards and fast movers.
+  assert.gt(potteryRoad(7, 'pottery-7', { kerb: true }).pots.length, 0, 'Passing permits static pottery rewards');
 });
 
 // ── Trade Row ─────────────────────────────────────────────────────────────

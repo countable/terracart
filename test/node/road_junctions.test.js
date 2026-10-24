@@ -1,6 +1,6 @@
 // Road junction safety zones use the same generated road geometry for the
-// spawn gate and creature movement. Wide MD/LG junctions are hard exclusions;
-// Small-road junctions suppress fast movers and player-facing hazards.
+// movement diagnostics. Gameplay tiers give junction surroundings Passing,
+// suppressing fast movers and hazards while MD/LG road surfaces stay Excluded.
 (function () {
 const W = WorldGen;
 const T = W.T;
@@ -25,7 +25,7 @@ const bits = (entry, x, y) => entry.roadClass[idx(x, y)] || 0;
 
 // Crossing at the centre of cell 32,32. The diagonal offset cell 34,34 is
 // beyond both bands but inside their overlap radius plus the two-cell buffer.
-test('road junctions: an MD/LG crossing stamps a hard two-cell exclusion', () => {
+test('road junctions: an MD/LG crossing retains movement geometry while surroundings are Passing', () => {
   const e = build(
     road('primary', [[4, 32], [60, 32]]),
     road('secondary', [[32, 4], [32, 60]]),
@@ -34,20 +34,21 @@ test('road junctions: an MD/LG crossing stamps a hard two-cell exclusion', () =>
   assert.truthy(bits(e, x, y) & W.ROAD_CLASS_JUNCTION_EXCLUDE, 'two cells beyond the overlap is excluded');
   assert.falsy(e.roadMask[i], 'the buffer cell is off both road bands');
   assert.truthy(e.spawnWhy[i] & W.SPAWN_WHY.JUNCTION, 'the road class becomes the hard spawn reason');
-  assert.falsy(W.isSpawnCell(e.grid, N, N, x, y, { roadClass: e.roadClass }, 'minor'),
-    'the gate fallback also reads the hard road-class bit');
+  assert.eq(e.gameplayTiers[i], 3, 'junction surroundings are Passing');
+  assert.truthy(W.isSpawnCell(e.grid, N, N, x, y, { roadClass: e.roadClass }, 'minor'),
+    'static placement follows Passing instead of legacy junction exclusion');
   for (const cls of W.SPAWN_CLASSES) {
-    assert.falsy(W.isSpawnCell(e.grid, N, N, x, y, W.spawnOptsOf(e), cls), `${cls}: hard junction exclusion`);
+    assert.eq(W.isSpawnCell(e.grid, N, N, x, y, W.spawnOptsOf(e), cls), GameplayTiers.allowed(3, cls), `${cls}: junction Passing policy`);
   }
 });
 
-test('road junctions: an MD/LG road meeting a Small road is a full exclusion', () => {
+test('road junctions: an MD/LG road meeting a Small road retains junction evidence', () => {
   const e = build(
     road('primary', [[4, 32], [60, 32]]),
     road('minor', [[32, 4], [32, 60]]),
   );
   assert.truthy(bits(e, 34, 34) & W.ROAD_CLASS_JUNCTION_EXCLUDE, 'a Major-to-Small meeting uses the wide rule');
-  assert.truthy(e.spawnWhy[idx(34, 34)] & W.SPAWN_WHY.JUNCTION, 'the meeting is hard-refused');
+  assert.truthy(e.spawnWhy[idx(34, 34)] & W.SPAWN_WHY.JUNCTION, 'legacy junction evidence remains available for movement');
 });
 
 test('road junctions: a Small-road crossing suppresses fast movers and hazards', () => {

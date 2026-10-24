@@ -65,13 +65,13 @@
     Underground.decorate(plan, grid, objects, [], occupied);
     const bones = objects.filter(o => o.kind === 'bone_cache');
     assert.inRange(bones.length, 3, 6); assert.eq(plan.boneGuards.length, 1);
-    const guard = plan.boneGuards[0], rows = EnemySpawns.caveRows(1);
+    const guard = plan.boneGuards[0], rows = EnemySpawns.caveRows(1).filter(r => GameplayTiers.allowed(2, creatureSpawnClass(r.id)));
     assert.eq(EnemyRoster.get(guard.kind).tier, Math.max(...rows.map(r => r.tier)));
     assert.truthy(bones.every(o => o.x !== guard.x || o.y !== guard.y));
     plan.depth = 2;
     const deeper = []; Underground.decorate(plan, grid, deeper, [], new Set());
     assert.eq(plan.boneGuards.length, 1);
-    assert.eq(EnemyRoster.get(plan.boneGuards[0].kind).tier, Math.max(...EnemySpawns.caveRows(2).map(r => r.tier)));
+    assert.eq(EnemyRoster.get(plan.boneGuards[0].kind).tier, Math.max(...EnemySpawns.caveRows(2).filter(r => GameplayTiers.allowed(2, creatureSpawnClass(r.id))).map(r => r.tier)));
     route.street = false;
     const pathObjects = []; Underground.decorate(plan, grid, pathObjects, [], new Set());
     assert.eq(pathObjects.filter(o => o.kind === 'bone_cache').length, 0);

@@ -12,7 +12,7 @@
   const point = (ix, iy, cellM = 7) => ({ x: (ix + 0.5) * cellM, y: (iy + 0.5) * cellM });
 
   test('tile bin: DeepForest opt-in seats real crowns through Nexus coverage without mutating cached bins', () => {
-    const enabled = { location: { search: '?deepforest=on' } };
+    const enabled = { GameplayTiers, location: { search: '?deepforest=on' } };
     new Function('window', WORLDGEN_SRC)(enabled);
     const bin = { trees: [{ kind: 'tree', lix: 10, liy: 10, crown_m: 8, _treeSource: 'deepforest' }] };
     const before = JSON.stringify(bin), ordinary = entry(), nexus = entry();
@@ -26,7 +26,7 @@
   });
 
   test('tile bin: detected trees keep their seats and inherit explicit variant species', () => {
-    const enabled = { location: { search: '?deepforest=on' } };
+    const enabled = { GameplayTiers, location: { search: '?deepforest=on' } };
     new Function('window', WORLDGEN_SRC)(enabled);
     for (const source of ['deepforest', 'gemini']) {
       const e = entry(), here = point(10, 10), cell = 10 * N + 10;

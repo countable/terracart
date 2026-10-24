@@ -55,7 +55,7 @@
   });
 })();
 
-test('enemy habitats: beach candidates become crabs and water-edge jellyfish, never pirates', () => {
+test('enemy habitats: beach candidates become crabs; Excluded water cannot host jellyfish', () => {
   const body = SPAWN_IN_TILE_SRC.slice(0, SPAWN_IN_TILE_SRC.indexOf('    // (Starter-cow'));
   const generate = spawnPassFn(body + '\nreturn creatures;');
   const run = (beach, caught = []) => {
@@ -72,7 +72,7 @@ test('enemy habitats: beach candidates become crabs and water-edge jellyfish, ne
   };
   const beach = run(true);
   assert.truthy(beach.some(c => c.kind === 'giant_crab'));
-  assert.truthy(beach.some(c => c.kind === 'jellyfish'));
+  assert.falsy(beach.some(c => c.kind === 'jellyfish'));
   assert.eq(new Set(beach.map(c => `${c.x},${c.y}`)).size, beach.length, 'every destination is distinct');
   for (const c of beach) {
     assert.includes(['giant_crab', 'jellyfish'], c.kind);
@@ -84,7 +84,7 @@ test('enemy habitats: beach candidates become crabs and water-edge jellyfish, ne
   assert.truthy(Combat.isEnemyKind('crab'), 'the tameable shore crab attacks while wild');
 });
 
-test('enemy habitats: reef and shellwater Nexus jellyfish occupy shore water', () => {
+test('enemy habitats: reef and shellwater Nexus cannot override Excluded water', () => {
   const N = 64;
   for (const variant of ['mystic_reef', 'shellwater_strand']) {
     const grid = new Array(N * N);
@@ -93,7 +93,7 @@ test('enemy habitats: reef and shellwater Nexus jellyfish occupy shore water', (
       spawnWhy: Uint16Array.from(grid, t => t === WorldGen.T.WATER ? WorldGen.SPAWN_WHY.TERRAIN : 0),
       zone: { coverage: new Uint8Array(N * N).fill(1), anchors: [{ variant }] } };
     const creatures = EnemyHabitats.surfaceEncounters(entry, 0, 0, new Set());
-    assert.truthy(creatures.some(c => c.kind === 'jellyfish'));
+    assert.falsy(creatures.some(c => c.kind === 'jellyfish'));
     for (const c of creatures) {
       assert.includes(['giant_crab', 'jellyfish'], c.kind);
       const at = c._surfaceSpawn;
@@ -102,26 +102,13 @@ test('enemy habitats: reef and shellwater Nexus jellyfish occupy shore water', (
   }
 });
 
-test('enemy habitats: water seats retain every shared spawn exclusion', () => {
+test('enemy habitats: water-only placement cannot override Excluded ground', () => {
   const N = 12, grid = new Array(N * N).fill(WorldGen.T.SAND);
   for (let y = 0; y < N; y++) grid[y * N + 6] = WorldGen.T.WATER;
   const e = { cellsPerEdge: N, grid };
-  const why = Uint16Array.from(grid, t => t === WorldGen.T.WATER ? WorldGen.SPAWN_WHY.TERRAIN : 0);
-  const opts = { spawnWhy: why, occupied: new Set() };
-  const seat = EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts);
-  assert.eq(seat.cx, 6);
-  for (const block of [WorldGen.SPAWN_WHY.RESTRICTED, WorldGen.SPAWN_WHY.PRIVATE, WorldGen.SPAWN_WHY.KERB,
-      WorldGen.SPAWN_WHY.FARM_INTERIOR, WorldGen.SPAWN_WHY.QUIET, WorldGen.SPAWN_WHY.SENSITIVE]) {
-    why.fill(WorldGen.SPAWN_WHY.TERRAIN | block);
-    // Jellyfish are slow: KERB follows their existing enemy class policy.
-    if (block === WorldGen.SPAWN_WHY.KERB) continue;
-    assert.eq(EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts), null, 'water preserves reason ' + block);
-  }
-  why.fill(WorldGen.SPAWN_WHY.TERRAIN);
-  opts.occupied = new Set(Array.from({ length: N * N }, (_, i) => i));
-  assert.eq(EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts), null);
-  opts.occupied.clear(); opts.roadMask = new Uint8Array(N * N).fill(1);
-  assert.eq(EnemyHabitats.surfaceSeat(e, 5, 5, 'jellyfish', opts), null);
+  const opts = { gameplayTiers: Uint8Array.from(grid,t=>t===WorldGen.T.WATER?4:1), occupied: new Set() };
+  assert.eq(EnemyHabitats.surfaceSeat(e,5,5,'jellyfish',opts),null);
+  assert.falsy(WorldGen.isSpawnCell(grid,N,N,6,5,{...opts,waterOnly:true},'enemy'));
 });
 
 test('enemy habitats: jellyfish swim along the water edge and refuse land and open water', () => {
@@ -218,7 +205,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
       assert.eq(JSON.stringify(r.value), JSON.stringify(direct), theme + ' keeps every generated field');
       assert.eq(JSON.stringify([...occupied]), JSON.stringify([...directOccupied]), theme + ' keeps reservation order');
       assert.eq(occupied.size, r.value.length);
-      if (theme === 'mystic_reef') assert.truthy(r.value.some(c => c.kind === 'jellyfish'));
+      if (theme === 'mystic_reef') assert.falsy(r.value.some(c => c.kind === 'jellyfish'));
     }
   });
   test('surface encounters: empty coverage still yields between unsuccessful block searches', () => {
@@ -255,7 +242,7 @@ test('enemy habitats: every selected cave theme has an eligible family through d
   test('surface encounters: require themed coverage and obey roads, occupied seats, and hard spawn gates', () => {
     for (const theme of ['orchard', 'mushroom_grove']) for (const block of ['road', 'occupied', 'restricted', 'coverage']) {
       const e = entry(theme), occupied = new Set();
-      if (block === 'road') e.roadMask = new Uint8Array(N * N).fill(1);
+      if (block === 'road') e.gameplayTiers = new Uint8Array(N * N).fill(4);
       if (block === 'occupied') for (let i = 0; i < N * N; i++) occupied.add(i);
       if (block === 'restricted') e.spawnWhy = new Uint32Array(N * N).fill(WorldGen.SPAWN_WHY.RESTRICTED);
       if (block === 'coverage') e.zone.coverage.fill(0);

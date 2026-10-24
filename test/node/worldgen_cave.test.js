@@ -185,11 +185,15 @@ test('isSpawnCell: WATER cell returns false (non-walkable)', () => {
   assert.falsy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'water not spawnable');
 });
 
-test('isSpawnCell: ROAD cell returns false (non-walkable)', () => {
+test('isSpawnCell: small ROAD is Calm and admits static scenery', () => {
   const w = 5, h = 5;
   const grid = new Uint8Array(w * h).fill(WorldGen.T.GRASS);
   grid[1 * w + 1] = WorldGen.T.ROAD;
-  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 1, 1, null), 'road not spawnable');
+  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 1, 1, null), 'small road admits minor');
+  for (const t of [WorldGen.T.ROAD_MD, WorldGen.T.ROAD_LG]) {
+    grid[w + 1] = t;
+    assert.falsy(WorldGen.isSpawnCell(grid, w, h, 1, 1, null), 'major street is Excluded');
+  }
 });
 
 test('isSpawnCell: BUILDING cell returns false (non-walkable)', () => {
@@ -217,89 +221,20 @@ test('isSpawnCell: CAVE_FLOOR returns true', () => {
   assert.truthy(WorldGen.isSpawnCell(grid, w, h, 1, 1, null), 'cave floor spawnable');
 });
 
-test('isSpawnCell: RESIDENTIAL cell in isolation (no road) returns false', () => {
-  const w = 5, h = 5;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  // Cell (2,2) — all neighbours are also RESIDENTIAL, no road within frontage=3
-  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'isolated residential blocked');
-});
-
-test('isSpawnCell: RESIDENTIAL near ROAD (Chebyshev <= 3) returns true', () => {
-  const w = 7, h = 7;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.ROAD;  // at (0,0)
-  // (2,2): Chebyshev dist to (0,0) = max(2,2) = 2 <= 3 → spawnable
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'residential within 2 cells of road');
-});
-
-test('isSpawnCell: RESIDENTIAL too far from road (Chebyshev = 4) returns false', () => {
-  const w = 9, h = 9;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.ROAD;  // at (0,0)
-  // (4,4): Chebyshev dist = max(4,4) = 4 > 3 → not spawnable
-  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 4, 4, null), 'residential 4 cells from road blocked');
-});
-
-test('isSpawnCell: RESIDENTIAL exactly at frontage edge (Chebyshev = 3) returns true', () => {
-  const w = 9, h = 9;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.ROAD;  // at (0,0)
-  // (3,3): Chebyshev dist = max(3,3) = 3 == frontage → should include (inclusive check)
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 3, 3, null), 'residential at exact frontage=3 ok');
-});
-
-test('isSpawnCell: RESIDENTIAL near PATH (counted as public anchor) returns true', () => {
-  const w = 7, h = 7;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[1] = WorldGen.T.PATH;  // at (1,0)
-  // (2,2): Chebyshev to (1,0) = max(1,2) = 2 <= 3 → spawnable
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'residential near path spawnable');
-});
-
-test('isSpawnCell: RESIDENTIAL near PARK (counted as public anchor) returns true', () => {
-  const w = 7, h = 7;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.PARK;  // at (0,0)
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'residential near park spawnable');
-});
-
-test('isSpawnCell: RESIDENTIAL near SAND (counted as public anchor) returns true', () => {
-  const w = 7, h = 7;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.SAND;
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'residential near sand spawnable');
-});
-
-test('isSpawnCell: RESIDENTIAL near PIER (counted as public anchor) returns true', () => {
-  const w = 7, h = 7;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.PIER;
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 2, 2, null), 'residential near pier spawnable');
-});
-
-test('isSpawnCell: RESIDENTIAL with POI at Chebyshev <= 3 returns true', () => {
-  const w = 9, h = 9;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  // No road anywhere; a POI at (1,1) — Chebyshev to (4,4) = 3 → spawnable
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 4, 4, { pois: [{ ix: 1, iy: 1 }] }),
-    'residential within 3 of POI spawnable');
-});
-
-test('isSpawnCell: RESIDENTIAL with POI at Chebyshev = 4 returns false', () => {
-  const w = 9, h = 9;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  // POI at (0,0), cell (4,4): Chebyshev = 4 > 3 → not spawnable
-  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 4, 4, { pois: [{ ix: 0, iy: 0 }] }),
-    'residential with far POI blocked');
-});
-
-test('isSpawnCell: opts.frontage override is respected', () => {
-  const w = 9, h = 9;
-  const grid = new Uint8Array(w * h).fill(WorldGen.T.RESIDENTIAL);
-  grid[0] = WorldGen.T.ROAD;  // at (0,0)
-  // (4,4) is Chebyshev 4 from (0,0); default frontage=3 → blocked, but frontage=5 → ok
-  assert.falsy(WorldGen.isSpawnCell(grid, w, h, 4, 4, { frontage: 3 }), 'frontage=3 blocked');
-  assert.truthy(WorldGen.isSpawnCell(grid, w, h, 4, 4, { frontage: 5 }), 'frontage=5 allows');
+test('isSpawnCell: classified residential tiers control eligibility regardless of nearby anchors', () => {
+  const w = 9, grid = new Uint8Array(w * w).fill(WorldGen.T.RESIDENTIAL);
+  const gameplayTiers = new Uint8Array(w * w).fill(GameplayTiers.EXCLUDED);
+  const opts = { gameplayTiers, pois: [{ ix: 4, iy: 4 }], frontage: 99 };
+  for (const anchor of [WorldGen.T.ROAD, WorldGen.T.PATH, WorldGen.T.PARK, WorldGen.T.SAND, WorldGen.T.PIER]) {
+    grid[3 * w + 4] = anchor;
+    assert.falsy(WorldGen.isSpawnCell(grid, w, w, 4, 4, opts), 'nearby anchor cannot reopen Excluded');
+  }
+  gameplayTiers[4 * w + 4] = GameplayTiers.CALM;
+  grid.fill(WorldGen.T.RESIDENTIAL);
+  assert.truthy(WorldGen.isSpawnCell(grid, w, w, 4, 4, { gameplayTiers, frontage: 0 }), 'classified Calm requires no runtime frontage search');
+  gameplayTiers[4 * w + 4] = GameplayTiers.PASSING;
+  assert.truthy(WorldGen.isSpawnCell(grid, w, w, 4, 4, opts, 'minor'));
+  assert.falsy(WorldGen.isSpawnCell(grid, w, w, 4, 4, opts, 'hazard'));
 });
 
 // ─── metersPerPixel ───────────────────────────────────────────────────────────

@@ -30,7 +30,7 @@ test('all generated biome and zone flowers have canonical map art', () => {
 });
 test('school flowers actually spawn on school tiles but not ordinary grassland', () => {
   const ring = [{x:0,y:0},{x:4096,y:0},{x:4096,y:4096},{x:0,y:4096}];
-  const build = cls => WorldGen.rasterizeTile([{ name: cls === 'grass' ? 'landcover' : 'landuse', features: [
+  const build = cls => WorldGen.rasterizeTile([{name:'landcover',features:[{type:3,tags:{class:'grass'},geom:[ring]}]},{ name: cls === 'grass' ? 'landcover' : 'landuse', features: [
     { type: 3, tags: { class: cls }, geom: [ring] },
   ] }], 64, 3, 5, 64 * 7);
   const school = build('school'), grass = build('grass');
@@ -43,6 +43,7 @@ test('a park inside school grounds grows no forget-me-nots, though SCHOOL wins i
   // read as a park), so school-only blooms stop at the park polygon's edge.
   const N = 64, rect = (x0, y0, x1, y1) => [{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1},{x:x0,y:y0}];
   const build = (withPark) => WorldGen.rasterizeTile([
+    {name:'landcover',features:[{type:3,tags:{class:'grass'},geom:[rect(0,0,4096,4096)]}]},
     { name: 'landuse', features: [{ type: 3, tags: { class: 'school' }, geom: [rect(0, 0, 4096, 4096)] }] },
     { name: 'landcover', features: withPark
       ? [{ type: 3, tags: { class: 'grass', subclass: 'park' }, geom: [rect(1024, 1024, 3072, 3072)] }] : [] },

@@ -395,7 +395,7 @@
   const pt = (ix, iy) => [[{ x: (ix + 0.5) * CELL, y: (iy + 0.5) * CELL }]];
   const cellOf = (o) => ({ ix: Math.floor(o.x / CM), iy: Math.floor(o.y / CM) });
   const build = (feats, roads) => WorldGen.rasterizeTile(
-    [...(roads ? [{ name: 'transportation', features: roads }] : []), { name: 'poi', features: feats }], CPE, 0, 0, EDGE);
+    [{name:'landcover',features:[{type:3,tags:{class:'grass',subclass:'recreation_ground'},geom:[[{x:0,y:0},{x:EXT,y:0},{x:EXT,y:EXT},{x:0,y:EXT}]]}]},...(roads ? [{ name: 'transportation', features: roads }] : []), { name: 'poi', features: feats }], CPE, 0, 0, EDGE);
 
   test('gate: no chest — two posts either side of a spawn point', () => {
     const r = build([{ type: 1, tags: { class: 'gate' }, geom: pt(20, 20) }]);

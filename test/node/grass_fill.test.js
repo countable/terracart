@@ -4,7 +4,8 @@ const N = 96, TX = 10, TY = 5, EDGE = N * 7, E = 4096;
 const rect = (x0, y0, x1, y1) => [[{ x: x0, y: y0 }, { x: x1, y: y0 },
   { x: x1, y: y1 }, { x: x0, y: y1 }, { x: x0, y: y0 }]];
 const poly = (cls, geom) => ({ type: 3, tags: { class: cls }, geom });
-const build = (layers = [], edge = EDGE) => W.rasterizeTile(layers, N, TX, TY, edge);
+const mappedGrass = {name:'landcover',features:[poly('grass',rect(0,0,E,E))]};
+const build = (layers = [], edge = EDGE) => W.rasterizeTile([mappedGrass,...layers], N, TX, TY, edge);
 const grass = (r) => r.wildplants.filter((p) => p.crop === 'longgrass' && p._biome === T.GRASS);
 const signature = (r) => grass(r).map((p) => p.id).sort().join(',');
 // Plants from an overlapping polygon can carry an id suffix; geometry, not

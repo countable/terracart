@@ -386,7 +386,7 @@
     const blocked = make(); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
     assert.falsy(ZoneDressing.dress(blocked).objects.some(o => o._shrineArt === 'shipwreck'));
   });
-  test('Pirate Cove T2 chests stay in water beside eligible shore', () => {
+  test('Pirate Cove cannot place T2 chests in Excluded water even beside eligible shore', () => {
     const make = () => {
       const ctx = pirateShrine();
       for (let y = 0; y < ctx.N; y++) for (let x = 45; x < ctx.N; x++) {
@@ -398,8 +398,7 @@
     };
     const ctx = make(), out = ZoneDressing.dress(ctx);
     const chests = out.objects.filter(o => o.zoneLayer === 'shore_find');
-    assert.eq(chests.length, 2);
-    assert.truthy(chests.every(o => o._ix === 45 && chestTier(o) === 2));
+    assert.eq(chests.length, 0, 'water has no place-bound reward exception');
     assert.eq(JSON.stringify(chests), JSON.stringify(ZoneDressing.dress(make()).objects.filter(o => o.zoneLayer === 'shore_find')));
     const blocked = make();
     for (let y = 0; y < ctx.N; y++) blocked.spawnOpts.spawnWhy[y * ctx.N + 44] |= WorldGen.SPAWN_WHY.RESTRICTED;
@@ -650,7 +649,7 @@
     const fallback = ZoneDressing.dress(sensitive);
     assert.eq(fallback.objects.filter(o => o.kind === 'headstone').length, 0);
     assert.eq(fallback.objects.filter(o => o.kind === 'mineralrock').length, 0, 'Ordered Graves never substitutes rocks');
-    assert.gt(fallback.wildplants.filter(o => o.crop === 'longgrass').length, 0, 'safe grass replaces refused graves');
+    assert.eq(all(fallback).length, 0, 'Excluded has no scenery fallback');
   });
   test('zone dressing: background diagnostics distinguish legacy occupancy, gates and composition', () => {
     const pristine = ZoneDressing.dress(context('ordered_graves'));
@@ -674,13 +673,13 @@
     assert.eq(counts.placed, all(out).filter(o => o.zoneLayer === 'background').length);
     assert.eq(counts.planned, counts.placed + counts.occupied + counts.blocked + counts.reserved);
   });
-  test('zone dressing: successful headstone fallback is placed, not blocked', () => {
+  test('zone dressing: Excluded headstone ground is reported as blocked', () => {
     const ctx = context('ordered_graves');
     ctx.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.SENSITIVE);
     const out = ZoneDressing.dress(ctx), counts = out.diagnostics[0].background;
-    assert.eq(counts.blocked, 0);
-    assert.eq(counts.placed, all(out).filter(o => o.zoneLayer === 'background').length);
-    assert.gt(counts.placed, 0);
+    assert.gt(counts.blocked, 0);
+    assert.eq(counts.placed, 0);
+    assert.eq(all(out).length, 0);
     assert.eq(counts.planned, counts.placed + counts.occupied + counts.blocked + counts.reserved);
   });
   test('zone dressing: surface traps obey the existing trap-ground predicate', () => {

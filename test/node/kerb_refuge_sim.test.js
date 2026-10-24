@@ -252,12 +252,11 @@ test('kerb: the fast kinds are the ones that out-run a walk, off the roster\'s o
   assert.eq(creatureSpawnClass('cat'), 'fauna', 'a cat is fauna');
   assert.eq(creatureSpawnClass('slime'), 'enemy', 'the wild slime a slow foe');
   assert.eq(creatureSpawnClass('goblin'), 'fastEnemy', 'a goblin a fast one');
-  assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.fastEnemy & WorldGen.SPAWN_WHY.KERB, 'fast foes refuse the kerb');
-  assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.fastFauna & WorldGen.SPAWN_WHY.KERB, 'fast fauna too');
-  assert.truthy(WorldGen.SPAWN_CLASS_BLOCKS.reward & WorldGen.SPAWN_WHY.KERB, 'and a find you walk to (src/scenic.js)');
-  for (const cls of ['enemy', 'fauna', 'npc', 'headstone', 'attractor', 'cave', 'minor']) {
-    assert.falsy(WorldGen.SPAWN_CLASS_BLOCKS[cls] & WorldGen.SPAWN_WHY.KERB, `${cls}: not kept off the kerb`);
-  }
+  for (const cls of ['fastEnemy','fastFauna','hazard','streetObstacle'])
+    assert.falsy(GameplayTiers.allowed(GameplayTiers.PASSING, cls), cls+' refuses Passing');
+  for (const cls of ['enemy','fauna','npc','headstone','attractor','cave','minor','reward'])
+    assert.truthy(GameplayTiers.allowed(GameplayTiers.PASSING, cls), cls+' may use Passing');
+
 });
 
 test('kerb: the rules live on the lanes that exist (source pins)', () => {

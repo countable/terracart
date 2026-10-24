@@ -26,6 +26,21 @@ const T = WorldGen.T;
 const EXT = 4096;
 function near(a, b, eps, m) { assert.truthy(Math.abs(a - b) <= eps, `${m}: ${a} vs ${b}`); }
 
+test('zone paint: registered tiers own access while road bands keep their paving', () => {
+  const N=3, grid=new Uint8Array(N*N).fill(T.GRASS);
+  const spawnWhy=new Uint32Array(N*N).fill(WorldGen.SPAWN_WHY.SENSITIVE);
+  const tiers=new Uint8Array(N*N).fill(1), roadMask=new Uint8Array(N*N);
+  tiers[1]=4; roadMask[2]=1;
+  const field={anchors:[{kind:'grove',variant:'meadow'}],coverage:new Uint16Array(N*N).fill(1)};
+  WorldGen.registerGameplayTiers(grid,spawnWhy,tiers);
+  WorldGen.runSteps(ZoneCoverage.paintSteps(field,grid,N,{},roadMask,spawnWhy));
+  const ground=T[ZoneVariants.byId('meadow').ground] ?? Z.terrainOf('grove');
+  assert.eq(grid[0],ground,'eligible tier wins over old typed evidence');
+  assert.eq(grid[1],T.GRASS,'Excluded remains outside nexus paint');
+  assert.eq(grid[2],T.GRASS,'road-band appearance remains geometry-owned');
+  assert.eq(spawnWhy[0],WorldGen.SPAWN_WHY.SENSITIVE,'paint leaves evidence untouched');
+});
+
 // ── Park characters ─────────────────────────────────────────────────────────
 test('park characters: one table, picked off a global point at its shares', () => {
   const ids = BP.PARK_CHARACTER_IDS;
@@ -197,9 +212,10 @@ test('park fringe: the Nexus owns source park ground and its placement fringe, r
   }
   assert.gt(outside, 40, 'Nexus coverage extends beyond the park');
   assert.gt(inside, 40, 'entire source park is covered');
-  // A cemetery retains its separately authored churchyard fringe.
+  // Real cemetery access stays Excluded, including its former churchyard fringe.
   const c = fringeTile(TX, TY, rect(x0, y0, x1, y1), 'cemetery');
-  assert.gt(c.r.grid.filter(t => t === T.CHURCHYARD).length, 40, 'cemetery spills churchyard');
+  assert.eq(c.r.grid.filter(t => t === T.CHURCHYARD).length, 0, 'Excluded cemetery has no gameplay fringe');
+  assert.gt(c.r.grid.filter(t => t === T.EXCLUSION_ROCK).length, 40, 'cemetery is solid excluded ground');
   assert.falsy(c.r.zone?.anchors.some(a => a.polygonAnchor), 'cemetery mints no park Nexus');
 });
 

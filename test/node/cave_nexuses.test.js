@@ -46,7 +46,7 @@
 
   test('cave nexuses: immutable protected ground survives even if the visible surface was repainted', () => {
     for (const depth of [2, 3]) for (const kind of kindsAt(depth)) for (const [terrain, why] of [
-      [T.BUILDING, 0], [T.WATER, 0], [T.ROAD, W.SPAWN_WHY.ROAD],
+      [T.BUILDING, 0], [T.WATER, 0], [T.ROAD_MD, W.SPAWN_WHY.ROAD],
       [T.PARK, W.SPAWN_WHY.FARMLAND], [T.PARK, W.SPAWN_WHY.GOLF]
     ]) {
       const f = fixture(kind, depth), i = (f.cy + 4) * N + f.cx + 4;

@@ -16,7 +16,7 @@
     finally { WorldGen.tileCache.get = previousGet; WorldGen.forEachItemNear = previousNear; }
   }
   test('triggered creatures: headstone ghosts and fished slimes refuse hard exclusion masks', () => {
-    for (const reason of ['RESTRICTED', 'QUIET', 'KINDERGARTEN', 'FARM_INTERIOR', 'GOLF', 'SENSITIVE']) {
+    for (const reason of ['RESTRICTED', 'QUIET', 'KINDERGARTEN', 'FARM_INTERIOR', 'GOLF']) {
       world(({ scene, entry, x, y }) => {
         entry.spawnWhy.fill(WorldGen.SPAWN_WHY[reason]);
         assert.eq(raiseGhostAt(scene, x, y, 10000, 'headstone'), null, reason + ' refuses tapped ghosts');
@@ -25,10 +25,10 @@
       });
     }
   });
-  test('triggered creatures: the fast ghost honors kerb suppression but ordinary open seats remain', () => world(({ scene, entry, x, y }) => {
-    entry.spawnWhy.fill(WorldGen.SPAWN_WHY.KERB);
+  test('triggered creatures: the fast ghost honors Passing suppression but ordinary open seats remain', () => world(({ scene, entry, x, y }) => {
+    entry.gameplayTiers = new Uint8Array(entry.grid.length).fill(3);
     assert.eq(raiseGhostAt(scene, x, y, 10000, 'headstone'), null);
-    entry.spawnWhy.fill(0);
+    entry.gameplayTiers.fill(1);
     const ghost = raiseGhostAt(scene, x, y, 10000, 'headstone');
     assert.truthy(ghost); assert.eq(ghost.x, x); assert.eq(ghost.y, y);
     const slime = fishedSlimeSpawn(scene, 10000, x, y, { tx: 0, ty: 0 });
@@ -41,7 +41,7 @@
     assert.truthy(raiseGhostAt(scene, x, y, 10000, 'headstone'));
   }));
   test('triggered creatures: summons preserve finite slots and refuse hard geographical exclusions', () => {
-    for (const reason of ['RESTRICTED', 'QUIET', 'FARM_INTERIOR', 'SENSITIVE']) world(({ scene, entry, x, y }) => {
+    for (const reason of ['RESTRICTED', 'QUIET', 'FARM_INTERIOR']) world(({ scene, entry, x, y }) => {
       const master = { id: 'event_master', kind: 'necromancer', x, y };
       entry.creatures.push(master);
       entry.spawnWhy.fill(WorldGen.SPAWN_WHY[reason]);

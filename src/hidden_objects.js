@@ -135,7 +135,7 @@
         if (!anchor || String(anchor.key) !== String(temple.templeZone) || occupied.has(i)) continue;
         const ix = i % N, iy = Math.floor(i / N);
         if (!root.WorldGen.isSpawnCell(entry.grid, N, N, ix, iy,
-            { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy }, 'attractor')) continue;
+            { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers }, 'attractor')) continue;
         const rank = fnv1a(`${id}:${tx},${ty},${ix},${iy}`);
         if (best && (rank > best.rank || (rank === best.rank && `${tx},${ty},${i}` >= best.tie))) continue;
         best = { rank, tie: `${tx},${ty},${i}`, x: (tx * N + ix + .5) * cellM, y: (ty * N + iy + .5) * cellM };

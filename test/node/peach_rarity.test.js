@@ -34,7 +34,7 @@
   test('peach rarity: one orchard mixes species by cell and retains them in another metre frame', () => {
     const tx = 4, ty = 8192, n = 80, extent = 4096;
     const ring = [{ x: 0, y: 0 }, { x: extent, y: 0 }, { x: extent, y: extent }, { x: 0, y: extent }, { x: 0, y: 0 }];
-    const layers = [{ name: 'landcover', features: [{ type: 3, tags: { class: 'orchard' }, geom: [ring] }] }];
+    const layers = [{ name: 'landcover', features: [{type:3,tags:{class:'grass'},geom:[ring]}] }, { name: 'landcover', features: [{ type: 3, tags: { class: 'orchard' }, geom: [ring] }] }];
     const trees = edge => WorldGen.rasterizeTile(layers, n, tx, ty, edge).objects.filter(o => o.kind === 'fruittree');
     const a = trees(1000), b = trees(1500);
     assert.gt(a.length, 1000, 'enough trees in one orchard to measure its mix');

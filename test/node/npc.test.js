@@ -211,9 +211,9 @@
       assert.falsy(WorldGen.nearBuildingCell(e.grid, N, N, cx, cy), `${c.id} stands against a wall`);
     }
     // The stamped mask alone (a footprint the gate recorded while the live
-    // grid under it was repainted) refuses just the same — TERRAIN for every
-    // class, BUILDING_MOAT for the villager's row only.
-    for (const [bit, name] of [[WorldGen.SPAWN_WHY.TERRAIN, 'TERRAIN'], [WorldGen.SPAWN_WHY.BUILDING_MOAT, 'BUILDING_MOAT']]) {
+    // grid under it was repainted) remains a conservative exclusion for
+    // synthetic fixtures. Building clearance itself reads live geometry.
+    for (const [bit, name] of [[WorldGen.SPAWN_WHY.TERRAIN, 'TERRAIN']]) {
       const masked = entry(), why = new Uint32Array(N * N);
       for (let y = 0; y < N; y++) for (let x = 0; x < N / 2; x++) why[y * N + x] = bit;
       const maskOpts = { roadMask: masked.roadMask, occupied: new Set(), pois: [], spawnWhy: why };

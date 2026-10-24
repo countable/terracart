@@ -1,13 +1,8 @@
-// Review-only presentation of the proposed gameplay tiers. The pure classifier
-// owns policy and geometry; this layer never changes the generated world.
+// Presentation of the authoritative per-cell gameplay tiers.
 (function (root) {
   'use strict';
   const esc = value => String(value ?? '').replace(/[&<>"']/g,
     c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-
-  // Centroids of actual polygons in the four cached research samples. These
-  // are navigation shortcuts, not canned overlays: the current loaded source
-  // geometry is classified at every destination, including unseen places.
 
   function create({ map, toLL, getEdge, toggle, legend, summary, details, opacity }) {
     const pane = map.createPane('gameplayTiers');
@@ -17,7 +12,7 @@
     let world, source, result, pending, revision = 0;
     const tiers = GameplayTiers.TIERS;
     const row = id => tiers.find(t => t.id === id);
-    const defaultDetails = 'Click coloured ground for its tier and source evidence. This proposal does not change current spawns.';
+    const defaultDetails = 'Click coloured ground for its tier and source evidence. These tiers govern spawn eligibility.';
     details.textContent = defaultDetails;
 
     for (const id of [1, 2, 3, 4]) {
@@ -70,7 +65,8 @@
       if (!world || result || pending) return;
       const token = revision, next = world, raw = source;
       summary.textContent = 'Classifying source geometry…';
-      const task = WorldGen.runStepsSliced(() => GameplayTiers.buildSteps(next, raw));
+      const task = Promise.resolve(GameplayTiers.fromEntries(next))
+        .then(value => value || WorldGen.runStepsSliced(() => GameplayTiers.buildSteps(next, raw)));
       pending = task;
       try {
         const value = await task;
@@ -101,10 +97,12 @@
       const x = Math.floor((gx - e.tx) * n), y = Math.floor((gy - e.ty) * n), i = y * n + x;
       if (x < 0 || y < 0 || x >= n || y >= n) return null;
       const tier = row(tile.tiers[i]), reason = GameplayTiers.REASONS[tile.reasons[i]];
+      const allowed = Object.keys(GameplayTiers.CLASS_TIERS).filter(cls => GameplayTiers.allowed(tier.id, cls));
       const content = `<b>${esc(tier.label)}</b><p>${esc(tier.description)}</p>`
         + `<p><b>Evidence:</b> ${esc(reason?.label || 'No matching mapped evidence')}</p>`
-        + '<p>Road corridors extend 3 game cells beyond their edges. All mapped paths and a 1-cell buffer are core. Street surfaces override zones: medium/large are excluded, small through streets are calm, and small dead ends are passing. Tiers infer intended gameplay from map features, not live traffic.</p>'
-        + '<small>Road surfaces and current access/spawn exclusions still apply. Review overlay only.</small>';
+        + `<p><b>Allowed spawn classes:</b> ${allowed.length ? allowed.map(esc).join(', ') : 'None'}</p>`
+        + '<p>MD/LG road buffers extend 3 game cells beyond their edges; intersection buffers extend 5 cells. Mapped paths and their 1-cell buffer interrupt Passing ground. Street surfaces override zones: medium/large are excluded, small through streets are calm, and small dead ends are passing. Passing excludes hazards and fast movers.</p>'
+        + '<small>Excluded cells cannot host spawns. Live occupancy and placement constraints also apply.</small>';
       details.innerHTML = content;
       return { tier: tier.id, reason: reason?.id, content, entry: e, cell: i };
     }

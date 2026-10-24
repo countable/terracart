@@ -116,11 +116,11 @@
       assert.truthy(entry.zone.coverage[i], 'the whole parking lot has nexus coverage');
     }
     assert.eq(entry.grid[3 * FloorViewerRegion.N + 5], T.COMMERCIAL, 'commercial fills the former northwest forest');
-    assert.eq(entry.grid[21 * FloorViewerRegion.N + 25], T.RESIDENTIAL, 'residential fills the west side above the medium road');
+    assert.eq(entry.grid[21 * FloorViewerRegion.N + 25], T.EXCLUSION_ROCK, 'unclassified residential ground becomes Excluded rock');
     assert.eq(at('FARMLAND'), 0, 'farmland is replaced by the parking lot');
     assert.eq(FloorViewerRegion.WIDTH, 60, 'the viewport is sixty cells wide');
     assert.eq(FloorViewerRegion.HEIGHT, 45, 'the viewport is forty-five cells high');
-    assert.gt(at('RESIDENTIAL'), 100, 'residential belt paints');
+    assert.gt(at('EXCLUSION_ROCK'), 100, 'Excluded residential interiors become rock');
     assert.gt(at('COMMERCIAL'), 40, 'commercial block paints');
     assert.gt(at('BUILDING'), 20, 'house and shop footprints paint');
     assert.gt(at('GROVE'), 100, 'the park and its grove halo paint');

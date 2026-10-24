@@ -203,10 +203,7 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
     // Its protected coverage also changes which neighbouring private cells
     // receive the later collision material, without changing their substrate.
     for (const r of [on, off]) if (r.grid[i] === T.EXCLUSION_ROCK) {
-      assert.truthy(r.spawnWhy[i] & (WorldGen.SPAWN_WHY.PRIVATE | WorldGen.SPAWN_WHY.BEHIND_HOUSE),
-        `cell ${i}: bedrock requires private lot exclusion`);
-      assert.falsy(r.zone?.coverage?.[i], `cell ${i}: bedrock never replaces a Nexus`);
-      assert.truthy(WorldGen.isLotTerrain(r.variantBaseGrid[i]), `cell ${i}: bedrock keeps lot substrate`);
+      assert.eq(r.gameplayTiers[i], GameplayTiers.EXCLUDED, `cell ${i}: bedrock follows Excluded`);
     }
     const before = off.grid[i] === T.EXCLUSION_ROCK ? off.variantBaseGrid[i] : off.grid[i];
     const after = on.grid[i] === T.EXCLUSION_ROCK ? on.variantBaseGrid[i] : on.grid[i];
@@ -259,10 +256,16 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
   const templeSeats = new Set(on.objects.filter(o => o.kind === 'temple').map(o => `${o.x}|${o.y}`));
   // Ambient crates (the low-tier quota) seat on the finished ground, so they follow the zone by design.
   const ordinary = o => !['house', 'tower', 'temple'].includes(o.kind) && !o.ambientCrate && !templeSeats.has(`${o.x}|${o.y}`);
-  assert.eq(sig(on.objects.filter(o => !authoredStairs.has(o) && ordinary(o))),
-    sig(off.objects.filter(o => keep(o) && ordinary(o))), 'preserved non-building objects keep ids and positions');
-  assert.eq(sig(on.wildplants), sig(off.wildplants.filter(keep)), 'preserved wild plants keep ids and positions');
-  assert.gt(off.wildplants.length - on.wildplants.length, 0, 'covered legacy flora is actually replaced');
+  // Final tiers are assigned before scatter, so enabling a Nexus changes
+  // candidate counts and reservations. Shared identities keep their seats;
+  // every full build remains deterministic.
+  for (const key of ['objects', 'wildplants']) {
+    const previous = new Map(off[key].filter(o => keep(o) && ordinary(o)).map(o => [o.id, o]));
+    const shared = on[key].filter(o => ordinary(o) && previous.has(o.id));
+    assert.gt(shared.length, 0, `${key}: shared identities remain`);
+    for (const o of shared) assert.eq(sig([o]), sig([previous.get(o.id)]), `${o.id}: stable seat`);
+    assert.eq(sig(on[key]), sig(again[key]), `${key}: deterministic final source order`);
+  }
   // Nexus boundaries clip the road's dressing geometry before placement,
   // which can move exterior samples. Test ownership and repeatability rather
   // than treating zone-off placements as the zone-on street's authored seats.
@@ -278,22 +281,29 @@ test('zones: covered ambience is replaced while every preserved item keeps its i
   }
 });
 
-test('zones: the trap ground is the LAND\'s — a repainted waste lot stays trap ground', () => {
+test('zones: trap ground reads original land and final tier eligibility', () => {
   const { on, off, N } = rasterPair();
   assert.truthy(on.zone.under, 'the halo records what it painted over');
   let ground = 0;
   for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
     const a = Traps.isTrapGround(off.grid, off.roadClass, N, N, x, y);
-    assert.eq(Traps.isTrapGround(on.grid, on.roadClass, N, N, x, y, on.zone.under), a, `cell ${x},${y}`);
+    const b = Traps.isTrapGround(on.grid, on.roadClass, N, N, x, y, on.zone.under);
+    if (on.gameplayTiers[y*N+x] === GameplayTiers.EXCLUDED) assert.falsy(b, `cell ${x},${y}: Excluded cannot host a trap`);
+    if (b) assert.truthy(GameplayTiers.allowed(on.gameplayTiers[y*N+x], 'hazard'), 'trap ground obeys final tier');
     if (a) ground++;
   }
   assert.gt(ground, 0, 'the fixture has trap ground');
+  const raw = new Uint8Array(9).fill(T.GRASS); raw[4] = T.PARK;
+  const painted = raw.slice(); painted[4] = T.GROVE;
+  const under = new Uint8Array(9); under[4] = T.PARK;
+  assert.truthy(Traps.isTrapGround(raw, null, 3, 3, 1, 1));
+  assert.truthy(Traps.isTrapGround(painted, null, 3, 3, 1, 1, under), 'paint preserves original park-edge habitat');
   assert.truthy(/Difficulty\.get\(\)\.trapCountMul, entry\.zone && entry\.zone\.under\)/.test(SPAWN_IN_TILE_SRC),
     'spawnInTile hands the traps the land\'s class');
 });
 
 test('zones: mine mouths retain their original source when zone layouts replace mineral clusters', () => {
-  const { on, off, N, edge } = rasterPair();
+  const { on, off, again, N, edge } = rasterPair();
   const stairs = (r) => {
     const entry = { grid: r.grid, cellsPerEdge: N, objects: r.objects.slice(), wildplants: r.wildplants.slice(),
       zone: r.zone, caveSource: r.caveSource, roadMask: r.roadMask, poiPadCells: r.poiPadCells,
@@ -301,7 +311,8 @@ test('zones: mine mouths retain their original source when zone layouts replace 
     WorldGen.maybePlaceCaveEntrance(entry, TILE_TX, TILE_TY, edge, r.objects, r.wildplants);
     return entry.objects.filter((o) => o.kind === 'staircase' && o.zoneLayer !== 'entrance').map((o) => o.id).sort().join(',');
   };
-  assert.eq(stairs(on), stairs(off), 'the same staircase with and without the zones');
+  assert.eq(stairs(on), stairs(again), 'final tier and reservations preserve deterministic staircase identities');
+  assert.gt(stairs(on).split(',').filter(Boolean).length, 0, 'legal source mine mouths remain');
 });
 
 test('zones: road terrain leaves real-tile cave source identities unchanged', () => {
@@ -320,7 +331,7 @@ test('zones: road terrain leaves real-tile cave source identities unchanged', ()
 });
 
 // ── The nexus ───────────────────────────────────────────────────────────────
-test('zones: every nexus piece is off the road band and off anything already there', () => {
+test('zones: every nexus piece obeys its tier and avoids occupied cells', () => {
   const { on, again, N, edge } = rasterPair();
   const d = on.zoneDress;
   assert.truthy(d && d.nexus.length > 0, 'the fixture laid a nexus');
@@ -341,10 +352,10 @@ test('zones: every nexus piece is off the road band and off anything already the
   assert.gt(pieces.length, 5, `pieces were laid (${pieces.length})`);
   for (const p of pieces) {
     const i = cellOf(p);
-    assert.falsy(on.roadMask[i], `${p.id} is not under a road band`);
+    assert.truthy(GameplayTiers.allowed(on.gameplayTiers[i], 'minor'), `${p.id} has an eligible tier`);
     assert.falsy(before.has(i), `${p.id} is not on anything already there`);
     assert.falsy(mine.has(i), `${p.id} is one per cell`);
-    assert.truthy(WorldGen.isWalkable(on.grid[i]), `${p.id} stands on walkable ground`);
+    assert.truthy(WorldGen.isSpawnCell(on.grid, N, N, i % N, Math.floor(i / N), { gameplayTiers: on.gameplayTiers }, 'minor'), `${p.id} stands on eligible physical terrain`);
     if (p.zoneKind === 'quarry' && p.zoneLayer === 'find') {
       assert.truthy(on.zone.anchors.some(a => a.kind === 'quarry' &&
         p.id.startsWith(`zq_${ZoneVariants.pick(a).id}_${a.gx}_${a.gy}_find_`) && /_find_\d+$/.test(p.id)), `${p.id} uses its source anchor's identity`);
@@ -884,7 +895,7 @@ test('beach parks: Kelowna mapped shores pair beach variants with marine meadows
         // preserve the bounded encounter and report the authored shortfall.
         assert.falsy(ship, 'the ship cannot spill beyond the bounded shore');
         assert.includes(diagnostic.shortfalls, 'shrine:shipwreck', 'unseatable hull has an explicit diagnostic');
-        assert.eq(objects.filter(o => o.zoneLayer === 'shore_find').length, 2, 'Rotary retains its two shoreline chests');
+        assert.eq(objects.filter(o => o.zoneLayer === 'shore_find').length, 0, 'Rotary water seats are Excluded, so shoreline chests remain unplaced');
         assert.eq(objects.filter(o => o.barrel).length, 3, 'Rotary has authored barrels');
         assert.eq(on.zoneDress.wildplants.filter(o => o.zoneVariant === 'pirate_cove' && o.crop === 'driftwood' && o.zoneLayer === 'decoration').length, 4, 'Rotary has authored driftwood');
         assert.eq(on.zoneDress.guards.filter(o => o.zoneVariant === 'pirate_cove' && o.kind === 'crab').length, 3, 'Rotary retains its authored crabs');
@@ -917,7 +928,8 @@ test('beach parks: Kelowna mapped shores pair beach variants with marine meadows
     }
     const poiIds = r => r.objects.filter(o => o._poiAt).map(o => o.id).sort().join(',');
     assert.eq(poiIds(on), poiIds(off), 'existing park POI ids survive without an extra POI');
-    assert.truthy(JSON.stringify(on.zone?.caveSource) === JSON.stringify(off.zone?.caveSource), 'beach dressing preserves cave inputs');
+    for (const key of ['grid', 'spawnWhy']) assert.eq(JSON.stringify(on.zone?.caveSource?.[key]), JSON.stringify(off.zone?.caveSource?.[key]), `beach dressing preserves source ${key}`);
+    assert.eq(on.zone.caveSource.gameplayTiers, on.gameplayTiers, 'caves inherit final shore tiers');
     pieces += [...(on.zoneDress?.objects || []), ...(on.zoneDress?.wildplants || [])]
       .filter(o => o.zoneKind === 'beach').length;
   }

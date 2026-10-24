@@ -56,7 +56,12 @@
       assert.gt(yields, 10, `the pass yields between its phases (${yields})`);
       assert.truthy(a._spawned && b._spawned, 'both passes finished');
       assert.gt(a.creatures.length, 50, 'the fixture spawns a real population');
-      assert.eq(a.traps.length, 0, 'the park Nexus suppresses ambient traps in this fixture');
+      for (const trap of a.traps) {
+        const ix = Math.floor((trap.x - TX * EDGE) / (EDGE / N));
+        const iy = Math.floor((trap.y - TY * EDGE) / (EDGE / N));
+        assert.truthy(GameplayTiers.allowed(a.gameplayTiers[iy * N + ix], 'hazard'),
+          'ambient traps obey the shared tier policy');
+      }
       assert.eq(snapshot(b), snapshot(a), 'the same creatures, objects, traps and treasure, id for id');
     } finally { window.__TEST_MODE = was; }
   });

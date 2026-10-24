@@ -54,7 +54,7 @@
       return cells;
     };
     const positionOf = object => out.moves.find(move => move.object === object) || frame.cellOf(object.x, object.y);
-    const sourceOpts = { spawnWhy: source.spawnWhy || surface.spawnWhy, roadMask: surface.roadMask };
+    const sourceOpts = { gameplayTiers: surface.gameplayTiers || source.gameplayTiers, spawnWhy: source.spawnWhy || surface.spawnWhy, roadMask: surface.roadMask };
     const caveOpts = { spawnWhy: ctx.spawnWhy };
     // Coverage resolves ownership; identity order also makes diagnostics and
     // output order stable when a tile's anchor array is reordered.

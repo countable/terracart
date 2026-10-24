@@ -169,6 +169,7 @@
       for (let cx = 0; cx < N; cx++) mask[cy * N + cx] = 1;
     }
     entry.roadMask = mask;
+    entry.gameplayTiers = Uint8Array.from(mask, bit => bit ? 4 : 1);
     hgPlace(hgScene(), entry, 'hard');
     const ids = hgOf(entry).map(c => c.id).sort();
     assert.eq(ids.join(' '),
@@ -291,7 +292,7 @@
 
   // ── The road rule ─────────────────────────────────────────────────────────
 
-  test('home greeter: never on the road BAND, not just the road terrain', () => {
+  test('home greeter: never on Excluded ground, even when terrain is grass', () => {
     // The terrain grid under-reports the road every time (CLAUDE.md): a way
     // rasterizes one cell wide however wide it is, and a parking aisle
     // rasterizes to none at all. entry.roadMask is the ground the player SEES
@@ -303,17 +304,17 @@
         if (d >= HOME_GREETER_MIN_CELLS && d <= HOME_GREETER_MAX_CELLS) mask[cy * N + cx] = 1;
       }
     }
-    const entry = hgEntry(T.GRASS, { roadMask: mask });   // grass terrain, road band
+    const entry = hgEntry(T.GRASS, { roadMask: mask, gameplayTiers: Uint8Array.from(mask, bit => bit ? 4 : 1) });   // grass terrain, road band
     hgPlace(hgScene(), entry);
     assert.eq(hgOf(entry).length, 0,
       'a greeter with nowhere legal to stand is not seated on the asphalt');
   });
 
-  test('home greeter: it steps around the road band rather than onto it', () => {
+  test('home greeter: it steps around Excluded ground rather than onto it', () => {
     // Only the north half of the ring is band — it must take the south half.
     const mask = new Uint8Array(N * N);
     for (let cy = 0; cy < ANCHOR; cy++) for (let cx = 0; cx < N; cx++) mask[cy * N + cx] = 1;
-    const entry = hgEntry(T.GRASS, { roadMask: mask });
+    const entry = hgEntry(T.GRASS, { roadMask: mask, gameplayTiers: Uint8Array.from(mask, bit => bit ? 4 : 1) });
     hgPlace(hgScene(), entry);
     const seat = hgCell(hgOf(entry)[0]);
     assert.eq(mask[seat.cy * N + seat.cx], 0, 'off the band');

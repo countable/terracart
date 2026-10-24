@@ -404,7 +404,7 @@
         const [dx, dy] = V.rotate(slot.at[0], slot.at[1], s.rotation), ix = s.poi[0] + dx, iy = s.poi[1] + dy;
         if (owns(s, ix, iy)) s.poiSlots.set(iy * N + ix, slot.material);
       }
-      yield* connectionSteps(s, opts, N, WG, motifAt);
+      yield* connectionSteps(s, opts, N, WG, motifAt, grid);
       for (const [i, material] of s.poiSlots) place(s, i % N, Math.floor(i / N), material, 'poi');
       for (const [i, material] of s.connections) if (!s.poiSlots.has(i)) place(s, i % N, Math.floor(i / N), material, 'connection');
       // A churchyard or tar yard keeps its chest; its shrine kind stands
@@ -690,7 +690,7 @@
   }
   // Connections alter only this generator's background. Roads cut the route;
   // a grid lane retains the continuous boundaries requested in its table.
-  function* connectionSteps(s, opts, N, WG, motifAt) {
+  function* connectionSteps(s, opts, N, WG, motifAt, grid) {
     const c = s.variant.connection;
     if (!c) return;
     const cells = new Set(s.cells), owns = (x, y) => x >= 0 && y >= 0 && x < N && y < N && cells.has(y * N + x);
@@ -702,13 +702,9 @@
         let x = Math.round(s.poi[0] + dx * n / length), y = Math.round(s.poi[1] + dy * n / length);
         if (!owns(x, y)) continue;
         const i = y * N + x;
-        // ALLOWLISTED raw roadMask read (spawn_gate_sweep.test.js): GEOMETRY,
-        // not the gate — this only decides where the connecting avenue's
-        // WALK stops (never crossing a road), same as trapGroundKind's own
-        // road clearance. Whether a marker actually gets PLACED on any cell
-        // this walk visits is `allowed()`/`place()` above, which always
-        // calls WG.isSpawnCell — the gate proper.
-        if ((opts.roadMask && opts.roadMask[i]) || (WG.inMajorBuffer && WG.inMajorBuffer(opts.roadClass, N, x, y))) break;
+        // A connecting avenue stops at forbidden ground, using the same
+        // tier policy as the markers it will place along the walk.
+        if (!WG.isSpawnCell(grid, N, N, x, y, { ...opts, occupied: null }, 'minor')) break;
         const shape = c.shape;
         if (shape === 'clear_aisle' || shape === 'aligned_ring_gaps' || shape === 'follow_grid_lane') {
           if (!c.preserveLines || !motifAt(s, x, y)) s.clear.add(i);

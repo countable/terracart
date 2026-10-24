@@ -115,7 +115,7 @@
     const feats = [];
     for (let i = 0; i < 6; i++) feats.push({ type: 1, tags: { class: 'bus' }, geom: pt(4 + i * 3, 10) });
     feats.push({ type: 1, tags: { class: 'florist', name: 'Bloom' }, geom: pt(30, 30) });
-    const r = WorldGen.rasterizeTile([{ name: 'poi', features: feats }], CPE, 0, 0, EDGE);
+    const r = WorldGen.rasterizeTile([{name:'landcover',features:[{type:3,tags:{class:'grass'},geom:[[{x:0,y:0},{x:EXT,y:0},{x:EXT,y:EXT},{x:0,y:EXT}]]}]},{ name: 'poi', features: feats }], CPE, 0, 0, EDGE);
     const chests = r.objects.filter((o) => o.kind === 'chest' && !o.chestTopUp);
     const bus = chests.filter((o) => o.poiClass === 'bus');
     assert.gt(bus.length, 1, 'bus stops survive the build');

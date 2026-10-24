@@ -421,7 +421,7 @@ const NPC = (() => {
     for (const w of (entry.wildplants || [])) occupied.add(cellKey(w.x, w.y));
     for (const c of people) occupied.add(cellKey(c.x, c.y));
     const due = returnedCount(scene.save), stayed = stayers(residents);
-    const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
+    const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers };
     const housed = new Set(Object.values(scene.save.npcHomes || {}).map(h => h.houseId).filter(Boolean));
     let anchors = null;
     const added = [];
