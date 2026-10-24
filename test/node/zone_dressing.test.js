@@ -12,7 +12,7 @@
     return Object.assign(ctx, changes);
   }
   const all = out => [...out.objects, ...out.wildplants, ...out.traps, ...out.guards, ...out.treasures];
-  const finds = out => all(out).filter(o => o.zoneLayer === 'find');
+  const finds = out => [...all(out), ...(out.tidepools || [])].filter(o => o.zoneLayer === 'find');
   test('Spooky Woods: bare shrine trees preserve living clusters, harvest identity and spawn gates', () => {
     const out = ZoneDressing.dress(context('spooky_woods'));
     const snags = out.objects.filter(o => o._objectArt === 'dead_tree');
@@ -29,28 +29,21 @@
     const blocked = context('spooky_woods'); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
     assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o._objectArt === 'dead_tree').length, 0);
   });
-  test('Sacred Grove: harmless clusters with broken ghost pressure footpaths', () => {
+  test('Sacred Grove: harmless clusters without pressure plates or ghost footpaths', () => {
     const out = ZoneDressing.dress(context('sacred_grove'));
     const bushes = out.wildplants.filter(o => o.crop === 'shrub');
     assert.gt(bushes.length, 100);
     assert.truthy(bushes.every(o => wildplantSprite(o) === CROP_SPRITE.shrub));
     assert.truthy(bushes.every(o => walkHazardDamageRate(o) === 0));
     assert.gt(out.objects.filter(o => o.kind === 'tree').length, 0);
-    const plates = out.objects.filter(o => o.kind === 'pressure_plate');
-    assert.gt(plates.length, 100);
-    assert.truthy(plates.every(o => o.effect === 'ghost' && o.zoneLayer === 'footpath'));
-    const occupied = new Set(all(out).filter(o => o.kind !== 'pressure_plate').map(o => `${o.x},${o.y}`));
-    assert.truthy(plates.every(o => !occupied.has(`${o.x},${o.y}`)), 'empty cluster seams only');
-    assert.eq(JSON.stringify(plates), JSON.stringify(ZoneDressing.dress(context('sacred_grove')).objects.filter(o => o.kind === 'pressure_plate')));
-    const blocked = context('sacred_grove'); blocked.spawnOpts.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
-    assert.eq(ZoneDressing.dress(blocked).objects.filter(o => o.kind === 'pressure_plate').length, 0);
+    assert.eq(out.objects.filter(o => o.kind === 'pressure_plate').length, 0);
+    assert.falsy(all(out).some(o => o.zoneLayer === 'footpath'));
+    assert.eq(JSON.stringify(out), JSON.stringify(ZoneDressing.dress(context('sacred_grove'))), 'harmless dressing stays deterministic');
     const row = ZoneVariants.byId('sacred_grove');
-    let gaps = 0, present = 0;
-    for (let x = -36; x < 36; x++) {
-      if (ZoneVariants.footpathAt(row, x, 0, 112)) present++; else gaps++;
-      assert.falsy(ZoneVariants.footpathAt(row, 1, 1, 112));
+    assert.falsy(row.footpaths, 'Sacred Grove no longer requests pressure paths');
+    for (let y = -12; y <= 12; y++) for (let x = -36; x < 36; x++) {
+      assert.falsy(ZoneVariants.footpathAt(row, x, y, 112), 'no ghost footpath at any pattern phase');
     }
-    assert.gt(present, 30); assert.gt(gaps, 3);
     assert.eq(out.guards.length, 0);
     assert.eq(out.traps.length, 0);
     assert.falsy(all(out).some(o => o.kind === 'plant' || o._plantArt === 'bramble'));
@@ -437,15 +430,21 @@
     assert.gt(fruit.filter(o => o.species === 'worldpeach').length, 0, 'one orchard can contain Worldpeach trees');
     assert.truthy(fruit.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(0, 0, o._ix, o._iy))), 'each fruit tree rolls by its cell');
     assert.truthy(timber.every(o => o.species === 'maple' && o.size === 'medium' && treeSizeClass(o) === 'medium'));
-    assert.eq(out.wildplants.length, 6, 'three gemfruit and three berry finds');
-    assert.truthy(out.wildplants.every(o => ['gemfruit', 'berry'].includes(o.crop) && o.zoneLayer === 'find'));
+    assert.eq(finds(out).length, 6, 'three gemfruit and three berry finds');
+    const grass = out.wildplants.filter(o => o.crop === 'longgrass');
+    assert.gt(grass.length, 0, 'tree-attracted grass occupies the background');
+    assert.truthy(grass.every(o => o.zoneLayer === 'background'), 'grass does not expand the finite find budget');
+    assert.truthy(finds(out).every(o => ['gemfruit', 'berry'].includes(o.crop) && o.zoneLayer === 'find'));
   });
   test('zone dressing: Mushroom Grove giant mushrooms have distinct rewards and preserve placement identities', () => {
-    const grove = ZoneDressing.dress(context('mushroom_grove'));
+    const ctx = context('mushroom_grove'), grove = ZoneDressing.dress(ctx);
+    const row = ZoneVariants.byId('mushroom_grove'), origin = ZoneVariants.poiOrigin(row);
+    const frame = ZoneVariants.anchorFrame(ctx.field.anchors[0], ctx);
+    const [anchorX, anchorY] = frame.local(frame.originX, frame.originY);
     const background = grove.wildplants.filter(o => o.zoneLayer === 'background');
     assert.eq(new Set(background.map(o => o.crop)).size, 2, 'both crop sizes reach live background dressing');
     for (const o of background) {
-      const point = ZoneVariants.placement(ZoneVariants.byId('mushroom_grove'), o._ix - 16, o._iy - 16);
+      const point = ZoneVariants.placement(row, o._ix - anchorX + origin[0], o._iy - anchorY + origin[1]);
       assert.eq(o.crop, point.material);
       assert.eq(o._terrainScale, point.scale, 'canonical layout size survives materialization');
       assert.inRange(o._terrainScale, .8775, 1.1225);

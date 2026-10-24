@@ -5545,7 +5545,25 @@
         31,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rogue_rock_mid",
+        "frames": [
+          "__BASE"
+        ],
+        "scale": 1.6,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 25.6,
+        "height": 25.6,
+        "dxPx": 0,
+        "dyPx": -1.6,
+        "footFromCentre": 3.2
+      }
     },
     {
       "kind": "stronghold_wall",

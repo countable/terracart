@@ -1,0 +1,131 @@
+[
+  {
+    "id": "tree-tall",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+    "rect": [
+      192,
+      256,
+      32,
+      48
+    ],
+    "sha256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8"
+  },
+  {
+    "id": "shrub",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+    "rect": [
+      208,
+      32,
+      16,
+      16
+    ],
+    "sha256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8"
+  },
+  {
+    "id": "shrub-flower",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+    "rect": [
+      192,
+      32,
+      16,
+      16
+    ],
+    "sha256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8"
+  },
+  {
+    "id": "flower",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+    "rect": [
+      64,
+      16,
+      16,
+      16
+    ],
+    "sha256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8"
+  },
+  {
+    "id": "flowers",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+    "rect": [
+      64,
+      48,
+      16,
+      16
+    ],
+    "sha256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8"
+  },
+  {
+    "id": "short-grass",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Grasslands.png",
+    "rect": [
+      0,
+      16,
+      16,
+      16
+    ],
+    "sha256": "95cb958cf3b83e4ee3fe2a5a7fd031e4e8692f82121f88c04f2686ae786a6de8"
+  },
+  {
+    "id": "slab",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+    "rect": [
+      160,
+      16,
+      16,
+      16
+    ],
+    "sha256": "cfff54e69f49732378649348b001285b6ee2250aff2dcebe14f817e8031e2961"
+  },
+  {
+    "id": "slab-split",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+    "rect": [
+      176,
+      16,
+      16,
+      16
+    ],
+    "sha256": "cfff54e69f49732378649348b001285b6ee2250aff2dcebe14f817e8031e2961"
+  },
+  {
+    "id": "slab-small",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+    "rect": [
+      192,
+      16,
+      16,
+      16
+    ],
+    "sha256": "cfff54e69f49732378649348b001285b6ee2250aff2dcebe14f817e8031e2961"
+  },
+  {
+    "id": "well",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+    "rect": [
+      192,
+      80,
+      32,
+      48
+    ],
+    "sha256": "cfff54e69f49732378649348b001285b6ee2250aff2dcebe14f817e8031e2961"
+  },
+  {
+    "id": "crate-stack",
+    "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland Reborn/Tilesets/FDR_Village.png",
+    "rect": [
+      96,
+      128,
+      32,
+      32
+    ],
+    "sha256": "cfff54e69f49732378649348b001285b6ee2250aff2dcebe14f817e8031e2961"
+  },
+  {
+    "id": "fountain-water",
+    "source": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/fountain.png",
+    "frameWidth": 48,
+    "frameHeight": 48,
+    "frames": 4,
+    "method": "Cycle existing water pixels within each blue-only row; basin and sculpture fixed."
+  }
+]

@@ -13,122 +13,122 @@
     {
       "terrain": "GRASS",
       "character": null,
-      "targetCells": 51292,
-      "eligibleCells": 51292,
-      "occupiedCells": 26912,
-      "coveragePct": 52.46822116509397,
-      "coverageOfAllTerrainPct": 52.46822116509397,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
+      "occupiedCells": 13251,
+      "coveragePct": 21.3230561277034,
+      "coverageOfAllTerrainPct": 21.3230561277034,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 52.46822116509397,
+      "coverageOfEligiblePct": 21.3230561277034,
       "coverageRangePct": [
-        51.801663073606406,
-        54.574951330305
+        19.91503604531411,
+        23.442327497425335
       ],
       "elements": {
         "flowers": {
           "cells": 420,
-          "coveragePct": 0.8188411448179054
+          "coveragePct": 0.675849639546859
         },
         "longgrass": {
-          "cells": 26912,
-          "coveragePct": 52.46822116509397
+          "cells": 13036,
+          "coveragePct": 20.977085478887744
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 6164,
-          "eligibleCells": 6164,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1637,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 55,
-            "longgrass": 3364
+            "longgrass": 1606
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 6164,
-          "eligibleCells": 6164,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1547,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 41,
-            "longgrass": 3364
+            "longgrass": 1525
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 6494,
-          "eligibleCells": 6494,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1650,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 56,
-            "longgrass": 3364
+            "longgrass": 1619
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 6494,
-          "eligibleCells": 6494,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1662,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 54,
-            "longgrass": 3364
+            "longgrass": 1636
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 6494,
-          "eligibleCells": 6494,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1674,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 61,
-            "longgrass": 3364
+            "longgrass": 1639
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 6494,
-          "eligibleCells": 6494,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1629,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 56,
-            "longgrass": 3364
+            "longgrass": 1607
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 6494,
-          "eligibleCells": 6494,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1631,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 45,
-            "longgrass": 3364
+            "longgrass": 1612
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 6494,
-          "eligibleCells": 6494,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1821,
           "outsideEligible": 0,
           "elementCells": {
             "flowers": 52,
-            "longgrass": 3364
+            "longgrass": 1792
           }
         }
       ]
@@ -136,57 +136,57 @@
     {
       "terrain": "FOREST",
       "character": null,
-      "targetCells": 44276,
-      "eligibleCells": 44276,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 11666,
-      "coveragePct": 26.348360285481977,
-      "coverageOfAllTerrainPct": 26.348360285481977,
+      "coveragePct": 18.77252832131823,
+      "coverageOfAllTerrainPct": 18.77252832131823,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 26.348360285481977,
+      "coverageOfEligiblePct": 18.77252832131823,
       "coverageRangePct": [
-        24.541681079211344,
-        28.778429933969186
+        18.26725025746653,
+        20.19824922760041
       ],
       "elements": {
         "tree": {
           "cells": 8951,
-          "coveragePct": 20.216370042460927
+          "coveragePct": 14.40364315139032
         },
         "shrub": {
           "cells": 689,
-          "coveragePct": 1.5561478001626163
+          "coveragePct": 1.1087152420185376
         },
         "nut": {
           "cells": 393,
-          "coveragePct": 0.8876140572770801
+          "coveragePct": 0.6324021627188465
         },
         "mushroom": {
           "cells": 1430,
-          "coveragePct": 3.2297407173186374
+          "coveragePct": 2.30110710607621
         },
         "wildrose": {
           "cells": 51,
-          "coveragePct": 0.11518655705122414
+          "coveragePct": 0.08206745623069
         },
         "starflower": {
           "cells": 77,
-          "coveragePct": 0.17390911554792665
+          "coveragePct": 0.12390576725025747
         },
         "poisonberry": {
           "cells": 70,
-          "coveragePct": 0.1580991959526606
+          "coveragePct": 0.11264160659114315
         },
         "goldenberry": {
           "cells": 5,
-          "coveragePct": 0.011292799710904328
+          "coveragePct": 0.008045829042224511
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 5782,
-          "eligibleCells": 5782,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1419,
           "outsideEligible": 0,
           "elementCells": {
@@ -202,8 +202,8 @@
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 5782,
-          "eligibleCells": 5782,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1517,
           "outsideEligible": 0,
           "elementCells": {
@@ -219,8 +219,8 @@
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 5452,
-          "eligibleCells": 5452,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1445,
           "outsideEligible": 0,
           "elementCells": {
@@ -237,8 +237,8 @@
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 5452,
-          "eligibleCells": 5452,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1429,
           "outsideEligible": 0,
           "elementCells": {
@@ -254,8 +254,8 @@
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 5452,
-          "eligibleCells": 5452,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1426,
           "outsideEligible": 0,
           "elementCells": {
@@ -272,8 +272,8 @@
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 5452,
-          "eligibleCells": 5452,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1435,
           "outsideEligible": 0,
           "elementCells": {
@@ -290,8 +290,8 @@
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 5452,
-          "eligibleCells": 5452,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1426,
           "outsideEligible": 0,
           "elementCells": {
@@ -308,8 +308,8 @@
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 5452,
-          "eligibleCells": 5452,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 1569,
           "outsideEligible": 0,
           "elementCells": {
@@ -328,122 +328,119 @@
     {
       "terrain": "SAND",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
-      "occupiedCells": 978,
-      "coveragePct": 2.4948979591836733,
-      "coverageOfAllTerrainPct": 2.4948979591836733,
-      "eligiblePct": 100,
-      "coverageOfEligiblePct": 2.4948979591836733,
+      "targetCells": 62144,
+      "eligibleCells": 36384,
+      "occupiedCells": 38,
+      "coveragePct": 0.1044415127528584,
+      "coverageOfAllTerrainPct": 0.06114830072090628,
+      "eligiblePct": 58.547888774459324,
+      "coverageOfEligiblePct": 0.1044415127528584,
       "coverageRangePct": [
-        2,
-        2.857142857142857
+        0.02198768689533861,
+        0.2198768689533861
       ],
       "elements": {
         "shell": {
-          "cells": 824,
-          "coveragePct": 2.1020408163265305
+          "cells": 31,
+          "coveragePct": 0.08520228671943711
         },
         "driftwood": {
-          "cells": 154,
-          "coveragePct": 0.39285714285714285
+          "cells": 7,
+          "coveragePct": 0.019239226033421285
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 116,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 3,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 91,
-            "driftwood": 25
+            "shell": 2,
+            "driftwood": 1
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 138,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 10,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 118,
-            "driftwood": 20
+            "shell": 9,
+            "driftwood": 1
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 113,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 2,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 103,
-            "driftwood": 10
+            "shell": 2
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 98,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 7,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 79,
-            "driftwood": 19
+            "shell": 5,
+            "driftwood": 2
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 130,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 3,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 114,
-            "driftwood": 16
+            "shell": 2,
+            "driftwood": 1
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 140,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 5,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 118,
-            "driftwood": 22
+            "shell": 5
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 113,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 1,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 93,
-            "driftwood": 20
+            "shell": 1
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 130,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 7,
           "outsideEligible": 0,
           "elementCells": {
-            "shell": 108,
-            "driftwood": 22
+            "shell": 5,
+            "driftwood": 2
           }
         }
       ]
@@ -451,298 +448,221 @@
     {
       "terrain": "FARMLAND",
       "character": null,
-      "targetCells": 60992,
-      "eligibleCells": 4352,
-      "occupiedCells": 201,
-      "coveragePct": 4.618566176470588,
-      "coverageOfAllTerrainPct": 0.3295514165792235,
-      "eligiblePct": 7.135362014690451,
-      "coverageOfEligiblePct": 4.618566176470588,
+      "targetCells": 62144,
+      "eligibleCells": 1920,
+      "occupiedCells": 0,
+      "coveragePct": 0,
+      "coverageOfAllTerrainPct": 0,
+      "eligiblePct": 3.089598352214212,
+      "coverageOfEligiblePct": 0,
       "coverageRangePct": [
-        3.4926470588235294,
-        6.25
+        0,
+        0
       ],
-      "elements": {
-        "potato": {
-          "cells": 40,
-          "coveragePct": 0.9191176470588235
-        },
-        "cress": {
-          "cells": 32,
-          "coveragePct": 0.7352941176470589
-        },
-        "berry": {
-          "cells": 57,
-          "coveragePct": 1.3097426470588236
-        },
-        "nut": {
-          "cells": 38,
-          "coveragePct": 0.8731617647058824
-        },
-        "onion": {
-          "cells": 34,
-          "coveragePct": 0.78125
-        }
-      },
+      "elements": {},
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 25,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 5,
-            "cress": 4,
-            "berry": 9,
-            "nut": 5,
-            "onion": 2
-          }
+          "elementCells": {}
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 24,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 5,
-            "cress": 5,
-            "berry": 6,
-            "nut": 4,
-            "onion": 4
-          }
+          "elementCells": {}
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 29,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 5,
-            "cress": 7,
-            "berry": 8,
-            "nut": 4,
-            "onion": 5
-          }
+          "elementCells": {}
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 19,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 4,
-            "cress": 5,
-            "berry": 2,
-            "nut": 3,
-            "onion": 5
-          }
+          "elementCells": {}
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 28,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 9,
-            "cress": 3,
-            "berry": 7,
-            "nut": 6,
-            "onion": 3
-          }
+          "elementCells": {}
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 21,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 5,
-            "cress": 1,
-            "berry": 5,
-            "nut": 6,
-            "onion": 4
-          }
+          "elementCells": {}
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 34,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 2,
-            "cress": 6,
-            "berry": 10,
-            "nut": 9,
-            "onion": 7
-          }
+          "elementCells": {}
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 21,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "potato": 5,
-            "cress": 1,
-            "berry": 10,
-            "nut": 1,
-            "onion": 4
-          }
+          "elementCells": {}
         }
       ]
     },
     {
       "terrain": "RESIDENTIAL",
       "character": null,
-      "targetCells": 27841,
-      "eligibleCells": 17568,
-      "occupiedCells": 481,
-      "coveragePct": 2.7379326047358834,
-      "coverageOfAllTerrainPct": 1.7276678280234188,
-      "eligiblePct": 63.10118171042707,
-      "coverageOfEligiblePct": 2.7379326047358834,
+      "targetCells": 40800,
+      "eligibleCells": 36384,
+      "occupiedCells": 93,
+      "coveragePct": 0.25560686015831136,
+      "coverageOfAllTerrainPct": 0.22794117647058823,
+      "eligiblePct": 89.17647058823529,
+      "coverageOfEligiblePct": 0.25560686015831136,
       "coverageRangePct": [
-        2.3679417122040074,
-        3.278688524590164
+        0.15391380826737028,
+        0.4177660510114336
       ],
       "elements": {
         "tree": {
-          "cells": 268,
-          "coveragePct": 1.5255009107468125
+          "cells": 54,
+          "coveragePct": 0.14841688654353563
         },
         "mushroom": {
-          "cells": 107,
-          "coveragePct": 0.6090619307832422
+          "cells": 24,
+          "coveragePct": 0.06596306068601583
         },
         "shrub": {
-          "cells": 105,
-          "coveragePct": 0.5976775956284153
-        },
-        "goldenberry": {
-          "cells": 1,
-          "coveragePct": 0.005692167577413479
+          "cells": 15,
+          "coveragePct": 0.04122691292875989
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 3485,
-          "eligibleCells": 2196,
-          "occupiedCells": 72,
-          "outsideEligible": 17,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 11,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 37,
-            "mushroom": 17,
-            "shrub": 18
+            "tree": 6,
+            "mushroom": 2,
+            "shrub": 3
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 3477,
-          "eligibleCells": 2196,
-          "occupiedCells": 64,
-          "outsideEligible": 14,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 14,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 32,
-            "mushroom": 18,
-            "shrub": 14
+            "tree": 7,
+            "mushroom": 4,
+            "shrub": 3
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 3470,
-          "eligibleCells": 2196,
-          "occupiedCells": 61,
-          "outsideEligible": 9,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 10,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 37,
-            "mushroom": 8,
-            "shrub": 16
+            "tree": 6,
+            "mushroom": 1,
+            "shrub": 3
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 3481,
-          "eligibleCells": 2196,
-          "occupiedCells": 57,
-          "outsideEligible": 13,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 12,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 31,
-            "mushroom": 14,
-            "shrub": 11,
-            "goldenberry": 1
+            "tree": 6,
+            "mushroom": 2,
+            "shrub": 4
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 3478,
-          "eligibleCells": 2196,
-          "occupiedCells": 57,
-          "outsideEligible": 8,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 10,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 36,
-            "mushroom": 10,
-            "shrub": 11
+            "tree": 5,
+            "mushroom": 3,
+            "shrub": 2
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 3477,
-          "eligibleCells": 2196,
-          "occupiedCells": 60,
-          "outsideEligible": 13,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 19,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 36,
-            "mushroom": 14,
-            "shrub": 10
+            "tree": 12,
+            "mushroom": 7
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 3489,
-          "eligibleCells": 2196,
-          "occupiedCells": 58,
-          "outsideEligible": 13,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 10,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 29,
-            "mushroom": 18,
-            "shrub": 11
+            "tree": 6,
+            "mushroom": 4
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 3484,
-          "eligibleCells": 2196,
-          "occupiedCells": 52,
-          "outsideEligible": 14,
+          "targetCells": 5100,
+          "eligibleCells": 4548,
+          "occupiedCells": 7,
+          "outsideEligible": 0,
           "elementCells": {
-            "tree": 30,
-            "mushroom": 8,
-            "shrub": 14
+            "tree": 6,
+            "mushroom": 1
           }
         }
       ]
@@ -750,41 +670,41 @@
     {
       "terrain": "PARK",
       "character": "meadow",
-      "targetCells": 39200,
-      "eligibleCells": 39200,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 2404,
-      "coveragePct": 6.13265306122449,
-      "coverageOfAllTerrainPct": 6.13265306122449,
+      "coveragePct": 3.868434603501545,
+      "coverageOfAllTerrainPct": 3.868434603501545,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 6.13265306122449,
+      "coverageOfEligiblePct": 3.868434603501545,
       "coverageRangePct": [
-        5.408163265306122,
-        7.346938775510204
+        3.4114315139031928,
+        4.634397528321318
       ],
       "elements": {
         "longgrass": {
           "cells": 1705,
-          "coveragePct": 4.349489795918367
+          "coveragePct": 2.743627703398558
         },
         "flowers": {
           "cells": 524,
-          "coveragePct": 1.336734693877551
+          "coveragePct": 0.8432028836251287
         },
         "marigold": {
           "cells": 111,
-          "coveragePct": 0.28316326530612246
+          "coveragePct": 0.17861740473738413
         },
         "shrub": {
           "cells": 64,
-          "coveragePct": 0.16326530612244897
+          "coveragePct": 0.10298661174047374
         }
       },
       "samples": [
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 360,
           "outsideEligible": 0,
           "elementCells": {
@@ -797,8 +717,8 @@
         {
           "tx": 2635,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 281,
           "outsideEligible": 0,
           "elementCells": {
@@ -811,8 +731,8 @@
         {
           "tx": 2650,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 315,
           "outsideEligible": 0,
           "elementCells": {
@@ -825,8 +745,8 @@
         {
           "tx": 2653,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 269,
           "outsideEligible": 0,
           "elementCells": {
@@ -839,8 +759,8 @@
         {
           "tx": 2664,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 309,
           "outsideEligible": 0,
           "elementCells": {
@@ -853,8 +773,8 @@
         {
           "tx": 2667,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 265,
           "outsideEligible": 0,
           "elementCells": {
@@ -867,8 +787,8 @@
         {
           "tx": 2668,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 324,
           "outsideEligible": 0,
           "elementCells": {
@@ -881,8 +801,8 @@
         {
           "tx": 2673,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 281,
           "outsideEligible": 0,
           "elementCells": {
@@ -897,41 +817,41 @@
     {
       "terrain": "PARK",
       "character": "wooded",
-      "targetCells": 39200,
-      "eligibleCells": 39200,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 1431,
-      "coveragePct": 3.6505102040816326,
-      "coverageOfAllTerrainPct": 3.6505102040816326,
+      "coveragePct": 2.302716271884655,
+      "coverageOfAllTerrainPct": 2.302716271884655,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 3.6505102040816326,
+      "coverageOfEligiblePct": 2.302716271884655,
       "coverageRangePct": [
-        3.2653061224489797,
-        4.061224489795919
+        2.059732234809475,
+        2.561791967044284
       ],
       "elements": {
         "tree": {
           "cells": 1099,
-          "coveragePct": 2.8035714285714284
+          "coveragePct": 1.7684732234809475
         },
         "shrub": {
           "cells": 281,
-          "coveragePct": 0.7168367346938775
+          "coveragePct": 0.4521755921730175
         },
         "flowers": {
           "cells": 49,
-          "coveragePct": 0.125
+          "coveragePct": 0.07884912461380021
         },
         "goldenberry": {
           "cells": 2,
-          "coveragePct": 0.00510204081632653
+          "coveragePct": 0.0032183316168898045
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 189,
           "outsideEligible": 0,
           "elementCells": {
@@ -943,8 +863,8 @@
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 175,
           "outsideEligible": 0,
           "elementCells": {
@@ -956,8 +876,8 @@
         {
           "tx": 2631,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 170,
           "outsideEligible": 0,
           "elementCells": {
@@ -970,8 +890,8 @@
         {
           "tx": 2632,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 171,
           "outsideEligible": 0,
           "elementCells": {
@@ -983,8 +903,8 @@
         {
           "tx": 2641,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 198,
           "outsideEligible": 0,
           "elementCells": {
@@ -996,8 +916,8 @@
         {
           "tx": 2642,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 169,
           "outsideEligible": 0,
           "elementCells": {
@@ -1009,8 +929,8 @@
         {
           "tx": 2643,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 160,
           "outsideEligible": 0,
           "elementCells": {
@@ -1022,8 +942,8 @@
         {
           "tx": 2645,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 199,
           "outsideEligible": 0,
           "elementCells": {
@@ -1038,33 +958,33 @@
     {
       "terrain": "PARK",
       "character": "formal",
-      "targetCells": 39200,
-      "eligibleCells": 39200,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 2070,
-      "coveragePct": 5.280612244897959,
-      "coverageOfAllTerrainPct": 5.280612244897959,
+      "coveragePct": 3.3309732234809473,
+      "coverageOfAllTerrainPct": 3.3309732234809473,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 5.280612244897959,
+      "coverageOfEligiblePct": 3.3309732234809473,
       "coverageRangePct": [
-        4.673469387755102,
-        5.714285714285714
+        2.947991761071061,
+        3.604531410916581
       ],
       "elements": {
         "marigold": {
           "cells": 247,
-          "coveragePct": 0.6301020408163265
+          "coveragePct": 0.39746395468589085
         },
         "shrub": {
           "cells": 1823,
-          "coveragePct": 4.650510204081633
+          "coveragePct": 2.933509268795057
         }
       },
       "samples": [
         {
           "tx": 2633,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 269,
           "outsideEligible": 0,
           "elementCells": {
@@ -1075,8 +995,8 @@
         {
           "tx": 2636,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 256,
           "outsideEligible": 0,
           "elementCells": {
@@ -1087,8 +1007,8 @@
         {
           "tx": 2644,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 274,
           "outsideEligible": 0,
           "elementCells": {
@@ -1099,8 +1019,8 @@
         {
           "tx": 2646,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 236,
           "outsideEligible": 0,
           "elementCells": {
@@ -1111,8 +1031,8 @@
         {
           "tx": 2649,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 277,
           "outsideEligible": 0,
           "elementCells": {
@@ -1123,8 +1043,8 @@
         {
           "tx": 2652,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 249,
           "outsideEligible": 0,
           "elementCells": {
@@ -1135,8 +1055,8 @@
         {
           "tx": 2656,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 280,
           "outsideEligible": 0,
           "elementCells": {
@@ -1147,8 +1067,8 @@
         {
           "tx": 2662,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 229,
           "outsideEligible": 0,
           "elementCells": {
@@ -1161,41 +1081,41 @@
     {
       "terrain": "PARK",
       "character": "common",
-      "targetCells": 39200,
-      "eligibleCells": 39200,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 733,
-      "coveragePct": 1.8698979591836735,
-      "coverageOfAllTerrainPct": 1.8698979591836735,
+      "coveragePct": 1.1795185375901134,
+      "coverageOfAllTerrainPct": 1.1795185375901134,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 1.8698979591836735,
+      "coverageOfEligiblePct": 1.1795185375901134,
       "coverageRangePct": [
-        1.4081632653061225,
-        2.183673469387755
+        0.888259526261586,
+        1.3774459320288364
       ],
       "elements": {
         "longgrass": {
           "cells": 551,
-          "coveragePct": 1.405612244897959
+          "coveragePct": 0.886650360453141
         },
         "shrub": {
           "cells": 108,
-          "coveragePct": 0.2755102040816326
+          "coveragePct": 0.17378990731204944
         },
         "flowers": {
           "cells": 73,
-          "coveragePct": 0.18622448979591838
+          "coveragePct": 0.11746910401647785
         },
         "goldenberry": {
           "cells": 1,
-          "coveragePct": 0.002551020408163265
+          "coveragePct": 0.0016091658084449022
         }
       },
       "samples": [
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 107,
           "outsideEligible": 0,
           "elementCells": {
@@ -1207,8 +1127,8 @@
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 85,
           "outsideEligible": 0,
           "elementCells": {
@@ -1220,8 +1140,8 @@
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 96,
           "outsideEligible": 0,
           "elementCells": {
@@ -1233,8 +1153,8 @@
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 82,
           "outsideEligible": 0,
           "elementCells": {
@@ -1246,8 +1166,8 @@
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 98,
           "outsideEligible": 0,
           "elementCells": {
@@ -1260,8 +1180,8 @@
         {
           "tx": 2630,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 92,
           "outsideEligible": 0,
           "elementCells": {
@@ -1273,8 +1193,8 @@
         {
           "tx": 2634,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 69,
           "outsideEligible": 0,
           "elementCells": {
@@ -1286,8 +1206,8 @@
         {
           "tx": 2637,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 104,
           "outsideEligible": 0,
           "elementCells": {
@@ -1301,122 +1221,121 @@
     {
       "terrain": "ROCK",
       "character": null,
-      "targetCells": 44976,
-      "eligibleCells": 44976,
-      "occupiedCells": 11826,
-      "coveragePct": 26.2940234791889,
-      "coverageOfAllTerrainPct": 26.2940234791889,
-      "eligiblePct": 100,
-      "coverageOfEligiblePct": 26.2940234791889,
+      "targetCells": 62144,
+      "eligibleCells": 36384,
+      "occupiedCells": 383,
+      "coveragePct": 1.052660510114336,
+      "coverageOfAllTerrainPct": 0.6163105046343975,
+      "eligiblePct": 58.547888774459324,
+      "coverageOfEligiblePct": 1.052660510114336,
       "coverageRangePct": [
-        24.919957310565636,
-        27.67698327997154
+        0.8795074758135444,
+        1.1653474054529465
       ],
       "elements": {
         "plain_rock": {
-          "cells": 11084,
-          "coveragePct": 24.644254713625045
+          "cells": 355,
+          "coveragePct": 0.9757036059806509
         },
         "ore_rock": {
-          "cells": 742,
-          "coveragePct": 1.6497687655638562
+          "cells": 28,
+          "coveragePct": 0.07695690413368514
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1528,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 51,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1436,
-            "ore_rock": 92
+            "plain_rock": 47,
+            "ore_rock": 4
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1453,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 46,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1376,
-            "ore_rock": 77
+            "plain_rock": 43,
+            "ore_rock": 3
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1420,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 47,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1315,
-            "ore_rock": 105
+            "ore_rock": 4,
+            "plain_rock": 43
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1528,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 53,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1432,
-            "ore_rock": 96
+            "plain_rock": 50,
+            "ore_rock": 3
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1401,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 40,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1320,
-            "ore_rock": 81
+            "plain_rock": 38,
+            "ore_rock": 2
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1458,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 44,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1370,
-            "ore_rock": 88
+            "plain_rock": 44
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1482,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 50,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1380,
-            "ore_rock": 102
+            "plain_rock": 44,
+            "ore_rock": 6
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 5622,
-          "eligibleCells": 5622,
-          "occupiedCells": 1556,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 52,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 1455,
-            "ore_rock": 101
+            "plain_rock": 46,
+            "ore_rock": 6
           }
         }
       ]
@@ -1424,146 +1343,146 @@
     {
       "terrain": "SCHOOL",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
-      "occupiedCells": 26912,
-      "coveragePct": 68.65306122448979,
-      "coverageOfAllTerrainPct": 68.65306122448979,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
+      "occupiedCells": 13506,
+      "coveragePct": 21.73339340885685,
+      "coverageOfAllTerrainPct": 21.73339340885685,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 68.65306122448979,
+      "coverageOfEligiblePct": 21.73339340885685,
       "coverageRangePct": [
-        68.65306122448979,
-        68.65306122448979
+        20.262615859938208,
+        23.68692070030896
       ],
       "elements": {
         "petnip": {
           "cells": 432,
-          "coveragePct": 1.1020408163265305
+          "coveragePct": 0.6951596292481977
         },
         "nettle": {
           "cells": 64,
-          "coveragePct": 0.16326530612244897
+          "coveragePct": 0.10298661174047374
         },
         "forgetmenot": {
           "cells": 429,
-          "coveragePct": 1.094387755102041
+          "coveragePct": 0.690332131822863
         },
         "longgrass": {
-          "cells": 26912,
-          "coveragePct": 68.65306122448979
+          "cells": 13036,
+          "coveragePct": 20.977085478887744
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1674,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 63,
             "nettle": 9,
             "forgetmenot": 58,
-            "longgrass": 3364
+            "longgrass": 1606
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1574,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 52,
             "nettle": 4,
             "forgetmenot": 41,
-            "longgrass": 3364
+            "longgrass": 1525
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1689,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 67,
             "nettle": 8,
             "forgetmenot": 57,
-            "longgrass": 3364
+            "longgrass": 1619
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1693,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 46,
             "nettle": 4,
             "forgetmenot": 59,
-            "longgrass": 3364
+            "longgrass": 1636
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1702,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 40,
             "nettle": 10,
             "forgetmenot": 68,
-            "longgrass": 3364
+            "longgrass": 1639
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1671,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 63,
             "nettle": 8,
             "forgetmenot": 54,
-            "longgrass": 3364
+            "longgrass": 1607
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1663,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 56,
             "nettle": 15,
             "forgetmenot": 43,
-            "longgrass": 3364
+            "longgrass": 1612
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1840,
           "outsideEligible": 0,
           "elementCells": {
             "petnip": 45,
             "nettle": 6,
             "forgetmenot": 49,
-            "longgrass": 3364
+            "longgrass": 1792
           }
         }
       ]
@@ -1571,33 +1490,33 @@
     {
       "terrain": "COMMERCIAL",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 5738,
-      "coveragePct": 14.637755102040817,
-      "coverageOfAllTerrainPct": 14.637755102040817,
+      "coveragePct": 9.233393408856848,
+      "coverageOfAllTerrainPct": 9.233393408856848,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 14.637755102040817,
+      "coverageOfEligiblePct": 9.233393408856848,
       "coverageRangePct": [
-        14.448979591836734,
-        15.122448979591837
+        9.114315139031925,
+        9.53913491246138
       ],
       "elements": {
         "clay_pot": {
           "cells": 648,
-          "coveragePct": 1.653061224489796
+          "coveragePct": 1.0427394438722966
         },
         "shrub": {
           "cells": 5090,
-          "coveragePct": 12.98469387755102
+          "coveragePct": 8.190653964984552
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 741,
           "outsideEligible": 0,
           "elementCells": {
@@ -1608,8 +1527,8 @@
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 720,
           "outsideEligible": 0,
           "elementCells": {
@@ -1620,8 +1539,8 @@
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 708,
           "outsideEligible": 0,
           "elementCells": {
@@ -1632,8 +1551,8 @@
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 712,
           "outsideEligible": 0,
           "elementCells": {
@@ -1644,8 +1563,8 @@
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 720,
           "outsideEligible": 0,
           "elementCells": {
@@ -1656,8 +1575,8 @@
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 717,
           "outsideEligible": 0,
           "elementCells": {
@@ -1668,8 +1587,8 @@
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 712,
           "outsideEligible": 0,
           "elementCells": {
@@ -1680,8 +1599,8 @@
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 708,
           "outsideEligible": 0,
           "elementCells": {
@@ -1694,151 +1613,139 @@
     {
       "terrain": "INDUSTRIAL",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
-      "occupiedCells": 6663,
-      "coveragePct": 16.997448979591837,
-      "coverageOfAllTerrainPct": 16.997448979591837,
-      "eligiblePct": 100,
-      "coverageOfEligiblePct": 16.997448979591837,
+      "targetCells": 62144,
+      "eligibleCells": 36384,
+      "occupiedCells": 232,
+      "coveragePct": 0.6376429199648197,
+      "coverageOfAllTerrainPct": 0.3733264675592173,
+      "eligiblePct": 58.547888774459324,
+      "coverageOfEligiblePct": 0.6376429199648197,
       "coverageRangePct": [
-        15.959183673469388,
-        18.081632653061224
+        0.5057167985927881,
+        0.7695690413368513
       ],
       "elements": {
-        "plain_rock": {
-          "cells": 5446,
-          "coveragePct": 13.892857142857142
-        },
         "ore_rock": {
-          "cells": 710,
-          "coveragePct": 1.8112244897959184
+          "cells": 26,
+          "coveragePct": 0.07145998240985048
+        },
+        "plain_rock": {
+          "cells": 190,
+          "coveragePct": 0.522207563764292
         },
         "barrel": {
-          "cells": 260,
-          "coveragePct": 0.6632653061224489
+          "cells": 9,
+          "coveragePct": 0.024736147757255935
         },
         "shrub": {
-          "cells": 246,
-          "coveragePct": 0.6275510204081632
-        },
-        "goldenberry": {
-          "cells": 1,
-          "coveragePct": 0.002551020408163265
+          "cells": 7,
+          "coveragePct": 0.019239226033421285
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 844,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 31,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 702,
-            "ore_rock": 94,
-            "barrel": 23,
-            "shrub": 25
+            "ore_rock": 5,
+            "plain_rock": 23,
+            "barrel": 1,
+            "shrub": 2
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 800,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 28,
           "outsideEligible": 0,
           "elementCells": {
-            "ore_rock": 86,
-            "plain_rock": 654,
-            "barrel": 33,
-            "shrub": 27
+            "plain_rock": 27,
+            "ore_rock": 1
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 886,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 31,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 715,
-            "ore_rock": 97,
-            "barrel": 43,
-            "shrub": 31
+            "plain_rock": 28,
+            "barrel": 3
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 812,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 35,
           "outsideEligible": 0,
           "elementCells": {
-            "ore_rock": 84,
-            "plain_rock": 661,
-            "barrel": 37,
-            "shrub": 29,
-            "goldenberry": 1
+            "ore_rock": 4,
+            "plain_rock": 27,
+            "barrel": 3,
+            "shrub": 1
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 826,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 27,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 683,
-            "ore_rock": 73,
-            "barrel": 37,
-            "shrub": 33
+            "plain_rock": 22,
+            "ore_rock": 3,
+            "barrel": 1,
+            "shrub": 1
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 782,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 23,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 622,
-            "ore_rock": 91,
-            "barrel": 31,
-            "shrub": 38
+            "plain_rock": 17,
+            "ore_rock": 5,
+            "shrub": 1
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 859,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 29,
           "outsideEligible": 0,
           "elementCells": {
-            "ore_rock": 100,
-            "plain_rock": 723,
-            "barrel": 17,
-            "shrub": 19
+            "plain_rock": 23,
+            "ore_rock": 6
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 854,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 28,
           "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 686,
-            "ore_rock": 85,
-            "barrel": 39,
-            "shrub": 44
+            "plain_rock": 23,
+            "ore_rock": 2,
+            "barrel": 1,
+            "shrub": 2
           }
         }
       ]
@@ -1846,33 +1753,33 @@
     {
       "terrain": "PLAYGROUND",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
       "occupiedCells": 552,
-      "coveragePct": 1.4081632653061225,
-      "coverageOfAllTerrainPct": 1.4081632653061225,
+      "coveragePct": 0.888259526261586,
+      "coverageOfAllTerrainPct": 0.888259526261586,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 1.4081632653061225,
+      "coverageOfEligiblePct": 0.888259526261586,
       "coverageRangePct": [
-        1.2244897959183674,
-        1.7346938775510203
+        0.772399588053553,
+        1.0942327497425335
       ],
       "elements": {
         "longgrass": {
           "cells": 278,
-          "coveragePct": 0.7091836734693877
+          "coveragePct": 0.4473480947476828
         },
         "flowers": {
           "cells": 274,
-          "coveragePct": 0.6989795918367347
+          "coveragePct": 0.4409114315139032
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 85,
           "outsideEligible": 0,
           "elementCells": {
@@ -1883,8 +1790,8 @@
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 63,
           "outsideEligible": 0,
           "elementCells": {
@@ -1895,8 +1802,8 @@
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 67,
           "outsideEligible": 0,
           "elementCells": {
@@ -1907,8 +1814,8 @@
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 67,
           "outsideEligible": 0,
           "elementCells": {
@@ -1919,8 +1826,8 @@
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 74,
           "outsideEligible": 0,
           "elementCells": {
@@ -1931,8 +1838,8 @@
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 60,
           "outsideEligible": 0,
           "elementCells": {
@@ -1943,8 +1850,8 @@
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 70,
           "outsideEligible": 0,
           "elementCells": {
@@ -1955,8 +1862,8 @@
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
           "occupiedCells": 66,
           "outsideEligible": 0,
           "elementCells": {
@@ -1969,110 +1876,110 @@
     {
       "terrain": "PITCH",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
-      "occupiedCells": 26912,
-      "coveragePct": 68.65306122448979,
-      "coverageOfAllTerrainPct": 68.65306122448979,
+      "targetCells": 62144,
+      "eligibleCells": 62144,
+      "occupiedCells": 13036,
+      "coveragePct": 20.977085478887744,
+      "coverageOfAllTerrainPct": 20.977085478887744,
       "eligiblePct": 100,
-      "coverageOfEligiblePct": 68.65306122448979,
+      "coverageOfEligiblePct": 20.977085478887744,
       "coverageRangePct": [
-        68.65306122448979,
-        68.65306122448979
+        19.631822863027807,
+        23.06900102986612
       ],
       "elements": {
         "longgrass": {
-          "cells": 26912,
-          "coveragePct": 68.65306122448979
+          "cells": 13036,
+          "coveragePct": 20.977085478887744
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1606,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1606
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1525,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1525
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1619,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1619
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1636,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1636
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1639,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1639
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1607,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1607
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1612,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1612
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 3364,
+          "targetCells": 7768,
+          "eligibleCells": 7768,
+          "occupiedCells": 1792,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 3364
+            "longgrass": 1792
           }
         }
       ]
@@ -2080,156 +1987,140 @@
     {
       "terrain": "WETLAND",
       "character": null,
-      "targetCells": 39200,
-      "eligibleCells": 39200,
-      "occupiedCells": 7578,
-      "coveragePct": 19.331632653061224,
-      "coverageOfAllTerrainPct": 19.331632653061224,
-      "eligiblePct": 100,
-      "coverageOfEligiblePct": 19.331632653061224,
+      "targetCells": 62144,
+      "eligibleCells": 36384,
+      "occupiedCells": 351,
+      "coveragePct": 0.9647097625329816,
+      "coverageOfAllTerrainPct": 0.5648171987641607,
+      "eligiblePct": 58.547888774459324,
+      "coverageOfEligiblePct": 0.9647097625329816,
       "coverageRangePct": [
-        17.571428571428573,
-        21.244897959183675
+        0.8135444151275286,
+        1.121372031662269
       ],
       "elements": {
         "longgrass": {
-          "cells": 4734,
-          "coveragePct": 12.076530612244898
+          "cells": 213,
+          "coveragePct": 0.5854221635883905
         },
         "shrub": {
-          "cells": 1093,
-          "coveragePct": 2.788265306122449
-        },
-        "goldenberry": {
-          "cells": 8,
-          "coveragePct": 0.02040816326530612
+          "cells": 56,
+          "coveragePct": 0.15391380826737028
         },
         "mushroom": {
-          "cells": 1666,
-          "coveragePct": 4.25
+          "cells": 80,
+          "coveragePct": 0.2198768689533861
         },
         "poisonberry": {
-          "cells": 77,
-          "coveragePct": 0.19642857142857142
+          "cells": 2,
+          "coveragePct": 0.005496921723834653
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 1041,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 49,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 629,
-            "shrub": 187,
-            "goldenberry": 1,
-            "mushroom": 211,
-            "poisonberry": 13
+            "longgrass": 29,
+            "shrub": 10,
+            "mushroom": 9,
+            "poisonberry": 1
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 861,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 42,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 549,
-            "shrub": 88,
-            "mushroom": 211,
-            "poisonberry": 13
+            "longgrass": 29,
+            "shrub": 4,
+            "mushroom": 8,
+            "poisonberry": 1
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 951,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 50,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 547,
-            "shrub": 182,
-            "goldenberry": 1,
-            "mushroom": 214,
-            "poisonberry": 7
+            "longgrass": 27,
+            "shrub": 13,
+            "mushroom": 10
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 998,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 51,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 637,
-            "shrub": 98,
-            "mushroom": 253,
-            "poisonberry": 10
+            "longgrass": 29,
+            "shrub": 6,
+            "mushroom": 16
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 895,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 37,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 590,
-            "shrub": 105,
-            "goldenberry": 1,
-            "mushroom": 192,
-            "poisonberry": 7
+            "longgrass": 21,
+            "shrub": 7,
+            "mushroom": 9
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 959,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 42,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 664,
-            "shrub": 123,
-            "goldenberry": 2,
-            "mushroom": 165,
-            "poisonberry": 5
+            "longgrass": 34,
+            "shrub": 4,
+            "mushroom": 4
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 885,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 37,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 512,
-            "shrub": 159,
-            "goldenberry": 1,
-            "mushroom": 208,
-            "poisonberry": 5
+            "longgrass": 20,
+            "shrub": 7,
+            "mushroom": 10
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 4900,
-          "eligibleCells": 4900,
-          "occupiedCells": 988,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 43,
           "outsideEligible": 0,
           "elementCells": {
-            "longgrass": 606,
-            "shrub": 151,
-            "goldenberry": 2,
-            "mushroom": 212,
-            "poisonberry": 17
+            "longgrass": 24,
+            "shrub": 5,
+            "mushroom": 14
           }
         }
       ]
@@ -2327,269 +2218,235 @@
     {
       "terrain": "ORCHARD",
       "character": null,
-      "targetCells": 60992,
-      "eligibleCells": 4352,
-      "occupiedCells": 868,
-      "coveragePct": 19.94485294117647,
-      "coverageOfAllTerrainPct": 1.4231374606505771,
-      "eligiblePct": 7.135362014690451,
-      "coverageOfEligiblePct": 19.94485294117647,
+      "targetCells": 62144,
+      "eligibleCells": 1920,
+      "occupiedCells": 0,
+      "coveragePct": 0,
+      "coverageOfAllTerrainPct": 0,
+      "eligiblePct": 3.089598352214212,
+      "coverageOfEligiblePct": 0,
       "coverageRangePct": [
-        19.485294117647058,
-        20.772058823529413
+        0,
+        0
       ],
-      "elements": {
-        "fruittree": {
-          "cells": 832,
-          "coveragePct": 19.11764705882353
-        },
-        "longgrass": {
-          "cells": 36,
-          "coveragePct": 0.8272058823529411
-        }
-      },
+      "elements": {},
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 111,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 7
-          }
+          "elementCells": {}
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 107,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 3
-          }
+          "elementCells": {}
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 110,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 6
-          }
+          "elementCells": {}
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 108,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 4
-          }
+          "elementCells": {}
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 107,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 3
-          }
+          "elementCells": {}
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 106,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 2
-          }
+          "elementCells": {}
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 113,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 9
-          }
+          "elementCells": {}
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 7624,
-          "eligibleCells": 544,
-          "occupiedCells": 106,
+          "targetCells": 7768,
+          "eligibleCells": 240,
+          "occupiedCells": 0,
           "outsideEligible": 0,
-          "elementCells": {
-            "fruittree": 104,
-            "longgrass": 2
-          }
+          "elementCells": {}
         }
       ]
     },
     {
       "terrain": "WASTELAND",
       "character": null,
-      "targetCells": 27984,
-      "eligibleCells": 17568,
-      "occupiedCells": 1162,
-      "coveragePct": 6.6142987249544625,
-      "coverageOfAllTerrainPct": 4.152372784448256,
-      "eligiblePct": 62.77873070325901,
-      "coverageOfEligiblePct": 6.6142987249544625,
+      "targetCells": 62144,
+      "eligibleCells": 36384,
+      "occupiedCells": 257,
+      "coveragePct": 0.7063544415127528,
+      "coverageOfAllTerrainPct": 0.41355561277033986,
+      "eligiblePct": 58.547888774459324,
+      "coverageOfEligiblePct": 0.7063544415127528,
       "coverageRangePct": [
-        5.646630236794171,
-        7.285974499089253
+        0.4837291116974494,
+        0.8575197889182058
       ],
       "elements": {
         "plain_rock": {
-          "cells": 816,
-          "coveragePct": 4.644808743169399
+          "cells": 174,
+          "coveragePct": 0.4782321899736148
         },
         "ore_rock": {
-          "cells": 57,
-          "coveragePct": 0.3244535519125683
-        },
-        "longgrass": {
-          "cells": 92,
-          "coveragePct": 0.52367941712204
+          "cells": 13,
+          "coveragePct": 0.03572999120492524
         },
         "shrub": {
-          "cells": 197,
-          "coveragePct": 1.1213570127504553
+          "cells": 50,
+          "coveragePct": 0.1374230430958663
+        },
+        "longgrass": {
+          "cells": 20,
+          "coveragePct": 0.054969217238346524
         }
       },
       "samples": [
         {
           "tx": 2622,
           "ty": 5615,
-          "targetCells": 3497,
-          "eligibleCells": 2196,
-          "occupiedCells": 141,
-          "outsideEligible": 26,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 31,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 105,
-            "ore_rock": 5,
-            "longgrass": 16,
-            "shrub": 15
+            "plain_rock": 19,
+            "ore_rock": 1,
+            "shrub": 6,
+            "longgrass": 5
           }
         },
         {
           "tx": 2623,
           "ty": 5615,
-          "targetCells": 3490,
-          "eligibleCells": 2196,
-          "occupiedCells": 160,
-          "outsideEligible": 24,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 39,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 115,
-            "ore_rock": 7,
-            "shrub": 19,
-            "longgrass": 19
+            "ore_rock": 2,
+            "plain_rock": 30,
+            "longgrass": 2,
+            "shrub": 5
           }
         },
         {
           "tx": 2624,
           "ty": 5615,
-          "targetCells": 3510,
-          "eligibleCells": 2196,
-          "occupiedCells": 153,
-          "outsideEligible": 28,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 35,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 111,
-            "ore_rock": 8,
-            "longgrass": 9,
-            "shrub": 25
+            "plain_rock": 24,
+            "ore_rock": 3,
+            "shrub": 5,
+            "longgrass": 3
           }
         },
         {
           "tx": 2625,
           "ty": 5615,
-          "targetCells": 3498,
-          "eligibleCells": 2196,
-          "occupiedCells": 145,
-          "outsideEligible": 25,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 33,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 100,
-            "ore_rock": 6,
-            "shrub": 29,
-            "longgrass": 10
+            "plain_rock": 21,
+            "ore_rock": 2,
+            "shrub": 8,
+            "longgrass": 2
           }
         },
         {
           "tx": 2626,
           "ty": 5615,
-          "targetCells": 3496,
-          "eligibleCells": 2196,
-          "occupiedCells": 130,
-          "outsideEligible": 25,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 36,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 96,
-            "ore_rock": 5,
-            "longgrass": 11,
-            "shrub": 18
+            "plain_rock": 24,
+            "shrub": 8,
+            "longgrass": 4
           }
         },
         {
           "tx": 2627,
           "ty": 5615,
-          "targetCells": 3500,
-          "eligibleCells": 2196,
-          "occupiedCells": 151,
-          "outsideEligible": 25,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 22,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 100,
-            "ore_rock": 12,
-            "shrub": 34,
-            "longgrass": 5
+            "plain_rock": 15,
+            "ore_rock": 2,
+            "shrub": 4,
+            "longgrass": 1
           }
         },
         {
           "tx": 2628,
           "ty": 5615,
-          "targetCells": 3505,
-          "eligibleCells": 2196,
-          "occupiedCells": 158,
-          "outsideEligible": 28,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 30,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 105,
-            "ore_rock": 9,
-            "longgrass": 14,
-            "shrub": 30
+            "plain_rock": 20,
+            "ore_rock": 2,
+            "shrub": 6,
+            "longgrass": 2
           }
         },
         {
           "tx": 2629,
           "ty": 5615,
-          "targetCells": 3488,
-          "eligibleCells": 2196,
-          "occupiedCells": 124,
-          "outsideEligible": 17,
+          "targetCells": 7768,
+          "eligibleCells": 4548,
+          "occupiedCells": 31,
+          "outsideEligible": 0,
           "elementCells": {
-            "plain_rock": 84,
-            "ore_rock": 5,
-            "shrub": 27,
-            "longgrass": 8
+            "plain_rock": 21,
+            "ore_rock": 1,
+            "shrub": 8,
+            "longgrass": 1
           }
         }
       ]

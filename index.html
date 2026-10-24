@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-39cc6ffd';
+    window.__shellVersion = 'shell-665b6883';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -31,31 +31,6 @@
     // End sandbox local reset.
   </script>
   <script>
-    // Local art trials use the current checkout, not a previous worker's art.
-    (function () {
-      const local = ['localhost', '127.0.0.1', '[::1]'].includes(location.hostname);
-      const trial = new URLSearchParams(location.search).get('artTrial');
-      window.__localArtTrial = local && ['dreamland', 'rogue'].includes(trial);
-      if (!window.__localArtTrial || !('serviceWorker' in navigator)) return;
-      const scope = new URL('./', location.href).href;
-      const key = 'terracart.artTrialWorkerReload:' + scope;
-      window.__artTrialCacheReady = (async () => {
-        const controlled = !!navigator.serviceWorker.controller;
-        if (!controlled) { try { sessionStorage.removeItem(key); } catch (_) {} }
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        const registration = registrations.find(item => item.scope === scope);
-        if (!registration || !await registration.unregister() || !controlled) return;
-        // Unregistering leaves this document controlled until navigation. One
-        // reload releases it; saves and cached regions are deliberately kept.
-        try {
-          if (sessionStorage.getItem(key)) return;
-          sessionStorage.setItem(key, '1');
-        } catch (_) { return; } // Denied storage must not risk a reload loop.
-        location.reload();
-      })().catch(error => console.warn('Art trial cache reset failed:', error));
-    })();
-    // End local art trial cache reset.
-
     // Boot recovery stays inline: it must work even when no dependency arrives.
     (function () {
       const KEY = 'terracart.bootRetries', LIMIT = 2;
@@ -128,7 +103,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=66fb61c4" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=46ee2a8d" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3212,7 +3187,7 @@
     // works offline once a region has been visited, and reloads are
     // fast on cellular. Only registered when the page is served over
     // http(s) (file:// has no SW support).
-    if ('serviceWorker' in navigator && location.protocol !== 'file:' && !window.__localArtTrial) {
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
       window.addEventListener('load', () => {
         navigator.serviceWorker.register('sw.js').catch(err => {
           console.warn('SW registration failed:', err);
@@ -3237,15 +3212,15 @@
   <script src="src/street_variants.js?v=8512f2b2"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=5beaaecb"></script>
-  <script src="src/zone_variant_data.js?v=a8aab6a4"></script>
+  <script src="src/zone_variant_data.js?v=407ce7bf"></script>
   <script src="src/terrain.js?v=c89a463c"></script>
-  <script src="src/zone_variants.js?v=de477ee0"></script>
+  <script src="src/zone_variants.js?v=30f0e0de"></script>
   <script src="src/shrines.js?v=9837aa27"></script>
   <script src="src/status_icons.js?v=229d3571"></script>
   <script src="src/buffs.js?v=4c8c6973"></script>
   <script src="src/zone_coverage.js?v=82ef283c"></script>
   <script src="src/quarry_layout.js?v=6b945d34"></script>
-  <script src="src/zone_dressing.js?v=9a4b9c15"></script>
+  <script src="src/zone_dressing.js?v=38567d46"></script>
   <script src="src/reef_layout.js?v=5ac55392"></script>
   <script src="src/sprite_layout.js?v=46d70e97"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
@@ -3259,7 +3234,7 @@
   <script src="src/traps.js?v=925461a6"></script>
   <script src="src/whirlwinds.js?v=30217fab"></script>
   <script src="src/hazard_falls.js?v=6834dff4"></script>
-  <script src="src/environment_hazards.js?v=ea6cf89c"></script>
+  <script src="src/environment_hazards.js?v=798bb638"></script>
   <script src="src/spider_webs.js?v=4677643f"></script>
   <script src="src/waystones.js?v=26bf68e3"></script>
   <script src="src/pressure_traps.js?v=cb929211"></script>
@@ -3287,7 +3262,7 @@
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=92b9639f"></script>
+  <script src="src/items.js?v=092d6cb1"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=12063166"></script>
@@ -3335,16 +3310,16 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=e68ef88c"></script>
+  <script src="src/interact.js?v=188dfa8e"></script>
   <script src="src/play_tips.js?v=4d1075a6"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=4a0b5264"></script>
+  <script src="src/lighting.js?v=0e8fc63e"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=ee6190a1"></script>
+  <script src="src/render.js?v=a4538aab"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/multiplayer.js?v=2af3d29f"></script>
-  <script src="src/road_overlay.js?v=7975227c"></script>
+  <script src="src/road_overlay.js?v=133ca23e"></script>
   <script src="src/temple_art.js?v=8e47066c"></script>
   <script src="src/wall_materials.js?v=58a081bb"></script>
   <script src="src/wall_surface_renderer.js?v=d11a558d"></script>
@@ -3366,16 +3341,16 @@
   <script src="src/fdr_castle_layout.js?v=39a4988f"></script>
   <script src="src/fdr_castle_geometry.js?v=166dd87d"></script>
   <script src="src/fdr_castle_canvas.js?v=61b2dd7d"></script>
-  <script src="src/building_overlay.js?v=f6f814e1"></script>
+  <script src="src/building_overlay.js?v=21feafd4"></script>
   <script src="src/art_atlas.js?v=bcd97f7b"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>
-  <script src="src/assets.js?v=d47f8cdd"></script>
+  <script src="src/assets.js?v=1511ca9d"></script>
   <script src="src/terrain_transitions.js?v=4572a944"></script>
   <script src="src/mountain_edges.js?v=d945f4c2"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
   <script src="src/rogue_prop_profile.js?v=db5c63e0"></script>
-  <script src="src/rogue_objects.js?v=f8412c3c"></script>
-  <script src="src/sandbox_destinations.js?v=43e97b98"></script>
+  <script src="src/rogue_objects.js?v=5872e643"></script>
+  <script src="src/sandbox_destinations.js?v=4ba9061a"></script>
   <script src="src/sandbox.js?v=d2c9b280"></script>
   <script src="src/sandbox_scenarios.js?v=277dff08"></script>
   <script src="src/floor_sandbox.js?v=38f9ea2d"></script>
@@ -3393,7 +3368,7 @@
   <script src="src/heading_up.js?v=c5a5fa95"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=0b502889"></script>
+  <script src="src/scene_create.js?v=23421475"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3401,7 +3376,7 @@
   <script src="src/scene_pets.js?v=b0c58511"></script>
   <script src="src/scene_venues.js?v=4f9ca474"></script>
   <script src="src/scene_furniture.js?v=16a790f0"></script>
-  <script src="src/scene_streets.js?v=18177695"></script>
+  <script src="src/scene_streets.js?v=ff399055"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -3472,7 +3447,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=66fb61c4';
+      const APP_SRC = 'src/app.js?v=46ee2a8d';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

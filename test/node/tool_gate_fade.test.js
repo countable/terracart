@@ -127,16 +127,32 @@ test('player occlusion: tool tiers no longer set tree or rock opacity', () => {
   assert.truthy(RENDER_FRUIT_PASS_SRC.includes('s.setAlpha(item.treeSprite.alpha)'),
     'fruit sitting on a faded canopy follows its tree');
 });
-test('player occlusion: a street lamp never fades, even standing behind the post', () => {
-  const spec = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map(), false)
-    .RENDER_SPEC._streetlamp;
-  const px = 32 * RoadOverlay.LAMP_DRAW_CELLS;
-  const lamp = { ...sprite({ kind: '_streetlamp' }), originY: RoadOverlay.LAMP_GROUND_FRAC, frame: { width: 128, height: 128 },
-    scaleX: px / 128, scaleY: px / 128 };
-  const art = { texKey: 'streetlamp_fixture', frameVal: '__BASE', spec, ground: false };
-  // The body box sits a cell above the lamp's feet, as the player stands just north.
-  const body = { x0: -6, x1: 6, y0: lamp.y - 40, y1: lamp.y - 24 };
-  Render.fadeObjectOverPlayer(lamp, art, { ...body, x0: body.x0 + 100, x1: body.x1 + 100 }, 4, 1);
-  assert.eq(lamp.alpha, 1, 'a lamp is not a building or a tree');
+test('player occlusion: native street lamps stay opaque over their post and transparent margins', () => {
+  const spec = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map()).RENDER_SPEC._streetlamp;
+  for (const lit of [true, false]) {
+    const key = spec.key({ lit }), frame = key + ':__BASE';
+    const native = ROGUE_OBJECT_BOUNDS[lit ? 'lamp' : 'lamp_unlit'];
+    const previous = SpriteLayout.ART_BOUNDS[frame];
+    SpriteLayout.ART_BOUNDS[frame] = native;
+    try {
+      const lamp = { ...sprite({ kind: '_streetlamp', lit }), originX: spec.origin[0], originY: spec.origin[1],
+        frame: { width: native.fw, height: native.fh }, scaleX: spec.scale, scaleY: spec.scale };
+      const art = { texKey: key, frameVal: '__BASE', spec, ground: false };
+      const centerY = lamp.y + ((native.minY + native.maxY) / 2 - lamp.originY * native.fh) * lamp.scaleY;
+      const body = { x0: lamp.x - 2, x1: lamp.x + 2, y0: centerY - 2, y1: centerY + 2 };
+      Render.fadeObjectOverPlayer(lamp, art, body, 4, 1);
+      assert.eq(lamp.alpha, 1, 'a native lamp stays opaque even when its post covers the player');
+      const edge = lamp.x + (native.maxX - lamp.originX * native.fw) * lamp.scaleX;
+      Render.fadeObjectOverPlayer(lamp, art, { ...body, x0: edge + .1, x1: edge + 2 }, 4, 1);
+      assert.eq(lamp.alpha, 1, 'transparent source margins leave the lamp opaque');
+      Render.fadeObjectOverPlayer(lamp, art, body, 6, 1);
+      assert.eq(lamp.alpha, 1, 'walking in front leaves the lamp opaque');
+    } finally {
+      if (previous) SpriteLayout.ART_BOUNDS[frame] = previous;
+      else delete SpriteLayout.ART_BOUNDS[frame];
+    }
+  }
+
 });
+
 })();

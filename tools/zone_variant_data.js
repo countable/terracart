@@ -66,6 +66,11 @@ for (const row of data.variants) {
   if (b.gapScatter) {
     material(b.gapScatter.material);
     if (b.type !== 'repeat_motif' || !(b.gapScatter.chance > 0 && b.gapScatter.chance <= 1)) fail(`gap scatter ${row.id}`);
+    const a = b.gapScatter.attraction;
+    if (a) {
+      if (!a.materials?.length || !(a.radiusCells > 0) || !(a.floor >= 0 && a.floor <= 1)) fail(`gap attraction ${row.id}`);
+      a.materials.forEach(material);
+    }
   }
   for (const id of Object.keys(b.materialDensity)) material(id);
   for (const id of Object.keys(b.hazardDensity || {})) material(id);

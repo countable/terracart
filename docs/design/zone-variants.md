@@ -40,8 +40,8 @@ Regenerate it after editing the JSON with
   finds, connections (`connectionSteps`, reading the row's
   `connection.shape`) and guards, all through the shared spawn gate.
 - `PressureTraps` (`src/pressure_traps.js`): authored `footpaths` become visible
-  ground plates; Sacred Grove uses broken grid seams and a saved one-shot ghost
-  trigger after ordinary scenery and protected routes have claimed their cells.
+  ground plates when a row declares them; Sacred Grove has no authored footpaths.
+  Plate placement follows ordinary scenery and protected-route reservations.
 - `QuarryLayout` (`src/quarry_layout.js`): quarry modules and their budgets.
 
 ## Choosing a variant
