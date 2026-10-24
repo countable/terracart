@@ -580,6 +580,11 @@ class SceneCreate {
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    // Visibility is a grey veil, independent of the multiply lighting pass.
+    this.visibilityFogTex = Render.viewportCanvas(this, 'visibilityfog', 0).tex;
+    this.visibilityFogTex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.visibilityFog = this.add.image(this.viewLeft, this.viewTop, 'visibilityfog')
+      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.NORMAL);
     // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
     // a jackpot / shiny banner, pale chips off a street coming back, leaf
     // flecks off a crop reaching its next stage. ABOVE the lightmap because a

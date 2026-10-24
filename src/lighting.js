@@ -1706,10 +1706,9 @@
   // Returns true when it painted, false when the still-frame gate reused the
   // last upload. Times itself for the load profile: scene._boot_lightMs is
   // what drawObjects' own tick subtracts, since this runs inside that pass.
-  // The cover mask uses the exploration fog's low-resolution, world-keyed
-  // wisps. Its half-cell sight samples stay authoritative for gameplay;
-  // interpolation only softens the visual edge. Full interiors retain their
-  // exact opacity, and no second lighting texture or pixel readback is needed.
+  // Gameplay sight stays exact. This cached visual mask uses a low-resolution
+  // pullback and separable smoothing, then paints 25% neutral grey fog.
+  // It never reads canvas pixels or changes actor/scenery visibility.
   function coverFrame(scene, ax, ay, W, H) {
     if (scene.save?.energy != null && Combat.playerDowned(scene.save.energy)) return null;
     if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
@@ -1720,12 +1719,12 @@
     // feather is wide, and walking or GPS glide repaints only per step, not
     // every frame (a repaint traces every sample's ray).
     const eye = Visibility.observer(scene, scene.cellM / 8);
-    // Four half-cell samples of padding keep the wider visual feather stable
-    // at the viewport edge while the observer and camera move independently.
-    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 4;
-    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 4;
-    const D = Math.ceil(Math.max(W, H) / stepPx) + 10;
-    const cells = D - 8, samples = FOG_SUB / 2, N = cells * samples;
+    // Two samples outside every painted edge keep the feather continuous while
+    // the padded mask scrolls. Normal game viewports are square.
+    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
+    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 2;
+    const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
+    const cells = D - 4, samples = FOG_SUB / 2, N = cells * samples;
     const latticeKey = [x0, y0, D, scene.cellM].join('|');
     const key = [revision, scene.depth, eye.x, eye.y, latticeKey].join('|');
     let mask = scene._coverLightMask;
@@ -1741,6 +1740,8 @@
         mask.img = mask.ctx.createImageData(N, N);
         mask.field = new Float32Array(D * D);
         mask.feather = new Float32Array(D * D);
+        mask.effect = new Float32Array(N * N);
+        mask.effectTemp = new Float32Array(N * N);
         mask.sampleX = new Float32Array(N * N);
         mask.sampleY = new Float32Array(N * N);
         mask.latticeKey = null;
@@ -1750,7 +1751,7 @@
       if (mask.latticeKey !== latticeKey) {
         let i = 0;
         for (let y = 0; y < N; y++) for (let x = 0; x < N; x++, i++) {
-          const fx = 3.5 + (x + .5) / samples, fy = 3.5 + (y + .5) / samples;
+          const fx = 1.5 + (x + .5) / samples, fy = 1.5 + (y + .5) / samples;
           const wx = (x0 + fx + .5) / 2, wy = (y0 + fy + .5) / 2;
           // At most one eighth of a cell of irregularity; unlike exploration
           // fog's long ramp, a narrow wall shadow must keep its dark centre.
@@ -1767,40 +1768,77 @@
         mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }
-      // A five-tap Gaussian smooths both sides of partial-cover boundaries.
-      // Keeping every partial sample at full strength made isolated half-cell
-      // steps survive the old outward-only feather. Actor hiding still uses
-      // exact rays; the visual wash can soften without revealing an actor.
-      // Opaque cave samples retain their full alpha so walls cannot leak.
-      const weights = [1, 4, 6, 4, 1];
-      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-        let value = 0;
-        for (let k = -2; k <= 2; k++)
-          value += mask.field[y * D + Math.max(0, Math.min(D - 1, x + k))] * weights[k + 2];
-        mask.feather[y * D + x] = value / 16;
-      }
-      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
+      // A small separable tent filter broadens the feather to about one cell.
+      // Only the visual field is filtered; sight tests stay exact. Each pass
+      // keeps the darker of the sample and its blur, so the feather spreads
+      // OUTWARD only: a narrow bush shadow, whose cells hide what stands in
+      // them, keeps its full darkness instead of averaging toward clear ground.
+      // No extra canvas or pixel readback.
+      for (let y = 0; y < D; y++) for (let x = 1; x < D - 1; x++) {
         const i = y * D + x;
-        if (mask.field[i] === Visibility.FULL_DARKNESS) continue;
-        let value = 0;
-        for (let k = -2; k <= 2; k++)
-          value += mask.feather[Math.max(0, Math.min(D - 1, y + k)) * D + x] * weights[k + 2];
-        mask.field[i] = value / 16;
+        mask.feather[i] = Math.max(mask.field[i], (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4);
+      }
+      for (let y = 1; y < D - 1; y++) for (let x = 1; x < D - 1; x++) {
+        const i = y * D + x;
+        mask.field[i] = Math.max(mask.feather[i], (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4);
       }
       const data = mask.img.data;
       for (let i = 0; i < N * N; i++) {
         data[i * 4 + 3] = Math.round(255 * fogSample(mask.field, D, mask.sampleX[i], mask.sampleY[i]));
+      }
+      // Pull the visual boundary 0.7 cells away from the snapped observer.
+      // Work on the existing CPU alpha buffer; retained arrays avoid readback
+      // and allocations on each observer step. Partial and full cover share
+      // the fog colour/opacity; Visibility still decides which entities hide.
+      const px = (eye.x / stepM - x0 - 2) * samples;
+      const py = (eye.y / stepM - y0 - 2) * samples;
+      const retreat = .7 * 2 * samples;
+      const effect = mask.effect, temp = mask.effectTemp;
+      const at = (x, y) => data[(Math.max(0, Math.min(N - 1, y)) * N
+        + Math.max(0, Math.min(N - 1, x))) * 4 + 3] / 128;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const dx = x + .5 - px, dy = y + .5 - py, r = Math.hypot(dx, dy);
+        if (r <= retreat) { effect[y * N + x] = 0; continue; }
+        const fx = x - dx / r * retreat, fy = y - dy / r * retreat;
+        const ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+        effect[y * N + x] = Math.min(1,
+          (at(ix, iy) * (1 - tx) + at(ix + 1, iy) * tx) * (1 - ty)
+          + (at(ix, iy + 1) * (1 - tx) + at(ix + 1, iy + 1) * tx) * ty);
+      }
+      // Seven-sample rolling averages round small steps without tracing a
+      // polygon. A bounded smooth threshold retains a soft, compact edge.
+      const radius = 3, span = 7;
+      for (let y = 0; y < N; y++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) sum += effect[y * N + Math.max(0, Math.min(N - 1, k))];
+        for (let x = 0; x < N; x++) {
+          temp[y * N + x] = sum / span;
+          sum += effect[y * N + Math.min(N - 1, x + radius + 1)] - effect[y * N + Math.max(0, x - radius)];
+        }
+      }
+      for (let x = 0; x < N; x++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) sum += temp[Math.max(0, Math.min(N - 1, k)) * N + x];
+        for (let y = 0; y < N; y++) {
+          const t = Math.max(0, Math.min(1, (sum / span - .30) / .40)), i = (y * N + x) * 4;
+          data[i] = data[i + 1] = data[i + 2] = 128;
+          data[i + 3] = Math.round(255 * .25 * t * t * (3 - 2 * t));
+          sum += temp[Math.min(N - 1, y + radius + 1) * N + x] - temp[Math.max(0, y - radius) * N + x];
+        }
       }
       mask.ctx.putImageData(mask.img, 0, 0);
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = true;
       ctx.globalCompositeOperation = 'copy';
       ctx.drawImage(buffer, 0, 0, N, N, 0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.globalCompositeOperation = 'source-over';
       mask.key = key;
     }
-    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 4) * stepM - ax) * CELL_PX / scene.cellM);
-    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 4) * stepM - ay) * CELL_PX / scene.cellM);
+    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 2) * stepM - ax) * CELL_PX / scene.cellM);
+    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 2) * stepM - ay) * CELL_PX / scene.cellM);
     return { canvas: mask.canvas, revision: mask.key, x, y, key: key + '|' + x + ',' + y };
   }
 
@@ -1846,16 +1884,26 @@
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
     const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const rawCover = coverFrame(scene, ax, ay, tex.width, tex.height);
-    const cover = rawCover && typeof Render !== 'undefined' && Render.protectCoverScenery
-      ? Render.protectCoverScenery(scene, rawCover) : rawCover;
+    const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
+    // Grey fog uses NORMAL blending above the multiply lightmap, independently
+    // cached so moving lights cannot force mask uploads or per-object work.
+    const fog = scene.visibilityFogTex;
+    if (fog) {
+      const fogKey = (cover?.key || 'clear') + '|' + fog.width + ',' + fog.height;
+      if (fog.__coverKey !== fogKey) {
+        fog.context.clearRect(0, 0, fog.width, fog.height);
+        if (cover) fog.context.drawImage(cover.canvas, cover.x, cover.y);
+        fog.refresh();
+        fog.__coverKey = fogKey;
+      }
+    }
     // INDOORS (scene_venues.js activeInterior): the room round the player.
     // The mask is painted on the canvas path, so the GPU path stands down
     // while it is up.
     const indoors = scene.activeInterior ? scene.activeInterior()
       : scene.homeInterior ? scene.homeInterior() : null;
     const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene) && !indoors;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|gpu:' + gpu
       + '|in:' + (indoors ? indoorKey(scene, indoors) : '');
     if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
@@ -1906,7 +1954,7 @@
       }
       const plan = scene._lightGPUPlan = { key, width: W, height: H, base,
         reach: { masks: contribution.items, gradient, gain: REACH_OUTPUT_K },
-        world: cookies.items, stamps, cover };
+        world: cookies.items, stamps, cover: null };
       gpuPainted = LightingGPU.draw(scene, plan);
       // The backend restores the Canvas image on failure. Paint it immediately,
       // then invalidate the mode key so the next frame cannot reuse stale work.
@@ -1956,7 +2004,6 @@
       ctx.globalCompositeOperation = 'source-over';
       const uploadT0 = B ? performance.now() : 0;
       if (indoors) paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H);
-      if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
       tex.refresh();
       if (B) B.tick('lighting upload', performance.now() - uploadT0);
     }
