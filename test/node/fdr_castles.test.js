@@ -70,6 +70,74 @@
       a.forEach((p,i)=>{assert.lt(Math.abs(p.u-b[i].u),1e-7);assert.lt(Math.abs(p.v-b[i].v),1e-7);});
     } finally { WallPerspective.inView=oldView;WallPerspective.prism=oldPrism; }
   });
+  test('FDR castles: clipped curtain bodies cannot paint over their own crowns at any heading', () => {
+    const ringKey=points=>JSON.stringify(points.map(p=>[p.x,p.y]));
+    for(const points of [L.rect(0,0,240,180),concave,concave.slice().reverse(),
+      [{x:0,y:0},{x:180,y:20},{x:120,y:140},{x:-30,y:90}]]) {
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,
+        buildingWallContainer:{add(){}},add:{graphics:()=>gfx},
+        textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      const {layout}=FDRCastleGeometry.draw(scene,'castles',points,{family:'citadel'});
+      const edges=new Map(layout.walls.map(w=>[ringKey(w.points),w.edge]));
+      for(const m of layout.merlons)edges.set(ringKey(m.points),m.edge);
+      const retained=new Set(group.blocks);
+      for(const degrees of [0,30,45,90,135,180,225,270,315]) {
+        scene.mapRot=degrees*Math.PI/180;WallPerspective.update(scene);
+        const lastBody=new Map(),firstCrown=new Map();
+        group.blocks.forEach((block,index)=>{
+          const edge=edges.get(ringKey(block.points));
+          if(edge==null)return;
+          if(block.top<=24)lastBody.set(edge,index);
+          if(block.bottom===24&&!firstCrown.has(edge))firstCrown.set(edge,index);
+        });
+        assert.gt(firstCrown.size,0,'the fixture emits raised curtain crowns');
+        for(const [edge,index] of firstCrown)
+          assert.lt(lastBody.get(edge),index,`${degrees}° curtain ${edge}: every body/coping piece precedes its crowns`);
+        assert.truthy(group.blocks.every(b=>retained.has(b)),'rotation reuses retained prisms');
+      }
+    }
+  });
+  test('FDR castles: a single halfway shade band follows each full wall height without UV seams', () => {
+    const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+    for(const active of [true,false]) {
+      const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
+        add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      FDRCastleGeometry.draw(scene,'castles',L.rect(0,0,240,180),{family:'citadel',active});
+      // Curtain body, tower shaft, keep shaft: the surrounding base and roof
+      // prisms must not introduce separate halfway bands.
+      for(const [bottom,top,half] of [[0,22,12],[8,30,16],[8,46,24]]) {
+        const blocks=group.blocks.filter(b=>b.bottom===bottom&&b.top===top);
+        assert.gt(blocks.length,0,'representative wall structure is present');
+        for(const block of blocks) {
+          const sides=block.materialFaces.filter(f=>f.normal),lower=[],upper=[];
+          for(const face of sides) {
+            const zs=face.points.map(p=>p.z),lo=Math.min(...zs),hi=Math.max(...zs);
+            assert.falsy(lo<half-1e-7&&hi>half+1e-7,'no triangle interpolates across the discrete shade step');
+            (hi<=half+1e-7?lower:upper).push(face);
+          }
+          assert.gt(lower.length,0);assert.gt(upper.length,0);
+          const lit=upper[0].color,dark=lower[0].color;
+          assert.truthy(lower.every(f=>f.color===dark)&&upper.every(f=>f.color===lit),'each elevation band has one uniform tint');
+          assert.lt(dark,lit,'lower half stays darker in both claim states');
+          const boundary=faces=>faces.flatMap(f=>f.points).filter(p=>Math.abs(p.z-half)<1e-7);
+          const below=boundary(lower),above=boundary(upper);
+          const sameRepeat=(a,b)=>Math.abs(a-b)<1e-7||Math.abs(Math.abs(a-b)-112/512)<1e-7;
+          assert.gt(below.length,0);
+          for(const a of below)assert.truthy(above.some(b=>Math.hypot(a.x-b.x,a.y-b.y)<1e-7&&sameRepeat(a.u,b.u)&&sameRepeat(a.v,b.v)),'both bands meet at the same UV phase, including native tile wraps');
+        }
+      }
+      for(const block of group.blocks.filter(b=>b.bottom===0&&b.top===8))
+        assert.truthy(block.materialFaces.every(f=>f.color<0xffffff),'tower/keep bases inherit their full wall lower shade');
+      const colors=group.blocks.flatMap(b=>b.materialFaces.map(f=>f.color)).join(',');
+      for(const angle of [0,.7,Math.PI/2,Math.PI,Math.PI*1.5]) {
+        scene.mapRot=angle;WallPerspective.update(scene);
+        assert.eq(group.blocks.flatMap(b=>b.materialFaces.map(f=>f.color)).sort().join(','),colors.split(',').map(Number).sort().join(','),'heading changes visibility without moving the shade band');
+      }
+    }
+  });
   test('FDR castles: culled masses never append decals to absent geometry', () => {
     const old=WallPerspective.inView;
     WallPerspective.inView=()=>false;

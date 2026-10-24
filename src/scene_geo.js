@@ -839,7 +839,20 @@ class SceneGeo {
     return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise });
   }
 
+  _warmGeometryAround() {
+    if (this.depth || this.sandbox || typeof Geometry === 'undefined' || !Geometry.enabled()) return;
+    const fix = localMToLonLat(this, this.playerM.x, this.playerM.y);
+    const tile = Geometry.tileAt(fix.lon, fix.lat), key = `${tile.x}/${tile.y}`;
+    const previous = this._geometryWarm;
+    if (previous?.key === key && (previous.pending || Date.now() - previous.at < 5000)) return;
+    const state = this._geometryWarm = { key, at: Date.now(), pending: true };
+    return WorldGen.warmGeometry(fix.lon, fix.lat, START_LAT).then(changed => {
+      if (changed && !this.depth) return this.ensureTilesAround();
+    }).catch(() => {}).finally(() => { state.pending = false; });
+  }
+
   async ensureTilesAround() {
+    this._warmGeometryAround?.();
     const cell = this.playerToWorldCell();
     // ONE PASS PER CENTRE AT A TIME. create(), the warmOverpass re-entry, the walk
     // check and the tile-failure retry can all call ensureTilesAround and none knows
@@ -848,6 +861,15 @@ class SceneGeo {
     // IS the answer to a second ask, so hand it back rather than starting a rival.
     const passKey = `${cell.tx}/${cell.ty}/${this.depth || 0}`;
     if (this._tilePass && this._tilePassKey === passKey) return this._tilePass;
+    // The centre promise resolves before its ring. A walk check in that gap
+    // must not supersede the same ring and discard its byte lookahead. Keep
+    // checking the live centre identity: Overpass replaces that entry, and
+    // an evicted, loading or unspawned centre still needs a fresh pass.
+    const ringCentre = this._ringCentre;
+    const liveCentre = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
+    if (this._ringBuild && ringCentre?.passKey === passKey &&
+        ringCentre.passSeq === this._tilePassSeq && ringCentre.entry === liveCentre &&
+        liveCentre?.status === 'ready' && liveCentre._spawned) return;
     const passSeq = (this._tilePassSeq || 0) + 1;
     this._tilePassSeq = passSeq;
     this._tilePassKey = passKey;
@@ -997,6 +1019,8 @@ class SceneGeo {
       });
       return;
     }
+    this._ringCentre = { passKey, passSeq,
+      entry: WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)) };
     const ringWork = (async () => {
       // One at a time, each waiting for an IDLE moment first: fired together they
       // queue onto the heavy chain and stall the player's first seconds of play. The
@@ -1025,7 +1049,10 @@ class SceneGeo {
       endRing?.(`${ring.length} tiles`);
     })().catch(() => {});
     const ringDone = ringWork.then(() => {
-      if (this._ringBuild === ringDone) this._ringBuild = null;
+      if (this._ringBuild === ringDone) {
+        this._ringBuild = null;
+        this._ringCentre = null;
+      }
       // Only the complete, current ring earns the walk-check stamp. A centre
       // tile settles earlier so the player can start, while failed or rebuilt
       // neighbours remain visible to _walkTileBlockSettled through their own

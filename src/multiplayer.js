@@ -1611,7 +1611,7 @@ const Multiplayer = (function () {
     return true;
   }
 
-  return { start, stop, tick, shouldApplyDamage, applyState, correctEnemies, assisted, ASSIST_MS, consumeTap, setName, setColor, reportHit, reportKill, applyHit,
+  return { start, stop, tick, httpUrl: () => serverUrl().replace(/^ws:/, 'http:').replace(/^wss:/, 'https:').replace(/\/$/, ''), shouldApplyDamage, applyState, correctEnemies, assisted, ASSIST_MS, consumeTap, setName, setColor, reportHit, reportKill, applyHit,
            enemyTarget, pickTarget, localTargetState, onBattle, onBoss, flushBosses, BOSS_KEY_RE, onAggro, battleShared, partyCount, scaleParty, onGroup, PARTY_SCAN_MS, GROUP_RETRY_MS, GROUP_MAX_PLAYERS,
            TARGET_FLAGS, TARGET_TIE_CELLS, TARGET_STICKY_CELLS, TARGET_KEEP_CELLS,
            BATTLE_MS, BATTLE_REPLY_MS, AGGRO_MAX_PER_S, AGGRO_TIE_MS,

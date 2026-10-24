@@ -220,7 +220,12 @@ and plain-rock examples remain in the surrounding grid.
 | pottery | Kiln Row | two ranks of clay pots a cell back from both kerbs |
 | trade | Market Close | barrels of goods on both verges, goblin grunt pairs behind them |
 | barricade path | Fort Road | barricades, stakes and guard lair |
-| plain minor | Maple Street | ordinary street comparison |
+| rocky_path | Rocky Road | simple stone-lined road |
+| grassy_lane | Grassy Lane | herbs and low greenery |
+| old_growth_path | Old Growth Path | mature forest trees |
+| haunted_forest_path | Haunted Forest Path | haunted woodland |
+| way_of_variety | Way of Variety | dense mix of common interactables |
+| plain minor | Maple Street | legacy ordinary street comparison |
 | plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
 | plain LG | Ancient Highway | suppression zone and night curse |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
