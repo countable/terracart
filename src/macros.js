@@ -596,7 +596,8 @@
   // selling stays at Home) and not a delivery (it wants whatever of its list
   // you have not given yet, not a set). Every hall shares ONE list,
   // CURIO_COLLECTION — things that keep: metal, gems, shells, feathers, the
-  // old boot, a Book, the lasting supplies. Nothing that spoils or grows
+  // old boot, the lasting supplies. Books are read on pickup and never held.
+  // Nothing that spoils or grows
   // (no food, produce, seed, flower or potion). Each id is given once, one
   // copy, into save.donated (the collection is the player's; the halls are its
   // doors). The reward is a MEMORY (app.js _bankDiscovery, keyed
@@ -605,7 +606,7 @@
   const CURIO_COLLECTION = [
     'flint_shard', ...BAR_IDS.slice(1),   // the six forge bars (items.js BAR_IDS; T1 is plain wood)
     'sapphire', 'ruby', 'emerald', 'diamond',
-    'shell', 'crow_feather', 'rabbit_pelt', 'old_boot', 'book', 'taming_potion',
+    'shell', 'crow_feather', 'rabbit_pelt', 'old_boot', 'taming_potion',
     'rope', 'torch', 'trap_disarm_kit', 'magic_trap', 'scarecrow',
   ];
   const CURIO_MILESTONES = [5, 10, 15];
@@ -615,6 +616,7 @@
   function curioDonated(save, id) { return ((save && save.donated) || []).includes(id); }
   // How many listed ids this save has given (a legacy save.donated from the
   // paid build may hold ids that are not on the list; they do not count).
+  // Retired entries, including Books, never revoke earned discovery memories.
   function curioCount(save) { return ((save && save.donated) || []).filter((id) => _curioSet.has(id)).length; }
   // The next milestone above `count`, or null once the last is reached.
   function curioNextMilestone(count) { return CURIO_MILESTONES.find((m) => m > count) ?? null; }

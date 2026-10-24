@@ -646,6 +646,8 @@ test('Passing tier: street dressing suppresses hazards and fast guard births', (
   const d = SV.dress({ index: r.streetIndex, tx: TX, ty: TY, N: CPE, tileEdgeM: TILE_EDGE_M,
     grid: r.grid, spawnOpts: opts });
   assert.eq(d.traps.length,0,'Passing has no traps');
+  assert.eq(d.objects.filter(o=>SV.isSlowKind(o.kind)).length,0,'Passing has no tar or stakes');
+  assert.eq(d.slowCells.size,0,'Passing has no slowing debris seats');
   const entry = { grid:r.grid, cellsPerEdge:CPE, buildingShapes:[], _spawnOpts:opts,
     gameplayTiers, roadClass:r.roadClass, streetLairs:d.lairs, creatures:[] };
   for(const post of d.lairs) {
@@ -1438,7 +1440,7 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
     assert.falsy(occupied.has(i)); occupied.add(i);
     assert.truthy(opts.occupied.has(i));
     if(o===chest) assert.falsy(opts.roadMask[i],'reward stays off the road');
-    const gate={...opts,occupied:new Set(),streetObstacleCells:new Set([i]),streetObstacleKind:'snare'};
+    const gate={...opts,occupied:new Set()};
     assert.truthy(WorldGen.isSpawnCell(grid,CPE,CPE,ix,iy,gate,opts.roadMask[i]?'streetObstacle':'fastEnemy'));
     if(o!==chest) { assert.eq(o._ix,ix); assert.eq(o._iy,iy); }
   }

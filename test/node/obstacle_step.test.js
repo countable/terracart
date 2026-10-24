@@ -167,11 +167,11 @@ test('furniture support: only mid pieces keep continuous support on pause and re
   }
 });
 
-test('foliage cover: grass fills its cell and clipped hedges never lift or slow walking', () => {
+test('foliage cover: grass leaves the player grounded while clipped hedges retain cover', () => {
   const grass = {kind:'wildplant',crop:'longgrass',x:10,y:20};
   for (const [dx,dy] of [[0,0],[-.5,-.5],[.49,.49]]) {
     const sample = ObstacleStep.sample(10+dx*8,20+dy*8,[grass],8);
-    assert.truthy(sample.covered); assert.eq(sample.liftPx,0); assert.eq(sample.supports.length,0);
+    assert.falsy(sample.covered); assert.eq(sample.liftPx,0); assert.eq(sample.supports.length,0);
     assert.eq(ObstacleStep.speedMul(sample),1);
   }
   for (const [dx,dy] of [[.5,0],[0,.5],[-.51,0]])

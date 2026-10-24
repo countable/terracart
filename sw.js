@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-0fe2136d';
+const SHELL_VERSION = 'shell-a57acd4e';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -374,7 +374,7 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/approved-materials-v1.png": "d4596946",
   "assets/Objects/BuildingMaterials/reference-materials-v3.png": "38fc2ff3",
   "assets/Objects/BuildingMaterials/wreck-floor-cel.png": "8a303ad2",
-  "assets/Objects/BuildingMaterials/wreck-plinth.png": "e24db484",
+  "assets/Objects/BuildingMaterials/wreck-plinth.png": "b25d5594",
   "assets/Objects/Castle/FDR/atlas.png": "6050c667",
   "assets/Objects/Castle/FDR/floor.png": "3c5de081",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",
@@ -692,7 +692,7 @@ const ASSET_HASHES = {
   "assets/portraits/witness.png": "20421b46",
   "assets/portraits/wizard.png": "d58efb40",
   "assets/selected-terrain/selected-terrain.png": "ce68dd27",
-  "assets/terrain/mountain-edges.png": "b06bcd36",
+  "assets/terrain/mountain-edges.png": "86858d3f",
   "assets/ui/compass/compass-bearing.webp": "b065263e",
   "assets/ui/compass/footer.webp": "cf76e3c7",
   "assets/ui/compass/gold-fittings.png": "f2de995b",

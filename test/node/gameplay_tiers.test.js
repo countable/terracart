@@ -198,10 +198,12 @@
   test('gameplay tiers: replay and cleanup retain authored record spawn classes',()=>{
     assert.eq(GameplayTiers.classForRecord({kind:'pressure_plate'}),'hazard');
     assert.eq(GameplayTiers.classForRecord({kind:'stakes'}),'streetObstacle');
+    assert.eq(GameplayTiers.classForRecord({kind:'tar'}),'streetObstacle');
     assert.eq(GameplayTiers.classForRecord({kind:'bush',_spawnClass:'streetObstacle'}),'streetObstacle');
     assert.eq(GameplayTiers.classForRecord({kind:'bush'}),'minor');
     assert.eq(GameplayTiers.classForRecord({id:'trap'},'hazard'),'hazard');
     assert.eq(GameplayTiers.allowed(3,GameplayTiers.classForRecord({kind:'pressure_plate'})),false);
+    assert.eq(GameplayTiers.allowed(3,GameplayTiers.classForRecord({kind:'tar'})),false);
   });
   test('gameplay tiers: per-tile generation and review share stored arrays independently of frame metre scale',()=>{
     const e=entry([layer('transportation',[line('primary',[[0,140],[280,140]])])]);

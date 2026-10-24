@@ -103,6 +103,29 @@
     }
   });
 
+  test('wall perspective: grass stays upright and rooted with constant width through every heading', () => {
+    const s = scene(), group = WallPerspective.begin(s, 'grass');
+    const footprint = [{x:10,y:20},{x:42,y:20},{x:42,y:52},{x:10,y:52}];
+    const faces = WallMaterials.geometry('grass', footprint, WallMaterials.GRASS.height, {cellIX:-3,cellIY:7});
+    WallPerspective.prism(s, 'grass', footprint, 0, WallMaterials.GRASS.height,
+      {face:1,top:2,dark:3}, null, false, {materialFaces:faces});
+    const first = faces[0], root = first.billboard;
+    for (let step = 0; step <= 8; step++) {
+      s.mapRot = step * Math.PI / 4;
+      WallPerspective.update(s);
+      const c = Math.cos(s.mapRot), sin = Math.sin(s.mapRot);
+      const screen = p => ({x:c*p.x-sin*p.y,y:sin*p.x+c*p.y});
+      const [left,right,tip] = first.projected.map(screen), center = screen(root);
+      close(right.x-left.x, WallMaterials.GRASS.width, 'blade never turns edge-on');
+      close(left.y,right.y,'both root corners touch the same ground plane');
+      close((left.x+right.x)/2,center.x,'root center stays at its world seat');
+      close(left.y,center.y,'roots never acquire height');
+      close(tip.x,right.x,'blade grows screen-up, not sideways');
+      close(right.y-tip.y,WallMaterials.GRASS.height*BuildingLowPoly.LOOK.heightScale,'height is independent of heading');
+      assert.truthy(faces.every(face=>face.visible),'both textured triangles remain visible at every heading');
+    }
+  });
+
   test('wall perspective: only camera-facing prism faces draw for either winding', () => {
     for (const reverse of [false, true]) {
       const s = scene();

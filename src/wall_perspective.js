@@ -224,7 +224,10 @@
               face.visible = !face.normal || s * face.normal.x + c * face.normal.y > 1e-6;
               if (!face.visible) continue;
               face.projected ||= face.points.map(() => ({ x: 0, y: 0 }));
-              face.points.forEach((p, i) => { face.projected[i].x = p.x - s * p.z * k; face.projected[i].y = p.y - c * p.z * k; });
+              face.points.forEach((p, i) => { // Grass planes face the camera while their root centers remain fixed.
+                const root = face.billboard, dx = root ? p.x - root.x : 0;
+                const x = root ? root.x + c * dx : p.x, y = root ? root.y - s * dx : p.y;
+                face.projected[i].x = x - s * p.z * k; face.projected[i].y = y - c * p.z * k; });
               if (!face.normal && !face.twoSided) {
                 const [a, b, d] = face.projected;
                 face.visible = (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x) > 1e-8;

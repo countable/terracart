@@ -1046,9 +1046,7 @@ const ITEMS = [
     name: `Baby ${k.charAt(0).toUpperCase() + k.slice(1)}`,
     kind: 'animal', base: k, baby: true, baseTier: BASE_TIER[k] || 1,
   })),
-  // Animal produce — feed longgrass to a wild chicken / cow to swap the
-  // longgrass for an egg / milk. Repeatable until either you run out of
-  // longgrass or the animal is caught.
+  // Animal produce comes from producer meals, on each animal's cooldown.
   { id: 'egg',  name: 'Egg',  kind: 'produce' },
   { id: 'shiny_egg', name: 'Shiny Egg', kind: 'produce', base: 'egg', shiny: true, baseTier: Math.min(7, BASE_TIER.egg + SHINY_TIER_UP) },
   { id: 'green_dragon', name: 'Green Dragon', kind: 'animal', baseTier: 7 },
@@ -1074,8 +1072,7 @@ const ITEMS = [
   { id: 'starflower',  name: 'Starflower',    kind: 'produce', crop: 'starflower' },
   // Consumables — used on yourself via the Use button that appears below the
   // inventory bar while one is selected (syncConsumableButton in app.js).
-  // Potion of Taming (legacy save id honey): set it out to lure wandering chickens + cows within 30m toward
-  //        you (eaten, so it's consumed — hence not a flute any more).
+  // Sugar calms animals; Taming is a universal favourite and a thrown charm.
   // Book:  reveals a play tip or a directional hint to a nearby chest.
   { id: 'sugar_potion', name: 'Sugar Potion', kind: 'supply', potion: true },
   { id: 'taming_potion', name: 'Potion of Taming', kind: 'supply', potion: true },
@@ -1573,7 +1570,7 @@ const CONSUMABLE_SPEC = {
     verb: 'Read', method: 'readTomeFirewall', title: 'Read the Wall of Fire Tome?',
     usable: scene => scene.tomeUsable('tome_fire_wall'),
     get: 'A wall of flame rises across the ground ahead.' },
-  // THE SUGAR POTION (T2, two berries at Home): an ANIMAL it reaches stays
+  // THE SUGAR POTION (T2, two berries at a workshop): an ANIMAL it reaches stays
   // put for durationMs — the `calm` status (Combat.calm): it does not bolt
   // from you, flee a blow or run from the net. Offered (tap the animal),
   // thrown, or set out (every animal within radiusM, drawn toward you).
@@ -1771,16 +1768,6 @@ const CONSUMABLE_SPEC = {
     used: { title: 'You light the Lantern',
       body: 'A steady blue flame takes hold behind the glass. You lift the handle and carry its light into the dark.' },
   },
-  // THE HORSE is kept, not spent: Ride and Dismount toggle save.riding, and
-  // riding only counts while a horse is in the bag (isRiding). Mounted, the
-  // stick walk goes speedMul as fast and costs energyMul as much per cell —
-  // the bike rack's knight skin, with a price on the legs.
-  horse: {
-    speedMul: 2, energyMul: 2, immediate: true,
-    verb: 'Ride', method: 'toggleHorseRide', title: 'Ride the horse?',
-    get: 'The ground runs past quicker, and your legs feel every stride.',
-    label: scene => (isRiding(scene.save) ? 'Dismount' : 'Ride'),
-  },
   sapphire: {
     returnMs: 60 * 1000,
     verb: 'Portal', method: 'useSapphirePortal', title: 'Open a portal down?',
@@ -1836,9 +1823,8 @@ for (const [id, row] of Object.entries(CONSUMABLE_SPEC)) {
 const HEALING_POTION_ENERGY = CONSUMABLE_SPEC.healing_potion.energy;
 const THUNDER_DMG = CONSUMABLE_SPEC.thunder_scroll.damage;
 const SPIRIT_RAVEN_MS = CONSUMABLE_SPEC.raven_scroll.durationMs;
-const HORSE_RIDE = CONSUMABLE_SPEC.horse;
-// Shiny horses share the same riding action.
-CONSUMABLE_SPEC.shiny_horse = HORSE_RIDE;
+// Owned horses mount through their pet panel; movement reads these modifiers.
+const HORSE_RIDE = Object.freeze({ speedMul: 2, energyMul: 2 });
 // Is the player mounted? The flag only counts while a horse (plain or shiny)
 // remains owned and awake; release or knockout ends the ride.
 function isRiding(save) {
@@ -1900,7 +1886,7 @@ const PRICES = {
   shell: 6,        // beach pickup — small collectible
   old_boot: 2,         // fishing junk — old boot, the joke is finding it
 
-  // ── Animal produce (longgrass-feeding output) ────────────
+  // ── Animal produce ───────────────────────────────────────
   egg:  4,
   shiny_egg: 40,
   baby_green_dragon: 360,
@@ -1909,11 +1895,11 @@ const PRICES = {
   // ── Consumables ──────────────────────────────────────────
   // Bought from shops occasionally; small sell value if you hoard them.
   syrup: 7,
-  sugar_potion: 8,     // T2 — two berries at Home
+  sugar_potion: 8,     // T2 — two berries at a workshop
   taming_potion: 400,  // T7 — every creature's favourite, and a thrown charm
   book:  20,
-  tome_reach: 90,   // T3 — a reach potion's sight, once a day, forever
-  tome_raven: 170,  // T4 — a T2 raven's wings, once a day, forever
+  tome_reach: 90,   // T3 — reusable sight on the shared tome cooldown
+  tome_raven: 170,  // T4 — reusable raven on the shared tome cooldown
   tome_thunder: 300,  // T5 — a T4 thunderclap (the unique-relic curve re-prices all tomes)
   tome_speed: 100, tome_shielding: 80, tome_healing: 70, tome_blight: 170,
   tome_fire_wall: 170, // T4 — unique-relic pricing applies

@@ -81,15 +81,15 @@ kept for the life of the save):
 - **Easy mode — enable tutorial.** The starter ladder and its green arrow, the
   supply-crate trail, and a pest-free home until the first harvest; farming,
   exploring and rebuilding are the loop.
-- **Hard mode — no tutorial.** A 20-coin purse (against 50), steeper trade prices
+- **Hard mode — no tutorial.** Steeper trade prices
   and a thinner Home sale price, and 2.5× incoming damage after armour.
   There is no pest amnesty, deer are sent at your crops, and roadside traps are more
   common. Enemy health, attacks, ordinary populations and ruin garrisons are
   shared across modes, so players can fight the same enemies together; easy
   wakes at most two guards of any one garrison, hard wakes the whole of it.
 
-Every number that differs lives in `src/difficulty.js` as a multiplier over
-the base value, read at the site that owns that value;
+Both modes start with no coins. Every number that differs lives in
+`src/difficulty.js` as a multiplier over the base value, read at the site that owns that value;
 `test/node/difficulty.test.js` pins the table and its consumers.
 
 ## Where the rules live

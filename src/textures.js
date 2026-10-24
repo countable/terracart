@@ -1382,8 +1382,8 @@ function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
 // Ground-only recipes: no trees, resources, collision or spawn decisions change.
 const ZONE_SELECTED_MATERIALS = {
   mystic_reef:'G10', pirate_cove:'G10', shellwater_strand:'G10',
-  meadow:'G01', marine_meadow:'G01', mushroom_grove:'G06', orchard:'G02',
-  formal_garden:'G01', hedge_garden:'G02', ancient_grove:'G03', sacred_grove:'G03', spooky_woods:'G04',
+  meadow:'G01', marine_meadow:'G01', mushroom_grove:'G01', orchard:'G01',
+  formal_garden:'G01', hedge_garden:'G01', ancient_grove:'G01', sacred_grove:'G01', spooky_woods:'G01',
   'quarry-crater':'G09-cold', 'quarry-abandoned':'G09-cold', 'quarry-strip-mine':'G09-cold', 'quarry-stronghold':'G09-cold',
   stone_garden:'G06-purple', ordered_graves:'G06-purple', overgrown_graves:'G06-purple', broken_masonry:'G06-purple', silent_circle:'G06-purple',
   flint_field:'G09-smooth-grey', broken_depot:'G09-smooth-grey', seep:'G09-smooth-grey', work_yard:'G09-smooth-grey', black_ring:'G09-smooth-grey',

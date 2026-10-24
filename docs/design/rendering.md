@@ -124,7 +124,7 @@ building floors and underground terrain retain their existing treatments.
 
 Private residential exclusion rock uses the purchased Top Down Mountain Edges
 pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
-olive-grey ramp and RA olive-soil substrate. `MountainEdges` selects among 256
+olive-grey ramp and transparent source exteriors. `MountainEdges` selects among 256
 neighbour masks and four stable variants from the shared geographic ring. Full
 edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
 Stair and deep-notch variants are excluded. Selection does no runtime image
@@ -132,14 +132,28 @@ processing; collision remains the permanent residential bedrock rule. Trimmed
 building-intersection cells use flat `ROCKY_GROUND` rubble from the transition
 atlas, with the same olive-grey ramp. Solid edges prefer that rubble as their substrate
 when adjacent, so the exposed apron belongs visually to the rock zone.
+The mountain atlas contains only the purchased rock artwork; transparent pixels
+show that live substrate. It never bakes an opaque soil square beneath narrow
+strips, isolated cells or diagonal corners.
 
 `TerrainTransitions` samples four adjacent materials from the renderer's geographic
 ring, including tile-row seam resolution. Every surface material and selected
 Nexus ground has a stackable transition family: one opaque local base and up to
-three transparent native masks, with water last. Native 16px masks preserve
-outer/inner corners and disconnected diagonals. The atlas contains 26 families
+three transparent native masks, with water last. The base and its masks start
+half a cell southeast of the sampled cell's top-left, so the four sampled cell
+centres coincide with the dual-grid vertices. This keeps one-cell islands and
+strips centred on their logical cells. Exact-cell mountain overlays, tilled
+beds and structural floors retain their own positions. The renderer's halo
+covers the offset, and the terrain cache records the actual sprite bounds.
+Tilled beds overlay the continuous native ground without removing its dual tile;
+otherwise the neighbouring half-cells would lose their texture.
+Map review deliberately displays each owning material without transitions.
+Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 26 families
 (416 frames, 256 × 416 pixels), including public residential light slate, cold slate, original square commercial
 concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
+Grove ground uses the green Meadow grass interior in both native masks and
+fallback tiles. Grove variants retain green ground beneath their authored props
+and accents; the game and map review share these material choices.
 `tools/build_ra_terrain_trial.py` records each interior and mask source in the
 export manifest. Both rendering backends select these frames without a
 permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
@@ -364,8 +378,8 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-A 2.5-unit brown border follows the footprint at 72% opacity. A shared
-94-unit alpha-mask strip supplies 8–16-unit dashes and 5–8-unit gaps with a building-seeded phase,
+A five-unit brown border follows the footprint at 72% opacity. A shared
+64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
 replacing individual dash polygons without a custom shader or per-building bake.
 All profiles use the shared mask; their masonry palettes remain independent.
 The border stays on the ground
@@ -373,10 +387,11 @@ beneath actors and masonry. Loose rubble uses the same clipped-corner
 footprints as the wall blocks, without sharp highlight strips. Their side
 vertices shade from 65% brightness at ground contact to unchanged brightness
 at the top, adding no geometry and leaving the lids unchanged.
-The ground has no continuous base: only soft dark grime patches (RGB 56/50/42,
-up to alpha 144/255) remain, with fully transparent gaps exposing terrain.
-Embedded stone scatter keeps its brighter palette and opacity; raised masonry
-keeps its original palette.
+The subdued brown base has alpha 185/255 (73%, byte-rounded). Broad, softly
+blended grime and worn patches reduce ground alpha to 86–144/255, exposing
+more underlying terrain without adding fine grain. The background alone is
+20% darker, with grime another 20% darker. Embedded stone scatter is 20%
+lighter and more opaque; raised masonry keeps its original palette.
 Sparse ground chips are composited separately, while raised
 masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
 this atlas. Ground follows the exact triangulated footprint and sorts below
@@ -603,10 +618,11 @@ the surrounding grove’s shrub scale.
   compensate for sprite seating by changing the projection. Step-over support
   re-seats the shadow at the current ground point after movement, alongside
   the raised body; its shadow never inherits the support lift.
-- Long grass covers its full square and clipped hedges cover their foliage
-  footprint (connected arms for rows, a rounded crown for lone hedges). They
-  share the water half-body crop, never supply step lift or balancing slowdown,
-  and stop covering immediately when removed from the drawn plant list.
+- Long grass leaves the player at the normal feet-on-ground position, with no
+  half-body crop, sinking, step lift or balancing slowdown. Only foreground
+  blades naturally obscure the body. Clipped hedges retain the water half-body
+  crop within their foliage footprint (connected arms for rows, a rounded crown
+  for lone hedges), and stop covering when removed from the drawn plant list.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
   Furniture with height `basin` does the same at the player's feet cell on the
@@ -1379,22 +1395,23 @@ cliff faces. Terrain 32 retains its movement and spawn collision and bakes one
 nearest-neighbour texture at startup, with no mineral sprite, loot, animation
 or runtime pixel readback.
 
-### Native tall-grass tufts
+### Dense grass blades
 
-Harvestable wild longgrass (excluding reeds) uses four retained crossed tuft
-pairs per cell in `Render.drawGrassPrisms`: 16 triangles, widths of 23 pixels,
-alternating heights of 21/24 pixels, and centres offset by +/-8 pixels on each
-axis. `WallMaterials.GRASS` owns those dimensions. Each pair sorts individually
-among props and actors so the front tufts can cover the lower parts of objects.
+Harvestable wild longgrass (excluding reeds) uses retained upright textured
+blades in `Render.drawGrassPrisms`. `WallMaterials.GRASS` owns the approved
+11.9px height, 5.6px width and 4.2px spacing. Absolute world coordinates choose
+independent -1/0/+1px X offsets, with ownership assigned after the offset so
+adjacent cells have neither missing nor duplicate blades. Roots remain at Z=0;
+individual blades sort among actors and props. The planes face the camera at
+all headings without moving their roots.
 
-The mesh reads the actual native RA 16px grass sprite through
-`selected_longgrass`, with its original binary alpha, nearest-neighbour pixels,
-and two-sided faces. There is no opaque core, crown, or procedural grass atlas.
-Natural gaps reveal co-located props and plants; gameplay does not suppress their
-sprites or announce a hidden find on entry. Player lower-half cover, normal
-harvesting, deterministic eggs, and the separate hedge treatment remain intact.
-Only visible cell candidates enter the retained batch; heading and subcell
-movement reuse its geometry. Reeds retain their existing sprite presentation.
+A shared 16×16 texture is created once: green soft-chisel surface blades and
+pink rounded original blades for the Underdark biome. Both gradually darken
+45% toward the root. No pixel readback or per-blade texture creation occurs
+when cells rebuild; movement within a cell reuses the retained geometry.
+Grass neither crops nor sinks the player: only foreground blades obscure the
+normally grounded body. Other submerged terrain and basin behavior is separate.
+Harvesting, hidden finds and reed presentation remain unchanged.
 
 - Stacked native terrain is unconditional, including for old `terrainLayers`
   URLs. It draws one complete local material plus up to three source-mask
