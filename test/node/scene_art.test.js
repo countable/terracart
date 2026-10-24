@@ -18,6 +18,20 @@ for (const m of INTERACT_SRC.matchAll(/\bart: '([^']+)'/g)) stems.add(m[1]);
 for (const r of ['house', 'blacksmith', 'market', 'trader', 'wizard']) stems.add('restore_' + r);
 for (const row of [...Object.values(Shrines.SHRINE_KINDS), ...Object.values(Shrines.REWARD_KINDS), ...Object.values(Macros.DAILY_VISIT_KINDS), ...Object.values(Macros.KIND_DIALOG), ...Object.values(Macros.KIND_TRANSACTION)]) stems.add(row.art);
 
+test('scene art: every road and path identity has its own shipped painting and thumbnail', () => {
+  const rows = [...StreetVariants.STREET_VARIANTS, StreetVariants.BANDIT_STORY, StreetVariants.HIGHWAY_STORY];
+  const seen = new Set();
+  for (const row of rows) {
+    const art = row.art || row.story;
+    assert.falsy(seen.has(art), `${row.title} reuses another route painting: ${art}`);
+    seen.add(art);
+    const size = webpDims(`assets/art/${art}.webp`);
+    assert.truthy(size, `${row.title} has shipped art`);
+    assert.truthy(Math.abs(size.w / size.h - 4 / 3) < .01, `${art} is 4:3`);
+    assert.truthy(ART_THUMBS_SRC.includes(art + ": 'data:image/webp;base64,"), `${art} has a loading thumbnail`);
+  }
+});
+
 test('scene art: dialog paintings use approved 4:3 composition', () => {
   assert.truthy(stems.size > 30, `the stems were collected (${stems.size})`);
   for (const stem of stems) {

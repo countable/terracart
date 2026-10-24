@@ -2039,7 +2039,8 @@
     const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
     if (!HA) return indoors.key;
     const lift = indoorLift(scene, HA, indoors);
-    return `${indoors.key}:${lift.x.toFixed(1)},${lift.y.toFixed(1)}`;
+    const outset = scene._proceduralBuildings?.get(indoors.buildingKey || scene.save?.starterShopId)?.wallOutset || 0;
+    return `${indoors.key}:${lift.x.toFixed(1)},${lift.y.toFixed(1)}:${outset}`;
   }
   function indoorMaskLayer(scene, W, H) {
     let layer = scene._indoorMaskLayer;
@@ -2057,7 +2058,11 @@
       const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
       return { x: sp.x - ox, y: sp.y - oy };
     });
-    const cuts = indoorCuts(pts, lift, HA.maskFeatherPx || 0);
+    // Low-poly interior walls grow outward from the playable footprint.
+    // Expand in the ground plane, then lift by height alone, just as the mesh does.
+    const outset = scene._proceduralBuildings?.get(indoors.buildingKey || scene.save?.starterShopId)?.wallOutset || 0;
+    const shell = outset > 0 ? insetRing(pts, -outset) || pts : pts;
+    const cuts = indoorCuts(shell, lift, HA.maskFeatherPx || 0);
     // The mask is built on its own layer — the cuts erase it, not the lights
     // under it — then laid over the lightmap.
     const layer = indoorMaskLayer(scene, W, H);

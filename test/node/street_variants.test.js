@@ -2089,7 +2089,7 @@ test('berry lane: a Small-road row and a path row, appended last, bushes of ever
   assert.eq(lane.size, 'minor'); assert.eq(lane.share, 0.05);
   assert.eq(trail.size, 'path'); assert.eq(trail.pathWeight, 0.04);
   assert.eq(trail.code, lane.code + 1); assert.eq(SV.VARIANT_BY_ID.pottery.code, trail.code + 1, 'only Pottery Road after them');
-  assert.eq(lane.art, 'street_orchard', 'an existing painting');
+  assert.eq(lane.art, 'street_berry', 'dedicated berry lane painting');
   assert.truthy(SV.VERGE_ROWS.berry === SV.VERGE_ROWS.berry_trail, 'one dressing for the lane and the trail');
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
@@ -2166,7 +2166,7 @@ function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
 test('pottery road: a Small-road row, appended last, two ranks of clay pots a cell back from the kerb on both verges', () => {
   const row = SV.VARIANT_BY_ID.pottery;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05); assert.eq(row.code, SV.VARIANT_BY_ID.trade.code - 1, 'older row codes stay stable');
-  assert.eq(row.art, 'street_golden', 'an existing painting'); assert.eq(row.sectionMaxM, 250);
+  assert.eq(row.art, 'street_pottery', 'dedicated pottery painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('pottery'), 'its shrine kind');
   assert.eq(SV.POTTERY_GAP, 0.15); assert.eq(SV.POTTERY_BACK_GAP, 0.5);
   let named = 0, plain = 0;
@@ -2215,7 +2215,7 @@ function tradeRow(tx, key = `trade-${tx}`) {
 test('trade row: a Small-road row, appended last, barrels a cell back from the kerb and grunt pairs behind them', () => {
   const row = SV.VARIANT_BY_ID.trade;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.04); assert.eq(row.code, SV.VARIANT_BY_ID.rocky_path.code - 1, 'older row codes stay stable');
-  assert.eq(row.art, 'street_bandit', 'an existing painting'); assert.eq(row.sectionMaxM, 250);
+  assert.eq(row.art, 'street_trade', 'dedicated trade row painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('trade'), 'its shrine kind');
   assert.eq(SV.TRADE_BARREL_GAP, 0.3); assert.eq(SV.TRADE_GRUNT_STEP_M, 25); assert.eq(SV.TRADE_GRUNT_CHANCE, 2 / 3);
   assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 2, 'a pair of grunts a post');
