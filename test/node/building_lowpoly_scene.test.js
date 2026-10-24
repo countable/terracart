@@ -25,7 +25,7 @@
     assert.truthy(BuildingLowPoly.specialGeometry(ring, recipe, [[{x:-40,y:-30},{x:110,y:-30}]], 'walking-cache') !== first,
       'a changed street changes the opening');
   });
-  const ctx2d = () => ({ fillStyle: '', fillRect() {}, drawImage() {}, save() {}, restore() {}, beginPath() {},
+  const ctx2d = () => ({ fillStyle: '', fillRect() {}, clearRect() {}, drawImage() {}, save() {}, restore() {}, beginPath() {},
     rect() {}, clip() {}, imageSmoothingEnabled: false, putImageData() {}, createPattern() { return {}; },
     getImageData() { throw new Error('getImageData read back during a rebuild'); } });
   function stubScene() {
@@ -74,7 +74,7 @@
   }));
   test('Dreamland wrecks: native materials keep damaged geometry and never allocate during rebuild', () => withPhaser(() => {
     const scene=stubScene(),plain=BuildingLowPoly.recipeFor('wreck'),recipe={...plain,artProfile:'dreamland'};
-    for(const key of ['dreamland_wreck_material','dreamland_wreck_interior']) scene.textures.createCanvas(key,512,512);
+    for(const key of ['dreamland_wreck_material','dreamland_wreck_interior','wreck_plinth']) scene.textures.createCanvas(key,512,512);
     scene.textures.createCanvas=()=>{throw Error('Dreamland wreck attempted a runtime material bake');};
     const local=FOOT.map(p=>({x:p.x-100,y:p.y-100}));
     const normal=BuildingLowPoly.specialGeometry(local,plain,[],'dreamland-wreck');
@@ -88,7 +88,7 @@
     assert.truthy(masonry.length>0&&masonry.every(f=>f.texture.key==='dreamland_wreck_interior'),
       'stone sides and caps use the native interior masonry atlas');
     assert.truthy(mesh.faces.some(f=>f.texture.key==='dreamland_wreck_interior'),'interior masonry / rubble atlas selected');
-    assert.truthy(mesh.faces.every(f=>f.texture.key.startsWith('dreamland_wreck_')),'no legacy material leak');
+    assert.truthy(mesh.faces.every(f=>f.footprintBorder?f.texture.key==='wreck_plinth':f.texture.key.startsWith('dreamland_wreck_')),'no legacy material leak');
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'native profile keeps the roofless broken plinth');
     assert.truthy(mesh.faces.some(f=>f.rubbleTop&&f.rawUV&&f.color===0xffffff),'debris samples native masonry without a tint');
   }));
@@ -108,7 +108,7 @@
     assert.truthy(native!==baseline,'palette cache isolated');
     BuildingLowPoly.begin(scene);
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','rogue-wreck');
-    assert.truthy(mesh.faces.every(f=>f.texture.key.startsWith('rogue_wreck_')),'all surfaces use RA adapted sheets');
+    assert.truthy(mesh.faces.every(f=>f.footprintBorder?f.texture.key==='lowpoly:wreck-plinth-fallback':f.texture.key.startsWith('rogue_wreck_')),'all surfaces use RA adapted sheets');
     assert.truthy(mesh.faces.some(f=>f.rubbleTop&&f.rawUV&&f.color===0xffffff),'rubble samples its prewarmed masonry sheet');
   }));
   test('low-poly buildings: distant road filtering preserves full-network door choice, including crossing segments', () => withPhaser(() => {
@@ -230,7 +230,7 @@
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
     assert.truthy(mesh.faces.length,'rubble material remains');
-    assert.truthy(mesh.faces.some(f=>f.footprintBorder&&f.debris&&f.solid&&f.color===0x5e574a&&f.opacity===.35),
+    assert.truthy(mesh.faces.some(f=>f.footprintBorder&&f.debris&&f.rawUV&&f.color===0x413b32&&f.opacity===.72),
       'ground border survives atlas conversion with its subtle tint and opacity');
     const top=Math.max(...mesh.faces.flatMap(f=>f.points.map(p=>p.z)));
     assert.inRange(top,10,14,'every wall and rubble piece stays within the low plinth height');
