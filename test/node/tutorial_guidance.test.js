@@ -23,8 +23,13 @@
     scene._starterAwaitsOutside = liftSceneMethod('_starterAwaitsOutside', deps);
     const cheer = liftSceneMethod('_playStarterCheer', deps);
     scene.updateObjectiveDOM();
+    liftSceneMethod('acknowledgeObjective', deps).call(scene);
+    assert.eq(element.style.display, 'none', 'Got it hides the current instruction');
+    assert.falsy(Quests.starterHidden(scene.save), 'acknowledgement keeps the tutorial active');
     assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body);
     const done = Quests.onStarterEvent(scene.save, 'chest');
+    scene.updateObjectiveDOM();
+    assert.eq(element.style.display, 'block', 'the next instruction appears');
     cheer.call(scene, done);
     assert.eq(fields['.body'].textContent, done.completion);
     assert.truthy(classes.has('done'));
@@ -62,9 +67,13 @@
     assert.eq(tick, null, 'poll stops once revealed');
     assert.eq(element.style.display, 'block');
     assert.eq(fields['.body'].textContent, STARTER_INTRO.lines[0]);
+    liftSceneMethod('acknowledgeObjective', deps).call(scene);
+    assert.eq(element.style.display, 'none', 'Got it dismisses the hello line');
+    assert.eq(scene._objectiveStep, null, 'hello has not introduced a crate instruction');
     for (let i = 1; i < STARTER_INTRO.lines.length; i++) {
       later.shift()();
       assert.eq(fields['.body'].textContent, STARTER_INTRO.lines[i]);
+      assert.eq(element.style.display, 'block', 'the next hello line remains available');
     }
     later.shift()();
     assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body, 'first instruction follows the hello');
