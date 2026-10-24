@@ -137,12 +137,14 @@
   }
 });
 
-test('native RA terrain: grass shares orchard and residential uses the selected rock ground', () => {
+test('native RA terrain: grass shares orchard and residential uses the lighter selected slate', () => {
   const native=new Function(ALL_SRC['ra_terrain_trial.js']+'\nreturn RATerrainTrial;')();
-  const selected=new Function(TEXTURES_SRC+'\nreturn SELECTED_TERRAIN;')();
+  const {SELECTED_TERRAIN:selected,SELECTED_MATERIAL_FRAMES:frames}=new Function(TEXTURES_SRC+'\nreturn {SELECTED_TERRAIN,SELECTED_MATERIAL_FRAMES};')();
   assert.eq(native.material(0,12,8),native.material(22,12,8));
-  assert.eq(native.material(5,12,8),-1,'selected rock retains the ordinary renderer');
-  assert.eq(selected[5].join(','),selected[10].join(','));
+  assert.eq(native.material(5,12,8),-1,'selected slate retains the ordinary renderer');
+  assert.eq(selected[5].join(','),[frames['G09-light-slate'],frames['G09-light-slate']].join(','),'residential reads lighter than rock');
+  assert.eq(selected[10].join(','),[frames['G09-cold'],frames['G09-cold']].join(','),'rock keeps its cold slate');
+  assert.eq(selected[32].join(','),String(frames['G09-cold']),'bedrock stays with rock');
   assert.eq(selected[0].join(','),selected[22].join(','));
 });
 

@@ -1286,9 +1286,9 @@ function makeSprungTrapTexture(scene) {
 // cropped without repainting; each cell is scaled with nearest-neighbour pixels.
 // Multiple choices are stable spatial variants, never a timer-driven slideshow.
 // Frame IDs are stable and audited against sources.json; legacy frames0–7 remain.
-const SELECTED_MATERIAL_FRAMES = {"G01": 8, "G02": 9, "G03": 10, "G04": 11, "G05": 12, "G06": 13, "G07": 14, "G08": 15, "G09": 16, "G10": 17, "G11": 18, "G12": 19, "R01": 20, "R02": 21, "R03": 22, "R04": 23, "R05": 24, "R06": 25, "R07": 26, "F01": 27, "F02": 28, "F03": 29, "F04": 30, "F05": 31, "F06": 32, "F07": 33, "F08": 34, "G09-cold": 35, "F09-0": 36, "F09-1": 37, "F09-2": 38, "F09-3": 39, "W01-0": 40, "W01-1": 41, "W01-2": 42, "W01-3": 43, "W01-4": 44, "W01-5": 45, "W01-6": 46, "W01-7": 47, "W02-0": 48, "W02-1": 49, "W02-2": 50, "W02-3": 51, "W02-4": 52, "W02-5": 53, "W02-6": 54, "W02-7": 55, "F10-0": 56, "F10-1": 57, "G06-purple": 58, "G09-smooth-grey": 59, "ROAD-natural": 60, "ROAD-warm": 61, "ROAD-moss": 62, "ROAD-mauve": 63, "ROAD-charcoal": 64, "ROAD-marsh": 65, "COMM-sandstone": 66};
+const SELECTED_MATERIAL_FRAMES = {"G01": 8, "G02": 9, "G03": 10, "G04": 11, "G05": 12, "G06": 13, "G07": 14, "G08": 15, "G09": 16, "G10": 17, "G11": 18, "G12": 19, "R01": 20, "R02": 21, "R03": 22, "R04": 23, "R05": 24, "R06": 25, "R07": 26, "F01": 27, "F02": 28, "F03": 29, "F04": 30, "F05": 31, "F06": 32, "F07": 33, "F08": 34, "G09-cold": 35, "F09-0": 36, "F09-1": 37, "F09-2": 38, "F09-3": 39, "W01-0": 40, "W01-1": 41, "W01-2": 42, "W01-3": 43, "W01-4": 44, "W01-5": 45, "W01-6": 46, "W01-7": 47, "W02-0": 48, "W02-1": 49, "W02-2": 50, "W02-3": 51, "W02-4": 52, "W02-5": 53, "W02-6": 54, "W02-7": 55, "F10-0": 56, "F10-1": 57, "G06-purple": 58, "G09-smooth-grey": 59, "ROAD-natural": 60, "ROAD-warm": 61, "ROAD-moss": 62, "ROAD-mauve": 63, "ROAD-charcoal": 64, "ROAD-marsh": 65, "COMM-sandstone": 66, "G09-light-slate": 67};
 const SELECTED_TERRAIN = {
-  0:[9,9], 1:[10,10], 2:[17,17], 3:[40], 4:[12,12], 5:[35,35], 6:[8,8],
+  0:[9,9], 1:[10,10], 2:[17,17], 3:[40], 4:[12,12], 5:[67,67], 6:[8,8],
   8:[11,15], 9:[0], 10:[35,35], 12:[56,57], 15:[8,8], 16:[66],
   17:[11], 18:[8,8], 19:[8,8], 20:[10,10], 21:[8,8], 22:[9,9],
   // Exclusion bedrock shares the flat ROCK surface, never the legacy cliff-face crop (7).

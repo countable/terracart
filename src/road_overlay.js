@@ -573,8 +573,11 @@
     return ROAD_MATERIALS[variant] || 'ROAD-natural';
   }
   // Approved sparse study: stable stone positions, open ground, denser repairs.
+  // The study's 16×16 layout is drawn at two-thirds scale (8px grid, 128px
+  // repeat): full-size stones read too large against 7m cells.
+  const SPARSE_SCALE = 2 / 3;
   function sparseRoadTile(source, restored) {
-    const size = 192, spacing = 12;
+    const S = SPARSE_SCALE, size = 192 * S, spacing = 12 * S;
     const tile = document.createElement('canvas');
     tile.width = tile.height = size;
     const cx = tile.getContext('2d');
@@ -589,10 +592,10 @@
       // Consume the same random values before deciding whether a stone exists:
       // restoration adds missing stones without moving the surviving ones.
       const keep = rand();
-      const x = col * spacing + (row % 2) * 6 + (rand() - .5) * 3;
-      const y = row * spacing + (rand() - .5) * 3;
-      const w = 6 + rand() * 3, h = 5 + rand() * 3;
-      const cut = 1 + rand(), bright = rand();
+      const x = col * spacing + (row % 2) * spacing / 2 + (rand() - .5) * 3 * S;
+      const y = row * spacing + (rand() - .5) * 3 * S;
+      const w = (6 + rand() * 3) * S, h = (5 + rand() * 3) * S;
+      const cut = (1 + rand()) * S, bright = rand();
       if (keep > (restored ? .94 : .72)) continue;
       const points = [
         [-w/2+cut,-h/2], [w/2-1,-h/2], [w/2,-h/2+cut], [w/2,h/2-1],

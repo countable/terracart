@@ -751,6 +751,18 @@
         16
       ],
       "frame": 66
+    },
+    {
+      "id": "G09-light-slate",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        352,
+        208,
+        16,
+        16
+      ],
+      "frame": 67,
+      "palette": "light-slate"
     }
   ]
 }

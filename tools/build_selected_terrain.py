@@ -40,6 +40,9 @@ def main():
                     return (grey, grey, grey, a)
                 if entry['palette'] == 'cold-slate':
                     return (max(0,light-7), light, min(255,light+7), a)
+                if entry['palette'] == 'light-slate':
+                    # Residential: cold slate lifted 30 levels so suburbs read lighter.
+                    return tuple(max(0,min(255,light+k)) for k in (23,30,37)) + (a,)
                 shift = {'warm-stone': (6,2,-8), 'moss-stone': (-5,2,-6), 'olive-stone': (-2,4,-8)}.get(entry['palette'])
                 if shift:
                     return tuple(max(0,min(255,c+d)) for c,d in zip((r,g,b),shift)) + (a,)
