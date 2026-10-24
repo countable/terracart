@@ -42,9 +42,83 @@
     const run = new Function('WorldGen', 'START_LAT', 'Arena', 'eachTile3x3', 'window', 'console',
       `return ${method('_ensureTilesAroundPass')}`)(WG, 49, { DEPTH: 99 },
       (x, y, fn) => { for (let i = 0; i < 9; i++) fn(i, 0); }, {}, { warn() {} });
-    return { scene, events, pending, run: () => run.call(scene, { tx: 0, ty: 0 }, 1),
+    scene.playerToWorldCell = () => ({ tx: 0, ty: 0 });
+    scene._ensureTilesAroundPass = run;
+    scene.ensureTilesAround = new Function('WorldGen', `return ${method('ensureTilesAround')}`)(WG);
+    return { scene, WG, events, pending, run: () => run.call(scene, { tx: 0, ty: 0 }, 1),
       maxActive: () => maxActive };
   }
+
+  test('tile prefetch: repeated same-centre checks retain the unfinished ring and lookahead', async () => {
+    const f = ringScene();
+    await f.scene.ensureTilesAround();
+    await flush();
+    const ring = f.scene._ringBuild, seq = f.scene._tilePassSeq;
+    assert.falsy(f.scene._tilePass, 'centre promise has already released');
+    for (let i = 1; i <= 8; i++) {
+      await f.scene.ensureTilesAround();
+      assert.eq(f.scene._tilePassSeq, seq, 'walk check does not supersede the ring');
+      assert.eq(f.scene._ringBuild, ring, 'same background pass stays active');
+      f.pending.get(`${i}/0`).resolve({ bytes: new Uint8Array(), fromCache: true });
+      await flush();
+    }
+    await ring;
+    assert.eq(f.events.filter(e => e === 'build 0/0').length, 1);
+    assert.eq(f.events.filter(e => e.startsWith('fetch')).length, 8);
+    assert.eq(f.scene._settledTilePassKey, '0/0/0');
+    assert.falsy(f.scene._ringCentre, 'completed ring releases its centre identity');
+  });
+
+  test('tile prefetch: rebuilt or evicted centre still supersedes its unfinished ring', async () => {
+    for (const replacement of [null, { status: 'ready', _spawned: true },
+      { status: 'ready', _spawned: false }]) {
+      const f = ringScene();
+      await f.scene.ensureTilesAround();
+      await flush();
+      const ring = f.scene._ringBuild, seq = f.scene._tilePassSeq;
+      if (replacement) f.WG.tileCache.set('0/0', replacement);
+      else f.WG.tileCache.delete('0/0');
+      await f.scene.ensureTilesAround();
+      assert.eq(f.scene._tilePassSeq, seq + 1, 'invalid centre starts a new pass');
+      assert.eq(f.events.filter(e => e === 'build 0/0').length, 2);
+      for (const p of f.pending.values()) p.resolve({ bytes: new Uint8Array(), fromCache: true });
+      await ring;
+      assert.falsy(f.scene._settledTilePassKey, 'obsolete ring cannot settle replacement');
+    }
+  });
+
+  test('tile prefetch: changed centre or depth supersedes the active ring', async () => {
+    for (const change of ['centre', 'depth']) {
+      const f = ringScene();
+      await f.scene.ensureTilesAround();
+      await flush();
+      const ring = f.scene._ringBuild, seq = f.scene._tilePassSeq;
+      if (change === 'centre') f.scene.playerToWorldCell = () => ({ tx: 9, ty: 0 });
+      else f.scene.depth = 2;
+      await f.scene.ensureTilesAround();
+      assert.eq(f.scene._tilePassSeq, seq + 1, `${change} owns a fresh pass`);
+      for (const p of f.pending.values()) p.resolve({ bytes: new Uint8Array(), fromCache: true });
+      await ring;
+      assert.falsy(f.scene._settledTilePassKey, 'old ring cannot settle the new location');
+    }
+  });
+
+  test('tile prefetch: the same centre entry must remain ready and spawned', async () => {
+    for (const change of ['loading', 'unspawned']) {
+      const f = ringScene();
+      await f.scene.ensureTilesAround();
+      await flush();
+      const ring = f.scene._ringBuild, seq = f.scene._tilePassSeq;
+      const entry = f.WG.tileCache.get('0/0');
+      if (change === 'loading') entry.status = 'loading';
+      else entry._spawned = false;
+      await f.scene.ensureTilesAround();
+      assert.eq(f.scene._tilePassSeq, seq + 1, `${change} centre needs a fresh pass`);
+      for (const p of f.pending.values()) p.resolve({ bytes: new Uint8Array(), fromCache: true });
+      await ring;
+      assert.falsy(f.scene._settledTilePassKey, 'old ring cannot settle the incomplete centre');
+    }
+  });
 
   test('tile prefetch: centre first, bounded lookahead and serial builds reuse fetched bytes', async () => {
     const f = ringScene();
