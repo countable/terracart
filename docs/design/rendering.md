@@ -992,10 +992,12 @@ the reach rim within the existing player-light radius.
 - Indoors (`scene.homeInterior`, non-null while the player stands on one of
   Home's cells) `paintIndoorMask` fills the lightmap outside the house with
   `HomeArea.HOUSE.maskColour` at `maskAlpha`, the house cut out as its exact
-  roofless silhouette: the ring swept by the walls' drawn height
+  roofless silhouette: the exterior ring swept by the walls' drawn height
   (`indoorSilhouette`, filled nonzero, so an L-shaped adopted house keeps its
   notch dark; `liftPx`, so the lift is screen-up at every heading, and the
-  drawn height alone, never plus the wall thickness). The cut's edge feathers
+  drawn height alone, never plus the wall thickness). Low-poly interiors pass
+  their actual `wallOutset` to lighting so the cut expands with the exterior
+  wall in the ground plane before lifting; prism walls retain their footprint. The cut's edge feathers
   `maskFeatherPx` into the room across the walls' outline, built on the
   mask's own layer (`indoorCuts`), so no seam of lit ground shows outside the
   walls. The frame key carries the interior and its lift, and the GPU
