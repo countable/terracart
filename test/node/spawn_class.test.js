@@ -364,8 +364,8 @@ test('spawn gate: COMMERCIAL ground — building interiors stay TERRAIN; residen
   assert.truthy(has(r, 15, 35, WHY.TERRAIN), 'its interior is TERRAIN');
   assert.eq(at(r, 15, 35), INV, 'and blocked, as before');
   assert.eq(raw(r, 15, 22), 0, 'its forecourt (a shop nearest) is open');
-  // The lot beside it: frontage as ever — an office nearest changes nothing.
-  assert.eq(r.grid[12 * CPE + 45], T.RESIDENTIAL, 'residential lot');
+  // The road theme can repaint the verge; the residential source lot still
+  // keeps its frontage access despite the office being the nearest POI.
   assert.falsy(has(r, 45, 12, WHY.PRIVATE), 'fronted lot: no PRIVATE despite the office');
   assert.truthy(has(r, 45, 40, WHY.PRIVATE), 'deep lot: PRIVATE (no frontage), as before');
 });
