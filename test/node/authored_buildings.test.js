@@ -74,6 +74,8 @@
     assert.truthy(room.authored, 'the room is drawn as source art');
     assert.eq(room.faces.filter(f => f.kind === 'roof').length, 0, 'no roof inside');
     assert.truthy(room.faces.every(f => f.points.every(p => p.z <= H + 1e-6)), 'cut level at the eaves');
+    assert.gt(house.height, H, 'the skin\'s roof stands above its eaves');
+    assert.eq(room.height, H, 'the room is as tall as its cut walls, not the roof peak (the indoor mask sweeps by it)');
     assert.truthy(room.faces.every(f => Number.isInteger(f.edge)), 'every face stands on a wall');
     const outside = room.faces.filter(f => f.kind === 'wall' && !f.interior);
     const skinned = house.faces.filter(f => f.kind === 'wall' && f.points.every(p => p.z <= H + 1e-6));

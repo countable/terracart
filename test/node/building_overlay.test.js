@@ -905,6 +905,18 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
       assert.eq((translations[0][axis] - translations[3][axis] + 256) % 256, CELL_PX,
         'negative panning retains the world phase');
     }
+    // Home's floor: the plank tile at HomeArea.HOUSE.floorTexScale, a tile
+    // of the native size holding n×n copies, so the world phase keeps its period.
+    const oldCreate = document.createElement, draws = [];
+    let sourced = null;
+    document.createElement = () => ({ getContext: () => ({ drawImage: (...a) => draws.push(a) }) });
+    ctx.createPattern = (src) => { sourced = src; return {}; };
+    try { target.texturePoly(points, 'home'); } finally { document.createElement = oldCreate; }
+    const n = Math.round(1 / HomeArea.HOUSE.floorTexScale);
+    assert.gt(n, 1, 'Home\'s floor is finer than the native plank tile');
+    assert.eq(sourced.width, 16, 'the tile keeps the native period');
+    assert.eq(draws.length, n * n, 'n×n copies');
+    assert.truthy(draws.every(d => d[3] === 16 / n && d[4] === 16 / n), 'each at 1/n');
     scene.depth = 1;
     BuildingOverlay.draw(scene);
     assert.eq(clears.length, 2, 'entering a cave clears the real canvas too');
@@ -1622,6 +1634,7 @@ test('building overlay: Home is walls with a doorway under a roof, from its foot
   // The floor is still the house floor on the canvas, outlined, no sprite.
   const g = scene.buildingGeomGfx;
   assert.eq(g.only('texture').length, 1, 'its floor carries the house material');
+  assert.eq(g.only('texture')[0].tier, 'home', 'at Home\'s own floor scale');
   assert.eq(g.only('stroke').length, 1, 'and the outline');
   assert.eq(g.only('slime').length, 0, 'never dilapidated');
   clearTiles();

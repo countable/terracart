@@ -190,6 +190,9 @@ const HomeArea = {
     // far its edge feathers into the room across the walls' outline
     // (lighting.js paintIndoorMask), map px.
     maskColour: 0x0a0d12, maskAlpha: 0.86, maskFeatherPx: 2,
+    // The plank floor's scale against the cell (building_overlay.js
+    // patternFor 'home'): 1/n, n planks' worth per native tile.
+    floorTexScale: 0.5,
   },
   // Is the cell (dx, dy) from the wagon cell one of the house's?
   inHouse(dx, dy) {

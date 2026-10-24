@@ -472,6 +472,22 @@
     roofCache.set(key,result); return result;
   }
 
+  // A tile of the same size holding n×n copies of `src` at 1/n, nearest
+  // sampled, so the repeat and the world phase keep their period. Baked once
+  // per scene pattern (patternFor), never on a cell crossing.
+  function scaledTile(src, scale) {
+    const n = Math.round(1 / scale);
+    if (!(n > 1)) return src;
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width; canvas.height = src.height;
+    const c = canvas.getContext?.('2d');
+    if (!c) return src;
+    c.imageSmoothingEnabled = false;
+    const w = src.width / n, h = src.height / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) c.drawImage(src, x * w, y * h, w, h);
+    return canvas;
+  }
+
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
     if (scene._buildingGeomTarget) return scene._buildingGeomTarget;
@@ -491,15 +507,18 @@
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
       let p = null;
-      const key = tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+      // 'home': Home's own floor, the plank material at HomeArea.HOUSE.floorTexScale.
+      const home = tier === 'home';
+      const key = tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 || home ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
         : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
-        const src = scene.textures.get(key).getSourceImage();
+        let src = scene.textures.get(key).getSourceImage();
         // createPattern THROWS on a zero-sized source (a texture not baked yet)
         // and would take the whole pass down. No material is fine.
-        if (src && src.width && src.height) p = {
-          fill: ctx.createPattern(src, 'repeat'), width: src.width, height: src.height,
-        };
+        if (src && src.width && src.height) {
+          if (home) src = scaledTile(src, HomeArea.HOUSE.floorTexScale);
+          p = { fill: ctx.createPattern(src, 'repeat'), width: src.width, height: src.height };
+        }
       }
       patterns.set(tier, p);
       return p;
@@ -1794,7 +1813,7 @@
     // No walls at all (a bare fill target): the tiled south face under the floor.
     if (!walled && !d.retail) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
     g.fillPoly(d.pts, floor, undefined, d.holes);
-    if (g.texturePoly) g.texturePoly(d.pts, tier, d.holes);
+    if (g.texturePoly) g.texturePoly(d.pts, d.retail ? tier : 'home', d.holes);
     if (g.gridPoly && !d.retail) g.gridPoly(d.pts, gridInkFor(GRID, floor));
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
   }

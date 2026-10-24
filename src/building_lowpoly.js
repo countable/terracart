@@ -328,7 +328,10 @@
   // a shared interior sheet with the exterior opening UVs. A SKINNED house
   // (authoredOutline, base.authored) keeps its own skin: the outer faces are
   // the facade the player saw from outside, cut at its eaves, the inner faces
-  // the same art turned inward, and the tops its plain wall texel.
+  // the same art turned inward, and the tops its plain wall texel. The room's
+  // `height` is that cut, not the skin's roof peak: the indoor mask
+  // (lighting.js indoorLift) sweeps the house by it, and a one-storey roof
+  // peak reads as a second storey of lit wall.
   function interiorGeometry(base,thickness){
     const key='interior:'+thickness+':'+JSON.stringify(base.faces,(k,v)=>k==='texture'||k==='projected'||k==='support'?undefined:v);
     if(meshCache.has(key))return meshCache.get(key);
@@ -381,7 +384,7 @@
       for(const tri of [[top[0],top[1],top[2]],[top[0],top[2],top[3]]])
         faces.push({points:tri.map(p=>({...p,z:H})),kind:'trim',rawUV:true,light:1,layer:1,wallTop:true,edge:i});
     });
-    const mesh={...base,faces,wallOutset:outer?thickness:0,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
+    const mesh={...base,faces,height:H,wallOutset:outer?thickness:0,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
       edges:ring.map((a,i)=>({a,b:ring[(i+1)%ring.length],index:i}))};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
     meshCache.set(key,mesh);return mesh;

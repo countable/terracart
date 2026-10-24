@@ -312,8 +312,10 @@ support clear the crop as on surface water. Dry L1 cells use one cool-grey 16px 
 selection of 14/16 plain slabs, 1/16 cracked slabs and 1/16 grates. Planning
 previews call the same selector. Other levels keep their existing ground.
 Building interiors use 32px swatches from the PP Interiors Pack's `all floors.png`
-(`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses,
-wooden boards for Home and forts, and masonry for civic buildings. The patterns
+(`assets/Objects/BuildingMaterials/all-floors.png`): square tiles for houses
+and masonry for civic buildings. Forts and Home keep the procedural plank floor
+(`biome11_0`); Home's is the same tile at `HomeArea.HOUSE.floorTexScale`
+(`patternFor('home')`). The patterns
 remain anchored to world coordinates and clipped to each footprint.
 `drawInteriorFloorTexture` repeats unshaded 32×16 source courses at half size
 (16×8 at the 32px runtime cell), keeping floor motifs in proportion to furniture.
@@ -1055,8 +1057,9 @@ the reach rim within the existing player-light radius.
   notch dark; `liftPx`, so the lift is screen-up at every heading, and the
   drawn height alone, never plus the wall thickness). Home starts with one
   storey; its saved upgrade selects two storeys for both walls and mask. The
-  mask reads the matching roofless model's `interiorHeight`, never the cached
-  exterior shell's height on entry or after upgrading. Low-poly interiors pass
+  mask reads the roofless model's `height` (`interiorGeometry` sets it to the
+  cut wall height), never the skin's roof peak or the cached exterior shell's
+  height on entry or after upgrading. Low-poly interiors pass
   their actual `wallOutset` to lighting so the cut expands with the exterior
   wall in the ground plane before lifting; prism walls retain their footprint. The cut's edge feathers
   `maskFeatherPx` into the room across the walls' outline, built on the
