@@ -24,6 +24,7 @@
       f.tags.class === 'school' && f.geom.some(r => r[0].x === 1312 && r[0].y === 3693));
     assert.truthy(field, 'fixture still contains the school POI in the field');
     const out = W.rasterizeTile(layers, n, tx, ty, W.tileEdgeMeters(W.latOfRowCentre(ty)));
+    assert.eq(out.gameplayTiers[y * n + x], GameplayTiers.CORE, 'Casorso school field qualifies as recreation ground');
     const expected = `b_${tx * n + x}_${ty * n + y}`;
     assert.falsy(out.ownerKeys.includes(expected), 'the field POI does not own a castle');
     assert.eq(out.objects.filter(o => o.kind === 'tower' && o.castle === expected).length, 0);

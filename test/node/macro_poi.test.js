@@ -830,14 +830,14 @@
     assert.inRange(books / N, 0.15, 0.25, 'about a fifth of T2 food chests hand a Book: ' + (books / N).toFixed(3));
   });
 
-  test('scholar: an Excluded source school does not mint a booth or fabricate a wall', () => {
+  test('scholar: Casorso school grounds qualify without fabricating a wall', () => {
     const tx=2754, ty=5566, N=WorldGen.cellsPerEdgeForTile(ty);
     const edge=WorldGen.tileEdgeMeters(WorldGen.latOfRowCentre(ty)), cellM=edge/N;
     const r=WorldGen.rasterizeTile(MVT.decodeTile(FIXTURE_TILES['2754_5566']),N,tx,ty,edge);
     const booths=r.objects.filter(o=>o.kind==='chest' && o._poiAt==='1312,3693');
-    assert.eq(booths.length,0,'the POI cannot reopen Excluded ground');
+    assert.eq(booths.length,0,'existing placement checks still apply to the POI');
     const sourceX=Math.floor(1312*N/4096), sourceY=Math.floor(3693*N/4096);
-    assert.eq(r.gameplayTiers[sourceY*N+sourceX],GameplayTiers.EXCLUDED,'the source lacks qualifying playable ground');
+    assert.eq(r.gameplayTiers[sourceY*N+sourceX],GameplayTiers.CORE,'school grounds qualify as recreation ground');
     const owner=r.owners[sourceY*N+sourceX];
     assert.eq(owner,0,'the school POI marks open ground, not a physical building');
   });

@@ -502,7 +502,10 @@ access or tile lifecycle mechanics.
   Street surfaces take precedence over surrounding zones: medium/large streets
   are Excluded, ordinary small streets are Calm, and small dead ends are Passing.
   Old Stones coverage includes its absorbed adjoining parking lots as Calm;
-  other parking lots are Passing. Missing qualifying evidence is Excluded.
+  other parking lots are Passing. Mapped school, college, university and education
+  grounds qualify as Core recreation ground without a separate park polygon or
+  school-hours check; buildings and explicit access/land exclusions still apply.
+  Missing qualifying evidence is Excluded.
 - Core mapped paths include a one-cell band beyond their edges. They interrupt
   Passing buffers around medium/large roads and intersections, but cannot open
   an Excluded road surface or restricted ground. Intersections receive a wider
@@ -527,7 +530,8 @@ access or tile lifecycle mechanics.
   which blocks player movement and cannot be mined or tilled. Source residential
   terrain and private/backyard/restricted evidence identify that ground before
   Nexus paint. Roads and paths, including their drawn footprints, never become
-  rock. Other Excluded ground, water and buildings retain their physical surfaces
+  rock. Building ownership also protects every house/footprint cell even if its
+  terrain was repainted. Other Excluded ground, water and buildings retain their physical surfaces
   while refusing every spawn. Tier classification precedes final placement so
   a rejected cell cannot retain an object from an earlier placement pass.
 - Source access evidence still records private/restricted/quiet land, sensitive
