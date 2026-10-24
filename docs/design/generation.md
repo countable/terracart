@@ -777,8 +777,9 @@ access or tile lifecycle mechanics.
   associated park footprint plus park fringe. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
   ambient fill, including procedural residential yard trees; roads and buildings
-  remain visible. Mapped and detected trees also yield to Nexus coverage,
-  including its empty cells. Nexus painting and
+  remain visible. Ordinary mapped trees yield to Nexus coverage, including its empty cells.
+  DeepForest and Gemini crowns supersede generated scenery there, using an
+  explicit owning-variant tree species or material mapping when one is defined. Nexus painting and
   quarry coverage preserve all spawn exclusions, including PRIVATE and
   BEHIND_HOUSE; the shared gate still owns its existing POI-frontage exception.
   A connected parking-lane footprint adjoining a church's Old Stones coverage
@@ -1006,7 +1007,7 @@ Higher-priority placements and their access space take precedence in this order:
    the near-home softwood overlay preserves their habitat. Species changes
    do not consume random draws or move trees. Residential yards keep their
    mixed maple/pine selection. Imported ordinary trees on forest cells become pine.
-   Authored park/Nexus coverage already excludes imported trees and keeps
+   Authored park/Nexus coverage excludes ordinary imported trees and keeps
    its own tree choices; fruit trees keep their species. Outside forests,
    mapped trees retain their original mix.
    Tree-bearing street variants declare their timber species on the variant

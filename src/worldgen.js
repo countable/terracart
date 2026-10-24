@@ -7647,13 +7647,15 @@
       }
       wps.length = wr;
     }
-    // DeepForest crowns may replace road dressing, but Nexus coverage owns
-    // every cell. Older cached bins predate the explicit source flag.
-    const detectedTree = t => t._treeSource === 'deepforest' ||
+    // Detected crowns own their seats over generated scenery, including
+    // variant dressing. Buildings and player property remain protected.
+    const detectedTree = t => t._treeSource === 'gemini' || t._treeSource === 'deepforest' ||
       (!t.id && (t.crown_m != null || t.size != null || t.individual === true));
-    const replaceable = o => !o.placed && !o.planted && !o.playerOwned &&
+    const generatedScenery = new Set([...entry.objects, ...entry.wildplants]);
+    const replaceable = o => generatedScenery.has(o) && !o.placed && !o.planted && !o.playerOwned &&
       !['chest', 'grove_shrine', 'house', 'temple', 'tower', 'staircase', 'gatepost', 'well'].includes(o.kind) &&
-      !!(o._street || o.zoneVariant || o._scenic || o._yardTree);
+      !!(o._street || o.zoneVariant || o._scenic || o._yardTree
+        || o.kind === 'tree' || o.kind === 'mineralrock' || o.crop);
     const fixedCells = new Set(), themedCells = new Set(), treeClaims = new Set(), yardTreeCells = new Set();
     const objectCells = o => {
       const {ix, iy} = _sxCell(o.x, o.y);
@@ -7675,7 +7677,7 @@
     }
     const tryTreeCell = (ix, iy, detected) => {
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return null;
-      if (variantOwnerAt(entry, iy * cpe + ix) === 'zone' || (!detected && _sxReserved(ix, iy))) return null;
+      if (!detected && _sxReserved(ix, iy)) return null;
       if (_sxHardCell(ix, iy, detected)) return null;
       const cell = iy * cpe + ix;
       if (fixedCells.has(cell)) return null;
@@ -7701,20 +7703,38 @@
       return null;
     };
     const allTrees = [...sx.trees, ...sx.fruittrees]
-      .sort((a, b) => (b.crown_m || 0) - (a.crown_m || 0));
+      .sort((a, b) => Number(b._treeSource === 'gemini') - Number(a._treeSource === 'gemini') || (b.crown_m || 0) - (a.crown_m || 0));
     for (const t of allTrees) {
       { const y1 = tick('bin trees'); if (y1) yield y1; }
       const detected = detectedTree(t);
-      if (detected && !DEEPFOREST_TREES_ENABLED) continue;
+      if (detected && t._treeSource !== 'gemini' && !DEEPFOREST_TREES_ENABLED) continue;
       const r = placeTree(t.x, t.y, detected);
       if (!r) continue;
       occupied.add(r.key);
       fixedCells.add(r.iy * cpe + r.ix);
       if (detected || yardTreeCells.has(r.iy * cpe + r.ix)) treeClaims.add(r.iy * cpe + r.ix);
-      if (detected) t._treeSource = 'deepforest';
+      if (detected && t._treeSource !== 'gemini') t._treeSource = 'deepforest';
       t.x = r.x; t.y = r.y;
-      // Use the settled cell's habitat, including a tree relocated off an
-      // occupied cell. Authored zones already win through _sxReserved above.
+      // Use the final seat's explicit variant mapping, never the source cell
+      // or a displaced object's incidental species. Coverage wins even in gaps.
+      if (detected && t.kind === 'tree') {
+        const i = r.iy * cpe + r.ix, owner = variantOwnerAt(entry, i);
+        let row = null;
+        if (owner === 'zone' && typeof ZoneVariants !== 'undefined') {
+          const coverage = entry.zone.coverage || entry.zone.idx;
+          const anchor = entry.zone.anchors?.[coverage[i] - 1];
+          if (anchor) row = ZoneVariants.pick(anchor);
+        } else if (owner === 'road' && typeof StreetVariants !== 'undefined') {
+          row = StreetVariants.variantByCode((entry.streetAreaVariants || entry.streetArea?.variants)?.[i]);
+        }
+        const material = row?.materialReplacements?.tree;
+        const mapped = material && typeof ZoneVariants !== 'undefined' ? ZoneVariants.materials[material] : null;
+        const species = row?.treeSpecies || (mapped?.kind === 'tree' && mapped.species);
+        if (species) { t.species = species; t.treeSpeciesFixed = true; delete t.crown_color; }
+        const look = row?.materialLooks?.[material || 'tree'];
+        if (look) { t._objectArt = look; delete t.crown_color; }
+      }
+      // Ordinary imported trees keep the existing forest habitat rule.
       if (t.kind === 'tree' && !detected && grid[r.iy * cpe + r.ix] === T.FOREST) {
         t.species = BiomeProfiles.staticObjects(T.FOREST).treeSpecies;
         t.treeSpeciesFixed = true;
