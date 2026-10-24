@@ -10,7 +10,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin | Orange |
 | Regular residence | Pixel Plains stucco/plaster cottage or log cabin; stable ID selection, pitched roofs | Yellow |
-| Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
+| Blacksmith T1–T3 / T4–T7 | Full FDR smithy / steam blacksmith, with a broad stone chimney | Slate |
 | Trader T1 / T2+ | White plaster cottage / trader | Green |
 | Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
 | Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
@@ -18,11 +18,13 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
 | Fort | City copper hall inside pointed square timber palisade | Copper |
 
-All tier-one businesses, including blacksmiths, traders and generic shops,
+Tier-one traders and shops
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
-Each T1 entrance carries a small wooden sign beside its door, and its roof
+Blacksmiths use their dedicated masonry workshop at every tier and a broad,
+flared stone chimney with smoke anchored at its dark mouth.
+Each cottage entrance carries a small wooden sign beside its door, and its roof
 carries a roof-coloured sign embossed with the same symbol. Symbols are centered
 by the center of their visible ink, balancing top-heavy marks and excluding
 padding in the source glyph. Both are simple
@@ -169,12 +171,11 @@ where the footprint allows it. A few fallen blocks stand 2–4 units high. Roofs
 rafters and leaning panels are absent. Every height step has an outward-facing
 end cap. Arbitrary concave footprints retain their exact ground area.
 
-`tools/build_wreck_plinth.py` builds `wreck-plinth.png` from the FDR wall atlas
-(slot 3, reduced back to native 16-pixel scale) and the Rogue Adventure Cavern
-fine dirt and grit tiles at (224,16) and (272,16). Pale caps use sparse pixel
-grain. The shared 512px atlas holds side masonry in its upper-left quarter,
-caps in the upper-right, and flat rubble below y=128. No per-building material
-is generated. Rogue/Dreamland retain their prepared profile palette variants.
+`tools/build_wreck_plinth.py` builds `wreck-plinth.png` with rounded, irregular
+fieldstones, worn highlights and muted caps. The shared 512px atlas holds side
+masonry in its upper-left quarter, caps in the upper-right, and dark ground with
+sparse, low-contrast rubble below y=128. No per-building material is generated.
+Rogue/Dreamland retain their prepared profile palette variants.
 The floor sorts below actors; individual raised sections sort at their wall
 baselines. Breaches, doorway clearance and scattered blocks use stable IDs.
 

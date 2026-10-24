@@ -2,7 +2,7 @@
 // building overlay; nothing is damaged, saved, or made impassable.
 const WallSmash = (() => {
   const CLEARANCE_M = 2;
-  const PAUSE_MS = 110, CRACK_MS = 1800;
+  const PAUSE_MS = 110;
   function crossing(ax, ay, bx, by, ring, ox = 0, oy = 0) {
     const dx = bx - ax, dy = by - ay;
     let first = null;
@@ -37,6 +37,11 @@ const WallSmash = (() => {
         if (!shape.ring || shape.cleared) continue;
         const h = crossing(ax, ay, bx, by, shape.ring, ox, oy);
         if (!h) continue;
+        // Resolve ownership only for walls crossed by this movement segment.
+        // Looking up every distant footprint makes dense tiles quadratic.
+        const house = (entry.objects || []).find(o => o.id === shape.key);
+        if (typeof Houses !== 'undefined' && Houses.isHouseWreck(scene.save || {},
+          house || { id: shape.key, kind: 'house', tier: shape.tier })) continue;
         const id = `${key}:${shape.key ?? shapeIndex}:${h.edge}`;
         if ((scene._wallSmashPass?.get(id) || 0) > now) continue;
         if (!nearest || h.t < nearest.t) nearest = { ...h, id };
@@ -68,28 +73,8 @@ const WallSmash = (() => {
     const passes = scene._wallSmashPass ||= new Map();
     for (const [id, until] of passes) if (until <= now) passes.delete(id);
     passes.set(h.id, now + 700);
-    (scene._wallSmashes ||= []).push({ ...h, start: now });
-    scene._burstAtWorld?.('dust', h.x, h.y);
     scene.flashAtWorld?.('SMASH!', h.x, h.y);
     return false;
   }
-  function draw(scene) {
-    const now = performance.now();
-    scene._wallSmashes = (scene._wallSmashes || []).filter(e => {
-      const age = now - e.start;
-      if (age >= CRACK_MS || scene.depth) { e.gfx?.destroy(); return false; }
-      if (!e.gfx) {
-        e.gfx = scene.add.graphics();
-        scene.fxContainer.add(e.gfx);
-      }
-      const p = scene.worldMetersToScreen(e.x, e.y), g = e.gfx;
-      g.clear().setPosition(p.x, p.y - 10);
-      // Jagged branching fracture fades without changing the building art.
-      g.lineStyle(2, 0x493326, Math.min(1, (CRACK_MS - age) / 650));
-      g.strokePoints([{x:-9,y:-12},{x:-3,y:-8},{x:-5,y:-3},{x:2,y:1},{x:0,y:8}]);
-      g.strokePoints([{x:-5,y:-3},{x:3,y:-7},{x:8,y:-5}]);
-      return true;
-    });
-  }
-  return { crossing, hold, draw, PAUSE_MS, CLEARANCE_M };
+  return { crossing, hold, PAUSE_MS, CLEARANCE_M };
 })();

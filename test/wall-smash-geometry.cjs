@@ -17,7 +17,8 @@ const cache = new Map([['14/0/0', {tileEdgeM:100, buildingShapes:[{key:'house',r
 const smash = vm.runInNewContext(fs.readFileSync('src/wall_smash.js','utf8')+'; WallSmash', {
   performance:{now:()=>now}, WorldGen:{tileCache:cache}
 });
-const scene = {startWorldM:{x:0,y:0},playerM:{x:9,y:5},_targetM:{x:10.5,y:5}};
+const flashes = [];
+const scene = {flashAtWorld: text => flashes.push(text), _burstAtWorld: () => { throw Error('No impact particles'); }, startWorldM:{x:0,y:0},playerM:{x:9,y:5},_targetM:{x:10.5,y:5}};
 assert(smash.hold(scene,11,5));
 now = 10000;
 assert(smash.hold(scene,11,5),'time alone never releases a near-wall target');
@@ -33,10 +34,32 @@ now += 1000; scene._targetM.x = 12;
 assert(smash.hold(scene,11,5));
 now += smash.PAUSE_MS;
 assert.equal(smash.hold(scene,11,5),false);
-assert.equal(scene._wallSmashes.length,1);
+assert.equal(scene._wallSmashes,undefined);
+assert.deepEqual(flashes,['SMASH!']);
 now += 1000; scene.playerM.x = 11; scene._targetM.x = 9.5;
 assert(smash.hold(scene,9,5),'exit also needs clearance');
 now += 1000; assert(smash.hold(scene,9,5));
 scene._targetM.x = 8; assert(smash.hold(scene,9,5));
 now += smash.PAUSE_MS; assert.equal(smash.hold(scene,9,5),false);
 console.log('Wall clearance: time, perpendicular distance, retreat, entry and exit passed');
+
+const wreckSmash = vm.runInNewContext(fs.readFileSync('src/wall_smash.js','utf8')+'; WallSmash', {
+  performance:{now:()=>now}, WorldGen:{tileCache:cache},
+  Houses:{isHouseWreck: (save, house) => house.id === 'house' && !save.restoredHouses?.house}
+});
+scene.playerM.x = 9; scene._targetM.x = 12; scene.save = {};
+now += 1000;
+assert.equal(wreckSmash.hold(scene,11,5),false,'wreck crossing is free');
+assert.equal(flashes.length,2,'wreck has no smash popup');
+scene.save.restoredHouses = {house:'plain'};
+assert.equal(wreckSmash.hold(scene,11,5),true,'restored wreck resumes wall wind-up');
+
+// Dense tiles must not scan object ownership for walls outside the step.
+const distant = Array.from({length:3000}, (_,i) => ({key:`far${i}`,tier:9,
+  ring:[100+i,100,101+i,100,101+i,101,100+i,101]}));
+let lookups = 0;
+cache.set('14/0/0', {tileEdgeM:10000,buildingShapes:distant,
+  objects:{find(){lookups++; throw Error('Uncrossed wall queried ownership');}}});
+assert.equal(wreckSmash.hold(scene,11,5),false);
+assert.equal(lookups,0,'distant buildings require no ownership lookups');
+console.log('Wreck crossing, restoration, and dense-tile lookup regression passed');

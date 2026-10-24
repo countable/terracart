@@ -65,14 +65,13 @@
     CompassModules.tap(scene, 'joystick'); scene.panels[2].onAccept();
     assert.falsy(scene._storyRun, 'enabling does not release automatic story dialogs');
     assert.eq(scene.panels.length, 3, 'enable does not open an activation dialog');
-    assert.falsy(CompassModules.tap(scene, 'joystick'));
-    assert.truthy(scene.panels[3].body.startsWith('Spirit walking activated.'));
-    dismiss(scene);
+    assert.truthy(CompassModules.tap(scene, 'joystick'));
+    assert.eq(scene.panels.length, 3);
     assert.truthy(CompassModules.tap(scene, 'joystick'));
     assert.eq(scene.save.compassModules.pending.join(','), 'joystick');
   });
 
-  test('compass circuits: dormant and activation dialogs point to their own HUD control', () => {
+  test('compass circuits: dormant dialogs point to their control; active controls work immediately', () => {
     const previous = document.getElementById;
     const controls = Object.fromEntries(['inv', 'move-pad', 'roadchip', 'memories', 'bookchip']
       .map(id => [id, { id }]));
@@ -88,9 +87,8 @@
         CompassModules.activate(scene, id);
         CompassModules.drain(scene);
         assert.eq(scene.panels.length, 1, 'unlock stays silent until tapped');
-        assert.falsy(CompassModules.tap(scene, id));
-        assert.eq(scene.panels[1].source, controls[control]);
-        dismiss(scene);
+        assert.truthy(CompassModules.tap(scene, id));
+        assert.eq(scene.panels.length, 1);
       }
     } finally { document.getElementById = previous; }
   });
@@ -104,10 +102,10 @@
     assert.eq(scene.toasts.length, 0);
     assert.falsy(scene._compassSpiritOpen);
     assert.eq(scene.save.compassModules.pending.length, 0);
-    assert.eq(scene.save.compassModules.unread.join(','), 'inventory,books');
+    assert.eq(scene.save.compassModules.unread, undefined);
     assert.falsy(CompassModules.drain(scene), 'feedback cannot repeat');
-    assert.falsy(CompassModules.tap(scene, 'inventory'), 'tap cannot replace another dialog');
-    assert.eq(scene.save.compassModules.unread.length, 2, 'blocked tap preserves information');
+    assert.truthy(CompassModules.tap(scene, 'inventory'));
+    assert.eq(scene.panels.length, 0);
   });
 
   test('compass circuits: all newly enabled parts receive visual feedback in one drain', () => {
@@ -127,53 +125,29 @@
     }
   });
 
-  test('compass circuits: activation information waits for a tap and is shown once across reloads', () => {
-    const scene = sceneFor();
-    CompassModules.activate(scene, 'inventory'); CompassModules.activate(scene, 'books');
-    CompassModules.drain(scene);
-    const resumed = sceneFor(copy(scene.save));
-    assert.falsy(CompassModules.drain(resumed));
-    assert.eq(resumed.panels.length, 0);
-    assert.falsy(CompassModules.tap(resumed, 'inventory'));
-    assert.eq(resumed.panels[0].kind, 'spirit');
-    assert.eq(resumed.panels[0].okLabel, 'Got it');
-    assert.truthy(resumed.panels[0].body.startsWith('Inventory activated.'));
-    assert.truthy(resumed._compassSpiritOpen);
-    assert.falsy(CompassModules.tap(resumed, 'books'), 'next tapped notice waits for dismissal');
-    dismiss(resumed);
-    const reloaded = sceneFor(copy(resumed.save));
-    assert.truthy(CompassModules.tap(reloaded, 'inventory'), 'normal control action resumes after information is read');
-    assert.eq(reloaded.panels.length, 0);
-    assert.falsy(CompassModules.tap(reloaded, 'books'));
-    assert.truthy(reloaded.panels[0].body.startsWith('Books activated.'));
-    dismiss(reloaded);
-    assert.truthy(CompassModules.tap(reloaded, 'books'));
-    assert.eq(reloaded.save.compassModules.unread.length, 0);
-  });
-
-  test('compass circuits: legacy queued dialogs migrate to tap-only information', () => {
+  test('compass circuits: legacy activation introductions are discarded across reloads', () => {
     const scene = sceneFor({ compassModules: {
-      active: { books: true }, pending: ['books', 'books', 'unknown'], walkedM: 0,
+      active: { books: true }, pending: ['books', 'books', 'unknown'], unread: ['books'], walkedM: 0,
     } });
     assert.truthy(CompassModules.drain(scene));
+    assert.truthy(CompassModules.tap(scene, 'books'));
     assert.eq(scene.panels.length, 0);
-    assert.eq(scene.save.compassModules.unread.join(','), 'books');
-    assert.falsy(CompassModules.tap(scene, 'books'));
-    assert.truthy(scene.panels[0].body.startsWith('Books activated.'));
+    assert.eq(scene.save.compassModules.unread, undefined);
+    const resumed = sceneFor(copy(scene.save));
+    assert.truthy(CompassModules.tap(resumed, 'books'));
+    assert.eq(resumed.panels.length, 0);
+    assert.falsy(CompassModules.drain(resumed));
   });
 
-  test('compass circuits: a failed tapped dialog preserves information for retry and releases the hold', () => {
-    const scene = sceneFor(); CompassModules.activate(scene, 'books');
-    CompassModules.drain(scene);
+  test('compass circuits: a failed dormant dialog releases the hold for retry', () => {
+    const scene = sceneFor();
     scene.showMessageModal = () => { throw new Error('unavailable'); };
     let threw = false;
     try { CompassModules.tap(scene, 'books'); } catch (_) { threw = true; }
     assert.truthy(threw);
     assert.falsy(scene._compassSpiritOpen);
-    assert.eq(scene.save.compassModules.unread.join(','), 'books');
     scene.showMessageModal = panel => scene.panels.push(panel);
     assert.falsy(CompassModules.tap(scene, 'books'));
-    assert.eq(scene.save.compassModules.unread.length, 0);
     assert.eq(scene.panels.length, 1);
   });
 })();

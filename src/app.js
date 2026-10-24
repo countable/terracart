@@ -725,17 +725,6 @@ const STARTER_STASH = [
   { id: 'rope', qty: 1 }, { id: 'trap_disarm_kit', qty: 1 },
 ];
 const STARTER_STASH_R_CELLS = [8, 16];
-// Loose Rock and Wood scattered through the same ring: `piles` instant
-// groundstack pickups of `qty` per material, on top of the trail's nine of
-// each. They seat after the crates, so a crate keeps its cell. `near` rows
-// scatter inside Home's circle instead (HomeVariant.RADIUS_M, 50 m), from two
-// cells out, so the first steps outside already pass something to pick up.
-const STARTER_STASH_PILES = [
-  { id: 'rubble', qty: 3, piles: 6 },
-  { id: 'wood',   qty: 3, piles: 6 },
-  { id: 'rubble', qty: 1, piles: 9, near: true },
-  { id: 'wood',   qty: 1, piles: 9, near: true },
-];
 // How long a wounded enemy keeps its floating health bar after the last hit.
 // A bow shot lands from clear across the screen, so without this the only
 // feedback for a hit would be the foe eventually vanishing — but a bar that
@@ -5985,7 +5974,6 @@ class MapScene extends Phaser.Scene {
   }
   drawBuildingGeometry() { if (typeof BuildingOverlay !== 'undefined') BuildingOverlay.draw(this); }
   drawObjects() {
-    if (typeof WallSmash !== 'undefined') WallSmash.draw(this);
     const B = window.__boot;
     if (!B) return Render.drawObjects(this);
     const t0 = performance.now();

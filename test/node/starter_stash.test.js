@@ -1,8 +1,8 @@
 // The starter stash: four Books, a Rope and a Trap Disarm Kit, one per small
-// crate, then loose Rock and Wood piles, scattered through the resource ring
+// crate, scattered through the resource ring
 // around home (starter.js scatterStarterStash behind app.js's
 // _scatterStarterStash wrapper; STARTER_STASH, STARTER_STASH_R_CELLS,
-// STARTER_STASH_PILES in app.js).
+// STARTER_STASH in app.js).
 //
 // The function is lifted out of starter.js and RUN on a synthetic tile, with the
 // coords helpers stubbed to the tile's own metre grid (1 m cells), so what is
@@ -20,8 +20,6 @@ const lift = (sig) => {
 const body = lift('function scatterStarterStash(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {');
 const stash = eval(app.match(/const STARTER_STASH = (\[[\s\S]*?\]);/)[1]);
 const R = eval(app.match(/const STARTER_STASH_R_CELLS = (\[[^\]]*\]);/)[1]);
-const pileRows = eval(app.match(/const STARTER_STASH_PILES = (\[[\s\S]*?\]);/)[1]);
-const pileCount = pileRows.reduce((n, p) => n + p.piles, 0);
 
 const run = (grid, opts = {}) => {
   const N = 64;
@@ -30,8 +28,8 @@ const run = (grid, opts = {}) => {
   const w2c = (s, x, y) => ({ cellIX: Math.floor(x), cellIY: Math.floor(y) });
   const c2w = (s, ix, iy) => ({ x: ix + 0.5, y: iy + 0.5 });
   new Function('scene', 'entry', 'tx', 'ty', 'spawnIX', 'spawnIY', 'usedSeats',
-               'worldMetersToAbsCell', 'absCellCenterMeters', 'STARTER_STASH', 'STARTER_STASH_R_CELLS', 'STARTER_STASH_PILES', body)
-    .call(null, scene, entry, 0, 0, 32, 32, new Set(), w2c, c2w, stash, R, pileRows);
+               'worldMetersToAbsCell', 'absCellCenterMeters', 'STARTER_STASH', 'STARTER_STASH_R_CELLS', body)
+    .call(null, scene, entry, 0, 0, 32, 32, new Set(), w2c, c2w, stash, R);
   return entry.objects;
 };
 
@@ -40,11 +38,11 @@ test('starter stash: four Books, a Rope and a Trap Disarm Kit', () => {
   assert.eq(ids, 'book,book,book,book,rope,trap_disarm_kit', 'what the stash holds');
 });
 
-test('starter stash: every crate and pile is seated, in the resource ring, one to a cell', () => {
+test('starter stash: every crate is seated, in the resource ring, one to a cell', () => {
   const all = run();
   const crates = all.filter((o) => o.kind === 'chest');
   assert.eq(crates.length, stash.length, 'all six crates seated on open ground');
-  assert.eq(all.length, stash.length + pileCount, 'every pile seated too');
+  assert.eq(all.length, stash.length, 'only the six stash crates');
   const cells = new Set();
   for (const c of crates) {
     assert.truthy(c.fixedLoot && c.crate, 'a fixed-contents crate');
@@ -52,36 +50,15 @@ test('starter stash: every crate and pile is seated, in the resource ring, one t
   }
   for (const c of all) {
     const d = Math.max(Math.abs(Math.floor(c.x) - 32), Math.abs(Math.floor(c.y) - 32));
-    // Near piles scatter inside Home's circle (1 m cells here, so 2..50).
-    const [lo, hi] = /^stash_pile_near_/.test(c.id) ? [2, HomeVariant.RADIUS_M] : R;
+    const [lo, hi] = R;
     assert.truthy(d >= lo - 1 && d <= hi + 1, `${c.id} ${d} cells out, inside its ring`);
     cells.add(Math.floor(c.x) + ',' + Math.floor(c.y));
   }
   assert.eq(cells.size, all.length, 'no two share a cell');
 });
 
-test('starter stash: loose Rock and Wood piles add to the trail supplies', () => {
-  const piles = run().filter((o) => o.kind === 'groundstack');
-  for (const row of pileRows) {
-    const near = /^stash_pile_near_/;
-    const mine = piles.filter((p) => p.itemId === row.id && near.test(p.id) === !!row.near);
-    assert.eq(mine.length, row.piles, `${row.id}${row.near ? ' near' : ''} piles`);
-    for (const p of mine) {
-      assert.eq(p.qty, row.qty);
-      assert.truthy(/^stash_pile_/.test(p.id), 'its own id — never the trail\'s chest_start_');
-    }
-  }
-  assert.eq([...new Set(pileRows.map((p) => p.id))].sort().join(), 'rubble,wood', 'Rock and Wood');
-  for (const id of ['rubble', 'wood']) {
-    assert.eq(pileRows.filter((p) => p.id === id && p.near).reduce((n, p) => n + p.piles * p.qty, 0), 9,
-      `nine single ${id} pickups inside Home's 50 m circle`);
-  }
-  assert.truthy(/stash_pile/.test(starter.slice(starter.indexOf('function stripStarterCrates'))),
-    'hard mode strips the scattered piles with the other loose supplies');
-});
-
-test('starter stash: the crates draw their own stream, so the piles move no crate', () => {
-  assert.truthy(/scatterRing\(STARTER_STASH, 'starter_stash', 'stash_start'/.test(body), 'crate salt and ids unchanged');
+test('starter stash: no extra Wood or Rock scatter remains', () => {
+  assert.eq(run().filter(o => o.kind === 'groundstack').length, 0);
 });
 
 test('starter stash: the same anchor seats the same crates (PLACED, not rolled)', () => {

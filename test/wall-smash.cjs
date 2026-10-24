@@ -60,14 +60,14 @@ const out = process.env.OUT_DIR || '/tmp/wall-smash';
       s._followStep(.1); const held = s.playerM.x === old.x && !!s._wallSmashPending;
       __wallNow += 80; s._followStep(.1); const stillHeld = s.playerM.x === old.x;
       __wallNow += 40; s._followStep(.1); __wallRender();
-      return { held, stillHeld, passed: s.playerM.x > old.x, effects: s._wallSmashes.length, dust: s._fxEmitters?.fx_dust?.getAliveParticleCount() > 0 };
+      return { held, stillHeld, passed: s.playerM.x > old.x, effects: s._wallSmashes?.length || 0, dust: (s._fxEmitters?.fx_dust?.getAliveParticleCount() || 0) > 0 };
     });
-    assert.deepEqual(result, { held: true, stillHeld: true, passed: true, effects: 1, dust: true });
+    assert.deepEqual(result, { held: true, stillHeld: true, passed: true, effects: 0, dust: false });
     await page.evaluate(() => { __wallNow += 150; __wallRender(); }); await capture('impact');
-    await page.evaluate(() => { __wallNow += 850; __wallRender(); }); await capture('crack');
+    await page.evaluate(() => { __wallNow += 850; __wallRender(); }); await capture('after-impact');
     const checks = await page.evaluate(() => {
       const s = __scene;
-      __wallNow += 1000; __wallRender(); const cleaned = s._wallSmashes.length === 0;
+      __wallNow += 1000; __wallRender(); const cleaned = !s._wallSmashes?.length;
       // Back across the same edge after cooldown: pause, then reverse away.
       s._targetM = {...__wallStart}; s._followSettled = false;
       for (let i = 0; i < 100 && !s._wallSmashPending; i++) s._followStep(.1);
@@ -75,8 +75,8 @@ const out = process.env.OUT_DIR || '/tmp/wall-smash';
       s._targetM = {x:s.playerM.x + s.cellM, y:s.playerM.y}; s._followStep(.02);
       const cancel = !s._wallSmashPending;
       s.depth = 1; const underground = !WallSmash.hold(s, __wallStart.x, __wallStart.y); s.depth = 0;
-      s._reducedMotion = true; s._wallSmashes.push({x:s.startWorldM.x+s.playerM.x,y:s.startWorldM.y+s.playerM.y+s.feetOffsetM,start:__wallNow}); __wallRender();
-      s.flashAtWorld('SMASH!',s._wallSmashes[0].x,s._wallSmashes[0].y);
+      s._reducedMotion = true; __wallRender();
+      s.flashAtWorld('SMASH!',s.startWorldM.x+s.playerM.x,s.startWorldM.y+s.playerM.y+s.feetOffsetM);
       const note = s._liveToasts.find(t => t.text === 'SMASH!');
       const reduced = note?.scaleX === 1 && note?.style.fontSize === TOAST_TIER.note.font;
       return {cleaned,exitHeld,cancel,underground,reduced};
@@ -86,14 +86,14 @@ const out = process.env.OUT_DIR || '/tmp/wall-smash';
     const rotated = await page.evaluate(() => {
       const s = __scene; s.mapRot = Math.PI / 4; s._huManualAngle = s.mapRot;
       s._applyMapZoom(); __wallRender();
-      const e = s._wallSmashes[0], p = s.worldMetersToScreen(e.x, e.y);
-      return { anchored: e.gfx.x === p.x && e.gfx.y === p.y - 10,
+      return { noCracks: !s._wallSmashes?.length,
         mapNote: !!s._liveToasts.find(t => t.text === 'SMASH!' && t._huAnchor) };
     });
     assert(Object.values(rotated).every(Boolean), JSON.stringify(rotated));
     await capture('rotated');
     const shared = await page.evaluate(() => {
       const s = __scene, x = s.startWorldM.x+s.playerM.x, y = s.startWorldM.y+s.playerM.y;
+      s._reducedMotion = false; s._burstAtWorld('dust',x,y);
       const emitter = s._fxEmitters.fx_dust;
       s._reducedMotion = false;
       const dust = s._burstAtWorld('dust',x,y);

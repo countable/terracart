@@ -1190,6 +1190,9 @@ renderer's per-face `shade` lights slopes the source art never painted. No pixel
 reads or canvas texture creation occur during placement or compass updates. Home switches to
 its existing interior walls and floor while occupied. Castle/turret/wreck models
 and the Canvas fallback remain available through their existing render paths.
+Wreck masonry uses rounded, irregular fieldstone pixels with broken highlights;
+its footprint floor stays dark with sparse, low-contrast rubble. The shared
+`wreck-plinth.png` atlas is rebuilt by `tools/build_wreck_plinth.py`.
 
 `AuthoredBuildingRenderer` reuses one depth target for the scene. On WebGL
 context restoration, Phaser rebuilds the target's texture and framebuffer;

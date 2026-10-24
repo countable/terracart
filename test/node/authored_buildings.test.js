@@ -86,8 +86,26 @@
     const [tu, tv] = house.faces.find(f => f.fallbackUV).fallbackUV;
     assert.truthy(tops.every(f => f.points.every(p => p.tu === tu && p.tv === tv)), 'tops take the plain wall texel');
   });
-  test('authored buildings: every tier-one business uses the white cottage with its trade identity', () => {
-    const colors = { blacksmith: 'slate', trader: 'green', seed: 'lime', supply: 'blue',
+  test('authored smithy: a broad textured stack survives the lot-outline skin', () => {
+    const spec = AuthoredBuildings.SPECS.fdr;
+    const skin = { key: 'fdr', spec, texture: {}, template: {}, texel: 0.5, flat: false,
+      facade: { v: 900, rows: spec.base - spec.eave }, roof: { u: 256, v: 616, w: 256, h: 240 },
+      door: { u: 32, v: 68, w: 32, h: 28, bottom: 0 }, wall: [16, 80],
+      gable: { u: 0, v: 640, w: 32, h: 16 }, chimneys: { count: 1, scale: 1.45, flare: 1.12 }, recolor() {} };
+    const lot = [{x:0,y:0},{x:120,y:0},{x:120,y:60},{x:0,y:60}];
+    const mesh = BuildingLowPoly.authoredOutline(skin, lot);
+    const stack = mesh.faces.filter(f => f.chimney);
+    assert.eq(stack.filter(f => f.kind === 'wall').length, 8, 'four stone shaft faces');
+    assert.eq(mesh.chimneyMouths.length, 1, 'smoke follows the visible mouth');
+    const shaft = stack.filter(f => f.kind === 'wall').flatMap(f => f.points);
+    assert.gt(Math.max(...shaft.map(p => p.x)) - Math.min(...shaft.map(p => p.x)), 15, 'broad forge chimney');
+    assert.truthy(stack.some(f => f.color === BuildingLowPoly.LOOK.chimney.mouthColor), 'dark mouth');
+    assert.truthy(stack.every(f => f.points.every(p => Number.isFinite(p.tu) && Number.isFinite(p.tv))));
+    const house = BuildingLowPoly.authoredOutline({...skin, chimneys: null}, lot);
+    assert.eq(house.faces.filter(f => f.chimney).length, 0, 'other source skins retain their roofline');
+  });
+  test('authored buildings: tier-one shops and traders use the white cottage with its trade identity', () => {
+    const colors = { trader: 'green', seed: 'lime', supply: 'blue',
       potion: 'teal', relic: 'red', pet: 'rose', book: 'plum', shop: 'blue' };
     for (const [role, palette] of Object.entries(colors)) {
       for (const id of ['shop:first', 'shop:second']) {
@@ -128,7 +146,7 @@
     assert.includes(['market', 'city_storefront'], recipe('shop', 'legacy', 2).key);
   });
   test('authored buildings: service landmarks preserve their role across upgrades', () => {
-    assert.eq(recipe('blacksmith', 'smith', 1).key, 'pp_plaster');
+    assert.eq(recipe('blacksmith', 'smith', 1).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 2).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 2).facadeRows, undefined);
     assert.eq(recipe('blacksmith', 'smith', 3).key, 'fdr');

@@ -335,10 +335,11 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
   if(role==='workshop')return {key:'pp_cabin',palette:'green'};
   if(role==='plain'){const key=residenceFor(id);return {key,palette:residencePalette(key)};}
-  // First-tier businesses share the white cottage; color and emblem identify the trade.
-  const shopPalette=role==='blacksmith'?'slate':role==='trader'?'green':SHOP_ROOFS[role];
-  if(tier===1&&shopPalette)return {key:'pp_plaster',palette:shopPalette,emblem:role};
+  // Smithies keep their dedicated masonry workshop from the first tier.
   if(role==='blacksmith')return {key:tier>=4?'steam_blacksmith':'fdr',palette:'slate'};
+  // Other first-tier businesses share the white cottage.
+  const shopPalette=role==='trader'?'green':SHOP_ROOFS[role];
+  if(tier===1&&shopPalette)return {key:'pp_plaster',palette:shopPalette,emblem:role};
   if(role==='trader')return {key:'trader',palette:'green'};
   if(role==='wizard')return {key:wizardSecond?'steam_wizard':'wizard',palette:'purple'};
   if(role==='fort')return {key:'city_storefront',palette:'copper',sourceShell:true,emblem:'fort'};
@@ -402,6 +403,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
    flat:!!a.flatRoof||(!!a.city&&!a.gabled),
    // The native blacksmith ridge rises half its depth (24 source texels).
    roofRise:key==='fdr'?a.depth/2*DOOR_HEIGHT/dh:undefined,
+   chimneys:['fdr','steam_blacksmith'].includes(key)?{count:1,scale:1.45,flare:1.12}:null,
    gable:key==='fdr'?{u:0,v:640,w:32,h:16}:undefined,
    facade:o.facade||{v:900,rows:a.base-a.eave},
    roof:o.roof||{u:256,v:616,w:a.flatRoof?224:period[0],h:a.flatRoof?240:period[1]},

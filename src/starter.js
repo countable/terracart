@@ -21,12 +21,11 @@
 (function (root) {
   'use strict';
 
-  // Starter supplies: seeds in crates, materials loose on the ground.
+  // Starter supplies follow the home-to-chest trail; suffixes retain saved identities.
   const STARTER_LOOT = [
     { id: 'potato_seed',    qty: 9 },
-    { id: 'rubble_seed', qty: 9 },
-    { id: 'rubble',      qty: 9, loose: true },
-    { id: 'wood',           qty: 9, loose: true },
+    { id: 'rubble',      qty: 9 },
+    { id: 'wood',           qty: 9 },
   ];
 
 
@@ -118,15 +117,9 @@
   }
 
   // Starter crate trail + tutorial-pocket clearing around the frozen anchor
-  // (save.starterCratesAt). Four starter supplies, nine of each, in the
-  // order the ladder wants them (see STARTER_LOOT): potato seeds then rockfruit
-  // seeds (the player's first crops — the inventory starts empty), then
-  // rockfruit (the "Rock" stone — restoring themed shops) and wood (restoring
-  // plain houses + unsealing forts). Seeds are kind:'chest' with `fixedLoot`,
-  // opened through the standard chest ceremony. Materials are groundstacks,
-  // scattered into small piles after the main trail seats are reserved;
-  // tapping collects them instantly without tools, work or energy.
-  // (No free scarecrow — a workbench crafts one for wood,
+  // (save.starterCratesAt). Three crates, nine of each: potato seeds,
+  // Rock and Wood. All use the standard chest opening ceremony.
+  // (No free scarecrow — a workshop crafts one for wood,
   // HOME_RECIPES.)
   //
   // The crates are a TRAIL, and where they lie depends on the ground:
@@ -251,7 +244,7 @@
     // crate seated there would be swept away with its starter loot, so the
     // trail skips the footing rather than losing a chest to it.
     const inTrailerMoat = (cx, cy) => HomeArea.inFooting(cx - spawnIX, cy - spawnIY);
-    const looseSupplies = [];
+    const pickedSupplies = new Set(scene.save.picked || []);
     const seatSupply = (cx, cy, i) => {
       // Snap to the canonical global-cell centre. The tile-relative basis
       // (tx*tileEdgeM + (cx+0.5)*cellM) drifts off the absolute cell grid
@@ -262,13 +255,15 @@
       const raw = f.centre(cx, cy);
       const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
       const { x: wmx, y: wmy } = absCellCenterMeters(scene, cellIX, cellIY);
-      const loot = STARTER_LOOT[i], id = `chest_start_${tx}_${ty}_${i + 1}`;
-      const object = loot.loose
-        ? WorldGen.makeObject('groundstack', wmx, wmy, id,
-          { itemId: loot.id, qty: loot.qty, legacyChestId: id })
-        : WorldGen.makeObject('chest', wmx, wmy, id, { fixedLoot: loot, crate: true });
-      entry.objects.push(object);
-      if (loot.loose) looseSupplies.push({ object, cx, cy });
+      const loot = STARTER_LOOT[i], id = `chest_start_${tx}_${ty}_${[1, 3, 4][i]}`;
+      // Satellite piles always held three. A picked main pile could have held
+      // three, six or nine on constrained ground; old saves kept only its id.
+      // Retire that group rather than inventing remaining stock and refilling it.
+      const qty = pickedSupplies.has(id) ? 0 : loot.qty
+        - (pickedSupplies.has(`${id}_1`) ? 3 : 0)
+        - (pickedSupplies.has(`${id}_2`) ? 3 : 0);
+      if (qty > 0) entry.objects.push(WorldGen.makeObject('chest', wmx, wmy, id,
+        { fixedLoot: { ...loot, qty }, crate: true }));
       usedSeats.add(cx + ',' + cy);
       placedIdx.add(i);
     };
@@ -280,12 +275,12 @@
     // walk to it, evenly spaced: walk to the crate you can see, and from there
     // the next one is in view, and the last one puts the chest in view. That
     // is the whole onboarding read — a trail with something at the end of it,
-    // rather than four boxes scattered down whichever street happened to be
+    // rather than three boxes scattered down whichever street happened to be
     // nearest. On a kerb spawn (mode 1) the walk IS the road: the crates seat
     // down its shoulder and the chest ends the line, on the kerb like them.
     //
     // How much of the walk the crates occupy. They sit in the NEAR part of
-    // it rather than spread the whole way: a new player should meet all four
+    // it rather than spread the whole way: a new player should meet all three
     // early, while they are still learning what a crate even is, and then
     // have a clear stretch of walking left to the chest at the end. Spread
     // evenly over the whole route the last crate landed a step or two short
@@ -361,8 +356,8 @@
     const trailPath = trail && trail.path;
     dbg.push(trail ? `chest ok route=${trailPath ? trailPath.length : 0}` : 'CHEST NOT SEATED');
     // Seat the COUNT crates along `path` (anchor end first), evenly spaced
-    // across its near TRAIL_SPAN — so on a typical route the four sit at
-    // roughly 2, 3, 5 and 6 cells out with the chest at 11, and no leg is long
+    // across its near TRAIL_SPAN — so on a typical route the three sit at
+    // roughly 2, 4 and 6 cells out with the chest at 11, and no leg is long
     // enough to lose the thread. Distance is measured ALONG the path, not
     // across it: a route that bends round a pond still spaces its crates by
     // how far the player actually walks. Each crate tries the cells at
@@ -480,7 +475,7 @@
     }
     // Fill any crates the road couldn't host (no road found, or the road
     // ran out of walkable shoulders) in a tight ring around the anchor
-    // on walkable cells. Guarantees the player always gets all four crates.
+    // on walkable cells. Guarantees the player always gets all three crates.
     if (placedIdx.size < COUNT) {
       const RING = [[2, 0], [-2, 0], [0, 2], [0, -2], [3, 0], [-3, 0],
                     [2, 2], [-2, -2], [2, -2], [-2, 2]];
@@ -504,24 +499,6 @@
         }
       }
     }
-    // Scatter each material supply into up to three piles. Reserve all four
-    // trail stops first so extra pickups cannot displace a seed crate. Tight
-    // ground keeps the remainder in its original pile, preserving nine total.
-    for (const { object, cx, cy } of looseSupplies) {
-      let part = 0;
-      for (const [dx, dy] of [[0, -1], [1, 1], [-1, 0], [1, 0], [0, 1], [-1, -1], [1, -1], [-1, 1]]) {
-        if (part === 2) break;
-        const nx = cx + dx, ny = cy + dy;
-        if (!seatOK(nx, ny)) continue;
-        const raw = f.centre(nx, ny);
-        const cell = worldMetersToAbsCell(scene, raw.x, raw.y);
-        const { x, y } = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
-        entry.objects.push(WorldGen.makeObject('groundstack', x, y, `${object.id}_${++part}`,
-          { itemId: object.itemId, qty: 3, legacyChestId: object.legacyChestId }));
-        object.qty -= 3;
-        usedSeats.add(nx + ',' + ny);
-      }
-    }
     // Last, on the now-cleared pocket: the guaranteed patch of soil the
     // ladder's "Break ground" step needs, then the wood / rock / wreck the
     // rest of the ladder needs to have something to act on.
@@ -536,17 +513,15 @@
   // THE STARTER STASH: a few small crates scattered through the resource ring
   // around home (STARTER_STASH_R_CELLS), each holding one of STARTER_STASH —
   // four Books (the Book is otherwise a rare find outside a school), a Rope
-  // and a Trap Disarm Kit — then loose Rock and Wood piles
-  // (STARTER_STASH_PILES) through the same ring. Not on the tutorial trail: the trail is the
+  // and a Trap Disarm Kit. Not on the tutorial trail: the trail is the
   // ladder's path and the green dot walks it (`chest_start_*`); these are
   // things to stumble on while gathering, so they carry their own id prefix
   // (`stash_start_*`) and the dot never points at them.
   //   PLACED bucket, like the trail: a pure function of the frozen anchor
   // (save.starterCratesAt) through its own rng stream (seeded off the anchor
   // cell under a 'starter_stash' key — never the trail's), so a rebuild or
-  // a reload seats the same crates on the same cells, and `save.opened` (or
-  // `save.picked` for a pile) is all that remembers one was taken. The piles
-  // draw a 'starter_piles' stream of their own, so adding them moved no crate.
+  // a reload seats the same crates on the same cells, and `save.opened`
+  // remembers which crates were taken.
   // Only cells in THIS tile are used; a seat that falls off the tile edge
   // tries another angle.
   function scatterStarterStash(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {
@@ -560,22 +535,8 @@
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
     const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
     const RING = STARTER_STASH_R_CELLS;
-    // Home's circle, from two cells out: past the house and its doorstep.
-    const NEAR = [2, Math.floor(HomeVariant.RADIUS_M / scene.cellM)];
-    // Piles alternate material, so each sector of the compass gets both.
-    const interleave = (rows) => {
-      const piles = [];
-      for (let k = 0; k < Math.max(0, ...rows.map(p => p.piles)); k++) {
-        for (const p of rows) if (k < p.piles) piles.push(p);
-      }
-      return piles;
-    };
-    const makePile = (x, y, id, p) => WorldGen.makeObject('groundstack', x, y, id, { itemId: p.id, qty: p.qty });
     scatterRing(STARTER_STASH, 'starter_stash', 'stash_start', (x, y, id, loot) =>
       WorldGen.makeObject('chest', x, y, id, { fixedLoot: loot, crate: true }), RING);
-    scatterRing(interleave(STARTER_STASH_PILES.filter(p => !p.near)), 'starter_piles', 'stash_pile', makePile, RING);
-    // Their own stream and ids, so adding them moved no ring crate or pile.
-    scatterRing(interleave(STARTER_STASH_PILES.filter(p => p.near)), 'starter_near_piles', 'stash_pile_near', makePile, NEAR);
     function scatterRing(list, salt, prefix, make, [R0, R1]) {
       const rng = WorldGen.makeRng(fnv1a(`${salt}:${tx}:${ty}:${spawnIX}:${spawnIY}`));
       const n = list.length;

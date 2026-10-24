@@ -15,20 +15,13 @@ pixels and decorative details do not define additional tap cells.
 
 ## Dialogs, feedback and teaching
 
-- Crossing a surface building footprint holds the player until the GPS or
-  steering target is at least two metres beyond the wall, measured perpendicular
-  to its edge. A brief wind-up then shows
-  “SMASH!” through the regular map-note helper, a dust puff, and a fading crack at the wall. Buildings remain
-  passable and undamaged. Reversing away cancels the wind-up; a short per-edge
-  cooldown prevents jitter from repeatedly stopping travel. Reduced motion
-  retains the text and crack without flying dust or text bounce. Wall dust uses
-  the shared `Particles` preset/emitter helper used by wreck-restoration bursts;
-  GPS clearance, crack lifetime and repair sequencing remain separate.
-
-- Every road and path identity, including the fixed medium and large roads,
-  has a dedicated story painting matching its visible props. The variant row
-  owns its art key; distinct routes do not borrow one another’s paintings.
-  New paintings ship with regenerated loading thumbnails and cache hashes.
+- Crossing a standing surface building footprint holds the player until the GPS
+  or steering target is at least two metres beyond the wall, measured perpendicular
+  to its edge. A brief wind-up then shows “SMASH!” through the regular map-note
+  helper, without cracks or dust. Wrecks can be crossed without a pause or smash
+  text. Buildings remain passable and undamaged. Reversing away cancels the
+  wind-up; a short per-edge cooldown prevents jitter from repeatedly stopping
+  travel. Existing house-entry text remains unchanged.
 
 - Wreck restoration lists building types first. Tapping a type with multiple
   available ranks opens the rank picker immediately; its type card omits cost.
@@ -288,16 +281,14 @@ pixels and decorative details do not define additional tap cells.
   introduction survives spending and reloads; older saves unlock on their next
   earned coin.
 
-- Living-silver compass circuits persist their active state and unread
-  introductions in `save.compassModules`. Inventory activates on the first item
+- Living-silver compass circuits persist their active state in `save.compassModules`. Inventory activates on the first item
   or gear, books on the first book obtained, memories on the first discovery/memory.
   Spending cannot close an activated circuit. Distance activates after 200 m of
   accepted movement; joystick activation requires **Enable spirit walking** in
   its spirit dialog. Closed controls explain low power. Activation gives the
   control a bright, steady turquoise glow for five seconds, without opening a dialog
-  or waiting for the story lane. The first player tap on an awakened control
-  shows its Dragon Spirit introduction; subsequent taps use it normally.
-  Unread introductions survive reloads and are claimed only when shown.
+  or waiting for the story lane. Tapping an awakened control uses it immediately,
+  without a Dragon Spirit activation bubble. Old unread introductions are discarded.
   Existing ownership seeds circuits quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a

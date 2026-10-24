@@ -927,23 +927,21 @@ Higher-priority placements and their access space take precedence in this order:
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
-   The starter trail has two seed crates (nine potato seeds and nine rockfruit
-   seeds). The potato crate seats first, within `STARTER_DOORSTEP_CELLS` of the
-   anchor (the doorway row the player starts on), so it is in view on the first
+   The starter trail has three crates: nine potato seeds, nine Rock and nine
+   Wood. There is no rock-seed crate or loose material scatter, including the
+   former material piles in and around Home. The potato crate seats first,
+   within `STARTER_DOORSTEP_CELLS` of the anchor so it is visible on the first
    step outside; step one's chip and arrow wait for that step
-   (`_starterAwaitsOutside`, latched in `save.starter.wentOutside`). The
-   unopened starter relic chest gets a treasure trail of its own from the
-   reachable cell nearest Home's door (`Starter.trailPaths`). Its nine Rock and nine Wood are instant `groundstack` pickups,
-   normally three piles of three per material; cramped ground keeps the
-   remainder in fewer piles. All seats use the same spawn gate and avoid Home's
-   footing. Supplies stay deterministic, revealed and included in tutorial
-   guidance. `save.picked` spends individual piles; an opened legacy material
-   crate spends every replacement pile through `legacyChestId`. Beyond the
-   trail, `STARTER_STASH_PILES` scatters more loose Rock and Wood piles
-   (`stash_pile_*`, outside tutorial guidance) through the stash ring
-   (`STARTER_STASH_R_CELLS`) on a seeded stream of their own, after the stash
-   crates. Its `near` rows (nine single Rock and nine single Wood) scatter inside
-   Home's 50 m circle (`HomeVariant.RADIUS_M`) on a third stream. Hard mode removes both seed crates and all loose material supplies.
+   (`_starterAwaitsOutside`, latched in `save.starter.wentOutside`). The unopened
+   starter relic chest has a dotted trail from the reachable cell nearest Home's
+   door (`Starter.trailPaths`), with supply crates along the route. All seats
+   use the spawn gate and avoid Home's footing. Supply ids retain suffixes 1, 3
+   and 4 so old opened crates stay spent. Picked former satellite piles deduct
+   their known three items each from the replacement crate. A picked main pile
+   retires that material group: old saves recorded no quantity and that pile
+   could have held three, six or nine, so no remaining stock can safely be
+   inferred. Hard mode removes supply crates while retaining the relic chest.
+
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles

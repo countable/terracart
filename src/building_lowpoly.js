@@ -1504,7 +1504,7 @@
     const rows=facadeRows??skin.facade.rows;
     const F={...skin.facade,v:skin.facade.v+skin.facade.rows-rows,rows};
     const d=skin.texel,H=F.rows*d,R=skin.roof,ppFlat=!!skin.spec.ppFlat,ppFlatRoof=[];
-    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,null,entrance,skin.roofRise),faces=[];
+    const g=geometry(ring,skin.flat?'flat':'ridge',H,skin.flat?0:ROOF_OVERHANG,skin.chimneys,entrance,skin.roofRise),faces=[];
     const emit=(points,uv,kind,extra={})=>{if(points.length<3)return;
       for(let i=1;i<points.length-1;i++){const ids=[0,i,i+1],ps=ids.map(j=>({x:points[j].x,y:points[j].y,z:points[j].z,tu:uv[j][0]/512,tv:uv[j][1]/1024}));
         faces.push({...skin.template,points:ps,projected:ps.map(()=>({})),kind,layer:0,color:0xffffff,light:1,shade:1,sourceArt:true,rawUV:true,preserveWalls:true,feature:'body',
@@ -1595,8 +1595,16 @@
       });
     }
     for(const f of ppFlat?[]:g.faces){
-      // The procedural stack has no source art; the skin keeps its roofline.
-      if(f.chimney)continue;
+      // Smithy stacks borrow stone from the source gable, with a dark open mouth.
+      if(f.chimney){
+        if(!skin.chimneys)continue;
+        const extra={chimney:true,feature:'smithy-chimney',wallDirection:f.wallDirection,layer:f.layer};
+        if(f.kind==='wall'){
+          const G=skin.gable||{u:skin.wall[0]-4,v:skin.wall[1]-4,w:8,h:8};
+          emit(f.points,f.points.map(p=>[G.u+.5+(p.u%G.w),G.v+.5+(p.v%G.h)]),'wall',extra);
+        }else constant(f.points,skin.wall,'trim',{...extra,color:f.color});
+        continue;
+      }
       if(f.kind==='wall'){
         const upper=clipZ(f.points,H,1),G=skin.gable;
         if(upper.length>=3&&G){
@@ -1674,7 +1682,7 @@
       }
     }
     faces.push(...decorations);
-    return {mountedSign,ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
+    return {mountedSign,ring:g.ring,faces,chimneyMouths:skin.chimneys?g.chimneyMouths:[],height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
   function authoredGeometry(model,ring,inset=1,door=null,emblem=null){
     if(emblem?.sign&&model.authoredKey==='city_storefront'){
