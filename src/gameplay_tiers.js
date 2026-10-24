@@ -198,12 +198,14 @@
     return junctions;
   }
   const freshStats=()=>({cells:[0,0,0,0,0],ha:[0,0,0,0,0],byReason:REASONS.map(()=>0)});
-  function* buildSteps(world,raw=[]) {
-    const WG=root.WorldGen, data=collect(world,raw,WG), tiles=[],stats=freshStats();
+  // Source geometry is immutable during one tile build. Keep its masks apart
+  // from zone/access overlays so the pre- and post-Nexus passes share the work.
+  function* prepareSteps(world,raw=[]) {
+    const WG=root.WorldGen, data=collect(world,raw,WG), tiles=[];
     yield 'gameplay source geometry';
     for(const entry of world.tiles||[]) {
       const N=entry.cellsPerEdge,edge=data.edge,cell=edge/N,ox=entry.tx*edge,oy=entry.ty*edge;
-      const bounds=[ox,oy,ox+edge,oy+edge],tiers=new Uint8Array(N*N),reasons=new Uint8Array(N*N), exclusions=new Uint8Array(N*N),buildingCells=new Uint8Array(N*N),publicPierCells=new Uint8Array(N*N);
+      const bounds=[ox,oy,ox+edge,oy+edge],reasons=new Uint8Array(N*N), exclusions=new Uint8Array(N*N),buildingCells=new Uint8Array(N*N),publicPierCells=new Uint8Array(N*N);
       // Ground first; road corridors override land destinations, then core
       // path bands take precedence before source/access exclusions.
       const priority={0:0,5:1,6:2,7:3,1:4,2:4,3:5,11:6};
@@ -267,6 +269,18 @@
       }
       const junctionCells=new Uint8Array(N*N);
       for(const junction of data.junctions) stampSegment(junction.p,junction.p,junction.radius,N,ox,oy,cell,i=>{junctionCells[i]=1;});
+      tiles.push({reasons,exclusions,buildingCells,publicPierCells,pathCells,roadReason,streetSurface,junctionCells});
+    }
+    return tiles;
+  }
+  function* buildSteps(world,raw=[],prepared=null) {
+    const WG=root.WorldGen, geography=prepared || (yield* prepareSteps(world,raw)),tiles=[],stats=freshStats();
+    for(const [index,entry] of (world.tiles||[]).entries()) {
+      const N=entry.cellsPerEdge,source=geography[index],tiers=new Uint8Array(N*N);
+      // Only these two fields receive overlays. Never write into prepared
+      // geography: the final pass may add zones or change live access masks.
+      const reasons=source.reasons.slice(),exclusions=source.exclusions.slice();
+      const {buildingCells,publicPierCells,pathCells,roadReason,streetSurface,junctionCells}=source;
       const coverage=entry.zone?.coverage || entry.zone?.idx;
       const tileStats=freshStats(),realEdge=WG.tileEdgeMeters(WG.latOfRowCentre(entry.ty)),ha=(realEdge/N)**2/10000;
       const gateMask=(WG.SPAWN_WHY_LAND ?? WG.SPAWN_WHY_HARD)&~(WG.SPAWN_WHY.ROAD|WG.SPAWN_WHY.TERRAIN|WG.SPAWN_WHY.JUNCTION|WG.SPAWN_WHY.PRIVATE|WG.SPAWN_WHY.BEHIND_HOUSE);
@@ -301,7 +315,8 @@
     return {tiles,stats};
   }
   function build(world,raw) {const it=buildSteps(world,raw);let step;do{step=it.next();}while(!step.done);return step.value;}
-  function* buildTileSteps(entry) {return (yield* buildSteps({tiles:[entry]})).tiles[0];}
+  function* prepareTileSteps(entry) {return yield* prepareSteps({tiles:[entry]});}
+  function* buildTileSteps(entry,prepared=null) {return (yield* buildSteps({tiles:[entry]},[],prepared)).tiles[0];}
   function buildTile(entry) {return build({tiles:[entry]}).tiles[0];}
   // Review consumes generated arrays, so loading more neighbours cannot change
   // a tile's spawn policy or its dead-end classification.
@@ -321,5 +336,5 @@
     return {tiles,stats};
   }
   root.GameplayTiers={TIERS,REASONS,R,CORE:CORE_TIER,CALM,PASSING,EXCLUDED,CLASS_TIERS,RECORD_CLASSES,allowed,classForRecord,
-    ROAD_BUFFER_CELLS,PATH_BUFFER_CELLS,JUNCTION_BUFFER_CELLS,build,buildSteps,buildTile,buildTileSteps,fromEntries};
+    ROAD_BUFFER_CELLS,PATH_BUFFER_CELLS,JUNCTION_BUFFER_CELLS,build,buildSteps,buildTile,prepareTileSteps,buildTileSteps,fromEntries};
 })(typeof window==='undefined'?globalThis:window);
