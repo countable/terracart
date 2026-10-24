@@ -25,7 +25,7 @@ const MapReviewArt = (() => {
       const t = {
         getSourceImage: () => source, getContext: () => source.getContext('2d'), refresh() {},
         // Phaser treats numeric frame IDs and their string forms identically.
-        add(name, index, x, y, width, height) { frames.set(String(name),{x,y,width,height}); },
+        add(name, index, x, y, width, height) { frames.set(String(name),{x,y,width,height,sourceIndex:index,cutX:x,cutY:y,cutWidth:width,cutHeight:height,realWidth:width,realHeight:height}); },
         remove(name) { return frames.delete(String(name)); },
         get(name) { return frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE'); },
       };
@@ -139,7 +139,7 @@ const MapReviewArt = (() => {
         const art=override?{...o,...override}:o;
         const appearance=o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
         if(appearance?.visible&&category!=='plant'&&category!=='creature')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
-        if(o.kind==='_streetlamp'&&appearance?.visible) {
+        if(o.kind==='_streetlamp'&&appearance?.visible&&typeof appearance.spec?.after==='function') {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
           appearance.spec.after({
             setDisplaySize(w,h) { appearance.displayWidth=w;appearance.displayHeight=h;return this; },
@@ -150,7 +150,7 @@ const MapReviewArt = (() => {
         // Reuse the game's crown hook, measured at the tree's local origin.
         // Keep fruit with its tree so filtering and painter order stay together.
         const fruit=[];
-        if(o.kind==='fruittree'&&appearance?.visible) {
+        if(o.kind==='fruittree'&&appearance?.visible&&typeof appearance.spec?.after==='function') {
           const p=appearance;
           fruitList.length=0;
           p.spec.after({texture:{key:p.texKey},frame:{name:p.frameVal},

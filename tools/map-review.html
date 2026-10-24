@@ -76,6 +76,8 @@
   <select id="reviewDepth" aria-label="Map level"></select>
   <div id="levelSummary" role="status"></div>
   <div><button id="placeHome">Place Home</button></div>
+  <div><button id="detectTrees">Detect trees at map centre</button></div>
+  <div id="geometryStatus" role="status">Cached tree detections load with the map.</div>
   <details class="review-section" open><summary>Gameplay tiers (proposed)</summary><div class="section-body">
   <label><input id="gameplayTiers" type="checkbox"> Show gameplay-tier layer</label>
   <div id="gameplayLegend"></div>
@@ -488,6 +490,7 @@ function popupHTML(e, o, label) {
   const rows = [`<b>${esc(o.name || label)}</b>`];
   const category = (e.creatures || []).includes(o) ? 'creature' : '';
   rows.push(`Source: <b>${esc(ZoneReview.SOURCES[ZoneReview.source(e,o,category)].label)}</b>`);
+  if (o._treeSource) rows.push(`Tree evidence: <b>${esc(o._treeSource === 'gemini' ? 'Relay satellite detection' : o._treeSource)}</b>`);
   if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
   if (o.kind === 'npc') {
     rows.push(`Role: <b>${esc(o.roleLabel || o.role)}</b> (${esc(o.role)})`);
@@ -1080,10 +1083,54 @@ async function rebuild(home) {
     setBuilding(false);
   }
 }
+// Request one z18 observation at a time, just as walking does in the game.
+// Re-read bins before rebuilding: raw is otherwise a snapshot from initial load.
+async function detectTreesAtCentre() {
+  if (building || !window.__world) return;
+  if (typeof Geometry === 'undefined' || typeof WorldGen.warmGeometry !== 'function') {
+    $('geometryStatus').textContent = 'Tree detection is unavailable in this game build.';
+    return;
+  }
+  if (!Geometry.enabled()) {
+    $('geometryStatus').textContent = 'Tree detection is disabled by the URL.';
+    return;
+  }
+  const { lat, lng } = map.getCenter();
+  const tile = Geometry.tileAt(lng, lat);
+  const parent = raw.find(e => e.tx === Math.floor(tile.x / 16) && e.ty === Math.floor(tile.y / 16));
+  if (!parent) {
+    $('geometryStatus').textContent = 'Move the map centre inside the loaded area to detect trees.';
+    return;
+  }
+  setBuilding(true);
+  $('geometryStatus').textContent = 'Requesting satellite trees at map centre…';
+  try {
+    await WorldGen.warmGeometry(lng, lat, WorldGen.latOfRowCentre(parent.ty));
+    for (const e of raw) e.bin = await WorldGen.getTileBin(e.tx, e.ty, WorldGen.latOfRowCentre(e.ty));
+    const covered = (parent.bin?._geometryRevision || '').split('|').some(key => key.endsWith(`/trees/18/${tile.x}/${tile.y}`));
+    if (covered) {
+      const world = await buildWorld(window.__home);
+      await finishReview(world, window.__home, false);
+      $('status').textContent = world.errors.length ? `${world.errors.length} error(s), see console` : 'ready';
+    }
+    $('geometryStatus').textContent = covered
+      ? 'Relay evidence loaded for the centre tile, including any confirmed empty coverage. Pan and detect to inspect another tile.'
+      : 'No relay evidence available for the centre tile. Existing trees retained; retry when the relay is available.';
+  } catch (error) {
+    $('geometryStatus').textContent = 'Tree detection failed: ' + error.message;
+    console.error(error);
+  } finally {
+    setBuilding(false);
+  }
+}
+
 (async () => {
   setBuilding(true);
   try {
+    // Optional relay override also scopes the game's persistent detection cache.
+    if (Q.get('relay')) window.MP_SERVER_URL = Q.get('relay');
     await loadGame();
+    $('detectTrees').onclick = detectTreesAtCentre;
     for (let depth = 0; depth <= 99; depth++) {
       const option = document.createElement('option');
       option.value = depth; option.textContent = levelLabel(depth);
@@ -1144,6 +1191,7 @@ async function rebuild(home) {
   } finally {
     setBuilding(false);
   }
+  if (window.__world) await detectTreesAtCentre();
 })();
 </script>
 </body>

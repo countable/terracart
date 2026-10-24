@@ -1,0 +1,518 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Placement lab · Zone variants</title>
+<style>
+:root{color-scheme:dark;font-family:system-ui,sans-serif;background:#121915;color:#e5eadf}*{box-sizing:border-box}body{margin:0}header,main{max-width:1600px;margin:auto;padding:24px 32px}header{padding-bottom:12px}a{color:#b6ce98}h1{font-size:32px;font-weight:600;letter-spacing:-1px;margin:18px 0 8px}p{color:#aab7a9;line-height:1.5;margin:6px 0}small,.eyebrow{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#b6ce98}.toolbar{background:#1c2720;border:1px solid #344438;border-radius:12px;padding:20px;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:20px;margin-bottom:20px}label{font-size:13px;display:block;color:#d3ddce}label span{float:right;color:#bbd59b;font-variant-numeric:tabular-nums}input[type=range]{width:100%;accent-color:#b6ce98;margin:12px 0 0}select,input[type=number],button{font:inherit;color:#e5eadf;background:#121b16;border:1px solid #485845;border-radius:6px;padding:8px;width:100%;margin-top:8px}button{cursor:pointer}button[aria-pressed=true]{background:#405432;border-color:#b6ce98}button:hover{background:#344438}button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid #d6ecac;outline-offset:3px}.seed{display:flex;gap:8px}.seed button{width:auto;white-space:nowrap}.checks{display:flex;gap:24px;align-items:center;flex-wrap:wrap;margin:14px 0 24px}.checks label{display:flex;gap:6px;align-items:center}input[type=checkbox]{accent-color:#b6ce98}.grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px}article{border:1px solid #394a38;border-radius:10px;overflow:hidden;background:#1b251e}canvas{display:block;width:100%;aspect-ratio:1;image-rendering:pixelated}.caption{padding:16px}h2{font-size:17px;margin:4px 0 6px}.caption p{font-size:13px;min-height:59px}.stats{font-size:11px;color:#b6ce98;margin-top:12px}.intro{max-width:880px}.note{font-size:12px;margin-top:20px}.legend{display:flex;gap:18px;flex-wrap:wrap;margin:12px 0}.legend img{width:28px;height:28px;object-fit:contain;image-rendering:pixelated;vertical-align:middle;margin-right:6px}.legend div{font-size:12px}#labStatus{font-size:12px;color:#b6ce98}@media(max-width:1000px){.toolbar{grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}}@media(max-width:620px){header,main{padding:18px}.grid{grid-template-columns:1fr}.toolbar{gap:16px;padding:14px}h1{font-size:28px}.seed{flex-wrap:wrap}}
+
+.workspace{display:grid;grid-template-columns:290px minmax(0,1fr);gap:24px;align-items:start;max-width:1800px}.control-panel{position:sticky;top:60px;max-height:calc(100vh - 80px);overflow:auto;padding:16px;background:#1c2720;border:1px solid #344438;border-radius:12px}.control-panel h2{margin-top:0}.control-note{font-size:12px;margin-bottom:16px}.toolbar{display:flex;flex-direction:column;padding:0;border:0;gap:16px;margin-bottom:12px}.checks{gap:12px;margin-bottom:0}.grid{grid-template-columns:repeat(2,minmax(0,1fr))}.results{min-width:0}.legend{margin-top:0}.caption p{min-height:0}@media(min-width:1600px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}@media(max-width:1000px){.workspace{grid-template-columns:250px minmax(0,1fr)}.grid{grid-template-columns:1fr}}@media(max-width:700px){.workspace{display:block}.control-panel{position:static;max-height:none;margin-bottom:24px}.toolbar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.grid{grid-template-columns:1fr}}
+.scene{height:440px;display:flex;align-items:center;justify-content:center;background:#121b16}.scene canvas{width:auto;height:auto;max-width:100%;max-height:100%;aspect-ratio:auto}.grid{align-items:start}@media(max-width:700px){.scene{height:340px}}
+.texture-controls{border:1px solid #485845;border-radius:6px;padding:12px;margin:0;min-width:0}.texture-controls legend{font-size:12px;color:#b6ce98}.texture-controls label{margin:10px 0}.texture-controls p{margin:8px 0 0}
+input[type=color]{display:block;width:100%;height:38px;border:1px solid #485845;border-radius:6px;background:#121b16;margin-top:8px;padding:3px}
+.object-slot{margin-top:12px}.compatibility{border-left:2px solid #9ea878;padding-left:9px;color:#c5cfaf!important;font-size:12px!important}input:disabled{opacity:.35}
+.preview-description{margin:10px 0}.preview-description summary{cursor:pointer;color:#b6ce98;font-size:13px}.preview-description[open] summary{margin-bottom:8px}.preview-description summary:focus-visible{outline:2px solid #d6ecac;outline-offset:3px}
+
+.settings-section,.object-slot{border:1px solid #3b4b3a;border-radius:7px;padding:12px;margin:12px 0;min-width:0}.settings-section>summary,.object-slot>summary{cursor:pointer;font-size:14px;color:#d3e2c6}.settings-section>summary:focus-visible,.object-slot>summary:focus-visible{outline:2px solid #d6ecac;outline-offset:4px}.settings-content{display:flex;flex-direction:column;gap:14px;margin-top:14px}.settings-content h3{font-size:14px;margin:0}.settings-content .control-note{margin:0}.scope-note{font-size:12px!important;color:#a7b99e!important;margin:10px 0 0;min-height:0!important}.settings-actions{display:flex;gap:8px}.settings-actions button{font-size:12px}.check-label{display:flex;gap:8px;align-items:center}.object-slot summary span{float:none}.local-settings output{float:right;color:#bbd59b}.local-settings{margin-top:16px}.control-panel{padding:14px}.object-slot .settings-content{padding-top:3px}
+.focused-layout{border-color:#b6ce98;box-shadow:0 0 0 1px #b6ce98;scroll-margin-top:80px}
+</style>
+<header><nav style="display:flex;gap:24px;flex-wrap:wrap"><a href="index.html">← Zone variants</a><a href="http://localhost:8765/zone-variants/terrain-studies.html">Terrain studies · 10 design directions</a></nav><div class="eyebrow" style="margin-top:24px">Terrain studies / interactive prototype</div><h1>Between scatter & structure</h1><p class="intro">Compare placement patterns with shared object settings and controls beneath each preview.</p></header>
+<main class="workspace"><aside class="control-panel"><h2>Layouts to compare</h2><label for="layoutPicker">Choose a visualization</label><select id="layoutPicker"></select><button id="addLayout" type="button">Add to comparison</button><button id="clearLayouts" type="button">Clear comparison</button><p class="control-note">Add layouts here or remove them beneath their previews, with selections saved in the settings link.</p><h2>Shared settings</h2><p class="control-note">Expand shared settings here or adjust individual layouts beneath their previews.</p><details class="settings-section" id="areaSettings"><summary>Area & comparison</summary><p class="scope-note">All previews.</p><div class="settings-content"><label>Width · X cells <span id="gxOut"></span><input id="gx" type="range" min="4" max="96" step="1" value="24"></label><label>Height · Y cells <span id="gyOut"></span><input id="gy" type="range" min="4" max="96" step="1" value="24"></label><label>Comparison<select id="types"><option value="configured" selected>Configured object slots</option><option value="all">Compare 1 through enabled slots</option></select></label></div></details><details class="settings-section" id="objectSettings"><summary>Objects & density</summary><p class="scope-note">All previews; base-count and type-assignment exceptions are labeled below.</p><div class="settings-content"><label>Base object count <span id="countOut"></span><input id="count" type="range" min="1" max="1000" step="1" value="84"></label><p class="control-note">Does not apply to maze types, Voronoi seams, Warped grid lines, Goblin Warren, Dungeon, Hilbert curve or Current game grass; those determine their own base counts.</p><label>Sparsity / decimation <span id="decimationOut"></span><input id="decimation" type="range" min="0" max="100" step="1" value="0"></label><p class="control-note">Removes objects without moving the survivors, which may break connected patterns.</p><button id="invertButton" type="button" aria-pressed="false">Invert fill: off</button><input id="inverted" type="checkbox" hidden><div id="objectSlots"></div><label>Type selection<select id="selection"><option value="density" selected>Density: first slot core → last sparse</option><option value="patches">Spatial patches</option></select></label><label>Type affinity <span id="groupingOut"></span><input id="grouping" type="range" min="0" max="100" step="1" value="85"></label><p class="control-note">Type selection and affinity apply everywhere except Random scatter, which always mixes types randomly.</p></div></details><details class="settings-section" id="patternSettings"><summary>Pattern structure</summary><p class="scope-note">Structure and distortion do not apply to maze types, Voronoi seams, Warped grid lines, Goblin Warren, Dungeon, Hilbert curve, Random scatter or Current game grass.</p><div class="settings-content"><label>Structure <span id="structureOut"></span><input id="structure" type="range" min="0" max="100" step="1" value="86"></label><label>Distortion <span id="distortionOut"></span><input id="distortion" type="range" min="0" max="100" step="1" value="38"></label><p class="control-note">Structure also controls straight growth in Connected tendrils; distortion does not apply to that layout.</p></div></details><details class="settings-section" id="mazeSettings"><summary>Maze spacing</summary><p class="scope-note">Applies only to Winding, Branching and Braided mazes.</p><div class="settings-content"><label>Maze spacing · cells <span id="mazeStepOut"></span><input id="mazeStep" type="range" min="2" max="8" step="1" value="3"></label></div></details><details class="settings-section" id="sizeSettings"><summary>Object size</summary><p class="scope-note">All previews, including abstract markers.</p><div class="settings-content"><label>Size variation <span id="variationOut"></span><input id="variation" type="range" min="0" max="100" step="1" value="35"></label><button id="clusterSizeButton" type="button" aria-pressed="false" aria-describedby="clusterSizeHelp">Size follows neighbors: off</button><input id="clusterSize" type="checkbox" hidden><p id="clusterSizeHelp" class="control-note">Scales objects by their eight neighboring cells, with Size variation controlling the strength.</p></div></details><details class="settings-section" id="colorSettings"><summary>Object & ground color</summary><p class="scope-note">Applies to sprites and ground textures while leaving marker colors unchanged.</p><div class="settings-content"><label>Tint color<input id="tint" type="color" value="#b6ce98"></label><label>Tint strength <span id="tintStrengthOut"></span><input id="tintStrength" type="range" min="0" max="100" step="1" value="0"></label><label>Saturation <span id="saturationOut"></span><input id="saturation" type="range" min="0" max="200" step="1" value="100"></label><label>Brightness <span id="brightnessOut"></span><input id="brightness" type="range" min="0" max="200" step="1" value="100"></label><p class="control-note">Zero strength keeps original hues; saturation and brightness still apply.</p></div></details><details class="settings-section" id="displaySettings"><summary>Display</summary><p class="scope-note">All previews, except the field overlay as noted.</p><div class="settings-content"><label class="check-label"><input id="points" type="checkbox"> Abstract markers</label><p class="control-note">Replaces sprites in every preview with slot-colored dots.</p><label class="check-label"><input id="guides" type="checkbox"> Show underlying fields</label><p class="control-note">Shows the density fields for Organic bridges, Clusters, Flowing bands, Nested groups and Terrain response.</p></div></details><div class="settings-actions"><button id="reset">Reset study</button><button id="copy">Copy settings link</button></div><p id="labStatus" role="status"></p><div hidden><input id="tendrils" type="hidden" value="65"><input id="branching" type="hidden" value="25"><input id="loops" type="hidden" value="60"><input id="regionSize" type="hidden" value="7"><input id="irregularity" type="hidden" value="75"><input id="geoStep" type="hidden" value="7"><input id="bandSpacing" type="hidden" value="100"><input id="hilbertBias" type="hidden" value="1"><input id="hilbertSide" type="hidden" value="1"><input id="hilbertOrder" type="hidden" value="3"><input id="hilbertSkip1" type="hidden" value="35"><input id="hilbertSkip2" type="hidden" value="35"><input id="hilbertSkip3" type="hidden" value="0"><input id="dungeonDepth" type="hidden" value="3"><input id="dungeonHalls" type="hidden" value="2"><input id="dungeonRows" type="hidden" value="8"><input id="dungeonRoomSize" type="hidden" value="65"><input id="dungeonBreaks" type="hidden" value="35"><input id="dungeonLoops" type="hidden" value="25"><input id="warrenSize" type="hidden" value="7"><input id="warrenVariation" type="hidden" value="80"></div></aside><section class="results" aria-label="Layout comparisons"><div id="legend" class="legend"></div><div id="grid" class="grid"></div><p class="note">These experimental previews place objects on unique interior cells without changing game world generation.</p><p class="note">Type shares redistribute objects, while maximum counts and sparsity remove them and inversion swaps filled and empty cells.</p></section></main>
+<script src="../src/terrain.js"></script><script src="../src/util.js"></script><script src="../src/biome_profiles.js"></script><script src="../src/worldgen.js"></script><script>const SPRITES={"smallmushroom":"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAALCAYAAABGbhwYAAAAxUlEQVR4nG2QoQ7CMBRFb8m+Y4olbKgqgkFjMAjUQrDzC4o/YIppPoJMLlNVKNRgCUu2zAwxsy94iKVNV7iq9/X0vfvKoMl1PNL96/1k8mzp0GW7UFBTtYgAkvBEh3jggwc+mqoFAIg0VlMs1/Eo5DZMiU8PsT8pz1zHI5HGuB3PI+je9gCAkNuIHs2QUUI6INIY+p1apKsz6uqMDqslXXdr5WVGpsM/QY0v+tvZfGgBwGw63wx23FTWizJPmFk0VZR5AgBfR/FjjphJdDoAAAAASUVORK5CYII=","tree": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAoAAAALCAYAAABGbhwYAAAAqElEQVR4nG2PIQ7CQBBF3zThBCRM6ppwgZqtwVGNQdX1AD1PD1DXBInmAtQgsGgyHAFTBNlm2+5Xuy9vZ/ZDEFUdVXUkkmQJ+q4hJssS9l0DQFW3a3Gf7yZwPGSUheN2HwAoC0dVt4j/m5dfjw8uFfKzmyQzEwmL+LNLheH9v5qZzMqYmXiYbTczKdo6nBpumYmqOrpUuDy/q4dJIJ1ikz2XGAxjZleAH6Z5NUdOXM9jAAAAAElFTkSuQmCC", "rock": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA0AAAALCAYAAACksgdhAAAArklEQVR4nGNkQAMWKnr/0cUYGBgYTty5xAhjMyJLWKjo/S+pjcGmh6GneQlcIxMxGhgYGBhKamMYpEXl/sM1Wajo/e+eXopTAzpgIqwEAqbOXAdns8AYMyYuZMjIj8eqoa5+KjI3jYWBgSENWaOGmiKKhn0nLpPvvFu3nzE8ff0onYGBYRYTAwPDrBN3LqXfvfGKKA0MDKjxlCYtKjcTmyZkDeiaGBiQ/IcGZiFzANq3OCWAObOAAAAAAElFTkSuQmCC", "shrub": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAYAAABzenr0AAAEKUlEQVR4nK2XzUtjVxjGfxqDzHRhrcLgLAzMZRbFaGCYzmYWgbiZ4MdCxkVAkMm/UFoCWQQXQugfYSkILhxc+IHZGHAxG20LMU435Q7cLipFHWMZAxKm00V8T95zP7Rp+25u7jnn3uc5z/u877mBLqLfmfjU70x86uaZu6K32wd21+YQEn5C/4bgrQSiXigkdtfmrLX6/n8hoMH02P5xjULR+c/gAD23TeoXZ3MbFmhYpJMpsrkNrt2jHk362j2KxAlM+He7uzbH/nENANc7M+NOYhjXOzNXGQMoL7sUig6ud8b66qV5JoxIKAEt5/5xjer2CQBLhRdmfGVnzwJNJ1OUyhUy0yOGrIDPLwywvnr5zwhoErLz6vaJBS7jEulkyvwulSskxuMGvFB0KC+7kWmwBv3yS85FgcR4HID81KQhIeArO3t49RaAUUFC1AhVIApU51dkdr0z8lOTlhJ69ys7e2atjvKya91rIr3QNpq/jNZXL0knU2ZXgPVbPCBX/3w6maK6fWLUm18YYH5hALD7S++1e9STzW0gRDTbbG7DkvOg1gTaeZadevUWpXLFmhdVlgovOKg1DbCfCCgPCCOZ9EupXS1qacmFuPaNEJJ36pKU6NM3mllY7vNTdgV49RZOoj3vL93M9AiZaSxyuqlJafbK7gtFB6/ewqu3bsAmLSAdknfZYZg3dGiPlcoVqy/0CbiE1Lvf0fWvX3OYGcRJDOMkhhHf6CiVK7w8/cD7Vx3lvHrLKPAsdZ+DWpODWqcSrDIsFB3jWm2+6vbJzYsfB0BlHuDl6QcA3r96HChZLbtVhnIjKmSmR0iMx42T08mU1QVd74x0MkU6mTJnQGZ6xAIHIsHBbnh9cqMPEP2wji++/xU3Mxg6B3CYGSQf0hkXY1c0aZefkxi2Sj3QiKIM9+3v7U+Hr6oXQKcXiBqHPmL5qUkOak2+PD41YwIeSEGYofRpJ/Mirz71NKBXb4VWQTP3kPXVy0BLhpBG9Cx1HwgeKBI6RSKzeERy7dVbgQ4YtvsAAX0EQ8cXYeBCAAgFhHbnk+ejjmTzTSipKC+7lJdd43D9FaRbqU5bYjxuXO4khs1VgG8L66NUGO6uzVlNSBPK5jaM1JpYFOC1e9RzG4m+sMEwUwKBMuqQ7BhsMXbFj+ctTWTm2j2ald/AVhSBmRvGsph+Z2JTy+4H1x4ZazR4OhQ3a/V7fDFzc92CTgpmwlaONRosxq7MvYCPNRpiqtmtb35irNFojz+4F4EZTSQ0BRI/n/82C6ObfN7O83cP/wLgbSwO5w0YGt3Uu340+JG3f3TDwf4oDVUB4MnQ6Kb8Xnr+Ge8uYvzwy588HYoz9uAejwY/mrWlN1c3xO+MLbAVEHMEiMgLnwyNbr67iJlxkbz05iqw9i5giVv/mqmIVKcbsLD4GzNji5z5PG36AAAAAElFTkSuQmCC", "mushroom": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABYAAAAWCAYAAADEtGw7AAAEfUlEQVR4nI2UbWiVZRzGf/f9vOy8buc4PW6evencfG2l2WhmiFkEmWISlPopFDNChKQ++KFAtCgiCAr6UPuQSWWIFJoIBqklSSudLJ1t2pxz2/EczznbeX/O8zx3H6LSdFvXx//N9eO6L/78Bf9Dm2sjyiqUQQocTbJyaSs7j58Rk3kmfOyITFebWppYO8uH6yrqOr8g2XWMvt0fcN3QKJUc3uy9Ql8mc0/GPYd7lj+gtne0Ed61i9FtW3D9PrKGQWIwTpUyuIEgkcyheypoe7aD5/Z+ycVc8g6W/C+0xRtW60OVhLZuItd1glS2QIUmUckU0x2J7ioq0iWiho7MZRk0A2xtjLJxwVw1YeJfVz+m9EKGGbU2ZcOP64IhBPmxHHXb1tG/7yBOSz0NW9Zw+fhPJI+dZ1gIUiUXx4Eu0+JQ7xVxR+IXo9NU22cfY9t5HFfDyuVpPHAER1lohuDKO4fAYxA/24NWXY9bWYVmSmp1gQAWb3iY9nDozsQb5kTVu0+uolgs4M8PolX4qNn7FgKIfX+U9P7juHkLVylsIVAeg3jeQXNdHBu0dUvIh2rp3n+Szku9DORSQgCcXd2hZK6E6ZVEmiXCNkn0xGh+YydX3+tEmAbxkSQPbV/PxU+PYbsCkNiOJG1ZZB1F2hXElaTsuOzp/03I1pBfUbap8nto3v0SN7sTFDNlqudOZ/ijTjwBiVMssvybTyjNb0ETEs0QuCEfNW+/zJJXN+NIgVIKXdh4pU1DZKaSLhoZO4u+dA5mXZThdAq3rChZLpgaSio0zaWQGkUvjOFqGgpJfjzP4Oluut4/jC0ljoDaVUvxPf0oOOW/Oj66b4cKzwzz4IplpA9+xcC355i743nSp84Q776GlBpCk2TKLslMkUqvh3TBwvSYmLXVWO2t3CoY5IDegUGu9V/9d93mRevVKy88QyEzztxoGI/pRQtU4NMFenocLVRF2bKx80VGCjbKNMneKhCzHLJjKfKuzYEj3zESi4u79viRBa1KaA4LF8/HsW38polwJI3Rafh8fspoFHJZrg3H8XlNBmMJ/B6dvssDoOD0pf5/eJMeEoCNax9X6UyGwZFbaFLDcVw8FRr5QpFL/QMT+vXJoKFAQK15YiU3R+IUrDJCSIYTYyAkt5JxLvUPTOi961bcrrILNX6D+xc2EZnmx5AuXlMgNcjkcpP+dNLE577+kPrGCIlEirpomDM/X8QX9HJlKMXsaB2R6rBqW13NhR+T3LwxxXX7WwtboqoyEMQtS2zLom5mhBXLFjKrKojfayJ1gyX3zWN8rETDogANs6vVlODXXm9XSjgMjA7xe38f/mCA0eFhCvkiSgikYWLoOrppEm3QKRVtKqd7J6+iqXmG8gYtmtslh899TnNoKcGgRjyeo3c4xVBsjLJlk8hmuHCxh8WRSqoCfn441XdHFfdcl6bWGeqptRFGYuOEfUEaWoucPOFQE2xjWoWHP0aT/HK+h1giJurrq1VZuYwOpaYG365FbTWqIiAo5lxuJkskrqen9AD8CUc/8Qxuf8FhAAAAAElFTkSuQmCC", "resource": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAALCAYAAABPhbxiAAABFklEQVR4nJWRPUvDUBiFn2hiByGDmCqxqwaiUKTcyZ/QguRPiGDdHJwcnDp0U0EyuzgVQX9FKGKJF6prCQ7ikOLgB8Yh3nxgBj3LhXvO8x5eXo0fua5I+IOkDDQATUFXh68ARJO1SsBuPACw3ZtHykDTXVckvhdjiQMA3r9uK0FLtAHwvT47iEQHWHJms8BzFFWCK2xSzOrKeItPAVi0typB5SvpAKZjEI8/ssam1y6F7gY3zM2kvukYOVgzu1hC7fJ7etPrAsVhfgqGF/3sa/L4SatTY+98GYCz3SeG1z0aq3oBNPNzHG28ADCI19lvjUuNJ0MHz7wH4DhcSM+hTDWxPppyObJLYN2Y5o1h+mSN/ENSBto3RstSdUsBu08AAAAASUVORK5CYII=", "threat": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA4AAAALCAYAAABPhbxiAAAA1UlEQVR4nGNkwALk5S3+I/MfPjzBiK6GBZuG+KW/4WLn7v9gYKiBiCMbwIisKX7pbwZbPjkUkw9/esTAwMDAsO7kW4bPkyTgmpmI0cTAwMAQZC7MwJv3Au4qJpiELZ8cQ4rvc7iGw58eMSyMZsUWBAwMDAwMTDDbsNmCDcBsZWFgYGBovJXAwMDAwBC/dAGKIpiBMPl1DL1wOUZ0G3GBc/d/MDx49ZVBQYyb4XINL8SP5+7/IEoTMmBkYICEqm7LZ6yakDXAbHv48AQjSjwSdC8DIhEAAG5MXzpmRcuTAAAAAElFTkSuQmCC", "leafytree": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAvCAYAAACCLMghAAADyElEQVR4nO1YIWwiQRR92/Qqzl7CpE0FGFTtrqkgKQ5y5xpwqxBkVTW6GrVBoOpKcG3AlQSBAXOiiuTCisuRJTl7oif2xN4f/kxn2V3o5Uy/mp2d/e/N/3/eHwBSTAgRCSGitLl97SjLovs7DwQohIju77y3wAYAHJsmk3b31uAAYKUBNV0fLc8BACxXG5RLBVQdG73BCNNxoHwXhqHRX24CREIHJjM9T8fB4QR46Cu1Ir7/+AUAuL25BgA8zRcAgKpjo9Md4uqyeBC4kQCF/mm+wGQWGMHJOt0hvn3dANgv/K8IJJE4P/uIdqOO3mAkQz+ZBQCgRIEsDxnjKWi6Piq1ItqNOparDdqNunxHz7wO2o062o3tt3lM6gCJS8tz0PIcCUp10OkOUS4V5DPfMaWn6fq5U6EI0f2dp+SYHFPBAXHI+S5pfW8wUjaSlYCxCAlYt6pjK+8I/Gm+kGMixyNBhEzROdIXNV0fy1Vc2cvVRokIByXg3mCE5WqjEMsj3UoRkvBwo9DGhLangEgCcT1MEaDvz5Vvs0i3UYi4Ak7HASq1ovFjItP358gr3ZSOxF7Q8hxlR5VaUTogQnovyCLdunImtuO+P0cYhhYt5A6n40B5JlKTWYDJLEC7UVdqpd2oS+HSZXtnN6SK5mPd9pFuTkAWYdaza59aWKwj6aTp+hHXj053qEg3EBOhCMSphDyWr4SI76jlOTLfeiFywk3XR28wQtWxJTgZHeXzs4+4uozlnZ8MSSAMQ6vp+hKYjlm5VJBNqOU5WKwj2KeWJJFXunuDkZJOK8sdwNT/KWJ8DdUBACndAORp4jpTdWw0XT8mkLWQeP8nyyvdXA/CMLQsCmXaHWBX/6/UiiiXCrJV68R1grR7hQA5IlDKKY35ZYQc6NLN5ZlMl25dDY+5/BJjXkiUS9J7YJtTU2516eakyqUCyl5BihyAbQ0kFRKXY6p+AFisVdnII91ciI7o+FFLXa42uL25luD2qSWBF+tIAeaEskq3fiew+P1fD5leaPo8J5ZkpJxkRgJAthbMd9X357i+OEHw87ckcX1xAgByjuZ33ROVa1NSHpPaLwcsfvoAABg+vyhr0i6pSi9IyqOewySnw+cX+X7XOm47FwghInKiXyyFEBGPQFqok8z4w4SMO9z3p1eaZfqD4l/aO4F3AgcT4Kr3Xwjs6gNZbKcOmEwI8ZnG+u7pXRiGj29KgIPmXZ9GJk2Kk4Af9FbM2u4X0wdJRPapgVfgNP47/5DHWVoveATMkWDgtGMj8EEpMFmWeshThH8A370P5ibFaMwAAAAASUVORK5CYII=", "longgrass": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAPCAYAAADtc08vAAABI0lEQVR4nI2SPW6DQBCFPyzOwCq9U/gC7ijcuXEk+nAINy5TuKThEEmP5DR0jkTHBZBiGheRtbQ5wKSwh7D2GvlJSDCr97PzCHgAxhgZfltrA30PHyGvNzEv8QKAxWrrnAc+0jVZkWeV494nGIsI0BxOlEV7MwcIjTGy/3zrB7tqT55VAjB0v4fAF1Xjrjex436dtBdQkWUyZfb81AsALJMpZdGiiXSZcF6ocyefiAr4ElprA6dGa21QFggJvcjx59chXi809N3rHnxthADawqUByqLlOD87N7UdbWMiIulitWVX7YH/6praMpubUXeACYCIpHlWkWcVzeE06hhF0as+AGHXdR+XAwDKon0ncUnl1zdNbRGRVGfKu/k1VdkHJQ3xBz1WpmraSaVZAAAAAElFTkSuQmCC", "flowers": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAA8AAAANCAYAAAB2HjRBAAABOUlEQVR4nHVSIU/DQBT+jiBIQ03NuSXL1AhXgaFpEIjaYdALsggkaksm9xuYXDBLSA0LyUKQpAGDaJNWNBhcTcW2tHMPQe5Sbu2n3n33vve+9+4YWtDnNsk4zSPWltcopNWCqiwkWi2oXqgOposAIJmPsOt1FH/0/YOTm2m7C9lNdpKxfq67YFL49f6gumzCGOezJQLDwnVZ4NMfwHSFcnN2cYs0j9iB7mDX68B0BQLDQvd1isCw/gkluOcQuOcQ9xxlrc9t6nOb1pMxJd1LWk/GipP390+nxD2HGPccGvpbvNz9mUjmI1V9E8YwXaHOcmmFMJC/fTAmLVhxCTl3fcP65uW8jRuvspCqLFRWda6ev1dBJhTCwNDf4nF2DCsuAey/8aEuTvPoCgC4cJ51Tkfbnx00cEud+AVt3bYfA6TU7AAAAABJRU5ErkJggg=="};</script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id),slotIds=['a','b','c','d','e'];
+const ids=['types','gx','gy','count','structure','distortion','variation','grouping','a','b','c','d','e','points','guides','selection','tendrils','inverted','branching','clusterSize','tint','saturation','brightness','tintStrength','decimation','mazeStep','loops','regionSize','irregularity','geoStep','bandSpacing','warrenSize','warrenVariation','hilbertBias','hilbertSide','hilbertOrder','hilbertSkip1','hilbertSkip2','hilbertSkip3','dungeonDepth','dungeonHalls','dungeonRows','dungeonRoomSize','dungeonBreaks','dungeonLoops',...slotIds.flatMap(id=>[id+'Density',id+'Cap',id+'Behavior'])];
+const names={none:'None',tree:'Maple sapling',leafytree:'Leafy maple',longgrass:'Long grass',flowers:'Wildflowers',rock:'Stone',shrub:'Shrub',mushroom:'Giant mushroom',smallmushroom:'Small mushroom',resource:'Resource patch · chest marker',threat:'Threat patch · slime marker'},colors=['#e5d68f','#b3cce8','#eaa4b0','#8bddc6','#f3ac6c'];
+$('objectSlots').innerHTML='<h3>Object slots</h3><p class="control-note">Type shares total 100% without changing the object count; maximum counts can remove objects, and None disables a type.</p>'+slotIds.map((id,i)=>`<details class="object-slot"><summary>Object ${i+1} · <span id="${id}SlotName"></span></summary><div class="settings-content"><label>Type<select id="${id}"></select></label><label>Share of objects <span id="${id}DensityOut">100%</span><input id="${id}Density" type="range" min="0" max="100" value="100"></label><label>Maximum count · optional<input id="${id}Cap" type="number" min="0" max="10000" step="1" placeholder="Auto · use share"></label><div id="${id}ThreatOptions" hidden><label>Threat placement<select id="${id}Behavior"><option value="scatter">Scatter freely · ignore geometry</option><option value="edge1">Hide near edges of Object 1</option><option value="guard">Guard resource patches</option><option value="layout">Follow the layout</option></select></label><p class="control-note">Threats use unoccupied cells near their preferred targets, falling back to scatter when targets are absent.</p></div><p id="${id}ResourceHelp" class="control-note" hidden>Resources prefer maze ends, cluster centers or room interiors, with excess markers using the next-best sites.</p></div></details>`).join('');
+for(const id of slotIds)for(const[value,label]of Object.entries(names))$(id).add(new Option(label,value));
+for(const[id,value]of [['a','tree'],['b','rock'],['c','shrub'],['d','none'],['e','none']])$(id).value=value;
+const defaults=Object.fromEntries(ids.map(id=>[id,$(id).type==='checkbox'?$(id).checked:$(id).value]));
+const query=new URLSearchParams(location.hash.slice(1));for(const id of ids)if(query.has(id)){if($(id).type==='checkbox')$(id).checked=query.get(id)==='true';else $(id).value=query.get(id);if(!$(id).value)$(id).value=defaults[id];}
+// Largest-remainder allocation preserves totals, including small object counts.
+function apportion(total,weights){return TerrainLayouts.allocate(total,weights);}
+function normalizeShares(changed){
+ const enabled=slotIds.filter(id=>$(id).value!=='none');if(!enabled.length)return;
+ const others=enabled.filter(id=>id!==changed);
+ if(changed&&enabled.includes(changed)){
+  const share=others.length?clamp(Number($(changed+'Density').value),0,100):100;$(changed+'Density').value=share;
+  const amounts=apportion(100-share,others.map(id=>Number($(id+'Density').value)));
+  others.forEach((id,i)=>$(id+'Density').value=amounts[i]);
+ }else{
+  const amounts=apportion(100,enabled.map(id=>Number($(id+'Density').value)));
+  enabled.forEach((id,i)=>$(id+'Density').value=amounts[i]);
+ }
+}
+normalizeShares();
+for(const id of slotIds){$(id+'Density').addEventListener('input',()=>normalizeShares(id));$(id).addEventListener('input',()=>normalizeShares());}
+function rng(seed){let a=seed>>>0;return()=>{a+=0x6D2B79F5;let t=a;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296;}}
+function clamp(v,a=0,b=1){return Math.max(a,Math.min(b,v));}function mix(a,b,t){return a+(b-a)*t;}
+function state(){const s={};for(const id of ids)s[id]=$(id).type==='checkbox'?$(id).checked:$(id).value;for(const id of ['gx','gy','count','structure','distortion','variation','grouping','tendrils','branching','saturation','brightness','tintStrength','decimation','mazeStep','loops','regionSize','irregularity','geoStep','bandSpacing','warrenSize','warrenVariation','hilbertBias','hilbertSide','hilbertOrder','hilbertSkip1','hilbertSkip2','hilbertSkip3','dungeonDepth','dungeonHalls','dungeonRows','dungeonRoomSize','dungeonBreaks','dungeonLoops'])s[id]=Number(s[id]);s.seed=clamp(Number(query.get('seed'))||2718,1,999999);return s;}
+const methods=[
+['random','Random scatter',"Randomly scatters objects and types, ignoring structure, distortion and affinity."],
+['maze_dfs','Winding maze',"Long winding passages and dead ends stay connected before inversion or thinning."],
+['maze_prim','Branching maze',"Short branching passages and frequent junctions stay connected before inversion or thinning."],
+['maze_braid','Braided maze',"Adds shortcuts between maze dead ends, with Loops controlling their frequency."],
+['voronoi','Voronoi seams',"Traces irregular region boundaries, deriving the region count from area and region size."],
+['warped_grid','Warped grid lines',"Traces connected wavy rows and columns, with inversion filling their compartments."],
+['tendril','Connected tendrils',"Grows connected one-cell branches, with Branching controlling how often growth resumes at older junctions."],
+['gamegrass','Current game grass',"Shows the game’s seeded grass mask at its native spacing, ignoring placement controls."],
+['grass','Organic bridges · experiment',"Connects unequal patches with narrow tendrils while leaving broad clearings."],
+['clusters','Clusters & clearings','Loose islands of density, with broad empty areas between them.'],
+['grid','Distorted spacing','An evenly spaced lattice bends into waves, then selects the nearest free cells.'],
+['hilbert','Hilbert curve · region shortcuts',"Shortcuts selected or too-small Hilbert regions and displays the curve or the filled area on either side."],
+['dungeon','Dungeon · broken symmetry',"Large halls branch into smaller chambers with partial symmetry and connected tunnels before thinning or inversion."],
+['warren','Goblin Warren · random rooms',"Traces walls around unequal rooms with midpoint doors, with inversion showing their floors."],
+['flow','Flowing bands','Curving ribbons suggest wind, water or a shared contour.'],
+['nested','Nested groups','Small groups sit inside larger regions: pattern at two scales.'],
+['repel','Breathing room + pairs','Most objects repel each other; occasional close pairs break the rhythm.'],
+['terrain','Terrain response','Placement follows a damp hollow and stream edges, leaving the channel open.']];
+const defaultLayouts=['flow','tendril'];
+const selectedLayouts=new Set((query.has('layouts')?query.get('layouts').split(','):methods.some(m=>m[0]===query.get('focus'))?[query.get('focus')]:defaultLayouts).filter(id=>methods.some(m=>m[0]===id)));
+function updateLayoutPicker(){
+ const picker=$('layoutPicker'),previous=picker.value;
+ picker.replaceChildren();
+ for(const [id,label] of methods)if(!selectedLayouts.has(id))picker.add(new Option(label,id));
+ if([...picker.options].some(option=>option.value===previous))picker.value=previous;
+ picker.disabled=!picker.options.length;$('addLayout').disabled=picker.disabled;
+ if(picker.disabled)picker.add(new Option('All layouts added',''));
+ $('clearLayouts').disabled=!selectedLayouts.size;
+}
+function environment(seed){const r=rng(seed+601);return {phase:r()*6.28,centers:Array.from({length:5},()=>({x:.16+r()*.68,y:.17+r()*.66})),sub:Array.from({length:15},(_,i)=>({parent:i%5,dx:(r()-.5)*.22,dy:(r()-.5)*.22}))};}
+function grassField(x,y,e){
+ let value=0;
+ const radii=[.15,.062,.105,.046,.09];
+ for(let i=0;i<e.centers.length;i++){const c=e.centers[i],radius=radii[i];value+=Math.exp(-((x-c.x)**2+(y-c.y)**2)/(2*radius*radius));}
+ // Thin, curved bridges connect a subset of patches; others remain islands.
+ for(const [ai,bi] of [[0,1],[1,2],[2,3]]){
+  const a=e.centers[ai],b=e.centers[bi];let nearest=Infinity;
+  for(let j=0;j<=22;j++){const t=j/22,bend=Math.sin(t*Math.PI)*.06,px=mix(a.x,b.x,t)+bend,py=mix(a.y,b.y,t)-bend;nearest=Math.min(nearest,(x-px)**2+(y-py)**2);}
+  value+=e.tendrils*.75*Math.exp(-nearest/(2*.018**2));
+ }
+ const ragged=.8+.2*Math.sin(x*57+e.phase)*Math.cos(y*49-e.phase);
+ const clearing=1-.9*Math.exp(-((x-.52)**2+(y-.52)**2)/(.075**2));
+ return clamp(value*ragged*clearing);
+}
+function warp(x,y,e,d){return{x:x+Math.sin(y*9+e.phase)*.12*d+Math.sin(y*19-e.phase)*.035*d,y:y+Math.sin(x*10-e.phase)*.1*d};}
+function stream(x,e){return .5+.15*Math.sin(x*6+e.phase);}
+function weight(method,x,y,e,d){const p=warp(x,y,e,d);x=p.x;y=p.y;const g=(cx,cy,r)=>Math.exp(-((x-cx)**2+(y-cy)**2)/(2*r*r));
+if(method==='grass')return grassField(x,y,e);
+if(method==='clusters')return Math.min(1,e.centers.reduce((v,c)=>v+g(c.x,c.y,.085),0));
+if(method==='nested')return Math.min(1,e.sub.reduce((v,c)=>{const p=e.centers[c.parent];return v+g(p.x+c.dx,p.y+c.dy,.035);},0));
+if(method==='flow')return Math.pow((1+Math.cos((y+.10*Math.sin(x*6+e.phase))*Math.PI*8/(e.bandSpacing??1)))/2,5);
+if(method==='terrain'){const gap=Math.abs(y-stream(x,e));return clamp(.75*Math.exp(-(((gap-.08)/.055)**2))+.7*g(.24,.24,.2))*(gap<.027?.005:1);}
+return 1;}
+
+function positions(method,s,e){
+ const points=basePositions(method,s,e);
+ if(!s.inverted)return decimate(points,s);
+ const filled=new Set(points.map(p=>p.cy*s.gx+p.cx)),opposite=[];
+ for(let cy=1;cy<s.gy-1;cy++)for(let cx=1;cx<s.gx-1;cx++)if(!filled.has(cy*s.gx+cx))opposite.push({cx,cy,x:(cx+.5)/s.gx,y:(cy+.5)/s.gy});
+ return decimate(opposite,s);
+}
+function decimate(points,s){
+ const fraction=(s.decimation??0)/100;
+ if(fraction<=0)return points;
+ if(fraction>=1)return [];
+ // Stable cell-keyed thresholds: moving the slider only removes/restores seats.
+ return points.filter(p=>rng((s.seed^0x3c9d71ab^Math.imul(p.cx,73856093)^Math.imul(p.cy,19349663))>>>0)()>=fraction);
+}
+function voronoiRegionCount(s){
+ const area=(s.gx-2)*(s.gy-2),size=clamp(s.regionSize??7,2,48);
+ return Math.max(1,Math.min(area,Math.round(area/(size*size))));
+}
+function geometricPositions(method,s){
+ const gx=s.gx,gy=s.gy,r=rng(s.seed+47291),filled=new Set();
+ const add=(x,y)=>{if(x>=1&&x<gx-1&&y>=1&&y<gy-1)filled.add(y*gx+x);};
+ const line=(a,b)=>{let x=Math.round(a.x),y=Math.round(a.y);const tx=Math.round(b.x),ty=Math.round(b.y);add(x,y);while(x!==tx||y!==ty){if(x!==tx)x+=Math.sign(tx-x);add(x,y);if(y!==ty)y+=Math.sign(ty-y);add(x,y);}};
+ if(method.startsWith('maze_')){
+  const step=s.mazeStep,cols=Math.floor((gx-3)/step)+1,rows=Math.floor((gy-3)/step)+1,total=cols*rows;
+  const coord=i=>({x:1+(i%cols)*step,y:1+Math.floor(i/cols)*step});
+  const neighbors=i=>{const x=i%cols,y=Math.floor(i/cols),out=[];if(x>0)out.push(i-1);if(x<cols-1)out.push(i+1);if(y>0)out.push(i-cols);if(y<rows-1)out.push(i+cols);return out;};
+  const visited=new Set(),links=new Set(),degree=new Uint8Array(total),edge=(a,b)=>Math.min(a,b)+':'+Math.max(a,b);
+  const join=(a,b)=>{line(coord(a),coord(b));links.add(edge(a,b));degree[a]++;degree[b]++;};
+  const start=Math.floor(r()*total);visited.add(start);const origin=coord(start);add(origin.x,origin.y);
+  if(method==='maze_prim'){
+   const frontier=neighbors(start).map(n=>[start,n]);
+   while(frontier.length){const index=Math.floor(r()*frontier.length),[a,b]=frontier[index];frontier[index]=frontier[frontier.length-1];frontier.pop();if(visited.has(b))continue;visited.add(b);join(a,b);for(const n of neighbors(b))if(!visited.has(n))frontier.push([b,n]);}
+  }else{
+   const stack=[start];while(stack.length){const a=stack[stack.length-1],options=neighbors(a).filter(n=>!visited.has(n));if(!options.length){stack.pop();continue;}const b=options[Math.floor(r()*options.length)];visited.add(b);join(a,b);stack.push(b);}
+   if(method==='maze_braid')for(let a=0;a<total;a++){if(degree[a]!==1||r()>=s.loops/100)continue;const options=neighbors(a).filter(b=>!links.has(edge(a,b)));if(options.length)join(a,options[Math.floor(r()*options.length)]);}
+  }
+ }else if(method==='voronoi'){
+  const count=voronoiRegionCount(s),cols=Math.min(count,Math.max(1,Math.round(Math.sqrt(count*(gx-2)/(gy-2))))),rows=Math.ceil(count/cols),sites=[];
+  for(let i=0;i<count;i++){const jitter=s.irregularity/100;sites.push({x:1+((i%cols)+.5+(r()-.5)*jitter)*(gx-2)/cols,y:1+(Math.floor(i/cols)+.5+(r()-.5)*jitter)*(gy-2)/rows});}
+  const owner=new Int16Array(gx*gy);
+  for(let y=1;y<gy-1;y++)for(let x=1;x<gx-1;x++){let nearest=Infinity;for(let i=0;i<sites.length;i++){const d=(x+.5-sites[i].x)**2+(y+.5-sites[i].y)**2;if(d<nearest){nearest=d;owner[y*gx+x]=i;}}}
+  for(let y=1;y<gy-1;y++)for(let x=1;x<gx-1;x++){const own=owner[y*gx+x];if((x<gx-2&&own!==owner[y*gx+x+1])||(y<gy-2&&own!==owner[(y+1)*gx+x]))add(x,y);}
+ }else{
+  const step=s.geoStep,amplitude=step*.42*s.irregularity/100,phase=r()*Math.PI*2;
+  const warpPoint=(x,y)=>({x:clamp(x+amplitude*Math.sin(y/step*1.8+phase),1,gx-2),y:clamp(y+amplitude*Math.sin(x/step*1.6-phase),1,gy-2)});
+  for(let x=1;x<gx-1;x+=step){let prev=warpPoint(x,1);for(let y=2;y<gy-1;y++){const next=warpPoint(x,y);line(prev,next);prev=next;}}
+  for(let y=1;y<gy-1;y+=step){let prev=warpPoint(1,y);for(let x=2;x<gx-1;x++){const next=warpPoint(x,y);line(prev,next);prev=next;}}
+ }
+ return [...filled].map(key=>{const cx=key%gx,cy=Math.floor(key/gx);return{cx,cy,x:(cx+.5)/gx,y:(cy+.5)/gy};});
+}
+function hilbertOrderLabel(s){return String(s.hilbertOrder);}
+function hilbertPositions(s){
+ return TerrainLayouts.generate({layout:'hilbert',width:s.gx,height:s.gy,seed:s.seed,order:s.hilbertOrder,skip:[s.hilbertSkip1,s.hilbertSkip2,s.hilbertSkip3],bias:s.hilbertBias,side:s.hilbertSide,inverted:false});
+}
+function dungeonPositions(s){
+ const gx=s.gx,gy=s.gy,r=rng(s.seed+19073),filled=new Set();
+ const scale=clamp((s.dungeonRoomSize??65)/100,.25,1),breaks=clamp((s.dungeonBreaks??35)/100),loops=clamp((s.dungeonLoops??25)/100);
+ const add=(x,y)=>{if(x>=1&&x<gx-1&&y>=1&&y<gy-1)filled.add(y*gx+x);};
+ const room=(x,y,w,h)=>({x,y,w,h,cx:x+Math.floor((w-1)/2),cy:y+Math.floor((h-1)/2)});
+ const mirror=q=>({...q,x:gx-q.x-q.w,cx:gx-1-q.cx});
+ const overlaps=(a,b)=>a.x<=b.x+b.w&&a.x+a.w>=b.x&&a.y<=b.y+b.h&&a.y+a.h>=b.y;
+ const left=[],right=[],all=[];
+ const halls=Math.min(clamp(s.dungeonHalls??2,1,3),Math.max(1,Math.floor((gy-2)/7)));
+ // Large shared halls anchor the graph. Their footprints are symmetric, but
+ // their sizes and vertical positions vary independently of the small rooms.
+ for(let i=0;i<halls;i++){
+  const bandTop=1+Math.floor(i*(gy-2)/halls),bandBottom=Math.floor((i+1)*(gy-2)/halls);
+  let w=Math.min(gx-2,Math.max(2,Math.round(gx*(.22+scale*.15)*(.85+r()*.15))));
+  if((gx-w)%2)w=Math.min(gx-2,w+1);
+  const h=Math.min(bandBottom-bandTop+1,Math.max(2,Math.round((gy-2)/halls*(.4+scale*.22)*(.8+r()*.2))));
+  const y=bandTop+Math.floor(r()*(bandBottom-bandTop-h+2)),q=room((gx-w)/2,y,w,h);
+  left.push(q);right.push(mirror(q));all.push(q);
+ }
+ const target=clamp(s.dungeonRows??8,1,12),depthLimit=clamp(s.dungeonDepth??3,1,4),branchEdges=[];
+ // Recursive branching: each chamber gives rise to smaller chambers and
+ // shorter tunnels. Placement retries rotate branches instead of using a grid.
+ function grow(parentIndex,depth,direction){
+  if(depth>depthLimit||left.length>=halls+target)return;
+  const parent=left[parentIndex];
+  for(let branch=0;branch<2&&left.length<halls+target;branch++){
+   let q=null;
+   for(let attempt=0;attempt<40;attempt++){
+    const ratio=.43+r()*.15,w=Math.max(1,Math.floor(parent.w*ratio)),h=Math.max(1,Math.floor(parent.h*ratio));
+    const angle=direction+(branch?1:-1)*(.45+r()*.6)+(r()-.5)*.6;
+    const gap=Math.max(2,Math.round(Math.min(gx,gy)*.10/Math.pow(1.55,depth-1)));
+    const dx=Math.cos(angle),dy=Math.sin(angle);
+    // Keep a wall gap even when the branch leaves a long rectangular hall.
+    const reach=Math.min((parent.w+w)/2/Math.max(.01,Math.abs(dx)),(parent.h+h)/2/Math.max(.01,Math.abs(dy)))+gap;
+    const candidate=room(Math.round(parent.cx+dx*reach-(w-1)/2),Math.round(parent.cy+dy*reach-(h-1)/2),w,h);
+    const mate=mirror(candidate);
+    if(candidate.x<1||candidate.y<1||candidate.x+w>Math.floor(gx/2)||candidate.y+h>gy-1)continue;
+    if(all.some(o=>overlaps(candidate,o)||overlaps(mate,o))||overlaps(candidate,mate))continue;
+    q={...candidate,direction:angle};break;
+   }
+   if(!q)continue;
+   const paired=mirror(q);let mate=paired;
+   if(r()<breaks)for(let retry=0;retry<16;retry++){
+    const mw=Math.max(1,q.w+Math.floor(r()*3)-1),mh=Math.max(1,q.h+Math.floor(r()*3)-1);
+    const candidate=room(clamp(paired.x+Math.floor(r()*5)-2,Math.ceil(gx/2),gx-1-mw),clamp(paired.y+Math.floor(r()*5)-2,1,gy-1-mh),mw,mh);
+    if(!all.some(o=>overlaps(candidate,o))&&!overlaps(candidate,q)){mate=candidate;break;}
+   }
+   const child=left.length;left.push(q);right.push(mate);all.push(q,mate);branchEdges.push([parentIndex,child,false]);
+   grow(child,depth+1,q.direction);
+  }
+ }
+ for(let i=0;i<halls;i++)grow(i,1,Math.PI);
+ for(const q of all)for(let y=q.y;y<q.y+q.h;y++)for(let x=q.x;x<q.x+q.w;x++)add(x,y);
+ const corridor=(a,b,horizontal)=>{let x=a.cx,y=a.cy;add(x,y);const across=()=>{while(x!==b.cx){x+=Math.sign(b.cx-x);add(x,y);}},down=()=>{while(y!==b.cy){y+=Math.sign(b.cy-y);add(x,y);}};if(horizontal){across();down();}else{down();across();}};
+ const edges=[],linked=new Set([0]),edgeKeys=new Set(),distance=(a,b)=>Math.abs(a.cx-b.cx)+Math.abs(a.cy-b.cy);
+ // Connect the large halls, then retain every recursive parent-child edge.
+ // Mirroring edges preserves exact symmetry at zero breaks.
+ while(linked.size<halls){
+  let best=null;
+  for(const a of linked)for(let b=0;b<halls;b++)if(!linked.has(b)){const d=distance(left[a],left[b]);if(!best||d<best.d)best={a,b,d};}
+  edges.push([best.a,best.b,false]);edgeKeys.add([best.a,best.b].sort((a,b)=>a-b).join(':'));linked.add(best.b);
+ }
+ for(const edge of branchEdges){edges.push(edge);edgeKeys.add(edge.slice(0,2).sort((a,b)=>a-b).join(':'));}
+ for(let a=0;a<left.length;a++){
+  const near=left.map((q,b)=>({b,d:distance(left[a],q)})).filter(q=>q.b>a&&!edgeKeys.has(a+':'+q.b)).sort((a,b)=>a.d-b.d).slice(0,2);
+  for(const {b} of near)edges.push([a,b,true]);
+ }
+ for(const [a,b,optional] of edges){
+  const horizontal=r()<.5,include=r()<loops,independent=r()<breaks,otherInclude=r()<loops;
+  if(!optional||include)corridor(left[a],left[b],horizontal);
+  if(!optional||(independent?otherInclude:include))corridor(right[a],right[b],horizontal);
+ }
+ return [...filled].sort((a,b)=>a-b).map(key=>{const cx=key%gx,cy=Math.floor(key/gx);return{cx,cy,x:(cx+.5)/gx,y:(cy+.5)/gy};});
+}
+function warrenPositions(s){
+ const gx=s.gx,gy=s.gy,r=rng(s.seed+83917),walls=new Set(),lanes=new Set();
+ const size=clamp(s.warrenSize??7,3,16),variation=clamp((s.warrenVariation??80)/100);
+ // Partition each row independently. Minimum spans preserve room interiors.
+ function divisions(last){
+  const span=last-1,count=Math.max(1,Math.min(Math.floor(span/3),Math.round(span/size))),cuts=[1];
+  const weights=Array.from({length:count},()=>Math.exp((r()-.5)*3*variation)),total=weights.reduce((a,b)=>a+b,0);
+  const spare=Math.max(0,span-count*3);let sum=0;
+  for(let i=0;i<count;i++){sum+=weights[i];cuts.push(i===count-1?last:1+(i+1)*3+Math.round(spare*sum/total));}
+  return cuts;
+ }
+ const ys=divisions(gy-2);
+ for(let row=0;row<ys.length-1;row++){
+  const xs=divisions(gx-2),top=ys[row],bottom=ys[row+1],my=Math.floor((top+bottom)/2);
+  for(let col=0;col<xs.length-1;col++){
+   const left=xs[col],right=xs[col+1],mx=Math.floor((left+right)/2);
+   for(let x=left;x<=right;x++){walls.add(top*gx+x);walls.add(bottom*gx+x);lanes.add(my*gx+x);}
+   for(let y=top;y<=bottom;y++){walls.add(y*gx+left);walls.add(y*gx+right);lanes.add(y*gx+mx);}
+  }
+ }
+ // Clear lanes after collecting every wall so neighboring rooms cannot seal doors.
+ for(const key of lanes)walls.delete(key);
+ return [...walls].sort((a,b)=>a-b).map(key=>{const cx=key%gx,cy=Math.floor(key/gx);return{cx,cy,x:(cx+.5)/gx,y:(cy+.5)/gy};});
+}
+function basePositions(method,s,e){
+ if(method==='hilbert')return hilbertPositions(s);
+ if(method==='dungeon')return dungeonPositions(s);
+ if(method==='warren')return warrenPositions(s);
+ if(method.startsWith('maze_')||method==='voronoi'||method==='warped_grid')return geometricPositions(method,s);
+ const gx=s.gx,gy=s.gy;
+ e={...e,tendrils:(s.tendrils??65)/100,bandSpacing:clamp((s.bandSpacing??100)/100,.25,3)};
+ if(method==='gamegrass'){
+  const generator=WorldGen.grassFillSteps(s.seed,5615,gx,gy);let result;
+  do{result=generator.next();}while(!result.done);
+  const points=[];for(let cy=1;cy<gy-1;cy++)for(let cx=1;cx<gx-1;cx++)if(result.value[cy*gx+cx])points.push({cx,cy,x:(cx+.5)/gx,y:(cy+.5)/gy});return points;
+ }
+ const r=rng(s.seed),t=s.structure/100,d=s.distortion/100;
+ // Every candidate is an allowed cell center. Selection removes it from the pool.
+ const available=[];
+ for(let cy=1;cy<gy-1;cy++)for(let cx=1;cx<gx-1;cx++)available.push({cx,cy,x:(cx+.5)/gx,y:(cy+.5)/gy});
+ const n=Math.min(s.count,available.length),pts=[];
+ if(method==='tendril'){
+  const occupied=new Set(),nodes=[],dirs=[[1,0],[0,1],[-1,0],[0,-1]];
+  const add=(cx,cy)=>{const key=cy*gx+cx;if(occupied.has(key)||pts.length>=n)return;occupied.add(key);pts.push({cx,cy,x:(cx+.5)/gx,y:(cy+.5)/gy});};
+  const valid=(x,y)=>x>=1&&y>=1&&x<gx-1&&y<gy-1;
+  const start={cx:1+2*Math.floor(r()*Math.ceil((gx-2)/2)),cy:1+2*Math.floor(r()*Math.ceil((gy-2)/2)),dir:Math.floor(r()*4)};
+  add(start.cx,start.cy);nodes.push(start);
+  // Grow on alternate cells and fill the intervening cell: every branch stays connected.
+  while(nodes.length&&pts.length<n){
+   const index=r()<s.branching/100?Math.floor(r()*nodes.length):nodes.length-1,tip=nodes[index];
+   const choices=dirs.map(([dx,dy],dir)=>({cx:tip.cx+dx*2,cy:tip.cy+dy*2,dir,dx,dy})).filter(p=>valid(p.cx,p.cy)&&!occupied.has(p.cy*gx+p.cx));
+   if(!choices.length){nodes.splice(index,1);continue;}
+   const straight=choices.find(p=>p.dir===tip.dir),next=straight&&r()<t?straight:choices[Math.floor(r()*choices.length)];
+   add(tip.cx+next.dx,tip.cy+next.dy);add(next.cx,next.cy);nodes.push(next);
+  }
+  // If the requested fill exceeds the thin network's capacity, thicken it from its boundary.
+  const frontier=pts.slice();for(let i=0;i<frontier.length&&pts.length<n;i++){const tip=frontier[i];for(const[dx,dy]of dirs){const cx=tip.cx+dx,cy=tip.cy+dy;if(valid(cx,cy)&&!occupied.has(cy*gx+cx)){add(cx,cy);frontier.push({cx,cy});}}}
+  return pts;
+ }
+ const dist=(a,b)=>((a.x-b.x)*gx)**2+((a.y-b.y)*gy)**2;
+ function nearest(target){let index=0,score=Infinity;available.forEach((p,i)=>{const dd=dist(p,target);if(dd<score){score=dd;index=i;}});return index;}
+ if(method==='grid'||method==='repel'){
+  const cols=Math.min(gx-2,Math.max(1,Math.ceil(Math.sqrt(n*(gx-2)/(gy-2))))),rows=Math.ceil(n/cols);
+  for(let i=0;i<n;i++){
+   let index=Math.floor(r()*available.length);
+   if(method==='grid'){
+    const random=available[index],q=warp(.08+(i%cols+.5)*.84/cols,.1+(Math.floor(i/cols)+.5)*.8/rows,e,d);
+    index=nearest({x:mix(random.x,q.x,t),y:mix(random.y,q.y,t)});
+   }else if(pts.length&&r()<t){
+    if(r()<.14){
+     // A close pair uses distinct neighboring cells, never sub-cell offsets.
+     index=nearest(pts[Math.floor(r()*pts.length)]);
+    }else{
+     let score=-1;
+     for(let j=0;j<32;j++){
+      const candidate=Math.floor(r()*available.length),sample=available[candidate];
+      const warped=warp(sample.x,sample.y,e,d);
+      const spacing=(sample.spacing??Infinity)*(1+.15*d*Math.sin(warped.x*12+warped.y*9));
+      if(spacing>score){score=spacing;index=candidate;}
+     }
+    }
+   }
+   const chosen=available.splice(index,1)[0];pts.push(chosen);
+   if(method==='repel')for(const p of available)p.spacing=Math.min(p.spacing??Infinity,dist(p,chosen));
+  }
+  return pts;
+ }
+ // Sample cell weights without replacement; cell priorities stay fixed across edits.
+ const candidates=available.map(p=>({...p,weight:.002+weight(method,p.x,p.y,e,d),priority:-Math.log(Math.max(1e-9,r()))}));
+ const mean=candidates.reduce((sum,p)=>sum+p.weight,0)/candidates.length;
+ for(const p of candidates)p.key=p.priority/(method==='random'?1:mix(1,p.weight/mean,t));
+ return candidates.sort((a,b)=>a.key-b.key).slice(0,n);
+}
+function neighborCount(p,occupied,gx,gy){
+ let count=0;
+ for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){
+  if(dx===0&&dy===0)continue;
+  const x=p.cx+dx,y=p.cy+dy;
+  if(x>=0&&x<gx&&y>=0&&y<gy&&occupied.has(y*gx+x))count++;
+ }
+ return count;
+}
+function sizeScale(neighbors,random,s){
+ const factor=s.clusterSize?neighbors/8:random;
+ return 1+(factor-.5)*.7*s.variation/100;
+}
+const images={};
+let appearanceCache=null;
+function recolorRGB(rgb,s){
+ const tint=[1,3,5].map(i=>parseInt(s.tint.slice(i,i+2),16));
+ const luminance=c=>.2126*c[0]+.7152*c[1]+.0722*c[2];
+ const originalLight=luminance(rgb),tintLight=luminance(tint),strength=s.tintStrength/100;
+ const colored=rgb.map((v,i)=>mix(v,tintLight?originalLight*tint[i]/tintLight:0,strength));
+ const light=luminance(colored);
+ return colored.map(v=>Math.round(clamp((light+(v-light)*s.saturation/100)*s.brightness/100,0,255)));
+}
+function appearance(s){
+ const key=[s.tint,s.saturation,s.brightness,s.tintStrength].join('|');
+ if(appearanceCache?.key===key)return appearanceCache;
+ const hex=color=>{const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));return 'rgb('+recolorRGB(rgb,s).join(',')+')';};
+ const sprites={};
+ for(const[name,im]of Object.entries(images)){
+  if(s.tintStrength===0&&s.saturation===100&&s.brightness===100){sprites[name]=im;continue;}
+  const canvas=document.createElement('canvas');canvas.width=im.width;canvas.height=im.height;
+  const context=canvas.getContext('2d');context.drawImage(im,0,0);
+  const pixels=context.getImageData(0,0,canvas.width,canvas.height);
+  for(let i=0;i<pixels.data.length;i+=4){if(!pixels.data[i+3])continue;const rgb=recolorRGB([pixels.data[i],pixels.data[i+1],pixels.data[i+2]],s);pixels.data[i]=rgb[0];pixels.data[i+1]=rgb[1];pixels.data[i+2]=rgb[2];}
+  context.putImageData(pixels,0,0);sprites[name]=canvas;
+ }
+ appearanceCache={key,sprites,ground:['#626e45','#748054','#56633c'].map(hex)};
+ return appearanceCache;
+}
+function activeSlots(s){return slotIds.map((id,index)=>({id,index,kind:s[id],behavior:s[id+'Behavior']||'scatter',density:clamp(Number(s[id+'Density']??100),0,100),cap:s[id+'Cap']===''||s[id+'Cap']==null?null:Math.max(0,Math.floor(Number(s[id+'Cap'])||0))})).filter(slot=>slot.kind!=='none');}
+const resourceRules={
+ random:'Local concentrations with an interior bias',
+ maze_dfs:'Dead ends first, then deeper corridor cells',maze_prim:'Dead ends first, then deeper corridor cells',maze_braid:'Remaining dead ends first, then deeper loop routes',
+ tendril:'Branch tips first, then deeper branches',
+ grass:'Dense centers of connected patches',clusters:'Cluster centers',nested:'Dense centers of smaller groups',gamegrass:'Dense grass-stand centers',
+ flow:'Centers of dense bands',terrain:'Dense pockets along sheltered banks',grid:'Interior lattice pockets',repel:'Interior pockets among spaced objects',
+ hilbert:'Dense stretches of the curve',dungeon:'Dense room interiors along the connected floor',warren:'Room interiors away from walls',voronoi:'Compartment interiors away from seams',warped_grid:'Compartment interiors away from grid lines'
+};
+function interiorCells(s){const out=[];for(let cy=1;cy<s.gy-1;cy++)for(let cx=1;cx<s.gx-1;cx++)out.push({cx,cy,x:(cx+.5)/s.gx,y:(cy+.5)/s.gy});return out;}
+function resourceCandidates(method,s,e){
+ // Read the original structure, even when scenery is inverted into maze walls.
+ const structure=basePositions(method,{...s,inverted:false,decimation:0},e),keys=new Set(structure.map(p=>p.cy*s.gx+p.cx));
+ const all=interiorCells(s),byKey=new Map(structure.map(p=>[p.cy*s.gx+p.cx,p]));
+ const adjacent=p=>[[1,0],[-1,0],[0,1],[0,-1]].map(([dx,dy])=>({cx:p.cx+dx,cy:p.cy+dy})).filter(q=>q.cx>=1&&q.cx<s.gx-1&&q.cy>=1&&q.cy<s.gy-1&&keys.has(q.cy*s.gx+q.cx));
+ let candidates=structure,endpointCount=0;
+ if(method.startsWith('maze_')||method==='tendril'){
+  const distance=new Map();
+  const start=structure.slice().sort((a,b)=>Math.min(a.cx,a.cy,s.gx-1-a.cx,s.gy-1-a.cy)-Math.min(b.cx,b.cy,s.gx-1-b.cx,s.gy-1-b.cy)||a.cy-b.cy||a.cx-b.cx)[0];
+  if(start){const queue=[start];distance.set(start.cy*s.gx+start.cx,0);for(let i=0;i<queue.length;i++){const p=queue[i],d=distance.get(p.cy*s.gx+p.cx);for(const q of adjacent(p)){const key=q.cy*s.gx+q.cx;if(!distance.has(key)){distance.set(key,d+1);queue.push(q);}}}}
+  candidates=structure.map(p=>{const endpoint=adjacent(p).length<=1;if(endpoint)endpointCount++;return{...p,resourceScore:(endpoint?100000:0)+(distance.get(p.cy*s.gx+p.cx)||0),preferred:endpoint};});
+ }else if(method==='voronoi'||method==='warped_grid'||method==='warren'){
+  // Distance transform measures shelter inside compartments; the outer border is also a boundary.
+  const distance=new Int16Array(s.gx*s.gy).fill(-1),queue=[];
+  for(let y=0;y<s.gy;y++)for(let x=0;x<s.gx;x++)if(x===0||y===0||x===s.gx-1||y===s.gy-1||keys.has(y*s.gx+x)){const key=y*s.gx+x;distance[key]=0;queue.push(key);}
+  for(let i=0;i<queue.length;i++){const key=queue[i],x=key%s.gx,y=Math.floor(key/s.gx);for(const[dx,dy]of [[1,0],[-1,0],[0,1],[0,-1]]){const nx=x+dx,ny=y+dy,nk=ny*s.gx+nx;if(nx>=0&&nx<s.gx&&ny>=0&&ny<s.gy&&distance[nk]<0){distance[nk]=distance[key]+1;queue.push(nk);}}}
+  candidates=all.map(p=>({...p,resourceScore:distance[p.cy*s.gx+p.cx],preferred:!keys.has(p.cy*s.gx+p.cx)}));
+ }else{
+  candidates=structure.map(p=>{let density=0;for(let dy=-3;dy<=3;dy++)for(let dx=-3;dx<=3;dx++){const x=p.cx+dx,y=p.cy+dy;if(x>=1&&x<s.gx-1&&y>=1&&y<s.gy-1&&keys.has(y*s.gx+x))density+=Math.exp(-(dx*dx+dy*dy)/5);}
+   const interior=Math.min(p.cx,p.cy,s.gx-1-p.cx,s.gy-1-p.cy);return{...p,resourceScore:density+interior*.025,preferred:true};});
+ }
+ return{candidates,endpointCount,rule:resourceRules[method]};
+}
+function assignObjects(method,s,e,points,slots){
+ const k=slots.length,counts=Array(k).fill(0),baseCounts=apportion(points.length,slots.map(slot=>slot.density)),notes=[];if(!k)return{objects:[],counts,baseCounts,notes};
+ const capacity=(s.gx-2)*(s.gy-2),key=p=>p.cy*s.gx+p.cx,reserved=new Set(),groups=slots.map(()=>[]),all=interiorCells(s);
+ const target=i=>Math.min(baseCounts[i],slots[i].cap??Infinity);
+ // Reserve each resource allocation before assigning scenery and threats.
+ let resources=null;
+ for(let i=0;i<k;i++)if(slots[i].kind==='resource'){
+  resources??=resourceCandidates(method,s,e);
+  const ranked=resources.candidates.filter(p=>!reserved.has(key(p))).sort((a,b)=>b.resourceScore-a.resourceScore||selectionPriority(a,slots[i],s)-selectionPriority(b,slots[i],s));
+  let chosen=ranked.slice(0,baseCounts[i]);
+  if(chosen.length<baseCounts[i]){const chosenKeys=new Set(chosen.map(key));chosen.push(...all.filter(p=>!reserved.has(key(p))&&!chosenKeys.has(key(p))).sort((a,b)=>selectionPriority(a,slots[i],s)-selectionPriority(b,slots[i],s)).slice(0,baseCounts[i]-chosen.length));}
+  groups[i]=chosen.map(p=>({...p,type:i}));chosen.forEach(p=>reserved.add(key(p)));
+ }
+ const ordinary=slots.map((slot,i)=>({slot,i})).filter(({slot})=>!['resource','threat'].includes(slot.kind));
+ const ordinaryTotal=ordinary.reduce((sum,{i})=>sum+baseCounts[i],0),available=points.filter(p=>!reserved.has(key(p)));
+ if(ordinaryTotal){
+  const ranked=TerrainLayouts.rank(available,{width:s.gx,height:s.gy,seed:s.seed,selection:s.selection,affinity:method==='random'?0:s.grouping},points);
+  let offset=0;for(const{i}of ordinary){const amount=baseCounts[i],end=Math.round((offset+amount)*ranked.length/ordinaryTotal),start=Math.round(offset*ranked.length/ordinaryTotal);groups[i]=ranked.slice(start,end).sort((a,b)=>selectionPriority(a,slots[i],s)-selectionPriority(b,slots[i],s)).slice(0,amount).map(p=>({...p,type:i}));groups[i].forEach(p=>reserved.add(key(p)));offset+=amount;}
+ }
+ // Scenery and resources are fixed before threats search the full free interior.
+ const visibleBeforeThreat=groups.flatMap((group,i)=>decimate(group.slice(0,target(i)),s));
+ const resourceTargets=visibleBeforeThreat.filter(p=>slots[p.type].kind==='resource');
+ const object1=visibleBeforeThreat.filter(p=>slots[p.type].index===0),object1Keys=new Set(object1.map(key));
+ const object1Edges=object1.filter(p=>neighborCount(p,object1Keys,s.gx,s.gy)<8);
+ for(let i=0;i<k;i++)if(slots[i].kind==='threat'){
+  const slot=slots[i],behavior=slot.behavior,targets=behavior==='edge1'?object1Edges:behavior==='guard'?resourceTargets:[];
+  const near=new Map();for(const p of targets)for(let dy=-2;dy<=2;dy++)for(let dx=-2;dx<=2;dx++){const x=p.cx+dx,y=p.cy+dy;if(x>=1&&x<s.gx-1&&y>=1&&y<s.gy-1){const d=dx*dx+dy*dy,k=y*s.gx+x;near.set(k,Math.min(near.get(k)??Infinity,d));}}
+  const layoutKeys=new Set(points.map(key));
+  const score=p=>behavior==='layout'?(layoutKeys.has(key(p))?1:0):targets.length?(near.has(key(p))?100-near.get(key(p)):0):0;
+  groups[i]=all.filter(p=>!reserved.has(key(p))).sort((a,b)=>score(b)-score(a)||selectionPriority(a,slot,s)-selectionPriority(b,slot,s)).slice(0,baseCounts[i]).map(p=>({...p,type:i}));
+  groups[i].forEach(p=>reserved.add(key(p)));
+  const label=String.fromCharCode(65+slot.index);
+  if((behavior==='edge1'||behavior==='guard')&&!targets.length)notes.push(`${label}: no ${behavior==='edge1'?'Object 1 edge':'resource'} targets; using free scatter.`);
+  else if(behavior==='edge1'||behavior==='guard'){const nearby=groups[i].slice(0,target(i)).filter(p=>near.has(key(p))).length;notes.push(`${label}: ${nearby} placements within two cells of ${behavior==='edge1'?'Object 1 edges':'resources'} before global sparsity; excess uses other free cells.`);}
+  else notes.push(`${label}: ${behavior==='layout'?'prefers the layout; overflow uses free cells':'scatters over the free interior, independent of geometry'}.`);
+ }
+ let selected=decimate(groups.flatMap((group,i)=>group.slice(0,target(i))),s);
+ const surviving=new Set(selected.map(key));for(const p of selected){counts[p.type]++;p.scale=TerrainLayouts.scaleAt(p,{width:s.gx,height:s.gy,seed:s.seed,variation:s.variation,clusterSize:s.clusterSize},surviving);}
+ if(resources){notes.unshift('Resources: '+resources.rule+'.');if(method.startsWith('maze_')||method==='tendril'){const resourcePlaced=selected.filter(p=>slots[p.type].kind==='resource'),atEnds=resourcePlaced.filter(p=>p.preferred).length;notes.push(`${atEnds} of ${resourcePlaced.length} resource markers occupy branch ends; other markers use the next-best available cells.`);}}
+ return{objects:selected,counts,baseCounts,notes};
+}
+function selectionPriority(p,slot,s){return rng((s.seed^Math.imul(p.cx,73856093)^Math.imul(p.cy,19349663)^Math.imul(slot.index+1,83492791))>>>0)();}
+function connectedGroups(points,gx){
+ const remaining=new Set(points.map(p=>p.cy*gx+p.cx));let groups=0;
+ while(remaining.size){groups++;const start=remaining.values().next().value,queue=[start];remaining.delete(start);for(let i=0;i<queue.length;i++){const key=queue[i],x=key%gx;for(const next of [key-gx,key+gx,...(x>0?[key-1]:[]),...(x<gx-1?[key+1]:[])])if(remaining.delete(next))queue.push(next);}}
+ return groups;
+}
+const localSettings={
+ hilbert:[['hilbertOrder','Curve order',1,5,"Higher orders add finer folds, automatically shortcutting regions where detail cannot fit."],['hilbertSkip1','First-order skip',0,100,"Bypasses 2 × 2 node regions when the curve order is at least 2."],['hilbertSkip2','Second-order skip',0,100,"Bypasses 4 × 4 node regions when the curve order is at least 3."],['hilbertSkip3','Third-order skip',0,100,"Bypasses 8 × 8 node regions when the curve order is at least 4."]],
+ dungeon:[['dungeonDepth','Branching depth',1,4,"Each level adds smaller chambers and shorter tunnels where space permits."],['dungeonHalls','Large halls',1,3,"Sets the number of large halls that fit in the area."],['dungeonRows','Small room pairs',1,12,"Limits the number of smaller room pairs branching from the halls."],['dungeonRoomSize','Room size',25,100,"Scales all rooms while keeping the halls larger."],['dungeonBreaks','Symmetry breaks',0,100,"Higher values alter one wing, while zero mirrors both wings exactly."],['dungeonLoops','Extra connections',0,100,"Adds shortcuts between nearby rooms while preserving the main connections."]],
+ warren:[['warrenSize','Room span · cells',3,16,"Larger spans make fewer, larger rooms."],['warrenVariation','Room-size variation',0,100,"Higher values vary room dimensions, while zero divides them evenly."]],
+ flow:[['bandSpacing','Band spacing',25,300,"Lower values bring bands closer, with 100% preserving the original spacing."]],
+ maze_braid:[['loops','Loops',0,100,"Controls how often maze dead ends gain a shortcut."]],
+ voronoi:[['regionSize','Region size · cells',2,48,"Sets approximate region width in cells, with count inferred from the usable area."],['irregularity','Geometry irregularity',0,100,"Varies geometry in both Voronoi seams and Warped grid lines."]],
+ warped_grid:[['geoStep','Grid-line spacing · cells',3,16,"Sets the distance between warped grid lines in cells."],['irregularity','Geometry irregularity',0,100,"Varies geometry in both Voronoi seams and Warped grid lines."]],
+ tendril:[['branching','Branching',0,100,"Controls how often tendrils branch from older junctions."]],
+ grass:[['tendrils','Connections',0,100,"Controls the connections between organic patches."]]
+};
+const openPreviewPanels=new Set();
+function addLocalSettings(cap,method,k,s){
+ const specs=localSettings[method];if(!specs)return;
+ const details=document.createElement('details');details.className='settings-section local-settings';details.dataset.panel=`settings-${method}-${k}`;details.open=openPreviewPanels.has(details.dataset.panel);
+ details.innerHTML='<summary>Layout settings</summary><div class="settings-content">'+specs.map(([key,label,min,max,scope])=>`<label>${label}<output data-local-output="${key}">${key==='hilbertOrder'?hilbertOrderLabel(s):s[key]}${['regionSize','geoStep','warrenSize','hilbertOrder','dungeonDepth','dungeonHalls','dungeonRows'].includes(key)?'':'%'}</output><input id="local-${method}-${k}-${key}" data-local-setting="${key}" type="range" min="${min}" max="${max}" value="${s[key]}"></label><p class="scope-note">${scope}</p>`).join('')+'</div>';
+ if(method==='hilbert'){
+  const label=document.createElement('label');label.textContent='Curve / filled area';
+  const select=document.createElement('select');select.dataset.localSetting='hilbertSide';select.id=`local-hilbert-${k}-hilbertSide`;
+  ['Curve only','Fill one side','Fill the other side'].forEach((text,i)=>select.add(new Option(text,String(i))));select.value=String(s.hilbertSide);label.append(select);
+  const biasLabel=document.createElement('label');biasLabel.textContent='Shortcut bias';
+  const biasSelect=document.createElement('select');biasSelect.dataset.localSetting='hilbertBias';biasSelect.id=`local-hilbert-${k}-hilbertBias`;
+  ['Neutral','Favor side 1','Favor side 2'].forEach((text,i)=>biasSelect.add(new Option(text,String(i))));biasSelect.value=String(s.hilbertBias);biasLabel.append(biasSelect);
+  const content=details.querySelector('.settings-content');content.prepend(label,biasLabel);
+  content.querySelectorAll('.scope-note').forEach(note=>note.remove());
+ }
+ for(const input of details.querySelectorAll('[data-local-setting]')){
+  input.addEventListener('input',()=>{const key=input.dataset.localSetting;$(key).value=input.value;for(const peer of document.querySelectorAll(`[data-local-setting="${key}"]`))peer.value=input.value;for(const output of document.querySelectorAll(`[data-local-output="${key}"]`))output.textContent=input.value+(['regionSize','geoStep','warrenSize','hilbertOrder','dungeonDepth','dungeonHalls','dungeonRows'].includes(key)?'':'%');});
+  if(input.dataset.localSetting==='hilbertOrder')input.addEventListener('input',()=>{for(const output of document.querySelectorAll('[data-local-output="hilbertOrder"]'))output.textContent=hilbertOrderLabel(state());});
+  input.addEventListener('change',schedule);
+ }
+ cap.append(details);
+}
+function renderCard(method,slots,s,e,points){const k=slots.length,assigned=assignObjects(method[0],s,e,points,slots),ordered=assigned.objects,counts=assigned.counts;const article=document.createElement('article'),canvas=document.createElement('canvas');article.dataset.method=method[0];if(query.get('focus')===method[0])article.classList.add('focused-layout');const unit=Math.min(25,Math.floor(960/Math.max(s.gx,s.gy))),W=s.gx*unit,H=s.gy*unit;canvas.width=W;canvas.height=H;canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`${method[1]}, ${k} object types, ${ordered.length} objects`);const scene=document.createElement('div');scene.className='scene';scene.append(canvas);article.append(scene);const cap=document.createElement('div');cap.className='caption';cap.innerHTML=`<small>${String(methods.indexOf(method)+1).padStart(2,'0')} / ${k} primary ${k===1?'type':'types'}</small><h2>${method[1]}</h2><details class="preview-description" data-panel="description-${method[0]}-${k}"><summary>Description</summary><p>${method[2]}</p></details>`;const description=cap.querySelector('.preview-description');description.open=openPreviewPanels.has(description.dataset.panel);article.append(cap);$('grid').append(article);
+const look=appearance(s),ctx=canvas.getContext('2d');ctx.imageSmoothingEnabled=false;ctx.fillStyle=look.ground[0];ctx.fillRect(0,0,W,H);
+const grass=rng(s.seed+901);for(let i=0;i<2000;i++){ctx.fillStyle=grass()<.5?look.ground[1]:look.ground[2];ctx.globalAlpha=.25;ctx.fillRect(grass()*W,grass()*H,1+grass()*3,1+grass()*2);}ctx.globalAlpha=1;
+if(s.guides&&['grass','clusters','flow','nested','terrain'].includes(method[0])){for(let y=0;y<H;y+=6)for(let x=0;x<W;x+=6){ctx.fillStyle='#dfe7a2';ctx.globalAlpha=weight(method[0],x/W,y/H,e,s.distortion/100)*.18;ctx.fillRect(x,y,6,6);}ctx.globalAlpha=1;if(method[0]==='terrain'){ctx.strokeStyle='#83afb4';ctx.lineWidth=12;ctx.beginPath();for(let x=0;x<=W;x+=4){const y=stream(x/W,e)*H;x?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}if(['clusters','nested'].includes(method[0]))for(const c of e.centers){ctx.strokeStyle='#e6e6b699';ctx.beginPath();ctx.arc(c.x*W,c.y*H,8,0,Math.PI*2);ctx.stroke();}}
+ordered.sort((a,b)=>a.y-b.y).forEach(p=>{const x=p.x*W,y=p.y*H;if(s.points){ctx.fillStyle=colors[slots[p.type].index];ctx.beginPath();ctx.arc(x,y,4.5*(unit/25)*p.scale,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#18251e';ctx.lineWidth=1;ctx.stroke();return;}const im=look.sprites[slots[p.type].kind],height=({tree:40,leafytree:46,longgrass:22,flowers:22,rock:22,shrub:27,mushroom:34,smallmushroom:16,resource:26,threat:28}[slots[p.type].kind])*(unit/25)*p.scale,width=height*im.width/im.height;ctx.fillStyle='#1a271d38';ctx.beginPath();ctx.ellipse(x,y-1,width*.32,height*.1,0,0,Math.PI*2);ctx.fill();ctx.drawImage(im,Math.round(x-width/2),Math.round(y-height),Math.round(width),Math.round(height));});
+const stats=document.createElement('div');stats.className='stats';stats.textContent=`${s.gx} × ${s.gy} cells · ${ordered.length} / ${points.length} base seats · `+counts.map((n,i)=>`${String.fromCharCode(65+slots[i].index)} ${names[slots[i].kind]}: ${n} (base ${assigned.baseCounts[i]})`).join(' · ');if(method[0]==='voronoi'){const count=voronoiRegionCount(s);stats.textContent+=` · ${count} inferred ${count===1?'region':'regions'}`;article.dataset.regions=count;}cap.append(stats);article.dataset.count=ordered.length;article.dataset.counts=JSON.stringify(counts);const compatibility=document.createElement('p');compatibility.className='compatibility';if(method[0].startsWith('maze_')||method[0]==='tendril'||method[0]==='hilbert'||method[0]==='dungeon'||method[0]==='warped_grid'){const groups=connectedGroups(ordered.filter(p=>!['resource','threat'].includes(slots[p.type].kind)),s.gx);compatibility.textContent=groups===1?'Connected scenery mask (resource/threat markers excluded)':groups===0?'No scenery cells to assess connectivity':`Disconnected scenery mask · ${groups} groups after placement, inversion or thinning.`;}else if(method[0]==='voronoi'&&ordered.length<points.length){compatibility.textContent='Partial seams · maximum counts or sparsity leave gaps between regions.';}else if(method[0]==='gamegrass'||method[0]==='voronoi'||method[0]==='warren'||method[0]==='hilbert'){compatibility.textContent='Type shares divide the pattern-defined count, which maximum counts and sparsity can reduce.';}else compatibility.textContent='Type shares redistribute objects; maximum counts and sparsity can reduce the total.';cap.append(compatibility);if(assigned.notes.length){const notes=document.createElement('p');notes.className='role-notes';notes.textContent=assigned.notes.map(note=>note.replace(/\.$/,'').replace(/\. /g,'; ')).join('; ')+'.';cap.querySelector('.preview-description').append(notes);}addLocalSettings(cap,method[0],k,s);
+const copyLayout=document.createElement('button');copyLayout.type='button';copyLayout.textContent='Copy this layout link';copyLayout.setAttribute('aria-label',`Copy ${method[1]} settings link`);
+const layoutCode=document.createElement('textarea');layoutCode.readOnly=true;layoutCode.hidden=true;layoutCode.rows=4;layoutCode.style.cssText='width:100%;box-sizing:border-box;margin-top:8px';layoutCode.setAttribute('aria-label',`${method[1]} settings link`);
+copyLayout.onclick=async()=>{
+ const snapshot={...s,types:'configured',layouts:method[0],focus:method[0]};
+ // A card in the slot-count comparison exports exactly its own enabled slots.
+ for(const id of slotIds)if(!slots.some(slot=>slot.id===id))snapshot[id]='none';
+ const url=new URL(location.href);url.hash=new URLSearchParams(snapshot).toString();
+ layoutCode.value=url.href;layoutCode.hidden=false;
+ try{await navigator.clipboard.writeText(url.href);$('labStatus').textContent=`${method[1]} settings link copied.`;}
+ catch{layoutCode.focus();layoutCode.select();$('labStatus').textContent='Select and copy the settings link below this preview.';}
+};cap.append(copyLayout,layoutCode);
+const remove=document.createElement('button');remove.type='button';remove.textContent='Remove from comparison';remove.setAttribute('aria-label',`Remove ${method[1]} from comparison`);remove.onclick=()=>{selectedLayouts.delete(method[0]);render();$('layoutPicker').focus();};cap.append(remove);
+}
+function render(){
+ const capacity=($('gx').value-2)*($('gy').value-2);$('count').max=Math.min(1000,capacity);if(Number($('count').value)>capacity)$('count').value=capacity;
+ const s=state();s.layouts=[...selectedLayouts].join(',');updateLayoutPicker();
+ for(const[id,key,label]of [['clusterSizeButton','clusterSize','Size follows neighbors'],['invertButton','inverted','Invert fill']]){$(id).setAttribute('aria-pressed',String(s[key]));$(id).textContent=label+': '+(s[key]?'on':'off');}
+ for(const id of ['gx','gy','count','structure','distortion','variation','grouping','tendrils','branching','saturation','brightness','tintStrength','decimation','mazeStep','loops','regionSize','irregularity','geoStep','bandSpacing','warrenSize','warrenVariation','hilbertBias','hilbertSide','hilbertOrder','hilbertSkip1','hilbertSkip2','hilbertSkip3','dungeonDepth','dungeonHalls','dungeonRows','dungeonRoomSize','dungeonBreaks','dungeonLoops']){const output=$(id+'Out');if(output)output.textContent=s[id]+(['gx','gy','count','mazeStep','regionSize','geoStep','warrenSize','hilbertOrder','dungeonDepth','dungeonHalls','dungeonRows'].includes(id)?'':'%');}
+ for(const id of slotIds){$(id+'ThreatOptions').hidden=s[id]!=='threat';$(id+'ResourceHelp').hidden=s[id]!=='resource';$(id+'SlotName').textContent=names[s[id]];$(id+'DensityOut').textContent=s[id+'Density']+'%';$(id+'Density').disabled=s[id]==='none';$(id+'Cap').disabled=s[id]==='none';}
+ const enabled=activeSlots(s),sizes=s.types==='all'?Array.from({length:Math.max(1,enabled.length)},(_,i)=>enabled.length?i+1:0):[enabled.length],e={...environment(s.seed),tendrils:s.tendrils/100,bandSpacing:clamp(s.bandSpacing/100,.25,3)};
+ for(const details of $('grid').querySelectorAll('details[data-panel]')){if(details.open)openPreviewPanels.add(details.dataset.panel);else openPreviewPanels.delete(details.dataset.panel);}
+ $('grid').replaceChildren();
+ const visibleMethods=[...selectedLayouts].map(id=>methods.find(m=>m[0]===id));
+ if(!visibleMethods.length){const empty=document.createElement('p');empty.textContent='Choose a visualization and click Add to comparison to begin.';$('grid').append(empty);}
+ for(const m of visibleMethods){const points=positions(m[0],{...s,decimation:0},e);for(const k of sizes)renderCard(m,enabled.slice(0,k),s,e,points);}
+ $('legend').innerHTML=enabled.length?enabled.map(slot=>`<div><img src="${SPRITES[slot.kind]}" alt=""><span style="color:${colors[slot.index]}">●</span> ${String.fromCharCode(65+slot.index)} · ${names[slot.kind]} · ${slot.density}%${slot.cap===null?'':` · max ${slot.cap}`}</div>`).join(''):'All slots are None. Select an object type to populate layouts.';
+ $('labStatus').textContent=`${visibleMethods.length*sizes.length} previews · ${enabled.length} enabled slots · ${s.count} base objects (grass/geometry/rooms use their own count) · ${s.gx} × ${s.gy} cells`;
+ const params=new URLSearchParams(s);if(query.get('focus'))params.set('focus',query.get('focus'));history.replaceState(null,'','#'+params.toString());window.layoutLab={state:s,positions,environment,methods,neighborCount,sizeScale,recolorRGB,activeSlots,assignObjects,connectedGroups,resourceCandidates};
+}
+window.addEventListener('hashchange',()=>location.reload());
+let frame;function schedule(){cancelAnimationFrame(frame);frame=requestAnimationFrame(render);}for(const id of ids)$(id).addEventListener('input',schedule);
+$('clusterSizeButton').onclick=()=>{$('clusterSize').checked=!$('clusterSize').checked;render();};
+$('invertButton').onclick=()=>{$('inverted').checked=!$('inverted').checked;render();};
+$('addLayout').onclick=()=>{const id=$('layoutPicker').value;if(id){selectedLayouts.add(id);render();}};
+$('clearLayouts').onclick=()=>{selectedLayouts.clear();render();};
+$('reset').onclick=()=>{selectedLayouts.clear();for(const id of defaultLayouts)selectedLayouts.add(id);$('count').max=1000;for(const id of ids)if($(id).type==='checkbox')$(id).checked=defaults[id];else $(id).value=defaults[id];normalizeShares();render();};$('copy').onclick=async()=>{try{await navigator.clipboard.writeText(location.href);$('labStatus').textContent='Settings link copied.';}catch{$('labStatus').textContent='Copy the address bar URL to share these settings.';}};
+Promise.all(Object.entries(SPRITES).map(([name,url])=>new Promise((resolve,reject)=>{const im=new Image();im.onload=()=>{images[name]=im;resolve();};im.onerror=reject;im.src=url;}))).then(()=>{render();const focus=query.get('focus');if(focus){const card=[...document.querySelectorAll('article[data-method]')].find(el=>el.dataset.method===focus);if(card)requestAnimationFrame(()=>card.scrollIntoView({block:'start'}));}}).catch(()=>{$('labStatus').textContent='Could not load sprite art. Reload to try again.';});
+</script></html>

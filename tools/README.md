@@ -3,6 +3,45 @@
 Run commands from the repository root. Tool paths stay stable so existing
 scripts, imports and documentation continue to work. The game has no build step.
 
+## Official design tools
+
+`design/index.html` is the maintained design directory. Serve the repository
+root with `python3 -m http.server 8000` and open `/design/`; its live viewers
+load the same checkout's game code and assets. `tools/map-review.html` is the
+canonical map review, including cached tree-detection evidence and a request
+for fresh evidence at the map centre. The detection button requests another
+centre tile after panning. `?geometry=off` disables detection;
+`?relay=https://host` selects a relay instead of the local default on port 8787.
+This previews generated placements, not a saved player's runtime state.
+
+To make the shared artifact server serve these repository files and forward
+old `/road-review/` bookmarks to the canonical tools (including an optional
+read-only mount of the local `extra_assets/` collection for source-pack previews):
+
+```sh
+python3 tools/install-design-server.py
+docker compose -f ~/.config/artifact-server/compose.yaml up -d --force-recreate
+```
+
+The hub, glossary and story-painting catalogue are checked-in generated pages.
+The nexus/road/landcover preview is a labelled static snapshot generated from
+current game definitions, with repeated sprite crops stored once in `images/`.
+Regenerate and review their changes when the source definitions or art change:
+
+```sh
+python3 tools/build_dashboard_directory.py
+python3 tools/preview_zone_variants.py
+```
+
+The first command requires Python Markdown; the second requires Node.js and
+Pillow. The layout lab is maintained directly in `design/layout-lab.html` and
+loads the checkout's terrain modules. Historical storyboards and reviews stay
+on the artifact server and are explicitly linked there. The floor asset table and approved-story-art reference viewer are maintained
+in `design/`, including their preview images. The floor table links to optional
+source packs under ignored `extra_assets/`; those source links require the local
+collection. The approved art viewer preserves approved reference pixels even
+when the current game painting has since changed.
+
 ## Common commands
 
 | Command | Result |

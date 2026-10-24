@@ -1,0 +1,2598 @@
+{
+  "method": {
+    "cellsPerEdge": 96,
+    "repeats": 8,
+    "cellM": 7,
+    "fixtureSideM": 672,
+    "denominator": "Target terrain cells in source polygon interior passing the runtime minor spawn gate. Restricted/private cells and road bands excluded; all-terrain count retained separately.",
+    "numerator": "Unique cell seats occupied by generated plants, trees, fruit trees, rocks, pots or barrels (including ordinary rock-lined streets). No visual canopy area, mobile creatures, POI chests, themed street dressing or nexus.",
+    "fixture": "One polygon; short public minor road segments on a16-cell (112m) lattice, real names selected for plain road variants with one in four roads selected to be rock-lined, public library POIs near each crossing; no buildings; natural park-character seeds; Zones module disabled to isolate basic land.",
+    "caveat": "Synthetic comparison, not live-map area coverage. Geometry, overlapping source polygons, restrictions and source POIs change live occupancy."
+  },
+  "rows": [
+    {
+      "terrain": "GRASS",
+      "character": null,
+      "targetCells": 51292,
+      "eligibleCells": 51292,
+      "occupiedCells": 26912,
+      "coveragePct": 52.46822116509397,
+      "coverageOfAllTerrainPct": 52.46822116509397,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 52.46822116509397,
+      "coverageRangePct": [
+        51.801663073606406,
+        54.574951330305
+      ],
+      "elements": {
+        "flowers": {
+          "cells": 420,
+          "coveragePct": 0.8188411448179054
+        },
+        "longgrass": {
+          "cells": 26912,
+          "coveragePct": 52.46822116509397
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 6164,
+          "eligibleCells": 6164,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 55,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 6164,
+          "eligibleCells": 6164,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 41,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 6494,
+          "eligibleCells": 6494,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 56,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 6494,
+          "eligibleCells": 6494,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 54,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 6494,
+          "eligibleCells": 6494,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 61,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 6494,
+          "eligibleCells": 6494,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 56,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 6494,
+          "eligibleCells": 6494,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 45,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 6494,
+          "eligibleCells": 6494,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "flowers": 52,
+            "longgrass": 3364
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "FOREST",
+      "character": null,
+      "targetCells": 44276,
+      "eligibleCells": 44276,
+      "occupiedCells": 11666,
+      "coveragePct": 26.348360285481977,
+      "coverageOfAllTerrainPct": 26.348360285481977,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 26.348360285481977,
+      "coverageRangePct": [
+        24.541681079211344,
+        28.778429933969186
+      ],
+      "elements": {
+        "tree": {
+          "cells": 8951,
+          "coveragePct": 20.216370042460927
+        },
+        "shrub": {
+          "cells": 689,
+          "coveragePct": 1.5561478001626163
+        },
+        "nut": {
+          "cells": 393,
+          "coveragePct": 0.8876140572770801
+        },
+        "mushroom": {
+          "cells": 1430,
+          "coveragePct": 3.2297407173186374
+        },
+        "wildrose": {
+          "cells": 51,
+          "coveragePct": 0.11518655705122414
+        },
+        "starflower": {
+          "cells": 77,
+          "coveragePct": 0.17390911554792665
+        },
+        "poisonberry": {
+          "cells": 70,
+          "coveragePct": 0.1580991959526606
+        },
+        "goldenberry": {
+          "cells": 5,
+          "coveragePct": 0.011292799710904328
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 5782,
+          "eligibleCells": 5782,
+          "occupiedCells": 1419,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1116,
+            "shrub": 82,
+            "nut": 29,
+            "mushroom": 177,
+            "wildrose": 4,
+            "starflower": 2,
+            "poisonberry": 9
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 5782,
+          "eligibleCells": 5782,
+          "occupiedCells": 1517,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1136,
+            "shrub": 93,
+            "nut": 37,
+            "mushroom": 230,
+            "wildrose": 6,
+            "starflower": 12,
+            "poisonberry": 3
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 5452,
+          "eligibleCells": 5452,
+          "occupiedCells": 1445,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1117,
+            "shrub": 73,
+            "goldenberry": 1,
+            "nut": 59,
+            "mushroom": 165,
+            "wildrose": 2,
+            "starflower": 16,
+            "poisonberry": 12
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 5452,
+          "eligibleCells": 5452,
+          "occupiedCells": 1429,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1135,
+            "shrub": 60,
+            "nut": 69,
+            "mushroom": 136,
+            "wildrose": 5,
+            "starflower": 12,
+            "poisonberry": 12
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 5452,
+          "eligibleCells": 5452,
+          "occupiedCells": 1426,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1123,
+            "shrub": 99,
+            "goldenberry": 1,
+            "nut": 53,
+            "mushroom": 128,
+            "wildrose": 6,
+            "starflower": 13,
+            "poisonberry": 3
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 5452,
+          "eligibleCells": 5452,
+          "occupiedCells": 1435,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1107,
+            "shrub": 107,
+            "goldenberry": 1,
+            "nut": 63,
+            "mushroom": 124,
+            "wildrose": 9,
+            "starflower": 11,
+            "poisonberry": 13
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 5452,
+          "eligibleCells": 5452,
+          "occupiedCells": 1426,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1101,
+            "shrub": 71,
+            "goldenberry": 1,
+            "nut": 40,
+            "mushroom": 190,
+            "wildrose": 9,
+            "starflower": 4,
+            "poisonberry": 10
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 5452,
+          "eligibleCells": 5452,
+          "occupiedCells": 1569,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 1116,
+            "shrub": 104,
+            "goldenberry": 1,
+            "nut": 43,
+            "mushroom": 280,
+            "wildrose": 10,
+            "starflower": 7,
+            "poisonberry": 8
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "SAND",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 978,
+      "coveragePct": 2.4948979591836733,
+      "coverageOfAllTerrainPct": 2.4948979591836733,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 2.4948979591836733,
+      "coverageRangePct": [
+        2,
+        2.857142857142857
+      ],
+      "elements": {
+        "shell": {
+          "cells": 824,
+          "coveragePct": 2.1020408163265305
+        },
+        "driftwood": {
+          "cells": 154,
+          "coveragePct": 0.39285714285714285
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 116,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 91,
+            "driftwood": 25
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 138,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 118,
+            "driftwood": 20
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 113,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 103,
+            "driftwood": 10
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 98,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 79,
+            "driftwood": 19
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 130,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 114,
+            "driftwood": 16
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 140,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 118,
+            "driftwood": 22
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 113,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 93,
+            "driftwood": 20
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 130,
+          "outsideEligible": 0,
+          "elementCells": {
+            "shell": 108,
+            "driftwood": 22
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "FARMLAND",
+      "character": null,
+      "targetCells": 60992,
+      "eligibleCells": 4352,
+      "occupiedCells": 201,
+      "coveragePct": 4.618566176470588,
+      "coverageOfAllTerrainPct": 0.3295514165792235,
+      "eligiblePct": 7.135362014690451,
+      "coverageOfEligiblePct": 4.618566176470588,
+      "coverageRangePct": [
+        3.4926470588235294,
+        6.25
+      ],
+      "elements": {
+        "potato": {
+          "cells": 40,
+          "coveragePct": 0.9191176470588235
+        },
+        "cress": {
+          "cells": 32,
+          "coveragePct": 0.7352941176470589
+        },
+        "berry": {
+          "cells": 57,
+          "coveragePct": 1.3097426470588236
+        },
+        "nut": {
+          "cells": 38,
+          "coveragePct": 0.8731617647058824
+        },
+        "onion": {
+          "cells": 34,
+          "coveragePct": 0.78125
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 25,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 5,
+            "cress": 4,
+            "berry": 9,
+            "nut": 5,
+            "onion": 2
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 24,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 5,
+            "cress": 5,
+            "berry": 6,
+            "nut": 4,
+            "onion": 4
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 29,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 5,
+            "cress": 7,
+            "berry": 8,
+            "nut": 4,
+            "onion": 5
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 19,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 4,
+            "cress": 5,
+            "berry": 2,
+            "nut": 3,
+            "onion": 5
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 28,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 9,
+            "cress": 3,
+            "berry": 7,
+            "nut": 6,
+            "onion": 3
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 21,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 5,
+            "cress": 1,
+            "berry": 5,
+            "nut": 6,
+            "onion": 4
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 34,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 2,
+            "cress": 6,
+            "berry": 10,
+            "nut": 9,
+            "onion": 7
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 21,
+          "outsideEligible": 0,
+          "elementCells": {
+            "potato": 5,
+            "cress": 1,
+            "berry": 10,
+            "nut": 1,
+            "onion": 4
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "RESIDENTIAL",
+      "character": null,
+      "targetCells": 27841,
+      "eligibleCells": 17568,
+      "occupiedCells": 481,
+      "coveragePct": 2.7379326047358834,
+      "coverageOfAllTerrainPct": 1.7276678280234188,
+      "eligiblePct": 63.10118171042707,
+      "coverageOfEligiblePct": 2.7379326047358834,
+      "coverageRangePct": [
+        2.3679417122040074,
+        3.278688524590164
+      ],
+      "elements": {
+        "tree": {
+          "cells": 268,
+          "coveragePct": 1.5255009107468125
+        },
+        "mushroom": {
+          "cells": 107,
+          "coveragePct": 0.6090619307832422
+        },
+        "shrub": {
+          "cells": 105,
+          "coveragePct": 0.5976775956284153
+        },
+        "goldenberry": {
+          "cells": 1,
+          "coveragePct": 0.005692167577413479
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 3485,
+          "eligibleCells": 2196,
+          "occupiedCells": 72,
+          "outsideEligible": 17,
+          "elementCells": {
+            "tree": 37,
+            "mushroom": 17,
+            "shrub": 18
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 3477,
+          "eligibleCells": 2196,
+          "occupiedCells": 64,
+          "outsideEligible": 14,
+          "elementCells": {
+            "tree": 32,
+            "mushroom": 18,
+            "shrub": 14
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 3470,
+          "eligibleCells": 2196,
+          "occupiedCells": 61,
+          "outsideEligible": 9,
+          "elementCells": {
+            "tree": 37,
+            "mushroom": 8,
+            "shrub": 16
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 3481,
+          "eligibleCells": 2196,
+          "occupiedCells": 57,
+          "outsideEligible": 13,
+          "elementCells": {
+            "tree": 31,
+            "mushroom": 14,
+            "shrub": 11,
+            "goldenberry": 1
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 3478,
+          "eligibleCells": 2196,
+          "occupiedCells": 57,
+          "outsideEligible": 8,
+          "elementCells": {
+            "tree": 36,
+            "mushroom": 10,
+            "shrub": 11
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 3477,
+          "eligibleCells": 2196,
+          "occupiedCells": 60,
+          "outsideEligible": 13,
+          "elementCells": {
+            "tree": 36,
+            "mushroom": 14,
+            "shrub": 10
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 3489,
+          "eligibleCells": 2196,
+          "occupiedCells": 58,
+          "outsideEligible": 13,
+          "elementCells": {
+            "tree": 29,
+            "mushroom": 18,
+            "shrub": 11
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 3484,
+          "eligibleCells": 2196,
+          "occupiedCells": 52,
+          "outsideEligible": 14,
+          "elementCells": {
+            "tree": 30,
+            "mushroom": 8,
+            "shrub": 14
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "PARK",
+      "character": "meadow",
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 2404,
+      "coveragePct": 6.13265306122449,
+      "coverageOfAllTerrainPct": 6.13265306122449,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 6.13265306122449,
+      "coverageRangePct": [
+        5.408163265306122,
+        7.346938775510204
+      ],
+      "elements": {
+        "longgrass": {
+          "cells": 1705,
+          "coveragePct": 4.349489795918367
+        },
+        "flowers": {
+          "cells": 524,
+          "coveragePct": 1.336734693877551
+        },
+        "marigold": {
+          "cells": 111,
+          "coveragePct": 0.28316326530612246
+        },
+        "shrub": {
+          "cells": 64,
+          "coveragePct": 0.16326530612244897
+        }
+      },
+      "samples": [
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 360,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 265,
+            "flowers": 63,
+            "marigold": 23,
+            "shrub": 9
+          }
+        },
+        {
+          "tx": 2635,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 281,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 219,
+            "flowers": 46,
+            "marigold": 10,
+            "shrub": 6
+          }
+        },
+        {
+          "tx": 2650,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 315,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 228,
+            "flowers": 60,
+            "marigold": 19,
+            "shrub": 8
+          }
+        },
+        {
+          "tx": 2653,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 269,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 165,
+            "flowers": 77,
+            "marigold": 10,
+            "shrub": 17
+          }
+        },
+        {
+          "tx": 2664,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 309,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 234,
+            "flowers": 61,
+            "marigold": 6,
+            "shrub": 8
+          }
+        },
+        {
+          "tx": 2667,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 265,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 148,
+            "flowers": 84,
+            "marigold": 22,
+            "shrub": 11
+          }
+        },
+        {
+          "tx": 2668,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 324,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 241,
+            "flowers": 74,
+            "marigold": 7,
+            "shrub": 2
+          }
+        },
+        {
+          "tx": 2673,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 281,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 205,
+            "flowers": 59,
+            "marigold": 14,
+            "shrub": 3
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "PARK",
+      "character": "wooded",
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 1431,
+      "coveragePct": 3.6505102040816326,
+      "coverageOfAllTerrainPct": 3.6505102040816326,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 3.6505102040816326,
+      "coverageRangePct": [
+        3.2653061224489797,
+        4.061224489795919
+      ],
+      "elements": {
+        "tree": {
+          "cells": 1099,
+          "coveragePct": 2.8035714285714284
+        },
+        "shrub": {
+          "cells": 281,
+          "coveragePct": 0.7168367346938775
+        },
+        "flowers": {
+          "cells": 49,
+          "coveragePct": 0.125
+        },
+        "goldenberry": {
+          "cells": 2,
+          "coveragePct": 0.00510204081632653
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 189,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 148,
+            "shrub": 33,
+            "flowers": 8
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 175,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 149,
+            "shrub": 21,
+            "flowers": 5
+          }
+        },
+        {
+          "tx": 2631,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 170,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 125,
+            "shrub": 41,
+            "goldenberry": 1,
+            "flowers": 3
+          }
+        },
+        {
+          "tx": 2632,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 171,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 125,
+            "shrub": 40,
+            "flowers": 6
+          }
+        },
+        {
+          "tx": 2641,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 198,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 148,
+            "shrub": 40,
+            "flowers": 10
+          }
+        },
+        {
+          "tx": 2642,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 169,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 121,
+            "shrub": 39,
+            "flowers": 9
+          }
+        },
+        {
+          "tx": 2643,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 160,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 137,
+            "shrub": 19,
+            "flowers": 4
+          }
+        },
+        {
+          "tx": 2645,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 199,
+          "outsideEligible": 0,
+          "elementCells": {
+            "tree": 146,
+            "shrub": 48,
+            "goldenberry": 1,
+            "flowers": 4
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "PARK",
+      "character": "formal",
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 2070,
+      "coveragePct": 5.280612244897959,
+      "coverageOfAllTerrainPct": 5.280612244897959,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 5.280612244897959,
+      "coverageRangePct": [
+        4.673469387755102,
+        5.714285714285714
+      ],
+      "elements": {
+        "marigold": {
+          "cells": 247,
+          "coveragePct": 0.6301020408163265
+        },
+        "shrub": {
+          "cells": 1823,
+          "coveragePct": 4.650510204081633
+        }
+      },
+      "samples": [
+        {
+          "tx": 2633,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 269,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 41,
+            "shrub": 228
+          }
+        },
+        {
+          "tx": 2636,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 256,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 37,
+            "shrub": 219
+          }
+        },
+        {
+          "tx": 2644,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 274,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 25,
+            "shrub": 249
+          }
+        },
+        {
+          "tx": 2646,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 236,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 26,
+            "shrub": 210
+          }
+        },
+        {
+          "tx": 2649,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 277,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 23,
+            "shrub": 254
+          }
+        },
+        {
+          "tx": 2652,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 249,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 36,
+            "shrub": 213
+          }
+        },
+        {
+          "tx": 2656,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 280,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 37,
+            "shrub": 243
+          }
+        },
+        {
+          "tx": 2662,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 229,
+          "outsideEligible": 0,
+          "elementCells": {
+            "marigold": 22,
+            "shrub": 207
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "PARK",
+      "character": "common",
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 733,
+      "coveragePct": 1.8698979591836735,
+      "coverageOfAllTerrainPct": 1.8698979591836735,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 1.8698979591836735,
+      "coverageRangePct": [
+        1.4081632653061225,
+        2.183673469387755
+      ],
+      "elements": {
+        "longgrass": {
+          "cells": 551,
+          "coveragePct": 1.405612244897959
+        },
+        "shrub": {
+          "cells": 108,
+          "coveragePct": 0.2755102040816326
+        },
+        "flowers": {
+          "cells": 73,
+          "coveragePct": 0.18622448979591838
+        },
+        "goldenberry": {
+          "cells": 1,
+          "coveragePct": 0.002551020408163265
+        }
+      },
+      "samples": [
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 107,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 85,
+            "shrub": 15,
+            "flowers": 7
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 85,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 58,
+            "shrub": 15,
+            "flowers": 12
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 96,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 73,
+            "shrub": 13,
+            "flowers": 10
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 82,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 62,
+            "shrub": 12,
+            "flowers": 8
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 98,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 76,
+            "shrub": 12,
+            "goldenberry": 1,
+            "flowers": 9
+          }
+        },
+        {
+          "tx": 2630,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 92,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 68,
+            "shrub": 16,
+            "flowers": 8
+          }
+        },
+        {
+          "tx": 2634,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 69,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 42,
+            "shrub": 15,
+            "flowers": 12
+          }
+        },
+        {
+          "tx": 2637,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 104,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 87,
+            "shrub": 10,
+            "flowers": 7
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "ROCK",
+      "character": null,
+      "targetCells": 44976,
+      "eligibleCells": 44976,
+      "occupiedCells": 11826,
+      "coveragePct": 26.2940234791889,
+      "coverageOfAllTerrainPct": 26.2940234791889,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 26.2940234791889,
+      "coverageRangePct": [
+        24.919957310565636,
+        27.67698327997154
+      ],
+      "elements": {
+        "plain_rock": {
+          "cells": 11084,
+          "coveragePct": 24.644254713625045
+        },
+        "ore_rock": {
+          "cells": 742,
+          "coveragePct": 1.6497687655638562
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1528,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1436,
+            "ore_rock": 92
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1453,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1376,
+            "ore_rock": 77
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1420,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1315,
+            "ore_rock": 105
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1528,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1432,
+            "ore_rock": 96
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1401,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1320,
+            "ore_rock": 81
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1458,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1370,
+            "ore_rock": 88
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1482,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1380,
+            "ore_rock": 102
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 5622,
+          "eligibleCells": 5622,
+          "occupiedCells": 1556,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 1455,
+            "ore_rock": 101
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "SCHOOL",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 26912,
+      "coveragePct": 68.65306122448979,
+      "coverageOfAllTerrainPct": 68.65306122448979,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 68.65306122448979,
+      "coverageRangePct": [
+        68.65306122448979,
+        68.65306122448979
+      ],
+      "elements": {
+        "petnip": {
+          "cells": 432,
+          "coveragePct": 1.1020408163265305
+        },
+        "nettle": {
+          "cells": 64,
+          "coveragePct": 0.16326530612244897
+        },
+        "forgetmenot": {
+          "cells": 429,
+          "coveragePct": 1.094387755102041
+        },
+        "longgrass": {
+          "cells": 26912,
+          "coveragePct": 68.65306122448979
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 63,
+            "nettle": 9,
+            "forgetmenot": 58,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 52,
+            "nettle": 4,
+            "forgetmenot": 41,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 67,
+            "nettle": 8,
+            "forgetmenot": 57,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 46,
+            "nettle": 4,
+            "forgetmenot": 59,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 40,
+            "nettle": 10,
+            "forgetmenot": 68,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 63,
+            "nettle": 8,
+            "forgetmenot": 54,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 56,
+            "nettle": 15,
+            "forgetmenot": 43,
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "petnip": 45,
+            "nettle": 6,
+            "forgetmenot": 49,
+            "longgrass": 3364
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "COMMERCIAL",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 5738,
+      "coveragePct": 14.637755102040817,
+      "coverageOfAllTerrainPct": 14.637755102040817,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 14.637755102040817,
+      "coverageRangePct": [
+        14.448979591836734,
+        15.122448979591837
+      ],
+      "elements": {
+        "clay_pot": {
+          "cells": 648,
+          "coveragePct": 1.653061224489796
+        },
+        "shrub": {
+          "cells": 5090,
+          "coveragePct": 12.98469387755102
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 741,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 660
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 720,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 639
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 708,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 627
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 712,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 631
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 720,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 639
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 717,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 636
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 712,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 631
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 708,
+          "outsideEligible": 0,
+          "elementCells": {
+            "clay_pot": 81,
+            "shrub": 627
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "INDUSTRIAL",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 6663,
+      "coveragePct": 16.997448979591837,
+      "coverageOfAllTerrainPct": 16.997448979591837,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 16.997448979591837,
+      "coverageRangePct": [
+        15.959183673469388,
+        18.081632653061224
+      ],
+      "elements": {
+        "plain_rock": {
+          "cells": 5446,
+          "coveragePct": 13.892857142857142
+        },
+        "ore_rock": {
+          "cells": 710,
+          "coveragePct": 1.8112244897959184
+        },
+        "barrel": {
+          "cells": 260,
+          "coveragePct": 0.6632653061224489
+        },
+        "shrub": {
+          "cells": 246,
+          "coveragePct": 0.6275510204081632
+        },
+        "goldenberry": {
+          "cells": 1,
+          "coveragePct": 0.002551020408163265
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 844,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 702,
+            "ore_rock": 94,
+            "barrel": 23,
+            "shrub": 25
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 800,
+          "outsideEligible": 0,
+          "elementCells": {
+            "ore_rock": 86,
+            "plain_rock": 654,
+            "barrel": 33,
+            "shrub": 27
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 886,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 715,
+            "ore_rock": 97,
+            "barrel": 43,
+            "shrub": 31
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 812,
+          "outsideEligible": 0,
+          "elementCells": {
+            "ore_rock": 84,
+            "plain_rock": 661,
+            "barrel": 37,
+            "shrub": 29,
+            "goldenberry": 1
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 826,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 683,
+            "ore_rock": 73,
+            "barrel": 37,
+            "shrub": 33
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 782,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 622,
+            "ore_rock": 91,
+            "barrel": 31,
+            "shrub": 38
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 859,
+          "outsideEligible": 0,
+          "elementCells": {
+            "ore_rock": 100,
+            "plain_rock": 723,
+            "barrel": 17,
+            "shrub": 19
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 854,
+          "outsideEligible": 0,
+          "elementCells": {
+            "plain_rock": 686,
+            "ore_rock": 85,
+            "barrel": 39,
+            "shrub": 44
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "PLAYGROUND",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 552,
+      "coveragePct": 1.4081632653061225,
+      "coverageOfAllTerrainPct": 1.4081632653061225,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 1.4081632653061225,
+      "coverageRangePct": [
+        1.2244897959183674,
+        1.7346938775510203
+      ],
+      "elements": {
+        "longgrass": {
+          "cells": 278,
+          "coveragePct": 0.7091836734693877
+        },
+        "flowers": {
+          "cells": 274,
+          "coveragePct": 0.6989795918367347
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 85,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 43,
+            "flowers": 42
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 63,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 37,
+            "flowers": 26
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 67,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 27,
+            "flowers": 40
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 67,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 30,
+            "flowers": 37
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 74,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 37,
+            "flowers": 37
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 60,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 26,
+            "flowers": 34
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 70,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 42,
+            "flowers": 28
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 66,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 36,
+            "flowers": 30
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "PITCH",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 26912,
+      "coveragePct": 68.65306122448979,
+      "coverageOfAllTerrainPct": 68.65306122448979,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 68.65306122448979,
+      "coverageRangePct": [
+        68.65306122448979,
+        68.65306122448979
+      ],
+      "elements": {
+        "longgrass": {
+          "cells": 26912,
+          "coveragePct": 68.65306122448979
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 3364,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 3364
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "WETLAND",
+      "character": null,
+      "targetCells": 39200,
+      "eligibleCells": 39200,
+      "occupiedCells": 7578,
+      "coveragePct": 19.331632653061224,
+      "coverageOfAllTerrainPct": 19.331632653061224,
+      "eligiblePct": 100,
+      "coverageOfEligiblePct": 19.331632653061224,
+      "coverageRangePct": [
+        17.571428571428573,
+        21.244897959183675
+      ],
+      "elements": {
+        "longgrass": {
+          "cells": 4734,
+          "coveragePct": 12.076530612244898
+        },
+        "shrub": {
+          "cells": 1093,
+          "coveragePct": 2.788265306122449
+        },
+        "goldenberry": {
+          "cells": 8,
+          "coveragePct": 0.02040816326530612
+        },
+        "mushroom": {
+          "cells": 1666,
+          "coveragePct": 4.25
+        },
+        "poisonberry": {
+          "cells": 77,
+          "coveragePct": 0.19642857142857142
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 1041,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 629,
+            "shrub": 187,
+            "goldenberry": 1,
+            "mushroom": 211,
+            "poisonberry": 13
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 861,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 549,
+            "shrub": 88,
+            "mushroom": 211,
+            "poisonberry": 13
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 951,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 547,
+            "shrub": 182,
+            "goldenberry": 1,
+            "mushroom": 214,
+            "poisonberry": 7
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 998,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 637,
+            "shrub": 98,
+            "mushroom": 253,
+            "poisonberry": 10
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 895,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 590,
+            "shrub": 105,
+            "goldenberry": 1,
+            "mushroom": 192,
+            "poisonberry": 7
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 959,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 664,
+            "shrub": 123,
+            "goldenberry": 2,
+            "mushroom": 165,
+            "poisonberry": 5
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 885,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 512,
+            "shrub": 159,
+            "goldenberry": 1,
+            "mushroom": 208,
+            "poisonberry": 5
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 4900,
+          "eligibleCells": 4900,
+          "occupiedCells": 988,
+          "outsideEligible": 0,
+          "elementCells": {
+            "longgrass": 606,
+            "shrub": 151,
+            "goldenberry": 2,
+            "mushroom": 212,
+            "poisonberry": 17
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "GOLF",
+      "character": null,
+      "targetCells": 62144,
+      "eligibleCells": 0,
+      "occupiedCells": 0,
+      "coveragePct": 0,
+      "coverageOfAllTerrainPct": 0,
+      "eligiblePct": 0,
+      "coverageOfEligiblePct": 0,
+      "coverageRangePct": [
+        0,
+        0
+      ],
+      "elements": {},
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 7768,
+          "eligibleCells": 0,
+          "occupiedCells": 0,
+          "outsideEligible": 0,
+          "elementCells": {}
+        }
+      ]
+    },
+    {
+      "terrain": "ORCHARD",
+      "character": null,
+      "targetCells": 60992,
+      "eligibleCells": 4352,
+      "occupiedCells": 868,
+      "coveragePct": 19.94485294117647,
+      "coverageOfAllTerrainPct": 1.4231374606505771,
+      "eligiblePct": 7.135362014690451,
+      "coverageOfEligiblePct": 19.94485294117647,
+      "coverageRangePct": [
+        19.485294117647058,
+        20.772058823529413
+      ],
+      "elements": {
+        "fruittree": {
+          "cells": 832,
+          "coveragePct": 19.11764705882353
+        },
+        "longgrass": {
+          "cells": 36,
+          "coveragePct": 0.8272058823529411
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 111,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 7
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 107,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 3
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 110,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 6
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 108,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 4
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 107,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 3
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 106,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 2
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 113,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 9
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 7624,
+          "eligibleCells": 544,
+          "occupiedCells": 106,
+          "outsideEligible": 0,
+          "elementCells": {
+            "fruittree": 104,
+            "longgrass": 2
+          }
+        }
+      ]
+    },
+    {
+      "terrain": "WASTELAND",
+      "character": null,
+      "targetCells": 27984,
+      "eligibleCells": 17568,
+      "occupiedCells": 1162,
+      "coveragePct": 6.6142987249544625,
+      "coverageOfAllTerrainPct": 4.152372784448256,
+      "eligiblePct": 62.77873070325901,
+      "coverageOfEligiblePct": 6.6142987249544625,
+      "coverageRangePct": [
+        5.646630236794171,
+        7.285974499089253
+      ],
+      "elements": {
+        "plain_rock": {
+          "cells": 816,
+          "coveragePct": 4.644808743169399
+        },
+        "ore_rock": {
+          "cells": 57,
+          "coveragePct": 0.3244535519125683
+        },
+        "longgrass": {
+          "cells": 92,
+          "coveragePct": 0.52367941712204
+        },
+        "shrub": {
+          "cells": 197,
+          "coveragePct": 1.1213570127504553
+        }
+      },
+      "samples": [
+        {
+          "tx": 2622,
+          "ty": 5615,
+          "targetCells": 3497,
+          "eligibleCells": 2196,
+          "occupiedCells": 141,
+          "outsideEligible": 26,
+          "elementCells": {
+            "plain_rock": 105,
+            "ore_rock": 5,
+            "longgrass": 16,
+            "shrub": 15
+          }
+        },
+        {
+          "tx": 2623,
+          "ty": 5615,
+          "targetCells": 3490,
+          "eligibleCells": 2196,
+          "occupiedCells": 160,
+          "outsideEligible": 24,
+          "elementCells": {
+            "plain_rock": 115,
+            "ore_rock": 7,
+            "shrub": 19,
+            "longgrass": 19
+          }
+        },
+        {
+          "tx": 2624,
+          "ty": 5615,
+          "targetCells": 3510,
+          "eligibleCells": 2196,
+          "occupiedCells": 153,
+          "outsideEligible": 28,
+          "elementCells": {
+            "plain_rock": 111,
+            "ore_rock": 8,
+            "longgrass": 9,
+            "shrub": 25
+          }
+        },
+        {
+          "tx": 2625,
+          "ty": 5615,
+          "targetCells": 3498,
+          "eligibleCells": 2196,
+          "occupiedCells": 145,
+          "outsideEligible": 25,
+          "elementCells": {
+            "plain_rock": 100,
+            "ore_rock": 6,
+            "shrub": 29,
+            "longgrass": 10
+          }
+        },
+        {
+          "tx": 2626,
+          "ty": 5615,
+          "targetCells": 3496,
+          "eligibleCells": 2196,
+          "occupiedCells": 130,
+          "outsideEligible": 25,
+          "elementCells": {
+            "plain_rock": 96,
+            "ore_rock": 5,
+            "longgrass": 11,
+            "shrub": 18
+          }
+        },
+        {
+          "tx": 2627,
+          "ty": 5615,
+          "targetCells": 3500,
+          "eligibleCells": 2196,
+          "occupiedCells": 151,
+          "outsideEligible": 25,
+          "elementCells": {
+            "plain_rock": 100,
+            "ore_rock": 12,
+            "shrub": 34,
+            "longgrass": 5
+          }
+        },
+        {
+          "tx": 2628,
+          "ty": 5615,
+          "targetCells": 3505,
+          "eligibleCells": 2196,
+          "occupiedCells": 158,
+          "outsideEligible": 28,
+          "elementCells": {
+            "plain_rock": 105,
+            "ore_rock": 9,
+            "longgrass": 14,
+            "shrub": 30
+          }
+        },
+        {
+          "tx": 2629,
+          "ty": 5615,
+          "targetCells": 3488,
+          "eligibleCells": 2196,
+          "occupiedCells": 124,
+          "outsideEligible": 17,
+          "elementCells": {
+            "plain_rock": 84,
+            "ore_rock": 5,
+            "shrub": 27,
+            "longgrass": 8
+          }
+        }
+      ]
+    }
+  ]
+}
