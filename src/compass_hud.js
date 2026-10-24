@@ -6,6 +6,20 @@ const CompassHUD = {
   inscriptions: { inventory: '⋈ ⌖ ⋄ ⊓ ⌇', memories: '⌖ ⋄ ⋈ ⌇ ⊓', books: '⊓ ⌇ ⋄ ⌖ ⋈', distance: '⋄ ⊓ ⌖ ⋈ ⌇', joystick: '⌇ ⋈ ⊓ ⋄ ⌖' },
   modules: { memories: 'memories', bookchip: 'books', roadchip: 'distance',
     'inv-tabs': 'inventory', inv: 'inventory', 'move-pad': 'joystick' },
+  awaken(scene, id) {
+    scene._compassGlowTimers ||= new Map();
+    for (const [elementId, moduleId] of Object.entries(this.modules)) {
+      if (moduleId !== id) continue;
+      const el = document.getElementById(elementId);
+      if (!el) continue;
+      clearTimeout(scene._compassGlowTimers.get(el));
+      el.classList.add('compass-awakening');
+      scene._compassGlowTimers.set(el, setTimeout(() => {
+        el.classList.remove('compass-awakening');
+        scene._compassGlowTimers.delete(el);
+      }, 5000));
+    }
+  },
   install(scene) {
     if (typeof document === 'undefined' || scene._compassHUD) return;
     scene._compassHUD = true;
@@ -78,7 +92,8 @@ const CompassHUD = {
       }
       const control = e.target.closest?.('#memories,#bookchip,#roadchip,#inv-tabs,#inv,#move-pad');
       const id = control && this.modules[control.id];
-      if (!id || CompassModules.isActive(scene.save, id)) return;
+      if (!id) return;
+      if (CompassModules.isActive(scene.save, id) && !CompassModules.initialize(scene.save).unread.includes(id)) return;
       e.preventDefault(); e.stopImmediatePropagation();
       if (e.type === 'click' || control.id === 'move-pad') CompassModules.tap(scene, id);
     };
@@ -87,6 +102,11 @@ const CompassHUD = {
     scene.events?.once('shutdown', () => {
       document.removeEventListener('click', gate, true);
       document.removeEventListener('pointerdown', gate, true);
+      for (const [el, timer] of scene._compassGlowTimers || []) {
+        clearTimeout(timer);
+        el.classList.remove('compass-awakening');
+      }
+      delete scene._compassGlowTimers;
       for (const dispose of cleanup) dispose();
       for (const node of scene._compassDecorations) node.remove();
       for (const [el, handler] of scene._compassKeyboardBindings) {
@@ -142,6 +162,7 @@ const CompassHUD = {
         }
       }
     }
+    CompassModules.drain(scene);
     // The owning road HUD still writes its accessible distance label. Re-seat
     // those same characters in individual physical wheels after each update.
     const distance = document.querySelector('#roadchip .road-num');

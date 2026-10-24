@@ -46,11 +46,13 @@
     if (!has(state.active)) state.active = {};
     if (!Array.isArray(state.pending)) state.pending = [];
     state.pending = [...new Set(state.pending.filter(id => Object.hasOwn(MODULES, id) && state.active[id] === true))];
+    if (!Array.isArray(state.unread)) state.unread = [...state.pending];
+    state.unread = [...new Set(state.unread.filter(id => Object.hasOwn(MODULES, id) && state.active[id] === true))];
     if (!Number.isFinite(state.walkedM) || state.walkedM < 0) state.walkedM = 0;
     state.walkedM = Math.min(DISTANCE_M, state.walkedM);
     if (fresh) {
       // Current ownership seeds existing saves quietly. Subsequent acquisitions
-      // use sync and get their own ceremony; spent currencies never relock.
+      // use sync and get their own highlight; spent currencies never relock.
       for (const [id, found] of Object.entries(evidence(save))) if (found) state.active[id] = true;
     }
     normalized.add(state);
@@ -65,6 +67,7 @@
     if (state.active[id] === true) return false;
     state.active[id] = true;
     state.pending.push(id);
+    state.unread.push(id);
     persist(scene);
     return true;
   }
@@ -93,41 +96,41 @@
   }
   function tap(scene, id) {
     if (!Object.hasOwn(MODULES, id)) return false;
-    if (isActive(scene.save, id)) return true;
+    const state = initialize(scene.save);
+    const active = isActive(scene.save, id);
+    if (active && !state.unread.includes(id)) return true;
     if (busy(scene, false)) return false;
     const panel = { kind: 'spirit', source: source(id), okLabel: 'Got it',
-      body: `${MODULES[id]} not activated. Power low.\n\n${HINTS[id]}` };
+      body: active ? AWAKENING[id] : `${MODULES[id]} not activated. Power low.\n\n${HINTS[id]}` };
     scene._compassSpiritOpen = true;
     const close = () => { scene._compassSpiritOpen = false; };
     try {
-      if (id === 'joystick') scene.showConfirmModal({ ...panel,
+      if (id === 'joystick' && !active) scene.showConfirmModal({ ...panel,
         id: 'spirit-walking-modal', acceptLabel: 'Enable spirit walking', cancelLabel: 'Not now',
         onCancel: close, onAccept: () => {
           close();
           activate(scene, id);
-          // This notice answers the player's explicit choice; let the story
-          // lane present it without waiting out the ordinary interaction hold.
-          scene._storyRun = true;
           scene.updateHUD?.();
         } });
-      else scene.showMessageModal({ ...panel, onDismiss: close });
+      else {
+        scene.showMessageModal({ ...panel, onDismiss: close });
+        if (active) {
+          state.unread = state.unread.filter(value => value !== id);
+          persist(scene);
+        }
+      }
     } catch (error) { close(); throw error; }
     return false;
   }
   function drain(scene) {
     if (root.__sandboxSkipTutorial) return false;
     const state = initialize(scene.save);
-    if (!state.pending.length || busy(scene, true)) return false;
-    const id = state.pending[0];
-    scene._compassSpiritOpen = true;
-    const close = () => { scene._compassSpiritOpen = false; };
-    try {
-      scene.showMessageModal({ kind: 'spirit', source: source(id),
-        body: AWAKENING[id], okLabel: 'Got it', onDismiss: close });
-    } catch (error) { close(); throw error; }
-    // Claim upon presentation so reload cannot repeat it. A failed dialog
-    // leaves the notice queued and retryable; an open one holds the next notice.
-    state.pending.shift();
+    if (!state.pending.length) return false;
+    // Unlock feedback never takes the story lane or opens a dialog.
+    for (const id of state.pending) {
+      if (typeof CompassHUD !== 'undefined') CompassHUD.awaken(scene, id);
+    }
+    state.pending = [];
     persist(scene);
     return true;
   }
