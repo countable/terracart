@@ -155,7 +155,9 @@ pixels and decorative details do not define additional tap cells.
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
-  house awakening, then the ruined street. Discovery and the street each
+  house awakening, then the ruined street. They open at `DOMContentLoaded`,
+  after the classic script chain parses, so every pane's button answers taps
+  at once; the loading view covers the parse. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
   four aligned portrait paintings under one camera. They dissolve once in
   sequence during the 16-second push toward the dragon's eye. Each successive

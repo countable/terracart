@@ -2875,7 +2875,7 @@
         btn: "Let's go",
       },
     ];
-    let __storyStarted = false;
+    let __storyStarted = false, __storyPending = false;
     function startStory(onDone) {
       // Idempotent: never show the opening story more than once per page load,
       // even if something calls this twice (the overlay is removed on finish,
@@ -2930,6 +2930,7 @@
     // problem the other way up: the card would be hidden behind it and
     // silently marked seen.)
     function introOverlayUp() {
+      if (__storyPending) return true;
       for (const id of ['story', 'safety', 'locating', 'tooshort']) {
         const el = document.getElementById(id);
         // Tests what actually RENDERS rather than the inline style: dismissed
@@ -3086,7 +3087,16 @@
       if (freshIntro && !window.__skipIntro) {
         const safetyEl = document.getElementById('safety');
         if (safetyEl) safetyEl.style.display = 'none';
-        startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
+        // The story opens once the classic script chain below has parsed:
+        // opened here, the first slide sat on screen while ~7 MB of game
+        // script parsed and its button ignored taps for seconds on a phone.
+        // The loading view (#bootload) covers the wait; introOverlayUp counts
+        // the pending story so nothing queued behind it shows first.
+        __storyPending = true;
+        document.addEventListener('DOMContentLoaded', () => {
+          __storyPending = false;
+          startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
+        }, { once: true });
       }
     }
     // Reset THIS game: wipe only the active save slot's progress, plus every
