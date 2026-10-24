@@ -1083,7 +1083,7 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // the same 0xffe066 the 'gps_ring' bake and the walk-home lead wear), and a
 // MICRO dot — smaller than a find's (EDGE_DOT_R) because it is not a place
 // to walk to, it is where you are.
-const EDGE_DOT_R = 1.5;
+const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
 const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
@@ -3049,7 +3049,7 @@ class MapScene extends Phaser.Scene {
       if (inside) { px = target.x; py = target.y; }
       const pulse = (performance.now() % 3000) / 3000;
       this.facingGfx.fillStyle(fillColor, 0.35 * (1 - pulse));
-      this.facingGfx.fillCircle(px, py, (r + (6 - r) * pulse) / zoom);
+      this.facingGfx.fillCircle(px, py, r * (1 + 3 * pulse) / zoom);
     } else {
       this.facingGfx.fillStyle(0x000000, 0.85);
       this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
@@ -3117,7 +3117,7 @@ class MapScene extends Phaser.Scene {
     if (this._hiddenEdgeDotLabels?.has(key)) return;
     const labels = (this._edgeDotLabels ||= {});
     const text = labels[key] ||= this.add.text(0, 0, '', {
-      fontFamily: FONT_UI_STACK, fontSize: '11px', color: '#ffffff',
+      fontFamily: FONT_UI_STACK, fontSize: '11px', color: '#' + row.color.toString(16).padStart(6, '0'),
       stroke: '#151920', strokeThickness: 3,
     }).setDepth(12).setOrigin(0, 0);
     // Names and roles belong to the target; anonymous finds use their kind.
@@ -3135,20 +3135,18 @@ class MapScene extends Phaser.Scene {
     x = Math.max(left, Math.min(right - text.width, x));
     y = Math.max(top, Math.min(bottom - text.height, y));
     const bounds = (this._edgeDotLabelBounds ||= []);
-    // Stack nearby bearings inward without moving their actual dots.
-    const step = text.height + 2;
-    const direction = point.y > (top + bottom) / 2 ? -1 : 1;
-    for (let i = 0; i <= bounds.length; i++) {
-      if (!bounds.some(b => x < b.right && x + text.width > b.left && y < b.bottom && y + text.height > b.top)) break;
-      y = Math.max(top, Math.min(bottom - text.height, y + step * direction));
-    }
+    // Keep each label beside its own dot; crowded bearings must not push
+    // earlier labels farther away on every redraw. Tapping still hides one.
     if (HeadingUp.active(this)) {
-      // Keep the entire upright label inside the circle, including near poles.
+      // Labels are upright overlay coordinates, so use the visible circle,
+      // not the unzoomed world bounds. Fit the corners with minimal inset.
       const radius = this.viewSize / 2 - 8;
       const cx = this.viewCenterX, cy = this.viewCenterY;
-      y = Math.max(cy - radius + text.height, Math.min(cy + radius - 2 * text.height, y));
+      const reachY = Math.sqrt(Math.max(0, radius * radius - (text.width / 2) ** 2));
+      y = Math.max(cy - reachY, Math.min(cy + reachY - text.height, point.y - text.height / 2));
       const farY = Math.max(Math.abs(y - cy), Math.abs(y + text.height - cy));
       const half = Math.sqrt(Math.max(0, radius * radius - farY * farY));
+      x = point.x <= cx ? point.x + 8 : point.x - text.width - 8;
       x = Math.max(cx - half, Math.min(cx + half - text.width, x));
     }
     text.setPosition(x, y).setVisible(true);
