@@ -351,7 +351,8 @@ const MemoryStory = (() => {
   const ARCHAEOLOGIST_TOPICS = {
     introduction: {
       title: 'A stool at the dig',
-      body: 'Orrin. Dragon archaeologist. Mind the little stool; it has already defeated me twice. Oh—my satchel. The potsherds are all right, are they? Good. My knee can wait. People call me a crackpot, but you are welcome to sit.',
+      body: 'Orrin. Dragon archaeologist. Mind the little stool; it has already defeated me twice. Oh—my satchel. The potsherds are all right, are they? Good. My knee can wait. People call me a crackpot, but you are welcome to sit. Take this crude table home with you. I made it for my finds, but you need somewhere to put your supper.',
+      gift: { kind: 'item', id: 'table_oak', qty: 1 },
       choices: [
         { id: 'listen', label: 'Take a seat.', response: 'Thank you. Most people have somewhere else to be before I finish my name. There is a pencil somewhere—no, never mind. We can talk without one.' },
         { id: 'doubt', label: 'A dragon archaeologist?', response: 'An unlikely occupation, I know. I brush dirt off old things and try not to break them further. You need not find me convincing to share the stool.' },
@@ -477,6 +478,7 @@ const MemoryStory = (() => {
     // Include the current visit revision: an old modal cannot acknowledge a
     // later repeat or advance twice. Copy choices so UI cannot change canon.
     return { id: `orrin:${s.visits}:${topic}`, topic, title: entry.title, body: entry.body,
+      gift: entry.gift ? { ...entry.gift } : undefined,
       choices: entry.choices.map(({ id, label }) => ({ id, label })) };
   }
   function acknowledgeArchaeologist(save, id, choiceId) {

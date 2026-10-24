@@ -1045,7 +1045,12 @@ class SceneModals {
             ? 'padding:12px 6px 10px;font:700 13px var(--font-ui);'
             : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px var(--font-ui);')
             + 'border-radius:7px;' });
-        b.addEventListener('click', (e) => { e.stopPropagation(); if (c.disabled) return; selected = c; paint(); });
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (closed || c.disabled) return;
+          if (c.onSelect) { close('transition'); c.onSelect(c.key); return; }
+          selected = c; paint();
+        });
         cardRow.appendChild(b);
         cards.push({ c, b });
       }
