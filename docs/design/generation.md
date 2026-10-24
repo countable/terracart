@@ -475,7 +475,10 @@ access or tile lifecycle mechanics.
   Street surfaces take precedence over surrounding zones: medium/large streets
   are Excluded, ordinary small streets are Calm, and small dead ends are Passing.
   Old Stones coverage includes its absorbed adjoining parking lots as Calm;
-  other parking lots are Passing. Missing qualifying evidence is Excluded.
+  other parking lots are Passing. Mapped school, college, university and education
+  grounds qualify as Core recreation ground without a separate park polygon or
+  school-hours check; buildings and explicit access/land exclusions still apply.
+  Missing qualifying evidence is Excluded.
 - Core mapped paths include a one-cell band beyond their edges. They interrupt
   Passing buffers around medium/large roads and intersections, but cannot open
   an Excluded road surface or restricted ground. Intersections receive a wider
