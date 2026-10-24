@@ -22,13 +22,13 @@
       assert.eq(WorldGen.floorProfile, originalProfile, 'viewer override cannot leak into game generation');
     }
   });
-  test('floor viewer variants: surface cycling keeps paths and Small roads in separate theme pools', () => {
+  test('floor viewer variants: surface cycling includes common themes for paths and Small roads', () => {
     const families = FloorViewerVariants.families(0).filter(family => family.type === 'road');
     assert.eq(families.length, 2);
     for (const family of families) {
-      const expected = StreetVariants.STREET_VARIANTS.filter(row => row.size === family.kind).map(row => row.id).sort();
+      const expected = StreetVariants.STREET_VARIANTS.filter(row => row.size === family.kind || (family.kind === 'path' && row.pathWeight > 0)).map(row => row.id).sort();
       assert.eq(family.rows.map(row => row.id).sort().join(), expected.join());
-      assert.truthy(family.rows.every(row => StreetVariants.VARIANT_BY_ID[row.id].size === family.kind));
+      assert.truthy(family.rows.every(row => StreetVariants.VARIANT_BY_ID[row.id].size === family.kind || (family.kind === 'path' && StreetVariants.VARIANT_BY_ID[row.id].pathWeight > 0)));
     }
     const paths = families.find(family => family.kind === 'path');
     assert.falsy(paths.rows.some(row => row.id === 'burned'), 'Burned Row is exclusive to Small roads');

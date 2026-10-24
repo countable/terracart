@@ -600,10 +600,9 @@ access or tile lifecycle mechanics.
   levels and bridge/tunnel classes never join, and disconnected geometry
   never joins just because it shares a feature ID. Sections are tile-local;
   generation never depends on which neighbouring tiles are loaded.
-  Path sections have their own weighted pool: mostly Greenway, Park Path and
-  Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
-  (2% base weight), plus Slime Trail and Spider Path (5% each, taken equally
-  from Greenway and Park Path). Slime Trail picks one species per stable section
+  Path sections have a weighted pool of common route themes, Greenway, Park
+  Path and Promenade, with Lantern Row, Barricade, Golden Path, Slime Trail
+  and Spider Path. All path weights are normalized together. Slime Trail picks one species per stable section
   from green, purple, fire and splitting slimes. Seeded posts every 70 m hold
   two of that species, with a midpoint post on short sections where placement
   allows. These are finite path-authored enemies using the ordinary defeated
@@ -614,19 +613,19 @@ access or tile lifecycle mechanics.
   seat per cell is sampled along the
   exact path centreline, never snapped to cell centres or placed on verges.
   Occupancy and spawn restrictions leave gaps; path-authored seats survive
-  Nexus crossings. Scenic overrides still apply. Small-road variants
-  never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
+  Nexus crossings. Scenic overrides still apply. Special Small-road variants
+  stay in their road pool; the five common route variants also enter the path pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
-- Poison Path, Fire Path, Paralysis Path and Confusion Path each have 3% base
-  weight, taking six percentage points each from Greenway and Park Path. Their
+- Poison Path, Fire Path, Paralysis Path and Confusion Path retain their
+  authored path weights. Their
   matching geysers use seeded verge seats every 42 m, with a midpoint sample
   for short sections. The hazard gate and occupancy can leave gaps. Every
   section attempts a daily shrine before claiming geyser cells, searching its
   length for safe public ground. Poison lends Mending, Fire lends Ember,
   Paralysis lends Shield, and Confusion lends Light; these are ordinary daily
   boons, not immunity to the matching gas. Geysers yield to Nexus coverage.
-- Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
+- Spider Path retains its authored path selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
   occupancy, vehicle roads and road-junction safety can leave gaps. One
@@ -644,6 +643,15 @@ access or tile lifecycle mechanics.
   routes for up to 150 m, fading with route distance; parallel disconnected
   roads and different bridge/tunnel levels do not inherit it. The path pool's
   normal weights live on its rows as `pathWeight`; Small roads retain `share`.
+- Every eligible Small-road stretch has a variant, including short ends and gaps
+  between special sections. The existing special-theme roll retains its rarity;
+  its remaining stretches select a common route theme. Paths also select these
+  common themes alongside their existing choices. Rocky Road / Path has simple
+  rocks and loose stone; Grassy Lane has herbs and bushes; Old Growth Path has
+  mature trees, shrubs and mushrooms; Haunted Forest Path has dark trees,
+  headstones and mushrooms. Way of Variety densely fills both verges with
+  deterministic common plants, rocks, mature trees, pots and barrels. All use
+  existing interactions and shared spawn gates, leaving the route itself clear.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression and nighttime
