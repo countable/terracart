@@ -126,29 +126,33 @@ test('tool pages: the shared loader\'s own pattern still finds the game\'s modul
 });
 })();
 
-test('map review: tinted Nexus grounds use native masks while other Nexus textures retain ownership', () => {
+test('map review: all selected Nexus grounds use their own native transition families', () => {
   const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},setOptions:(layer,options)=>{layer.options=options;}};
-  const native=new Function(ALL_SRC['ra_terrain_trial.js']+'\nreturn RATerrainTrial;')();
-  const art=new Function('L','WorldGen','RATerrainTrial','tileCellToAbs','zoneGroundColor','zoneGroundTexture','isBuildingType',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
-    L,WorldGen,native,(_,tx,ty,x,y)=>({cellIX:tx*2+x,cellIY:ty*2+y}),()=>0x777777,()=> 'zone_ground',()=>false);
-  const e={tx:0,ty:0,cellsPerEdge:2,grid:[29,31,2,28]};
+  const native=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
+  const art=new Function('L','WorldGen','TerrainTransitions','tileCellToAbs','zoneGroundColor','zoneGroundTexture','isBuildingType',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
+    L,WorldGen,native,(_,tx,ty,x,y)=>({cellIX:tx*2+x,cellIY:ty*2+y}),()=>0x777777,(_e,_i,type)=>'zone_ground_'+({29:'G06-purple',31:'G09-smooth-grey',2:'G10',28:'G03'}[type]),()=>false);
+  const e={tx:0,ty:0,cellsPerEdge:2,grid:new Uint8Array([29,31,2,28])};
   const layer=art.layer({});layer._world={tiles:[e],scene:{}};
   const ring=layer._terrainRing(e);
   assert.eq(ring.materials[5],8,'Churchyard uses native tinted masks');
   assert.eq(ring.materials[6],9,'Tar Yard uses native tinted masks');
-  assert.eq(ring.materials[9],-1,'beach retains its selected Nexus texture');
-  assert.eq(ring.materials[10],-1,'grove retains its selected Nexus texture');
+  assert.eq(ring.materials[9],20,'beach receives selected sand transition masks');
+  assert.eq(ring.materials[10],17,'grove receives its own selected transition masks');
 });
 
 test('map review: layered terrain paints the base and masks in the same cell rectangle', () => {
   const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},setOptions:(layer,options)=>{layer.options=options;}};
-  const native={select:()=>({key:'ra_terrain_source',frame:15,layers:[33,76]})};
-  const art=new Function('L','WorldGen','RATerrainTrial','tileCellToAbs','zoneGroundTexture','MountainEdges',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
+  const native={select:(_scene,ring,stride,index)=>{
+    assert.eq(ring.join(','),'1,1,1,1','review samples only the owning ground material');
+    assert.eq(stride,2); assert.eq(index,0);
+    return {key:'ra_terrain_source',frame:15,layers:[33,76]};
+  }};
+  const art=new Function('L','WorldGen','TerrainTransitions','tileCellToAbs','zoneGroundTexture','MountainEdges',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
     L,WorldGen,native,()=>({cellIX:0,cellIY:0}),()=>null,{select:()=>null});
   const layer=art.layer({getEdge:()=>32}),calls=[];
   layer._world={tiles:[{tx:0,ty:0,cellsPerEdge:1,grid:[0]}],scene:{}};
-  layer._terrainRing=()=>({types:[],materials:[],stride:3});
-  layer._assets={scene:{_raTerrainReady:true},textures:{get:()=>({get:f=>({cutX:f,cutY:0,width:16,height:16}),getSourceImage:()=> 'source'})}};
+  layer._terrainRing=()=>({types:[],materials:[-1,-1,-1,-1,1,4,2,3,0],stride:3});
+  layer._assets={scene:{_terrainTransitionsReady:true},textures:{get:()=>({get:f=>({cutX:f,cutY:0,width:16,height:16}),getSourceImage:()=> 'source'})}};
   layer._roadsForTile=()=>[];
   layer._paintGround({drawImage(...args){calls.push(args);}},{x:32,y:32},(x,y)=>({x,y}));
   assert.eq(calls.map(a=>a[1]).join(','),'15,33,76','base then masks');

@@ -202,11 +202,11 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
     // Compare the Nexus's material pass against the actual pre-bedrock land.
     // Its protected coverage also changes which neighbouring private cells
     // receive the later collision material, without changing their substrate.
-    for (const r of [on, off]) if (r.grid[i] === T.EXCLUSION_ROCK) {
+    for (const r of [on, off]) if ([T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(r.grid[i])) {
       assert.eq(r.gameplayTiers[i], GameplayTiers.EXCLUDED, `cell ${i}: bedrock follows Excluded`);
     }
-    const before = off.grid[i] === T.EXCLUSION_ROCK ? off.variantBaseGrid[i] : off.grid[i];
-    const after = on.grid[i] === T.EXCLUSION_ROCK ? on.variantBaseGrid[i] : on.grid[i];
+    const before = [T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(off.grid[i]) ? off.variantBaseGrid[i] : off.grid[i];
+    const after = [T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(on.grid[i]) ? on.variantBaseGrid[i] : on.grid[i];
     if (after === before) {
       assert.falsy(zoneCodes.has(after), 'a zone code only where the halo painted');
       continue;

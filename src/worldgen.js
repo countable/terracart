@@ -466,6 +466,7 @@
     CHURCHYARD: 29,
     TAR_YARD: 31,
     EXCLUSION_ROCK: 32, // permanent bedrock in inaccessible rear-lot interiors
+    ROCKY_GROUND: 33, // flat private-lot rubble where buildings trim bedrock
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -604,7 +605,7 @@
     const here = grid?.[i], why = opts.spawnWhy?.[i] || 0;
     const hardLand = SPAWN_WHY_LAND & ~W_.JUNCTION;
     if (why & hardLand || opts.quiet?.[i] || here === T.ROAD_MD || here === T.ROAD_LG
-      || here === T.EXCLUSION_ROCK || here === T.GOLF || isBuildingTerrain(here) || here === T.WATER) return 4;
+      || here === T.EXCLUSION_ROCK || here === T.ROCKY_GROUND || here === T.GOLF || isBuildingTerrain(here) || here === T.WATER) return 4;
     if (here === T.PIER && !opts.spawnWhy) return 4;
     if (here === T.PATH) return 1;
     if (here === T.ROAD) return 2;
@@ -633,7 +634,7 @@
     if (!global.GameplayTiers.allowed(tier, cls || 'minor')) return false;
     // Geography is decided above. These are live physical placement checks:
     // a new wall or occupied seat must not be reopened by a cached tier.
-    if (isBuildingTerrain(here) || here === T.WATER || here === T.EXCLUSION_ROCK
+    if (isBuildingTerrain(here) || here === T.WATER || here === T.EXCLUSION_ROCK || here === T.ROCKY_GROUND
       || here === T.CAVE_WALL) return false;
     if (opts?.waterOnly) return false; // water is Excluded for every spawn profile
     if (opts?.occupied?.has(i)) return false;
@@ -6896,7 +6897,7 @@
       yield 'tier placement cleanup';
     }
     const hasExclusionRock = stampExclusionRock(grid, w, h,
-      { gameplayTiers, gameplayReasons, spawnWhy, roadMask, owners, residentialGrid: variantBaseGrid }) > 0;
+      { gameplayTiers, gameplayReasons, spawnWhy, roadMask, owners, buildingShapes, cellWidthM, residentialGrid: variantBaseGrid }) > 0;
     assignScholarFallback(deduped);
     return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
   }
@@ -6908,17 +6909,38 @@
     if (!tiers) return 0;
     const residential = opts.residentialGrid || grid;
     const privateLand = W_.PRIVATE | W_.BEHIND_HOUSE | W_.RESTRICTED;
+    // Ownership uses a coverage threshold; even a smaller footprint sliver
+    // must exclude bedrock from the whole cell it intersects.
+    const footprints = new Uint8Array(grid.length);
+    for (const shape of opts.buildingShapes || []) {
+      const ring = shape.ring, scale = opts.cellWidthM;
+      if (!ring?.length || !(scale > 0)) continue;
+      const poly = [];
+      let minX = w, minY = h, maxX = 0, maxY = 0;
+      for (let j = 0; j < ring.length; j += 2) {
+        const x = ring[j] / scale, y = ring[j + 1] / scale;
+        poly.push({ x, y });
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      }
+      for (let y = Math.max(0, Math.floor(minY)); y < Math.min(h, Math.ceil(maxY)); y++)
+        for (let x = Math.max(0, Math.floor(minX)); x < Math.min(w, Math.ceil(maxX)); x++)
+          if (cellCoverFraction(poly, x, y) > 0) footprints[y * w + x] = 1;
+    }
     let count = 0;
     for (let i = 0; i < grid.length; i++) {
       if (tiers[i] !== 4 || residential[i] !== T.RESIDENTIAL
-        || !(opts.spawnWhy?.[i] & privateLand) || opts.roadMask?.[i] || opts.owners?.[i]
+        || !(opts.spawnWhy?.[i] & privateLand) || opts.roadMask?.[i]
         || (opts.spawnWhy?.[i] & W_.ROAD)
         || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
         || grid[i] === T.ROAD || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
         || grid[i] === T.PATH || grid[i] === T.PIER
         || isBuildingTerrain(grid[i]) || grid[i] === T.WATER) continue;
-      grid[i] = T.EXCLUSION_ROCK;
-      count++;
+      // Fill every safe cell; only actual footprint intersections (or the
+      // ownership fallback) trim the solid zone. Their exposed ground keeps
+      // the same rock palette without introducing a movement obstacle.
+      grid[i] = footprints[i] || opts.owners?.[i] ? T.ROCKY_GROUND : T.EXCLUSION_ROCK;
+      if (grid[i] === T.EXCLUSION_ROCK) count++;
     }
     return count;
   }

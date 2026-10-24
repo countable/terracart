@@ -542,7 +542,10 @@ access or tile lifecycle mechanics.
   terrain and private/backyard/restricted evidence identify that ground before
   Nexus paint. Roads and paths, including their drawn footprints, never become
   rock. Building ownership also protects every house/footprint cell even if its
-  terrain was repainted. Other Excluded ground, water and buildings retain their physical surfaces
+  terrain was repainted. Every footprint-free eligible cell becomes solid rock;
+  cells intersecting even a building sliver instead use passable, non-tillable
+  `ROCKY_GROUND` rubble. Ownership is a fallback when shape geometry is absent.
+  Roads, water and building terrain retain their physical surfaces
   while refusing every spawn. Tier classification precedes final placement so
   a rejected cell cannot retain an object from an earlier placement pass.
 - Source access evidence still records private/restricted/quiet land, sensitive

@@ -26,7 +26,7 @@
     BUILDING_LARGE: 12, ROAD_LG: 13, ROAD_MD: 14, SCHOOL: 15, COMMERCIAL: 16,
     INDUSTRIAL: 17, PLAYGROUND: 18, PITCH: 19, WETLAND: 20, GOLF: 21,
     ORCHARD: 22, PIER: 23, CAVE_FLOOR: 24, CAVE_WALL: 25, CAVE_LAVA: 26,
-    WASTELAND: 27, GROVE: 28, CHURCHYARD: 29, TAR_YARD: 31, EXCLUSION_ROCK: 32,
+    WASTELAND: 27, GROVE: 28, CHURCHYARD: 29, TAR_YARD: 31, EXCLUSION_ROCK: 32, ROCKY_GROUND: 33,
   };
 
   // RNG salts — one independent stream per flora kind per biome so finds scatter
@@ -107,7 +107,7 @@
     [T.PLAYGROUND]: 'grassland', [T.PITCH]: 'grassland', [T.GOLF]: 'grassland',
     [T.FOREST]: 'forest', [T.WETLAND]: 'forest', [T.ORCHARD]: 'forest',
     [T.SAND]: 'sand',
-    [T.ROCK]: 'rocky', [T.COMMERCIAL]: 'rocky', [T.INDUSTRIAL]: 'rocky',
+    [T.ROCKY_GROUND]: 'rocky', [T.ROCK]: 'rocky', [T.COMMERCIAL]: 'rocky', [T.INDUSTRIAL]: 'rocky',
     [T.FARMLAND]: 'farm',
     // WASTELAND plays as residential land (worldgen isLotTerrain), so it is
     // the same family: yard rubble, yard flora, the odd mushroom.
@@ -223,6 +223,7 @@
     [T.COMMERCIAL]: { blockedFlora: ['marigold'],
       flora: [{ crop: 'shrub', pattern: 'hedgemaze', salt: S.COM_SHRUB }],
     },
+    [T.ROCKY_GROUND]: { flora: [] },
     [T.ROCK]: { staticObjects: { rockPlainKeep: 0.75, rockOreKeep: 1 }, flora: [] },
     [T.INDUSTRIAL]: { staticObjects: { rockPlainKeep: 0.48, rockOreKeep: 0.925, barrelDensity: 0.0135 }, flora: [fix('shrub', 0.009, 0.020, S.IND_SHRUB)] },
     [T.PLAYGROUND]: { blockedFlora: ['marigold'],

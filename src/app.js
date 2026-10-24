@@ -1252,6 +1252,7 @@ const COLORS = {
   // paints over the lot and commercial ground around it.
   28: 0x687143, // GROVE       — forest-depth yellow-olive sward
   29: 0x7c7788, // CHURCHYARD  — weathered grey-purple among the old stones
+  33: 0x646351, // ROCKY_GROUND — flat rubble matching mountain edges
   32: 0x665044, // EXCLUSION_ROCK — permanent, non-mineable backyard bedrock
   31: 0x6f6b55, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
@@ -5922,9 +5923,11 @@ class MapScene extends Phaser.Scene {
     const hit = this._neighborZoneCache.get(key);
     if (hit !== undefined) return hit;
     const R = 3;
-    // Flat counts array beats Map for ~20-element domains; saves the per-call
-    // Map allocation and avoids string keys.
-    const counts = new Int16Array(32);
+    // Reuse a terrain-sized histogram, including bedrock and rocky ground.
+    // Derive the domain from the enum so new ground types cannot fall outside it.
+    const counts = this._neighborTerrainCounts || (this._neighborTerrainCounts =
+      new Int16Array(Math.max(...Object.values(WorldGen.T)) + 1));
+    counts.fill(0);
     const scratch = this._nnScratch || (this._nnScratch = {});
     let bestT = -1, bestN = 0;
     for (let dy = -R; dy <= R; dy++) {

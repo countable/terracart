@@ -51,7 +51,6 @@ const idx = (layers, name) => layers.indexOf(name);
 const GROUND = [
   'cellGfx',           // base terrain fill
   'gridContainer',     // dashed cell grid (a baked image — render.js BakedGfx)
-  'borderContainer',   // biome seam borders (baked)  <- the reported bug
   'cobbleContainer',   // ground decoration (the pier plank)
   'letterContainer',   // road name lettering
   'roadGeomContainer',
