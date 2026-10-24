@@ -1,5 +1,5 @@
 // Rendering must conceal the same covered targets as interactions (any cover
-// hides what stands behind it) and reuse its darkness mask between changes.
+// hides what stands behind it) and reuse its fog mask between changes.
 (function () {
   function fixture(coverAt = () => 2) {
     let revision = 1, allocations = 0, clears = 0, samples = 0, uploads = 0, blits = 0, images = 0;
@@ -18,6 +18,7 @@
           rasters.push({ width: image.width, height: image.height, data: Array.from(image.data) });
         },
         drawImage() { blits++; },
+        fillRect() {},
         getImageData() { throw new Error('Cover must never read pixels back'); },
       };
       return { width: 0, height: 0, getContext: () => ctx };
@@ -72,15 +73,16 @@
     }
   });
 
-  test('cover render: partial interiors are half dark and full interiors are black', () => {
-    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 128], [2, 0, 255], [1, 1, 128], [2, 1, 255]]) {
+  test('cover render: covered interiors use 25% grey fog at either depth', () => {
+    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 64], [2, 0, 64], [1, 1, 64], [2, 1, 64]]) {
       const f = fixture(() => cover);
       f.scene.depth = depth;
       f.frame(f.scene, 0, 0, 128, 64);
       const raster = f.rasters[0];
       assert.truthy(raster, 'upload the generated raster');
-      assert.truthy(alphas(raster).every(a => a === alpha), `cover ${cover}, depth ${depth}: uniform interior`);
-      assert.truthy(raster.data.every((value, i) => i % 4 === 3 || value === 0), 'black RGB supplies only darkness');
+      assert.eq(raster.data[raster.data.length - 1], alpha, `cover ${cover}, depth ${depth}: far interior`);
+      assert.truthy(alphas(raster).every(a => a <= 64), 'fog never exceeds 25% opacity');
+      assert.truthy(raster.data.every((value, i) => i % 4 === 3 || value === 128), 'neutral grey RGB supplies a veil');
     }
   });
 
@@ -89,8 +91,9 @@
     const f = fixture(x => Math.abs(x - 9) < 1 ? 1 : 0);
     f.frame(f.scene, 0, 0, 128, 64);
     const peak = Math.max(...alphas(f.rasters[0]));
-    assert.gte(peak, 40, 'a narrow shadow still has a visible cue');
-    assert.lt(peak, 100, 'partial samples do not preserve a hard half-cell plateau');
+    assert.gt(peak, 0, 'a narrow shadow still has a visible cue');
+    assert.lte(peak, 64, 'narrow shadows stay within the 25% fog opacity');
+    assert.truthy(alphas(f.rasters[0]).some(a => a > 0 && a < peak), 'the narrow shadow retains a soft boundary');
   });
 
   test('cover render: the boundary has graded alpha and world-fixed wisps after player movement', () => {
@@ -99,17 +102,18 @@
     const initial = f.rasters[0];
     const values = new Set(alphas(initial));
     assert.truthy(values.has(0), 'clear side remains clear');
-    assert.truthy(values.has(255), 'full interior is completely dark on the surface too');
+    assert.truthy(values.has(64), 'covered interior reaches the fog opacity');
     assert.gt(values.size, 8, 'the edge contains a smooth gradient instead of flat half-cell squares');
     f.scene.playerM.x = .5;
     f.frame(f.scene, 0, 0, 128, 64);
     assert.eq(f.stats().uploads, 2, 'movement recalculates sight and repaints');
-    assert.eq(JSON.stringify(f.rasters[1]), JSON.stringify(initial), 'unchanged cover geometry must not make the wisps swim');
+    assert.truthy(alphas(f.rasters[1]).every(a => a <= 64), 'moving pullback retains the opacity bound');
+    const beforeScroll = f.rasters[1];
     f.frame(f.scene, 2, 0, 128, 64);
     const scrolled = f.rasters[2], shift = FOG_SUB / 2;
     assert.eq(scrolled.width, initial.width);
     for (let y = 0; y < initial.height; y++) for (let x = 0; x < initial.width - shift; x++) {
-      const before = initial.data[(y * initial.width + x + shift) * 4 + 3];
+      const before = beforeScroll.data[(y * initial.width + x + shift) * 4 + 3];
       const after = scrolled.data[(y * scrolled.width + x) * 4 + 3];
       assert.lte(Math.abs(before - after), 1, 'crossing a sample boundary preserves world-aligned fog');
     }
