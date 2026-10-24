@@ -7271,9 +7271,11 @@
       //   baseGrid    — the rasterized terrain, copied, never written again.
       //   genObjects  — the rasterized objects + generated mine mouths (no
       //                 bin injections, nothing app.js pushes).
+      //   genWildplants — generated grass/flora seats, before harvesting or regrowth.
       entry.baseGrid = grid.slice();
       registerGameplayTiers(entry.baseGrid, spawnWhy, gameplayTiers);
       entry.genObjects = entry.objects.slice();
+      entry.genWildplants = entry.wildplants.slice();
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
       entry.pathUnder   = pathUnder   || {};
@@ -9326,7 +9328,22 @@
     // authored areas, landings or the existing mushroom/rock population.
     { id: 'grass', when: (L) => !!floorProfile(L.depth).grass, pivot: 1, from: 0, tries: 1,
       salt: 0x6C8E9CF5,
-      setup: (L) => runSteps(grassFillSteps(L.tx, L.ty, L.N)),
+      setup: (L) => {
+        const candidates = runSteps(grassFillSteps(L.tx, L.ty, L.N));
+        const source = L.surface?.baseGrid || L.surface?.grid;
+        for (let i = 0; i < candidates.length; i++) {
+          if (!source || !BiomeProfiles.GRASS_FILL.terrains.includes(source[i])) candidates[i] = 0;
+        }
+        // Surface grass also occurs outside field terrain (parks and grassy
+        // lanes). Read generated records so harvesting above cannot alter the
+        // fungal field below; the cave pass still enforces its own safety.
+        for (const plant of L.surface?.genWildplants || L.surface?.wildplants || []) {
+          if (!isGrassCover({ ...plant, kind: 'wildplant' })) continue;
+          const c = cellIndexOf(L.tx, L.ty, plant.x, plant.y, L.tileEdgeM, L.N);
+          if (c.lix >= 0 && c.lix < L.N && c.liy >= 0 && c.liy < L.N) candidates[c.liy * L.N + c.lix] = 1;
+        }
+        return candidates;
+      },
       pick: (rng, px, py, L, candidates) => candidates[py * L.N + px] ? { lix: px, liy: py } : null,
       emit: (L, c, p) => L.wildplants.push(makeWildplant('longgrass', p.x, p.y,
         cellId(`cgrass_${L.depth}`, L.tx, L.ty, c.lix, c.liy),
@@ -9813,6 +9830,7 @@
     const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
     objects.push(...caveQuarryGemsFrom(profile.quarryProvenance ? (surface.genObjects || surface.objects || []) : aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
     const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants, spawnWhy });
+    level.surface = surface;
     level.underground = underground;
     level.cityDrillsPlaced = !!profile.warren;
     for (const row of CAVE_PASSES) runCavePass(row, level);

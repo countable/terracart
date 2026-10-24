@@ -314,8 +314,10 @@ access or tile lifecycle mechanics.
   overlays. Open terrain
   does not relax inherited spawn safety.
   The Underdark floor opts into harvestable longgrass via its floor-profile
-  `grass` flag. A final cave pass reuses the surface grass-stand candidate mask,
-  then applies the ordinary floor, spawn-safety and occupancy gates; it never
+  `grass` flag. A final cave pass reuses the surface grass-stand candidate mask on surface
+  grass-fill terrain, plus generated surface longgrass seats in parks and grassy
+  lanes. It reads the immutable surface grid and generated plants, so harvesting
+  above does not reroll the fungal field. It then applies the ordinary floor, spawn-safety and occupancy gates; it never
   displaces landings, rewards, authored areas or existing cave flora. IDs are
   stable per depth and absolute cell.
   `docs/design/floors.md` owns the per-floor catalog.
