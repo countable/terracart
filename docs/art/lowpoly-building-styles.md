@@ -165,18 +165,23 @@ These settings do not stretch or add floors to the reviewed exterior models.
 
 ## Wrecks
 
-Wreck foundations use broad, low stone runs with open breaches and scattered
-fallen masonry. Four of seven bays survive before entrance cuts, with four-unit
-thickness and varied heights up to three units. Loose blocks scale with footprint
-area, capped at thirty-two. There are no roofs or raised framing.
-`tools/build_wreck_plinth.py` builds the shared atlas from native Ruined Medieval
-Village stone and Rogue Adventure dirt/grit. Stone caps and sides stay opaque;
-ground chips match the study’s density and size at the displayed footprint
-scale; the flat ground is a partially transparent, dark faded stain with scattered
-rubble, so the underlying terrain remains visible. The WebGL overlay must not
-paint an opaque floor beneath this atlas. Its ground follows the exact
-triangulated footprint and sorts below the player. Rogue palette preparation
-preserves texture alpha. No per-building material is generated.
+Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
+Individual 3D blocks centre on the old wall line, with eight-unit thickness,
+half-unit joints and one-unit clipped corners. Five bays in each nine-bay run
+rise through approximately 5, 10, 14, 11 and 5 units; long sides and the street
+entrance retain broad openings. Seeded wear varies the heights slightly. Loose
+fallen blocks are 2–4 units tall; their count scales with footprint area up to
+24. No roofs or raised framing remain.
+`tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
+speckled caps, and a restrained ground scatter using the same warm stone
+palette. Broad tarnish patches replace the study’s fine tiled grain and red
+brick flecks. The generator also supports buried-rubble and worn-ground previews.
+The brown background has alpha 128/255 (50%, rounded to an 8-bit channel).
+Sparse ground chips are composited separately, while raised
+masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
+this atlas. Ground follows the exact triangulated footprint and sorts below
+the player. Rogue preparation preserves the approved colors and alpha without
+an additional olive wash. No per-building material is generated.
 The floor sorts below actors; individual raised sections sort at their wall
 baselines. Breaches, doorway clearance and scattered blocks use stable IDs.
 

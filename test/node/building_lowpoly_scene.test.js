@@ -90,7 +90,7 @@
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'native profile keeps the roofless broken plinth');
     assert.truthy(mesh.faces.some(f=>f.rubbleTop&&f.rawUV&&f.color===0xffffff),'debris samples native masonry without a tint');
   }));
-  test('Rogue wrecks: prewarmed muted sheets preserve collapse geometry and allocate nothing on rebuild', () => withPhaser(() => {
+  test('Rogue wrecks: prewarmed study sheets preserve collapse geometry and allocate nothing on rebuild', () => withPhaser(() => {
     const scene=stubScene(),plain=BuildingLowPoly.recipeFor('wreck'),recipe={...plain,artProfile:'rogue'};
     BuildingLowPoly.prepareRogueWreck(scene);
     const material=scene.textures.get('rogue_wreck_material'),interior=scene.textures.get('rogue_wreck_interior');
@@ -229,7 +229,7 @@
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
     assert.truthy(mesh.faces.length,'rubble material remains');
     const top=Math.max(...mesh.faces.flatMap(f=>f.points.map(p=>p.z)));
-    assert.inRange(top,1,3,'every wall and rubble piece stays within the low plinth height');
+    assert.inRange(top,10,14,'every wall and rubble piece stays within the low plinth height');
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof or metal framing remains');
     assert.truthy(new Set(mesh.faces.filter(f=>f.wallTop).map(f=>f.points[0].z.toFixed(1))).size>1,'stub heights vary');
     const pieces=BuildingLowPoly.worldPieces(scene);
@@ -262,7 +262,7 @@
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck-rubble');
     const lids=mesh.faces.filter(f=>f.rubbleTop);
     assert.gte(lids.length/2,3,'a few chunks of wall lie about: '+lids.length/2);
-    assert.truthy(lids.every(f=>f.points.every(p=>p.z>0&&p.z<2.5)),'chunks are shallow stone fragments');
+    assert.truthy(lids.every(f=>f.points.every(p=>p.z>=2&&p.z<4)),'chunks are shallow stone fragments');
     assert.truthy(mesh.faces.filter(f=>f.rubble).every(f=>Math.min(...f.points.map(p=>p.z))>=0),'chunks rest on the ground');
     // The cel pass's darkest step is light < .65: the floor and inner walls stay above it.
     for(const f of mesh.faces.filter(f=>f.debris||f.interior))assert.gte(f.light,.65,'interior faces take the middle cel step');
@@ -273,18 +273,14 @@
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','square-breaks');
     const ring=FOOT.map(p=>({x:p.x-mesh.x,y:p.y-mesh.y}));
     let checked=0;
-    for(const face of mesh.faces.filter(f=>f.wallTop)){
-      const [a,b,c]=face.points;
-      // First triangle of a top quad has two outer points and one inner point.
-      if(Math.abs(a.x-b.x)<1e-8&&Math.abs(a.y-b.y)<1e-8)continue;
-      const onEdge=ring.find((p,i)=>{
-        const q=ring[(i+1)%ring.length],cross=r=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
-        return Math.abs(cross(a))<1e-6&&Math.abs(cross(b))<1e-6;
-      });
-      if(!onEdge)continue;
-      if(ring.some(p=>Math.hypot(p.x-b.x,p.y-b.y)<1e-6))continue;
-      assert.truthy(Math.abs((b.x-a.x)*(c.x-b.x)+(b.y-a.y)*(c.y-b.y))<1e-6,
-        'the cut across wall thickness is perpendicular to its length');
+    for(const face of mesh.faces.filter(f=>f.wallEnd&&!f.wallBevel)){
+      const edge=mesh.pieces[face.piece];
+      // Corner stones keep their footprint mitres; interior joints cut square.
+      if(ring.some(p=>[edge.a,edge.b].some(q=>Math.hypot(p.x-q.x,p.y-q.y)<1e-6)))continue;
+      const [a,b]=face.points,dx=edge.b.x-edge.a.x,dy=edge.b.y-edge.a.y;
+      if(Math.hypot(a.x-b.x,a.y-b.y)<1e-8)continue;
+      assert.truthy(Math.abs((b.x-a.x)*dx+(b.y-a.y)*dy)<1e-6,
+        'the main end face cuts perpendicular to the wall, between its corner chips');
       checked++;
     }
     assert.gt(checked,0,'checked interior wall breaks');
@@ -317,7 +313,7 @@
         width+'x'+height+' has no surviving roof structure');
       assert.truthy(mesh.faces.some(f=>f.wallTop),'broken walls still remain');
       assert.truthy(mesh.faces.some(f=>f.debris),'the rubble floor still remains');
-      assert.truthy(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=3)),'the whole wreck stays below three pixels');
+      assert.truthy(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=14)),'the whole wreck stays at most fourteen pixels high');
     }
   }));
   test('low-poly fade: translucent buildings omit filled outline passes that hide the player', () => withPhaser(() => {
