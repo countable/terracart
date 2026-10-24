@@ -578,14 +578,14 @@
   // One glowing cobble every lampSpacingM() metres of a RESTORED line — the
   // arithmetic only, run for real: no Phaser, no scene, no save.
 
-  test('streets lamps: the spacing is its OWN number, half the ladder\'s rung', () => {
+  test('streets lamps: the spacing is its OWN number, independent of the ladder', () => {
     // Deliberately NOT tied to Trail.GOAL_STEP_M any more: that floor (a way
     // under half the spacing gets no lamp at all) rode along with the
     // ladder's 200 m rung, and OSM cuts a way at every intersection — an
     // ordinary suburban block is routinely under the 100 m that demanded, so
     // a whole town could be walked clean and never light a single lamp.
     assert.eq(S.lampSpacingM(), S.LAMP_SPACING_M, 'reads its own constant');
-    assert.eq(S.LAMP_SPACING_M, 100, 'half the ladder\'s 200 m rung');
+    assert.eq(S.LAMP_SPACING_M, 50, 'ordinary roads target one lamp every 50 m');
     assert.lt(S.LAMP_SPACING_M, Trail.GOAL_STEP_M,
       'lighter than the ladder pays for — a normal block should qualify');
   });

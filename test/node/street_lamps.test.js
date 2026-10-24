@@ -362,13 +362,13 @@ const restoreAround = (save, s, halfM) =>
 test('street lamps: a ready tile stands one lamp per Streets.lampSpacingM() of street', () => {
   const entry = readyEntry();
   const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
-  assert.eq(lamps.length, 2, 'a 180 m way carries two lamps');
-  assert.eq(lamps.map((L) => Math.round(L.s)).join(','), '45,135', 'spread evenly, a half interval in at each end');
+  assert.eq(lamps.length, 4, 'a 180 m way carries four lamps');
+  assert.eq(lamps.map((L) => Math.round(L.s)).join(','), '23,68,113,158', 'spread evenly, a half interval in at each end');
   // In ABSOLUTE world metres: the tile's own origin plus the point BESIDE the
-  // line — 145 m along a way that runs due east, and one verge offset off it.
+  // line — 122.5 m along a way that runs due east, and one verge offset off it.
   const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM({ class: 'residential' }),
                                    STREET_LAMP_R_CELLS * CELL_M_T);
-  assert.inRange(lamps[0].x - TX * TILE_EDGE_M, 144.9, 145.1, 'the first stone stands 145 m into the tile');
+  assert.inRange(lamps[0].x - TX * TILE_EDGE_M, 122.4, 122.6, 'the first stone stands 122.5 m into the tile');
   assert.inRange(lamps[0].y - TY * TILE_EDGE_M, 178 - offM - 0.1, 178 - offM + 0.1,
     '…and a verge offset off the centreline, square to a way running due east');
 });
@@ -424,7 +424,7 @@ test('street lamps: a tile still LOADING is never memoised as lampless — the b
   assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 0, 'nothing to place yet');
   assert.falsy(entry._streetLamps, 'and the miss is NOT written onto the entry');
   entry.layers = mkLayers();                      // …the build lands
-  assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 2, 'the lamps appear the moment the tile is ready');
+  assert.eq(P._streetLampsForTile.call({}, TX, TY, entry).length, 4, 'the lamps appear the moment the tile is ready');
   assert.truthy(entry._streetLamps, 'only the real answer is memoised');
 });
 
@@ -441,12 +441,12 @@ test('street lamps: a restored stretch lights ITS lamp and only its lamp — the
   const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
   withTile(entry, () => {
     scene._updateStreetLamps();
-    assert.eq(scene._streetLamps.length, 2, 'both stones of a dilapidated street are on the list — drawn as plain cobbles');
+    assert.eq(scene._streetLamps.length, 4, 'all stones of a dilapidated street are on the list — drawn as plain cobbles');
     assert.eq(litOf(scene).length, 0, 'and none of them is lit');
     // Restore 12 m either side of the SECOND lamp — one dwell's worth.
     restoreAround(scene.save, lamps[1].s, 12);
     scene._updateStreetLamps();
-    assert.eq(scene._streetLamps.length, 2, 'the list still carries both stones');
+    assert.eq(scene._streetLamps.length, 4, 'the list still carries all stones');
     assert.eq(litOf(scene).length, 1, 'exactly the lamp inside the restored metres lights');
     assert.eq(litOf(scene)[0].id, lamps[1].id, 'and it is that one, not its neighbour');
     assert.truthy(scene._streetLamps.every((L) => L.tier === WorldGen.T.ROAD), 'each carries its tier for the dark frame');
@@ -461,7 +461,7 @@ test('street lamps: a lamp restored in an earlier session lights without the pla
   // walked onto another cell.
   const entry = loadingEntry();
   const save = {};
-  restoreAround(save, 135, 12);                   // banked before this session
+  restoreAround(save, 112.5, 12);                   // banked before this session
   const scene = lampScene({ save });
   withTile(entry, () => {
     scene._updateStreetLamps();
@@ -477,7 +477,7 @@ test('street lamps: a lamp restored in an earlier session lights without the pla
 test('street lamps: a ready ring memoises, so standing still costs nothing', () => {
   const entry = readyEntry();
   const scene = lampScene();
-  restoreAround(scene.save, 135, 12);
+  restoreAround(scene.save, 112.5, 12);
   withTile(entry, () => {
     scene._updateStreetLamps();
     const first = scene._streetLamps;
@@ -494,7 +494,7 @@ test('street lamps: a FAR ring tile still loading does not hold the memo open', 
   // lands, so the answer is final without it.
   const entry = readyEntry();
   const scene = lampScene();
-  restoreAround(scene.save, 135, 12);
+  restoreAround(scene.save, 112.5, 12);
   withTile(entry, () => {
     const k = WorldGen.tileKey(TX + 1, TY + 1);
     WorldGen.tileCache.set(k, loadingEntry());
@@ -702,9 +702,9 @@ test('street lamps: scenic segments share palette and lamp density without chang
     [0, toMvt(60), 'park'], [toMvt(60), toMvt(120), 'shore'],
   ]]]) };
   const lamps = P._streetLampsForTile.call({}, TX, TY, entry);
-  assert.eq(lamps.filter((l) => l.s < 60).length, 2, 'park density reflects its scenic bonus, rounded to whole lamps');
-  assert.eq(lamps.filter((l) => l.s >= 60 && l.s < 120).length, 2, 'promenade reflects its double distance bonus');
-  assert.eq(lamps.filter((l) => l.s >= 120).length, 1, 'plain remainder keeps normal density');
+  assert.eq(lamps.filter((l) => l.s < 60).length, 4, 'park density reflects its scenic bonus, rounded to whole lamps');
+  assert.eq(lamps.filter((l) => l.s >= 60 && l.s < 120).length, 5, 'promenade reflects its double distance bonus');
+  assert.eq(lamps.filter((l) => l.s >= 120).length, 2, 'plain remainder keeps normal density');
   assert.eq(lamps.find((l) => l.s > 60 && l.s < 120).glow, StreetVariants.VARIANT_BY_ID.promenade.lampGlow, 'golden promenade lamps');
   const styles = StreetVariants.lineStyles(entry, f, 0, 0, MVT_TO_M);
   assert.eq(styles.map((r) => r.variant).join(','), 'parkpath,promenade,');

@@ -32,7 +32,7 @@
 // way: one glowing cobble every `lampSpacingM()` metres of it, placed by
 // `lampsAlong` and lit when `covers` says its metre is restored. Nothing
 // about a lamp is stored — see the note above lampsAlong. Its own constant
-// (LAMP_SPACING_M, 100 m) — half the treasure ladder's rung — rather than
+// (LAMP_SPACING_M, 50 m), rather than
 // Trail.GOAL_STEP_M itself: most OSM ways are cut at every intersection, and
 // tying the "gets a lamp at all" floor to a 200 m rung left ordinary
 // suburban blocks (routinely under 100 m) dark however much of the town was
@@ -298,18 +298,9 @@
   // why it is NOT a per-cell road state: the cobbles that were keyed per cell
   // until Sep 2026 counted one thing and drew another.)
   //
-  // LAMP_SPACING_M is its OWN number, not the ladder's rung. It shipped tied
-  // to Trail.GOAL_STEP_M (200 m) so "one prize = about one lamp" — but
-  // `lampsAlong`'s floor (a line under half the spacing gets none, on
-  // purpose: it's what keeps a dense block of driveways from reading as a
-  // lit car park) rode along with it, and OSM cuts a way at every
-  // intersection: an ordinary suburban block is routinely well under the
-  // 100 m that floor demanded, so a whole town could be walked clean and
-  // never show a single lamp. Halving it to 100 m (floor 50 m) lets a normal
-  // block qualify without touching the treasure ladder's own pacing — the
-  // two numbers are allowed to disagree now; 200 m of restoration still pays
-  // one prize, but may light two lamps rather than one.
-  const LAMP_SPACING_M = 100;
+  // Lamp density is independent of the restoration ladder: ordinary roads
+  // target one lamp every 50 m so restored blocks carry visible light.
+  const LAMP_SPACING_M = 50;
   function lampSpacingM() {
     return LAMP_SPACING_M;
   }
@@ -332,7 +323,7 @@
   // a split sit a full spacing apart, as if the way had never been cut.
   //
   // `minLenM` (optional) raises that floor above half a step: a WALKING PATH
-  // lays its lamps at LAMP_PATH_SPACING_M but keeps the STREET's floor
+  // lays its lamps at LAMP_PATH_SPACING_M but keeps its short-crossing floor
   // (LAMP_PATH_MIN_LEN_M) — see lampLayFor.
   function lampsAlong(line, mvtToM, spacingM, minLenM) {
     const step = (spacingM > 0) ? spacingM : lampSpacingM();
@@ -352,13 +343,13 @@
   // WorldGen.classifyLine calls T.PATH — WorldGen.PATH_CLASSES, one table)
   // stands its lamps LAMP_PATH_SPACING_DIV times closer than a street, so
   // re-walking a path pays more per km (lampCredit pays one spacing per lamp).
-  // The FLOOR stays the street's: a path under half a STREET spacing stands no
-  // lamp at all. Halving the floor with the spacing would light every
+  // Paths retain a 50 m minimum length independently of lamp density.
+  // Lowering the floor with the spacing would light every
   // pavement crossing and garden stub (OSM draws a crossing as a footway a
   // carriageway wide) — a reward standing in the road.
   const LAMP_PATH_SPACING_DIV = 2;
   const LAMP_PATH_SPACING_M = LAMP_SPACING_M / LAMP_PATH_SPACING_DIV;
-  const LAMP_PATH_MIN_LEN_M = LAMP_SPACING_M / 2;
+  const LAMP_PATH_MIN_LEN_M = 50;
   function isWalkingPath(tags) {
     const WG = root.WorldGen;
     const c = (tags && tags.class) || '';

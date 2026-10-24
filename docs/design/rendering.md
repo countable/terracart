@@ -1079,7 +1079,8 @@ the reach rim within the existing player-light radius.
 - Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
   lamps, distinct from the turquoise rift palette.
 - Generate lamps on paths and Small roads from `Streets.lampSpacingM()`
-  (independent of restoration ladder goals), with sparse lamps on Medium/Large
+  (50 m on Small roads; paths use half that spacing and retain a 50 m minimum
+  line length, independent of restoration ladder goals), with sparse lamps on Medium/Large
   roads. Street variants tint emitted light; an enclosing nexus takes precedence.
   Suppressed roads retain their own turquoise emission even inside a nexus.
   All bodies use the native FD L01 wooden hanging lamp, with the authored
