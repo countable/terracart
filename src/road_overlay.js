@@ -239,7 +239,7 @@
   // stays inside the ground the no-spawn road mask covers (QC rule).
   // The noise tile is world-phased exactly like the cobbles, so the bites sit
   // still on the road as the player walks.
-  const EDGE_FRINGE_PX = 3;          // ~1.5px per side — subtle, not torn
+  const EDGE_FRINGE_PX = 6;          // 3px per side — terrain pockets between crisp stone chips
   const EDGE_NOISE_COVERAGE = 0.45;  // fraction of the fringe eaten
   let edgeNoiseCanvas;
   function edgeNoiseTile() {
