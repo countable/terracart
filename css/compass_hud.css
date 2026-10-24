@@ -467,7 +467,7 @@ body.compass-round #game {
 
 /* A steady five-second light also respects reduced-motion preferences. */
 body.compass-hud .compass-awakening {
-  box-shadow: inset 0 0 12px #71ff5a, 0 0 5px 3px #71ff5a, 0 0 20px 7px #39ff14 !important;
-  outline: 2px solid #a0ff83;
+  box-shadow: inset 0 0 12px #55ffe0, 0 0 5px 3px #55ffe0, 0 0 20px 7px #00e6c3 !important;
+  outline: 2px solid #a0fff0;
   outline-offset: 1px;
 }

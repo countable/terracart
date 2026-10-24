@@ -34,7 +34,7 @@ window.installCompassHudHarness = function () {
     return { active: scene.save.compassModules.active, map: document.querySelector('.compass-aperture').getBoundingClientRect().toJSON(), energy: rect('energy'), memories: rect('memories'), books: rect('bookchip'), joystick: rect('move-pad') };
   }
   // The world is frozen for inspection, but explicit spirit-walking
-  // activation must still deliver its green highlight.
+  // activation must still deliver its turquoise highlight.
   const timer = setInterval(() => {
     if (scene.scene.isPaused()) CompassModules.drain(scene);
   }, 250);
