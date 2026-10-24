@@ -2482,19 +2482,37 @@ class MapScene extends Phaser.Scene {
   // (SaveState.WILD_REGROWTH) from saves that predate regrowth, including
   // burned tufts. Chunk queries keep this
   // bounded to the current neighbourhood rather than scanning the tile cache.
+  // A plant on tilled soil never regrows (SaveState.stopRegrowth); one that
+  // already grew back through a bed, in a save from before that rule, is
+  // cleared again.
   _tickGrassRegrowth(now = Date.now()) {
-    let changed = SaveState.regrowGrass(this.save, now);
+    let changed = false;
     const cleared = new Set([...(this.save.picked || []), ...(this.save.burnedObjects || [])]);
-    if (cleared.size) {
+    const tilled = (this.depth || 0) === 0 && this.tilledSet?.size ? this.tilledSet : null;
+    const onBed = plant => {
+      if (!tilled) return false;
+      const c = worldMetersToAbsCell(this, plant.x, plant.y);
+      return tilled.has(cellKeyFromAbsCell(c.cellIX, c.cellIY));
+    };
+    const regrown = [];
+    if (cleared.size || tilled) {
       const pc = this.playerToWorldCell(), p = playerWorldM(this);
       const radius = Math.max(16, this.viewCells || 0) * this.cellM;
       forEachLoadedTile(pc.tx, pc.ty, entry => {
         WorldGen.forEachItemInBox(entry, 'wildplants',
           p.x - radius, p.y - radius, p.x + radius, p.y + radius, plant => {
-            if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now) || changed;
+            if (!onBed(plant)) {
+              if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now) || changed;
+            } else if (SaveState.stopRegrowth(this.save, plant)) {
+              changed = true;
+              if (!cleared.has(plant.id)) regrown.push(plant.id);
+            }
           });
       });
     }
+    // A new array refreshes the memoised setOf membership.
+    if (regrown.length) this.save.picked = [...(this.save.picked || []), ...regrown];
+    changed = SaveState.regrowGrass(this.save, now) || changed;
     if (changed) persistSave(this.save);
   }
 

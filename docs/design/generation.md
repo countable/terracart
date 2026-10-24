@@ -211,7 +211,11 @@ access or tile lifecycle mechanics.
   (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's mean today). A crop grows
   back by having a row; the mechanism is one. A picked berry bush stands as
   a bare bush meanwhile (`WILDPLANT_RULES` `pickedCrop`) and fruits again
-  when its id leaves `picked`; the golden berry bush has no row.
+  when its id leaves `picked`; the golden berry bush has no row. Tapping a
+  bare bush starts ordinary shrub axe work, including on Small roads. Completion
+  awards wood once, records the plant in `chopped`, and cancels its fruit-regrowth
+  deadline. It does not repeat fruit, nest, treasure or shiny rewards. Rendering
+  and tap targeting share the bare-plant view; chopped plants stay gone on reload.
   Harvest records the deadline in `save.grassRegrowth`; normalization and
   the ten-second save heartbeat remove expired ids from `picked` /
   `burnedObjects`. Deadlines persist across reloads and run while offline.
@@ -221,6 +225,13 @@ access or tile lifecycle mechanics.
   and starts their clocks on that visit; ids cannot safely be inferred from
   prefixes shared with other crops. Player-owned plants and all other cleared
   objects (bushes, berries, barriers) retain their existing rules.
+  Tilled soil ends regrowth: tilling a cell, or the heartbeat finding a
+  cleared plant on a tilled cell, sets its deadline to
+  `SaveState.stopRegrowth`'s never-arriving mark, and a plant that already
+  grew back through a bed is cleared again.
+- The till refuses any cell where something stands as drawn
+  (`Render.wildplantView`), so a picked berry bush's bare remnant blocks
+  the hoe like the bush itself.
 - Picking a wild berry records its original id in `save.picked` as usual,
   but leaves the same bush at that location, with only its berries removed.
   Mature berry bushes use the ordinary bush frame and scale; a texture baked
