@@ -3920,11 +3920,10 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   return drawn;
 };
 
-// Native RA grass is four retained crossed tufts per harvestable square.
-// Each tuft sorts among actors and props; texture alpha leaves natural gaps.
+// Retained textured blades sort by their grounded roots among actors and props.
 Render.drawGrassPrisms = function (scene, plantItems) {
   const drawn = new Set();
-  if (typeof WallPerspective === 'undefined' || !scene.textures?.exists(WallMaterials.GRASS.texture)) return drawn;
+  if (typeof WallPerspective === 'undefined' || !WallMaterials.prepareGrass(scene)) return drawn;
   const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
   const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
   const pieces = [];
@@ -3943,14 +3942,15 @@ Render.drawGrassPrisms = function (scene, plantItems) {
     const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
     const x = at.x + fx - CELL_PX / 2, y = at.y + fy - CELL_PX / 2;
     const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
-    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height);
-    for (let tuft = 0; tuft < 4; tuft++) {
-      const cx = x + CELL_PX / 2 + (tuft % 2 ? WallMaterials.GRASS.offset : -WallMaterials.GRASS.offset), cy = y + CELL_PX / 2 + (tuft < 2 ? -WallMaterials.GRASS.offset : WallMaterials.GRASS.offset);
+    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
+      { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
+    for (let blade = 0; blade < faces.length; blade += 2) {
+      const { x: cx, y: cy } = faces[blade].billboard;
       const half = WallMaterials.GRASS.width / 2;
       WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
         { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
         { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
-        { materialFaces: faces.slice(tuft * 4, tuft * 4 + 4) });
+        { materialFaces: faces.slice(blade, blade + 2) });
     }
   }
   scene._grassPrismKey = key; WallPerspective.offset(scene, 'grass', -fx, -fy);

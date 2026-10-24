@@ -9322,6 +9322,15 @@
       },
       emit: (L, c, p) => L.objects.push(makeObject('grove_shrine', p.x, p.y,
         cellId(`cdrill_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { shrineKind: 'drill', depth: L.depth })) },
+    // Last: grass takes only empty floor seats, never displacing cave rewards,
+    // authored areas, landings or the existing mushroom/rock population.
+    { id: 'grass', when: (L) => !!floorProfile(L.depth).grass, pivot: 1, from: 0, tries: 1,
+      salt: 0x6C8E9CF5,
+      setup: (L) => runSteps(grassFillSteps(L.tx, L.ty, L.N)),
+      pick: (rng, px, py, L, candidates) => candidates[py * L.N + px] ? { lix: px, liy: py } : null,
+      emit: (L, c, p) => L.wildplants.push(makeWildplant('longgrass', p.x, p.y,
+        cellId(`cgrass_${L.depth}`, L.tx, L.ty, c.lix, c.liy),
+        { _ix: c.lix, _iy: c.liy, _cave: true, depth: L.depth })) },
   ];
   // One pass over a level — see CAVE_PASSES for the two walks. `L` is the
   // level: { grid, N, tx, ty, tileEdgeM, depth, occupied (flat cell indices,
@@ -9494,7 +9503,7 @@
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'dungeon_underdark', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false, grass: true,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 6, arrivalStory: 'dungeon_lava', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
