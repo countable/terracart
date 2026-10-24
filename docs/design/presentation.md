@@ -272,17 +272,17 @@ pixels and decorative details do not define additional tap cells.
   introduction survives spending and reloads; older saves unlock on their next
   earned coin.
 
-- Living-silver compass circuits persist their active state and pending
-  one-time Dragon Spirit notices in `save.compassModules`. Inventory activates
-  on the first item or gear, books on the first book obtained, memories on the
-  first discovery/memory. Spending cannot close an activated circuit. Distance
-  activates after 200 m of accepted movement; joystick activation requires
-  **Enable spirit walking** in its spirit dialog. Closed controls explain low
-  power. Activation notices use Dragon Spirit speech bubbles anchored to the
-  awakened control, with **Got it** immediately available and tap-anywhere
-  dismissal after two seconds. They wait behind stories and dialogs, present
-  one at a time, and are claimed when shown so reloads cannot repeat them. Existing ownership seeds circuits
-  quietly when upgrading an older save.
+- Living-silver compass circuits persist their active state and unread
+  introductions in `save.compassModules`. Inventory activates on the first item
+  or gear, books on the first book obtained, memories on the first discovery/memory.
+  Spending cannot close an activated circuit. Distance activates after 200 m of
+  accepted movement; joystick activation requires **Enable spirit walking** in
+  its spirit dialog. Closed controls explain low power. Activation gives the
+  control a bright, steady green glow for five seconds, without opening a dialog
+  or waiting for the story lane. The first player tap on an awakened control
+  shows its Dragon Spirit introduction; subsequent taps use it normally.
+  Unread introductions survive reloads and are claimed only when shown.
+  Existing ownership seeds circuits quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
   128px portrait, description, current/max HP and damage per hit. Stats use

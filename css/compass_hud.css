@@ -464,3 +464,10 @@ body.compass-round .compass-bearing {
 body.compass-round #game {
   translate: 0 -5px;
 }
+
+/* A steady five-second light also respects reduced-motion preferences. */
+body.compass-hud .compass-awakening {
+  box-shadow: inset 0 0 12px #71ff5a, 0 0 5px 3px #71ff5a, 0 0 20px 7px #39ff14 !important;
+  outline: 2px solid #a0ff83;
+  outline-offset: 1px;
+}
