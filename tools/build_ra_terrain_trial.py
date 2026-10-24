@@ -31,7 +31,7 @@ families = [
 # needs only the exported atlas, never this tool or the original art pack.
 resolver = "const a=require('./tools/jungle-autotile.js');const rows=JSON.parse(process.argv[1]);process.stdout.write(JSON.stringify(rows.map(r=>Array.from({length:16},(_,m)=>a.dualTiles(m,r.options)))));"
 choices = json.loads(subprocess.check_output(['node','-e',resolver,json.dumps(families)], cwd=ROOT))
-atlas = Image.new('RGBA',(256,len(families)*16))
+atlas = Image.new('RGBA',(256,(len(families)+2)*16))
 rows = []
 for family_index, (family, masks) in enumerate(zip(families, choices)):
     source_path = SOURCE / family['source']
@@ -54,7 +54,23 @@ for family_index, (family, masks) in enumerate(zip(families, choices)):
         atlas.alpha_composite(tile,(mask*16,family_index*16))
         frames.append(dict(mask=mask, frame=family_index*16+mask, sourceRects=[[p['sx'],p['sy'],16,16] for p in parts]))
     rows.append(dict(id=family['id'],index=family_index,source=str(source_path),sourceSHA256=hashlib.sha256((ROOT/source_path).read_bytes()).hexdigest(),calmWater=family.get('calmWater',False),frames=frames))
+# Reuse RA earth silhouettes with the selected, already-tinted interiors.
+# Water remains the last composite layer, retaining its original bank pixels.
+selected = Image.open(ROOT/'assets/selected-terrain/selected-terrain.png').convert('RGBA')
+selected_entries = json.loads((ROOT/'assets/selected-terrain/sources.json').read_text())['entries']
+for name, material in [('churchyard','G06-purple'), ('tarYard','G09-smooth-grey')]:
+    entry = next(e for e in selected_entries if e['id'] == material)
+    family_index = len(rows)
+    center = selected.crop((entry['frame']*16,0,(entry['frame']+1)*16,16))
+    for mask in range(16):
+        alpha = atlas.crop((mask*16,2*16,(mask+1)*16,3*16)).getchannel('A')
+        tile = center.copy()
+        tile.putalpha(alpha)
+        atlas.paste(tile,(mask*16,family_index*16))
+    rows.append(dict(id=name,index=family_index,source='assets/selected-terrain/selected-terrain.png',
+        selectedMaterial=material,selectedFrame=entry['frame'],maskFamily='oliveSoil',
+        sourceSHA256=hashlib.sha256((ROOT/'assets/selected-terrain/selected-terrain.png').read_bytes()).hexdigest()))
 atlas.save(OUT/'tiles.png')
-manifest=dict(frameSize=16,columns=16,rows=len(families),families=rows,notes='Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground.')
+manifest=dict(frameSize=16,columns=16,rows=len(rows),families=rows,notes='Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground.')
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
-print(f'Exported {len(families)*16} frames to {OUT.relative_to(ROOT)}')
+print(f'Exported {len(rows)*16} frames to {OUT.relative_to(ROOT)}')

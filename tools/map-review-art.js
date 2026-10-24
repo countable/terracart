@@ -64,6 +64,12 @@ const MapReviewArt = (() => {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);
         drawBiomeTexture(t.getContext(),32,type,v,0);
       }
+      if (typeof ZONE_SELECTED_MATERIALS !== 'undefined') {
+        for (const id of new Set(Object.values(ZONE_SELECTED_MATERIALS))) {
+          const t=textures.createCanvas('zone_ground_'+id,32,32);
+          drawSelectedMaterial(t.getContext(),32,id);
+        }
+      }
       if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(scene);
       return {textures,failures,scene};
     })();
@@ -215,7 +221,8 @@ const MapReviewArt = (() => {
         const m=e.cellsPerEdge,ix=Math.floor((gx-tx)*m),iy=Math.floor((gy-ty)*m),i=iy*m+ix,j=(y+1)*stride+x+1;
         let type=types[j]=e.grid[i];
         const cell=tileCellToAbs(this._world.scene,tx,ty,ix,iy);
-        if(zoneGroundColor(e,ix,iy,type)!=null)continue;
+        const tintedNative=type===WorldGen.T.CHURCHYARD||type===WorldGen.T.TAR_YARD;
+        if(!tintedNative&&(zoneGroundColor(e,ix,iy,type)!=null || zoneGroundTexture(e,i,type)))continue;
         if(WorldGen.isCobbleTerrain(type))type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
         else if(isBuildingType(type)&&!e.syntheticBuildingCells?.[i])type=this._world.scene.neighborNonRoadType(cell.cellIX,cell.cellIY);
         if(type!=null)materials[j]=RATerrainTrial.material(type,cell.cellIX,cell.cellIY);
@@ -303,8 +310,9 @@ const MapReviewArt = (() => {
             const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y);
             type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
           }
+          const zoneTexture=typeof zoneGroundTexture==='function' && zoneGroundTexture(e,y*N+x,e.grid[y*N+x]);
           let selected=null;
-          if(native&&dx>=4) {
+          if(native&&dx>=4&&(!zoneTexture||type===WorldGen.T.CHURCHYARD||type===WorldGen.T.TAR_YARD)) {
             const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y),index=(y+1)*native.stride+x+1;
             selected=(typeof MountainEdges!=='undefined'&&MountainEdges.select(native.types,native.stride,index,cell.cellIX,cell.cellIY))
               ||RATerrainTrial.select(this._assets.scene,native.materials,native.stride,index,cell.cellIX,cell.cellIY);
@@ -315,10 +323,16 @@ const MapReviewArt = (() => {
             const left=Math.floor(a.x+x*dx),top=Math.floor(a.y+y*dy);
             g.drawImage(texture.getSourceImage(),frame.cutX,frame.cutY,frame.width,frame.height,left,top,
               Math.ceil(a.x+(x+1)*dx)-left,Math.ceil(a.y+(y+1)*dy)-top);
+            for(const layer of selected.layers||[]) {
+              const overlay=texture.get(layer);
+              g.drawImage(texture.getSourceImage(),overlay.cutX,overlay.cutY,overlay.width,overlay.height,left,top,
+                Math.ceil(a.x+(x+1)*dx)-left,Math.ceil(a.y+(y+1)*dy)-top);
+            }
+
           } else {
             const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
             g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-            if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+            if((zoneTexture||spec)&&dx>=4)g.drawImage(textures.get(zoneTexture||`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           }
           const sand=pirateSand(e,y*N+x);
           if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}

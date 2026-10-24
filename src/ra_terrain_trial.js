@@ -1,13 +1,15 @@
-// Native tileset ground on the ordinary generated world. This
+// Native tileset ground on the ordinary generated world. This optional
 // presentation never writes grid, occupancy, source polygons, objects or saves.
 const RATerrainTrial = (() => {
   const mode = 'rogue';
+  const layered = new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get('terrainLayers') === 'on';
+  const LAYER_ORDER = [0,1,2,3,5,6,7,8,9,4];
   const profiles = Object.freeze({
     rogue: {source:'ra_terrain_source', key:'ra_terrain_composite', path:'assets/ArtTrials/RogueTerrain/tiles.png'},
   });
   const profile = profiles[mode];
   const enabled = !!profile;
-  const families = Object.freeze(['villageGrass', 'forestGrass', 'oliveSoil', 'darkSoil', 'water', 'sand', 'stone', ...(mode === 'rogue' ? ['brownSoil'] : [])]);
+  const families = Object.freeze(['villageGrass', 'forestGrass', 'oliveSoil', 'darkSoil', 'water', 'sand', 'stone', 'brownSoil', 'churchyard', 'tarYard']);
   const SOURCE = profile?.source, KEY = profile?.key;
   const TILE = mode === 'dreamland' ? 32 : 16;
   const roadCanvases = [];
@@ -15,6 +17,7 @@ const RATerrainTrial = (() => {
   function roadTile(variant, restored) {
     return profile?.road && (!variant || ROAD_VARIANTS.has(variant)) ? (roadCanvases[restored ? 1 : 0] || null) : null;
   }
+  // Ten families cap the startup atlas at 1600 × 1600 pixels (9.8 MiB RGBA).
   const COUNT = families.length, FRAMES = COUNT ** 4;
   // A 24px material repeat crosses the 32px grid in three world phases.
   // Only quiet interiors need extra frames; native transition masks stay intact.
@@ -22,7 +25,9 @@ const RATerrainTrial = (() => {
   const GRASS_FRAMES = FRAMES + COUNT * DETAIL_PHASES ** 2;
   // Four native-size grass subtiles use nine shared binary vertices.
   const ATLAS_FRAMES = mode === 'dreamland' ? GRASS_FRAMES + 512 : FRAMES;
-  const TYPES = Object.freeze({0:0, 1:1, 2:5, 3:4, 4:2, 5:0, 6:0, 15:6, 16:6, 17:6, 18:0, 19:0, 20:3, 21:0, 22:1, 23:4});
+  // Residential uses the selected RA rock texture outside the native edge atlas.
+  // Grass shares the orchard family; ownership and gameplay terrain stay unchanged.
+  const TYPES = Object.freeze({0:1, 1:1, 2:5, 3:4, 4:2, 6:0, 15:6, 17:6, 18:0, 19:0, 20:3, 21:0, 22:1, 23:4, 29:8, 31:9});
   function patchNoise(x, y) {
     let h = Math.imul(x, 374761393) ^ Math.imul(y, 668265263);
     h = Math.imul(h ^ (h >>> 13), 1274126177);
@@ -30,19 +35,6 @@ const RATerrainTrial = (() => {
   }
   function material(type, cellX, cellY) {
     const family = TYPES[type] ?? -1;
-    if (mode === 'rogue' && (family === 0 || family === 1)
-        && Number.isFinite(cellX) && Number.isFinite(cellY)) {
-      // Broad, stable ground islands use the reference's native soil edges;
-      // this is a presentation sample, never a new terrain/collision class.
-      const bx = Math.floor(cellX / 5), by = Math.floor(cellY / 5);
-      const x = cellX / 5 - bx, y = cellY / 5 - by;
-      const a = patchNoise(bx,by), b = patchNoise(bx+1,by);
-      const c = patchNoise(bx,by+1), d = patchNoise(bx+1,by+1);
-      const value = (a+(b-a)*x)*(1-y)+(c+(d-c)*x)*y;
-      if (value > .56) return family === 0 ? 7 : 2;
-      if (family === 1 && value < .25) return 3;
-      return family;
-    }
     if (mode !== 'dreamland'  || (family !== 0 && family !== 1)
         || !Number.isFinite(cellX) || !Number.isFinite(cellY)) return family;
     // Stable source-native grass islands. Both families share the reference's
@@ -59,6 +51,16 @@ const RATerrainTrial = (() => {
     for (let i = 0; i < 4; i++) if (values[i] === family) mask |= 1 << i;
     return mask;
   }
+  // One full local base followed by up to three native transparent masks.
+  // Stable priority is shared with the reference bake, including water last.
+  function layersFor(values) {
+    const frames = [];
+    for (const family of LAYER_ORDER) {
+      const mask = maskFor(values, family);
+      if (mask) frames.push(family * 16 + (frames.length ? mask : 15));
+    }
+    return frames;
+  }
   function frameFor(values) { return values[0] + COUNT * (values[1] + COUNT * (values[2] + COUNT * values[3])); }
   function install(assets) {
     if (enabled) assets[SOURCE] = {kind:'spritesheet', path:profile.path, frameWidth:TILE, frameHeight:TILE};
@@ -69,6 +71,7 @@ const RATerrainTrial = (() => {
   }
   function prepare(scene) {
     if (!enabled) return;
+    if (layered) { scene._raTerrainReady = true; return; }
     if (profile.road && !roadCanvases.length) {
       for (const key of ['dreamland_path_source','dreamland_path_restored_source']) {
         const source = scene.textures.get(key).getSourceImage();
@@ -99,7 +102,7 @@ const RATerrainTrial = (() => {
       const x = frame % columns * TILE, y = Math.floor(frame / columns) * TILE;
       // Fill with an actual local material, not unconditional village grass:
       // transparent authored corners on a sand shore must reveal sand.
-      const layers = mode === 'rogue' ? [0,1,2,3,5,6,7,4] : [0,1,2,3,5,6,4];
+      const layers = LAYER_ORDER;
       const base = layers.find(family => values.includes(family));
       draw(base, 15, x, y);
       // Water draws last, so the native bank remains intact at three-way joins.
@@ -179,15 +182,20 @@ const RATerrainTrial = (() => {
       }
       frame = GRASS_FRAMES + code;
     }
+    const values = layered ? [self, a < 0 ? self : a, b < 0 ? self : b, c < 0 ? self : c] : null;
     const audit = scene._raTerrainAudit;
     if (audit) { audit.drawnCells++; audit.materials[families[self]] = (audit.materials[families[self]] || 0) + 1; }
+    if (layered) {
+      const layers = layersFor(values);
+      return {key:SOURCE, frame:layers[0], layers:layers.slice(1)};
+    }
     return {key:KEY, frame};
   }
   function status(scene) {
-    return {enabled, profile:enabled ? mode : null, ready:!!scene?._raTerrainReady, atlasFrames:scene?._raTerrainReady ? ATLAS_FRAMES : 0,
+    return {enabled, profile:enabled ? mode : null, ready:!!scene?._raTerrainReady, layered, atlasFrames:scene?._raTerrainReady && !layered ? ATLAS_FRAMES : 0,
       drawnCells:scene?._raTerrainAudit?.drawnCells || 0, materials:{...scene?._raTerrainAudit?.materials}};
   }
-  return {enabled, roadTile, families, material, maskFor, frameFor, install, prepare, select, status};
+  return {enabled, layered, roadTile, families, material, maskFor, layersFor, frameFor, install, prepare, select, status};
 })();
 if (typeof ASSETS !== 'undefined') RATerrainTrial.install(ASSETS);
 if (typeof window !== 'undefined') window.RATerrainTrial = RATerrainTrial;

@@ -1053,9 +1053,22 @@ the reach rim within the existing player-light radius.
   biome texture (`Render.roadBackdropType`): explicit street ground, then recorded
   source landcover (`roadUnder` / `pathUnder`), then the surrounding biome and grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
+- Native RA ground materials follow resolved landcover, never coordinate-noise
+  soil islands. Grass shares the Orchard native family; Residential uses selected
+  Rock. Churchyard and Tar Yard (including their Nexus variants) use their tinted
+  interiors with RA earth masks; water layers last to preserve its authored banks.
+  Game and map review share these transitions. Other Nexus materials retain their
+  selected texture owner. Ten families bound the startup atlas to 1600 × 1600 pixels
+  (9.8 MiB RGBA); no runtime pixel reads or per-cell canvases are added.
+- Road surfaces repeat complete native textures without slab bevels or synthetic
+  brick grids. Ordinary roads use Farming Game World blue-grey natural stone.
+  Variant groups use Fantasy Dreamland warm cobbles, moss, mauve aggregate,
+  charcoal or marsh earth. Weathering is a cached dark wash; ember and rift
+  warnings retain their existing painters. Commercial landcover uses Fantasy City
+  small sandstone pavers independently of road geometry and variant ownership.
 - Opaque selected terrain supplies its dominant ink for existing fills and seam blends,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
-  to RA ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
+  to selected ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
   changing ownership, props, trees or gameplay. Keep the existing transition masks.
   One bounded startup atlas holds the 15 rounded-corner combinations for surface
   materials, reusing the renderer’s existing corner flags. Transparent cutouts reveal
@@ -1073,19 +1086,11 @@ the reach rim within the existing player-light radius.
   frame stride), never the transparent bank family. `sources.json` records every crop,
   palette and composition; `tools/build_selected_terrain.py` reproduces the strip.
   No per-cell pixel reads or new resource-looking decorative sprites are introduced.
-- Roads assemble the selected RA R01–R07 pavers into a cached native-scale,
-  staggered repeat with subdued bevels, repeated in world space
-  inside the existing vector masks. Ordinary worn R02 repairs to clean R01;
-  named themes retain their selected family across restoration. The source
-  texture replaces procedural stone grain, mushroom spots and slime decoration;
-  existing road geometry, widths, keep-outs, rail furniture and edge transitions
-  stay unchanged. Worn bands use a world-phased chipped fringe extending
-  3px inward per side, exposing the surrounding terrain through larger bites.
-  This reuses the existing noise and interior-repair passes without adding blur
-  or per-frame work. Source wear replaces the duplicate weathering wash.
-  Burned Row retains its existing ember warning over the charcoal source stone.
-  Rift suppression uses the same RA paver with a cached turquoise wash beneath its
-  existing explicit mineral-fracture treatment.
+- Road materials repeat in world space inside the existing vector masks. Their
+  source texture replaces procedural stone grain, mushroom spots and slime
+  decoration; geometry, widths, keep-outs, rail furniture and edge transitions
+  remain owned by the road overlay. Burned Row retains its ember warning; rift
+  suppression retains its cached turquoise wash and explicit fracture treatment.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
@@ -1096,6 +1101,9 @@ the reach rim within the existing player-light radius.
   suppression), on the surface and outside water/buildings. Dry wasteland texture with sparse baked turquoise gem/star flecks
   replaces lush biome detail there. Flecks are static paint, never light sources. This render-only palette never enters street
   theme selection or dressing; runtime and preview share the pavement painter.
+- Churchyard and every Old Stones Nexus variant use purple RA earth; Tar Yard
+  and every tar Nexus variant use smooth neutral-grey RA ground. The atlas bakes
+  these palettes once, with low-contrast grain for tar and no paving joints.
 - Old Stones uses grey-purple ground, stone dust, lichen and pale lavender
   lamps, distinct from the turquoise rift palette.
 - Generate lamps on paths and Small roads from `Streets.lampSpacingM()`
@@ -1344,3 +1352,10 @@ sprites or announce a hidden find on entry. Player lower-half cover, normal
 harvesting, deterministic eggs, and the separate hedge treatment remain intact.
 Only visible cell candidates enter the retained batch; heading and subcell
 movement reuse its geometry. Reeds retain their existing sprite presentation.
+
+- `?terrainLayers=on` enables the layered native-terrain prototype. It draws one
+  full local material plus up to three source-mask overlays in the same priority
+  order as the baked atlas, with water last. A reusable sprite pool preserves
+  per-cell ordering; Canvas folds those sprites into its existing viewport cache.
+  The prototype skips the permutation atlas entirely. The default remains baked
+  for comparison until visual and movement-performance measurements justify a switch.
