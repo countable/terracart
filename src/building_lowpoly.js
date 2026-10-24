@@ -32,7 +32,7 @@
     wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,ink:0x000000}};
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.
   const WRECK_INSIDE_LIGHT=.7;
-  const WRECK_BORDER={color:0x413b32,alpha:.72,width:5,period:64,maskX:400,maskY:136};
+  const WRECK_BORDER={color:0x413b32,alpha:.72,width:2.5,period:94,maskX:400,maskY:136};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
   const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967296;};
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
@@ -1074,9 +1074,9 @@
     ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#968a76';ctx.fillRect(0,0,512,128);
     ctx.fillStyle='#b6aa93';ctx.fillRect(256,0,256,128);
-    ctx.fillStyle='rgba(76,70,59,0.72)';ctx.fillRect(0,128,512,384);
-    ctx.clearRect(399,136,66,8);ctx.fillStyle='#ffffff';
-    for(const [x,w] of [[0,7],[13,5],[26,8],[39,6],[52,4],[64,1]])ctx.fillRect(400+x,136,w,8);
+    ctx.clearRect(0,128,512,384);
+    ctx.clearRect(399,136,96,8);ctx.fillStyle='#ffffff';
+    for(const [x,w] of [[0,14],[20,10],[38,16],[59,12],[78,8],[94,1]])ctx.fillRect(400+x,136,w,8);
     ctx.fillStyle='#ffffff';ctx.fillRect(508,124,4,4);
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
