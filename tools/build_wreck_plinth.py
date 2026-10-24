@@ -32,11 +32,12 @@ for y in range(0, 384, 16):
         tile = ImageEnhance.Brightness(dirt).enhance(.55)
         floor.alpha_composite(tile, (x, y))
 floor.putalpha(mask)
-# Larger, legible native chips are scattered over the stain, with gaps between.
+# Match the study at footprint scale: the 384px atlas shrinks to roughly 145px.
+# Larger source chips retain the study's 4–8px rubble clusters after that shrink.
 # Their dark faded tones settle into the terrain instead of making a bright slab.
-for _ in range(1300):
+for _ in range(3200):
     x, y = rng.randrange(384), rng.randrange(384)
-    size = rng.randrange(6, 13)
+    size = rng.randrange(10, 21)
     chip = grit.resize((size, max(4, round(size * .8))), Image.Resampling.NEAREST)
     chip = ImageEnhance.Brightness(chip).enhance(.65)
     chip.putalpha(chip.getchannel('A').point(lambda a: round(a * .55)))

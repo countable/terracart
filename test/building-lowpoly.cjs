@@ -63,7 +63,7 @@ for(const role of Object.keys(api.ROLES)){
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*15.6+2.5,5);
  // Keep structural geometry bounded separately from clipped floor shadows.
  assert(mesh.faces.filter(f=>f.castShadow).length<1000,role+' bounded shadows');
- assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?1000:300),role+' bounded geometry');
+ assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?1200:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);

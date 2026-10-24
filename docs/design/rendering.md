@@ -344,10 +344,11 @@ or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wreck foundations use broad, low stone runs with open breaches and scattered
 fallen masonry. Four of seven bays survive before entrance cuts, with four-unit
 thickness and varied heights up to three units. Loose blocks scale with footprint
-area, capped at eighteen. There are no roofs or raised framing.
+area, capped at thirty-two. There are no roofs or raised framing.
 `tools/build_wreck_plinth.py` builds the shared atlas from native Ruined Medieval
 Village stone and Rogue Adventure dirt/grit. Stone caps and sides stay opaque;
-the flat ground is a partially transparent, dark faded stain with scattered
+ground chips match the study’s density and size at the displayed footprint
+scale; the flat ground is a partially transparent, dark faded stain with scattered
 rubble, so the underlying terrain remains visible. The WebGL overlay must not
 paint an opaque floor beneath this atlas. Its ground follows the exact
 triangulated footprint and sorts below the player. Rogue palette preparation
