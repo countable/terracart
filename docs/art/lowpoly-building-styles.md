@@ -176,7 +176,9 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-The brown background has alpha 128/255 (50%, rounded to an 8-bit channel).
+A three-unit dark brown border follows the exact footprint, with short round
+joins at concave corners. It stays on the ground beneath actors and masonry.
+The subdued brown background has alpha 128/255 (50%, rounded to an 8-bit channel).
 Sparse ground chips are composited separately, while raised
 masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
 this atlas. Ground follows the exact triangulated footprint and sorts below

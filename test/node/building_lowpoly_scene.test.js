@@ -228,6 +228,8 @@
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
     assert.truthy(mesh.faces.length,'rubble material remains');
+    assert.truthy(mesh.faces.some(f=>f.footprintBorder&&f.debris&&f.solid&&f.color===0x3c352b),
+      'ground border survives atlas conversion with its dark tint');
     const top=Math.max(...mesh.faces.flatMap(f=>f.points.map(p=>p.z)));
     assert.inRange(top,10,14,'every wall and rubble piece stays within the low plinth height');
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof or metal framing remains');

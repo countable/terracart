@@ -37,13 +37,13 @@ for y in range(0, 128, 16):
 # Keep the study's 3D masonry, but simplify the ground into broad tarnish
 # and a sparse scatter of chips from the same warm stone palette. No tiled
 # grain, red brick flecks, or tiny alternating highlights remain.
-floor = Image.new('RGBA', (240, 180), (112, 103, 88, 128))
+floor = Image.new('RGBA', (240, 180), (95, 87, 74, 128))
 draw = ImageDraw.Draw(floor)
 rng = random_values(87)
 for i in range(18):
     x, y = int(next(rng) * 240), int(next(rng) * 180)
     w, h = 10 + int(next(rng) * 22), 6 + int(next(rng) * 12)
-    shade = (105, 97, 83, 128) if i % 2 else (117, 108, 92, 128)
+    shade = (89, 82, 70, 128) if i % 2 else (100, 92, 78, 128)
     draw.polygon([(x-w, y-h//2), (x-w//2, y-h), (x+w//2, y-h),
                   (x+w, y), (x+w//2, y+h), (x-w//2, y+h)], fill=shade)
 

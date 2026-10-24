@@ -163,6 +163,15 @@ for(const fixture of fixtures){
  }
  assert(mesh.faces.every(f=>f.points.every(p=>Number.isFinite(p.z)&&p.z>=0&&p.z<=14)),
   fixture.name+': narrow returns never fall back to full-height walls');
+ const border=mesh.faces.filter(f=>f.footprintBorder);
+ assert(border.length>0,fixture.name+': the footprint has a ground border');
+ const edgeDistance=p=>Math.min(...points.map((a,i)=>{
+  const b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y;
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+ }));
+ assert(border.every(f=>f.debris&&f.points.every(p=>p.z===.01&&edgeDistance(p)<=1.50001)),
+  fixture.name+': the three-pixel ground stroke follows every concave edge without spikes');
  assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),
   fixture.name+': only masonry and ground rubble remain');
 }

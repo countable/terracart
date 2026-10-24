@@ -597,6 +597,20 @@
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       // Flat ground follows the exact triangulated footprint, including concave returns.
       for(const t of triangulate(points).triangles)faces.push({kind:'roof',debris:true,layer:-1,color:0xffffff,light:1,rawUV:true,points:(cross(...t)<0?[...t].reverse():t).map(p=>({...p,z:0,u:1+(p.x-xlo)/Math.max(1,xhi-xlo)*382,v:129+(p.y-ylo)/Math.max(1,yhi-ylo)*382}))});
+      // A three-unit dark ground stroke follows every footprint edge. Short
+      // round joins avoid spikes at concave corners and narrow annexes.
+      const border=(poly)=>{
+        if(cross(poly[0],poly[1],poly[2])<0)poly=[...poly].reverse();
+        for(let i=1;i<poly.length-1;i++)faces.push({kind:'trim',debris:true,footprintBorder:true,
+          layer:-.8,color:0x3c352b,light:1,solid:true,
+          points:[poly[0],poly[i],poly[i+1]].map(p=>({...p,z:.01,u:510,v:126}))});
+      };
+      ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y)||1;
+        const nx=-(b.y-a.y)/len*1.5,ny=(b.x-a.x)/len*1.5;
+        border([{x:a.x+nx,y:a.y+ny},{x:b.x+nx,y:b.y+ny},
+          {x:b.x-nx,y:b.y-ny},{x:a.x-nx,y:a.y-ny}]);
+        border(Array.from({length:8},(_,j)=>({x:a.x+Math.cos(j*Math.PI/4)*1.5,y:a.y+Math.sin(j*Math.PI/4)*1.5})));
+      });
       // Chunks of fallen wall: low turned blocks with wall-top lids and end-face
       // sides. Several spill out through the gap; the rest lie inside along the
       // walls. The same building seed keeps rubble consistent with its damage.
@@ -1053,7 +1067,7 @@
     ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#968a76';ctx.fillRect(0,0,512,128);
     ctx.fillStyle='#b6aa93';ctx.fillRect(256,0,256,128);
-    ctx.fillStyle='rgba(112,103,88,0.5)';ctx.fillRect(0,128,512,384);
+    ctx.fillStyle='rgba(95,87,74,0.5)';ctx.fillRect(0,128,512,384);
     ctx.fillStyle='#ffffff';ctx.fillRect(508,124,4,4);
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
@@ -1826,7 +1840,7 @@
         face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);continue;
       }
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
-      if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
+      if(face.footprintBorder)face.color=0x3c352b;else if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
       else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?wreckLook(recipe).mortar:0xffffff;
       else if(face.rubbleTop)face.color=recipe.shape==='wreck'?wreckLook(recipe).top:mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;
