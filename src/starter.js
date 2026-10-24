@@ -516,16 +516,19 @@
   // THE STARTER STASH: a few small crates scattered through the resource ring
   // around home (STARTER_STASH_R_CELLS), each holding one of STARTER_STASH —
   // four Books (the Book is otherwise a rare find outside a school), a Rope
-  // and a Trap Disarm Kit. Not on the tutorial trail: the trail is the
+  // and a Trap Disarm Kit — then loose Rock and Wood piles
+  // (STARTER_STASH_PILES) through the same ring. Not on the tutorial trail: the trail is the
   // ladder's path and the green dot walks it (`chest_start_*`); these are
   // things to stumble on while gathering, so they carry their own id prefix
   // (`stash_start_*`) and the dot never points at them.
   //   PLACED bucket, like the trail: a pure function of the frozen anchor
   // (save.starterCratesAt) through its own rng stream (seeded off the anchor
   // cell under a 'starter_stash' key — never the trail's), so a rebuild or
-  // a reload seats the same crates on the same cells, and `save.opened` is
-  // all that remembers one was taken. Only cells in THIS tile are used; a
-  // stash crate whose seat falls off the tile edge tries another angle.
+  // a reload seats the same crates on the same cells, and `save.opened` (or
+  // `save.picked` for a pile) is all that remembers one was taken. The piles
+  // draw a 'starter_piles' stream of their own, so adding them moved no crate.
+  // Only cells in THIS tile are used; a seat that falls off the tile edge
+  // tries another angle.
   function scatterStarterStash(scene, entry, tx, ty, spawnIX, spawnIY, usedSeats) {
     const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);   // THIS tile's cells (its row's grid)
     const { N } = f;
@@ -536,29 +539,38 @@
     // live occupancy (the crates seated so far claim into it).
     const occupied = WorldGen.occupiedIndexSet(f, entry.objects, entry.wildplants);
     const spawnOpts = WorldGen.spawnOptsOf(entry, { occupied });
-    const rng = WorldGen.makeRng(fnv1a(`starter_stash:${tx}:${ty}:${spawnIX}:${spawnIY}`));
     const [R0, R1] = STARTER_STASH_R_CELLS;
-    const n = STARTER_STASH.length;
-    for (let i = 0; i < n; i++) {
-      // Spread round the compass (one sector each) with a jittered radius, so
-      // they are sprinkled rather than bunched on one side.
-      for (let attempt = 0; attempt < 24; attempt++) {
-        const ang = ((i + rng()) / n) * Math.PI * 2 + attempt * 0.7;
-        const r = R0 + rng() * (R1 - R0);
-        const cx = spawnIX + Math.round(Math.cos(ang) * r);
-        const cy = spawnIY + Math.round(Math.sin(ang) * r);
-        if (!f.inTile(cx, cy)) continue;
-        if (isBlocked(entry.grid[cy * N + cx])) continue;
-        if (usedSeats.has(cx + ',' + cy)) continue;
-        if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor')) continue;
-        const raw = f.centre(cx, cy);
-        const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
-        const { x, y } = absCellCenterMeters(scene, cellIX, cellIY);
-        entry.objects.push(WorldGen.makeObject('chest', x, y,
-          `stash_start_${tx}_${ty}_${i + 1}`,
-          { fixedLoot: STARTER_STASH[i], crate: true }));
-        occupied.add(cy * N + cx);
-        break;
+    // Piles alternate material, so each sector of the compass gets both.
+    const piles = [];
+    for (let k = 0; k < Math.max(...STARTER_STASH_PILES.map(p => p.piles)); k++) {
+      for (const p of STARTER_STASH_PILES) if (k < p.piles) piles.push(p);
+    }
+    scatterRing(STARTER_STASH, 'starter_stash', 'stash_start', (x, y, id, loot) =>
+      WorldGen.makeObject('chest', x, y, id, { fixedLoot: loot, crate: true }));
+    scatterRing(piles, 'starter_piles', 'stash_pile', (x, y, id, p) =>
+      WorldGen.makeObject('groundstack', x, y, id, { itemId: p.id, qty: p.qty }));
+    function scatterRing(list, salt, prefix, make) {
+      const rng = WorldGen.makeRng(fnv1a(`${salt}:${tx}:${ty}:${spawnIX}:${spawnIY}`));
+      const n = list.length;
+      for (let i = 0; i < n; i++) {
+        // Spread round the compass (one sector each) with a jittered radius, so
+        // they are sprinkled rather than bunched on one side.
+        for (let attempt = 0; attempt < 24; attempt++) {
+          const ang = ((i + rng()) / n) * Math.PI * 2 + attempt * 0.7;
+          const r = R0 + rng() * (R1 - R0);
+          const cx = spawnIX + Math.round(Math.cos(ang) * r);
+          const cy = spawnIY + Math.round(Math.sin(ang) * r);
+          if (!f.inTile(cx, cy)) continue;
+          if (isBlocked(entry.grid[cy * N + cx])) continue;
+          if (usedSeats.has(cx + ',' + cy)) continue;
+          if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'minor')) continue;
+          const raw = f.centre(cx, cy);
+          const { cellIX, cellIY } = worldMetersToAbsCell(scene, raw.x, raw.y);
+          const { x, y } = absCellCenterMeters(scene, cellIX, cellIY);
+          entry.objects.push(make(x, y, `${prefix}_${tx}_${ty}_${i + 1}`, list[i]));
+          occupied.add(cy * N + cx);
+          break;
+        }
       }
     }
   }
@@ -2022,7 +2034,7 @@
     if (typeof Difficulty === 'undefined' || Difficulty.get().starterCrates) return;
     if (!entry || !Array.isArray(entry.objects)) return;
     const kept = entry.objects.filter(o => !(o.kind === 'chest' && o.crate)
-      && !(o.kind === 'groundstack' && String(o.id).startsWith('chest_start_')));
+      && !(o.kind === 'groundstack' && /^(chest_start|stash_pile)_/.test(String(o.id))));
     if (kept.length !== entry.objects.length) entry.objects = kept;
   }
 

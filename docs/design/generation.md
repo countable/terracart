@@ -955,8 +955,11 @@ Higher-priority placements and their access space take precedence in this order:
    remainder in fewer piles. All seats use the same spawn gate and avoid Home's
    footing. Supplies stay deterministic, revealed and included in tutorial
    guidance. `save.picked` spends individual piles; an opened legacy material
-   crate spends every replacement pile through `legacyChestId`. Hard mode
-   removes both seed crates and loose material supplies.
+   crate spends every replacement pile through `legacyChestId`. Beyond the
+   trail, `STARTER_STASH_PILES` scatters more loose Rock and Wood piles
+   (`stash_pile_*`, outside tutorial guidance) through the stash ring
+   (`STARTER_STASH_R_CELLS`) on a seeded stream of their own, after the stash
+   crates. Hard mode removes both seed crates and all loose material supplies.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
