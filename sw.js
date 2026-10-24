@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-fe906ef3';
+const SHELL_VERSION = 'shell-52cc4e13';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -667,7 +667,7 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/source/painterly-tileset-v1.png": "528ca2a1",
   "assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png": "d3d5415a",
   "assets/Objects/BuildingMaterials/wreck-floor-cel.png": "8a303ad2",
-  "assets/Objects/BuildingMaterials/wreck-plinth.png": "31b0e20a",
+  "assets/Objects/BuildingMaterials/wreck-plinth.png": "39cabdef",
   "assets/Objects/Castle/FDR/atlas.png": "1b3a670d",
   "assets/Objects/Castle/FDR/floor.png": "3c5de081",
   "assets/Objects/Castle/tower_master.png": "195b2576",
@@ -1085,6 +1085,8 @@ const ASSET_HASHES = {
   "assets/art/discovery_badge.webp": "6f4c374c",
   "assets/art/dragon_clear_cave.webp": "bd7a8fc9",
   "assets/art/event_dragon_powder.webp": "7575d8f6",
+  "assets/art/fall_cave_in.webp": "3b3d287b",
+  "assets/art/fall_open_pit.webp": "c88f7b9e",
   "assets/art/fire_first.webp": "deb62b48",
   "assets/art/first_sale.webp": "a27a8f1e",
   "assets/art/forge_done.webp": "ca89eb2a",

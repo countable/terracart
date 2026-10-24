@@ -482,6 +482,10 @@ access or tile lifecycle mechanics.
   `src/gameplay_tiers.js`. The tile's `gameplayTiers` field and its reasons are
   shared by generation, runtime births and map review. The classifier uses
   source geometry and access evidence, then resolves overlaps in one place.
+  Within one rasterization, `prepareTileSteps` builds source polygon, path,
+  road and junction masks once. Both tier passes reuse that temporary geography;
+  each applies current Nexus coverage and access/lot masks to fresh output
+  arrays. Prepared masks belong to that build, never a persistent tile cache.
   Street surfaces take precedence over surrounding zones: medium/large streets
   are Excluded, ordinary small streets are Calm, and small dead ends are Passing.
   Old Stones coverage includes its absorbed adjoining parking lots as Calm;
@@ -842,6 +846,10 @@ access or tile lifecycle mechanics.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
+- Park and beach coverage unions scan conservative polygon bounds including
+  their fringe. Footprint cleanup uses numeric local cell keys; preserve its
+  insertion, component traversal and bridge tie order because later ownership
+  arbitration depends on the ordered result.
 
 Tests: `world_frame`, `worldgen_dedup`, `traps`, `lairs`, `spawn_roads`,
 `road_junctions`, `spawn_rebuild`, `tile_url`, `tile_build_blocks`, `street_variants`, `zones`,

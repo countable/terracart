@@ -11,6 +11,17 @@
     const { minX: x0, minY: y0, maxX: x1, maxY: y1 } = root.WorldGen.bboxOf(park.rings);
     return { edges, rings: park.rings, x0, y0, x1, y1 };
   }
+  // Conservative cell bounds include the polygon and its Euclidean fringe.
+  // Keep one boundary cell beyond the centre test so buffered polygons and
+  // exact cell-edge contacts retain the mask's existing rounding behaviour.
+  function maskBounds(g, N, unit, margin) {
+    return {
+      x0: Math.max(0, Math.floor((g.x0 - margin) / unit)),
+      y0: Math.max(0, Math.floor((g.y0 - margin) / unit)),
+      x1: Math.min(N - 1, Math.ceil((g.x1 + margin) / unit)),
+      y1: Math.min(N - 1, Math.ceil((g.y1 + margin) / unit)),
+    };
+  }
   // Read buffered source polygons, not the visible raster or a clipped
   // centroid, so a park can recognise its adjoining shore across a tile edge.
   function* adjoinsBeachSteps(park, beaches, margin) {
@@ -228,10 +239,14 @@
     const beaches = (beachLayer?.features || []).filter(feature =>
       feature.type === 3 && feature.geom && Z.anchorOf(feature.tags)?.kind === 'beach');
     for (const feature of beaches) {
-      const mask = yield* parkMask(geometry({ rings: feature.geom }), N, unit, 0);
-      for (let i = 0; i < shore.length; i++) {
-        if (i % (N * 32) === 0) yield 'mapped beach union';
-        if (mask[i]) shore[i] = 1;
+      const g = geometry({ rings: feature.geom });
+      const mask = yield* parkMask(g, N, unit, 0), bounds = maskBounds(g, N, unit, 0);
+      for (let y = bounds.y0; y <= bounds.y1; y++) {
+        if ((y & 31) === 0) yield 'mapped beach union';
+        for (let x = bounds.x0; x <= bounds.x1; x++) {
+          const i = y * N + x;
+          if (mask[i]) shore[i] = 1;
+        }
       }
     }
     const companions = new Map();
@@ -293,9 +308,10 @@
       const g = geometry(park);
       associated.push({ a, g });
       const slot = slotFor(a), mask = yield* parkMask(g, N, unit, margin);
-      for (let y = 0; y < N; y++) {
+      const bounds = maskBounds(g, N, unit, margin);
+      for (let y = bounds.y0; y <= bounds.y1; y++) {
         if ((y & 31) === 0) yield 'zone coverage union';
-        for (let x = 0; x < N; x++) {
+        for (let x = bounds.x0; x <= bounds.x1; x++) {
           const i = y * N + x;
           if (!mask[i]) continue;
           const land = sourceLand(i);
