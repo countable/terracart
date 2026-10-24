@@ -440,6 +440,8 @@ FARMING LOOP
      5) tap mature crop → HARVEST: produce, the plant is gone, a chance of a
         bonus seed.
  - any tillable cell (non-water, non-building, unoccupied) can be tilled.
+ - The seed action uses the shared busy-work guard, so house repairs and
+   other manual work cannot overlap with planting.
  - PRODUCE QUALITY IS THE BED'S, AND THE HOE SETS IT. Tilling banks the hoe's
    tier on the cell; planting spends it onto the crop, and quality raises the
    bonus-seed chance and the yield at harvest (`Crops.bedQuality`). A tame

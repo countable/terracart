@@ -1032,7 +1032,7 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // to walk to, it is where you are.
 const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
-const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Plot', water: 'Crop', restore: 'Wreck', tilly: 'Tilly', harvest: 'Crop', sell: 'Home' };
+const STARTER_GOAL_LABELS = { plant: 'Plot', water: 'Crop', restore: 'Wreck', tilly: 'Tilly', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
   if (step?.event === 'tilly') {
     if (goal?.kind === 'npc') return goal.name || 'Tilly';
@@ -3215,7 +3215,6 @@ class MapScene extends Phaser.Scene {
   // the chip is actually talking about, not a generic breadcrumb.
   //
   //   chest   → nearest unopened starter crate (the relic chest included)
-  //   till    → the carved 2x2 starter plot
   //   plant   → the tilled-but-empty soil — or the crates while the bag holds
   //             no seed, since the seeds are in them (nearest crate first)
   //   restore → the nearest wreck — or the crates while the bag can't pay the
@@ -3239,8 +3238,6 @@ class MapScene extends Phaser.Scene {
       case 'pickup':
       case 'chest':
         return this._nearestStarterCrate('potato_seed');
-      case 'till':
-        return plotMiddle() || this._nearestStarterCrate();
       case 'plant': {
         // An empty seed pocket means the crates are the step's real errand —
         // the nearest one is seeded first (STARTER_LOOT's order of need).

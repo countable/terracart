@@ -228,13 +228,9 @@
     dbg.push(roadCell
       ? `road@(${roadCell.cx},${roadCell.cy}) d=${Math.max(Math.abs(roadCell.cx - spawnIX), Math.abs(roadCell.cy - spawnIY))} t=${entry.grid[roadCell.cy * N + roadCell.cx]}`
       : 'no road/path within 15');
-    // Loot in the order the crates are seated — nearest the door first — which
-    // is deliberately the LADDER's order of need, not the tidiest reading of
-    // the list. STARTER_CHAIN goes open a crate → till → SOW A SEED → rebuild a
-    // wreck, so the first crate has to be the one holding a seed. Wood (5 per plain house, and what
-    // unseals a fort) rides at the far end instead, arriving about when step 4
-    // asks for it — and the green rim dot, which always points at the nearest
-    // unopened crate, now agrees with the chip instead of contradicting it.
+    // Seeds come first at the doorstep for planting; Rock stays in the
+    // opening pocket for Tori's repair step, with Wood farther along the trail.
+    // Guidance selects the required payload instead of an arbitrary crate.
     const COUNT = STARTER_LOOT.length;
     const usedSeats = new Set();          // 'cx,cy' of cells already holding a chest
     const placedIdx = new Set();          // loot indices successfully seated
@@ -499,9 +495,41 @@
         }
       }
     }
-    // Last, on the now-cleared pocket: the guaranteed patch of soil the
-    // ladder's "Break ground" step needs, then the wood / rock / wreck the
-    // rest of the ladder needs to have something to act on.
+    // Repair supplies must be visible from the opening pocket, even when
+    // the walked route bends or the nearby road starts farther to one side.
+    // Keep the same crate/loot identity; move only an offscreen Rock seat.
+    // A circular bound also fits after the map rotates into heading-up view.
+    const rockCrate = entry.objects.find(o => o.id === `chest_start_${tx}_${ty}_3`);
+    const visibleRadius = Math.max(2, Math.floor(VIEW_CELLS / 2) - 1);
+    if (rockCrate) {
+      const original = f.cellOf(rockCrate.x, rockCrate.y);
+      if (Math.hypot(original.ix - spawnIX, original.iy - spawnIY) > visibleRadius) {
+        const candidates = [];
+        for (let dy = -visibleRadius; dy <= visibleRadius; dy++) {
+          for (let dx = -visibleRadius; dx <= visibleRadius; dx++) {
+            if (Math.hypot(dx, dy) > visibleRadius) continue;
+            const cx = spawnIX + dx, cy = spawnIY + dy;
+            if (seatOK(cx, cy)) candidates.push({ cx, cy });
+          }
+        }
+        // The smallest move retains the original kerb/route direction where
+        // possible. Occupied ground, roads and building footprints stay clear.
+        candidates.sort((a, b) =>
+          Math.hypot(a.cx - original.ix, a.cy - original.iy)
+          - Math.hypot(b.cx - original.ix, b.cy - original.iy)
+          || a.cy - b.cy || a.cx - b.cx);
+        const seat = candidates[0];
+        if (seat) {
+          const raw = f.centre(seat.cx, seat.cy);
+          const cell = worldMetersToAbsCell(scene, raw.x, raw.y);
+          Object.assign(rockCrate, absCellCenterMeters(scene, cell.cellIX, cell.cellIY));
+          usedSeats.delete(original.ix + ',' + original.iy);
+          usedSeats.add(seat.cx + ',' + seat.cy);
+        }
+      }
+    }
+    // Last, reserve the planting plot and the nearby resources and wreck
+    // that the rest of the tutorial needs.
     dbg.push(`supplies=${placedIdx.size}/${COUNT}`);
     scene._trailDebug = dbg.join(' | ');
     scene._carveStarterPlot(entry, tx, ty, spawnIX, spawnIY, usedSeats);
@@ -773,17 +801,9 @@
 
   // A guaranteed 2x2 patch of tillable grass near the spawn anchor.
   //
-  // STARTER_CHAIN step 2 ("Break ground") assumes there is ground to break,
-  // and the gold guidance arrow pointed at a supply CRATE through every step
-  // of the ladder. A player who spawns somewhere with no soil in reach — a
-  // parking lot, a terraced street, a riverbank — was therefore told to till a
-  // patch of grass while the only arrow on screen led to a box that isn't one.
-  // This paints a plot the step can actually be performed on, and freezes its
-  // position on the save so the arrow has an honest target to point at.
-  //
-  // 2x2 rather than a single cell: one cell to till for the step itself, and
-  // three more beside it so the first crop has somewhere to go without
-  // hunting for a second patch.
+  // Planting needs suitable ground even at a parking lot, terraced street
+  // or riverbank. Freeze a 2x2 plot on the save so guidance has a stable
+  // target, with room for the first seed and three more crops beside it.
   //
   // save.starterPlotAt holds the TOP-LEFT cell's centre in world metres. It is
   // chosen once and re-painted at those same cells on every later rebuild of

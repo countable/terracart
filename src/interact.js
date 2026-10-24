@@ -2028,7 +2028,7 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
+  // Only the seed's explicit action may prepare ground; map taps never till.
   { name: 'till', try: (ctx) => {
     if (!ctx.seedAction) return false;
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
@@ -2115,7 +2115,7 @@ function _tapDiag(scene, sx, sy, reason) {
 
 // The seed action works at the player's feet, never at the peek camera.
 function plantSelectedSeed(scene) {
-  if (scene._workProgress || scene._zeroEnergyLocked?.()) return false;
+  if (scene._busyWheel?.() || scene._zeroEnergyLocked?.()) return false;
   const selected = getSelectedSlot(scene.save);
   if (!selected || ITEM_BY_ID[selected.id]?.kind !== 'seed' || !(selected.count > 0)) return false;
   const wm = playerWorldM(scene), at = scene.worldMetersToScreen(wm.x, wm.y);
@@ -2130,7 +2130,6 @@ function plantSelectedSeed(scene) {
   if (ctx.dirty) persistSave(scene.save);
   return !!planted;
 }
-
 
 function interactTap(scene, sx, sy) {
   if (sx < scene.viewLeft || sx > scene.viewLeft + scene.viewSize ||

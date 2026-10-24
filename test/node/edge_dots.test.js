@@ -28,7 +28,7 @@
     const labelled = [];
     s._drawEdgeDotLabel = (row, target, marker, point) => labelled.push({ row, marker, point });
     const point = s._drawEdgeDot(40, 0, lifted.STARTER_MARK.color);
-    s._drawEdgeDotLabel(lifted.STARTER_MARK, {}, { label: lifted.starterGoalLabel({ event: 'till' }, { x: 1, y: 1 }) }, point);
+    s._drawEdgeDotLabel(lifted.STARTER_MARK, {}, { label: lifted.starterGoalLabel({ event: 'plant' }, { x: 1, y: 1 }) }, point);
     assert.truthy(point && s.circles.length === 2, 'drawn as the rim dot');
     assert.eq(labelled[0].row.source, 'Tutorial');
     assert.eq(labelled[0].marker.label, 'Plot');

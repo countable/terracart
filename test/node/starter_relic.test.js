@@ -419,6 +419,31 @@
       `the last supply is still in the near part of the walk (${out[out.length - 1]}/${total})`);
   });
 
+  test('starter trail: a long route keeps the Rock crate onscreen beside Home', () => {
+    const entry = srEntry();
+    entry.roadMask = new Uint8Array(N * N);
+    entry.roadMask[(SPAWN + 1) * N + SPAWN + 3] = 1;
+    entry.grid[(SPAWN - 1) * N + SPAWN + 3] = T.BUILDING;
+    let reserved;
+    const scene = srTrailScene({
+      _placeStarterRelicChest() {
+        return { path: Array.from({ length: 25 }, (_, dx) => ({ cx: SPAWN + dx, cy: SPAWN })) };
+      },
+      _carveStarterPlot(_entry, _tx, _ty, _x, _y, seats) { reserved = new Set(seats); },
+    });
+    const { supplies } = srTrail(entry, scene);
+    const rock = supplies.find(o => o.fixedLoot.id === 'rubble'), at = srCell(rock);
+    assert.eq(rock.id, 'chest_start_0_0_3', 'existing opened-ledger identity survives relocation');
+    assert.eq(rock.fixedLoot.qty, 9);
+    assert.truthy(Math.hypot(at.cx - SPAWN, at.cy - SPAWN) <= Math.floor(VIEW_CELLS / 2) - 1,
+      'fits inside the opening viewport even after heading rotation');
+    assert.truthy(WorldGen.isSpawnCell(entry.grid, N, N, at.cx, at.cy, WorldGen.spawnOptsOf(entry), 'minor'));
+    assert.truthy(reserved.has(at.cx + ',' + at.cy), 'plot and later placements protect the new seat');
+    assert.falsy(reserved.has((SPAWN + 9) + ',' + SPAWN), 'the abandoned route seat is available again');
+    const cells = supplies.map(o => `${srCell(o).cx},${srCell(o).cy}`);
+    assert.eq(new Set(cells).size, supplies.length, 'nearby Rock never covers another crate');
+  });
+
   test('starter trail: every crate stands on legal ground', () => {
     const entry = srEntry();
     srTrail(entry);

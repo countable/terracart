@@ -1,11 +1,8 @@
 // _carveStarterPlot — the guaranteed 2x2 of tillable ground near spawn.
 //
-// Patch-history motivation: the starter ladder's step 2 ("Break ground") told
-// the player to till a patch of grass while the only guidance arrow on screen
-// pointed at a supply CRATE, which is not tillable — and on a spawn with no
-// soil in reach at all (parking lot, terrace, riverbank) there was nothing to
-// till in the first place. The plot is what makes that step always performable
-// and gives the arrow an honest target.
+// The planting step needs suitable ground even when the surrounding area
+// is paved or wet. The frozen plot gives guidance a stable target and room
+// for the first four crops.
 //
 // The function under test is src/starter.js's, reached through the scene's
 // one-line wrapper that run.js hands over, so these run against the real
