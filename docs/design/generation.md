@@ -225,6 +225,13 @@ access or tile lifecycle mechanics.
   and starts their clocks on that visit; ids cannot safely be inferred from
   prefixes shared with other crops. Player-owned plants and all other cleared
   objects (bushes, berries, barriers) retain their existing rules.
+  Tilled soil ends regrowth: tilling a cell, or the heartbeat finding a
+  cleared plant on a tilled cell, sets its deadline to
+  `SaveState.stopRegrowth`'s never-arriving mark, and a plant that already
+  grew back through a bed is cleared again.
+- The till refuses any cell where something stands as drawn
+  (`Render.wildplantView`), so a picked berry bush's bare remnant blocks
+  the hoe like the bush itself.
 - Picking a wild berry records its original id in `save.picked` as usual,
   but leaves the same bush at that location, with only its berries removed.
   Mature berry bushes use the ordinary bush frame and scale; a texture baked
