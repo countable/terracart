@@ -37,21 +37,31 @@ for y in range(0, 128, 16):
 # Keep the study's 3D masonry, but simplify the ground into broad tarnish
 # and a sparse scatter of chips from the same warm stone palette. No tiled
 # grain, red brick flecks, or tiny alternating highlights remain.
-# Only the dark grime remains over terrain; the former grey base and lighter
-# worn patches are transparent. Blur the mask alone to avoid dark edge halos.
-grime = Image.new('L', (240, 180), 0)
-draw = ImageDraw.Draw(grime)
+floor = Image.new('RGBA', (240, 180), (95, 87, 74, 128))
+draw = ImageDraw.Draw(floor)
 rng = random_values(87)
 for i in range(18):
     x, y = int(next(rng) * 240), int(next(rng) * 180)
     w, h = 10 + int(next(rng) * 22), 6 + int(next(rng) * 12)
+    # Grime and worn areas expose more of the underlying terrain. Keep the
+    # variation broad and low contrast, with no fine noise or hard patch edges.
+    shade = (87, 79, 67, 100) if i % 2 else (98, 90, 76, 60 + i % 4 * 10)
+    if i % 2:
+        shade = tuple(round(v * .8) for v in shade[:3]) + (shade[3],)
     draw.polygon([(x-w, y-h//2), (x-w//2, y-h), (x+w//2, y-h),
-                  (x+w, y), (x+w//2, y+h), (x-w//2, y+h)],
-                 fill=144 if i % 2 else 0)
-floor = Image.new('RGBA', grime.size, (56, 50, 42, 0))
-floor.putalpha(grime.filter(ImageFilter.GaussianBlur(2)))
+                  (x+w, y), (x+w//2, y+h), (x-w//2, y+h)], fill=shade)
+floor = floor.filter(ImageFilter.GaussianBlur(2))
+# Adjust only the background before compositing the stone scatter.
+r, g, b, alpha = floor.split()
+floor = Image.merge('RGBA', (
+    r.point(lambda v: round(v * .8)),
+    g.point(lambda v: round(v * .8)),
+    b.point(lambda v: round(v * .8)),
+    alpha.point(lambda v: min(255, round(round(v * 1.2) * 1.2))),
+))
 
-# Keep the existing warm painted chips over the transparent ground.
+# These are restrained mixtures of the wall cap, mortar and brown ground.
+# Untouched ground stays 185/255 (73%); the broad worn patches are translucent.
 styles = {
     'quiet': (90, 2, 4, [(151, 139, 117, 185), (130, 118, 99, 170), (100, 90, 75, 150)]),
     'buried': (65, 3, 6, [(132, 121, 102, 145), (120, 109, 92, 145), (105, 95, 80, 145)]),
@@ -77,12 +87,12 @@ floor = floor.crop((46, 40, 191, 137)).resize((384, 384), Image.Resampling.NEARE
 atlas.paste(floor, (0, 128))
 # Shared border mask: one repeating strip replaces individual dash geometry.
 # White RGB lets the renderer tint the border independently of the wall palette.
-dash = Image.new('RGBA', (96, 8), (255, 255, 255, 0))
+dash = Image.new('RGBA', (66, 8), (255, 255, 255, 0))
 draw = ImageDraw.Draw(dash)
-for start, end in [(0, 14), (20, 30), (38, 54), (59, 71), (78, 86)]:
+for start, end in [(0, 7), (13, 18), (26, 34), (39, 45), (52, 56)]:
     draw.rectangle((start + 1, 0, end, 7), fill='white')
-# Left padding repeats pixel93 (transparent); right repeats pixel0 (opaque).
-draw.rectangle((95, 0, 95, 7), fill='white')
+# Left padding repeats pixel63 (transparent); right repeats pixel0 (opaque).
+draw.rectangle((65, 0, 65, 7), fill='white')
 atlas.paste(dash, (399, 136))
 ImageDraw.Draw(atlas).rectangle((508, 124, 511, 127), fill='white')
 atlas.save(OUT)
