@@ -138,7 +138,7 @@ class SceneConsumables {
     }
     return this._consumeSelected();
   }
-  // Shared tail for modal-feedback consumables (honey, book): spend the
+  // Shared tail for modal-feedback consumables (Sugar Potion, old inventory Books): spend the
   // selected item and pop a message modal. Returns true so callers can
   // `return this._finishConsumable(...)`.
   // NOTE: eatSelected deliberately does NOT use this — it consumes mid-method
@@ -205,10 +205,10 @@ class SceneConsumables {
     for (const entry of WorldGen.tileCache.values()) {
       if (!entry.creatures) continue;
       for (const c of entry.creatures) {
-        if (this.save.caught.includes(c.id)) continue;
-        if (!SpriteLayout.creatureProduce(c.kind)) continue;
+        if (c.pet || SpriteLayout.isSummoned(c.kind) || this.save.caught.includes(c.id)) continue;
         const d = Math.hypot(c.x - pWX, c.y - pWY);
         if (d > spec.radiusM) continue;
+        if (!Combat.calm(c, spec.durationMs)) continue;
         // Re-anchor the wander home toward the player. The wanderer's next
         // step picks a direction biased back toward _homeX/_homeY when it
         // drifts beyond ~3 cells, so this pulls them in over a few ticks.
@@ -217,7 +217,6 @@ class SceneConsumables {
         c._homeX = pWX + Math.cos(ang) * r;
         c._homeY = pWY + Math.sin(ang) * r;
         c._nextChooseT = 0;   // force a fresh step now
-        Combat.calm(c, spec.durationMs);
         lured++;
       }
     }
@@ -892,19 +891,6 @@ class SceneConsumables {
 
   useWildrose() {
     return this._throwItem('wildrose');
-  }
-
-  // Ride / Dismount (items.js CONSUMABLE_SPEC.horse — an `immediate` row, so
-  // nothing is spent). The skin follows from isRiding every frame
-  // (SpriteLayout.playerArt), and so does the stick's speed and cost.
-  toggleHorseRide() {
-    const horse = Pets.ownedKind(this.save, 'horse');
-    if (!horse || Pets.isDown(horse)) return false;
-    this.save.riding = !isRiding(this.save);
-    persistSave(this.save);
-    if (this.save.riding) this.flash(`Stick ×${HORSE_RIDE.speedMul} speed, ×${HORSE_RIDE.energyMul} ⚡`);
-    else this.flash('You dismount.');
-    return true;
   }
 
   // A sapphire opens a descent and a brief return to the exact entry point.

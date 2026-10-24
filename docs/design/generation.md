@@ -541,10 +541,12 @@ access or tile lifecycle mechanics.
   which blocks player movement and cannot be mined or tilled. Source residential
   terrain and private/backyard/restricted evidence identify that ground before
   Nexus paint. Roads and paths, including their drawn footprints, never become
-  rock. Building ownership also protects every house/footprint cell even if its
-  terrain was repainted. Every footprint-free eligible cell becomes solid rock;
-  cells intersecting even a building sliver instead use passable, non-tillable
-  `ROCKY_GROUND` rubble. Ownership is a fallback when shape geometry is absent.
+  rock. Building terrain retains its surface. Other eligible cells become solid
+  rock when houses cover less than 15% of their area; coverage of 15% or more
+  uses passable, non-tillable `ROCKY_GROUND` rubble. Coverage uses the union of
+  source footprints, so overlapping or duplicate houses do not count twice.
+  Ownership protects repainted building cells when intersecting shape geometry
+  is absent. Thin slivers at tile edges use the same area threshold.
   Roads, water and building terrain retain their physical surfaces
   while refusing every spawn. Tier classification precedes final placement so
   a rejected cell cannot retain an object from an earlier placement pass.
@@ -556,7 +558,9 @@ access or tile lifecycle mechanics.
 - Place-bound producers, including POI chests and authored road cross-sections,
   share the same Excluded and Passing policy. Authored seats retain their own
   layout and habitat requirements, but cannot reopen an Excluded cell. Street
-  obstacles count as hazards when applying Passing restrictions.
+  obstacles, including tar pits and stakes, count as hazards when applying
+  Passing restrictions. Their record classes also govern cleanup and live
+  replay, so rejected slowing debris cannot become an active slowdown later.
 - The live Overpass fence veto (`privateVetoAt`) is for per-player
   things only and fails open when no successful mask is known. Its last known
   mask stays active during a background refresh or outage; successful masks

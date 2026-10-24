@@ -130,14 +130,14 @@ test('map review: all selected Nexus grounds use their own native transition fam
   const L={Layer:{extend:methods=>function(options){Object.assign(this,methods);this.initialize(options);}},setOptions:(layer,options)=>{layer.options=options;}};
   const native=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
   const art=new Function('L','WorldGen','TerrainTransitions','tileCellToAbs','zoneGroundColor','zoneGroundTexture','isBuildingType',MAP_REVIEW_ART_SRC+'\nreturn MapReviewArt;')(
-    L,WorldGen,native,(_,tx,ty,x,y)=>({cellIX:tx*2+x,cellIY:ty*2+y}),()=>0x777777,(_e,_i,type)=>'zone_ground_'+({29:'G06-purple',31:'G09-smooth-grey',2:'G10',28:'G03'}[type]),()=>false);
+    L,WorldGen,native,(_,tx,ty,x,y)=>({cellIX:tx*2+x,cellIY:ty*2+y}),()=>0x777777,(_e,_i,type)=>'zone_ground_'+({29:'G06-purple',31:'G09-smooth-grey',2:'G10',28:'G01'}[type]),()=>false);
   const e={tx:0,ty:0,cellsPerEdge:2,grid:new Uint8Array([29,31,2,28])};
   const layer=art.layer({});layer._world={tiles:[e],scene:{}};
   const ring=layer._terrainRing(e);
   assert.eq(ring.materials[5],8,'Churchyard uses native tinted masks');
   assert.eq(ring.materials[6],9,'Tar Yard uses native tinted masks');
   assert.eq(ring.materials[9],20,'beach receives selected sand transition masks');
-  assert.eq(ring.materials[10],17,'grove receives its own selected transition masks');
+  assert.eq(ring.materials[10],15,'grove receives green grass transition masks');
 });
 
 test('map review: layered terrain paints the base and masks in the same cell rectangle', () => {

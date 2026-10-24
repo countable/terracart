@@ -135,6 +135,16 @@ test('native RA terrain: grass shares orchard and residential uses the selected 
   assert.eq(selected[0].join(','),selected[22].join(','));
 });
 
+test('selected terrain: Grove ground stays green through native masks and fallback tiles', () => {
+  const native=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
+  const selected=new Function(TEXTURES_SRC+'\nreturn {SELECTED_TERRAIN,SELECTED_MATERIAL_FRAMES,ZONE_SELECTED_MATERIALS};')();
+  const green=native.materialForGround(28,'zone_ground_G01');
+  assert.eq(native.material(28),green,'plain Grove uses the green grass family');
+  assert.eq(selected.SELECTED_TERRAIN[28].join(','),String(selected.SELECTED_MATERIAL_FRAMES.G01),'fallback uses the same green grass');
+  for(const id of ['meadow','marine_meadow','orchard','formal_garden','hedge_garden','ancient_grove','sacred_grove','mushroom_grove','spooky_woods'])
+    assert.eq(native.materialForGround(28,'zone_ground_'+selected.ZONE_SELECTED_MATERIALS[id]),green,id+' retains green ground');
+});
+
 test('selected terrain: commercial concrete restores the original square tiles with native transitions', () => {
   const native=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
   const art=new Function(TEXTURES_SRC+'\nreturn {SELECTED_TERRAIN,SELECTED_MATERIAL_FRAMES};')();

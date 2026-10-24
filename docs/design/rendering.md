@@ -124,7 +124,7 @@ building floors and underground terrain retain their existing treatments.
 
 Private residential exclusion rock uses the purchased Top Down Mountain Edges
 pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
-olive-grey ramp and RA olive-soil substrate. `MountainEdges` selects among 256
+olive-grey ramp and transparent source exteriors. `MountainEdges` selects among 256
 neighbour masks and four stable variants from the shared geographic ring. Full
 edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
 Stair and deep-notch variants are excluded. Selection does no runtime image
@@ -132,14 +132,28 @@ processing; collision remains the permanent residential bedrock rule. Trimmed
 building-intersection cells use flat `ROCKY_GROUND` rubble from the transition
 atlas, with the same olive-grey ramp. Solid edges prefer that rubble as their substrate
 when adjacent, so the exposed apron belongs visually to the rock zone.
+The mountain atlas contains only the purchased rock artwork; transparent pixels
+show that live substrate. It never bakes an opaque soil square beneath narrow
+strips, isolated cells or diagonal corners.
 
 `TerrainTransitions` samples four adjacent materials from the renderer's geographic
 ring, including tile-row seam resolution. Every surface material and selected
 Nexus ground has a stackable transition family: one opaque local base and up to
-three transparent native masks, with water last. Native 16px masks preserve
-outer/inner corners and disconnected diagonals. The atlas contains 26 families
+three transparent native masks, with water last. The base and its masks start
+half a cell southeast of the sampled cell's top-left, so the four sampled cell
+centres coincide with the dual-grid vertices. This keeps one-cell islands and
+strips centred on their logical cells. Exact-cell mountain overlays, tilled
+beds and structural floors retain their own positions. The renderer's halo
+covers the offset, and the terrain cache records the actual sprite bounds.
+Tilled beds overlay the continuous native ground without removing its dual tile;
+otherwise the neighbouring half-cells would lose their texture.
+Map review deliberately displays each owning material without transitions.
+Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 26 families
 (416 frames, 256 × 416 pixels), including public residential light slate, cold slate, original square commercial
 concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
+Grove ground uses the green Meadow grass interior in both native masks and
+fallback tiles. Grove variants retain green ground beneath their authored props
+and accents; the game and map review share these material choices.
 `tools/build_ra_terrain_trial.py` records each interior and mask source in the
 export manifest. Both rendering backends select these frames without a
 permutation atlas, per-cell canvases or runtime pixel reads. Ground variants

@@ -3136,7 +3136,10 @@
     n = _clipHalfPlane(_clipB, n, _clipA, 1, -1, cy + 1);  if (n < 3) return 0;
     let s = 0;
     for (let i = 0, j = n - 1; i < n; j = i++) {
-      s += _clipA[j * 2] * _clipA[i * 2 + 1] - _clipA[i * 2] * _clipA[j * 2 + 1];
+      // Cell-local coordinates avoid cancellation for thin polygons near a
+      // large tile index, where subtracting two large products loses area.
+      s += (_clipA[j * 2] - cx) * (_clipA[i * 2 + 1] - cy)
+        - (_clipA[i * 2] - cx) * (_clipA[j * 2 + 1] - cy);
     }
     return Math.abs(s) / 2;   // one cell has area 1 in cell units
   }
@@ -6904,14 +6907,15 @@
 
   // Bedrock represents excluded private residential ground. Other exclusions
   // keep their material; route footprints stay clear even after Nexus repaint.
+  const EXCLUSION_ROCK_HOUSE_COVER = .15;
   function stampExclusionRock(grid, w, h, opts = {}) {
     const tiers = gameplayTiersOf(grid, opts);
     if (!tiers) return 0;
     const residential = opts.residentialGrid || grid;
     const privateLand = W_.PRIVATE | W_.BEHIND_HOUSE | W_.RESTRICTED;
-    // Ownership uses a coverage threshold; even a smaller footprint sliver
-    // must exclude bedrock from the whole cell it intersects.
-    const footprints = new Uint8Array(grid.length);
+    // House slivers below 15% no longer leave a full-cell gap in bedrock.
+    // Keep exact union coverage when several houses intersect the same cell.
+    const footprints = new Map();
     for (const shape of opts.buildingShapes || []) {
       const ring = shape.ring, scale = opts.cellWidthM;
       if (!ring?.length || !(scale > 0)) continue;
@@ -6924,8 +6928,13 @@
         maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
       }
       for (let y = Math.max(0, Math.floor(minY)); y < Math.min(h, Math.ceil(maxY)); y++)
-        for (let x = Math.max(0, Math.floor(minX)); x < Math.min(w, Math.ceil(maxX)); x++)
-          if (cellCoverFraction(poly, x, y) > 0) footprints[y * w + x] = 1;
+        for (let x = Math.max(0, Math.floor(minX)); x < Math.min(w, Math.ceil(maxX)); x++) {
+          const cover = cellCoverFraction(poly, x, y);
+          if (!(cover > 0)) continue;
+          const i = y * w + x, existing = footprints.get(i);
+          if (existing) { existing.rings.push(poly); existing.sum += cover; existing.max = Math.max(existing.max, cover); }
+          else footprints.set(i, { rings: [poly], sum: cover, max: cover });
+        }
     }
     let count = 0;
     for (let i = 0; i < grid.length; i++) {
@@ -6936,10 +6945,13 @@
         || grid[i] === T.ROAD || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
         || grid[i] === T.PATH || grid[i] === T.PIER
         || isBuildingTerrain(grid[i]) || grid[i] === T.WATER) continue;
-      // Fill every safe cell; only actual footprint intersections (or the
-      // ownership fallback) trim the solid zone. Their exposed ground keeps
-      // the same rock palette without introducing a movement obstacle.
-      grid[i] = footprints[i] || opts.owners?.[i] ? T.ROCKY_GROUND : T.EXCLUSION_ROCK;
+      const footprint = footprints.get(i);
+      // Only ambiguous multiple overlaps need a union calculation. Ownership
+      // remains a conservative fallback when no intersecting geometry exists.
+      let cover = footprint?.sum || 0;
+      if (footprint && footprint.max < EXCLUSION_ROCK_HOUSE_COVER && cover >= EXCLUSION_ROCK_HOUSE_COVER)
+        cover = global.PolygonGeometry.unionAreaInCell(footprint.rings, i % w, Math.floor(i / w));
+      grid[i] = cover >= EXCLUSION_ROCK_HOUSE_COVER - 1e-12 || !footprint && opts.owners?.[i] ? T.ROCKY_GROUND : T.EXCLUSION_ROCK;
       if (grid[i] === T.EXCLUSION_ROCK) count++;
     }
     return count;

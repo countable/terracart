@@ -2667,7 +2667,7 @@ Render.drawCells = function drawCells(scene) {
       {
         const ns = Render.terrainSpriteAt(scene, noiseIdx++);
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
-        const selected = transitionsActive && !isTilled && type === T(col, row)
+        const selected = transitionsActive && type === T(col, row)
           ? TerrainTransitions.select(scene, transitionMaterials, RING, _si) : null;
         let texKey = selected?.key || null;
         let damageFrame = selected?.frame, terrainLayers = selected?.layers, rockOverlay;
@@ -2729,19 +2729,23 @@ Render.drawCells = function drawCells(scene) {
           if (damageFrame !== undefined) {
             if (setTextureIfDifferent(ns, texKey, damageFrame)) ns.setDisplaySize(CELL_PX, CELL_PX);
           } else if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
-          ns.setPosition(Math.round(sx), Math.round(sy))
+          // Dual-grid vertices are cell centres. Their native tile starts
+          // halfway across this cell, unlike exact-cell floors and rock art.
+          const groundOffset = selected ? CELL_PX / 2 : 0;
+          const groundX = Math.round(sx + groundOffset), groundY = Math.round(sy + groundOffset);
+          ns.setPosition(groundX, groundY)
             .setVisible(true);
           // Watered soil reads a shade darker (damp). The pad is an opaque
           // sprite now, so the tint goes on the sprite — a wash on the cell
           // graphics under it would be hidden, and one over it would darken
           // the ground ring too. The pool is reused every frame, so the tint
           // is set on every path, not only the watered one.
-          ns.setTint(isWatered ? WATERED_TINT : 0xffffff);
+          ns.setTint(isWatered && !selected ? WATERED_TINT : 0xffffff);
           scene.terrainCache?.offer(ns);
           if (terrainLayers) for (const frame of terrainLayers) {
             const overlay = Render.terrainSpriteAt(scene, noiseIdx++);
             if (setTextureIfDifferent(overlay, texKey, frame)) overlay.setDisplaySize(CELL_PX, CELL_PX);
-            overlay.setPosition(Math.round(sx), Math.round(sy)).setTint(0xffffff).setVisible(true);
+            overlay.setPosition(groundX, groundY).setTint(0xffffff).setVisible(true);
             scene.terrainCache?.offer(overlay);
           }
 
@@ -2750,6 +2754,15 @@ Render.drawCells = function drawCells(scene) {
             if (setTextureIfDifferent(overlay, rockOverlay.key, rockOverlay.frame)) overlay.setDisplaySize(CELL_PX, CELL_PX);
             overlay.setPosition(Math.round(sx), Math.round(sy)).setTint(0xffffff).setVisible(true);
             scene.terrainCache?.offer(overlay);
+          }
+          // A bed overlays its logical cell, but cannot remove the dual tile
+          // beneath it: that tile also supplies neighbouring half-cells.
+          if (selected && isTilled) {
+            const bed = Render.terrainSpriteAt(scene, noiseIdx++);
+            const key = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
+            if (setTextureIfDifferent(bed, key)) bed.setDisplaySize(CELL_PX, CELL_PX);
+            bed.setPosition(Math.round(sx), Math.round(sy)).setTint(isWatered ? WATERED_TINT : 0xffffff).setVisible(true);
+            scene.terrainCache?.offer(bed);
           }
         } else {
           ns.setVisible(false);

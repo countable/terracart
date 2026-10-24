@@ -464,7 +464,7 @@
       assert.falsy(['seed', 'sapling', 'magic', 'animal'].includes(it.kind), `${id} is no seed, sapling, potion or animal`);
       assert.truthy(['ores', 'supply', 'unique_relic'].includes(it.kind) || keeps.has(id), `${id} is a lasting thing (${it.kind})`);
     }
-    for (const id of ['potato', 'apple', 'flowers', 'healing_potion', 'egg', 'potato_seed', 'acorn']) {
+    for (const id of ['potato', 'apple', 'flowers', 'healing_potion', 'egg', 'potato_seed', 'acorn', 'book']) {
       assert.falsy(Macros.curioEligible(id), `${id} is not collected`);
     }
     assert.eq(Macros.CURIO_MILESTONES.join(), '5,10,15', 'the milestones');
@@ -497,6 +497,33 @@
     assert.truthy(/if \(r\.milestone\) \{\s*this\._bankDiscovery\(Macros\.curioMilestoneKey\(r\.milestone\)/.test(SCENE_SRC), 'banked as a memory');
     const curioSrc = SCENE_SRC.slice(SCENE_SRC.indexOf('  _presentCurio(sx, sy, o, dress) {'), SCENE_SRC.indexOf('  // TRAINING HALL'));
     assert.truthy(curioSrc.length > 100 && !/addMoney/.test(curioSrc), 'the hall pays no coin');
+  });
+
+  test('curio: acquiring a Book reads it without creating an impossible donation', () => {
+    let reads = 0;
+    const scene = { save: { inv: [], selSlot: -1 }, _revealPendingBookReads() { reads++; } };
+    const acquire = liftSceneMethod('addToInv', { CompassModules: { activate() {} } });
+    assert.eq(acquire.call(scene, 'book', 1, false, {}), 1, 'the real acquisition accepts the Book');
+    assert.eq(scene.save.booksRead, 1, 'reading credit is retained');
+    assert.eq(reads, 1, 'the page is presented');
+    assert.eq(Inventory.count(scene.save, 'book'), 0, 'Books never enter the bag');
+    assert.falsy(Macros.curioEligible('book'), 'the hall only requests held items');
+    assert.falsy(Macros.curioMissing(scene.save).includes('book'), 'no impossible Book remains missing');
+  });
+
+  test('curio: retired Book donations leave earned memories intact and the current collection completable', () => {
+    const list = Macros.curioCollection();
+    const save = { inv: [], donated: ['book', ...list.slice(0, 5)], discovered: { 'curio:5': 1 } };
+    const discoveries = JSON.stringify(save.discovered);
+    assert.eq(Macros.curioCount(save), 5, 'only current collection entries count');
+    assert.eq(Macros.curioDonate(save, 'book').why, 'ineligible', 'Books cannot be donated again');
+    for (const id of list.slice(5)) {
+      Inventory.add(save, id, 1);
+      assert.truthy(Macros.curioDonate(save, id).ok, id);
+    }
+    assert.eq(Macros.curioCount(save), list.length, 'count and current total agree');
+    assert.eq(Macros.curioMissing(save).length, 0, 'the collection can be finished');
+    assert.eq(JSON.stringify(save.discovered), discoveries, 'earned milestone memories are untouched');
   });
 
   // ── Training hall ─────────────────────────────────────────────────────────
