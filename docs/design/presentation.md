@@ -263,7 +263,7 @@ pixels and decorative details do not define additional tap cells.
   Spending cannot close an activated circuit. Distance activates after 200 m of
   accepted movement; joystick activation requires **Enable spirit walking** in
   its spirit dialog. Closed controls explain low power. Activation gives the
-  control a bright, steady green glow for five seconds, without opening a dialog
+  control a bright, steady turquoise glow for five seconds, without opening a dialog
   or waiting for the story lane. The first player tap on an awakened control
   shows its Dragon Spirit introduction; subsequent taps use it normally.
   Unread introductions survive reloads and are claimed only when shown.
