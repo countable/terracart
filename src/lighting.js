@@ -681,17 +681,13 @@
       dimA = dimA + (NIGHT_DIM_A - dimA) * night;
       dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
     }
-    // Dreamland's source palette needs neutral daylight, not the biome's
-    // brown wash. Keep night/cave falloff, hazard masks and lamp radii intact.
-    const dreamland = depth === 0 && typeof DreamlandObjects !== 'undefined' && DreamlandObjects.enabled;
-    if (dreamland) dimColour = atLuminance(0xffffff, lum(dimColour));
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
     const floor0 = mixToWhite(dimColour, farA);
     // Lift surface night ambient by 10%, blending back to the same noon.
     // Caves retain their existing ambient floor.
     const nightLum = AMBIENT_K * lum(floor0) * (depth > 0 ? 1 : NIGHT_AMBIENT_GAIN);
     const targetLum = depth > 0 ? nightLum
-      : nightLum + ((dreamland ? 0.54 : AMBIENT_DAY_LUM) - nightLum) * (1 - night);
+      : nightLum + (AMBIENT_DAY_LUM - nightLum) * (1 - night);
     const ambient = atLuminance(floor0, targetLum);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLATEAU_OUTPUT_K;

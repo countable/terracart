@@ -3,7 +3,7 @@ test('reward categories: inventory keys match their official labels', () => {
   for (const cat of INV_CATS) assert.eq(cat.key, cat.label.toLowerCase());
   for (const [id, category] of Object.entries({ potato_seed: 'seeds', potato: 'produce',
     pet_collar: 'pets', wood_shield: 'relics', wood: 'ores', rubble: 'ores',
-    workbench: 'furniture', sapphire: 'ores', healing_potion: 'magic', book: 'supplies' })) {
+    bed_quilted: 'furniture', sapphire: 'ores', healing_potion: 'magic', book: 'supplies' })) {
     assert.eq(rewardCategory({ kind: 'item', id }), category, id);
   }
   assert.eq(rewardCategory({ kind: 'relic', slot: 'sword' }), 'relics');

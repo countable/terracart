@@ -40,17 +40,15 @@
     }
     for (const [name, roof] of Object.entries(SHEET_SRC.roofs)) for (const t of roof.tile) assert.eq(360 % t, 0, name + ' tile ' + t);
   });
-  test('approved sheet: processed facade files match packed openings, signs and roof-tinted canopies', () => {
+  test('approved sheet: packed facade parts preserve openings, signs and roof-tinted canopies', () => {
     const expected={houseDoor:[19,24],porthole:[14,14],shopDoor:[20,24],shopWindow:[74,15],
       smithDoor:[23,24],cog:[18,18],timberWindow:[14,14],brassWindow:[16,16]};
     for(const role of ['shop','trader','supply','seed','pet','potion','relic','book'])expected[role]=[20,18];
     for(const roof of ['blueSlate','verdigris','strawGreen','violet','red','plum'])expected['awning'+roof]=[76,8];
     assert.eq(JSON.stringify(Object.keys(SHEET_SRC.parts).filter(n=>!n.startsWith('A')&&!n.startsWith('B')).sort()),JSON.stringify(Object.keys(expected).sort()));
     for(const [name,[width,height]] of Object.entries(expected)) {
-      const [x0,y0,x1,y1]=SHEET_SRC.parts[name],file=pngDims('assets/Objects/BuildingMaterials/source/b4-facade/'+name+'.png');
-      assert.truthy(file,name+' processed derivative ships');
+      const [x0,y0,x1,y1]=SHEET_SRC.parts[name];
       assert.eq(x1-x0,width,name+' packed width');assert.eq(y1-y0,height,name+' packed height');
-      assert.eq(file.w,width,name+' source width');assert.eq(file.h,height,name+' source height');
     }
   });
   test('approved sheet: both PP variants ship correctly sized surfaces and oversized openings', () => {
@@ -58,10 +56,8 @@
       houseDoor:[19,24],shopDoor:[20,24],smithDoor:[23,24],timberWindow:[14,14],brassWindow:[16,16],shopWindow:[74,15]};
     for(const variant of ['A','B'])for(const [name,[width,height]] of Object.entries(expected)) {
       const key=variant+name,rect=SHEET_SRC.surfaces[key]||SHEET_SRC.parts[key];
-      const file=pngDims('assets/Objects/BuildingMaterials/source/b4d-pp/'+key+'.png');
-      assert.truthy(rect,key+' packed');assert.truthy(file,key+' processed derivative ships');
+      assert.truthy(rect,key+' packed');
       assert.eq(rect[2]-rect[0],width,key+' atlas width');assert.eq(rect[3]-rect[1],height,key+' atlas height');
-      assert.eq(file.w,width,key+' source width');assert.eq(file.h,height,key+' source height');
     }
   });
   test('approved roof wrapping preserves every packed tile phase on both axes', () => {

@@ -1,7 +1,6 @@
 // The complete reference art profile changes presentation, never geographic data.
 const RogueObjects = (() => {
-  const mode = new URLSearchParams(typeof location === 'undefined' ? '' : location.search).get('artTrial') || 'rogue';
-  const enabled = mode === 'rogue';
+  const enabled = true;
   const trees = ['tree_wide_a','tree_wide_b','tree_root_a','tree_root_b','tree_rounded_2','tree_rounded_3'];
   function hash(id) { let value=2166136261; for (const c of String(id || '')) value=Math.imul(value ^ c.charCodeAt(0),16777619); return value >>> 0; }
   // Native-pixel seams and crystal facets over the reference stone. Bake once
@@ -40,8 +39,8 @@ const RogueObjects = (() => {
     // fruiting/picked states from this same canopy, with unchanged 24px frames.
     if (assets.bushes) assets.bushes = {...assets.bushes,
       path:'assets/ArtTrials/RogueObjects/bushes-olive.png'};
-    if (assets.selected_shrub) assets.selected_shrub = {...assets.selected_shrub,
-      path:'assets/ArtTrials/RogueObjects/shrub-olive.png'};
+    assets.selected_shrub = {kind:'spritesheet',
+      path:'assets/ArtTrials/RogueObjects/shrub-olive.png',frameWidth:16,frameHeight:16};
     // Ambient shrubs use the planted-pool resolver, not spec(). Urban shrub
     // cells otherwise select the old mint clipped hedge and bypass this palette.
     // Keep explicitly authored hedge rows, brambles and palms in their own looks.
@@ -135,5 +134,5 @@ const RogueObjects = (() => {
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;
-// RA is the default; explicit artTrial values retain comparison profiles.
-const WorldArtProfile=RogueObjects.enabled ? RogueObjects : DreamlandObjects;
+// Rogue is the sole active world art profile.
+const WorldArtProfile=RogueObjects;

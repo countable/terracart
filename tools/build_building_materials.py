@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the shared building material atlas from the generated source sheets.
 
-Sources: assets/Objects/BuildingMaterials/source/materials-gen-{a,b}.png, each a
+Sources: extra_assets/inactive/assets/Objects/BuildingMaterials/source/materials-gen-{a,b}.png, each a
 3x2 grid of 512px swatches generated in the style of the cottage references.
 Output: reference-materials-v3.png, a 4x3 grid of seamless 96px tiles. Cell
 order is BuildingLowPoly.MATERIAL_CELLS. Each tile is drawn 1:1 by the renderer,
@@ -15,6 +15,7 @@ import numpy as np
 from PIL import Image
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Objects', 'BuildingMaterials')
+SOURCE = os.path.join(os.path.dirname(__file__), '..', 'extra_assets', 'inactive', 'assets', 'Objects', 'BuildingMaterials', 'source')
 TILE = 96
 TRIM = 8  # generated cells carry a faint gutter line
 FREE_REPEAT = {'flagstone': 2}  # tile repeats per 96px edge
@@ -104,7 +105,7 @@ def build(name, sheet, col, row, rx, ry, colours, sheets):
 
 
 def main():
-    sheets = {k: Image.open(os.path.join(ROOT, 'source', f'materials-gen-{k}.png')).convert('RGB') for k in 'ab'}
+    sheets = {k: Image.open(os.path.join(SOURCE, f'materials-gen-{k}.png')).convert('RGB') for k in 'ab'}
     atlas = Image.new('RGB', (TILE * 4, TILE * 3))
     for i, spec in enumerate(CELLS):
         tile, periods = build(*spec, sheets)

@@ -289,9 +289,9 @@ def main():
                    status='applied', referenceUrl='http://localhost:8765/map-art-approved-reference/index.html',
                    version=subprocess.check_output(['git','rev-parse','--short','HEAD'],cwd=ROOT,text=True).strip())
     payload['lightingReference'] = [
-        raster(dict(path='assets/Objects/trunk.png',rect=[0,0,32,32]),args.reserve_root,'Original chest · lighting reference'),
-        raster(dict(path='assets/Objects/Gold Chest.png',rect=[0,0,16,16]),args.reserve_root,'Replacement chest · original source colours'),
-        raster(dict(path='assets/Objects/Wilderness/well.png',rect=[0,0,30,32]),args.reserve_root,'Unchanged well · contrast reference')]
+        raster(dict(path='extra_assets/inactive/assets/Objects/trunk.png',rect=[0,0,32,32]),args.reserve_root,'Original chest · lighting reference'),
+        raster(dict(path='extra_assets/inactive/assets/Objects/Gold Chest.png',rect=[0,0,16,16]),args.reserve_root,'Replacement chest · original source colours'),
+        raster(dict(path='extra_assets/inactive/assets/Objects/Wilderness/well.png',rect=[0,0,30,32]),args.reserve_root,'Unchanged well · contrast reference')]
     painters = (ROOT/'tools/art_preview_colour.js').read_text()+'\n'+subprocess.check_output(['node','tools/export_map_art_painters.js'],cwd=ROOT,text=True)
     template = (ROOT/'tools/map_art_dashboard.html').read_text()
     page = template.replace('__DATA__', json.dumps(payload).replace('<','\\u003c')).replace('__PAINTERS__',painters)

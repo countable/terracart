@@ -22,7 +22,7 @@ test('carried treasures: catalog icons point at their shipped single-frame art',
 
 test('furniture icons: every roster item uses its world frame on the shared DOM sheet', () => {
   const items = ITEMS.filter(item => item.kind === 'furniture');
-  assert.eq(items.length, 16);
+  assert.eq(items.length, 15);
   const row = SCENE_SRC.match(/furniture_icons:\s*\{ url: '([^']+)', cols: (\d+), srcW: (\d+), srcH: (\d+) \}/);
   assert.truthy(row, 'registered DOM sheet');
   const dims = pngDims(row[1]);
@@ -31,7 +31,7 @@ test('furniture icons: every roster item uses its world frame on the shared DOM 
   assert.eq(Number(row[2]), dims.w / 16);
   for (const [frame, item] of items.entries()) {
     const metadata = furnitureSpec(item.id);
-    assert.eq(metadata.frame, frame, item.id + ': roster frame');
+    assert.eq(metadata.frame, frame + 1, item.id + ': roster frame (retired slot 0 stays unused)');
     assert.eq(inventoryIconSource(item.id).sheet, 'furniture_icons');
     assert.eq(inventoryIconSource(item.id).frame, furnitureFrame(item.id));
     assert.eq(PRICES[item.id], Math.round(TIER_VALUE[item.baseTier] * 1.5));
@@ -59,7 +59,7 @@ test('furniture icons: every roster item uses its world frame on the shared DOM 
   assert.truthy(furnitureSpec('lamp_floor').light);
   assert.truthy(furnitureSpec('candelabra_floor').light);
   assert.eq(furnitureSpec('wood'), null);
-  assert.eq(furnitureSpec({ kind: 'furniture', itemId: 'workbench', id: 'placed_1' }), furnitureSpec('workbench'));
+  assert.eq(furnitureSpec({ kind: 'furniture', itemId: 'bed_quilted', id: 'placed_1' }), furnitureSpec('bed_quilted'));
 });
 
 test('furniture art: a tier frame override agrees across world and inventory surfaces', () => {
@@ -120,7 +120,7 @@ test('furniture art: approved atlas tiers map to complete world and inventory fr
     assert.eq(Render.resolveObjectAppearance(pass, { kind: 'furniture', itemId: id }).frameVal,
       selected, `${id}: placed furniture matches inventory`);
   }
-  for (const id of ['workbench', 'candelabra_floor']) {
+  for (const id of ['candelabra_floor']) {
     assert.eq(furnitureSpec(id).tierSheetFrame, null, `${id}: original art retained`);
     assert.eq(furnitureFrame(id), furnitureSpec(id).frame);
   }

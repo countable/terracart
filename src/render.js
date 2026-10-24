@@ -377,6 +377,7 @@ Render.shopSignLook = (badge) => {
 // the board down where that role's roof sits lower (the smithy's art).
 Render.ROLE_SIGN_ICONS = Object.freeze({
   blacksmith: { tab: 'armour', dy: 3 },
+  workshop: { px: ['.######..', '.######..', '...##....', '...##....', '...##....', '...##....', '...##....', '...##....', '.........'], dy: 3 },
 });
 Render.shopSignGlyph = (theme, role) => {
   const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
@@ -1174,7 +1175,7 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
   });
 };
 
-// A persistent gold halo makes shinies visible even on fully lit ground,
+// A restrained gold rim makes shinies visible even on fully lit ground,
 // where the multiply lightmap cannot brighten them further. The SHINE is
 // a bright band sweeping the sprite's own pixels (Phaser 3.60+ preFX Shine).
 // WebGL-only: under the Canvas fallback the shiny's light (Lighting.KINDS.shiny)
@@ -1182,9 +1183,9 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
 // are reused, so every pool callback that can hold a shiny calls this EVERY
 // frame, and the FX comes off the moment the slot holds something plain.
 const SHINE_SPEED = 0.35;       // sweeps per second, roughly — a slow glint, not a strobe
-const SHINE_LINE_W = 0.35;      // the band's width, as a fraction of the sprite
-const SHINE_GRADIENT = 3;       // how soft the band's edges are
-const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
+const SHINE_LINE_W = 0.20;      // the band's width, as a fraction of the sprite
+const SHINE_GRADIENT = 3;       // diagonal slope of the moving band
+const SHINY_GLOW_PADDING = 9; // texture pixels reserved around the silhouette
 // A shiny wears the gold glow and the sweep; an elite (glow false) the sweep
 // alone over its baked vivid sheet (Render.vividTexture), so the rune circle
 // and the creature's own art read clearly.
@@ -1224,7 +1225,8 @@ Render.setShine = function setShine(s, on, id, glow = true) {
     if (glow && !s._shinyGlowFx) {
       s._shinyGlowPadding = fx.padding;
       fx.setPadding(Math.max(fx.padding, SHINY_GLOW_PADDING));
-      s._shinyGlowFx = fx.addGlow(SHINY_TINT, 4, 0.5, false);
+      // No inner glow: retain the sprite's own material and colour.
+      s._shinyGlowFx = fx.addGlow(SHINY_TINT, 2.0, 0, false);
     }
     if (!glow && s._shinyGlowFx) dropShinyGlow(s, fx);
     if (!s._shineFx) s._shineFx = fx.addShine(SHINE_SPEED, SHINE_LINE_W, SHINE_GRADIENT, false);
@@ -1870,6 +1872,7 @@ Render.BUILDING_STYLE_ROLES = Object.freeze({
   plain: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
   // Home: the player's house (building_overlay.js drawHome) — the plain house's cream under its red tile.
   trailer: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
+  workshop: { style: 'whitewash', palette: { wall: 0xb69a70, roof: 0x66837e, trim: 0x70533d } },
   blacksmith: { style: 'multistorey', palette: { wall: 0x92958f, roof: 0x555b60, trim: 0x626961 } },
   trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
@@ -1920,6 +1923,7 @@ Render.houseTextureKey = (role, o, scene) => {
   // drawHome). A null key is an invisible sprite (resolveAppearance).
   if (role === 'trailer') return null;
   if (role === 'plain') return 'house';
+  if (role === 'workshop') return 'house_blacksmith';
   if (role === 'wizard') return 'shrine';
   if (role === 'turret') return 'tower';
   if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
@@ -2599,10 +2603,7 @@ Render.drawCells = function drawCells(scene) {
         if (!polygonBuilding(c,r)) continue;
         t = scene.neighborNonRoadType(AX(c,r), AY(c,r));
       }
-      if (t != null) raMaterials[i] = (typeof scene._dreamlandGroundFamilyAt === 'function'
-        && typeof DreamlandObjects !== 'undefined' && DreamlandObjects.enabled)
-        ? scene._dreamlandGroundFamilyAt(AX(c,r), AY(c,r), t)
-        : RATerrainTrial.material(t, AX(c,r), AY(c,r));
+      if (t != null) raMaterials[i] = RATerrainTrial.material(t, AX(c,r), AY(c,r));
     }
   }
   const raAt = (c,r) => raMaterials ? raMaterials[(r+2)*RING+c+2] : -1;
@@ -3843,6 +3844,10 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
   }
   const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && ((onFootprint && !building) || obscures) ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
+  // Pre-FX receives the faded alpha. Glow treats every translucent body pixel
+  // as an outside edge and fills it gold, defeating the player-reveal fade.
+  // Keep the sweep, but suspend the rim until the object is opaque again.
+  if (s._shinyGlowFx) s._shinyGlowFx.active = alpha >= 1;
 };
 
 // The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
@@ -4251,6 +4256,7 @@ const MAGIC_TRAP_TINT = (typeof Lighting !== 'undefined' && Lighting.KINDS.magic
 const _ROLE_INK = {
   trailer:    '#a8b0c0',
   blacksmith: '#c25a3a',
+  workshop:   '#e4be82',
   trader:     '#ffae5c',
   shop:     '#5ddcc0',
   wizard:     '#b98cff',   // arcane violet
@@ -6042,8 +6048,8 @@ Render.drawObjects = function drawObjects(scene) {
     // over either. The plain case is the KIND'S OWN tint, not a blanket
     // white: a cave slime is the surface slime's sheet and its tint is the
     // only thing that says so (SpriteLayout.CAVE_SLIME_TINT). Chilled and
-    // shiny still win over it — both say something about this INSTANCE,
-    // which outranks what it is.
+    // other status tints still win over it. Shiny rarity uses the rim and
+    // sweep without recolouring the body.
     const chilled = Combat.isChilled(c, Date.now());
     // ON FIRE (Combat.burning): the `burning` row's tint, FLICKERED against
     // the body's own colour so it reads as flame, not a sheen. Ice still
@@ -6066,7 +6072,7 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny && !vivid ? SHINY_TINT : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
+    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !chilled) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !chilled, c.id, !vivid);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -6231,13 +6237,9 @@ Render.drawObjects = function drawObjects(scene) {
     }));
   }
 
-  // Renderer-AGNOSTIC shiny markers. The gold setTint() above is a WebGL multiply
-  // that does NOTHING under Phaser's Canvas fallback, so a baked-gold sparkle
-  // floats above every shiny entity instead (animated with pure transforms that
-  // render under both). This list is first the SHINIES' LIGHTS (Lighting.KINDS
-  // .shiny, drawn by the 2D-canvas lightmap on every renderer); the star is the
-  // Canvas fallback's extra cue only, since under WebGL the shine sweep on the
-  // sprite itself (Render.setShine) replaces it.
+  // Shiny light sources work on every renderer. When pre-FX is unavailable,
+  // a gold sparkle supplies the rarity cue instead of the rim and sweep.
+  // Both paths preserve the sprite's own colours.
   const sparkList = [];
   const pushSpark = (it, id) => sparkList.push({ dx: it.dx, dy: it.dy, id: id || '' });
   for (const it of creatureList) if (it.c.shiny) pushSpark(it, it.c.id);
@@ -6650,15 +6652,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
                 if (o._objectArt === 'dead_tree') return 'selected_dead_tree';
-                const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
-                if (trial) return trial.key;
                 if (o.species === 'pine')     return 'pine_tree';
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
                 if (o._objectArt === 'dead_tree') return 0;
-                const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
-                return trial ? trial.frame : treeArtFrame(o);
+                return treeArtFrame(o);
               },
               origin: (o) => {
                 return o.species === 'pine' ? [0.5, 0.92] : [0.5, 0.95];

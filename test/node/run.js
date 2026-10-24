@@ -1203,7 +1203,6 @@ ctx.TRAP_TEX = (() => {
 })();
 // The texture catalog as text (assets.js is Phaser-loader data, not bundled).
 ctx.ASSETS_SRC = readSrc('assets.js');
-ctx.ART_TRIALS_SRC = readSrc('art-trials.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as text.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
 ctx.FOG_SRC = readSrc('fog.js');
@@ -1358,10 +1357,9 @@ for (const f of testFiles) {
 // ── Every ASSETS file ships ──────────────────────────────────────────────
 // Portraits must retain actual transparent pixels through the RGBA exporter,
 // rather than merely adding an unused alpha channel to a flat background.
-ctx.__tests.push({ name: 'character portraits: every exported cell and atlas has visible art and transparency', fn: () => {
+ctx.__tests.push({ name: 'character portraits: every active cell has visible art and transparency', fn: () => {
   const { decodePng } = require('../../tools/sprite_audit.js');
-  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/portraits/manifest.json'), 'utf8'));
-  const ids = new Set([...Object.keys(manifest.sheets), ...Object.values(manifest.sheets).flat()]);
+  const ids = new Set([...ctx.CharacterPortraits.PET_IDS, ...ctx.CharacterPortraits.NPC_IDS]);
   for (const id of ids) {
     const image = decodePng(fs.readFileSync(path.join(ROOT, `assets/portraits/${id}.png`)));
     let transparent = 0, opaque = 0;

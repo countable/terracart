@@ -338,7 +338,7 @@ access or tile lifecycle mechanics.
   empty plots lose both their tilled marker and bed quality through the saved
   set binding; rendering never repairs farming state.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
-  Finding one unlocks its workbench recipe: three wood makes one barricade. Select
+  Finding one unlocks its workshop recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved
   barricades reuse the wild obstacle's art, slowing, damage and axe/fire/kit
   clearing rules; floor-tagged records survive reloads without reappearing
@@ -1140,6 +1140,10 @@ step. The player Home and specialty buildings never accept NPC assignments.
 
 ### Furniture
 
+The retired portable workbench is removed from inventory and placed furniture
+during save normalization, with the migration persisted. Workshop buildings
+provide crafting instead.
+
 Furniture is durable player property in `save.furniture`, exempt from history
 trimming. Each one-cell record stores item identity, a cell-derived id, world
 position, `PlacedFloor.stampDepth` depth, flip and optional Home `houseKey`.
@@ -1147,7 +1151,7 @@ Floor lamps, owl statues, clocks and planters occupy one floor cell. The stock
 floor lamp retains its upright proportions; all seven owl, clock and planter
 tiers use generated 24×24 exports. The furniture manifest maps both legacy
 and tier frames to these exports; source masters and crop provenance live in
-`assets/Objects/Furniture/source/generated/`.
+`extra_assets/inactive/assets/Objects/Furniture/source/generated/`.
 `PlacedFloor.restoreFurniture` overlays it into normal `entry.objects` after
 saved barricades on both surface and cave loads. Surface loading first calls
 `ensureStarterTrailerObject` to stamp synthetic Home ownership, then derives

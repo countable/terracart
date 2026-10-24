@@ -199,9 +199,13 @@ function sourceFrameRect(file, fw, fh, frameIdx, imageWidth, textureKey) {
   if (!textureKey && candidates.some(row => row.kind === 'atlas-alias')) {
     throw new Error(`Atlas frame lookup requires a texture key: ${file}`);
   }
+  if (asset?.kind === 'image') return { x: 0, y: 0, width: fw, height: fh };
   const rect = asset?.frameRects?.[frameIdx];
   const cols = Math.floor(imageWidth / fw);
-  return rect || { x: frameIdx % cols * fw, y: Math.floor(frameIdx / cols) * fh, width: fw, height: fh };
+  // The profile's onLoad hooks trim contact ink by replacing frame height,
+  // while retaining its original sheet position and width.
+  const cropHeight = textureKey && ROGUE_PROP_PROFILE.frameCrops?.[textureKey]?.[frameIdx];
+  return rect || { x: frameIdx % cols * fw, y: Math.floor(frameIdx / cols) * fh, width: fw, height: cropHeight ?? fh };
 }
 function trimSheetFrame(file, fw, fh, frameIdx, textureKey) {
   const img = loadPng(file), r = sourceFrameRect(file, fw, fh, frameIdx, img.w, textureKey);
@@ -236,14 +240,38 @@ const CROP_SPRITE = itemsCtx.CROP_SPRITE;
 // ── …and the texture table from assets.js, so the wildplant-frame audit reads
 //    the SAME sheet geometry the game loads. The onLoad hooks are never called.
 const assetsCtx = { Math, console, window: {}, EnemyRoster: require('../src/enemy_roster.js'),
-  SpriteLayout: require('../src/sprite_layout.js') };
+  SpriteLayout: require('../src/sprite_layout.js'),
+  CROP_SPRITE: itemsCtx.CROP_SPRITE, BUSH_SPRITE: vm.runInContext('BUSH_SPRITE', itemsCtx) };
 vm.createContext(assetsCtx);
 for (const file of ['art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', file), 'utf8'), assetsCtx, { filename: file });
 }
 vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'assets.js'), 'utf8'),
   assetsCtx, { filename: 'assets.js' });
+// Apply the same active profile as the browser. It supplies both replacement
+// PNGs and their measured bounds; the base table describes legacy sources.
+for (const file of ['rogue_object_bounds.js', 'rogue_prop_profile.js', 'rogue_objects.js']) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', file), 'utf8'), assetsCtx, { filename: file });
+}
+const ROGUE_PROP_PROFILE = vm.runInContext('ROGUE_PROP_PROFILE', assetsCtx);
 const ASSETS = assetsCtx.window.ASSETS;
+
+// Resolve audit samples through the same profile spec, including growth scale.
+assetsCtx.treeArtFrame = treeCtx.treeArtFrame;
+const RogueObjects = assetsCtx.window.RogueObjects;
+const rogueTreeCases = [];
+const seenTrees = new Set();
+for (let i = 0; i < 256; i++) {
+  for (const size of ['small', 'medium', 'large']) {
+    const object = {kind:'tree',id:'audit-tree-' + i,size,species:'maple'};
+    const spec = RogueObjects.spec(object, {}, {});
+    const identity = spec.key + ':' + spec.scale;
+    if (!seenTrees.has(identity)) {
+      seenTrees.add(identity);
+      rogueTreeCases.push({name:`${spec.key} ${size}`,key:spec.key,frameIdx:spec.frame,scale:spec.scale});
+    }
+  }
+}
 
 // ── Sheet metadata: where each texture key's PNG lives + frame size, and the
 //    frame indices the renderer actually seats (used to (re)build ART_BOUNDS).
@@ -260,7 +288,7 @@ const SHEETS = {
   selected_shrub: { file: ASSETS.selected_shrub.path, fw: 16, fh: 16, frames: [0] },
   selected_grave_pillar: { file: ASSETS.selected_grave_pillar.path, fw: 16, fh: 32, frames: [0] },
   bramble: { file: ASSETS.bramble.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.looks.bramble.frames },
-  approved_clipped_hedge: { file: ASSETS.approved_clipped_hedge.path, fw: 24, fh: 24, frames: itemsCtx.CROP_SPRITE.shrub.looks.clipped.frames },
+  approved_clipped_hedge: { file: ASSETS.approved_clipped_hedge.path, fw: 24, fh: 24, frames: [0] },
   zone_hedge_single: { file: ASSETS.zone_hedge_single.path, fw: 24, fh: 24, frames: itemsCtx.WILDPLANT_CONTEXT_ART.zone_hedge_single.frames },
   zone_hedge: { file: ASSETS.zone_hedge.path, fw: 24, fh: 24, frames: Array.from({ length: 15 }, (_, i) => i) },
   // The sheets' fruiting cells (apple 7, peach 5) are deliberately absent: a
@@ -277,7 +305,7 @@ const SHEETS = {
   mineralrock:   { file: 'assets/Objects/Approved/mineralrock.png',fw: 16, fh: 16, frames: [168, 169, 170, 171, 0, 1, 2, 3, 5, 7] },
   mineralboulder: { file: 'assets/Objects/Approved/mineralrock.png', fw: 32, fh: 16, frames: [45, 60, 46, 47, 48, 49, 51, 53] },
   approved_charred_stakes: { file: 'assets/Objects/Approved/approved_charred_stakes.png', fw: 24, fh: 24, frames: [0] },
-  well:          { file: 'assets/Objects/Wilderness/well.png',               fw: 30, fh: 32, frames: [0] },
+  well:          { file: ASSETS.well.path, fw: ASSETS.well.frameWidth, fh: ASSETS.well.frameHeight, frames: [0] },
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
@@ -293,7 +321,7 @@ const SHEETS = {
   zone_objects: { file: ASSETS.zone_objects.path, fw: 24, fh: 24, frames: [1,4,5,6,7,34,37,38,39,40,54,58,59,61,64,65,66,67,68,69,70,71] },
   zone_berry_bush: { file: ASSETS.zone_berry_bush.path, fw: 16, fh: 16, frames: [0,1] },
   reef_coral:    { file: 'assets/Objects/Reef/coral.png', fw: 24, fh: 24, frames: [0,1,2,3,4,5,6,7] },
-  vista_scope:   { file: 'assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
+  vista_scope:   { file: 'extra_assets/inactive/assets/Objects/Approved/vista_scope.png',               fw: 16, fh: 24, frames: [0] },
   [SHRINE_KIND_ART.key]: { file: ASSETS[SHRINE_KIND_ART.key].path, fw: ASSETS[SHRINE_KIND_ART.key].frameWidth,
     fh: ASSETS[SHRINE_KIND_ART.key].frameHeight, frames: SHRINE_KIND_ART.frames },
   barrel: { file: ASSETS.barrel.path, fw: 16, fh: 16, frames: [0,1,2,3,4,5,6,7,8] },
@@ -301,7 +329,7 @@ const SHEETS = {
   clay_pot_smashed: { file: ASSETS.clay_pot_smashed.path, fw: 24, fh: 24, frames: [0, 1, 2, 3] },
   bike_rack:      { file: 'assets/Objects/Approved/bike_rack.png',          fw: 16, fh: 16, frames: [0] },
   signpost:       { file: ASSETS.signpost.path,           fw: 16, fh: 16, frames: [0] },
-  gatepost:       { file: 'assets/Objects/Approved/gatepost.png',           fw: 16, fh: 16, frames: [0] },
+  gatepost:       { file: 'extra_assets/inactive/assets/Objects/Approved/gatepost.png',           fw: 16, fh: 16, frames: [0] },
 };
 
 // ── Scenarios: one row per representative (sprite, variant). key/frameIdx pick
@@ -381,6 +409,21 @@ const SCENARIOS = [
   { name: 'notice board',    key: 'signpost',      frameIdx: 0, scale: 1.6 },
   { name: 'gate post',       key: 'gatepost',      frameIdx: 0, scale: 1.6 },
 ];
+
+// Alias registrations read the atlas texture, not the historical path attached
+// to an alias row. Standalone profile replacements use their own image geometry.
+for (const [key, sheet] of Object.entries(SHEETS)) {
+  const asset = ASSETS[key];
+  if (!asset) continue;
+  sheet.file = asset.kind === 'atlas-alias' ? ASSETS[asset.atlasKey].path : asset.path;
+  sheet.fw = asset.frameWidth ?? sheet.fw;
+  sheet.fh = asset.frameHeight ?? sheet.fh;
+}
+for (const sample of rogueTreeCases) {
+  const asset = ASSETS[sample.key], bounds = ART_BOUNDS[sample.key + ':__BASE'];
+  SHEETS[sample.key] = {file:asset.path,fw:bounds.fw,fh:bounds.fh,frames:['__BASE']};
+  SCENARIOS.push(sample);
+}
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────
 function evaluate(s) {

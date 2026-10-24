@@ -71,7 +71,7 @@
   });
 
   test('inventory categories: boot and new furniture or ore stacks reveal page two', () => {
-    for (const id of ['workbench', 'wood']) {
+    for (const id of ['bed_quilted', 'wood']) {
       const s = harness({ inv: [], relics: {}, armor: {}, invCat: 'seeds', invPage: 0, selSlot: -1 });
       s.buildInventoryDOM();
       assert.eq(s.addToInv(id, 1), 1);
@@ -87,7 +87,7 @@
   });
 
   test('inventory furniture: Flip is transient, metadata-gated and resets between items', () => {
-    const s = harness({ inv: [{ id: 'workbench', count: 1 }, { id: 'rug_burgundy', count: 1 }],
+    const s = harness({ inv: [{ id: 'bed_quilted', count: 1 }, { id: 'rug_burgundy', count: 1 }],
       relics: {}, armor: {}, invCat: 'furniture', invPage: 0, selSlot: 0 });
     s.buildInventoryDOM();
     const btn = s.document.getElementById('furniture-flip-btn');

@@ -15,7 +15,7 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'tools'))
 from import_world_art_candidates import apply_imports, digest, IMPORTS
 
-SOURCE = ROOT / 'assets/Objects/Approved/Sources/ArtRedo20261012'
+SOURCE = ROOT / 'extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012'
 REVIEW = 'ART-2026-10-12-APPROVED'
 
 
@@ -30,7 +30,7 @@ def main():
         crop = SOURCE / f'idol-{frame}.png'
         sheet.crop(rect).save(crop)
         entries.append({
-            'reviewId': REVIEW, 'sheet': 'assets/Objects/Generated/shrines.png',
+            'reviewId': REVIEW, 'sheet': 'extra_assets/inactive/assets/Objects/Generated/shrines.png',
             'frame': frame, 'frameSize': [16, 24],
             'source': str(crop.relative_to(ROOT)), 'sourceSha256': digest(crop),
             'generatedSheet': str(master.relative_to(ROOT)),
@@ -38,10 +38,10 @@ def main():
         })
     grave = SOURCE / 'mossy_grave.png'
     for target, frame, size in [
-        ('assets/Objects/ZoneVariants/objects-24.png', 1, 24),
+        ('extra_assets/inactive/assets/Objects/ZoneVariants/objects-24.png', 1, 24),
         ('assets/Objects/ZoneVariants/approved-24.png', 1, 24),
-        ('assets/Objects/ZoneVariants/mossy_grave_pillar.png', 0, 24),
-        ('assets/Objects/ZoneVariants/objects-16.png', 1, 16),
+        ('extra_assets/inactive/assets/Objects/ZoneVariants/mossy_grave_pillar.png', 0, 24),
+        ('extra_assets/inactive/assets/Objects/ZoneVariants/objects-16.png', 1, 16),
     ]:
         entries.append({
             'reviewId': REVIEW, 'sheet': target, 'frame': frame,

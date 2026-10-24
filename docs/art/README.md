@@ -11,7 +11,7 @@ runtime palette filter. No sprites or spawn rules are changed by this document.
 
 Approved world-art replacements are recorded by review ID and destination frame
 in `assets/Objects/Approved/world-art-imports.json`. The source crops under
-`assets/Objects/Approved/Sources/WorldArt/` retain the generated pixels before
+`extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/` retain the generated pixels before
 review downsampling, with original sheet hashes and crop coordinates in that
 manifest. Run `python3 tools/import_world_art_candidates.py` after rebuilding a
 legacy sheet. It replaces only approved frames, preserves atlas geometry and
@@ -50,7 +50,7 @@ where recolouring alone is insufficient. Original thumbnails remain unchanged;
 the browser renders proposed RGB palette swaps beside them using
 `tools/nature_recolour.js`. Material groups separate foliage/caps from bark/stems;
 colour ramps are assigned by source brightness. Dimensions and alpha are
-preserved exactly. The five remaining defaults are exported to `assets/Objects/Rustic/` with
+preserved exactly. The five remaining defaults are exported to `extra_assets/inactive/assets/Objects/Rustic/` with
 `tools/apply_nature_recolours.py`, including matching growth and broken-pot
 states. Shrubs have two appearances: the basic bush and the approved cut hedge at 80%
 of its former residential display size. Both share shrub mechanics, and neither
@@ -252,7 +252,7 @@ fog, shadows and tool-lock fading. It makes no game-art changes.
 
 ## Quarry crystal cluster
 
-`assets/Objects/Wilderness/crystal_cluster.png` is the unchanged 16×16
+`extra_assets/inactive/assets/Objects/Wilderness/crystal_cluster.png` is the unchanged 16×16
 `crystal_cluster` tile from Verdant Props (Core Systems Asset Factory, 2026).
 The pack licence is preserved beside it. Mineral-rock records with
 `deposit: 'crystal'` use this cluster at the shared rock scale and measured

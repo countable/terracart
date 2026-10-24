@@ -1,35 +1,34 @@
 # Asset inventory
 
-Run `node tools/asset_inventory.js` to list image files under `assets/` that
-have no known runtime reference. Add `--json` for reference evidence, missing
-paths, candidate file sizes and Git status, and preserved source/reserve images
-in the external archive (see [Art sources](ART_SOURCES.md)). Runtime paths are
-relative to the repository; archive paths are absolute. The command works
-from any working directory. It writes no files and never deletes anything.
+Run `node tools/asset_inventory.js --json` to inventory active image files and
+archive candidates. The command is read-only, works from any working directory,
+and fails on missing runtime references or scanner errors.
 
-A missing reference or a scanner error exits with status 1. Unreferenced
-candidates alone do not fail the command. Git status distinguishes tracked,
-untracked and ignored files; staged additions count as tracked. Source masters
-and reserve exports are listed separately and are not deletion candidates.
+The runtime profile is Rogue. The scanner evaluates its effective preload
+manifest, including dynamic enemy/NPC rows, atlas aliases and Rogue profile
+installers. Procedural textures have no file and are excluded. It enumerates
+all gear slots and tiers, portraits, compass emission layers, and chest-tier
+paintings. It scans only JavaScript loaded by `index.html` (plus `app.js`), CSS,
+and the index itself. Quoted painting stems in arrays, returns and conditions
+count as consumers; generated thumbnail metadata alone does not make art active.
 
-The inventory evaluates the preload manifest with its enemy roster and sprite
-layout, the DOM icon sheet table, and every gear slot/tier through the runtime
-`gearAssetPath` function. It also scans JavaScript under `src/`, image/CSS paths
-in `index.html`, `art` and `story` scene painting stems, street painting overrides, and dynamic restoration paintings from
-the restoration role table. Enemy full sheets used by the roster therefore
-count as referenced even when their paths are not in the preload source text.
+JSON `references` records runtime paths and their evidence. `missing` reports
+broken runtime references. `candidates` contains images under `assets/` outside
+that set, with sizes, Git status, categories and full-path `supportReferences`
+from tools, tests, docs and asset manifests. `overrides` identifies base preload
+rows whose paths differ from the effective runtime manifest. Staged additions
+count as tracked. Existing external source archives are listed in `sources`.
 
-This is a conservative reference inventory, not runtime coverage or a JavaScript
-parser. Ordinary JavaScript comments are excluded while quoted strings are kept;
-unusual regex literals or nested templates can confuse that scan. HTML and block
-comments in `index.html` are excluded, but inline JavaScript line comments may
-conservatively retain a reference. All `src/` files and literal branches are
-scanned, including code that may not currently execute. References assembled by
-new dynamic code need an explicit enumerator, like gear and restoration art.
-Tests, documentation, generators, and external consumers are outside runtime
-scope. Image formats checked are PNG, WebP, JPEG, GIF, SVG and AVIF.
+Candidate categories distinguish source/master folders, other tool or
+documentation references, and files without a known full-path consumer. These
+are review aids, not proof of dead code: generator paths assembled from folder
+and filename fragments require inspection too. Update builder inputs and
+provenance paths when moving candidates into `extra_assets/inactive/`; preserve
+original relative paths and hashes. No runtime reference should point into the
+archive. The inventory never moves or deletes files itself.
 
-Review each candidate before removal: it may be a useful reserve or an input
-to a tool. This command does not establish that it is redundant or recoverable.
-After changing assets, run the normal sprite audits and node suite too; existence
-checks do not validate pixels, frame indices, preload keys or visual appearance.
+The scanner is conservative, not a JavaScript parser or runtime coverage tool.
+New dynamic filename families need an explicit enumerator. Literal branches
+inside loaded modules remain retained. Existence checks do not validate pixels,
+frame geometry or appearance. Run `node test/asset-inventory.cjs`, the normal
+sprite audits, and relevant visual checks after changing asset organization.

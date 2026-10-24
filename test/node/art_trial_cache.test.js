@@ -1,7 +1,7 @@
 (() => {
   const source = INDEX_HTML_SRC.split('// Local art trials use the current checkout,')[1]
     .split('// End local art trial cache reset.')[0];
-  async function run({ url = 'http://localhost:8000/index.html?artTrial=dreamland',
+  async function run({ url = 'http://localhost:8000/index.html?artTrial=rogue',
     controlled = true, scopes = ['http://localhost:8000/'], stored = new Map(), unregister = true } = {}) {
     const removed = [], window = {};
     let reloads = 0, queries = 0;
@@ -37,7 +37,7 @@
   });
   test('art trial cache: normal games, other trials, and remote hosts retain workers', async () => {
     for (const url of ['http://localhost:8000/index.html', 'http://localhost:8000/?artTrial=unknown',
-      'https://game.example/?artTrial=dreamland', 'https://localhost.example/?artTrial=rogue']) {
+      'https://game.example/?artTrial=rogue', 'https://localhost.example/?artTrial=rogue']) {
       const result = await run({ url });
       assert.eq(result.window.__localArtTrial, false);
       assert.eq(result.queries, 0);

@@ -6,7 +6,7 @@
       "name": "Unrestored house wreck",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/Wreck.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/Wreck.png",
         "rect": [
           0,
           0,
@@ -24,7 +24,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/Wreck.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/Wreck.png",
           "rect": [
             0,
             0,
@@ -64,7 +64,7 @@
       "name": "Plain restored cottage",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/House.png",
+        "file": "extra_assets/inactive/assets/Objects/House.png",
         "rect": [
           148,
           3,
@@ -76,7 +76,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/House.png",
+          "file": "extra_assets/inactive/assets/Objects/House.png",
           "rect": [
             148,
             3,
@@ -109,7 +109,7 @@
       "name": "Restored blacksmith",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/blacksmith.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/blacksmith.png",
         "rect": [
           0,
           0,
@@ -121,7 +121,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/blacksmith.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/blacksmith.png",
           "rect": [
             0,
             0,
@@ -154,7 +154,7 @@
       "name": "Restored trader",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/trader.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/trader.png",
         "rect": [
           0,
           0,
@@ -166,7 +166,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/trader.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/trader.png",
           "rect": [
             0,
             0,
@@ -199,7 +199,7 @@
       "name": "Restored market house",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/market.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/market.png",
         "rect": [
           0,
           0,
@@ -211,7 +211,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/market.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/market.png",
           "rect": [
             0,
             0,
@@ -244,7 +244,7 @@
       "name": "Fort building",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/fort.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/fort.png",
         "rect": [
           0,
           0,
@@ -256,7 +256,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/fort.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/fort.png",
           "rect": [
             0,
             0,
@@ -279,7 +279,7 @@
           "unclaimed": {
             "name": "Unclaimed fort",
             "candidate": {
-              "file": "assets/Objects/Houses/fort.png",
+              "file": "extra_assets/inactive/assets/Objects/Houses/fort.png",
               "rect": [
                 0,
                 0,
@@ -310,7 +310,7 @@
           "claimed": {
             "name": "Claimed fort",
             "candidate": {
-              "file": "assets/Objects/Houses/fort.png",
+              "file": "extra_assets/inactive/assets/Objects/Houses/fort.png",
               "rect": [
                 0,
                 0,
@@ -346,7 +346,7 @@
       "name": "Home trailer",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/trailer.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/trailer.png",
         "rect": [
           0,
           0,
@@ -358,7 +358,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/trailer.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/trailer.png",
           "rect": [
             0,
             0,
@@ -391,7 +391,7 @@
       "name": "Restored wizard tower",
       "category": "Buildings",
       "current": {
-        "file": "assets/Objects/Houses/wizard.png",
+        "file": "extra_assets/inactive/assets/Objects/Houses/wizard.png",
         "rect": [
           240,
           0,
@@ -403,7 +403,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Houses/wizard.png",
+          "file": "extra_assets/inactive/assets/Objects/Houses/wizard.png",
           "rect": [
             240,
             0,
@@ -434,7 +434,7 @@
       "name": "Inn POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/inn.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/inn.png",
         "rect": [
           0,
           0,
@@ -446,7 +446,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/inn.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/inn.png",
           "rect": [
             0,
             0,
@@ -478,7 +478,7 @@
       "name": "Chapel POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/chapel.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/chapel.png",
         "rect": [
           0,
           0,
@@ -490,7 +490,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/chapel.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/chapel.png",
           "rect": [
             0,
             0,
@@ -513,7 +513,7 @@
       "name": "Apothecary POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/apothecary.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/apothecary.png",
         "rect": [
           0,
           0,
@@ -525,7 +525,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/apothecary.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/apothecary.png",
           "rect": [
             0,
             0,
@@ -557,7 +557,7 @@
       "name": "Scriptorium POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/scriptorium.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/scriptorium.png",
         "rect": [
           0,
           0,
@@ -569,7 +569,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/scriptorium.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/scriptorium.png",
           "rect": [
             0,
             0,
@@ -601,7 +601,7 @@
       "name": "Guildhall POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/guildhall.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/guildhall.png",
         "rect": [
           0,
           0,
@@ -613,7 +613,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/guildhall.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/guildhall.png",
           "rect": [
             0,
             0,
@@ -645,7 +645,7 @@
       "name": "Curio hall POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/curio.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/curio.png",
         "rect": [
           0,
           0,
@@ -657,7 +657,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/curio.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/curio.png",
           "rect": [
             0,
             0,
@@ -689,7 +689,7 @@
       "name": "Sundries counter POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/sundries.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/sundries.png",
         "rect": [
           0,
           0,
@@ -701,7 +701,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/sundries.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/sundries.png",
           "rect": [
             0,
             0,
@@ -733,7 +733,7 @@
       "name": "Training hall POI",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/training.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/training.png",
         "rect": [
           0,
           0,
@@ -745,7 +745,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Generated/training.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/training.png",
           "rect": [
             0,
             0,
@@ -777,7 +777,7 @@
       "name": "Produce stands: seven product counters",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/market_stand.png",
+        "file": "extra_assets/inactive/assets/Objects/market_stand.png",
         "rect": [
           0,
           0,
@@ -795,7 +795,7 @@
       "recommendation": {
         "action": "simplify",
         "candidate": {
-          "file": "assets/Objects/market_stand.png",
+          "file": "extra_assets/inactive/assets/Objects/market_stand.png",
           "rect": [
             0,
             0,
@@ -825,7 +825,7 @@
       "name": "Old-trade-road broken wagon",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/wagon.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/wagon.png",
         "rect": [
           0,
           0,
@@ -837,7 +837,7 @@
       "recommendation": {
         "action": "simplify",
         "candidate": {
-          "file": "assets/Objects/Generated/wagon.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/wagon.png",
           "rect": [
             0,
             0,
@@ -871,7 +871,7 @@
       "name": "Utility pole stone pillars",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Wilderness/pillar.png",
+        "file": "extra_assets/inactive/assets/Objects/Wilderness/pillar.png",
         "rect": [
           0,
           0,
@@ -883,7 +883,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Wilderness/pillar.png",
+          "file": "extra_assets/inactive/assets/Objects/Wilderness/pillar.png",
           "rect": [
             0,
             0,
@@ -916,7 +916,7 @@
       "name": "Paired gate pillars",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/pillar_a.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/pillar_a.png",
         "rect": [
           0,
           0,
@@ -928,7 +928,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Generated/pillar_a.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/pillar_a.png",
           "rect": [
             0,
             0,
@@ -961,7 +961,7 @@
       "name": "Information / book-page board",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/signpost.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/signpost.png",
         "rect": [
           0,
           0,
@@ -1002,7 +1002,7 @@
       "name": "Pilgrim waystone",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/waystone.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/waystone.png",
         "rect": [
           0,
           0,
@@ -1014,7 +1014,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Generated/waystone.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/waystone.png",
           "rect": [
             0,
             0,
@@ -1042,7 +1042,7 @@
       "name": "Road barricade",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Generated/barricade.png",
+        "file": "extra_assets/inactive/assets/Objects/Generated/barricade.png",
         "rect": [
           0,
           0,
@@ -1054,7 +1054,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Generated/barricade.png",
+          "file": "extra_assets/inactive/assets/Objects/Generated/barricade.png",
           "rect": [
             0,
             0,
@@ -1083,7 +1083,7 @@
       "name": "Fountain well",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Wilderness/well.png",
+        "file": "extra_assets/inactive/assets/Objects/Wilderness/well.png",
         "rect": [
           0,
           0,
@@ -1095,7 +1095,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Wilderness/well.png",
+          "file": "extra_assets/inactive/assets/Objects/Wilderness/well.png",
           "rect": [
             0,
             0,
@@ -1130,7 +1130,7 @@
       "name": "Cave entrance",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/stair_down.png",
+        "file": "extra_assets/inactive/assets/Objects/stair_down.png",
         "rect": [
           0,
           0,
@@ -1142,7 +1142,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/stair_down.png",
+          "file": "extra_assets/inactive/assets/Objects/stair_down.png",
           "rect": [
             0,
             0,
@@ -1173,7 +1173,7 @@
       "name": "Cave return ladder",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/stair_up.png",
+        "file": "extra_assets/inactive/assets/Objects/stair_up.png",
         "rect": [
           0,
           0,
@@ -1185,7 +1185,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/stair_up.png",
+          "file": "extra_assets/inactive/assets/Objects/stair_up.png",
           "rect": [
             0,
             0,
@@ -1216,7 +1216,7 @@
       "name": "Grove stone figure",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Landmarks/shrine-figure.png",
+        "file": "extra_assets/inactive/assets/Objects/Landmarks/shrine-figure.png",
         "rect": [
           0,
           0,
@@ -1228,7 +1228,7 @@
       "recommendation": {
         "action": "keep",
         "candidate": {
-          "file": "assets/Objects/Landmarks/shrine-figure.png",
+          "file": "extra_assets/inactive/assets/Objects/Landmarks/shrine-figure.png",
           "rect": [
             0,
             0,
@@ -1257,7 +1257,7 @@
       "name": "Grove stone votive",
       "category": "POI structures",
       "current": {
-        "file": "assets/Objects/Landmarks/shrine-votive.png",
+        "file": "extra_assets/inactive/assets/Objects/Landmarks/shrine-votive.png",
         "rect": [
           0,
           0,
@@ -1269,7 +1269,7 @@
       "recommendation": {
         "action": "recolour",
         "candidate": {
-          "file": "assets/Objects/Landmarks/shrine-votive.png",
+          "file": "extra_assets/inactive/assets/Objects/Landmarks/shrine-votive.png",
           "rect": [
             0,
             0,

@@ -10,7 +10,7 @@
     {
       "id": "shipped",
       "name": "A \u00b7 Shipped woodland bush",
-      "source": "assets/Objects/Rustic/bush.png",
+      "source": "extra_assets/inactive/assets/Objects/Rustic/bush.png",
       "rect": [
         0,
         0,
@@ -25,7 +25,7 @@
     {
       "id": "current",
       "name": "B \u00b7 Previous proposal",
-      "source": "assets/Objects/Rustic/bush.png",
+      "source": "extra_assets/inactive/assets/Objects/Rustic/bush.png",
       "rect": [
         0,
         0,
@@ -40,7 +40,7 @@
     {
       "id": "soft",
       "name": "C \u00b7 Restrained woodland",
-      "source": "assets/Objects/Rustic/bush.png",
+      "source": "extra_assets/inactive/assets/Objects/Rustic/bush.png",
       "rect": [
         0,
         0,
@@ -55,7 +55,7 @@
     {
       "id": "source-green",
       "name": "D \u00b7 Selected original green source",
-      "source": "assets/Objects/Wilderness/bushes.png",
+      "source": "extra_assets/inactive/assets/Objects/Wilderness/bushes.png",
       "rect": [
         48,
         0,
@@ -97,7 +97,7 @@
     {
       "id": "hedge",
       "name": "H \u00b7 Clipped hedge",
-      "source": "assets/Objects/Generated/hedge_end.png",
+      "source": "extra_assets/inactive/assets/Objects/Generated/hedge_end.png",
       "strength": 0.2,
       "mode": "apple-foliage",
       "usage": "Formal Garden / residential / commercial only",

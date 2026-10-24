@@ -55,7 +55,7 @@ test('build choice: the type first, then the rank where more than one is open, e
   assert.eq(modal.acceptLabel, 'Restore');
   assert.eq(modal.cancelLabel, 'Later');
   // STEP ONE lists TYPES, one card each, in table order: the House, then the smithy.
-  assert.eq(modal.choices.map(c => c.key).join(), 'plain,blacksmith', 'one card per type');
+  assert.eq(modal.choices.map(c => c.key).join(), 'plain,blacksmith,workshop', 'one card per type');
   const smithCard = modal.choices.find(c => c.key === 'blacksmith');
   const smith = Houses.buildOptions(scene.save, house).find(r => r.key === 'blacksmith:1');
   const cost = Houses.buildCost(scene.save, house, smith);

@@ -22,6 +22,7 @@ from playwright.async_api import async_playwright
 from preview_map_art import ROOT, colours
 
 DEST = ROOT/'assets/Objects/Approved'
+SOURCE = ROOT/'extra_assets/inactive/assets/Objects/Approved/Sources'
 MANIFEST = DEST/'manifest.json'
 CONTEXT_KEYS = {'longgrass':'approved_wetland_reeds', 'shrub':'approved_clipped_hedge',
                 'plain-rock':'approved_moss_rocks',
@@ -48,7 +49,7 @@ def recipes(reserve):
     def source(name,tag):
         path=reserve/name.split('unused_art/',1)[1] if name.startswith('unused_art/') else ROOT/name
         if name.startswith('unused_art/'):
-            vendored=DEST/'Sources'/(tag+Path(name).suffix)
+            vendored=SOURCE/(tag+Path(name).suffix)
             if path.exists():
                 vendored.parent.mkdir(parents=True,exist_ok=True)
                 if not vendored.exists() or vendored.read_bytes()!=path.read_bytes():vendored.write_bytes(path.read_bytes())

@@ -24,7 +24,7 @@
     }
   },
   "book_page": {
-    "source": "repo:assets/art/book_page.webp",
+    "source": "repo:extra_assets/inactive/assets/art/book_page.webp",
     "width": 900,
     "height": 1145,
     "source_kind": "runtime_original",
@@ -639,7 +639,7 @@
     }
   },
   "kind_inn": {
-    "source": "repo:assets/art/kind_inn.webp",
+    "source": "repo:extra_assets/inactive/assets/art/kind_inn.webp",
     "width": 512,
     "height": 652,
     "source_kind": "runtime_original",
@@ -747,7 +747,7 @@
     }
   },
   "kind_spirit": {
-    "source": "repo:assets/art/kind_spirit.webp",
+    "source": "repo:extra_assets/inactive/assets/art/kind_spirit.webp",
     "width": 512,
     "height": 652,
     "source_kind": "runtime_original",
@@ -1248,7 +1248,7 @@
     }
   },
   "shrine_waystone": {
-    "source": "repo:assets/art/shrine_waystone.webp",
+    "source": "repo:extra_assets/inactive/assets/art/shrine_waystone.webp",
     "width": 512,
     "height": 652,
     "source_kind": "runtime_original",

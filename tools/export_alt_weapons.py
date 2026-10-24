@@ -7,7 +7,7 @@ from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
 DEST = ROOT / "assets/Icons/AltWeapons"
-PACK = ROOT / "assets/Icons/RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png"
+PACK = ROOT / "extra_assets/inactive/assets/Icons/RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png"
 
 
 def strip(tile, path):

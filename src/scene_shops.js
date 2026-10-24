@@ -256,10 +256,8 @@ class SceneShops {
       return;
     }
     // House routing:
-    //   HOME (starter trailer)  → the Home panel: a SELL page and a CRAFT
-    //                              page (presentHomeSell / presentHomeCraft).
-    //                              A tap holding a stack opens on Sell, an
-    //                              empty-handed tap on Craft.
+    //   HOME (starter trailer)  → Sell from the stash.
+    //   Workshop               → Craft tools and supplies.
     //   Every other house       → only its PRIMARY interaction (buy /
     //                              trade / smith / relic). Selling
     //                              anywhere but home is intentionally
@@ -267,10 +265,8 @@ class SceneShops {
     //                              come home with their haul.
     const isHome = !!house && this.isStarterShop(house);
     const sel = this.save.inv[this.save.selSlot];
-    const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      if (hasSel) this.presentHomeSell(sx, sy);
-      else this.presentHomeCraft(sx, sy);
+      this.presentHomeSell(sx, sy);
       return;
     }
     // A FORT runs a slot machine (presentFortSlots) — before the deal cap and
@@ -286,6 +282,10 @@ class SceneShops {
     // back to the address-derived type for legacy saves). Returns
     // 'blacksmith' for the starter smithy too, so the forge branch fires.
     const shopType = this.houseShopRole(house);
+    if (shopType === 'workshop') {
+      this.presentWorkshop(sx, sy, house);
+      return;
+    }
     if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
       MemoryStory.visitWizard(this, () => {}, house);
       return;
@@ -1303,7 +1303,7 @@ class SceneShops {
     });
   }
 
-  // Home, workbenches and brewing share discovery, selection and capacity.
+  // Workshops and brewing share discovery, selection and capacity.
   // Venues supply navigation, copy, fees on recipe rows, and completion effects.
   // A station with several known recipes opens on a grid of them all; a pick
   // opens that recipe's counter, whose ‹ Back returns to the grid
@@ -1361,7 +1361,7 @@ class SceneShops {
 
   // THE RECIPE COUNTER — the one presenter for "give these ingredients, take
   // that": the crucible (presentSmeltOffer) and the forge
-  // (presentBlacksmithOffer), plus Home, workbenches and brewing through the picker.
+  // (presentBlacksmithOffer), plus Workshops and brewing through the picker.
   // It owns the held count, the coloured cost line
   // (green where the bag covers an ingredient, red where it is short), the
   // shortfall line that names the ingredient and how many more are wanted —

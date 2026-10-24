@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Pack the approved building materials into one sheet.
 
-Sources (not shipped): assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png
+Sources (not shipped): extra_assets/inactive/assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png
 (the user's pixel tileset: plaster, timber, brick and stone walls; slate roof),
 source/painterly-tileset-v1.png (red tile roof) and reference-materials-v3.png
 (the generated seamless atlas: fish-scale clay and thatch, tinted to the role
@@ -15,9 +15,10 @@ import os
 from PIL import Image, ImageDraw
 
 ROOT = os.path.join(os.path.dirname(__file__), '..', 'assets', 'Objects', 'BuildingMaterials')
+SOURCE = os.path.join(os.path.dirname(__file__), '..', 'extra_assets', 'inactive', 'assets', 'Objects', 'BuildingMaterials', 'source')
 SRC = {
-    'px': os.path.join(ROOT, 'source', 'pixel-tileset-v3.png'),
-    'paint': os.path.join(ROOT, 'source', 'painterly-tileset-v1.png'),
+    'px': os.path.join(SOURCE, 'pixel-tileset-v3.png'),
+    'paint': os.path.join(SOURCE, 'painterly-tileset-v1.png'),
     'atlas': os.path.join(ROOT, 'reference-materials-v3.png'),
 }
 # Pixel tileset storey bands (y0, y1): the facade rows the wall crops sit in.
@@ -124,7 +125,7 @@ def main():
     # exceed the legacy sheet width (683), keeping excluded roles' UVs stable.
     kit = build_steampunk_cells()
     for name in ['cream','boards','smithStone']:
-        kit[name] = Image.open(os.path.join(ROOT, 'source', 'b4-facade', name + '.png')).convert('RGBA')
+        kit[name] = Image.open(os.path.join(SOURCE, 'b4-facade', name + '.png')).convert('RGBA')
     names = list(kit)
     for start in range(0, len(names), 6):
         shelf = []
@@ -134,20 +135,20 @@ def main():
         shelves.append(shelf)
     # B4 facade-only additions stay on new shelves. Do not add white plaster
     # to STEAMPUNK_RAMPS: that would change the preceding shelf arrangement.
-    white = Image.open(os.path.join(ROOT, 'source', 'b4-facade', 'whitePlaster.png')).convert('RGBA')
+    white = Image.open(os.path.join(SOURCE, 'b4-facade', 'whitePlaster.png')).convert('RGBA')
     crops.append(('steampunk.whitePlaster', white))
     shelves.append([len(crops) - 1])
     shelf = []
     for name in ['houseDoor', 'porthole', 'shopDoor', 'shopWindow',
                  'smithDoor', 'cog', 'shop', 'trader', 'supply', 'seed',
                  'pet', 'potion', 'relic', 'book', 'timberWindow', 'brassWindow']:
-        part = Image.open(os.path.join(ROOT, 'source', 'b4-facade', name + '.png')).convert('RGBA')
+        part = Image.open(os.path.join(SOURCE, 'b4-facade', name + '.png')).convert('RGBA')
         crops.append((f'parts.{name}', part))
         shelf.append(len(crops) - 1)
     shelves.append(shelf)
     shelf = []
     for name in ['blueSlate','verdigris','strawGreen','violet','red','plum']:
-        part = Image.open(os.path.join(ROOT, 'source', 'b4-facade', 'awning' + name + '.png')).convert('RGBA')
+        part = Image.open(os.path.join(SOURCE, 'b4-facade', 'awning' + name + '.png')).convert('RGBA')
         crops.append((f'parts.awning{name}', part))
         shelf.append(len(crops) - 1)
     shelves.append(shelf)
@@ -158,7 +159,7 @@ def main():
                       ['houseDoor','shopDoor','smithDoor','timberWindow','brassWindow','shopWindow']):
             shelf = []
             for name in names:
-                part = Image.open(os.path.join(ROOT, 'source', 'b4d-pp', variant + name + '.png')).convert('RGBA')
+                part = Image.open(os.path.join(SOURCE, 'b4d-pp', variant + name + '.png')).convert('RGBA')
                 crops.append((f'facade.{variant}{name}', part))
                 shelf.append(len(crops) - 1)
             shelves.append(shelf)
