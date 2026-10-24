@@ -220,9 +220,12 @@ variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
 The gameplay tier is included when its overlay is enabled. Parking polygons and
 the source-derived lot safety mask (including point-only lots and inferred aisles)
 are Tier 3 passing. Old Stones nexus coverage, including absorbed adjoining lots,
-is Tier 2 calm. Medium and major road corridors remain Tier 3 even with
-sidewalks or parallel paths; only small roads qualify as calm. All mapped paths
-and a one-cell buffer beyond their edges are core, overriding other tiers. Source building/water footprints and access exclusions still win.
+is Tier 2 calm. Medium and major street surfaces (without buffers) are Excluded.
+Regular small street surfaces are calm; dead-end small street surfaces are passing.
+These surface rules override all zones and path bands; larger streets win crossings.
+Medium/major road buffers remain passing, except where mapped paths and their
+one-cell buffers are core. Source building/water footprints and access exclusions
+still win.
 Areas without qualifying mapped evidence are Excluded, with the reason retained
 in the inspection popup.
 Click a road or path for its source name/type, rendered variant and width,

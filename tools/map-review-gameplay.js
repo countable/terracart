@@ -18,10 +18,11 @@
     ['Building / water footprint', 4], ['Explicit access restriction', 4],
     ['Existing land/access exclusion', 4], ['Path use or vehicle access unconfirmed', 4],
     ['Old Stones nexus / absorbed adjoining parking', 2],
+    ['Major / medium street surface', 4],
   ].map(([label, tier], id) => ({ id, label, tier }));
   const R = { UNKNOWN:0, PARK:1, REC:2, PLAZA:3, PATH:4, NATURAL:5, COMMERCIAL:6,
     CHURCH:7, SMALL:8, SIDEPATH:9, BUFFER:10, PARKING:11, DEADEND:12,
-    MAJOR:13, OTHER:14, SURFACE:15, ACCESS:16, GATE:17, UNCERTAIN_PATH:18, STONES:19 };
+    MAJOR:13, OTHER:14, SURFACE:15, ACCESS:16, GATE:17, UNCERTAIN_PATH:18, STONES:19, MAJOR_SURFACE:20 };
   const CORE = new Set(['park', 'garden', 'beach', 'dog_park']);
   const REC = new Set(['recreation_ground', 'sports_centre', 'sports', 'pitch', 'playground', 'stadium']);
   const NATURAL = new Set(['wood', 'woodland', 'forest', 'grass', 'grassland', 'meadow', 'heath']);
@@ -181,14 +182,20 @@
         });
         if(++operations%20===0) yield 'gameplay paths';
       }
-      const roadReason=new Uint8Array(N*N),roadPriority=new Uint8Array(N*N);
+      const roadReason=new Uint8Array(N*N),roadPriority=new Uint8Array(N*N),streetSurface=new Uint8Array(N*N);
       for(const road of data.roads) {
-        const radius=WG.roadOverlayWidthM(road.tags)/2+3*cell;
+        const surfaceRadius=WG.roadOverlayWidthM(road.tags)/2, radius=surfaceRadius+3*cell;
         if(!overlaps(road.bounds,[ox-radius,oy-radius,ox+edge+radius,oy+edge+radius])) continue;
         const type=WG.classifyLine('transportation',road.tags),major=type===WG.T.ROAD_MD||type===WG.T.ROAD_LG;
         const parking=road.parking||road.tags.service==='parking_aisle';
         const small=SMALL.has(road.tags.class);
         for(const s of road.segments) {
+          if(!parking && (major || small)) stampSegment(s.a,s.b,surfaceRadius,N,ox,oy,cell,i=>{
+            const reason=major?R.MAJOR_SURFACE:road.dead?R.DEADEND:R.SMALL;
+            // A crossing belongs to the strongest street-surface restriction.
+            if(reason===R.MAJOR_SURFACE || streetSurface[i]!==R.MAJOR_SURFACE &&
+              (reason===R.DEADEND || !streetSurface[i])) streetSurface[i]=reason;
+          });
           const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,len=Math.hypot(dx,dy),steps=Math.max(1,Math.ceil(len/(2*cell)));
           for(let step=0;step<steps;step++) {
             const a={x:s.a.x+dx*step/steps,y:s.a.y+dy*step/steps},b={x:s.a.x+dx*(step+1)/steps,y:s.a.y+dy*(step+1)/steps},mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
@@ -217,6 +224,7 @@
         if(entry.roadClass?.[i]&WG.ROAD_CLASS_LOT_BUFFER) reasons[i]=R.PARKING;
         if(entry.zone?.anchors?.[coverage?.[i]-1]?.kind==='stones') reasons[i]=R.STONES;
         if(pathCells[i]) reasons[i]=R.PATH;
+        if(streetSurface[i]) reasons[i]=streetSurface[i];
         const gate=entry.spawnWhy?.[i]||0;
         // ROAD/KERB are evidence we are displaying, not exclusion reasons.
         // Terrain paint may be fictional lava/water, so only source footprints

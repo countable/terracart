@@ -103,7 +103,7 @@
       const tier = row(tile.tiers[i]), reason = GameplayTiers.REASONS[tile.reasons[i]];
       const content = `<b>${esc(tier.label)}</b><p>${esc(tier.description)}</p>`
         + `<p><b>Evidence:</b> ${esc(reason?.label || 'No matching mapped evidence')}</p>`
-        + '<p>Road corridors extend 3 game cells beyond their edges. All mapped paths and a 1-cell buffer are core and take precedence over road tiers. Tiers infer intended gameplay from map features, not live traffic.</p>'
+        + '<p>Road corridors extend 3 game cells beyond their edges. All mapped paths and a 1-cell buffer are core. Street surfaces override zones: medium/large are excluded, small through streets are calm, and small dead ends are passing. Tiers infer intended gameplay from map features, not live traffic.</p>'
         + '<small>Road surfaces and current access/spawn exclusions still apply. Review overlay only.</small>';
       details.innerHTML = content;
       return { tier: tier.id, reason: reason?.id, content, entry: e, cell: i };

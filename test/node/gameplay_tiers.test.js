@@ -32,14 +32,14 @@
     const e=entry([layer('park',[polygon('nature_reserve',[rect(0,0,70,280)]),polygon('national_park',[rect(70,0,140,280)]),polygon('protected_area',[rect(140,0,280,280)])])]);
     const r=run(e);assert.eq(at(r,35,35),1);assert.eq(at(r,105,35),1);assert.eq(at(r,210,35),4);
   });
-  test('gameplay tiers: road buffer is three cells beyond road edge; ROAD bit does not exclude',()=>{
+  test('gameplay tiers: major street surface is excluded but its three-cell buffer is passing',()=>{
     const e=entry([layer('landuse',[polygon('park',[rect(0,0,280,280)])]),layer('transportation',[line('primary',[[0,140],[280,140]])])]);
     e.spawnWhy[20*N+20]=WorldGen.SPAWN_WHY.ROAD|WorldGen.SPAWN_WHY.KERB;
-    const r=run(e);assert.eq(at(r,140,140),3);assert.eq(at(r,140,161),3);assert.eq(at(r,140,175),1);
+    const r=run(e);assert.eq(at(r,140,140),4);assert.eq(at(r,140,161),3);assert.eq(at(r,140,175),1);
   });
-  test('gameplay tiers: a crossing path is core while the rest of the major road stays passing',()=>{
+  test('gameplay tiers: major street surface excludes crossing paths',()=>{
     const e=entry([layer('transportation',[line('primary',[[0,140],[280,140]]),line('footway',[[140,0],[140,280]])])]);
-    const r=run(e);assert.eq(at(r,140,140),1);assert.eq(at(r,70,140),3);assert.eq(at(r,140,42),1);
+    const r=run(e);assert.eq(at(r,140,140),4);assert.eq(at(r,70,140),4);assert.eq(at(r,140,42),1);
   });
   test('gameplay tiers: walking paths buffer one cell, including across tile edges, without overriding exclusions',()=>{
     const e=entry([layer('transportation',[line('footway',[[0,143.5],[280,143.5]]),line('footway',[[-3,0],[-3,70]])]),
@@ -49,11 +49,11 @@
   });
   test('gameplay tiers: parallel path leaves the major road corridor passing',()=>{
     const e=entry([layer('transportation',[line('primary',[[0,140],[280,140]]),line('footway',[[0,126],[98,126]])])]);
-    const r=run(e);assert.eq(at(r,35,140),3);assert.eq(at(r,224,140),3);assert.eq(at(r,35,126),1);
+    const r=run(e);assert.eq(at(r,35,140),4);assert.eq(at(r,224,140),4);assert.eq(at(r,35,126),1);
   });
-  test('gameplay tiers: explicit sidewalks leave a medium road passing',()=>{
+  test('gameplay tiers: explicit sidewalks do not exempt a medium street surface',()=>{
     const e=entry([layer('transportation',[line('secondary',[[0,140],[280,140]],{sidewalk:'both'})])]);
-    assert.eq(at(run(e),140,140),3);
+    assert.eq(at(run(e),140,140),4);
   });
   test('gameplay tiers: retained parking lanes and parking polygons take precedence over parks',()=>{
     const transport=layer('transportation',[]);
@@ -96,6 +96,17 @@
     assert.eq(at(r,77,70),4);
     assert.eq(r.stats.cells[0],0);
     assert.eq(GameplayTiers.TIERS.some(t=>t.id===0),false);
+  });
+  test('gameplay tiers: street surfaces override paths, parking and Old Stones',()=>{
+    for(const [klass,tags,tier] of [['primary',{},4],['secondary',{},4],['minor',{},2],['minor',{noexit:'yes',sidewalk:'both'},3]]) {
+      const e=entry([layer('landuse',[polygon('parking',[rect(0,0,280,280)])]),
+        layer('transportation',[line(klass,[[0,143.5],[280,143.5]],tags),line('footway',[[143.5,0],[143.5,280]])])]);
+      e.zone={anchors:[{kind:'stones'}],coverage:new Uint16Array(N*N).fill(1)};
+      const r=run(e);
+      assert.eq(at(r,140,140),tier,klass+' surface wins crossing');
+      assert.eq(at(r,140,112),1,'path away from street stays core');
+      assert.eq(at(r,70,112),2,'Old Stones away from street stays calm');
+    }
   });
   test('gameplay tiers: review is deterministic and leaves source geometry and spawn masks unchanged',()=>{
     const e=entry([layer('landuse',[polygon('park',[rect(0,0,280,280)])])]),before=JSON.stringify(e);
