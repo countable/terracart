@@ -65,6 +65,33 @@
       assert.eq(raised, 1, 'shared gate rejects before ghost spawn');
     } finally { globalThis.raiseGhostAt = original; }
   }));
+
+  test('grove plates: membership preserves coarse chunks and live list/save changes', () => fixture((s, entries) => {
+    s.depth = 0; s.cellM = 1; s.playerM = { x: 28, y: 28 };
+    const plate = (id, x) => ({ id, kind: 'pressure_plate', effect: 'ghost', x, y: 28, depth: 0 });
+    const a = plate('outside-radius-same-chunk', 79), b = plate('next-chunk', 80);
+    let speciesReads = 0;
+    entries[0].objects = Array.from({ length: 10000 }, (_, i) => ({ id: `grass_${i}`, x: 28, y: 28,
+      get kind() { speciesReads++; return 'grass'; } }));
+    entries[0].objects.push(a, b);
+    assert.eq(PressureTraps.grovePlates(s).map(o => o.id).join(','), a.id,
+      'preserve the original 80m chunk inclusion, not an exact-radius cull');
+    const coldReads = speciesReads;
+    PressureTraps.grovePlates(s);
+    assert.eq(speciesReads, coldReads, 'warm queries do not inspect unrelated object kinds');
+    s.save.pressedPlates = { [a.id]: true };
+    assert.eq(PressureTraps.grovePlates(s)[0].frame, 3);
+    const c = plate('new', 30);
+    entries[0].objects.push(c);
+    assert.eq(PressureTraps.grovePlates(s).length, 2);
+    entries[0].objects = [c];
+    assert.eq(PressureTraps.grovePlates(s)[0], c);
+    c.depth = 1;
+    assert.eq(PressureTraps.grovePlates(s).length, 0, 'depth remains a live filter');
+    c.depth = 0;
+    entries[0].objects.length = 0;
+    assert.eq(PressureTraps.grovePlates(s).length, 0, 'empty sources cannot reuse an old derived stream');
+  }));
   test('pressure traps: only L3 visits seed a gated plate and a launcher two to four cells away', () => fixture((s, entries) => {
     WorldGen.makeRng = () => () => 0;
     for (const depth of [0, 1, 2, 4]) { s.depth = depth; PressureTraps.observe(s); assert.eq(PressureTraps.lists(s).plates.length, 0); }

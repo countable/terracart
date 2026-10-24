@@ -35,6 +35,50 @@
     assert.eq(NPC.returnedCount(s.save), 0);
   });
 
+  test('arrivals: inactive polls skip tile occupancy and retry when residents become due or absent', () => {
+    const s = scene(), e = entry();
+    draw(s, e);
+    let scans = 0;
+    Object.defineProperty(e, 'wildplants', { configurable: true, get() { scans++; return []; } });
+    assert.eq(NPC.arrivals(s, e, 0, 0).length, 0);
+    assert.eq(scans, 0, 'no returning residents means no occupancy scan');
+    remember(s, 2);
+    const first = NPC.arrivals(s, e, 0, 0);
+    assert.eq(first.length, 4);
+    assert.eq(scans, 1, 'one occupancy snapshot serves the whole arrival batch');
+    assert.eq(NPC.arrivals(s, e, 0, 0).length, 0);
+    assert.eq(scans, 1, 'already-present residents do not rebuild occupancy');
+    const missing = e.creatures.shift();
+    const restored = NPC.arrivals(s, e, 0, 0);
+    assert.eq(restored.length, 1); assert.eq(restored[0].id, missing.id);
+    assert.eq(scans, 2, 'a removed resident is reconsidered on the next poll');
+    remember(s, 3);
+    assert.eq(NPC.arrivals(s, e, 0, 0).length, 2, 'new memories remain live');
+    assert.eq(scans, 3);
+  });
+
+  test('arrivals: keeper-only and anchorless passes need no occupancy scan', () => {
+    const s = scene({}, { home: false }), e = entry();
+    e.objects = [];
+    Object.defineProperty(e, 'wildplants', { get() { throw new Error('unnecessary occupancy scan'); } });
+    const keeper = { id: 'keeper', kind: 'npc', role: 'keeper', zoneKind: 'grove', x: 100, y: 100 };
+    const waiter = { id: 'waiter', kind: 'npc', role: 'scout', x: 120, y: 120 };
+    assert.eq(NPC.arrivals(s, e, 0, 0, [keeper, waiter]).length, 1, 'the keeper stays without a seat search');
+    remember(s, 2);
+    assert.eq(NPC.arrivals(s, e, 0, 0, [keeper, waiter]).length, 0, 'a missing anchor still postpones the waiter');
+  });
+
+  test('arrivals: lazy occupancy includes keepers seated earlier in the same pass', () => {
+    const s = scene(), e = entry();
+    remember(s, 2);
+    const keeper = { id: 'keeper', kind: 'npc', role: 'keeper', zoneKind: 'grove', x: 20.5 * CELL_M, y: 10.5 * CELL_M };
+    const waiter = { id: 'waiter', kind: 'npc', role: 'scout', x: 120, y: 120 };
+    s.save.npcVillagePins = { waiter: { x: keeper.x, y: keeper.y } };
+    const added = NPC.arrivals(s, e, 0, 0, [keeper, waiter]);
+    assert.eq(added.length, 2);
+    assert.truthy(added[1].x !== keeper.x || added[1].y !== keeper.y, 'the late-built occupancy rejects the new keeper cell');
+  });
+
   test('arrivals: residents return two a memory, to Home\'s ring or a restored house, never a wreck', () => {
     const s = scene({ restoredHouses: { house_mended: 'plain' } }), e = entry();
     draw(s, e);

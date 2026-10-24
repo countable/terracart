@@ -57,12 +57,42 @@
       k !== state.entries[i][0] || e !== state.entries[i][1] || e.grid !== state.grids[i])) {
       state = { entries, grids: entries.map(([, e]) => e.grid), regions: regions(scene, entries),
         centers: state?.centers || new Map() };
+      state.fieldCells = new Set();
+      state.bounds = { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity };
+      for (const region of state.regions) for (const cell of region.group) {
+        state.fieldCells.add(key(cell));
+        const p = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+        const half = rowCellM(scene, cell.ty) / 2, b = state.bounds;
+        b.x0 = Math.min(b.x0, p.x - half); b.x1 = Math.max(b.x1, p.x + half);
+        b.y0 = Math.min(b.y0, p.y - half); b.y1 = Math.max(b.y1, p.y + half);
+      }
       states.set(scene, state);
     }
+    // Most loaded neighbourhoods contain no complete school field. Check
+    // after refreshing regions so a newly loaded field still appears, but
+    // before expanding every object's footprint for the occupancy scan.
+    if (!state.regions.length) return [];
     const occupied = new Set();
     const mark = o => {
       if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y)) return;
-      for (const c of root.SpawnOwnership.footprintCells(scene, o)) occupied.add(key(c));
+      const declaration = o._footprintCells || o.footprintCells;
+      const width = Math.max(1, Math.floor(declaration?.width || 1));
+      const height = Math.max(1, Math.floor(declaration?.height || 1));
+      if (width === 1 && height === 1) {
+        // One-cell objects cannot overlap a field unless their anchor lies
+        // in its world bounds. Keep the exact cell test for gaps and seams.
+        const b = state.bounds;
+        if (o.x < b.x0 || o.x > b.x1 || o.y < b.y0 || o.y > b.y1) return;
+        const k = key(worldMetersToAbsCell(scene, o.x, o.y));
+        if (state.fieldCells.has(k)) occupied.add(k);
+        return;
+      }
+      // A large footprint can reach the field from an adjacent tile or row;
+      // retain the canonical expansion instead of culling by its anchor.
+      for (const c of root.SpawnOwnership.footprintCells(scene, o)) {
+        const k = key(c);
+        if (state.fieldCells.has(k)) occupied.add(k);
+      }
     };
     for (const [, e] of entries) {
       for (const list of ['objects', 'wildplants', 'extraTreasures', 'parkingTreasures']) (e[list] || []).forEach(mark);

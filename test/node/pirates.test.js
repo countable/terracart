@@ -4,7 +4,7 @@
       each: WorldGen.forEachItem, near: WorldGen.forEachItemNear,
       reach: globalThis.cellInReach, cells: globalThis.worldMetersToAbsCell,
       persist: globalThis.persistSave, now: Date.now, getElement: document.getElementById,
-      surface: EnemySpawns.surfaceActive,
+      surface: EnemySpawns.surfaceActive, cache: WorldGen.tileCache,
     };
     let now = 100000;
     const pirates = ['pirate_grunt', 'pirate_gunner', 'pirate_captain'].map((kind, i) =>
@@ -20,6 +20,7 @@
       cancelWorkProgress() { this._workProgress = null; },
     };
     WorldGen.forEachItem = (kind, fn) => pirates.forEach(fn);
+    WorldGen.tileCache = new Map([[WorldGen.tileKey(9, 12), { creatures: pirates }]]);
     WorldGen.forEachItemNear = (kind, tx, ty, fn) => {
       assert.eq(tx, 9); assert.eq(ty, 12); pirates.forEach(fn);
     };
@@ -35,6 +36,7 @@
       globalThis.cellInReach = original.reach; globalThis.worldMetersToAbsCell = original.cells;
       globalThis.persistSave = original.persist; Date.now = original.now;
       EnemySpawns.surfaceActive = original.surface;
+      WorldGen.tileCache = original.cache;
       if (original.getElement) document.getElementById = original.getElement;
       else delete document.getElementById;
     }
@@ -59,6 +61,54 @@
     Pirates.present(s, pirates[1]);
     assert.eq(s.offers.length, 1); assert.eq(s.messages.length, 2);
     assert.includes(s.messages[0].body, shortDuration(Pirates.DURATION_MS));
+  }));
+
+  test('Pirates: unchanged membership skips non-pirates while live movement and peace stay current', () => fixture((s, pirates, time) => {
+    let speciesReads = 0;
+    const locals = Array.from({ length: 10000 }, (_, i) => ({ id: `deer_${i}`, x: 0, y: 0,
+      get kind() { speciesReads++; return 'deer'; } }));
+    const entry = WorldGen.tileCache.get(WorldGen.tileKey(9, 12));
+    entry.creatures = [...locals, ...pirates];
+    s.reached = false;
+    Pirates.tick(s);
+    assert.eq(speciesReads, 10000);
+    Pirates.tick(s);
+    assert.eq(speciesReads, 10000, 'cached membership does not reconsider unrelated species');
+    s.reached = true;
+    pirates[0].x = 30;
+    Pirates.tick(s);
+    assert.eq(s.offers.length, 1, 'cached references use live positions/reach');
+    s.offers[0].onAccept();
+    assert.truthy(Combat.isPacified(pirates[0]));
+    time(s.save.piratePeaceUntil);
+    Pirates.tick(s);
+    assert.falsy(Combat.isPacified(pirates[0]), 'cached members still synchronize expiry');
+  }));
+
+  test('Pirates: append, same-length replacement, tile transfer and tile eviction refresh membership', () => fixture((s, pirates) => {
+    const key = WorldGen.tileKey(9, 12), entry = WorldGen.tileCache.get(key);
+    entry.creatures = [{ kind: 'deer', x: 0, y: 0 }];
+    Pirates.tick(s);
+    assert.eq(s.offers.length, 0);
+    entry.creatures.push(pirates[0]);
+    Pirates.tick(s);
+    assert.eq(s.offers.length, 1);
+    s.offers[0].onCancel();
+    entry.creatures.splice(1, 1);
+    entry.creatures.push({ kind: 'deer', x: 0, y: 0 });
+    Pirates.tick(s);
+    assert.falsy(s._pirateEncounterOffered, 'same-length splice/append removes the cached pirate');
+    const adjacent = WorldGen.tileKey(10, 12);
+    WorldGen.tileCache.set(adjacent, { creatures: [pirates[0]] });
+    Pirates.tick(s);
+    assert.eq(s.offers.length, 2, 'transfer is observed on the next tick');
+    s.offers[1].onCancel();
+    WorldGen.tileCache.delete(adjacent);
+    Pirates.tick(s);
+    assert.falsy(s._pirateEncounterOffered);
+    WorldGen.tileCache.set(key, { creatures: [pirates[1]] });
+    Pirates.tick(s);
+    assert.eq(s.offers.length, 3, 'replacement tile does not retain old membership');
   }));
 
   test('Pirates: cancellation releases all pirates and never pays', () => fixture((s, pirates) => {

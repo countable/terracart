@@ -822,11 +822,21 @@ the surrounding grove’s shrub scale.
   hide an 8.3 ms refresh as a 16.7 ms frame. Per-frame tile scans use
   `WorldGen.forEachItemInBox`, not flat object arrays. Widen queries for
   offers/lights beyond the sprite cull. Indexed objects do not move in place.
+  Pirate ticks retain per-tile membership but read live positions and truce
+  state; moving creatures never use the static spatial index. Grove plates
+  use a derived plate-only index with the same chunk bounds and ordering as
+  the object query, and read pressed state on every visit.
 - Ground coins pulled by the Ring of Gathering move every scene frame using
   elapsed time, capped at 100 ms after a stall. Their speed is independent of
   display cadence; collection still resolves at the player's feet.
 - Cached drawing keys must include every input. `Lighting.frameKey` uses the
   quantised light clock; new tile arrays read per frame need a derived index.
+  Retained walls reuse their projected geometry at a fixed heading while
+  player-relative fading and sort anchors remain live. Canvas triangles retain
+  their paths and UV transforms until geometry or atlas dimensions change;
+  off-camera rejection uses transformed bounds with an antialiasing fringe.
+  Building coverage rejects nonoverlapping bounds before allocating projected
+  triangles, then uses the exact triangle-union test so courtyards stay opaque.
   `drawObjects` caches appearance by identity only for generation-immutable
   records, reuses their configured pool slots while body and camera stand still,
   and sorts the shared world container only when membership or assigned depth
@@ -995,7 +1005,10 @@ the reach rim within the existing player-light radius.
   Reach and street restoration follow movement within a cell, independently of
   camera peeks. Canvas and GPU share one circular mask, rebuilt only when its screen position,
   radius or viewport changes. Stable world cookies use padded caches
-  by their exact whole-pixel phase. Player-attached, breathing, flickering and
+  by their exact whole-pixel phase. The Canvas reach gradient retains its
+  coloured mask until its source/revision, position, radius, viewport or
+  lighting profile changes; moving world lights do not recolour it.
+  Player-attached, breathing, flickering and
   transient lights keep the individual stamp path. The full-frame key gates
   before every canvas call. Reach lighting uses a circle centred on the player's
   whole-pixel screen point with the interaction radius. `cellInReach` accepts a cell exactly when its square overlaps the

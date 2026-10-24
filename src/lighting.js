@@ -1668,17 +1668,25 @@
     if (!c) c = scene._lightReachComposite = document.createElement('canvas');
     if (c.width !== W) c.width = W;
     if (c.height !== H) c.height = H;
-    const m = c.getContext('2d');
-    m.clearRect(0, 0, W, H);
-    m.globalCompositeOperation = 'lighter';
-    m.imageSmoothingEnabled = false;
     const item = contribution.items[0];
-    m.drawImage(item.canvas, 0, 0);
-    m.globalAlpha = 1;
-    m.globalCompositeOperation = 'source-in';
-    m.fillStyle = plateauFill(m, prof, ps.x - ox, ps.y - oy, r0);
-    m.fillRect(0, 0, W, H);
-    m.globalCompositeOperation = 'source-over';
+    // World lights and the cover mask can move while the player-centred
+    // gradient stays identical. Retain its coloured mask, not just the circle.
+    const key = `${W},${H},${ps.x - ox},${ps.y - oy},${r0},${item.revision}`
+      + `|${prof.lit},${prof.edge},${prof.litColour}`;
+    if (c._reachKey !== key || c._reachSource !== item.canvas) {
+      const m = c.getContext('2d');
+      m.clearRect(0, 0, W, H);
+      m.globalCompositeOperation = 'lighter';
+      m.imageSmoothingEnabled = false;
+      m.drawImage(item.canvas, 0, 0);
+      m.globalAlpha = 1;
+      m.globalCompositeOperation = 'source-in';
+      m.fillStyle = plateauFill(m, prof, ps.x - ox, ps.y - oy, r0);
+      m.fillRect(0, 0, W, H);
+      m.globalCompositeOperation = 'source-over';
+      c._reachKey = key;
+      c._reachSource = item.canvas;
+    }
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = REACH_OUTPUT_K;
     ctx.imageSmoothingEnabled = false;

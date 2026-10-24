@@ -3732,19 +3732,28 @@ Render.buildingHit = function(scene, sx, sy) {
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.
 Render.buildingTriangleOverlaps = function(points, box) {
-  if (!box) return false;
-  const corners = [{ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y0 },
-    { x: box.x1, y: box.y1 }, { x: box.x0, y: box.y1 }];
-  const axes = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+  if (!box || !points.length) return false;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  }
+  if (!(x1 >= box.x0 && box.x1 >= x0 && y1 >= box.y0 && box.y1 >= y0)) return false;
+  // Project the box's extreme corners directly. A fade query can test many
+  // roof triangles; none need temporary corner, axis or projection arrays.
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length];
-    axes.push({ x: b.y - a.y, y: a.x - b.x });
+    const ax = b.y - a.y, ay = a.x - b.x;
+    let lo = Infinity, hi = -Infinity;
+    for (const p of points) {
+      const d = p.x * ax + p.y * ay;
+      lo = Math.min(lo, d); hi = Math.max(hi, d);
+    }
+    const boxLo = (ax >= 0 ? box.x0 : box.x1) * ax + (ay >= 0 ? box.y0 : box.y1) * ay;
+    const boxHi = (ax >= 0 ? box.x1 : box.x0) * ax + (ay >= 0 ? box.y1 : box.y0) * ay;
+    if (!(hi >= boxLo && boxHi >= lo)) return false;
   }
-  return axes.every(axis => {
-    const a = points.map(p => p.x * axis.x + p.y * axis.y);
-    const b = corners.map(p => p.x * axis.x + p.y * axis.y);
-    return Math.max(...a) >= Math.min(...b) && Math.max(...b) >= Math.min(...a);
-  });
+  return true;
 };
 // Subtract the visible triangle union from the body box. Checking only its
 // corners misses courtyard holes; summing triangle areas double-counts overlaps.
@@ -3800,10 +3809,22 @@ Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, of
   const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
     : anchor.y + offset.y > feet.y;
   if (!front) return 1;
-  const projected = triangles.map(triangle => triangle.map(p => {
+  const projected = [];
+  for (const triangle of triangles) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of triangle) {
+      const x = p.x + offset.x, y = p.y + offset.y;
+      const px = view ? view.cos * x - view.sin * y : x;
+      const py = view ? view.sin * x + view.cos * y : y;
+      x0 = Math.min(x0, px); x1 = Math.max(x1, px);
+      y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+    }
+    if (x1 < box.x0 || x0 > box.x1 || y1 < box.y0 || y0 > box.y1) continue;
+    projected.push(triangle.map(p => {
       const x = p.x + offset.x, y = p.y + offset.y;
       return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
     }));
+  }
   return Render.buildingTrianglesCover(projected, box) ? 0.5 : 1;
 };
 Render.playerBuildingKey = function(scene) {

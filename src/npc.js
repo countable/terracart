@@ -436,16 +436,26 @@ const NPC = (() => {
   // no such worry and passes none).
   function arrivals(scene, entry, tx, ty, residents = entry?._residents, opts = {}) {
     if (!entry || !entry.grid || !entry._spawned || !Array.isArray(residents)) return [];
+    const due = returnedCount(scene.save), stayed = stayers(residents);
+    if (!residents.some((r, i) => (i < due || stayed.has(r.id)) && !scene.save.npcHomes?.[r.id]?.houseId)) return [];
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const people = entry.creatures || (entry.creatures = []);
     const present = new Set(people.map(c => c.id));
     const cellKey = (x, y) => Math.floor((x - tx0) / cellM) + ',' + Math.floor((y - ty0) / cellM);
-    const occupied = new Set();
-    for (const o of (entry.objects || [])) occupied.add(cellKey(o.x, o.y));
-    for (const w of (entry.wildplants || [])) occupied.add(cellKey(w.x, w.y));
-    for (const c of people) occupied.add(cellKey(c.x, c.y));
-    const due = returnedCount(scene.save), stayed = stayers(residents);
+    // Most polls have no missing resident, or no restored anchor to return to.
+    // Build occupancy only when a returning neighbour actually needs a seat.
+    // A keeper added earlier is already in people when this first runs.
+    let occupied = null;
+    const occupancy = () => {
+      if (!occupied) {
+        occupied = new Set();
+        for (const o of (entry.objects || [])) occupied.add(cellKey(o.x, o.y));
+        for (const w of (entry.wildplants || [])) occupied.add(cellKey(w.x, w.y));
+        for (const c of people) occupied.add(cellKey(c.x, c.y));
+      }
+      return occupied;
+    };
     const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy };
     const housed = new Set(Object.values(scene.save.npcHomes || {}).map(h => h.houseId).filter(Boolean));
     let anchors = null;
@@ -462,18 +472,18 @@ const NPC = (() => {
         const pin = scene.save.npcVillagePins?.[r.id];
         if (pin) {
           const cx = Math.floor((pin.x - tx0) / cellM), cy = Math.floor((pin.y - ty0) / cellM);
-          if (cx >= 0 && cy >= 0 && cx < N && cy < N && !occupied.has(cx + ',' + cy)
+          if (cx >= 0 && cy >= 0 && cx < N && cy < N && !occupancy().has(cx + ',' + cy)
             && !Combat.faunaBlocksCell(entry.grid[cy * N + cx])
             && WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'npc')) seat = pin;
         }
-        seat ||= lingerSeat(scene, entry, tx, ty, r, anchors, occupied, spawnOpts);
+        seat ||= lingerSeat(scene, entry, tx, ty, r, anchors, occupancy(), spawnOpts);
         if (!seat) return;
       }
       if (opts.offscreen && !opts.offscreen(seat.x, seat.y)) return;
       const c = { ...r, x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y, _homeAnchor: stayed.has(r.id) ? undefined : '' };
       people.push(c);
       present.add(c.id);
-      occupied.add(cellKey(c.x, c.y));
+      occupied?.add(cellKey(c.x, c.y));
       added.push(c);
       if (!stayed.has(r.id)) pinned = rememberPin(scene, c) || pinned;
     });
@@ -543,6 +553,8 @@ const NPC = (() => {
       delete record.houseId; delete record.houseX; delete record.houseY;
       invalid.add(id); dirty = true;
     }
+    const hasDeliveredHouse = Object.keys(scene.save.restoredHouses || {}).some(id =>
+      id !== playerHome?.id && scene.save.restoredHouses[id] === 'plain' && Delivery.isSatisfied(scene.save, { id }));
     const tiles = [], houses = new Map(), live = new Map();
     for (const [key, entry] of WorldGen.tileCacheFor(0)) {
       if (!entry?._spawned || !entry.grid) continue;
@@ -560,7 +572,7 @@ const NPC = (() => {
         }
         live.set(c.id, { c, tile });
       }
-      for (const a of anchorsIn(scene, entry, tx, ty)) {
+      for (const a of hasDeliveredHouse ? anchorsIn(scene, entry, tx, ty) : []) {
         if (a.home || scene.save.restoredHouses?.[a.key] !== 'plain') continue;
         const object = entry.objects.find(o => o.id === a.key);
         if (!Delivery.isSatisfied(scene.save, object)) continue;

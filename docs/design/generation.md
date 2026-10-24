@@ -101,6 +101,11 @@ access or tile lifecycle mechanics.
 - Rendering and simulation use `EnemySpawns.isSurfaceResident`, including
   habitat-only residents without ordinary roster metadata. Evening suppression
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
+  Home-fauna refresh retains deer candidates between creature-list changes;
+  their current positions, health, catches and ownership still select the one
+  resident each step. Home, tile and discarded-mask changes invalidate the
+  cache. Active creatures recheck policy during simulation; distant creatures
+  use the surface recheck clock instead of a full-world eligibility scan.
 
 ## Authored preview sandboxes
 
@@ -1101,6 +1106,10 @@ Higher-priority placements and their access space take precedence in this order:
 
 ### Village residents
 
+Arrival polls build tile occupancy only when a missing, due resident has a
+usable anchor. Offscreen retries and housing decisions still read current
+membership and save state on every poll.
+
 Village neighbours have fixed wander centres. Memory-driven arrivals prefer
 Home's starting area, choosing legal cells as far from the existing village
 pins as possible; story neighbours share that spacing rule. `save.npcVillagePins`
@@ -1217,3 +1226,7 @@ The seven-cell-wide play area uses reachable safe field cells around the flag;
 small fields without nine playable cells are skipped. Placement is deterministic
 from terrain and occupancy; flags and active rounds are scene overlays rather
 than saved world objects.
+Occupancy queries skip empty regions and reject distant single-cell objects
+against cached field bounds. Larger footprints retain the canonical cross-tile
+expansion. Relevant placements and removals are read live, so cached regions
+never freeze the board's occupancy.

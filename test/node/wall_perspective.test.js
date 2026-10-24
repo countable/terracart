@@ -57,7 +57,7 @@
     WallPerspective.finish(s,'polygon');
     assert.truthy(group.gfx.triangles.length,'walls are drawn');
     assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'footprint entry and partially covered body stay opaque');
-    const blocks=group.blocks;
+    const blocks=group.blocks, coverage=group.buildings;
     feet={x:25,y:32};s.player.x=25;s.player.y=32;WallPerspective.update(s);
     assert.truthy(group.gfx.triangles.every(t=>t.alpha===.5),'fully covering walls and teeth share half opacity');
     const clears=group.gfx.clears;
@@ -68,6 +68,9 @@
     feet={x:100,y:100};s.player.x=100;s.player.y=100;WallPerspective.update(s);
     assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'leaving keeps opacity at a fixed heading');
     assert.eq(group.blocks,blocks,'retained wall geometry survives');
+    assert.eq(group.buildings,coverage,'walking reuses projected coverage triangles while recomputing opacity');
+    s.mapRot=.7;WallPerspective.update(s);
+    assert.truthy(group.buildings!==coverage,'a changed heading replaces the coverage geometry');
   });
 
   test('wall perspective: connected walls and teeth ink only upward at every heading', () => {
@@ -135,6 +138,22 @@
     assert.eq(group.gfx.clears, clears + 1, 'one repaint for changed heading');
     assert.eq(group.blocks[0], block, 'block is retained');
     assert.eq(block.projected, projected, 'vertex buffer is retained');
+  });
+
+  test('wall perspective: panning textured walls does not revisit source vertices', () => {
+    const s = scene(), group = WallPerspective.begin(s, 'polygon');
+    WallPerspective.palisade(s, 'polygon', { ax: 0, ay: 0, bx: 6, by: 0 });
+    WallPerspective.finish(s, 'polygon');
+    let reads = 0;
+    const points = group.blocks[0].materialFaces.flatMap(face => face.points);
+    for (const p of new Set(points)) {
+      const x = p.x;
+      Object.defineProperty(p, 'x', { get() { reads++; return x; } });
+    }
+    WallPerspective.offset(s, 'polygon', 3, -4); WallPerspective.update(s);
+    assert.eq(reads, 0, 'panning needs only a translation, no texture-face reprojection');
+    s.mapRot = .5; WallPerspective.update(s);
+    assert.gt(reads, 0, 'heading changes still project the retained source geometry');
   });
 
   test('wall perspective: mode and depth transitions hide walls and empty rebuild removes stale faces', () => {

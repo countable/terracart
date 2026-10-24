@@ -206,38 +206,43 @@
         group.angle = angle; group.visibilityKey = visibilityKey;
         const g = group.gfx;
         if (group.blocks.some(b => b.materialFaces)) WallSurfaceRenderer.install(scene, g, group.atlas);
-        for (const block of group.blocks) {
-          block.depth = s * block.x + c * block.y;
-          block.support.depth = s * block.support.x + c * block.support.y;
+        if (geometryChanged) {
+          for (const block of group.blocks) {
+            block.depth = s * block.x + c * block.y;
+            block.support.depth = s * block.support.x + c * block.support.y;
+          }
+          group.blocks.sort((a, b) => a.support.depth - b.support.depth
+            || a.support.order - b.support.order || a.bottom - b.bottom
+            || a.depth - b.depth || a.order - b.order);
         }
-        group.blocks.sort((a, b) => a.support.depth - b.support.depth
-          || a.support.order - b.support.order || a.bottom - b.bottom
-          || a.depth - b.depth || a.order - b.order);
         // Heights foreshorten like the low-poly houses (BuildingLowPoly.LOOK).
         const look = global.BuildingLowPoly?.LOOK, k = look?.heightScale ?? 1, inkPx = look?.inkPx || 0;
-        for (const block of group.blocks) {
-          const { points, topPoints, projected: v, bottom, top } = block;
-          for (const face of block.materialFaces || []) {
-            face.visible = !face.normal || s * face.normal.x + c * face.normal.y > 1e-6;
-            face.projected ||= face.points.map(() => ({ x: 0, y: 0 }));
-            face.points.forEach((p, i) => { face.projected[i].x = p.x - s * p.z * k; face.projected[i].y = p.y - c * p.z * k; });
-            if (!face.normal) {
-              const [a, b, d] = face.projected;
-              face.visible = (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x) > 1e-8;
+        if (geometryChanged) {
+          for (const block of group.blocks) {
+            const { points, topPoints, projected: v, bottom, top } = block;
+            for (const face of block.materialFaces || []) {
+              face.visible = !face.normal || s * face.normal.x + c * face.normal.y > 1e-6;
+              if (!face.visible) continue;
+              face.projected ||= face.points.map(() => ({ x: 0, y: 0 }));
+              face.points.forEach((p, i) => { face.projected[i].x = p.x - s * p.z * k; face.projected[i].y = p.y - c * p.z * k; });
+              if (!face.normal && !face.twoSided) {
+                const [a, b, d] = face.projected;
+                face.visible = (b.x - a.x) * (d.y - a.y) - (b.y - a.y) * (d.x - a.x) > 1e-8;
+              }
             }
-          }
-          for (let i = 0; i < points.length; i++) {
-            const p = points[i], j = i * 4;
-            v[j] = p.x - s * bottom * k; v[j + 1] = p.y - c * bottom * k;
-            v[j + 2] = topPoints[i].x - s * top * k; v[j + 3] = topPoints[i].y - c * top * k;
-          }
-          if (block.allFaces) {
             for (let i = 0; i < points.length; i++) {
-              const j = (i + 1) % points.length;
-              block.faceDepth[i] = s * (points[i].x + points[j].x + topPoints[i].x + topPoints[j].x)
-                + c * (points[i].y + points[j].y + topPoints[i].y + topPoints[j].y);
+              const p = points[i], j = i * 4;
+              v[j] = p.x - s * bottom * k; v[j + 1] = p.y - c * bottom * k;
+              v[j + 2] = topPoints[i].x - s * top * k; v[j + 3] = topPoints[i].y - c * top * k;
             }
-            block.faceOrder.sort((a, b) => block.faceDepth[a] - block.faceDepth[b]);
+            if (block.allFaces) {
+              for (let i = 0; i < points.length; i++) {
+                const j = (i + 1) % points.length;
+                block.faceDepth[i] = s * (points[i].x + points[j].x + topPoints[i].x + topPoints[j].x)
+                  + c * (points[i].y + points[j].y + topPoints[i].y + topPoints[j].y);
+              }
+              block.faceOrder.sort((a, b) => block.faceDepth[a] - block.faceDepth[b]);
+            }
           }
         }
         // The visible triangles of one block, in draw order: sides, then the cap.
@@ -267,8 +272,10 @@
         };
         // Evaluate all visible wall triangles together so a whole building
         // fades consistently, including its battlements, when it hides a player.
-        const buildings = new Map();
-        for (const block of group.blocks) if (block.building) {
+        // Panning changes fade coverage, not the wall-local face geometry.
+        // Retain the triangle sets until the heading or footprint changes.
+        const buildings = !geometryChanged && group.buildings || new Map();
+        if (geometryChanged) for (const block of group.blocks) if (block.building) {
           let triangles = buildings.get(block.building);
           if (!triangles) buildings.set(block.building, triangles = []);
           faces(block, (x1,y1,x2,y2,x3,y3) => triangles.push([{x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3}]));

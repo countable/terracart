@@ -1621,7 +1621,7 @@ class SceneCreatures {
     // event rather than a drain. (The dispatched pest
     // was a CROW until Sep 2026. Wild crows raid fields again, from their
     // own tick, but the pump sends only deer.)
-    EnemySpawns.refreshHomeFauna(this);
+    EnemySpawns.refreshHomeFauna(this, false);
     // Only crops a deer actually eats (not potato) justify spawning a pest —
     // and only on HARD (Difficulty.get().cropPests). The pump is not a
     // difficulty KNOB, it is a mode difference: a deer that finds your field
@@ -1773,7 +1773,6 @@ class SceneCreatures {
 
     const spacingIndex = this._characterSpacingIndex = buildCharacterSpacingIndex(this);
     const tickCreature = (c) => {
-      if ((EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) && !EnemySpawns.surfaceActive(this, c)) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
@@ -1786,7 +1785,7 @@ class SceneCreatures {
       // SURFACE_RECHECK_MS instead: its answer moves with the sun, Home and
       // the pest amnesty, all minutes-slow, so the stamp a far reader
       // (a magic trap, a hint) sees is never more than that stale.
-      if (EnemySpawns.isSurfaceResident(c)) {
+      if (EnemySpawns.isSurfaceResident(c) || EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) {
         if (!far || c._surfaceAskedT == null || now - c._surfaceAskedT >= SURFACE_RECHECK_MS) {
           c._surfaceAskedT = now;
           if (!EnemySpawns.surfaceActive(this, c)) return;

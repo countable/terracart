@@ -40,6 +40,13 @@
   };
   const settle = s => NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS });
 
+  test('NPC housing: without a delivered plain house, skip anchor scans but clear obsolete live claims', () => withWorld((s, origin, destination) => {
+    const c = person(); c._homeAnchor = 'old-conversation-claim'; origin.creatures.push(c);
+    Object.defineProperty(destination, 'objects', { get() { throw new Error('unnecessary house-anchor scan'); } });
+    assert.eq(NPC.houseNeighbours(s, { now: 1000 }), 0);
+    assert.eq(c._homeAnchor, '', 'cleanup is independent of whether a house can accept anyone');
+  }));
+
   test('NPC housing: restored plain houses wait for delivery, and delivery waits for its delay', () => withWorld((s, origin, destination) => {
     const c = person(), h = house('delivered'); origin.creatures.push(c); restore(s, destination, h);
     assert.eq(NPC.houseNeighbours(s, { now: 1000 }), 0, 'restoration alone is insufficient');

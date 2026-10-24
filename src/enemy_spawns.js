@@ -105,28 +105,41 @@
     const kind = root.SpriteLayout.baseKind(c.kind);
     return kind === 'chicken' || (kind === 'deer' && c.id === scene._homeFaunaDeerId);
   }
-  // Once per simulation step. Drawing can reuse the result unless a tile,
-  // catch, death or Home change invalidated it since that step. No per-body
-  // query scans the world. Retain the chosen deer while it remains eligible.
+  // Keep the deer candidate references while tile membership is unchanged.
+  // Runtime additions append, removals change length/array, and species are
+  // immutable after spawn. Explicit forced refresh also supports authored
+  // edits to existing slots; discarded-mask replacement invalidates policy.
+  // Their positions, health and ownership remain live: a moving/dead/tamed
+  // incumbent must release its slot immediately, and an entering pest wins.
+  // Full refreshes initialize eligibility after spawning or Home changes;
+  // ordinary simulation asks only active bodies and uses its slow far-seat
+  // clock, rather than rechecking every loaded animal every frame.
   function refreshHomeFauna(scene, force = true) {
     root.HomeVariant?.refresh(scene);
     const anchor = homeFaunaAnchor(scene), caughtArray = scene.save?.caught || [];
     const entries = [...root.WorldGen.tileCache.values()];
+    const variantAnchor = root.HomeVariant?.anchor(scene);
     const previous = scene._homeFaunaState;
     const unchanged = previous && previous.x === anchor?.x && previous.y === anchor?.y
+      && previous.variantX === variantAnchor?.x && previous.variantY === variantAnchor?.y
       && previous.caught === caughtArray && previous.caughtLength === caughtArray.length
       && previous.entries.length === entries.length
       && entries.every((entry, i) => previous.entries[i] === entry
-        && previous.arrays[i] === entry.creatures && previous.lengths[i] === (entry.creatures?.length || 0));
-    if (!force && unchanged && (!previous.deer || homeFaunaSubject(previous.deer)
-      && !(previous.deer._hp <= 0) && !(previous.deer.hp <= 0)
-      && !caughtArray.includes(previous.deer.id) && inHomeFaunaCircle(anchor, previous.deer.x, previous.deer.y))) {
-      return scene._homeFaunaDeerId || null;
+        && previous.arrays[i] === entry.creatures && previous.lengths[i] === (entry.creatures?.length || 0)
+        && previous.tails[i] === entry.creatures?.[entry.creatures.length - 1]
+        && previous.discarded[i] === entry.variantDiscarded);
+    const rebuild = force || !unchanged;
+    const caught = rebuild ? new Set(caughtArray) : previous.caughtSet;
+    const candidates = rebuild ? [] : previous.candidates;
+    const bodies = rebuild ? [] : null;
+    if (rebuild) {
+      for (const entry of entries) for (const c of entry.creatures || []) {
+        bodies.push(c);
+        if (root.SpriteLayout.baseKind(c.kind) === 'deer') candidates.push(c);
+      }
     }
-    const caught = new Set(caughtArray), bodies = [];
     let deer = null, retained = null, pest = null;
-    for (const entry of entries) for (const c of entry.creatures || []) {
-      bodies.push(c);
+    for (const c of candidates) {
       if (!liveHomeDeer(scene, c, anchor, caught)) continue;
       if (c.id === scene._homeFaunaDeerId) retained = c;
       if (String(c.id).startsWith('pest_deer_') && (!pest || String(c.id) < String(pest.id))) pest = c;
@@ -134,11 +147,22 @@
     }
     deer = (retained && String(retained.id).startsWith('pest_deer_') ? retained : pest) || retained || deer;
     scene._homeFaunaDeerId = deer?.id || null;
-    scene._homeFaunaState = { x: anchor?.x, y: anchor?.y, caught: caughtArray,
-      caughtLength: caughtArray.length, entries, arrays: entries.map(e => e.creatures),
-      lengths: entries.map(e => e.creatures?.length || 0), deer };
-    for (const c of bodies) {
-      if (homeFaunaSubject(c) || c._homeFaunaInactive || (c._habitatSpawn && !c._surfaceSpawn)) surfaceActive(scene, c);
+    if (rebuild) {
+      scene._homeFaunaState = { x: anchor?.x, y: anchor?.y, variantX: variantAnchor?.x, variantY: variantAnchor?.y, caught: caughtArray,
+        caughtLength: caughtArray.length, caughtSet: caught, candidates, entries,
+        arrays: entries.map(e => e.creatures), lengths: entries.map(e => e.creatures?.length || 0),
+        tails: entries.map(e => e.creatures?.[e.creatures.length - 1]),
+        discarded: entries.map(e => e.variantDiscarded), deer };
+      for (const c of bodies) {
+        if (homeFaunaSubject(c) || c._homeFaunaInactive || (c._habitatSpawn && !c._surfaceSpawn)) surfaceActive(scene, c);
+      }
+    } else if (deer !== previous.deer) {
+      // A slot change also affects a frozen previous resident, so stamp both
+      // ends now rather than waiting for their next simulation/render query.
+      const old = previous.deer;
+      previous.deer = deer;
+      if (old) surfaceActive(scene, old);
+      if (deer) surfaceActive(scene, deer);
     }
     return scene._homeFaunaDeerId;
   }
