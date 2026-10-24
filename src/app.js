@@ -623,8 +623,8 @@ const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
-// Melee needs no weapon at all: bare hands auto-engage like a sword whenever
-// no ranged weapon is equipped (Gear.meleeActive).
+// Gear.meleeActive permits close combat while armed; manually unequipped
+// hands stay idle.
 const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -1085,8 +1085,13 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // to walk to, it is where you are.
 const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
-const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
+const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Plot', water: 'Crop', restore: 'Wreck', tilly: 'Tilly', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
+  if (step?.event === 'tilly') {
+    if (goal?.kind === 'npc') return goal.name || 'Tilly';
+    if (goal?.kind === 'house') return 'House';
+    if (goal?.crop) return 'Crop';
+  }
   if (goal?.kind === 'groundstack') return ITEM_BY_ID[goal.itemId]?.name || 'Supplies';
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
   return STARTER_GOAL_LABELS[step && step.event] || 'Supply crate';
@@ -3226,7 +3231,7 @@ class MapScene extends Phaser.Scene {
   // nearer it than the crates — "it pointed south but the crates were east".
   // The chest is the trail's END, so it is the target only once no supply
   // crate is left unopened.
-  _nearestStarterCrate() {
+  _nearestStarterCrate(itemId = null) {
     const spent = spentSets(this, this.save);
     // The starter chests of each tile, derived once (util.js derivedObjects)
     // rather than picked out of every cached tile's every object on each ask.
@@ -3235,6 +3240,10 @@ class MapScene extends Phaser.Scene {
       for (const o of derivedObjects(e, '_starterChests', (o) => (o.kind === 'chest' || o.kind === 'groundstack') && !!o.id && String(o.id).startsWith('chest_start_'))) {
         if (!isSpent(o, spent)) starters.push(o);
       }
+    }
+    if (itemId) {
+      const match = this._nearestObject(o => o.fixedLoot?.id === itemId || o.itemId === itemId, { list: starters });
+      if (match) return match;
     }
     return this._nearestObject((o) => o.crate, { list: starters })
       || this._nearestObject((o) => o.kind === 'groundstack', { list: starters })
@@ -3280,6 +3289,9 @@ class MapScene extends Phaser.Scene {
       ? { x: sv.starterPlotAt.x + this.cellM / 2, y: sv.starterPlotAt.y + this.cellM / 2 }
       : null;
     switch (step.event) {
+      case 'pickup':
+      case 'chest':
+        return this._nearestStarterCrate('potato_seed');
       case 'till':
         return plotMiddle() || this._nearestStarterCrate();
       case 'plant': {
@@ -3287,8 +3299,8 @@ class MapScene extends Phaser.Scene {
         // the nearest one is seeded first (STARTER_LOOT's order of need).
         const hasSeed = (sv.inv || []).some(s =>
           s && (s.count || 0) > 0 && ITEM_BY_ID[s.id]?.kind === 'seed');
-        if (!hasSeed) return this._nearestStarterCrate() || plotMiddle();
-        // The soil the chip says to tap: tilled cells nothing is planted in.
+        if (!hasSeed) return this._nearestStarterCrate('potato_seed') || plotMiddle();
+        // Prefer an existing empty bed; otherwise guide the seed action to the plot.
         const plantedCells = new Set((sv.planted || []).map(p => {
           const c = worldMetersToAbsCell(this, p.x, p.y);
           return cellKeyFromAbsCell(c.cellIX, c.cellIY);
@@ -3306,7 +3318,7 @@ class MapScene extends Phaser.Scene {
         // remaining starter supplies, including loose ground materials.
         const cost = this._wreckRestoreCost(null);
         if (Inventory.count(sv, cost.id) < cost.qty) {
-          const crate = this._nearestStarterCrate();
+          const crate = this._nearestStarterCrate(cost.id);
           if (crate) return crate;
         }
         const wrecks = [];
@@ -3317,6 +3329,13 @@ class MapScene extends Phaser.Scene {
         }
         return nearest(wrecks) || this._nearestStarterCrate();
       }
+      case 'water':
+        return nearest((sv.planted || []).filter(p => !p.watered_t && (p.stage ?? 0) < Crops.maxStage()))
+          || nearest(sv.planted || []) || plotMiddle() || this._nearestStarterCrate('potato_seed');
+      case 'tilly':
+        return this._starterTillyLesson().goal;
+      case 'roads':
+        return null;
       case 'harvest':
         return nearest(sv.planted || []) || this._nearestStarterCrate();
       case 'sell': {
@@ -3329,6 +3348,31 @@ class MapScene extends Phaser.Scene {
       default:
         return this._nearestStarterCrate();
     }
+  }
+
+  _starterTillyLesson() {
+    const save = this.save, people = [], houses = [];
+    for (const entry of WorldGen.tileCacheFor(0).values()) {
+      for (const c of entry.creatures || []) if (c.kind === 'npc' && c.role === 'wanderer') people.push(c);
+      for (const h of entry.objects || []) if (save.restoredHouses?.[h.id] === 'plain') houses.push(h);
+    }
+    const tilly = this._nearestObject(null, { list: people });
+    const firstId = Object.keys(save.restoredHouses || {}).find(id => save.restoredHouses[id] === 'plain');
+    const house = houses.find(h => h.id === firstId);
+    const housed = Object.entries(save.npcHomes || {}).find(([, row]) => row.role === 'wanderer' && row.houseId);
+    if (housed) return { body: 'Tilly has moved in. Talk to her and see how she likes her new home.',
+      goal: tilly || (housed[1].houseX !== undefined ? { x: housed[1].houseX, y: housed[1].houseY } : house) };
+    if (tilly && !save.npcMet?.[tilly.id]) return {
+      body: 'Talk to Tilly. The first restored home needs just one potato before a neighbour can move in.', goal: tilly };
+    if (house && Delivery.isSatisfied(save, house)) return {
+      body: 'The home is ready. Tilly will move in shortly; then talk to her.', goal: tilly || house };
+    if (Inventory.count(save, 'potato') > 0) return {
+      body: 'Bring one potato to the restored house for its first delivery. Tilly is first in line for a home.', goal: house || tilly };
+    const crops = (save.planted || []).filter(p => p.crop === 'potato');
+    const crop = this._nearestObject(null, { list: crops.filter(p => !p.watered_t || p.stage >= Crops.maxStage()) })
+      || this._nearestObject(null, { list: crops });
+    return { body: 'Water your potato as it grows, then harvest one and deliver it to the restored house.',
+      goal: crop || this._nearestStarterCrate('potato_seed') || tilly || house };
   }
 
   // === Tick ===
@@ -3416,6 +3460,10 @@ class MapScene extends Phaser.Scene {
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
+      Starter.tickIntroductions?.(this);
+      this._resumeFirstWeaponPrize?.();
+      if (typeof Quests !== 'undefined' && Quests.starterCurrent(this.save)
+          && Date.now() >= (this._objectiveCheeringUntil || 0)) this.updateObjectiveDOM();
     }
     this._stopDownedActions();
     const dt = dtMs / 1000;
@@ -3976,6 +4024,7 @@ class MapScene extends Phaser.Scene {
         // up when you come round the corner again.
         this._lairHp = this._lairHp || new Map();
         Lairs.stepResidency(ring, {
+          candidateOverlay: cand => Starter.introductionLair ? Starter.introductionLair(this, cand) : cand,
           cellM: this.cellM,
           tileEdgeM: this.tileEdgeM,
           playerM: playerWorldM(this),
@@ -4120,10 +4169,9 @@ class MapScene extends Phaser.Scene {
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
   // staff loose its shots (the bow along the compass, the staff at the nearest
   // foe — Combat.shotHeading), fly the shots already out, and —
-  // unless a bow or staff is in hand — engage the nearest foe without being
-  // asked, sword or bare hands alike. Only one of sword/bow/staff
-  // (save.activeWeapon) acts on its own here at a time; the rest sit inert
-  // until switched to. The maths (what
+  // while armed — engage the nearest foe in close reach without being asked.
+  // Manually unequipped hands stay idle. The active weapon selects ranged fire;
+  // close combat uses the existing melee fallback. The maths (what
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
@@ -4373,10 +4421,8 @@ class MapScene extends Phaser.Scene {
     this._drawShots();
 
     // ── Melee: auto-engage ─────────────────────────────────────────────────
-    // With no ranged weapon in hand you never have to tap the slime that is
-    // already chewing on you: the nearest enemy IN REACH is picked up on its
-    // own. That is the sword's lane AND bare hands'. An equipped bow or staff
-    // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
+    // An armed player engages the nearest enemy IN REACH automatically.
+    // Explicit Unequip disables this lane too (Gear.meleeActive).
     if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress && !this._wreckRepair) {
       let best = null, bestD2 = Infinity;
       for (const c of visibleEnemies) {
@@ -9458,13 +9504,20 @@ class MapScene extends Phaser.Scene {
     const idx = Quests.starterStepIndex(this.save);
     el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
     el.querySelector('.title').textContent = step.title;
-    el.querySelector('.body').textContent  = step.body;
+    el.querySelector('.body').textContent = step.event === 'restore'
+      && Inventory.count(this.save, 'rubble') >= this._wreckRestoreCost(null).qty
+      ? 'You have the rocks. Tap a ruined house to repair it while your crop grows.'
+      : step.event === 'tilly' ? (this._starterTillyLesson?.().body || step.body)
+      : step.event === 'roads' && Trail.restoredMetres(this.save.trail || {}) > 0
+        ? 'You have already begun repairing roads. Keep growing, exploring and mending.' : step.body;
     this._objectiveStep = step.id;
     el.style.display = this._objectiveAcknowledged === step.id ? 'none' : 'block';
   }
 
   acknowledgeObjective() {
+    if (Date.now() < (this._objectiveCheeringUntil || 0)) return;
     if (this._starterIntroLine != null) this._objectiveAcknowledgedIntro = this._starterIntroLine;
+    else if (Quests.starterCurrent(this.save)?.event === 'roads') this.questEvent('roads');
     else this._objectiveAcknowledged = this._objectiveStep;
     this.updateObjectiveDOM();
   }
@@ -9477,7 +9530,7 @@ class MapScene extends Phaser.Scene {
   _starterAwaitsOutside() {
     const ss = this.save.starter;
     if (!ss || ss.wentOutside || !this.save.starterShopId || typeof this.homeInside !== 'function') return false;
-    if (Quests.starterCurrent(this.save)?.event !== 'chest') return false;
+    if (Quests.starterCurrent(this.save)?.event !== 'pickup') return false;
     if (this.homeInside()) return true;
     ss.wentOutside = true;
     persistSave(this.save);
@@ -9669,9 +9722,10 @@ class MapScene extends Phaser.Scene {
     // conversation. The starter tutorial independently reads the same events.
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
+    // Facts completed ahead of the current lesson must survive a reload too.
+    persistSave(this.save);
     if (!done) return;
     // Tutorial progress is guidance, not an extra source of coins.
-    persistSave(this.save);
     this.buildInventoryDOM();
     this._celebrateStarterStep(done);
   }
@@ -9710,6 +9764,7 @@ class MapScene extends Phaser.Scene {
     // No chip on screen (dismissed, or not built yet) — just resync and go.
     if (!el || el.style.display === 'none') { this.updateObjectiveDOM(); return; }
     el.classList.add('done');
+    this._objectiveCheeringUntil = Date.now() + 1400;
     el.querySelector('.step').textContent  = '✓';
     el.querySelector('.title').textContent = done.title;
     el.querySelector('.body').textContent = done.completion || 'Well done. Let’s keep going.';
@@ -10835,6 +10890,7 @@ class MapScene extends Phaser.Scene {
     }
     const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
+    if (r.accepted > 0 && !silent) this.questEvent?.('pickup');
     // The wild-finds ledger (items.js homeRecipeLocked): every grant counts
     // unless its caller says it was bought, bartered, forged or crafted.
     if (!opts.notWild) (this.save.foundWild = this.save.foundWild || {})[id] = 1;
@@ -11388,6 +11444,16 @@ class MapScene extends Phaser.Scene {
     this.syncConsumableButton();
     this.syncEquipButton();
     this.syncFurnitureFlipButton();
+    this.syncSeedButton();
+  }
+
+  syncSeedButton() {
+    const seed = getSelectedSlot(this.save);
+    const existing = document.getElementById('seed-plant-btn');
+    if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) { existing?.remove(); return; }
+    const button = existing || this._hudActionButton('seed-plant-btn', { onClick: () => plantSelectedSeed(this) });
+    button.textContent = 'Till & plant';
+    button.title = 'Prepare soil and plant this seed where you stand';
   }
 
   // Facing belongs to the held preview, never to a fungible inventory stack.
@@ -11415,9 +11481,7 @@ class MapScene extends Phaser.Scene {
   // highlighted in the Relics tab. Gear selection clears selSlot; selecting
   // a carried relic clears selGear, so its Eat / Use action appears instead.
   // Equip makes the highlighted weapon fight (Gear.selectWeapon). Unequip
-  // puts a ranged weapon away: back to the sword, or bare hands if no sword
-  // is owned (Gear.unequipWeapon). An active melee weapon needs no
-  // button: melee is the default state, so there is nothing to put away.
+  // leaves the player unarmed and stops automatic attacks (Gear.unequipWeapon).
   // This is the ONE way the active weapon changes by hand; tapping a slot
   // only highlights it.
   syncEquipButton() {
@@ -11428,8 +11492,6 @@ class MapScene extends Phaser.Scene {
       && !!Gear.effectiveRelics(this.save)[g.slot];
     if (!isWeapon) { existing?.remove(); return; }
     const active = Gear.activeWeapon(this.save) === g.slot;
-    const ranged = Combat.RANGED_SLOTS.includes(g.slot);
-    if (active && !ranged) { existing?.remove(); return; }
     const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
     const verb = active ? 'Unequip' : 'Equip';
     const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
@@ -11438,8 +11500,13 @@ class MapScene extends Phaser.Scene {
     const btn = existing || this._hudActionButton('equip-btn', { onClick: () => {
       const sel = this.save.selGear;
       if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
-      if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
-      else Gear.selectWeapon(this.save, sel.slot);
+      if (Gear.activeWeapon(this.save) === sel.slot) {
+        Gear.unequipWeapon(this.save);
+        this._swing = null;
+        this._staffCharge = null;
+        this._meleeWeaponSprite?.setVisible(false);
+        this.swordSwingGfx?.clear();
+      } else Gear.selectWeapon(this.save, sel.slot);
       this.markRelicsDirty();
       persistSave(this.save);
       this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too

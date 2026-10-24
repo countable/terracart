@@ -1183,7 +1183,12 @@ the reach rim within the existing player-light radius.
   A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
   dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and
   `isTillableCell` refuses it.
-- Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward uses `firstPrize`.
+- Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward offers the fixed
+  `Trail.firstWeaponChoices()` row. Its earned choice remains in
+  `save.trail.firstWeaponPending` until selected, so reloads preserve it while onboarding
+  delays its presentation. The second reward uses `Trail.secondDistanceChoices(save)`:
+  nine Throwing Spears, the next useful Boots tier (Wood first), or three Pairys; fully
+  upgraded boots use their normal duplicate-gear cash value.
   Synthetic loot classes need both a `CLASS_MAX_TIER` ceiling and a branch
   before item resolution. Cash rewards have no `slot`.
 

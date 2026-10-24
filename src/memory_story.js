@@ -50,7 +50,7 @@ const MemoryStory = (() => {
       // Owner's copy (Oct 2026), spoken only: no action line — the painting
       // already shows the child and the handle in her hands.
       homeless: '“Oh hi Hood. I know you don’t remember me. It’s Tilly. I used to have a room, but now this door handle is all that’s left.”',
-      housed: '<em>Runs up, out of breath.</em>\n“Did you see? A roof! A real one, with a lamp under it.”\n“I slept inside last night. Rain sounds different on a roof. I forgot that.”',
+      housed: '<em>Runs up, out of breath.</em>\n“A roof! A real one, with a lamp under it. Thank you, Hood.”\n“I can put my door handle on a door again. I am moving in!”',
       settled: '“I have a bed now, and a window.”\n<em>Tugs the edge of your hood, then lets go.</em>\n“Is it warm under there? Mum says not to ask.”\n“Knock when you go past. There is always something in the pot.”',
     },
     believer: {

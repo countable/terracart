@@ -47,6 +47,20 @@ const { chromium } = require('playwright-core');
     await page.evaluate(() => document.querySelectorAll('.game-modal').forEach(el => el.remove()));
 
     await page.evaluate(() => {
+      const pad = document.createElement('div'); pad.id = 'move-pad';
+      pad.setAttribute('aria-label', 'Joystick'); pad.style.cssText = 'width:60px;height:60px;background:silver';
+      window.padPointers = [];
+      for (const type of ['pointerdown', 'pointerup']) pad.addEventListener(type, event => padPointers.push(event.type));
+      document.body.appendChild(pad);
+    });
+    observation = await page.evaluate(() => GameplayQA.observe());
+    const padControl = observation.controls.find(c => c.domId === 'move-pad');
+    assert.ok(padControl, 'normal joystick control is exposed');
+    assert.equal((await page.evaluate(id => GameplayQA.activate(id), padControl.id)).ok, true);
+    assert.deepEqual(await page.evaluate(() => padPointers), ['pointerdown', 'pointerup'], 'activation follows the actual pad pointer handlers');
+    await page.evaluate(() => document.getElementById('move-pad').remove());
+
+    await page.evaluate(() => {
       window.bodyPosition = { x: .5, y: .5 };
       window.positionWrites = 0;
       const objects = [
@@ -92,6 +106,12 @@ const { chromium } = require('playwright-core');
     assert.equal((await page.evaluate(() => GameplayQA.interact('objects:home'))).ok, false, 'removed target cannot be tapped');
 
     const before = await page.evaluate(() => ({ ...bodyPosition }));
+    await page.evaluate(() => { window.CompassModules = { isActive: () => false }; });
+    const inactive = await page.evaluate(() => GameplayQA.beginMove('east'));
+    assert.equal(inactive.ok, false, 'an inactive joystick fails immediately');
+    assert.match(inactive.error, /Activate the joystick/);
+    assert.equal(await page.evaluate(() => GameplayQA.movement().active), false);
+    await page.evaluate(() => { CompassModules.isActive = () => true; });
     const move = await page.evaluate(() => GameplayQA.beginMove('east'));
     assert.equal(move.active, true);
     assert.deepEqual(move.destination, { cellIX: 1, cellIY: 0 });
@@ -103,6 +123,33 @@ const { chromium } = require('playwright-core');
     assert.equal(stopped.reason, 'arrived');
     assert.equal(await page.evaluate(() => __scene._movePadHeld), false);
     assert.equal(await page.evaluate(() => positionWrites), 0, 'bridge never writes player position');
+    // A slide may cross the other axis before the requested cell is reached.
+    await page.evaluate(() => GameplayQA.beginMove('south'));
+    await page.evaluate(() => { bodyPosition.x = 2.05; bodyPosition.y = .9; afterStep(); });
+    const slid = await page.evaluate(() => GameplayQA.movement());
+    assert.equal(slid.active, false, 'one adjacent cell crossing releases the stick even after sliding');
+    assert.equal(slid.reason, 'cell-crossed');
+    assert.equal(await page.evaluate(() => __scene._movePadHeld), false);
+    await page.evaluate(() => { window.savedNow = Date.now; window.testNow = Date.now(); Date.now = () => testNow; });
+    const blockedPosition = await page.evaluate(() => ({ ...bodyPosition }));
+    await page.evaluate(() => { GameplayQA.beginMove('east'); testNow += 1999; afterStep(); });
+    assert.equal(await page.evaluate(() => GameplayQA.movement().active), true);
+    await page.evaluate(() => { testNow++; afterStep(); });
+    assert.equal(await page.evaluate(() => GameplayQA.movement().reason), 'blocked');
+    assert.deepEqual(await page.evaluate(() => ({ ...bodyPosition })), blockedPosition, 'blocked input does not rescue or move the player');
+    await page.evaluate(() => {
+      GameplayQA.beginMove('east'); testNow += 1500; bodyPosition.x += .1; afterStep();
+      testNow += 1500; bodyPosition.x += .1; afterStep();
+    });
+    assert.equal(await page.evaluate(() => GameplayQA.movement().active), true, 'slow real progress resets the blocked timer');
+    await page.evaluate(() => { GameplayQA.stopMove(); Date.now = savedNow; });
+    assert.equal(await page.evaluate(() => positionWrites), 0, 'movement monitoring never writes position');
+    await page.evaluate(() => {
+      __scene._workProgress = { durationMs: 3000, startT: performance.now(), toolSlot: 'net' };
+      GameplayQA.beginMove('east'); bodyPosition.x = 3.05; afterStep();
+    });
+    assert.equal(await page.evaluate(() => GameplayQA.movement().reason), 'arrived', 'game-permitted movement is monitored during ongoing work');
+    assert.equal(await page.evaluate(() => __scene._workProgress.toolSlot), 'net', 'the bridge does not cancel or finish work');
     await page.evaluate(() => { __scene._workProgress = { durationMs: 3000, startT: performance.now() - 1000, toolSlot: 'axe' }; });
     const work = (await page.evaluate(() => GameplayQA.observe())).work;
     assert.ok(work.remainingMs > 1800 && work.remainingMs <= 2000);

@@ -957,7 +957,7 @@ Higher-priority placements and their access space take precedence in this order:
    `HomeVariant` reserves a 50 m circle around the frozen `starterCratesAt`
    anchor on the surface only. It overrides road, Nexus and ordinary biome
    content with the curated starter area: Tilly and other unlocked story
-   neighbours, the doorstep chicken, starter supplies and authored starter
+   neighbours, the arriving starter chicken, starter supplies and authored starter
    placements. Player possessions and mapped buildings remain. Physical roads
    keep their geometry and safety rules but lose their themes inside Home.
    A live street-index copy uses the same boundary intervals as Nexus road
@@ -966,6 +966,15 @@ Higher-priority placements and their access space take precedence in this order:
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
+   Easy's chicken waits until `Quests.starterAllDone`. Its legal offscreen
+   entrance stays inside the creature simulation bubble, and normal wild-animal
+   home bias carries it toward its near-Home destination. `starter.chickenArrival`
+   pins its identity and entrance; `starter.chickenArrived` records first entry
+   into view. The ordinary caught-id ledger prevents a second bird after capture.
+   Incidental chickens in the Home fauna circle also wait during the lessons.
+   Hard's slime greeters retain their immediate seats.
+   Until the first road weapon is chosen, the starter relic chest offers tools
+   rather than Sword, Bow or Staff, so it cannot pre-empt that introduction.
    The starter trail has three crates: nine potato seeds, nine Rock and nine
    Wood. There is no rock-seed crate or loose material scatter, including the
    former material piles in and around Home. The potato crate seats first,
@@ -1113,6 +1122,19 @@ Higher-priority placements and their access space take precedence in this order:
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
 
+### The first onward wreck
+
+`Starter.tickIntroductions` reserves a reachable unclaimed wreck beyond both
+the thief's 250 m starter-anchor minimum and Easy's 350 m quiet-Home radius.
+The reservation stores only `starter.thiefWreck` (the building identity and
+stable authored lair id). `Starter.introductionLair` holds that candidate until
+`trail.firstWeaponClaimed`, then substitutes the fixed one-member
+`Lairs.GROUPS.starter_thief` formation through the residency candidate overlay.
+The regular garrison's spawn exclusions, seats, sleep/wake cycle, theft and
+caught-id defeat ledger still apply. Reserving an already awake wreck removes
+its ordinary resident guards so they cannot appear early or duplicate the thief.
+A tile rebuild reconstructs the same encounter rather than saving an enemy.
+
 ### Village residents
 
 Arrival polls build tile occupancy only when a missing, due resident has a
@@ -1131,8 +1153,13 @@ their authored places until eligible to move.
 A restored **plain** house becomes available only after its delivery discovery
 (`Delivery.isSatisfied`). `NPC.markDelivery` records a 15-second move-in delay
 in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
-One live, unhoused, unwounded resident may then move in; talking does not assign
-a roof, and absent pending records cannot create a resident. The transient
+One live, unhoused, unwounded resident whom the player has spoken to may then
+move in. Conversation records eligibility in `save.npcMet`; delivery still opens
+the roof, and absent pending records cannot create a resident. Eligible neighbours
+take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, then ordinary
+residents by stable id. Distance and tile loading order do not change that priority.
+Unmet residents wait until a conversation; existing saved assignments remain
+valid without a meeting stamp. The transient
 stranger is excluded; Maud is eligible after her rescue reward. The move prefers
 an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
 one-resident-per-house assignment, identity and safe outside wander centre,
@@ -1141,6 +1168,8 @@ without needing their origin tile. Seats prefer the renderer's source doorway
 when available, otherwise safe nearby cells within four cells of the house;
 movement keeps the four-cell leash and asks the live NPC spawn gate on each
 step. The player Home and specialty buildings never accept NPC assignments.
+The first restored plain house asks for one potato. A housed Tilly thanks the
+player on their next conversation; that conversation completes her starter lesson.
 
 ### Furniture
 

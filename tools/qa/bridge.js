@@ -3,7 +3,7 @@
   'use strict';
   if (window.GameplayQA) return;
   const ids = new WeakMap();
-  let serial = 0, move = null, hookedScene = null;
+  let serial = 0, move = null, hookedScene = null, motion = null;
   const scene = () => window.__scene;
   const clean = value => String(value || '').replace(/\s+/g, ' ').trim();
   const visible = el => {
@@ -27,7 +27,7 @@
   };
   function controls() {
     const modals = [...document.querySelectorAll('.game-modal')].filter(visible);
-    const candidates = [...document.querySelectorAll('button, summary, [role="button"], input, select, a[href]')];
+    const candidates = [...document.querySelectorAll('button, summary, [role="button"], input, select, a[href], #move-pad')];
     // Reward/safety cards visibly invite a tap on the card itself. Dispatch
     // its existing click handler; never remove a modal or call its callback.
     for (const modal of modals) {
@@ -122,8 +122,14 @@
     if (!move?.active) return;
     const s = scene(), p = position(s);
     if (s._dialogOpen()) return stopMove('dialog');
-    if (s._workProgress) return stopMove('work-or-combat');
     if (p.cellIX === move.destination.cellIX && p.cellIY === move.destination.cellIY) return stopMove('arrived');
+    // Collision sliding can enter a different adjacent cell. Release there
+    // instead of holding the stick while chasing an unreachable exact cell.
+    if (p.cellIX !== move.origin.cellIX || p.cellIY !== move.origin.cellIY) return stopMove('cell-crossed');
+    const epsilon = Math.max(.01, (s.cellM || 1) * .01);
+    if ((p.x - motion.x) ** 2 + (p.y - motion.y) ** 2 >= epsilon ** 2)
+      motion = { x: p.x, y: p.y, at: Date.now() };
+    if (Date.now() - motion.at >= 2000) return stopMove('blocked');
     if (Date.now() - move.startedAt > 30000) return stopMove('timeout');
     if (s.save.energy <= 0) return stopMove('exhausted');
   }
@@ -132,10 +138,14 @@
     if (!s?.playerM) return { ok: false, error: 'Game is not ready.' };
     if (!dirs[direction]) return { ok: false, error: 'Use north, east, south, or west.' };
     if (s._dialogOpen()) return { ok: false, error: 'Dismiss the displayed menu first.' };
+    if (typeof CompassModules !== 'undefined' && !CompassModules.isActive(s.save, 'joystick'))
+      return { ok: false, error: 'Activate the joystick through its displayed control before moving.' };
     if (move?.active) return { ok: false, error: 'A move is already active.' };
     if (hookedScene !== s) { s.events.on('postupdate', tick); hookedScene = s; }
     const p = position(s), [dx, dy] = dirs[direction];
+    motion = { x: p.x, y: p.y, at: Date.now() };
     move = { active: true, direction, startedAt: Date.now(),
+      origin: { cellIX: p.cellIX, cellIY: p.cellIY },
       destination: absCellOffset(s, p.cellIX, p.cellIY, dx, dy) };
     // Same inputs as the on-screen stick. Normal update owns movement speed,
     // collisions, energy, condition effects and the return-to-GPS timer.
@@ -189,7 +199,15 @@
   function activate(id) {
     const c = controls().find(c => c.id === id);
     if (!c || c.disabled) return { ok: false, error: 'Control is unavailable or disabled.' };
-    c.el.click();
+    if (c.el.id === 'move-pad') {
+      if (typeof CompassModules !== 'undefined' && CompassModules.isActive(scene()?.save, 'joystick'))
+        return { ok: false, error: 'The joystick is already active. Use a movement command.' };
+      const box = c.el.getBoundingClientRect();
+      const pointer = { bubbles: true, pointerId: 1, pointerType: 'touch', isPrimary: true,
+        clientX: box.left + box.width / 2, clientY: box.top + box.height / 2 };
+      c.el.dispatchEvent(new PointerEvent('pointerdown', { ...pointer, buttons: 1 }));
+      c.el.dispatchEvent(new PointerEvent('pointerup', { ...pointer, buttons: 0 }));
+    } else c.el.click();
     return { ok: true, control: c.label, observation: observe() };
   }
   // Reviewer-only checkpoint; never feed hidden save flags to the player.

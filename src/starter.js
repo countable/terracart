@@ -715,7 +715,10 @@
     // loot needs to be and no more. Salt 0 (test stubs, pre-salt saves at
     // the moment of upgrade) degrades to the old purely-location roll.
     const slotRng = WorldGen.makeRng((seed ^ (scene.save?.relicSalt || 0)) >>> 0);
-    const slot = STARTER_RELIC_SLOTS[Math.floor(slotRng() * STARTER_RELIC_SLOTS.length)];
+    // The first road gift introduces combat; earlier relic finds teach tools.
+    const slots = scene.save?.trail?.firstWeaponClaimed ? STARTER_RELIC_SLOTS
+      : STARTER_RELIC_SLOTS.filter(s => !['sword', 'bow', 'staff'].includes(s));
+    const slot = slots[Math.floor(slotRng() * slots.length)];
     // Burn the draw the slot once took so later rolls off `rng` keep their seats.
     rng();
     // A caller may nominate the seat — the kerb trail (mode 1 in
@@ -1725,16 +1728,16 @@
 
   // ── The doorstep greeter ───────────────────────────────────────────────────
   // The creatures guaranteed around the starting trailer, whatever the tile's
-  // biome roll gave it: a chicken on easy, slimes on hard
-  // (Difficulty.get().homeGreeter). They are the first living things a new save
-  // sees, and they say which game this is before any text does — a bird you can
-  // feed and catch, or the neighbourhood already surrounded.
+  // biome roll gave it: a chicken after Easy's guided opening, or slimes from
+  // the beginning on Hard (Difficulty.get().homeGreeter). The chicken enters
+  // from beyond the visible rim and uses normal wandering to approach Home.
   //
   // The mode's row says how many and where: `homeGreeterDirs` names a compass
   // point per seat (hard takes all four, so whichever way the player walks off
   // the doorstep there is one), and `homeGreeterCells` how far out each stands.
   // A row that names no direction gets ONE, on the nearest legal cell of the
-  // ring at that distance — easy's chicken, seated as it always was.
+  // ring at that distance. Easy's distance is the chicken's destination;
+  // the first entrance starts farther out, inside the same simulation ring.
   //
   // Seated by the SHARED spawn rule (WorldGen.isSpawnCell over the tile's own
   // roadMask), nearest legal cell to each seat's ideal point. The fallback pass
@@ -1756,10 +1759,19 @@
   // rather than left standing beside the right ones.
   // Killed or caught, it stays gone: save.caught is checked by id, and each
   // seat carries its own, so dealing with one leaves the rest standing.
+  function introductionVisible(scene, x, y) {
+    if (typeof scene.worldMetersToScreen !== 'function' || !(scene.viewSize > 0)) return true;
+    const p = scene.worldMetersToScreen(x, y);
+    const r = scene.viewSize / 2;
+    return (p.x - scene.viewLeft - r) ** 2 + (p.y - scene.viewTop - r) ** 2 < (r - 8) ** 2;
+  }
+
+
   function placeHomeGreeter(scene, entry, tx, ty) {
     if (typeof Difficulty === 'undefined') return;
     const prof = Difficulty.get();
-    const kind = prof.homeGreeter;
+    const pendingLesson = prof.tutorial && typeof Quests !== 'undefined' && !Quests.starterAllDone(scene.save);
+    const kind = pendingLesson ? null : prof.homeGreeter;
     // Only a tile that has already rolled its fauna — seating onto a
     // not-yet-spawned entry would hand spawnInTile a non-empty creatures array
     // and its `entry.creatures || creatures` would keep MY one and drop the
@@ -1822,7 +1834,10 @@
     for (const dir of dirs) {
       const id = idFor(dir);
       if (entry.creatures.some(c => c.id === id)) continue;  // already standing
-      if (scene.save.caught?.includes(id)) continue;          // dealt with, stays gone
+      if (scene.save.caught?.includes(id)) {
+        if (prof.tutorial) (scene.save.starter ||= {}).chickenArrived = true;
+        continue;                                          // dealt with, stays gone
+      }
       const vec = dir ? HOME_GREETER_DIR_VEC[dir] : null;
       if (dir && !vec) continue;                             // a direction nobody drew
       // A named direction aims at its own point `dist` out and may be nudged
@@ -1832,13 +1847,193 @@
       const ix = ax + (vec ? vec[0] * dist : 0);
       const iy = ay + (vec ? vec[1] * dist : 0);
       const slack = vec ? HOME_GREETER_SLACK_CELLS : dist + HOME_GREETER_SLACK_CELLS;
-      const seat = pick(ix, iy, slack, () => true);
+      const openingBird = prof.tutorial && !scene.save.starter?.chickenArrived;
+      const arrival = scene.save.starter?.chickenArrival;
+      const target = openingBird ? pick(ax, ay, dist + HOME_GREETER_SLACK_CELLS, () => true) : null;
+      let seat = openingBird && arrival?.id === id && standable(arrival.cx, arrival.cy)
+        ? { cx: arrival.cx, cy: arrival.cy } : null;
+      if (openingBird && typeof scene.worldMetersToScreen === 'function' && scene.viewSize > 0) {
+        // A legal isolated patch is not an entrance. Flood only the small
+        // simulation ring from the destination, using this animal's own
+        // movement blockers and spawn profile, before choosing an offscreen
+        // seat. A road or building wall therefore cannot strand the bird.
+        if (!target) continue;
+        const walkable = (cx, cy) => standable(cx, cy)
+          && !Combat.faunaBlocksCell(entry.grid[cy * N + cx]);
+        const reachable = new Set([target.cy * N + target.cx]), queue = [target];
+        for (let head = 0; head < queue.length; head++) {
+          const c = queue[head];
+          for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+            const cx = c.cx + dx, cy = c.cy + dy, cell = cy * N + cx;
+            if (Math.max(Math.abs(cx - ax), Math.abs(cy - ay)) > HOME_GREETER_MAX_CELLS
+                || reachable.has(cell) || !walkable(cx, cy)) continue;
+            reachable.add(cell); queue.push({ cx, cy });
+          }
+        }
+        if (seat && !reachable.has(seat.cy * N + seat.cx)) seat = null;
+        // Stay in the simulation bubble, but enter from beyond the visible rim.
+        seat ||= pick(ax, ay, HOME_GREETER_MAX_CELLS, (cx, cy) => {
+          const p = f.centre(cx, cy);
+          return reachable.has(cy * N + cx) && !introductionVisible(scene, p.x, p.y);
+        });
+        if (!seat) {
+          if (arrival?.id === id) {
+            delete scene.save.starter.chickenArrival;
+            if (typeof persistSave === 'function') persistSave(scene.save);
+          }
+          continue;  // retry when the camera or loaded ground permits an entrance
+        }
+      }
+      seat ||= pick(ix, iy, slack, () => true);
       if (!seat) continue;
       occupied.add(seat.cy * N + seat.cx);   // no two seats on the one cell
       const at = f.centre(seat.cx, seat.cy);
-      entry.creatures.push(WorldGen.makeCreature(kind, at.x, at.y, id, { shiny: faunaShiny(kind, id) }));
+      const bird = WorldGen.makeCreature(kind, at.x, at.y, id, { shiny: faunaShiny(kind, id) });
+      if (openingBird) {
+        const home = target ? f.centre(target.cx, target.cy) : anchor;
+        // Ordinary wild-animal home bias brings the bird into view. No second
+        // movement loop, teleport or tutorial catch requirement is needed.
+        bird._homeX = home.x; bird._homeY = home.y;
+        const ss = scene.save.starter ||= {};
+        ss.chickenArrival = { id, tx, ty, cx: seat.cx, cy: seat.cy, homeX: home.x, homeY: home.y };
+        if (introductionVisible(scene, at.x, at.y)) ss.chickenArrived = true;
+        if (typeof persistSave === 'function') persistSave(scene.save);
+      }
+      entry.creatures.push(bird);
     }
   }
+
+  // The authored onward wreck reuses normal lair geometry, spawn exclusions
+  // and residency. The save stores its site, never generated enemy bodies.
+  function introductionLair(scene, cand) {
+    const wreck = scene.save?.starter?.thiefWreck;
+    if (!wreck || cand.key !== wreck.key) return cand;
+    if (!scene.save.trail?.firstWeaponClaimed) return null;
+    return { ...cand, tier: 'starter_thief', sid: wreck.sid };
+  }
+
+
+  function reserveThiefWreck(scene) {
+    const ss = scene.save.starter ||= {};
+    if (ss.thiefWreck || typeof Lairs === 'undefined') return;
+    const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor?.();
+    if (!anchor || !(scene.tileEdgeM > 0)) return;
+    const home = scene.homeWorldPos?.() || anchor;
+    const quiet = Difficulty.get().quietHomeM || 0;
+    const entries = [...WorldGen.tileCacheFor(0)];
+    const previous = scene._starterThiefSearch;
+    if (previous && previous.homeX === home.x && previous.homeY === home.y
+      && previous.quiet === quiet && previous.entries.length === entries.length
+      && entries.every(([key, entry], i) => {
+        const before = previous.entries[i];
+        return before.key === key && before.entry === entry && before.spawned === entry._spawned
+          && before.opts === entry._spawnOpts && before.shapes === entry.buildingShapes
+          && before.shapeCount === (entry.buildingShapes?.length || 0);
+      })) return;
+    scene._starterThiefSearch = { homeX: home.x, homeY: home.y, quiet,
+      entries: entries.map(([key, entry]) => ({ key, entry, spawned: entry._spawned, opts: entry._spawnOpts,
+        shapes: entry.buildingShapes, shapeCount: entry.buildingShapes?.length || 0 })) };
+    const candidates = [], frames = new Map();
+    for (const [key, entry] of entries) {
+      if (!entry?._spawned || !entry.grid || !entry._spawnOpts) continue;
+      const [, tx, ty] = key.split('/').map(Number);
+      const frame = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
+      frames.set(`${tx}:${ty}`, { entry, frame, tx, ty });
+      const index = Lairs.buildIndex(entry, tx, ty, scene.cellM, scene.tileEdgeM);
+      for (const bucket of index.buckets.values()) for (const cand of bucket) {
+        if (cand.tier !== 9 || !cand.key || scene.save.restoredHouses?.[cand.key]) continue;
+        const distance = Math.hypot(cand.wx - anchor.x, cand.wy - anchor.y);
+        if (!EnemySpawns.homeAllows('thief', distance)
+          || Math.hypot(cand.wx - home.x, cand.wy - home.y) < quiet) continue;
+        candidates.push({ cand, entry, distance });
+      }
+    }
+    candidates.sort((a, b) => a.distance - b.distance || String(a.cand.key).localeCompare(String(b.cand.key)));
+    if (!candidates.length) return;
+    // A flood over the loaded public walking ground rejects a wreck across
+    // water or a sealed block. Roads may be crossed by the game's farmer;
+    // the thief itself is still seated through its stricter creature profile.
+    const edge = scene.tileEdgeM;
+    const cellAt = (x, y) => {
+      const t = frames.get(`${Math.floor(x / edge)}:${Math.floor(y / edge)}`);
+      if (!t) return null;
+      const p = t.frame.cellOf(x, y);
+      if (!t.frame.inTile(p.ix, p.iy)) return null;
+      return { ...t, ix: p.ix, iy: p.iy, key: `${t.tx}:${t.ty}:${p.ix}:${p.iy}` };
+    };
+    const start = cellAt(anchor.x, anchor.y);
+    if (!start) return;
+    const flood = [start], reachable = new Set([start.key]);
+    const radius = candidates[0].distance + 200;
+    for (let head = 0; head < flood.length; head++) {
+      const cell = flood[head], centre = cell.frame.centre(cell.ix, cell.iy);
+      const step = edge / cell.entry.cellsPerEdge;
+      for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = centre.x + dx * step, y = centre.y + dy * step;
+        if (Math.hypot(x - anchor.x, y - anchor.y) > radius) continue;
+        const next = cellAt(x, y);
+        if (!next || reachable.has(next.key)
+          || !starterRoutePassable(next.entry.grid[next.iy * next.entry.cellsPerEdge + next.ix])) continue;
+        reachable.add(next.key); flood.push(next);
+      }
+    }
+    for (const { cand, entry, distance } of candidates) {
+      if (distance > radius) break;
+      const authored = { ...cand, tier: 'starter_thief', sid: `starter_thief_${cand.key}` };
+      const guards = Lairs.garrisonFor(entry, authored, { tileEdgeM: edge, spawnOpts: entry._spawnOpts });
+      if (guards.length !== 1) continue;
+      const seat = cellAt(guards[0].x, guards[0].y);
+      if (!seat || !reachable.has(seat.key)) continue;
+      const originalSid = cand.sid || Lairs.structureKey(cand.tx, cand.ty, cand.ix, cand.iy);
+      ss.thiefWreck = { key: cand.key, sid: authored.sid, tx: cand.tx, ty: cand.ty };
+      // The reservation may land after a normal residency pass (old saves or
+      // early exploration). Replace that overlay without killing its guards
+      // or leaving their original resident claim beside the authored one.
+      entry.creatures = (entry.creatures || []).filter(c => c.lair !== originalSid);
+      entry._lairResident?.delete(originalSid);
+      if (typeof persistSave === 'function') persistSave(scene.save);
+      return;
+    }
+  }
+
+
+  function tickIntroductions(scene) {
+    if ((scene.depth || 0) !== 0 || !scene.save || scene._sandboxMode) return;
+    const ss = scene.save.starter ||= {};
+    const trail = scene.save.trail;
+    // Older paid rungs have no pending-choice marker. They already received
+    // their first prize; release later encounters without awarding it again.
+    if (trail?.prizes >= 1 && !trail.firstWeaponPending && !trail.firstWeaponClaimed) {
+      trail.firstWeaponClaimed = true;
+      if (typeof persistSave === 'function') persistSave(scene.save);
+    }
+    if (typeof Quests !== 'undefined' && Quests.starterAllDone(scene.save)
+        && Difficulty.get().tutorial) {
+      const arrival = ss.chickenArrival;
+      if (arrival && !ss.chickenArrived) {
+        const entry = WorldGen.tileCacheFor(0).get(WorldGen.tileKey(arrival.tx, arrival.ty));
+        const bird = entry?.creatures?.find(c => c.id === arrival.id);
+        if (scene.save.caught?.includes(arrival.id) || (bird && introductionVisible(scene, bird.x, bird.y))) {
+          ss.chickenArrived = true;
+          if (typeof persistSave === 'function') persistSave(scene.save);
+        }
+      }
+    }
+    const now = Date.now();
+    if (now < (scene._starterIntroductionsAt || 0)) return;
+    scene._starterIntroductionsAt = now + 2000;
+    if (typeof Quests !== 'undefined' && Quests.starterAllDone(scene.save)
+        && Difficulty.get().tutorial && !ss.chickenArrived) {
+      const anchor = scene.save.starterCratesAt || scene._starterTrailAnchor?.();
+      if (anchor) {
+        const tx = Math.floor(anchor.x / scene.tileEdgeM), ty = Math.floor(anchor.y / scene.tileEdgeM);
+        const entry = WorldGen.tileCacheFor(0).get(WorldGen.tileKey(tx, ty));
+        if (entry) placeHomeGreeter(scene, entry, tx, ty);
+      }
+    }
+    reserveThiefWreck(scene);
+  }
+
 
   // THE STORY NEIGHBOURS. The safe area's WARDEN and the three story
   // neighbours (NPC.STORY_NEIGHBOURS — the survivor of the Warmonger's night,
@@ -2193,6 +2388,8 @@
     starterHomeStream,
     provisionStarterHome,
     placeHomeGreeter,
+    tickIntroductions,
+    introductionLair,
     placeSafeAreaWarden,
     placeDistantStoryNeighbours,
     seatStoryNeighbours,

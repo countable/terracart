@@ -38,8 +38,9 @@
   test('starter module: Starter exports the scene placers, distant neighbour placer and supply payloads', () => {
     assert.truthy(typeof Starter === 'object' && Starter, 'starter.js defines window.Starter');
     const want = Object.keys(MOVED).map(exportName).sort();
-    assert.eq(Object.keys(Starter).sort().join(), [...want, 'placeDistantStoryNeighbours', 'STARTER_LOOT', 'TRAIL_STYLE', 'trailRoute', 'smoothTrail', 'trailPaths', 'trailSegmentRange', 'isTrailTreasure'].sort().join(), 'the export list');
-    for (const k of want) assert.eq(typeof Starter[k], 'function', `Starter.${k} is a function`);
+    assert.eq(Object.keys(Starter).sort().join(), [...want, 'placeDistantStoryNeighbours', 'STARTER_LOOT', 'TRAIL_STYLE', 'trailRoute', 'smoothTrail', 'trailPaths', 'trailSegmentRange', 'isTrailTreasure', 'tickIntroductions', 'introductionLair'].sort().join(), 'the export list');
+    for (const k of [...want, 'tickIntroductions', 'introductionLair'])
+      assert.eq(typeof Starter[k], 'function', `Starter.${k} is a function`);
   });
 
   test('starter module: each scene wrapper delegates with its params, in order', () => {

@@ -490,9 +490,21 @@ const NPC = (() => {
     if (pinned) Save.persist(scene.save);
     return added;
   }
-  // Talking is deliberately independent of housing. Only a completed delivery
-  // can open a roof, and the resident must already be present in the village.
-  function meetHomeNeighbour() { return false; }
+  // A conversation makes an arrived neighbour eligible; only a delivery opens
+  // a roof. Existing assignments remain valid when older saves lack this ledger.
+  function meetHomeNeighbour(scene, c) {
+    if (!c?.id || c.kind !== 'npc' || STORY_ROLES[c.role]?.transient || (scene.depth || 0) !== 0) return false;
+    const met = scene.save.npcMet ||= {};
+    if (met[c.id]) return false;
+    met[c.id] = true;
+    Save.persist(scene.save);
+    return true;
+  }
+  const HOME_ROLE_PRIORITY = ['wanderer', 'warden', 'witness', 'believer', 'archaeologist'];
+  function homePriority(c) {
+    const rank = HOME_ROLE_PRIORITY.indexOf(c.role);
+    return rank < 0 ? HOME_ROLE_PRIORITY.length : rank;
+  }
   const MOVE_IN_DELAY_MS = 15000;
   const MOVE_IN_VISIBLE_GRACE_MS = 15000;
   function markDelivery(scene, house, now = Date.now()) {
@@ -634,11 +646,11 @@ const NPC = (() => {
     }
     const available = [...live.entries()].filter(([id, { c }]) => (c._homeAnchor === '' || (STORY_ROLES[c.role] && !c._homeAnchor)) && !homes[id]?.houseId
       && (c.role !== 'witness' || scene.save.storyEncounter?.status === 'rewarded')
-      && !STORY_ROLES[c.role]?.transient && !isDormant(c)).sort(([a], [b]) => a.localeCompare(b));
+      && scene.save.npcMet?.[id] && !STORY_ROLES[c.role]?.transient && !isDormant(c))
+      .sort(([, a], [, b]) => homePriority(a.c) - homePriority(b.c) || a.c.id.localeCompare(b.c.id));
     for (const house of [...houses.values()].sort((a, b) => due[a.key] - due[b.key] || a.key.localeCompare(b.key))) {
       if (claimed.has(house.key) || now < due[house.key]) continue;
-      const ordered = available.filter(([id]) => !homes[id]?.houseId).sort(([, a], [, b]) =>
-        Math.hypot(a.c.x - house.x, a.c.y - house.y) - Math.hypot(b.c.x - house.x, b.c.y - house.y) || a.c.id.localeCompare(b.c.id));
+      const ordered = available.filter(([id]) => !homes[id]?.houseId);
       for (const [id, current] of ordered) {
         const c = current.c, record = { role: c.role, culture: c.culture, zoneKind: c.zoneKind };
         if (move(id, record, house, current)) break;
@@ -827,9 +839,11 @@ const NPC = (() => {
     // (#story, #howto, …) always carry .game-modal and only toggle display,
     // so a presence test swallowed every tap on every neighbour.
     if (MemoryStory.dialogOpen(scene)) return;
+    meetHomeNeighbour(scene, c);
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const benefit = !isDormant(c) && typeof NPCBenefits !== 'undefined' ? NPCBenefits.visit(scene, c) : null;
+    const housedTilly = c.role === 'wanderer' && !isDormant(c) && MemoryStory.wandererHoused(scene.save, c);
     const talk = dialogue(scene, c);
     if (benefit?.message && !talk.body.includes(benefit.message)) { talk.pages.push(benefit.message); talk.body = talk.pages.join('\n\n'); }
     // All sections share one scrolling conversation and its painting or portrait.
@@ -844,7 +858,9 @@ const NPC = (() => {
       }
       MemoryStory.showPages(scene, talk.pages, { ...speech(c),
         ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c),
-        onDone: () => meetHomeNeighbour(scene, c) });
+        onDone: () => {
+          if (housedTilly && MemoryStory.wandererHoused(scene.save, c)) scene.questEvent?.('tilly');
+        } });
     };
     if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {

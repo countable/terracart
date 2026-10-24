@@ -1,4 +1,4 @@
-// A conversation moves a Home neighbour into one free restored house.
+// Met neighbours move into delivered houses in a fixed, durable priority order.
 (function () {
   const N = 40, CELL_M = 7, EDGE_M = N * CELL_M;
   const HOME = { kind: 'house', id: 'player_home', x: 10.5 * CELL_M, y: 10.5 * CELL_M };
@@ -40,6 +40,67 @@
   };
   const settle = s => NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS });
 
+  test('NPC housing: first restored home keeps its ordinary one-potato delivery', () => withWorld((s, origin, destination) => {
+    const c = person(), h = house('first'); origin.creatures.push(c); restore(s, destination, h);
+    NPC.meetHomeNeighbour(s, c);
+    assert.eq(JSON.stringify(Delivery.wantedProduce(s.save, h)), JSON.stringify(['potato']));
+    assert.eq(settle(s), 0, 'meeting Tilly never bypasses her home delivery');
+    deliver(s, h);
+    assert.eq(settle(s), 1);
+    assert.eq(NPC.residentOf(s.save, h).id, c.id);
+  }));
+
+  test('NPC housing: only finishing a housed Tilly conversation acknowledges the tutorial', () => withWorld((s, origin, destination) => {
+    const c = person(), h = house('gratitude'); origin.creatures.push(c); restore(s, destination, h);
+    const show = MemoryStory.showPages, visit = NPCBenefits.visit;
+    let conversation;
+    const events = []; s.questEvent = event => events.push(event);
+    MemoryStory.showPages = (scene, pages, opts) => { conversation = { pages, opts }; };
+    NPCBenefits.visit = () => null;
+    try {
+      NPC.interact(s, c, 0, 0);
+      assert.truthy(s.save.npcMet[c.id]);
+      conversation.opts.onDone();
+      assert.eq(events.length, 0, 'an unhoused conversation cannot finish the introduction');
+      deliver(s, h); settle(s);
+      conversation.opts.onDone();
+      assert.eq(events.length, 0, 'moving in while an older homeless conversation is open cannot acknowledge gratitude');
+      NPC.interact(s, c, 0, 0);
+      assert.eq(events.length, 0, 'opening the grateful conversation does not acknowledge it');
+      assert.truthy(conversation.pages.join(' ').includes('Thank you, Hood'));
+      assert.falsy(conversation.pages.join(' ').includes('last night'));
+      conversation.opts.onDone();
+      assert.eq(events.join(','), 'tilly');
+    } finally { MemoryStory.showPages = show; NPCBenefits.visit = visit; }
+  }));
+
+  test('NPC housing: Tilly outranks closer met neighbours and ordinary roles use stable ids', () => withWorld((s, origin, destination) => {
+    const tilly = person('z_tilly'), warden = person('a_warden', 'warden');
+    const ordinaryB = person('ordinary_b', 'farmer'), ordinaryA = person('ordinary_a', 'farmer');
+    const h = house('priority'); restore(s, destination, h); deliver(s, h);
+    Object.assign(warden, { x: h.x, y: h.y });
+    origin.creatures.push(ordinaryB, warden, ordinaryA, tilly);
+    for (const c of origin.creatures) NPC.meetHomeNeighbour(s, c);
+    assert.eq(settle(s), 1);
+    assert.eq(NPC.residentOf(s.save, h).id, tilly.id, 'Tilly wins despite distance and id');
+    const second = house('second', 1, 20); restore(s, destination, second); deliver(s, second);
+    assert.eq(settle(s), 1); assert.eq(NPC.residentOf(s.save, second).id, warden.id);
+    const third = house('third', 1, 30); restore(s, destination, third); deliver(s, third);
+    assert.eq(settle(s), 1); assert.eq(NPC.residentOf(s.save, third).id, ordinaryA.id);
+  }));
+
+  test('NPC housing: unmet arrivals wait through reload and become eligible after speaking', () => withWorld((s, origin, destination) => {
+    const c = person(), h = house('unmet'); origin.creatures.push(c); restore(s, destination, h); deliver(s, h);
+    assert.eq(settle(s), 0);
+    s.save = JSON.parse(JSON.stringify(s.save));
+    assert.eq(settle(s), 0, 'loading a delivered home does not count as meeting its neighbour');
+    assert.truthy(NPC.meetHomeNeighbour(s, c));
+    assert.falsy(NPC.meetHomeNeighbour(s, c), 'repeated talk leaves one durable meeting fact');
+    s.save = JSON.parse(JSON.stringify(s.save));
+    assert.eq(settle(s), 1, 'the meeting survives reload');
+    assert.truthy(s.save.npcMet[c.id]);
+  }));
+
   test('NPC housing: without a delivered plain house, skip anchor scans but clear obsolete live claims', () => withWorld((s, origin, destination) => {
     const c = person(); c._homeAnchor = 'old-conversation-claim'; origin.creatures.push(c);
     Object.defineProperty(destination, 'objects', { get() { throw new Error('unnecessary house-anchor scan'); } });
@@ -50,7 +111,7 @@
   test('NPC housing: restored plain houses wait for delivery, and delivery waits for its delay', () => withWorld((s, origin, destination) => {
     const c = person(), h = house('delivered'); origin.creatures.push(c); restore(s, destination, h);
     assert.eq(NPC.houseNeighbours(s, { now: 1000 }), 0, 'restoration alone is insufficient');
-    assert.eq(NPC.meetHomeNeighbour(s, c), false, 'talk does not trigger housing');
+    assert.eq(NPC.meetHomeNeighbour(s, c), true, 'talk records eligibility without assigning a roof');
     assert.falsy(s.save.npcHomes[c.id]);
     deliver(s, h);
     assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS - 1 }), 0);
@@ -68,14 +129,17 @@
     assert.eq(settle(s), 0, 'legacy pending records do not invent residents');
     assert.falsy(s.save.npcHomes.ghost.houseId);
     const c = person(); origin.creatures.push(c);
-    assert.eq(settle(s), 1, 'an already arrived neighbour can move without a conversation');
+    assert.eq(settle(s), 0, 'an arrived but unmet neighbour waits');
+    assert.truthy(NPC.meetHomeNeighbour(s, c));
+    assert.eq(settle(s), 1, 'a conversation makes the arrived neighbour eligible');
     assert.eq(s.save.npcHomes[c.id].houseId, h.id);
     assert.falsy(s.save.npcHomes.ghost.houseId);
   }));
 
   test('NPC housing: house visits restore a resident\'s saved wound rest before granting help', () => withWorld((s, origin, destination) => {
     const c = person('resting-warden', 'warden'), h = house('resting-home');
-    origin.creatures.push(c); restore(s, destination, h); deliver(s, h); settle(s);
+    origin.creatures.push(c); restore(s, destination, h); deliver(s, h);
+    NPC.meetHomeNeighbour(s, c); settle(s);
     s.save.npcRestUntil = { [c.id]: Date.now() + 60000 };
     assert.truthy(NPC.isDormant(NPC.houseResident(s, h)), 'live resident respects durable wound rest');
     destination.creatures = [];
@@ -112,6 +176,7 @@
   test('NPC housing: one resident per house, with stable pins and preserved identity', () => withWorld((s, origin, destination) => {
     const first = person(), second = person('npc_warden_0_0', 'warden'), h = house('one');
     origin.creatures.push(first, second); restore(s, destination, h); deliver(s, h);
+    NPC.meetHomeNeighbour(s, first); NPC.meetHomeNeighbour(s, second);
     const identity = JSON.stringify([first.id, first.name, first.role, first.npcVariant, first.tint, first.artScale]);
     assert.eq(settle(s), 1);
     const housed = destination.creatures[0], waiting = origin.creatures[0];
@@ -126,6 +191,7 @@
 
   test('NPC housing: blocked houses wait for safe ground and prefer the front entrance', () => withWorld((s, origin, destination) => {
     const c = person(), h = house('front'); origin.creatures.push(c); restore(s, destination, h); deliver(s, h);
+    NPC.meetHomeNeighbour(s, c);
     destination.grid.fill(WorldGen.T.WATER);
     assert.eq(settle(s), 0); assert.truthy(origin.creatures.includes(c));
     destination.grid.fill(WorldGen.T.PARK);
@@ -139,12 +205,14 @@
 
   test('NPC housing: visible residents have only a bounded extra delay', () => withWorld((s, origin, destination) => {
     const c = person(), h = house('visible'); origin.creatures.push(c); restore(s, destination, h); deliver(s, h);
+    NPC.meetHomeNeighbour(s, c);
     assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS, offscreen: () => false }), 0);
     assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS + 15000, offscreen: () => false }), 1, 'staying beside a house cannot block moving in forever');
   }));
 
   test('NPC housing: destination reload restores only assigned residents and suppresses duplicate arrivals', () => withWorld((s, origin, destination, cache) => {
-    const c = person(), h = house('saved'); origin.creatures.push(c); restore(s, destination, h); deliver(s, h); settle(s);
+    const c = person(), h = house('saved'); origin.creatures.push(c); restore(s, destination, h); deliver(s, h);
+    NPC.meetHomeNeighbour(s, c); settle(s);
     const saved = JSON.parse(JSON.stringify(s.save)), pin = [c.x, c.y, c.homeX, c.homeY].join(',');
     cache.clear();
     const loaded = entry(1); loaded.objects = destination.objects; cache.set(WorldGen.tileKey(1, 0), loaded); s.save = saved;
@@ -163,9 +231,11 @@
     const maud = person('maud', 'witness'), orrin = person('orrin', 'archaeologist');
     delete maud._homeAnchor; delete orrin._homeAnchor;
     origin.creatures.push(maud); const h = house('rescue'); restore(s, destination, h); deliver(s, h);
+    NPC.meetHomeNeighbour(s, maud);
     s.save.storyEncounter = { status: 'hunted' }; assert.eq(settle(s), 0);
     s.save.storyEncounter.status = 'rewarded'; assert.eq(settle(s), 1); assert.eq(s.save.npcHomes.maud.houseId, h.id);
     origin.creatures.push(orrin); const next = house('archaeologist', 1, 30); restore(s, destination, next); deliver(s, next);
+    NPC.meetHomeNeighbour(s, orrin);
     assert.eq(settle(s), 1); assert.eq(s.save.npcHomes.orrin.houseId, next.id);
   }));
 })();

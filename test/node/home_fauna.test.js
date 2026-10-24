@@ -5,6 +5,7 @@
     const entries = groups.map(creatures => ({ creatures }));
     WorldGen.tileCache = new Map(entries.map((entry, i) => [`${i},0`, entry]));
     const scene = { depth: 0, save: { caught: [] }, startWorldM: { x: 0, y: 0 }, _pestFreeZone: () => null };
+    Quests.starterSkipAll(scene.save);  // ordinary fauna policy after the introduction
     try { run(scene, entries); } finally { WorldGen.tileCache = previous; }
   }
   const active = (scene, c) => EnemySpawns.surfaceActive(scene, c);
@@ -35,6 +36,17 @@
       EnemySpawns.refreshHomeFauna(scene);
       for (const c of creatures) assert.falsy(active(scene, c), `${c.kind} is hidden by Home`);
       for (const c of chickens) assert.truthy(active(scene, c), 'chickens are not capped');
+    });
+  });
+
+  test('home fauna: chicken suppression during guided lessons lifts without replacing the animal', () => {
+    const chicken = animal('chicken', 'waiting-chicken', 60);
+    fixture([[chicken]], scene => {
+      delete scene.save.starter;
+      assert.falsy(active(scene, chicken));
+      Quests.starterSkipAll(scene.save);
+      assert.truthy(active(scene, chicken));
+      assert.eq(chicken.id, 'waiting-chicken');
     });
   });
 
