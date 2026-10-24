@@ -1286,13 +1286,13 @@ function makeSprungTrapTexture(scene) {
 // cropped without repainting; each cell is scaled with nearest-neighbour pixels.
 // Multiple choices are stable spatial variants, never a timer-driven slideshow.
 // Frame IDs are stable and audited against sources.json; legacy frames0–7 remain.
-const SELECTED_MATERIAL_FRAMES = {"G01": 8, "G02": 9, "G03": 10, "G04": 11, "G05": 12, "G06": 13, "G07": 14, "G08": 15, "G09": 16, "G10": 17, "G11": 18, "G12": 19, "R01": 20, "R02": 21, "R03": 22, "R04": 23, "R05": 24, "R06": 25, "R07": 26, "F01": 27, "F02": 28, "F03": 29, "F04": 30, "F05": 31, "F06": 32, "F07": 33, "F08": 34, "G09-cold": 35, "F09-0": 36, "F09-1": 37, "F09-2": 38, "F09-3": 39, "W01-0": 40, "W01-1": 41, "W01-2": 42, "W01-3": 43, "W01-4": 44, "W01-5": 45, "W01-6": 46, "W01-7": 47, "W02-0": 48, "W02-1": 49, "W02-2": 50, "W02-3": 51, "W02-4": 52, "W02-5": 53, "W02-6": 54, "W02-7": 55, "F10-0": 56, "F10-1": 57};
+const SELECTED_MATERIAL_FRAMES = {"G01": 8, "G02": 9, "G03": 10, "G04": 11, "G05": 12, "G06": 13, "G07": 14, "G08": 15, "G09": 16, "G10": 17, "G11": 18, "G12": 19, "R01": 20, "R02": 21, "R03": 22, "R04": 23, "R05": 24, "R06": 25, "R07": 26, "F01": 27, "F02": 28, "F03": 29, "F04": 30, "F05": 31, "F06": 32, "F07": 33, "F08": 34, "G09-cold": 35, "F09-0": 36, "F09-1": 37, "F09-2": 38, "F09-3": 39, "W01-0": 40, "W01-1": 41, "W01-2": 42, "W01-3": 43, "W01-4": 44, "W01-5": 45, "W01-6": 46, "W01-7": 47, "W02-0": 48, "W02-1": 49, "W02-2": 50, "W02-3": 51, "W02-4": 52, "W02-5": 53, "W02-6": 54, "W02-7": 55, "F10-0": 56, "F10-1": 57, "G06-purple": 58, "G09-smooth-grey": 59, "ROAD-natural": 60, "ROAD-warm": 61, "ROAD-moss": 62, "ROAD-mauve": 63, "ROAD-charcoal": 64, "ROAD-marsh": 65, "COMM-sandstone": 66};
 const SELECTED_TERRAIN = {
-  0:[8,8], 1:[10,10], 2:[17,17], 3:[40], 4:[12,12], 5:[9], 6:[8,8],
-  8:[11,15], 9:[0], 10:[35,35], 12:[56,57], 15:[8,8], 16:[20,21],
+  0:[9,9], 1:[10,10], 2:[17,17], 3:[40], 4:[12,12], 5:[35,35], 6:[8,8],
+  8:[11,15], 9:[0], 10:[35,35], 12:[56,57], 15:[8,8], 16:[66],
   17:[11], 18:[8,8], 19:[8,8], 20:[10,10], 21:[8,8], 22:[9,9],
   // Exclusion bedrock shares the flat ROCK surface, never the legacy cliff-face crop (7).
-  23:[40], 24:[1], 26:[2,3], 27:[11,15], 28:[10], 29:[13,16], 31:[13,13], 32:[35],
+  23:[40], 24:[1], 26:[2,3], 27:[11,15], 28:[10], 29:[58], 31:[59], 32:[35],
 };
 let selectedTerrainSource = null;
 let selectedWaterTrialSource = null;
@@ -1369,8 +1369,8 @@ const ZONE_SELECTED_MATERIALS = {
   meadow:'G01', marine_meadow:'G01', mushroom_grove:'G06', orchard:'G02',
   formal_garden:'G01', hedge_garden:'G02', ancient_grove:'G03', sacred_grove:'G03', spooky_woods:'G04',
   'quarry-crater':'G09-cold', 'quarry-abandoned':'G09-cold', 'quarry-strip-mine':'G09-cold', 'quarry-stronghold':'G09-cold',
-  stone_garden:'G06', ordered_graves:'G06', overgrown_graves:'G03', broken_masonry:'R04', silent_circle:'F03',
-  flint_field:'G06', broken_depot:'G04', seep:'G06', work_yard:'R04', black_ring:'R06',
+  stone_garden:'G06-purple', ordered_graves:'G06-purple', overgrown_graves:'G06-purple', broken_masonry:'G06-purple', silent_circle:'G06-purple',
+  flint_field:'G09-smooth-grey', broken_depot:'G09-smooth-grey', seep:'G09-smooth-grey', work_yard:'G09-smooth-grey', black_ring:'G09-smooth-grey',
 };
 const _selectedZoneMaterials = new WeakMap();
 function zoneGroundTexture(entry,index,type) {
@@ -1399,7 +1399,7 @@ const ZONE_GROUND_ACCENTS = {
   spooky_woods: { terrain: 28, color: 0x393c29, fullCoverage: true },
   mushroom_grove: { terrain: 28, color: 0x2f462e, fullCoverage: true },
   ancient_grove: { terrain: 28, color: 0x58623a },
-  silent_circle: { terrain: 29, color: 0xc9c596 },
+  silent_circle: { terrain: 29, color: 0x816b93 },
 };
 const _zoneGroundStates = new WeakMap();
 function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {

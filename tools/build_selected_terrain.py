@@ -33,6 +33,11 @@ def main():
             def recolor(pixel):
                 r,g,b,a = pixel
                 light = round(r*.2126 + g*.7152 + b*.0722)
+                if entry['palette'] == 'churchyard-purple':
+                    return (round(101+light*.25), round(81+light*.20), round(116+light*.30), a)
+                if entry['palette'] == 'tar-smooth-grey':
+                    grey = round(93+light*.035)
+                    return (grey, grey, grey, a)
                 if entry['palette'] == 'cold-slate':
                     return (max(0,light-7), light, min(255,light+7), a)
                 shift = {'warm-stone': (6,2,-8), 'moss-stone': (-5,2,-6), 'olive-stone': (-2,4,-8)}.get(entry['palette'])

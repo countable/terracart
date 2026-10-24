@@ -816,6 +816,18 @@ class TerrainCache {
   }
 }
 Render.TerrainCache = TerrainCache;
+// A bounded display-list pool, shared by base tiles and transparent terrain layers.
+// Order is cell-by-cell so overlays never jump above a later neighbour.
+Render.terrainSpriteAt = function(scene, index) {
+  if (!scene.noisePool[index]) {
+    const sprite = scene.add.image(0, 0, 'ra_terrain_source', 15).setOrigin(0, 0)
+      .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
+    scene.noiseContainer.add(sprite);
+    scene.noisePool.push(sprite);
+  }
+  return scene.noisePool[index];
+};
+
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
@@ -2597,7 +2609,9 @@ Render.drawCells = function drawCells(scene) {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
       let t = types[i];
       // Keep special zone grounds, rift buffers and synthetic building floors.
-      if (!entry?.grid || _ringRiftGround[i] || _ringGroundColor[i] >= 0) continue;
+      const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
+      if (!entry?.grid || _ringRiftGround[i] || (!tintedNative && _ringGroundColor[i] >= 0)) continue;
+      if (!tintedNative && zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t)) continue;
       if (isRoadType(t) || t === T_PATH) t = Render.roadBackdropType(scene, t, AX(c,r), AY(c,r));
       else if (isBuildingType(t)) {
         if (!polygonBuilding(c,r)) continue;
@@ -2908,7 +2922,7 @@ Render.drawCells = function drawCells(scene) {
       // Procedural biome texture overlay for every ground cell (water and sand
       // included); transitions are the wavy border drawn above.
       {
-        const ns = scene.noisePool[noiseIdx++];
+        const ns = Render.terrainSpriteAt(scene, noiseIdx++);
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
         let texKey = null;
         if (isTilled) {
@@ -2954,7 +2968,7 @@ Render.drawCells = function drawCells(scene) {
           const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
           texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
         }
-        let damageFrame;
+        let damageFrame, terrainLayers;
         // Reuse the exact corner decisions above; all cutouts were baked once.
         const roundMask = (tl ? 1 : 0) | (tr ? 2 : 0) | (bl ? 4 : 0) | (br ? 8 : 0);
         if (!isTilled && roundMask && ![9,11,12].includes(type)
@@ -2972,11 +2986,11 @@ Render.drawCells = function drawCells(scene) {
         }
         if (raActive && !isTilled && type === T(col, row)) {
           const selected = RATerrainTrial.select(scene, raMaterials, RING, _si, AX(col, row), AY(col, row));
-          if (selected) { texKey = selected.key; damageFrame = selected.frame; }
+          if (selected) { texKey = selected.key; damageFrame = selected.frame; terrainLayers = selected.layers; }
         }
         if (!scene.depth && !skyLevel && !isTilled && typeof MountainEdges !== 'undefined') {
           const rock = MountainEdges.select(types, RING, _si, AX(col, row), AY(col, row));
-          if (rock) { texKey = rock.key; damageFrame = rock.frame; }
+          if (rock) { texKey = rock.key; damageFrame = rock.frame; terrainLayers = null; }
         }
         if (texKey) {
           // Only on a swap: Phaser's setTexture re-derives frame, size and crop even for
@@ -2994,6 +3008,13 @@ Render.drawCells = function drawCells(scene) {
           // is set on every path, not only the watered one.
           ns.setTint(isWatered ? WATERED_TINT : 0xffffff);
           scene.terrainCache?.offer(ns);
+          if (terrainLayers) for (const frame of terrainLayers) {
+            const overlay = Render.terrainSpriteAt(scene, noiseIdx++);
+            if (setTextureIfDifferent(overlay, texKey, frame)) overlay.setDisplaySize(CELL_PX, CELL_PX);
+            overlay.setPosition(Math.round(sx), Math.round(sy)).setTint(0xffffff).setVisible(true);
+            scene.terrainCache?.offer(overlay);
+          }
+
         } else {
           ns.setVisible(false);
         }
@@ -3053,6 +3074,7 @@ Render.drawCells = function drawCells(scene) {
 
     }
   }
+  for (let i = noiseIdx; i < scene.noisePool.length; i++) scene.noisePool[i].setVisible(false);
   scene.terrainCache?.flush();
   // Mining and arriving tiles change the exposed-face mask, including seams.
   // Geometry stays retained while the compass or fractional camera position moves.

@@ -9,7 +9,7 @@
   }
   test('selected terrain: both grass and lava variants retain their native crop and repeat stably', () => {
     art.setSelectedTerrainSource(source);
-    for (const [type, frames] of [[0, [8, 8]], [26, [2, 3]]]) {
+    for (const [type, frames] of [[0, [9, 9]], [26, [2, 3]]]) {
       for (let variant = 0; variant < 8; variant++) {
         const ctx = canvas();
         art.drawBiomeTexture(ctx, 32, type, variant, 0.75);
@@ -127,3 +127,29 @@
     for(const key of ['biome9_0','biome11_0','biome12_0'])assert.falsy(art.selectedRoundedTerrainFrames.has(key),'house floor owner retained');
   });
 })();
+
+ test('native RA terrain: landcover materials do not change with world position', () => {
+  const art = new Function(ALL_SRC['ra_terrain_trial.js'] + '\nreturn RATerrainTrial;')();
+  for (const type of [0,1,2,3,4,5,6,15,16,17,18,19,20,21,22,23]) {
+    const expected=art.material(type,0,0);
+    for(let y=-30;y<=30;y+=2)for(let x=-30;x<=30;x+=2)
+      assert.eq(art.material(type,x,y),expected,'landcover '+type+' keeps its material');
+  }
+});
+
+test('native RA terrain: grass shares orchard and residential uses the selected rock ground', () => {
+  const native=new Function(ALL_SRC['ra_terrain_trial.js']+'\nreturn RATerrainTrial;')();
+  const selected=new Function(TEXTURES_SRC+'\nreturn SELECTED_TERRAIN;')();
+  assert.eq(native.material(0,12,8),native.material(22,12,8));
+  assert.eq(native.material(5,12,8),-1,'selected rock retains the ordinary renderer');
+  assert.eq(selected[5].join(','),selected[10].join(','));
+  assert.eq(selected[0].join(','),selected[22].join(','));
+});
+
+test('selected terrain: commercial pavers stay separate from native terrain and road stone', () => {
+  const native=new Function(ALL_SRC['ra_terrain_trial.js']+'\nreturn RATerrainTrial;')();
+  const art=new Function(TEXTURES_SRC+'\nreturn {SELECTED_TERRAIN,SELECTED_MATERIAL_FRAMES};')();
+  assert.eq(native.material(16),-1);
+  assert.eq(art.SELECTED_TERRAIN[16][0],art.SELECTED_MATERIAL_FRAMES['COMM-sandstone']);
+  assert.truthy(art.SELECTED_TERRAIN[16][0]!==art.SELECTED_MATERIAL_FRAMES['ROAD-natural']);
+});

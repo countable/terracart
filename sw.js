@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-fad4fad8';
+const SHELL_VERSION = 'shell-b0ed2877';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -44,7 +44,7 @@ const ASSET_HASHES = {
   "assets/ArtTrials/RogueProps/flora-selected_mushroom.png": "ce49f70a",
   "assets/ArtTrials/RogueProps/flora-springcrops.png": "72cd531f",
   "assets/ArtTrials/RogueProps/flora-zone_hedge_single.png": "9d5993da",
-  "assets/ArtTrials/RogueTerrain/tiles.png": "2181545e",
+  "assets/ArtTrials/RogueTerrain/tiles.png": "7856e0d1",
   "assets/Character/AssasinCyan.png": "a1915f71",
   "assets/Character/BowmanCyan.png": "11ed3c42",
   "assets/Character/CyanKnight.png": "89dd17d0",
@@ -689,7 +689,7 @@ const ASSET_HASHES = {
   "assets/portraits/wayfinder.png": "19802fcd",
   "assets/portraits/witness.png": "20421b46",
   "assets/portraits/wizard.png": "d58efb40",
-  "assets/selected-terrain/selected-terrain.png": "cf78c94d",
+  "assets/selected-terrain/selected-terrain.png": "66445689",
   "assets/terrain/mountain-edges.png": "b06bcd36",
   "assets/ui/compass/compass-bearing.webp": "b065263e",
   "assets/ui/compass/footer.webp": "cf76e3c7",

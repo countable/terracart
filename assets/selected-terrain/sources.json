@@ -649,6 +649,108 @@
       "frame": 57,
       "recipe": "interleaved-slab",
       "variant": 1
+    },
+    {
+      "id": "G06-purple",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        352,
+        80,
+        16,
+        16
+      ],
+      "frame": 58,
+      "palette": "churchyard-purple"
+    },
+    {
+      "id": "G09-smooth-grey",
+      "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        352,
+        208,
+        16,
+        16
+      ],
+      "frame": 59,
+      "palette": "tar-smooth-grey"
+    },
+    {
+      "id": "ROAD-natural",
+      "source": "extra_assets/16x16/Farming Game World/Assets/Tilesets/FG_Abandoned_Mines.png",
+      "crop": [
+        32,
+        304,
+        16,
+        16
+      ],
+      "frame": 60
+    },
+    {
+      "id": "ROAD-warm",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Ground_Tiles.png",
+      "crop": [
+        144,
+        712,
+        16,
+        16
+      ],
+      "frame": 61,
+      "underlay": "#87775c"
+    },
+    {
+      "id": "ROAD-moss",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Ground_Tiles.png",
+      "crop": [
+        80,
+        464,
+        16,
+        16
+      ],
+      "frame": 62
+    },
+    {
+      "id": "ROAD-mauve",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_City.png",
+      "crop": [
+        316,
+        528,
+        16,
+        16
+      ],
+      "frame": 63
+    },
+    {
+      "id": "ROAD-charcoal",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_City.png",
+      "crop": [
+        32,
+        208,
+        16,
+        16
+      ],
+      "frame": 64
+    },
+    {
+      "id": "ROAD-marsh",
+      "source": "extra_assets/16x16/Fantasy Dreamland World/Fantasy Dreamland/Tilesets/FD_Marshlands.png",
+      "crop": [
+        416,
+        416,
+        16,
+        16
+      ],
+      "frame": 65
+    },
+    {
+      "id": "COMM-sandstone",
+      "source": "extra_assets/Fantasy City ver1.3/Tiles/Floor.png",
+      "crop": [
+        144,
+        32,
+        16,
+        16
+      ],
+      "frame": 66
     }
   ]
 }

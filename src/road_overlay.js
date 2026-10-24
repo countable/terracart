@@ -562,15 +562,15 @@
   // Exact Phase 1 source families; terrain transitions and vector masks remain
   // owned by the existing overlay. No new road geometry or gameplay identities.
   const ROAD_MATERIALS = {
-    suppressed: 'R01',
-    lantern: 'R03', golden: 'R03', golden_path: 'R03', orchard: 'R03', promenade: 'R03',
-    hedgerow: 'R04', overgrown: 'R04', greenway: 'R04', thorny: 'R04',
-    toadstool: 'R05', spider_path: 'R05', confusion_path: 'R05',
-    burned: 'R06', fire_path: 'R06',
-    slime_trail: 'R07', poison_path: 'R07', paralysis_path: 'R07',
+    suppressed:'ROAD-natural',
+    lantern:'ROAD-warm', golden:'ROAD-warm', golden_path:'ROAD-warm', orchard:'ROAD-warm', promenade:'ROAD-warm',
+    hedgerow:'ROAD-moss', overgrown:'ROAD-moss', greenway:'ROAD-moss', thorny:'ROAD-moss', grassy_lane:'ROAD-moss', old_growth_path:'ROAD-moss',
+    toadstool:'ROAD-mauve', spider_path:'ROAD-mauve', confusion_path:'ROAD-mauve', haunted_forest_path:'ROAD-mauve',
+    burned:'ROAD-charcoal', fire_path:'ROAD-charcoal',
+    slime_trail:'ROAD-marsh', poison_path:'ROAD-marsh', paralysis_path:'ROAD-marsh',
   };
   function roadMaterialFor(variant, restored) {
-    return ROAD_MATERIALS[variant] || (restored ? 'R01' : 'R02');
+    return ROAD_MATERIALS[variant] || 'ROAD-natural';
   }
   const selectedRoadCanvases = {};
   function selectedRoadTile(variant, restored) {
@@ -578,41 +578,27 @@
     if (trial) return trial;
     if (typeof drawSelectedMaterial !== 'function'
         || typeof document === 'undefined') return null;
-    const id = variant === 'suppressed' ? 'R01' : roadMaterialFor(variant, restored);
-    const fine = typeof RogueObjects !== 'undefined' && RogueObjects.enabled && (id === 'R01' || id === 'R02');
-    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '') + (fine ? ':fine' : '');
+    const id = roadMaterialFor(variant, restored);
+    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '');
     if (selectedRoadCanvases[key]) return selectedRoadCanvases[key];
     const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
     const cx = tile.getContext('2d');
     if (!cx) return null;
-    // These source frames are single bevelled slabs, not seamless fields. A
-    // whole-cell slab made its bright perimeter read as stripes across paths.
-    // Keep native-sized stones in running bond and lower the perimeter's
-    // contrast against its own interior. Bake once, never during movement.
-    const slab = document.createElement('canvas'); slab.width = slab.height = 16;
-    const sx = slab.getContext('2d');
-    if (!sx || !drawSelectedMaterial(sx, 16, id)) return null;
-    const stone = document.createElement('canvas'); stone.width = stone.height = 16;
-    const sc = stone.getContext('2d'); sc.imageSmoothingEnabled = false;
-    sc.drawImage(slab, 2, 2, 12, 12, 0, 0, 16, 16);
-    sc.globalAlpha = .28; sc.drawImage(slab, 0, 0); sc.globalAlpha = 1;
+    // Repeat full native ground crops. No slab bevels, brick grid or staggered joints.
+    const source = document.createElement('canvas'); source.width = source.height = 16;
+    const sx = source.getContext('2d');
+    if (!sx || !drawSelectedMaterial(sx,16,id)) return null;
     cx.imageSmoothingEnabled = false;
-    // A 7m overworld cell contains a field of small paving stones, not two
-    // giant slabs. Only RA ordinary paving uses the denser running bond.
-    const brickW = fine ? 8 : 16, brickH = fine ? 4 : 16;
-    for (let y = 0; y < STONE_TILE_PX; y += brickH) {
-      const offset = (y / brickH) % 2 ? brickW / 2 : 0;
-      for (let x = -offset; x < STONE_TILE_PX; x += brickW) cx.drawImage(stone, x, y, brickW, brickH);
-    }
+    for(let y=0;y<STONE_TILE_PX;y+=16)for(let x=0;x<STONE_TILE_PX;x+=16)cx.drawImage(source,x,y);
     if (variant === 'suppressed') {
       cx.fillStyle = 'rgba(69,115,108,.24)'; cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
     }
-    if (!restored && id !== 'R02') {
+    if (!restored) {
       cx.fillStyle = 'rgba(31,29,26,.10)'; cx.fillRect(0, 0, STONE_TILE_PX, STONE_TILE_PX);
     }
     // Burned Row is a damaging surface: retain its existing ember warning
     // over the RA material, once per cached tile, in both restoration states.
-    if (id === 'R06') paintEmbers(cx, STONE_TILE_PX, '#ff6a20');
+    if (id === 'ROAD-charcoal') paintEmbers(cx, STONE_TILE_PX, '#ff6a20');
     return (selectedRoadCanvases[key] = tile);
   }
 
