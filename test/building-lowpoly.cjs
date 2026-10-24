@@ -63,7 +63,7 @@ for(const role of Object.keys(api.ROLES)){
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*15.6+2.5,5);
  // Keep structural geometry bounded separately from clipped floor shadows.
  assert(mesh.faces.filter(f=>f.castShadow).length<1000,role+' bounded shadows');
- assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?1400:300),role+' bounded geometry');
+ assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?1600:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);
@@ -165,6 +165,9 @@ for(const fixture of fixtures){
   fixture.name+': narrow returns never fall back to full-height walls');
  const border=mesh.faces.filter(f=>f.footprintBorder);
  assert(border.length>0,fixture.name+': the footprint has a ground border');
+ const perimeter=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+Math.hypot(q.x-p.x,q.y-p.y);},0);
+ assert(border.reduce((sum,f)=>sum+area(f.points),0)<perimeter*3*.7,fixture.name+': clear gaps interrupt the border');
+ assert(border.every(f=>f.opacity===.35),fixture.name+': border stays translucent');
  const edgeDistance=p=>Math.min(...points.map((a,i)=>{
   const b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y;
   const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));

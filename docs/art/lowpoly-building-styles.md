@@ -176,8 +176,10 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-A three-unit dark brown border follows the exact footprint, with short round
-joins at concave corners. It stays on the ground beneath actors and masonry.
+A subtle three-unit brown border follows the footprint in seeded 4–8-unit
+dashes separated by 5–9-unit gaps, at 35% opacity. It stays on the ground
+beneath actors and masonry. Loose rubble uses the same clipped-corner
+footprints as the wall blocks, without sharp highlight strips.
 The subdued brown background has alpha 128/255 (50%, rounded to an 8-bit channel).
 Sparse ground chips are composited separately, while raised
 masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath

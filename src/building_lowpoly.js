@@ -32,6 +32,7 @@
     wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,ink:0x000000}};
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.
   const WRECK_INSIDE_LIGHT=.7;
+  const WRECK_BORDER={color:0x5e574a,alpha:.35,width:3};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
   const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967296;};
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
@@ -541,6 +542,10 @@
       let piece=null;const pieces=[];
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,piece,...extra});return faces.at(-1);};
       const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
+      const clippedRing=core=>core.flatMap((q,i)=>[core[(i+3)%4],core[(i+1)%4]].map(r=>{
+        const length=Math.hypot(r.x-q.x,r.y-q.y)||1,chip=Math.min(1,length*.2);
+        return {x:q.x+(r.x-q.x)*chip/length,y:q.y+(r.y-q.y)*chip/length};
+      }));
       const roofPatches=[],roofOutline=[];
       const streetEntrance=streetDoor(ring,streets);
       let gap=null,doorway=null;
@@ -575,10 +580,7 @@
           const joint=Math.min(.25,len*(t1-t0)/8),dx=dir.x/len,dy=dir.y/len;
           const shift=(q,k)=>({x:q.x+dx*k,y:q.y+dy*k});
           const core=[shift(p.o0,joint),shift(p.o1,-joint),shift(p.i1,-joint),shift(p.i0,joint)];
-          const rim=core.flatMap((q,i)=>[core[(i+3)%4],core[(i+1)%4]].map(r=>{
-            const length=Math.hypot(r.x-q.x,r.y-q.y)||1,chip=Math.min(1,length*.2);
-            return {x:q.x+(r.x-q.x)*chip/length,y:q.y+(r.y-q.y)*chip/length};
-          }));
+          const rim=clippedRing(core);
           piece=pieces.length;pieces.push({a:p.o0,b:p.o1});
           rim.forEach((q,i)=>{const r=rim[(i+1)%rim.length],span=Math.hypot(r.x-q.x,r.y-q.y);
             const u=8+(len*t0)%192;
@@ -597,19 +599,24 @@
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       // Flat ground follows the exact triangulated footprint, including concave returns.
       for(const t of triangulate(points).triangles)faces.push({kind:'roof',debris:true,layer:-1,color:0xffffff,light:1,rawUV:true,points:(cross(...t)<0?[...t].reverse():t).map(p=>({...p,z:0,u:1+(p.x-xlo)/Math.max(1,xhi-xlo)*382,v:129+(p.y-ylo)/Math.max(1,yhi-ylo)*382}))});
-      // A three-unit dark ground stroke follows every footprint edge. Short
-      // round joins avoid spikes at concave corners and narrow annexes.
+      // A light, translucent broken trace follows the footprint. Seeded dash
+      // lengths and gaps make it weathered rather than a continuous outline.
       const border=(poly)=>{
         if(cross(poly[0],poly[1],poly[2])<0)poly=[...poly].reverse();
         for(let i=1;i<poly.length-1;i++)faces.push({kind:'trim',debris:true,footprintBorder:true,
-          layer:-.8,color:0x3c352b,light:1,solid:true,
+          layer:-.8,color:WRECK_BORDER.color,opacity:WRECK_BORDER.alpha,light:1,solid:true,
           points:[poly[0],poly[i],poly[i+1]].map(p=>({...p,z:.01,u:510,v:126}))});
       };
       ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y)||1;
-        const nx=-(b.y-a.y)/len*1.5,ny=(b.x-a.x)/len*1.5;
-        border([{x:a.x+nx,y:a.y+ny},{x:b.x+nx,y:b.y+ny},
-          {x:b.x-nx,y:b.y-ny},{x:a.x-nx,y:a.y-ny}]);
-        border(Array.from({length:8},(_,j)=>({x:a.x+Math.cos(j*Math.PI/4)*1.5,y:a.y+Math.sin(j*Math.PI/4)*1.5})));
+        const dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,nx=-dy*WRECK_BORDER.width/2,ny=dx*WRECK_BORDER.width/2;
+        let at=1+random(i,83)*4;
+        for(let j=0;at<len-1;j++){
+          const end=Math.min(len-1,at+4+random(i*97+j,89)*4);
+          const p={x:a.x+dx*at,y:a.y+dy*at},q={x:a.x+dx*end,y:a.y+dy*end};
+          border([{x:p.x+nx,y:p.y+ny},{x:q.x+nx,y:q.y+ny},
+            {x:q.x-nx,y:q.y-ny},{x:p.x-nx,y:p.y-ny}]);
+          at=end+5+random(i*97+j,97)*4;
+        }
       });
       // Chunks of fallen wall: low turned blocks with wall-top lids and end-face
       // sides. Several spill out through the gap; the rest lie inside along the
@@ -617,14 +624,12 @@
       const chunk=(k,x,y)=>{piece=pieces.length;pieces.push({a:{x:x-2,y},b:{x:x+2,y}});const n=hash(seed+k,29),m=hash(seed+k,31),a=n*Math.PI,dx=Math.cos(a),dy=Math.sin(a);
         const L=(4+4*m)/2,w=(4+1*n)/2,h=2+2*hash(seed+k,37);
         const base=[{x:x-dx*L+dy*w,y:y-dy*L-dx*w},{x:x+dx*L+dy*w,y:y+dy*L-dx*w},{x:x+dx*L-dy*w,y:y+dy*L+dx*w},{x:x-dx*L-dy*w,y:y-dy*L+dx*w}];
-        const ccw=cross(base[0],base[1],base[2])>0,ring=ccw?base:[...base].reverse();
-        ring.forEach((p,i)=>{const q=ring[(i+1)%4],e=[{...p,z:0},{...q,z:0},{...q,z:h},{...p,z:h}].map((v,j)=>({...v,u:8+(j===1||j===2?Math.hypot(q.x-p.x,q.y-p.y):0),v:16-v.z}));
+        const ccw=cross(base[0],base[1],base[2])>0,ring=clippedRing(ccw?base:[...base].reverse());
+        ring.forEach((p,i)=>{const q=ring[(i+1)%ring.length],e=[{...p,z:0},{...q,z:0},{...q,z:h},{...p,z:h}].map((v,j)=>({...v,u:8+(j===1||j===2?Math.hypot(q.x-p.x,q.y-p.y):0),v:16-v.z}));
           quad(e[0],e[1],e[2],e[3],'trim',{color:W.top,layer:-.4,rubble:true,wreckMasonry:true,rawUV:true,wallDirection:{x:q.x-p.x,y:q.y-p.y}});});
-        const lid=ring.map(p=>({...p,z:h,u:272+p.x-x,v:16+p.y-y}));quad(lid[0],lid[1],lid[2],lid[3],'trim',{layer:-.3,rubble:true,rubbleTop:true,wallTop:true,rawUV:true,color:0xffffff});
-        const edge=(a,b,c,d,color)=>{const inset=(p,q)=>({...p,x:p.x+(q.x-p.x)*.14,y:p.y+(q.y-p.y)*.14,z:h+.01});
-          quad(a,b,inset(b,c),inset(a,d),'trim',{color,layer:-.29,rubble:true});};
-        edge(lid[0],lid[1],lid[2],lid[3],W.highlight);
-        edge(lid[2],lid[3],lid[0],lid[1],W.shadow);};
+        const lid=ring.map(p=>({...p,z:h,u:272+p.x-x,v:16+p.y-y}));
+        for(let i=1;i<lid.length-1;i++)tri([lid[0],lid[i],lid[i+1]],'trim',{
+          layer:-.3,rubble:true,rubbleTop:true,wallTop:true,chippedCap:true,rawUV:true,color:0xffffff});};
       let chunks=0;
       if(gap){const mx=(gap.o0.x+gap.o1.x)/2,my=(gap.o0.y+gap.o1.y)/2,ox=mx-(gap.i0.x+gap.i1.x)/2,oy=my-(gap.i0.y+gap.i1.y)/2,ol=Math.hypot(ox,oy)||1;
         const tx=gap.o1.x-gap.o0.x,ty=gap.o1.y-gap.o0.y;
@@ -1343,13 +1348,14 @@
           const textured=LOOK.textured||f.solid||f.kind==='trim';
           const color=LOOK.textured?(f.color??0xffffff):f.flat??f.color??0xffffff;
           const lit=k=>(Math.round((color>>16)*k)<<16)|(Math.round(((color>>8)&255)*k)<<8)|Math.round((color&255)*k);
-          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade/255),camera.alpha*src.alpha);
+          const alpha=camera.alpha*src.alpha*(f.opacity??1);
+          const tint=Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade/255),alpha);
           for(let i=0;i<3;i++){
             const p=f.projected[i];
             // Keep cel brick bevels crisp beneath broad ground-to-top shading.
             const baseShade=src._wreck?.52:.72;
             const contact=f.kind==='wall'&&!f.preserveWalls?baseShade+(1-baseShade)*Math.min(1,f.points[i].z/Math.max(1,f.eaveHeight)):1;
-            const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade*contact/255),camera.alpha*src.alpha);
+            const wallTint=contact===1?tint:Phaser.Renderer.WebGL.Utils.getTintAppendFloatAlpha(lit(shade*contact/255),alpha);
             pipeline.batchVert(matrix.getX(p.x,p.y),matrix.getY(p.x,p.y),textured?p.u:tu,textured?p.v:tv,unit,0,wallTint);
           }
         }};
@@ -1840,7 +1846,7 @@
         face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);continue;
       }
       const roofTone=face.tileCap&&texture.roofTone!=null?mix(texture.roofTone,0x2a2229,.12):recipe.roof;
-      if(face.footprintBorder)face.color=0x3c352b;else if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
+      if(face.footprintBorder)face.color=WRECK_BORDER.color;else if(face.castShadow)face.color=0x9b9eaa;else if(face.debris||(face.interior||face.wreckMasonry)&&recipe.shape==='wreck')face.color=0xffffff;else if(face.rim)face.color=mix(roofTone,0xf3e6c8,.5);else if(face.rimShade)face.color=mix(roofTone,0x2a2229,.22);else if(face.solid)face.color=roofTone;
       else if(face.wallTop)face.color=face.rawUV?0xffffff:recipe.shape==='wreck'?wreckLook(recipe).mortar:0xffffff;
       else if(face.rubbleTop)face.color=recipe.shape==='wreck'?wreckLook(recipe).top:mix(recipe.body,0xf3e6c8,.35);
       else if(face.kind==='trim'&&face.color==null)face.color=recipe.trim;

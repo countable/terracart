@@ -84,7 +84,9 @@
     assert.eq(BuildingLowPoly.specialGeometry(local,plain,[],'dreamland-wreck'),normal,'Dreamland does not contaminate baseline cache');
     BuildingLowPoly.begin(scene);
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','dreamland-wreck');
-    assert.truthy(mesh.faces.some(f=>f.texture.key==='dreamland_wreck_material'),'masonry atlas selected');
+    const masonry=mesh.faces.filter(f=>f.wreckMasonry||f.wallTop);
+    assert.truthy(masonry.length>0&&masonry.every(f=>f.texture.key==='dreamland_wreck_interior'),
+      'stone sides and caps use the native interior masonry atlas');
     assert.truthy(mesh.faces.some(f=>f.texture.key==='dreamland_wreck_interior'),'interior masonry / rubble atlas selected');
     assert.truthy(mesh.faces.every(f=>f.texture.key.startsWith('dreamland_wreck_')),'no legacy material leak');
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'native profile keeps the roofless broken plinth');
@@ -228,8 +230,8 @@
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
     assert.truthy(mesh.faces.length,'rubble material remains');
-    assert.truthy(mesh.faces.some(f=>f.footprintBorder&&f.debris&&f.solid&&f.color===0x3c352b),
-      'ground border survives atlas conversion with its dark tint');
+    assert.truthy(mesh.faces.some(f=>f.footprintBorder&&f.debris&&f.solid&&f.color===0x5e574a&&f.opacity===.35),
+      'ground border survives atlas conversion with its subtle tint and opacity');
     const top=Math.max(...mesh.faces.flatMap(f=>f.points.map(p=>p.z)));
     assert.inRange(top,10,14,'every wall and rubble piece stays within the low plinth height');
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof or metal framing remains');
@@ -263,7 +265,8 @@
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck-rubble');
     const lids=mesh.faces.filter(f=>f.rubbleTop);
-    assert.gte(lids.length/2,3,'a few chunks of wall lie about: '+lids.length/2);
+    assert.gte(new Set(lids.map(f=>f.piece)).size,3,'several separate fallen stones remain');
+    assert.truthy(lids.every(f=>f.chippedCap),'loose rubble has the same clipped corners as the walls');
     assert.truthy(lids.every(f=>f.points.every(p=>p.z>=2&&p.z<4)),'chunks are shallow stone fragments');
     assert.truthy(mesh.faces.filter(f=>f.rubble).every(f=>Math.min(...f.points.map(p=>p.z))>=0),'chunks rest on the ground');
     // The cel pass's darkest step is light < .65: the floor and inner walls stay above it.
