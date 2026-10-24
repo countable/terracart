@@ -9,6 +9,8 @@
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
   <script>
+    // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
+    window.__shellVersion = 'shell-a57acd4e';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -3117,7 +3119,7 @@
       // 1) Global runtime state: replay the intro + how-to on the fresh game,
       //    through the same one writer "+ New game" uses.
       replayOpening();
-      // 2) Map-tile caches. Two layers persist tiles across loads:
+      // 2) Map-tile caches. Raw and generated tiles persist across loads:
       //    a) Cache API tile bucket(s) populated by the service worker, and
       //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
       //    In-memory worldgen caches reset on reload, so the load below is clean.
@@ -3129,6 +3131,7 @@
             .map(k => caches.delete(k).catch(() => {})));
         }
       } catch {}
+      try { await window.WorldGen?.clearGeneratedTileCache(); } catch {}
       try { indexedDB.deleteDatabase('mapgame-tiles'); } catch {}
       location.reload();
     });
@@ -3274,7 +3277,8 @@
   <script src="src/underground_stories.js?v=deb09860"></script>
   <script src="src/geometry.js?v=8575e0b6"></script>
   <script src="src/gameplay_tiers.js?v=e124d893"></script>
-  <script src="src/worldgen.js?v=1359a250"></script>
+  <script src="src/generated_tile_cache.js?v=043e889f"></script>
+  <script src="src/worldgen.js?v=f9f2d6fe"></script>
   <script src="src/castle_styles.js?v=8a4d031c"></script>
   <script src="src/ground_materials.js?v=a57f0e3a"></script>
   <script src="src/textures.js?v=bc09ec5a"></script>
