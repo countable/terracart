@@ -4158,21 +4158,6 @@ Render.drawLowPolyProps = function (scene, items) {
   return drawn;
 };
 
-// Score text has its own cache and never enters Home's session typing clock.
-// At night it stays readable from outside, above the unlit roof.
-Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
-  const home = scene.save?.starterShopId;
-  const inside = !!home && !!scene.homeInside?.();
-  const dark = (scene.depth || 0) === 0 && Lighting.daylight(scene, Date.now()) < 0.5;
-  const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
-  const key = `${home}|${inside}|${dark}|${score}`;
-  if (scene._homeLuxuryLabel?.key !== key) {
-    scene._homeLuxuryLabel = { key, text: home && (inside || dark)
-      ? `House luxury level: ${score} · ${MemoryStory.luxuryRank(score)}` : null };
-  }
-  return scene._homeLuxuryLabel.text;
-};
-
 // The resident board replaces the delivery bubble. Portraits use the same
 // identity as conversation, including Tilly's housed face after moving in.
 Render.residentPlaque = function residentPlaque(scene, house) {
@@ -4269,7 +4254,6 @@ const CRATE_LABEL_INK = '#ffffff';   // a loose supply crate: a pickup, not a pl
 const LABEL_STROKE    = '#14110c';
 const LABEL_STROKE_W  = 2;
 const LABEL_SHADOW    = 'rgba(0,0,0,0.75)';
-const HOME_LUXURY_GAP_PX = 10;
 const LABEL_STYLES = {
   // POI names (vertical, up the chest's right side) and crate labels.
   poi:     { origin: [0.5, 0], depth: 50, padding: { x: 4, y: 3 } },
@@ -4284,8 +4268,6 @@ const LABEL_STYLES = {
   heart:   { weight: '', stroke: false, origin: [0.5, 1], depth: Z_OVERLAY },
   // A creature's status word (Zzz, ♥) over its crown, in the status's ink.
   status:  { origin: [0.5, 1], depth: Z_OVERLAY },
-  // Home's luxury line over its sign (HOME_LUXURY_GAP_PX above it).
-  luxury:  { size: 7, color: '#ffffff', origin: [0.5, 0], depth: 50 },
   // The QC zone / road variant labels (?variantlabels), on a dark chip.
   variant: { color: '#fff0c4', background: '#172620', padding: { x: 3, y: 2 }, stroke: false, origin: [0.5, 1], depth: 60 },
 };
@@ -5343,7 +5325,8 @@ Render.drawObjects = function drawObjects(scene) {
     // Wrecks have no sign - their identity is hidden until the player
     // restores them. The owner then returns the correct shop / house role.
     if (role === 'wreck') return null;
-    if (role === 'trailer') return Shops.BUILDING_LABEL.trailer;
+    // Home names its luxury rank, never the score: "Home (Homely)".
+    if (role === 'trailer') return `${Shops.BUILDING_LABEL.trailer} (${MemoryStory.luxuryRank(Furniture.luxuryOf(scene.save, o.id))})`;
     if (role === 'wizard') return Shops.TOWER_LABEL[MemoryStory.towerAccess(scene.save, o)];
     // The settled role the player picked at the wreck (blacksmith / trader /
     // shop / turret / wizard).
@@ -5411,8 +5394,6 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
-  // Home's sign top, kept for the luxury line that sits above it.
-  let homeSignTop = null;
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: px, y: py } = project(dx, dy);
@@ -5433,7 +5414,6 @@ Render.drawObjects = function drawObjects(scene) {
     const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
     const homeLift = home ? (_houseArtH(o) ? _houseArtH(o) / 2 : HomeArea.HOUSE.signLiftPx) : 0;
     const top = home ? Math.round(sy - homeLift - tx.height + nudge.y) : Math.round(sy) + 12;
-    if (home && o.id === scene.save.starterShopId) homeSignTop = { x: sx + nudge.x, y: top };
     if (typed === full) {
       tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {
@@ -5445,17 +5425,6 @@ Render.drawObjects = function drawObjects(scene) {
     }
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
-  // Home's luxury line: small white text a clear gap above the sign, so it
-  // reads over the roof rather than across the house floor.
-  const luxuryText = Render.homeLuxuryLabel(scene);
-  const luxuryPool = scene.homeLuxuryPool || (scene.homeLuxuryPool = []);
-  Render.renderPool(scene, luxuryPool, scene.labelContainer,
-    luxuryText !== null && homeSignTop ? [homeSignTop] : [], (tx, at) => {
-      tx.setText(luxuryText);
-      tx.setPosition(Math.round(clampTextX(at.x, tx.width, CANVAS_W)),
-        Math.round(at.y - tx.height - HOME_LUXURY_GAP_PX));
-      fadeLabelOverPlayer(tx, _playerBox);
-    }, labelFactory('luxury'));
 
   // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
   // puffs that rise, sway and fade, each a fraction of a period behind the
