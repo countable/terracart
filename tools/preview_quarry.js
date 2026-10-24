@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.resolve(__dirname, '..'), ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'polygon_geometry', 'coords', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'selected_item_art', 'items', 'loot', 'macros', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'gameplay_tiers', 'worldgen', 'scenic', 'road_overlay']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'polygon_geometry', 'coords', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'selected_item_art', 'items', 'loot', 'macros', 'obstacle_step', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'gameplay_tiers', 'worldgen', 'scenic', 'road_overlay']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 // Select a runtime row for comparison while retaining the real generator,
@@ -47,11 +47,22 @@ const material = o => o.kind === 'staircase' ? 'staircase' : o.kind === 'stakes'
 const dress = tile.zoneDress || {};
 const records = [...(dress.objects || []), ...(dress.wildplants || []), ...(dress.guards || [])]
   .filter(o => o.zoneVariant === variantId);
+const rockPreviewArt = vm.runInContext(`o => {
+  const sheet = mineralRockArtKey(o), frame = mineralRockArtFrame(o), scale = mineralRockArtScale(o);
+  const bounds = SpriteLayout.ART_BOUNDS[sheet + ':' + frame];
+  const seat = SpriteLayout.contactSeat(bounds, .5, .5, scale, scale,
+    WorldLayers.forObject(o) === WorldLayers.STEP_OVER_PROP);
+  return {sheet, frames:[frame], scale, tint:mineralRockTint(o), preserveFrame:true,
+    origin:[.5,.5], width:bounds.fw * scale, height:bounds.fh * scale, ...seat};
+}`, ctx);
 const objects = records.map(o => {
   const m = material(o);
   if (!m) throw new Error(`Unmapped runtime quarry object: ${o.kind}`);
   const look = o.kind === 'chest' ? ctx.chestLook(o) : null;
-  return { ...o, cell: position(o), material: m, ...(look ? {previewArt:{sheet:look.texKey,frames:[look.frame]}} : {}) };
+  const rockArt = o.kind === 'mineralrock' ? rockPreviewArt(o) : null;
+  return { ...o, cell: position(o), material: m,
+    ...(look ? {previewArt:{sheet:look.texKey,frames:[look.frame]}} : {}),
+    ...(rockArt ? {previewArt:rockArt} : {}) };
 });
 for (const o of dress.treasures || []) if (o.zoneVariant === variantId) {
   objects.push({ ...o, cell: position(o), material: 'treasure_x' });

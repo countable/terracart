@@ -296,6 +296,8 @@ exporters; they are not separate commands.
 
 ## Art previews, generators and data
 
+The Nexus review’s Width and Height controls change the sampled cell area independently and keep the dimensions in the URL. Pattern samples support up to 49 cells per axis; quarry samples stop at their generated fixture bounds. Containers use the game’s `chestLook` art choices, and Formal/Hedge Garden shrubs use cardinally connected hedge frames. Each shipping Nexus and road card has an Open in sandbox button that selects that exact variant and skips the intro and tutorial.
+
 `preview_zone_variants.py` includes shipping path weights, slime paving and guards, and permanent seeded spider webs in its street showcase. Geyser paths show their seeded vents in the active phase and describe their daily shrine. Walking-path samples use half the road sample length and twice the visual scale.
 
 `preview_*.py` and `preview_*_art.js` produce art reviews; the detailed workflows

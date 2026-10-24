@@ -3059,7 +3059,25 @@
         7,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3079,7 +3097,25 @@
         8,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3099,7 +3135,25 @@
         9,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3119,7 +3173,25 @@
         10,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3139,7 +3211,25 @@
         12,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3159,7 +3249,25 @@
         13,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3180,7 +3288,25 @@
         14,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3200,7 +3326,25 @@
         16,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3220,7 +3364,25 @@
         17,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3240,7 +3402,25 @@
         19,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3260,7 +3440,25 @@
         20,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3280,7 +3478,25 @@
         22,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3300,7 +3516,25 @@
         23,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3320,7 +3554,25 @@
         25,
         5
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3340,7 +3592,25 @@
         27,
         6
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3360,7 +3630,25 @@
         29,
         6
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3380,7 +3668,25 @@
         7,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3400,7 +3706,25 @@
         8,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3420,7 +3744,25 @@
         9,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3440,7 +3782,25 @@
         10,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3460,7 +3820,25 @@
         12,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3480,7 +3858,25 @@
         13,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3500,7 +3896,25 @@
         14,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3520,7 +3934,25 @@
         16,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3540,7 +3972,25 @@
         17,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3560,7 +4010,25 @@
         19,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3580,7 +4048,25 @@
         20,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3600,7 +4086,25 @@
         22,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3620,7 +4124,25 @@
         23,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3640,7 +4162,25 @@
         25,
         7
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -3660,7 +4200,25 @@
         27,
         8
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3680,7 +4238,25 @@
         29,
         8
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3700,7 +4276,25 @@
         4,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3720,7 +4314,25 @@
         5,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3740,7 +4352,25 @@
         7,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3761,7 +4391,25 @@
         9,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3781,7 +4429,25 @@
         10,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3801,7 +4467,25 @@
         12,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3821,7 +4505,25 @@
         14,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3841,7 +4543,25 @@
         15,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3861,7 +4581,25 @@
         16,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -3881,7 +4619,25 @@
         17,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3901,7 +4657,25 @@
         19,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3921,7 +4695,25 @@
         20,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3942,7 +4734,25 @@
         21,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3962,7 +4772,25 @@
         23,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -3982,7 +4810,25 @@
         25,
         9
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4002,7 +4848,25 @@
         27,
         10
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4022,7 +4886,25 @@
         28,
         10
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4042,7 +4924,25 @@
         30,
         10
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4062,7 +4962,25 @@
         4,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4082,7 +5000,25 @@
         5,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4102,7 +5038,25 @@
         7,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -4123,7 +5077,25 @@
         9,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4143,7 +5115,25 @@
         10,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4163,7 +5153,25 @@
         12,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4183,7 +5191,25 @@
         14,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4203,7 +5229,25 @@
         15,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4223,7 +5267,25 @@
         16,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4243,7 +5305,25 @@
         17,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4263,7 +5343,25 @@
         19,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4283,7 +5381,25 @@
         20,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4303,7 +5419,25 @@
         21,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4323,7 +5457,25 @@
         23,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4343,7 +5495,25 @@
         25,
         11
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4364,7 +5534,25 @@
         27,
         12
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4384,7 +5572,25 @@
         28,
         12
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4404,7 +5610,25 @@
         30,
         12
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4424,7 +5648,25 @@
         4,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4444,7 +5686,25 @@
         5,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -4464,7 +5724,25 @@
         6,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4484,7 +5762,25 @@
         8,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4504,7 +5800,25 @@
         9,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4525,7 +5839,25 @@
         11,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4545,7 +5877,25 @@
         12,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4565,7 +5915,25 @@
         14,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4585,7 +5953,25 @@
         15,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4605,7 +5991,25 @@
         17,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4625,7 +6029,25 @@
         18,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4645,7 +6067,25 @@
         19,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -4665,7 +6105,25 @@
         21,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4685,7 +6143,25 @@
         22,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4705,7 +6181,25 @@
         23,
         13
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4725,7 +6219,25 @@
         25,
         14
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4745,7 +6257,25 @@
         26,
         14
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4765,7 +6295,25 @@
         28,
         14
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4785,7 +6333,25 @@
         29,
         14
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4805,7 +6371,25 @@
         4,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4825,7 +6409,25 @@
         5,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4845,7 +6447,25 @@
         6,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4866,7 +6486,25 @@
         8,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4886,7 +6524,25 @@
         9,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4906,7 +6562,25 @@
         11,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4926,7 +6600,25 @@
         12,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4946,7 +6638,25 @@
         14,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4967,7 +6677,25 @@
         15,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -4987,7 +6715,25 @@
         17,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5007,7 +6753,25 @@
         18,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5027,7 +6791,25 @@
         19,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5047,7 +6829,25 @@
         21,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5067,7 +6867,25 @@
         22,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5088,7 +6906,25 @@
         23,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5108,7 +6944,25 @@
         25,
         16
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5128,7 +6982,25 @@
         26,
         16
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5148,7 +7020,25 @@
         28,
         16
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5168,7 +7058,25 @@
         29,
         16
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5188,7 +7096,25 @@
         4,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5208,7 +7134,25 @@
         6,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5228,7 +7172,25 @@
         8,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5248,7 +7210,25 @@
         9,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5268,7 +7248,25 @@
         11,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5288,7 +7286,25 @@
         12,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5308,7 +7324,25 @@
         14,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5328,7 +7362,25 @@
         15,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5348,7 +7400,25 @@
         16,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5368,7 +7438,25 @@
         18,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5389,7 +7477,25 @@
         19,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5409,7 +7515,25 @@
         20,
         17
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5429,7 +7553,25 @@
         22,
         18
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5449,7 +7591,25 @@
         23,
         18
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5469,7 +7629,25 @@
         25,
         18
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5489,7 +7667,25 @@
         27,
         18
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5509,7 +7705,25 @@
         28,
         18
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5529,7 +7743,25 @@
         30,
         18
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5549,7 +7781,25 @@
         4,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5569,7 +7819,25 @@
         6,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5589,7 +7857,25 @@
         8,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5609,7 +7895,25 @@
         9,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5629,7 +7933,25 @@
         11,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5649,7 +7971,25 @@
         12,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5669,7 +8009,25 @@
         14,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5689,7 +8047,25 @@
         15,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5709,7 +8085,25 @@
         16,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5730,7 +8124,25 @@
         18,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5750,7 +8162,25 @@
         19,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5771,7 +8201,25 @@
         20,
         19
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5791,7 +8239,25 @@
         22,
         20
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5811,7 +8277,25 @@
         23,
         20
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5831,7 +8315,25 @@
         25,
         20
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5851,7 +8353,25 @@
         27,
         20
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5871,7 +8391,25 @@
         28,
         20
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5891,7 +8429,25 @@
         30,
         20
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5911,7 +8467,25 @@
         4,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5932,7 +8506,25 @@
         6,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5952,7 +8544,25 @@
         8,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5973,7 +8583,25 @@
         9,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -5994,7 +8622,25 @@
         10,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6014,7 +8660,25 @@
         12,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6034,7 +8698,25 @@
         13,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6054,7 +8736,25 @@
         14,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6074,7 +8774,25 @@
         16,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6094,7 +8812,25 @@
         17,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6114,7 +8850,25 @@
         19,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6134,7 +8888,25 @@
         20,
         21
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6154,7 +8926,25 @@
         22,
         22
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6174,7 +8964,25 @@
         23,
         22
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6194,7 +9002,25 @@
         25,
         22
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6214,7 +9040,25 @@
         27,
         22
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6234,7 +9078,25 @@
         28,
         22
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6254,7 +9116,25 @@
         30,
         22
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6274,7 +9154,25 @@
         4,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6294,7 +9192,25 @@
         6,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6314,7 +9230,25 @@
         8,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6334,7 +9268,25 @@
         9,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6354,7 +9306,25 @@
         10,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6374,7 +9344,25 @@
         12,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6394,7 +9382,25 @@
         13,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6414,7 +9420,25 @@
         14,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6434,7 +9458,25 @@
         16,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6454,7 +9496,25 @@
         17,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6474,7 +9534,25 @@
         19,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6495,7 +9573,25 @@
         20,
         23
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6515,7 +9611,25 @@
         22,
         24
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6535,7 +9649,25 @@
         23,
         24
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6555,7 +9687,25 @@
         25,
         24
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6575,7 +9725,25 @@
         27,
         24
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6596,7 +9764,25 @@
         28,
         24
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6616,7 +9802,25 @@
         30,
         24
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6636,7 +9840,25 @@
         4,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6656,7 +9878,25 @@
         5,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6676,7 +9916,25 @@
         6,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6696,7 +9954,25 @@
         7,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -6716,7 +9992,25 @@
         9,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6736,7 +10030,25 @@
         10,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6756,7 +10068,25 @@
         11,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6777,7 +10107,25 @@
         13,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6798,7 +10146,25 @@
         14,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6819,7 +10185,25 @@
         15,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6839,7 +10223,25 @@
         16,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6859,7 +10261,25 @@
         18,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6879,7 +10299,25 @@
         19,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6899,7 +10337,25 @@
         20,
         25
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6919,7 +10375,25 @@
         22,
         26
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6939,7 +10413,25 @@
         23,
         26
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6959,7 +10451,25 @@
         25,
         26
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -6979,7 +10489,25 @@
         27,
         26
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -6999,7 +10527,25 @@
         28,
         26
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7019,7 +10565,25 @@
         30,
         26
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7039,7 +10603,25 @@
         4,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7059,7 +10641,25 @@
         5,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7079,7 +10679,25 @@
         6,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7099,7 +10717,25 @@
         7,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7120,7 +10756,25 @@
         9,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7140,7 +10794,25 @@
         10,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7160,7 +10832,25 @@
         11,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7180,7 +10870,25 @@
         13,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7200,7 +10908,25 @@
         14,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7220,7 +10946,25 @@
         15,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7241,7 +10985,25 @@
         16,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7261,7 +11023,25 @@
         18,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7281,7 +11061,25 @@
         19,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -7301,7 +11099,25 @@
         20,
         27
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7321,7 +11137,25 @@
         22,
         28
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7341,7 +11175,25 @@
         23,
         28
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7361,7 +11213,25 @@
         25,
         28
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7381,7 +11251,25 @@
         27,
         28
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7401,7 +11289,25 @@
         28,
         28
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7421,7 +11327,25 @@
         30,
         28
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7441,7 +11365,25 @@
         5,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7461,7 +11403,25 @@
         7,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7481,7 +11441,25 @@
         9,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7501,7 +11479,25 @@
         10,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7521,7 +11517,25 @@
         11,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7541,7 +11555,25 @@
         13,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7561,7 +11593,25 @@
         14,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7581,7 +11631,25 @@
         15,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7601,7 +11669,25 @@
         17,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7622,7 +11708,25 @@
         18,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7642,7 +11746,25 @@
         20,
         29
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7662,7 +11784,25 @@
         22,
         30
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7682,7 +11822,25 @@
         23,
         30
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          4
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 15259318,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0.6476800000000001,
+        "dyPx": -3.022506666666668,
+        "footFromCentre": 4.749653333333335
+      }
     },
     {
       "kind": "mineralrock",
@@ -7703,7 +11861,25 @@
         25,
         30
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7723,7 +11899,25 @@
         26,
         30
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7743,7 +11937,25 @@
         5,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7763,7 +11975,25 @@
         7,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7784,7 +12014,25 @@
         9,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7804,7 +12052,25 @@
         10,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7825,7 +12091,25 @@
         11,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7846,7 +12130,25 @@
         13,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7866,7 +12168,25 @@
         14,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7887,7 +12207,25 @@
         15,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7907,7 +12245,25 @@
         17,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7927,7 +12283,25 @@
         18,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7948,7 +12322,25 @@
         20,
         31
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7968,7 +12360,25 @@
         22,
         32
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -7988,7 +12398,25 @@
         23,
         32
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -8008,7 +12436,25 @@
         25,
         32
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "kind": "mineralrock",
@@ -8028,7 +12474,25 @@
         26,
         32
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          60
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -3.8860800000000006,
+        "footFromCentre": 5.181440000000001
+      }
     },
     {
       "id": "mrz_2622_5615_105_101_treasure",

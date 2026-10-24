@@ -5545,7 +5545,25 @@
         31,
         15
       ],
-      "material": "stone"
+      "material": "stone",
+      "previewArt": {
+        "sheet": "rock_variants",
+        "frames": [
+          61
+        ],
+        "scale": 1.2953600000000003,
+        "tint": 16777215,
+        "preserveFrame": true,
+        "origin": [
+          0.5,
+          0.5
+        ],
+        "width": 20.725760000000005,
+        "height": 20.725760000000005,
+        "dxPx": 0,
+        "dyPx": -2.158933333333333,
+        "footFromCentre": 4.317866666666668
+      }
     },
     {
       "kind": "stronghold_wall",

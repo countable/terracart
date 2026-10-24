@@ -59,6 +59,9 @@
       ['orchard', 'Orchard road'], ['pilgrim', 'Pilgrim road'], ['golden', 'Golden road'],
       ['thorny', 'Thorny Way'], ['snare', 'Snare lane'], ['goblin_gang', 'Goblin Gang Street'], ['barricade', 'Barricade road'],
       ['berry', 'Berry Lane'], ['pottery', 'Pottery Road'],
+      ['rocky_path', 'Rocky Road'], ['grassy_lane', 'Grassy Lane'],
+      ['old_growth_path', 'Old Growth Path'], ['haunted_forest_path', 'Haunted Forest Path'],
+      ['way_of_variety', 'Way of Variety'],
     ].map(([variant, label]) => ({ id: `${variant}-road`, label, road: variant,
       aliases: [`road:${variant}`, ...(variant === 'orchard' ? [] : [variant])] })),
     { id: 'parkpath', label: 'Park path', roadName: 'Common Walk', aliases: ['path', 'road:parkpath'] },
@@ -77,5 +80,10 @@
     const entry = find(key);
     return entry ? `${gameURL}?sandbox=true&sandboxZone=${encodeURIComponent(entry.id)}` : null;
   }
-  root.SandboxDestinations = { entries, find, href };
+  function variantHref(type, id) {
+    if (!['nexus', 'road'].includes(type) || !/^[a-zA-Z0-9_-]+$/.test(id || '')) return null;
+    const viewerURL = scriptURL ? new URL('../tools/floor-viewer.html', scriptURL).href : 'tools/floor-viewer.html';
+    return viewerURL + '?' + new URLSearchParams({ sandboxType: type, sandboxVariant: id, play: 'true' });
+  }
+  root.SandboxDestinations = { entries, find, href, variantHref };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

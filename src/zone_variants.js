@@ -183,6 +183,22 @@
   // FNV result (util.js avalanche32) so its low-bit structure never shows up
   // as rows in a scatter.
   function unitHash(key) { return u01(avalanche32(fnv1a(key))); }
+  // Measure through motif seams so grass clusters around trees even at the
+  // edge of a repeated block. A small floor keeps the alleys irregular too.
+  function gapScatterChance(background, u, v) {
+    const scatter = background.gapScatter;
+    if (!scatter) return 0;
+    const attraction = scatter.attraction;
+    if (!attraction) return scatter.chance;
+    const [w, h] = background.repeatCells;
+    let nearest = attraction.radiusCells;
+    for (const slot of background.slots) {
+      if (!attraction.materials.includes(cycle(slot.material, Math.floor(u / w), Math.floor(v / h)))) continue;
+      const dx = mod(u - slot.at[0], w), dy = mod(v - slot.at[1], h);
+      nearest = Math.min(nearest, Math.hypot(Math.min(dx, w - dx), Math.min(dy, h - dy)));
+    }
+    return scatter.chance * (attraction.floor + (1 - attraction.floor) * (1 - nearest / attraction.radiusCells));
+  }
   // Promoted layouts are generated once in pattern coordinates, then sampled
   // through the same canonical frame and spawn gates as declarative motifs.
   const terrainPlans = new WeakMap();
@@ -256,7 +272,7 @@
           ? resolved : null;
       }
       const scatter = b.gapScatter;
-      return scatter && unitHash(`${anchorKey}|${variant.id}|${u}|${v}|gap`) < scatter.chance
+      return scatter && unitHash(`${anchorKey}|${variant.id}|${u}|${v}|gap`) < gapScatterChance(b, u, v)
         ? scatter.material : null;
     }
     return null;
@@ -277,5 +293,5 @@
   }
   root.ZoneVariants = { rows, materials, byId, forKind, pick, sample, placement, footpathAt, findOffsets,
     identity, anchorFrame, poiOrigin, rotation, rotate, inverseRotate, lampGlowAt,
-    traitsFor, affinityMultiplier, geographyTraits, contextFor, selectionWeights };
+    traitsFor, affinityMultiplier, geographyTraits, contextFor, selectionWeights, gapScatterChance };
 })(typeof window !== 'undefined' ? window : globalThis);

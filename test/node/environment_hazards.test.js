@@ -228,7 +228,7 @@
     for (const e of entries) { e.grid.fill(WorldGen.T.CAVE_FLOOR); delete e.zone; }
     WorldGen.makeRng = () => () => 0;
   }
-  test('environment hazards: every surface quarry is peaceful (no vents, cave-ins or sinkholes)', () => fixture((s, entries) => {
+  test('environment hazards: quarry interiors remain free of ambient vents, cave-ins and sinkholes', () => fixture((s, entries) => {
     for (const row of ZoneVariants.forKind('quarry')) {
       s.save.caveIns = {}; s._environmentHazards = new Map(); quarry(s, entries, row.id); EnvironmentHazards.observe(s);
       const state = EnvironmentHazards.lists(s);
@@ -237,6 +237,76 @@
       const h = EnvironmentHazards.create(s, 'vent', { cellIX: 3, cellIY: 3 }, 'quarry-vent', () => .5, 'fire');
       assert.falsy(EnvironmentHazards.eligible(s, h), `${row.id}: no ambient surface vent seat`);
     }
+  }));
+  function stripRim(s, entries) {
+    quarry(s, entries);
+    for (const e of entries) {
+      e.zone.coverage.fill(0);
+      e.gameplayTiers = new Uint8Array(64).fill(GameplayTiers.CALM);
+    }
+    const e = entries[0];
+    for (let y = 2; y <= 5; y++) for (let x = 2; x <= 5; x++) {
+      e.zone.coverage[y * 8 + x] = 1;
+      e.gameplayTiers[y * 8 + x] = GameplayTiers.PASSING;
+    }
+    // A calm pocket enclosed by the footprint is not its outer edge.
+    e.zone.coverage[3 * 8 + 3] = 0;
+    e.gameplayTiers[3 * 8 + 3] = GameplayTiers.CALM;
+    return e;
+  }
+  const stepOn = (s, x, y) => EnvironmentHazards.touch(s, s.save, (x + .5) * 8, (y + .5) * 8);
+  test('strip mine cave-ins: common calm rim seeds stay on the very edge, excluding interior holes', () => fixture((s, entries) => {
+    const e = stripRim(s, entries), cfg = ZoneVariants.byId('quarry-strip-mine').caveIns;
+    assert.eq(cfg.chance, .6);
+    WorldGen.makeRng = () => () => .59;
+    for (const [x, y] of [[3,3],[4,4],[0,3]]) stepOn(s, x, y);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'inner holes, passing interior and distant calm ground stay clear');
+    stepOn(s, 1, 3);
+    const cluster = EnvironmentHazards.lists(s).caveins;
+    assert.inRange(cluster.length, 1, 3);
+    for (const h of cluster) {
+      const at = s.cellAt(h.x, h.y);
+      assert.eq(e.gameplayTiers[at.iy * 8 + at.ix], GameplayTiers.CALM);
+      assert.truthy(at.ix === 1 && at.iy >= 2 && at.iy <= 5, 'the cluster follows the outside left edge');
+      assert.truthy(EnvironmentHazards.eligible(s, h, false));
+    }
+    assert.eq(Object.keys(s.save.caveIns).length, cluster.length, 'the ordinary cave-in ledger persists edge pits');
+    s.save.caveIns = {}; s._environmentHazards = new Map();
+    WorldGen.makeRng = () => () => .61;
+    stepOn(s, 1, 3);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'the configured 60% roll is not guaranteed');
+  }));
+  test('strip mine cave-ins: Tier 2 boundary seats work while Tier 1/3, roads, paths and occupancy remain protected', () => fixture((s, entries) => {
+    const e = stripRim(s, entries), i = 3 * 8 + 1;
+    const clear = () => { s.save.caveIns = {}; s._environmentHazards = new Map(); };
+    for (const tier of [GameplayTiers.CORE, GameplayTiers.PASSING, GameplayTiers.EXCLUDED]) {
+      clear(); e.gameplayTiers[i] = tier; stepOn(s, 1, 3);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'only actual calm ground');
+    }
+    e.gameplayTiers[i] = GameplayTiers.CALM;
+    for (const type of [WorldGen.T.ROAD, WorldGen.T.PATH, WorldGen.T.WATER, WorldGen.T.BUILDING]) {
+      clear(); e.grid[i] = type; stepOn(s, 1, 3);
+      assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'transport, water and structures stay clear');
+    }
+    e.grid[i] = WorldGen.T.ROCK;
+    clear(); e._spawnOpts.occupied.add(i); stepOn(s, 1, 3);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'occupied rim seat');
+    e._spawnOpts.occupied.clear();
+    clear(); WorldGen.privateVetoAt = () => true; stepOn(s, 1, 3);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'private rim seat');
+    WorldGen.privateVetoAt = () => false;
+    clear(); e.gameplayTiers[2 * 8 + 3] = GameplayTiers.CALM; stepOn(s, 3, 2);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 1, 'an explicitly calm inside boundary cell can collapse');
+  }));
+  test('strip mine cave-ins: tile seams and unloaded neighbours never invent an outer edge', () => fixture((s, entries) => {
+    quarry(s, entries);
+    for (const e of entries) e.gameplayTiers = new Uint8Array(64).fill(GameplayTiers.CALM);
+    stepOn(s, 7, 3);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'the quarry continues through the loaded neighbour');
+    WorldGen.tileCache.delete(WorldGen.tileKey(1, 0));
+    s.save.caveIns = {}; s._environmentHazards = new Map();
+    stepOn(s, 7, 3);
+    assert.eq(EnvironmentHazards.lists(s).caveins.length, 0, 'missing coverage is not evidence of the physical rim');
   }));
   function tarPit(s, entries, variant) {
     s.depth = 0;

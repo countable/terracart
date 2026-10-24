@@ -342,6 +342,17 @@
       "color": "#aaa48e",
       "_zoneObjectFrame": 61
     },
+    "tidepool": {
+      "kind": "tidepool",
+      "recordType": "terrain",
+      "terrain": "WATER",
+      "spawnClass": "attractor",
+      "fishStock": {
+        "guaranteed": true,
+        "minTier": 3
+      },
+      "color": "#64b9b7"
+    },
     "reef_crystal": {
       "kind": "mineralrock",
       "deposit": "crystal",
@@ -1341,8 +1352,8 @@
         "repeat": true,
         "generator": {
           "layout": "hilbert",
-          "width": 33,
-          "height": 33,
+          "width": 29,
+          "height": 29,
           "seed": 2718,
           "order": 4,
           "skip": [
@@ -1371,15 +1382,15 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.2699724517906336,
+        "nominalDensity": 0.26397146254458975,
         "materialDensity": {
-          "giant_mushroom": 0.16161616161616163,
-          "mushroom": 0.10835629017447199
+          "giant_mushroom": 0.1581450653983353,
+          "mushroom": 0.10582639714625446
         },
         "poiOrigin": {
           "cell": [
-            16,
-            16
+            14,
+            14
           ],
           "role": "hilbert_grove_center"
         }
@@ -1539,7 +1550,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Giant woody mushrooms and small red caps share a filled Hilbert grove around the shrine and its luminous flower.",
+      "atmosphere": "Giant woody mushrooms and small red caps share a filled Hilbert grove with smaller clearings around the shrine and its luminous flower.",
       "materialFrames": {
         "giant_mushroom": [
           40
@@ -1617,10 +1628,11 @@
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.125,
+        "nominalDensity": 0.20824821433126595,
         "materialDensity": {
           "fruit_tree": 0.0625,
-          "medium_tree": 0.0625
+          "medium_tree": 0.0625,
+          "grass": 0.08324821433126593
         },
         "type": "repeat_motif",
         "poiOrigin": {
@@ -1629,6 +1641,18 @@
             4
           ],
           "role": "avenue_center_between_apple_rows"
+        },
+        "gapScatter": {
+          "material": "grass",
+          "chance": 0.22,
+          "attraction": {
+            "materials": [
+              "fruit_tree",
+              "medium_tree"
+            ],
+            "radiusCells": 2,
+            "floor": 0.1
+          }
         }
       },
       "poi": {
@@ -1770,7 +1794,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Regular apple rows alternate with medium maple rows, with open aisles leading to three finite gemfruit finds."
+      "atmosphere": "Regular apple rows alternate with medium maple rows. Sparse, irregular grass gathers near the trunks, leaving open aisles leading to three finite gemfruit finds."
     },
     {
       "id": "formal_garden",
@@ -1779,20 +1803,13 @@
       "weight": 1,
       "background": {
         "repeatCells": [
-          6,
-          6
+          8,
+          8
         ],
         "slots": [
           {
             "at": [
-              1,
-              0
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              2,
+              3,
               0
             ],
             "material": "shrub"
@@ -1800,13 +1817,55 @@
           {
             "at": [
               4,
-              3
+              0
             ],
             "material": "shrub"
           },
           {
             "at": [
+              3,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              1
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              2
+            ],
+            "material": "flowers"
+          },
+          {
+            "at": [
+              3,
+              2
+            ],
+            "material": "flowers"
+          },
+          {
+            "at": [
+              4,
+              2
+            ],
+            "material": "flowers"
+          },
+          {
+            "at": [
               5,
+              2
+            ],
+            "material": "flowers"
+          },
+          {
+            "at": [
+              0,
               3
             ],
             "material": "shrub"
@@ -1814,144 +1873,185 @@
           {
             "at": [
               1,
-              1
+              3
             ],
-            "material": {
-              "cycle": [
-                "orange",
-                "flowers",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "shrub"
           },
           {
             "at": [
               2,
-              1
+              3
             ],
-            "material": {
-              "cycle": [
-                "orange",
-                "flowers",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "flowers"
+          },
+          {
+            "at": [
+              3,
+              3
+            ],
+            "material": "orange"
+          },
+          {
+            "at": [
+              4,
+              3
+            ],
+            "material": "orange"
+          },
+          {
+            "at": [
+              5,
+              3
+            ],
+            "material": "flowers"
+          },
+          {
+            "at": [
+              6,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              7,
+              3
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              0,
+              4
+            ],
+            "material": "shrub"
           },
           {
             "at": [
               1,
-              2
+              4
             ],
-            "material": {
-              "cycle": [
-                "orange",
-                "flowers",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "shrub"
           },
           {
             "at": [
               2,
-              2
+              4
             ],
-            "material": {
-              "cycle": [
-                "orange",
-                "flowers",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "flowers"
+          },
+          {
+            "at": [
+              3,
+              4
+            ],
+            "material": "orange"
           },
           {
             "at": [
               4,
               4
             ],
-            "material": {
-              "cycle": [
-                "flowers",
-                "orange",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "orange"
           },
           {
             "at": [
               5,
               4
             ],
-            "material": {
-              "cycle": [
-                "flowers",
-                "orange",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "flowers"
+          },
+          {
+            "at": [
+              6,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              7,
+              4
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              2,
+              5
+            ],
+            "material": "flowers"
+          },
+          {
+            "at": [
+              3,
+              5
+            ],
+            "material": "flowers"
           },
           {
             "at": [
               4,
               5
             ],
-            "material": {
-              "cycle": [
-                "flowers",
-                "orange",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "flowers"
           },
           {
             "at": [
               5,
               5
             ],
-            "material": {
-              "cycle": [
-                "flowers",
-                "orange",
-                "flowers",
-                "flowers"
-              ],
-              "index": "block_x_plus_block_y"
-            }
+            "material": "flowers"
+          },
+          {
+            "at": [
+              3,
+              6
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              6
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              3,
+              7
+            ],
+            "material": "shrub"
+          },
+          {
+            "at": [
+              4,
+              7
+            ],
+            "material": "shrub"
           }
         ],
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
         "orientation": "quarter_turn_toward_approach",
-        "nominalDensity": 0.3333333333333333,
+        "nominalDensity": 0.5,
         "materialDensity": {
-          "shrub": 0.1111111111111111,
-          "flowers": 0.16666666666666666,
-          "orange": 0.05555555555555555
+          "shrub": 0.25,
+          "flowers": 0.1875,
+          "orange": 0.0625
         },
         "type": "repeat_motif",
         "poiOrigin": {
           "cell": [
-            3,
-            3
+            4,
+            4
           ],
-          "role": "cross_aisle_between_staggered_square_beds"
+          "role": "concentric_flower_center"
         }
       },
       "poi": {
-        "id": "hedge_flanks_flower_diamond",
+        "id": "concentric_flower_center",
         "origin": "settled_poi",
         "slots": [
           {
@@ -1959,11 +2059,32 @@
               -1,
               -1
             ],
-            "material": "shrub"
+            "material": "orange"
+          },
+          {
+            "at": [
+              0,
+              -1
+            ],
+            "material": "orange"
+          },
+          {
+            "at": [
+              1,
+              -1
+            ],
+            "material": "flowers"
           },
           {
             "at": [
               -1,
+              0
+            ],
+            "material": "orange"
+          },
+          {
+            "at": [
+              1,
               0
             ],
             "material": "flowers"
@@ -1973,39 +2094,18 @@
               -1,
               1
             ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              1,
-              -1
-            ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              1,
-              0
-            ],
             "material": "flowers"
           },
           {
             "at": [
-              1,
+              0,
               1
             ],
-            "material": "shrub"
-          },
-          {
-            "at": [
-              0,
-              -1
-            ],
             "material": "flowers"
           },
           {
             "at": [
-              0,
+              1,
               1
             ],
             "material": "flowers"
@@ -2144,7 +2244,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Compact square flower beds step along short straight shrub rows; pale wildflowers dominate, with occasional whole orange beds.",
+      "atmosphere": "Four clipped hedge arms enter from the north, south, east and west, meeting a concentric flower centre: a pale outer ring surrounds a warm orange heart. Open corners give each repeated parterre room to breathe.",
       "materialLooks": {
         "shrub": "clipped"
       },
@@ -3093,12 +3193,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Old trees shelter soft bushes and grass, with broken pressure-plate footpaths between clusters that awaken a ghost once underfoot.",
-      "footpaths": {
-        "spacingCells": 6,
-        "gapChance": 0.22,
-        "effect": "ghost"
-      }
+      "atmosphere": "Old trees shelter soft bushes and grass in quiet clusters around the moss cairn, with open ground between them."
     },
     {
       "id": "stone_garden",
@@ -7050,7 +7145,7 @@
           },
           {
             "at": [
-              2,
+              1,
               3
             ],
             "material": "stone"
@@ -7071,8 +7166,15 @@
           },
           {
             "at": [
-              4,
-              2
+              2,
+              3
+            ],
+            "material": "shell"
+          },
+          {
+            "at": [
+              3,
+              3
             ],
             "material": "shell"
           },
@@ -7081,14 +7183,14 @@
               2,
               2
             ],
-            "material": "flowers"
+            "material": "tidepool"
           }
         ],
-        "nominalDensity": 0.19444444444444445,
+        "nominalDensity": 0.2222222222222222,
         "materialDensity": {
           "stone": 0.08333333333333333,
-          "shell": 0.08333333333333333,
-          "flowers": 0.027777777777777776
+          "shell": 0.1111111111111111,
+          "tidepool": 0.027777777777777776
         },
         "densityFalloff": "none",
         "phaseOrigin": "settled_poi_at_declared_motif_cell",
@@ -7145,14 +7247,14 @@
               -1,
               1
             ],
-            "material": "flowers"
+            "material": "shell"
           },
           {
             "at": [
               1,
               1
             ],
-            "material": "flowers"
+            "material": "shell"
           }
         ],
         "relocation": {
@@ -7164,7 +7266,7 @@
       },
       "finds": {
         "rarity": "rare",
-        "material": "star",
+        "material": "tidepool",
         "count": 1,
         "targets": [
           {
@@ -7181,7 +7283,7 @@
           "maxCells": 4,
           "stayInZone": true
         },
-        "extraEligibility": "dry_eligible_ground; magical_flower_bed_permitted_on_dry_sand"
+        "extraEligibility": "dry_eligible_ground_with_dry_perimeter_and_reachable_bank; one_water_cell"
       },
       "connection": {
         "shape": "clear_aisle",
@@ -7207,7 +7309,7 @@
         "spawnClass": "enemy",
         "fallback": "omit_guard_keep_find"
       },
-      "atmosphere": "Compact stone crescents, shell inlays and a pale wildflower center repeat every 6 × 6 cells. The single starflower remains the rare luminous find.",
+      "atmosphere": "Rounded stone crescents and shell inlays cradle one-cell tidepools, with an open bank on the east side of each cluster. Every pool initially holds one T3-or-better fish; a landed fish stays depleted. The guarded find is another tidepool.",
       "reef": {
         "landOre": {
           "count": 3,
@@ -7789,7 +7891,8 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Calm ground along the very outer rim commonly gives way underfoot; the benches and enclosed interior gaps remain stable.",
+      "hazardsDescription": "Hidden cave-ins on the one-cell outer rim wherever actual Tier 2 calm ground is present: 60% per visited eligible seed, forming 1–3 connected rim cells. Five seconds of warning before permanent holes open. No cave-ins in Tier 3 quarry interiors or enclosed holes; normal transport, access and occupancy exclusions apply.",
       "quarryLayout": "strip_mine",
       "affinities": [
         "ruined"
@@ -7802,7 +7905,13 @@
           65
         ]
       },
-      "buriedTreasureChance": 0.2
+      "buriedTreasureChance": 0.2,
+      "caveIns": {
+        "edge": "outer",
+        "chance": 0.6,
+        "clusterMinCells": 1,
+        "clusterMaxCells": 3
+      }
     },
     {
       "id": "quarry-stronghold",

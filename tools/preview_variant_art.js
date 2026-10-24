@@ -8,7 +8,8 @@ const read = (name) => fs.readFileSync(path.join(root, 'src', name + '.js'), 'ut
 const ctx = { addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'gameplay_tiers', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards']) {
+for (const name of ['enemy_roster', 'enemy_spawns', 'util', 'polygon_geometry', 'coords', 'sprite_layout', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'ground_materials', 'assets', 'items', 'chest_themes', 'loot', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'habitat_spawns', 'macros', 'obstacle_step', 'interactables', 'quarry_layout', 'gameplay_tiers', 'worldgen', 'road_overlay', 'lighting', 'lairs', 'zones', 'environment_hazards']) {
+  if (name === 'ground_materials' && !fs.existsSync(path.join(root, 'src', name + '.js'))) continue;
   vm.runInContext(read(name), ctx, { filename: name + '.js' });
 }
 const render = read('render');
@@ -25,6 +26,29 @@ function slice(source, from, to) {
 const shadowLook = render.match(/const SHADOW_LOOK = \{[\s\S]*?\n\};/);
 if (shadowLook) vm.runInContext(shadowLook[0], ctx);
 vm.runInContext('const Render = {}; ' + slice(render, 'Render.wildplantShadow =', 'Render.objectAppearance ='), ctx);
+const shrineFooting = render.match(/^Render\.hasShrineFooting = .+;$/m);
+if (!shrineFooting) throw new Error('Cannot find shipping shrine footing predicate');
+vm.runInContext(shrineFooting[0], ctx);
+// Representative inputs omit placement metadata and IDs. Actual quarry
+// records export their art directly, retaining their seeded rock shape.
+const materialArtFields = ['kind', 'yieldTier', 'requiredTier', 'rockMaterial', 'deposit', 'caveVariant',
+  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', 'sightBlocking'];
+const materialArtKey = object => JSON.stringify(materialArtFields.map(field => object[field] ?? null));
+vm.runInContext(`globalThis.previewMaterialArt = object => {
+  const scene = {textures:{exists:key => !!ASSETS[key],
+    getFrame:key => ({width:ASSETS[key]?.frameWidth, height:ASSETS[key]?.frameHeight})}};
+  const appearance = resolveAppearance({...object}, {scene, houseRoles:new Map(), fruitNow:0, fruitList:[]});
+  if (!appearance?.visible) throw new Error('No shipping appearance for ' + object.kind);
+  const {texKey:sheet, frameVal:frame = 0, scl:scale, origin, scaleYMul, dxPx, dyPx} = appearance;
+  const asset = ASSETS[sheet];
+  return {sheet, frames:[frame], preserveFrame:true, origin,
+    tint:object.kind === 'mineralrock' ? mineralRockTint(object) : 0xffffff,
+    width:asset.frameWidth * scale, height:asset.frameHeight * scale * scaleYMul, dxPx, dyPx};
+};`, ctx);
+if (process.argv.includes('--resolve-material-art')) {
+  process.stdout.write(JSON.stringify(ctx.previewMaterialArt(JSON.parse(fs.readFileSync(0, 'utf8')))));
+  process.exit(0);
+}
 const painters = slice(read('textures'), 'function seededRand(', 'function drawGrassTex(') + '\n'
   + slice(read('textures'), 'const TRAP_PX =', '// === Animated biome textures ===');
 const data = vm.runInContext(`({ assets: ASSETS, crops: CROP_SPRITE, contextLooks: WILDPLANT_CONTEXT_ART,
@@ -61,6 +85,40 @@ for (const row of Object.values(data.assets)) {
 data.assets.icon_goldenfish = {whiteKey:false,kind:'spritesheet',path:'assets/Icons/Fish/River/Golden Fish.png',frameWidth:16,frameHeight:16};
 data.enemyPalettes = Object.fromEntries(ctx.EnemyRoster.ROWS.filter(row => row.palette).map(row => [row.id, row.palette]));
 data.containerLootProfiles = vm.runInContext('({barrel:BARREL_LOOT, clay_pot:CLAY_POT_LOOT})', ctx);
+// Container records use kind=chest even when their visible art is a barrel or
+// pot. Ask the same resolver as the game, including its approved frame choices.
+data.containerArt = vm.runInContext(`Object.fromEntries(['barrel', 'clay_pot', 'box'].map(key => {
+  const look = chestLook({kind:'chest', id:'variant-preview-' + key,
+    barrel:key !== 'box', barrelStyle:key, crate:key === 'box'});
+  return [key, {sheet:look.texKey, frames:[look.frame]}];
+}))`, ctx);
+data.hedgeFrames = vm.runInContext(`Object.fromEntries(Array.from({length:16}, (_,mask) => {
+  const cells = new Set([4]);
+  for (const [bit,offset] of [[1,-3],[2,1],[4,3],[8,-1]]) if (mask & bit) cells.add(4+offset);
+  return [mask, QuarryLayout.wallFrameAt(cells,4,3)];
+}))`, ctx);
+// Object material looks belong to the renderer too (for example, Spooky
+// Woods' bare trees). Export its selected frame, scale and contact seating.
+data.objectArt = vm.runInContext(`Object.fromEntries(ZoneVariantData.variants.flatMap(variant =>
+  Object.entries(variant.materialLooks || {}).flatMap(([material, look]) => {
+    const object = {...ZoneVariantData.materials[material], _objectArt:look};
+    if (object.kind === 'wildplant') return [];
+    const key = [object.kind, look, object.species || '', object.size || ''].join(':');
+    return [[key, previewMaterialArt(object)]];
+  })
+))`, ctx);
+data.materialArtFields = materialArtFields;
+const reviewedObjectKinds = new Set(['mineralrock', 'headstone', 'waystone']);
+const representativeMaterials = Object.values(ctx.ZoneVariantData.materials).filter(row => reviewedObjectKinds.has(row.kind));
+for (const variant of ctx.ZoneVariantData.variants) for (const [name, material] of Object.entries(ctx.ZoneVariantData.materials)) {
+  if (!reviewedObjectKinds.has(material.kind)) continue;
+  const frames = variant.materialFrames?.[name] || [material._zoneObjectFrame];
+  for (const frame of frames) representativeMaterials.push({...material, zoneVariant:variant.id,
+    ...(frame != null ? {_zoneObjectFrame:frame} : {}),
+    ...(variant.materialLooks?.[name] ? {_objectArt:variant.materialLooks[name]} : {})});
+}
+data.materialArt = Object.fromEntries(representativeMaterials.map(object => [materialArtKey(object), ctx.previewMaterialArt(object)]));
+data.groundMaterialSource = fs.existsSync(path.join(root, 'src/ground_materials.js')) ? read('ground_materials') : '';
 data.painters = painters;
 // Basic terrain samples use the same base colours and texture painter as the map.
 const colourTable = read('app').match(/const COLORS = (\{[\s\S]*?\n\});/);
@@ -89,8 +147,8 @@ for (const tile of data.basicTiles) {
     tile.examples = plants.slice(0, 1);
     tile.enemies = ctx.EnemySpawns.caveRows(1).map(row => row.id);
   }
-  for (const o of tile.examples) if (o.kind === 'mineralrock' && o._zoneObjectFrame == null && (o.caveVariant != null || (o.yieldTier || 1) <= 1)) {
-    o.previewArt = {sheet:'mineralrock', frames:[ctx.SpriteLayout.plainRockFrame(o)]};
+  for (const o of tile.examples) if (reviewedObjectKinds.has(o.kind)) {
+    o.previewArt = ctx.previewMaterialArt(o);
   }
   tile.creatureExamples = [...new Set([...tile.fauna, ...tile.enemies.slice(0,2)])].map(kind => {
     const art = ctx.SpriteLayout.creatureArt(kind);
@@ -98,7 +156,7 @@ for (const tile of data.basicTiles) {
   });
 
 }
-data.biomePainter = vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
+data.biomePainter = data.groundMaterialSource + '\n' + vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.
 data.roadPainter = read('road_overlay');
 data.zoneTraits = Object.fromEntries(ctx.ZoneVariantData.variants.map(row => [row.id, ctx.ZoneVariants.traitsFor(row)]));

@@ -138,6 +138,16 @@ Names are case-insensitive; unknown names return to the player plaza.
 These links visit the sandbox's representative biomes, not every procedural
 variant shown by the dashboards. Unsupported biomes have no jump link.
 
+Every shipping Nexus and road/path card in the variant review has an **Open in
+sandbox** link. It opens `tools/floor-viewer.html?sandboxType=nexus&sandboxVariant=orchard&play=true`
+(use `sandboxType=road` for streets), builds the selected variant through the
+live generation pipeline, then transfers that map into the isolated floor
+sandbox. The player starts near the selected Nexus or route. These links skip
+story and tutorial steps, enable the normal temporary torch buff, and preserve
+the player's saved game. Removing `play=true` leaves the generated map open in
+the viewer for inspection; its placement rules may decline layouts that do not
+fit, and the launcher reports that rather than opening a different variant.
+
 The Old Stones destination (`?sandbox=true&sandboxZone=stones`) includes an
 awakened temple. Tap its marble footprint to enter the giant-reaper challenge
 on floor +1. Walk off the platform to return to the ground, then enter again

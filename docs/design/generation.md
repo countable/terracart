@@ -69,6 +69,16 @@ access or tile lifecycle mechanics.
   or a water-only placement profile. Dry-shore inhabitants, ore and the reef
   shrine still use the shared tier gate. A refused aquatic candidate leaves a
   shortfall rather than moving onto land or borrowing another species slot.
+- Mystic Reef's rounded stone-and-shell clusters replace their flowers with
+  one-cell tidepools. The ordinary finite find becomes another guarded pool.
+  `ZoneDressing` carves only eligible dry cells, retains a dry perimeter and
+  reserves an empty cardinal bank; existing water, buildings, roads, paths,
+  occupied ground and access exclusions cannot be carved. Each generated
+  pool's `zoneDress.fishStock` policy guarantees one initially stocked T3+
+  species through the ordinary `fishSpotStocked`/`spotFish` helpers. Rod catch
+  odds still apply, escapes keep the fish, and a landed fish remains depleted
+  through the existing `save.fishedSpots` ledger. Shiny sightings use the same
+  stock policy as the cast.
 - Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
   extent), including ragged edges and park-derived beach companions. Larger
   mapped beaches remain ordinary sand outside that cap, with normal beach
@@ -688,9 +698,16 @@ access or tile lifecycle mechanics.
   both game and layout lab; `ZoneVariants.placement` caches the configured plan
   and samples it in the canonical POI frame, preserving empty-area reservations,
   spawn gates and per-cell identities through ordinary `ZoneDressing`.
+- Formal Garden uses four clipped hedge arms around concentric pale-flower
+  and orange rings in an eight-cell parterre. Formal and Hedge Gardens use
+  connected hedge art from the surviving cardinal shrub neighbours.
+- Orchard motifs retain their apple and maple seats; seeded grass scatters into
+  unoccupied motif cells with distance-weighted attraction to those trees,
+  measured across motif seams. Grass becomes sparse in the open aisles.
 - Mushroom groves use a Hilbert background with a 60:40 giant-to-small mushroom
   mix. Reduced material affinity distributes giant caps more evenly; the
-  repeating 33-cell plan has 176 giant and 118 small mushrooms before exclusions.
+  repeating 29-cell plan has 133 giant and 89 small mushrooms before exclusions,
+  keeping its clearings smaller than the former 33-cell plan.
   Its find guard is a mushroom monster too. The themed surface encounter lane
   scatters individual mushroom monsters across six-cell patches, with a seeded 60% presence roll
   per patch. Seats stay within grove coverage and obey the shared spawn gate,
@@ -767,13 +784,17 @@ access or tile lifecycle mechanics.
   bramble seats, covering roughly a quarter of the ground while preserving trees,
   disguised treants and shrine layouts. Nexus mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
-- Sacred Grove keeps its six-cell shrub/tree clusters, with visible pressure
-  plates along the empty grid seams and deterministic breaks; shrine cells,
-  authored routes and existing occupancy stay clear, and plates use the ghost
-  spawn gate. `PressureTraps` raises one ordinary ghost on a grounded player
-  step and stores the stable plate id in `save.pressedPlates`; its depressed
-  frame survives reloads and tile regeneration without another summon. Flight
-  does not press plates, and a refused ghost spawn leaves a plate unspent.
+- Sacred Grove keeps its six-cell shrub/tree clusters and quiet open seams.
+  It has no authored pressure-plate footpaths or footpath ghost triggers.
+- Strip mines use the same cave-in lifecycle on their one-cell outer rim,
+  only where the actual shared tier field is Tier 2 calm ground. Each visited
+  eligible rim seed has a 60% roll for 1–3 connected rim cells; clusters never
+  extend into Tier 3 benches, enclosed interior holes or further outside the
+  perimeter. Explicitly calm boundary cells inside the footprint are eligible
+  too. Exterior flood-fill distinguishes the outer perimeter from holes, and
+  unloaded neighbours never count as boundary evidence. Ordinary hazard,
+  transport, private-ground and occupancy gates still apply; tier ownership is
+  unchanged. This adds no ambient vent or sinkhole inside the quarry.
 - L1 and the surface Nexus rows marked `caveIns` (the Seep tar pits) use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
