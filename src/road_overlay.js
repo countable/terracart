@@ -572,22 +572,83 @@
   function roadMaterialFor(variant, restored) {
     return ROAD_MATERIALS[variant] || 'ROAD-natural';
   }
+  // Approved sparse study: stable stone positions, open ground, denser repairs.
+  function sparseRoadTile(source, restored) {
+    const size = 192, spacing = 12;
+    const tile = document.createElement('canvas');
+    tile.width = tile.height = size;
+    const cx = tile.getContext('2d');
+    cx.imageSmoothingEnabled = false;
+    const pattern = cx.createPattern(source, 'repeat');
+    let seed = 2791;
+    const rand = () => {
+      seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
+      return seed / 4294967296;
+    };
+    for (let row = 0; row < 16; row++) for (let col = 0; col < 16; col++) {
+      // Consume the same random values before deciding whether a stone exists:
+      // restoration adds missing stones without moving the surviving ones.
+      const keep = rand();
+      const x = col * spacing + (row % 2) * 6 + (rand() - .5) * 3;
+      const y = row * spacing + (rand() - .5) * 3;
+      const w = 6 + rand() * 3, h = 5 + rand() * 3;
+      const cut = 1 + rand(), bright = rand();
+      if (keep > (restored ? .94 : .72)) continue;
+      const points = [
+        [-w/2+cut,-h/2], [w/2-1,-h/2], [w/2,-h/2+cut], [w/2,h/2-1],
+        [w/2-cut,h/2], [-w/2+1,h/2], [-w/2,h/2-cut], [-w/2,-h/2+1],
+      ];
+      // Wrap footprints (including their shadow) across the repeat boundary.
+      for (const ox of [-size, 0, size]) for (const oy of [-size, 0, size]) {
+        const px = Math.round(x + ox), py = Math.round(y + oy);
+        if (px + w < 0 || py + h < 0 || px - w > size || py - h > size) continue;
+        const path = () => {
+          cx.beginPath();
+          points.forEach(([a, b], i) => {
+            if (i) cx.lineTo(px + Math.round(a), py + Math.round(b));
+            else cx.moveTo(px + Math.round(a), py + Math.round(b));
+          });
+          cx.closePath();
+        };
+        cx.save();
+        cx.translate(0, 1); path();
+        cx.fillStyle = 'rgba(23,27,22,.35)'; cx.fill();
+        cx.restore();
+        cx.save(); path(); cx.clip();
+        cx.fillStyle = pattern; cx.fillRect(px - 6, py - 6, 12, 12);
+        cx.fillStyle = bright > .5 ? 'rgba(222,216,190,.13)' : 'rgba(35,32,29,.10)';
+        cx.fillRect(px - 6, py - 6, 12, 12);
+        cx.restore();
+        cx.beginPath();
+        cx.moveTo(px + Math.round(points[0][0]), py + Math.round(points[0][1]));
+        cx.lineTo(px + Math.round(points[1][0]), py + Math.round(points[1][1]));
+        cx.strokeStyle = 'rgba(227,223,200,.28)'; cx.lineWidth = 1; cx.stroke();
+      }
+    }
+    return tile;
+  }
+
   const selectedRoadCanvases = {};
-  function selectedRoadTile(variant, restored) {
+  function baseRoadTile(variant, restored) {
     const trial = typeof RATerrainTrial !== 'undefined' && RATerrainTrial.roadTile(variant, restored);
     if (trial) return trial;
     if (typeof drawSelectedMaterial !== 'function'
         || typeof document === 'undefined') return null;
     const id = roadMaterialFor(variant, restored);
-    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '');
+    const key = id + ':' + !!restored + (variant === 'suppressed' ? ':rift' : '')
+      + (variant === 'burned' ? ':solid' : ':sparse');
     if (selectedRoadCanvases[key]) return selectedRoadCanvases[key];
     const tile = document.createElement('canvas'); tile.width = tile.height = STONE_TILE_PX;
     const cx = tile.getContext('2d');
     if (!cx) return null;
-    // Repeat full native ground crops. No slab bevels, brick grid or staggered joints.
+    // Prepare the stone-face texture before cutting the sparse footprints.
     const source = document.createElement('canvas'); source.width = source.height = 16;
     const sx = source.getContext('2d');
-    if (!sx || !drawSelectedMaterial(sx,16,id)) return null;
+    if (!sx) return null;
+    if (id === 'ROAD-warm') {
+      // Orchard Lane and its shared family use quiet, solid sandstone faces.
+      sx.fillStyle = '#aa9271'; sx.fillRect(0, 0, 16, 16);
+    } else if (!drawSelectedMaterial(sx,16,id)) return null;
     cx.imageSmoothingEnabled = false;
     for(let y=0;y<STONE_TILE_PX;y+=16)for(let x=0;x<STONE_TILE_PX;x+=16)cx.drawImage(source,x,y);
     if (variant === 'suppressed') {
@@ -599,7 +660,108 @@
     // Burned Row is a damaging surface: retain its existing ember warning
     // over the RA material, once per cached tile, in both restoration states.
     if (id === 'ROAD-charcoal') paintEmbers(cx, STONE_TILE_PX, '#ff6a20');
-    return (selectedRoadCanvases[key] = tile);
+    return (selectedRoadCanvases[key] = variant === 'burned' ? tile : sparseRoadTile(tile, restored));
+  }
+
+  // Approved theme colours; weathering retains 35% saturation.
+  const ROAD_THEME_COLORS = {
+    "plain": "#899397",
+    "suppressed": "#647f79",
+    "hedgerow": "#a29b82",
+    "overgrown": "#7c8265",
+    "orchard": "#b29a76",
+    "pilgrim": "#b1ad96",
+    "lantern": "#ad8862",
+    "burned": "#493a35",
+    "barricade": "#94856c",
+    "toadstool": "#a27d70",
+    "promenade": "#bdb39b",
+    "greenway": "#8b947a",
+    "parkpath": "#a49b83",
+    "golden": "#b99d59",
+    "snare": "#8c8274",
+    "thorny": "#a08d65",
+    "goblin_gang": "#8c7762",
+    "golden_path": "#b99d59",
+    "slime_trail": "#7e9270",
+    "spider_path": "#8c8793",
+    "poison_path": "#9ba268",
+    "fire_path": "#9b705c",
+    "paralysis_path": "#b3a16a",
+    "confusion_path": "#99829b",
+    "berry": "#968788",
+    "berry_trail": "#968788",
+    "pottery": "#b08a73",
+    "trade": "#a39178",
+    "rocky_path": "#9b9b91",
+    "grassy_lane": "#92a087",
+    "old_growth_path": "#777c68",
+    "haunted_forest_path": "#807d91",
+    "way_of_variety": "#a89d86"
+};
+  function stoneLuminance(data) {
+    let count=0,total=0,squared=0;
+    for(let i=0;i<data.length;i+=4) {
+      // Ignore transparent joints and partial-alpha edge shadows.
+      if(data[i+3]!==255)continue;
+      const light=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];
+      count++;total+=light;squared+=light*light;
+    }
+    const mean=total/count;
+    return {mean,spread:Math.sqrt(Math.max(0,squared/count-mean*mean))};
+  }
+  function themeColor(id,restored) {
+    const color=ROAD_THEME_COLORS[id] || ROAD_THEME_COLORS.plain;
+    const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
+    if(restored||id==='burned')return rgb;
+    const light=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
+    return rgb.map(channel=>light+(channel-light)*.35);
+  }
+  function recolorRoadTile(variant,restored) {
+    const base=baseRoadTile(variant,restored);
+    if(variant==='burned')return base;
+    if (!base) return null;
+    const c=document.createElement('canvas');c.width=base.width;c.height=base.height;
+    const g=c.getContext('2d');g.drawImage(base,0,0);
+    const pixels=g.getImageData(0,0,c.width,c.height),data=pixels.data;
+    const source=stoneLuminance(data);
+    const reference=baseRoadTile('promenade',restored);
+    const contrast=stoneLuminance(reference.getContext('2d').getImageData(0,0,reference.width,reference.height).data);
+    const target=themeColor(variant,restored);
+    // Keep the existing light/dark stone distribution and texture. Match its
+    // tonal spread to the approved applied Promenade, rather than flattening
+    // both stone tones with a translucent solid-colour wash.
+    const scale=source.spread>0?contrast.spread/source.spread:1;
+    for(let i=0;i<data.length;i+=4) {
+      if(!data[i+3])continue;
+      const light=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];
+      const delta=(light-source.mean)*scale+(restored?8:0);
+      for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,target[channel]+delta));
+    }
+    // Alpha is unchanged: the same ground gaps and soft shadows survive.
+    g.putImageData(pixels,0,0);
+    return c;
+  }
+  const themedRoadCanvases = {};
+  function selectedRoadTile(variant, restored) {
+    variant = Object.prototype.hasOwnProperty.call(ROAD_THEME_COLORS, variant) ? variant : 'plain';
+    const key = (variant || 'plain') + ':' + !!restored;
+    if (themedRoadCanvases[key]) return themedRoadCanvases[key];
+    const tile = recolorRoadTile(variant || 'plain', restored);
+    // Assets can become ready after the first request; never cache a miss.
+    if (tile) themedRoadCanvases[key] = tile;
+    return tile;
+  }
+
+  // Bake all palettes when the source atlas is installed, before any cell
+  // rebuild. New themes must not trigger pixel reads while walking.
+  function prepareMaterials() {
+    for (const key of Object.keys(selectedRoadCanvases)) delete selectedRoadCanvases[key];
+    for (const key of Object.keys(themedRoadCanvases)) delete themedRoadCanvases[key];
+    for (const variant of Object.keys(ROAD_THEME_COLORS)) {
+      selectedRoadTile(variant, false);
+      selectedRoadTile(variant, true);
+    }
   }
 
   // Shared preview swatch uses the same authored tiles and palette as the game.
@@ -607,14 +769,14 @@
     const palette = global.StreetVariants?.pavementFor(variant);
     const color = palette?.[restored ? 'restored' : 'weathered']
       || cssOf(restored ? (isPath ? RESTORED_PATH_COLOR : RESTORED_ROAD_COLOR) : (isPath ? PATH_COLOR : ROAD_COLOR));
-    cx.fillStyle = color;
-    cx.fillRect(0, 0, size, size);
     const selected = selectedRoadTile(variant, restored);
     if (selected) {
-      cx.imageSmoothingEnabled = false; cx.drawImage(selected, 0, 0, size, size);
+      cx.imageSmoothingEnabled = false;
+      cx.fillStyle = cx.createPattern(selected, 'repeat'); cx.fillRect(0, 0, size, size);
       if (palette?.pattern === 'rift') paintRift(cx, size, palette.accent, restored);
       return;
     }
+    cx.fillStyle = color; cx.fillRect(0, 0, size, size);
     if (restored) paintCleanTile(cx, size, CLEAN_MORTAR_ALPHA * (isPath ? CLEAN_PATH_MORTAR_MUL : 1), color, palette?.pattern);
     else if (palette?.pattern !== 'rift') { const tile = stoneTile(palette?.pattern === 'embers'); if (tile) cx.drawImage(tile, 0, 0, size, size); }
     paintPattern(cx, size, palette?.pattern, palette?.accent, restored);
@@ -1365,13 +1527,15 @@
   function* commitBaseSteps(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size); yield;
-    // Fringe pass at true width, then eat random bites out of everything.
-    yield* strokeOpsSteps(ctx, pass.ops, 0);
+    // Only legacy surfaces and rail get a continuous bed. Selected roads
+    // paint directly over terrain so transparent joints reveal that terrain.
+    const bedOps = pass.ops.filter(op => op.c === RAIL_COLOR || !selectedRoadTile(op.variant, false));
+    yield* strokeOpsSteps(ctx, bedOps, 0);
     const noise = patternOf(ctx, pass.pats, 'edge', edgeNoiseTile());
     if (noise && pass.ops.length) {
       patternFill(ctx, pass, noise, 'destination-out', STONE_TILE_PX); yield;
       // Repair the interior: the bites survive only in the outer fringe.
-      yield* strokeOpsSteps(ctx, pass.ops, -EDGE_FRINGE_PX);
+      yield* strokeOpsSteps(ctx, bedOps, -EDGE_FRINGE_PX);
     }
     // source-atop keeps the stones inside the nibbled silhouette; laid BEFORE
     // the track furniture so ties and rails stay untextured.
@@ -1393,7 +1557,7 @@
       yield* strokeOpsSteps(layer.ctx, ops, 0);
       const pat = patternOf(layer.ctx, pass.pats, 'ra:' + variant, tile);
       if (pat) patternFill(layer.ctx, pass, pat, 'source-in', tile.width);
-      ctx.save(); ctx.globalCompositeOperation = 'source-atop';
+      ctx.save(); ctx.globalCompositeOperation = 'source-over';
       ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); yield;
     }
     for (const row of [...(global.StreetVariants?.STREET_VARIANTS || []), global.StreetVariants?.SUPPRESSED_STYLE].filter(Boolean)) {
@@ -1483,11 +1647,12 @@
       const layer = scratchLayer(size, pass.scratch, 0);
       if (!layer) break;
       const lx = layer.ctx;
-      const tile = selectedRoadTile(variant, true) || cleanTile(isPath, stoneColor, pattern, accent);
+      const selected = selectedRoadTile(variant, true);
+      const tile = selected || cleanTile(isPath, stoneColor, pattern, accent);
       const pat = tile && lx.createPattern(tile, 'repeat');
       yield* strokeOpsSteps(lx, ops, 0);
-      if (pat) patternFill(lx, pass, pat, 'source-atop', tile.width);
-      if (pattern !== 'rift') {
+      if (pat) patternFill(lx, pass, pat, selected ? 'source-in' : 'source-atop', tile.width);
+      if (!selected && pattern !== 'rift') {
         // Ordinary repairs retain the pale stone kerb.
         lx.save();
         lx.globalCompositeOperation = 'source-atop';
@@ -2148,7 +2313,7 @@
   }
 
   global.RoadOverlay = { homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
-                         roadMaterialFor, selectedRoadTile, paintSelectedLamp, SELECTED_LAMP_BODY_FRAC, SELECTED_LAMP_RISE_CELLS, SELECTED_LAMP_OFFSET_CELLS, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
+                         roadMaterialFor, selectedRoadTile, prepareMaterials, paintSelectedLamp, SELECTED_LAMP_BODY_FRAC, SELECTED_LAMP_RISE_CELLS, SELECTED_LAMP_OFFSET_CELLS, paintLamp, paintBrokenLamp, lampGlowHex, LAMP_TEX_PX, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_GROUND_FRAC,
                          LAMP_LANTERN_FRAC, LAMP_LANTERN_RISE_CELLS, LAMP_VIEW_K, LAMP_BODY_FRAC,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

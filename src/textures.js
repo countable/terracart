@@ -1315,6 +1315,7 @@ function setSelectedTerrainSource(source) {
     }
     if(best) selectedGroundColours.set(frame,ink);
   }
+  if (typeof RoadOverlay !== 'undefined') RoadOverlay.prepareMaterials?.();
 }
 function selectedGrassBaseColor(type, fallback) {
   // Buildings retain their restoration/house palette owners.

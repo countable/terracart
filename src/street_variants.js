@@ -1884,85 +1884,12 @@
     return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
   }
 
-  // Select all themes before painting. Theme the ground continuously beneath
-  // the road and out to its two-cell verge. Road/path codes stay intact;
-  // streetGround stores their visible base as terrain + 1 (zero = unset).
-  // Intersections prefer the nearest
-  // road edge, with a stable key breaking ties. Source access reasons remain
-  // authoritative: a cosmetic commercial verge does not become private land.
-  function* paintTerrainSteps({ index, scenic, transportation, grid, N, roadMask, spawnWhy, zone, streetGround }) {
-    const WG = root.WorldGen, S = root.Streets;
-    const painted = new Uint8Array(N * N);
-    if (!WG || !S) return painted;
-    const records = [];
-    const ext = index?.extent || scenic?.ext || transportation?.extent || 4096;
-    for (const rec of index?.dressingLines || []) {
-      if (terrainFor(rec.variant) != null) records.push(rec);
-    }
-    const scale = N * WG.CELL_M / ext;
-    for (const f of transportation?.features || []) {
-      if (f.type !== 2) continue;
-      for (let li = 0; li < (f.geom || []).length; li++) {
-        const key = S.lineKey(f, li);
-        if (index?.lines?.some(rec => rec.lineKey === key && rec.variantSegments)) continue;
-        for (const iv of scenic?.lines?.get(key) || []) {
-          const variant = root.Scenic.KIND_ROW[iv[2]];
-          if (terrainFor(variant) == null) continue;
-          records.push({ key, variant, size: 'path', halfW: WG.roadOverlayWidthM(f.tags) / 2,
-            line: S.subLineM(f.geom[li], scale, iv[0] * scale, iv[1] * scale)
-              .map(p => ({ x: p.x / scale, y: p.y / scale })) });
-        }
-      }
-    }
-    if (!records.length) return painted;
-    const ordinal = (a,b) => a < b ? -1 : a > b ? 1 : 0;
-    records.sort((a,b) => ordinal(String(a.key),String(b.key)) || ordinal(a.variant,b.variant));
-    const nearest = new Float32Array(N * N).fill(Infinity);
-    const original = grid.slice();
-    let candidates = 0;
-    for (const rec of records) {
-      yield 'street terrain lines';
-      // A row may paint its ground further than its claim (terrainVergeCells:
-      // Thorny Way's dry scrub runs as deep as its thickets). Past the claim
-      // the paint is cosmetic only, so land-access exclusions hold there
-      // without the claim's residential exception.
-      const reach = VARIANT_BY_ID[rec.variant]?.terrainVergeCells ?? TERRAIN_VERGE_CELLS;
-      const half = rec.halfW / WG.CELL_M, radius = half + reach;
-      for (let j = 1; j < rec.line.length; j++) {
-        const a = rec.line[j - 1], b = rec.line[j];
-        const ax = a.x * N / ext, ay = a.y * N / ext;
-        const bx = b.x * N / ext, by = b.y * N / ext;
-        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
-        for (let y = Math.max(0, Math.floor(Math.min(ay, by) - radius)); y <= Math.min(N-1, Math.floor(Math.max(ay, by) + radius)); y++) {
-          for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N-1, Math.floor(Math.max(ax, bx) + radius)); x++) {
-            if ((++candidates & 511) === 0) yield 'street terrain cells';
-            const i = y * N + x, here = original[i];
-            const inNexus = zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i];
-            if (inNexus && !(rec.size === 'path' && here === WG.T.PATH)) continue;
-            // Road/terrain spawn exclusions remain unchanged; only land-access
-            // exclusions prevent this visual ground paint — except RESIDENTIAL
-            // land cover, which the variant's claim blocks out to its verge
-            // (the lane owns its two cells; a yard's lawn does not run onto it).
-            if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
-                || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
-            const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
-            const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
-            if (distance > reach || distance >= nearest[i] - 1e-6) continue;
-            if (((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND)
-                && (here !== WG.T.RESIDENTIAL || distance > TERRAIN_VERGE_CELLS)) continue;
-            nearest[i] = distance;
-            const terrain = terrainFor(rec.variant);
-            if (WG.isCobbleTerrain(here)) {
-              if (streetGround) streetGround[i] = terrain + 1;
-            } else {
-              grid[i] = terrain;
-              painted[i] = 1;
-            }
-          }
-        }
-      }
-    }
-    return painted;
+  // Road identity now lives in sparse themed cobbles and existing props.
+  // Preserve the source biome beneath gaps and beside every route. Keep the
+  // generator contract for rasterization callers; no cells need repainting
+  // or ambient-scatter cleanup, and streetGround remains unset.
+  function* paintTerrainSteps({ N }) {
+    return new Uint8Array(N * N);
   }
 
   // The café hoard's pick: a pure hash of the POI's GLOBAL MVT point, the

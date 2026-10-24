@@ -1060,12 +1060,16 @@ the reach rim within the existing player-light radius.
   Game and map review share these transitions. Other Nexus materials retain their
   selected texture owner. Ten families bound the startup atlas to 1600 × 1600 pixels
   (9.8 MiB RGBA); no runtime pixel reads or per-cell canvases are added.
-- Road surfaces repeat complete native textures without slab bevels or synthetic
-  brick grids. Ordinary roads use Farming Game World blue-grey natural stone.
-  Variant groups use Fantasy Dreamland warm cobbles, moss, mauve aggregate,
-  charcoal or marsh earth. Weathering is a cached dark wash; ember and rift
-  warnings retain their existing painters. Commercial landcover uses Fantasy City
-  small sandstone pavers independently of road geometry and variant ownership.
+- Road surfaces use sparse, individually shaded cobbles with transparent ground
+  gaps. Each theme has its approved colour; unrestored stones retain 35% colour
+  saturation, while restored stones regain colour and add missing cobbles at the
+  same positions. Both states keep the approved Promenade light–dark contrast.
+  Palette pixels are calculated once per cached theme/state, never per frame.
+  Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
+  its solid charcoal surface and ember warning. Rail ballast stays solid.
+  Theme ground verges are disabled: source landcover remains beneath and beside
+  roads, while existing props, hazard rules and route identities remain in place.
+  Commercial sandstone remains an independent landcover material.
 - Opaque selected terrain supplies its dominant ink for existing fills and seam blends,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
   to selected ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without

@@ -39,7 +39,7 @@
     for (let x = 0; x < N; x++) grid[5 * N + x] = WorldGen.T.PATH;
     const ground = new Uint8Array(N * N);
     WorldGen.runSteps(StreetVariants.paintTerrainSteps({ index, grid, N, zone: { coverage }, streetGround: ground }));
-    assert.eq(ground[5 * N + 5], WorldGen.T.COMMERCIAL + 1);
+    assert.eq(ground[5 * N + 5], 0, 'path gaps preserve the underlying Nexus terrain');
     assert.eq(grid[4 * N + 5], WorldGen.T.GRASS);
     assert.eq(grid[5 * N + 5], WorldGen.T.PATH);
   });

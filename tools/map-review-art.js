@@ -350,8 +350,9 @@ const MapReviewArt = (() => {
             this._pavementTiles ||= new Map();
             let tile=this._pavementTiles.get(key);
             if(!tile) {
-              tile=document.createElement('canvas');tile.width=tile.height=RoadOverlay.CLEAN_TILE_PX;
-              RoadOverlay.paintPavementTile(tile.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,road.isPath,!!this._restoredLamps,road.variant);
+              const selected=RoadOverlay.selectedRoadTile(road.variant,!!this._restoredLamps);
+              tile=document.createElement('canvas');tile.width=tile.height=selected?.width||RoadOverlay.CLEAN_TILE_PX;
+              RoadOverlay.paintPavementTile(tile.getContext('2d'),tile.width,road.isPath,!!this._restoredLamps,road.variant);
               this._pavementTiles.set(key,tile);
             }
             pattern=g.createPattern(tile,'repeat');

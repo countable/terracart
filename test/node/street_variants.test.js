@@ -1613,39 +1613,32 @@ function paintVerge(ctx) {
   while (!result.done) result = it.next();
   return result.value;
 }
-test('street ground: the claim reaches two cells and paints over residential land cover there', () => {
-  // Hedgerow terrain over a lane on row 6 with no band of its own (halfW 0):
-  // rows 4 and 8 sit exactly two cells out, row 3 three. Residential lot
-  // cells carry the gate's PRIVATE reason (land access), which used to keep
-  // every land-excluded cell's own paint; the lane now owns its two cells.
+test('street ground: claims preserve residential land cover and access reasons', () => {
   const f = vergeFixture('hedgerow');
   f.index.dressingLines[0].halfW = 0;
   const N = f.N, W = WorldGen.SPAWN_WHY;
-  for (const y of [3, 4, 5]) for (let x = 1; x < 11; x++) { f.grid[y*N+x] = T.RESIDENTIAL; f.spawnWhy[y*N+x] = W.PRIVATE; }
-  f.grid[8*N+5] = T.GRASS; f.spawnWhy[8*N+5] = W.RESTRICTED;      // restricted ground keeps its paint
-  const painted = paintVerge(f), park = T.PARK;
-  assert.eq(f.grid[5*N+5], park, 'a residential kerb cell takes the lane\'s ground');
-  assert.eq(f.grid[4*N+5], park, 'two cells out too (TERRAIN_VERGE_CELLS = 2)');
-  assert.eq(f.grid[3*N+5], T.RESIDENTIAL, 'three cells out the lot keeps its lawn');
-  assert.eq(f.grid[8*N+5], T.GRASS, 'other land-access exclusions still block the paint');
-  assert.truthy(painted[4*N+5] && !painted[3*N+5]);
-  assert.eq(SV.TERRAIN_VERGE_CELLS, 2);
+  for (const y of [3, 4, 5]) for (let x = 1; x < 11; x++) {
+    f.grid[y*N+x] = T.RESIDENTIAL; f.spawnWhy[y*N+x] = W.PRIVATE;
+  }
+  f.spawnWhy[8*N+5] = W.RESTRICTED;
+  const reasons=JSON.stringify(Array.from(f.spawnWhy));
+  const painted = paintVerge(f);
+  for (const y of [3,4,5]) assert.eq(f.grid[y*N+5],T.RESIDENTIAL);
+  assert.eq(f.grid[8*N+5],T.GRASS);
+  assert.falsy(painted.some(Boolean));
+  assert.eq(JSON.stringify(Array.from(f.spawnWhy)),reasons);
+  assert.eq(SV.TERRAIN_VERGE_CELLS,2,'the existing claim width is unchanged');
 });
 
-test('street ground: Thorny Way paints its dry scrub as deep as its thickets', () => {
-  // Same lane on row 6 (halfW 0). Rows 2..10 sit within four cells; a
-  // residential lot three cells out keeps its lawn (past the claim the paint
-  // is cosmetic, so land access holds), open ground there turns to scrub.
+test('street ground: Thorny Way preserves ground throughout its thicket footprint', () => {
   const f = vergeFixture('thorny');
   f.index.dressingLines[0].halfW = 0;
-  const N = f.N, W = WorldGen.SPAWN_WHY;
-  f.grid[3*N+4] = T.RESIDENTIAL; f.spawnWhy[3*N+4] = W.PRIVATE;
+  const N = f.N;
+  f.grid[3*N+4] = T.RESIDENTIAL; f.spawnWhy[3*N+4] = WorldGen.SPAWN_WHY.PRIVATE;
+  const before=JSON.stringify(Array.from(f.grid));
   paintVerge(f);
-  assert.eq(f.grid[5*N+5], T.WASTELAND, 'the kerb row');
-  assert.eq(f.grid[2*N+5], T.WASTELAND, 'four cells out');
-  assert.eq(f.grid[10*N+5], T.WASTELAND, 'four cells out on the other side');
-  assert.eq(f.grid[3*N+4], T.RESIDENTIAL, 'a lot past the claim keeps its lawn');
-  assert.truthy(f.grid[1*N+5] !== T.WASTELAND, 'five cells out is untouched');
+  assert.eq(JSON.stringify(Array.from(f.grid)),before);
+  assert.eq(SV.THORNY_VERGE_MAX_CELLS,4,'existing thicket reach is unchanged');
 });
 
 function vergeFixture(variant = 'overgrown') {
@@ -1735,87 +1728,30 @@ test('forest roads: every overgrown street posts a sounder of two wild boars bes
   assert.falsy(Lairs.DAILY_TIERS.has(tier));
 });
 
-test('street terrain: agreed biome rows paint one and a half cells beyond road geometry', () => {
-  for (const [variant, terrain] of Object.entries({hedgerow:T.PARK,overgrown:T.FOREST,
-    orchard:T.ORCHARD,pilgrim:T.ROCK,lantern:T.COMMERCIAL,burned:T.INDUSTRIAL,
-    barricade:T.WASTELAND,toadstool:T.WETLAND,golden:T.ROCK,promenade:T.SAND,
-    greenway:T.GRASS,parkpath:T.PARK})) {
-    assert.eq(SV.terrainFor(variant),terrain);
-    const f=vergeFixture(variant), painted=paintVerge(f);
-    assert.eq(f.grid[5*12+5],terrain);
-    assert.eq(f.grid[7*12+5],terrain);
-    assert.eq(f.grid[4*12+5],terrain,'new half-cell reaches the outer cell centre');
-    assert.eq(f.grid[8*12+5],terrain,'both sides widen');
-    assert.eq(painted[4*12+5],1);
-    assert.eq(f.grid[3*12+5],T.GRASS,'outside the wider band');
-    assert.eq(f.grid[6*12+5],T.ROAD,'road stays road');
-    assert.eq(painted[5*12+5],1);
+test('street terrain: every theme preserves the surrounding biome and road backdrop', () => {
+  for (const row of SV.STREET_VARIANTS) for (const ground of [T.GRASS,T.FOREST,T.SAND,T.PARK,T.WETLAND]) {
+    const f=vergeFixture(row.id), N=f.N;
+    f.grid.fill(ground);f.grid[6*N+5]=T.ROAD;f.grid[6*N+6]=T.PATH;
+    f.grid[5*N+2]=T.WATER;f.grid[5*N+3]=T.BUILDING;
+    f.streetGround=new Uint8Array(N*N);
+    const before=JSON.stringify(Array.from(f.grid));
+    const masks=JSON.stringify([Array.from(f.roadMask),Array.from(f.spawnWhy)]);
+    const painted=paintVerge(f);
+    assert.eq(JSON.stringify(Array.from(f.grid)),before,row.id+' keeps source ground');
+    assert.falsy(painted.some(Boolean),'no ambient cleanup outside roads');
+    assert.falsy(f.streetGround.some(Boolean),'cobble gaps inherit the surrounding biome');
+    assert.eq(JSON.stringify([Array.from(f.roadMask),Array.from(f.spawnWhy)]),masks);
   }
 });
-test('street terrain: themed ground fills the roadway footprint without changing road rules', () => {
-  const f=vergeFixture('overgrown'), N=f.N;
-  f.streetGround=new Uint8Array(N*N);
-  // A wide band partly covers ordinary terrain cells; the visible strip
-  // outside the pavement must not keep its original grass.
-  f.index.dressingLines[0].halfW=8;
-  f.roadMask[5*N+5]=1;
-  f.spawnWhy[5*N+5]=WorldGen.SPAWN_WHY.ROAD;
-  f.spawnWhy[6*N+5]=WorldGen.SPAWN_WHY.ROAD | WorldGen.SPAWN_WHY.TERRAIN;
-  const mask=Array.from(f.roadMask), reasons=Array.from(f.spawnWhy);
-  const painted=paintVerge(f);
-  assert.eq(f.grid[5*N+5],T.FOREST,'masked biome cells inherit the theme');
-  assert.eq(painted[5*N+5],1);
-  assert.eq(f.grid[6*N+5],T.ROAD,'road identity remains intact');
-  assert.eq(f.streetGround[6*N+5],T.FOREST+1,'road backdrop is explicit, not neighbour-voted');
-  assert.eq(JSON.stringify(Array.from(f.roadMask)),JSON.stringify(mask));
-  assert.eq(JSON.stringify(Array.from(f.spawnWhy)),JSON.stringify(reasons));
-  const path=vergeFixture('greenway');path.grid[6*N+5]=T.PATH;
-  path.streetGround=new Uint8Array(N*N);paintVerge(path);
-  assert.eq(path.streetGround[6*N+5],T.GRASS+1,'grass zero is distinct from an unset backdrop');
-  assert.eq(path.grid[6*N+5],T.PATH);
-});
 
-test('street terrain: water, buildings, access and special zones take precedence', () => {
-  const f=vergeFixture('promenade'), N=f.N;
-  f.grid[5*N+2]=T.WATER;f.grid[5*N+3]=T.BUILDING;f.grid[5*N+4]=T.PATH;
-  f.spawnWhy[5*N+5]=WorldGen.SPAWN_WHY.PRIVATE;
-  f.spawnWhy[5*N+6]=WorldGen.SPAWN_WHY.RESTRICTED;
-  f.zone={coverage:new Uint16Array(N*N),under:new Uint8Array(N*N)};
-  f.zone.coverage[5*N+7]=1; f.zone.under[5*N+8]=T.PARK;
-  const before=Array.from(f.grid), reasons=JSON.stringify(Array.from(f.spawnWhy));
-  paintVerge(f);
-  for(let x=2;x<=8;x++) assert.eq(f.grid[5*N+x],before[5*N+x]);
-  assert.eq(f.grid[5*N+9],T.SAND);
-  assert.eq(JSON.stringify(Array.from(f.spawnWhy)),reasons);
-});
-test('street terrain: intersections are independent of road ordering', () => {
-  const f=vergeFixture(), other={...f.index.dressingLines[0],key:'another',variant:'golden'};
-  f.index.dressingLines.push(other);
-  const a={...f,grid:f.grid.slice()};paintVerge(a);
-  f.index.dressingLines.reverse();paintVerge(f);
-  assert.eq(JSON.stringify(Array.from(f.grid)),JSON.stringify(Array.from(a.grid)));
-});
-test('street terrain: rasterization preserves original affinity and cave inputs', () => {
-  const painted=WorldGen.rasterizeTile(layers(),CPE,TX,TY,TILE_EDGE_M);
-  const actual=SV.paintTerrainSteps;
-  let baseline;
-  try {
-    SV.paintTerrainSteps=function*({N}) {return new Uint8Array(N*N);};
-    baseline=WorldGen.rasterizeTile(layers(),CPE,TX,TY,TILE_EDGE_M);
-  } finally {SV.paintTerrainSteps=actual;}
-  assert.eq(JSON.stringify(painted.caveSource),JSON.stringify(baseline.caveSource));
-  assert.eq(JSON.stringify(painted.streetIndex),JSON.stringify(baseline.streetIndex));
-  assert.eq(JSON.stringify(painted.spawnWhy),JSON.stringify(baseline.spawnWhy));
-});
-
-test('street terrain: scenic intervals paint only their selected path span', () => {
+test('street terrain: scenic paths retain their source ground', () => {
   const f=vergeFixture();f.index.dressingLines=[];
   const feature={id:9,type:2,tags:{class:'path'},geom:[[{x:1.5,y:6.5},{x:10.5,y:6.5}]]};
   f.transportation={extent:12,features:[feature]};
   f.scenic={ext:12,lines:new Map([[Streets.lineKey(feature,0),[[2,5,'shore']]]])};
+  const before=JSON.stringify(Array.from(f.grid));
   paintVerge(f);
-  assert.eq(f.grid[5*12+5],T.SAND);
-  assert.eq(f.grid[5*12+9],T.GRASS,'outside scenic interval stays original');
+  assert.eq(JSON.stringify(Array.from(f.grid)),before);
 });
 
 test('street shrines: chosen streets seat safely and independently without a tile cap', () => {
