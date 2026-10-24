@@ -78,7 +78,7 @@
   <div><button id="placeHome">Place Home</button></div>
   <div><button id="detectTrees">Detect trees at map centre</button></div>
   <div id="geometryStatus" role="status">Cached tree detections load with the map.</div>
-  <details class="review-section" open><summary>Gameplay tiers (proposed)</summary><div class="section-body">
+  <details class="review-section"><summary>Gameplay tiers (proposed)</summary><div class="section-body">
   <label><input id="gameplayTiers" type="checkbox"> Show gameplay-tier layer</label>
   <div id="gameplayLegend"></div>
   <label>Layer opacity <input id="gameplayOpacity" aria-label="Gameplay tier opacity" type="range" min="0.15" max="0.85" step="0.05" value="0.45"></label>
@@ -93,7 +93,7 @@
   <p>Three-cell road buffers use current game dimensions. Measured traffic volumes and speeds are not available. Restricted ground remains excluded; missing evidence remains unknown. This layer does not alter gameplay.</p>
   </details>
   </div></details>
-  <details class="review-section" open><summary>Park / zone variants</summary><div class="section-body">
+  <details class="review-section"><summary>Park / zone variants</summary><div class="section-body">
   <label><input id="zoneLabels" type="checkbox" checked> Show zone names and variants</label>
   <select id="zonePick" aria-label="Park or zone"><option value="">Loading zones…</option></select>
   <div id="zoneDetails">Select a park or zone to inspect its layout and other spawns.</div>
@@ -102,9 +102,9 @@
   <label><input id="sourceColors" type="checkbox"> Color markers by source</label>
   <details><summary>Source colors</summary><div id="sourceLegend"></div></details>
 </div></details>
-  <details class="review-section" open><summary>Difficulty</summary><div class="section-body"><div id="modes"></div>
+  <details class="review-section"><summary>Difficulty</summary><div class="section-body"><div id="modes"></div>
 </div></details>
-  <details class="review-section" open><summary>Base map</summary><div class="section-body"><div id="bases"></div>
+  <details class="review-section"><summary>Base map</summary><div class="section-body"><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
   <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
 </div></details>
@@ -115,27 +115,28 @@
   <select id="laneFilter"><option value="all">All removed lanes</option><option value="inferred">Inferred removals only</option><option value="explicit">Explicit parking-aisle tags only</option></select>
   <div id="laneSummary" style="font-size:11px;color:#aaa;line-height:1.5"></div>
 </div></details>
-  <details class="review-section" open><summary>Quarry clusters</summary><div class="section-body">
+  <details class="review-section"><summary>Quarry clusters</summary><div class="section-body">
   <label><input id="quarryClusters" type="checkbox"> Colour quarry footprints</label>
   <div id="quarrySummary" hidden style="font-size:11px;color:#aaa;line-height:1.5"></div>
 </div></details>
-  <details class="review-section" open><summary>Overlays</summary><div class="section-body">
+  <details class="review-section"><summary>Overlays</summary><div class="section-body">
   <label><input id="pathEndpoints" type="checkbox" checked> Path endpoints (yellow: theme change; orange: inferred; white: original)</label>
   <label title="Visible at zoom level 17 and closer"><input id="pathLabels" type="checkbox" checked> Path names (zoom in)</label>
   <p id="pathSummary" style="font-size:11px;color:#aaa;line-height:1.5"></p>
   <label title="Visible at zoom level 18 and closer"><input id="poiLabels" type="checkbox" checked> POI names (zoom in)</label><div id="ovl"></div>
 </div></details>
-  <details class="review-section" open><summary>Density band</summary><div class="section-body">
+  <details class="review-section"><summary>DENSITY BAND</summary><div class="section-body">
+  <label><input id="densityView" type="checkbox"> Density per game view</label>
   <div>interactables per view: <input id="dmin" type="number" value="5" min="0" style="width:3.5em"> to
     <input id="dmax" type="number" value="20" min="0" style="width:3.5em"></div>
   <div id="dstats" style="margin-top:4px"></div>
 </div></details>
-  <details class="review-section" open><summary>Placed things</summary><div class="section-body">
+  <details class="review-section"><summary>Placed things</summary><div class="section-body">
   <div id="scope" style="color:#888;margin:-2px 0 6px"></div>
   <div><button id="all">all</button><button id="none">none</button></div>
   <div id="kinds"></div>
 </div></details>
-  <details class="review-section" open><summary>Terrain legend</summary><div class="section-body"><p id="terrainStatus" role="status" style="font-size:12px;color:#bbb">Click a ground type to outline it. Click again to clear.</p><p><span class="sw sq" style="background:#c98f73"></span> Pirate Cove sand (review tint)</p><div id="legend"></div>
+  <details class="review-section"><summary>Terrain legend</summary><div class="section-body"><p id="terrainStatus" role="status" style="font-size:12px;color:#bbb">Click a ground type to outline it. Click again to clear.</p><p><span class="sw sq" style="background:#c98f73"></span> Pirate Cove sand (review tint)</p><div id="legend"></div>
 </div></details>
 </div>
 <div id="game"></div>
@@ -736,6 +737,10 @@ function draw(world, home) {
 // is not an object and never counts.
 const densityLayer = L.layerGroup();
 let densityOn = false;
+$('densityView').onchange = event => {
+  densityOn = event.target.checked;
+  densityOn ? densityLayer.addTo(map) : map.removeLayer(densityLayer);
+};
 function density() {
   const w = window.__world;
   if (!w || !state.groups) return;
@@ -818,7 +823,7 @@ function overlays(world) {
   pathReview.update(world);
   reviewOverlays.forEach(layer => map.removeLayer(layer));
   reviewOverlays = [];
-  map.removeLayer(densityLayer); densityOn = false;
+  map.removeLayer(densityLayer); densityOn = false; $('densityView').checked = false;
   $('ovl').replaceChildren();
   const groups = { 'Terrain codes': L.layerGroup(),
     'Global no-spawn zone': L.layerGroup(), 'Suppression zone': L.layerGroup() };
@@ -1016,7 +1021,6 @@ function overlays(world) {
     syncMarkers();
   });
   syncMarkers();
-  mkRow($('ovl'), 'checkbox', 'Density per game view', false, (on) => { densityOn = on; on ? densityLayer.addTo(map) : map.removeLayer(densityLayer); });
   // Legend grouped by family, in the families' order, members in theirs.
   const present = new Set([...used].map((c) => names[c] || String(c)));
   const blocks = [];
