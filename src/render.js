@@ -4438,6 +4438,139 @@ Render.cullCovered = function cullCovered(scene, list, field, scenery = false) {
   list.length = n;
 };
 
+// The ground mask cannot decide visibility for raised art: a visible crown can
+// project into its own shadow. Replace the mask under each drawn silhouette,
+// in painter order, with sight to that object's ground anchor. Visible actors
+// are already culled by gameplay and must remain clear wherever they project.
+Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
+  if (!cover || !scene.worldContainer?.list || typeof document === 'undefined') return cover;
+  let state = scene._coverScenery;
+  if (!state) state = scene._coverScenery = {
+    canvas: document.createElement('canvas'), stamp: document.createElement('canvas'), rows: [], revision: 0,
+  };
+  const W = cover.canvas.width, H = cover.canvas.height;
+  let dirty = state.key !== cover.key || state.canvas.width !== W || state.canvas.height !== H;
+  const eye = playerWorldM(scene), heading = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+  const sightKey = [Visibility.revision(scene), eye.x, eye.y].join('|');
+  if (state.sightKey !== sightKey) { state.sightKey = sightKey; state.sight = new WeakMap(); }
+  const saved = [], feet = new Map(), roots = scene.worldContainer.list.slice();
+  // Use exactly the standing-art transform used by the renderer. Restore it
+  // before returning; game coordinates and the render hook remain untouched.
+  if (heading) {
+    const rememberFeet = sprite => {
+      feet.set(sprite, sprite._huFoot);
+      for (const child of sprite.list || []) rememberFeet(child);
+    };
+    for (const root of roots) {
+      rememberFeet(root);
+      HeadingUp._upright(root, -heading, saved);
+    }
+    const sin = Math.sin(heading), cos = Math.cos(heading), keys = new Map();
+    for (const root of roots) {
+      const foot = root._huFoot || HeadingUp._firstFoot(root);
+      keys.set(root, foot ? sin * foot.x + cos * foot.y : 0);
+    }
+    const player = scene.playerWorldContainer;
+    if (keys.has(player)) for (const root of roots) {
+      if (root.visible && root._stepSupport) keys.set(player, Math.max(keys.get(player), keys.get(root) + .001));
+    }
+    const ground = scene._worldDecalCount || 0;
+    roots.sort((a, b) => {
+      const ag = a.depth < ground, bg = b.depth < ground;
+      return ag || bg ? ag && bg ? a.depth - b.depth : ag ? -1 : 1
+        : keys.get(a) - keys.get(b) || a.depth - b.depth;
+    });
+  }
+  let used = 0;
+  const visit = (sprite, parentAlpha = 1) => {
+    if (!sprite.visible || sprite.alpha === 0 || sprite._worldGeometry) return;
+    const alpha = parentAlpha * (sprite.alpha ?? 1);
+    if (sprite.list) { for (const child of sprite.list) visit(child, alpha); return; }
+    const frame = sprite.frame, source = frame?.source?.image;
+    if (!source || !sprite.getWorldTransformMatrix || frame.rotated || sprite.isCropped) return;
+    const o = sprite._coverObject || sprite._staticObject;
+    if (!o && (sprite._worldLayer === WorldLayers.GROUND_DECAL
+        || sprite._worldLayer === WorldLayers.GROUNDCOVER)) return;
+    let sight = Visibility.CLEAR;
+    if (o) {
+      let cached = state.sight.get(o);
+      if (!cached || cached.x !== o.x || cached.y !== o.y) {
+        cached = { x: o.x, y: o.y, cover: Visibility.coverBetween(scene, eye.x, eye.y, o.x, o.y) };
+        state.sight.set(o, cached);
+      }
+      sight = cached.cover;
+    }
+    const amount = sight === Visibility.CLEAR ? 0
+      : sight === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
+    const matrix = sprite.getWorldTransformMatrix();
+    const fx = sprite.flipX ? -1 : 1, fy = sprite.flipY ? -1 : 1;
+    const ox = sprite.displayOriginX ?? sprite.originX * frame.realWidth;
+    const oy = sprite.displayOriginY ?? sprite.originY * frame.realHeight;
+    const x = (frame.x || 0) - ox + (sprite.flipX ? -frame.realWidth + 2 * ox : 0);
+    const y = (frame.y || 0) - oy + (sprite.flipY ? -frame.realHeight + 2 * oy : 0);
+    const values = [source, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
+      matrix.a * fx, matrix.b * fx, matrix.c * fy, matrix.d * fy,
+      matrix.e - scene.viewLeft - cover.x, matrix.f - scene.viewTop - cover.y,
+      x, y, alpha, amount];
+    const old = state.rows[used];
+    if (!old || values.some((v, i) => v !== old[i])) { state.rows[used] = values; dirty = true; }
+    used++;
+  };
+  try { for (const root of roots) visit(root); }
+  finally {
+    for (let i = saved.length - 1; i >= 0; i--) {
+      const [sprite, x, y, rotation] = saved[i];
+      sprite.x = x; sprite.y = y; sprite.rotation = rotation;
+      sprite._huFoot = feet.get(sprite) ?? null;
+    }
+  }
+  if (state.rows.length !== used) { state.rows.length = used; dirty = true; }
+  if (dirty) {
+    for (const canvas of [state.canvas, state.stamp]) {
+      if (canvas.width !== W) canvas.width = W;
+      if (canvas.height !== H) canvas.height = H;
+    }
+    const ctx = state.canvas.getContext('2d'), stamp = state.stamp.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'copy';
+    ctx.drawImage(cover.canvas, 0, 0);
+    for (const row of state.rows) {
+      const [source, sx, sy, sw, sh, a, b, c, d, e, f, x, y, alpha, amount] = row;
+      // Blit only this transformed frame's bounds. Hundreds of small pieces
+      // must not each clear and composite two viewport-sized canvases.
+      const xs = [a*x+c*y+e, a*(x+sw)+c*y+e, a*x+c*(y+sh)+e, a*(x+sw)+c*(y+sh)+e];
+      const ys = [b*x+d*y+f, b*(x+sw)+d*y+f, b*x+d*(y+sh)+f, b*(x+sw)+d*(y+sh)+f];
+      const x0 = Math.max(0, Math.floor(Math.min(...xs)) - 1), y0 = Math.max(0, Math.floor(Math.min(...ys)) - 1);
+      const w = Math.min(W, Math.ceil(Math.max(...xs)) + 1) - x0;
+      const h = Math.min(H, Math.ceil(Math.max(...ys)) + 1) - y0;
+      if (w <= 0 || h <= 0) continue;
+      stamp.setTransform(1, 0, 0, 1, 0, 0);
+      stamp.save(); stamp.beginPath(); stamp.rect(x0, y0, w, h); stamp.clip();
+      stamp.clearRect(x0, y0, w, h);
+      stamp.globalAlpha = alpha; stamp.globalCompositeOperation = 'source-over';
+      stamp.imageSmoothingEnabled = false;
+      stamp.setTransform(a, b, c, d, e, f);
+      stamp.drawImage(source, sx, sy, sw, sh, x, y, sw, sh);
+      stamp.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
+      if (amount) {
+        stamp.globalCompositeOperation = 'source-in'; stamp.globalAlpha = amount;
+        stamp.fillStyle = '#000'; stamp.fillRect(x0, y0, w, h);
+        // Add the replacement alpha to the retained background fraction.
+        // Source-over would attenuate that background twice on faded art.
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
+      }
+      stamp.restore();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    state.key = cover.key; state.revision++;
+  }
+  const revision = cover.key + '|scenery:' + state.revision;
+  return { ...cover, canvas: state.canvas, key: revision, revision };
+};
+
 Render.drawObjects = function drawObjects(scene) {
   if (typeof EnemySpawns !== 'undefined') EnemySpawns.refreshHomeFauna(scene, false);
   // Canvas width, for keeping centred labels on screen (see clampTextX in
@@ -5105,6 +5238,7 @@ Render.drawObjects = function drawObjects(scene) {
     setWorldDepth(s, item.depth);
     s.setAlpha(item.treeSprite.alpha);
     s._huAnchor = item.treeSprite._huAnchor;
+    s._coverObject = item.treeSprite._staticObject;
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -5747,6 +5881,7 @@ Render.drawObjects = function drawObjects(scene) {
   const spritePlants = prismDrawn.size ? plantedList.filter(it => !prismDrawn.has(it)) : plantedList;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, spritePlants, (s, item) => {
     const { p, dx, dy } = item;
+    s._coverObject = p;
     const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the

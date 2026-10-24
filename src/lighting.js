@@ -1699,12 +1699,12 @@
     // feather is wide, and walking or GPS glide repaints only per step, not
     // every frame (a repaint traces every sample's ray).
     const eye = Visibility.observer(scene, scene.cellM / 8);
-    // Two samples outside every painted edge keep the feather continuous while
-    // the padded mask scrolls. Normal game viewports are square.
-    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
-    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 2;
-    const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
-    const cells = D - 4, samples = FOG_SUB / 2, N = cells * samples;
+    // Four half-cell samples of padding keep the wider visual feather stable
+    // at the viewport edge while the observer and camera move independently.
+    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 4;
+    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 4;
+    const D = Math.ceil(Math.max(W, H) / stepPx) + 10;
+    const cells = D - 8, samples = FOG_SUB / 2, N = cells * samples;
     const latticeKey = [x0, y0, D, scene.cellM].join('|');
     const key = [revision, scene.depth, eye.x, eye.y, latticeKey].join('|');
     let mask = scene._coverLightMask;
@@ -1729,7 +1729,7 @@
       if (mask.latticeKey !== latticeKey) {
         let i = 0;
         for (let y = 0; y < N; y++) for (let x = 0; x < N; x++, i++) {
-          const fx = 1.5 + (x + .5) / samples, fy = 1.5 + (y + .5) / samples;
+          const fx = 3.5 + (x + .5) / samples, fy = 3.5 + (y + .5) / samples;
           const wx = (x0 + fx + .5) / 2, wy = (y0 + fy + .5) / 2;
           // At most one eighth of a cell of irregularity; unlike exploration
           // fog's long ramp, a narrow wall shadow must keep its dark centre.
@@ -1746,19 +1746,25 @@
         mask.field[y * D + x] = cover === Visibility.CLEAR ? 0
           : cover === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
       }
-      // A small separable tent filter broadens the feather to about one cell.
-      // Only the visual field is filtered; sight tests stay exact. Each pass
-      // keeps the darker of the sample and its blur, so the feather spreads
-      // OUTWARD only: a narrow bush shadow, whose cells hide what stands in
-      // them, keeps its full darkness instead of averaging toward clear ground.
-      // No extra canvas or pixel readback.
-      for (let y = 0; y < D; y++) for (let x = 1; x < D - 1; x++) {
-        const i = y * D + x;
-        mask.feather[i] = Math.max(mask.field[i], (mask.field[i - 1] + 2 * mask.field[i] + mask.field[i + 1]) / 4);
+      // A five-tap Gaussian smooths both sides of partial-cover boundaries.
+      // Keeping every partial sample at full strength made isolated half-cell
+      // steps survive the old outward-only feather. Actor hiding still uses
+      // exact rays; the visual wash can soften without revealing an actor.
+      // Opaque cave samples retain their full alpha so walls cannot leak.
+      const weights = [1, 4, 6, 4, 1];
+      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
+        let value = 0;
+        for (let k = -2; k <= 2; k++)
+          value += mask.field[y * D + Math.max(0, Math.min(D - 1, x + k))] * weights[k + 2];
+        mask.feather[y * D + x] = value / 16;
       }
-      for (let y = 1; y < D - 1; y++) for (let x = 1; x < D - 1; x++) {
+      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
         const i = y * D + x;
-        mask.field[i] = Math.max(mask.feather[i], (mask.feather[i - D] + 2 * mask.feather[i] + mask.feather[i + D]) / 4);
+        if (mask.field[i] === Visibility.FULL_DARKNESS) continue;
+        let value = 0;
+        for (let k = -2; k <= 2; k++)
+          value += mask.feather[Math.max(0, Math.min(D - 1, y + k)) * D + x] * weights[k + 2];
+        mask.field[i] = value / 16;
       }
       const data = mask.img.data;
       for (let i = 0; i < N * N; i++) {
@@ -1772,8 +1778,8 @@
       ctx.globalCompositeOperation = 'source-over';
       mask.key = key;
     }
-    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 2) * stepM - ax) * CELL_PX / scene.cellM);
-    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 2) * stepM - ay) * CELL_PX / scene.cellM);
+    const x = Math.round(scene.viewCenterX - scene.viewLeft + ((x0 + 4) * stepM - ax) * CELL_PX / scene.cellM);
+    const y = Math.round(scene.viewCenterY - scene.viewTop + ((y0 + 4) * stepM - ay) * CELL_PX / scene.cellM);
     return { canvas: mask.canvas, revision: mask.key, x, y, key: key + '|' + x + ',' + y };
   }
 
@@ -1819,7 +1825,9 @@
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
     const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
+    const rawCover = coverFrame(scene, ax, ay, tex.width, tex.height);
+    const cover = rawCover && typeof Render !== 'undefined' && Render.protectCoverScenery
+      ? Render.protectCoverScenery(scene, rawCover) : rawCover;
     // INDOORS (scene_venues.js activeInterior): the room round the player.
     // The mask is painted on the canvas path, so the GPU path stands down
     // while it is up.
