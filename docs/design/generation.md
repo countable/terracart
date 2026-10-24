@@ -314,8 +314,10 @@ access or tile lifecycle mechanics.
   overlays. Open terrain
   does not relax inherited spawn safety.
   The Underdark floor opts into harvestable longgrass via its floor-profile
-  `grass` flag. A final cave pass reuses the surface grass-stand candidate mask,
-  then applies the ordinary floor, spawn-safety and occupancy gates; it never
+  `grass` flag. A final cave pass reuses the surface grass-stand candidate mask on surface
+  grass-fill terrain, plus generated surface longgrass seats in parks and grassy
+  lanes. It reads the immutable surface grid and generated plants, so harvesting
+  above does not reroll the fungal field. It then applies the ordinary floor, spawn-safety and occupancy gates; it never
   displaces landings, rewards, authored areas or existing cave flora. IDs are
   stable per depth and absolute cell.
   `docs/design/floors.md` owns the per-floor catalog.
@@ -884,6 +886,21 @@ access or tile lifecycle mechanics.
   or evicting that entry still starts a fresh pass for Overpass or recovery.
   Prefetched failures enter the normal tile failure path when their build turn
   arrives.
+- `WorldGen.prepareTile` shares a persistent surface-base cache between the
+  game and map review. Its key includes the existing shell content version,
+  source MVT SHA-256, tile coordinates, cell count, metre frame and review salt.
+  The page exposes the same derived version as the worker's `SHELL_VERSION`;
+  tool loaders copy it from that page. Algorithm/table changes therefore miss
+  older entries automatically, and changed source bytes invalidate only that
+  tile. Old versions age out within the same 64-entry disk LRU.
+  Records preserve typed arrays, Maps, Sets, shared references and source-layer
+  parking edits through IndexedDB structured cloning. Hits skip decode and
+  rasterization, then restore geographic-policy registrations for the surface
+  and both cave-source grids. Cave entrances, current tree/Overpass bins,
+  creatures and player overlays still run afterward. Await each base write
+  before callers can mutate it; never persist a live tile entry. Missing build
+  versions, denied/quota-limited storage and invalid records fall back to
+  sliced generation. Reset this game clears generated and raw tile caches.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
