@@ -2802,20 +2802,23 @@ function fishCatchChance(id, rodTier, shiny) {
 // cast (rollEmptyCast); a stocked one always bites. The starter pond is the
 // exception: its cells are always stocked, since it exists to make the first
 // catch reachable.
+// Authored tidepools provide a stock policy through the same helpers: one
+// guaranteed initial fish, with a minimum species tier. Caught spot IDs still
+// use the ordinary permanent depletion ledger.
 const FISH_STOCK_CHANCE = 1 / 3;
 function fishSpotId(tx, ty, ix, iy) {
   return `fish_${tx}_${ty}_${ix}_${iy}`;
 }
-function fishSpotStocked(id) {
-  return fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
+function fishSpotStocked(id, stock) {
+  return !!stock?.guaranteed || fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
 }
 // Is the fish in this spot a SHINY one? Only a hash-stocked spot can be (the
 // starter pond's always-stocked cells are not, so the sparkle the map shows —
 // shinyFishSpots — and the catch agree), at SHINY_RATE.fish off the spot's id:
 // the same shiny spots for every player. Landing one pays the shiny bonus
 // (awardShinyBonus) on top of the fish, and fights up to three tiers harder (capped at T7).
-function fishSpotShiny(id) {
-  return fishSpotStocked(id) && isShiny(id, SHINY_RATE.fish);
+function fishSpotShiny(id, stock) {
+  return fishSpotStocked(id, stock) && isShiny(id, SHINY_RATE.fish);
 }
 // The shiny spots on a tile, derived once per tile entry (a rebuild replaces
 // the entry, and the cache with it): [{ ix, iy, id }] over its WATER cells.
@@ -2840,7 +2843,7 @@ function shinyFishSpots(entry, tx, ty, untilMs) {
     for (let ix = 0; ix < N; ix++) {
       if (grid[iy * N + ix] !== W) continue;
       const id = fishSpotId(tx, ty, ix, iy);
-      if (fishSpotShiny(id)) out.push({ ix, iy, id });
+      if (fishSpotShiny(id, entry.zoneDress?.fishStock?.[iy * N + ix])) out.push({ ix, iy, id });
     }
     if ((iy & 7) === 7 && until !== Infinity && performance.now() >= until) break;
   }
@@ -2848,12 +2851,14 @@ function shinyFishSpots(entry, tx, ty, untilMs) {
   entry._shinyFishScan = null;
   return (entry._shinyFish = out);
 }
-// The species living in a stocked spot — same for every player.
-function spotFish(id) {
-  const total = FISH_SPECIES.reduce((a, f) => a + f.w, 0);
+// The species living in a stocked spot — same for every player. Restrict the
+// weighted species pool before drawing when the spot declares a minimum tier.
+function spotFish(id, stock) {
+  const species = stock?.minTier > 1 ? FISH_SPECIES.filter(f => fishTier(f.id) >= stock.minTier) : FISH_SPECIES;
+  const total = species.reduce((a, f) => a + f.w, 0);
   let r = fnv1a(id + '#species') / 4294967296 * total;
-  for (const f of FISH_SPECIES) { r -= f.w; if (r < 0) return f.id; }
-  return FISH_SPECIES[FISH_SPECIES.length - 1].id;
+  for (const f of species) { r -= f.w; if (r < 0) return f.id; }
+  return species[species.length - 1]?.id || FISH_SPECIES[FISH_SPECIES.length - 1].id;
 }
 // Fishing Rod: the shared 9/3/1 tool curve × FISH_COST_MULT, so a bare-handed
 // cast expects 18, a Wood rod 6 and a Frost rod 2. The multiplier is fishing's

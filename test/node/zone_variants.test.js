@@ -149,27 +149,33 @@ test('zone variants: repeated geometry preserves densities and phase across nega
     const fixed = { ...row, background: { ...b, gapScatter: null, materialKeepChance: null } };
     const counts = count(fixed, -2 * w, -h, 4 * w, h, 'anchor');
     const area = 4 * w * h;
-    const empty = area - Object.values(counts).reduce((n, value) => n + value, 0);
+    let scatterDensity = 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (!V.sample(fixed, x, y, 'anchor')) scatterDensity += V.gapScatterChance(b, x, y) / (w * h);
+    }
     const expected = Object.assign({}, b.materialDensity, b.hazardDensity);
     for (const [material, density] of Object.entries(expected)) {
-      const scatter = b.gapScatter && material === b.gapScatter.material ? empty / area * b.gapScatter.chance : 0;
-      assert.lt(Math.abs(counts[material] / area * (b.materialKeepChance?.[material] ?? 1) + scatter - density), 1e-12, `${row.id}/${material}`);
+      const scatter = b.gapScatter && material === b.gapScatter.material ? scatterDensity : 0;
+      assert.lt(Math.abs((counts[material] || 0) / area * (b.materialKeepChance?.[material] ?? 1) + scatter - density), 1e-12, `${row.id}/${material}`);
     }
   }
-  const formal = V.byId('formal_garden'), [w, h] = formal.background.repeatCells;
-  for (let bx = -4; bx <= 4; bx++) {
-    let flowerBeds = 0, orangeBeds = 0;
-    for (const [x0, y0] of [[1, 1], [4, 4]]) {
-      const material = V.sample(formal, bx * w + x0, y0 - h, 'a');
-      if (material === 'flowers') flowerBeds++;
-      if (material === 'orange') orangeBeds++;
-      for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) {
-        assert.eq(V.sample(formal, bx * w + x0 + dx, y0 - h + dy, 'b'), material, 'one species per bed');
-      }
-    }
-    assert.gte(flowerBeds, 1, 'at least one pale flower bed per repeat');
-    assert.lte(orangeBeds, 1, 'at most one accent bed per repeat');
-    for (let y = 0; y < h; y++) assert.eq(V.sample(formal, bx * w + 3, y - h, 'a'), null, 'central aisle remains open');
+});
+test('zone variants: Formal Garden keeps square flower rings and cardinal hedge arms in every repeat', () => {
+  const row = V.byId('formal_garden');
+  assert.eq(row.background.repeatCells.join(','), '8,8');
+  assert.eq(V.poiOrigin(row).join(','), '4,4');
+  const counts = count(row, 0, 0, 8, 8, 'garden');
+  assert.eq(counts.orange, 4, 'central two-by-two accent');
+  assert.eq(counts.flowers, 12, 'one complete square flower ring');
+  assert.eq(counts.shrub, 16, 'two-cell hedge arms on all four sides');
+  for (let y = 0; y < 8; y++) for (let x = 0; x < 8; x++) {
+    const r = Math.max(Math.abs(2 * x - 7), Math.abs(2 * y - 7));
+    const expected = r <= 1 ? 'orange' : r <= 3 ? 'flowers'
+      : [3, 4].includes(x) || [3, 4].includes(y) ? 'shrub' : null;
+    const material = V.sample(row, x, y, 'garden');
+    assert.eq(material, expected, 'ring and hedge geometry');
+    assert.eq(V.sample(row, 7 - y, x, 'garden'), material, 'quarter-turn symmetry');
+    assert.eq(V.sample(row, x - 16, y + 8, 'another-anchor'), material, 'signed repeats keep species and phase');
   }
 });
 test('zone variants: beach driftwood thins repeated seats by one fifth without changing other materials', () => {
@@ -207,20 +213,47 @@ test('zone variants: seeded scatter has declared mix without dependence on trave
 test('zone variants: Mushroom Grove repeats the promoted Hilbert layout across signed coordinates', () => {
   const row = V.byId('mushroom_grove'), b = row.background, config = b.generator;
   assert.eq(b.type, 'procedural_layout');
-  assert.eq(config.width, 33); assert.eq(config.height, 33);
+  assert.eq(config.width, 29); assert.eq(config.height, 29);
+  assert.eq(V.poiOrigin(row).join(','), '14,14');
   const generated = TerrainLayouts.assign(TerrainLayouts.generate(config), config, b.materials);
   const expected = new Map(generated.map(p => [`${p.cx},${p.cy}`, p]));
-  const counts = count(row, 0, 0, 33, 33, 'a');
-  assert.eq(counts.giant_mushroom, 176); assert.eq(counts.mushroom, 118);
+  const counts = count(row, 0, 0, 29, 29, 'a');
+  assert.eq(counts.giant_mushroom, 133); assert.eq(counts.mushroom, 89);
   assert.eq(Object.keys(counts).length, 2, 'only giant and small mushrooms');
-  for (let y = 0; y < 33; y++) for (let x = 0; x < 33; x++) {
+  for (let y = 0; y < 29; y++) for (let x = 0; x < 29; x++) {
     const point = expected.get(`${x},${y}`), material = point?.material || null;
     assert.eq(V.sample(row, x, y, 'a'), material, 'same cells and types as the shared generator');
-    for (const [dx, dy] of [[-33, 33], [33, -66]]) {
+    for (const [dx, dy] of [[-29, 29], [29, -58]]) {
       assert.eq(V.sample(row, x + dx, y + dy, 'other-anchor'), material, 'canonical phase wraps independently of observer');
       assert.eq(V.placement(row, x + dx, y + dy)?.scale, point?.scale, 'size follows the repeated seat');
     }
   }
+});
+test('zone variants: Orchard scatters grass near its trees without moving the trees or repeating grass stamps', () => {
+  const row = V.byId('orchard'), b = row.background;
+  const fixed = { ...row, background: { ...b, gapScatter: null } };
+  assert.eq(b.gapScatter.material, 'grass');
+  assert.lt(Math.abs(V.gapScatterChance(b, 1, 0) - .121), 1e-12, 'grass favours the tree-adjacent cell');
+  assert.lt(Math.abs(V.gapScatterChance(b, 2, 0) - .022), 1e-12, 'open aisles retain a little grass');
+  assert.eq(V.gapScatterChance(b, -1, 0), V.gapScatterChance(b, 1, 0), 'attraction wraps across the motif edge');
+  let changed = 0;
+  for (let y = -80; y < 80; y++) for (let x = -80; x < 80; x++) {
+    const material = V.sample(row, x, y, 'one'), tree = V.sample(fixed, x, y, 'one');
+    assert.eq(V.sample(row, x, y, 'one'), material, 'revisits preserve each grass seat');
+    if (tree) assert.eq(material, tree, 'tree seats retain their original kind');
+    else {
+      assert.truthy(material === null || material === 'grass');
+      if (material !== V.sample(row, x, y, 'two')) changed++;
+    }
+  }
+  let nearGrass = 0, farGrass = 0;
+  for (let by = -20; by < 20; by++) for (let bx = -20; bx < 20; bx++) {
+    if (V.sample(row, bx * 8 + 1, by * 8, 'one') === 'grass') nearGrass++;
+    if (V.sample(row, bx * 8 + 2, by * 8, 'one') === 'grass') farGrass++;
+  }
+  assert.gt(nearGrass, farGrass * 3, 'the sampled distribution clusters grass beside trees');
+  assert.gt(farGrass, 0, 'grass is not restricted to uniform rings');
+  assert.gt(changed, 100, 'independent anchors do not repeat the same grass layout');
 });
 test('zone variants: Ancient Grove keeps rounded clusters and scatters grass only between them', () => {
   const row = V.byId('ancient_grove'), b = row.background;
@@ -248,8 +281,7 @@ test('zone variants: Ancient Grove keeps rounded clusters and scatters grass onl
   assert.eq(V.sample(row, 3, 3, 'one'), 'tree');
   assert.eq(V.sample(row, 9, 3, 'one'), 'tree', 'tree centers are six cells apart');
 });
-test('zone variants: compact formal beds and touching Silent Circle rims repeat without seams', () => {
-  assert.eq(V.byId('formal_garden').background.repeatCells.join(','), '6,6');
+test('zone variants: touching Silent Circle rims repeat without seams', () => {
   const row = V.byId('silent_circle');
   assert.eq(row.background.repeatCells.join(','), '8,8');
   assert.eq(row.connection.shape, 'none', 'connection routes must not cut the touching rims');

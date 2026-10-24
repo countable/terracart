@@ -34,22 +34,18 @@ function inventory() {
     if (!references.has(file)) references.set(file, new Set());
     references.get(file).add(evidence);
   }
-  const profiles = ['rogue'];
   const modules = ['src/util.js', 'src/enemy_roster.js', 'src/sprite_layout.js',
     'src/selected_item_art.js', 'src/items.js', 'src/art_atlas.js',
     'src/selected_world_atlas.js', 'src/assets.js',
     'src/ground_materials.js', 'src/terrain_transitions.js', 'src/rogue_object_bounds.js',
     'src/rogue_prop_profile.js', 'src/rogue_objects.js', 'src/street_variants.js',
     'src/character_portraits.js'];
-  let context;
-  for (const profile of profiles) {
-    context = { console, URLSearchParams, location: {search: profile ? '?artTrial=' + profile : ''}, addEventListener() {} };
-    context.window = context;
-    vm.createContext(context);
-    for (const file of modules) vm.runInContext(read(file), context, { filename: file });
-    for (const [key, asset] of Object.entries(context.ASSETS)) {
-      add(asset.path, `ASSETS.${key} (${profile || 'default'} profile preload)`);
-    }
+  const context = { console, URLSearchParams, location: {search: ''}, addEventListener() {} };
+  context.window = context;
+  vm.createContext(context);
+  for (const file of modules) vm.runInContext(read(file), context, { filename: file });
+  for (const [key, asset] of Object.entries(context.ASSETS)) {
+    add(asset.path, `ASSETS.${key} (Rogue runtime preload)`);
   }
   for (const id of vm.runInContext('[...CharacterPortraits.PET_IDS, ...CharacterPortraits.NPC_IDS]', context)) {
     add(`assets/portraits/${id}.png`, 'CharacterPortraits dynamic portrait');

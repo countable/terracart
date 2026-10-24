@@ -1178,6 +1178,7 @@ for (const f of fs.readdirSync(path.join(ROOT, 'test', 'fixtures')).filter((n) =
   vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
 }
 ctx.RENDER_SRC = readSrc('render.js');
+ctx.ROGUE_OBJECT_BOUNDS = new Function(readSrc('rogue_object_bounds.js') + ';return ROGUE_OBJECT_BOUNDS;')();
 // textures.js loads headlessly in its OWN context (its constants share names
 // with the stubs above); tilled_bed.test.js runs drawTilledTex against a recording 2D context.
 ctx.TILLED_TEX = (() => {

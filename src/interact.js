@@ -1836,7 +1836,9 @@ const TAP_HANDLERS = [
     // FISH_STOCK_CHANCE / fishSpotStocked; the starter pond always is). A
     // spot already fished out is in save.fishedSpots for good.
     const spotId = fishSpotId(cell.tx, cell.ty, cell.ix, cell.iy);
-    const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId);
+    const entry = WorldGen.tileCacheFor(scene.depth || 0).get(WorldGen.tileKey(cell.tx, cell.ty));
+    const stock = entry?.zoneDress?.fishStock?.[cell.iy * entry.cellsPerEdge + cell.ix];
+    const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId, stock);
     // The shared job (startToolJob) with a FIXED cancel refund of 5, whatever
     // the rod's cast cost.
     return startToolJob(ctx, { x: ctx.cwmx, y: ctx.cwmy, tool: 'fishing_rod', durationMs: castMs, cost: fishCost, refund: 5, onDone: () => {
@@ -1868,8 +1870,8 @@ const TAP_HANDLERS = [
       }
       // The spot's fish is fixed (items.js spotFish); one above the rod's
       // tier may get away (fishCatchChance) and stays for the next cast.
-      const pick = spotFish(spotId);
-      const shiny = fishSpotShiny(spotId);   // a tier harder to land, and pays the shiny bonus
+      const pick = spotFish(spotId, stock);
+      const shiny = fishSpotShiny(spotId, stock);   // a tier harder to land, and pays the shiny bonus
       if (Math.random() >= fishCatchChance(pick, tier, shiny)) {
         scene.flashLoot(`🐟 ${ITEM_BY_ID[pick]?.name || pick} got away!`, '#ff8a8a', 1, pick);
         return;

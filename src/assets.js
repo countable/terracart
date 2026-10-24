@@ -31,7 +31,6 @@ const ASSETS = {
   selected_rubble: {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 48, "y": 64, "width": 16, "height": 16}, "frameRects": {"0": {"x": 48, "y": 64, "width": 16, "height": 16}}},
   selected_mushroom: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-selected_mushroom.png", "frameWidth": 16, "frameHeight": 16},
   selected_longgrass: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-selected_longgrass.png", "frameWidth": 16, "frameHeight": 16},
-  selected_streetlamp: { kind: 'image', path: 'assets/Objects/SelectedProps/selected_streetlamp.png' },
   selected_grave_pillar: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/grave.png", "frameWidth": 16, "frameHeight": 32},
   bone_cache: { kind: 'image', path: 'assets/Objects/Approved/bone_pile.png' },
   floor_wall_sources: { kind: 'image', path: 'assets/Objects/Cave/floor-wall-sources.png' },

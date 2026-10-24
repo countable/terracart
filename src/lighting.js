@@ -210,10 +210,10 @@
     // gift wears the POI light on top while it is there (poiLit).
     vista:    { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xffe2a8, peak: 0.80, flicker: 0 },
-    // A STREET LAMP — the gilded lamp a RESTORED street stands, one every
+    // A STREET LAMP — the native lamp a RESTORED street stands, one every
     // Streets.lampSpacingM() metres of rebuilt carriageway (streets.js places
-    // them, road_overlay.js paints the lamp, app.js hands this collector the
-    // live list). The lamp's point is its FOOT (see LAMP_GROUND_FRAC) and the
+    // them, the native sprite draws the lamp, app.js hands this collector the
+    // live list). The lamp's point is its FOOT, and the
     // cookie is LIFTED off it to the lantern, where the burning is (see
     // collectLamps). It is the whole point of rebuilding a street after dark: a
     // road you have brought back is a road you can walk at night, and the
@@ -999,20 +999,9 @@
   // finding of them — nine tiles of transportation lines, their arclengths
   // and the save's restored intervals — in app.js, where the tile cache is.
   //
-  // AND IT BURNS AT THE LANTERN, not on the tarmac. A lamp's point is its FOOT
-  // — one point, which the art stands on and this culls by — but what is
-  // alight is the glass up the post, so the cookie is LIFTED off that point by
-  // the art's own rise (RoadOverlay.LAMP_LANTERN_RISE_CELLS, the ground line
-  // to the lit glass's midline, in cells). It rides as `dyPx`, a DRAW-space
-  // lift in screen pixels — the shape RENDER_SPEC's own dyPx has for the
-  // sprite — rather than as metres folded into dy, so the light's world
-  // position stays exactly the lamp's, and one number lifts the glow and the
-  // glass together whatever a cell is worth in metres. On a turned map
-  // (heading-up) the lift is turned back into the map's frame where it is
-  // read (liftPx), because the lamp stands upright on screen while the
-  // lightmap turns with the ground.
+  // Native lamps retain their screen-space emitter anchor at every heading.
   function lampRiseCells() {
-    return (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_LANTERN_RISE_CELLS) || 0;
+    return (typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_LIGHT_RISE_CELLS) || 0;
   }
   // A lamp entry's `glow` ('#rrggbb', app.js _streetLampsForTile off
   // StreetVariants.lampGlowFor) as a light colour: null for the default
@@ -1032,8 +1021,7 @@
       if (!L.lit) continue;                        // a dark stone is not a light
       const dx = L.x - ax, dy = L.y - ay;
       if (!inRange(scene, dx, dy, 'cobble', halfM)) continue;
-      // The lamp's own GLOW (its street's colour, the same `glow` the baked
-      // art is keyed by) as the entry's colour — which frameKey already names
+      // The lamp's own GLOW (its street's colour) as the entry's colour — which frameKey already names
       // per light, so a lamp changing colour repaints. The default glow is
       // left off (undefined), so a plain street's lamp keeps the row's own
       // `cobble` cookie exactly as before. A hue, never a brightness factor.
@@ -1041,15 +1029,10 @@
       const e = colour == null
         ? { kind: 'cobble', dx, dy, dyPx, id: L.id }
         : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour };
-      if (L.selectedArt) {
-        // The hanging lantern is right of the foot. Screen-space offsets keep
-        // upright artwork and its emitter together when the map rotates.
+      if (typeof RoadOverlay !== 'undefined') {
         const cellPx = typeof CELL_PX !== 'undefined' ? CELL_PX : 32;
-        e.dxPx = RoadOverlay.SELECTED_LAMP_OFFSET_CELLS * cellPx;
-        e.dyPx = -RoadOverlay.SELECTED_LAMP_RISE_CELLS * cellPx;
+        e.dxPx = RoadOverlay.LAMP_LIGHT_OFFSET_CELLS * cellPx;
       }
-      const trialOffset = typeof WorldArtProfile !== 'undefined' && WorldArtProfile.lampLightOffset?.(scene);
-      if (trialOffset) { e.dxPx = trialOffset.dxPx; e.dyPx = trialOffset.dyPx; }
       // THE LIVING LAMP's brightness (app.js, Streets.lampBrightness —
       // already quantised to LAMP_BRIGHT_STEPS) as the entry's GAIN `g`: a
       // STEADY multiplier, not the animated `a` (which would put the clock in

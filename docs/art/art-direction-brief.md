@@ -34,14 +34,12 @@ Where appropriate, represent a cell-sized activity or grouping instead of an
 isolated tiny furnishing: a bath set rather than a washbasin is one candidate,
 not an automatic rename of existing furniture. Larger features can span cells.
 
-**Rogue Adventure is the primary map-tiling direction.** Its ground and landscape
-forms plausibly represent seven-metre areas. Use the RA reference-selected
-profile in the actual geographic renderer when assessing it. Fantasy Dreamland
-is not the terrain-scale target: its close-up village treatment encourages an
-inappropriately fine grid. It remains a useful supplemental prop source when
-selected props fit the overworld scale, silhouette, palette and pixel treatment;
-recolour or resize individual assets where needed. Do not import its entire
-terrain treatment just to use its props.
+**Rogue Adventure is the sole map-art direction.** Its ground and landscape
+forms plausibly represent seven-metre areas. Assess changes in the normal
+geographic renderer with the active Rogue registry. Retired terrain-profile
+experiments live in `extra_assets/inactive/`. Individual third-party props may
+be approved only when they fit this overworld scale, silhouette, palette and
+pixel treatment; importing one prop does not install another terrain profile.
 
 ## Camera and scale
 - The viewport uses a top-down square grid. Artwork starts overhead, tilted roughly 45 degrees toward a south camera: show crowns, backs and top surfaces with compressed front faces. This deliberately mixes perspectives rather than using a physically correct projection. Raised walls and traps retain enough upright height to show their faces.

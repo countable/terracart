@@ -1,4 +1,4 @@
-// The complete reference art profile changes presentation, never geographic data.
+// The sole map-art renderer changes presentation, never geographic data.
 const RogueObjects = (() => {
   const enabled = true;
   const trees = ['tree_wide_a','tree_wide_b','tree_root_a','tree_root_b','tree_rounded_2','tree_rounded_3'];
@@ -34,7 +34,6 @@ const RogueObjects = (() => {
     texture.refresh();
   }
   function install(assets) {
-    if (!enabled) return;
     // Source-preserving palette adaptation; the existing berry baker derives
     // fruiting/picked states from this same canopy, with unchanged 24px frames.
     if (assets.bushes) assets.bushes = {...assets.bushes,
@@ -81,16 +80,12 @@ const RogueObjects = (() => {
     }
   }
   function installIcons(sheets) {
-    if (!enabled || typeof ROGUE_PROP_PROFILE === 'undefined') return;
+    if (typeof ROGUE_PROP_PROFILE === 'undefined') return;
     for (const [key, sheet] of Object.entries(ROGUE_PROP_PROFILE.icons)) {
       if (sheets[key]) sheets[key] = {...sheet};
     }
   }
-  // No facade override: retain the normal 3D house renderer (and its Canvas
-  // fallback), including footprint, restoration, rotation and open-roof Home.
-  function houseKey() { return null; }
   function spec(o,scene,original) {
-    if (!enabled) return original;
     if (o.kind === 'mineralrock' && mineralRockMaterial(o) !== 'plain') {
       return {...original, key:'rogue_minerals', frame:Object.keys(mineralColors).indexOf(mineralRockMaterial(o)),
         scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,
@@ -118,7 +113,7 @@ const RogueObjects = (() => {
       // Keep growth legible. Full trees use the reference's broad canopy;
       // smaller living stages retain their data and scale the native artwork.
       const stage=treeArtFrame(o); scale=stage===1 ? .35 : stage===2 ? .6 : .85;
-    } else if (o.kind==='_streetlamp') {key=o.lit ? 'lamp':'lamp_unlit';scale=1.25;}
+    }
     if (!key) return original;
     return {...original,key:'rogue_'+key,frame:'__BASE',scale,origin:[.5,.5],seat:true,
       groundAtOrigin:false,dxPx:0,dyPx:0,scaleYMul:1,artBounds:undefined,after:undefined};
@@ -130,7 +125,7 @@ const RogueObjects = (() => {
     }
     return {enabled,textures};
   }
-  return {enabled,install,installIcons,houseKey,spec,status};
+  return {enabled,install,installIcons,spec,status};
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;

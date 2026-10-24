@@ -21,13 +21,14 @@ when a file moves.
 | design/rendering.md | projection, seating, performance, lighting, streets |
 | design/combat.md | damage, energy, timed effects, pets, Home |
 | design/presentation.md | dialogs, story delivery, feedback, teaching |
-| art/README.md | sprite art direction and active audits |
+| art/README.md | sole Rogue art pipeline, rebuilding and runtime validation |
 | art/art-direction-brief.md | camera, scale and palette brief |
 | art/approved-story-art.json | approved story masters, export hashes and crop coordinates |
 | art/story-style-references.json | approved illustration reference masters and roles |
 | art/map-perspective.md | map camera and art geometry rules |
 | art/ART_SOURCES.md | external art archive rules |
 | art/ASSET_INVENTORY.md | asset inventory tool guide |
+| ../extra_assets/inactive/docs/art/legacy-map-art-profiles.md | archived map-art profiles, palette reviews and former setup commands |
 | art/ambient-layer-plan.json | proposed ambient creatures and habitat variants by floor; build with `tools/build_ambient_layer_plan.py` |
 | data/zone-variants.json | implemented variant spec; tools read this path |
 | data/basic-zone-density-proposals.json | landcover density targets |

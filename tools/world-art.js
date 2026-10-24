@@ -29,8 +29,8 @@
     const textures = new Map();
     function add(key, source, spec) {
       const frames = new Map();
-      const texture = {getSourceImage:()=>source, getContext:()=>source.getContext('2d'), refresh(){},
-        add(name, index, x, y, width, height){frames.set(String(name),{x,y,width,height});},
+      const texture = {getSourceImage:()=>source, getContext:()=>source.getContext('2d'), get context(){return source.getContext('2d');}, refresh(){},
+        add(name, index, x, y, width, height){frames.set(String(name),{x,y,width,height,sourceIndex:index,cutX:x,cutY:y,cutWidth:width,cutHeight:height});},
         remove(name){return frames.delete(String(name));},
         get(name){return frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE');}};
       texture.add('__BASE',0,0,0,source.width,source.height);
@@ -57,6 +57,8 @@
       if(kind==='house')roles.set(o,'plain');
       try {const p=probe.resolveAppearance(o);if(p?.texKey)want(p.texKey,p.frameVal);}catch(error){console.warn('World art sample:',kind,error.message);}
     }
+    const lampStates = [false,true].map(lit => probe.resolveAppearance({kind:'_streetlamp',lit}));
+    for (const lamp of lampStates) want(lamp.texKey,lamp.frameVal);
     // Trimmed bounds enumerate current placed sprite frames, not raw atlas cells.
     for(const key of Object.keys(SpriteLayout.ART_BOUNDS)) {
       const split=key.lastIndexOf(':'),sheet=key.slice(0,split),frame=key.slice(split+1);
@@ -134,6 +136,8 @@
     const buildingScript=document.createElement('script');
     buildingScript.textContent=buildingSource.replace(buildingHook,'global.WorldArtBuildings = { rebuild,');
     document.head.append(buildingScript);
+    // The stable lamp catalog entry owns both native states below.
+    for (const lamp of lampStates) wanted.delete(lamp.texKey);
     const rows=[];
     for(const row of plantRows)rows.push({...row,images:[...row.frames.map(frame=>image(row.key,frame)),...(row.growthStages||[]).map(sample=>image(sample.key,sample.frame))].filter(Boolean),stateLabels:row.growthStages?.length?['Mature',...row.growthStages.map(sample=>'Growth stage '+sample.stage)]:undefined});
     const plantFrames=new Set(plantRows.flatMap(r=>[...r.frames.map(f=>`${r.key}:${f}`),...(r.growthStages||[]).map(sample=>`${sample.key}:${sample.frame}`)]));
@@ -202,7 +206,10 @@
     }
     painted('tilled','Tilled soil','Ground',c=>{c.width=c.height=32;drawTilledTex(c.getContext('2d'),32,seededRand(7919));});
     for(const path of [false,true])for(const restored of [false,true])painted(`road:${path}:${restored}`,`${path?'Path':'Road'} · ${restored?'restored':'weathered'}`,'Roads & lighting',c=>RoadOverlay.paintPavementTile(c.getContext('2d'),96,path,restored,0));
-    painted('lamp','Street lamp','Roads & lighting',c=>{c.width=c.height=RoadOverlay.LAMP_TEX_PX;RoadOverlay.paintLamp(c.getContext('2d'),c.width);});
+    rows.push({id:'lamp',name:'Street lamp',category:'Roads & lighting',zoneVariants:new Set(),
+      images:lampStates.map(lamp=>image(lamp.texKey,lamp.frameVal)).filter(Boolean),
+      frames:lampStates.map(lamp=>lamp.frameVal),stateLabels:['Unlit','Lit'],
+      source:lampStates.map(lamp=>ASSETS[lamp.texKey].path).join(' · ')});
     for(const tier of [WorldGen.T.BUILDING,WorldGen.T.BUILDING_MED,WorldGen.T.BUILDING_LARGE])for(const unclaimed of [false,true]) {
       painted(`building:${tier}:${unclaimed}`,`${terrainNames[tier]||'Building'} · ${unclaimed?'unclaimed':'claimed'}`,'Buildings & landmarks',c=>{
         const key=`biome${tier}_0`;const tile=store.createCanvas(key,32,32);BIOME_TEX[tier].draw(tile.getContext(),32,seededRand((tier+1)*1000+1));

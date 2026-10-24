@@ -75,8 +75,8 @@
       if (!p.loaded || !ground) return false;
       const e = W.tileCache.get(W.tileKey(p.tx, p.ty));
       if (!e?._spawnOpts) return false;
-      // A pit stays only on cave-in ground; one saved anywhere else (an old
-      // strip-mine pit) reads as blocked and stays inert.
+      // Saved pits retain the current ground/tier policy; old interior
+      // strip-mine pits therefore remain inert.
       if (h.type === 'cavein' && !caveInGround(scene, p)) return false;
       const opts = { ...e._spawnOpts, spawnWhy: e.spawnWhy || e._spawnOpts.spawnWhy,
         gameplayTiers: e.gameplayTiers || e._spawnOpts.gameplayTiers,
@@ -147,25 +147,73 @@
     const anchor = zoneAnchorAt(entry, ix, iy), row = anchor && root.ZoneVariants.pick(anchor);
     return row?.caveIns ? row.id : null;
   }
+  const quarryExteriors = new WeakMap();
+  function quarryExterior(entry) {
+    const field = entry.zone, coverage = field?.coverage || field?.idx, N = entry.cellsPerEdge;
+    let cached = quarryExteriors.get(entry);
+    if (cached?.coverage === coverage && cached.anchors === field?.anchors) return cached.cells;
+    const quarry = i => field?.anchors?.[coverage?.[i] - 1]?.kind === 'quarry';
+    const cells = new Uint8Array(N * N), pending = [];
+    const put = i => { if (!cells[i] && !quarry(i)) { cells[i] = 1; pending.push(i); } };
+    // Flood from the outside, so a building/private hole inside a quarry
+    // never becomes a second rim. Ownership masks are fixed after generation.
+    for (let n = 0; n < N; n++) { put(n); put((N - 1) * N + n); put(n * N); put(n * N + N - 1); }
+    for (let n = 0; n < pending.length; n++) {
+      const i = pending[n], x = i % N, y = Math.floor(i / N);
+      if (x) put(i - 1); if (x + 1 < N) put(i + 1);
+      if (y) put(i - N); if (y + 1 < N) put(i + N);
+    }
+    quarryExteriors.set(entry, { coverage, anchors: field?.anchors, cells });
+    return cells;
+  }
+  function outerQuarryCaveIn(scene, cell, entry) {
+    const W = root.WorldGen, N = entry.cellsPerEdge;
+    const opts = { ...entry._spawnOpts, gameplayTiers: entry.gameplayTiers || entry._spawnOpts?.gameplayTiers };
+    if (W.spawnTierAt(entry.grid, cell.iy * N + cell.ix, opts) !== root.GameplayTiers.CALM) return null;
+    const here = zoneAnchorAt(entry, cell.ix, cell.iy);
+    const own = here?.kind === 'quarry' && root.ZoneVariants.pick(here);
+    if (own && own.caveIns?.edge !== 'outer') return null;
+    if (!own && !quarryExterior(entry)[cell.iy * N + cell.ix]) return null;
+    for (const [dx, dy] of [[0,-1],[1,0],[0,1],[-1,0]]) {
+      const abs = absCellOffset(scene, cell.cellIX, cell.cellIY, dx, dy);
+      const point = absCellCenterMeters(scene, abs.cellIX, abs.cellIY), other = scene.cellAt(point.x, point.y);
+      if (!other.loaded) continue; // An unloaded tile is not an outer boundary.
+      const neighbour = W.tileCache.get(W.tileKey(other.tx, other.ty));
+      if (!neighbour) continue;
+      const anchor = zoneAnchorAt(neighbour, other.ix, other.iy);
+      if (own) {
+        if (anchor?.kind !== 'quarry' && quarryExterior(neighbour)[other.iy * neighbour.cellsPerEdge + other.ix]) return own;
+      } else if (anchor?.kind === 'quarry') {
+        const row = root.ZoneVariants.pick(anchor);
+        if (row.caveIns?.edge === 'outer') return row;
+      }
+    }
+    return null;
+  }
   function saveCaveIn(scene, h) {
     scene.save.caveIns ||= {};
     scene.save.caveIns[h.id] = { depth: h.depth, cellIX: h.cellIX, cellIY: h.cellIY,
       elapsedMs: Math.min(CONFIG.cavein.warningMs, h.elapsedMs) };
   }
-  // Cave-ins belong to the dungeon floor and, on the surface, to the Nexus
-  // rows that declare `caveIns` (the Seep tar pits).
-  function caveInGround(scene, cell) {
-    if (scene.depth === CONFIG.cavein.dungeonDepth) return true;
-    if (scene.depth !== 0) return false;
+  // Surface rows may allow their whole footprint or only its calm outer rim.
+  function caveInRule(scene, cell) {
+    if (scene.depth === CONFIG.cavein.dungeonDepth) return CONFIG.cavein;
+    if (scene.depth !== 0) return null;
     const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx, cell.ty));
-    return !!caveInVariant(e, cell.ix, cell.iy);
+    if (!e) return null;
+    const id = caveInVariant(e, cell.ix, cell.iy), row = id && root.ZoneVariants.byId(id);
+    if (row?.caveIns && row.caveIns.edge !== 'outer') return CONFIG.cavein;
+    const edge = outerQuarryCaveIn(scene, cell, e);
+    return edge ? { ...CONFIG.cavein, ...edge.caveIns } : null;
   }
+  function caveInGround(scene, cell) { return !!caveInRule(scene, cell); }
   function observeCaveIn(scene, s, at, key) {
-    if (!caveInGround(scene, at)) return;
+    const cfg = caveInRule(scene, at);
+    if (!cfg) return;
     const id = `environment:cavein:${key}`;
     if (s.visits.has(id) || s.caveins.some(h => h.id === id)) return;
     s.visits.add(id);
-    const rng = root.WorldGen.makeRng(fnv1a(id)), cfg = CONFIG.cavein;
+    const rng = root.WorldGen.makeRng(fnv1a(id));
     if (rng() >= cfg.chance) return;
     const count = cfg.clusterMinCells + Math.min(cfg.clusterMaxCells - cfg.clusterMinCells,
       Math.floor(rng() * (cfg.clusterMaxCells - cfg.clusterMinCells + 1)));
@@ -267,7 +315,7 @@
     if (!e?._spawnOpts) return;
     // Sinkholes keep off peaceful quarries and cave-in ground.
     const noSinkhole = (entry, ix, iy) => !!(quarryVariant(entry, ix, iy) || caveInVariant(entry, ix, iy));
-    const noSinkholeHere = scene.depth === 0 && noSinkhole(e, at.ix, at.iy);
+    const noSinkholeHere = scene.depth === 0 && (noSinkhole(e, at.ix, at.iy) || caveInGround(scene, at));
     touch(scene, scene.save, px, py);
     for (const actor of scene._characterBodies || []) {
       if (actor.id !== 'player') touch(scene, actor, actor.x, actor.y);
