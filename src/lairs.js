@@ -192,7 +192,7 @@
   // structure's own strength `t` picks the rung within it — the same two
   // facts the count is already made of, saying a second thing.
   //
-  //   A WRECKED HOUSE IS INFESTED. Nobody holds it; slimes are nesting in
+  //   An ordinary WRECKED HOUSE roll is INFESTED: slimes nest in
   //   the damp — the SURFACE slime and nothing else (the cave keeps its own
   //   kinds), so a wreck's escalation is its COUNT (countFor), not its kind.
   //
@@ -206,7 +206,7 @@
   //   surface is a different decision about where the cave ends"), and the
   //   tier is what makes it safe to cross: a goblin is not loose in the
   //   fields, it is inside a fort, which is exactly where a player expects to
-  //   meet one. Every wreck on the map is still slimes.
+  //   meet one. Authored house groups can instead seat goblin runts or thieves.
   //
   // THE RUNGS ARE EVENLY SPACED, not authored. A ladder is just its kinds in
   // order, weakest first, and rung `i` of `n` unlocks at `i / n` of `t` —
@@ -341,6 +341,9 @@
     grunt_gang: { label: 'Goblin grunt gang', tiers: [9], minT: 0, chance: .1, modeCap: false,
       story: 'Three to eight weak goblins crowd around the wreck. Each falls quickly; the gang comes together.',
       members: [{ kind: 'goblin_runt', nRange: [3, 8], place: 'ring' }] },
+    thieves: { label: 'House thieves', tiers: [9], minT: 0, chance: .15,
+      story: 'One or two thieves hide around the wreck, steal a purse and flee.',
+      members: [{ kind: 'thief', nRange: [1, 2], place: 'ring' }] },
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
@@ -547,12 +550,11 @@
   //   would be the anticlimax, not the surprise.
   //   a FORT usually is. Rarer on a real map than a house and a fortification
   //   besides, so "probably" reads better than either certainty.
-  //   a WRECKED HOUSE is a third of the time. That is the number that makes a
-  //   street worth walking down: two you can loot, one you cannot.
+  //   a WRECKED HOUSE is held half the time before dense-tile thinning.
   //
   // `thinned` is which of them the per-tile budget below is allowed to touch.
   const OCCUPANCY = {
-    9:  { rate: 1 / 3, thinned: true  },   // T.BUILDING       — the commons
+    9:  { rate: 1 / 2, thinned: true  },   // T.BUILDING       — the commons
     11: { rate: 2 / 3, thinned: false },   // T.BUILDING_MED   — a fort
     12: { rate: 0.95,  thinned: false },   // T.BUILDING_LARGE — a castle
     cafe:  { rate: 1, thinned: false },    // a café hoard
@@ -597,9 +599,9 @@
 
   // ── The per-tile budget ──────────────────────────────────────────────────
   // A tile is ~1.6 km on a side (~2.5 km² at mid-latitudes) and a dense urban
-  // one carries thousands of wrecks, so a flat one-in-three would put over a
+  // one carries thousands of wrecks, so a flat one-in-two would put over a
   // THOUSAND held ruins on it — a warzone rather than a walk, and a rate the
-  // player could no more read as "a third" than they could count them. So the
+  // player could no more read as "half" than they could count them. So the
   // tile gets a ceiling on how many of its ruins are held, and the rates above
   // are scaled to meet it.
   //
@@ -615,9 +617,9 @@
   //   Scaling every tier equally instead would make a castle in a city 5%
   //   likely to be held, which is the opposite of what the table promises —
   //   and castles and forts are rare by construction, so they can never be the
-  //   flood the budget exists for. On a village (100 buildings, ~33 expected)
-  //   nothing is thinned and one house in three really is held; on a
-  //   3000-building city the wrecks drop to ~8% and the landmarks are
+  //   flood the budget exists for. On a village (100 buildings, 50 expected)
+  //   nothing is thinned and one house in two really is held; on a
+  //   3000-building city the wrecks drop to ~17% and the landmarks are
   //   untouched.
   //
   //   OVER BUDGET ON LANDMARKS ALONE (a tile of nothing but castles — not a
@@ -626,7 +628,7 @@
   //   lands on the ceiling. This is what makes the cap a promise rather than a
   //   hope: there is no composition of buildings that puts more than
   //   LAIR_MAX_PER_TILE expected garrisons on one tile.
-  const LAIR_MAX_PER_TILE = 250;
+  const LAIR_MAX_PER_TILE = 500;
 
   // The two factors this tile's rates are multiplied by — `common` for the
   // THINNED tiers, `landmark` for the rest. Both are 1 on a tile inside its

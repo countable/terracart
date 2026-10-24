@@ -28,12 +28,44 @@
         assert.eq(draws, 1);
       }
       assert.eq(counts.grunt_gang, 1000, 'exactly ten percent of eligible group-selection tickets');
-      assert.eq(counts.plain, 10000 * .9 * (1 - L.GROUP_RATE[9]));
+      assert.eq(counts.thieves, 1500, 'fifteen percent of held houses get thieves');
+      assert.eq(counts.plain, 10000 * .75 * (1 - L.GROUP_RATE[9]));
       // The splitting slime is a wreck's one ordinary group (bats left the surface).
-      assert.eq(counts.splitter, 10000 * .9 * L.GROUP_RATE[9]);
+      assert.eq(counts.splitter, 10000 * .75 * L.GROUP_RATE[9]);
     }
     assert.falsy(L.groupRows(11, 1, true).includes('grunt_gang'));
     assert.falsy(L.groupRows(12, 1, true).includes('grunt_gang'));
+  });
+
+  test('house thieves: seeded pairs seat in both modes and saved defeats stay removed', () => {
+    const prev = Difficulty.mode(), sizes = new Set();
+    try {
+      for (let tx = 0; tx < 10000 && sizes.size < 2; tx++) {
+        const g = world(tx);
+        if (g.group !== 'thieves' || sizes.has(g.n)) continue;
+        sizes.add(g.n);
+        const { entry, cand } = fixture(tx, g.sid);
+        const opts = { tileEdgeM: edge, caughtSet: new Set() };
+        Difficulty.setMode('hard');
+        const guards = L.garrisonFor(entry, cand, opts);
+        assert.eq(guards.length, g.n);
+        guards.forEach(c => {
+          assert.eq(c.kind, 'thief'); assert.eq(c.group, 'thieves');
+          assert.eq(c.lair, g.sid);
+          assert.truthy(EnemyRoster.get(c.kind).ambush);
+          assert.eq(Combat.monster(c.kind).hitAndRun.coins, 15);
+        });
+        Difficulty.setMode('easy');
+        assert.eq(JSON.stringify(L.garrisonFor(entry, cand, opts)), JSON.stringify(guards));
+        assert.eq(JSON.stringify(L.garrisonFor(entry, cand, { ...opts, caughtSet: new Set([guards[0].id]) })),
+          JSON.stringify(guards.slice(1)), 'defeats remove thieves without rerolling survivors');
+        entry._spawnOpts.spawnWhy.fill(W.SPAWN_WHY.QUIET);
+        assert.eq(L.garrisonFor(entry, cand, opts).length, 0, 'protected ground excludes thieves');
+      }
+      assert.eq([...sizes].sort().join(), '1,2');
+      assert.falsy(L.groupRows(11, 1, true).includes('thieves'));
+      assert.falsy(L.groupRows(12, 1, true).includes('thieves'));
+    } finally { Difficulty.setMode(prev); }
   });
 
   test('grunt gangs: occupancy remains unchanged and seeded sizes cover three through eight uniformly', () => {

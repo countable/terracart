@@ -673,7 +673,7 @@
     // The numbers the design states, read off the table the roll uses.
     assert.eq(Lairs.OCCUPANCY[12].rate, 0.95, 'a castle is nearly always held');
     assert.eq(Lairs.OCCUPANCY[11].rate, 2 / 3, 'a fort usually is');
-    assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 3, 'a wrecked house a third of the time');
+    assert.eq(Lairs.OCCUPANCY[9].rate, 1 / 2, 'a wrecked house half the time');
     // Strictly ordered, and the wreck is the only one the tile budget may thin
     // — a castle in a city must not quietly become a 5% chance.
     assert.gt(Lairs.OCCUPANCY[12].rate, Lairs.OCCUPANCY[11].rate, 'castle over fort');
@@ -716,7 +716,7 @@
     // Generous bands — this is a coin, not a constant. What it is defending is
     // that the rates are DIFFERENT and in the right order, not their decimals.
     const wreck = rateOf(9), fort = rateOf(11), castle = rateOf(12);
-    assert.truthy(Math.abs(wreck - 1 / 3) < 0.08, `a wreck held ${wreck.toFixed(2)}, not ~1/3`);
+    assert.truthy(Math.abs(wreck - 1 / 2) < 0.08, `a wreck held ${wreck.toFixed(2)}, not ~1/2`);
     assert.truthy(Math.abs(fort - 2 / 3) < 0.08, `a fort held ${fort.toFixed(2)}, not ~2/3`);
     assert.gt(castle, 0.88, `a castle held only ${castle.toFixed(2)}`);
   });
@@ -918,18 +918,18 @@
       for (let i = 0; i < n; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
       return mkEntry(shapes);
     };
-    // A village: 100 wrecks, ~33 expected held — inside the budget, untouched.
+    // A village: 100 wrecks, 50 expected held — inside the budget, untouched.
     const village = wrecks(100);
     assert.eq(Lairs.tileThin(village).common, 1, 'a village should not be thinned');
-    assert.eq(Lairs.occupancyFor(9, Lairs.tileThin(village)), 1 / 3,
-      'and one house in three really is held there');
-    // A city: 3000 wrecks, ~1000 expected — thinned back to the ceiling.
+    assert.eq(Lairs.occupancyFor(9, Lairs.tileThin(village)), 1 / 2,
+      'and one house in two really is held there');
+    // A city: 3000 wrecks, 1500 expected — thinned back to the ceiling.
     const city = wrecks(3000);
     const thin = Lairs.tileThin(city);
-    assert.lt(thin.common, 0.3, 'a city tile\'s wrecks are thinned hard (to a quarter of their odds)');
+    assert.truthy(Math.abs(thin.common - 1 / 3) < 1e-9, 'a city tile keeps a third of its base odds');
     assert.truthy(Math.abs(3000 * Lairs.occupancyFor(9, thin) - Lairs.LAIR_MAX_PER_TILE) < 1e-6,
       'the thinned rate does not land on the ceiling');
-    assert.eq(Lairs.LAIR_MAX_PER_TILE, 250, 'the ceiling is the figure the design named');
+    assert.eq(Lairs.LAIR_MAX_PER_TILE, 500, 'the ceiling is the figure the design named');
     // THE LANDMARKS ARE NOT THINNED. This is the whole reason the budget is
     // spent on the rare tiers first: scaling everything equally would make a
     // castle in a city a 5% chance, which is the opposite of what it promises.
@@ -941,13 +941,13 @@
   });
 
   test('lairs: the budget is spent on the landmarks FIRST', () => {
-    // 200 castles (190 expected) leave 60 of the 250 for 200 wrecks (67 expected).
+    // 400 castles (380 expected) leave 120 of the 500 for 400 wrecks (200 expected).
     // The castles are paid in full and the wrecks take what is left — never
     // the other way round, and never both scaled equally, which is what would
     // quietly turn a castle into a coin flip on a busy tile.
     const shapes = [];
-    for (let i = 0; i < 200; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
-    for (let i = 0; i < 200; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, (10 + Math.floor(i / 30)) * CELL_M, CELL_M));
+    for (let i = 0; i < 400; i++) shapes.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    for (let i = 0; i < 400; i++) shapes.push(mkShape(9, (i % 30) * CELL_M, (10 + Math.floor(i / 30)) * CELL_M, CELL_M));
     const entry = mkEntry(shapes);
     const thin = Lairs.tileThin(entry);
     assert.eq(thin.landmark, 1, 'the castles were scaled while there was still room');
@@ -965,7 +965,7 @@
     const rng = WorldGen.makeRng(20260907);
     for (let trial = 0; trial < 200; trial++) {
       const shapes = [];
-      const n = 1 + Math.floor(rng() * 400);
+      const n = 1 + Math.floor(rng() * 1000);
       for (let i = 0; i < n; i++) {
         const tier = Lairs.TIERS[Math.floor(rng() * Lairs.TIERS.length)];
         shapes.push(mkShape(tier, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
@@ -979,7 +979,7 @@
     // budget on its landmarks alone, and they are scaled back onto the ceiling
     // rather than allowed through it.
     const castles = [];
-    for (let i = 0; i < 400; i++) castles.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
+    for (let i = 0; i < 800; i++) castles.push(mkShape(12, (i % 30) * CELL_M, Math.floor(i / 30) * CELL_M, CELL_M));
     const heavy = mkEntry(castles);
     assert.lt(Lairs.tileThin(heavy).landmark, 1, 'the landmarks were let through the ceiling');
     assert.truthy(Math.abs(Lairs.tileHeldExpected(heavy) - Lairs.LAIR_MAX_PER_TILE) < 1e-9,
