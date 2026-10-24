@@ -1,0 +1,133 @@
+{
+  "source": "extra_assets/top_down_mountain_edges_ITCH/PNG/SEPARATED_TILES/separate_tiles_all_rotations_slice_grey",
+  "frameSize": 32,
+  "columns": 32,
+  "frames": 1024,
+  "variants": 4,
+  "neighbours": [
+    [
+      -1,
+      0
+    ],
+    [
+      1,
+      0
+    ],
+    [
+      0,
+      -1
+    ],
+    [
+      0,
+      1
+    ],
+    [
+      -1,
+      -1
+    ],
+    [
+      1,
+      -1
+    ],
+    [
+      -1,
+      1
+    ],
+    [
+      1,
+      1
+    ]
+  ],
+  "palette": [
+    [
+      44,
+      43,
+      35
+    ],
+    [
+      62,
+      61,
+      49
+    ],
+    [
+      80,
+      79,
+      64
+    ],
+    [
+      100,
+      99,
+      81
+    ],
+    [
+      122,
+      121,
+      100
+    ],
+    [
+      145,
+      144,
+      121
+    ],
+    [
+      168,
+      167,
+      143
+    ]
+  ],
+  "sourceSHA256": {
+    "outer_corner_var_01_top_left": "c7761a969f2d639df3e81cd665a14fc1b3f45b3cf19f1edbbeed81cf9a33a3e0",
+    "outer_corner_var_01_top_right": "3010e7ffc80ccd31ff9bcac83fa16c64b0aa291f9977cc4b621b0d1dc24e3ae1",
+    "outer_corner_var_01_bottom_left": "b3a7013cf7bb0cc0a30d17ff596168da23c7f6437dc6d164474a8522d6723e4d",
+    "outer_corner_var_01_bottom_right": "bce6e5424e4584a79f39ac71d21e2930b3547bf0354857a86814af56851629d3",
+    "top_edge_var_01": "b397ca615ae5ba6fe06361285213f3bfa3f121d15326a374bd0267171ab54a77",
+    "bottom_edge_var_01": "9da97bac21e889c94a57faeb03ded1728ffdb2a3d0d492f1c41b141497e3ce8b",
+    "left_edge_var_01": "827618b8f26588954b3a093bb08c04f6ea1f23e9cfd222172dca0220860658b7",
+    "right_edge_var_01": "dfe7cf5d0d716100274815de7798cc8efaefa30f792114743b1d2afd350c6bd5",
+    "inner_corner_var_01_bottom_right": "a88c1ee1ecf02933c5addd1cce82c328c0f319dcfaa510870a04fb9d371589ce",
+    "inner_corner_var_01_bottom_left": "3aeefbb68311ec2c6241c2a5b092c3e22aea669f2cd669151d7a06b60bd5d6a1",
+    "inner_corner_var_01_top_right": "276691f55d7e6fb95a54e74cc62c9c2c0e1ab2ccf2b524abcbbc911613c04b59",
+    "inner_corner_var_01_top_left": "625d55d0cacc95b92236e22e84abb6d5d3ce0f7f20a5f1ce6c8440e2f41a2aaa",
+    "fill_var_01": "ebbdaac632647e8d9ef43433ff37e7e377483addf7b1b34d4bbde9ff3551a478",
+    "outer_corner_var_02_top_left": "8b1f1fbc999f3a935ac4c102e395bbc72e2f71651efa145d69d091af3cf517ee",
+    "outer_corner_var_02_top_right": "c1fe84cf83fd79ddf31dc615119383e57531d4a92ffe2610a95c670c196289fc",
+    "outer_corner_var_02_bottom_left": "c37a41b6093ad3a1fc056d0678fff8b9bbbf010afb4b3056fc6b7d00b626d7d5",
+    "outer_corner_var_02_bottom_right": "94f614e30b92bb4dccd6e1f4ba5d6ec4c0c1aac0632b533e8647056d77ff78c5",
+    "top_edge_var_02": "e4ff7b3813bea6042af5d8a383d8b2f6cf13b20e19fe5d2a3543add6b22b6491",
+    "bottom_edge_var_02": "59a600500252ba8afb617ac7a350abfb101fab81e9f2a1bda71471a87db4b8f9",
+    "left_edge_var_02": "0b97913f478c886fdaecd45e675cf42b1d9d8108da2dc27a6beec377ff402714",
+    "right_edge_var_02": "5d9be65067fc8488654ec5a49c81d7a48469815d8d064b47b7acbce10da48740",
+    "inner_corner_var_02_bottom_right": "b1b69b8d48bbd0577e6fcb2fee78f3aa4731ed25853c1279dbc89390ca4401f6",
+    "inner_corner_var_02_bottom_left": "bbe1cbadaf8b7647910648639d5c3fb2ade25c39de889e941487712fcbae0078",
+    "inner_corner_var_02_top_right": "73458b691fc7407e899c8e4a2a4761256c542e7eb7b6014dad93ce57cc42a4b1",
+    "inner_corner_var_02_top_left": "bc992c7f925c97911f08f1a08286939f3736bc011830f5ccdc6e8e9836d813c9",
+    "fill_var_02": "01aa70243bf1893869ca7fc31c869032d11cdccc21cbea50aace7def5e9421da",
+    "outer_corner_var_03_top_left": "00a93df66ae5de948f10270ac9a4a9afd4ee27078ee386054f892dbbba17425f",
+    "outer_corner_var_03_top_right": "2c12b454345d0fc5bac8db5ba2b46067ff2e45404e198ed5f3d383be157cfd35",
+    "outer_corner_var_03_bottom_left": "2dcc1651ac1d99c2bc3b559ed2821fdf3560f16127085b039091f61f598f91a8",
+    "outer_corner_var_03_bottom_right": "db9ac2a20b870e045ac03aafe1573f94f89073c8467f7a2d2e2cfc7cdc00d7bc",
+    "top_edge_var_03": "862127fe3f9f100f0ac0546367ecc832ada079d9aa2f1138d0d4f4f5c91afef4",
+    "bottom_edge_var_03": "45ee83efa33e3a935881721973856c17fb4f28733581389ee6904042a568a98f",
+    "left_edge_var_03": "4becfe08ce43aa95dca9b85e32b51db03f86d2d47587c278b4a45ccb55b936ab",
+    "right_edge_var_03": "57f7f0080e28d9e81decb7ec14bcb5a7aba157d3f0cc5be9d38a594341f39992",
+    "inner_corner_var_03_bottom_right": "f643987950f74c39a0331747491fffd2cafb67ba0b7ff7a5fff60f036535b2e5",
+    "inner_corner_var_03_bottom_left": "20078a65668bf9733152dc898a65750aa6acb4efe8b2c6bd26a3b43ae5e01d0d",
+    "inner_corner_var_03_top_right": "3c753a9e45e5fe46c3c4fe1a59eda28aaec9799ba9e2ef8bc9fcd8c009c9c047",
+    "inner_corner_var_03_top_left": "c9b9e1e3503bb07c8c277e181f9e5028c9f1ca7374238dab54f54e1d7b075009",
+    "fill_var_03": "c62ba54f3fe615d6c610ce13e7c328e2e6ac57180dbdafc88d48f3328d0590cf",
+    "outer_corner_var_04_top_left": "60e27deccd3a3ca5f818e24fbed847c8a149428f69183554a089b77f6a3a92da",
+    "outer_corner_var_04_top_right": "71589159cc39c6da70ccfc303938e913fd2361302e63a38156e2e08d2c9ca51f",
+    "outer_corner_var_04_bottom_left": "b77655695a5e71baa61d690959b04592bc4173a173bae71ee6c2189db64af658",
+    "outer_corner_var_04_bottom_right": "7c3d17b220ad897d40844adecc7319ce3dbf2a40705fefe98ff87fa6297f68b4",
+    "top_edge_var_04": "c1625cbd74d369ee612ba404a41989a306f271bbb11a1c5c50ac17f967be7cda",
+    "bottom_edge_var_04": "3fe88d2ae75ffe35418b4d67fc32074dc841dbdcf06de154eda50c1dcbd64c68",
+    "left_edge_var_04": "82b3e3e37ccf3be977309184c0d930a8a4c915aa4cccea3d2c85855a6e358df5",
+    "right_edge_var_04": "f945f7bdd1257dda71f93088442886b86c0d961853722cec663f634d3e3536ec",
+    "inner_corner_var_04_bottom_right": "d6bd537a3722c2017f6820c6c774b403c51a4768f8b898240281cb4a1af2a551",
+    "inner_corner_var_04_bottom_left": "f482e0c69612c0adfe358ab9ec4e8cbdf0b81c879e1c994654e70586cb3b22d8",
+    "inner_corner_var_04_top_right": "2c6d6fd2da01f055d5aac77e97bfbd207309a2c7542571c48f66d5b57013ebcb",
+    "inner_corner_var_04_top_left": "c7851546c7942813aaf8e378fc2306f459964870c0eee53cc8e44c213a6f5196",
+    "fill_var_04": "419e21b839cbc8fd052a70c8af7c9b654e95e60df894434ee9b54d7e3b3214b1"
+  },
+  "notes": "Purchased pack; RA olive-grey palette. No stair or deep-notch edges. Full cells where possible, quarter corners for narrow/complex boundaries."
+}

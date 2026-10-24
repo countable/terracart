@@ -111,8 +111,16 @@ temple masonry use the matching colour mapping. Geometry, material detail and
 functional light colours remain intact. Growth stages retain proportional sizes
 and ore identities remain unchanged. Gameplay, source object IDs/positions and
 saves are unchanged.
-Nexus-specific ground, rift buffers, quarry/exclusion rock, tilled beds, synthetic
+Nexus-specific ground, rift buffers, quarry rock, tilled beds, synthetic
 building floors and underground terrain retain their existing treatments.
+
+Private residential exclusion rock uses the purchased Top Down Mountain Edges
+pack, exported by `tools/build_mountain_edges.py` into a 32px atlas with a muted
+olive-grey ramp and RA olive-soil substrate. `MountainEdges` selects among 256
+neighbour masks and four stable variants from the shared geographic ring. Full
+edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
+Stair and deep-notch variants are excluded. Selection does no runtime image
+processing; collision remains the permanent residential bedrock rule.
 
 `RATerrainTrial` combines four adjacent samples from the renderer's geographic
 ring, including its tile-row seam resolution. The full native 16px masks preserve

@@ -6997,7 +6997,7 @@
     return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
   }
 
-  // A material/collision treatment for deep private backyards, not a new
+  // A material/collision treatment for deep private residential backyards, not a new
   // general access rule. Keep one full cell of clearance around every path,
   // footprint, public edge, authored zone and existing prop. Test eligibility
   // against the unchanged grid, then stamp together so scan order cannot
@@ -7006,7 +7006,7 @@
     const reasons = SPAWN_WHY.PRIVATE | SPAWN_WHY.BEHIND_HOUSE;
     const { spawnWhy, roadMask, occupied, coverage } = opts;
     if (!spawnWhy) return 0;
-    const eligible = i => isLotTerrain(grid[i]) && !!(spawnWhy[i] & reasons)
+    const eligible = i => grid[i] === T.RESIDENTIAL && !!(spawnWhy[i] & reasons)
       && !(spawnWhy[i] & ~reasons) && !roadMask?.[i]
       && !coverage?.[i] && !occupied?.has(i);
     const cells = [];

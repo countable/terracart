@@ -471,8 +471,8 @@ access or tile lifecycle mechanics.
 - Reward rolls, recurring events, mode-dependent creature/trap counts and
   player progress may differ. Restoration remains per-save. Deduplication uses
   data/anchor ownership, not tile load order; cached Overpass bins are frame-free.
-- Rear-lot bedrock: `stampExclusionRock` paints the interior of residential or
-  wasteland cells refused solely by PRIVATE/BEHIND_HOUSE as `EXCLUSION_ROCK`
+- Rear-lot bedrock: `stampExclusionRock` paints the interior of residential
+  cells refused solely by PRIVATE/BEHIND_HOUSE as `EXCLUSION_ROCK`
   (32), after all zone and prop placement. A one-cell margin preserves roads,
   paths, building edges, other access/safety reasons, Nexus coverage and props;
   tile borders remain open when neighbour data is unavailable. This terrain

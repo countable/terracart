@@ -2973,6 +2973,10 @@ Render.drawCells = function drawCells(scene) {
           const selected = RATerrainTrial.select(scene, raMaterials, RING, _si, AX(col, row), AY(col, row));
           if (selected) { texKey = selected.key; damageFrame = selected.frame; }
         }
+        if (!scene.depth && !skyLevel && !isTilled && typeof MountainEdges !== 'undefined') {
+          const rock = MountainEdges.select(types, RING, _si, AX(col, row), AY(col, row));
+          if (rock) { texKey = rock.key; damageFrame = rock.frame; }
+        }
         if (texKey) {
           // Only on a swap: Phaser's setTexture re-derives frame, size and crop even for
           // the key a sprite already wears. setTexture resets the sprite's intrinsic

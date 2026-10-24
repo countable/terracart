@@ -23,9 +23,10 @@ const MapReviewArt = (() => {
     function add(key, source, spec) {
       const frames = new Map();
       const t = {
-        getSourceImage: () => source, getContext: () => source.getContext('2d'), refresh() {},
+        getSourceImage: () => source, getContext: () => source.getContext('2d'),
+        get context() { return source.getContext('2d'); }, refresh() {}, setFilter() {},
         // Phaser treats numeric frame IDs and their string forms identically.
-        add(name, index, x, y, width, height) { frames.set(String(name),{x,y,width,height,sourceIndex:index,cutX:x,cutY:y,cutWidth:width,cutHeight:height,realWidth:width,realHeight:height}); },
+        add(name, index, x, y, width, height) { frames.set(String(name),{x,y,width,height,sourceIndex:index,cutX:x,cutY:y,cutWidth:width,cutHeight:height,realWidth:width,realHeight:height,source:{image:source}}); },
         remove(name) { return frames.delete(String(name)); },
         get(name) { return frames.get(String(name ?? '__BASE')) || frames.get('0') || frames.get('__BASE'); },
       };
@@ -63,7 +64,8 @@ const MapReviewArt = (() => {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);
         drawBiomeTexture(t.getContext(),32,type,v,0);
       }
-      return {textures,failures};
+      if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(scene);
+      return {textures,failures,scene};
     })();
     return assetsPromise;
   }
@@ -109,7 +111,7 @@ const MapReviewArt = (() => {
     },
     _invalidateGround() {
       clearTimeout(this._groundTimer);this._groundJob=null;
-      this._groundCache.clear();this._groundBytes=0;
+      this._groundCache.clear();this._groundBytes=0;this._terrainRings=new WeakMap();
       // A changed world or lamp mode must never retain previous art.
       this._canvasTopLeft=null;
       if(this._canvas)this._canvas.getContext('2d').clearRect(0,0,this._canvas.width,this._canvas.height);
@@ -199,6 +201,27 @@ const MapReviewArt = (() => {
         bucket.push(item);
       });
     },
+    _terrainRing(entry) {
+      this._terrainRings ||= new WeakMap();
+      if(this._terrainRings.has(entry))return this._terrainRings.get(entry);
+      const n=entry.cellsPerEdge,stride=n+2;
+      const types=new Int8Array(stride*stride),materials=new Int8Array(stride*stride);
+      types.fill(-1);materials.fill(-1);
+      const byTile=new Map(this._world.tiles.map(e=>[`${e.tx},${e.ty}`,e]));
+      for(let y=-1;y<=n;y++)for(let x=-1;x<=n;x++) {
+        const gx=entry.tx+(x+.5)/n,gy=entry.ty+(y+.5)/n;
+        const tx=Math.floor(gx),ty=Math.floor(gy),e=byTile.get(`${tx},${ty}`);
+        if(!e)continue;
+        const m=e.cellsPerEdge,ix=Math.floor((gx-tx)*m),iy=Math.floor((gy-ty)*m),i=iy*m+ix,j=(y+1)*stride+x+1;
+        let type=types[j]=e.grid[i];
+        const cell=tileCellToAbs(this._world.scene,tx,ty,ix,iy);
+        if(zoneGroundColor(e,ix,iy,type)!=null)continue;
+        if(WorldGen.isCobbleTerrain(type))type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
+        else if(isBuildingType(type)&&!e.syntheticBuildingCells?.[i])type=this._world.scene.neighborNonRoadType(cell.cellIX,cell.cellIY);
+        if(type!=null)materials[j]=RATerrainTrial.material(type,cell.cellIX,cell.cellIY);
+      }
+      const result={types,materials,stride};this._terrainRings.set(entry,result);return result;
+    },
     _tintedFrame(texture,frame,tint=0xffffff) {
       // Cache the cropped, multiply-tinted frame just as Phaser's sprite tint
       // colours shared sheets without changing their source pixels.
@@ -269,6 +292,7 @@ const MapReviewArt = (() => {
       for(const e of this._world.tiles) {
         const a=project(e.tx*edge,e.ty*edge),b=project((e.tx+1)*edge,(e.ty+1)*edge),N=e.cellsPerEdge;
         const dx=(b.x-a.x)/N,dy=(b.y-a.y)/N;
+        const native=!this._world.scene.depth&&this._assets.scene?._raTerrainReady?this._terrainRing(e):null;
         // Include road caps that extend beyond the source tile.
         if(a.x>size.x+128||a.y>size.y+128||b.x < -128||b.y < -128)continue;
         const x0=Math.max(0,Math.floor(-a.x/dx)),y0=Math.max(0,Math.floor(-a.y/dy));
@@ -279,9 +303,23 @@ const MapReviewArt = (() => {
             const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y);
             type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
           }
-          const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
-          g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-          if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+          let selected=null;
+          if(native&&dx>=4) {
+            const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y),index=(y+1)*native.stride+x+1;
+            selected=(typeof MountainEdges!=='undefined'&&MountainEdges.select(native.types,native.stride,index,cell.cellIX,cell.cellIY))
+              ||RATerrainTrial.select(this._assets.scene,native.materials,native.stride,index,cell.cellIX,cell.cellIY);
+          }
+          const texture=selected&&textures.get(selected.key),frame=texture?.get(selected.frame);
+          if(frame) {
+            // Integer coverage prevents the old ground colour leaking between cells.
+            const left=Math.floor(a.x+x*dx),top=Math.floor(a.y+y*dy);
+            g.drawImage(texture.getSourceImage(),frame.cutX,frame.cutY,frame.width,frame.height,left,top,
+              Math.ceil(a.x+(x+1)*dx)-left,Math.ceil(a.y+(y+1)*dy)-top);
+          } else {
+            const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
+            g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+            if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+          }
           const sand=pirateSand(e,y*N+x);
           if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}
         }

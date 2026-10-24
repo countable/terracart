@@ -21,6 +21,21 @@
       assert.eq(f.grid[16], T.RESIDENTIAL);
     }
   });
+  test('exclusion bedrock: private wasteland remains open and preserves the residential boundary margin', () => {
+    const waste = lot(); waste.grid.fill(T.WASTELAND);
+    assert.eq(stamp(waste), 0, 'private exclusion alone never turns non-residential land into rock');
+    assert.truthy(waste.grid.every(t => t === T.WASTELAND));
+    const mixed = lot();
+    for (let y = 0; y < mixed.h; y++) for (let x = 0; x < 3; x++) {
+      mixed.grid[y * mixed.w + x] = T.WASTELAND;
+    }
+    assert.eq(stamp(mixed), 10);
+    for (let y = 0; y < mixed.h; y++) {
+      assert.eq(mixed.grid[y * mixed.w + 2], T.WASTELAND);
+      assert.eq(mixed.grid[y * mixed.w + 3], T.RESIDENTIAL, 'one-cell margin at the non-residential boundary');
+    }
+    assert.eq(mixed.grid[3 * mixed.w + 4], T.EXCLUSION_ROCK, 'deep residential interior still receives rock');
+  });
   test('exclusion bedrock: props zones road bands and sensitive reasons stay open', () => {
     for (const edit of [f => f.occupied.add(24), f => f.coverage[24] = 1,
       f => f.roadMask[24] = 1, f => f.spawnWhy[24] |= S.RESTRICTED,
