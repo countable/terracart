@@ -587,7 +587,9 @@ pixels and decorative details do not define additional tap cells.
   aimed per step by `_starterGuidanceGoal` rather than stored as marks. It appears
   only after its instruction is visible. Location dots sit on their target when
   onscreen, otherwise on the compass edge: a bright 3px core with a translucent
-  pulse expanding to a 6px radius every 3 seconds.
+  pulse expanding to a 6px radius every 3 seconds. Only an edge dot takes a
+  tap (`_tapEdgeDot` toggles its label); a dot on its target leaves the tap
+  to the target, so the starter crate under its guide still opens.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

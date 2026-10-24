@@ -3041,12 +3041,13 @@ class MapScene extends Phaser.Scene {
       px = cx + ox + ux * ray; py = cy + oy + uy * ray;
     }
     const guide = r === EDGE_DOT_R;
+    let onTarget = false;
     if (guide) {
       const target = this.worldMetersToScreen(targetWX, targetWY);
-      const inside = HeadingUp.active(this)
+      onTarget = HeadingUp.active(this)
         ? Math.hypot(target.x - this.viewCenterX, target.y - this.viewCenterY) <= (this.viewSize / 2 - inset) / zoom
         : target.x >= left && target.x <= right && target.y >= top && target.y <= bottom;
-      if (inside) { px = target.x; py = target.y; }
+      if (onTarget) { px = target.x; py = target.y; }
       const pulse = (performance.now() % 3000) / 3000;
       this.facingGfx.fillStyle(fillColor, 0.35 * (1 - pulse));
       this.facingGfx.fillCircle(px, py, (r + (6 - r) * pulse) / zoom);
@@ -3056,7 +3057,7 @@ class MapScene extends Phaser.Scene {
     }
     this.facingGfx.fillStyle(fillColor, 1);
     this.facingGfx.fillCircle(px, py, r / zoom);
-    return { x: px, y: py, left, right, top, bottom };
+    return { x: px, y: py, left, right, top, bottom, onTarget };
   }
 
   // THE GPS FIX IS NEVER OUT OF SIGHT. The ring (gpsGhost) is drawn whenever
@@ -3097,9 +3098,12 @@ class MapScene extends Phaser.Scene {
 
   // A generous hit area keeps the small rim dots usable on touchscreens.
   // `key` is the mark's own (_drawMarker), so each of a row's dots toggles alone.
+  // A guide drawn ON its visible target (onTarget) takes no tap: the tap
+  // belongs to the crate or find beneath it, or the dot would swallow it.
   _tapEdgeDot(sx, sy) {
     let key = null, nearest = 16 * 16;
     for (const [candidate, point] of Object.entries(this._edgeDotPoints || {})) {
+      if (point.onTarget) continue;
       const d2 = (sx - point.x) ** 2 + (sy - point.y) ** 2;
       if (d2 <= nearest) { key = candidate; nearest = d2; }
     }
