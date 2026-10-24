@@ -340,6 +340,10 @@ IMPLEMENTATION STATUS
   metres from the starting Home. Existing saves gain him when that ground is
   loaded. He uses PixelSerial’s Old Man art for his map sprite and portrait, with
   the shared NPC movement and wound/rest rules.
+  His introduction offers a crude table for the Hood’s home (the basic Oak
+  Side Table). Any response grants it once and shows the item with his reply.
+  A full bag leaves the introduction and gift available for the next visit;
+  leaving without answering grants nothing.
   Acknowledged conversations persist his introduction, topics, replies and
   familiarity. Leaving a conversation does not consume it, and disagreement
   does not punish the relationship. Restoration and new memories inform his
