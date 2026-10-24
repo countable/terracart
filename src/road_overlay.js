@@ -633,8 +633,6 @@
 
   const selectedRoadCanvases = {};
   function baseRoadTile(variant, restored) {
-    const trial = typeof RATerrainTrial !== 'undefined' && RATerrainTrial.roadTile(variant, restored);
-    if (trial) return trial;
     if (typeof drawSelectedMaterial !== 'function'
         || typeof document === 'undefined') return null;
     const id = roadMaterialFor(variant, restored);

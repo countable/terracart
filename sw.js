@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-31edb050';
+const SHELL_VERSION = 'shell-0843a9e3';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -44,7 +44,7 @@ const ASSET_HASHES = {
   "assets/ArtTrials/RogueProps/flora-selected_mushroom.png": "ce49f70a",
   "assets/ArtTrials/RogueProps/flora-springcrops.png": "72cd531f",
   "assets/ArtTrials/RogueProps/flora-zone_hedge_single.png": "9d5993da",
-  "assets/ArtTrials/RogueTerrain/tiles.png": "7856e0d1",
+  "assets/ArtTrials/RogueTerrain/tiles.png": "473310b3",
   "assets/Character/AssasinCyan.png": "a1915f71",
   "assets/Character/BowmanCyan.png": "11ed3c42",
   "assets/Character/CyanKnight.png": "89dd17d0",
@@ -374,7 +374,7 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/approved-materials-v1.png": "d4596946",
   "assets/Objects/BuildingMaterials/reference-materials-v3.png": "38fc2ff3",
   "assets/Objects/BuildingMaterials/wreck-floor-cel.png": "8a303ad2",
-  "assets/Objects/BuildingMaterials/wreck-plinth.png": "83ec9726",
+  "assets/Objects/BuildingMaterials/wreck-plinth.png": "b25d5594",
   "assets/Objects/Castle/FDR/atlas.png": "6050c667",
   "assets/Objects/Castle/FDR/floor.png": "3c5de081",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",

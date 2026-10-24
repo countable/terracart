@@ -1,7 +1,7 @@
 {
   "frameSize": 16,
   "columns": 16,
-  "rows": 10,
+  "rows": 26,
   "families": [
     {
       "id": "villageGrass",
@@ -1654,20 +1654,164 @@
     {
       "id": "churchyard",
       "index": 8,
-      "source": "assets/selected-terrain/selected-terrain.png",
       "selectedMaterial": "G06-purple",
       "selectedFrame": 58,
       "maskFamily": "oliveSoil",
-      "sourceSHA256": "ce68dd276260bd1175ae664c392bcf397634cb0c871202bcb07eef48d2294d40"
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
     },
     {
       "id": "tarYard",
       "index": 9,
-      "source": "assets/selected-terrain/selected-terrain.png",
       "selectedMaterial": "G09-smooth-grey",
       "selectedFrame": 59,
       "maskFamily": "oliveSoil",
-      "sourceSHA256": "ce68dd276260bd1175ae664c392bcf397634cb0c871202bcb07eef48d2294d40"
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "coldSlate",
+      "index": 10,
+      "selectedMaterial": "G09-cold",
+      "selectedFrame": 35,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "concrete",
+      "index": 11,
+      "selectedMaterial": "R01",
+      "selectedFrame": 20,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "concreteAlt",
+      "index": 12,
+      "selectedMaterial": "R02",
+      "selectedFrame": 21,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "scrub",
+      "index": 13,
+      "selectedMaterial": "G04",
+      "selectedFrame": 11,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "scrubAlt",
+      "index": 14,
+      "selectedMaterial": "G08",
+      "selectedFrame": 15,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "meadow",
+      "index": 15,
+      "selectedMaterial": "G01",
+      "selectedFrame": 8,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "orchard",
+      "index": 16,
+      "selectedMaterial": "G02",
+      "selectedFrame": 9,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "grove",
+      "index": 17,
+      "selectedMaterial": "G03",
+      "selectedFrame": 10,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "farmland",
+      "index": 18,
+      "selectedMaterial": "G05",
+      "selectedFrame": 12,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "mushroom",
+      "index": 19,
+      "selectedMaterial": "G06",
+      "selectedFrame": 13,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "selectedSand",
+      "index": 20,
+      "selectedMaterial": "G10",
+      "selectedFrame": 17,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
+    },
+    {
+      "id": "rockyGround0",
+      "index": 21,
+      "selectedMaterial": "ROCKY_GROUND",
+      "selectedFrame": null,
+      "maskFamily": "oliveSoil",
+      "variant": 0,
+      "source": "src/textures.js:drawRockyGroundTex"
+    },
+    {
+      "id": "rockyGround1",
+      "index": 22,
+      "selectedMaterial": "ROCKY_GROUND",
+      "selectedFrame": null,
+      "maskFamily": "oliveSoil",
+      "variant": 1,
+      "source": "src/textures.js:drawRockyGroundTex"
+    },
+    {
+      "id": "rockyGround2",
+      "index": 23,
+      "selectedMaterial": "ROCKY_GROUND",
+      "selectedFrame": null,
+      "maskFamily": "oliveSoil",
+      "variant": 2,
+      "source": "src/textures.js:drawRockyGroundTex"
+    },
+    {
+      "id": "rockyGround3",
+      "index": 24,
+      "selectedMaterial": "ROCKY_GROUND",
+      "selectedFrame": null,
+      "maskFamily": "oliveSoil",
+      "variant": 3,
+      "source": "src/textures.js:drawRockyGroundTex"
+    },
+    {
+      "id": "residentialSlate",
+      "index": 25,
+      "selectedMaterial": "G09-light-slate",
+      "selectedFrame": 67,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
     }
   ],
   "notes": "Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground."

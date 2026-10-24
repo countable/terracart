@@ -46,26 +46,30 @@ for i in range(18):
     # Grime and worn areas expose more of the underlying terrain. Keep the
     # variation broad and low contrast, with no fine noise or hard patch edges.
     shade = (87, 79, 67, 100) if i % 2 else (98, 90, 76, 60 + i % 4 * 10)
+    if i % 2:
+        shade = tuple(round(v * .8) for v in shade[:3]) + (shade[3],)
     draw.polygon([(x-w, y-h//2), (x-w//2, y-h), (x+w//2, y-h),
                   (x+w, y), (x+w//2, y+h), (x-w//2, y+h)], fill=shade)
 floor = floor.filter(ImageFilter.GaussianBlur(2))
-# Adjust only the background before compositing the unchanged stone scatter.
+# Adjust only the background before compositing the stone scatter.
 r, g, b, alpha = floor.split()
 floor = Image.merge('RGBA', (
     r.point(lambda v: round(v * .8)),
     g.point(lambda v: round(v * .8)),
     b.point(lambda v: round(v * .8)),
-    alpha.point(lambda v: min(255, round(v * 1.2))),
+    alpha.point(lambda v: min(255, round(round(v * 1.2) * 1.2))),
 ))
 
 # These are restrained mixtures of the wall cap, mortar and brown ground.
-# Untouched ground stays 154/255 (60%); the broad worn patches are translucent.
+# Untouched ground stays 185/255 (73%); the broad worn patches are translucent.
 styles = {
     'quiet': (90, 2, 4, [(151, 139, 117, 185), (130, 118, 99, 170), (100, 90, 75, 150)]),
     'buried': (65, 3, 6, [(132, 121, 102, 145), (120, 109, 92, 145), (105, 95, 80, 145)]),
     'worn': (35, 2, 5, [(145, 133, 112, 165), (126, 115, 96, 155), (104, 94, 79, 145)]),
 }
 count, lo, hi, palette = styles[args.ground_style]
+# Only the painted chips brighten; raised masonry uses the untouched atlas top.
+palette = [tuple(min(255, round(v * 1.2)) for v in rgba) for rgba in palette]
 rng = random_values(126)
 scatter = Image.new('RGBA', floor.size)
 draw = ImageDraw.Draw(scatter)

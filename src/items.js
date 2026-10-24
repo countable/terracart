@@ -3128,7 +3128,7 @@ function isLowTierSeed(id) {
 // and render.js' tilled-cell draw.
 // 31 = TAR_YARD (an influence zone's halo round a fuel station, src/zones.js):
 // oily ground that weeps tar — nothing takes root in it.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31, 32]);
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31, 32, 33]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // The full "can this CELL take a hoe / placement / released animal" test:
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says

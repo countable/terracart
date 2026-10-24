@@ -122,8 +122,6 @@ window.applyJungle = async () => {
   const cells = new Map(__fixture.grid.map((c) => [c.x + ',' + c.y, c.groundType]));
   const get = (x, y) => cells.get(x + ',' + y) ?? 1;
   window.__jungleGround = () => {
-    s.borderGfx.clear();
-    s.borderContainer.setVisible(false);
     s.cellGfx.clear();
     for (const ns of s.noisePool) {
       if (!ns.visible) continue;

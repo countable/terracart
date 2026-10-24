@@ -268,7 +268,7 @@ class SceneCreate {
     // Bake terrain patterns and the two castle restoration-state atlases once.
     AuthoredBuildings.prepare(this);
     makeBiomeTextures(this, CELL_PX);
-    if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(this);
+    if (typeof TerrainTransitions !== 'undefined') TerrainTransitions.prepare(this);
     if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled&&typeof BuildingLowPoly!=='undefined')BuildingLowPoly.prepareRogueWreck(this);
     makeBerryBushTexture(this);
     makeTowerTexture(this);
@@ -428,14 +428,9 @@ class SceneCreate {
     // ~10 000 dash commands every frame, still or not.
     this.gridGfx = new Render.BakedGfx(this, 'grid_baked', this.gridContainer);
     this.noiseContainer = this.add.container(0, 0);
-    this.borderContainer = this.add.container(0, 0); // scrolled each frame for sub-cell offset
-    // Biome-boundary borders — only redrawn on cell crossing, and BAKED
-    // (render.js BakedGfx) so the frames between cost one quad, not ~7 000
-    // replayed rects and earcut circles.
-    this.borderGfx = new Render.BakedGfx(this, 'border_baked', this.borderContainer);
     // Original OSM road geometry (road_overlay.js) — the raw vector linework
     // the rasterizer turned into road/path cells, as a muted brown band. Sits
-    // above the terrain + biome borders but BELOW the ground decoration: the linework is
+    // above the terrain but BELOW the ground decoration: the linework is
     // the evidence of what the rasterizer was AIMING at, so the stones it
     // actually laid have to read on top of it, not through it. Anything above
     // the plank is likewise above this — road labels, plants, objects.
@@ -634,7 +629,7 @@ class SceneCreate {
     // not world: the vignette, the work wheel and flash text all set an
     // explicit depth, which floats them clear of the insertion-ordered layers.)
     //
-    // A CONTAINER, like borderContainer, because the fog only changes when the
+    // A retained container because the fog only changes when the
     // player crosses a cell: render.js repaints the wash on that crossing and
     // scrolls this by the sub-cell fraction in between. See the fog pass there.
     this.fogContainer = this.add.container(0, 0);
@@ -656,7 +651,7 @@ class SceneCreate {
     this.terrainCache = new Render.TerrainCache(this);
     this.noisePool = [];
     for (let i = 0; i < (VIEW_CELLS + 2) * (VIEW_CELLS + 2); i++) {
-      const s = this.add.image(0, 0, 'biome5_0').setOrigin(0, 0)
+      const s = this.add.image(0, 0, 'ra_terrain_source', 15).setOrigin(0, 0)
         .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
       this.noiseContainer.add(s);
       this.noisePool.push(s);
@@ -953,7 +948,6 @@ class SceneCreate {
     this.cellGfx.setMask(mask);
     this.gridContainer.setMask(mask);
     this.noiseContainer.setMask(mask);
-    this.borderContainer.setMask(mask);
     this.cobbleContainer.setMask(mask);
     this.letterContainer.setMask(mask);
     this.roadGeomContainer.setMask(mask);

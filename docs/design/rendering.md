@@ -128,20 +128,32 @@ olive-grey ramp and RA olive-soil substrate. `MountainEdges` selects among 256
 neighbour masks and four stable variants from the shared geographic ring. Full
 edge/corner tiles retain their artwork; narrow and complex cells combine quarters.
 Stair and deep-notch variants are excluded. Selection does no runtime image
-processing; collision remains the permanent residential bedrock rule.
+processing; collision remains the permanent residential bedrock rule. Trimmed
+building-intersection cells use flat `ROCKY_GROUND` rubble from the transition
+atlas, with the same olive-grey ramp. Solid edges prefer that rubble as their substrate
+when adjacent, so the exposed apron belongs visually to the rock zone.
 
-`RATerrainTrial` combines four adjacent samples from the renderer's geographic
-ring, including its tile-row seam resolution. The full native 16px masks preserve
-authored outer/inner corners and disconnected diagonals. This changes the visual
-contour within a cell; collision and logical terrain stay on the original grid.
-Only biome borders replaced by these native transitions skip the old blend strips;
-structural borders continue rendering. `tools/build_ra_terrain_trial.py` exports
-eight source-native mask families into `assets/ArtTrials/RogueTerrain/tiles.png`.
-One bounded startup atlas caches all 4096 Rogue combinations; ordinary draws only select
-frames before the terrain cache receives them, with no per-cell pixel reads or
-texture creation. Stable world-coordinate noise introduces native brown-soil patches in village
-grass and olive/dark-olive patches in forest grass. These are appearance samples,
-not logical terrain changes. `tools/build_rogue_objects.py` exports native objects,
+`TerrainTransitions` samples four adjacent materials from the renderer's geographic
+ring, including tile-row seam resolution. Every surface material and selected
+Nexus ground has a stackable transition family: one opaque local base and up to
+three transparent native masks, with water last. Native 16px masks preserve
+outer/inner corners and disconnected diagonals. The atlas contains 26 families
+(416 frames, 256 × 416 pixels), including public residential light slate, cold slate, original square commercial
+concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
+`tools/build_ra_terrain_trial.py` records each interior and mask source in the
+export manifest. Both rendering backends select these frames without a
+permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
+use stable world-cell hashes; variants within one material share a boundary
+mask, so concrete grout and rubble do not acquire internal soil cutouts.
+Collision and logical terrain remain unchanged. `GroundMaterials` owns family
+rows, selected crops, terrain mappings and variant groups for both export and
+runtime. Surface atlas selection precedes fallback texture lookup. The retired
+rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
+and empty border layer are removed.
+The colour-ramp blur and legacy shoreline strips are removed; structural
+floors, source road paving, mountain edges and rift ground keep their owners.
+
+`tools/build_rogue_objects.py` exports native objects,
 source assembly provenance and measured bounds; `WorldArtProfile` selects the
 active Rogue object module without per-frame canvases or pixel reads. Water uses
 the calm study palette, without animated ripples.
@@ -149,7 +161,7 @@ Rogue loads for normal URLs and legacy profile query values. Older Dreamland
 profile code, exports and study tools are preserved under
 `extra_assets/inactive/` and are not loaded by the game.
 
-`RATerrainTrial.status(scene)` exposes readiness and current material coverage for
+`TerrainTransitions.status(scene)` exposes readiness and current material coverage for
 visual validation; `node test/ra-terrain-unit.cjs` checks selection and bake rules.
 
 ## World layers
@@ -352,17 +364,20 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-A five-unit brown border follows the footprint at 60% opacity. A shared
+A five-unit brown border follows the footprint at 72% opacity. A shared
 64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
 replacing individual dash polygons without a custom shader or per-building bake.
 All profiles use the shared mask; their masonry palettes remain independent.
 The border stays on the ground
 beneath actors and masonry. Loose rubble uses the same clipped-corner
-footprints as the wall blocks, without sharp highlight strips.
-The subdued brown base has alpha 154/255 (60%, byte-rounded). Broad, softly
-blended grime and worn patches reduce ground alpha to 72–120/255, exposing
+footprints as the wall blocks, without sharp highlight strips. Their side
+vertices shade from 65% brightness at ground contact to unchanged brightness
+at the top, adding no geometry and leaving the lids unchanged.
+The subdued brown base has alpha 185/255 (73%, byte-rounded). Broad, softly
+blended grime and worn patches reduce ground alpha to 86–144/255, exposing
 more underlying terrain without adding fine grain. The background alone is
-20% darker; embedded stone scatter keeps its original palette.
+20% darker, with grime another 20% darker. Embedded stone scatter is 20%
+lighter and more opaque; raised masonry keeps its original palette.
 Sparse ground chips are composited separately, while raised
 masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
 this atlas. Ground follows the exact triangulated footprint and sorts below
@@ -1075,14 +1090,13 @@ the reach rim within the existing player-light radius.
   biome texture (`Render.roadBackdropType`): explicit street ground, then recorded
   source landcover (`roadUnder` / `pathUnder`), then the surrounding biome and grass. Never paint raw road colours or separate path
   pebbles beneath the band; their grid edges read as a second road.
-- Native RA ground materials follow resolved landcover, never coordinate-noise
-  soil islands. Grass shares the Orchard native family; Residential uses
-  `G09-light-slate`, the Rock crop lifted 30 levels so suburbs do not read dark
-  (Rock, quarries and bedrock keep `G09-cold`). Churchyard and Tar Yard (including their Nexus variants) use their tinted
-  interiors with RA earth masks; water layers last to preserve its authored banks.
-  Game and map review share these transitions. Other Nexus materials retain their
-  selected texture owner. Ten families bound the startup atlas to 1600 × 1600 pixels
-  (9.8 MiB RGBA); no runtime pixel reads or per-cell canvases are added.
+- Native RA ground materials follow resolved landcover. Grass shares the Orchard
+  family; Residential retains its light slate; Rock uses cold slate. Commercial uses the original
+  R01/R02 square concrete interiors. Churchyard, Tar Yard, Grove, scrub, trimmed
+  rocky ground and selected Nexus textures all use their own masked interiors.
+  Water layers last to preserve its authored banks. Map review selects the same
+  material interiors without geographic transitions. Mountain boundary artwork
+  still follows its separate neighbour mask above the transitioning substrate.
 - Road surfaces use sparse, individually shaded cobbles with transparent ground
   gaps, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
@@ -1093,14 +1107,13 @@ the reach rim within the existing player-light radius.
   its solid charcoal surface and ember warning. Rail ballast stays solid.
   Theme ground verges are disabled: source landcover remains beneath and beside
   roads, while existing props, hazard rules and route identities remain in place.
-  Commercial sandstone remains an independent landcover material.
-- Opaque selected terrain supplies its dominant ink for existing fills and seam blends,
+  Commercial ground uses original square concrete, independently of road stone.
+- Opaque selected terrain supplies its dominant ink for existing fills,
   sampled once per material when the atlas loads. `SELECTED_TERRAIN` maps landcover
   to selected ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
   changing ownership, props, trees or gameplay. Keep the existing transition masks.
-  One bounded startup atlas holds the 15 rounded-corner combinations for surface
-  materials, reusing the renderer’s existing corner flags. Transparent cutouts reveal
-  neighbour fills; existing blend and shoreline strips remain above the textures.
+  Stacked native masks own surface edges. Underground, structural floors, tilled
+  beds, rift ground and unmapped fog retain their dedicated fallback materials.
   Houses keep their existing floor owner. Temple polygons use F02 weathered RA slabs
   until activation, then F03 pale restored slabs; tar sanctuaries bake a dark palette
   onto the same source tiles. Existing coping, foundations and rune illumination remain.
@@ -1384,9 +1397,14 @@ harvesting, deterministic eggs, and the separate hedge treatment remain intact.
 Only visible cell candidates enter the retained batch; heading and subcell
 movement reuse its geometry. Reeds retain their existing sprite presentation.
 
-- `?terrainLayers=on` enables the layered native-terrain prototype. It draws one
-  full local material plus up to three source-mask overlays in the same priority
-  order as the baked atlas, with water last. A reusable sprite pool preserves
-  per-cell ordering; Canvas folds those sprites into its existing viewport cache.
-  The prototype skips the permutation atlas entirely. The default remains baked
-  for comparison until visual and movement-performance measurements justify a switch.
+- Stacked native terrain is unconditional, including for old `terrainLayers`
+  URLs. It draws one complete local material plus up to three source-mask
+  overlays in stable priority order, with water last. The reusable sprite pool
+  preserves per-cell ordering; Canvas folds the sprites into its viewport cache.
+  No material-permutation atlas or colour-blur fallback remains.
+
+Underground floor transitions remain separate from the surface stack.
+`FloorWallMaterials.groundTexture` selects a complete tile by depth and role
+(ground, route, accent, pad or sewer channel). Role changes do not sample four
+neighbouring materials. Cave wall crowns and faces use their own neighbour-mask
+atlas and retained geometry.

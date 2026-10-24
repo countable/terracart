@@ -202,11 +202,11 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
     // Compare the Nexus's material pass against the actual pre-bedrock land.
     // Its protected coverage also changes which neighbouring private cells
     // receive the later collision material, without changing their substrate.
-    for (const r of [on, off]) if (r.grid[i] === T.EXCLUSION_ROCK) {
+    for (const r of [on, off]) if ([T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(r.grid[i])) {
       assert.eq(r.gameplayTiers[i], GameplayTiers.EXCLUDED, `cell ${i}: bedrock follows Excluded`);
     }
-    const before = off.grid[i] === T.EXCLUSION_ROCK ? off.variantBaseGrid[i] : off.grid[i];
-    const after = on.grid[i] === T.EXCLUSION_ROCK ? on.variantBaseGrid[i] : on.grid[i];
+    const before = [T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(off.grid[i]) ? off.variantBaseGrid[i] : off.grid[i];
+    const after = [T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(on.grid[i]) ? on.variantBaseGrid[i] : on.grid[i];
     if (after === before) {
       assert.falsy(zoneCodes.has(after), 'a zone code only where the halo painted');
       continue;
@@ -818,7 +818,7 @@ test('zones: each kind has a shipped story painting, and every line fits', () =>
     'the feet tick tells it, painted by its own stem');
 });
 
-test('zones: every zone terrain is enumerated — colour, texture, family, walkable, rounded', () => {
+test('zones: every zone terrain is enumerated — colour, texture, family, walkable, masked', () => {
   const textures = new Function(TEXTURES_SRC + '\nreturn BIOME_TEX;')();
   const painters = { 28: 'drawGroveTex', 29: 'drawChurchyardTex', 31: 'drawTarYardTex' };
   for (const [name, code] of [['GROVE', 28], ['CHURCHYARD', 29], ['TAR_YARD', 31]]) {
@@ -835,7 +835,11 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
   }
   assert.eq(BiomeProfiles.flora(T.GROVE), BiomeProfiles.flora(T.PARK), 'a grove plays like a park');
   assert.falsy(BIOME_FAUNA.deer.primary.includes(T.GROVE), 'deer are confined to forest and residential ground');
-  assert.truthy(/FLAT_ROUNDABLE = new Set\(\[[^\]]*\b29\b[^\]]*\b31\b/.test(RENDER_SRC), 'the two flat halos round their corners');
+  const transitions = new Function(ALL_SRC['ground_materials.js'] + '\n' +
+    ALL_SRC['terrain_transitions.js'] + '\nreturn TerrainTransitions;')();
+  for (const code of [T.GROVE, T.CHURCHYARD, T.TAR_YARD])
+    assert.truthy(transitions.material(code) >= 0, 'each halo has native transition masks');
+  assert.falsy(RENDER_SRC.includes('FLAT_ROUNDABLE'), 'halo edges no longer use generic corner rounding');
   assert.eq(T.GROVE !== 30 && T.CHURCHYARD !== 30 && T.TAR_YARD !== 30, true, '30 stays the unmapped veil');
 });
 

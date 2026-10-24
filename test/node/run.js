@@ -97,7 +97,7 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
+  'mvt.js', 'util.js', 'ground_materials.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.
   'streets.js',
   // Street variants. Pure (reads WorldGen / Streets at CALL time), before worldgen.js like the page.
@@ -149,7 +149,7 @@ const FILES = [
   'sandbox_art.js',
   'sandbox.js',
   // render.js reads no globals at load time (see the CANVAS_W comment in
-  // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
+  // drawObjects), so it loads safely and exposes its pure helpers.
   // The lightmap: only draw() touches Phaser, and no test calls it.
   'lighting_gpu.js', 'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
@@ -1182,19 +1182,19 @@ ctx.RENDER_SRC = readSrc('render.js');
 // with the stubs above); tilled_bed.test.js runs drawTilledTex against a recording 2D context.
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
-  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('ground_materials.js') + '\n' + readSrc('textures.js')
     + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD, makeBerryBushTexture };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
 ctx.SHRINE_PAD = ctx.TILLED_TEX.SHRINE_PAD;
 // textures.js as TEXT: traps.test.js pins that both trap textures are baked one cell square off TRAP_PX.
-ctx.TEXTURES_SRC = readSrc('textures.js');
+ctx.TEXTURES_SRC = readSrc('ground_materials.js') + '\n' + readSrc('textures.js');
 // The trap art, in its own context like TILLED_TEX; these makers take a SCENE,
 // so traps.test.js hands them a stub whose createCanvas returns a recording 2D context.
 ctx.TRAP_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
-  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('ground_materials.js') + '\n' + readSrc('textures.js')
     + '\nglobalThis.__x = { makeHiddenTrapTexture, makeSprungTrapTexture, makeTrapTextures, TRAP_PX };',
     c, { filename: 'textures.js#traps' });
   return c.__x;

@@ -167,7 +167,7 @@ for(const fixture of fixtures){
  assert(border.length>0,fixture.name+': the footprint has a ground border');
  const perimeter=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+Math.hypot(q.x-p.x,q.y-p.y);},0);
  assert(border.length<=points.length*4+Math.ceil(perimeter/64)*2,fixture.name+': border uses strips rather than individual dash polygons');
- assert(border.every(f=>f.opacity===.6),fixture.name+': border stays translucent');
+ assert(border.every(f=>f.opacity===.72),fixture.name+': border stays translucent');
  const edgeDistance=p=>Math.min(...points.map((a,i)=>{
   const b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y;
   const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));

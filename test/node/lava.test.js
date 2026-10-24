@@ -58,13 +58,13 @@ test('lava: level 6 turns BUILDING rock to lava — not road or water rock, and 
   }
 });
 
-test('lava: selected native variants retain the shoreline and fallback painter', () => {
+test('lava: selected native variants retain their liquid fallback painter without legacy seam strips', () => {
   const spec = new Function('lerp', TEXTURES_SRC + '\nreturn BIOME_TEX[26];')((a, b, t) => a + (b - a) * t);
   assert.eq(spec.variants, 2, 'both selected lava alternatives are spatial variants');
   assert.falsy(spec.animPhases, 'selected alternatives stay put rather than flashing between sources');
   assert.truthy(/function drawLavaTex\([^)]*\) \{\s*\n\s*drawWaterTex\(ctx, size, rng, phaseFrac, LAVA_INKS\);/.test(TEXTURES_SRC),
     'the water drawing, in lava inks');
-  assert.truthy(/type === WATER \|\| type === LAVA/.test(RENDER_SRC), 'and water\'s shoreline');
+  assert.falsy(/LAVA_CRUST_COLOR|SURF_COLOR|BLUR_STEPS/.test(RENDER_SRC), 'native ground masks replace the legacy shoreline strips');
 });
 
 test('lava: the player burns on the surface and lava level, by the feet, through the one writer', () => {
