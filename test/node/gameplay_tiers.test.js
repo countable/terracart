@@ -15,6 +15,20 @@
     assert.eq(at(r,35,35),1);assert.eq(at(r,84,35),2);assert.eq(at(r,140,35),2);assert.eq(at(r,245,35),4);
     assert.eq(r.stats.cells.reduce((a,b)=>a+b,0),N*N);
   });
+  test('gameplay tiers: mapped school grounds qualify without a separate park polygon',()=>{
+    for(const klass of ['school','college','university','education']) {
+      const e=entry([layer('landuse',[polygon(klass,[rect(0,0,280,280)])]),
+        layer('building',[polygon('school',[rect(0,0,70,70)])])]);
+      e.spawnWhy[20*N+20]=WorldGen.SPAWN_WHY.KINDERGARTEN;
+      const r=run(e);
+      assert.eq(at(r,210,210),1,`${klass}: grounds are core`);
+      assert.eq(at(r,35,35),4,'school building stays excluded');
+      assert.eq(at(r,140,140),4,'kindergarten exclusion stays authoritative');
+      e.layers[0].features[0].tags.access='private';
+      assert.eq(at(run(e),210,210),4,'explicit private access stays excluded');
+    }
+    assert.eq(at(run(entry([layer('landuse',[polygon('kindergarten',[rect(0,0,280,280)])])])),210,210),4);
+  });
   test('gameplay tiers: transportation area holes and recreation-ground landcover survive',()=>{
     const e=entry([layer('transportation',[polygon('pedestrian',[rect(0,0,140,140),rect(35,35,70,70)])]),layer('landcover',[polygon('grass',[rect(140,0,280,140)],{subclass:'recreation_ground'})])]);
     const r=run(e);assert.eq(at(r,14,14),1);assert.eq(at(r,49,49),4);assert.eq(at(r,210,49),1);

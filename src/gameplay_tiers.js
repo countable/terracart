@@ -37,7 +37,7 @@
   const RECORD_CLASSES=Object.freeze({pressure_plate:'hazard',stakes:'streetObstacle'});
   const classForRecord=(record,fallback='minor')=>record?._spawnClass || RECORD_CLASSES[record?.kind] || fallback;
   const CORE = new Set(['park', 'garden', 'beach', 'dog_park']);
-  const REC = new Set(['recreation_ground', 'sports_centre', 'sports', 'pitch', 'playground', 'stadium']);
+  const REC = new Set(['recreation_ground', 'sports_centre', 'sports', 'pitch', 'playground', 'stadium', 'school', 'college', 'university', 'education']);
   const NATURAL = new Set(['wood', 'woodland', 'forest', 'grass', 'grassland', 'meadow', 'heath']);
   const NONROAD = new Set(['rail', 'railway', 'transit', 'ferry', 'aerialway']);
   const smallRoad=(tags,WG)=>WG.classifyLine('transportation',tags)===WG.T.ROAD;
