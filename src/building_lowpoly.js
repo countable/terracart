@@ -32,7 +32,7 @@
     wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,ink:0x000000}};
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.
   const WRECK_INSIDE_LIGHT=.7;
-  const WRECK_BORDER={color:0x5e574a,alpha:.35,width:3};
+  const WRECK_BORDER={color:0x514a3e,alpha:.6,width:5,period:64,maskX:400,maskY:136};
   const mix=(a,b,t)=>{const c=i=>Math.round(((a>>i)&255)*(1-t)+((b>>i)&255)*t);return (c(16)<<16)|(c(8)<<8)|c(0);};
   const hash=(x,y)=>{let h=(x*374761393+y*668265263)|0;h=(h^(h>>>13))*1274126177;return ((h^(h>>>16))>>>0)/4294967296;};
   // Cell order of assets/Objects/BuildingMaterials/reference-materials-v3.png.
@@ -599,23 +599,25 @@
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       // Flat ground follows the exact triangulated footprint, including concave returns.
       for(const t of triangulate(points).triangles)faces.push({kind:'roof',debris:true,layer:-1,color:0xffffff,light:1,rawUV:true,points:(cross(...t)<0?[...t].reverse():t).map(p=>({...p,z:0,u:1+(p.x-xlo)/Math.max(1,xhi-xlo)*382,v:129+(p.y-ylo)/Math.max(1,yhi-ylo)*382}))});
-      // A light, translucent broken trace follows the footprint. Seeded dash
-      // lengths and gaps make it weathered rather than a continuous outline.
+      // One masked strip per texture repeat replaces the separate dash quads.
+      // The shared atlas supplies the gaps; no per-building texture bake or
+      // custom shader is needed, and the seeded phase keeps edges varied.
       const border=(poly)=>{
         if(cross(poly[0],poly[1],poly[2])<0)poly=[...poly].reverse();
         for(let i=1;i<poly.length-1;i++)faces.push({kind:'trim',debris:true,footprintBorder:true,
-          layer:-.8,color:WRECK_BORDER.color,opacity:WRECK_BORDER.alpha,light:1,solid:true,
-          points:[poly[0],poly[i],poly[i+1]].map(p=>({...p,z:.01,u:510,v:126}))});
+          layer:-.8,color:WRECK_BORDER.color,opacity:WRECK_BORDER.alpha,light:1,rawUV:true,
+          points:[poly[0],poly[i],poly[i+1]].map(p=>({...p,z:.01}))});
       };
       ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y)||1;
         const dx=(b.x-a.x)/len,dy=(b.y-a.y)/len,nx=-dy*WRECK_BORDER.width/2,ny=dx*WRECK_BORDER.width/2;
-        let at=1+random(i,83)*4;
-        for(let j=0;at<len-1;j++){
-          const end=Math.min(len-1,at+4+random(i*97+j,89)*4);
+        const phase=Math.floor(random(i,83)*WRECK_BORDER.period);
+        for(let at=1;at<len-1;){
+          const start=(phase+at)%WRECK_BORDER.period,end=Math.min(len-1,at+WRECK_BORDER.period-start);
           const p={x:a.x+dx*at,y:a.y+dy*at},q={x:a.x+dx*end,y:a.y+dy*end};
-          border([{x:p.x+nx,y:p.y+ny},{x:q.x+nx,y:q.y+ny},
-            {x:q.x-nx,y:q.y-ny},{x:p.x-nx,y:p.y-ny}]);
-          at=end+5+random(i*97+j,97)*4;
+          const u0=WRECK_BORDER.maskX+start,u1=u0+end-at,v0=WRECK_BORDER.maskY+1,v1=v0+6;
+          border([{x:p.x+nx,y:p.y+ny,u:u0,v:v0},{x:q.x+nx,y:q.y+ny,u:u1,v:v0},
+            {x:q.x-nx,y:q.y-ny,u:u1,v:v1},{x:p.x-nx,y:p.y-ny,u:u0,v:v1}]);
+          at=end;
         }
       });
       // Chunks of fallen wall: low turned blocks with wall-top lids and end-face
@@ -1072,7 +1074,9 @@
     ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#968a76';ctx.fillRect(0,0,512,128);
     ctx.fillStyle='#b6aa93';ctx.fillRect(256,0,256,128);
-    ctx.fillStyle='rgba(95,87,74,0.5)';ctx.fillRect(0,128,512,384);
+    ctx.fillStyle='rgba(76,70,59,0.6)';ctx.fillRect(0,128,512,384);
+    ctx.clearRect(399,136,66,8);ctx.fillStyle='#ffffff';
+    for(const [x,w] of [[0,7],[13,5],[26,8],[39,6],[52,4],[64,1]])ctx.fillRect(400+x,136,w,8);
     ctx.fillStyle='#ffffff';ctx.fillRect(508,124,4,4);
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
@@ -1801,7 +1805,8 @@
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
     const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene,recipe):recipe.interior&&!skin?interiorSheet(scene,texture,recipe):texture;
-    if(!authored&&!skin){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
+    const borderTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene):null;
+    if(!authored&&!skin){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);if(borderTexture)state.textures.add(borderTexture.key);}
     // A standing building is ONE render object sorted at its footprint
     // near edge in the player's screen column. An INTERIOR (Home
     // while the player is inside) is one object PER WALL (interiorGeometry's
@@ -1886,7 +1891,7 @@
         face.color=face.kind==='wall'?0xffffff:recipe.body;
       // The untextured look (LOOK.textured=false) draws each face in its base colour.
       face.flat=face.tileCap?mix(recipe.roof,0x2a2229,.12):face.kind==='roof'&&!face.solid?recipe.roof:face.kind==='wall'?(face.chimney&&recipe.role!=='blacksmith'?LOOK.chimney.sides:recipe.body):face.color??recipe.trim;
-      face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=face.interior||face.wreckMasonry||face.wallTop||face.debris||face.steel?insideTexture:texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
+      face.preserveWalls=recipe.role==='fort'||!!face.chimney;face.eaveHeight=mesh.eaveHeight??mesh.height;face.support=support;face.texture=face.footprintBorder?borderTexture:face.interior||face.wreckMasonry||face.wallTop||face.debris||face.steel?insideTexture:texture;face.x=left;face.y=top;face.projected=face.points.map(()=>({}));state.faces.push(face);}
     return mesh;
     }
   }

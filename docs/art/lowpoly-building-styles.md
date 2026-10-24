@@ -176,11 +176,17 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-A subtle three-unit brown border follows the footprint in seeded 4–8-unit
-dashes separated by 5–9-unit gaps, at 35% opacity. It stays on the ground
+A five-unit brown border follows the footprint at 60% opacity. A shared
+64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
+replacing individual dash polygons without a custom shader or per-building bake.
+All profiles use the shared mask; their masonry palettes remain independent.
+The border stays on the ground
 beneath actors and masonry. Loose rubble uses the same clipped-corner
 footprints as the wall blocks, without sharp highlight strips.
-The subdued brown background has alpha 128/255 (50%, rounded to an 8-bit channel).
+The subdued brown base has alpha 154/255 (60%, byte-rounded). Broad, softly
+blended grime and worn patches reduce ground alpha to 72–120/255, exposing
+more underlying terrain without adding fine grain. The background alone is
+20% darker; embedded stone scatter keeps its original palette.
 Sparse ground chips are composited separately, while raised
 masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
 this atlas. Ground follows the exact triangulated footprint and sorts below

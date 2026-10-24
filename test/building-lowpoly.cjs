@@ -166,15 +166,15 @@ for(const fixture of fixtures){
  const border=mesh.faces.filter(f=>f.footprintBorder);
  assert(border.length>0,fixture.name+': the footprint has a ground border');
  const perimeter=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+Math.hypot(q.x-p.x,q.y-p.y);},0);
- assert(border.reduce((sum,f)=>sum+area(f.points),0)<perimeter*3*.7,fixture.name+': clear gaps interrupt the border');
- assert(border.every(f=>f.opacity===.35),fixture.name+': border stays translucent');
+ assert(border.length<=points.length*4+Math.ceil(perimeter/64)*2,fixture.name+': border uses strips rather than individual dash polygons');
+ assert(border.every(f=>f.opacity===.6),fixture.name+': border stays translucent');
  const edgeDistance=p=>Math.min(...points.map((a,i)=>{
   const b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y;
   const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
   return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
  }));
- assert(border.every(f=>f.debris&&f.points.every(p=>p.z===.01&&edgeDistance(p)<=1.50001)),
-  fixture.name+': the three-pixel ground stroke follows every concave edge without spikes');
+ assert(border.every(f=>f.debris&&f.points.every(p=>p.z===.01&&edgeDistance(p)<=2.50001)),
+  fixture.name+': the five-pixel ground stroke follows every concave edge without spikes');
  assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),
   fixture.name+': only masonry and ground rubble remain');
 }
@@ -324,3 +324,9 @@ for(const end of wreck.faces.filter(f=>f.wallEnd)){
   assert(nx*(x-a.x)+ny*(y-a.y)<1e-6,'broken wall end faces the exposed side');}
 }
 assert(exposedEnds>0,'checks exposed wall-end winding');
+
+// Gaps now live in the shared alpha mask, not extra geometry.
+const dashAtlas=require('../tools/sprite_audit.js').decodePng(fs.readFileSync('assets/Objects/BuildingMaterials/wreck-plinth.png'));
+const dashAlpha=Array.from({length:64},(_,x)=>dashAtlas.data[(140*dashAtlas.w+400+x)*4+3]);
+assert(dashAlpha.filter(a=>a===0).length>=30&&dashAlpha.filter(a=>a===255).length>=25,
+ 'shared border texture has substantial clear gaps and solid dashes');
