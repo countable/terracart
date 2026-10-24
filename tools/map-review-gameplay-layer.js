@@ -8,23 +8,8 @@
   // Centroids of actual polygons in the four cached research samples. These
   // are navigation shortcuts, not canned overlays: the current loaded source
   // geometry is classified at every destination, including unseen places.
-  const SITES = [
-    ['Mission Recreation Park', 'Kelowna', 49.840122, -119.478114],
-    ['Mission Creek Greenway', 'Kelowna', 49.848356, -119.465315],
-    ['Munson Pond Park', 'Kelowna', 49.863568, -119.460689],
-    ['Stanley Park — southern sample', 'Vancouver', 49.294466, -123.144238],
-    ['English Bay Beach Park', 'Vancouver', 49.283500, -123.141500],
-    ['Vanier Park', 'Vancouver', 49.276137, -123.143068],
-    ['Kitsilano Beach Park', 'Vancouver', 49.274865, -123.153277],
-    ['Seattle Center', 'Seattle', 47.622061, -122.351266],
-    ['Volunteer Park', 'Seattle', 47.630389, -122.315597],
-    ['Judkins Park', 'Seattle', 47.593716, -122.303883],
-    ['Volkspark Friedrichshain', 'Berlin', 52.527255, 13.435355],
-    ['Görlitzer Park', 'Berlin', 52.497175, 13.436156],
-    ['Fernsehturm / Neptunbrunnen plaza', 'Berlin', 52.520189, 13.408785],
-  ];
 
-  function create({ map, toLL, getEdge, toggle, legend, summary, details, opacity, sitePick }) {
+  function create({ map, toLL, getEdge, toggle, legend, summary, details, opacity }) {
     const pane = map.createPane('gameplayTiers');
     pane.style.zIndex = 425;
     pane.style.pointerEvents = 'none';
@@ -35,7 +20,7 @@
     const defaultDetails = 'Click coloured ground for its tier and source evidence. This proposal does not change current spawns.';
     details.textContent = defaultDetails;
 
-    for (const id of [1, 2, 3, 0, 4]) {
+    for (const id of [1, 2, 3, 4]) {
       const tier = row(id), label = document.createElement('label');
       label.innerHTML = `<input type="checkbox" data-tier="${id}"${shown.has(id) ? ' checked' : ''}>`
         + `<span class="sw sq" style="background:${esc(tier.color)}"></span> ${esc(tier.label)}`;
@@ -46,19 +31,6 @@
       };
       legend.appendChild(label);
     }
-    for (const [index, site] of SITES.entries()) {
-      const option = document.createElement('option');
-      option.value = index; option.textContent = `${site[1]} · ${site[0]}`;
-      sitePick.appendChild(option);
-    }
-    sitePick.onchange = () => {
-      if (sitePick.value === '') return;
-      const site = SITES[Number(sitePick.value)], url = new URL(location.href);
-      url.searchParams.set('lat', site[2]); url.searchParams.set('lon', site[3]);
-      url.searchParams.set('r', '1'); url.searchParams.set('tiers', '1');
-      url.searchParams.set('site', site[0]); url.searchParams.set('base', 'osm');
-      location.assign(url.href);
-    };
 
     function sync() {
       if (toggle.checked) layer.addTo(map); else map.removeLayer(layer);
@@ -88,10 +60,10 @@
         ], { pane: 'gameplayTiers', opacity: Number(opacity.value), interactive: false }).addTo(layer);
       }
       const stats = result.stats;
-      summary.innerHTML = [1, 2, 3, 0, 4].map(id =>
+      summary.innerHTML = [1, 2, 3, 4].map(id =>
         `<div><span style="color:${esc(row(id).color)}">${esc(row(id).label)}</span>`
         + ` <b>${(stats.ha[id] || 0).toFixed(2)} ha</b></div>`).join('')
-        + '<p>Cell-centre estimates across all loaded tiles, including hidden tiers. Unknown and excluded land are not gameplay recommendations.</p>';
+        + '<p>Cell-centre estimates across all loaded tiles, including hidden tiers. Excluded land includes areas without qualifying mapped evidence.</p>';
       sync();
     }
     async function refresh() {
@@ -131,7 +103,7 @@
       const tier = row(tile.tiers[i]), reason = GameplayTiers.REASONS[tile.reasons[i]];
       const content = `<b>${esc(tier.label)}</b><p>${esc(tier.description)}</p>`
         + `<p><b>Evidence:</b> ${esc(reason?.label || 'No matching mapped evidence')}</p>`
-        + '<p>Road and designated walking-path corridors extend 3 game cells beyond their edges. Road buffers take precedence over Tier 1 path buffers. Tiers infer intended gameplay from map features, not live traffic.</p>'
+        + '<p>Road corridors extend 3 game cells beyond their edges. All mapped paths and a 1-cell buffer are core and take precedence over road tiers. Tiers infer intended gameplay from map features, not live traffic.</p>'
         + '<small>Road surfaces and current access/spawn exclusions still apply. Review overlay only.</small>';
       details.innerHTML = content;
       return { tier: tier.id, reason: reason?.id, content, entry: e, cell: i };
@@ -140,5 +112,5 @@
     opacity.oninput = () => layer.eachLayer(item => item.setOpacity(Number(opacity.value)));
     return { update, inspect, layer, get result() { return result; } };
   }
-  root.MapReviewGameplay = { create, SITES };
+  root.MapReviewGameplay = { create };
 })(globalThis);

@@ -217,7 +217,14 @@ material-colour variants where the source pack provides suitable choices.
 
 In `map-review.html`, clicking bare ground opens terrain, underlying landcover, zone influence,
 variant, zone nexus pattern, spawn restrictions and tile/cell coordinates.
-The gameplay tier is included when its overlay is enabled.
+The gameplay tier is included when its overlay is enabled. Parking polygons and
+the source-derived lot safety mask (including point-only lots and inferred aisles)
+are Tier 3 passing. Old Stones nexus coverage, including absorbed adjoining lots,
+is Tier 2 calm. Medium and major road corridors remain Tier 3 even with
+sidewalks or parallel paths; only small roads qualify as calm. All mapped paths
+and a one-cell buffer beyond their edges are core, overriding other tiers. Source building/water footprints and access exclusions still win.
+Areas without qualifying mapped evidence are Excluded, with the reason retained
+in the inspection popup.
 Click a road or path for its source name/type, rendered variant and width,
 assignment length, affinity context, name influences and source feature IDs.
 At crossings the popup includes up to three nearby routes; ground details remain expandable.

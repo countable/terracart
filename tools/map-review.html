@@ -51,10 +51,10 @@
   button.on{background:#c8a64a;color:#1a1612;border-color:#c8a64a}
   #status{color:#c8a64a;margin:6px 0;min-height:1.2em}
   #game{display:none}
-  #reviewDepth,#zonePick,#sourceFilter,#laneFilter,#gameplaySite{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
-  #gameplaySummary,#gameplayDetails,.gameplay-policy{font-size:11px;line-height:1.5;margin:7px 0}
+  #reviewDepth,#zonePick,#sourceFilter,#laneFilter{width:100%;background:#292929;color:#eee;border:1px solid #666;padding:5px;margin:3px 0}
+  #gameplaySummary,#gameplayDetails{font-size:11px;line-height:1.5;margin:7px 0}
   #gameplaySummary b{float:right} #gameplayDetails{padding:8px;background:#242c2c}
-  .gameplay-policy p,#gameplaySummary p,#gameplayDetails p{margin:6px 0}
+  #gameplaySummary p,#gameplayDetails p{margin:6px 0}
   #zoneDetails{font-size:12px;line-height:1.5;margin:8px 0;padding:8px;background:#242c2c}
   #zoneDetails p{margin:6px 0} #sourceLegend{font-size:11px;line-height:1.5}
   #legend button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;margin:2px 0;padding:5px 6px;background:transparent;border:1px solid transparent}
@@ -82,16 +82,8 @@
   <label><input id="gameplayTiers" type="checkbox"> Show gameplay-tier layer</label>
   <div id="gameplayLegend"></div>
   <label>Layer opacity <input id="gameplayOpacity" aria-label="Gameplay tier opacity" type="range" min="0.15" max="0.85" step="0.05" value="0.45"></label>
-  <label for="gameplaySite">Suggested area</label>
-  <select id="gameplaySite"><option value="">Explore a researched site…</option></select>
   <div id="gameplaySummary" role="status">Enable the layer to classify the loaded area.</div>
   <div id="gameplayDetails"></div>
-  <details class="gameplay-policy"><summary>Policy and map evidence</summary>
-  <p><b>Tier 1:</b> core daily value, fast/ranged enemies and elites, butterflies, easily extracted resources. Parks/beaches, designated walking paths, plazas, rec grounds and footway areas.</p>
-  <p><b>Tier 2:</b> slow enemies, pets and other animals, basic resources. Grassland/forest, roadside paths, residential through roads, churches and public-facing commercial sites.</p>
-  <p><b>Tier 3:</b> occasional or one-time edge finds, passive/static threats, simple taps and passive walking progress. Parking, residential dead ends and major/medium roads without paths.</p>
-  <p>Three-cell road buffers use current game dimensions. Measured traffic volumes and speeds are not available. Restricted ground remains excluded; missing evidence remains unknown. This layer does not alter gameplay.</p>
-  </details>
   </div></details>
   <details class="review-section"><summary>Nexus zones</summary><div class="section-body">
   <label><input id="zoneLabels" type="checkbox" checked> Show nexus names and variants</label>
@@ -338,7 +330,7 @@ const laneReview = MapReviewLanes.create({map,toLL,getEdge:()=>EDGE,
 $('gameplayTiers').checked = Q.get('tiers') === '1';
 const gameplayReview = MapReviewGameplay.create({ map, toLL, getEdge: () => EDGE,
   toggle: $('gameplayTiers'), legend: $('gameplayLegend'), summary: $('gameplaySummary'),
-  details: $('gameplayDetails'), opacity: $('gameplayOpacity'), sitePick: $('gameplaySite') });
+  details: $('gameplayDetails'), opacity: $('gameplayOpacity') });
 const gameArt = MapReviewArt.layer({
   toLL, getEdge: () => EDGE,
   onStatus: (message) => { $('artStatus').textContent = message; },

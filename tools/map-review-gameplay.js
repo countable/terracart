@@ -2,26 +2,26 @@
 // or measured traffic. Does not alter generation, rewards, enemies or masks.
 (function (root) {
   const TIERS = [
-    { id: 0, label: 'Unclassified', color: '#86909c', description: 'No qualifying source geometry; access and traffic unknown.' },
     { id: 1, label: 'Tier 1 · core', color: '#21c8aa', description: 'Daily value, fast/ranged enemies and elites, butterflies, easily extracted resources.' },
     { id: 2, label: 'Tier 2 · calm', color: '#f4bf54', description: 'Slow, non-ranged enemies, pets and animals except butterflies, basic resources.' },
     { id: 3, label: 'Tier 3 · passing', color: '#e77d76', description: 'Occasional edge pickups, simple taps or passive walking; passive/static threats only.' },
-    { id: 4, label: 'Excluded', color: '#69647c', description: 'Buildings, water, restricted/private or other existing access exclusions.' },
+    { id: 4, label: 'Excluded', color: '#69647c', description: 'Buildings, water, restricted/private ground, other existing access exclusions, or no qualifying mapped evidence.' },
   ];
   const REASONS = [
-    ['No qualifying mapped geometry', 0], ['Park / garden / beach', 1],
-    ['Recreation ground', 1], ['Pedestrian / footway area', 1], ['Designated walking path', 1],
+    ['No qualifying mapped geometry', 4], ['Park / garden / beach', 1],
+    ['Recreation ground', 1], ['Pedestrian / footway area', 1], ['Mapped path / one-cell buffer', 1],
     ['Mapped grassland / woodland', 2], ['Public-facing commercial ground', 2],
     ['Church grounds / point vicinity', 2], ['Small road; through or connectivity unconfirmed', 2],
     ['Road with a mapped parallel path / sidewalk', 2], ['Path / core ground within road buffer', 2],
     ['Parking polygon / retained parking lane', 3], ['Residential dead end', 3],
-    ['Major / medium road without mapped path', 3], ['Other vehicle road', 3],
+    ['Major / medium road', 3], ['Other vehicle road', 3],
     ['Building / water footprint', 4], ['Explicit access restriction', 4],
-    ['Existing land/access exclusion', 4], ['Path use or vehicle access unconfirmed', 0],
+    ['Existing land/access exclusion', 4], ['Path use or vehicle access unconfirmed', 4],
+    ['Old Stones nexus / absorbed adjoining parking', 2],
   ].map(([label, tier], id) => ({ id, label, tier }));
   const R = { UNKNOWN:0, PARK:1, REC:2, PLAZA:3, PATH:4, NATURAL:5, COMMERCIAL:6,
     CHURCH:7, SMALL:8, SIDEPATH:9, BUFFER:10, PARKING:11, DEADEND:12,
-    MAJOR:13, OTHER:14, SURFACE:15, ACCESS:16, GATE:17, UNCERTAIN_PATH:18 };
+    MAJOR:13, OTHER:14, SURFACE:15, ACCESS:16, GATE:17, UNCERTAIN_PATH:18, STONES:19 };
   const CORE = new Set(['park', 'garden', 'beach', 'dog_park']);
   const REC = new Set(['recreation_ground', 'sports_centre', 'sports', 'pitch', 'playground', 'stadium']);
   const NATURAL = new Set(['wood', 'woodland', 'forest', 'grass', 'grassland', 'meadow', 'heath']);
@@ -80,21 +80,14 @@
     };
   }
   function pathReason(tags) {
-    const c=tags.class==='path' && tags.subclass ? tags.subclass : tags.class,sub=tags.subclass;
     if(denied(tags)) return R.ACCESS;
-    // The game's PATH set also includes cycling and vehicle-capable tracks.
-    // Those are not automatically evidence of a designated walking location.
-    if(c==='platform') return R.UNCERTAIN_PATH;
-    if(c==='cycleway' && !['yes','designated'].includes(tags.foot)) return R.UNCERTAIN_PATH;
-    if(c==='track' && !['yes','designated'].includes(tags.foot)) return R.UNCERTAIN_PATH;
-    if(['yes','designated'].includes(tags.motor_vehicle) || tags.motorcar==='yes') return R.UNCERTAIN_PATH;
-    return sub==='crossing' || tags.footway==='crossing' ? R.BUFFER : R.PATH;
+    return R.PATH;
   }
   function polygonReason(layer,tags,WG) {
     const c=tags.class,sub=tags.subclass, values=[c,sub,tags.leisure,tags.natural,tags.landuse];
     if(layer==='water'||layer==='building') return R.SURFACE;
     if(denied(tags)) return R.ACCESS;
-    if(c==='parking'||sub==='parking'||tags.amenity==='parking') return R.PARKING;
+    if(['parking','motorcycle_parking'].includes(c)||sub==='parking'||tags.amenity==='parking') return R.PARKING;
     if(layer==='transportation' && (['pedestrian','footway'].includes(c) || c==='path' && ['pedestrian','footway'].includes(sub))) return R.PLAZA;
     // Mirrors WorldGen's unexported PARK_FAMILY_LAYER_CLASS; generic
     // protected_area can cover whole districts and must not become a park.
@@ -162,8 +155,8 @@
     for(const entry of world.tiles||[]) {
       const N=entry.cellsPerEdge,edge=data.edge,cell=edge/N,ox=entry.tx*edge,oy=entry.ty*edge;
       const bounds=[ox,oy,ox+edge,oy+edge],tiers=new Uint8Array(N*N),reasons=new Uint8Array(N*N), exclusions=new Uint8Array(N*N);
-      // Ground first, core above natural ground; roads deliberately override
-      // land destinations where their three-cell corridors overlap.
+      // Ground first; road corridors override land destinations, then core
+      // path bands take precedence before source/access exclusions.
       const priority={0:0,5:1,6:2,7:3,1:4,2:4,3:5,11:6};
       let operations=0;
       for(const p of data.polygons) if(overlaps(p.bounds,bounds)) {
@@ -180,11 +173,11 @@
       }
       const pathCells=new Uint8Array(N*N);
       for(const path of data.paths) {
-        const radius=path.reason===R.PATH ? WG.roadWidthM(path.tags)/2+3*cell : Math.max(cell*.71,WG.roadWidthM(path.tags)/2);
+        const radius=path.reason===R.PATH ? WG.roadWidthM(path.tags)/2+cell : Math.max(cell*.71,WG.roadWidthM(path.tags)/2);
         if(!overlaps(path.bounds,[ox-radius,oy-radius,ox+edge+radius,oy+edge+radius])) continue;
         for(const s of path.segments) stampSegment(s.a,s.b,radius,N,ox,oy,cell,i=>{
           if(path.reason===R.ACCESS) exclusions[i]=R.ACCESS;
-          else if(reasons[i]!==R.PARKING) {pathCells[i]=1;reasons[i]=path.reason;}
+          else {pathCells[i]=1;reasons[i]=path.reason;}
         });
         if(++operations%20===0) yield 'gameplay paths';
       }
@@ -204,7 +197,7 @@
               const px=p.b.x-p.a.x,py=p.b.y-p.a.y,pl=Math.hypot(px,py);
               return len>0&&pl>0&&Math.abs((dx*px+dy*py)/(len*pl))>.8;
             });
-            const reason=parking?R.PARKING:parallel?R.SIDEPATH:road.dead?R.DEADEND:major?R.MAJOR:small?R.SMALL:R.OTHER;
+            const reason=parking?R.PARKING:major?R.MAJOR:road.dead?R.DEADEND:small?(parallel?R.SIDEPATH:R.SMALL):R.OTHER;
             const rank=parking?6:reason===R.MAJOR?5:reason===R.DEADEND?4:reason===R.OTHER?3:2;
             stampSegment(a,b,radius,N,ox,oy,cell,(i)=>{
               if(rank>roadPriority[i]) {roadPriority[i]=rank;roadReason[i]=reason;}
@@ -214,10 +207,16 @@
         }
         if(++operations%20===0) yield 'gameplay road buffers';
       }
+      const coverage=entry.zone?.coverage || entry.zone?.idx;
       const tileStats=freshStats(),realEdge=WG.tileEdgeMeters(WG.latOfRowCentre(entry.ty)),ha=(realEdge/N)**2/10000;
       const gateMask=WG.SPAWN_WHY_LAND ?? (WG.SPAWN_WHY_HARD&~(WG.SPAWN_WHY.ROAD|WG.SPAWN_WHY.TERRAIN));
       for(let i=0;i<reasons.length;i++) {
-        if(roadReason[i] && reasons[i]!==R.PARKING) reasons[i]=pathCells[i] && roadReason[i]!==R.PARKING?R.BUFFER:roadReason[i];
+        if(roadReason[i] && reasons[i]!==R.PARKING) reasons[i]=pathCells[i] && REASONS[roadReason[i]].tier===2?R.BUFFER:roadReason[i];
+        // Reuse the source-derived lot mask, including point-only lots and
+        // inferred aisles. Old Stones owns its absorbed adjoining lot cells.
+        if(entry.roadClass?.[i]&WG.ROAD_CLASS_LOT_BUFFER) reasons[i]=R.PARKING;
+        if(entry.zone?.anchors?.[coverage?.[i]-1]?.kind==='stones') reasons[i]=R.STONES;
+        if(pathCells[i]) reasons[i]=R.PATH;
         const gate=entry.spawnWhy?.[i]||0;
         // ROAD/KERB are evidence we are displaying, not exclusion reasons.
         // Terrain paint may be fictional lava/water, so only source footprints
