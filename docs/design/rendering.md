@@ -341,12 +341,17 @@ opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wrecks follow the Foundation trace preview: sparse 1–2-unit stone footings,
-broad breaches, stepped tops, and a few low fallen fragments. About a quarter
-of the perimeter survives, with three-unit thickness. There are no roofs or
-raised framing. Native Ruined Medieval Village stone and fine Rogue Adventure
-rubble share one prebuilt atlas. The flat floor follows
-the exact triangulated footprint and sorts as a ground decal beneath the player.
+Wreck foundations use broad, low stone runs with open breaches and scattered
+fallen masonry. Four of seven bays survive before entrance cuts, with four-unit
+thickness and varied heights up to three units. Loose blocks scale with footprint
+area, capped at eighteen. There are no roofs or raised framing.
+`tools/build_wreck_plinth.py` builds the shared atlas from native Ruined Medieval
+Village stone and Rogue Adventure dirt/grit. Stone caps and sides stay opaque;
+the flat ground is a partially transparent, dark faded stain with scattered
+rubble, so the underlying terrain remains visible. The WebGL overlay must not
+paint an opaque floor beneath this atlas. Its ground follows the exact
+triangulated footprint and sorts below the player. Rogue palette preparation
+preserves texture alpha. No per-building material is generated.
 Each raised section sorts independently at its baseline, so the player can walk
 between near and far remains. Surface player movement already permits wrecks.
 Damage is seeded by building identity and stays stable across reloads and camera

@@ -1849,4 +1849,30 @@ test('building overlay: the low-poly path gives forts a copper hall and mounted 
   }
 });
 
+
+test('building overlay: translucent wreck ground has no opaque underpainting', () => {
+  clearTiles();
+  const previousStyle = Render.buildingArtStyle;
+  const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
+    update: BuildingLowPoly.update, clear: BuildingLowPoly.clear };
+  let added = 0;
+  Render.buildingArtStyle = 'procedural';
+  BuildingLowPoly.active = () => true;
+  BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
+  BuildingLowPoly.add = () => { added++; return { faces: [1], height: 3 }; };
+  try {
+    const entry = putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'wreck')]);
+    entry.objects = [{ kind: 'house', id: 'wreck', tier: 9, x: 5, y: 5 }];
+    const { scene } = makePerspectiveScene();
+    scene.save = { restoredHouses: {} };
+    BuildingOverlay.draw(scene);
+    assert.eq(added, 1, 'the mesh draws the wreck and its translucent ground');
+    assert.eq(scene.buildingGeomGfx.only('fill').length, 0, 'terrain remains visible underneath');
+    assert.eq(scene.buildingGeomGfx.only('texture').length, 0, 'no opaque paving underneath');
+  } finally {
+    Object.assign(BuildingLowPoly, saved);
+    Render.buildingArtStyle = previousStyle; clearTiles();
+  }
+});
+
 })();

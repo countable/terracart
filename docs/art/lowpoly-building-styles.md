@@ -165,19 +165,17 @@ These settings do not stretch or add floors to the reviewed exterior models.
 
 ## Wrecks
 
-Wrecks follow the Foundation trace art preview: sparse 1–2-unit stone
-footings, about three units thick, with two surviving bays in each nine-bay
-run. Small fallen fragments stay below two units. Roofs, rafters and leaning
-panels are absent. Every height step has an outward-facing end cap. Arbitrary
-concave footprints retain their exact ground area.
-
-`tools/build_wreck_plinth.py` builds `wreck-plinth.png` from the preview's
-Ruined Medieval Village B03 stone crop (16,18,16,10) and Rogue Adventure
-Cavern dirt and grit tiles at (224,16) and (272,16). Caps and sides share the
-weathered stone pixels; fine source chips cover the flat earth. The shared
-512px atlas holds side masonry in its upper-left quarter, caps in the
-upper-right, and flat rubble below y=128. No per-building material is
-generated. Rogue/Dreamland retain their prepared profile palette variants.
+Wreck foundations use broad, low stone runs with open breaches and scattered
+fallen masonry. Four of seven bays survive before entrance cuts, with four-unit
+thickness and varied heights up to three units. Loose blocks scale with footprint
+area, capped at eighteen. There are no roofs or raised framing.
+`tools/build_wreck_plinth.py` builds the shared atlas from native Ruined Medieval
+Village stone and Rogue Adventure dirt/grit. Stone caps and sides stay opaque;
+the flat ground is a partially transparent, dark faded stain with scattered
+rubble, so the underlying terrain remains visible. The WebGL overlay must not
+paint an opaque floor beneath this atlas. Its ground follows the exact
+triangulated footprint and sorts below the player. Rogue palette preparation
+preserves texture alpha. No per-building material is generated.
 The floor sorts below actors; individual raised sections sort at their wall
 baselines. Breaches, doorway clearance and scattered blocks use stable IDs.
 

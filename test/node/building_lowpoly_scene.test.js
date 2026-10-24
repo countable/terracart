@@ -229,7 +229,7 @@
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck');
     assert.truthy(mesh.faces.length,'rubble material remains');
     const top=Math.max(...mesh.faces.flatMap(f=>f.points.map(p=>p.z)));
-    assert.inRange(top,1,2,'every wall and rubble piece stays within the low plinth height');
+    assert.inRange(top,1,3,'every wall and rubble piece stays within the low plinth height');
     assert.falsy(mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof or metal framing remains');
     assert.truthy(new Set(mesh.faces.filter(f=>f.wallTop).map(f=>f.points[0].z.toFixed(1))).size>1,'stub heights vary');
     const pieces=BuildingLowPoly.worldPieces(scene);
@@ -262,7 +262,7 @@
     const mesh=BuildingLowPoly.add(scene,FOOT,recipe,'ridge','wreck-rubble');
     const lids=mesh.faces.filter(f=>f.rubbleTop);
     assert.gte(lids.length/2,3,'a few chunks of wall lie about: '+lids.length/2);
-    assert.truthy(lids.every(f=>f.points.every(p=>p.z>0&&p.z<2)),'chunks are shallow stone fragments');
+    assert.truthy(lids.every(f=>f.points.every(p=>p.z>0&&p.z<2.5)),'chunks are shallow stone fragments');
     assert.truthy(mesh.faces.filter(f=>f.rubble).every(f=>Math.min(...f.points.map(p=>p.z))>=0),'chunks rest on the ground');
     // The cel pass's darkest step is light < .65: the floor and inner walls stay above it.
     for(const f of mesh.faces.filter(f=>f.debris||f.interior))assert.gte(f.light,.65,'interior faces take the middle cel step');
@@ -317,7 +317,7 @@
         width+'x'+height+' has no surviving roof structure');
       assert.truthy(mesh.faces.some(f=>f.wallTop),'broken walls still remain');
       assert.truthy(mesh.faces.some(f=>f.debris),'the rubble floor still remains');
-      assert.truthy(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=2)),'the whole wreck stays below two pixels');
+      assert.truthy(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=3)),'the whole wreck stays below three pixels');
     }
   }));
   test('low-poly fade: translucent buildings omit filled outline passes that hide the player', () => withPhaser(() => {

@@ -1650,7 +1650,9 @@
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
         const profile = Render.buildingProfileFor(object, scene);
         const styleId = profile.style;
-        if (styleId === 'ruin') {
+        // The WebGL wreck atlas owns its translucent ground; an opaque
+        // underpainting here would hide the terrain beneath its stains.
+        if (styleId === 'ruin' && !lowpoly) {
           const floor = tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier, isMine)));
           g.fillPoly(d.pts, floor);
           if (g.texturePoly) g.texturePoly(d.pts, d.tier);

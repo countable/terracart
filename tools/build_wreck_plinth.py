@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Build the Foundation trace atlas from the art preview's native source tiles."""
 from pathlib import Path
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFilter, ImageEnhance
 import random
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -16,21 +16,35 @@ atlas = Image.new('RGBA', (512, 512), '#504b3d')
 for y in range(0, 128, 10):
     for x in range(0, 512, 10):
         atlas.alpha_composite(stone, (x, y))
-# Ground stays flat; fine native chips carry the rubble detail.
-floor = Image.new('RGBA', (384, 384), '#71695a')
+# A translucent, uneven stain lets the original grass/earth show through.
+# Stone caps remain opaque; only the ground region carries this alpha.
+floor = Image.new('RGBA', (384, 384), (0, 0, 0, 0))
+rng = random.Random(126)
+mask = Image.new('L', floor.size, 22)
+stains = ImageDraw.Draw(mask)
+for _ in range(85):
+    x, y = rng.randrange(384), rng.randrange(384)
+    w, h = rng.randrange(15, 72), rng.randrange(10, 54)
+    stains.ellipse((x-w, y-h, x+w, y+h), fill=rng.randrange(40, 105))
+mask = mask.filter(ImageFilter.GaussianBlur(8))
 for y in range(0, 384, 16):
     for x in range(0, 384, 16):
-        tile = dirt.copy()
-        tile.putalpha(tile.getchannel('A').point(lambda a: round(a * .75)))
+        tile = ImageEnhance.Brightness(dirt).enhance(.55)
         floor.alpha_composite(tile, (x, y))
-floor = Image.alpha_composite(floor, Image.new('RGBA', floor.size, (119, 114, 99, 53)))
-rng = random.Random(126)
-for _ in range(3200):
+floor.putalpha(mask)
+# Larger, legible native chips are scattered over the stain, with gaps between.
+# Their dark faded tones settle into the terrain instead of making a bright slab.
+for _ in range(1300):
     x, y = rng.randrange(384), rng.randrange(384)
-    size = rng.randrange(4, 8)
-    chip = grit.resize((size, max(3, round(size * .8))), Image.Resampling.NEAREST)
-    chip.putalpha(chip.getchannel('A').point(lambda a: round(a * .72)))
+    size = rng.randrange(6, 13)
+    chip = grit.resize((size, max(4, round(size * .8))), Image.Resampling.NEAREST)
+    chip = ImageEnhance.Brightness(chip).enhance(.65)
+    chip.putalpha(chip.getchannel('A').point(lambda a: round(a * .55)))
     floor.alpha_composite(chip, (x, y))
+# Keep even overlapped rubble translucent.
+alpha = floor.getchannel('A')
+alpha = alpha.point(lambda a: min(a, 165))
+floor.putalpha(alpha)
 atlas.paste(floor, (0, 128))
 ImageDraw.Draw(atlas).rectangle((508, 124, 511, 127), fill='white')
 atlas.save(OUT)

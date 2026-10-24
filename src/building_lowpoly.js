@@ -533,11 +533,11 @@
       // Stable identity seeds the broad breaches and scattered masonry.
       const seed=Array.from(String(identity||points.map(p=>p.x+','+p.y).join(';'))).reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261)>>>0;
       const random=(n,salt)=>hash(seed+n,salt);
-      const H=2,SECTION=7,base=geometry(points,'ridge',H,0),faces=[],W=wreckLook(recipe);
+      const H=3,SECTION=7,base=geometry(points,'ridge',H,0),faces=[],W=wreckLook(recipe);
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
       // Narrow annexes may reject a thick inset. Keep damage and doorway cuts
       // even when only a thin (or zero-thickness) wall strip can fit.
-      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,3)||BuildingStyles.inset(ring,1)||BuildingStyles.inset(ring,.5)))||ring;
+      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,4)||BuildingStyles.inset(ring,1)||BuildingStyles.inset(ring,.5)))||ring;
       let piece=null;const pieces=[];
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,piece,...extra});return faces.at(-1);};
       const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
@@ -559,8 +559,8 @@
             return {x:ai.x+dx*u,y:ai.y+dy*u};
           };
           for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count;
-            // Two shallow footing stones survive in each nine-bay run.
-            parts.push({edge:i,len,dir,t0,t1,h:((k+Math.floor(random(i,19)*9))%9<2?[1,2][(k+Math.floor(random(i,19)*9))%9]:0),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
+            // Broken runs retain enough broad stones to read at the game camera scale.
+            parts.push({edge:i,len,dir,t0,t1,h:((k+Math.floor(random(i,19)*7))%7<4?[2,3,2,1][(k+Math.floor(random(i,19)*7))%7]:0),o0:{x:a.x+dir.x*t0,y:a.y+dir.y*t0},o1:{x:a.x+dir.x*t1,y:a.y+dir.y*t1},i0:innerAt(t0),i1:innerAt(t1)});}});
         const longest=parts.reduce((a,b)=>b.len>a.len?b:a).edge,span=parts.filter(p=>p.edge===longest);
         const start=Math.max(0,Math.floor(span.length/2)-1),gone=span[start],last=span[Math.min(start+1,span.length-1)];
         gone.h=0;last.h=0;gap={o0:gone.o0,o1:last.o1,i0:gone.i0,i1:last.i1};
@@ -616,7 +616,7 @@
       // sides. Several spill out through the gap; the rest lie inside along the
       // walls. The same building seed keeps rubble consistent with its damage.
       const chunk=(k,x,y)=>{piece=pieces.length;pieces.push({a:{x:x-2,y},b:{x:x+2,y}});const n=hash(seed+k,29),m=hash(seed+k,31),a=n*Math.PI,dx=Math.cos(a),dy=Math.sin(a);
-        const L=(3+2*m)/2,w=(2+1.2*n)/2,h=.6+1.2*hash(seed+k,37);
+        const L=(4+3*m)/2,w=(3+2*n)/2,h=.8+1.7*hash(seed+k,37);
         const base=[{x:x-dx*L+dy*w,y:y-dy*L-dx*w},{x:x+dx*L+dy*w,y:y+dy*L-dx*w},{x:x+dx*L-dy*w,y:y+dy*L+dx*w},{x:x-dx*L-dy*w,y:y-dy*L+dx*w}];
         const ccw=cross(base[0],base[1],base[2])>0,ring=ccw?base:[...base].reverse();
         ring.forEach((p,i)=>{const q=ring[(i+1)%4],e=[{...p,z:0},{...q,z:0},{...q,z:h},{...p,z:h}].map((v,j)=>({...v,u:8+(j===1||j===2?Math.hypot(q.x-p.x,q.y-p.y):0),v:16-v.z}));
@@ -630,7 +630,8 @@
       if(gap){const mx=(gap.o0.x+gap.o1.x)/2,my=(gap.o0.y+gap.o1.y)/2,ox=mx-(gap.i0.x+gap.i1.x)/2,oy=my-(gap.i0.y+gap.i1.y)/2,ol=Math.hypot(ox,oy)||1;
         const tx=gap.o1.x-gap.o0.x,ty=gap.o1.y-gap.o0.y;
         for(const [along,out] of [[-.3,4],[.25,6]]){chunk(chunks++,mx+tx*along+ox/ol*out,my+ty*along+oy/ol*out);}}
-      for(let k=0;k<20&&chunks<6;k++){const n=hash(seed+k,41),m=hash(seed+k,43);
+      const rubbleCount=Math.max(10,Math.min(18,Math.round(Math.abs(points.reduce((a,p,i)=>{const q=points[(i+1)%points.length];return a+p.x*q.y-q.x*p.y;},0)/2)/900)));
+      for(let k=0;k<rubbleCount*8&&chunks<rubbleCount;k++){const n=hash(seed+k,41),m=hash(seed+k,43);
         const x=xlo+6+(xhi-xlo-12)*n,y=ylo+6+(yhi-ylo-12)*m;
         if(inside({x,y})&&inside({x:x+4,y})&&inside({x:x-4,y})&&inside({x,y:y+4})&&inside({x,y:y-4}))chunk(chunks++,x,y);}
       const mesh={...base,faces,pieces,roofPatches,roofOutline,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
@@ -1070,7 +1071,7 @@
     ctx.imageSmoothingEnabled=false;
     ctx.fillStyle='#968a76';ctx.fillRect(0,0,512,128);
     ctx.fillStyle='#b6aa93';ctx.fillRect(256,0,256,128);
-    ctx.fillStyle='#706758';ctx.fillRect(0,128,512,384);
+    ctx.fillStyle='rgba(52,48,39,0.3)';ctx.fillRect(0,128,512,384);
     ctx.fillStyle='#ffffff';ctx.fillRect(508,124,4,4);
     tex.refresh();tex.setFilter(Phaser.Textures.FilterMode.NEAREST);return tex;
   }
