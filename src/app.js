@@ -9793,7 +9793,7 @@ class MapScene extends Phaser.Scene {
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
     // shop's stone / ore / gem per tier, the turret's flat five): a type card
-    // quotes its sole rank's price, or "from" its cheapest rank; a rank card
+    // quotes its sole rank's price, or waits for the rank screen; a rank card
     // its own. The charge at accept is the picked rank's.
     const costFor = (row) => Houses.buildCost(this.save, house, row, order);
     const costLine = (c) => {
@@ -9821,7 +9821,8 @@ class MapScene extends Phaser.Scene {
       : undefined;
     // STEP ONE — THE TYPE. Offer availability, not affordability, decides
     // what is listed; a card the player cannot pay for shows its price in
-    // red. Accept restores a sole-rank type on the spot and opens the rank
+    // red. Tapping a multi-rank type opens its rank screen. Accept restores
+    // a sole-rank type on the spot and opens the rank
     // screen for the rest (its button says which); the Hammer does the same,
     // restoring shiny or carrying on to the rank screen. `choice` is the
     // type the player came Back from, kept selected.
@@ -9830,21 +9831,21 @@ class MapScene extends Phaser.Scene {
       title: 'Building type',
       choices: types.map((t) => {
         const row = t.ranks[0], sole = soleRank(t);
-        const costs = t.ranks.map(costFor);
-        const c = sole ? costs[0] : costs.reduce((min, x) => (x.qty < min.qty ? x : min));
+        const c = sole ? costFor(sole) : null;
         const isNew = t.ranks.some((r) => Houses.isNewPick(this.save, r));
-        const line = (sole ? '' : 'from ') + costLine(c);
+        const line = sole ? costLine(c) : '';
         return {
           key: t.key,
           acceptLabel: sole ? 'Restore' : 'Choose rank',
+          onSelect: sole ? undefined : () => showTiers(t.key),
           // Name, NEW, then the price: compact, so the cards and the Restore
           // row fit the dialog without a scroll.
           label: labelFor(row, null)
             + (isNew ? `<div style="line-height:1.15;margin-top:2px">${newBadgeHTML(8)}</div>` : '')
-            + `<div style="margin-top:3px;font-size:11px">${line}</div>`,
+            + (sole ? `<div style="margin-top:3px;font-size:11px">${line}</div>` : ''),
           iconHTML: iconFor(row),
           cost: line,
-          canAfford: costs.some(affords),
+          canAfford: sole ? affords(c) : true,
           suggested: t.ranks.some((r) => r.suggested?.(this.save)),
         };
       }),

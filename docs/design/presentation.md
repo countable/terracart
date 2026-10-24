@@ -30,6 +30,11 @@ pixels and decorative details do not define additional tap cells.
   owns its art key; distinct routes do not borrow one another’s paintings.
   New paintings ship with regenerated loading thumbnails and cache hashes.
 
+- Wreck restoration lists building types first. Tapping a type with multiple
+  available ranks opens the rank picker immediately; its type card omits cost.
+  Each rank shows its own price, and Back returns to the type picker. A type
+  with one available rank keeps its price and the existing Restore action.
+
 - Restoring a wreck runs a three-second work sequence before charging materials:
   the player's sprite scurries around all four footprint sides and swings a
   pixel hammer. The body/GPS and interaction origin stay put while movement
