@@ -3003,12 +3003,23 @@
   // belongs to a neighbouring building. Omitted → every cell is fair game
   // (the historical behaviour).
   function tidyFootprintCells(cells, dropCrumbs, isFree) {
+    if (!cells.length) return [];
     const free = typeof isFree === 'function' ? isFree : () => true;
-    const key = (x, y) => x + ',' + y;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const [x, y] of cells) {
+      minX = Math.min(minX, x); minY = Math.min(minY, y);
+      maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+    }
+    // Cleanup only fills between existing cells, so its bounds cannot grow.
+    // Numeric local keys retain Set insertion order without coordinate strings.
+    const width = maxX - minX + 1;
+    const key = (x, y) => (y - minY) * width + x - minX;
+    const xOf = k => minX + k % width, yOf = k => minY + Math.floor(k / width);
     let set = new Set(cells.map(([x, y]) => key(x, y)));
-    const has = (x, y) => set.has(key(x, y));
+    const has = (x, y) => x >= minX && x <= maxX && y >= minY && y <= maxY && set.has(key(x, y));
     const orthN = (x, y) => (has(x + 1, y) ? 1 : 0) + (has(x - 1, y) ? 1 : 0)
                           + (has(x, y + 1) ? 1 : 0) + (has(x, y - 1) ? 1 : 0);
+    const orth = [[1, 0], [-1, 0], [0, 1], [0, -1]], diagonalY = [-1, 1];
     if (dropCrumbs && set.size > 1) {
       // Largest 8-connected component (first-found wins ties — input order is
       // the deterministic scanline order, so this is stable across reloads).
@@ -3019,10 +3030,10 @@
         const comp = [start];
         seen.add(start);
         for (let i = 0; i < comp.length; i++) {
-          const [x, y] = comp[i].split(',').map(Number);
+          const x = xOf(comp[i]), y = yOf(comp[i]);
           for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
             const k = key(x + dx, y + dy);
-            if (set.has(k) && !seen.has(k)) { seen.add(k); comp.push(k); }
+            if (has(x + dx, y + dy) && !seen.has(k)) { seen.add(k); comp.push(k); }
           }
         }
         if (!best || comp.length > best.length) best = comp;
@@ -3033,8 +3044,8 @@
       changed = false;
       // Notch / pinhole fill: empty cells bordered on ≥3 orthogonal sides.
       for (const k of [...set]) {
-        const [x, y] = k.split(',').map(Number);
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const x = xOf(k), y = yOf(k);
+        for (const [dx, dy] of orth) {
           const ex = x + dx, ey = y + dy;
           if (!has(ex, ey) && orthN(ex, ey) >= 3 && free(ex, ey)) { set.add(key(ex, ey)); changed = true; }
         }
@@ -3042,23 +3053,25 @@
       // Diagonal-only contact: bridge with the empty corner cell that ends up
       // better connected.
       for (const k of [...set]) {
-        const [x, y] = k.split(',').map(Number);
-        for (const dy of [-1, 1]) {
+        const x = xOf(k), y = yOf(k);
+        for (const dy of diagonalY) {
           if (!has(x + 1, y + dy) || has(x + 1, y) || has(x, y + dy)) continue;
           const n1 = orthN(x + 1, y), n2 = orthN(x, y + dy);
-          const ranked = n1 > n2 ? [[x + 1, y], [x, y + dy]] : n2 > n1 ? [[x, y + dy], [x + 1, y]]
-                       : dy < 0 ? [[x, y + dy], [x + 1, y]] : [[x + 1, y], [x, y + dy]];  // tie → the upper cell
+          const first = n1 > n2 || (n1 === n2 && dy > 0); // tie → the upper cell
           // Bridge with the better-connected corner, or the other one if that
           // cell belongs to someone else. If neither is free the diagonal
           // contact stays — never worth an overlap.
-          const pick = ranked.find(([px, py]) => free(px, py));
-          if (!pick) continue;
-          set.add(key(pick[0], pick[1]));
+          let px = first ? x + 1 : x, py = first ? y : y + dy;
+          if (!free(px, py)) {
+            px = first ? x : x + 1; py = first ? y + dy : y;
+            if (!free(px, py)) continue;
+          }
+          set.add(key(px, py));
           changed = true;
         }
       }
     }
-    return [...set].map(k => k.split(',').map(Number));
+    return [...set].map(k => [xOf(k), yOf(k)]);
   }
   // --- Building footprint assignment (cell-exact, overlap-free) -------------
   // A cell belongs to the building that covers MORE THAN FOOT_COVER_MIN of it.
@@ -6090,7 +6103,8 @@
     const spawnWhy = yield* stampSpawnWhySteps({ layers, grid, w, h, mvtToCell, mvtToM,
       roadMask, roadClass, quietMask });
     const tierInput = { tx, ty, cellsPerEdge: w, tileEdgeM, layers, spawnWhy, roadClass, grid };
-    const initialTierField = yield* global.GameplayTiers.buildTileSteps(tierInput);
+    const tierGeography = yield* global.GameplayTiers.prepareTileSteps(tierInput);
+    const initialTierField = yield* global.GameplayTiers.buildTileSteps(tierInput, tierGeography);
     const gameplayTiers = initialTierField.tiers, gameplayReasons = initialTierField.reasons;
     registerGameplayTiers(grid, spawnWhy, gameplayTiers);
     // Preserve physical landcover before any Nexus or road-theme paint.
@@ -6114,7 +6128,7 @@
     // through the baseline passes, then apply this already-planned paint.
     const zonePlannedGrid = grid.slice();
     grid.set(variantBaseGrid);
-    const finalTierField = yield* global.GameplayTiers.buildTileSteps({ ...tierInput, zone });
+    const finalTierField = yield* global.GameplayTiers.buildTileSteps({ ...tierInput, zone }, tierGeography);
     gameplayTiers.set(finalTierField.tiers);
     gameplayReasons.set(finalTierField.reasons);
     // Replace polygon grass on final field terrain with one clustered cover
