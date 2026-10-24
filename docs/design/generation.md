@@ -638,11 +638,15 @@ access or tile lifecycle mechanics.
   between special sections. The existing special-theme roll retains its rarity;
   its remaining stretches select a common route theme. Paths also select these
   common themes alongside their existing choices. Rocky Road / Path has simple
-  rocks and loose stone; Grassy Lane has herbs and bushes; Old Growth Path has
+  rocks and loose stone; Grassy Lane fills eligible road cells and two verge
+  cells on each side with harvestable long grass, with herbs and bushes farther
+  out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
+  the shared land/occupancy gates. Old Growth Path has
   mature trees, shrubs and mushrooms; Haunted Forest Path has dark trees,
   headstones and mushrooms. Way of Variety densely fills both verges with
   deterministic common plants, rocks, mature trees, pots and barrels. All use
-  existing interactions and shared spawn gates, leaving the route itself clear.
+  existing interactions and shared spawn gates; Grassy Lane intentionally covers
+  its road surface too.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression and nighttime

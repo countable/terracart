@@ -466,7 +466,7 @@
       terrain: 'GRASS', affinities: ["cultivated"],
       stone: { weathered: '#83916c', restored: '#83916c' }, lampGlow: '#d8cf9c',
       story: 'street_grassy_lane', art: 'street_grassy_lane', title: 'Grassy Lane',
-      body: 'Soft grass, herbs and small bushes line the lane.', flash: 'Grassy Lane.' },
+      body: 'Thick grass covers the road and its verges, with herbs and bushes along the edges.', flash: 'Grassy Lane.' },
     { id: 'old_growth_path', baseline: true, size: 'minor', share: 0.2, pathWeight: 0.2, rung: 'common',
       terrain: 'FOREST', affinities: ["woodland"],
       stone: { weathered: '#69745b', restored: '#69745b' }, lampGlow: '#d8cf9c',
@@ -565,8 +565,10 @@
   const VERGE_ROWS = {
     rocky_path: [{ step: 21, side: 'both', walk: 2,
       emit: commonFind([COMMON_ROCK, { crop: 'flint' }, { crop: 'rubble' }]) }],
-    grassy_lane: [{ step: 14, side: 'both', walk: 2,
-      emit: commonFind([{ crop: 'petnip' }, { crop: 'shrub' }, { crop: 'berry' }]) }],
+    grassy_lane: [{ step: () => root.WorldGen.CELL_M / 2, crossRoad: true, walk: 2,
+      emit: commonFind([{ crop: 'longgrass' }]) },
+      { step: 14, side: 'both', start: () => 3, walk: 4,
+        emit: commonFind([{ crop: 'petnip' }, { crop: 'shrub' }, { crop: 'berry' }]) }],
     old_growth_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([OLD_TREE]) },
       { step: 14, side: 'both', walk: 1, emit: commonFind([{ crop: 'shrub' }, { crop: 'mushroom' }]) }],
     haunted_forest_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([DARK_TREE]) },
@@ -2120,12 +2122,19 @@
         return null;
       };
       let placed = 0, n = 0;
+      const crossSeats = new Set();
       sampleLine(rec.line, gM, step, step / 2, (s, x, y, nx, ny) => {
         const at = { s, n: n++, rng };
         if (row.max != null && placed >= row.max) return false;
         if (row.draw) row.draw(at);
         if (!S.covers(spans, s)) return;
         if (row.skip && row.skip(at)) return;
+        if (row.crossRoad) {
+          crossSection(rec, x, y, nx, ny, () => row.walk, crossSeats, (ix, iy) => {
+            claim(ix, iy); row.emit(D, at, { ix, iy }); placed++;
+          }, cellOk, spClass);
+          return;
+        }
         const sides = row.side === 'both' ? [1, -1] : [row.side(at)];
         const k0 = row.start ? row.start(at) : 1, kMax = row.walk || VERGE_MAX_CELLS;
         for (const side of sides) {
@@ -2148,7 +2157,7 @@
     // Cross the authored road only, then extend along each normal.
     // Existing pieces from this pass are transparent to repeated samples;
     // every unrelated obstacle terminates the ray instead of being skipped.
-    const crossSection = (rec, x, y, nx, ny, depth, owned, emit, groundOk = cellOk) => {
+    const crossSection = (rec, x, y, nx, ny, depth, owned, emit, groundOk = cellOk, spClass = 'streetObstacle') => {
       const roadSeats = new Set(), gate = { ...spawnOpts, roadClass: rc, streetObstacleCells: roadSeats, streetObstacleKind: rec.variant };
       for (const side of [1, -1]) {
         const start = 0;
@@ -2161,11 +2170,11 @@
           // center sits outside it. Include that tile in a barricade crossing,
           // or the ordinary road exclusion stops the line at the pavement.
           const normalDistance = Math.abs(((ix + .5) * CELL_M - x) * nx + ((iy + .5) * CELL_M - y) * ny);
-          const cellReach = rec.variant === 'barricade' && WG.isRoadTerrain(grid[i])
+          const cellReach = (rec.variant === 'barricade' || spClass === 'minor') && WG.isRoadTerrain(grid[i])
             ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
           const road = normalDistance <= rec.halfW + cellReach;
           if (road) roadSeats.add(i);
-          if (!WG.isSpawnCell(grid,N,N,ix,iy,gate,'streetObstacle')
+          if (!WG.isSpawnCell(grid,N,N,ix,iy,gate,spClass)
             || !road && !groundOk(ix,iy)) break;
           owned.add(i); emit(ix,iy);
         }
