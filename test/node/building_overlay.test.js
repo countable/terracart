@@ -1768,7 +1768,7 @@ test('building overlay: retail floor survives dissolved building shapes', () => 
 // ─── Forts: a palisade rim plus the gambling hall ──────────────────────────
 // A fort (tier 11, Houses.displayRole 'fort') is never a generated body. The
 // overlay paints its plank floor and the tier-11 pickets of perspectiveEdges
-// (separate 3px posts round the footprint, compass-aware like every wall),
+// (separate square posts round the footprint, compass-aware like every wall),
 // and leaves scene._proceduralBuildings alone so the RENDER_SPEC house row
 // still seats the gambling-hall sprite (house_fort) on the footprint's centre.
 // Pinned after a low-poly fort shell replaced the rim and hid the hall.
@@ -1793,14 +1793,16 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
     // Fort planks under the hall, as before.
     assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === T.BUILDING_MED), 'plank floor');
     // The rim: short posts, not continuous wall strips. A 64px side carries
-    // broader rounded pickets at the shared material pitch (perspectiveEdges).
+    // square pickets at the shared material pitch (perspectiveEdges).
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'pickets on every side of the footprint');
-    for (const b of pickets) {
+    const orderedPickets=pickets.slice().sort((a,b)=>a.order-b.order);
+    for (const [index,b] of orderedPickets.entries()) {
       const xs = b.points.map(p => p.x), ys = b.points.map(p => p.y);
       assert.lte(Math.max(...xs) - Math.min(...xs), WallMaterials.WOOD.width + .01, 'a picket, not a wall run');
       assert.lte(Math.max(...ys) - Math.min(...ys), WallMaterials.WOOD.width + .01, 'a picket, not a wall run');
-      assert.eq(b.top, WallMaterials.WOOD.height + WallMaterials.WOOD.tipHeight, 'pointed palisade height');
+      const expected=(WallMaterials.WOOD.height+WallMaterials.WOOD.tipHeight)*(index%2?1.1:1);
+      assert.lt(Math.abs(b.top-expected),1e-8,'every second perimeter log is ten percent taller');
       assert.truthy(b.materialFaces?.length, 'pickets carry the shared wood texture');
     }
     // Compass turns reuse the retained pickets rather than rebaking.
@@ -1815,7 +1817,7 @@ test('building overlay: a fort is a palisade rim round its footprint, with its h
 
 // The WebGL low-poly path hands houses to BuildingLowPoly.add; a fort must
 // never reach it (the shell was the regression), while its pickets still draw.
-test('building overlay: the low-poly path gives forts a gearhouse while retaining their palisade', () => {
+test('building overlay: the low-poly path gives forts a copper hall and mounted dice while retaining their palisade', () => {
   clearTiles();
   const previousStyle = Render.buildingArtStyle;
   const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
@@ -1824,7 +1826,7 @@ test('building overlay: the low-poly path gives forts a gearhouse while retainin
   Render.buildingArtStyle = 'procedural';
   BuildingLowPoly.active = () => true;
   BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
-  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role, authored: recipe.authored }); return { faces: [1], height: 10 }; };
+  BuildingLowPoly.add = (scene, pts, recipe, variant, id) => { added.push({ id, role: recipe.role, authored: recipe.authored }); return { faces: [1], height: 10, mountedSign: recipe.role === 'fort' }; };
   try {
     const entry = putShapes(0, 0, [
       rectShape(0, 0, 10, 10, T.BUILDING_MED, 'fort'),
@@ -1835,8 +1837,10 @@ test('building overlay: the low-poly path gives forts a gearhouse while retainin
     scene.save = { restoredHouses: { house: 'plain' } };
     BuildingOverlay.draw(scene);
     assert.eq(added.map(a => a.id).sort().join(','), 'fort,house', 'both inhabited buildings become meshes');
-    assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_gearhouse');
-    assert.truthy(scene._proceduralBuildings.has('fort'), 'the gearhouse replaces the fort sprite');
+    assert.eq(added.find(a => a.id === 'fort').authored.key, 'city_storefront');
+    assert.truthy(added.find(a => a.id === 'fort').authored.sourceShell, 'hall stays a separate central building');
+    assert.truthy(scene._proceduralBuildings.has('fort'), 'the copper hall replaces the fort sprite');
+    assert.truthy(scene._proceduralBuildings.get('fort').mountedSign, 'the mounted dice replaces the floating sign');
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'the palisade still rims the fort');
   } finally {

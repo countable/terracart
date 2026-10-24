@@ -49,6 +49,29 @@
   const withPhaser = (fn) => { const had = window.Phaser; window.Phaser = PHASER;
     try { return fn(); } finally { if (had === undefined) delete window.Phaser; else window.Phaser = had; } };
   const FOOT = [{ x: 100, y: 100 }, { x: 190, y: 100 }, { x: 190, y: 160 }, { x: 140, y: 160 }, { x: 140, y: 200 }, { x: 100, y: 200 }];
+  test('low-poly fort: source shell retains its central inset and one mounted dice board', () => withPhaser(() => {
+    const scene=stubScene(),texture=scene.textures.createCanvas('fort-source',512,1024);
+    const spec=AuthoredBuildings.SPECS.city_storefront,unit=16/spec.door[3];
+    const model={authoredKey:'city_storefront',texture,faces:CityBuildings.build({texture},spec,'city_storefront')};
+    for(const f of model.faces)for(const p of f.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const saved={build:AuthoredBuildings.build,skin:AuthoredBuildings.skin,getEmblem:AuthoredRoofPalette.getEmblem};
+    const emblem={sign:texture,signUV:[0,.1,.1,.2],signSideUV:[.3,.3]};
+    const ring=[{x:100,y:100},{x:220,y:100},{x:220,y:200},{x:100,y:200}];
+    try {
+      AuthoredBuildings.build=()=>model;
+      AuthoredBuildings.skin=()=>{throw Error('fort must retain its whole central shell');};
+      AuthoredRoofPalette.getEmblem=()=>emblem;
+      BuildingLowPoly.begin(scene);
+      const recipe=BuildingLowPoly.recipeFor('fort');recipe.authored=AuthoredBuildings.recipeFor('fort','fort');
+      const placed=BuildingLowPoly.add(scene,ring,recipe,null,'fort');
+      const expected=BuildingLowPoly.authoredGeometry(model,ring.map(p=>({x:p.x-100,y:p.y-100})),.65,null,emblem);
+      assert.eq(placed.height,expected.height,'sourceShell preserves the fort .65 fit margin');
+      assert.eq(placed.mountedSign,true,'overlay can suppress its extra label');
+      assert.eq(placed.faces.filter(f=>f.feature==='fort-sign').length,2,'one board remains on the native shell');
+    } finally {
+      AuthoredBuildings.build=saved.build;AuthoredBuildings.skin=saved.skin;AuthoredRoofPalette.getEmblem=saved.getEmblem;
+    }
+  }));
   test('Dreamland wrecks: native materials keep damaged geometry and never allocate during rebuild', () => withPhaser(() => {
     const scene=stubScene(),plain=BuildingLowPoly.recipeFor('wreck'),recipe={...plain,artProfile:'dreamland'};
     for(const key of ['dreamland_wreck_material','dreamland_wreck_interior']) scene.textures.createCanvas(key,512,512);

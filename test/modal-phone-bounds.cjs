@@ -8,7 +8,9 @@ const { chromium } = require('playwright-core');
     await page.addInitScript(() => {
       window.__TEST_MODE = true;
       document.addEventListener('DOMContentLoaded', () => {
-        window.phoneDialogs = ['bootload', 'story', 'howto', 'tooshort', 'locating']
+        // #tooshort is absent: it spans the whole viewport, because it only
+        // shows when the phone column is too small to hold anything.
+        window.phoneDialogs = ['bootload', 'story', 'howto', 'locating']
           .map(id => document.getElementById(id)?.cloneNode(true)).filter(Boolean);
       });
     });

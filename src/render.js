@@ -4163,7 +4163,8 @@ Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
   const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
   const key = `${home}|${inside}|${dark}|${score}`;
   if (scene._homeLuxuryLabel?.key !== key) {
-    scene._homeLuxuryLabel = { key, text: home && (inside || dark) ? String(score) : null };
+    scene._homeLuxuryLabel = { key, text: home && (inside || dark)
+      ? `House luxury level: ${score} · ${MemoryStory.luxuryRank(score)}` : null };
   }
   return scene._homeLuxuryLabel.text;
 };
@@ -4264,6 +4265,7 @@ const CRATE_LABEL_INK = '#ffffff';   // a loose supply crate: a pickup, not a pl
 const LABEL_STROKE    = '#14110c';
 const LABEL_STROKE_W  = 2;
 const LABEL_SHADOW    = 'rgba(0,0,0,0.75)';
+const HOME_LUXURY_GAP_PX = 10;
 const LABEL_STYLES = {
   // POI names (vertical, up the chest's right side) and crate labels.
   poi:     { origin: [0.5, 0], depth: 50, padding: { x: 4, y: 3 } },
@@ -4278,6 +4280,8 @@ const LABEL_STYLES = {
   heart:   { weight: '', stroke: false, origin: [0.5, 1], depth: Z_OVERLAY },
   // A creature's status word (Zzz, ♥) over its crown, in the status's ink.
   status:  { origin: [0.5, 1], depth: Z_OVERLAY },
+  // Home's luxury line over its sign (HOME_LUXURY_GAP_PX above it).
+  luxury:  { size: 7, color: '#ffffff', origin: [0.5, 0], depth: 50 },
   // The QC zone / road variant labels (?variantlabels), on a dark chip.
   variant: { color: '#fff0c4', background: '#172620', padding: { x: 3, y: 2 }, stroke: false, origin: [0.5, 1], depth: 60 },
 };
@@ -5403,11 +5407,8 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
-  const luxuryText = Render.homeLuxuryLabel(scene);
-  if (luxuryText !== null) {
-    const home = plain.find(item => item.o.id === scene.save.starterShopId);
-    if (home) plain.push({ ...home, luxuryText });
-  }
+  // Home's sign top, kept for the luxury line that sits above it.
+  let homeSignTop = null;
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: px, y: py } = project(dx, dy);
@@ -5415,11 +5416,10 @@ Render.drawObjects = function drawObjects(scene) {
     const sx = px + mid.x, sy = py + mid.y;
     // The label TOP hangs 12px below the art's middle (origin [0.5, 0], so
     // position y = label top): across the building's lower front, by its door.
-    const luxury = item.luxuryText !== undefined;
-    const full = luxury ? item.luxuryText : _houseSignText(o);
+    const full = _houseSignText(o);
     const home = _houseRole(o) === 'trailer';
-    const typed = home && !luxury ? _homeSignTyped(full) : full;
-    setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o, _houseRole(o))));
+    const typed = home ? _homeSignTyped(full) : full;
+    setColorOnce(tx, _lighten30(_houseSignInk(o, _houseRole(o))));
     tx.setText(full);
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
@@ -5428,7 +5428,8 @@ Render.drawObjects = function drawObjects(scene) {
     // the house is prisms, which have no art height.
     const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
     const homeLift = home ? (_houseArtH(o) ? _houseArtH(o) / 2 : HomeArea.HOUSE.signLiftPx) : 0;
-    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y - (luxury ? tx.height + 4 : 0)) : Math.round(sy) + 12;
+    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y) : Math.round(sy) + 12;
+    if (home && o.id === scene.save.starterShopId) homeSignTop = { x: sx + nudge.x, y: top };
     if (typed === full) {
       tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {
@@ -5440,6 +5441,17 @@ Render.drawObjects = function drawObjects(scene) {
     }
     fadeLabelOverPlayer(tx, _playerBox);
   }, labelFactory('sign'));
+  // Home's luxury line: small white text a clear gap above the sign, so it
+  // reads over the roof rather than across the house floor.
+  const luxuryText = Render.homeLuxuryLabel(scene);
+  const luxuryPool = scene.homeLuxuryPool || (scene.homeLuxuryPool = []);
+  Render.renderPool(scene, luxuryPool, scene.labelContainer,
+    luxuryText !== null && homeSignTop ? [homeSignTop] : [], (tx, at) => {
+      tx.setText(luxuryText);
+      tx.setPosition(Math.round(clampTextX(at.x, tx.width, CANVAS_W)),
+        Math.round(at.y - tx.height - HOME_LUXURY_GAP_PX));
+      fadeLabelOverPlayer(tx, _playerBox);
+    }, labelFactory('luxury'));
 
   // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
   // puffs that rise, sway and fade, each a fraction of a period behind the
@@ -6811,18 +6823,18 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // multi-frame sheets and would otherwise keep a stale frame index.
     well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true, shadow: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
-    // frame come from inventoryIconSource(itemId) so any item with an
-    // inventory icon can sit on the ground without per-kind plumbing.
-    // World stacks use the same selected sprite as inventory and shops.
+    // frame come from groundStackArt(itemId): the item's inventory icon, so
+    // any item can sit on the ground without per-kind plumbing, except Rock,
+    // which lies as the small loose pebble (items.js GROUND_STACK_ART).
     groundstack: {
       layer: WorldLayers.GROUND_DECAL,
-      key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
+      key: (o) => (groundStackArt(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
-        return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
+        return (groundStackArt(o.itemId) || {}).frame ?? 0;
       },
       // Dropped inventory art lies flat on the ground and follows its heading.
-      origin: [0.5, 0.5], scale: 1.8,
+      origin: [0.5, 0.5], scale: GROUND_STACK_ART.scale,
     },
   };
   // Resolve once per draw pass: animated frames, seating and shadow geometry

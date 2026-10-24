@@ -323,11 +323,14 @@
   // where the outer faces are culled, and a band across the wall tops between
   // the two, which is the walls' thickness seen from above. No trim, no
   // chimney, no beams: nothing stands above the eaves. The inner faces wear
-  // a shared interior sheet with the exterior opening UVs.
+  // a shared interior sheet with the exterior opening UVs. A SKINNED house
+  // (authoredOutline, base.authored) keeps its own skin: the outer faces are
+  // the facade the player saw from outside, cut at its eaves, the inner faces
+  // the same art turned inward, and the tops its plain wall texel.
   function interiorGeometry(base,thickness){
-    const key='interior:'+thickness+':'+JSON.stringify(base.faces);
+    const key='interior:'+thickness+':'+JSON.stringify(base.faces,(k,v)=>k==='texture'||k==='projected'||k==='support'?undefined:v);
     if(meshCache.has(key))return meshCache.get(key);
-    const H=base.height,ring=base.ring,faces=[];
+    const H=base.authored?base.eaveHeight??base.height:base.height,ring=base.ring,faces=[];
     // THE WALL EACH FACE STANDS ON (`edge`: the ring edge's index). Inside
     // Home the player walks among the walls, so `add` raises each wall as a
     // render object of its own and the shared world sort (render.js
@@ -343,7 +346,7 @@
         if(d<bestD){bestD=d;best=i;}});return best;};
     const cutZ=(poly,bound)=>{const out=[];poly.forEach((a,i)=>{const b=poly[(i+1)%poly.length],da=bound-a.z,db=bound-b.z;
       if(da>=-1e-8)out.push(a);
-      if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v'])p[k]=a[k]+(b[k]-a[k])*t;out.push(p);}});return out;};
+      if((da<0&&db>0)||(da>0&&db<0)){const t=da/(da-db),p={};for(const k of ['x','y','z','u','v','tu','tv'])if(a[k]!==undefined)p[k]=a[k]+(b[k]-a[k])*t;out.push(p);}});return out;};
     // Put the entire thickness outside the playable footprint. Preserve the
     // original edge parameter and UVs on both sides, including entrance bays.
     const outer=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,-thickness):null;
@@ -363,7 +366,12 @@
         faces.push({...f,points:[...tri].reverse(),interior:true,edge,wallDirection:{x:-dx,y:-dy}});
       }
     }
+    const skinWall=base.authored?base.faces.find(f=>f.kind==='wall'&&f.fallbackUV):null;
     if(outer)ring.forEach((d,i)=>{const c=ring[(i+1)%ring.length],a=outer[i],b=outer[(i+1)%ring.length];
+      if(skinWall){const [tu,tv]=skinWall.fallbackUV;
+        for(const tri of [[a,b,c],[a,c,d]])faces.push({...skinWall,points:tri.map(p=>({x:p.x,y:p.y,z:H,tu,tv})),
+          projected:tri.map(()=>({})),kind:'trim',layer:1,wallTop:true,edge:i,wallDirection:undefined,feature:'wall-top'});
+        return;}
       const length=Math.hypot(c.x-d.x,c.y-d.y);
       // A timber strip in the shared interior atlas wraps over the cut edge.
       const top=[{...a,u:0,v:112},{...b,u:Math.min(507,length/DETAIL_SCALE),v:112},
@@ -1705,7 +1713,9 @@
       for(const [l,r,u0,u1] of parts)emit([at(l*d,0),at(r*d,0),at(r*d,H),at(l*d,H)],[[u0,F.v+F.rows],[u1,F.v+F.rows],[u1,F.v],[u0,F.v]],'wall',dir);
       if(i===g.entranceEdge){const D=skin.door,W=skin.spec.right-skin.spec.left;
         const center=F.period?len/2:sourceFacadeSlices(skin.spec,len).center,from=Math.max(0,Math.min(len-D.w,F.period?center-D.w/2:center+W/2-(D.u-skin.spec.left)-D.w));
-        if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+nx,y:p.y+ny}),z0=D.bottom*d,z1=z0+D.h*d;
+        // The door stands 0.2 clear of its wall, as the flat shops' overlays
+        // do: at 0.1 it z-fought the facade on a phone, flickering in place.
+        if(len>=D.w+2){const nx=(b.y-a.y)/L*.1,ny=-(b.x-a.x)/L*.1,lift=p=>({...p,x:p.x+2*nx,y:p.y+2*ny}),z0=D.bottom*d,z1=z0+D.h*d;
           emit([at(from*d,z0),at((from+D.w)*d,z0),at((from+D.w)*d,z1),at(from*d,z1)].map(lift),[[D.u+D.w,D.v+D.h],[D.u,D.v+D.h],[D.u,D.v],[D.u+D.w,D.v]],'wall',{...dir,layer:.1});
           if(emblem?.sign){
             const width=6,gap=1.5,doorLeft=from*d,doorRight=(from+D.w)*d;
@@ -1827,9 +1837,30 @@
       }
     }
     faces.push(...decorations);
-    return {mountedSign,ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
+    return {mountedSign,ring:g.ring,faces,height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
-  function authoredGeometry(model,ring,inset=1,door=null){
+  function authoredGeometry(model,ring,inset=1,door=null,emblem=null){
+    if(emblem?.sign&&model.authoredKey==='city_storefront'){
+      // Fit the solid dice board with the hall, above the entrance and centered
+      // on its native front facade. Source coordinates retain the city's scale.
+      const spec=AuthoredBuildings.SPECS[model.authoredKey],C=Math.cos(Math.PI/6),unit=16/spec.door[3];
+      const x=(spec.right-spec.left)/2*unit,y=(spec.depth*2+.4)*unit,z=((spec.base-spec.eave)/C-34)*unit;
+      const W=34*unit,H=32*unit,T=3*unit,faces=[],template=model.faces[0];
+      const emit=(ps,front=false,shade=1)=>{
+        const [u0,v0,u1,v1]=emblem.signUV,uv=front?[[u0,v1],[u1,v1],[u1,v0],[u0,v0]]:Array(4).fill(emblem.signSideUV);
+        for(const ids of [[0,1,2],[0,2,3]])faces.push({...template,kind:'wall',feature:front?'fort-sign':'fort-sign-side',layer:.2,
+          texture:emblem.sign,roofPalette:false,sourceArt:true,rawUV:true,preserveWalls:true,color:0xffffff,light:1,shade,
+          points:ids.map(i=>({...ps[i],tu:uv[i][0],tv:uv[i][1]}))});
+      };
+      const p=(xx,yy,zz)=>({x:xx,y:yy,z:zz}),l=x-W/2,r=x+W/2;
+      emit([p(r,y+T,z),p(l,y+T,z),p(l,y+T,z+H),p(r,y+T,z+H)],true);
+      emit([p(l,y,z),p(r,y,z),p(r,y,z+H),p(l,y,z+H)],false,.75);
+      emit([p(l,y+T,z),p(l,y,z),p(l,y,z+H),p(l,y+T,z+H)],false,.8);
+      emit([p(r,y,z),p(r,y+T,z),p(r,y+T,z+H),p(r,y,z+H)],false,.8);
+      emit([p(l,y,z+H),p(r,y,z+H),p(r,y+T,z+H),p(l,y+T,z+H)]);
+      emit([p(l,y+T,z),p(r,y+T,z),p(r,y,z),p(l,y,z)],false,.7);
+      model={...model,mountedSign:true,faces:[...model.faces,...faces]};
+    }
     if(door){const {x:nx,y:ny}=door.normal;
       model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,x:ny*p.x+nx*p.y*.5,y:(-nx*p.x+ny*p.y*.5)*2}))}))};
     }
@@ -1906,19 +1937,22 @@
     // `entrance`) AND carries the plank door panel (doorFaces). Inside, the
     // bay stays on that wall and the panel is left off with the rest of the
     // outside.
-    const useAuthored=recipe.authored&&!recipe.interior&&typeof AuthoredBuildings!=='undefined';
+    const useAuthored=recipe.authored&&typeof AuthoredBuildings!=='undefined';
     // A reviewed skin goes on the lot's own walls; only the exempt landmarks
-    // (AuthoredBuildings.skin) keep a whole shell fit inside their lot.
+    // (AuthoredBuildings.skin) keep a whole shell fit inside their lot. A room
+    // (recipe.interior) keeps the skin, so Home's walls inside are the walls
+    // seen from outside; a whole shell has no room and falls back to the
+    // procedural walls.
     const skin=useAuthored&&!recipe.authored.sourceShell?AuthoredBuildings.skin(scene,recipe.authored.key,recipe.authored.palette):null;
-    const authored=useAuthored&&!skin?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
+    const authored=useAuthored&&!skin&&!recipe.interior?AuthoredBuildings.build(scene,recipe.authored.key,recipe.authored.palette):null;
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,(recipe.role==='fort'&&!recipe.authored.sourceShell) ? .65 : 1,authoredDoor):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,recipe.role==='fort' ? .65 : 1,authoredDoor,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
-    const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene,recipe):recipe.interior?interiorSheet(scene,texture,recipe):texture;
+    const texture=skin?skin.texture:authored?(authored.texture||authored.faces[0].texture):material(scene,recipe),insideTexture=recipe.shape==='wreck'?wreckInteriorSheet(scene,recipe):recipe.interior&&!skin?interiorSheet(scene,texture,recipe):texture;
     if(!authored&&!skin){(state.textures||=new Set()).add(texture.key);state.textures.add(insideTexture.key);}
     // A standing building is ONE render object sorted at its footprint
     // near edge in the player's screen column. An INTERIOR (Home

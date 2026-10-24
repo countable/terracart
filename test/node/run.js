@@ -186,7 +186,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  ArtAtlas, SelectedWorldAtlas, SelectedItemArt, CROP_SPRITE, CROP_ROW, ROCK_VARIANT_ART, ZONE_PLAIN_ROCK_FRAMES, ZONE_ROCK_THEMES, mineralRockArtScale, mineralRockTint, zonePlainRockFrame, mineralRockArtKey, mineralRockMaterial, mineralRockArtFrame, assignSurfaceBoulder, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
+  ArtAtlas, SelectedWorldAtlas, SelectedItemArt, CROP_SPRITE, CROP_ROW, ROCK_VARIANT_ART, GROUND_STACK_ART, ZONE_PLAIN_ROCK_FRAMES, ZONE_ROCK_THEMES, mineralRockArtScale, mineralRockTint, zonePlainRockFrame, mineralRockArtKey, mineralRockMaterial, mineralRockArtFrame, assignSurfaceBoulder, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   // Baby pets and the nest bush — pet_baby.test.js.
@@ -198,7 +198,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   wildplantWorkCost, wildplantTreasure, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
-  Quests, questEnemies, questAnimals, STARTER_CHAIN,
+  Quests, questEnemies, questAnimals, STARTER_CHAIN, STARTER_INTRO,
 });`;
 try {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'tools/map-review-gameplay.js'), 'utf8'), ctx,

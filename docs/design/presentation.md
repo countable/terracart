@@ -52,6 +52,8 @@ pixels and decorative details do not define additional tap cells.
   Themed item and relic offer builders return the shared quote for shelves and
   individual dialogs. Acceptance rechecks funds and capacity or gear upgrades,
   and returns purchase success; shelves replace a slot only on that success.
+  Shop and relic shelves trim 40px from the shared painting height through
+  `artTrimPx`, retaining its minimum so the item rows and secondary actions fit.
 
 - Rewards converted to coins show only the coin reward in dialogs and toasts,
   without naming the replaced item or explaining the conversion.
@@ -81,6 +83,9 @@ pixels and decorative details do not define additional tap cells.
   informational bubbles without passing the tap to the world. Explicit choices
   still require a response. The main menu, shops, story paintings and book list
   retain their mechanical panels.
+  Mechanical panels and the opening story sheet leave a 3.125% top gap,
+  one quarter of their former 12.5% gap. The shared `--panel-top-gap` owns
+  that spacing; long recipe and book catalogs keep their vertical scrolling.
   The original tall spirit painting remains available for scene art.
   Energy, distance and memories HUD help use this Spirit portrait and speech bubble.
   Energy briefly explains refills and capacity; distance reports true restored
@@ -246,7 +251,10 @@ pixels and decorative details do not define additional tap cells.
   for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
-  speech bubble on the upper map. Each step gives one spoken instruction;
+  speech bubble on the upper map. It stays hidden until the opening story,
+  safety card and how-to card have cleared and the first map tile is up, then
+  waits five more seconds; a save still on step 1 first hears Tori's
+  two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
   completion briefly acknowledges it in the same bubble. Only the dismiss
   button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
@@ -673,7 +681,7 @@ Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`
 ## Furniture
 
 Placed furniture opens a dismissible `makeModalShell` panel with its world
-sheet slot shown at exactly 4× above its name, rarity badge and description.
+sheet slot shown at exactly 3× (96×192px) above its name, rarity badge and description.
 Slots are 32×64 with bottom-seated 32×32 pieces, including both lamps; only
 the Grandfather Clock uses the full height. The
 portrait preserves the placed orientation; the category badge keeps the item icon.
@@ -696,8 +704,10 @@ instructions and replacement explanations are omitted. A vacant delivered house
 shows its empty slots and explains that it is ready for an available neighbour;
 furnishing starts after the neighbour moves in.
 
-Home shows its current luxury as a white number above its sign while indoors
-and from outside after dark. The score updates immediately, separately from
+Home shows "House luxury level: N · Rank" in small white text a clear gap above
+its sign while indoors and from outside after dark. The rank is the
+`MemoryStory.luxuryRank` descriptor for the luxury milestone thresholds
+(Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). The score updates immediately, separately from
 Home's introductory typing, and fades when it overlaps the player.
 
 Old Archive Court's existing style deterministically selects delivery or luxury

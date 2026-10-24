@@ -126,20 +126,28 @@ const MemoryStory = (() => {
     { art: 'trail_intro', title: 'The road you chose', body: 'You remember walking this road alone. Now you hear neighbours calling to each other.' },
     { art: 'home_sell', title: 'Small things remain', body: 'You remember the smell of warm bread and someone calling you in from the rain.' },
   ];
+  // `rank` is the descriptor Home's luxury label shows from that threshold up
+  // (luxuryRank); below the first, LUXURY_BARE.
   // Domestic memories share the discovery ledger, but never disclose the
   // tower's gated story. Thresholds are lifetime achievements, not per house.
   const LUXURY_MILESTONES = [
-    { luxury: 4, key: 'luxury:4', title: 'Living like a Neighbour',
+    { luxury: 4, rank: 'Homely', key: 'luxury:4', title: 'Living like a Neighbour',
       line: 'You remember making room at the table for one more neighbour.' },
-    { luxury: 16, key: 'luxury:16', title: 'Living like a Craftsperson',
+    { luxury: 16, rank: 'Comfortable', key: 'luxury:16', title: 'Living like a Craftsperson',
       line: 'You remember the scent of fresh wood and a chair made by your own hands.' },
-    { luxury: 36, key: 'luxury:36', title: 'Living like a Merchant',
+    { luxury: 36, rank: 'Fine', key: 'luxury:36', title: 'Living like a Merchant',
       line: 'You remember coming home to a soft seat after a long day at the market.' },
-    { luxury: 64, key: 'luxury:64', title: 'Living like a Noble',
+    { luxury: 64, rank: 'Grand', key: 'luxury:64', title: 'Living like a Noble',
       line: 'You remember a visitor pausing in the doorway to admire the room.' },
-    { luxury: 100, key: 'luxury:100', title: 'Living like a Monarch',
+    { luxury: 100, rank: 'Regal', key: 'luxury:100', title: 'Living like a Monarch',
       line: 'You remember a quiet evening in a beautiful room, with the busy lane beyond the window.' },
   ];
+  const LUXURY_BARE = 'Bare';
+  function luxuryRank(score) {
+    let rank = LUXURY_BARE;
+    for (const row of LUXURY_MILESTONES) if (score >= row.luxury) rank = row.rank;
+    return rank;
+  }
   const INTRO = [
     { art: 'restore_wizard', title: 'Someone has been waiting', body: 'The tower door opens before you knock. The wizard welcomes you and asks about the houses you repaired.' },
     { art: 'kind_wizard', title: 'A promise of help', body: 'The wizard offers to help you grow stronger. You will need that strength to face the dangers beyond the roads.' },
@@ -685,7 +693,7 @@ const MemoryStory = (() => {
     });
   }
   return { START_MEMORIES, LEAVE_MEMORIES, REVEAL_MEMORIES, ABANDONED_NOTE, HALF_FORMED, LOCKED, ABANDONED, EMPTY,
-    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, LUXURY_MILESTONES, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
+    HOME, FIRST_ROOF, RUMOUR, NEIGHBOURS, STRANGER, STRANGER_RUMOURS, SCENES, AFTER, LUXURY_MILESTONES, LUXURY_BARE, luxuryRank, INTRO, FIRST_RETURN, ACT2, ACT2_MEMORIES, SURVIVORS, VISITS, REVEAL, DRAGON_DECLARATION,
     state, total, reconcileLuxury, enqueue, panel, drain, atHome, dialogOpen, storyHeld, drainPanel, showPages, npcDialogue, wandererLine, wandererHoused, believerLine, survivorLine, act, towerAccess, objective,
     eligibleBeats, wizardSequence, pagesFor, visitWizard, archaeologistConversation, acknowledgeArchaeologist };
 })();

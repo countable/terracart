@@ -424,7 +424,10 @@ house floor on the canvas and then the house. On the low-poly path it is the
 (`scene.homeInside`, part of the overlay's claim epoch) its recipe is
 `interior` — the roof off, the walls level at the eaves, inner faces and a
 thick timber top band (`interiorGeometry`) — and the lightmap masks the outside (see
-Lighting). An interior is one render object PER WALL (`interiorGeometry`
+Lighting). A skinned Home keeps its authored skin inside: the outer faces are
+the facade seen from outside, cut at its `eaveHeight`, and the tops take the
+skin's plain wall texel; only retail rooms and whole-shell landmarks fall back
+to procedural walls. An interior is one render object PER WALL (`interiorGeometry`
 tags each face with its ring `edge`; `BuildingLowPoly.add` places a mesh per
 edge), each sorted in the shared world sort at its wall's sort point
 (`WallPerspective.wallSortPoint`, the one rule both building paths share:
@@ -466,11 +469,12 @@ cuts its doorway there, so the painted bay, the panel, the doorway gap and
 `homeInside` agree; an adopted house without a saved doorway asks the
 streets like every other house. The sign seats over the drawn top, or
 `HOUSE.signLiftPx` above the footprint's centre when there is no model.
-A separate white luxury number sits above that sign while `homeInside()` is
-true, and remains visible outside after dark (`Lighting.daylight < 0.5`). It
-uses the label pool and fades over the player. Its retained text key includes
+A separate small white luxury line ("House luxury level: N · Rank") sits
+`HOME_LUXURY_GAP_PX` above that sign while `homeInside()` is true, and remains
+visible outside after dark (`Lighting.daylight < 0.5`). It has its own label
+pool (`homeLuxuryPool`, `LABEL_STYLES.luxury`) and fades over the player. Its retained text key includes
 the active Home, indoor state, darkness and `Furniture.luxuryOf` score; the
-number never shares Home's typing clock. NPC house luxury appears in inspection.
+line never shares Home's typing clock. NPC house luxury appears in inspection.
 Once a resident moves in, their delivery bubble becomes a 24px portrait board
 on the front facade: dark green with a rounded brass rim and no speech tail.
 It follows the same heading, zoom, modal suppression and toast overlap rules as
@@ -691,6 +695,9 @@ the surrounding grove’s shrub scale.
   buildings select the frontmost drawn owner, with no hits in empty corners of
   pitched roofs. The owner routes through the ordinary interaction registry and
   existing reach/visibility gates; ground-footprint taps remain supported.
+  Creature taps test the drawn body box from the foot along screen-up
+  (`HeadingUp.toScreenVec`), since bodies stay upright on a turned map; being
+  off the cell grid, that padded box is grown 10% about the drawn centre.
   Seat upright cell props through `SpriteLayout.contactSeat` and `ART_BOUNDS`:
   pin the opaque art's ground contact at the cell centre. Standing props use a
   contact five source pixels above the opaque bottom (clamped for smaller art);
@@ -895,7 +902,11 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   The same 16px
   frame uses the same `ROCK_WORLD_SCALE` for small stones and sight-blocking boulders.
   `ROCK_VARIANT_ART` owns these scales; placed rocks draw their 16px produce
-  frame at 1.408×, comfortably inside a cell.
+  frame at 1.408×, comfortably inside a cell. A loose Rock stack on the ground
+  draws the smallest plain stone (`quickFrame`, the approved loose rock under
+  the Rogue profile), not the inventory boulder. Every ground stack draws at
+  `GROUND_STACK_ART.scale` (1.2×), a pickup smaller than its cell; other items
+  wear their inventory icon (`groundStackArt`).
   These display sizes leave mining
   quantities, occupied cells and cover behavior unchanged.
   Named context/variant fields resolve the theme, with legacy zone-object

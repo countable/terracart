@@ -755,6 +755,18 @@ const MINERAL_ICON_SHEET = {
 Object.assign(MINERAL_ICON_SHEET, SelectedItemArt.icons);
 MINERAL_ICON_SHEET.flint_shard = { sheet: 'flint', frame: 0 };
 
+// A loose stack lying on the map (render.js RENDER_SPEC.groundstack) wears its
+// inventory icon, except Rock, which lies as the small loose pebble wild rocks
+// use (rock_variants quickFrame; the art profile supplies its approved look).
+// One scale for every stack keeps a pickup smaller than the cell it lies in.
+const GROUND_STACK_ART = Object.freeze({
+  scale: 1.2,
+  items: Object.freeze({ rubble: Object.freeze({ sheet: 'rock_variants', frame: ROCK_VARIANT_ART.quickFrame }) }),
+});
+function groundStackArt(itemId) {
+  return GROUND_STACK_ART.items[itemId] || inventoryIconSource(itemId);
+}
+
 function inventoryIconSource(itemId) {
   // Minerals + gems use the dedicated sheet table above. Read BEFORE the item
   // lookup: the memory star has a row there and no ITEMS entry.

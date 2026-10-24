@@ -51,7 +51,8 @@
     const onEdge = (p) => lot.some((a, i) => { const b = lot[(i + 1) % lot.length];
       const t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / ((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
       return t > -1e-6 && t < 1 + 1e-6 && Math.hypot(a.x + (b.x - a.x) * t - p.x, a.y + (b.y - a.y) * t - p.y) < 0.2; });
-    const ground = mesh.faces.filter((f) => f.kind === 'wall').flatMap((f) => f.points).filter((p) => p.z < 1e-6);
+    // The door overlay (layer .1) stands proud of its wall, clear of its depth.
+    const ground = mesh.faces.filter((f) => f.kind === 'wall' && f.layer !== .1).flatMap((f) => f.points).filter((p) => p.z < 1e-6);
     assert.truthy(ground.length > 0, 'walls reach the ground');
     for (const p of ground) assert.truthy(onEdge(p), `wall foot ${p.x.toFixed(1)},${p.y.toFixed(1)} lies on the lot outline`);
     for (const a of lot) assert.truthy(ground.some((p) => Math.hypot(p.x - a.x, p.y - a.y) < 1e-6), 'every lot corner is a wall corner');
@@ -60,6 +61,30 @@
       assert.truthy(p.tu >= 0 && p.tu <= 1 && p.tv >= 0 && p.tv <= 1, 'every texel lies on the sheet');
     }
     assert.eq(seen.length, 1, 'the roof palette is applied once');
+  });
+  test('authored buildings: Home\'s room keeps its skin on the walls, cut at the eaves', () => {
+    const spec = AuthoredBuildings.SPECS.pp_cabin;
+    const skin = { key: 'pp_cabin', spec, texture: {}, template: {}, texel: 0.5, flat: false,
+      facade: { v: 900, rows: spec.base - spec.eave }, roof: { u: 256, v: 616, w: 256, h: 240 },
+      door: { u: 32, v: 68, w: 32, h: 28, bottom: 0 }, wall: [16, 80], recolor: () => {} };
+    const lot = [{ x: 0, y: 0 }, { x: 64, y: 0 }, { x: 64, y: 64 }, { x: 0, y: 64 }];
+    const house = BuildingLowPoly.authoredOutline(skin, lot, 2);
+    const room = BuildingLowPoly.interiorGeometry(house, BuildingLowPoly.LOOK.wallThickness);
+    const H = house.eaveHeight;
+    assert.truthy(room.authored, 'the room is drawn as source art');
+    assert.eq(room.faces.filter(f => f.kind === 'roof').length, 0, 'no roof inside');
+    assert.truthy(room.faces.every(f => f.points.every(p => p.z <= H + 1e-6)), 'cut level at the eaves');
+    assert.truthy(room.faces.every(f => Number.isInteger(f.edge)), 'every face stands on a wall');
+    const outside = room.faces.filter(f => f.kind === 'wall' && !f.interior);
+    const skinned = house.faces.filter(f => f.kind === 'wall' && f.points.every(p => p.z <= H + 1e-6));
+    assert.eq(outside.length, skinned.length, 'every facade triangle stays outside');
+    for (const f of outside) assert.truthy(f.sourceArt && f.points.every(p => p.tu >= 0 && p.tu <= 1 && p.tv >= 0 && p.tv <= 1),
+      'outer faces wear the skin, not the procedural atlas');
+    assert.eq(room.faces.filter(f => f.interior).length, outside.length, 'each facade triangle has an inner face');
+    const tops = room.faces.filter(f => f.wallTop);
+    assert.eq(tops.length, 8, 'a top band per wall');
+    const [tu, tv] = house.faces.find(f => f.fallbackUV).fallbackUV;
+    assert.truthy(tops.every(f => f.points.every(p => p.tu === tu && p.tv === tv)), 'tops take the plain wall texel');
   });
   test('authored buildings: every tier-one business uses the white cottage with its trade identity', () => {
     const colors = { blacksmith: 'slate', trader: 'green', seed: 'lime', supply: 'blue',
@@ -109,8 +134,10 @@
     assert.eq(recipe('blacksmith', 'smith', 3).key, 'fdr');
     assert.eq(recipe('blacksmith', 'smith', 4).key, 'steam_blacksmith');
     assert.eq(recipe('blacksmith', 'smith', 1).palette, recipe('blacksmith', 'smith', 7).palette);
-    assert.eq(recipe('fort', 'fort').key, 'city_gearhouse');
+    assert.eq(recipe('fort', 'fort').key, 'city_storefront');
     assert.eq(recipe('fort', 'fort').palette, 'copper');
+    assert.eq(recipe('fort', 'fort').sourceShell, true, 'fort keeps a central native shell inside its palisade');
+    assert.eq(recipe('fort', 'fort').emblem, 'fort', 'one mounted dice marker');
     assert.eq(recipe('trader', 'trader', 2).key, 'trader');
     assert.eq(recipe('trader', 'trader', 7).key, 'trader');
     assert.eq(recipe('trader', 'trader').palette, 'green');
@@ -120,6 +147,25 @@
     assert.eq(recipe('wizard', 'second', 1, true).palette, 'purple');
     assert.eq(recipe('potion', 'magic-shop').palette, 'teal');
     for (const role of ['turret', 'castle', 'wreck', 'unknown']) assert.eq(recipe(role, 'fixture'), null);
+  });
+  test('authored fort: centered solid dice board sits above the native entrance and fits with the hall', () => {
+    const spec=AuthoredBuildings.SPECS.city_storefront,C=Math.cos(Math.PI/6),unit=16/spec.door[3];
+    const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
+    for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const texture={},emblem={sign:texture,signUV:[0,.1,.1,.2],signSideUV:[.3,.3]};
+    const lot=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
+    const model=BuildingLowPoly.authoredGeometry(native,lot,.65,null,emblem);
+    const sign=model.faces.filter(f=>f.feature==='fort-sign'),sides=model.faces.filter(f=>f.feature==='fort-sign-side');
+    assert.eq(sign.length,2,'one front board');assert.eq(sides.length,10,'solid back and four sides');
+    assert.eq(model.mountedSign,true,'floating sign can be suppressed');
+    assert.truthy(sign.every(f=>f.texture===texture));
+    const ps=sign.flatMap(f=>f.points),center=(Math.min(...ps.map(p=>p.x))+Math.max(...ps.map(p=>p.x)))/2;
+    assert.lt(Math.abs(center-model.center.x),1e-6,'board centered on hall facade');
+    const scale=model.height/(Math.max(...native.faces.flatMap(f=>f.points.map(p=>p.z)))*C);
+    assert.gt(Math.min(...ps.map(p=>p.z)),spec.door[3]*unit*C*scale,'dice board clears the door');
+    assert.lt(Math.max(...model.faces.flatMap(f=>f.points.map(p=>p.x)))-Math.min(...model.faces.flatMap(f=>f.points.map(p=>p.x))),90,'hall leaves its surrounding plank deck');
+    assert.falsy(native.mountedSign,'shared startup model stays unmodified');
+    assert.falsy(BuildingLowPoly.authoredGeometry(native,lot,.65).mountedSign,'no marker unless requested');
   });
   test('authored buildings: Dreamland attic glazing stays source-sized on a larger real footprint', () => {
     const spec=AuthoredBuildings.SPECS.dreamland_house;

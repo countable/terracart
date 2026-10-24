@@ -16,7 +16,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
 | Pet / book shop | T1: white plaster cottage; T2+: market / city storefront | Rose / plum |
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
-| Fort | City gearhouse inside existing palisade | Copper |
+| Fort | City copper hall inside pointed square timber palisade | Copper |
 
 All tier-one businesses, including blacksmiths, traders and generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
@@ -39,7 +39,7 @@ Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
-entrance wall, its roof material in roof space, and source texels for
+entrance wall (0.2 units proud of it, clear of the facade's depth), its roof material in roof space, and source texels for
 fascia and ridge beams. FDR gables repeat native stone and timber at facade
 texel density, with a continuous native timber crossbeam tying the upper-storey
 posts together below the gables; their ridge rise is capped at the native half-depth (24 texels)
@@ -54,6 +54,21 @@ the lot with uniform scale. Their fitter tries dominant lot-edge orientations
 and interior triangle centres to avoid shrinking unnecessarily on diagonal
 wings; an explicit entrance direction remains fixed. Only models assigned
 to existing game roles ship.
+
+The fort uses the full `city_storefront` shell, fitted at 65% of the available
+lot span, with one solid dice board centered above its entrance. It keeps the
+original procedural horizontal plank floor (`biome11_0`), rather than the
+interior sheet or RA paving. The shared palisade has true square posts 32/6
+units wide. Short logs are 22.5 units tall, with an 8.5-unit carved point; every
+second log is 10% taller (24.75 units), with the same point length. Sparse
+Rogue Adventure-style vertical grain uses the original plank floor’s warm brown
+colour family. A discrete step halfway up each log makes its upper half about
+12% lighter. Both textured
+and flat Canvas faces share that boundary. Cardinal and angled source edges
+retain square posts even when the final distribution interval is shorter. Point
+faces continue the same grain coordinates and face shade as the shaft, avoiding
+a separate bright cap at their join.
+
 Market and trader source pixels share the canonical images under
 `assets/Objects/Approved/` with their sprite fallbacks.
 

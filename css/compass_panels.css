@@ -1,6 +1,8 @@
 /* Standalone dialogs live on body, outside the scaled game. Use the same
-   phone gutters as the HUD so their panels and backdrops stay in the device. */
-body > :is(#bootload, #story, #howto, #tooshort, #locating) {
+   phone gutters as the HUD so their panels and backdrops stay in the device.
+   #tooshort is left out on purpose: it only shows when that column is too
+   small to use, so it spans the whole viewport instead. */
+body > :is(#bootload, #story, #howto, #locating) {
   left: var(--phone-left, 0px);
   right: var(--phone-right, 0px);
   width: auto;
@@ -10,6 +12,7 @@ body > :is(#bootload, #story, #howto, #tooshort, #locating) {
 .compass-panel, #story.compass-story {
   --panel-rail: url('../assets/ui/compass/reference-panel-rail.webp');
   --panel-rail-height: calc(min(100vw, 480px) * 220 / 750);
+  --panel-top-gap: 3.125%;
 }
 /* Shade the exposed game behind the sheet and the body-level HUD above it. */
 .compass-panel { background-image: linear-gradient(#0008, #0008) !important; }
@@ -26,8 +29,8 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 .compass-panel > .modal-box {
   bottom: 0 !important;
   height: auto !important;
-  /* Every dialog rises to 7/8 of the screen. */
-  top: calc(var(--view-h, 844px) * .125) !important;
+  /* Keep one quarter of the former top gap above every dialog. */
+  top: var(--panel-top-gap) !important;
   border: 0 !important;
   border-radius: 24px 24px 0 0 !important;
   padding: calc(var(--panel-rail-height) + 10px) 22px max(22px, env(safe-area-inset-bottom)) !important;
@@ -39,7 +42,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   background-color: #000 !important;
 }
 .compass-panel[data-kind='story'] > .modal-box {
-  top: min(calc(var(--view-h, 844px) * .125), var(--story-panel-top, 100vh)) !important;
+  top: min(var(--panel-top-gap), var(--story-panel-top, 100vh)) !important;
 }
 .compass-panel > .modal-box::before, #story.compass-story .box::before {
   content: '';
@@ -146,7 +149,7 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
 }
 #story.compass-story .box {
   position: relative; display: flex; flex-direction: column;
-  width: 100%; max-width: none; height: 87.5%; max-height: none;
+  width: 100%; max-width: none; height: calc(100% - var(--panel-top-gap)); max-height: none;
   padding: 0 0 calc(60px + env(safe-area-inset-bottom));
   box-sizing: border-box; overflow: hidden;
   border: 0; border-radius: 28px 28px 0 0;
