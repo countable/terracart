@@ -356,6 +356,12 @@ pixels and decorative details do not define additional tap cells.
   Message dismissal refreshes this shield from the remaining dialogs before
   running its callback, so consequences such as fall damage apply after the
   story closes while potion immunity remains effective.
+- Fall stories use dedicated art: `fall_cave_in` when the floor opens under
+  the player, and `fall_open_pit` when entering an existing hole, including a
+  previously opened cave-in. Environment falls capture that distinction before
+  loading and show the story only after a successful landing. Acknowledgement
+  releases the fall lock without repeating the transition. Existing cave-hole
+  falls retain their damage and transition on dismissal.
 - The revival storyboard (`_reviveStoryboard`) tells of being carried home,
   so it plays only when the GPS fix is near Home too (`_gpsNearHome`,
   `HomeArea.NEAR_M`), not just a body stick-walked into Home's ring; otherwise

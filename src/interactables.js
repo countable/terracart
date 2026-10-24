@@ -1107,6 +1107,16 @@ function restocks(o) {
   if (L.barrel) return false;
   return !!(L.box && !L.stand && !L.bike && !L.macro && !L.wagon);
 }
+// Fruit picking leaves a bare plant that can still be chopped. Rendering and
+// taps share this view; the generated fruit record and its picked id stay intact.
+function wildplantRemnant(plant, sets) {
+  if (plant.tide || !sets.picked.has(plant.id) || sets.chopped?.has(plant.id)
+      || sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  const crop = wildplantRule(plant.crop)?.pickedCrop;
+  return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary',
+    _hedgeFrame: undefined, _zoneObjectFrame: undefined, _streetArt: undefined } : null;
+}
+
 function isSpent(o, sets) {
   if (o && sets.burned?.has(o.id)) return true;
   if (o && sets.burnedGround?.(o)) return true;
@@ -1149,6 +1159,7 @@ function isSpent(o, sets) {
     // waterline today (Scenic.tideLive, which also sets its crop to the day's
     // find) or was taken today (the day ledger — never save.picked).
     case 'wildplant':
+      if (sets.chopped?.has(o.id)) return true;
       if (o.tide) {
         const live = typeof Scenic === 'undefined' || Scenic.tideLive(o, sets.day);
         return !live || takenToday(o, sets);
