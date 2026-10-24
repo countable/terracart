@@ -6993,6 +6993,70 @@
     return value;
   }
 
+  // Persist only the generated surface, before CV bins, saves and player
+  // overlays. A read returns a fresh structured clone, including the source
+  // layer edits made by parking-lane detection during rasterization.
+  const GENERATED_TILE_SCHEMA = 1;
+  let _generatedTileStore;
+  function generatedTileStore() {
+    if (typeof GeneratedTileCache === 'undefined') return null;
+    return _generatedTileStore || (_generatedTileStore = GeneratedTileCache.create());
+  }
+  async function generatedTileKey(bytes, N, tx, ty, tileEdgeM) {
+    if (!global.__shellVersion || !global.crypto?.subtle || !bytes) return null;
+    try {
+      const digest = await global.crypto.subtle.digest('SHA-256', bytes);
+      const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+      return [GENERATED_TILE_SCHEMA, global.__shellVersion, Z, tx, ty, N, tileEdgeM, _reviewSalt, hash].join('/');
+    } catch (_) { return null; }
+  }
+  function validGeneratedTile(record, key, N) {
+    const r = record?.result, count = N * N;
+    if (record?.schema !== GENERATED_TILE_SCHEMA || record.key !== key || !Array.isArray(record.layers) || !r) return false;
+    if (record.layers.some(layer => typeof layer?.name !== 'string' || !Array.isArray(layer.features))) return false;
+    for (const name of ['grid', 'variantBaseGrid', 'mappedLand', 'syntheticBuildingCells', 'roadMask', 'quietMask', 'gameplayTiers', 'gameplayReasons'])
+      if (!(r[name] instanceof Uint8Array) || r[name].length !== count) return false;
+    for (const name of ['owners', 'roadClass'])
+      if (!(r[name] instanceof Uint16Array) || r[name].length !== count) return false;
+    if (!(r.spawnWhy instanceof Uint32Array) || r.spawnWhy.length !== count) return false;
+    if (!(r.poiPadCells instanceof Set) || !Array.isArray(r.objects) || !Array.isArray(r.wildplants) || !Array.isArray(r.buildingShapes)) return false;
+    for (const source of [r.caveSource, r.zone?.caveSource])
+      if (source && (!(source.grid instanceof Uint8Array) || source.grid.length !== count
+        || !(source.spawnWhy instanceof Uint32Array) || source.spawnWhy.length !== count
+        || !Array.isArray(source.objects) || !Array.isArray(source.wildplants))) return false;
+    return true;
+  }
+  async function prepareTile(bytes, N, tx, ty, tileEdgeM) {
+    const bp = global.__boot, label = `tile ${tileKey(tx, ty)}`;
+    const endCache = bp?.begin(`${label} generation cache`);
+    const store = generatedTileStore();
+    const key = store && await generatedTileKey(bytes, N, tx, ty, tileEdgeM);
+    if (key) {
+      const record = await store.get(key);
+      if (validGeneratedTile(record, key, N)) {
+        const r = record.result;
+        registerGameplayTiers(r.grid, r.spawnWhy, r.gameplayTiers);
+        for (const source of [r.caveSource, r.zone?.caveSource])
+          if (source) registerGameplayTiers(source.grid, source.spawnWhy, r.gameplayTiers);
+        endCache?.('hit');
+        return { layers: record.layers, result: r, fromCache: true };
+      }
+      if (record) await store.remove(key);
+    }
+    endCache?.(key ? 'miss' : 'unavailable');
+    const endDecode = bp?.begin(`${label} decode`);
+    const layers = await runHeavyPhase(() => MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
+    endDecode?.(`${layers.length} layers`);
+    const endRaster = bp?.begin(`${label} rasterize`);
+    const result = await runHeavyPhase(() => rasterizeTileSliced(layers, N, tx, ty, tileEdgeM));
+    endRaster?.(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
+    // Await the write before callers can mutate these arrays for live play.
+    // The persistence facade swallows quota/availability/clone failures.
+    if (key) await store.put(key, { schema: GENERATED_TILE_SCHEMA, key, layers, result });
+    return { layers, result, fromCache: false };
+  }
+  async function clearGeneratedTileCache() { await generatedTileStore()?.clear(); }
+
   // THE SLICE DRIVER, shared by every sliced pass (the rasterize above, the
   // post-rasterize tail in loadTile, the scene's spawn pass): run a steps
   // generator, handing the browser a painted frame whenever a slice has held
@@ -7168,17 +7232,10 @@
       const { bytes, fromCache } = await (opts?.bytesPromise || fetchTileBytes(x, y));
       if (_endFetch) _endFetch(opts?.bytesPromise ? 'prefetched bytes (remaining wait)' :
         (fromCache ? 'from cache' : 'from network'));
-      // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
-      // the two heaviest chunks of a tile build each get their own slice, and
-      // the spawn/dedup post-passes below ride the rasterize turn.
-      const _endDecode = _bp && _bp.begin(`tile ${key} decode`);
-      const layers = await runHeavyPhase(() =>
-        MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
-      if (_endDecode) _endDecode(`${layers.length} layers`);
-      const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
-      if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
-        `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
+      // Cache hits skip both source decoding and rasterization. Misses retain
+      // the same serial, sliced heavy phases; all live overlays run below.
+      const { layers, result } = await prepareTile(bytes, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = result;
       // NO cross-tile dedup. A seam used to hand the same POI / the same
       // house to two tiles, and a proximity dedup against whatever was already
       // cached kept the copy of whichever tile loaded FIRST — so two players
@@ -7271,9 +7328,11 @@
       //   baseGrid    — the rasterized terrain, copied, never written again.
       //   genObjects  — the rasterized objects + generated mine mouths (no
       //                 bin injections, nothing app.js pushes).
+      //   genWildplants — generated grass/flora seats, before harvesting or regrowth.
       entry.baseGrid = grid.slice();
       registerGameplayTiers(entry.baseGrid, spawnWhy, gameplayTiers);
       entry.genObjects = entry.objects.slice();
+      entry.genWildplants = entry.wildplants.slice();
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
       entry.pathUnder   = pathUnder   || {};
@@ -9326,7 +9385,22 @@
     // authored areas, landings or the existing mushroom/rock population.
     { id: 'grass', when: (L) => !!floorProfile(L.depth).grass, pivot: 1, from: 0, tries: 1,
       salt: 0x6C8E9CF5,
-      setup: (L) => runSteps(grassFillSteps(L.tx, L.ty, L.N)),
+      setup: (L) => {
+        const candidates = runSteps(grassFillSteps(L.tx, L.ty, L.N));
+        const source = L.surface?.baseGrid || L.surface?.grid;
+        for (let i = 0; i < candidates.length; i++) {
+          if (!source || !BiomeProfiles.GRASS_FILL.terrains.includes(source[i])) candidates[i] = 0;
+        }
+        // Surface grass also occurs outside field terrain (parks and grassy
+        // lanes). Read generated records so harvesting above cannot alter the
+        // fungal field below; the cave pass still enforces its own safety.
+        for (const plant of L.surface?.genWildplants || L.surface?.wildplants || []) {
+          if (!isGrassCover({ ...plant, kind: 'wildplant' })) continue;
+          const c = cellIndexOf(L.tx, L.ty, plant.x, plant.y, L.tileEdgeM, L.N);
+          if (c.lix >= 0 && c.lix < L.N && c.liy >= 0 && c.liy < L.N) candidates[c.liy * L.N + c.lix] = 1;
+        }
+        return candidates;
+      },
       pick: (rng, px, py, L, candidates) => candidates[py * L.N + px] ? { lix: px, liy: py } : null,
       emit: (L, c, p) => L.wildplants.push(makeWildplant('longgrass', p.x, p.y,
         cellId(`cgrass_${L.depth}`, L.tx, L.ty, c.lix, c.liy),
@@ -9813,6 +9887,7 @@
     const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
     objects.push(...caveQuarryGemsFrom(profile.quarryProvenance ? (surface.genObjects || surface.objects || []) : aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
     const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants, spawnWhy });
+    level.surface = surface;
     level.underground = underground;
     level.cityDrillsPlaced = !!profile.warren;
     for (const row of CAVE_PASSES) runCavePass(row, level);
@@ -9974,7 +10049,7 @@
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which
     // is not the total but the longest stretch between two yields.
-    rasterizeTileSteps, grassFillSteps,
+    rasterizeTileSteps, grassFillSteps, prepareTile, clearGeneratedTileCache,
     setSliceBudgetMs, sliceBudgetMs, noteSliceFrameTargetMs, noteSliceFrame, sliceFrameTargetMs,
     // The shared slice driver (see driveStepsSliced): a steps generator run
     // straight through, or sliced as a turn on the heavy chain — the scene's
