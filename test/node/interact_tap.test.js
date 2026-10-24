@@ -1121,3 +1121,44 @@ test('light-fire: surface farming does not block the mirrored cave cell', () => 
     for (const [key, entry] of entries) WorldGen.tileCache.set(key, entry);
   }
 });
+
+test('picked berry bushes on Small roads chop once instead of falling through to road soil refusal', () => {
+  const original = globalThis.WorldGen;
+  try {
+    for (const crop of ['berry', 'poisonberry', 'goldenberry']) {
+      let id = crop + '-road-bush';
+      while (!isNestBush('shrub', id)) id += 'x';
+      const plant = { kind: 'wildplant', crop, id, x: 2.5, y: 2.5 };
+      globalThis.WorldGen = { ...original, forEachItem: (layer, cb) => { if (layer === 'wildplants') cb(plant); } };
+      const save = { picked: [id], energy: 100, relics: { axe: { tier: 1 } },
+        grassRegrowth: { [id]: Date.now() + 10000 } };
+      let finish, duration; const messages = [];
+      const scene = makeGridScene({ save, flash: msg => messages.push(msg),
+        startWorkProgress: (x, y, cb, ms) => { finish = cb; duration = ms; },
+        showBabyFound: () => { throw Error('Bare fruit bushes do not contain nest bonuses'); },
+        awardShinyBonus: () => { throw Error('Fruit picking already handled shiny rewards'); },
+      });
+      const ctx = { scene, save, wm: { x: 2.5, y: 2.5 }, sx: 0, sy: 0,
+        cell: { type: TERRAIN.ROAD, underRoad: true } };
+      const consumed = TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx);
+      if (!consumed) TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx);
+      assert.eq(consumed, true, 'the visible bare bush owns the tap');
+      assert.falsy(messages.some(msg => /earth to turn/i.test(msg)), 'road soil does not intercept chopping');
+      assert.eq(duration, toolDurationMs(save.relics, 'axe'));
+      assert.eq(scene.invCount('wood'), 0, 'completion awards the wood');
+      finish(); finish();
+      assert.eq(scene.invCount('wood'), wildplantRewards('shrub')[0].qty, 'one wood reward despite repeat callbacks');
+      assert.eq(scene.invCount(crop), 0, 'no repeat fruit reward');
+      assert.eq(save.chopped.filter(x => x === id).length, 1);
+      assert.eq(save.picked.filter(x => x === id).length, 1, 'original fruit stays spent');
+      assert.eq(save.grassRegrowth[id], undefined, 'felling cancels fruit regrowth');
+      const restored = JSON.parse(JSON.stringify(save));
+      const sets = spentSets(scene, restored);
+      assert.eq(Render.wildplantView(plant, sets), null, 'felled bush stays gone after reload');
+      assert.truthy(isSpent(plant, sets));
+      SaveState.regrowGrass(restored, Date.now() + 100000);
+      assert.eq(Render.wildplantView(plant, spentSets(scene, restored)), null);
+      assert.falsy(TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx), 'chopped plant no longer accepts taps');
+    }
+  } finally { globalThis.WorldGen = original; }
+});

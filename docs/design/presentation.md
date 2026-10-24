@@ -356,6 +356,12 @@ pixels and decorative details do not define additional tap cells.
   Message dismissal refreshes this shield from the remaining dialogs before
   running its callback, so consequences such as fall damage apply after the
   story closes while potion immunity remains effective.
+- Fall stories use dedicated art: `fall_cave_in` when the floor opens under
+  the player, and `fall_open_pit` when entering an existing hole, including a
+  previously opened cave-in. Environment falls capture that distinction before
+  loading and show the story only after a successful landing. Acknowledgement
+  releases the fall lock without repeating the transition. Existing cave-hole
+  falls retain their damage and transition on dismissal.
 - The revival storyboard (`_reviveStoryboard`) tells of being carried home,
   so it plays only when the GPS fix is near Home too (`_gpsNearHome`,
   `HomeArea.NEAR_M`), not just a body stick-walked into Home's ring; otherwise
@@ -586,10 +592,12 @@ pixels and decorative details do not define additional tap cells.
   The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
   aimed per step by `_starterGuidanceGoal` rather than stored as marks. It appears
   only after its instruction is visible. Location dots sit on their target when
-  onscreen, otherwise on the compass edge: a bright 3px core with a translucent
-  pulse expanding to a 6px radius every 3 seconds. Only an edge dot takes a
-  tap (`_tapEdgeDot` toggles its label); a dot on its target leaves the tap
-  to the target, so the starter crate under its guide still opens.
+  onscreen, otherwise on the compass edge: a bright 3px-radius core with a translucent
+  pulse expanding to a 12px radius every 3 seconds. Labels use their dot’s
+  colour and stay beside it; crowded labels do not stack away from their dots.
+  Only an edge dot takes a tap (`_tapEdgeDot` toggles its label); a dot on
+  its target leaves the tap to the target, so the starter crate under its
+  guide still opens.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls

@@ -367,17 +367,28 @@ function tillBlockerLine(o) {
 // profile keeps broken art. The one "is something lying here?" scan, shared
 // by the till and the campfire.
 function groundObjectBlocker(scene, save, cwmx, cwmy, cellHalfM) {
-  const pickedAll = new Set([...save.picked, ...(save.burnedObjects || [])]);
   const spent = spentSets(scene, save);
   const inCell = o => Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM;
   for (const e of WorldGen.tileCache.values()) {
-    const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && inCell(wp));
-    if (wp) return `Pick ${cropName(wp.crop)} first.`;
+    // What STANDS, as drawn (Render.wildplantView): a picked berry bush stays
+    // a bare bush and holds its cell like any other.
+    const wp = (e.wildplants || []).map(wp => inCell(wp) && Render.wildplantView(wp, spent)).find(Boolean);
+    if (wp) return wp._pickedRemnant ? 'A bush stands here.' : `Pick ${cropName(wp.crop)} first.`;
     const oo = (e.objects || []).find(o =>
       !(isSpent(o, spent) && !(isBarrel(o) && chestLook(o).smashedKey)) && inCell(o));
     if (oo) return tillBlockerLine(oo);
   }
   return null;
+}
+
+// Turning a cell's soil ends the regrowth of every cleared wild plant on it
+// (SaveState.stopRegrowth), so grass never grows back through the bed.
+function stopRegrowthUnder(save, cwmx, cwmy, cellHalfM) {
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of e.wildplants || []) {
+      if (Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) SaveState.stopRegrowth(save, wp);
+    }
+  }
 }
 
 // Which ground takes a CAMPFIRE: any open ground — soil, a parking lot, a
@@ -1115,9 +1126,10 @@ const TAP_HANDLERS = [
     const tideSets = spentSets(scene, save);
     const bestWp = findItemInTapCell(scene, 'wildplants', wm,
       (wp) => (!ctx.grassOnly || WorldGen.isGrassCover(wp))
-        && !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
+        && ((!isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)))
+          || !!wildplantRemnant(wp, tideSets)));
     if (bestWp) {
-      const wp = bestWp;
+      const wp = wildplantRemnant(bestWp, tideSets) || bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
       const rule = wildplantRule(wp.crop);
       const reqRelic = wildplantWorkRelic(wp.crop);
@@ -1132,7 +1144,8 @@ const TAP_HANDLERS = [
       // work (5s for shrubs, versus the usual 9s). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
-        if (isSpent(wp, spentSets(scene, save))) return false;
+        const current = spentSets(scene, save);
+        if (wp._pickedRemnant ? !wildplantRemnant(bestWp, current) : isSpent(wp, current)) return false;
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
@@ -1141,9 +1154,12 @@ const TAP_HANDLERS = [
         // A shaking bush has a stable occupant; only one fifth hide a baby. Before
         // the pick is written: with no room in the bag for it the bush stays
         // standing, unpicked, to be chopped again once there is.
-        const nest = isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
+        const nest = !wp._pickedRemnant && isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
         const babyId = nest?.type === 'baby' ? nest.item : null;
-        if (wp.tide) {
+        if (wp._pickedRemnant) {
+          save.chopped = [...(save.chopped || []), wp.id];
+          if (save.grassRegrowth) delete save.grassRegrowth[wp.id];
+        } else if (wp.tide) {
           Macros.markToday(save, wp.id);
         } else {
           if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
@@ -1156,7 +1172,7 @@ const TAP_HANDLERS = [
         const hiddenItem = WorldGen.isGrassCover(wp) ? wildplantHiddenItem(wp.crop, wp.id) : null;
         if (hiddenItem) scene.addToInv(hiddenItem, 1);
         let bonus = hiddenItem ? ` ✨${itemName(hiddenItem)}` : '';
-        const treasure = wildplantTreasure(wp.crop);
+        const treasure = !wp._pickedRemnant && wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
           if (treasure.coins) {
             addMoney(save, treasure.coins);
@@ -1175,7 +1191,7 @@ const TAP_HANDLERS = [
         if (rule?.sting) scene._sting?.(rule.sting, wp.x, wp.y);
         // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
-        if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
+        if (!wp._pickedRemnant && isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
         // The nest bush's baby, and the card that shows it.
         if (babyId) {
           placeFoundAnimal(scene, babyId, wp.id, wp.x, wp.y);
@@ -2024,6 +2040,7 @@ const TAP_HANDLERS = [
     return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'hoe', durationMs: tillMs, cost: tillCost, action: 'till',
       after: (startingTier) => scene._barehandWorkStory?.('hoe', startingTier), onDone: () => {
       scene.tilledSet.add(cellKey);
+      stopRegrowthUnder(save, cwmx, cwmy, at.half);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
       // therefore a better harvest, not just a cheaper one.

@@ -341,10 +341,11 @@ opacity immediately on leaving. Faded low-poly buildings skip the filled ink
 outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
-Wrecks are broken plinths: sparse 4–8-unit masonry courses, broad breaches,
-stepped tops, and a few 2–4-unit fallen blocks. There are no roofs or raised
-framing. The native pixel wall texture matches the FDR system walls; pale caps
-and fine Rogue Adventure rubble share one prebuilt atlas. The flat floor follows
+Wrecks follow the Foundation trace preview: sparse 1–2-unit stone footings,
+broad breaches, stepped tops, and a few low fallen fragments. About a quarter
+of the perimeter survives, with three-unit thickness. There are no roofs or
+raised framing. Native Ruined Medieval Village stone and fine Rogue Adventure
+rubble share one prebuilt atlas. The flat floor follows
 the exact triangulated footprint and sorts as a ground decal beneath the player.
 Each raised section sorts independently at its baseline, so the player can walk
 between near and far remains. Surface player movement already permits wrecks.
@@ -632,7 +633,9 @@ the surrounding grove’s shrub scale.
   centroid ordering handles ordinary joined walls; intersecting walls are not
   split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
-- Standing props fade to half their normal opacity only when their art overlaps
+- Only buildings and trees of medium canopy or larger (`fadesOverPlayer`,
+  over `treeSizeClass`) fade over the player; small trees, rocks, lamps and
+  every other prop stay opaque. They fade to half their normal opacity only when their art overlaps
   the player's inset body box and their world depth draws them in front. The
   overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
   `artBounds` for procedural art that declares one (the street lamp's

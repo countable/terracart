@@ -49,16 +49,10 @@
 
 const Render = {};
 
-// Picked fruit can leave its plant standing. This is a render-only view:
-// the original id stays spent, including after reloading the saved ledger.
+// Picked fruit remains choppable scenery until the plant itself is cleared.
 Render.wildplantView = function (plant, sets) {
-  if (sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
-  const picked = !plant.tide && sets.picked.has(plant.id);
-  if (picked) {
-    const crop = wildplantRule(plant.crop)?.pickedCrop;
-    return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary', _hedgeFrame: undefined,
-      _zoneObjectFrame: undefined, _streetArt: undefined } : null;
-  }
+  if (sets.chopped?.has(plant.id) || sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  if (!plant.tide && sets.picked.has(plant.id)) return wildplantRemnant(plant, sets);
   return isSpent(plant, sets) ? null : plant;
 };
 
@@ -3862,8 +3856,9 @@ Render.playerBuildingKey = function(scene) {
   return entry?.ownerKeys?.[entry.owners?.[i]] || null;
 };
 
-// Upright props fade only while their visible art covers the player's body
-// and their shared world depth places them in front. Read the boot-time art
+// Buildings and medium-or-larger trees (fadesOverPlayer) fade only while
+// their visible art covers the player's body and their shared world depth
+// places them in front; every other prop stays opaque. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
 // On a turned heading-up map (`view`, from Render.headingFadeView) each body
 // stands upright at its turned feet, and lower turned feet draw in front, so
@@ -3873,7 +3868,8 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
   const building = !!s._staticObject && isBuilding(s._staticObject.kind);
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
-  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
+  const eligible = fadesOverPlayer(s._staticObject);
+  if (box && eligible && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;

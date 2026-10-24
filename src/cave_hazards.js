@@ -49,7 +49,7 @@
         return false;
       }
       let resolved = false;
-      scene.showMessageModal({ kind: 'story', art: 'cave_first', title: 'The ground gives way',
+      scene.showMessageModal({ kind: 'story', art: 'fall_open_pit', title: 'Into the pit',
         body: 'Your foot slips over the broken edge. You fall through the dark and strike the stone floor below.',
         okLabel: 'Continue', mustAcknowledge: true,
         onDismiss() {

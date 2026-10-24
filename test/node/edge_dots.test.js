@@ -57,7 +57,7 @@
     s._drawGpsRimDot();
     assert.eq(s.circles.length, 2, 'off the map: keyline and dot');
     assert.eq(s.circles[1].r, DOTS.GPS_RIM_DOT.r, 'a micro dot, smaller than a find\'s');
-    assert.eq(DOTS.EDGE_DOT_R * 2, 3);
+    assert.eq(DOTS.EDGE_DOT_R * 2, 6);
     assert.eq(s.circles[0].r, DOTS.GPS_RIM_DOT.r + 1, 'its keyline a pixel wider');
     assert.truthy(s.circles[1].x > 300 && Math.abs(s.circles[1].y - 272) < 1, 'on the right rim, toward the fix');
     // Zoomed in, the same screen point is off the map sooner.
@@ -90,17 +90,17 @@
     assert.eq(p.right, 176 + 176 / 2 - 5, 'at 2×: half the square shows, so the rim is half as far');
     assert.eq(p.left, 176 - 176 / 2 + 5); assert.eq(p.top, 272 - 88 + 5); assert.eq(p.bottom, 272 + 88 - 5);
     assert.truthy(Math.abs(s.circles[1].x - p.right) < 1e-9, 'the dot sits on that rim');
-    assert.eq(s.circles[1].r, 1.5 / 2, 'and shrinks with the zoom so it stays the same size on screen');
+    assert.eq(s.circles[1].r, 3 / 2, 'and shrinks with the zoom so it stays the same size on screen');
   });
   test('edge dots: the rim layer is wiped every frame before the bearings draw', () => {
     const at = SCENE_SRC.indexOf('\n    this._drawMarkers();');
     assert.truthy(at > 0, 'update draws the markers');
     assert.truthy(SCENE_SRC.slice(at - 300, at).includes('this.facingGfx.clear();'), 'facingGfx cleared just before');
   });
-  test('edge labels: source and destination stay inside the map and stack without overlap', () => {
+  test('edge labels: source and destination stay beside their dot in its colour', () => {
     const s = fixture();
-    s.add = { text() {
-      return { width: 60, height: 28,
+    s.add = { text(x, y, value, style) {
+      return { width: 60, height: 28, color: style.color,
         setDepth() { return this; }, setOrigin() { return this; },
         setText(value) { this.text = value; return this; },
         setPosition(x, y) { this.x = x; this.y = y; return this; },
@@ -114,7 +114,10 @@
     assert.eq(s._edgeDotLabels.wayfarerCompass.text, 'Wayfinder\nKeeper', 'a neighbour\'s mark names its speaker, not the Wayfarer\'s post');
     const [a, b] = s._edgeDotLabelBounds;
     assert.truthy(a.right <= point.right && a.bottom <= point.bottom);
-    assert.truthy(b.bottom <= a.top && b.top >= point.top);
+    assert.eq(b.top, a.top, 'crowded labels stay attached instead of stacking away');
+    assert.eq(point.x - a.right, 8, 'label sits eight pixels from its dot');
+    assert.eq(s._edgeDotLabels.telescopeCompass.color, '#ffd24a');
+    assert.eq(s._edgeDotLabels.wayfarerCompass.color, '#4488ff');
   });
   test('edge dots: tapping toggles only the nearest label and survives redraws', () => {
     const s = fixture();
@@ -206,7 +209,7 @@
       const p = s.circles[1];
       assert.truthy(p.x === 5 || p.x === 347 || p.y === 101 || p.y === 443, 'dot touches an inset edge');
       assert.truthy(p.x >= 5 && p.x <= 347 && p.y >= 101 && p.y <= 443, 'whole dot remains visible');
-      assert.eq(p.r, 1.5);
+      assert.eq(p.r, 3);
     }
   });
   test('edge dots: rotated diagonal bearings stay on the circular rim through zoom and peek', () => {
@@ -220,7 +223,7 @@
         const point = s._drawEdgeDot(100, 100, 0xffd24a);
         const screen = HeadingUp.toOverlayPt(s, point.x, point.y);
         assert.inRange(Math.hypot(screen.x - 176, screen.y - 272), 170.999, 171.001);
-        assert.inRange(s.circles[1].r * zoom, 1.499, 1.501, 'dot stays touch-visible at pinch zoom');
+        assert.inRange(s.circles[1].r * zoom, 2.999, 3.001, 'dot stays touch-visible at pinch zoom');
         s._edgeDotPoints = { target: point };
         assert.truthy(s._tapEdgeDot(point.x, point.y), 'inverse-transformed tap finds the visible dot');
       }

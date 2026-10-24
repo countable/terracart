@@ -2216,7 +2216,7 @@ test('common route themes: deterministic dressing, dense variety and shared safe
     assert.gt(finds.length, 0, id + ' dresses its verges');
     assert.eq(JSON.stringify(finds), JSON.stringify([...b.objects, ...b.wildplants]), id + ' is stable');
     assert.eq(blocked.objects.length + blocked.wildplants.length, 0, id + ' respects restricted ground');
-    assert.truthy(finds.every(o => Math.floor(o.y / 7) !== 6), id + ' leaves the route clear');
+    if (id !== 'grassy_lane') assert.truthy(finds.every(o => Math.floor(o.y / 7) !== 6), id + ' leaves the route clear');
   }
   const variety = dress('way_of_variety');
   const finds = [...variety.objects, ...variety.wildplants];
@@ -2224,5 +2224,28 @@ test('common route themes: deterministic dressing, dense variety and shared safe
   assert.gt(new Set(finds.map(o => o.crop || o.kind)).size, 4, 'variety mixes common interactables');
   assert.truthy(dress('haunted_forest_path').objects.some(o => o.kind === 'headstone'), 'haunted route has headstones');
   assert.truthy(dress('old_growth_path').objects.some(o => o.kind === 'tree' && o.variant === 3), 'old growth has mature trees');
+});
+test('Grassy Lane fills its road and both verges with unique harvestable grass', () => {
+  const build = (blocked = false, major = false, duplicate = false) => {
+    const f = vergeFixture('grassy_lane');
+    if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    if (major) for (let x = 1; x < 11; x++) f.grid[6 * f.N + x] = T.ROAD_MD;
+    if (duplicate) f.index.dressingLines.push({ ...f.index.dressingLines[0] });
+    return SV.dress({ ...f, tx: 0, ty: 0, tileEdgeM: f.N * 7,
+      spawnOpts: { roadMask: f.roadMask, spawnWhy: f.spawnWhy, occupied: new Set([6 * f.N + 5]) } });
+  };
+  const plants = build().wildplants, grass = plants.filter(p => p.crop === 'longgrass');
+  const cells = new Set(grass.map(p => Math.floor(p.x / 7) + ',' + Math.floor(p.y / 7)));
+  for (let x = 1; x < 10; x++) for (let y = 4; y <= 8; y++) {
+    if (x === 5) continue; // an occupied centre stops this cross-section
+    assert.truthy(cells.has(x + ',' + y), `thick grass at ${x},${y}`);
+  }
+  assert.falsy(cells.has('5,6'), 'existing occupants keep their seat');
+  assert.eq(new Set(plants.map(p => p.id)).size, plants.length, 'one stable identity per seat');
+  assert.eq(JSON.stringify(build(true).wildplants), '[]', 'restricted land remains empty');
+  assert.falsy(build(false, true).wildplants.some(p => Math.floor(p.y / 7) === 6), 'major road exclusions stay intact');
+  assert.eq(JSON.stringify(build(false, false, true).wildplants.filter(p => p.crop === 'longgrass').map(p => p.id)),
+    JSON.stringify(grass.map(p => p.id)), 'duplicate mapped pieces cannot multiply grass');
+  assert.truthy(SaveState.regrows('longgrass'), 'road grass shares normal harvest regrowth');
 });
 })();
