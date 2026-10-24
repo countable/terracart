@@ -18,7 +18,7 @@ function setupRun() {
   if (['run.json', 'actions.jsonl'].some(file => fs.existsSync(path.join(OUT, file))))
     throw Error('Output directory already contains a QA run; choose a new directory.');
 fs.mkdirSync(OUT,{recursive:true});
-for (const file of ['index.html',...fs.readdirSync(path.join(ROOT,'src')).filter(f=>f.endsWith('.js')).map(f=>'src/'+f),...fs.readdirSync(path.join(ROOT,'test/fixtures')).map(f=>'test/fixtures/'+f)]) {
+for (const file of ['index.html',...fs.readdirSync(path.join(ROOT,'src')).filter(f=>f.endsWith('.js')).map(f=>'src/'+f),...fs.readdirSync(path.join(ROOT,'test/fixtures'),{withFileTypes:true}).filter(f=>f.isFile()).map(f=>'test/fixtures/'+f.name)]) {
   (RUN.hashes ||= {})[file]=crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT,file))).digest('hex');
 }
 fs.copyFileSync(path.join(__dirname,'bridge.js'),path.join(OUT,'bridge.js'));

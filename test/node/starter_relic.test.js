@@ -102,6 +102,18 @@
     }
   });
 
+  test('spawn relic chest: tools precede the first road weapon choice', () => {
+    const weapons = ['sword', 'bow', 'staff'];
+    let weaponAfterClaim = false;
+    for (let relicSalt = 0; relicSalt < 32; relicSalt++) {
+      const before = srPlace(srScene({ save: { relicSalt } }), srEntry());
+      assert.falsy(weapons.includes(before.fixedLoot.slot), 'an early chest cannot pre-empt the weapon lesson');
+      const after = srPlace(srScene({ save: { relicSalt, trail: { firstWeaponClaimed: true } } }), srEntry());
+      weaponAfterClaim ||= weapons.includes(after.fixedLoot.slot);
+    }
+    assert.truthy(weaponAfterClaim, 'after the choice the ordinary starter pool remains available');
+  });
+
   // ── Determinism ─────────────────────────────────────────────────────────
 
   test('spawn relic chest: a rebuild reproduces the same chest, cell and relic', () => {

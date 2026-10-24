@@ -80,5 +80,10 @@
     const entry = find(key);
     return entry ? `${gameURL}?sandbox=true&sandboxZone=${encodeURIComponent(entry.id)}` : null;
   }
-  root.SandboxDestinations = { entries, find, href };
+  function variantHref(type, id) {
+    if (!['nexus', 'road'].includes(type) || !/^[a-zA-Z0-9_-]+$/.test(id || '')) return null;
+    const viewerURL = scriptURL ? new URL('../tools/floor-viewer.html', scriptURL).href : 'tools/floor-viewer.html';
+    return viewerURL + '?' + new URLSearchParams({ sandboxType: type, sandboxVariant: id, play: 'true' });
+  }
+  root.SandboxDestinations = { entries, find, href, variantHref };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

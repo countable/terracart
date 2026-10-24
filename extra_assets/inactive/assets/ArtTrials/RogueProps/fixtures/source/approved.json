@@ -1,0 +1,817 @@
+[
+  {
+    "id": "ladder-down",
+    "name": "Downward access \u2014 current pool/well image",
+    "assetPath": "extra_assets/inactive/assets/ArtTrials/RogueObjects/ladder-down.png",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frame": 0,
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Village.png",
+    "sourceEvidence": "RogueObjects.spec; RogueObjects/manifest.json rect [288, 0, 32, 32]",
+    "assessment": "review",
+    "reason": "The current crop is a pool/well, not a downward ladder. Replace it with an explicit below-ground entrance.",
+    "suggestion": "Retain opening footprint; confirm downward-travel affordance and add source-native ladder detail if needed.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-ladder-down.png",
+    "proposal": {
+      "id": "ladder-down",
+      "thumbnail": "images/proposal-ladder-down.png",
+      "method": "Generated replacement preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-890a8c63-8683-43fe-96cb-0d79f00a9f7e.png",
+      "crop": [
+        290,
+        222,
+        675,
+        762
+      ],
+      "exportSize": [
+        32,
+        32
+      ],
+      "rationale": "Regenerated recessed stone steps: walk in from the near edge and descend toward the short dark recess at the far edge. No unexplained dark lower shaft. Generated concept, not a native RA crop.",
+      "generatedSource": "generated/exec-890a8c63-8683-43fe-96cb-0d79f00a9f7e.png"
+    },
+    "approvedSha256": "3408a7646b3675037350b31c023db7d64a9d52a6514d847da5145f5be8736df2"
+  },
+  {
+    "id": "ladder-up",
+    "name": "Upward access \u2014 matching stone stairs",
+    "assetPath": "assets/Objects/Approved/stair_up.png",
+    "frameWidth": 32,
+    "frameHeight": 32,
+    "frame": 0,
+    "assessment": "review",
+    "reason": "The upward exit needs the same material family and aligned footprint as the revised downward entrance.",
+    "suggestion": "Use matching stone steps rising to a bright upper landing.",
+    "source": "assets/Objects/Approved/stair_up.png",
+    "sourceEvidence": "src/assets.js stair_up; src/render.js staircase selects stair_up when dir is up.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-ladder-up.png",
+    "currentPreview": "/tmp/ra-fixture-proposals/ladder-up-current.png",
+    "proposal": {
+      "id": "ladder-up",
+      "thumbnail": "images/proposal-ladder-up.png",
+      "method": "Generated matching upward-access preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-1024a591-a909-465e-9e3d-ef9d15603a24.png",
+      "crop": [
+        288,
+        220,
+        679,
+        764
+      ],
+      "exportSize": [
+        32,
+        32
+      ],
+      "rationale": "Same stone palette, side rims and cardinal footprint as downward access. Bright upper landing and exposed risers indicate ascent; down uses treads receding into a dark rear opening. No 45-degree yaw. Generated preview, not a native RA tile.",
+      "generatedSource": "generated/exec-1024a591-a909-465e-9e3d-ef9d15603a24.png"
+    },
+    "approvedSha256": "633b7dd8992db2b20d7243c6c7867ba624c9a3aef971d3ac8f72a391f8b8abfc"
+  },
+  {
+    "id": "lamp-unlit",
+    "name": "RA lamp \u2014 unlit",
+    "assetPath": "extra_assets/inactive/assets/ArtTrials/RogueObjects/lamp-unlit.png",
+    "frameWidth": 16,
+    "frameHeight": 32,
+    "frame": 0,
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Jungle_Animations.png",
+    "sourceEvidence": "RogueObjects.spec; RogueObjects/manifest.json rect [240, 240, 16, 32]",
+    "assessment": "replace",
+    "reason": "RA override issue: inspected shipped unlit PNG still contains a yellow/orange flame identical to lit state; top-row clearing misses the flame.",
+    "suggestion": "Correct the unlit crop/mask against actual flame bounds; preserve stone post and anchor.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-lamp-unlit.png",
+    "proposal": {
+      "id": "lamp-unlit",
+      "thumbnail": "images/proposal-lamp-unlit.png",
+      "method": "Deterministic unlit-state repair",
+      "source": "extra_assets/inactive/assets/ArtTrials/RogueObjects/lamp-unlit.png",
+      "crop": [
+        0,
+        0,
+        16,
+        32
+      ],
+      "rationale": "Remove flame tip and replace the remaining luminous yellow/white flame pixels with a charcoal bowl. The existing stone shaft and moss remain unchanged; this is an edited RA lamp, not a claimed native unlit frame."
+    },
+    "approvedSha256": "da082fac82aa2fd4ba1237d7f6d89618acf31a4762b734b42a9202961999dca6"
+  },
+  {
+    "id": "grave",
+    "name": "Generic stone grave post",
+    "assetPath": "assets/Objects/SelectedProps/selected_grave_pillar.png",
+    "frameWidth": 16,
+    "frameHeight": 32,
+    "frame": 0,
+    "source": "Pixel Plains/Props.png crop[128,176,16,32]",
+    "sourceEvidence": "SelectedProps/manifest.json; Render headstone and zone_prop variant1",
+    "assessment": "recolor",
+    "reason": "Baseline PP stone post has noticeably cool blue/lilac stone and bright lime moss against RA olive terrain. Generic silhouette is correct.",
+    "suggestion": "Keep the required generic stone post; mute moss and warm stone toward RA grey/olive.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-grave.png",
+    "proposal": {
+      "id": "grave",
+      "thumbnail": "images/proposal-grave.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/SelectedProps/selected_grave_pillar.png",
+      "crop": [
+        0,
+        0,
+        16,
+        32
+      ],
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Keep the required generic stone-post shape. Green foliage accents now use actual RA canopy colors, keeping non-green stone, flame and identifying accents.",
+      "foliagePalette": [
+        [
+          51,
+          47,
+          35
+        ],
+        [
+          102,
+          102,
+          61
+        ],
+        [
+          127,
+          127,
+          70
+        ],
+        [
+          153,
+          153,
+          76
+        ],
+        [
+          178,
+          178,
+          71
+        ],
+        [
+          204,
+          204,
+          71
+        ]
+      ]
+    },
+    "approvedSha256": "ceb86b1bf1b3b6adb65dc2fa2cd96c4046b8aaf6a7b7e69ff96548f65e6b6b2d"
+  },
+  {
+    "id": "well",
+    "name": "Water-refill well",
+    "assetPath": "extra_assets/inactive/assets/Objects/Wilderness/well.png",
+    "frameWidth": 30,
+    "frameHeight": 32,
+    "frame": 0,
+    "source": "Existing Wilderness well; original external pack unverified",
+    "sourceEvidence": "assets.js well; Render.well frame0 scale0.9",
+    "assessment": "review",
+    "reason": "Baseline fallback: compact roofed utility silhouette is readable; source provenance needs confirmation.",
+    "suggestion": "Keep footprint; compare warm roof highlights with RA buildings before recoloring.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-well.png",
+    "proposal": {
+      "id": "well",
+      "thumbnail": "images/proposal-well.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "extra_assets/inactive/assets/Objects/Wilderness/well.png",
+      "crop": [
+        0,
+        0,
+        30,
+        32
+      ],
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye."
+    },
+    "approvedSha256": "91483c49af974736c0c2529f68b33bbe82e3627ef55bc52942521aa3a0586419"
+  },
+  {
+    "id": "gatepost",
+    "name": "Gate marker post",
+    "assetPath": "extra_assets/inactive/assets/Objects/Approved/gatepost.png",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frame": 0,
+    "source": "Approved adaptation of generated pillar_a.png",
+    "sourceEvidence": "Approved/manifest.json originalAssets.gatepost; Render.gatepost",
+    "assessment": "review",
+    "reason": "Baseline fallback: ornamental pale stone may compete with interactive grave post.",
+    "suggestion": "Review silhouette distinction; retain current non-interactive gate role.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-gatepost.png",
+    "proposal": {
+      "id": "gatepost",
+      "thumbnail": "images/proposal-gatepost.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "extra_assets/inactive/assets/Objects/Approved/gatepost.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye."
+    },
+    "approvedSha256": "93e51df33a3abbbfcf1894ec1afe427df552a8f818aa976a13deccdd63a7e741"
+  },
+  {
+    "id": "waystone-0",
+    "name": "Pilgrim waystone dormant",
+    "assetPath": "extra_assets/inactive/assets/Objects/Handmade/waystone.png",
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "frame": 0,
+    "source": "Hand-drawn project art",
+    "sourceEvidence": "tools/art/export_petnip_waystone.py; Render.waystone/setWaystoneMaterial",
+    "assessment": "recolor",
+    "reason": "Baseline handmade stone has blue/lavender shading stronger than RA stone; compact compass silhouette remains legible.",
+    "suggestion": "Warm/desaturate dormant stone while preserving the carved mark and paired lit-state geometry.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-waystone-0.png",
+    "proposal": {
+      "id": "waystone-0",
+      "thumbnail": "images/proposal-waystone-0.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "extra_assets/inactive/assets/Objects/Handmade/waystone.png",
+      "crop": [
+        0,
+        0,
+        16,
+        16
+      ],
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye. Green foliage accents now use actual RA canopy colors, keeping non-green stone, flame and identifying accents.",
+      "foliagePalette": [
+        [
+          51,
+          47,
+          35
+        ],
+        [
+          102,
+          102,
+          61
+        ],
+        [
+          127,
+          127,
+          70
+        ],
+        [
+          153,
+          153,
+          76
+        ],
+        [
+          178,
+          178,
+          71
+        ],
+        [
+          204,
+          204,
+          71
+        ]
+      ]
+    },
+    "approvedSha256": "7f7e225c8c3ebc196dc7eb2e5edfaa7d64eb0f154ab65abf08e22b0c57864a3c"
+  },
+  {
+    "id": "barricade",
+    "name": "Barricade",
+    "assetPath": "assets/Objects/Approved/barricade.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frame": 0,
+    "source": "Approved round-two generated two-X barricade",
+    "sourceEvidence": "Approved/README.md; barricade asset registration",
+    "assessment": "review",
+    "reason": "Baseline fallback: chunky crossed timber is readable at 7m but shading is smoother than native RA.",
+    "suggestion": "Prefer native RA crossed timber if equivalent; retain collision shape and recognizability.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-barricade.png",
+    "proposal": {
+      "id": "barricade",
+      "thumbnail": "images/proposal-barricade.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "assets/Objects/Approved/barricade.png",
+      "crop": [
+        0,
+        0,
+        24,
+        24
+      ],
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye."
+    },
+    "approvedSha256": "cc09063d079f5f98798e103e4974536da33fde1e42379d4e47f29b34d2e67f61"
+  },
+  {
+    "id": "votive",
+    "name": "Grove stone votive",
+    "assetPath": "extra_assets/inactive/assets/Objects/ZoneVariants/seed_shrine.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frame": 0,
+    "source": "Generated project ZoneVariants sheet",
+    "sourceEvidence": "ZoneVariants/README.md; SpriteLayout.GROVE_SHRINE_ART",
+    "assessment": "review",
+    "reason": "Baseline fallback: colorful central detail and soft shading may depart from RA material language.",
+    "suggestion": "Retain landmark silhouette; consider restrained olive/ochre stone recolor.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-votive.png",
+    "proposal": {
+      "id": "votive",
+      "thumbnail": "images/proposal-votive.png",
+      "method": "Generated replacement preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-43b939db-6c2b-4f8e-bf54-d672ccfec060.png",
+      "crop": [
+        161,
+        99,
+        702,
+        1280
+      ],
+      "exportSize": [
+        24,
+        36
+      ],
+      "rationale": "Regenerated grove shrine in a 24\u00d736px frame: prominent leaf emblem, cardinal stone base, black upper perimeter and material-colored ground contact. Generated concept, not a native RA sprite. Green foliage accents now use actual RA canopy colors, keeping non-green stone, flame and identifying accents.",
+      "foliagePalette": [
+        [
+          51,
+          47,
+          35
+        ],
+        [
+          102,
+          102,
+          61
+        ],
+        [
+          127,
+          127,
+          70
+        ],
+        [
+          153,
+          153,
+          76
+        ],
+        [
+          178,
+          178,
+          71
+        ],
+        [
+          204,
+          204,
+          71
+        ]
+      ],
+      "generatedSource": "generated/exec-43b939db-6c2b-4f8e-bf54-d672ccfec060.png"
+    },
+    "approvedSha256": "9612ce2b62c878dd844eed507ad30faf5a95efb356d403330c5347d9d2572a5a"
+  },
+  {
+    "id": "shrine-0",
+    "name": "Wayfarer shrine",
+    "assetPath": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+    "frameWidth": 24,
+    "frameHeight": 36,
+    "frame": 0,
+    "source": "Generated project shrine placeholders",
+    "sourceEvidence": "assets.js shrines; Shrines.SHRINE_KINDS; SpriteLayout.SHRINE_KIND_ART",
+    "assessment": "recolor",
+    "reason": "Generated fallback has saturated red/orange idol details and black outlines that stand out from muted RA props.",
+    "suggestion": "Reduce red saturation; keep boon landmark recognizable and readable in one 7m tap cell.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-shrine-0.png",
+    "proposal": {
+      "id": "shrine-0",
+      "thumbnail": "images/proposal-shrine-0.png",
+      "method": "Generated outline correction preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "reference": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+      "crop": [
+        16,
+        224,
+        181,
+        262
+      ],
+      "exportSize": [
+        24,
+        36
+      ],
+      "rationale": "Retain upper black silhouette; remove the black ground-contact baseline. Generated redraw based on the current shrine, exported to a 24\u00d736px frame; review design fidelity before adopting. Green foliage accents now use actual RA canopy colors, keeping non-green stone, flame and identifying accents.",
+      "foliagePalette": [
+        [
+          51,
+          47,
+          35
+        ],
+        [
+          102,
+          102,
+          61
+        ],
+        [
+          127,
+          127,
+          70
+        ],
+        [
+          153,
+          153,
+          76
+        ],
+        [
+          178,
+          178,
+          71
+        ],
+        [
+          204,
+          204,
+          71
+        ]
+      ],
+      "generatedSource": "generated/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png"
+    },
+    "approvedSha256": "aad6fe24d9d167619cf9f0122e61e9ffb29948111ee8ce23a1fe3036a725079e"
+  },
+  {
+    "id": "shrine-1",
+    "name": "Lantern saint shrine",
+    "assetPath": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+    "frameWidth": 24,
+    "frameHeight": 36,
+    "frame": 1,
+    "source": "Generated project shrine placeholders",
+    "sourceEvidence": "assets.js shrines; Shrines.SHRINE_KINDS; SpriteLayout.SHRINE_KIND_ART",
+    "assessment": "review",
+    "reason": "Baseline fallback: authored shrine state/boon needs a recognizable marker; generated detail may be dense for overworld scale.",
+    "suggestion": "Keep distinct landmark identity; compare simplified native RA altar alternative.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-shrine-1.png",
+    "proposal": {
+      "id": "shrine-1",
+      "thumbnail": "images/proposal-shrine-1.png",
+      "method": "Generated outline correction preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "reference": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+      "crop": [
+        212,
+        251,
+        172,
+        234
+      ],
+      "exportSize": [
+        24,
+        36
+      ],
+      "rationale": "Retain upper black silhouette; remove the black ground-contact baseline. Generated redraw based on the current shrine, exported to a 24\u00d736px frame; review design fidelity before adopting. Green foliage accents now use actual RA canopy colors, keeping non-green stone, flame and identifying accents.",
+      "foliagePalette": [
+        [
+          51,
+          47,
+          35
+        ],
+        [
+          102,
+          102,
+          61
+        ],
+        [
+          127,
+          127,
+          70
+        ],
+        [
+          153,
+          153,
+          76
+        ],
+        [
+          178,
+          178,
+          71
+        ],
+        [
+          204,
+          204,
+          71
+        ]
+      ],
+      "generatedSource": "generated/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png"
+    },
+    "approvedSha256": "e74bc9322acd46bd93662440f52009719cf1bf04d99d41e3126983c23869c92f"
+  },
+  {
+    "id": "shrine-4",
+    "name": "Moss cairn shrine",
+    "assetPath": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+    "frameWidth": 24,
+    "frameHeight": 36,
+    "frame": 4,
+    "source": "Generated project shrine placeholders",
+    "sourceEvidence": "assets.js shrines; Shrines.SHRINE_KINDS; SpriteLayout.SHRINE_KIND_ART",
+    "assessment": "recolor",
+    "reason": "Generated fallback moss cairn is intensely lime-green compared with RA olive vegetation.",
+    "suggestion": "Shift moss to olive and reduce contrast, retaining pale stone accents.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-shrine-4.png",
+    "proposal": {
+      "id": "shrine-4",
+      "thumbnail": "images/proposal-shrine-4.png",
+      "method": "Generated outline correction preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "reference": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+      "crop": [
+        800,
+        299,
+        166,
+        186
+      ],
+      "exportSize": [
+        24,
+        36
+      ],
+      "rationale": "Retain upper black silhouette; remove the black ground-contact baseline. Generated redraw based on the current shrine, exported to a 24\u00d736px frame; review design fidelity before adopting. Green foliage accents now use actual RA canopy colors, keeping non-green stone, flame and identifying accents.",
+      "foliagePalette": [
+        [
+          51,
+          47,
+          35
+        ],
+        [
+          102,
+          102,
+          61
+        ],
+        [
+          127,
+          127,
+          70
+        ],
+        [
+          153,
+          153,
+          76
+        ],
+        [
+          178,
+          178,
+          71
+        ],
+        [
+          204,
+          204,
+          71
+        ]
+      ],
+      "generatedSource": "generated/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png"
+    },
+    "approvedSha256": "9c5e9314ce5ca745536fc692090485a4b7715a476a48193fa2efa358f1688f4c"
+  },
+  {
+    "id": "scope",
+    "name": "Viewpoint scope",
+    "assetPath": "extra_assets/inactive/assets/Objects/Approved/vista_scope.png",
+    "frameWidth": 16,
+    "frameHeight": 24,
+    "frame": 0,
+    "source": "Approved adaptation of generated viewpoint scope",
+    "sourceEvidence": "assets.js vista_scope; Approved/manifest.json",
+    "assessment": "recolor",
+    "reason": "Baseline viewpoint scope is recognizable but saturated golden brown and smooth highlights look stronger than native RA wood/metal.",
+    "suggestion": "Mute brass toward ochre and reduce highlight contrast; retain exaggerated scope silhouette.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-scope.png",
+    "proposal": {
+      "id": "scope",
+      "thumbnail": "images/proposal-scope.png",
+      "method": "Hue-matched existing art; brightness and saturation retained",
+      "source": "extra_assets/inactive/assets/Objects/Approved/vista_scope.png",
+      "crop": [
+        0,
+        0,
+        16,
+        24
+      ],
+      "rationale": "Match foliage to RA yellow-olive, timber and brass to warm ochre, and cool materials to a coordinated blue-violet family. Preserve original saturation, brightness, contrast and silhouette so this interactable still draws the eye."
+    },
+    "approvedSha256": "75efa6e78a84b84c0706e42a85d981b12a0a374dc157711e4d42a230f6065072"
+  },
+  {
+    "id": "elevator-0",
+    "name": "Elevator broken",
+    "assetPath": "assets/Objects/Progression/tiles.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frame": 0,
+    "source": "Existing project progression atlas; master provenance unverified",
+    "sourceEvidence": "Render.staircase elevator branch; assets.js progression_tiles",
+    "assessment": "review",
+    "reason": "Baseline fallback: progression machinery remains separate from RA ladder override.",
+    "suggestion": "Audit broken/repaired readability together before any palette adjustment.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-elevator-0.png",
+    "proposal": {
+      "id": "elevator-0",
+      "thumbnail": "images/proposal-elevator-0.png",
+      "method": "Generated replacement preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-85029949-21f0-426b-a087-24c38f97f876.png",
+      "crop": [
+        61,
+        32,
+        685,
+        940
+      ],
+      "exportSize": [
+        24,
+        36
+      ],
+      "rationale": "Regenerated broken lift with square screen-aligned platform, snapped ropes and damaged deck. No 45-degree yaw. Matches repaired lift. Generated concept, not native RA.",
+      "generatedSource": "generated/exec-85029949-21f0-426b-a087-24c38f97f876.png"
+    },
+    "approvedSha256": "f15265ed00e1c124c7c7eb9e6b1b5be2cd90a22e530dd8cdca5d0f92fa8807ff"
+  },
+  {
+    "id": "elevator-1",
+    "name": "Elevator repaired",
+    "assetPath": "assets/Objects/Progression/tiles.png",
+    "frameWidth": 24,
+    "frameHeight": 24,
+    "frame": 1,
+    "source": "Existing project progression atlas; master provenance unverified",
+    "sourceEvidence": "Render.staircase elevator branch; assets.js progression_tiles",
+    "assessment": "review",
+    "reason": "Baseline fallback: progression machinery remains separate from RA ladder override.",
+    "suggestion": "Audit broken/repaired readability together before any palette adjustment.",
+    "category": "fixtures",
+    "thumbnail": "images/fixtures-elevator-1.png",
+    "proposal": {
+      "id": "elevator-1",
+      "thumbnail": "images/proposal-elevator-1.png",
+      "method": "Generated replacement preview",
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-85029949-21f0-426b-a087-24c38f97f876.png",
+      "crop": [
+        810,
+        49,
+        665,
+        923
+      ],
+      "exportSize": [
+        24,
+        36
+      ],
+      "rationale": "Regenerated repaired lift with complete deck and taut ropes. Screen-aligned rectangular platform matches broken lift; no 45-degree yaw. Generated concept, not native RA.",
+      "generatedSource": "generated/exec-85029949-21f0-426b-a087-24c38f97f876.png"
+    },
+    "approvedSha256": "69f1b3e26a826f5610dfabf1bd3982bb81bbd6a1e20530d44176e967f4bd8ef1"
+  },
+  {
+    "id": "shrine-2",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        409,
+        334,
+        171,
+        151
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "6a8ddfdd6b0e7110ee6c9dcb21312ac483ff450b30257fd3b57071db434bae80"
+  },
+  {
+    "id": "shrine-3",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        607,
+        254,
+        166,
+        231
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "169df4aa6e1d148113dbb8224bd1d6bc8c9bb14e4eff0c2a6e1499a26effa785"
+  },
+  {
+    "id": "shrine-5",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        1008,
+        224,
+        142,
+        261
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "261a051495bb45c649c8c914ba7bdf7f8a8a701503e8b0d82f4e2eb7087056c5"
+  },
+  {
+    "id": "shrine-6",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        1186,
+        254,
+        177,
+        231
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "7d965ba5e7393014d1e74dac871a6138e3b29b44d871cd59b61e63bec75550ca"
+  },
+  {
+    "id": "shrine-7",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        1384,
+        246,
+        169,
+        239
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "dca33baf74948748e712f3cc019b3ee53cf048cf78a5ce58737fd3a7480b919f"
+  },
+  {
+    "id": "shrine-8",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        1579,
+        327,
+        198,
+        158
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "cfe993b3f7408709824efe2c394a8fbcf3ea019416eb20560cde3a6e29c4dd59"
+  },
+  {
+    "id": "shrine-9",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        1777,
+        294,
+        197,
+        191
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "9023afd52f2218eed3a54492e7b3db19525f999d8e6d2c5920f51b37233999ae"
+  },
+  {
+    "id": "shrine-10",
+    "source": "Approved shrine outline correction export",
+    "export": {
+      "source": "/home/claude/.codex/generated_images/01a15a2b-67f7-7753-b510-e12efef170bb/exec-860940a5-e98d-48b5-a5b7-fb044789293b.png",
+      "crop": [
+        1974,
+        223,
+        165,
+        262
+      ],
+      "size": [
+        24,
+        36
+      ]
+    },
+    "approvedSha256": "fb43420a015e49c03777860e88799f3ccc870d7d468b837b540fa3304f36361b"
+  }
+]

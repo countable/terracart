@@ -162,6 +162,7 @@
       s.homeWorldPos = () => home;
       const entry = starterEntry(); entry.objects = [home, roof]; entry.creatures = [w];
       cache.set(WorldGen.tileKey(0, 0), entry);
+      NPC.meetHomeNeighbour(s, w);
       NPC.markDelivery(s, roof, 1000);
       assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS - 1 }), 0);
       assert.falsy(MemoryStory.wandererHoused(s.save, w));

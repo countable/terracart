@@ -103,7 +103,11 @@
     const anchor = homeFaunaAnchor(scene);
     if (!inHomeFaunaCircle(anchor, x, y)) return true;
     const kind = root.SpriteLayout.baseKind(c.kind);
-    return kind === 'chicken' || (kind === 'deer' && c.id === scene._homeFaunaDeerId);
+    // The authored chicken enters after the guided lessons. Incidental birds
+    // wait too, so a biome roll cannot introduce catching ahead of that beat.
+    const lessons = root.Difficulty?.get?.().tutorial && typeof Quests !== 'undefined'
+      && !Quests.starterAllDone(scene.save);
+    return (kind === 'chicken' && !lessons) || (kind === 'deer' && c.id === scene._homeFaunaDeerId);
   }
   // Keep the deer candidate references while tile membership is unchanged.
   // Runtime additions append, removals change length/array, and species are

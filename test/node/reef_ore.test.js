@@ -37,7 +37,7 @@
     }
     assert.eq(JSON.stringify(rocks), JSON.stringify(ore(dress(context()))), 'reload preserves mineral types, seats and spent IDs');
     assert.eq(ore(dress(context(false))).length, 0, 'an observing tile cannot duplicate the site budget');
-    assert.eq(out.wildplants.filter(o => o.zoneLayer === 'find').length, 1, 'starflower remains the one authored find');
+    assert.eq(out.tidepools.filter(o => o.zoneLayer === 'find').length, 1, 'the one authored find is a stocked tidepool');
   });
   test('Mystic Reef ore: occupied and restricted ground cannot acquire a deposit', () => {
     const baseline = ore(dress(context())), c = context();

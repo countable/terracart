@@ -247,6 +247,11 @@ mechanics.
   the selected melee weapon, or an owned sword/bare hands while a ranged weapon
   stays selected. Ranged fire resumes when melee reach clears; paused fire spends
   no ammunition or energy, and already launched shots keep flying.
+  Manual Unequip clears the active weapon and any unlaunched swing or staff
+  charge. Empty hands stop automatic attacks even while a sword remains owned;
+  the choice survives reloads and temporary wand expiry. Feeding and catching
+  remain available. Explicit Equip or obtaining a new weapon resumes the normal
+  equipment flow. Enemies still attack an unarmed player.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.

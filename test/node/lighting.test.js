@@ -601,14 +601,14 @@ test('lighting: collectLamps converts absolute lamp metres against the anchor, c
   // …AND THE COOKIE BURNS AT THE LANTERN. The lamp's point is its FOOT — dx/dy
   // above are exactly that point, which is what the cull and the peek anchor
   // read — but what is alight is the glass up the post, so the stamp is lifted
-  // by the ART's own rise: RoadOverlay.LAMP_LANTERN_RISE_CELLS (the ground
+  // by the ART's own rise: RoadOverlay.LAMP_LIGHT_RISE_CELLS (the ground
   // line to the lit glass's midline) in screen px. A DRAW-space lift, like
   // RENDER_SPEC's dyPx on the sprite, never metres folded into dy — fold it in
   // and the light acquires a world position of its own a cell north of the
   // lamp, which the road mask, the cull and every reader of the point would
   // then disagree with.
   const rise = Lighting.lampRiseCells();
-  assert.eq(rise, RoadOverlay.LAMP_LANTERN_RISE_CELLS, 'the rise is the art\'s own, read live');
+  assert.eq(rise, RoadOverlay.LAMP_LIGHT_RISE_CELLS, 'the rise is the art\'s own, read live');
   assert.gt(rise, 0.5, 'a real lift up the post, not a nudge');
   assert.lt(rise, RoadOverlay.LAMP_DRAW_CELLS / 2, 'and inside the square the lamp is drawn in');
   assert.eq(byId.near.dyPx, -rise * CELL_PX, 'lifted UP the screen by the rise, in px');

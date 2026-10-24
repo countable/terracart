@@ -114,8 +114,10 @@ const MapArtProcedural = (() => {
       return c;
     }
     if (spec.kind === 'lamp') {
-      const c = canvas(window.RoadOverlay.LAMP_TEX_PX);
-      window.RoadOverlay.paintLamp(c.getContext('2d'), c.width, spec.glow);
+      const art = MAP_ART_LAMPS[spec.lit === false ? 'unlit' : 'lit'];
+      const c = canvas(art.width, art.height), ctx = c.getContext('2d');
+      const pixels = ctx.createImageData(art.width, art.height);
+      pixels.data.set(art.pixels); ctx.putImageData(pixels,0,0);
       return c;
     }
     const scene = textureScene();

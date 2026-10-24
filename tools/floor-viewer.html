@@ -71,20 +71,47 @@
 (() => {
   'use strict';
   let floor = 0, variantIndex = 0, showCreatures = true, showLabels = true;
+  const launchParams = new URLSearchParams(location.search);
+  let exactSelection = null;
   const seedInput = document.getElementById('seed');
-  let seed = Number(new URLSearchParams(location.search).get('seed')) >>> 0;
+  let seed = Number(launchParams.get('seed')) >>> 0;
   seedInput.value = seed;
   const entries = {};   // depth -> built tile entry (real pipeline)
   const sprites = {};   // depth -> [{o, appearance, fruit}]
   let assets = null, building = true, readyToPlay = false;
   const variantIndices = new Map();
   const displayDepth = () => floor;
+  const currentSelection = depth => exactSelection && depth === 0
+    ? exactSelection : FloorViewerVariants.select(depth, variantIndex);
+
+  function sandboxStart(selection) {
+    if (!exactSelection || displayDepth() !== 0) return undefined;
+    const entry = entries[0], R = FloorViewerRegion;
+    const nexus = selection.nexuses[0];
+    if (nexus) {
+      const anchor = entry.zone?.anchors.find(a => a.variant === nexus.id);
+      if (anchor) return { x: anchor.lx * R.N / R.E, y: anchor.ly * R.N / R.E };
+    } else {
+      const road = selection.roads[0];
+      const line = entry.streetIndex?.lines.find(r => r.variant === road.id)?.line
+        || entry.streetIndex?.pathSections?.find(r => r.variant === road.id)?.line;
+      if (line?.length) {
+        const a = line[0], b = line[line.length - 1];
+        return { x: (a.x + b.x) / 2 * R.N / R.E, y: (a.y + b.y) / 2 * R.N / R.E };
+      }
+    }
+    throw new Error('The selected variant did not fit this region. Try another seed in the viewer.');
+  }
 
   const status = t => document.getElementById('status').innerHTML = t;
   const tag = t => document.getElementById('tag').innerHTML = t;
   document.getElementById('playSandbox').onclick = () => {
     try {
-      FloorSandbox.write(entries, displayDepth(), seed, variantIndex);
+      const selected = currentSelection(displayDepth());
+      const back = new URL(location.href);
+      back.searchParams.delete('play');
+      FloorSandbox.write(entries, displayDepth(), seed, exactSelection?.id || variantIndex,
+        { home: sandboxStart(selected), title: exactSelection?.label, returnUrl: back.href });
       location.href = '../index.html?sandbox=true&sandboxMap=floor-viewer&skipStory=true&skipTutorial=true&autoTorch=true';
     } catch (error) {
       document.getElementById('status').textContent = 'Could not launch sandbox: ' + error.message;
@@ -99,7 +126,7 @@
     updateControls();
     const W = WorldGen, R = FloorViewerRegion, depth = displayDepth();
     try {
-      await R.withSeed(seed, () => R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, variantIndex, async () => {
+      await R.withSeed(seed, () => R.withNexusSizes(() => FloorViewerVariants.withSelection(depth, currentSelection(depth), async () => {
         for (let d = 0; d <= 8; d++) W.tileCacheFor(d).clear();
         W.setDepth(0);
         const built = {};
@@ -170,9 +197,12 @@
   }
   (async () => {
     await loadGame();
+    if (launchParams.has('sandboxVariant')) exactSelection = FloorViewerVariants.exactSelection(
+      launchParams.get('sandboxType') || 'nexus', launchParams.get('sandboxVariant'));
     status('Loading game art&hellip;');
     assets = await loadAssets();
     await rebuild();
+    if (readyToPlay && launchParams.get('play') === 'true') document.getElementById('playSandbox').click();
   })().catch(e => { console.error(e); document.getElementById('status').textContent = 'Error: ' + e.message; });
 
   // ── Assets: the shipped sheets on plain canvases (map-review's loader) ───
@@ -510,7 +540,7 @@
         occupiedLabels.push(el.getBoundingClientRect());
       }
     }
-    const selected = FloorViewerVariants.select(depth, variantIndex);
+    const selected = currentSelection(depth);
     const nexusNames = selected?.nexuses.map(row => `${row.kind}: ${row.label}`).join(' · ');
     const roadKinds = { minor: 'Small roads', major: 'Major / medium roads', path: 'Paths' };
     const roadNames = selected?.roads.map(row => `${roadKinds[row.kind]}: ${row.label}`).join(' · ');
@@ -573,10 +603,10 @@
     document.getElementById('labelToggle').disabled = building;
     document.getElementById('regionLabels').hidden = building || !showLabels;
     const depth = displayDepth(), count = FloorViewerVariants.count(depth);
-    const selected = FloorViewerVariants.select(depth, variantIndex);
+    const selected = currentSelection(depth);
     for (const id of ['vMinus', 'vPlus']) document.getElementById(id).disabled = building || count < 2;
     document.getElementById('variantName').textContent = selected
-      ? `${variantIndex}/${count - 1} · ${selected.label}` : 'No variants on this floor';
+      ? (exactSelection && depth === 0 ? selected.label : `${variantIndex}/${count - 1} · ${selected.label}`) : 'No variants on this floor';
   }
   function changeFloor() {
     variantIndex = variantIndices.get(displayDepth()) || 0;
@@ -584,6 +614,7 @@
   }
   function stepVariant(delta) {
     if (building) return;
+    exactSelection = null;
     const count = FloorViewerVariants.count(displayDepth());
     if (count < 2) return;
     variantIndex = (variantIndex + delta + count) % count;

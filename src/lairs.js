@@ -169,8 +169,10 @@
   // rule, the quiet home and the safe area. Two guards, always held, every mode.
   const HABITAT_TIER_GUARDS = { habitat_marsh: 2, habitat_stronghold: 2 };
   Object.assign(TIER_GUARDS, HABITAT_TIER_GUARDS);
-  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
-  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
+  const STARTER_TIER_GUARDS = { starter_thief: 1 };
+  Object.assign(TIER_GUARDS, STARTER_TIER_GUARDS);
+  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS), ...Object.keys(STARTER_TIER_GUARDS)]);
+  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS), ...Object.keys(STARTER_TIER_GUARDS)]);
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
@@ -253,6 +255,7 @@
     // A gate: the surface pest or the goblin who holds the way — half each,
     // off the gate's own strength.
     gate: ['slime', 'goblin'],
+    starter_thief: ['thief'],
     // The habitat sites: their GROUPS rows seat these (the ladder is the
     // plain roll's, which a group tier never takes).
     habitat_marsh: ['plant', 'slime'],
@@ -344,6 +347,9 @@
     thieves: { label: 'House thieves', tiers: [9], minT: 0, chance: .15,
       story: 'One or two thieves hide around the wreck, steal a purse and flee.',
       members: [{ kind: 'thief', nRange: [1, 2], place: 'ring' }] },
+    starter_thief: { label: 'The first thief', tiers: ['starter_thief'], minT: 0,
+      story: 'A lone thief waits in the next wreck beyond the safe neighbourhood.',
+      members: [{ kind: 'thief', n: 1, place: 'ring' }] },
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
@@ -574,6 +580,7 @@
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
+    starter_thief: { rate: 1, thinned: false },
   };
 
   for (const kind of SLIME_TRAIL.enemyKinds) OCCUPANCY[`street_slime_trail_${kind}`] = { rate: 1, thinned: false };
@@ -1525,7 +1532,11 @@
         for (let bx = bx0; bx <= bx1; bx++) {
           const b = idx.buckets.get(bucketKey(bx, by));
           if (!b) continue;
-          for (const cand of b) {
+          for (const worldCand of b) {
+            // Authored per-player introductions can hold or replace a candidate
+            // without changing its world index or another structure's stream.
+            const cand = o.candidateOverlay ? o.candidateOverlay(worldCand) : worldCand;
+            if (!cand) continue;
             const dx = cand.wx - p.x, dy = cand.wy - p.y;
             const d2 = dx * dx + dy * dy;
             if (d2 > wakeR2) continue;
@@ -1599,7 +1610,7 @@
     LAIR_RING_PAD_CELLS, CORE_SEATED_TIERS, LAIR_CORE_SPREAD_CELLS, LAIR_CORE_AGGRO_CELLS, inOwnKeep, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, STARTER_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     TIER_GROUP, GARRISON_INHERIT,
     capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     GROUPS, GROUP_RATE, FOCUS_RULES, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,

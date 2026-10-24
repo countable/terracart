@@ -31,7 +31,7 @@ test('fishing: a cast costs double the shared tool ladder', () => {
 test('fishing: the handler rolls the module\'s numbers, not its own', () => {
   // It used to carry its own literals (0.55 - tier*0.05, 0.06, and the whole
   // fish table).
-  assert.truthy(/spotFish\(spotId\)/.test(INTERACT_SRC), 'the spot\'s fish');
+  assert.truthy(/spotFish\(spotId, stock\)/.test(INTERACT_SRC), 'the spot\'s fish and authored stock policy');
   assert.truthy(/fishCatchChance\(pick, tier, shiny\)/.test(INTERACT_SRC), 'the landing');
   assert.truthy(/rollEmptyCast\(/.test(INTERACT_SRC), 'the empty cast');
   assert.falsy(/id: 'goldenfish', +w:/.test(INTERACT_SRC), 'no second copy of the catch table');
@@ -66,6 +66,22 @@ test('fishing: a fish above the rod gets away, halved per tier of gap', () => {
   }
   assert.eq(fishCatchChance('minnow', 0), 0.5, 'bare hands land a minnow half the time');
   assert.eq(fishCatchChance('goldenfish', 7), 1, 'a Frost rod never loses one');
+});
+
+test('fishing: authored tidepools always stock one deterministic T3-or-better species', () => {
+  const stock = { guaranteed: true, minTier: 3 };
+  const kinds = new Set();
+  let otherwiseEmpty = 0;
+  for (let ix = 0; ix < 1000; ix++) {
+    const id = fishSpotId(3, 9, ix, 7), fish = spotFish(id, stock);
+    assert.truthy(fishSpotStocked(id, stock));
+    if (!fishSpotStocked(id)) otherwiseEmpty++;
+    assert.gte(fishTier(fish), stock.minTier);
+    assert.eq(spotFish(id, stock), fish, 'same cell keeps the same species');
+    kinds.add(fish);
+  }
+  assert.gt(otherwiseEmpty, 500, 'the authored stock policy overrides an ordinarily empty cell');
+  assert.gt(kinds.size, 1, 'tier restriction retains weighted species variety');
 });
 
 // --- Shiny fish -------------------------------------------------------------
@@ -230,6 +246,26 @@ test('fished spots persist as an id set bound at scene boot', () => {
     const ix = spot(false);
     for (let i = 0; i < 5; i++) assert.eq(cast(ix, fished).inv.length, 0, 'no fish here');
     assert.eq(fished.size, 0, 'nothing to deplete');
+  });
+
+  test('fishing: a tidepool uses its authored stock policy and the ordinary permanent depletion ledger', () => {
+    const ix = spot(false), stock = { guaranteed: true, minTier: 3 }, key = WorldGen.tileKey(0, 0);
+    const cache = WorldGen.tileCacheFor(0), previous = cache.get(key);
+    cache.set(key, { cellsPerEdge: 256, zoneDress: { fishStock: { [ix]: stock } } });
+    try {
+      const fished = new Set(), id = fishSpotId(0, 0, ix, 0);
+      const escaped = cast(ix, fished, {}, 0, () => 0.99);
+      assert.eq(escaped.inv.length, 0, 'tier restriction still uses the rod catch gate');
+      assert.truthy(/got away/.test(escaped.loot[0]));
+      assert.eq(fished.size, 0, 'an escape leaves the fish in its pool');
+      const first = cast(ix, fished);
+      assert.eq(first.inv.join(), spotFish(id, stock));
+      assert.gte(fishTier(first.inv[0]), 3);
+      assert.truthy(fished.has(id));
+      assert.eq(cast(ix, fished).inv.length, 0, 'guaranteed initial stocking never restocks a caught fish');
+    } finally {
+      if (previous) cache.set(key, previous); else cache.delete(key);
+    }
   });
 })();
 

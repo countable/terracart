@@ -1,0 +1,369 @@
+{
+  "master": "extra_assets/inactive/assets/Objects/Furniture/source/generated/owl-clock-planter-master.png",
+  "masterSha256": "0498e29e363f24e1d5c846259fbdb230e322673ae44e9ce70c5868b8d59cab48",
+  "generator": "image_gen",
+  "targetSize": [
+    24,
+    24
+  ],
+  "extraction": "Discard alpha below 8 (invisible generation residue); crop nontransparent bounds; nearest-neighbor fit within 22x22; bottom-center in 24x24 with 1px bottom margin. Source boxes use exclusive right/bottom coordinates.",
+  "frames": [
+    {
+      "key": "statue:Crude",
+      "sourceBox": [
+        0,
+        60,
+        160,
+        235
+      ],
+      "alphaBounds": [
+        36,
+        11,
+        135,
+        165
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-crude-24.png",
+      "outputSha256": "e0d04d457c9cb57200f21ae4f4c3b6d52485b239b68bc85f38b5002c48e9a95b"
+    },
+    {
+      "key": "statue:Simple",
+      "sourceBox": [
+        160,
+        60,
+        318,
+        235
+      ],
+      "alphaBounds": [
+        33,
+        13,
+        129,
+        165
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-simple-24.png",
+      "outputSha256": "aeaf3ac2cf5272c3b0cc47d83e9a0226ebe4a424cd0f2544426a4c53bbc4cf86"
+    },
+    {
+      "key": "statue:Fine",
+      "sourceBox": [
+        318,
+        60,
+        470,
+        235
+      ],
+      "alphaBounds": [
+        27,
+        11,
+        129,
+        165
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-fine-24.png",
+      "outputSha256": "c7289a80c1a156dcdfbf3f1c6fdee7e5e7f73a31e0df6f3764ecf47a59249d36"
+    },
+    {
+      "key": "statue:Veblen",
+      "sourceBox": [
+        470,
+        60,
+        626,
+        235
+      ],
+      "alphaBounds": [
+        29,
+        11,
+        132,
+        164
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-veblen-24.png",
+      "outputSha256": "4c624014d0bcd23d77270ef266e967fb50252c7ba2a3610a5de543e5006d3056"
+    },
+    {
+      "key": "statue:Masterwork",
+      "sourceBox": [
+        626,
+        60,
+        782,
+        235
+      ],
+      "alphaBounds": [
+        27,
+        10,
+        132,
+        165
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-masterwork-24.png",
+      "outputSha256": "f4dcbcb376070c00f7f2e1cb9b28cbffd5ad62c5d3166df1a8f6487236a09737"
+    },
+    {
+      "key": "statue:Royal",
+      "sourceBox": [
+        782,
+        60,
+        940,
+        235
+      ],
+      "alphaBounds": [
+        27,
+        9,
+        133,
+        164
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-royal-24.png",
+      "outputSha256": "d54b8090588803828f3ddf077051975afe6b65990cbf6c76cec1094659f244de"
+    },
+    {
+      "key": "statue:Ancient",
+      "sourceBox": [
+        940,
+        60,
+        1110,
+        235
+      ],
+      "alphaBounds": [
+        24,
+        10,
+        134,
+        165
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-ancient-24.png",
+      "outputSha256": "0d6f0c983154a321750052ff9cdd4be8a783f917a611a335b224bc155f673ad0"
+    },
+    {
+      "key": "clock:Crude",
+      "sourceBox": [
+        0,
+        235,
+        160,
+        435
+      ],
+      "alphaBounds": [
+        37,
+        22,
+        132,
+        180
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-crude-24.png",
+      "outputSha256": "ae383247cee30d903a9b1366ade48b534288a2f716e5e86c11957a0634f6de4d"
+    },
+    {
+      "key": "clock:Simple",
+      "sourceBox": [
+        160,
+        235,
+        318,
+        435
+      ],
+      "alphaBounds": [
+        35,
+        17,
+        127,
+        180
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-simple-24.png",
+      "outputSha256": "29421e77c993e84f578d6996895b3c9c5d067248e828323153284813f67946a8"
+    },
+    {
+      "key": "clock:Fine",
+      "sourceBox": [
+        318,
+        235,
+        470,
+        435
+      ],
+      "alphaBounds": [
+        30,
+        10,
+        123,
+        181
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-fine-24.png",
+      "outputSha256": "06d40a16e567a630a2c99628d499d211f082192075c7e08707c427f9a59a5eeb"
+    },
+    {
+      "key": "clock:Veblen",
+      "sourceBox": [
+        470,
+        235,
+        626,
+        435
+      ],
+      "alphaBounds": [
+        31,
+        11,
+        126,
+        182
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-veblen-24.png",
+      "outputSha256": "9e738ea30f6548b8b5197dbc028b15715ebc0de179d1aa6bbda38d60522d34d3"
+    },
+    {
+      "key": "clock:Masterwork",
+      "sourceBox": [
+        626,
+        235,
+        782,
+        435
+      ],
+      "alphaBounds": [
+        28,
+        5,
+        129,
+        184
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-masterwork-24.png",
+      "outputSha256": "5cc62c500af442ddd6c685e8b1cba3e8f57ceb21693d1a59fb6cc31f355b5a1b"
+    },
+    {
+      "key": "clock:Royal",
+      "sourceBox": [
+        782,
+        235,
+        940,
+        435
+      ],
+      "alphaBounds": [
+        23,
+        4,
+        135,
+        184
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-royal-24.png",
+      "outputSha256": "d145f94b09961dbbca326b3f557c281b937f59f83d6812dd400db3de84143530"
+    },
+    {
+      "key": "clock:Ancient",
+      "sourceBox": [
+        940,
+        235,
+        1110,
+        435
+      ],
+      "alphaBounds": [
+        20,
+        2,
+        137,
+        184
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-ancient-24.png",
+      "outputSha256": "85c23b28cb41d9a32e5c2896193b7e274621407b132769d5521a7f4e7b9e6494"
+    },
+    {
+      "key": "planter:Crude",
+      "sourceBox": [
+        0,
+        435,
+        160,
+        580
+      ],
+      "alphaBounds": [
+        17,
+        24,
+        156,
+        130
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-crude-24.png",
+      "outputSha256": "388550aeb18477ed22c3fe050d2a953e0f76bb26178d0d04b4a4cf72d17fd629"
+    },
+    {
+      "key": "planter:Simple",
+      "sourceBox": [
+        160,
+        435,
+        318,
+        580
+      ],
+      "alphaBounds": [
+        7,
+        19,
+        152,
+        130
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-simple-24.png",
+      "outputSha256": "89415949ff86c0c8f68235f183013f59459169f22d6d6be980a5e8ed2b3d74d3"
+    },
+    {
+      "key": "planter:Fine",
+      "sourceBox": [
+        318,
+        435,
+        470,
+        580
+      ],
+      "alphaBounds": [
+        3,
+        24,
+        148,
+        125
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-fine-24.png",
+      "outputSha256": "5327bbab85ee8b7c6f9446d52c2276db76cb7cdfbbbfdeb0015773928493e983"
+    },
+    {
+      "key": "planter:Veblen",
+      "sourceBox": [
+        470,
+        435,
+        626,
+        580
+      ],
+      "alphaBounds": [
+        6,
+        22,
+        156,
+        126
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-veblen-24.png",
+      "outputSha256": "96309e75022e3492ffa9d90ed4f9a21ad79ca447ab769ee2bb3f2da4e32f558f"
+    },
+    {
+      "key": "planter:Masterwork",
+      "sourceBox": [
+        626,
+        435,
+        782,
+        580
+      ],
+      "alphaBounds": [
+        0,
+        22,
+        155,
+        128
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-masterwork-24.png",
+      "outputSha256": "e2b00bf47fb45d07d3060f6f081d42e618f74be9f82449111981a019abcfac68"
+    },
+    {
+      "key": "planter:Royal",
+      "sourceBox": [
+        782,
+        435,
+        940,
+        580
+      ],
+      "alphaBounds": [
+        4,
+        22,
+        157,
+        127
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-royal-24.png",
+      "outputSha256": "2372940045af56239db782faf6b32df06bdc4d6e26746392d18ddcea0d114578"
+    },
+    {
+      "key": "planter:Ancient",
+      "sourceBox": [
+        940,
+        435,
+        1110,
+        580
+      ],
+      "alphaBounds": [
+        2,
+        21,
+        153,
+        130
+      ],
+      "output": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-ancient-24.png",
+      "outputSha256": "56e77c33ccc2372c558768cab46078548185252a770604630b2047cbb0afb075"
+    }
+  ]
+}

@@ -15,6 +15,7 @@ import re
 
 ROOT = Path(__file__).resolve().parents[1]
 ARCHIVE = Path('extra_assets/inactive')
+ARCHIVABLE_ROOTS = {'assets', 'tools', 'test'}
 TEXT = {'.js', '.cjs', '.mjs', '.py', '.json', '.md', '.txt', '.html', '.css', '.svg', '.yaml', '.yml'}
 SKIP_DIRS = {'.git', 'node_modules', 'extra_assets', '.claude', '.codex', '.agents', '.artifacts', 'tiles_cache'}
 
@@ -47,11 +48,14 @@ def archive(plan, manifest, runtime_inventory=None, rewrite=False, apply=False):
     if runtime_inventory:
         inventory = json.loads(runtime_inventory.read_text())
         runtime = {row['path'] for row in inventory.get('references', inventory.get('used', []))}
+    # Explicit tooling/test plans may retire a standalone study, but never a
+    # module referenced directly by a live entry point or the headless harness.
+    entrypoints = [(ROOT / name).read_text() for name in ['index.html', 'test/node/run.js']]
     entries, mapping = [], {}
     for relative in paths:
         source = Path(relative)
-        if source.is_absolute() or '..' in source.parts or not source.parts or source.parts[0] != 'assets':
-            raise ValueError(f'Expected a file beneath assets/: {relative}')
+        if source.is_absolute() or '..' in source.parts or not source.parts or source.parts[0] not in ARCHIVABLE_ROOTS:
+            raise ValueError(f'Expected a file beneath assets/, tools/ or test/: {relative}')
         actual = ROOT / source
         if any(parent.is_symlink() for parent in actual.parents if parent != ROOT.parent):
             raise ValueError(f'Symlinked source ancestry: {relative}')
@@ -59,6 +63,8 @@ def archive(plan, manifest, runtime_inventory=None, rewrite=False, apply=False):
             raise ValueError(f'Not a regular source file: {relative}')
         if relative in runtime:
             raise ValueError(f'Runtime reference cannot be archived: {relative}')
+        if source.parts[0] != 'assets' and any(relative in text for text in entrypoints):
+            raise ValueError(f'Entry point still references an archive candidate: {relative}')
         destination = ROOT / ARCHIVE / source
         if any(parent.is_symlink() for parent in destination.parents if parent != ROOT.parent):
             raise ValueError(f'Symlinked archive ancestry: {relative}')
@@ -73,7 +79,7 @@ def archive(plan, manifest, runtime_inventory=None, rewrite=False, apply=False):
     # a mixed runtime/source directory into the archive.
     plan_set = set(paths)
     directories = {parent for name in paths for parent in Path(name).parents
-                   if parent != Path('.') and parent != Path('assets')}
+                   if parent != Path('.') and parent.as_posix() not in ARCHIVABLE_ROOTS}
     for directory in sorted(directories, key=lambda item: len(item.parts), reverse=True):
         descendants = list((ROOT / directory).rglob('*'))
         if any(item.is_symlink() for item in descendants):
@@ -139,7 +145,7 @@ def archive(plan, manifest, runtime_inventory=None, rewrite=False, apply=False):
     # Remove only directories made empty by the reviewed moves.
     for entry in entries:
         parent = (ROOT / entry['path']).parent
-        while parent != ROOT / 'assets':
+        while parent != ROOT / Path(entry['path']).parts[0]:
             try:
                 parent.rmdir()
             except OSError:

@@ -82,10 +82,15 @@ const MapReviewArt = (() => {
       frameVal:custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage,
       scl:spec?.scale??2,scaleYMul:1,tint:spec?.tint??(BiomeProfiles.tint(o._biome,o.crop)||0xffffff),origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
   }
-  function creatureAppearance(o) {
+  function creatureAppearance(o,scene) {
     const art=SpriteLayout.creatureArt(o.kind); if(!art)return null;
     const npc=o.kind==='npc'?SpriteLayout.npcAppearance(o,0,false):null;
-    return {visible:true,texKey:npc?.sheet||art.sheet,frameVal:npc?.frame??0,
+    // Freeze the shared idle pose while retaining heading, mirroring and the
+    // elite palette used by the live creature renderer.
+    const pose=npc||SpriteLayout.creatureAppearance({...o,_attackUntil:0,_moveUntil:0},0);
+    const sheet=npc?.sheet||art.sheet;
+    const texKey=!npc&&!Combat.isTame(o)&&Combat.isElite(o)?Render.vividTexture(scene,o.kind,sheet):sheet;
+    return {visible:true,texKey,frameVal:pose.frame,flipX:!!pose.flipX,
       scl:SpriteLayout.creatureScale(o.kind,SpriteLayout.creatureInstScale(o)),scaleYMul:1,
       origin:[.5,art.foot],dxPx:0,dyPx:-(art.float||0),
       tint:npc?.tint??SpriteLayout.creatureTint(o.kind),alpha:SpriteLayout.creatureAlpha(o.kind)};
@@ -145,7 +150,7 @@ const MapReviewArt = (() => {
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const override=connectedArt.get(o);
         const art=override?{...o,...override}:o;
-        const appearance=o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
+        const appearance=o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o,scene):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
         if(appearance?.visible&&category!=='plant'&&category!=='creature')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
         if(o.kind==='_streetlamp'&&appearance?.visible&&typeof appearance.spec?.after==='function') {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
@@ -173,9 +178,8 @@ const MapReviewArt = (() => {
         connectedArt=Render.connectedArtForTile(e,e.tx,e.ty,edge,spent,
           (e.tx+.5)*edge,(e.ty+.5)*edge,edge/2);
         // Lamps are generated infrastructure, outside the spawned-object filters.
-        // Share geometry, procedural art and sprite appearance with the game.
+        // Share native Rogue geometry and sprite appearance with the game.
         for(const lamp of MapScene.prototype._streetLampsForTile.call(scene,e.tx,e.ty,e)) {
-          if(this._restoredLamps)MapScene.prototype._ensureStreetLampTex.call(scene,lamp.glow);
           add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
         }
         for(const o of e.reefCorals||[])add(e,o,'scenery');
@@ -508,7 +512,12 @@ const MapReviewArt = (() => {
         const w=(p.displayWidth??f.width*p.scl)*scale,h=(p.displayHeight??f.height*p.scl*p.scaleYMul)*scale;
         g.globalAlpha=p.alpha??1;
         const source=this._tintedFrame(t,f,p.tint);
-        g.drawImage(source,0,0,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);drawn++;
+        if(p.flipX) {
+          g.save();g.translate(at.x+p.dxPx*scale,0);g.scale(-1,1);
+          g.drawImage(source,0,0,f.width,f.height,-w*(1-p.origin[0]),at.y+p.dyPx*scale-h*p.origin[1],w,h);
+          g.restore();
+        } else g.drawImage(source,0,0,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);
+        drawn++;
         g.globalAlpha=1;
         for(const fruit of item.fruit) {
           const ft=textures.get(fruit.key),ff=ft?.get(fruit.frame);

@@ -134,7 +134,10 @@ pixels and decorative details do not define additional tap cells.
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
   46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
   white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
-  floats inside the upper map as a Dragon Spirit portrait and speech bubble. Equal responsive
+  sits at the top of the screen as a compact Dragon Spirit portrait and speech
+  bubble, with the normal gold primary “Got it” action beside its copy. Header
+  controls sit below active guidance; short screens keep the banner at the top
+  instead of moving it into the map. Watering has its own step after planting. Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
@@ -266,13 +269,13 @@ pixels and decorative details do not define additional tap cells.
   for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
-  speech bubble on the upper map. It stays hidden until the opening story,
+  speech bubble at the top of the screen. It stays hidden until the opening story,
   safety card and how-to card have cleared and the first map tile is up, then
   waits five more seconds; a save still on step 1 first hears Tori's
   two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
   completion briefly acknowledges it in the same bubble. The portrait and bubble
-  sit 25px higher, and a 44px-tall “Got it” button acknowledges only the current
-  instruction. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  sit above the map, and a gold primary “Got it” button (at least 66×44px)
+  acknowledges the current instruction; the final road hint ends guidance. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
   grant no bonus coins; ordinary loot and sales retain their own rewards.
 
@@ -330,11 +333,9 @@ pixels and decorative details do not define additional tap cells.
   the offline resource cache; CSS-only changes invalidate the shell too. Local game servers must also
   serve the checkout’s root `sw.js` as JavaScript; mounting only `index.html`
   and asset directories leaves persistent caching disabled.
-  Loopback `artTrial=dreamland` and `artTrial=rogue` previews use the current
-  checkout without a service worker. They unregister only the game's exact
-  scope and reload a controlled page once to release its old cached scripts
-  and art, preserving saves and cached regions. Ordinary local games and
-  deployed games retain their offline caching.
+  Rogue artwork uses the normal offline-cache policy on local and deployed
+  games. Retired art-profile URL parameters neither choose another renderer
+  nor unregister its service worker.
   `node test/load-performance-browser.cjs [base URL]` checks cold/warm chapel
   startup, worker control, and offline cached art. Network-panel entries include
   cached resources; compare transferred bytes and time to playable as well as count.
@@ -702,7 +703,10 @@ pixels and decorative details do not define additional tap cells.
   they return with memories, off screen, and wait on fixed, evenly spread
   starting-area pins outside Home's ring (`homeWaitBand`). A completed delivery
   opens a restored plain house after 15 seconds; an available live neighbour
-  may move in and wander near its entrance. Talking never claims a house.
+  whom the player has spoken to may move in and wander near its entrance.
+  Talking records eligibility; the delivery requirement remains. Fixed housing
+  priority gives Tilly the first available home among eligible neighbours;
+  generation.md owns the full order and saved assignment rules.
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
   The stranger (Ayo in human form) is such a role, flagged `transient` so a
   delivery never houses her; the lane's gossip about her is one extra page per

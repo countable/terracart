@@ -36,8 +36,10 @@
 
   // Scene stub carrying only what the placer touches.
   function hgScene(over = {}) {
+    const save = { starterCratesAt: { x: (ANCHOR + 0.5) * CELL_M, y: (ANCHOR + 0.5) * CELL_M } };
+    Quests.starterSkipAll(save);  // these placement fixtures begin after the lessons
     return Object.assign({
-      save: { starterCratesAt: { x: (ANCHOR + 0.5) * CELL_M, y: (ANCHOR + 0.5) * CELL_M } },
+      save,
       cellM: CELL_M,
       tileEdgeM: TILE_EDGE_M,
       _starterTrailAnchor() { return this.save.starterCratesAt; },
@@ -113,10 +115,10 @@
     }
     assert.eq(HOME_GREETER_MAX_CELLS, CREATURE_SIM_CELLS,
       'the ceiling IS the sim bubble — derived, not retyped');
-    // Easy's chicken is the one that has to be on screen when the map paints:
-    // it is the welcome. Hard's slimes are deliberately further out than that.
+    // The bird's destination is near Home; its introduction starts offscreen.
+    // Hard's slimes keep their ordinary farther seats.
     assert.lt(Difficulty.PROFILES.easy.homeGreeterCells, VIEW_CELLS / 2,
-      'the chicken is in shot from the first frame');
+      'the chicken wanders toward a destination in shot');
     assert.gt(Difficulty.PROFILES.hard.homeGreeterCells, VIEW_CELLS / 2,
       'the slimes are heard of before they are seen');
   });

@@ -114,6 +114,22 @@
       const cls = m.recordType === 'enemy' && typeof root.creatureSpawnClass === 'function'
         ? root.creatureSpawnClass(m.kind) : m.spawnClass;
       if (!WG.isSpawnCell(grid, N, N, ix, iy, opts, cls)) return false;
+      if (m.recordType === 'terrain') {
+        // A tidepool is one water cell, never an extension of an existing
+        // lake. Keep a dry perimeter and at least one accessible empty bank.
+        if (opts.roadMask?.[iy * N + ix] || grid[iy * N + ix] === WG.T.PATH
+            || WG.isRoadTerrain(grid[iy * N + ix])) return false;
+        let bank = false;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          if (!dx && !dy) continue;
+          const x = ix + dx, y = iy + dy;
+          if (x < 0 || y < 0 || x >= N || y >= N) return false;
+          const terrain = grid[y * N + x];
+          if (terrain === WG.T.WATER || WG.isBuildingTerrain(terrain)) return false;
+          if ((!dx || !dy) && WG.isSpawnCell(grid, N, N, x, y, opts, 'minor')) bank = true;
+        }
+        if (!bank) return false;
+      }
       return m.recordType !== 'surface_trap' || !!(root.Traps && root.Traps.isTrapGround(grid, opts.roadClass, N, N, ix, iy, field.under, opts.roadMask));
     };
     const place = (s, ix, iy, material, layer, id) => {
@@ -135,7 +151,19 @@
         : ({ tree: 'ztree', fruittree: 'ft', mineralrock: 'mrz', headstone: 'hs', tar: 'tar' }[m.kind] || 'zt');
       id = id || WG.cellId(prefix, tx, ty, ix, iy);
       let record;
-      if (m.recordType === 'treasure') { record = { id, x, y, ...extra }; out.treasures.push(record); }
+      if (m.recordType === 'terrain') {
+        const bank = [[1, 0], [0, 1], [-1, 0], [0, -1]].map(([dx, dy]) => [ix + dx, iy + dy])
+          .find(([x, y]) => WG.isSpawnCell(grid, N, N, x, y, opts, 'minor'));
+        // Reserve one bank as empty ground before later background and ore
+        // passes run; it remains a normal dry, walkable cell.
+        const bankIndex = bank[1] * N + bank[0];
+        occ.add(bankIndex); s.clear.add(bankIndex);
+        grid[i] = WG.T[m.terrain];
+        record = { kind: m.kind, id, x, y, ...extra, bankIx: bank[0], bankIy: bank[1] };
+        (out.tidepools ||= []).push(record);
+        (out.fishStock ||= {})[i] = { ...m.fishStock };
+      }
+      else if (m.recordType === 'treasure') { record = { id, x, y, ...extra }; out.treasures.push(record); }
       else if (m.recordType === 'surface_trap') { record = { id, x, y, ...extra }; out.traps.push(record); }
       else if (m.recordType === 'enemy') {
         // Pattern enemies share the ordinary guard/caught pipeline, but each

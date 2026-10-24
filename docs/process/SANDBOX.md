@@ -15,19 +15,14 @@ to it. First movement takes over from device GPS for this session. Turning the
 stick off resumes device GPS in normal play; the next real fix walks or snaps the
 character back to it.
 
-## Tree and water art trials
+## Map-art validation
 
-Open `http://localhost:8765/index.html?sandbox=true&artTrial=trees-water` to
-preview the selected tree and water alternatives on the shared local server. `artTrial=trees` and `artTrial=water` isolate either group;
-remove the parameter to return to approved art. The trial is URL-only and does
-not change saved objects, species, harvesting or growth stages.
-
-Mature pines preview ALT-0168. Mature broadleaf trees distribute ALT-0038,
-ALT-0176 and ALT-0245 by stable object identity. Add `artTree=ALT-0245` (or either
-other broadleaf ID) to compare one tree across the world. Saplings and young
-trees retain their existing growth art. Water previews ALT-0131. Exact native
-crops and provenance live in `assets/ArtTrials/manifest.json`; rebuild them with
-`python3 tools/build_art_trials.py`.
+The sandbox uses the same Rogue artwork as normal play. No art-profile query
+is needed, and old `artTrial` or `artTree` URLs do not select another renderer.
+Use the Nexus review's exact variant links to compare a chosen layout, then run
+`node test/variant-art-parity.cjs http://localhost:8765` to compare review pixels
+with post-load game textures. Retired tree/water trial instructions are preserved
+under `extra_assets/inactive/docs/art/legacy-map-art-profiles.md`.
 
 ## Test controls and coverage
 
@@ -137,6 +132,16 @@ Existing `sandboxScene=FOREST` or `sandboxScene=PRACTICE` links still work.
 Names are case-insensitive; unknown names return to the player plaza.
 These links visit the sandbox's representative biomes, not every procedural
 variant shown by the dashboards. Unsupported biomes have no jump link.
+
+Every shipping Nexus and road/path card in the variant review has an **Open in
+sandbox** link. It opens `tools/floor-viewer.html?sandboxType=nexus&sandboxVariant=orchard&play=true`
+(use `sandboxType=road` for streets), builds the selected variant through the
+live generation pipeline, then transfers that map into the isolated floor
+sandbox. The player starts near the selected Nexus or route. These links skip
+story and tutorial steps, enable the normal temporary torch buff, and preserve
+the player's saved game. Removing `play=true` leaves the generated map open in
+the viewer for inspection; its placement rules may decline layouts that do not
+fit, and the launcher reports that rather than opening a different variant.
 
 The Old Stones destination (`?sandbox=true&sandboxZone=stones`) includes an
 awakened temple. Tap its marble footprint to enter the giant-reaper challenge

@@ -42,8 +42,18 @@
       nexuses: picks.filter(row => row.type === 'nexus'), roads: picks.filter(row => row.type === 'road') };
   }
   const options = depth => Array.from({ length: count(depth) }, (_, i) => select(depth, i));
+  function exactSelection(type, id) {
+    const row = type === 'nexus' ? root.ZoneVariants.byId(id)
+      : type === 'road' ? root.StreetVariants.VARIANT_BY_ID[id] : null;
+    if (!row || (type === 'road' && !['minor', 'path'].includes(row.size)))
+      throw new Error('Unknown sandbox variant: ' + type + '/' + id);
+    const pick = { type, kind: type === 'nexus' ? row.zone : row.size,
+      id: row.id, label: row.name || row.title || title(row.id) };
+    return { id: `exact-${type}-${id}`, index: 0, label: pick.label,
+      nexuses: type === 'nexus' ? [pick] : [], roads: type === 'road' ? [pick] : [] };
+  }
   async function withSelection(depth, index, build) {
-    const selected = select(depth, index), restores = [];
+    const selected = typeof index === 'object' ? index : select(depth, index), restores = [];
     const replace = (object, key, value) => { const previous = object[key]; restores.push(() => { object[key] = previous; }); object[key] = value; };
     const V = root.ZoneVariants, W = root.WorldGen, SV = root.StreetVariants;
     try {
@@ -79,8 +89,10 @@
         const originalScenicSteps = SV.applyPathScenicSteps;
         replace(SV, 'applyPathScenicSteps', function* (index, scenic) {
           yield* originalScenicSteps(index, scenic);
-          for (const section of index?.pathSections || []) section.variant = roads.get('path');
-          SV.syncPathVariants(index);
+          if (roads.has('path')) {
+            for (const section of index?.pathSections || []) section.variant = roads.get('path');
+            SV.syncPathVariants(index);
+          }
         });
       } else if (selected?.id) {
         const grove = selected.nexuses.find(row => row.kind === 'grove');
@@ -105,5 +117,5 @@
       return await build(selected);
     } finally { for (const restore of restores.reverse()) restore(); }
   }
-  root.FloorViewerVariants = { families, count, options, select, withSelection };
+  root.FloorViewerVariants = { families, count, options, select, exactSelection, withSelection };
 })(typeof globalThis !== 'undefined' ? globalThis : window);

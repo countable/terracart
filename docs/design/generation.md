@@ -69,6 +69,16 @@ access or tile lifecycle mechanics.
   or a water-only placement profile. Dry-shore inhabitants, ore and the reef
   shrine still use the shared tier gate. A refused aquatic candidate leaves a
   shortfall rather than moving onto land or borrowing another species slot.
+- Mystic Reef's rounded stone-and-shell clusters replace their flowers with
+  one-cell tidepools. The ordinary finite find becomes another guarded pool.
+  `ZoneDressing` carves only eligible dry cells, retains a dry perimeter and
+  reserves an empty cardinal bank; existing water, buildings, roads, paths,
+  occupied ground and access exclusions cannot be carved. Each generated
+  pool's `zoneDress.fishStock` policy guarantees one initially stocked T3+
+  species through the ordinary `fishSpotStocked`/`spotFish` helpers. Rod catch
+  odds still apply, escapes keep the fish, and a landed fish remains depleted
+  through the existing `save.fishedSpots` ledger. Shiny sightings use the same
+  stock policy as the cast.
 - Beach Nexus influence has a hard ten-cell radius (about a 20×20-cell
   extent), including ragged edges and park-derived beach companions. Larger
   mapped beaches remain ordinary sand outside that cap, with normal beach
@@ -758,9 +768,16 @@ access or tile lifecycle mechanics.
   both game and layout lab; `ZoneVariants.placement` caches the configured plan
   and samples it in the canonical POI frame, preserving empty-area reservations,
   spawn gates and per-cell identities through ordinary `ZoneDressing`.
+- Formal Garden uses four clipped hedge arms around concentric pale-flower
+  and orange rings in an eight-cell parterre. Formal and Hedge Gardens use
+  connected hedge art from the surviving cardinal shrub neighbours.
+- Orchard motifs retain their apple and maple seats; seeded grass scatters into
+  unoccupied motif cells with distance-weighted attraction to those trees,
+  measured across motif seams. Grass becomes sparse in the open aisles.
 - Mushroom groves use a Hilbert background with a 60:40 giant-to-small mushroom
   mix. Reduced material affinity distributes giant caps more evenly; the
-  repeating 33-cell plan has 176 giant and 118 small mushrooms before exclusions.
+  repeating 29-cell plan has 133 giant and 89 small mushrooms before exclusions,
+  keeping its clearings smaller than the former 33-cell plan.
   Its find guard is a mushroom monster too. The themed surface encounter lane
   scatters individual mushroom monsters across six-cell patches, with a seeded 60% presence roll
   per patch. Seats stay within grove coverage and obey the shared spawn gate,
@@ -837,13 +854,17 @@ access or tile lifecycle mechanics.
   bramble seats, covering roughly a quarter of the ground while preserving trees,
   disguised treants and shrine layouts. Nexus mechanics use existing lanes (tar slow, lair tier,
   `ghostsHaunt`, coin-burst ledger, `_storySplashOnce`).
-- Sacred Grove keeps its six-cell shrub/tree clusters, with visible pressure
-  plates along the empty grid seams and deterministic breaks; shrine cells,
-  authored routes and existing occupancy stay clear, and plates use the ghost
-  spawn gate. `PressureTraps` raises one ordinary ghost on a grounded player
-  step and stores the stable plate id in `save.pressedPlates`; its depressed
-  frame survives reloads and tile regeneration without another summon. Flight
-  does not press plates, and a refused ghost spawn leaves a plate unspent.
+- Sacred Grove keeps its six-cell shrub/tree clusters and quiet open seams.
+  It has no authored pressure-plate footpaths or footpath ghost triggers.
+- Strip mines use the same cave-in lifecycle on their one-cell outer rim,
+  only where the actual shared tier field is Tier 2 calm ground. Each visited
+  eligible rim seed has a 60% roll for 1–3 connected rim cells; clusters never
+  extend into Tier 3 benches, enclosed interior holes or further outside the
+  perimeter. Explicitly calm boundary cells inside the footprint are eligible
+  too. Exterior flood-fill distinguishes the outer perimeter from holes, and
+  unloaded neighbours never count as boundary evidence. Ordinary hazard,
+  transport, private-ground and occupancy gates still apply; tier ownership is
+  unchanged. This adds no ambient vent or sinkhole inside the quarry.
 - L1 and the surface Nexus rows marked `caveIns` (the Seep tar pits) use `EnvironmentHazards` for hidden cave-in clusters of
   2–5 connected cells scattered across general eligible ground. Their seeds are
   cell-based and materialized on first contact. Any grounded entity (player,
@@ -974,7 +995,7 @@ Higher-priority placements and their access space take precedence in this order:
    `HomeVariant` reserves a 50 m circle around the frozen `starterCratesAt`
    anchor on the surface only. It overrides road, Nexus and ordinary biome
    content with the curated starter area: Tilly and other unlocked story
-   neighbours, the doorstep chicken, starter supplies and authored starter
+   neighbours, the arriving starter chicken, starter supplies and authored starter
    placements. Player possessions and mapped buildings remain. Physical roads
    keep their geometry and safety rules but lose their themes inside Home.
    A live street-index copy uses the same boundary intervals as Nexus road
@@ -983,6 +1004,15 @@ Higher-priority placements and their access space take precedence in this order:
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
+   Easy's chicken waits until `Quests.starterAllDone`. Its legal offscreen
+   entrance stays inside the creature simulation bubble, and normal wild-animal
+   home bias carries it toward its near-Home destination. `starter.chickenArrival`
+   pins its identity and entrance; `starter.chickenArrived` records first entry
+   into view. The ordinary caught-id ledger prevents a second bird after capture.
+   Incidental chickens in the Home fauna circle also wait during the lessons.
+   Hard's slime greeters retain their immediate seats.
+   Until the first road weapon is chosen, the starter relic chest offers tools
+   rather than Sword, Bow or Staff, so it cannot pre-empt that introduction.
    The starter trail has three crates: nine potato seeds, nine Rock and nine
    Wood. There is no rock-seed crate or loose material scatter, including the
    former material piles in and around Home. The potato crate seats first,
@@ -1130,6 +1160,19 @@ Higher-priority placements and their access space take precedence in this order:
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
 
+### The first onward wreck
+
+`Starter.tickIntroductions` reserves a reachable unclaimed wreck beyond both
+the thief's 250 m starter-anchor minimum and Easy's 350 m quiet-Home radius.
+The reservation stores only `starter.thiefWreck` (the building identity and
+stable authored lair id). `Starter.introductionLair` holds that candidate until
+`trail.firstWeaponClaimed`, then substitutes the fixed one-member
+`Lairs.GROUPS.starter_thief` formation through the residency candidate overlay.
+The regular garrison's spawn exclusions, seats, sleep/wake cycle, theft and
+caught-id defeat ledger still apply. Reserving an already awake wreck removes
+its ordinary resident guards so they cannot appear early or duplicate the thief.
+A tile rebuild reconstructs the same encounter rather than saving an enemy.
+
 ### Village residents
 
 Arrival polls build tile occupancy only when a missing, due resident has a
@@ -1148,8 +1191,13 @@ their authored places until eligible to move.
 A restored **plain** house becomes available only after its delivery discovery
 (`Delivery.isSatisfied`). `NPC.markDelivery` records a 15-second move-in delay
 in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
-One live, unhoused, unwounded resident may then move in; talking does not assign
-a roof, and absent pending records cannot create a resident. The transient
+One live, unhoused, unwounded resident whom the player has spoken to may then
+move in. Conversation records eligibility in `save.npcMet`; delivery still opens
+the roof, and absent pending records cannot create a resident. Eligible neighbours
+take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, then ordinary
+residents by stable id. Distance and tile loading order do not change that priority.
+Unmet residents wait until a conversation; existing saved assignments remain
+valid without a meeting stamp. The transient
 stranger is excluded; Maud is eligible after her rescue reward. The move prefers
 an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
 one-resident-per-house assignment, identity and safe outside wander centre,
@@ -1158,6 +1206,8 @@ without needing their origin tile. Seats prefer the renderer's source doorway
 when available, otherwise safe nearby cells within four cells of the house;
 movement keeps the four-cell leash and asks the live NPC spawn gate on each
 step. The player Home and specialty buildings never accept NPC assignments.
+The first restored plain house asks for one potato. A housed Tilly thanks the
+player on their next conversation; that conversation completes her starter lesson.
 
 ### Furniture
 

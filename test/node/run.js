@@ -774,7 +774,7 @@ Object.assign(ctx, {
 // (chip step X → the arrow points at X's own space, never a leftover crate fallback).
 {
   // The wreck rules are houses.js now; the scene keeps one-line wrappers.
-  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate(itemId = null) {',
     "_nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {"]
     .map(sceneMethodSource).concat([
       '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',
@@ -1178,6 +1178,7 @@ for (const f of fs.readdirSync(path.join(ROOT, 'test', 'fixtures')).filter((n) =
   vm.runInContext(m[0], ctx, { filename: 'app.js#renderScale' });
 }
 ctx.RENDER_SRC = readSrc('render.js');
+ctx.ROGUE_OBJECT_BOUNDS = new Function(readSrc('rogue_object_bounds.js') + ';return ROGUE_OBJECT_BOUNDS;')();
 // textures.js loads headlessly in its OWN context (its constants share names
 // with the stubs above); tilled_bed.test.js runs drawTilledTex against a recording 2D context.
 ctx.TILLED_TEX = (() => {

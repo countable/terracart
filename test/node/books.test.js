@@ -435,8 +435,8 @@ test('mechanics: street restoration retains its dwell and reward ladder', () => 
   assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
   assert.lt(road.seed, road.magic + road.supply + road.boots, 'road supplies outweigh seeds');
-  assert.eq(ITEM_BY_ID[Trail.firstPrize(1).id].kind, 'seed',
-    'the first prize really is a seed');
+  assert.eq(Trail.firstWeaponChoices().map(r => r.slot).join(','), 'sword,bow,staff',
+    'the first prize introduces the starting weapons');
 });
 
 test('mechanics: roads use the shared reward window', () => {

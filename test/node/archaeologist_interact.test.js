@@ -24,17 +24,19 @@ test('Orrin interaction: a reply persists once and uses the NPC portrait', () =>
   globalThis.persistSave = save => saves.push(JSON.stringify(save));
   try {
     NPC.interact(s, c, 0, 0);
+    assert.truthy(s.save.npcMet[c.id], 'opening a conversation records that the player has met Orrin');
+    const beforeReply = saves.length;
     const first = s.offers[0].actions[0];
     first.onClick();
-    assert.eq(saves.length, 1);
+    assert.eq(saves.length, beforeReply + 1);
     assert.eq(s.offers.length, 2);
     assert.eq(s.offers[1].portrait, 'assets/portraits/archaeologist.png', 'dedicated character portrait overrides the cached sprite portrait');
     assert.truthy(s.offers[1].sub);
     assert.eq(s.offers[1].name, itemName('table_oak'));
     first.onClick();
-    assert.eq(saves.length, 1, 'a double click cannot advance a second conversation');
+    assert.eq(saves.length, beforeReply + 1, 'a double click cannot advance a second conversation');
     assert.eq(s.offers.length, 2);
-    const restored = JSON.parse(saves[0]);
+    const restored = JSON.parse(saves.at(-1));
     assert.eq(MemoryStory.archaeologistConversation(restored).id, MemoryStory.archaeologistConversation(s.save).id);
     NPC.interact(s, c, 0, 0);
     assert.eq(Inventory.count(restored, 'table_oak'), 1, 'gift persists with the introduction');

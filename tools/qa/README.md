@@ -41,8 +41,10 @@ Add `reason` to an interaction for before/after screenshots. Menu changes and
 periodic checkpoints also cause automatic screenshots. IDs are observations,
 not an API for guessing unseen objects. An accepted tap may still be refused by
 the game; inspect feedback and state changes. The normal stick can drift back
-toward GPS after inactivity. Movement means entering the adjacent cell, not
-snapping to its center. No direct coordinate writes occur.
+toward GPS after inactivity. Movement releases on the first cell crossing, including a collision slide into
+a different adjacent cell, and reports blocked after two seconds without
+meaningful progress. It never snaps to a cell centre. No direct coordinate
+writes occur.
 
 ## Instructions for the supervising QA agent
 

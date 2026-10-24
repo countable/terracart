@@ -27,18 +27,13 @@ test('starter chain: step ids and events are unique', () => {
 // have not planted. Pin the ordering so a future reshuffle has to be deliberate.
 test('starter chain: teaches the loop in a playable order', () => {
   const order = STARTER_CHAIN.map((s) => s.event);
-  assert.eq(order.indexOf('chest'), 0, 'supplies come first');
-  assert.lt(order.indexOf('till'), order.indexOf('plant'), 'till before plant');
-  assert.lt(order.indexOf('plant'), order.indexOf('harvest'), 'plant before harvest');
-  assert.lt(order.indexOf('harvest'), order.indexOf('sell'), 'harvest before sell');
-  // A crop needs real time to mature - the restore step is what fills it.
-  assert.lt(order.indexOf('restore'), order.indexOf('harvest'), 'restore fills the grow wait');
-});
-
-test('starter chain: harvest copy hints at watering until ripe', () => {
-  const harvest = STARTER_CHAIN.find((s) => s.event === 'harvest');
-  assert.truthy(/water/i.test(harvest.body), 'the crop needs water');
-  assert.falsy(/\d|stage/i.test(harvest.body), 'growth formula stays out of the story');
+  assert.eq(order.indexOf('pickup'), 0, 'supplies come first');
+  assert.falsy(order.includes('till'), 'tilling and planting are one seed action');
+  assert.lt(order.indexOf('plant'), order.indexOf('water'), 'plant before watering');
+  assert.lt(order.indexOf('water'), order.indexOf('restore'), 'water before repair errand');
+  assert.lt(order.indexOf('restore'), order.indexOf('tilly'), 'rebuilding precedes move-in thanks');
+  assert.lt(order.indexOf('tilly'), order.indexOf('roads'), 'road hint closes the introduction');
+  assert.falsy(order.includes('sell'), 'selling is not required');
 });
 
 // ── Starter chain: progression ──────────────────────────────────────────────
@@ -155,7 +150,7 @@ const tilledCtx = (save, flashes) => {
 test('plant: mid-ladder, a seedless tap on tilled soil instructs instead of un-tilling', () => {
   const save = { inv: [], selSlot: 0, tilled: ['7,7'], planted: [] };
   // Walk the ladder to the planting step.
-  Quests.onStarterEvent(save, 'chest');
+  Quests.onStarterEvent(save, 'pickup');
   Quests.onStarterEvent(save, 'till');
   assert.eq(Quests.starterCurrent(save).event, 'plant', 'on the plant step');
 

@@ -128,13 +128,14 @@
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.eq(g.tiers.length, 1, `${name}: one tier, never both`);
       const habitat = Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, g.tiers[0]);
+      const starter = Object.hasOwn(Lairs.STARTER_TIER_GUARDS, g.tiers[0]);
       const street = Object.hasOwn(Lairs.STREET_TIER_GUARDS, g.tiers[0]);
-      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12 || habitat || street, `${name}: a house's, a castle's or a habitat site's, never a fort's`);
+      assert.truthy(g.tiers[0] === 9 || g.tiers[0] === 12 || habitat || street || starter, `${name}: a house's, a castle's or an authored site's, never a fort's`);
       const n = Lairs.expandGroup(name, g.tiers[0]).length;
       if (street) {
         assert.eq(n, Lairs.STREET_TIER_GUARDS[g.tiers[0]], `${name}: street group uses its fixed budget`);
         for (const m of g.members) assert.eq(m.place, 'ring', `${name}: clustered around its verge post`);
-      } else if (g.tiers[0] === 9 || habitat) {
+      } else if (g.tiers[0] === 9 || habitat || starter) {
         assert.lte(n, 4, `${name}: a wreck's group is small (${n})`);
         for (const m of g.members) assert.truthy(m.place === 'ring' || m.place === 'cloud', `${name}: a wreck's guards sit round or over it, never on its floor`);
       } else {
@@ -156,7 +157,7 @@
     for (const [name, g] of Object.entries(Lairs.GROUPS)) {
       assert.truthy(g.label && g.story, `${name}: a label and a line for the design sheet`);
       assert.gt(g.tiers.length, 0, `${name}: holds somewhere`);
-      for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier) || Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, tier) || Object.hasOwn(Lairs.STREET_TIER_GUARDS, tier), `${name}: tier ${tier} is a building or a habitat tier`);
+      for (const tier of g.tiers) assert.truthy(Lairs.TIERS.includes(tier) || Object.hasOwn(Lairs.HABITAT_TIER_GUARDS, tier) || Object.hasOwn(Lairs.STREET_TIER_GUARDS, tier) || Object.hasOwn(Lairs.STARTER_TIER_GUARDS, tier), `${name}: tier ${tier} is a building or an authored tier`);
       for (const tier of g.tiers) if (typeof tier === 'string') assert.eq(Lairs.TIER_GROUP[tier], name, `${name}: a habitat tier always takes its group`);
       if (g.chance != null) assert.inRange(g.chance, 0, 1, `${name}: fixed share is a probability`);
       assert.inRange(g.minT || 0, 0, 0.9, `${name}: minT leaves strong ruins something to take`);

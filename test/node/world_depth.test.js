@@ -30,19 +30,19 @@
     assert.eq(Render.objectGroundOffsetPx({ visible: true, dyPx: 16, origin: [.5, 1], scl: 1, scaleYMul: 1 }, textures), 16);
     assert.eq(Render.objectGroundOffsetPx({ visible: false }), 0);
   });
-  test('world depth: player crosses a street lamp at its plinth, not its canvas bottom', () => {
-    const { RENDER_SPEC } = Render.objectAppearance({ textures: { exists: () => true }, save: {} }, new Map());
-    const dyPx = Number(SCENE_SRC.match(/const STREET_LAMP_DY_PX = ([\d.]+);/)[1]);
-    const appearance = { spec: RENDER_SPEC._streetlamp, visible: true, dyPx,
-      origin: [.5, RoadOverlay.LAMP_GROUND_FRAC], scl: 1, scaleYMul: 1 };
-    for (const height of [RoadOverlay.LAMP_TEX_PX, RoadOverlay.LAMP_TEX_PX * 2]) {
-      const offset = Render.objectGroundOffsetPx(appearance, { getFrame: () => ({ height }) });
-      assert.eq(offset, dyPx, 'canvas resolution and glow padding do not move the ground base');
-      const lamp = { it: {}, groundY: 100 + offset, rank: 1 };
-      for (const delta of [-0.1, 0, 0.1]) {
-        const player = { sprite: sprite(), groundY: 100 + dyPx + delta, rank: 3 };
-        Render.sortWorldDepth([player, lamp]);
-        assert.eq(player.sprite.depth > lamp.it._z, delta >= 0, `feet ${delta}px from plinth`);
+  test('world depth: player crosses a native lamp at its seated ground base', () => {
+    const textures = {exists:()=>true, getFrame:()=>({width:16,height:32})};
+    const pass = Render.objectAppearance({textures,save:{}},new Map());
+    for (const lit of [false,true]) {
+      const appearance = pass.resolveAppearance({kind:'_streetlamp',lit});
+      assert.eq(appearance.texKey, lit ? 'rogue_lamp' : 'rogue_lamp_unlit');
+      const offset = Render.objectGroundOffsetPx(appearance,textures);
+      assert.truthy(Number.isFinite(offset));
+      const lamp = {it:{},groundY:100+offset,rank:1};
+      for (const delta of [-.1,0,.1]) {
+        const player = {sprite:sprite(),groundY:100+offset+delta,rank:3};
+        Render.sortWorldDepth([player,lamp]);
+        assert.eq(player.sprite.depth>lamp.it._z,delta>=0,'native contact base owns depth');
       }
     }
   });
