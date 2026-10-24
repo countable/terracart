@@ -523,10 +523,12 @@ access or tile lifecycle mechanics.
   creatures and generated placements use the same tile field. A new geographic
   rule belongs in `GameplayTiers`, not in a spawner. Occupancy, habitat choice,
   finite encounter budgets and live building clearance remain placement rules.
-- Excluded ground uses permanent `EXCLUSION_ROCK`, which blocks player movement
-  and cannot be mined or tilled. Medium/large road surfaces remain visible roads
-  while refusing every spawn. Water and building footprints retain their
-  physical surfaces and remain Excluded. Tier classification precedes final placement so
+- Only Excluded private residential ground uses permanent `EXCLUSION_ROCK`,
+  which blocks player movement and cannot be mined or tilled. Source residential
+  terrain and private/backyard/restricted evidence identify that ground before
+  Nexus paint. Roads and paths, including their drawn footprints, never become
+  rock. Other Excluded ground, water and buildings retain their physical surfaces
+  while refusing every spawn. Tier classification precedes final placement so
   a rejected cell cannot retain an object from an earlier placement pass.
 - Source access evidence still records private/restricted/quiet land, sensitive
   sites, kindergarten grounds, public pier access and farm/golf restrictions.

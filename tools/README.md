@@ -13,6 +13,10 @@ for fresh evidence at the map centre. The detection button requests another
 centre tile after panning. `?geometry=off` disables detection;
 `?relay=https://host` selects a relay instead of the local default on port 8787.
 This previews generated placements, not a saved player's runtime state.
+After changing a review script, run `node tools/cachebust.js --write`. The review
+HTML versions its local modules by content hash so an existing game service worker
+cannot pair new controls with an older cached module. `node test/map-review-tiers.cjs`
+checks this with a stale worker cache and verifies visible tier toggling.
 
 To make the shared artifact server serve these repository files and forward
 old `/road-review/` bookmarks to the canonical tools (including an optional

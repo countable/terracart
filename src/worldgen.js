@@ -6895,20 +6895,27 @@
       list.length = keep;
       yield 'tier placement cleanup';
     }
-    const hasExclusionRock = stampExclusionRock(grid, w, h, { gameplayTiers, gameplayReasons }) > 0;
+    const hasExclusionRock = stampExclusionRock(grid, w, h,
+      { gameplayTiers, gameplayReasons, spawnWhy, roadMask, residentialGrid: variantBaseGrid }) > 0;
     assignScholarFallback(deduped);
     return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
   }
 
-  // Material follows the shared policy, including tile borders. Preserve
-  // structural water/buildings and the MD/LG carriageway's drawn surface.
+  // Bedrock represents excluded private residential ground. Other exclusions
+  // keep their material; route footprints stay clear even after Nexus repaint.
   function stampExclusionRock(grid, w, h, opts = {}) {
     const tiers = gameplayTiersOf(grid, opts);
     if (!tiers) return 0;
+    const residential = opts.residentialGrid || grid;
+    const privateLand = W_.PRIVATE | W_.BEHIND_HOUSE | W_.RESTRICTED;
     let count = 0;
     for (let i = 0; i < grid.length; i++) {
-      if (tiers[i] !== 4 || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
-        || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
+      if (tiers[i] !== 4 || residential[i] !== T.RESIDENTIAL
+        || !(opts.spawnWhy?.[i] & privateLand) || opts.roadMask?.[i]
+        || (opts.spawnWhy?.[i] & W_.ROAD)
+        || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
+        || grid[i] === T.ROAD || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
+        || grid[i] === T.PATH || grid[i] === T.PIER
         || isBuildingTerrain(grid[i]) || grid[i] === T.WATER) continue;
       grid[i] = T.EXCLUSION_ROCK;
       count++;

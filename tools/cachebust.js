@@ -14,7 +14,7 @@
 // the tags. What ships and what the URL claims are one value read twice:
 //
 //   node tools/cachebust.js            # check: names every stale tag, exits 1
-//   node tools/cachebust.js --write    # rewrite index.html + sw.js
+//   node tools/cachebust.js --write    # rewrite game/review HTML + sw.js
 //
 // The check is wired into tools/shell_audit.js, so `node test/node/run.js`
 // fails on drift rather than shipping it. A merge cannot collide two numbers,
@@ -26,6 +26,7 @@ const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const INDEX = 'index.html';
+const REVIEW = 'tools/map-review.html';
 const SW = 'sw.js';
 
 // Eight hex characters of sha256. Long enough that two of this repo's modules
@@ -51,27 +52,28 @@ function isOwn(url) {
 // The versioned URL for one script or stylesheet path: `src/combat.js` → `src/combat.js?v=<hash>`.
 // Anything that is not a same-origin .js/.css we can read is handed back untouched,
 // so a future non-script <script src> can't be mangled into a 404.
-function versioned(url) {
+function versioned(url, directory = '.') {
   const file = url.split('?')[0];
   if (!isOwn(url) || !/\.(js|css)$/.test(file)) return url;
-  if (!fs.existsSync(path.join(ROOT, file))) return url;
-  return `${file}?v=${hashOf(file)}`;
+  const rel = path.join(directory, file);
+  if (!fs.existsSync(path.join(ROOT, rel))) return url;
+  return `${file}?v=${hashOf(rel)}`;
 }
 
 // index.html with every script URL rewritten to its content hash. Covers the
 // plain <script src> tags, the high-priority script preloads, and app.js, which
 // the boot gate injects from APP_SRC rather than a tag. One versioner keeps a
 // preload and the later request on the same cache key.
-function expectedIndex(html = readFile(INDEX)) {
+function expectedIndex(html = readFile(INDEX), directory = '.') {
   return html
     .replace(/(<script[^>]+src=["'])([^"']+)(["'])/g,
-      (_, a, url, b) => a + versioned(url) + b)
+      (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
-      (_, a, url, b) => a + versioned(url) + b)
+      (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(<link(?=[^>]*\brel=["']stylesheet["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
-      (_, a, url, b) => a + versioned(url) + b)
+      (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(APP_SRC\s*=\s*['"])([^'"]+)(['"])/,
-      (_, a, url, b) => a + versioned(url) + b);
+      (_, a, url, b) => a + versioned(url, directory) + b);
 }
 
 // Every same-origin script URL the expected index.html asks for, in order.
@@ -142,20 +144,22 @@ function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
 // match in first, so a (a, url, b) callback silently hashes the `<script src="`
 // prefix instead of the URL and reports everything clean.
 function staleTags() {
-  const html = readFile(INDEX);
   const out = [];
-  const urls = new Set([...shellUrls(html), ...scriptPreloadUrls(html)]);
-  for (const url of urls) {
-    const want = versioned(url);
-    if (want !== url) out.push({ url, want });
+  for (const page of [INDEX, REVIEW]) {
+    const html = readFile(page);
+    const urls = new Set([...shellUrls(html), ...scriptPreloadUrls(html)]);
+    for (const url of urls) {
+      const want = versioned(url, path.dirname(page));
+      if (want !== url) out.push({ page, url, want });
+    }
   }
   return out;
 }
 
 function check() {
   const problems = [];
-  for (const { url, want } of staleTags()) {
-    problems.push(`${url} → ${want}`);
+  for (const { page, url, want } of staleTags()) {
+    problems.push(`${page}: ${url} → ${want}`);
   }
   const sw = readFile(SW);
   if (!sw.includes('/* ASSET_HASHES_START */') || !sw.includes('/* ASSET_HASHES_END */')) {
@@ -177,7 +181,7 @@ function check() {
 // refuses to touch a file that still carries them, and the audit fails on it.
 const CONFLICT_MARKER = /^(<<<<<<< |=======$|>>>>>>> )/m;
 function conflictMarkers() {
-  return [INDEX, SW].filter((f) => CONFLICT_MARKER.test(readFile(f)));
+  return [INDEX, REVIEW, SW].filter((f) => CONFLICT_MARKER.test(readFile(f)));
 }
 
 function write() {
@@ -189,10 +193,16 @@ function write() {
   const html = expectedIndex();
   const changedHtml = html !== readFile(INDEX);
   if (changedHtml) fs.writeFileSync(path.join(ROOT, INDEX), html);
+  // Review modules used unversioned URLs, so an already-active game worker
+  // could pair current HTML with cached controls from before its last edit.
+  // Hash their relative URLs too; this bypasses even an older worker's cache.
+  const review = expectedIndex(readFile(REVIEW), path.dirname(REVIEW));
+  const changedReview = review !== readFile(REVIEW);
+  if (changedReview) fs.writeFileSync(path.join(ROOT, REVIEW), review);
   const sw = expectedSw(readFile(SW), expectedShellVersion(shellUrls(html)));
   const changedSw = sw !== readFile(SW);
   if (changedSw) fs.writeFileSync(path.join(ROOT, SW), sw);
-  return { changedHtml, changedSw };
+  return { changedHtml, changedReview, changedSw };
 }
 
 // ── Audit ──────────────────────────────────────────────────────────────────
@@ -204,7 +214,7 @@ function write() {
 // over exactly the drift it exists to catch.
 const CHECKS = [
   {
-    name: 'cache-bust: no merge conflict marker survives in index.html or sw.js',
+    name: 'cache-bust: no merge conflict marker survives in versioned HTML or sw.js',
     run() {
       const marked = conflictMarkers();
       if (marked.length) throw new Error(`conflict markers left in ${marked.join(', ')}`);
@@ -235,6 +245,21 @@ const CHECKS = [
       const bare = urls.filter((u) => !/\?v=[0-9a-f]+$/.test(u));
       if (bare.length) {
         throw new Error(`unversioned script(s): ${bare.join(', ')} — an unversioned URL never invalidates`);
+      }
+    },
+  },
+  {
+    name: 'cache-bust: map review scripts resolve relative to the tool and carry current content hashes',
+    run() {
+      const urls = scriptUrls(readFile(REVIEW));
+      for (const file of ['game-loader.js', 'map-review-gameplay-layer.js', '../src/gameplay_tiers.js']) {
+        const url = urls.find(u => u.split('?')[0] === file);
+        if (!url || url !== versioned(file, 'tools')) throw new Error(`stale review dependency: ${file}`);
+      }
+      if (urls.some(url => !/\?v=[0-9a-f]{8}$/.test(url))) throw new Error('unversioned review script');
+      const relative = expectedIndex('<script src="../src/gameplay_tiers.js"></script>', 'tools');
+      if (!relative.includes(`../src/gameplay_tiers.js?v=${hashOf('src/gameplay_tiers.js')}`)) {
+        throw new Error('parent-relative classifier does not share the game content hash');
       }
     },
   },
@@ -345,11 +370,11 @@ module.exports = {
 if (require.main === module) {
   if (process.argv.includes('--write')) {
     const before = check();
-    const { changedHtml, changedSw } = write();
-    if (!changedHtml && !changedSw) console.log('cache-bust: already up to date');
+    const { changedHtml, changedReview, changedSw } = write();
+    if (!changedHtml && !changedReview && !changedSw) console.log('cache-bust: already up to date');
     else {
       for (const p of before) console.log(`  ${p}`);
-      console.log(`cache-bust: rewrote ${[changedHtml && INDEX, changedSw && SW].filter(Boolean).join(' + ')}`);
+      console.log(`cache-bust: rewrote ${[changedHtml && INDEX, changedReview && REVIEW, changedSw && SW].filter(Boolean).join(' + ')}`);
     }
   } else {
     const problems = check();

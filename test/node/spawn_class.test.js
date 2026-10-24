@@ -135,7 +135,7 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   const r = build([grass(), { name: 'landuse', features: [kinder, retail1, railway, retail2, hospital] },
     poiLayer(poiAt('clothing_store', 20, 15), poiAt('clothing_store', 20, 40))]);
   // Kindergarten grounds stay hard where they actually paint as one.
-  assert.eq(r.grid[10 * CPE + 8], T.EXCLUSION_ROCK, 'kindergarten-only cell is Excluded rock');
+  assert.eq(r.grid[10 * CPE + 8], r.variantBaseGrid[10 * CPE + 8], 'kindergarten-only cell keeps its material');
   assert.truthy(has(r, 8, 10, WHY.KINDERGARTEN), 'and carries KINDERGARTEN');
   assert.eq(at(r, 8, 10), INV, 'so it is hard-blocked');
   // A commercial polygon also covering the ground outranks it (PRIO), and
@@ -146,14 +146,14 @@ test('spawn gate: COMMERCIAL ground welcomes visitors — RESTRICTED / KINDERGAR
   assert.eq(at(r, 20, 10), OPEN, 'commercial ground welcomes visitors');
   // The same story for RESTRICTED off a non-hospital class (railway): it
   // only holds where the ground still paints as that class's own look.
-  assert.eq(r.grid[35 * CPE + 8], T.EXCLUSION_ROCK, 'railway-only cell is Excluded rock');
+  assert.eq(r.grid[35 * CPE + 8], r.variantBaseGrid[35 * CPE + 8], 'railway-only cell keeps its material');
   assert.truthy(has(r, 8, 35, WHY.RESTRICTED), 'and carries RESTRICTED');
   assert.eq(at(r, 8, 35), INV, 'so it is hard-blocked');
   assert.eq(r.grid[35 * CPE + 20], T.COMMERCIAL, 'the overlap paints COMMERCIAL');
   assert.falsy(has(r, 20, 35, WHY.RESTRICTED), 'no RESTRICTED bled onto commercial ground');
   assert.eq(at(r, 20, 35), OPEN, 'open, not railway land');
   // A real hospital campus IS its own commercial paint, and keeps RESTRICTED.
-  assert.eq(r.grid[15 * CPE + 45], T.EXCLUSION_ROCK, 'a hospital campus is Excluded rock');
+  assert.eq(r.grid[15 * CPE + 45], r.variantBaseGrid[15 * CPE + 45], 'a hospital campus keeps its material');
   assert.truthy(has(r, 45, 15, WHY.RESTRICTED), 'and still carries RESTRICTED');
   assert.eq(at(r, 45, 15), INV, 'a hospital stays off-limits');
 });
@@ -164,13 +164,13 @@ test('spawn gate: orchard and farmland rims remain open while interiors are hard
       { type: 3, tags: { class: 'grass', subclass: 'grass' }, geom: [whole()] },
       { type: 3, tags, geom: [box(10, 10, 50, 50)] }] }]);
     const t = r.grid[30 * CPE + 30];
-    assert.eq(t,T.EXCLUSION_ROCK, `${tags.subclass} interior is Excluded rock`);
+    assert.eq(t,r.variantBaseGrid[30 * CPE + 30], `${tags.subclass} interior keeps its material`);
     assert.truthy(has(r, 30, 30, WHY.FARM_INTERIOR), `${tags.subclass}: the interior is FARM_INTERIOR`);
     assert.eq(at(r, 30, 30), INV, 'nothing grows or stands mid-field');
     // Find the field's west edge on row 30 and check the edge band: no
     // reason at all (the typed FARM reason was dropped Sep 2026 — the edge
     // is now plain open ground for every class, same as any other terrain).
-    const x0 = 10; // source field edge, retained even after the interior becomes rock
+    const x0 = 10; // source field edge, retained alongside the excluded interior
     for (let k = 0; k < W.FARM_EDGE_CELLS; k++) {
       assert.eq(raw(r, x0 + k, 30), 0, `${k} in from the edge: no reason`);
       for (const c of W.SPAWN_CLASSES) {
@@ -193,7 +193,7 @@ test('spawn gate: source field interiors stay closed across road and POI paint',
       ] },
       poiLayer({ type: 1, tags: { class: 'park', name: 'Orchard interior' }, geom: [[pt(30,20)]] }),
     ]);
-    assert.eq(r.grid[30*CPE+30], T.EXCLUSION_ROCK, 'the excluded source field remains rock across its path');
+    assert.eq(r.grid[30*CPE+30], T.PATH, 'the path across the excluded source field keeps its surface');
     assert.truthy(r.grid[20*CPE+30] !== T.ORCHARD, 'POI pad repaints the source field');
     for (const [x,y] of [[30,30],[30,29],[30,20],[30,22]]) {
       const i = y*CPE+x;
@@ -389,7 +389,7 @@ test('spawn gate: a golf course vouches for nobody', () => {
     { name: 'landcover', features: [{ type: 3, tags: { class: 'grass', subclass: 'golf_course' }, geom: [box(0, 0, CPE - 1, 30)] }] },
     { name: 'landuse', features: [{ type: 3, tags: { class: 'residential' }, geom: [box(0, 31, CPE - 1, CPE - 1)] }] },
   ]);
-  assert.eq(r.grid[20 * CPE + 20], T.EXCLUSION_ROCK, 'the excluded course paints solid rock');
+  assert.eq(r.grid[20 * CPE + 20], T.GOLF, 'the excluded course keeps its surface');
   assert.eq(at(r, 20, 20), INV, 'the whole course is private ground');
   assert.truthy(has(r,20,20,WHY.GOLF));
   for(const cls of W.SPAWN_CLASSES) assert.falsy(W.isSpawnCell(r.grid,CPE,CPE,20,20,{},cls),'golf is excluded even without the mask');

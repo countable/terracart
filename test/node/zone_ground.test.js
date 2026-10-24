@@ -214,8 +214,10 @@ test('park fringe: the Nexus owns source park ground and its placement fringe, r
   assert.gt(inside, 40, 'entire source park is covered');
   // Real cemetery access stays Excluded, including its former churchyard fringe.
   const c = fringeTile(TX, TY, rect(x0, y0, x1, y1), 'cemetery');
-  assert.eq(c.r.grid.filter(t => t === T.CHURCHYARD).length, 0, 'Excluded cemetery has no gameplay fringe');
-  assert.gt(c.r.grid.filter(t => t === T.EXCLUSION_ROCK).length, 40, 'cemetery is solid excluded ground');
+  assert.gt(c.r.grid.filter(t => t === T.CHURCHYARD).length, 40, 'Excluded cemetery retains its churchyard surface');
+  assert.gt(c.r.gameplayTiers.filter(t => t === GameplayTiers.EXCLUDED).length, 40, 'cemetery remains excluded');
+  for (let i=0;i<c.r.grid.length;i++) if (c.r.quietMask[i])
+    assert.eq(c.r.grid[i], c.r.variantBaseGrid[i], 'cemetery keeps its original ground');
   assert.falsy(c.r.zone?.anchors.some(a => a.polygonAnchor), 'cemetery mints no park Nexus');
 });
 
