@@ -65,7 +65,7 @@ function versioned(url, directory = '.') {
 // the boot gate injects from APP_SRC rather than a tag. One versioner keeps a
 // preload and the later request on the same cache key.
 function expectedIndex(html = readFile(INDEX), directory = '.') {
-  return html
+  const versionedHtml = html
     .replace(/(<script[^>]+src=["'])([^"']+)(["'])/g,
       (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
@@ -74,6 +74,18 @@ function expectedIndex(html = readFile(INDEX), directory = '.') {
       (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(APP_SRC\s*=\s*['"])([^'"]+)(['"])/,
       (_, a, url, b) => a + versioned(url, directory) + b);
+  // Only resource URLs/media participate in SHELL_VERSION, never this inline
+  // value itself. Passing the URLs explicitly avoids recursive derivation.
+  return versionedHtml.replace(/(window\.__shellVersion\s*=\s*')[^']*(')/,
+    (_, a, b) => a + expectedShellVersion(shellUrls(versionedHtml)) + b);
+}
+
+function documentVersion(html = readFile(INDEX)) {
+  return (html.match(/window\.__shellVersion\s*=\s*'([^']*)'/) || [])[1];
+}
+function documentVersionProblem(html, want) {
+  const has = documentVersion(html);
+  return has === want ? null : `index.html __shellVersion ${has} → ${want}`;
 }
 
 // Every same-origin script URL the expected index.html asks for, in order.
@@ -167,6 +179,8 @@ function check() {
   }
   if (sw !== expectedSw(sw)) problems.push('sw.js asset manifest/version needs refresh');
   const want = expectedShellVersion();
+  const documentProblem = documentVersionProblem(readFile(INDEX), want);
+  if (documentProblem) problems.push(documentProblem);
   const has = (sw.match(/const SHELL_VERSION = '([^']*)'/) || [])[1];
   if (has !== want) problems.push(`sw.js SHELL_VERSION ${has} → ${want}`);
   return problems;
@@ -343,6 +357,60 @@ const CHECKS = [
       for (const u of ['https://cdn.example.com/x.js', '//cdn.example.com/x.js']) {
         if (versioned(u) !== u) throw new Error(`${u} was rewritten`);
       }
+    },
+  },
+  {
+    name: 'cache-bust: source, data-table and stylesheet edits advance the exposed shell version',
+    run() {
+      const files = ['tools/.cachebust_source_probe.js', 'tools/.cachebust_data_probe.js', 'tools/.cachebust_style_probe.css'];
+      const html = "<script>window.__shellVersion = 'stale';</script>"
+        + files.slice(0, 2).map(file => `<script src="${file}"></script>`).join('')
+        + `<link rel="stylesheet" href="${files[2]}">`;
+      try {
+        for (const file of files) fs.writeFileSync(path.join(ROOT, file), '/* first */');
+        const first = expectedIndex(html), initialVersion = documentVersion(first);
+        if (initialVersion !== expectedShellVersion(shellUrls(first))) throw new Error('document and worker derivations disagree');
+        if (expectedIndex(first) !== first) throw new Error('exposed version derivation is not idempotent');
+        for (const file of files) {
+          fs.writeFileSync(path.join(ROOT, file), '/* changed */');
+          if (documentVersion(expectedIndex(html)) === initialVersion) throw new Error(`${file} did not advance exposed shell version`);
+          fs.writeFileSync(path.join(ROOT, file), '/* first */');
+          if (documentVersion(expectedIndex(html)) !== initialVersion) throw new Error(`${file} restore changed the generation`);
+        }
+      } finally { for (const file of files) fs.rmSync(path.join(ROOT, file), { force: true }); }
+    },
+  },
+  {
+    name: 'cache-bust: document version drift is rejected and generated cache loads before worldgen',
+    run() {
+      const html = expectedIndex(), want = expectedShellVersion(shellUrls(html));
+      if (documentVersionProblem(html, want)) throw new Error('derived document was rejected');
+      const missing = html.replace(/window\.__shellVersion\s*=\s*'[^']*';?/, '');
+      if (!documentVersionProblem(missing, want)) throw new Error('missing document version passed the audit');
+      const stale = html.replace(/(window\.__shellVersion\s*=\s*')[^']*(')/, '$1shell-stale$2');
+      if (!documentVersionProblem(stale, want)) throw new Error('stale document version passed the audit');
+      if (expectedIndex(stale) !== html) throw new Error('document version drift did not repair');
+      const urls = scriptUrls(html).map(url => url.split('?')[0]);
+      const worldgen = urls.indexOf('src/worldgen.js');
+      if (urls[worldgen - 1] !== 'src/generated_tile_cache.js') throw new Error('generated cache must load immediately before worldgen');
+      if (html.indexOf('window.__shellVersion') > html.indexOf('<script src="src/')) throw new Error('version was exposed after game modules');
+    },
+  },
+  {
+    name: 'cache-bust: tools inherit the fetched document version before loading game modules',
+    async run() {
+      const vm = require('vm'), html = expectedIndex(), want = documentVersion(html), loaded = [];
+      if (!/^shell-[0-9a-f]{8}$/.test(want)) throw new Error('test document has no valid shell generation');
+      const context = { window: {}, fetch: async () => ({ text: async () => html }),
+        document: { createElement: () => ({}), head: { appendChild(script) {
+          if (context.window.__shellVersion !== want) throw new Error('tool module loaded before its document generation');
+          loaded.push(script.src); script.onload();
+        } } } };
+      vm.runInNewContext(readFile('tools/game-loader.js'), context);
+      await context.window.loadGame();
+      if (context.window.__shellVersion !== want) throw new Error('tool did not inherit the fetched game document version');
+      const before = loaded.findIndex(url => url.split('?')[0] === '../src/generated_tile_cache.js');
+      if (before < 0 || !loaded[before + 1]?.startsWith('../src/worldgen.js')) throw new Error('tool changed cache/worldgen module order');
     },
   },
   {
