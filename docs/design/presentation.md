@@ -594,8 +594,9 @@ pixels and decorative details do not define additional tap cells.
   The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
   aimed per step by `_starterGuidanceGoal` rather than stored as marks. It appears
   only after its instruction is visible. Location dots sit on their target when
-  onscreen, otherwise on the compass edge: a bright 3px core with a translucent
-  pulse expanding to a 6px radius every 3 seconds.
+  onscreen, otherwise on the compass edge: a bright 3px-radius core with a translucent
+  pulse expanding to a 12px radius every 3 seconds. Labels use their dot’s
+  colour and stay beside it; crowded labels do not stack away from their dots.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
@@ -643,7 +644,12 @@ pixels and decorative details do not define additional tap cells.
   player's own act (a receipt, a Book read, a neighbour's talk) asks only
   `_dialogOpen`. A new deferred lane asks the hold and adds to the count.
 - The first road-repair panel shows the Hood working alone: “You Start Fixing
-  The Roads” / “They are the arteries of civilization.” It keeps the existing
+  The Roads” / “They are the arteries of civilization.” New saves repair no
+  roads until the player taps a damaged road and accepts “Road is in disrepair.
+  Fix it?” Yes enables proximity repair and opens that story immediately;
+  No leaves roads untouched and a later tap can ask again. The story's existing
+  `trail.greeted` flag remembers consent. Saves with restored metres, prizes,
+  or a streets epoch retain automatic repair; ungreeted legacy saves keep the
   50 m threshold and two-second delay. Neighbours enter the story at the first
   reward, headed “The survivors are watching”; later rewards use the thank-you
   heading. The first repair and first gift remain separate moments.
