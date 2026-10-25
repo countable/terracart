@@ -187,6 +187,32 @@
     assert.falsy(native.mountedSign,'shared startup model stays unmodified');
     assert.falsy(BuildingLowPoly.authoredGeometry(native,lot,.65).mountedSign,'no marker unless requested');
   });
+  test('authored fort: the copper hall is three cells wide when it fits with its deck, else two', () => {
+    const spec=AuthoredBuildings.SPECS.city_storefront,C=Math.cos(Math.PI/6),unit=16/spec.door[3];
+    const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
+    for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const nativeHeight=Math.max(...native.faces.flatMap(f=>f.points.map(p=>p.z)))*C;
+    const {widthsCells:[wide,narrow],clearCells}=BuildingLowPoly.FORT_HALL;
+    const hall=(w,h)=>{
+      const lot=[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}],m=BuildingLowPoly.authoredGeometry(native,lot,BuildingLowPoly.FORT_HALL);
+      const xs=m.faces.flatMap(f=>f.points.map(p=>p.x));
+      return {width:Math.max(...xs)-Math.min(...xs),height:m.height,left:Math.min(...xs),right:Math.max(...xs)};
+    };
+    for(const [w,h] of [[200,160],[320,320],[(wide+2*clearCells)*CELL_PX+1,96]]){
+      const m=hall(w,h);
+      assert.lt(Math.abs(m.width-wide*CELL_PX),1e-6,`${w}×${h}: ${wide} cells wide`);
+      assert.gte(m.left,clearCells*CELL_PX-1e-6,'a deck stays clear to the palisade');
+      assert.lte(m.right,w-clearCells*CELL_PX+1e-6);
+    }
+    assert.lt(Math.abs(hall(200,160).height-hall(320,320).height),1e-6,'the same hall in any roomy fort');
+    for(const [w,h] of [[120,100],[(wide+2*clearCells)*CELL_PX-1,96]])
+      assert.lt(Math.abs(hall(w,h).width-narrow*CELL_PX),1e-6,`${w}×${h}: ${narrow} cells wide`);
+    const tiny=hall(40,40);
+    assert.lte(tiny.width,40+1e-6,'a lot too small for either width still holds its hall');
+    assert.gt(tiny.width,0);
+    assert.lt(Math.abs(hall(200,160).height/(wide*CELL_PX)-nativeHeight/(native.faces.flatMap(f=>f.points.map(p=>p.x)).reduce((a,b)=>Math.max(a,b),0))),1e-6,
+      'scaled uniformly: proportions kept');
+  });
   test('authored buildings: Dreamland attic glazing stays source-sized on a larger real footprint', () => {
     const spec=AuthoredBuildings.SPECS.dreamland_house;
     const skin={key:'dreamland_house',spec,template:{},texel:.5,flat:false,
