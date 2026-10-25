@@ -20,7 +20,7 @@ We want to shift the game to more of an overall steampunk style, esp residential
 [ ] Furniture are basically all the same in many ways. They are a sprite that takes 1 map cell, Some can be mirrored left/right. Those with art support can be rotated all 4 directions. They can be flat or mid height (causes player hop). When in inventory they can be placed (in vision region) or rotated. when tapped on-map, they open a dialog to be picked up or use a special ability (some only). "Pick up" can be off to the side/top, out of the way of main functions. When in the interaction screen. show the furniture art larger like when obtaining an item, but a new presentation.
 [ ] ie, Toilets can 'flush' to cleans debuffs. Beds can 'sleep' to go to full energy (show the art. fade out the screen dark briefly, same subroutine as Inn market stall).
 [ ] Mirror can change player appearance (choose a robe tint)
-[ ] We'll expand this to crafting stations which are the same as furniture but have a crafting screen. Just make a basic workbench for now. It's crafted at the house and all other house crafting function "move" to it. When tapping it, open the crafting screen directly.
+[x] Restore a Workshop building to open the crafting screen directly.
 [ ] Furniture in the house increases its "luxury", a white score number shown in the shaded area above the house when inside, calculated from the placed furniture and cached. Furnitures have tiers like any item and luxury is 1 per tier by default.
 [ ] Furniture is added to treasure tables, in appropriate rewards.
 [ ] Hitting luxury milestones triggers memory events "Living like a ____" with different titles.

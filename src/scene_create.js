@@ -240,6 +240,7 @@ class SceneCreate {
     // undefined and fail to exclude sandbox sessions from home capture.
     const _sandbox = (typeof Sandbox !== 'undefined' && Sandbox.detect());
     this._homeCapturePending =
+      !_reviewLocation &&
       !_teleportOverride &&
       !_saveHome &&
       !this.save.starterShopId &&
@@ -715,6 +716,7 @@ class SceneCreate {
     this.ghostGlowPool = [];  // the ghost's non-lighting halo (render.js)
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
+    this._homeUpgradeButton = null;
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
@@ -1494,7 +1496,11 @@ class SceneCreate {
 
     let debugGpsStick = false;
     try { debugGpsStick = localStorage.getItem('terracart.debugGpsStick') === '1'; } catch (_) {}
-    this.setDebugGpsStick(debugGpsStick);
+    this.setDebugGpsStick(debugGpsStick || !!_reviewLocation);
+    if (_reviewLocation) {
+      this._gpsSimulated = true;
+      this._applyGpsFix({ x: 0, y: 0 });
+    }
 
     // GPS watch + device compass (best-effort). Test mode skips them so the
     // test harness can drive playerM directly without GPS easing fighting it.

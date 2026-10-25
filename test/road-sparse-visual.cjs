@@ -15,7 +15,8 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
     await page.addScriptTag({ content: `
       const SpriteLayout={CELL_PX:32}, WorldGen={PATH_CLASSES:new Set(),T:{WATER:3}};
       const cssOf=c=>'#'+c.toString(16).padStart(6,'0');
-      const frames=${read('src/textures.js').match(/const SELECTED_MATERIAL_FRAMES = (.*?);/)[1]};
+      ${read('src/ground_materials.js')}
+      const frames=GroundMaterials.selectedMaterialFrames;
       const atlas=new Image();atlas.src='data:image/png;base64,${fs.readFileSync(path.join(root,'assets/selected-terrain/selected-terrain.png')).toString('base64')}';
       const drawSelectedMaterial=(cx,size,id)=>{cx.imageSmoothingEnabled=false;cx.drawImage(atlas,frames[id]*16,0,16,16,0,0,size,size);return true;};
     ` });

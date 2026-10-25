@@ -42,7 +42,7 @@
         const gfx = scene.add.graphics();
         // Architectural walls keep their background slot. Step-over props
         // must cover ground shadows, otherwise the shadow paints their cap.
-        const container = source === 'props' && scene.raisedPropContainer
+        const container = ['props', 'grass'].includes(source) && scene.raisedPropContainer
           ? scene.raisedPropContainer : scene.buildingWallContainer;
         container.add(gfx);
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0, parts: [], perWall: false, mode: null };

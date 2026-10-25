@@ -25,6 +25,7 @@ const ObstacleStep = (() => {
     rock: Object.freeze({ liftPx: 4, radius: 0.25, top: 0.185, shape: 'round' }),
     wall: Object.freeze({ liftPx: 5.5, radius: 0.29, top: 0.21, shape: 'band' }),
     bush: Object.freeze({ liftPx: 3, radius: 0.25, top: 0.19, shape: 'round' }),
+    grass: Object.freeze({ liftPx: 0, heightPx: 18, cover: true, shape: 'cell' }),
     hedge: Object.freeze({ liftPx: 0, heightPx: 11, radius: 0.29, shape: 'band', cover: true }),
     hedgeSingle: Object.freeze({ liftPx: 0, radius: 0.4, shape: 'round', cover: true }),
   });
@@ -70,6 +71,11 @@ const ObstacleStep = (() => {
     for (const o of objects || []) {
       if (!o || !Number.isFinite(o.x) || !Number.isFinite(o.y)) continue;
       const dx = (x - o.x) / cellM, dy = (y - o.y) / cellM;
+      // Grass occupies its whole square; cover never becomes foot support.
+      if (WorldGen.isGrassCover(o)) {
+        if (dx >= -0.5 && dx < 0.5 && dy >= -0.5 && dy < 0.5) covered = true;
+        continue;
+      }
       const p = profile(o);
       if (!p) continue;
       const distance = p.shape === 'band' ? bandDistance(o, dx, dy) : Math.hypot(dx, dy);

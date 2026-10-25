@@ -4046,7 +4046,7 @@
   function churchyardBufferM() {
     const Z = (typeof Zones !== 'undefined') ? Zones : null;
     const k = Z && Z.ZONE_KINDS && Z.ZONE_KINDS.stones;
-    return k ? k.R * (1 + (Z.EDGE_JITTER || 0)) : 100;
+    return k ? k.R * (1 + Z.edgeJitterFor('stones')) : 100;
   }
   // Two-pass chamfer distance (in cells) over an E×E Float32 grid whose
   // sources hold 0 and everything else a big number.
@@ -4430,6 +4430,11 @@
   function* grassFillSteps(tx, ty, w, h = w) {
     const grass = BiomeProfiles.GRASS_FILL;
     const candidates = new Uint8Array(w * h);
+    // Full fields need no regional noise or per-cell RNG allocation.
+    if (grass.dMin >= 1 && grass.dMax >= 1 && grass.dense >= 1) {
+      candidates.fill(1);
+      return candidates;
+    }
     const grassRegions = new Map();
     const grassRegion = (bx, by) => {
       const key = `${bx}_${by}`;
@@ -6763,8 +6768,7 @@
         }
       }
     }
-    // Scenic selection reads source geography before road terrain. Keep its
-    // shoreline rewards tied to original beaches, not newly painted sand.
+    // Scenic selection and shoreline rewards read the source geography.
     let scenic = null, scenicDress = null;
     if (typeof Scenic !== 'undefined') {
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
@@ -6774,8 +6778,8 @@
       yield* StreetVariants.suppressNexusRoadThemesSteps(streetIndex, zone, w);
       streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
     }
-    // Polygon scatter is legacy input for caves; surface corridor replacement
-    // follows affinity selection and precedes zone paint and all dressings.
+    // Retain the road-ground contract for tile consumers. Sparse themed
+    // cobbles now preserve the source ground, so no verge cleanup is needed.
     const streetGround = new Uint8Array(w * h);
     const streetTerrain = typeof StreetVariants !== 'undefined'
       ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,

@@ -28,6 +28,22 @@ const { chromium } = require('playwright-core');
     assert.equal(await page.evaluate(() => !!window.__staleTierModule), false, 'current HTML must bypass the obsolete unversioned module');
     await page.locator('summary').filter({ hasText: /^Gameplay tiers$/ }).click();
     const toggle = page.locator('#gameplayTiers');
+    // Hidden diagnostics should not encode a PNG for every tile at startup.
+    const terrain = page.getByLabel('Terrain codes', { exact: true });
+    const diagnostics = () => page.evaluate(() => {
+      const groups = reviewOverlays.filter(layer => layer instanceof L.LayerGroup);
+      return groups.reduce((n, group) => n + group.getLayers().filter(layer =>
+        layer instanceof L.LayerGroup && layer.getLayers().some(child => child instanceof L.ImageOverlay)).length, 0);
+    });
+    assert.equal(await diagnostics(), 0, 'diagnostic rasters are deferred until enabled');
+    await page.locator('summary').filter({ hasText: /^Overlays$/ }).click();
+    await terrain.check();
+    const encoded = await diagnostics();
+    assert.equal(encoded, await page.evaluate(() => window.__world.tiles.length), 'enabling terrain creates one image per tile');
+    await terrain.uncheck();
+    await terrain.check();
+    assert.equal(await diagnostics(), encoded, 're-enabling reuses the existing images');
+    await terrain.uncheck();
     const before = await page.locator('#map').screenshot();
     await toggle.check();
     await page.waitForFunction(() => gameplayReview.result && [...document.querySelectorAll('.leaflet-gameplayTiers-pane img')].some(i => i.complete && i.naturalWidth));

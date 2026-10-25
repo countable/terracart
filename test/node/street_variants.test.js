@@ -533,7 +533,8 @@ function withBarricadePaths(build) {
 const BURN = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'burned', 'Kiln Road');
 function variantLayers() {
   const toad = pts([[0, 20], [CPE - 1, 20]]);
-  const barr = pts([[40, 30], [40, CPE - 1]]);     // one owned end inside (row 30)
+  // Keep crossing samples clear of lamp feet at the denser path spacing.
+  const barr = pts([[40, 30], [40, CPE - 2]]);     // one owned end inside (row 30)
   const burn = pts([[20, 0], [20, CPE - 1]]);
   return [
     { name: 'landcover', features: [{ type: 3, tags: { class: 'meadow' }, geom: [wholeTile()] }] },

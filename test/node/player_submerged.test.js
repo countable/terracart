@@ -145,16 +145,10 @@
     assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
     assert.eq(method('playerBodyDy').call(s), -9);
   }));
-  test('foliage cover: grass preserves the full standing body and hedges retain their crop', () => fixture((s,c,e,update) => {
+  test('foliage cover: half-body crop persists while stopped and clears on harvest or exit', () => fixture((s,c,e,update) => {
     c.type=WorldGen.T.GRASS;
     const grass={kind:'wildplant',crop:'longgrass',x:42,y:63};
-    s._obstacleStep=ObstacleStep.sample(42,63,[grass],5);
-    s._playerSubmerged=true; s.player.setCrop(0,0,16,8);
-    for (let i=0;i<2;i++) {
-      update.call(s); assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
-      assert.eq(method('playerBodyDy').call(s),-9, 'grass roots and player feet share the ground plane');
-    }
-    for (const plant of [{...grass,crop:'shrub',_plantArt:'zone_hedge'}]) {
+    for (const plant of [grass,{...grass,crop:'shrub',_plantArt:'zone_hedge'}]) {
       s._obstacleStep=ObstacleStep.sample(42,63,[plant],5);
       for (let i=0;i<2;i++) { update.call(s); assert.truthy(s._playerSubmerged); assert.eq(s.player.crop.join(','),'0,0,16,8'); }
       s.save.flightPotionUntil=Date.now()+60000; update.call(s); assert.falsy(s.player.isCropped);

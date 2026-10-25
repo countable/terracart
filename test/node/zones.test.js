@@ -110,14 +110,44 @@ test('beach influence: ragged field stays within a twenty-cell diameter', () => 
   assert.gt(count, 200);
 });
 
+test('groves: focal anchors do not create circular influence coverage', () => {
+  const poi = { features: [{ type: 1, tags: { class: 'park', subclass: 'park', name: 'Small Park' },
+    geom: [[{ x: 2048, y: 2048 }]] }] };
+  const field = Z.field(poi, 0, 0, 64);
+  assert.eq(field.anchors.length, 1, 'the shrine and pattern retain their anchor');
+  assert.eq(field.anchors[0].name, 'Small Park');
+  assert.falsy(field.idx.some(Boolean), 'the point claims no ground');
+  assert.falsy(field.s.some(Boolean), 'there is no radial influence strength');
+  assert.eq(Z.FRINGE_M, 8, 'ragged ground fringe is halved');
+  assert.eq(Z.FRINGE_FILL_M, 15, 'polygon coverage buffer is halved');
+  const park = { rings: [[{x:1920,y:1920},{x:2176,y:1920},{x:2176,y:2176},{x:1920,y:2176}]], tags: {class:'park'} };
+  const covered = WorldGen.runSteps(ZoneCoverage.buildSteps({ field, poiLayer: poi, parks: [park],
+    tx:0, ty:0, N:64, tileEdgeM:448, grid:new Uint8Array(64*64).fill(T.GRASS), chests:[] }));
+  const entry = { zone:covered, cellsPerEdge:64 };
+  assert.eq(Z.at(entry,32,32).anchor, field.anchors[0], 'polygon coverage retains Grove stories and culture');
+  assert.truthy(Z.inCore(Z.at(entry,32,32)), 'the footprint has no radial falloff');
+  assert.eq(Z.at(entry,37,32),null, 'the old point radius cannot reach beyond the park buffer');
+  let cells=0;
+  for(let y=0;y<64;y++)for(let x=0;x<64;x++)if(covered.coverage[y*64+x]) {
+    cells++;
+    const dx=Math.max(1920-(x+.5)*64,0,(x+.5)*64-2176);
+    const dy=Math.max(1920-(y+.5)*64,0,(y+.5)*64-2176);
+    assert.lte(Math.hypot(dx,dy)*448/4096,15,'all Grove ground stays within the polygon buffer');
+  }
+  assert.gt(cells,16,'the reduced buffer still extends the mapped park');
+});
+
 test('zones: R is the kind\'s cap shrunk by crowding, clamped to R_MIN', () => {
-  assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 80); assert.eq(Z.ZONE_KINDS.tar.R, 37.5);
+  assert.eq(Z.ZONE_KINDS.grove.R, 60); assert.eq(Z.ZONE_KINDS.stones.R, 15); assert.eq(Z.ZONE_KINDS.tar.R, 37.5);
   assert.eq(Z.R_MIN_M, 30); assert.eq(Z.MERGE_M, 40); assert.eq(Z.W_MAX_M, 200);
   assert.eq(Z.radiusFor('grove', 0), 60, 'alone: the cap');
   assert.eq(Z.radiusFor('tar', 0), 37.5, 'isolated fuel station has a 37.5 m halo');
   assert.eq(Z.radiusFor('tar', 1), 22.5, 'crowded fuel station has a proportionally reduced floor');
   for (const q of [0, .1, .5, 1, 5]) near(Z.radiusFor('tar', q), .75 * Math.max(30, 50 / (1 + q)), 1e-12, '25% reduction at every density');
-  assert.eq(Z.radiusFor('grove', 5), 30, 'crowded: the floor');
+  assert.eq(Z.radiusFor('grove', 5), 30, 'legacy anchor metadata keeps its floor');
+  for (const q of [0, .1, .5, 1, 5]) assert.eq(Z.radiusFor('stones', q), 15, 'Old Stones has the same radius at every density');
+  for (let i = 0; i < 100; i++) assert.eq(Z.edgeAt({kind:'stones',R:15},i*97,i*31),15,'Old Stones has no boundary noise');
+  assert.eq(WorldGen.churchyardBufferM(),15,'churchyard suppression follows the exact footprint');
   // The window fits the buffer at play latitudes (Berlin's row is the tightest).
   for (const ty of [5370, 5566, 5700]) assert.eq(Z.windowM(ty), 200, `row ${ty}: W = 200`);
 });
@@ -196,6 +226,7 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
   assert.truthy(on.zone && on.zone.anchors.length > 0, 'the fixture has a field');
   const over = new Set([T.RESIDENTIAL, T.COMMERCIAL, T.WASTELAND]);
   const zoneCodes = new Set([T.GROVE, T.CHURCHYARD, T.TAR_YARD]);
+  const roundTemples = new Set(on.objects.filter(o => o.kind === 'temple' && o.round).map(o => o.id));
   let changed = 0;
   const byKind = {};
   for (let i = 0; i < N * N; i++) {
@@ -207,6 +238,10 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
     }
     const before = [T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(off.grid[i]) ? off.variantBaseGrid[i] : off.grid[i];
     const after = [T.EXCLUSION_ROCK, T.ROCKY_GROUND].includes(on.grid[i]) ? on.variantBaseGrid[i] : on.grid[i];
+    if (roundTemples.has(on.ownerKeys[on.owners[i]])) {
+      assert.eq(after, T.BUILDING_LARGE, 'a generated round temple owns its structural footprint');
+      continue;
+    }
     if (after === before) {
       assert.falsy(zoneCodes.has(after), 'a zone code only where the halo painted');
       continue;
@@ -234,7 +269,9 @@ test('zones: zone styling owns coverage while roads, paths, water and buildings 
     byKind[kind] = (byKind[kind] || 0) + 1;
   }
   assert.gt(changed, 50, `the halo painted (${changed} cells)`);
-  assert.truthy(byKind.grove && byKind.stones && byKind.tar, `all three kinds painted: ${JSON.stringify(byKind)}`);
+  assert.truthy(byKind.grove && byKind.tar, `Groves and Tar Yards paint their eligible ground: ${JSON.stringify(byKind)}`);
+  assert.truthy(on.zone.coverage.some(slot => slot && on.zone.anchors[slot - 1].kind === 'stones'),
+    'the fixed 15 m Old Stones footprint remains, even when occupied by its church');
   for (const k of Object.keys(off.pathUnder)) {
     if (off.pathUnder[k] !== on.pathUnder[k]) {
       assert.truthy(WorldGen.isWalkable(off.pathUnder[k]) && zoneCodes.has(on.pathUnder[k]), `path ${k}: style the walkable land below visible cobbles`);

@@ -434,7 +434,8 @@ test('spawn gate: cemetery land is INVALID, and a church ON it suppresses its wh
   assert.eq(at(plain, 32, 32), INV, 'grave land hosts nothing (quiet land)');
   const d = Math.ceil(W.SPAWN_SENSITIVE_BUFFER_M / 7) + 3;   // past the cemetery's own buffer
   assert.eq(at(plain, 36 + d, 32), OPEN, 'past the cemetery\'s buffer is open');
-  assert.eq(at(church, 36 + d, 32), SUP, 'but not round a church standing on it');
+  assert.eq(at(church, 39, 32), SUP, 'the reduced churchyard halo remains suppressed');
+  assert.eq(at(church, 36 + d, 32), OPEN, 'past both the cemetery and reduced churchyard buffers is open');
   assert.gte(W.churchyardBufferM(), Zones.ZONE_KINDS.stones.R, 'one number: the stones halo\'s reach');
 });
 

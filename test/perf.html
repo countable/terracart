@@ -165,7 +165,7 @@
         14: ['SAVE', 1], 15: ['RESTORE', 1], 16: ['TRANSLATE', 3], 17: ['SCALE', 3], 18: ['ROTATE', 2], 19: ['SET_TEXTURE', 3], 20: ['CLEAR_TEXTURE', 1],
         21: ['GRADIENT_FILL_STYLE', 6], 22: ['GRADIENT_LINE_STYLE', 7] };
       const gfx = {};
-      const GNAMES = ['cellGfx','borderGfx','gridGfx','reachGfx','rampartFrontGfx','rampartBackGfx','atmosGroundGfx','atmosRimGfx','facingGfx','footprintGfx','projGfx','enemyHealthGfx','swordSwingGfx','walkHomeGfx'];
+      const GNAMES = ['cellGfx','gridGfx','reachGfx','rampartFrontGfx','rampartBackGfx','atmosGroundGfx','atmosRimGfx','facingGfx','footprintGfx','projGfx','enemyHealthGfx','swordSwingGfx','walkHomeGfx'];
       for (const n of GNAMES) {
         const g = s[n]; if (!g || !g.commandBuffer) continue;
         const cb = g.commandBuffer; const cnt = {}; let i = 0;

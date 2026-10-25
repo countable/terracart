@@ -46,18 +46,105 @@
     }
     return out;
   }
+  // Label geometry is screen-space and independent of Leaflet. Keep text on
+  // a sufficiently straight stretch, upright, and clear of neighboring labels.
+  function labelPlacements(rows, project, size, measure, zoom) {
+    if (zoom < 17) return [];
+    const accepted = [], bins = new Map(), seats = new Map(), binSize = 128;
+    const keys = box => {
+      const out = [];
+      for (let y = Math.floor(box.top / binSize); y <= Math.floor(box.bottom / binSize); y++)
+        for (let x = Math.floor(box.left / binSize); x <= Math.floor(box.right / binSize); x++) out.push(`${x},${y}`);
+      return out;
+    };
+    const intersects = (a,b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    for (const row of rows) {
+      const title = StreetVariants.VARIANT_BY_ID[row.variant]?.title || 'Plain path';
+      const points = row.line.map(project), distances = [0];
+      if (points.length < 2 || points.every(p => p.x < 0) || points.every(p => p.x > size.x)
+        || points.every(p => p.y < 0) || points.every(p => p.y > size.y)) continue;
+      for (let i=1;i<points.length;i++) distances.push(distances[i-1]+Math.hypot(points[i].x-points[i-1].x,points[i].y-points[i-1].y));
+      const length = distances[distances.length-1];
+      let text = zoom >= 19 && row.mapLabel && row.mapLabel !== title ? `${title} · ${row.mapLabel}` : title;
+      if (measure(text)+24 > length) text = title;
+      const width = measure(text), half = width/2+8;
+      if (length < half*2) continue;
+      const at = distance => {
+        for(let i=1;i<points.length;i++) if(distances[i]>=distance) {
+          const span=distances[i]-distances[i-1],t=span ? (distance-distances[i-1])/span : 0;
+          return {x:points[i-1].x+(points[i].x-points[i-1].x)*t,y:points[i-1].y+(points[i].y-points[i-1].y)*t};
+        }
+        return points[points.length-1];
+      };
+      // Long sections repeat at most once per 360 pixels. Start in the middle
+      // so short sections get the most legible position before nearby repeats.
+      const spacing = Math.max(360,width+100), candidates = [length/2];
+      for(let d=spacing;d<length/2;d+=spacing)candidates.push(length/2-d,length/2+d);
+      // Offer alternate seats if a midpoint bends sharply or meets another label.
+      if(length < spacing*2)candidates.push(length*.3,length*.7);
+      let last = null;
+      for(const distance of candidates) {
+        if(distance<half || distance>length-half || (last!=null && Math.abs(distance-last)<spacing*.8))continue;
+        const a=at(distance-half),b=at(distance+half),p=at(distance);
+        if(Math.hypot(b.x-a.x,b.y-a.y)<half*2*.94)continue;
+        const dx=b.x-a.x,dy=b.y-a.y,span=Math.hypot(dx,dy);
+        // A straight text baseline must not cut across a hairpin's inside.
+        if(Math.abs((p.x-a.x)*dy-(p.y-a.y)*dx)/span>5)continue;
+        let angle=Math.atan2(dy,dx);
+        if(angle>Math.PI/2)angle-=Math.PI;
+        if(angle< -Math.PI/2)angle+=Math.PI;
+        const hx=Math.abs(Math.cos(angle))*half+Math.abs(Math.sin(angle))*10;
+        const hy=Math.abs(Math.sin(angle))*half+Math.abs(Math.cos(angle))*10;
+        const box={left:p.x-hx,right:p.x+hx,top:p.y-hy,bottom:p.y+hy};
+        if(box.left<6||box.right>size.x-6||box.top<6||box.bottom>size.y-6)continue;
+        if((seats.get(text)||[]).some(other=>Math.hypot(p.x-other.x,p.y-other.y)<spacing*.8))continue;
+        const cells=keys(box);
+        if(cells.some(key=>(bins.get(key)||[]).some(other=>intersects(box,other))))continue;
+        accepted.push({text,x:p.x,y:p.y,angle,box,variant:row.variant});last=distance;
+        if(!seats.has(text))seats.set(text,[]);seats.get(text).push(p);
+        for(const key of cells){if(!bins.has(key))bins.set(key,[]);bins.get(key).push(box);}
+      }
+    }
+    return accepted;
+  }
+  function labelLayer(map, toLL, getEdge) {
+    const Layer=L.Layer.extend({
+      initialize(){this.rows=[];this.placements=[];},
+      onAdd(){
+        this.canvas=L.DomUtil.create('canvas','leaflet-layer leaflet-zoom-hide path-label-canvas',map.getPane('pathReview'));
+        this.canvas.setAttribute('aria-hidden','true');
+        map.on('moveend zoomend resize',this.redraw,this);this.redraw();
+      },
+      onRemove(){map.off('moveend zoomend resize',this.redraw,this);this.canvas.remove();this.canvas=null;this.placements=[];},
+      setRows(rows){this.rows=rows;if(this.canvas)this.redraw();},
+      redraw(){
+        if(!this.canvas)return;
+        const size=map.getSize(),dpr=Math.min(devicePixelRatio||1,2),edge=getEdge();
+        this.canvas.width=size.x*dpr;this.canvas.height=size.y*dpr;
+        this.canvas.style.width=size.x+'px';this.canvas.style.height=size.y+'px';
+        L.DomUtil.setPosition(this.canvas,map.containerPointToLayerPoint([0,0]));
+        const g=this.canvas.getContext('2d');g.scale(dpr,dpr);
+        g.font='600 11px system-ui, sans-serif';g.textAlign='center';g.textBaseline='middle';
+        g.lineJoin='round';g.lineWidth=3;g.strokeStyle='rgba(248,243,224,.95)';g.fillStyle='#29352b';
+        this.placements=labelPlacements(this.rows,p=>map.latLngToContainerPoint(toLL(p.x*edge,p.y*edge,edge)),size,text=>g.measureText(text).width,map.getZoom());
+        for(const p of this.placements){g.save();g.translate(p.x,p.y);g.rotate(p.angle);g.strokeText(p.text,0,0);g.fillText(p.text,0,0);g.restore();}
+      },
+    });
+    return new Layer();
+  }
   function create({ map, toLL, getEdge, endpointsToggle, labelsToggle, summary }) {
     const pane = map.createPane('pathReview'); pane.style.zIndex = 460;
     const renderer = L.canvas({ pane: 'pathReview' });
-    const dots = L.layerGroup(), labels = L.layerGroup();
+    const dots = L.layerGroup(), labels = labelLayer(map,toLL,getEdge);
     let available = false;
     function sync() {
       available && endpointsToggle.checked ? dots.addTo(map) : map.removeLayer(dots);
       available && labelsToggle.checked && map.getZoom() >= 17 ? labels.addTo(map) : map.removeLayer(labels);
     }
     function update(world) {
-      dots.clearLayers(); labels.clearLayers();
+      dots.clearLayers();
       const rows = sections(world), edge = getEdge(), endpoints = new Map();
+      labels.setRows(rows);
       available = !world.scene?.depth;
       endpointsToggle.disabled = labelsToggle.disabled = !available;
       const ll = p => toLL(p.x * edge, p.y * edge, edge);
@@ -67,8 +154,6 @@
       for (const row of rows) {
         const variant = StreetVariants.VARIANT_BY_ID[row.variant];
         const detail = `<b>${esc(row.label)}</b><br>${esc(variant?.title || 'Plain path')} · ${Math.round(row.lengthM)} m assignment section<br>Section ${esc(row.key)} · tile ${esc(row.tile)}`;
-        if (row.mapLabel) L.tooltip({ permanent: true, direction: 'center', className: 'path-label', opacity: 1 })
-          .setLatLng(ll(row.midpoint)).setContent(esc(row.mapLabel)).addTo(labels);
         for (const end of row.ends) {
           const key = pointKey(end);
           let point = endpoints.get(key);
@@ -103,13 +188,13 @@
         ? `${Math.round(measured.reduce((sum, row) => sum + row.lengthM, 0) / measured.length)} m mean (${measured.length} complete sections ≥${StreetVariants.PATH_SECTION_MIN_M} m)`
         : `No complete sections ≥${StreetVariants.PATH_SECTION_MIN_M} m for mean`;
       summary.textContent = available
-        ? `${rows.length} path sections · ${endpoints.size} endpoint dots · ${mean}. Yellow: path theme transitions (drawn on top). Orange: inferred boundaries and tile cuts. White: natural/source endpoints without a theme change. Forks and true ends remain; nearby terrain and length guide extra splits. Named paths show labels at zoom 17+; hover or click a dot for boundary reasons and details.`
+        ? `${rows.length} path sections · ${endpoints.size} endpoint dots · ${mean}. Yellow: path theme transitions (drawn on top). Orange: inferred boundaries and tile cuts. White: natural/source endpoints without a theme change. Forks and true ends remain; nearby terrain and length guide extra splits. Path variants are labelled along the path at zoom 17+, with source names at zoom 19+ where space permits; hover or click a dot for boundary reasons and details.`
         : 'Path assignment geometry is available on the surface.';
       sync();
     }
     endpointsToggle.onchange = labelsToggle.onchange = sync;
     map.on('zoomend', sync);
-    return { update };
+    return { update, labels };
   }
-  root.MapReviewPaths = { clipLine, sections, create };
+  root.MapReviewPaths = { clipLine, sections, labelPlacements, create };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

@@ -22,7 +22,7 @@
       assert.eq(r.gameplayTiers[i], source.gameplayTiers[i], `cell ${i}: floors share surface eligibility`);
       if (r.zone.coverage[i] === slot && (source.spawnWhy[i] & inferred)) excluded++;
     }
-    assert.gt(excluded, 5, 'real residential fringe exercises retained exclusions');
+    assert.gt(excluded, 0, 'the smaller residential fringe still exercises retained exclusions');
     for (const o of [...r.zoneDress.objects, ...r.zoneDress.wildplants]) {
       const x = Math.floor((o.x - tx * edge) / (edge / N));
       const y = Math.floor((o.y - ty * edge) / (edge / N));

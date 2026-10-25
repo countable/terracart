@@ -819,16 +819,17 @@
       // The tier's material, laid inside the ring. One clip + one pattern fill
       // per building; rebuilds are rare (a cell crossing or a tile load), so
       // this is nothing per frame.
-      texturePoly(pts, tier, holes = []) {
+      texturePoly(pts, tier, holes = [], scale = 1) {
         const p = patternFor(tier);
         if (!p || !pts || pts.length < 3) return;
         ctx.save();
         trace(pts, holes);
         ctx.clip('evenodd');
         ctx.fillStyle = p.fill;
-        const x = wrap(phaseX, p.width), y = wrap(phaseY, p.height);
+        const x = wrap(phaseX, p.width * scale), y = wrap(phaseY, p.height * scale);
         ctx.translate(x, y);
-        ctx.fillRect(-x, -y, size, size);
+        if (scale !== 1) ctx.scale(scale, scale);
+        ctx.fillRect(-x / scale, -y / scale, size / scale, size / scale);
         ctx.restore();
       },
       damagePoly(pts, key, claimed, anchorX, anchorY) {
@@ -1369,7 +1370,7 @@
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
       + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
-      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
+      + ',' + (s.starterShopId || '') + ',' + HomeArea.storeys(s) + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
       + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '')
       + ',' + (scene.activeInterior?.()?.key || '');
@@ -1603,11 +1604,12 @@
           const profile = d.retail ? { style: 'whitewash', palette: {} } : Render.buildingProfileFor(object, scene);
           const palette = { ...BuildingStyles.STYLES[profile.style], ...profile.palette };
           const recipe = BuildingLowPoly.recipeFor('home',
-            { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
+            { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 },
+            d.retail ? scene.buildingStoreys : HomeArea.storeys(scene.save));
           recipe.interior = inside;
           // A retail room keeps its procedural walls; Home wears its skin
           // inside and out (BuildingLowPoly.interiorGeometry).
-          recipe.authored = d.retail ? null : authoredRecipe(scene,object,'home');
+          recipe.authored = d.retail || HomeArea.storeys(scene.save) === 2 ? null : authoredRecipe(scene,object,'home');
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
           // Home's door is the save's doorway wall (the shape's door point,
           // chosen toward the nearest street at placement — scene_venues.js
@@ -1619,7 +1621,11 @@
           if (d.retail) for (const [i, hole] of (d.holes || []).entries()) {
             BuildingLowPoly.add(scene, hole, recipe, variant, `${object.id}:court:${i}`, []);
           }
-          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale, wallOutset: model.wallOutset || 0 });
+          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, {
+            height: model.height * BuildingLowPoly.LOOK.heightScale,
+            interiorHeight: inside ? model.height * BuildingLowPoly.LOOK.heightScale : undefined,
+            storeys: d.retail ? recipe.stories : HomeArea.storeys(scene.save),
+            wallOutset: model.wallOutset || 0 });
         }
         if (!model?.faces?.length) {
           if (homePrisms) {
@@ -1637,7 +1643,11 @@
             // under the player's container would draw the player over the
             // walls in front of them.
             scene._wallPerspective.home.perWall = inside || room?.kind === 'retail';
-            homeWalls(scene, d, HomeArea.HOUSE, inside);
+            const homeStyle = d.retail ? HomeArea.HOUSE : {
+              ...HomeArea.HOUSE, wallPx: HomeArea.HOUSE.wallPx * HomeArea.storeys(scene.save) };
+            homeWalls(scene, d, homeStyle, inside);
+            if (!d.retail) scene._proceduralBuildings.set(d.key, { height: homeStyle.wallPx,
+              interiorHeight: inside ? homeStyle.wallPx : undefined, storeys: HomeArea.storeys(scene.save) });
             if (d.retail) for (const hole of d.holes || []) {
               homeWalls(scene, { ...d, pts: hole, door: null }, HomeArea.HOUSE, true);
             }

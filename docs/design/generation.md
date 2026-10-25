@@ -98,6 +98,10 @@ access or tile lifecycle mechanics.
   spawn gate. A blocked frontage drops its guards instead of moving them behind
   the building. With no detected doorway, the existing ring remains. Fort and
   castle core/roof formations keep their authored seats.
+  Doorway geometry and converted street segments are cached per generated tile
+  and source footprint; seats and live eligibility remain fresh on each wake.
+  Map review shares one live-occupancy snapshot within each synchronous tile
+  batch, where no objects change between buildings.
 - Triggered bush fauna and ambient haunting consult the owning habitat. Headstone
   ghosts, starter/story creatures, crop pests, saved pets and summons remain
   feature/progression/player-driven exceptions; all placement still uses the
@@ -819,8 +823,14 @@ access or tile lifecycle mechanics.
   seats. These use the ordinary tree identity, save ledger and shared spawn
   gate; they are not extra decorative pickups. Dark olive soil covers eligible
   Grove ground without altering roads, buildings or exclusion ownership.
-- Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
-  associated park footprint plus park fringe. Its ground and declarative layout
+- Nexus coverage: `ZoneCoverage` owns Grove park polygons plus a 15 m outer
+  fringe; Grove anchors locate shrines and focal patterns without adding a circular
+  influence footprint. The legacy ragged park-ground fringe reaches 6–10 m.
+  Old Stones uses a fixed 15 m point-influence radius, without crowding shrinkage
+  or boundary noise; Tar Yard retains its existing 22.5–37.5 m range. Other Nexus
+  coverage combines its influence footprint with any associated park footprint.
+  Coastal park classification still checks for a beach within 30 m; reducing
+  ground coverage does not reclassify Marine Meadows. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
   ambient fill, including procedural residential yard trees; roads and buildings
   remain visible. Ordinary mapped trees yield to Nexus coverage, including its empty cells.
@@ -1119,8 +1129,11 @@ Higher-priority placements and their access space take precedence in this order:
    changes, including movement within one z14 game tile. Deferred/failed
    rebuilds retry; an underground response never installs a cave as a surface.
    Within successful coverage, including an empty result, crowns replace
-   imported static/Overpass trees and ambient ordinary/yard timber. Authored
-   zones, themed streets, planted/player trees and hard placement gates remain
+   imported static/Overpass trees and ambient ordinary/yard timber. Detected crowns supersede generated scenery, including Nexus and street
+   dressing. Explicit variant `treeSpecies`, tree material replacements and
+   tree looks apply at the final seat; without a mapping, the detected type stays.
+   Mapped species are fixed against the near-home overlay and drop the source
+   crown tint. Buildings, planted/player trees and hard placement gates remain
    authoritative. Outside coverage the existing sources remain. Conifer maps
    to game pine and broadleaf to maple with `treeSpeciesFixed`; unknown uses
    the existing seeded mix. These are crown-center estimates, not trunk surveys
@@ -1212,6 +1225,8 @@ movement keeps the four-cell leash and asks the live NPC spawn gate on each
 step. The player Home and specialty buildings never accept NPC assignments.
 The first restored plain house asks for one potato. A housed Tilly thanks the
 player on their next conversation; that conversation completes her starter lesson.
+Trying to move Home onto an occupied NPC house is rejected with a message asking the
+player to move elsewhere; the resident and furnishings remain untouched.
 
 ### Furniture
 

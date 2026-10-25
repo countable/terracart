@@ -1471,6 +1471,15 @@ class SceneVenues {
     }
     return PlacedFloor.homeCell(this, x, y);
   }
+  upgradeHome() {
+    if (!this.save.starterShopId || !this.homeInside() || HomeArea.storeys(this.save) >= 2) return false;
+    this.save.homeStoreys = 2;
+    persistSave(this.save);
+    this._buildingGeomKey = null;
+    this._homeUpgradeButton?.setVisible(false);
+    return true;
+  }
+
   // The house round the player while they are inside it — its ring in world
   // metres and a key naming it — or null. lighting.js masks everything
   // outside that ring; the overlay takes the roof off.

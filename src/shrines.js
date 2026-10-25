@@ -2,7 +2,7 @@
 // Shrines — the ten SHRINE KINDS and the timed BOON each one lends.
 //
 // A shrine kind is a row of SHRINE_KINDS: its frame on the generated sheet
-// (assets/Objects/Generated/shrines.png, SpriteLayout.shrineKindArt), its
+// (the shrine atlas, SpriteLayout.shrineKindArt), its
 // light colour (Lighting.KINDS `shrine_<id>`), the Nexus variants and Road
 // variants it stands in, and the ONE lever its boon pulls for durationMs —
 // or, instead of a boon, a `reward` (the golden shrine's coin spree).

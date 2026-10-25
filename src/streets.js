@@ -32,7 +32,7 @@
 // way: one glowing cobble every `lampSpacingM()` metres of it, placed by
 // `lampsAlong` and lit when `covers` says its metre is restored. Nothing
 // about a lamp is stored — see the note above lampsAlong. Its own constant
-// (LAMP_SPACING_M, 50 m), rather than
+// (LAMP_SPACING_M, 33⅓ m), rather than
 // Trail.GOAL_STEP_M itself: most OSM ways are cut at every intersection, and
 // tying the "gets a lamp at all" floor to a 200 m rung left ordinary
 // suburban blocks (routinely under 100 m) dark however much of the town was
@@ -299,8 +299,8 @@
   // until Sep 2026 counted one thing and drew another.)
   //
   // Lamp density is independent of the restoration ladder: ordinary roads
-  // target one lamp every 50 m so restored blocks carry visible light.
-  const LAMP_SPACING_M = 50;
+  // target 1.5× the former density so restored blocks carry visible light.
+  const LAMP_SPACING_M = 50 / 1.5;
   function lampSpacingM() {
     return LAMP_SPACING_M;
   }

@@ -101,7 +101,16 @@ const Geo = (function () {
     }, RELEASE_GRACE_MS);
   }
 
-  return { subscribe, unsubscribe, get hasFix() { return lastFix !== null; } };
+  // Explicit review links simulate a location for this page only.
+  function debugLocation(search = typeof location === 'undefined' ? '' : location.search) {
+    const params = new URLSearchParams(search);
+    if (params.get('fakeGps') !== '1' || !params.get('lat')?.trim() || !params.get('lon')?.trim()) return null;
+    const lat = Number(params.get('lat')), lon = Number(params.get('lon'));
+    if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 85.05112878 || Math.abs(lon) > 180) return null;
+    return { lat, lon };
+  }
+
+  return { debugLocation, subscribe, unsubscribe, get hasFix() { return lastFix !== null; } };
 })();
 
 if (typeof window !== 'undefined') window.Geo = Geo;

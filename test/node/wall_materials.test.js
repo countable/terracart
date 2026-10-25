@@ -116,7 +116,7 @@
     const scene = { textures: { exists: () => creates > 0, get: () => texture, createCanvas() { creates++; return texture; } } };
     assert.eq(WallMaterials.prepare(scene), texture);
     assert.eq(WallMaterials.prepare(scene), texture);
-    assert.eq(creates, 1); assert.eq(refreshes, 1); assert.eq(slots, 8, 'all material slots painted once');
+    assert.eq(creates, 1); assert.eq(refreshes, 1); assert.eq(slots, 8, 'architecture slots painted once; grass reuses its native sprite texture');
     assert.truthy(WallMaterials.WHITE.u > .9 && WallMaterials.WHITE.v > .9, 'solid texel is outside material slots');
   });
   test('wall materials: RA hedge palette matches approved shades and keeps profile caches separate', () => {

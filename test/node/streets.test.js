@@ -585,7 +585,7 @@
     // ordinary suburban block is routinely under the 100 m that demanded, so
     // a whole town could be walked clean and never light a single lamp.
     assert.eq(S.lampSpacingM(), S.LAMP_SPACING_M, 'reads its own constant');
-    assert.eq(S.LAMP_SPACING_M, 50, 'ordinary roads target one lamp every 50 m');
+    assert.eq(S.LAMP_SPACING_M, 50 / 1.5, 'all roads target 1.5× the former lamp density');
     assert.lt(S.LAMP_SPACING_M, Trail.GOAL_STEP_M,
       'lighter than the ladder pays for — a normal block should qualify');
   });

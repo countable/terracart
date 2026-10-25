@@ -221,12 +221,15 @@
     const n=64,edge=n*WorldGen.CELL_M,p=(x,y)=>[[{x:(x+.5)*64,y:(y+.5)*64}]];
     const library={type:1,tags:{class:'library',name:'Nearby library'},geom:p(35,32)};
     const park={type:1,tags:{class:'park',subclass:'park',name:'Point park'},geom:p(32,32)};
-    for(const hasPark of [false,true]) {
-      const layers=[{name:'poi',features:hasPark?[library,park]:[library]}];
+    for(const source of ['none','point','polygon']) {
+      const layers=[{name:'poi',features:source==='none'?[library]:[library,park]}];
+      if(source==='polygon') layers.push({name:'landuse',features:[{type:3,tags:{class:'park'},
+        geom:[[{x:30*64,y:30*64},{x:39*64,y:30*64},{x:39*64,y:39*64},{x:30*64,y:39*64}]]}]});
+      const covered=source==='polygon';
       const r=WorldGen.rasterizeTile(layers,n,0,0,edge);
-      assert.eq(r.gameplayTiers[32*n+35],hasPark?GameplayTiers.CORE:GameplayTiers.EXCLUDED);
-      assert.eq(r.objects.some(o=>o.kind==='chest'&&o.name==='Nearby library'),hasPark,
-        'source POI survives only when final geographic coverage permits it');
+      assert.eq(r.gameplayTiers[32*n+35],covered?GameplayTiers.CORE:GameplayTiers.EXCLUDED);
+      assert.eq(r.objects.some(o=>o.kind==='chest'&&o.name==='Nearby library'),covered,
+        'mapped park coverage permits the POI; an isolated Grove point cannot expand eligibility');
     }
   });
   test('gameplay tiers: review is deterministic and leaves source geometry and spawn masks unchanged',()=>{

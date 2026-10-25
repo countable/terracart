@@ -97,6 +97,23 @@
     assert.falsy(W.isSpawnCell(f.grid, 7, 7, 2, 2, { gameplayTiers: new Uint8Array(49).fill(1) }, 'minor'),
       'cached public tiers cannot seed props on rocky private ground');
   });
+  test('exclusion bedrock: home clears every cell intersecting the 50m radius, without changing generated terrain', () => {
+    const origin = HomeArea.worldM;
+    try {
+      HomeArea.setOrigin(0, 0);
+      const entry = { cellsPerEdge: 10, grid: new Uint8Array(100).fill(T.EXCLUSION_ROCK),
+        baseGrid: new Uint8Array(100).fill(T.EXCLUSION_ROCK),
+        variantBaseGrid: new Uint8Array(100).fill(T.RESIDENTIAL) };
+      assert.truthy(HomeArea.suppressExclusionRock(entry, 0, 0, 100) > 0);
+      assert.eq(entry.grid[5], T.RESIDENTIAL, 'cell touching 50m boundary is clear');
+      assert.eq(entry.grid[6], T.EXCLUSION_ROCK, 'beyond radius keeps rock');
+      assert.eq(entry.grid[44], T.EXCLUSION_ROCK, 'radius is circular');
+      assert.eq(entry.baseGrid[0], T.EXCLUSION_ROCK, 'shared generated grid is intact');
+      assert.eq(HomeArea.suppressExclusionRock(entry, 0, 0, 100), 0, 'repeat is stable');
+      entry.depth = 1; entry.grid.fill(T.EXCLUSION_ROCK);
+      assert.eq(HomeArea.suppressExclusionRock(entry, 0, 0, 100), 0, 'surface only');
+    } finally { HomeArea.worldM = origin; }
+  });
   test('exclusion bedrock: other Excluded ground retains its material and blocks spawns', () => {
     for (const type of [T.WASTELAND, T.PARK, T.COMMERCIAL, T.GRASS]) {
       const f = lot(); f.grid.fill(type);

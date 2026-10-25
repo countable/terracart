@@ -538,7 +538,10 @@ class SceneCreatures {
     // rebuilt entry mints fresh objects and re-runs this pass (the `_spawned`
     // gate), so it gets the overlay again. Before any placed/planted tree is
     // added below — a sapling keeps the species it was planted as.
-    if (typeof HomeArea !== 'undefined') HomeArea.applySoftwood(entry.objects);
+    if (typeof HomeArea !== 'undefined') {
+      HomeArea.applySoftwood(entry.objects);
+      HomeArea.suppressExclusionRock(entry, tx, ty, this.tileEdgeM);
+    }
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
     // (set by rasterizeTile). Picked-state filtering happens at render/interact time

@@ -13,10 +13,27 @@ for fresh evidence at the map centre. The detection button requests another
 centre tile after panning. `?geometry=off` disables detection;
 `?relay=https://host` selects a relay instead of the local default on port 8787.
 This previews generated placements, not a saved player's runtime state.
+The Game art base draws source building footprints as flat, outlined polygons
+using the game's building colours, cached with the ground. One small role symbol
+per footprint replaces legacy building/tower sprites at zoom 17+; overlapping
+symbols are suppressed until there is space. The Base map section includes a
+symbol legend; clicking a symbol identifies its role. Shop symbols reuse the
+game's sign glyphs. Ordinary ground
+replaces raster floor cells beneath those footprints; synthetic floors retain
+their existing treatment. This inexpensive shape preview omits the game's
+building walls, roofs, lighting and restoration state. Creatures use the game's
+idle-frame resolver, including mirroring and cached elite palettes, without
+animation. Plants share runtime sizing and ground seating; pressure plates use
+their current mechanism sprites. Intentionally sprite-less objects stay hidden.
+Disable Gameplay tiers
+when comparing art colours: that diagnostic overlay deliberately tints the map.
 After changing a review script, run `node tools/cachebust.js --write`. The review
 HTML versions its local modules by content hash so an existing game service worker
 cannot pair new controls with an older cached module. `node test/map-review-tiers.cjs`
 checks this with a stale worker cache and verifies visible tier toggling.
+`node test/map-review-art.cjs` checks current static art, building symbols and
+path-label controls in Chromium; `node test/map-review-path-labels.test.cjs`
+checks the label geometry without a browser.
 
 To make the shared artifact server serve these repository files and forward
 old `/road-review/` bookmarks to the canonical tools (including an optional
@@ -239,12 +256,15 @@ Map review trims buffered road/path geometry to its owning tile before drawing,
 variant counts, and click inspection. Neighboring buffer copies have no local
 path assignment and must not appear as additional plain paths.
 The game-art layer also draws seeded Spider Path webs on the ground.
-Pirate Cove sand has a warm terracotta tint in game art and terrain codes.
-The tint follows the exact variant coverage cells, leaving ordinary beach sand,
-water and paths unchanged.
+The optional “Highlight Pirate Cove sand” control adds a warm terracotta tint
+to game art; it is off by default. Terrain codes retain that diagnostic colour.
+The tint follows exact variant coverage, leaving ordinary sand, water and paths unchanged.
 
-In `map-review.html`, the Overlays section toggles path endpoint dots
-and path names (visible from zoom 17; unnamed or numeric-only labels are hidden).
+In `map-review.html`, Road variants toggles path endpoint dots and variant labels.
+Labels include unnamed paths at zoom 17+, follow the path's direction, and use a
+thin halo instead of a box. At zoom 19+ the source name is appended when it fits.
+One canvas culls offscreen labels, tight bends, short sections and overlaps;
+long sections repeat labels at spaced intervals. Zoom in for crowded variants.
 White dots mark retained natural/source endpoints without a theme change;
 orange marks inferred boundaries and tile cuts, and yellow marks theme transitions.
 Boundary selection balances source endpoints, terrain affinity and a soft 300 m

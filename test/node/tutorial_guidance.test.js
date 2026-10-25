@@ -19,6 +19,7 @@
     assert.eq(Quests.starterCurrent({ starter: { step: 3 } }).event, 'restore');
     assert.eq(Quests.starterCurrent({ starter: { sequence: 'seed-water', step: 5 } }).event, 'tilly');
   });
+
   test('tutorial guidance: completing every step preserves the purse and does not introduce coins', () => {
     const scene = { save: { money: 0 }, completed: [], buildInventoryDOM() {},
       _celebrateStarterStep(step) { this.completed.push(step.id); } };
@@ -47,6 +48,9 @@
     assert.eq(element.style.display, 'none', 'Got it hides the current instruction');
     assert.falsy(Quests.starterHidden(scene.save), 'acknowledgement keeps the tutorial active');
     assert.eq(fields['.body'].textContent, STARTER_CHAIN[0].body);
+    liftSceneMethod('acknowledgeObjective', deps).call(scene);
+    assert.eq(element.style.display, 'none', 'Got it hides the current instruction');
+    assert.falsy(Quests.starterHidden(scene.save), 'acknowledgement keeps the tutorial active');
     const done = Quests.onStarterEvent(scene.save, 'pickup');
     scene.updateObjectiveDOM();
     assert.eq(element.style.display, 'block', 'the next instruction appears');

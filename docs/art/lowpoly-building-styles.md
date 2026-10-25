@@ -18,7 +18,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
 | Fort | City copper hall inside pointed square timber palisade | Copper |
 
-Tier-one traders and shops
+Tier-one traders and shops, including generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
@@ -50,8 +50,9 @@ clearance around narrow returns, preventing almost-closed roof slits.
 Decorative flat-roof rims cap corner mitres at twice the band width to avoid
 inward spikes at acute corners. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
 facade and door scale. Model-only
-features (porches, painted chimneys, dormers) do not appear on lot-outline
-buildings. Wizard towers and the fort hall keep their whole shells, fit inside
+features (porches and dormers) do not appear on lot-outline
+buildings. Smithies retain a broad stone chimney at every tier, with a flared
+base, capped dark mouth and smoke; their dedicated facade never uses the cottage. Wizard towers and the fort hall keep their whole shells, fit inside
 the lot with uniform scale. Their fitter tries dominant lot-edge orientations
 and interior triangle centres to avoid shrinking unnecessarily on diagonal
 wings; an explicit entrance direction remains fixed. Only models assigned

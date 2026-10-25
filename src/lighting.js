@@ -2084,8 +2084,14 @@
   // The walls' height: the active building's drawn model (building_overlay.js
   // records it), else the shared prism house height.
   function indoorLift(scene, HA, indoors) {
-    const drawn = scene._proceduralBuildings?.get(indoors.buildingKey || scene.save?.starterShopId)?.height;
-    return liftPx(scene, { dyPx: -(drawn || HA.wallPx) });
+    const key = indoors.buildingKey || scene.save?.starterShopId;
+    const model = scene._proceduralBuildings?.get(key);
+    const home = key === scene.save?.starterShopId;
+    const storeys = home ? HomeArea.storeys(scene.save) : 1;
+    // The exterior cabin's height is not the roofless room's height. On
+    // entry or upgrade, ignore a model from the previous exterior/storey.
+    const drawn = home ? (model?.storeys === storeys ? model.interiorHeight : null) : model?.height;
+    return liftPx(scene, { dyPx: -(drawn || HA.wallPx * storeys) });
   }
   // What the frame key carries for the room: the house and the lift the cut
   // is swept by, which turns with the heading.

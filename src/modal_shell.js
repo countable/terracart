@@ -86,7 +86,7 @@ const MODAL_KINDS = {
   relics:   { icon: '💍', label: 'Relics', art: 'kind_relics' },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery', art: 'kind_delivery' },   // household orders
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
-  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home / workbench recipes (HOME_RECIPES)
+  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Workshop recipes (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
   spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/portraits/dragon_spirit.png' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
@@ -555,7 +555,7 @@ class SceneModals {
   }
 
   // Station controls above an offer or a pick grid: a top-right ghost action
-  // (a workbench's Pick up) and a tab row (Home's Sell / Craft). Each tab is
+  // (furniture's Pick up) and a tab row (Brewing's Shop / Brew). Each tab is
   // { label, active, onSelect }; tapping an inactive tab leaves this dialog
   // and onSelect re-presents the sibling — cheap tabs without a stateful panel.
   _stationChrome(box, mkBtn, { topAction, tabs, isClosed, leave }) {
@@ -590,7 +590,7 @@ class SceneModals {
     }
   }
 
-  // A station's PICK GRID: every option at once as icon cards (a workbench's
+  // A station's PICK GRID: every option at once as icon cards (a workshop's
   // recipes). A long grid scrolls — it is browsed, not a transaction — and a
   // tap leaves for that option's own offer (`onSelect`), which comes back with
   // ‹ Back. `ready` cards say so in green; the rest stay tappable so their

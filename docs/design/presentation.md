@@ -401,6 +401,17 @@ pixels and decorative details do not define additional tap cells.
   grants one through the inventory path, preserving bag limits and saving it.
   Books are read after closing the picker. Switching teleport cities enables
   the GPS stick before reloading, including a switch back Home.
+- Map review tile popups list all generated props, plants, creatures and lamp
+  infrastructure occupying the clicked cell, including declared footprints and
+  overlapping records, even with markers hidden. Each item shows its kind,
+  source, variant and identity; creatures also show allegiance and combat stats.
+  Ground details remain available underneath.
+- Map review ground popups offer **Open in game**, opening a new tab at the
+  clicked latitude/longitude with simulated GPS and its movement stick active.
+  The explicit `fakeGps=1&lat=…&lon=…` link bypasses device GPS and home capture
+  for that page; it does not overwrite the saved home or teleport preset.
+  Review links also pass `skipIntro=true&skipStory=true&skipTutorial=true` to
+  bypass the opening, location welcome, story prompts and tutorial for that session.
 - Developer → Spawn enemies searches `Combat.enemyKinds()` by name. Each tap
   adds one ordinary enemy on loaded walkable ground near the view edge in
   the active depth. These debug spawns last for the session.
@@ -620,7 +631,7 @@ pixels and decorative details do not define additional tap cells.
   respect deferral rather than draining during the remove/remount gap.
 - The Books read list remains a full mechanical panel with every learned book
   in one scrolling list. Reading or rereading a book puts live dark serif text, scrolling when
-  needed, on `assets/art/book_page.webp`,
+  needed, on `extra_assets/inactive/assets/art/book_page.webp`,
   a full-height illustrated half-book beneath the silver dragon rail.
   `bookPage: true` selects this surface without changing the shared `book_read`
   painting used elsewhere. Closing a reread returns to the book shelf.
@@ -747,6 +758,9 @@ Home's sign reads "Home (Rank)", with no score: the rank is the
 (Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). It is the one
 Home label, shown at all hours, typed out with Home's introduction, and
 re-read from `Furniture.luxuryOf` every frame so it changes as furniture does.
+Home also shows its current luxury as a white number above its sign while indoors
+and from outside after dark. The score updates immediately, separately from
+Home's introductory typing, and fades when it overlaps the player.
 
 Old Archive Court's existing style deterministically selects delivery or luxury
 jobs without changing castle style assignment. The luxury card is titled

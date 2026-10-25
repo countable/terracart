@@ -40,8 +40,32 @@
         }
         assert.eq(JSON.stringify(guards),JSON.stringify(wake(f)),'repeated wakes are deterministic');
       }
-      assert.eq(calls,8,'guard placement asks the shared doorway selector');
+      assert.eq(calls,4,'each facade asks the shared doorway selector once across repeated wakes');
     } finally { BuildingLowPoly.streetDoor=original; }
+  });
+  test('guard frontage: tile streets are shared and rebuilt geometry chooses a fresh doorway', () => {
+    const streetDoor=BuildingLowPoly.streetDoor, transportLines=RoadOverlay.transportLines;
+    let doors=0, streets=0;
+    BuildingLowPoly.streetDoor=(...args)=>{doors++;return streetDoor(...args);};
+    RoadOverlay.transportLines=function* (...args){streets++;yield* transportLines(...args);};
+    try {
+      const f=fixture('east'), first=wake(f);
+      assert.gt(first.length,0);
+      assert.eq(JSON.stringify(wake(f)),JSON.stringify(first),'cached doorway preserves guard identities and seats');
+      assert.eq(doors,1,'repeat wake reuses doorway geometry');
+      assert.eq(streets,1,'repeat wake reuses street conversion');
+      const other={...f,cand:{...f.cand,shape:{...f.cand.shape}}};
+      assert.eq(JSON.stringify(wake(other)),JSON.stringify(first),'another footprint uses identical source streets');
+      assert.eq(doors,2,'another shape selects its own doorway');
+      assert.eq(streets,1,'another shape shares the tile street conversion');
+      const west=fixture('west'), expected=wake(west);
+      f.entry.layers=west.entry.layers;
+      assert.eq(JSON.stringify(wake(f)),JSON.stringify(expected),'replacing source geometry invalidates cached streets and doorway');
+      assert.eq(doors,4);
+      assert.eq(streets,3);
+    } finally {
+      BuildingLowPoly.streetDoor=streetDoor; RoadOverlay.transportLines=transportLines;
+    }
   });
   test('guard frontage: blocked front never relocates guards behind the house', () => {
     const f=fixture('east'), guards=wake(f);
@@ -51,6 +75,19 @@
     assert.eq(wake(f).length,0,'legal rear ground cannot replace an excluded frontage');
     f.entry.spawnWhy.fill(0);
     assert.eq(JSON.stringify(wake(f)),JSON.stringify(guards),'removing the exclusion restores stable identities and seats');
+  });
+  test('guard frontage: batch occupancy matches fresh checks and ordinary wakes observe live objects', () => {
+    const f=fixture('east');
+    f.entry.genObjects=[];
+    const first=wake(f);
+    assert.gt(first.length,0);
+    f.entry.objects=first.map(g=>({kind:'rock',x:g.seatX,y:g.seatY}));
+    const liveOccupied=Lairs.liveOccupiedFor(f.entry,0,0,edge);
+    const batch=Lairs.garrisonFor(f.entry,f.cand,{tileEdgeM:edge,homeM,liveOccupied});
+    assert.eq(batch.length,0,'live objects claim all generated guard seats');
+    assert.eq(JSON.stringify(batch),JSON.stringify(wake(f)),'batch snapshot matches ordinary live occupancy checks');
+    f.entry.objects=[];
+    assert.eq(JSON.stringify(wake(f)),JSON.stringify(first),'ordinary wake observes removed live objects without rerolling seats');
   });
   test('guard frontage: fort and castle formations keep their existing seats', () => {
     for (const tier of [11,12]) {

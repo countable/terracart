@@ -78,7 +78,7 @@ test('support stays continuous at top and approach boundaries; balance vanishes 
 test('step support follows player feet while the camera peeks away', () => {
   const start = RENDER_SRC.indexOf('  const stepObjects = [];');
   const end = RENDER_SRC.indexOf('  const supports = new Set', start);
-  const collect = new Function('scene', 'filteredObj', 'plantedList', 'connectedArt', RENDER_SRC.slice(start, end));
+  const collect = new Function('scene', 'filteredObj', 'plantedList', 'connectedArt', 'grassHidden', RENDER_SRC.slice(start, end));
   const x = 110, y = 220, cellM = 8;
   for (const peek of [{x:0,y:0}, {x:16,y:0}, {x:-16,y:16}]) {
     const rock = {kind:'mineralrock', x, y};
@@ -88,7 +88,7 @@ test('step support follows player feet while the camera peeks away', () => {
     let objects;
     const scene = {cellM, startWorldM:{x:100,y:200}, playerM:{x:10,y:20},
       _updateObstacleStep(list) { objects=list; }};
-    collect(scene, [item(rock),item(distant)], [{p:bush,dx:-peek.x,dy:-peek.y}], new Map());
+    collect(scene, [item(rock),item(distant)], [{p:bush,dx:-peek.x,dy:-peek.y}], new Map(), new Set());
     assert.eq(objects.length, 2, 'only supports near the body survive the prefilter');
     const support = ObstacleStep.sample(x,y,objects,cellM);
     assert.eq(support.liftPx, 4, 'camera movement cannot drop the body off its rock');
@@ -167,11 +167,12 @@ test('furniture support: only mid pieces keep continuous support on pause and re
   }
 });
 
-test('foliage cover: grass leaves the player grounded while clipped hedges retain cover', () => {
+
+test('foliage cover: grass fills its cell and clipped hedges never lift or slow walking', () => {
   const grass = {kind:'wildplant',crop:'longgrass',x:10,y:20};
   for (const [dx,dy] of [[0,0],[-.5,-.5],[.49,.49]]) {
     const sample = ObstacleStep.sample(10+dx*8,20+dy*8,[grass],8);
-    assert.falsy(sample.covered); assert.eq(sample.liftPx,0); assert.eq(sample.supports.length,0);
+    assert.truthy(sample.covered); assert.eq(sample.liftPx,0); assert.eq(sample.supports.length,0);
     assert.eq(ObstacleStep.speedMul(sample),1);
   }
   for (const [dx,dy] of [[.5,0],[0,.5],[-.51,0]])

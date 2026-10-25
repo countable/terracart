@@ -335,9 +335,14 @@ Object.assign(Quests, {
       || (typeof Difficulty !== 'undefined' && Difficulty.get().homeGreeter !== 'chicken');
   },
 
-  // Fire a gameplay event at the starter ladder. Returns the step it just
-  // completed (so the Spirit can acknowledge it), or null when the event
-  // isn't what the current step is waiting for.
+  // The first weapon ceremony follows the chicken's entrance, never its catch.
+  starterIntroductionsReady(save) {
+    if (!this.starterAllDone(save)) return false;
+    return !!this._ss(save).chickenArrived || !!this._ss(save).skipped || !!window.__sandboxSkipTutorial
+      || (typeof Difficulty !== 'undefined' && Difficulty.get().homeGreeter !== 'chicken');
+  },
+
+  // Record facts before checking the current instruction, so acting ahead is safe.
   onStarterEvent(save, event) {
     const ss = this._ss(save);
     const step = STARTER_CHAIN[ss.step];

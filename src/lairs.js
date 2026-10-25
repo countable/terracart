@@ -1007,31 +1007,51 @@
 
   // Use the renderer's doorway-side selection on source geometry, independent
   // of loaded neighbours or the camera. Buffered MVT streets cover tile seams.
+  // Geometry belongs to the generated entry; residency may ask for the same
+  // frontage many times. Never cache seats or their live eligibility here.
+  const frontageCache = new WeakMap();
   function buildingFront(entry, cand, cellM, tileEdgeM) {
     const shape = cand.shape, B = root.BuildingLowPoly, R = root.RoadOverlay;
     if (!shape?.ring || !B?.streetDoor || !R?.transportLines) return null;
-    const scale = root.SpriteLayout.CELL_PX / cellM;
-    const points = [];
-    for (let i = 0; i < shape.ring.length; i += 2)
-      points.push({ x: shape.ring[i] * scale, y: shape.ring[i + 1] * scale });
-    let door;
-    if (shape.door) {
-      const at = { x: shape.door.x * scale, y: shape.door.y * scale };
-      door = B.edgeDoor(points, B.ringEdgeNearest(points, at));
-      if (door) door = { ...door, center: at, distance: Infinity };
-    } else {
-      if (!entry.layers) return null;
-      const streets = [];
-      for (const { line, mvtToM } of R.transportLines([{ entry: { ...entry, tileEdgeM }, tx: 0, ty: 0 }]))
-        for (let i = 1; i < line.length; i++)
-          streets.push([line[i - 1], line[i]].map(p => ({ x: p.x * mvtToM * scale, y: p.y * mvtToM * scale })));
-      door = B.streetDoor(points, streets);
+    let cache = frontageCache.get(entry);
+    if (!cache || cache.layers !== entry.layers || cache.cellM !== cellM || cache.tileEdgeM !== tileEdgeM) {
+      cache = { layers: entry.layers, cellM, tileEdgeM, fronts: new WeakMap(), streets: null };
+      frontageCache.set(entry, cache);
     }
-    if (!door) return null;
-    return { x: door.center.x / scale, y: door.center.y / scale,
-      normal: door.normal, along: door.along,
-      depth: Math.min(LAIR_FRONTAGE_CELLS * cellM, door.distance / scale),
+    let saved = cache.fronts.get(shape);
+    if (!saved || saved.ring !== shape.ring || saved.door !== shape.door) {
+      saved = { ring: shape.ring, door: shape.door, front: findBuildingFront() };
+      cache.fronts.set(shape, saved);
+    }
+    if (!saved.front) return null;
+    return { ...saved.front,
       halfSpan: Math.min(LAIR_FRONTAGE_CELLS * cellM, Math.max(cellM, Math.hypot(cand.halfW, cand.halfH))) };
+
+    function findBuildingFront() {
+      const scale = root.SpriteLayout.CELL_PX / cellM;
+      const points = [];
+      for (let i = 0; i < shape.ring.length; i += 2)
+        points.push({ x: shape.ring[i] * scale, y: shape.ring[i + 1] * scale });
+      let door;
+      if (shape.door) {
+        const at = { x: shape.door.x * scale, y: shape.door.y * scale };
+        door = B.edgeDoor(points, B.ringEdgeNearest(points, at));
+        if (door) door = { ...door, center: at, distance: Infinity };
+      } else {
+        if (!entry.layers) return null;
+        if (!cache.streets) {
+          cache.streets = [];
+          for (const { line, mvtToM } of R.transportLines([{ entry: { layers: entry.layers, tileEdgeM }, tx: 0, ty: 0 }]))
+            for (let i = 1; i < line.length; i++)
+              cache.streets.push([line[i - 1], line[i]].map(p => ({ x: p.x * mvtToM * scale, y: p.y * mvtToM * scale })));
+        }
+        door = B.streetDoor(points, cache.streets);
+      }
+      if (!door) return null;
+      return { x: door.center.x / scale, y: door.center.y / scale,
+        normal: door.normal, along: door.along,
+        depth: Math.min(LAIR_FRONTAGE_CELLS * cellM, door.distance / scale) };
+    }
   }
 
   // ── Waking one ruin ──────────────────────────────────────────────────────
@@ -1055,6 +1075,15 @@
   // applied after the fact, per player (the safe area, EnemySpawns.homeAllows).
   function isCitadel(cand) {
     return cand.tier === 12 && root.CastleStyles?.get(cand.key).guards === true;
+  }
+
+  // A synchronous batch may reuse this snapshot while its objects stay fixed.
+  // Ordinary residency calls take a fresh snapshot for current player edits.
+  function liveOccupiedFor(entry, tx, ty, tileEdgeM) {
+    const WG = root.WorldGen;
+    const generated = new Set(entry.genObjects || entry.objects || []);
+    return WG.occupiedIndexSet(WG.tileFrame(entry, tx, ty, tileEdgeM),
+      (entry.objects || []).filter((obj) => !generated.has(obj)));
   }
 
   function garrisonFor(entry, cand, opts) {
@@ -1144,9 +1173,7 @@
     // The live-ground cull matches SceneCreatures._cullOffLiveGround: objects
     // added after generation claim their cell, and a player-repainted cell
     // drops its guard only when the live terrain is no longer walkable.
-    const generated = new Set(genObjects);
-    const liveOccupied = WG.occupiedIndexSet(WG.tileFrame(entry, cand.tx, cand.ty, tileEdgeM),
-      (entry.objects || []).filter((obj) => !generated.has(obj)));
+    const liveOccupied = o.liveOccupied || liveOccupiedFor(entry, cand.tx, cand.ty, tileEdgeM);
     const liveBlocks = (ix, iy) => {
       const at = iy * N + ix;
       if (liveOccupied.has(at)) return true;
@@ -1616,7 +1643,7 @@
     GROUPS, GROUP_RATE, FOCUS_RULES, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
-    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency, claimClearedCitadels, resetCitadel,
+    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, liveOccupiedFor, stepResidency, claimClearedCitadels, resetCitadel,
     assertRingsClear,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

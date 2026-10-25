@@ -23,3 +23,9 @@ of the old build are dropped. Never type either by hand.
 
 The game uses no Phaser physics system, so a custom build (or
 `phaser-arcade-physics.min.js`) could trim this further if it ever matters.
+
+## leaflet/ — Leaflet 1.9.4
+
+The unmodified JS, CSS and referenced images from `leaflet@1.9.4/dist` on
+unpkg, with the upstream BSD-2-Clause license. Map review loads this local
+copy so a cold or unavailable CDN cannot block startup.

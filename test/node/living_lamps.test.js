@@ -70,13 +70,13 @@ test('living lamps: WALKING PATHS lay lamps at half the spacing, each worth the 
   // Straight lines along x, in metres (mvtToM = 1).
   const line = (m) => [{ x: 0, y: 0 }, { x: m, y: 0 }];
   const along = (m, tags) => { const l = S.lampLayFor(tags); return S.lampsAlong(line(m), 1, l.spacingM, l.minLenM); };
-  assert.eq(along(180, { class: 'minor' }).length, 4, 'a 180 m street: four lamps');
-  assert.eq(along(180, { class: 'footway' }).length, 7, 'a 180 m path: seven');
+  assert.eq(along(180, { class: 'minor' }).length, 5, 'a 180 m street: five lamps');
+  assert.eq(along(180, { class: 'footway' }).length, 11, 'a 180 m path: eleven');
   // The path floor stays fixed: a crossing stub stands none.
   assert.eq(S.LAMP_PATH_MIN_LEN_M, 50);
   assert.eq(along(30, { class: 'footway' }).length, 0, 'a 30 m footway (a crossing) stands no lamp');
   assert.eq(along(49, { class: 'footway' }).length, 0, 'nor anything under the path floor');
-  assert.eq(along(60, { class: 'footway' }).length, 2, 'a 60 m path stands two');
+  assert.eq(along(60, { class: 'footway' }).length, 4, 'a 60 m path stands four');
   // Per lamp: a path lamp is worth the gap it halves, so a km of path pays 2 km.
   assert.eq(S.lampCreditM(50, true), 100, 'a path lamp stands in for a street gap');
   assert.eq(S.lampCreditM(100, false), 100, 'a street lamp is its own gap');
@@ -185,8 +185,8 @@ test('living lamps: a visit to a lit lamp pays its credit onto the ladder, poppe
     const s = scene();
     const lamps = s._streetLampsForTile(0, 0, entry);
     const L = lamps[1];
-    assert.eq(lamps.length, 7, 'a 357 m way lays seven lamps');
-    assert.eq(L.spacingM, 51, 'seven lamps spaced 51 m apart');
+    assert.eq(lamps.length, 11, 'a 357 m way lays eleven lamps');
+    assert.eq(L.spacingM, 357 / 11, 'eleven lamps spread evenly');
     assert.eq(L.creditM, L.spacingM, 'a street lamp is worth its own gap');
     standAt(s, L);
     assert.eq(s._visitStreetLamps(T0), 0, 'a DARK lamp (not restored) is nobody\'s lamp yet');

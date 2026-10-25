@@ -24,7 +24,7 @@
   test('sandbox skip story: explicit sandbox-only flag is independent of reset', () => {
     for (const [search, expected] of [['?sandbox=true&skipStory=true', true],
       ['?sandbox=true&reset=true&skipStory=true', true], ['?skipStory=true', false],
-      ['?sandbox=false&skipStory=true', false], ['?sandbox=true&skipStory=false', false]]) {
+      ['?sandbox=false&skipStory=true', false], ['?fakeGps=1&skipStory=true', true], ['?sandbox=true&skipStory=false', false]]) {
       const window = {};
       new Function('window', 'location', 'localStorage', '// Sandbox local reset must run' + source)(window, { search }, { length: 0 });
       assert.eq(window.__sandboxSkipStory, expected, search);
@@ -42,7 +42,7 @@
     for (const [search, expected] of [['?sandbox=true&skipTutorial=true', true],
       ['?sandbox=true&reset=true&skipStory=true&skipTutorial=true', true],
       ['?skipTutorial=true', false], ['?sandbox=false&skipTutorial=true', false],
-      ['?sandbox=true&skipTutorial=false', false], ['?sandbox=true', false]]) {
+      ['?fakeGps=1&skipTutorial=true', true], ['?sandbox=true&skipTutorial=false', false], ['?sandbox=true', false]]) {
       const window = {};
       new Function('window', 'location', 'localStorage', '// Sandbox local reset must run' + source)(window, { search }, { length: 0 });
       assert.eq(window.__sandboxSkipTutorial, expected, search);

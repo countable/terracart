@@ -897,7 +897,7 @@ class SceneStreets {
     // rather than opening in front of it. Nothing is owed until the save has
     // TRAIL_INTRO_MIN_M of road behind it — the first stretches play
     // unexplained, on purpose (see the constant).
-    const greeting = !st.greeted && this._armTrailIntro(now, st);
+    if (!st.greeted) this._armTrailIntro(now, st);
     if (!out.rewards.length) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a

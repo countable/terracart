@@ -350,6 +350,10 @@
       + ` chestWant=${chestWant ? chestWant.cx + ',' + chestWant.cy : 'none'}`);
     const trail = scene._placeStarterRelicChest(entry, tx, ty, spawnIX, spawnIY, usedSeats, chestWant);
     const trailPath = trail && trail.path;
+    if (trailPath?.length) entry._starterChestTrail = {
+      id: `chest_start_relic_${tx}_${ty}`,
+      points: trailPath.map(p => f.centre(p.cx, p.cy)),
+    };
     dbg.push(trail ? `chest ok route=${trailPath ? trailPath.length : 0}` : 'CHEST NOT SEATED');
     // Seat the COUNT crates along `path` (anchor end first), evenly spaced
     // across its near TRAIL_SPAN — so on a typical route the three sit at

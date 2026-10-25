@@ -113,7 +113,7 @@ fs.mkdirSync(out,{recursive:true});
  const data=await page.evaluate(()=>new Promise(resolve=>{__scene.scene.pause();__game.loop.wake();setTimeout(()=>__game.renderer.snapshotArea(0,0,__game.scale.width,__game.scale.height,img=>{__game.loop.sleep();resolve(img.src)}),500)}));
  fs.writeFileSync(path.join(out,`${name}-${variant}${mobile?'-mobile':''}-${state}.png`),Buffer.from(data.split(',')[1],'base64'));fs.writeFileSync(path.join(out,`${name}-${variant}${mobile?'-mobile':''}-${state}.json`),JSON.stringify(audit,null,2));
  if(variant!=='baseline'){
-   assert(audit.artAudit?.enabled&&audit.artAudit?.ready,'RA geographic textures ready');
+   assert(audit.artAudit?.ready,'geographic transition textures ready');
    assert(audit.artAudit.drawnCells>0,'RA draws actual generated ground cells');
    const baselineFile=path.join(out,`${name}-baseline${mobile?'-mobile':''}-${state}.json`);
    if(fs.existsSync(baselineFile)){

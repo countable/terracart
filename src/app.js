@@ -47,8 +47,9 @@ try {
     _saveHome = _sv.home;
   }
 } catch { /* no saved home → fall back to teleport / HOME */ }
-const START_LON = _teleportOverride ? _teleportOverride.lon : (_saveHome ? _saveHome.lon : HOME_LON);
-const START_LAT = _teleportOverride ? _teleportOverride.lat : (_saveHome ? _saveHome.lat : HOME_LAT);
+const _reviewLocation = Geo.debugLocation();
+const START_LON = _reviewLocation ? _reviewLocation.lon : _teleportOverride ? _teleportOverride.lon : (_saveHome ? _saveHome.lon : HOME_LON);
+const START_LAT = _reviewLocation ? _reviewLocation.lat : _teleportOverride ? _teleportOverride.lat : (_saveHome ? _saveHome.lat : HOME_LAT);
 // Expose the preset table + active override so index.html can build the menu.
 if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
@@ -3220,9 +3221,10 @@ class MapScene extends Phaser.Scene {
   //   chest   → nearest unopened starter crate (the relic chest included)
   //   plant   → the tilled-but-empty soil — or the crates while the bag holds
   //             no seed, since the seeds are in them (nearest crate first)
+  //   water   → the nearest dry planted crop
   //   restore → the nearest wreck — or the crates while the bag can't pay the
   //             restore cost, since the materials are in them
-  //   harvest → the nearest crop the player planted
+  //   tilly → Tilly, the delivery house or the growing potato
   //   sell    → Home (selling only happens there)
   //
   // Falling back to the crates for every step pointed the arrow at the relic

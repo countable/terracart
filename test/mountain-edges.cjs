@@ -38,6 +38,17 @@ assert.equal(asset.kind,'spritesheet');assert.equal(asset.frameWidth,32);assert.
 const png=fs.readFileSync(path.join(root,asset.path));
 assert.equal(png.toString('ascii',1,4),'PNG');
 assert.equal(png.readUInt32BE(16)/32 * (png.readUInt32BE(20)/32),1024,'atlas has every mask and variation');
+
+const { groundType } = context.window.MountainEdges;
+for (const type of [0, 2, 4, 5, 20, 29, 31]) {
+  const ring = new Int8Array(25).fill(32); ring[13] = type;
+  assert.equal(groundType(ring, 5, 12), type, 'rock inherits exposed non-rock ground');
+}
+const groundRing = new Int8Array(25).fill(32);
+groundRing[11] = 9; groundRing[13] = 2;
+assert.equal(groundType(groundRing, 5, 12), 2, 'building floors are not substrate');
+groundRing[13] = -1;
+assert.equal(groundType(groundRing, 5, 12), 10, 'missing neighbours do not invent grass');
 // The renderer paints live terrain beneath this overlay. A baked soil apron
 // hides it most visibly on one-cell islands, strips and diagonal contacts.
 const {decodePng}=require('../tools/sprite_audit.js');

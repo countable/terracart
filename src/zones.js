@@ -38,6 +38,8 @@
 // tile: the design sweep measured 490 anchor×tile evaluations, 0 mismatches.
 //
 // ── THE INFLUENCE ZONE AND THE HALO (a Nexus writes terrain) ───────────────────────
+// Grove anchors locate shrines and patterns; their ground comes only from
+// the park polygon and fringe. Other kinds retain point-based influence.
 // A cell c belongs to an anchor when d(c) ≤ edge(c) = R·(1 + EDGE_JITTER·
 // (2·noise(c) − 1)): a RAGGED disc. noise is 2-octave value noise over the
 // cell centre in GLOBAL MVT units (tile·4096 + local) — continuous across
@@ -61,7 +63,7 @@
 // a graveyard's edge only — no anchor, no stones, nothing laid), repainting
 // ONLY the halo's own set (RESIDENTIAL / COMMERCIAL / WASTELAND, recorded in
 // fld.under like the halo) out to FRINGE_M·(1 ± FRINGE_JITTER) metres of the
-// polygon's edge (≤ 20 m), bent by valueNoise2 at the cell's GLOBAL point.
+// polygon's edge (≤ 10 m), bent by valueNoise2 at the cell's GLOBAL point.
 // Seam-safe: the source landcover / source landuse layers carry a ~64-unit (~23 m) buffer,
 // so a park across a seam is in view for the whole band (fringeSteps
 // rasterizes the parks into a grid padded past the square). Past the band,
@@ -152,8 +154,8 @@
   const R_MIN_M = 30;
   const MERGE_M = 40;
   const WINDOW_MARGIN_M = 5;
-  // The ragged edge: ± this share of R, off the noise. 0.25 lets a grove
-  // bleed ~15 m further into the houses in places and stop short in others.
+  // The ragged edge of point-based Nexus influence: ± this share of R.
+  // Grove ground follows its polygon and fringe instead.
   const EDGE_JITTER = 0.25;
   // The noise lattice, in MVT units (~37 m at play latitudes), and its octave.
   const NOISE_UNITS = 96;
@@ -186,12 +188,12 @@
       body: 'An old shrine stands above the sand. You pause beside it and listen to the waves.', flash: 'The shore opens ahead.',
       keeper: ['<em>Brushes salt off the shrine step.</em>\n“This shrine was here before the Breaking, and the sea never noticed the Breaking at all. I sweep the salt off each morning.”',
         '“The tide keeps its own hours. Whatever the Warmonger burned, it never learned to burn water.”'] },
-    grove: { code: 1, R: 60, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove', temple: true,
+    grove: { code: 1, R: 60, influence: false, terrain: 'GROVE', story: 'zone_grove', title: 'A sacred grove', temple: true,
       body: 'Trees crowd around an old stone shrine. You approach along its carefully cleared steps.',
       flash: 'A sacred grove. Hush.',
       keeper: ['<em>Glances up at the leaning trunks.</em>\n“The trees leaned in to hide this shrine the night the roofs fell. They have not straightened since. I keep the stone swept and the lantern lit.”',
         '“The deer come here at dusk. They came before the Breaking and they came after. Nothing in this grove was ever the Warmonger’s.”'] },
-    stones: { code: 2, R: 80, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones', temple: true,
+    stones: { code: 2, R: 15, minR: 15, edgeJitter: 0, terrain: 'CHURCHYARD', story: 'zone_stones', title: 'The old stones', temple: true,
       body: 'Moss covers the stones around the old chapel. You walk towards the lantern by its door.',
       flash: 'The old stones. Walk softly.',
       keeper: ['“These stones are older than the chapel, and the chapel is older than the town. Someone has lit its lantern every night since the Breaking.”\n<em>Lifts the lantern.</em>\n“Tonight it is me.”',
@@ -267,11 +269,11 @@
   const CHURCHYARD_ROCK_P = 0.10;
 
   // ── The park fringe (see the header) ─────────────────────────────────────
-  const FRINGE_M = 16;                 // band reach at noise 0.5 (metres)
-  const FRINGE_JITTER = 0.25;          // ± share of FRINGE_M → 12..20 m
+  const FRINGE_M = 8;                 // band reach at noise 0.5 (metres)
+  const FRINGE_JITTER = 0.25;          // ± share of FRINGE_M → 6..10 m
   const FRINGE_NOISE_UNITS = 48;       // ragged-edge lattice, MVT units
   const FRINGE_NOISE_SALT = 3.7;
-  const FRINGE_FILL_M = 30;            // the smattering's reach past the edge
+  const FRINGE_FILL_M = 15;            // the smattering's reach past the edge
   const FRINGE_FILL_P = 0.10;          // its chance at the edge, → 0 at FILL_M
   const GROVE_FILL_P = 0.06;           // a named grove's halo: chance × s
   // The shrine's daily gift: one roll of this context, once per UTC day per
@@ -429,9 +431,10 @@
   function edgeNoise(gx, gy) {
     return valueNoise2(gx / NOISE_UNITS, gy / NOISE_UNITS);
   }
-  // The anchor's reach at a global point: R bent by the noise.
+  function edgeJitterFor(kind) { return ZONE_KINDS[kind]?.edgeJitter ?? EDGE_JITTER; }
+  // The anchor's reach at a global point: fixed or bent by the kind's noise.
   function edgeAt(a, gx, gy) {
-    const edge = a.R * (1 + EDGE_JITTER * (2 * edgeNoise(gx, gy) - 1));
+    const edge = a.R * (1 + edgeJitterFor(a.kind) * (2 * edgeNoise(gx, gy) - 1));
     // Beach encounters fit within a twenty-cell diameter, including jitter.
     const cap = ZONE_KINDS[a.kind]?.maxRadiusCells;
     return cap == null ? edge : Math.min(edge, cap * root.WorldGen.CELL_M);
@@ -471,8 +474,17 @@
     for (let k = 0; k < all.length; k++) {
       if ((k & 7) === 7) yield 'zone field';
       const a = all[k];
+      // Keep the focal anchor without giving it circular terrain coverage.
+      if (ZONE_KINDS[a.kind].influence === false) {
+        // Neighbouring anchors join this tile only through their park polygon.
+        if (!a.owned) continue;
+        if (anchors.length >= MAX_FIELD_ANCHORS) break;
+        anchors.push(a);
+        if (!idx) { idx = new Uint8Array(N * N); s = new Uint8Array(N * N); }
+        continue;
+      }
       const lx = a.gx - ox, ly = a.gy - oy;
-      const rU = a.R * (1 + EDGE_JITTER) / a.upm;
+      const rU = a.R * (1 + edgeJitterFor(a.kind)) / a.upm;
       const x0 = Math.max(0, Math.floor((lx - rU) / cellU)), x1 = Math.min(N - 1, Math.floor((lx + rU) / cellU));
       const y0 = Math.max(0, Math.floor((ly - rU) / cellU)), y1 = Math.min(N - 1, Math.floor((ly + rU) / cellU));
       if (x0 > x1 || y0 > y1) continue;
@@ -485,7 +497,7 @@
         for (let x = x0; x <= x1; x++) {
           const cxU = (x + 0.5) * cellU;
           const d = Math.hypot(cxU - lx, cyU - ly) * a.upm;
-          if (d > a.R * (1 + EDGE_JITTER)) continue;
+          if (d > a.R * (1 + edgeJitterFor(a.kind))) continue;
           const edge = edgeAt(a, ox + cxU, oy + cyU);
           if (d > edge) continue;
           const sv = Math.max(1, Math.round((1 - d / edge) * 255));
@@ -699,9 +711,13 @@
   function at(entry, ix, iy) {
     const f = entry && entry.zone;
     const N = entry && entry.cellsPerEdge;
-    if (!f || !f.idx || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    if (!f || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
     const i = iy * N + ix;
-    const a = f.idx[i];
+    const covered = f.coverage?.[i] && f.anchors[f.coverage[i] - 1];
+    if (covered && ZONE_KINDS[covered.kind].influence === false) {
+      return { kind: covered.kind, s: 1, anchor: covered };
+    }
+    const a = f.idx?.[i];
     if (!a) return null;
     const anchor = f.anchors[a - 1];
     return { kind: anchor.kind, s: f.s[i] / 255, anchor };
@@ -1073,7 +1089,7 @@
   function dress(ctx) { return root.WorldGen.runSteps(dressSteps(ctx)); }
 
   root.Zones = {
-    POI_BUFFER_UNITS, W_MAX_M, R_MIN_M, R_MAX_M, MERGE_M, WINDOW_MARGIN_M, EDGE_JITTER,
+    POI_BUFFER_UNITS, W_MAX_M, R_MIN_M, R_MAX_M, MERGE_M, WINDOW_MARGIN_M, EDGE_JITTER, edgeJitterFor,
     NOISE_UNITS, CORE_S, MAX_FIELD_ANCHORS, ZONE_KINDS, KIND_BY_CODE, NEXUS_PATTERNS,
     SHRINE_SEAT_R, GROVE_CROWD_MAX, HEADSTONE_GHOST_P, HEADSTONE_HOARD_SHARE, HEADSTONE_CONTEXT, HEADSTONE_TIER,
     SHRINE_CONTEXT, GROVE_PATTERNS, SYMMETRIC_PATTERNS, RESCUE_CELLS, rayStep, figureCells, GRAVE_ROW, GRAVE_COL, HEADSTONE_P, CHURCHYARD_ROCK_P,

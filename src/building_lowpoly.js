@@ -798,7 +798,7 @@
   // The cel sheet: pixel joinery over procedural or packed restoration cells.
   // LOOK.facade='cel' selects it. Legacy materials use a three-tone ramp
   // (shade, base, light) around the role colour plus one shared ink colour,
-  // the restraint of the supply crate (assets/Objects/Approved/box.png) in
+  // the restraint of the supply crate (the archived Approved box sprite) in
   // the colours of the approved house sprites (assets/Objects/Approved/
   // house*.png): plum-brown ink and shadows, red-brown door and frame wood,
   // cream highlights, teal glass. One-texel outlines, a single highlight

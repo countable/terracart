@@ -337,7 +337,7 @@
       assert.eq(supplies.filter(o => o.fixedLoot.id === id).reduce((sum, o) => sum + o.fixedLoot.qty, 0), 9, `nine ${id} in total`);
     }
     const cells = entry.objects.map(o => `${srCell(o).cx},${srCell(o).cy}`);
-    assert.eq(new Set(cells).size, cells.length, 'every crate, pile and chest gets its own cell');
+    assert.eq(new Set(cells).size, cells.length, 'every crate and chest gets its own cell');
   });
 
   test('starter trail: the potato crate waits in view of the door, wherever the trail runs', () => {

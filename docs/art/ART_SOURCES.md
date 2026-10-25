@@ -9,6 +9,13 @@ still goes into `assets/`; generator inputs point into the archive.
 The local `extra_assets` library is ignored by Git; preserve it when backing up
 art. Runtime play does not need it. Rebuilding art requires the relevant inputs.
 
+Residential bedrock uses the purchased `top_down_mountain_edges_ITCH` pack in
+`extra_assets/`. `tools/build_mountain_edges.py` exports only the runtime boundary
+atlas to `assets/terrain/mountain-edges.png`, with source hashes and palette in
+`mountain-edges.json`. The derivative uses 32px tiles, an RA-compatible olive-grey
+ramp and RA olive-soil substrate. Original sheets remain in the local source pack;
+the game does not load them or the earlier rock-option study assets.
+
 The earlier painting-master archive remains at `~/.artifacts/terracart-art/`.
 Set `TERRACART_ART_ROOT` to an absolute path to use another master location.
 Python preview tools also accept `--reserve-root` for that unused-pack directory.
@@ -166,13 +173,6 @@ so the transition cannot restore the earlier, shorter player proportions.
 `assets/Objects/BuildingMaterials/wreck-floor-cel.png` was regenerated with the built-in image tool on 2026-10-19: darker dense crushed cel-shaded masonry, predominantly smaller irregular pieces with varied fragment sizes, splintered planks and barely recognizable buried furniture and metal fragments, with deep shadow gaps and no exposed ground. Brick faces use the same warm grey base, pale edge highlight and brown edge shadow as the procedural wall atlas. Runtime samples the source at 128px with nearest filtering and snaps nearby warm light masonry tones to the exact 3D rubble colour `#aa9b88`. Touching wall courses follow `source/b4d-pp/AsmithStone.png`, with full light top/left and dark bottom/right borders; the three-tone loose blocks also reference the existing cel-shaded rock study.
 
 The wreck roof's procedural tile pattern references `extra_assets/16x16/Modular Pixel Houses Pack 03/com_houses_03_c.png`: narrow tiles running down the slope, staggered end joints, full dark outlines and warm bright edges. Its palette is darkened to weathered rusty red-orange for the wreck.
-
-Residential bedrock uses the purchased `top_down_mountain_edges_ITCH` pack in
-`extra_assets/`. `tools/build_mountain_edges.py` exports only the runtime boundary
-atlas to `assets/terrain/mountain-edges.png`, with source hashes and palette in
-`mountain-edges.json`. The derivative uses 32px tiles, an RA-compatible olive-grey
-ramp and RA olive-soil substrate. Original sheets remain in the local source pack;
-the game does not load them or the earlier rock-option study assets.
 
 ### Falling through the ground
 
