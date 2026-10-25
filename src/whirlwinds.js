@@ -79,7 +79,7 @@
     if (seen.has(key)) return;
     seen.add(key);
     const windKph = typeof Weather !== 'undefined' ? Number(Weather.state()?.windKph) : NaN;
-    const windy = Number.isFinite(windKph) && windKph >= CONFIG.wind.minKph;
+    const windy = Number.isFinite(windKph) && windKph > CONFIG.wind.minKph;
     const gust = gusty(wall), max = windy ? CONFIG.wind.maxActiveFor(windKph) : gust ? CONFIG.gust.maxActive : 1;
     const groundMode = windy ? WEATHER_GROUND : false;
     if (scene._whirlwinds.length >= max || now < (scene._whirlwindNextEncounter || 0)

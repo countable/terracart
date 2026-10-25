@@ -73,6 +73,8 @@
     WorldGen.makeRng = () => () => Whirlwinds.CONFIG.chance * 2;
     Weather.accept({ kind: 'none', precip: false, windKph: 9 });
     Whirlwinds.observe(s, 0, CALM); assert.eq(s._whirlwinds.length, 0);
+    Weather.accept({ kind: 'none', precip: false, windKph: 10 });
+    Whirlwinds.observe(s, 50000, CALM); assert.eq(s._whirlwinds.length, 0, 'exactly ten kilometres per hour is still calm');
     Weather.accept({ kind: 'none', precip: false, windKph: 40 });
     Whirlwinds.observe(s, 100000, CALM);
     assert.eq(s._whirlwinds.length, 0, 'the cell/day visit stays decided after the wind rises');
