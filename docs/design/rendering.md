@@ -1182,14 +1182,22 @@ the reach rim within the existing player-light radius.
   its solid charcoal surface and ember warning. Rail ballast stays solid.
   Medium and Large roads never receive variants or cobbles: `RoadSurfaces`
   selects their fixed material from source road class and restoration state.
-  Medium roads use cracked gravel with ragged missing chunks before repair,
-  then the Compacted Gravel Causeway with a smooth centre and paired drainage
-  edges. Large roads use the Turquoise Dimensional Scar before repair, then
-  the Ancient Dimensional Conduit with paired channels and native rune glyphs.
+  Medium roads use small ancient stone setts inside broader worn dividing
+  bands. Weathered sections lose stones and shoulder chunks; repair fills the
+  same paving pattern. Soft neutral soil/stone shoulders reveal the actual
+  landcover, without baked grass or moss. Large roads use fine broken slate
+  plates around a turquoise scar before repair, then a quieter ancient conduit
+  with thin paired channels, subtle slab joints and small native rune glyphs.
   Native grain and glyph pixels are baked by `tools/build_road_surfaces.py`;
   materials are cropped once on asset load, without rebuild-time pixel reads.
-  Route detail follows original-way arclength across camera moves and repair
-  cuts. Restored intervals remove the old base surface/decor while retaining
+  Route detail follows original-way arclength and bounded bend joins across
+  camera moves and repair cuts. Detail polygons and strokes share the owning
+  interval's round road joins and flat repair-end clip. Equal-width crossings
+  assign one interior paving owner and open side channels at branch mouths;
+  source endpoint caps cannot suppress adjoining paving. The map-review tool
+  uses the same detail compositor. Interrupted rebuilds release saved detail
+  clips before reusing their pooled canvases. Restored intervals
+  remove the old base surface/decor while retaining
   its geometric mask for larger-road occlusion, so the scar and missing pieces
   cannot show through the restored surface. None of this repaints grid terrain.
   Theme ground verges are disabled: source landcover remains beneath and beside
@@ -1228,7 +1236,7 @@ the reach rim within the existing player-light radius.
   and outside water/buildings. Dry wasteland texture with sparse baked
   turquoise gem/star flecks replaces lush biome detail there. Flecks are
   static paint, never light sources. This render-only roadside palette is
-  independent of the fixed gravel/scar/conduit road surfaces and never enters
+  independent of the fixed paver/scar/conduit road surfaces and never enters
   variant selection or dressing.
 - Churchyard and every Old Stones Nexus variant use purple RA earth; Tar Yard
   and every tar Nexus variant use smooth neutral-grey RA ground. The atlas bakes

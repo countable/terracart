@@ -351,13 +351,17 @@ const MapReviewArt = (() => {
         const surface=typeof RoadSurfaces!=='undefined'?RoadSurfaces.familyFor(f.tags):null;
         for(const [li,line] of (f.geom||[]).entries()) {
           if(line.length<2)continue;
+          const sourcePoints=line.map(p=>({x:p.x*mvtToM,y:p.y*mvtToM}));
+          const sourceLength=Streets.lineLengthM(line,mvtToM);
+          const owner=WorldGen.tileKey(e.tx,e.ty)+':'+Streets.lineKey(f,li);
           for(const style of StreetVariants.lineStyles(e,f,fi,li,mvtToM)) {
             const section=Streets.subLineM(line,mvtToM,style.a,style.b);
             for(const [from,to] of Streets.tileSpans(section,1,edge)) {
               const points=Streets.subLineM(section,1,from,to);
               let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
               for(const p of points) {minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
-              result.push({width,isPath,surface,variant:surface?null:style.variant,startM:style.a+from,points,minX,minY,maxX,maxY});
+              result.push({width,isPath,surface,variant:surface?null:style.variant,
+                startM:style.a+from,endM:style.a+to,sourcePoints,sourceLength,owner,points,minX,minY,maxX,maxY});
             }
           }
         }
@@ -375,7 +379,8 @@ const MapReviewArt = (() => {
           const width=road.width/edge*(b.x-a.x),pad=width/2;
           const points=road.points.map(p=>({x:a.x+p.x/edge*(b.x-a.x),y:a.y+p.y/edge*(b.y-a.y)}));
           if(points.every(p=>p.x < -pad)||points.every(p=>p.x>size.x+pad)||points.every(p=>p.y < -pad)||points.every(p=>p.y>size.y+pad))continue;
-          rows.push({...road,entry,points,width,scale,a,b});
+          const sourcePoints=road.sourcePoints.map(p=>({x:a.x+p.x/edge*(b.x-a.x),y:a.y+p.y/edge*(b.y-a.y)}));
+          rows.push({...road,entry,points,sourcePoints,width,scale,a,b});
         }
       }
       if(!rows.length)return;
@@ -406,25 +411,55 @@ const MapReviewArt = (() => {
           pattern.setTransform(new DOMMatrix([row.scale,0,0,row.scale,row.a.x-row.entry.tx*row.entry.cellsPerEdge*row.scale*32,row.a.y-row.entry.ty*row.entry.cellsPerEdge*row.scale*32]));
           ctx.strokeStyle=pattern;path(ctx,row);ctx.stroke();
         }
-        if(row.surface) {
-          const target={decorPath:(w,c,points,alpha,_width,blend='source-over')=>{
-            ctx.save();ctx.globalAlpha=alpha;ctx.globalCompositeOperation=blend;ctx.lineWidth=w*row.scale;ctx.strokeStyle='#'+c.toString(16).padStart(6,'0');
-            ctx.beginPath();points.forEach((p,i)=>ctx[i?'lineTo':'moveTo'](p.x*row.scale,p.y*row.scale));ctx.stroke();ctx.restore();
-          }};
-          target.cutPath=(w,points,width)=>target.decorPath(w,0,points,1,width,'destination-out');
-          RoadSurfaces.decorate({viewLeft:0,viewTop:0,viewSize:Math.max(size.x,size.y)/row.scale,cellM:WorldGen.CELL_M},target,
-            row.points.map(p=>({x:p.x/row.scale,y:p.y/row.scale})),row.width/row.scale,row.surface,restored,{startM:row.startM,pxPerM:32/WorldGen.CELL_M});
-          ctx.save();ctx.globalCompositeOperation='destination-in';ctx.strokeStyle='#000';path(ctx,row);ctx.stroke();ctx.restore();
+        if(row.surface==='md'||restored) {
+          const feather=scratch(3);
+          if(typeof feather.ctx.filter==='string') {
+            feather.ctx.filter=`blur(${RoadOverlay.blurForWidth(row.width/row.scale)*row.scale*ratio}px)`;
+            feather.ctx.strokeStyle='#000';path(feather.ctx,row);feather.ctx.stroke();feather.ctx.filter='none';
+            ctx.save();ctx.globalCompositeOperation='destination-in';ctx.drawImage(feather.canvas,0,0,size.x,size.y);ctx.restore();
+          }
         }
         material.ctx.save();material.ctx.globalAlpha=restored?RoadOverlay.RESTORED_ALPHA:RoadOverlay.ALPHA;
         material.ctx.drawImage(state.canvas,0,0,size.x,size.y);material.ctx.restore();
       };
+      const collectDecor=(row,restored,decorOps)=>{
+        const pad=row.width/2,xs=row.points.map(p=>p.x),ys=row.points.map(p=>p.y);
+        const clip={width:row.width,surface:row.surface,points:row.points,startRound:row.startM<=1e-5,
+          endRound:row.endM>=row.sourceLength-1e-5,owner:row.owner,priority:row.sourceLength,
+          bounds:[Math.min(...xs)-pad,Math.min(...ys)-pad,Math.max(...xs)+pad,Math.max(...ys)+pad]};
+        const record=(w,c,points,alpha,blend='source-atop',fill=false,edge=false)=>decorOps.push({
+          w:w*row.scale,c,alpha,roadWidth:row.width,blend,fill,edge,clip,
+          pts:points.map(p=>({x:p.x*row.scale,y:p.y*row.scale})),
+        });
+        const target={decorPath:(w,c,pts,alpha)=>record(w,c,pts,alpha),
+          decorPolygon:(c,pts,alpha)=>record(0,c,pts,alpha,'source-atop',true),
+          edgePath:(w,c,pts,alpha)=>record(w,c,pts,alpha,'source-atop',false,true),
+          cutPath:(w,pts)=>record(w,0,pts,1,'destination-out')};
+        const native=points=>points.map(p=>({x:p.x/row.scale,y:p.y/row.scale}));
+        RoadSurfaces.decorate({viewLeft:0,viewTop:0,viewSize:Math.max(size.x,size.y)/row.scale,
+          cellM:edge/row.entry.cellsPerEdge},target,native(row.points),row.width/row.scale,row.surface,restored,
+          {sourceRun:native(row.sourcePoints),startM:row.startM,endM:row.endM,pxPerM:32*row.entry.cellsPerEdge/edge});
+      };
+      // Material bands form the same-width union first. The runtime detail
+      // compositor then assigns one interior owner and trims inset channels
+      // at junctions, using the same clip geometry as the actual game.
+      const widths=new Map();
       for(const row of rows) {
-        material.ctx.clearRect(0,0,size.x,size.y);
-        if(!row.surface||!this._restoredLamps)paintState(row,false);
-        if(this._restoredLamps)paintState(row,true);
-        network.ctx.save();network.ctx.globalCompositeOperation='destination-out';network.ctx.strokeStyle='#000';path(network.ctx,row);network.ctx.stroke();network.ctx.restore();
-        network.ctx.drawImage(material.canvas,0,0,size.x,size.y);
+        const key=row.width.toFixed(6);
+        if(!widths.has(key))widths.set(key,[]);
+        widths.get(key).push(row);
+      }
+      for(const group of widths.values()) {
+        const decorOps=[];
+        for(const row of group) {
+          material.ctx.clearRect(0,0,size.x,size.y);
+          if(!row.surface||!this._restoredLamps)paintState(row,false);
+          if(this._restoredLamps)paintState(row,true);
+          network.ctx.save();network.ctx.globalCompositeOperation='destination-out';network.ctx.strokeStyle='#000';path(network.ctx,row);network.ctx.stroke();network.ctx.restore();
+          network.ctx.drawImage(material.canvas,0,0,size.x,size.y);
+          if(row.surface)collectDecor(row,!!this._restoredLamps,decorOps);
+        }
+        RoadOverlay.paintSurfaceDecor(network.ctx,decorOps,Math.max(size.x,size.y));
       }
       g.drawImage(network.canvas,0,0,size.x,size.y);
     },

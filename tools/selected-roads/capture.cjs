@@ -1,17 +1,18 @@
 #!/usr/bin/env node
 // Controlled road geometry in the actual Phaser scene. No map-review painter.
-// Baseline: ROAD_SOURCE=/tmp/road-readability-baseline.js LABEL=before node tools/road-readability-study/capture.cjs
-// Current:  LABEL=after node tools/road-readability-study/capture.cjs
+// Sources and assets load from the served checkout, without road-module overrides.
 const fs = require('node:fs'), path = require('node:path'), crypto=require('node:crypto');
 const { chromium } = require('playwright-core');
 const ROOT = path.resolve(__dirname, '../..');
-const OUT = process.env.OUT_DIR || '/home/claude/.artifacts/selected-roads';
+const OUT = process.env.OUT_DIR || '/home/claude/.artifacts/ancient-road-surfaces';
 const LABEL = process.env.LABEL || 'selected';
 const CELLS = Number(process.env.CELLS || 11);
 const WIDTH = CELLS * 32;
 const fixture = require('./fixture.json');
 const roadSource=fs.readFileSync(path.join(ROOT,'src/road_overlay.js'),'utf8');
 const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
+const materialSources=['src/road_surfaces.js','assets/Objects/RoadSurfaces/surfaces.png'];
+const materialSha256=Object.fromEntries(materialSources.map(file=>[file,crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT,file))).digest('hex')]));
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
   const browserEnv={...process.env};delete browserEnv.DISPLAY;
@@ -55,8 +56,10 @@ const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
     for (const study of fixture.cases.filter(study=>!process.env.CASES||process.env.CASES.split(',').includes(study.id))) {
       const data = await page.evaluate(study => {
         const s=__scene,{tx,ty,N,edge}=__roadStudy,cm=edge/N,cx=Math.floor(N/2),cy=Math.floor(N/2);
+        const terrain=WorldGen.T[study.terrain || 'PARK'];
+        if (terrain == null) throw Error('Unknown fixture terrain '+study.terrain);
         for (const entry of WorldGen.tileCache.values()) {
-          entry.grid.fill(WorldGen.T.PARK);entry.layers=[];entry.objects=[];entry.wildplants=[];entry.creatures=[];
+          entry.grid.fill(terrain);entry.layers=[];entry.objects=[];entry.wildplants=[];entry.creatures=[];
           entry.buildingShapes=[];entry.owners.fill(0);entry.zone=null;entry.zoneDress=null;entry.scenic=null;
           entry.scenicDress=null;entry.streetIndex=null;entry.homeStreetIndex=null;entry.streetDress=null;
           entry.streetArea=null;entry.streetAreaVariants=null;entry.extraTreasures=[];entry.parkingTreasures=[];
@@ -75,7 +78,10 @@ const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
         e.homeStreetIndex=null;e.streetDress=null;e._streetLamps=null;e._lampCells=null;e.buildingShapes=[];
         e.extraTreasures=[];e.parkingTreasures=[];e.coinDrops=[];e.traps=[];e.streetLairs=[];e.treasure=null;
         // Hold the substrate constant to isolate overlap compositing from the raster grid.
-        e.grid.fill(WorldGen.T.PARK);e.streetGround=null;e.roadUnder={};e.pathUnder={};
+        e.grid.fill(terrain);e.streetGround=null;e.roadUnder={};e.pathUnder={};
+        // These synthetic fixtures isolate road ink against alternate substrates;
+        // remove only the map's suppression-buffer data, not renderer behavior.
+        if(study.isolateTerrain)e.roadClass?.fill(0);
         const generatedRoadVariants=e.streetIndex.lines.map(rec=>({fi:rec.fi,size:rec.size,variant:rec.variant}));
         for (const rec of e.streetIndex.lines) {
           const r=study.roads[rec.fi],len=Streets.lineLengthM(rec.line,1);
@@ -99,13 +105,35 @@ const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
         s.objectPool?.forEach(o=>{if(!['rogue_lamp','rogue_lamp_unlit'].includes(o.texture?.key))o.setVisible(false);});
         BuildingLowPoly.clear(s);
         document.querySelectorAll('.game-modal,[id$="-modal"],#story,#howto,#bootload,#safety-card').forEach(e=>e.style.display='none');
-        return {case:study.id,generatedRoadVariants,roadRenderMs,baseImageAlpha:s._roadGeomTarget?._pass?.image?.alpha,restoredImageAlpha:s._roadRestoredTarget?._pass?.image?.alpha,roads:features.map((f,i)=>({name:f.tags.name,class:f.tags.class,restored:!!study.roads[i].restored,restoreRanges:study.roads[i].restoreRanges||null,widthM:WorldGen.roadOverlayWidthM(f.tags),styles:StreetVariants.lineStyles(e,f,i,0,edge/4096).map(p=>({a:p.a,b:p.b,variant:p.variant,surface:typeof RoadSurfaces!=='undefined'?RoadSurfaces.familyFor(f.tags):null,title:typeof RoadSurfaces!=='undefined'&&RoadSurfaces.familyFor(f.tags)==='md'?'Old Trade Road':typeof RoadSurfaces!=='undefined'&&RoadSurfaces.familyFor(f.tags)==='lg'?'Dimensional Rift':StreetVariants.VARIANT_BY_ID[p.variant]?.title||p.variant||'Plain road'}))})),lamps:(s._streetLamps||[]).map(l=>({id:l.id,lineKey:l.lineKey,x:l.x,y:l.y})),renderedLampCount:(s.objectPool||[]).filter(o=>o.visible&&['rogue_lamp','rogue_lamp_unlit'].includes(o.texture?.key)).length,allLampCount:RoadOverlay.lampSitesForTile(tx,ty,e).length,seams:study.seams!==false};
+        return {case:study.id,terrain:study.terrain || 'PARK',terrainIsolated:!!study.isolateTerrain,generatedRoadVariants,roadRenderMs,baseImageAlpha:s._roadGeomTarget?._pass?.image?.alpha,restoredImageAlpha:s._roadRestoredTarget?._pass?.image?.alpha,roads:features.map((f,i)=>({name:f.tags.name,class:f.tags.class,restored:!!study.roads[i].restored,restoreRanges:study.roads[i].restoreRanges||null,widthM:WorldGen.roadOverlayWidthM(f.tags),styles:StreetVariants.lineStyles(e,f,i,0,edge/4096).map(p=>({a:p.a,b:p.b,variant:p.variant,surface:typeof RoadSurfaces!=='undefined'?RoadSurfaces.familyFor(f.tags):null,title:typeof RoadSurfaces!=='undefined'&&RoadSurfaces.familyFor(f.tags)==='md'?'Old Trade Road':typeof RoadSurfaces!=='undefined'&&RoadSurfaces.familyFor(f.tags)==='lg'?'Dimensional Rift':StreetVariants.VARIANT_BY_ID[p.variant]?.title||p.variant||'Plain road'}))})),lamps:(s._streetLamps||[]).map(l=>({id:l.id,lineKey:l.lineKey,x:l.x,y:l.y})),renderedLampCount:(s.objectPool||[]).filter(o=>o.visible&&['rogue_lamp','rogue_lamp_unlit'].includes(o.texture?.key)).length,allLampCount:RoadOverlay.lampSitesForTile(tx,ty,e).length,seams:study.seams!==false};
       },study);
       await page.waitForTimeout(300);
       const image = await page.evaluate(width => new Promise(resolve => {
         const s=__scene,scale=__game.canvas.width/width;
         __game.renderer.snapshotArea(Math.round(s.viewLeft*scale),Math.round(s.viewTop*scale),Math.round(s.viewSize*scale),Math.round(s.viewSize*scale),img=>resolve(img.src));
       }),WIDTH);
+      const passAudit=await page.evaluate(()=>{
+        const inspect=pass=>{
+          // Expand the owning union by one pixel for edge antialiasing only.
+          // Any stronger ink outside it is leaked decoration or an unbounded join.
+          const mask=document.createElement('canvas');mask.width=mask.height=pass.size;
+          const ctx=mask.getContext('2d');ctx.lineJoin='round';ctx.strokeStyle='#fff';ctx.fillStyle='#fff';
+          for(const op of pass.ops){
+            ctx.lineCap=op.cap || 'round';ctx.lineWidth=op.w+2;ctx.beginPath();ctx.moveTo(op.pts[0],op.pts[1]);
+            for(let i=2;i<op.pts.length;i+=2)ctx.lineTo(op.pts[i],op.pts[i+1]);ctx.stroke();
+            if(op.cap==='butt')for(const at of [op.startRound?0:-1,op.endRound?op.pts.length-2:-1]){
+              if(at<0)continue;ctx.beginPath();ctx.arc(op.pts[at],op.pts[at+1],ctx.lineWidth/2,0,Math.PI*2);ctx.fill();
+            }
+          }
+          const allowed=ctx.getImageData(0,0,pass.size,pass.size).data;
+          const actual=pass.ctx.getImageData(0,0,pass.size,pass.size).data;
+          let leakedPixels=0,paintedPixels=0;
+          for(let i=3;i<actual.length;i+=4){if(actual[i]>8){paintedPixels++;if(!allowed[i])leakedPixels++;}}
+          return {leakedPixels,paintedPixels,ops:pass.ops.length,decorOps:pass.decorOps.length};
+        };
+        return {base:inspect(__scene._roadGeomTarget._pass),restored:inspect(__scene._roadRestoredTarget._pass)};
+      });
+      data.passAudit=passAudit;
       const passes=await page.evaluate(()=>({base:__scene._roadGeomTarget._pass.ctx.canvas.toDataURL(),restored:__scene._roadRestoredTarget._pass.ctx.canvas.toDataURL()}));
       for(const [kind,url] of Object.entries(passes))fs.writeFileSync(path.join(OUT,`${LABEL}-${study.id}-${kind}-${CELLS}.png`),Buffer.from(url.split(',')[1],'base64'));
       const file=`${LABEL}-${study.id}-${CELLS}.png`;
@@ -125,11 +153,38 @@ const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
     }
     const materialAudit=await page.evaluate(()=>{
       const inspect=tile=>{if(!tile)return null;const data=tile.getContext('2d').getImageData(0,0,tile.width,tile.height).data;let transparent=0,partial=0,opaque=0;for(let i=3;i<data.length;i+=4){if(!data[i])transparent++;else if(data[i]===255)opaque++;else partial++;}return {pixels:tile.width*tile.height,transparent,partial,opaque};};
-      return {surfaces:typeof RoadSurfaces==='undefined'?null:['md','lg'].flatMap(family=>[false,true].map(restored=>({family,restored,...inspect(RoadSurfaces.tile(family,restored))}))),
+      const cancellation=(()=>{
+        const make=()=>{const c=document.createElement('canvas');c.width=c.height=64;return c.getContext('2d');};
+        const reused=make(),fresh=make();
+        const op=(x,y,color)=>({w:3,c:color,alpha:1,pts:[{x,y},{x:x+16,y}],
+          clip:{points:[{x,y},{x:x+16,y}],width:12,startRound:false,endRound:false,owner:String(x),priority:16,bounds:[x-6,y-6,x+22,y+6]}});
+        const abandoned=RoadOverlay.paintSurfaceDecorSteps(reused,[op(8,16,0xffffff)],64);
+        abandoned.next(); // Leave the real Canvas clip saved across a yield.
+        fresh.drawImage(reused.canvas,0,0);
+        RoadOverlay.paintSurfaceDecor(reused,[op(40,48,0x99d9c2)],64);
+        RoadOverlay.paintSurfaceDecor(fresh,[op(40,48,0x99d9c2)],64);
+        const a=reused.getImageData(0,0,64,64).data,b=fresh.getImageData(0,0,64,64).data;
+        let differentBytes=0;for(let i=0;i<a.length;i++)if(a[i]!==b[i])differentBytes++;
+        return {differentBytes,replacementAlpha:a[(48*64+48)*4+3]};
+      })();
+      const endpointOwnership=(()=>{
+        const canvas=document.createElement('canvas');canvas.width=canvas.height=160;
+        const ctx=canvas.getContext('2d');
+        const through={points:[{x:20,y:100},{x:100,y:100}],width:40,startRound:true,endRound:true,
+          owner:'through',priority:80,bounds:[0,80,120,120],surface:'md'};
+        const branch={points:[{x:100,y:100},{x:140,y:100}],width:20,startRound:true,endRound:true,
+          owner:'branch',priority:40,bounds:[90,90,150,110],surface:'md'};
+        RoadOverlay.paintSurfaceDecor(ctx,[
+          {w:1,c:0x999999,alpha:1,pts:through.points,clip:through},
+          {w:1,c:0xc7bda0,alpha:1,fill:true,pts:[{x:108,y:97},{x:112,y:97},{x:112,y:103},{x:108,y:103}],clip:branch},
+        ],160);
+        return {branchPaverAlpha:ctx.getImageData(110,100,1,1).data[3]};
+      })();
+      return {cancellation,endpointOwnership,surfaces:typeof RoadSurfaces==='undefined'?null:['md','lg'].flatMap(family=>[false,true].map(restored=>({family,restored,...inspect(RoadSurfaces.tile(family,restored))}))),
         shade:['lantern','confusion_path','greenway'].map(variant=>{const tile=RoadOverlay.selectedRoadTile(variant,false),pixels=tile.getContext('2d').getImageData(0,0,tile.width,tile.height).data;let min=255;for(let i=3;i<pixels.length;i+=4)min=Math.min(min,pixels[i]);const restored=inspect(RoadOverlay.selectedRoadTile(variant,true));return {variant,minAlpha:min,effectiveAlpha:min/255*.61,restoredClear:restored.transparent};}),
         fixedVariants:['secondary','primary'].map(cls=>({class:cls,value:StreetVariants.pavementVariantFor({class:cls},'orchard')}))};
     });
-    const audit={label:LABEL,sourceSha256,cells:CELLS,source:'shipping served modules',boot,results,materialAudit,errors,webglError:await page.evaluate(()=>__game.renderer.gl?.getError()??null)};
+    const audit={label:LABEL,sourceSha256,materialSha256,cells:CELLS,source:'shipping served modules',boot,results,materialAudit,errors,webglError:await page.evaluate(()=>__game.renderer.gl?.getError()??null)};
     fs.writeFileSync(path.join(OUT,`${LABEL}-metadata-${CELLS}.json`),JSON.stringify(audit,null,2));
     if(errors.length||audit.webglError!==0||boot.renderer!==2) throw Error('Renderer audit failed '+JSON.stringify({boot,errors,webglError:audit.webglError}));
   } finally {await browser.close();}

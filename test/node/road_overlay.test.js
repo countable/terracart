@@ -1482,3 +1482,21 @@ test('road overlay: fixed-road repair removes the old surface while retaining la
   assert.eq(scene.roadRestoredGfx.paths.length, 1);
   assert.eq(scene.roadRestoredGfx.paths[0].style.surface, 'lg');
 });
+
+test('road overlay: replacing an interrupted detail pass releases its old interval clip', () => {
+  const {ctx,ops}=roRecorder();
+  const clip={width:40,startRound:false,endRound:false,owner:'road-a',priority:200,
+    surface:'md',points:[{x:0,y:20},{x:200,y:20}],bounds:[0,0,200,40]};
+  const detail={w:2,c:0x998877,alpha:1,roadWidth:40,blend:'source-atop',clip,
+    pts:[{x:20,y:20},{x:24,y:20}]};
+  const abandoned=RoadOverlay.paintSurfaceDecorSteps(ctx,[detail,detail],256);
+  assert.falsy(abandoned.next().done,'the first detail is drawn within a live clipping scope');
+  assert.eq(ops.filter(op=>op[0]==='save').length,1);
+  assert.eq(ops.filter(op=>op[0]==='restore').length,0);
+  // A replacement can start without ever resuming/closing the discarded job.
+  const start=ops.length;
+  RoadOverlay.paintSurfaceDecor(ctx,[{...detail,clip:null}],256);
+  assert.eq(ops[start][0],'restore','old clipping is removed before replacement ink');
+  assert.eq(ops.filter(op=>op[0]==='save').length,ops.filter(op=>op[0]==='restore').length,
+    'superseded jobs do not leak saved canvas states');
+});

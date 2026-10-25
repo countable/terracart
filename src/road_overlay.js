@@ -1128,6 +1128,12 @@
   // another for weather and another for each feather mask. Keep two slots on
   // the pass instead: one layer and one nested mask. Reset every mutable 2D
   // state because a slot can follow any of those jobs on the next rebuild.
+  const activeDecorClips = new WeakSet();
+  function releaseDecorClip(ctx) {
+    if (!activeDecorClips.has(ctx)) return;
+    ctx.restore();
+    activeDecorClips.delete(ctx);
+  }
   function scratchLayer(size, pool, slot = 0) {
     if (typeof document === 'undefined') return null;
     let layer = pool && pool[slot];
@@ -1143,6 +1149,9 @@
       layer.canvas.width = layer.canvas.height = size;
     }
     const cx = layer.ctx;
+    // A superseded time-sliced job can be abandoned at a detail yield.
+    // setTransform/clearRect do not remove its saved clip; release it first.
+    releaseDecorClip(cx);
     if (cx.setTransform) cx.setTransform(1, 0, 0, 1, 0, 0);
     cx.globalAlpha = 1;
     cx.globalCompositeOperation = 'source-over';
@@ -1228,9 +1237,10 @@
     };
     let curStyle = { w: 1, c: ROAD_COLOR };
     let curPts = null;
+    let decorClip = null;
     pass.target = {
       clear() {
-        pass.ops = []; pass.decorOps = []; pass.erases = []; curPts = null;
+        pass.ops = []; pass.decorOps = []; pass.erases = []; curPts = null; decorClip = null;
         ctx.clearRect(0, 0, size, size);
       },
       // The alpha is carried by the IMAGE, so strokes are always opaque and
@@ -1251,7 +1261,25 @@
       // gravel (stays crisp) and before the erases (keep-out punches it out).
       decorPath(w, c, pts, alpha = 1, roadWidth, blend = 'source-over') {
         if (pts && pts.length >= 2) {
-          pass.decorOps.push({ w, c, alpha, roadWidth, blend, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+          pass.decorOps.push({ w, c, alpha, roadWidth, blend, clip: decorClip, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+        }
+      },
+      edgePath(w, c, pts, alpha, roadWidth) {
+        this.decorPath(w, c, pts, alpha, roadWidth, 'source-atop');
+        if (pts?.length >= 2) pass.decorOps[pass.decorOps.length - 1].edge = true;
+      },
+      decorPolygon(c, pts, alpha = 1, roadWidth, blend = 'source-over') {
+        if (pts && pts.length >= 3) {
+          pass.decorOps.push({ w: 0, c, alpha, roadWidth, blend, fill: true, clip: decorClip,
+            pts: pts.map(p => ({ x: p.x - originX, y: p.y - originY })) });
+        }
+      },
+      setDecorClip(run, width, startRound, endRound, owner, priority, surface) {
+        decorClip = run ? { width, startRound, endRound, owner, priority, surface,
+          points: run.map(p => ({ x: p.x - originX, y: p.y - originY })) } : null;
+        if (decorClip) {
+          const xs=decorClip.points.map(p=>p.x),ys=decorClip.points.map(p=>p.y),r=width/2;
+          decorClip.bounds=[Math.min(...xs)-r,Math.min(...ys)-r,Math.max(...xs)+r,Math.max(...ys)+r];
         }
       },
       cutPath(w, pts, roadWidth) { this.decorPath(w, 0, pts, 1, roadWidth, 'destination-out'); },
@@ -1293,9 +1321,74 @@
   function* commitBaseSteps(pass) { yield* compositeWidthsSteps(pass, paintBaseWidthSteps); }
   function* commitRestoredSteps(pass) { yield* compositeWidthsSteps(pass, paintRestoredWidthSteps); }
 
+  // Clip a detail group to its owning interval, not merely the whole width
+  // network. Otherwise a chipped paver can spill into an adjacent repair or
+  // a same-width crossing. Segment quads + round joins match the band stroke;
+  // repair endpoints stay flat. One clip per group, no new canvases/pixel reads.
+  function clipDecorRun(ctx, clip) {
+    const { points, width, startRound, endRound } = clip, r = width / 2;
+    ctx.beginPath();
+    for (let i = 1; i < points.length; i++) {
+      const a = points[i - 1], b = points[i], dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy);
+      if (!len) continue;
+      const nx = -dy * r / len, ny = dx * r / len;
+      ctx.moveTo(a.x - nx, a.y - ny); ctx.lineTo(b.x - nx, b.y - ny);
+      ctx.lineTo(b.x + nx, b.y + ny); ctx.lineTo(a.x + nx, a.y + ny); ctx.closePath();
+    }
+    for (let i = 0; i < points.length; i++) {
+      if ((i === 0 && !startRound) || (i === points.length - 1 && !endRound)) continue;
+      const p = points[i]; ctx.moveTo(p.x + r, p.y); ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+    }
+    ctx.clip();
+  }
+  function decorClipsOverlap(a, b) {
+    return a.bounds[0] < b.bounds[2] && a.bounds[2] > b.bounds[0]
+      && a.bounds[1] < b.bounds[3] && a.bounds[3] > b.bounds[1];
+  }
+  // Subtract convex stroke pieces one at a time: one even-odd compound path
+  // for a whole bent band would XOR overlapping join pieces back into view.
+  function excludeDecorRun(ctx, clip, size, edge) {
+    const points=clip.points,r=clip.width*(edge ? (clip.surface==='md' ? .455 : .32) : .5);
+    const begin=()=>{ctx.beginPath();ctx.rect(0,0,size,size);};
+    for(let i=1;i<points.length;i++) {
+      const a=points[i-1],b=points[i],dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy);
+      if(!len)continue;
+      const nx=-dy*r/len,ny=dx*r/len;
+      begin();ctx.moveTo(a.x-nx,a.y-ny);ctx.lineTo(b.x-nx,b.y-ny);
+      ctx.lineTo(b.x+nx,b.y+ny);ctx.lineTo(a.x+nx,a.y+ny);ctx.closePath();ctx.clip('evenodd');
+    }
+    for(let i=0;i<points.length;i++) {
+      // Source pieces often meet at a geographic junction. Their rounded
+      // material caps extend beyond the final paver; claiming that cap would
+      // erase the connecting road's details and leave a bare semicircle.
+      if(i===0||i===points.length-1)continue;
+      begin();const p=points[i];ctx.moveTo(p.x+r,p.y);ctx.arc(p.x,p.y,r,0,Math.PI*2);ctx.clip('evenodd');
+    }
+  }
   function* paintRoadDecorSteps(pass) {
     const { ctx } = pass;
+    releaseDecorClip(ctx);
+    const clips=[...new Set(pass.decorOps.map(op=>op.clip).filter(Boolean))];
+    let activeClip = null, activeEdge = false;
     for (const op of pass.decorOps) {
+      if (op.clip !== activeClip || !!op.edge !== activeEdge) {
+        if (activeClip) releaseDecorClip(ctx);
+        activeClip = op.clip; activeEdge = !!op.edge;
+        if (activeClip) {
+          ctx.save(); activeDecorClips.add(ctx); clipDecorRun(ctx, activeClip);
+          for(const other of clips) {
+            if(other.owner===activeClip.owner||!decorClipsOverlap(activeClip,other))continue;
+            // A through-road owns interior stonework at equal-width junctions.
+            // Side channels instead stop at each other's channel inset so the
+            // network's T corners connect without interior rails or dead ends.
+            if(activeEdge||other.priority>activeClip.priority
+                ||other.priority===activeClip.priority&&other.owner<activeClip.owner) {
+              excludeDecorRun(ctx,other,pass.size,activeEdge);
+            }
+          }
+        }
+      }
       ctx.globalAlpha = op.alpha;
       ctx.globalCompositeOperation = op.blend || 'source-over';
       ctx.lineWidth = op.w;
@@ -1303,10 +1396,20 @@
       ctx.beginPath();
       ctx.moveTo(op.pts[0].x, op.pts[0].y);
       for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
-      ctx.stroke(); yield;
+      if (op.fill) { ctx.closePath(); ctx.fillStyle = cssOf(op.c); ctx.fill(); }
+      else ctx.stroke();
+      yield;
     }
+    if (activeClip) releaseDecorClip(ctx);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
+  }
+  // Static map review shares interval clipping and junction ownership.
+  function paintSurfaceDecor(ctx, decorOps, size) {
+    drainSteps(paintSurfaceDecorSteps(ctx, decorOps, size));
+  }
+  function paintSurfaceDecorSteps(ctx, decorOps, size) {
+    return paintRoadDecorSteps({ ctx, decorOps, size });
   }
 
   function surfaceTile(op, restored) {
@@ -1351,6 +1454,9 @@
       yield* strokeOpsSteps(layer.ctx, ops, 0);
       const pat = tile && patternOf(layer.ctx, pass.pats, 'ra:' + variant, tile);
       if (pat) patternFill(layer.ctx, pass, pat, 'source-in', tile.width);
+      // Neutral alpha shoulders reveal the actual landcover. A coloured
+      // grass fringe would incorrectly follow this material onto sand/stone.
+      if (ops[0].surface === 'md') softenEdge(layer, size, ops, pass.scratch, 1);
       ctx.save(); ctx.globalCompositeOperation = 'source-over';
       ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); yield;
     }
@@ -1906,15 +2012,29 @@
     const length = Streets.lineLengthM(line, mvtToM), pxPerM = CELL_PX / scene.cellM;
     const pts = Streets.subLineM(line, mvtToM, a, b)
       .map(p => ({ x: originMx + p.x, y: originMy + p.y }));
+    // Keep bend normals from the whole source way when a repair or viewport
+    // clips a segment. Recomputing them from a shortened run shifts its stones.
+    const sourceRun = !coverageOnly && line.map(p => ({
+      x: proj.projX(originMx + p.x * mvtToM), y: proj.projY(originMy + p.y * mvtToM),
+    }));
     const decor = g.decorPath && {
       decorPath(w, color, points, alpha, width) { g.decorPath(w, color, points, alpha, width, 'source-atop'); },
+      decorPolygon: g.decorPolygon && ((color, points, alpha, width) => g.decorPolygon(color, points, alpha, width, 'source-atop')),
+      edgePath: g.edgePath && ((w, color, points, alpha, width) => g.edgePath(w, color, points, alpha, width)),
       cutPath: g.cutPath && ((w, points, width) => g.cutPath(w, points, width)),
     };
     emitRuns(pts, proj, (run, offsetPx) => {
       if (run.length < 2) return;
       add(run, a > 1e-5, b < length - 1e-5);
-      if (!coverageOnly && decor) global.RoadSurfaces.decorate(scene, decor, run, widthPx, surface, restored,
-        { startM: a + offsetPx / pxPerM, pxPerM });
+      if (!coverageOnly && decor) {
+        g.setDecorClip?.(run, widthPx, a <= 1e-5, b >= length - 1e-5,
+          rec.tileKey + ':' + Streets.lineKey(rec.f, rec.i), length, surface);
+        let runLength = 0;
+        for (let i = 1; i < run.length; i++) runLength += Math.hypot(run[i].x-run[i-1].x, run[i].y-run[i-1].y);
+        global.RoadSurfaces.decorate(scene, decor, run, widthPx, surface, restored,
+          { sourceRun, startM: a + offsetPx / pxPerM, endM: a + (offsetPx + runLength) / pxPerM, pxPerM });
+        g.setDecorClip?.(null);
+      }
     });
   }
 
@@ -2183,9 +2303,9 @@
     }
   }
 
-  global.RoadOverlay = { ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
-                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
+                         RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge, paintSurfaceDecorSteps,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,
                          ROAD_REBUILD_SLICE_MS, runRoadSlice };
 })(window);

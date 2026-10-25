@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Bake the fixed MD/LG road materials from the approved Rogue source crops."""
+"""Bake neutral stone/soil grain; RoadSurfaces lays paving along each road."""
 import json
 import math
 import random
@@ -40,18 +40,20 @@ def repeat(source, size=128):
     return image
 
 def medium(restored):
-    lift = 9 if restored else 0
-    image = repeat(toned('gravel', [123+lift, 116+lift, 91+lift], .58))
-    grit = repeat(toned('grit', [129+lift, 123+lift, 101+lift], .35))
+    lift = 8 if restored else 0
+    # Quiet mineral bedding, without vegetation or a baked directional grid.
+    # Route-aligned setts and dividing bands belong to RoadSurfaces.decorate.
+    image = repeat(toned('gravel', [119+lift, 111+lift, 96+lift], .28))
+    grit = repeat(toned('grit', [124+lift, 116+lift, 103+lift], .24))
     image = Image.blend(image, grit, .18)
     if not restored:
-        # Missing compacted gravel exposes the terrain inside the vector band.
+        # Missing paving exposes the terrain inside the vector band.
         # These are stable world-phased holes, not standing scenery or loot.
         draw = ImageDraw.Draw(image)
         rng = random.Random(71309)
-        for _ in range(10):
+        for _ in range(8):
             x, y = rng.randrange(128), rng.randrange(128)
-            radius = rng.randrange(3, 7)
+            radius = rng.randrange(2, 5)
             pts = [(x+round(math.cos(a)*radius*rng.uniform(.6, 1.2)), y+round(math.sin(a)*radius*rng.uniform(.6, 1.2))) for a in [0, 1, 2, 3, 4, 5]]
             for ox in (-128, 0, 128):
                 for oy in (-128, 0, 128):
@@ -87,7 +89,7 @@ def main():
     rows, mask = rune_rows(); mask.save(OUT / 'rune-mask.png')
     manifest = {'schemaVersion': 1, 'tileSize': 128, 'sourceArt': SOURCES,
         'frames': [{'family': f, 'restored': r, 'x': i*128, 'y': 0, 'width': 128, 'height': 128} for i, (f,r) in enumerate([('md',False),('md',True),('lg',False),('lg',True)])],
-        'runeRows': rows, 'recipes': {'md': 'approved compacted gravel causeway, G07 plus 18% G08 grit; weathered holes use seed71309', 'lgWeathered': 'approved turquoise dimensional scar Hell crust', 'lgRestored': 'approved ancient dimensional conduit mineral bed and native rune silhouette'}}
+        'runeRows': rows, 'recipes': {'md': 'neutral low-contrast mineral bedding, G07 plus 18% G08 grit; road-aligned ancient pavers are geometry; weathered holes use seed71309; no vegetation', 'lgWeathered': 'fine broken slate plates over turquoise dimensional scar Hell crust', 'lgRestored': 'ancient dimensional conduit mineral bed with fine joints, paired channels and small native rune silhouette'}}
     (OUT / 'sources.json').write_text(json.dumps(manifest, indent=2)+'\n')
     module = ROOT / 'src/road_surfaces.js'
     if module.exists():
