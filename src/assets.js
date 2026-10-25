@@ -68,6 +68,7 @@ const ASSETS = {
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   fdr_castle_atlas: { kind: 'image', path: 'assets/Objects/Castle/FDR/atlas.png' },
   fdr_castle_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/floor.png' },
+  fdr_castle_wreck_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/weathered-floor.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },

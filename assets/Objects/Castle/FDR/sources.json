@@ -11,8 +11,8 @@
       "sha256": "ce48e1a8ad5de30b257bcccd1842cb94491e1f1ca7902b2fe411d9d62488a820"
     }
   },
-  "processing": "Source crops with mean-preserving masonry contrast compression, a modest sky-facing material lift, nearest-neighbour scaling and padded atlas packing; no generated imagery.",
-  "palette": "Legacy source crops plus a neutral quiet-stone repeat and white patch for the three cel-shaded family palettes; basal wall band is authored in geometry.",
+  "processing": "Legacy source crops plus authored restrained pixel materials for stone, moss, paving overlays, coping, doors and heraldry. Nearest-neighbour scaling and padded atlas packing; no generated imagery.",
+  "palette": "Quiet cel stone, moss, inset decks, closed iron doors and heraldry share one preloaded atlas; basal shadows stay in geometry.",
   "atlas": {
     "size": [
       512,
@@ -121,68 +121,6 @@
       "treatment": {
         "contrast": 1,
         "skyLift": 0.07
-      }
-    },
-    {
-      "slot": 5,
-      "name": "door",
-      "source": "castle",
-      "sourceRect": [
-        192,
-        256,
-        48,
-        32
-      ],
-      "normalizedSize": [
-        48,
-        32
-      ],
-      "atlasContentRect": [
-        136,
-        136,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        0,
-        255
-      ],
-      "treatment": {
-        "contrast": 1,
-        "skyLift": 0
-      }
-    },
-    {
-      "slot": 6,
-      "name": "window",
-      "source": "castle",
-      "sourceRect": [
-        0,
-        160,
-        16,
-        16
-      ],
-      "normalizedSize": [
-        16,
-        16
-      ],
-      "atlasContentRect": [
-        264,
-        136,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        0,
-        255
-      ],
-      "treatment": {
-        "contrast": 1,
-        "skyLift": 0
       }
     },
     {
@@ -372,9 +310,93 @@
       }
     },
     {
+      "slot": 0,
+      "name": "lit-coping-and-inset-deck",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        32,
+        32
+      ],
+      "atlasContentRect": [
+        8,
+        8,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 1,
+      "name": "pale-heraldry",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        16,
+        16
+      ],
+      "atlasContentRect": [
+        136,
+        8,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 5,
+      "name": "closed-iron-door",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        24,
+        28
+      ],
+      "atlasContentRect": [
+        136,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 6,
+      "name": "bastion-sun",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        16,
+        16
+      ],
+      "atlasContentRect": [
+        264,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
       "slot": 13,
       "name": "quiet-stone",
-      "source": "authored neutral pixel marks",
+      "source": "authored cel pixel material",
       "normalizedSize": [
         32,
         32
@@ -391,11 +413,32 @@
         255,
         255
       ]
+    },
+    {
+      "slot": 14,
+      "name": "weathered-stone",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        32,
+        32
+      ],
+      "atlasContentRect": [
+        264,
+        392,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
     }
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "b9b5fef040103b0731d4363dced741631f174db29e69e00f183cda327246f6a4",
+      "sha256": "159e9f7a8d0aebea129e7a79a4194d06f53417db31f869fd6e3d7282f247b802",
       "size": [
         512,
         512
@@ -406,6 +449,13 @@
       "size": [
         16,
         16
+      ]
+    },
+    "weathered-floor.png": {
+      "sha256": "fa7f3ae73fcf36fbc54039a7dc77a56e0ad2b474ce2e4f52af450a0bd0c63380",
+      "size": [
+        64,
+        64
       ]
     }
   },

@@ -1411,22 +1411,40 @@ and spacing are part of the bounded local-coordinate cache key. Invalid or
 excessively complex rings retain the existing fallback.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
-and a sparse neutral pixel-mark repeat from `tools/build_fdr_castle_assets.py`.
+and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
+Low-contrast staggered masonry courses, inset roof decks, coping edges, iron
+door surrounds and heraldic marks are atlas detail rather than extra meshes.
+Courtyard paving and wreck grass repeat on the existing cached ground canvas;
+they add no ground or castle triangles. Weathering belongs to Bastion and Archive,
+while Citadel wrecks retain a distinctly dark stone and oxblood palette.
 Upward-facing surfaces are light, vertical walls have broad flat
 colours, and a single hard shadow band occupies the bottom four pixels. There
 is no upper shoulder shadow or projecting crown shelf. A closed double iron
 door, its seam and handles are flat keep-wall decals; keep banners are omitted.
 Archive towers and keeps have four roof triangles when restored and two surviving
 planes over a closed flat cap when wrecked. Archive has no wood, galleries,
-modeled roof framing or book banner. Bastion's broader tower shafts fill their
-square cutouts at every elevation,
-so no vertical gaps open at curtain joins. Geometry and material faces are retained
+modeled roof framing or book banner. Four restrained teal face values reveal
+each Archive pyramid peak without increasing its four-triangle roof. Military
+tower crowns include teeth on all four sides. Bastion's broader tower shafts
+fill their square cutouts above the bottom band; the same eight basal triangles
+flare two pixels outward at ground level, without adding a plinth mesh or opening
+vertical gaps at curtain joins. Wreck crests lose a few broad sections; teeth
+over those pieces are omitted and adjoining tall pieces expose their step faces.
+Geometry and material faces are retained
 through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
 footprint and screen-up elevation; the concepts do not define another camera.
 Canvas shares these faces and closes opaque triangle seams at surface boundaries.
 White-patch materials fill directly with their cel colour on Canvas; only the
-textured stone repeat needs the shared tinted-atlas cache.
+textured cel materials need the shared tinted-atlas cache.
+
+`node tools/castle-poly-budget.cjs` compares against immutable baseline
+`0645a596`, recording module hashes and enforcing at most 1.5× both retained
+material triangles and submitted triangles at each of nine headings. It covers
+all three families in both states on five ordinary footprints, a tiny site and
+a 64-corner stadium. The ground canvas and unrelated actors are excluded from
+both mesh counts; ground geometry is unchanged. Keep this budget gate alongside
+actual-camera WebGL/Canvas captures when refining castle appearance.
 
 Covered castles suppress their old tower sprites while retaining gameplay turret
 records, ownership, range and collision. Flags seat on distinct geometry crowns

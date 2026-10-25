@@ -509,7 +509,7 @@
       let p = null;
       // 'home': Home's own floor, the plank material at HomeArea.HOUSE.floorTexScale.
       const home = tier === 'home';
-      const key = tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 || home ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+      const key = tier === 'fdr-wreck' ? 'fdr_castle_wreck_floor' : tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 || home ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
         : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         let src = scene.textures.get(key).getSourceImage();
@@ -819,13 +819,14 @@
       // The tier's material, laid inside the ring. One clip + one pattern fill
       // per building; rebuilds are rare (a cell crossing or a tile load), so
       // this is nothing per frame.
-      texturePoly(pts, tier, holes = [], scale = 1) {
+      texturePoly(pts, tier, holes = [], scale = 1, alpha = 1) {
         const p = patternFor(tier);
         if (!p || !pts || pts.length < 3) return;
         ctx.save();
         trace(pts, holes);
         ctx.clip('evenodd');
         ctx.fillStyle = p.fill;
+        ctx.globalAlpha = alpha;
         const x = wrap(phaseX, p.width * scale), y = wrap(phaseY, p.height * scale);
         ctx.translate(x, y);
         if (scale !== 1) ctx.scale(scale, scale);
@@ -1643,6 +1644,9 @@
         if (model) {
           scene._fdrCastleLayouts.set(d.key, { ...model, source: 'castles' });
           g.fillPoly(d.pts, model.style.floor);
+          // Reuse the ground canvas: quiet paving adds no castle triangles.
+          g.texturePoly?.(d.pts, 'fdr', [], 1.5, isMine ? .28 : .16);
+          if(!isMine&&model.family!=='citadel')g.texturePoly?.(d.pts, 'fdr-wreck', [], 1, .7);
           continue;
         }
       }
