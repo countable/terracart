@@ -181,14 +181,19 @@ const NPCBenefits = (() => {
     const gift = GIFTS[c.role] || GIFTS.resident, state = stateOf(scene, c), day = dayOf(now);
     const collected = state.giftDay === day ? Math.max(0, state.giftCollected || 0) : 0;
     // Once today's entitlement is fixed, adding or removing furniture cannot
-    // re-roll it. A full bag keeps the uncollected portion available today.
+    // re-roll it. A full bag keeps the uncollected portion available today, so
+    // the first visit that evaluates the day pins its quantity, accepted or not.
     const quantity = state.giftDay === day && Number.isFinite(state.giftQuantity)
       ? state.giftQuantity : Math.floor(luxury);
+    if (state.giftDay !== day || !Number.isFinite(state.giftQuantity)) {
+      Object.assign(state, { giftDay: day, giftQuantity: quantity, giftCollected: collected });
+      persist(scene);
+    }
     const wanted = Math.max(0, quantity - collected), room = Inventory.roomFor(scene.save, gift.id);
     const accepted = wanted > 0 && room > 0
       ? scene.addToInv(gift.id, Math.min(wanted, room), false, { notWild: true }) : 0;
     if (accepted > 0) {
-      Object.assign(state, { giftDay: day, giftQuantity: quantity, giftCollected: collected + accepted });
+      Object.assign(state, { giftCollected: collected + accepted });
       persist(scene);
       return { message: `${gift.line}\n+${accepted} ${gift.label}`, id: gift.id, qty: accepted };
     }

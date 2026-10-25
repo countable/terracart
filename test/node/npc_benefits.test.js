@@ -69,6 +69,16 @@
     Inventory.remove(f.save, 'wood', 10);
     assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 2).qty, 3, 'only original uncollected portion remains');
   });
+  test('NPC benefits: a full bag on the first visit still pins today’s gift quantity', () => {
+    const f = fixture('warden', 4), cap = Inventory.stackCapFor(f.save, 'wood');
+    Inventory.add(f.save, 'wood', cap);
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH).qty, 0);
+    f.save.houseLuxury.roof.score = 9;
+    f.scene.save = f.save = JSON.parse(JSON.stringify(f.save));
+    Inventory.remove(f.save, 'wood', cap);
+    assert.eq(NPCBenefits.visit(f.scene, f.c, EPOCH + 1).qty, 4,
+      'the day pins the quantity at the luxury the first visit evaluated');
+  });
   test('Tilly: watering uses crop rules without borrowing the player’s watering can', () => inWorld(fixture(), f => {
     const p = crop(f);
     f.save.relics = { watering_can: { tier: 7 } };
