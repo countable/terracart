@@ -4051,6 +4051,7 @@ class MapScene extends Phaser.Scene {
     this.drawBuildingGeometry();
     if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
     if (typeof Weather !== 'undefined') Weather.tick(this, Date.now(), dt * 1000);
+    this._syncWeatherReadout?.();
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
@@ -6255,6 +6256,37 @@ class MapScene extends Phaser.Scene {
     };
     this._zoomInButton = button('+', 'Zoom in', 1);
     this._zoomOutButton = button('−', 'Zoom out', -1);
+    const weather = document.createElement('div');
+    weather.className = 'weather-readout';
+    weather.setAttribute('role', 'status');
+    weather.setAttribute('aria-live', 'polite');
+    const WEATHER_GLYPH = Object.freeze({ rain: '☂', drizzle: '☂', snow: '❄', sleet: '⛆', none: '·' });
+    let lastWeather;
+    const syncWeather = this._syncWeatherReadout = () => {
+      const state = typeof Weather !== 'undefined' ? Weather.state?.() : null;
+      // Only finite readings render: Number(null) is 0, and an unavailable
+      // forecast must hide the chip, not read as a flat zero.
+      const temp = Number.isFinite(state?.temp) ? state.temp : NaN;
+      const wind = Number.isFinite(state?.windKph) ? state.windKph : NaN;
+      const kind = state?.kind || 'none', visible = Number.isFinite(temp) || !!state?.precip;
+      const signature = `${visible}:${kind}:${temp}:${wind}`;
+      if (signature === lastWeather) return;
+      lastWeather = signature;
+      weather.hidden = !visible;
+      if (!visible) return;
+      const glyph = WEATHER_GLYPH[kind] || WEATHER_GLYPH.none;
+      const parts = [glyph];
+      if (Number.isFinite(temp)) parts.push(`${Math.round(temp)}°`);
+      if (Number.isFinite(wind) && wind >= 10) parts.push(`↑${Math.round(wind)}`);
+      weather.textContent = parts.join(' ');
+      const names = { rain: 'Rain', drizzle: 'Drizzle', snow: 'Snow', sleet: 'Sleet', none: 'Clear' };
+      const label = [names[kind] || 'Weather', Number.isFinite(temp) ? `${Math.round(temp)} degrees` : '',
+        Number.isFinite(wind) && wind >= 10 ? `wind ${Math.round(wind)} kilometres per hour` : ''].filter(Boolean).join(', ');
+      weather.setAttribute('aria-label', label);
+      weather.title = label;
+    };
+    syncWeather();
+    control.appendChild(weather);
     // The resting level may already be an end stop (the default is the closest).
     const span = Math.round(VIEW_CELLS / (this._mapZoomRest || MAP_DEFAULT_ZOOM));
     this._zoomInButton.disabled = span <= PINCH_VIEW_CELLS;
@@ -6290,6 +6322,7 @@ class MapScene extends Phaser.Scene {
     this.events.once('shutdown', () => {
       HeadingUp.cancelGpsRequest(this);
       this._syncCompassLock = null;
+      this._syncWeatherReadout = null;
       control.remove();
     });
   }
