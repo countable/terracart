@@ -2287,9 +2287,9 @@ class MapScene extends Phaser.Scene {
         capMS = Math.min(capMS ?? Infinity, WALK_M_S * contact.speedMul);
       }
     }
-    const held = Conditions.movementBlocked(this.save);
+    const blocked = Conditions.movementBlocked(this.save);
     const balancing = typeof ObstacleStep !== 'undefined' && ObstacleStep.speedMul(this._obstacleStep) < 1;
-    return { pinned: held, capMS, slowed: !held && (capMS > 0 || balancing) };
+    return { blocked, capMS, slowed: !blocked && (capMS > 0 || balancing) };
 
   }
 
@@ -3578,7 +3578,7 @@ class MapScene extends Phaser.Scene {
       // A story can open while a pointer is held or a target is still ahead.
       // Keep receiving GPS fixes, but hold the body until reading finishes.
       this._playDirected(this.player, 'idle');
-    } else if (bodyHold.pinned) {
+    } else if (bodyHold.blocked) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, x, y);
@@ -6889,12 +6889,19 @@ class MapScene extends Phaser.Scene {
     if (!cam || typeof cam.fadeOut !== 'function') { place(); return; }
     if (this._teleporting) return;
     this._teleporting = true;
+    const cut = this._teleportCutToken = {};
+    const clear = () => {
+      if (this._teleportCutToken !== cut) return;
+      this._teleporting = false;
+      this._teleportCutToken = null;
+    };
     const p = this.playerScreen();
     this._burstAt('shiny', p.x, p.y);
     cameraBlackout(this, place, {
       outMs: TELEPORT_FADE_OUT_MS, inMs: TELEPORT_FADE_IN_MS,
-      onDone: () => { this._teleporting = false; },
+      onDone: clear,
     });
+    this.time?.delayedCall?.(TELEPORT_FADE_OUT_MS + TELEPORT_FADE_IN_MS + 500, clear);
   }
   // Dig out the cave-wall cell under the player's feet, if that is what they
   // are standing in. Called after a placement underground, and again from the

@@ -329,12 +329,6 @@ Object.assign(Quests, {
     ss.skipped = true;
   },
 
-  starterIntroductionsReady(save) {
-    if (!this.starterAllDone(save)) return false;
-    return !!this._ss(save).chickenArrived || !!this._ss(save).skipped || !!window.__sandboxSkipTutorial
-      || (typeof Difficulty !== 'undefined' && Difficulty.get().homeGreeter !== 'chicken');
-  },
-
   // The first weapon ceremony follows the chicken's entrance, never its catch.
   starterIntroductionsReady(save) {
     if (!this.starterAllDone(save)) return false;

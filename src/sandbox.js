@@ -1852,7 +1852,7 @@
           _sandboxProbe: 'cave-return' })));
       if (depth === 2 && dx === 0 && dy === 0) {
         entry.objects.push(...(surface?.objects || [])
-          .filter(o => o.kind === 'mineralrock' && o.id.includes('_ROCK_'))
+          .filter(o => o.kind === 'mineralrock' && (o.id.includes('_mr_') || o.id.includes('_cr_')))
           .map(o => ({ ...o, id: `sandbox-L2-${o.id}`, depth: 2 })));
       }
       // Retain inherited exclusions even though this is authored empty floor.

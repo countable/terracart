@@ -13,6 +13,15 @@
     assert.falsy(PotionEffects.apply(scene(), creature(), 'thunder_scroll'));
   });
 
+  test('Thrown potions: a second timed dose banks on the first expiry', () => {
+    const s = scene(), c = creature(), now = 1000;
+    const duration = CONSUMABLE_SPEC.speed_potion.durationMs;
+    assert.truthy(PotionEffects.apply(s, c, 'speed_potion', now));
+    assert.eq(c.speedPotionUntil, now + duration);
+    assert.truthy(PotionEffects.apply(s, c, 'speed_potion', now + 500));
+    assert.eq(c.speedPotionUntil, now + 2 * duration, 'banks from the running expiry');
+  });
+
   test('Thrown potions: Giant and Shrinking stack, expire, and preserve melee-only scaling', () => {
     const s = scene(), c = creature('spirit_raven');
     const hp = Combat.maxHp(c), bite = Combat.petBlow(c);

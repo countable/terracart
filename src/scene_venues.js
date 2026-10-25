@@ -123,7 +123,7 @@ class SceneVenues {
   // free cells beside it (WorldGen.relocateToSpawnCell under the same shared
   // rule, each seat claimed so none stack). Ordinary enemies — the kind's own
   // row, not shiny — tagged `bounty` with the bounty id, with ids minted off
-  // the clock (`guildfoe_<tx>_<ty>_…`, pruned from save.caught like a ghost's).
+  // its stable tile cell (`guildfoe_<tx>_<ty>_<ix>_<iy>`, pruned from save.caught like a ghost's).
   // Returns how many were seated (0: no ground; nothing is posted). The day it
   // belongs to is the one day ledger's GUILD_BOUNTY_LEDGER mark (app.js), not
   // a day field of its own.
@@ -156,7 +156,7 @@ class SceneVenues {
         : WorldGen.relocateToSpawnCell(entry.grid, N, N, dest.ix, dest.iy, opts, 2, creatureSpawnClass(kind));
       if (!seat) return;
       used.add(seat.iy * N + seat.ix);
-      const id = `guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}`;
+      const id = `guildfoe_${tx}_${ty}_${seat.ix}_${seat.iy}`;
       const x = tx * edge + (seat.ix + 0.5) * cm, y = ty * edge + (seat.iy + 0.5) * cm;
       entry.creatures.push(WorldGen.makeCreature(kind, x, y, id, { shiny: false, bounty: b.id }));
       foes.push({ id, tx, ty, kind, x, y });
@@ -347,7 +347,7 @@ class SceneVenues {
     });
     if (!dest) return;
     const { entry, tx, ty } = dest;
-    const id = `debtor_${tx}_${ty}_${Math.floor(now)}`;
+    const id = `debtor_${tx}_${ty}_${dest.ix}_${dest.iy}`;
     const c = WorldGen.makeCreature(Macros.BANK_COLLECTOR_KIND, dest.x, dest.y, id,
       { shiny: false, debtCollector: true, _pirateParleyPending: true });
     entry.creatures = entry.creatures || [];

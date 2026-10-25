@@ -93,7 +93,7 @@
         const s=body();s.save.conditions.confused.remainingMs=ms;
         s._targetM=mode==='gps'?{x:0,y:-1000}:{x:0,y:1000};
         s._confusedLoop={angle:0,turn:1.2,left:3};
-        s._bodyHold=()=>({pinned:false,capMS:null});s._tickWalkHazards=()=>{};
+        s._bodyHold=()=>({blocked:false,capMS:null});s._tickWalkHazards=()=>{};
         let manualSeconds=0,targetSeconds=0;
         s._steerManual=(x,y,dt)=>{manualSeconds+=dt;};
         s._steerTarget=(x,y,mul,dt)=>{targetSeconds+=dt;};s._driftHome=()=>{};
@@ -131,7 +131,7 @@
     for(const end of ['expiry','cure']) {
       const s=body();s.facing={x:1,y:0};s.compassDeg=90;
       step.call(s,.1,null,2);
-      s._bodyHold=()=>({pinned:true});s._tickWalkHazards=()=>{};
+      s._bodyHold=()=>({blocked:true});s._tickWalkHazards=()=>{};
       s._endConfusedWalk=()=>finish.call(s);
       if(end==='expiry') Conditions.tick(s.save,20000);
       else Conditions.cure(s.save,'confused');
@@ -176,7 +176,7 @@
     cube.x=20;assert.falsy(hold.call(s,2,1.2).slowed);
     cube.x=1;s.save.caught=['cube'];assert.falsy(hold.call(s,2,1.2).slowed);
     s.save.caught=[];Conditions.apply(s.save,'jellyfish_stun');state=hold.call(s,2,1.2);
-    assert.truthy(state.pinned);assert.falsy(state.slowed,'an actual hold uses its own condition');
+    assert.truthy(state.blocked);assert.falsy(state.slowed,'an actual hold uses its own condition');
   });
   test('confusion puff: actual projectile damage applies confusion, blocked damage does not', () => {
     const hit=new Function('shot',lift('_shotHitsPlayer','shot'));
@@ -192,7 +192,7 @@
     const b=SCENE_SRC.indexOf('\n    // THE DRAIN ROLL-UP flushes here',a);
     const move=new Function('stick','vx','vy','speedMul','dt',SCENE_SRC.slice(a,b));
     const s=body();let loops=0,normal=0;
-    s._bodyHold=()=>({pinned:Conditions.active(s.save,'pinned'),capMS:null});
+    s._bodyHold=()=>({blocked:Conditions.active(s.save,'pinned'),capMS:null});
     s._tickWalkHazards=()=>{};s._confusedStep=()=>{loops++;};
     s._steerManual=s._steerTarget=s._followStep=s._driftHome=()=>{normal++;};
     s.save.conditions.confused.remainingMs=10000;move.call(s,{x:1,y:0},1,0,1,.1);

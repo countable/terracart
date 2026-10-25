@@ -942,8 +942,8 @@ class SceneShops {
   // shelf's next item; the trader's next barter) and `present` the method
   // that re-renders it. `opts.current` is what is on display: the draw goes
   // through ShopsMath.rerollPeek, which re-draws (for free) until it is
-  // something else. The purse is checked BEFORE the peek, which climbs the
-  // ladder, so a short purse never pays a rung.
+  // something else. The purse is checked before the peek, and the ladder
+  // climbs only when that peek produces an offer.
   _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts) {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = opts.cost(curState?.rerolls || 0);

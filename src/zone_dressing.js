@@ -70,6 +70,8 @@
     if (!field || !WG || !V) return out;
     const { N, tx, ty, tileEdgeM, grid } = ctx, coverage = field.coverage || field.idx;
     if (!coverage) return out;
+    const under = field.under || (field.under = new Uint8Array(N * N));
+    const underPresent = under.present || (under.present = new Uint8Array(N * N));
     // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
     // metres, the occupancy this pass claims into, the chest each POI minted.
     const { cellM: step, ox, oy, occ, chestAt: chests, cx, cy } = WG.dressFrame(ctx), opts = ctx.spawnOpts;
@@ -158,6 +160,8 @@
         // passes run; it remains a normal dry, walkable cell.
         const bankIndex = bank[1] * N + bank[0];
         occ.add(bankIndex); s.clear.add(bankIndex);
+        if (!under[i] && !underPresent[i]) under[i] = grid[i];
+        underPresent[i] = 1;
         grid[i] = WG.T[m.terrain];
         record = { kind: m.kind, id, x, y, ...extra, bankIx: bank[0], bankIy: bank[1] };
         (out.tidepools ||= []).push(record);
@@ -607,6 +611,7 @@
         if (!WG.isSpawnCell(grid, N, N, x, y, shoreOpts, 'reward')) continue;
         for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1]]) {
           const nx = x + dx, ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= N || ny >= N) continue;
           const j = ny * N + nx;
           const owner = states[coverage[j] - 1]?.a;
           const sameSite = owner && owner.gx === s.a.gx && owner.gy === s.a.gy && owner.key === s.a.key;

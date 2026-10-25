@@ -34,7 +34,8 @@
     // those timber pixels unchanged even when the ridge is a roof face.
     if ((key === 'com' || key === 'trader') && r > b * 1.1) return [r, g, b];
     const light = (hi+lo)/510;
-    const saturation = (hi-lo)/255/(1-Math.abs(2*light-1));
+    const saturation = hi === lo ? 0
+      : (hi-lo)/255/Math.max(1e-6, 1-Math.abs(2*light-1));
     const [hue, targetSaturation] = color;
     const sat = targetSaturation * .8 + saturation * .2;
     const chroma = (1-Math.abs(2*light-1))*sat;
