@@ -21,7 +21,7 @@ python3 tools/road-readability-study/report.py
 Output defaults to `~/.artifacts/road-readability-implementation/`.
 Set `OUT_DIR`, `GAME_URL`, or `CHROMIUM` to override it. Set `CELLS=21` for
 wider captures, before and after. Generate those before building the report if
-you want its wider-detail images. `verify.py` and `report.py` accept the output
+you want its wider-detail images, then build with `INCLUDE_WIDE=1`. `verify.py` and `report.py` accept the output
 directory as their first argument. The verifier needs Pillow.
 
 Metadata records the frozen renderer source hash, actual WebGL type/errors,
