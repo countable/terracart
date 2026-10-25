@@ -30,10 +30,10 @@ function cacheKey({ lat, lon }) {
 
 function compactWeather(payload, now = Date.now()) {
   const current = payload && payload.current;
-  const code = Number(current?.condition?.code);
-  if (!Number.isInteger(code)) throw weatherError('Weather service unavailable');
+  const code = Number(current?.condition?.code), temp = Number(current?.temp_c);
+  if (!Number.isInteger(code) || !Number.isFinite(temp)) throw weatherError('Weather service unavailable');
   const kind = kindFor(code, current.precip_mm);
-  return { precip: kind !== 'none', kind, condition: code, cachedAt: now };
+  return { precip: kind !== 'none', kind, condition: code, temp: Math.round(temp), cachedAt: now };
 }
 
 function createWeatherService(options = {}) {

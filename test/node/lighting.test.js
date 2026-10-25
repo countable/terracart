@@ -294,8 +294,8 @@ test('lighting: critically low, every light turns red and stutters on the heartb
     'the plateau is at least CRITICAL_PLAYER_TINT_A red');
   assert.eq(Lighting.critPaintProfile(ok, Lighting.profile(ok), null, null).litColour,
     Lighting.profile(ok).litColour, 'above 20% the paint is the plain profile');
-  assert.truthy(/const prof = critPaintProfile\(scene, profile\(scene, daylight\(scene, now\), now\), crit, now\);/.test(LIGHTING_SRC),
-    'draw() paints with it');
+  assert.truthy(/const prof = weatherPaintProfile\(scene,\s*critPaintProfile\(scene, profile\(scene, daylight\(scene, now\), now\), crit, now\)\);/.test(LIGHTING_SRC),
+    'draw() paints with it, weather tint layered outside the critical profile');
   assert.falsy(/critPaintProfile/.test(LIGHTING_SRC.slice(LIGHTING_SRC.indexOf('function brightnessAt'),
     LIGHTING_SRC.indexOf('function brightnessAt') + 3000)), 'brightnessAt does not — a ghost sees the plain light');
   assert.eq(Lighting.criticalLights(low, 0).a,

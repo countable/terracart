@@ -261,6 +261,10 @@ mechanics.
   `Combat.playerDamage` with no armour, so mode and the damage shield apply.
 - Job costs use `spendEnergy`; passive restoration pauses while `working`
   (work wheel or rest hold). Walking drains and enemy blows are not jobs.
+  Surface heat above 28°C doubles only tapped/cell work before that Energy
+  spend; silent combat drains retain their ordinary cost. The `work`
+  (Hardworking) `Buffs.KINDS` row cancels the multiplier while active. Surface
+  water entry at or below 0°C applies the shared `frozen` condition row.
 - `Pets` owns individual pet records in `save.released` (`pet: true`), including
   carried animals. Every animal and enemy has a FAVOURITE (`favouriteItems`,
   items.js: an animal's `ANIMAL_FOOD`, else an enemy's roster-tier gem from

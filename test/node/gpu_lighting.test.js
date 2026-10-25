@@ -11,7 +11,7 @@
       lightClock: () => 0, pulseClock: () => 0,
       collectMagicTraps: noop, collectFires: noop, collectLamps: noop, collectPlayer: noop,
       collectBolts: noop, collectBlasts: noop, criticalLights: () => null,
-      critPaintProfile: (scene, p) => p, profile: () => ({ lit: 1, edge: 0, litColour: 0xffffff }),
+      critPaintProfile: (scene, p) => p, weatherPaintProfile: (scene, p) => p, profile: () => ({ lit: 1, edge: 0, litColour: 0xffffff }),
       daylight: () => 1, radiusCells: () => 5, playerLightMul: () => 1,
       reachRadiusM: () => 0, ensurePlayerCookie: () => ({}),
       coverFrame: () => ({ canvas: canvas(), revision: 'cover', key: 'cover', x: 0, y: 0 }),

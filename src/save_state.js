@@ -170,24 +170,36 @@
   });
   // Does a cleared plant of this crop grow back on its own (a row above)?
   function regrows(crop) { return Object.hasOwn(WILD_REGROWTH, crop); }
-  function rememberClearedGrass(save, plant, now = Date.now(), random = Math.random) {
+  // Crop identity is discovered from the generated plant and remains runtime
+  // only. Deadlines keep their existing numeric save shape; cold-weather pause
+  // therefore cannot alter a generated id or require a save migration.
+  const regrowthKinds = new WeakMap();
+  function rememberClearedGrass(save, plant, now = Date.now(), random = Math.random, pauseElapsedMs = 0) {
     if (!plant || !regrows(plant.crop) || !plant.id || plant.playerOwned) return false;
+    let kinds = regrowthKinds.get(save);
+    if (!kinds) { kinds = new Map(); regrowthKinds.set(save, kinds); }
+    if (!kinds.has(plant.id)) kinds.set(plant.id, { crop: plant.crop, pauseBase: Math.max(0, Number(pauseElapsedMs) || 0) });
     const deadlines = save.grassRegrowth ||= {};
     if (Number.isFinite(deadlines[plant.id])) return false;
     const roll = Math.max(0, Math.min(1 - Number.EPSILON, random()));
     deadlines[plant.id] = now + Math.max(1, -Math.log1p(-roll) * WILD_REGROWTH[plant.crop]);
     return true;
   }
-  function regrowGrass(save, now = Date.now()) {
+  function regrowGrass(save, now = Date.now(), paused = null) {
     const deadlines = save.grassRegrowth;
     if (!deadlines || typeof deadlines !== 'object' || Array.isArray(deadlines)) return false;
     const cleared = new Set([...(save.picked || []), ...(save.burnedObjects || [])]);
     const grown = new Set();
     let changed = false;
+    const kinds = regrowthKinds.get(save);
     for (const [id, until] of Object.entries(deadlines)) {
-      if (!cleared.has(id) || !Number.isFinite(until) || until <= now) {
-        if (cleared.has(id) && Number.isFinite(until) && until <= now) grown.add(id);
+      const known = kinds?.get(id);
+      const effectiveNow = paused?.crop && known?.crop === paused.crop
+        ? now - Math.max(0, (Number(paused.elapsedMs) || 0) - known.pauseBase) : now;
+      if (!cleared.has(id) || !Number.isFinite(until) || until <= effectiveNow) {
+        if (cleared.has(id) && Number.isFinite(until) && until <= effectiveNow) grown.add(id);
         delete deadlines[id];
+        regrowthKinds.get(save)?.delete(id);
         changed = true;
       }
     }

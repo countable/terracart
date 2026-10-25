@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-b33e3fb4';
+    window.__shellVersion = 'shell-8ca04ade';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=698fd379" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=27d35146" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3141,7 +3141,7 @@
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=0dc0e0fd"></script>
-  <script src="src/habitat_spawns.js?v=ccd92227"></script>
+  <script src="src/habitat_spawns.js?v=28ec83dc"></script>
   <script src="src/traps.js?v=925461a6"></script>
   <script src="src/whirlwinds.js?v=30217fab"></script>
   <script src="src/hazard_falls.js?v=6834dff4"></script>
@@ -3176,12 +3176,12 @@
   <script src="src/items.js?v=f8224905"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=6d18eead"></script>
+  <script src="src/conditions.js?v=37a1a7a0"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=286067fc"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
-  <script src="src/save_state.js?v=35c6e4e3"></script>
+  <script src="src/save_state.js?v=6d6313d9"></script>
   <script src="src/gear.js?v=7cc0ead5"></script>
   <script src="src/rewards.js?v=497251ef"></script>
   <script src="src/shops_math.js?v=6e742728"></script>
@@ -3221,17 +3221,17 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=50d70fa2"></script>
+  <script src="src/interact.js?v=8599dfcc"></script>
   <script src="src/play_tips.js?v=4d1075a6"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=d405439d"></script>
+  <script src="src/lighting.js?v=8ccdcba9"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=2266f500"></script>
+  <script src="src/render.js?v=450992b3"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=298c9219"></script>
   <script src="src/multiplayer.js?v=2af3d29f"></script>
-  <script src="src/weather.js?v=bb48807e"></script>
+  <script src="src/weather.js?v=e76c0efa"></script>
   <script src="src/road_overlay.js?v=fafbd0ba"></script>
   <script src="src/temple_art.js?v=8e47066c"></script>
   <script src="src/wall_materials.js?v=9b6e86a9"></script>
@@ -3281,7 +3281,7 @@
   <script src="src/heading_up.js?v=7edafbe8"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=e61867e2"></script>
+  <script src="src/scene_create.js?v=ebb941b6"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
@@ -3360,7 +3360,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=698fd379';
+      const APP_SRC = 'src/app.js?v=27d35146';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

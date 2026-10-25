@@ -856,6 +856,10 @@ class SceneCreate {
     };
     bakeHalo('halo_red',  0xff2a2a, 0.55);   // out of energy
     bakeHalo('halo_dark', 0x05040a, 0.60);   // strayed far from the GPS
+    for (const name of ['cold', 'hot']) {
+      const row = Weather.EFFECTS[name];
+      bakeHalo(`halo_weather_${name}`, row.auraTint, row.auraPeak);
+    }
     // The ghost's glow (SpriteLayout.GHOST_GLOW): a soft disc in GHOST_TINT,
     // opaque at the centre and gone at the rim; the renderer scales it to the
     // row's px and fades it to the row's alpha.
@@ -1127,6 +1131,15 @@ class SceneCreate {
       .setMask(mask);
     this.playerHalo.clearMask();
     this.playerWorldContainer.add(this.playerHalo);
+    // Temperature aura is separate from the warning halo, so a cold/heat cue
+    // remains present when tiredness or GPS distance needs the warning channel.
+    this.weatherAura = this.add.image(this.viewCenterX, this.viewCenterY + this.playerFeetNudgeY, 'halo_weather_cold')
+      .setOrigin(0.5, 0.5)
+      .setDepth(9.65)
+      .setVisible(false)
+      .setMask(mask);
+    this.weatherAura.clearMask();
+    this.playerWorldContainer.add(this.weatherAura);
     // GPS marker: a soft shadow within one cell of the player, otherwise
     // the yellow ring. Update scales its radius down to half at five cells.
     // Ground paint, so it lives with the shadows and the walk-home lead

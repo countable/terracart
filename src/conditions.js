@@ -37,7 +37,7 @@
     jellyfish_stun: Object.freeze({ durationMs: 5000, attackSpeedMul: 0.5, blocksMovement: true,
       label: 'Stunned', tint: 0x89d9ff, flicker: false, ink: '#b9eaff', bg: '#102a3ae8' }),
     frozen: Object.freeze({ durationMs: 10000, moveSpeedMul: 0.5, attackSpeedMul: 0.5, refresh: false,
-      label: 'Chilled', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
+      label: 'Frozen', tint: FROZEN_TINT, flicker: false, ink: '#' + FROZEN_TINT.toString(16).padStart(6, '0'), bg: '#102a3ae8' }),
     paralysis: Object.freeze({ durationMs: 5000, maxDurationMs: 6000, blocksMovement: true, blocksAttacks: true,
       label: 'Paralysed', tint: 0x4f9fff, flicker: false, ink: '#b4d8ff', bg: '#0e1f3ae8' }),
     pinned: Object.freeze({ durationMs: 3000, blocksMovement: true,

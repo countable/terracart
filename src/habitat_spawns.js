@@ -419,7 +419,8 @@
       for (let n = 0; n < group.enemyRequested; n++) {
         if ((attempts++ & 31) === 0) yield 'spawn habitat population';
         const id = `enemy_habitat_${tx}_${ty}_${encodeURIComponent(group.key)}_${n}`;
-        const kind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        const baseKind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        const kind = typeof Weather !== 'undefined' ? Weather.enemyBirthKind(baseKind, id, scene) : baseKind;
         if (!kind) continue;
         const seat = yield* seatFor(group, kind, id, false);
         if (!seat) continue;
@@ -438,7 +439,8 @@
       for (let n = 0; n < group.enemyReserve; n++) {
         if ((attempts++ & 31) === 0) yield 'spawn habitat reserve';
         const id = `enemy_habitat_${tx}_${ty}_${encodeURIComponent(group.key)}_r${n}`;
-        const kind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        const baseKind = enemyKind(group.profile, id, group.type, { beach: group.beach });
+        const kind = typeof Weather !== 'undefined' ? Weather.enemyBirthKind(baseKind, id, scene) : baseKind;
         if (!kind) continue;
         const seat = yield* seatFor(group, kind, id, false);
         if (!seat) continue;

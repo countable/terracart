@@ -574,6 +574,17 @@
     const a = Math.max(LOW_ENERGY_A * w, CRITICAL_PLAYER_TINT_A) * heartbeatMul(w, now);
     return Object.assign({}, prof, { litColour: mixToWhite(LOW_ENERGY_TINT, Math.min(1, a)) });
   }
+  // Temperature changes the colour of this existing lightmap rather than
+  // adding a second screen pass. Underground and mild weather return the
+  // original profile byte-for-byte; frameKey sees the changed colours.
+  function weatherPaintProfile(scene, prof) {
+    const effect = typeof Weather !== 'undefined' ? Weather.lightEffect(scene) : null;
+    if (!effect) return prof;
+    return Object.assign({}, prof, {
+      ambient: mixColour(prof.ambient, effect.tint, effect.mix),
+      litColour: mixColour(prof.litColour, effect.tint, effect.mix),
+    });
+  }
   // Colour maths is BiomeProfiles.mixHex, the one channel lerp every module
   // shares. `a` lerped `t` of the way to `b`, per channel:
   const mixColour = (a, b, t) => BiomeProfiles.mixHex(a, b, t);
@@ -1786,7 +1797,8 @@
     // Critically low: every light red, dimmed and stuttering, and the
     // player's own red raised (criticalLights / critPaintProfile).
     const crit = criticalLights(scene, now);
-    const prof = critPaintProfile(scene, profile(scene, daylight(scene, now), now), crit, now);
+    const prof = weatherPaintProfile(scene,
+      critPaintProfile(scene, profile(scene, daylight(scene, now), now), crit, now));
     const k = CELL_PX / scene.cellM;                 // metres → screen px
     // The ramp's extent: the player row's radius — the viewport's half-
     // diagonal plus PLAYER_RAMP_PAST_CORNER_CELLS, so the corners stay lit.
