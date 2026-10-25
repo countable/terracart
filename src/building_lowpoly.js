@@ -95,10 +95,10 @@
     if(restored&&RESTORED_ROLES[role]&&(!LOOK.restoredRoles||LOOK.restoredRoles.includes(role)))Object.assign(recipe,RESTORED_ROLES[role]);
     return recipe;
   }
-  const cross = (a,b,c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  const cross = PolygonGeometry.cross;
   function triangulate(input) {
     const ring=input.map(p=>({...p}));
-    if(ring.reduce((s,p,i)=>s+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring.reverse();
+    PolygonGeometry.ensureCCW(ring);
     PolygonGeometry.removeCollinear(ring);
     return {ring,triangles:PolygonGeometry.triangulate(ring)};
   }
@@ -127,8 +127,8 @@
   }
   function flatBands(ring,z,add,faces){
     if(typeof BuildingStyles==='undefined')return;
-    // Terrace rings may run either way; inset() needs the triangulate() winding.
-    if(ring.reduce((n,p,i)=>n+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring=[...ring].reverse();
+    // Terrace rings may run either way; copy because the caller owns this ring.
+    ring=PolygonGeometry.ensureCCW(ring.slice());
     const band=(outer,inner,flag,layer)=>outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],c=inner[(i+1)%inner.length],d=inner[i];
       for(const tri of [[a,b,c],[a,c,d]]){add(tri.map(p=>({x:p.x,y:p.y,z:z+.01,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{[flag]:true,layer,inkGroup:1});}});
     const rim=BuildingStyles.inset(ring,LOOK.flatRim,2),shade=rim&&BuildingStyles.inset(ring,LOOK.flatShade,2);
@@ -599,6 +599,8 @@
             color:0xffffff,layer:2.4,wallTop:true,rawUV:true,chippedCap:true});
         });
       }else for(const f of base.faces.filter(f=>f.kind==='wall')){faces.push(f);faces.push({...f,interior:true,light:WRECK_INSIDE_LIGHT,points:[...f.points].reverse()});}
+      // This wreck scatter retains its boundary-exclusive ray rule; rubble on
+      // the wall edge must stay outside rather than use pointInPolygon's epsilon.
       const inside=p=>{let hit=false;
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       // Flat ground follows the exact triangulated footprint, including concave returns.
@@ -640,7 +642,7 @@
       if(gap){const mx=(gap.o0.x+gap.o1.x)/2,my=(gap.o0.y+gap.o1.y)/2,ox=mx-(gap.i0.x+gap.i1.x)/2,oy=my-(gap.i0.y+gap.i1.y)/2,ol=Math.hypot(ox,oy)||1;
         const tx=gap.o1.x-gap.o0.x,ty=gap.o1.y-gap.o0.y;
         for(const [along,out] of [[-.3,4],[.25,6]]){chunk(chunks++,mx+tx*along+ox/ol*out,my+ty*along+oy/ol*out);}}
-      const rubbleCount=Math.max(10,Math.min(24,Math.round(Math.abs(points.reduce((a,p,i)=>{const q=points[(i+1)%points.length];return a+p.x*q.y-q.x*p.y;},0)/2)/900)));
+      const rubbleCount=Math.max(10,Math.min(24,Math.round(Math.abs(PolygonGeometry.polyArea(points))/900)));
       for(let k=0;k<rubbleCount*8&&chunks<rubbleCount;k++){const n=hash(seed+k,41),m=hash(seed+k,43);
         const x=xlo+6+(xhi-xlo-12)*n,y=ylo+6+(yhi-ylo-12)*m;
         if(inside({x,y})&&inside({x:x+4,y})&&inside({x:x-4,y})&&inside({x,y:y+4})&&inside({x,y:y-4}))chunk(chunks++,x,y);}
@@ -1726,11 +1728,7 @@
     const loY=Math.min(...points.map(p=>p.y))*.5,hiY=Math.max(...points.map(p=>p.y))*.5;
     const W=hiX-loX,D=hiY-loY;
     let fitRing=ring;
-    const inside=p=>{let hit=false;for(let i=0,j=fitRing.length-1;i<fitRing.length;j=i++){
-      const a=fitRing[j],b=fitRing[i];
-      if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
-      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
-    }return hit;};
+    const inside=p=>PolygonGeometry.pointInPolygon(fitRing,p,1e-7);
     const fits=(cx,cy,scale,pad=0)=>{
       const hw=W*scale/2+pad,hd=D*scale/2+pad;
       const rect=[{x:cx-hw,y:cy-hd},{x:cx+hw,y:cy-hd},{x:cx+hw,y:cy+hd},{x:cx-hw,y:cy+hd}];

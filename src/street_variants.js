@@ -1172,9 +1172,9 @@
       for (const p of path) {
         while (clean.length > 1) {
           const a = clean[clean.length - 2], b = clean[clean.length - 1];
-          const cross = (b.x - a.x) * (p.y - b.y) - (b.y - a.y) * (p.x - b.x);
+          const turn = PolygonGeometry.cross(a, b, p);
           const dot = (b.x - a.x) * (p.x - b.x) + (b.y - a.y) * (p.y - b.y);
-          if (Math.abs(cross) > 1e-7 || dot < 0) break;
+          if (Math.abs(turn) > 1e-7 || dot < 0) break;
           clean.pop();
         }
         clean.push(p);

@@ -3,14 +3,13 @@
   const EPS=1e-6;
   const LIMITS={vertices:64,sections:128,pieces:512,merlons:192,towers:12,cache:48};
   const cache=new Map();
-  const cross=(a,b,c)=>(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
-  const area=p=>p.reduce((s,a,i)=>{const b=p[(i+1)%p.length];return s+a.x*b.y-b.x*a.y;},0)/2;
+  const {cross,polyArea:area,ensureCCW}=PolygonGeometry;
   const rect=(x,y,w,h)=>[{x:x-w/2,y:y-h/2},{x:x+w/2,y:y-h/2},{x:x+w/2,y:y+h/2},{x:x-w/2,y:y+h/2}];
   function clean(p){const q=p.filter((a,i)=>Math.hypot(a.x-p[(i+p.length-1)%p.length].x,a.y-p[(i+p.length-1)%p.length].y)>EPS);return q.length>=3&&Math.abs(area(q))>EPS?q:[];}
   function half(poly,a,b,positive=true){const out=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],dp=cross(a,b,p)*(positive?1:-1),dq=cross(a,b,q)*(positive?1:-1),ip=dp>=-EPS,iq=dq>=-EPS;if(ip)out.push(p);if(ip!==iq){const t=dp/(dp-dq);out.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t});}}return clean(out);}
   function intersect(a,b){let p=a;for(let i=0;p.length&&i<b.length;i++)p=half(p,b[i],b[(i+1)%b.length]);return p;}
   function subtract(a,b){let inside=a;const outside=[];for(let i=0;inside.length&&i<b.length;i++){const p=b[i],q=b[(i+1)%b.length],part=half(inside,p,q,false);if(part.length)outside.push(part);inside=half(inside,p,q,true);}return outside;}
-  function pointIn(p,ring){let yes=false;for(let i=0,j=ring.length-1;i<ring.length;j=i++){const a=ring[j],b=ring[i];if(Math.abs(cross(a,b,p))<EPS&&p.x>=Math.min(a.x,b.x)-EPS&&p.x<=Math.max(a.x,b.x)+EPS&&p.y>=Math.min(a.y,b.y)-EPS&&p.y<=Math.max(a.y,b.y)+EPS)return true;if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)yes=!yes;}return yes;}
+  const pointIn=(p,ring)=>PolygonGeometry.pointInPolygon(ring,p,EPS);
   function contains(poly,ring){if(!poly.every(p=>pointIn(p,ring)))return false;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length];if(!pointIn({x:(a.x+b.x)/2,y:(a.y+b.y)/2},ring))return false;for(let j=0;j<ring.length;j++){const c=ring[j],d=ring[(j+1)%ring.length];if(cross(a,b,c)*cross(a,b,d)<-EPS&&cross(c,d,a)*cross(c,d,b)<-EPS)return false;}}return true;}
   const overlap=(a,b)=>Math.abs(area(intersect(a,b)))>EPS;
   function edgeStrip(a,b,width=8){const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy),nx=-dy/l,ny=dx/l;return [a,b,{x:b.x+nx*width,y:b.y+ny*width},{x:a.x+nx*width,y:a.y+ny*width}];}
@@ -92,7 +91,7 @@
       const a=points[i],b=points[(i+1)%points.length],c=points[j],d=points[(j+1)%points.length];
       if(cross(a,b,c)*cross(a,b,d)<-EPS&&cross(c,d,a)*cross(c,d,b)<-EPS)return null;
     }
-    if(area(points)<0)points.reverse();const start=points.reduce((best,p,i)=>p.x<points[best].x||(p.x===points[best].x&&p.y<points[best].y)?i:best,0);points=points.slice(start).concat(points.slice(0,start));
+    ensureCCW(points);const start=points.reduce((best,p,i)=>p.x<points[best].x||(p.x===points[best].x&&p.y<points[best].y)?i:best,0);points=points.slice(start).concat(points.slice(0,start));
     const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y})),key=JSON.stringify([local,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.sectionLength]);
     let layout=cache.get(key);
     if(layout===undefined){layout=compute(local,options);if(cache.size>=LIMITS.cache)cache.delete(cache.keys().next().value);cache.set(key,layout);}
