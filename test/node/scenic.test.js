@@ -381,7 +381,9 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
     if (reward.slot) assert.lte(reward.tier, reward.rolledTier, 'gear respects grail quality');
     sum += val(reward);
   }
-  assert.inRange(sum / N, 700, 1100, 'the T5 grail pays its tripled treasure budget without becoming T7');
+  // Chest gear starts a tier under the roll (ChestThemes.CHEST_GEAR), which
+  // took the grail's mean from ~900 to ~570.
+  assert.inRange(sum / N, 450, 750, 'the T5 grail pays a treasure budget without becoming T7');
 });
 
 test('scenic: the scope opens its menu on every visit and gives one backpack', () => {

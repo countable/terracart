@@ -262,6 +262,9 @@ test('pickReward: a carried key improves treasure rolls like one luck upgrade', 
     const base = roll({});
     const keyed = roll({ inv: [{ id: 'lucky_key', count: 1 }] });
     const upgraded = roll({ luckUpgrades: 1 });
+    // The equipment lane draws over unique relics not carried, so the carried
+    // key itself changes that lane's pool; compare the rest.
+    if (keyed.group === 'bonusGear' || upgraded.group === 'bonusGear') continue;
     assert.eq(JSON.stringify(keyed), JSON.stringify(upgraded), 'same RNG gets the same luck bonus');
     if (JSON.stringify(keyed) !== JSON.stringify(base)) changed++;
   }
@@ -503,7 +506,8 @@ test('cave supplies: shallow caves add medicine and practical supplies', () => {
       }
       return magic / 5000;
     });
-    assert.gt(rates[1], rates[0] + 0.15, 'caves add a meaningful magic share');
+    // The overlay shares the row with the equipment lane (ChestThemes.CHEST_GEAR).
+    assert.gt(rates[1], rates[0] + 0.1, 'caves add a meaningful magic share');
   }
 });
 
