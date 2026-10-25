@@ -1521,5 +1521,6 @@ class SceneCreate {
     // Other players. No-op until the save carries a player name (the
     // welcome splash / ☰ menu set it); tick() picks it up once it does.
     if (!window.__TEST_MODE && typeof Multiplayer !== 'undefined') Multiplayer.start(this);
+    if (!window.__TEST_MODE && typeof Weather !== 'undefined') Weather.start(this);
   }
 }
