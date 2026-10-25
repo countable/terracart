@@ -9,7 +9,15 @@
     // GUSTY HOURS: dust devils rise on hot afternoons. Between these local
     // hours an encounter roll is chanceMul times likelier, raises up to
     // maxActive whirlwinds at once, and the next can come after cooldownMs.
-    gust: Object.freeze({ fromHour: 14, toHour: 17, chanceMul: 4, maxActive: 3, cooldownMs: 30000 }) });
+    gust: Object.freeze({ fromHour: 14, toHour: 17, chanceMul: 4, maxActive: 3, cooldownMs: 30000 }),
+    // Weather wind starts at 10 km/h because a gentle breeze should stay calm.
+    // Six times the base chance makes a windy cell visit noticeable, not certain.
+    // Each extra 10 km/h raises one tornado and removes ten seconds of cooldown;
+    // the caps keep a storm readable on a phone-sized field.
+    wind: Object.freeze({ minKph: 10, chanceMul: 6, cooldownMs: 45000, minCooldownMs: 25000,
+      maxActiveFor: kph => 1 + Math.min(2, Math.floor(Math.max(0, kph - 10) / 10)),
+      cooldownFor: kph => Math.max(25000, 45000 - Math.floor(Math.max(0, kph - 10) / 10) * 10000) }) });
+  const WEATHER_GROUND = 'weather';
   function gusty(wall = Date.now()) {
     const h = new Date(wall).getHours();
     return h >= CONFIG.gust.fromHour && h < CONFIG.gust.toHour;
@@ -29,21 +37,23 @@
   function openTurf(entry, p) {
     return terrain(p.type) && (!entry.mappedLand || !!entry.mappedLand[p.iy * entry.cellsPerEdge + p.ix]);
   }
-  // `anyGround` drops the whirlwind's own grassy-terrain rule — a Scroll of
-  // Wind's gust blows a foe across any ground the enemy gate allows.
-  function ground(scene, x, y, from = null, anyGround = false) {
+  // A weather tornado drops only the grassy-terrain rule, so every surface
+  // biome retains the hazard gate and the quiet starting area. Boolean true
+  // remains the Scroll of Wind's broader enemy-movement gate.
+  function ground(scene, x, y, from = null, mode = false) {
     const p = scene.cellAt(x, y);
     if (!p.loaded) return false;
     const W = root.WorldGen, entry = W.tileCache.get(W.tileKey(p.tx, p.ty));
-    if (!entry?._spawnOpts || (!anyGround && !openTurf(entry, p))) return false;
-    if (!anyGround && typeof HomeArea !== 'undefined' && HomeArea.isNear(x, y)) return false;
+    const scroll = mode === true, weather = mode === WEATHER_GROUND;
+    if (!entry?._spawnOpts || (!scroll && !weather && !openTurf(entry, p))) return false;
+    if (!scroll && typeof HomeArea !== 'undefined' && HomeArea.isNear(x, y)) return false;
     // The shared gate keeps roads, restricted land and KINDERGARTEN out;
     // SCHOOL is deliberately allowed, just as ordinary school fields are.
     // A pushed creature may occupy a reserved spawn seat. Allow it to leave
     // that cell without treating its own seat as a solid wall.
     const leavingSeat = from && p.tx === from.tx && p.ty === from.ty && p.ix === from.ix && p.iy === from.iy;
     const opts = leavingSeat ? { ...entry._spawnOpts, occupied: null } : entry._spawnOpts;
-    const cls = anyGround ? 'enemy' : 'hazard';
+    const cls = scroll ? 'enemy' : 'hazard';
     return W.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
       p.ix, p.iy, opts, cls)
       && !W.privateVetoAt(p.tx, p.ty, p.ix, p.iy);
@@ -68,23 +78,29 @@
     const seen = scene._whirlwindVisits ||= new Set();
     if (seen.has(key)) return;
     seen.add(key);
-    const gust = gusty(wall), max = gust ? CONFIG.gust.maxActive : 1;
+    const windKph = typeof Weather !== 'undefined' ? Number(Weather.state()?.windKph) : NaN;
+    const windy = Number.isFinite(windKph) && windKph >= CONFIG.wind.minKph;
+    const gust = gusty(wall), max = windy ? CONFIG.wind.maxActiveFor(windKph) : gust ? CONFIG.gust.maxActive : 1;
+    const groundMode = windy ? WEATHER_GROUND : false;
     if (scene._whirlwinds.length >= max || now < (scene._whirlwindNextEncounter || 0)
-        || !ground(scene, x, y)) return;
+        || !ground(scene, x, y, null, groundMode)) return;
     const rng = root.WorldGen.makeRng(fnv1a(`whirlwind:${key}`));
-    if (rng() >= CONFIG.chance * (gust ? CONFIG.gust.chanceMul : 1)) return;
-    // One roll raises the whole gusty-hour group; each member is seated on
-    // its own seed, and never on top of another.
+    const chanceMul = windy ? CONFIG.wind.chanceMul : gust ? CONFIG.gust.chanceMul : 1;
+    if (rng() >= CONFIG.chance * chanceMul) return;
+    // One roll fixes the whole weather/gust group from this cell/day seed;
+    // later wind changes never add members to an encounter already decided.
     const apart = scene.cellM;
     for (let n = 0; n < max && scene._whirlwinds.length < max; n++) {
       const id = n ? `whirlwind:${key}:${n}` : `whirlwind:${key}`;
       const point = scene.findWalkableDestination(CONFIG.spawnDistanceCells,
-        { seed: id, cls: 'enemy', accept: (wx, wy) => ground(scene, wx, wy)
+        { seed: id, cls: windy ? 'hazard' : 'enemy', accept: (wx, wy) => ground(scene, wx, wy, null, groundMode)
           && scene._whirlwinds.every(h => Math.hypot(h.x - wx, h.y - wy) >= apart) });
       if (!point) continue;
       scene._whirlwinds.push(create(point, now, n ? root.WorldGen.makeRng(fnv1a(id)) : rng, id));
     }
-    scene._whirlwindNextEncounter = now + (gust ? CONFIG.gust.cooldownMs : CONFIG.encounterCooldownMs);
+    const cooldown = windy ? CONFIG.wind.cooldownFor(windKph)
+      : gust ? CONFIG.gust.cooldownMs : CONFIG.encounterCooldownMs;
+    scene._whirlwindNextEncounter = now + cooldown;
   }
 
   // A forced move may not cross a road, building, private area or unloaded cell.
@@ -231,5 +247,5 @@
     for (const c of live) pushStep(scene, c, dt, now);
     if (now >= (scene._whirlwindPushUntil || 0)) scene._whirlwindPushUntil = 0;
   }
-  root.Whirlwinds = { CONFIG, gusty, terrain, openTurf, ground, frame, create, observe, sweep, impulse, displacePlayer, pushStep, contact, tick };
+  root.Whirlwinds = { CONFIG, WEATHER_GROUND, gusty, terrain, openTurf, ground, frame, create, observe, sweep, impulse, displacePlayer, pushStep, contact, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
