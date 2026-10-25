@@ -243,4 +243,50 @@
       assert.eq(WorldGen.prefetchTileBytes(15003, 15004), null, 'retry floor also guards lookahead');
     } finally { globalThis.fetch = fetch; WorldGen.setDepth(0); }
   });
+  // Without requestIdleCallback (iOS Safari) the ring waits for one quick
+  // frame, not a flat RING_IDLE_TIMEOUT_MS: that wait cost ~450 ms per tile.
+  function idleFallback() {
+    const m = SCENE_GEO_SRC.match(/^  _whenIdle\(\) \{([\s\S]*?)^  \}/m);
+    assert.truthy(m, 'extract _whenIdle');
+    const consts = ['RING_IDLE_TIMEOUT_MS', 'RING_IDLE_FRAME_MS'].map(n => {
+      const c = SCENE_GEO_SRC.match(new RegExp(`^const ${n} = (\\d+);`, 'm'));
+      assert.truthy(c, `read ${n}`);
+      return Number(c[1]);
+    });
+    const frames = [];
+    let now = 0;
+    const raf = (fn) => frames.push(fn);
+    const whenIdle = new Function('requestIdleCallback', 'requestAnimationFrame', 'performance',
+      'RING_IDLE_TIMEOUT_MS', 'RING_IDLE_FRAME_MS', `return function() {${m[1]}}`)(
+      undefined, raf, { now: () => now }, ...consts);
+    // Run the next frame `gap` ms after the last one.
+    const frame = (gap) => { now += gap; frames.shift()(now); };
+    return { whenIdle, frame, timeout: consts[0] };
+  }
+
+  test('tile prefetch: rAF idle fallback resolves on the first quick frame', async () => {
+    const f = idleFallback();
+    let done = false;
+    f.whenIdle().then(() => { done = true; });
+    f.frame(16);
+    await flush();
+    assert.falsy(done, 'one frame has no gap to judge');
+    f.frame(80);
+    await flush();
+    assert.falsy(done, 'a slow frame is not idle');
+    f.frame(16);
+    await flush();
+    assert.truthy(done, 'a 60 fps frame is idle');
+  });
+
+  test('tile prefetch: rAF idle fallback still resolves on a thread that never settles', async () => {
+    const f = idleFallback();
+    let done = false;
+    f.whenIdle().then(() => { done = true; });
+    f.frame(0);
+    let waited = 0;
+    while (!done && waited < f.timeout * 2) { f.frame(100); waited += 100; await flush(); }
+    assert.truthy(done, 'resolved');
+    assert.truthy(waited <= f.timeout + 100, `resolved by the timeout (waited ${waited} ms)`);
+  });
 })();
