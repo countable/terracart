@@ -234,7 +234,7 @@ test('road overlay: widths come from the rasterizer\'s own table', () => {
   }
 });
 
-test('road overlay: wider classes are stroked first so narrow ones read on top', () => {
+test('road overlay: larger roads are stroked last so they cover smaller ones', () => {
   clearTiles();
   putTile(0, 0, [
     line([{ x: 0, y: 0 }, { x: 16, y: 0 }], { class: 'footway' }),
@@ -246,7 +246,7 @@ test('road overlay: wider classes are stroked first so narrow ones read on top',
   const widths = scene.roadGeomGfx.paths.map(p => p.style.w);
   assert.eq(widths.length, 3, 'three ways stroked');
   for (let i = 1; i < widths.length; i++)
-    assert.truthy(widths[i - 1] > widths[i], 'widest first: ' + widths.join(','));
+    assert.truthy(widths[i - 1] < widths[i], 'largest last: ' + widths.join(','));
 });
 
 // ── Path continuity ───────────────────────────────────────────────────────
@@ -1284,7 +1284,7 @@ test('restored patch: no blur available means a hard edge, never a fake feather'
 
 test('restored patch: the softening is the LAST thing the pass does', () => {
   const src = ROAD_OVERLAY_SRC;
-  const at = src.indexOf('function* commitRestoredSteps(pass) {');
+  const at = src.indexOf('function* paintRestoredWidthSteps(pass) {');
   assert.gt(at, 0, 'found the restored pass');
   const body = src.slice(at, src.indexOf('\n  }\n', at));
   // Crisp first, feathered last: the setts and the kerb are laid at full
@@ -1335,7 +1335,7 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
         fillRect() { fills.push(this.fillStyle); },
         // Real drawImage snapshots pixels immediately. Store the geometry now
         // rather than retaining the pooled scratch canvas after its next use.
-        drawImage(image) { drawn.push({ cx: { moves: image.cx.moves.map((p) => p.slice()) } }); },
+        drawImage(image) { drawn.push({ cx: { moves: [...image.cx.moves, ...image.cx.drawn.flatMap(d => d.cx.moves)].map(p => p.slice()) } }); },
         createPattern(tile) { return { tile }; },
       }, { get(target, key) { return key in target ? target[key] : () => {}; } });
       return { width: 0, height: 0, cx, getContext: () => cx };
@@ -1355,7 +1355,7 @@ test('road overlay: equal pavement colors retain distinct road and path canvas l
       RoadOverlay.draw(scene);
       assert.eq(images.length, 1, 'the real canvas adapter was used');
       assert.eq(restored.cx.drawn.length, 2, 'each pavement theme composites exactly once');
-      const [road, path] = restored.cx.drawn;
+      const [path, road] = restored.cx.drawn;
       assert.truthy(road.cx.moves.length > 0 && path.cx.moves.length > 0);
       assert.eq(new Set(road.cx.moves.map(p => p[1])).size, 1, 'road layer contains only its own geometry');
       assert.eq(new Set(path.cx.moves.map(p => p[1])).size, 1, 'path layer contains only its own geometry');
@@ -1447,3 +1447,20 @@ test('rift pavement: restoration retains weathered stone and replaces cracks wit
       && ink === StreetVariants.SUPPRESSED_STYLE.stone.accent), 'border uses the same turquoise');
   } finally { document.createElement = real; }
 });
+
+
+test('road overlay: variant seams follow material changes in metre space, excluding gaps and endpoints', () => withStreets(() => {
+  const geometry = [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }];
+  const seams = RoadOverlay.variantSeams(geometry, 2, [
+    { a: 25, b: 40, variant: 'berry' },
+    { a: 0, b: 20, variant: 'lantern' },
+    { a: 20, b: 25, variant: 'berry' },
+  ]);
+  assert.eq(seams.length, 1, 'equal adjacent materials have no extra seam');
+  assert.eq(seams[0].x, 20); assert.eq(seams[0].y, 0);
+  assert.eq(Math.hypot(seams[0].nx, seams[0].ny), 1, 'normal is unit length');
+  assert.eq(seams[0].before, 'lantern'); assert.eq(seams[0].after, 'berry');
+  assert.eq(RoadOverlay.variantSeams(geometry, 2, [
+    { a: 0, b: 10, variant: 'lantern' }, { a: 15, b: 40, variant: 'berry' },
+  ]).length, 0, 'no seam across a source gap');
+}));

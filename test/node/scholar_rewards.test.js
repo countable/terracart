@@ -56,7 +56,7 @@
   test('scholar lending: Home refuses a borrowed tome, including a stale sale confirmation', () => {
     const s = fixture(), id = Macros.scholarShelf()[0];
     Object.assign(s, {
-      presentHomeSell: method('presentHomeSell'), _homeTabs: () => [], _homeKindIcon: () => undefined,
+      presentHomeSell: method('presentHomeSell'), _homeTabs: () => [], _homeKindIcon: () => undefined, _homeKindLabel: () => undefined,
       showOfferModal(o) { this.offer = o; }, iconSpanHTML: () => '', moneyHTML: String, flash() {},
     });
     Inventory.add(s.save, id, 1);

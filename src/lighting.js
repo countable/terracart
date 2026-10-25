@@ -2139,18 +2139,31 @@
     }
     return layer;
   }
-  function paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H) {
-    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
-    if (!HA || !indoors?.ring?.length) return;
+  // The room's wall footprint on screen (offset by ox, oy) and its lift.
+  // Low-poly interior walls grow outward from the playable footprint.
+  // Expand in the ground plane, then lift by height alone, just as the mesh does.
+  function indoorShell(scene, HA, indoors, ax, ay, ox = 0, oy = 0) {
     const lift = indoorLift(scene, HA, indoors);
     const pts = indoors.ring.map(p => {
       const sp = deltaMToScreen(scene, p.x - ax, p.y - ay);
       return { x: sp.x - ox, y: sp.y - oy };
     });
-    // Low-poly interior walls grow outward from the playable footprint.
-    // Expand in the ground plane, then lift by height alone, just as the mesh does.
     const outset = scene._proceduralBuildings?.get(indoors.buildingKey || scene.save?.starterShopId)?.wallOutset || 0;
-    const shell = outset > 0 ? insetRing(pts, -outset) || pts : pts;
+    return { shell: outset > 0 ? insetRing(pts, -outset) || pts : pts, lift };
+  }
+  // The topmost screen y of the lit room (the mask's outer cut), measured
+  // from the anchor (ax, ay) in deltaMToScreen space, or null. Home's sign
+  // seats just above it, in the dark outside.
+  function indoorTopPx(scene, indoors, ax, ay) {
+    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
+    if (!HA || !indoors?.ring?.length) return null;
+    const { shell, lift } = indoorShell(scene, HA, indoors, ax, ay);
+    return Math.min(...indoorSilhouette(shell, lift).map(p => p.y));
+  }
+  function paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H) {
+    const HA = (typeof HomeArea !== 'undefined') ? HomeArea.HOUSE : null;
+    if (!HA || !indoors?.ring?.length) return;
+    const { shell, lift } = indoorShell(scene, HA, indoors, ax, ay, ox, oy);
     const cuts = indoorCuts(shell, lift, HA.maskFeatherPx || 0);
     // The mask is built on its own layer — the cuts erase it, not the lights
     // under it — then laid over the lightmap.
@@ -2195,7 +2208,7 @@
   }
 
   window.Lighting = {
-    KINDS, radiusCells, indoorSilhouette, indoorCuts, paintIndoorMask, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
+    KINDS, radiusCells, indoorSilhouette, indoorCuts, paintIndoorMask, indoorTopPx, TORCH_RADIUS_MUL, TORCH_DAY_FLOOR, torchStrength, FALLOFF_A, FALLOFF_P, AMBIENT_K, AMBIENT_DAY_LUM, PLAYER_OUTPUT_K, PLATEAU_OUTPUT_K, REACH_OUTPUT_K, litDim, POI_PULSE_PERIOD_S,
     NIGHT_DIM_A, NIGHT_TINT_KEEP, DAY_ELEV_DEG, NIGHT_ELEV_DEG,
     sunElevationDeg, daylightFromElevation, daylightAtTime, daylight,
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,

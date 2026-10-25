@@ -1,0 +1,394 @@
+{
+  "cases": [
+    {
+      "id": "crossing",
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ]
+        },
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              -5
+            ],
+            [
+              12,
+              5
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "parallel",
+      "roads": [
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              -12,
+              -1
+            ],
+            [
+              12,
+              -1
+            ]
+          ]
+        },
+        {
+          "name": "Berry Trail",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "berry_trail",
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ]
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              2
+            ],
+            [
+              12,
+              2
+            ]
+          ]
+        },
+        {
+          "name": "Greenway",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "greenway",
+          "points": [
+            [
+              -12,
+              3
+            ],
+            [
+              12,
+              3
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "seam",
+      "roads": [
+        {
+          "name": "Theme Transition",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "segments": [
+            {
+              "from": 0,
+              "to": 0.5,
+              "variant": "lantern"
+            },
+            {
+              "from": 0.5,
+              "to": 1,
+              "variant": "berry"
+            }
+          ]
+        },
+        {
+          "name": "Path Transition",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "greenway",
+          "points": [
+            [
+              -12,
+              5
+            ],
+            [
+              12,
+              5
+            ]
+          ],
+          "segments": [
+            {
+              "from": 0,
+              "to": 0.5,
+              "variant": "greenway"
+            },
+            {
+              "from": 0.5,
+              "to": 1,
+              "variant": "confusion_path"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restored-crossing",
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ]
+        },
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              12
+            ]
+          ],
+          "restored": true
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              -5
+            ],
+            [
+              12,
+              5
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "restored-seam",
+      "roads": [
+        {
+          "name": "Theme Transition",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "segments": [
+            {
+              "from": 0,
+              "to": 0.5,
+              "variant": "lantern"
+            },
+            {
+              "from": 0.5,
+              "to": 1,
+              "variant": "berry"
+            }
+          ],
+          "restored": true
+        },
+        {
+          "name": "Path Transition",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "greenway",
+          "points": [
+            [
+              -12,
+              5
+            ],
+            [
+              12,
+              5
+            ]
+          ],
+          "segments": [
+            {
+              "from": 0,
+              "to": 0.5,
+              "variant": "greenway"
+            },
+            {
+              "from": 0.5,
+              "to": 1,
+              "variant": "confusion_path"
+            }
+          ],
+          "restored": true
+        }
+      ]
+    },
+    {
+      "id": "seam-off",
+      "roads": [
+        {
+          "name": "Theme Transition",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "segments": [
+            {
+              "from": 0,
+              "to": 0.5,
+              "variant": "lantern"
+            },
+            {
+              "from": 0.5,
+              "to": 1,
+              "variant": "berry"
+            }
+          ]
+        },
+        {
+          "name": "Path Transition",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "greenway",
+          "points": [
+            [
+              -12,
+              5
+            ],
+            [
+              12,
+              5
+            ]
+          ],
+          "segments": [
+            {
+              "from": 0,
+              "to": 0.5,
+              "variant": "greenway"
+            },
+            {
+              "from": 0.5,
+              "to": 1,
+              "variant": "confusion_path"
+            }
+          ]
+        }
+      ],
+      "seams": false
+    },
+    {
+      "id": "wide-reference",
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

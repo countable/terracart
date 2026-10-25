@@ -1,0 +1,224 @@
+{
+  "cases": [
+    {
+      "id": "md-weathered",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restored": false
+        },
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              -5
+            ],
+            [
+              12,
+              5
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-restored",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restored": true
+        },
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              -5
+            ],
+            [
+              12,
+              5
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lg-weathered",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "primary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restored": false
+        },
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              -5
+            ],
+            [
+              12,
+              5
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "lg-restored",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Main Road",
+          "class": "primary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restored": true
+        },
+        {
+          "name": "Lantern Row",
+          "class": "minor",
+          "variant": "lantern",
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              12
+            ]
+          ]
+        },
+        {
+          "name": "Confusion Path",
+          "class": "path",
+          "tags": {
+            "subclass": "footway"
+          },
+          "variant": "confusion_path",
+          "points": [
+            [
+              -12,
+              -5
+            ],
+            [
+              12,
+              5
+            ]
+          ]
+        }
+      ]
+    }
+  ]
+}

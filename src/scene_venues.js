@@ -672,6 +672,11 @@ class SceneVenues {
   _homeKindIcon() {
     return this.worldIconHTML('house', 30, 'front') || undefined;
   }
+  // Home's luxury score rides its dialog's label chip on every page (the map
+  // shows only its rank, on the sign).
+  _homeKindLabel() {
+    return `Luxury ${Furniture.luxuryOf(this.save, this.save.starterShopId)}`;
+  }
 
   // SELL page: one item per tap from the selected stack — confirm first so
   // an accidental home tap can't silently dump a high-value item. Sword relic
@@ -689,7 +694,7 @@ class SceneVenues {
     // easily-missed rule in the economy.
     if (!hasSel) {
       this.showOfferModal({
-        kind: 'shop', kindIcon, tabs, art: 'home_sell',
+        kind: 'shop', kindIcon, kindLabel: this._homeKindLabel(), tabs, art: 'home_sell',
         title: 'Sell from your stash',
         get: targetId ? 'Sold out' : 'Nothing picked to sell',
         blurb: sel && Macros.scholarLoaned(this.save, sel.id) > 0
@@ -711,7 +716,7 @@ class SceneVenues {
     const iconHTML = this.iconSpanHTML(sellId);
     const itemName = item?.name || sellId;
     this.showOfferModal({
-      kind: 'shop', kindIcon, tabs, art: 'home_sell',
+      kind: 'shop', kindIcon, kindLabel: this._homeKindLabel(), tabs, art: 'home_sell',
       title: 'Sell from your stash?',
       get: this.moneyHTML(`+${unitPrice}`),
       cost: `1× ${iconHTML} ${itemName}`,
@@ -749,7 +754,7 @@ class SceneVenues {
   presentHomeUpgrade(sx, sy) {
     if (HomeArea.storeys(this.save) >= 2) { this.presentHomeSell(sx, sy); return; }
     this.showOfferModal({
-      kind: 'shop', kindIcon: this._homeKindIcon(), tabs: this._homeTabs(sx, sy, 'upgrade'), art: 'home_sell',
+      kind: 'shop', kindIcon: this._homeKindIcon(), kindLabel: this._homeKindLabel(), tabs: this._homeTabs(sx, sy, 'upgrade'), art: 'home_sell',
       title: 'Upgrade your home',
       get: 'A second storey',
       blurb: 'Raise Home to two storeys. This is permanent.',
