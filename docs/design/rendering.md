@@ -1143,6 +1143,26 @@ the reach rim within the existing player-light radius.
   Water layers last to preserve its authored banks. Map review selects the same
   material interiors without geographic transitions. Mountain boundary artwork
   still follows its separate neighbour mask above the transitioning substrate.
+- Larger source-road bands cover smaller ones in both unrestored and restored
+  rendering. Complete materials composite in ascending physical width, with a
+  full-band knockout before each larger layer so transparent cobble gaps expose
+  terrain rather than smaller-road stones. A restored smaller road is clipped
+  by larger base bands even where those larger roads are unrestored. One pooled
+  width canvas joins the existing material/edge scratch canvases; rebuilds keep
+  their normal time-sliced cache and upload path.
+  The optional `scene.roadVariantSeams` visual study adds flat theme cuts and a
+  narrow pale transverse joint with a dark bed at adjacent material changes.
+  It is off in normal play. Seams share road-width occlusion and water/building
+  keep-outs, and restored seams appear only within restored intervals.
+- Lamp sites use source-road geometry to remove nearby-road clutter before
+  generation reserves their cells or the renderer creates sprites/lights. A
+  two-cell spatial hash of road segments rejects a foot within another road
+  band plus 0.5m clearance. A one-cell lamp hash removes other-road posts closer
+  than one cell, preferring the wider road then stable lamp identity. Equal-width
+  collinear continuations retain their posts; retained IDs, spacing and credit
+  are unchanged. Buffered source geometry handles road clearance at tile edges;
+  post-to-post deduplication applies within each owning tile. Existing ready-entry
+  caches avoid per-frame scans; no global density reduction is applied.
 - Road surfaces use sparse, individually shaded cobbles with transparent ground
   gaps, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
