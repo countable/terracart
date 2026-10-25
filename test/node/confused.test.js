@@ -177,8 +177,6 @@
     cube.x=1;s.save.caught=['cube'];assert.falsy(hold.call(s,2,1.2).slowed);
     s.save.caught=[];Conditions.apply(s.save,'jellyfish_stun');state=hold.call(s,2,1.2);
     assert.truthy(state.pinned);assert.falsy(state.slowed,'an actual hold uses its own condition');
-    assert.eq(Conditions.CONTEXT_STATUS.slowed.label,'Slowed');
-    assert.falsy(Conditions.CONTEXT_STATUS.slowed.durationMs,'contact status has no countdown');
   });
   test('confusion puff: actual projectile damage applies confusion, blocked damage does not', () => {
     const hit=new Function('shot',lift('_shotHitsPlayer','shot'));

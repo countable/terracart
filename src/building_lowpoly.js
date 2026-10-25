@@ -1695,6 +1695,13 @@
     faces.push(...decorations);
     return {mountedSign,ring:g.ring,faces,chimneyMouths:skin.chimneys?g.chimneyMouths:[],height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
+  // THE FORT HALL'S SIZE (owner, Oct 2026): the copper hall stands at a fixed
+  // width whatever the fort's lot, its proportions kept — three cells across
+  // when it fits with `clearCells` of plank deck all round, else two
+  // (authoredGeometry's fixed-size fit).
+  const FORT_HALL=Object.freeze({widthsCells:Object.freeze([3,2]),clearCells:.5});
+  // `inset` scales the largest fit (a number) or names a fixed-size fit
+  // ({widthsCells, clearCells}: FORT_HALL).
   function authoredGeometry(model,ring,inset=1,door=null,emblem=null){
     if(emblem?.sign&&model.authoredKey==='city_storefront'){
       // Fit the solid dice board with the hall, above the entrance and centered
@@ -1730,8 +1737,9 @@
       if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
       if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
     }return hit;};
-    const fits=(cx,cy,scale)=>{
-      const rect=[{x:cx-W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy-D*scale/2},{x:cx+W*scale/2,y:cy+D*scale/2},{x:cx-W*scale/2,y:cy+D*scale/2}];
+    const fits=(cx,cy,scale,pad=0)=>{
+      const hw=W*scale/2+pad,hd=D*scale/2+pad;
+      const rect=[{x:cx-hw,y:cy-hd},{x:cx+hw,y:cy-hd},{x:cx+hw,y:cy+hd},{x:cx-hw,y:cy+hd}];
       if(!rect.every(inside))return false;
       for(let i=0;i<fitRing.length;i++)for(let j=0;j<4;j++){
         const a=fitRing[i],b=fitRing[(i+1)%fitRing.length],c=rect[j],d=rect[(j+1)%4];
@@ -1753,19 +1761,56 @@
         if(!angles.some(a=>Math.abs(Math.sin(a-angle))<.02))angles.push(angle);
       }}
     }
-    let best={scale:0,x:ring[0].x,y:ring[0].y,angle:0};
-    for(const angle of angles){const c=Math.cos(angle),sn=Math.sin(angle),local=p=>({x:c*p.x+sn*p.y,y:-sn*p.x+c*p.y});
+    // Seats to try at each orientation, in the rotated frame (fitRing), the
+    // bounding box's centre first.
+    const seatsAt=(angle)=>{const c=Math.cos(angle),sn=Math.sin(angle),local=p=>({x:c*p.x+sn*p.y,y:-sn*p.x+c*p.y});
       fitRing=ring.map(local);
       const x0=Math.min(...fitRing.map(p=>p.x)),x1=Math.max(...fitRing.map(p=>p.x)),y0=Math.min(...fitRing.map(p=>p.y)),y1=Math.max(...fitRing.map(p=>p.y));
-      const max=Math.min((x1-x0)/W,(y1-y0)/D),candidates=[{x:(x0+x1)/2,y:(y0+y1)/2},...seeds.map(local)];
+      const candidates=[{x:(x0+x1)/2,y:(y0+y1)/2},...seeds.map(local)];
       for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
+      return {max:Math.min((x1-x0)/W,(y1-y0)/D),candidates,local,world:p=>({x:c*p.x-sn*p.y,y:sn*p.x+c*p.y})};
+    };
+    let best={scale:0,x:ring[0].x,y:ring[0].y,angle:0};
+    for(const angle of angles){const {max,candidates,world}=seatsAt(angle);
       for(const p of candidates){if(!inside(p)||!fits(p.x,p.y,best.scale+1e-6))continue;let lo=best.scale,hi=max;
         for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
-        if(lo>best.scale+1e-6)best={x:c*p.x-sn*p.y,y:sn*p.x+c*p.y,scale:lo,angle};
+        if(lo>best.scale+1e-6)best={...world(p),scale:lo,angle};
       }
     }
+    // A fixed-size fit (FORT_HALL) is CENTRED on the lot's centre of mass in
+    // whatever orientation it takes (the roomiest first): the first width
+    // whose shell and its clearance fit there, else the largest shell that
+    // fits there, never wider than the last width. Only a lot whose centre
+    // of mass lies outside it (a deep concave notch) seats it elsewhere,
+    // at the first seat that holds a width, else the largest fit.
+    let scale=best.scale*inset;
+    if(typeof inset==='object'){
+      const pad=inset.clearCells*CELL_PX,order=[best.angle,...angles.filter(a=>a!==best.angle)];
+      const centre=WorldGen.ringCentroid(ring),cap=inset.widthsCells.at(-1)*CELL_PX/W;
+      let seat=null;
+      for(const w of inset.widthsCells.map(n=>n*CELL_PX)){
+        for(const angle of order){const {local,world}=seatsAt(angle),p=local(centre);
+          if(inside(p)&&fits(p.x,p.y,w/W,pad)){seat={...world(p),scale:w/W,angle};break;}
+        }
+        if(seat)break;
+      }
+      if(!seat)for(const angle of order){const {max,local,world}=seatsAt(angle),p=local(centre);
+        if(!inside(p))continue;
+        let lo=0,hi=Math.min(max,cap);
+        if(fits(p.x,p.y,hi))lo=hi;else for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+        if(lo>(seat?.scale||0))seat={...world(p),scale:lo,angle};
+      }
+      if(!seat)for(const w of inset.widthsCells.map(n=>n*CELL_PX)){
+        for(const angle of order){const {candidates,world}=seatsAt(angle);
+          const p=candidates.find(q=>inside(q)&&fits(q.x,q.y,w/W,pad));
+          if(p){seat={...world(p),scale:w/W,angle};break;}
+        }
+        if(seat)break;
+      }
+      if(seat)best={...seat};
+      scale=seat?seat.scale:Math.min(best.scale,cap);
+    }
     fitRing=ring;
-    const scale=best.scale*inset;
     if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;
       const target={x:door.center.x-nx*run,y:door.center.y-ny*run};
       if(fits(target.x,target.y,scale)){best.x=target.x;best.y=target.y;}
@@ -1804,7 +1849,7 @@
     const authoredDoor=authored&&recipe.role==='home'?(entrance!=null?edgeDoor(local,entrance):streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))))):null;
     const skinDoor=skin?(entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null):null;
     const door=skin||authored||recipe.shape?null:entrance!=null?edgeDoor(local,entrance):streets.length?streetDoor(local,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top})))):null;
-    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,recipe.role==='fort' ? .65 : 1,authoredDoor,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
+    let cached=skin?authoredOutline(skin,local,skinDoor?skinDoor.edge:null,recipe.authored.facadeRows,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):authored?authoredGeometry(authored,local,recipe.role==='fort' ? FORT_HALL : 1,authoredDoor,recipe.authored.emblem?AuthoredRoofPalette.getEmblem(scene,recipe.authored.emblem,recipe.authored.palette):null):recipe.shape?specialGeometry(local,recipe,streets.map(line=>line.map(p=>({x:p.x-left,y:p.y-top}))),key):recipe.terraced?styleGeometry(local,recipe.style,recipe):recipe.style&&typeof BuildingStyles!=='undefined'&&!variant
       ?styleGeometry(local,recipe.style,recipe):geometry(local,variant||'ridge',recipe.stories*FLOOR_HEIGHT+EAVE_RISE,ROOF_OVERHANG,(recipe.chimneys||recipe.chimneyFlare)?{count:recipe.chimneys||1,scale:recipe.chimneyScale||1,flare:recipe.chimneyFlare||0}:null,door?door.edge:null);
     if(recipe.interior)cached=interiorGeometry(cached,LOOK.wallThickness);
     if(door&&!recipe.interior)cached={...cached,faces:[...cached.faces,...doorFaces(door)]};
@@ -1991,5 +2036,5 @@
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);
-  global.BuildingLowPoly={prepareRogueWreck,authoredGeometry,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
+  global.BuildingLowPoly={prepareRogueWreck,authoredGeometry,FORT_HALL,authoredOutline,LOOK,DOOR,streetDoor,edgeDoor,ringEdgeNearest,doorFaces,atlasFaces,ROLES,RESTORED_ROLES,recipeFor,specialGeometry,styleGeometry,interiorGeometry,geometry,triangulate,active,begin,add,update,offset,worldPieces,smokeMouths,clear,covers};
 })(window);

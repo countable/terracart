@@ -45,9 +45,6 @@
     blinded: Object.freeze({ icon: 'blinded', durationMs: 15000, lightMul: 0.5,
       label: 'Blinded', tint: 0x8e8ea6, flicker: false, ink: '#cfd2ea', bg: '#16162ae8' }),
   });
-  const CONTEXT_STATUS = Object.freeze({
-    slowed: Object.freeze({ icon: 'slowed', label: 'Slowed', ink: '#d6dae6', bg: '#1c1f28e8' }),
-  });
   function normalize(save) {
     save.fireDamageRemainder = fireRemainder(save);
     const old = save.conditions || {};
@@ -250,5 +247,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, CONTEXT_STATUS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
