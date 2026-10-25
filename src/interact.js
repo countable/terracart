@@ -270,38 +270,28 @@ const TERRAIN = {
 // you'd tapped. The '·' is now only a defensive last resort for a terrain
 // code that is neither tillable nor listed here.
 // The label the `flavor` handler flashes when a tap lands on ground that
-// CANNOT BE TILLED. Two jobs in one line, and it used to do neither:
+// CANNOT BE FARMED. It is the game's only description of the ground itself:
+// every proper noun on the map goes through rusticifyName — a school is a
+// Hedge School, a restaurant a Tavern — so the earth under it reads in the
+// same register, never 'industrial yard' or 'highway'.
 //
-//   1. It is the game's only description of the ground itself. Every proper
-//      noun on the map goes through rusticifyName — a school is a Hedge
-//      School, a restaurant a Tavern, a library a Scriptorium — and then the
-//      earth under it read 'industrial yard', 'plaza', 'highway'. The one
-//      handler NAMED for flavour was the one surface written in municipal
-//      English.
-//   2. It is the answer to "why did nothing happen?". `flavor` is ordered
-//      ahead of `till` precisely so an untillable cell is claimed before the
-//      hoe can reach it, so this flash IS the refusal — and a bare noun
-//      ('road') never said it was a refusal at all. Each line now carries the
-//      REASON, and the reason is the mechanic: paved and built ground has no
-//      earth in it, and stone has to be broken before it is anything else.
-//
-// Kept to one short sentence: this is a flash over a cell, not a paragraph.
-// The three paved codes deliberately repeat the same clause — that repetition
-// is how a player learns the rule covers every paved thing, not just the one
-// they happened to tap.
+// A map tap never tills (only the seed's Till & plant action prepares
+// ground), so these lines describe the cell and never phrase themselves as
+// a refused till or hoe stroke. Kept to one short sentence: this is a flash
+// over a cell, not a paragraph.
 // (WATER is carried for completeness only: `fishing` is ordered ahead of
 // `flavor` and consumes every water tap, bare-handed included, so that line
 // is unreachable in play — it exists because the non-tillable sweep in
 // interact_tap.test.js covers every code and a hole would read as a bug.)
 const TERRAIN_FLAVOR = {
-  [TERRAIN.WATER]:          'Open water. Nothing to till.',
-  [TERRAIN.ROAD]:           'Hard road. No earth to turn.',
-  [TERRAIN.PATH]:           'A path. No earth to turn.',
+  [TERRAIN.WATER]:          'Open water, cold and deep.',
+  [TERRAIN.ROAD]:           'Hard road, packed and worn.',
+  [TERRAIN.PATH]:           'A footpath, trodden smooth.',
   [TERRAIN.BUILDING]:       'Someone else\'s floor.',
   [TERRAIN.ROCK]:           'Bare rock. Nothing roots here.',
   [TERRAIN.BUILDING_MED]:   'Someone else\'s floor.',
   [TERRAIN.BUILDING_LARGE]: 'A great hall\'s floor.',
-  [TERRAIN.ROAD_LG]:        'A highway. No earth to turn.',
+  [TERRAIN.ROAD_LG]:        'A highway, paved wide.',
   [TERRAIN.ROAD_MD]:        'A broad avenue, well laid.',
   [TERRAIN.COMMERCIAL]:     'Flagstoned merchants\' square.',
   [TERRAIN.INDUSTRIAL]:     'A works yard. Gravel and oil.',
@@ -310,12 +300,12 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
   [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
-  [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock. No tilling.',
-  [TERRAIN.ROCKY_GROUND]: 'Rocky ground. No tilling.',
+  [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock, unbroken.',
+  [TERRAIN.ROCKY_GROUND]: 'Rocky ground, loose stone.',
 };
 
-// …and the refusal on soil a street lamp stands on (cellAt's underLamp).
-const LAMP_FOOT_FLAVOR = 'A lamp post. Nothing to till.';
+// …and the label on soil a street lamp stands on (cellAt's underLamp).
+const LAMP_FOOT_FLAVOR = 'A lamp post stands here.';
 
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
