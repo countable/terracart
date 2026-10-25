@@ -1412,7 +1412,8 @@ excessively complex rings retain the existing fallback.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
-Low-contrast staggered masonry courses, inset roof decks, coping edges, iron
+Staggered masonry courses with dark mortar and narrow lit upper edges,
+warm paving on inset military decks, coping edges, iron
 door surrounds and heraldic marks are atlas detail rather than extra meshes.
 Courtyard paving and wreck grass repeat on the existing cached ground canvas;
 they add no ground or castle triangles. Weathering belongs to Bastion and Archive,

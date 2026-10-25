@@ -100,15 +100,16 @@ def build(out):
                          alphaRange=list(native.getchannel('A').getextrema()), treatment=paint))
     # Shared authored cel materials. Their stone courses, coping and heraldry
     # replace facade detail geometry; every tile is built once offline.
-    stone = Image.new('RGBA', (32, 32), (255, 255, 255, 255))
+    stone = Image.new('RGBA', (32, 32), (246, 246, 246, 255))
     ink = ImageDraw.Draw(stone)
     for row in range(4):
         y = row * 8
-        ink.line((0, y + 7, 31, y + 7), fill=(230, 230, 230, 255))
+        ink.line((0, y + 7, 31, y + 7), fill=(201, 201, 201, 255))
+        ink.line((0, y, 31, y), fill=(255, 255, 255, 255))
         for x in range(-8 if row % 2 else 0, 32, 16):
-            ink.line((x, y, x, y + 6), fill=(235, 235, 235, 255))
+            ink.line((x, y, x, y + 6), fill=(214, 214, 214, 255))
             if (row + x // 16) % 3 == 0:
-                ink.rectangle((x + 2, y + 2, x + 13, y + 5), fill=(248, 248, 248, 255))
+                ink.rectangle((x + 2, y + 2, x + 13, y + 5), fill=(235, 235, 235, 255))
     wreck = stone.copy(); moss = ImageDraw.Draw(wreck)
     for poly in [[(0, 22), (6, 22), (6, 18), (9, 18), (9, 28), (13, 28), (13, 31), (0, 31)],
                  [(20, 31), (20, 26), (23, 26), (23, 23), (29, 23), (29, 29), (31, 29), (31, 31)],
