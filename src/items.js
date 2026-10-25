@@ -577,7 +577,6 @@ const MINERAL_ICON_SHEET = {
   orange:   { sheet: 'icon_orange',  frame: 0 },
   coconut:  { sheet: 'icon_coconut', frame: 0 },
   // Fish — Icons/Fish/<*>.png, 64×16 (4 frames). frame 0 = right-facing fish.
-  // No standalone minnow art; reuse the smallmouth-bass icon for it.
   minnow:     { sheet: 'icon_minnow',     frame: 0 },
   bass:       { sheet: 'icon_bass',       frame: 0 },
   trout:      { sheet: 'icon_trout',      frame: 0 },

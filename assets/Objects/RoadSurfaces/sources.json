@@ -1,0 +1,172 @@
+{
+  "schemaVersion": 1,
+  "tileSize": 128,
+  "sourceArt": {
+    "gravel": {
+      "path": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        32,
+        208,
+        16,
+        16
+      ]
+    },
+    "grit": {
+      "path": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        224,
+        208,
+        16,
+        16
+      ]
+    },
+    "mineral": {
+      "path": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ground_Tiles.png",
+      "crop": [
+        352,
+        208,
+        16,
+        16
+      ]
+    },
+    "crust": {
+      "path": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Hell.png",
+      "crop": [
+        32,
+        112,
+        16,
+        16
+      ]
+    },
+    "rune": {
+      "path": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Ancient.png",
+      "crop": [
+        304,
+        16,
+        16,
+        16
+      ]
+    }
+  },
+  "frames": [
+    {
+      "family": "md",
+      "restored": false,
+      "x": 0,
+      "y": 0,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "family": "md",
+      "restored": true,
+      "x": 128,
+      "y": 0,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "family": "lg",
+      "restored": false,
+      "x": 256,
+      "y": 0,
+      "width": 128,
+      "height": 128
+    },
+    {
+      "family": "lg",
+      "restored": true,
+      "x": 384,
+      "y": 0,
+      "width": 128,
+      "height": 128
+    }
+  ],
+  "runeRows": [
+    [
+      6,
+      9,
+      2
+    ],
+    [
+      10,
+      11,
+      2
+    ],
+    [
+      5,
+      6,
+      3
+    ],
+    [
+      6,
+      8,
+      4
+    ],
+    [
+      9,
+      10,
+      4
+    ],
+    [
+      5,
+      11,
+      6
+    ],
+    [
+      6,
+      7,
+      7
+    ],
+    [
+      8,
+      9,
+      7
+    ],
+    [
+      6,
+      10,
+      8
+    ],
+    [
+      5,
+      7,
+      10
+    ],
+    [
+      9,
+      11,
+      10
+    ],
+    [
+      5,
+      6,
+      11
+    ],
+    [
+      7,
+      9,
+      11
+    ],
+    [
+      10,
+      11,
+      11
+    ],
+    [
+      5,
+      6,
+      12
+    ],
+    [
+      10,
+      11,
+      12
+    ]
+  ],
+  "recipes": {
+    "md": "approved compacted gravel causeway, G07 plus 18% G08 grit; weathered holes use seed71309",
+    "lgWeathered": "approved turquoise dimensional scar Hell crust",
+    "lgRestored": "approved ancient dimensional conduit mineral bed and native rune silhouette"
+  }
+}

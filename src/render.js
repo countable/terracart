@@ -2178,6 +2178,23 @@ Render.drawSpiderWebs = function drawSpiderWebs(scene) {
   }
 };
 
+// One retained group pass. The first offset scrolls an existing group before
+// the cache check; the second seats a group that begin() may have just created.
+// A retained cave pass also refreshes its underground visibility immediately.
+Render.prismGroupPass = function (scene, source, keyField, key, offsetX, offsetY, paint, updateRetained = false) {
+  WallPerspective.offset(scene, source, offsetX, offsetY);
+  if (scene[keyField] === key && scene._wallPerspective?.[source]) {
+    if (updateRetained) WallPerspective.update(scene);
+    return false;
+  }
+  const group = WallPerspective.begin(scene, source);
+  WallPerspective.offset(scene, source, offsetX, offsetY);
+  paint(group);
+  scene[keyField] = key;
+  WallPerspective.finish(scene, source);
+  return true;
+};
+
 // Full-cell rock masses share the retained wall renderer and actor depth sort.
 // A depth-specific group keeps underground art separate from surface architecture.
 Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
@@ -2186,8 +2203,7 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
     WallPerspective.clear(scene, 'cave'); scene._caveWallKey = null; return;
   }
   const key = scene.depth + ':' + cells.map(p => [p.ax, p.ay, p.x, p.y, p.mask, p.diagonalMask].join(',')).join(';');
-  if (key !== scene._caveWallKey || !scene._wallPerspective?.cave) {
-    const group = WallPerspective.begin(scene, 'cave');
+  Render.prismGroupPass(scene, 'cave', '_caveWallKey', key, offsetX, offsetY, (group) => {
     group.renderDepth = scene.depth; group.perWall = true;
     group.atlas = FloorWallMaterials.prepare(scene, scene.depth);
     for (const cell of cells) {
@@ -2199,13 +2215,7 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
         { face: 0x302a24, top: 0x625646, dark: 0x151310 }, null, true,
         { materialFaces: FloorWallMaterials.geometry(points, mask, variant, scene.depth, diagonalMask) });
     }
-    scene._caveWallKey = key;
-    WallPerspective.offset(scene, 'cave', offsetX, offsetY);
-    WallPerspective.finish(scene, 'cave');
-  } else {
-    WallPerspective.offset(scene, 'cave', offsetX, offsetY);
-    WallPerspective.update(scene);
-  }
+  }, true);
 };
 
 Render.drawCells = function drawCells(scene) {
@@ -3895,25 +3905,22 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   };
   for (const item of objectItems) collect(item, item.o, connectedArt?.get(item.o));
   for (const item of plantItems) collect(item, item.p, null);
-  WallPerspective.offset(scene, 'props', -fracX * CELL_PX, -fracY * CELL_PX);
-  if (key === scene._connectedWallKey && scene._wallPerspective?.props) return drawn;
-  scene._connectedWallKey = key;
-  WallPerspective.begin(scene, 'props');
-  WallPerspective.offset(scene, 'props', -fracX * CELL_PX, -fracY * CELL_PX);
-  for (const { piece, cell } of pieces) {
-    const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
-    const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
-    const profile = ObstacleStep.PROFILES[piece.art.profile];
-    const height = profile.heightPx ?? profile.liftPx;
-    const outline = Render.connectedWallOutline(piece.mask, piece.art.thickness);
-    WallPerspective.material(scene, 'props', piece.art.profile === 'hedge' ? 'hedge' : 'stone',
-      outline.points.map(p => ({ x: x0 + p.x, y: y0 + p.y })), height,
-      { openEdges: outline.openEdges,
-        capRegions: Render.connectedWallFootprints(piece.mask, piece.art.thickness).map(([ax, ay, bx, by], i) =>
-          ({ x0: x0 + ax, y0: y0 + ay, x1: x0 + bx, y1: y0 + by, horizontal: bx - ax > by - ay, joints: i !== 0 })),
-        textureOriginX: cell.cellIX * CELL_PX - x0, textureOriginY: cell.cellIY * CELL_PX - y0 });
-  }
-  WallPerspective.finish(scene, 'props');
+  Render.prismGroupPass(scene, 'props', '_connectedWallKey', key,
+    -fracX * CELL_PX, -fracY * CELL_PX, () => {
+      for (const { piece, cell } of pieces) {
+        const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+        const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
+        const profile = ObstacleStep.PROFILES[piece.art.profile];
+        const height = profile.heightPx ?? profile.liftPx;
+        const outline = Render.connectedWallOutline(piece.mask, piece.art.thickness);
+        WallPerspective.material(scene, 'props', piece.art.profile === 'hedge' ? 'hedge' : 'stone',
+          outline.points.map(p => ({ x: x0 + p.x, y: y0 + p.y })), height,
+          { openEdges: outline.openEdges,
+            capRegions: Render.connectedWallFootprints(piece.mask, piece.art.thickness).map(([ax, ay, bx, by], i) =>
+              ({ x0: x0 + ax, y0: y0 + ay, x1: x0 + bx, y1: y0 + by, horizontal: bx - ax > by - ay, joints: i !== 0 })),
+            textureOriginX: cell.cellIX * CELL_PX - x0, textureOriginY: cell.cellIY * CELL_PX - y0 });
+      }
+    });
   return drawn;
 };
 
@@ -3931,27 +3938,26 @@ Render.drawGrassPrisms = function (scene, plantItems) {
     pieces.push(cell); drawn.add(item); key += `|${cell.cellIX}:${cell.cellIY}`;
   }
   if (!pieces.length) { WallPerspective.clear(scene, 'grass'); scene._grassPrismKey = null; return drawn; }
-  WallPerspective.offset(scene, 'grass', -fx, -fy);
-  if (scene._grassPrismKey === key && scene._wallPerspective?.grass) return drawn;
-  const group = WallPerspective.begin(scene, 'grass'); group.renderDepth = scene.depth ?? 0;
-  group.perWall = true; group.atlas = scene.textures.get(WallMaterials.GRASS.texture);
-  for (const cell of pieces) {
-    const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
-    const x = at.x + fx - CELL_PX / 2, y = at.y + fy - CELL_PX / 2;
-    const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
-    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
-      { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
-    for (let blade = 0; blade < faces.length; blade += 2) {
-      const { x: cx, y: cy } = faces[blade].billboard;
-      const half = WallMaterials.GRASS.width / 2;
-      WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
-        { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
-        { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
-        { materialFaces: faces.slice(blade, blade + 2) });
+  Render.prismGroupPass(scene, 'grass', '_grassPrismKey', key, -fx, -fy, (group) => {
+    group.renderDepth = scene.depth ?? 0; group.perWall = true;
+    group.atlas = scene.textures.get(WallMaterials.GRASS.texture);
+    for (const cell of pieces) {
+      const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+      const x = at.x + fx - CELL_PX / 2, y = at.y + fy - CELL_PX / 2;
+      const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
+      const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
+        { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
+      for (let blade = 0; blade < faces.length; blade += 2) {
+        const { x: cx, y: cy } = faces[blade].billboard;
+        const half = WallMaterials.GRASS.width / 2;
+        WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
+          { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
+          { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
+          { materialFaces: faces.slice(blade, blade + 2) });
+      }
     }
-  }
-  scene._grassPrismKey = key; WallPerspective.offset(scene, 'grass', -fx, -fy);
-  WallPerspective.finish(scene, 'grass'); return drawn;
+  });
+  return drawn;
 };
 
 // Loose props share the wall mesh projection and actor depth sorting. Keep
@@ -3978,19 +3984,15 @@ Render.drawLowPolyProps = function (scene, items) {
   if (!pieces.length) {
     WallPerspective.clear(scene, 'looseProps'); scene._loosePropKey = null; return drawn;
   }
-  WallPerspective.offset(scene, 'looseProps', -fx, -fy);
-  if (scene._loosePropKey === key && scene._wallPerspective?.looseProps) return drawn;
-  const group = WallPerspective.begin(scene, 'looseProps');
-  group.perWall = true; group.renderDepth = scene.depth ?? 0;
-  group.atlas = scene.textures.get(PropLowPoly.ATLAS.key);
-  for (const { o, kind, cell, frame } of pieces) {
-    const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
-    const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, frame });
-    WallPerspective.prism(scene, 'looseProps', mesh.points, 0, mesh.top, mesh.colors, null, true, mesh);
-  }
-  scene._loosePropKey = key;
-  WallPerspective.offset(scene, 'looseProps', -fx, -fy);
-  WallPerspective.finish(scene, 'looseProps');
+  Render.prismGroupPass(scene, 'looseProps', '_loosePropKey', key, -fx, -fy, (group) => {
+    group.perWall = true; group.renderDepth = scene.depth ?? 0;
+    group.atlas = scene.textures.get(PropLowPoly.ATLAS.key);
+    for (const { o, kind, cell, frame } of pieces) {
+      const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+      const mesh = PropLowPoly.geometry(kind, { x: at.x + fx, y: at.y + fy, id: o.id, frame });
+      WallPerspective.prism(scene, 'looseProps', mesh.points, 0, mesh.top, mesh.colors, null, true, mesh);
+    }
+  });
   return drawn;
 };
 

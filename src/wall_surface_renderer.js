@@ -3,7 +3,7 @@
 (function (global) {
   // Canvas has no vertex tint. Cache shared material-color variants (not
   // per-wall bakes), including unclaimed palettes, for parity with WebGL.
-  function canvasSource(texture, color) {
+  function wallTintSource(texture, color) {
     const original = texture.getSourceImage();
     if (color === 0xffffff) return original;
     texture._wallTintSources ||= new Map();
@@ -16,6 +16,20 @@
     g.globalCompositeOperation = 'destination-in'; g.drawImage(original, 0, 0);
     texture._wallTintSources.set(color, canvas);
     return canvas;
+  }
+  function wallUVAffine(points, uv, imageW, imageH) {
+    const [a, b, c] = points, [u, v, w] = uv;
+    const u0 = u.u * imageW, u1 = u.v * imageH;
+    const ux = v.u * imageW - u0, uy = v.v * imageH - u1;
+    const vx = w.u * imageW - u0, vy = w.v * imageH - u1;
+    const det = ux * vy - uy * vx;
+    if (Math.abs(det) < 1e-9) return null;
+    const ax = b.x - a.x, ay = b.y - a.y, bx = c.x - a.x, by = c.y - a.y;
+    const m0 = (ax * vy - bx * uy) / det, m1 = (ay * vy - by * uy) / det;
+    const m2 = (bx * ux - ax * vx) / det, m3 = (by * ux - ay * vx) / det;
+    return [m0, m1, m2, m3,
+      a.x - m0 * u0 - m2 * u1,
+      a.y - m1 * u0 - m3 * u1];
   }
   // Wall commands repaint when their geometry changes. Retain their
   // Canvas path and UV transform for all intervening camera/player frames.
@@ -38,21 +52,7 @@
       const path = cached.path = new Path2D();
       path.moveTo(a.x, a.y); path.lineTo(b.x, b.y); path.lineTo(c.x, c.y); path.closePath();
     }
-    if (t.uv) {
-      const [u, v, w] = t.uv, width = image.width, height = image.height;
-      const u0 = u.u * width, u1 = u.v * height;
-      const ux = v.u * width - u0, uy = v.v * height - u1;
-      const vx = w.u * width - u0, vy = w.v * height - u1;
-      const det = ux * vy - uy * vx;
-      if (Math.abs(det) >= 1e-9) {
-        const ax = b.x - a.x, ay = b.y - a.y, bx = c.x - a.x, by = c.y - a.y;
-        const m0 = (ax * vy - bx * uy) / det, m1 = (ay * vy - by * uy) / det;
-        const m2 = (bx * ux - ax * vx) / det, m3 = (by * ux - ay * vx) / det;
-        cached.matrix = [m0, m1, m2, m3,
-          a.x - m0 * u0 - m2 * u1,
-          a.y - m1 * u0 - m3 * u1];
-      }
-    }
+    if (t.uv) cached.matrix = wallUVAffine(t.points, t.uv, image.width, image.height);
     return cached;
   }
   function outsideCamera(t, m, camera) {
@@ -120,7 +120,7 @@
         g.save();
         if (cached.path) g.clip(cached.path); else g.clip();
         g.transform(...cached.matrix);
-        g.drawImage(canvasSource(src._wallAtlas, t.color), 0, 0); g.restore();
+        g.drawImage(wallTintSource(src._wallAtlas, t.color), 0, 0); g.restore();
       }
       g.restore();
     };
@@ -145,5 +145,5 @@
     }
     else { target.fillStyle(face?.flatColor ?? color, alpha); target.fillTriangle(x1, y1, x2, y2, x3, y3); }
   }
-  global.WallSurfaceRenderer = { install, paint };
+  global.WallSurfaceRenderer = { install, paint, wallTintSource, wallUVAffine };
 })(window);

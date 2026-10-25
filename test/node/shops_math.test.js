@@ -793,6 +793,7 @@ test('rerollPeek: one rung on the ladder, then FREE re-draws until the offer dif
   n = 0;
   assert.eq(ShopsMath.rerollPeek(cur4, () => { n++; return null; }, 'bar'), null);
   assert.eq(n, 1); assert.eq(cur4.skips, undefined);
+  assert.eq(cur4.rerolls, 0, 'an empty shelf charges no rung');
   // No record (the unseeded house): the retry loop alone.
   let j = 0;
   assert.eq(ShopsMath.rerollPeek(null, () => ['a', 'b'][j++], 'a'), 'b');

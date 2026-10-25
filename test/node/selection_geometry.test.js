@@ -37,6 +37,17 @@ test('polygon geometry: visibility and world containment agree on edges, concavi
   assert.truthy(WorldGen.pointInRings([ring,hole], 1, 5));
 });
 
+test('polygon geometry: shared primitives preserve winding, area and edge containment', () => {
+  const clockwise = [{x:0,y:0},{x:0,y:2},{x:2,y:2},{x:2,y:0}];
+  assert.eq(PolygonGeometry.cross(clockwise[0], clockwise[1], clockwise[2]), -4);
+  assert.eq(PolygonGeometry.polyArea(clockwise), -4);
+  assert.eq(PolygonGeometry.ensureCCW(clockwise), clockwise, 'winding fix mutates the owned ring');
+  assert.eq(PolygonGeometry.polyArea(clockwise), 4);
+  assert.truthy(PolygonGeometry.pointInPolygon(clockwise, {x:1,y:1}, 1e-6));
+  assert.truthy(PolygonGeometry.pointInPolygon(clockwise, {x:0,y:1}, 1e-6), 'epsilon includes an edge');
+  assert.falsy(PolygonGeometry.pointInPolygon(clockwise, {x:3,y:1}, 1e-6));
+});
+
 test('polygon geometry: ear clipping covers concave footprints and preserves input vertices', () => {
   const ring = [{x:0,y:0},{x:4,y:0},{x:8,y:0},{x:8,y:2},{x:2,y:2},{x:2,y:8},{x:0,y:8}];
   const area = points => Math.abs(points.reduce((sum,p,i) => {

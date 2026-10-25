@@ -2,11 +2,6 @@
 (function (root) {
   'use strict';
   const SEARCH_RADIUS = 4;
-  function hash(text) {
-    let n = 2166136261;
-    for (const c of String(text)) n = Math.imul(n ^ c.charCodeAt(0), 16777619);
-    return n >>> 0;
-  }
   function plan(temple, cache, tileEdgeM) {
     const anchor = temple.templeAnchor, key = root.Temples.zoneKey(temple);
     if (!['grove', 'stones'].includes(anchor?.kind) || !Number.isFinite(anchor.gx) || !Number.isFinite(anchor.gy)) return null;
@@ -22,7 +17,7 @@
       const size = 7;
       return { kind: 'duel', enemyKind: 'giant_reaper', size, cellM,
         x: cx - size * cellM / 2, y: cy - size * cellM / 2,
-        seed: hash(key), zoneKey: key };
+        seed: fnv1a(key), zoneKey: key };
     }
     // Inspect every underlying cell, including finer cells across a tile-row
     // seam. A missing tile cannot establish that a room is clear.
@@ -57,7 +52,7 @@
     for (let dy = -SEARCH_RADIUS; dy <= SEARCH_RADIUS; dy++) for (let dx = -SEARCH_RADIUS; dx <= SEARCH_RADIUS; dx++) offsets.push({ dx, dy });
     offsets.sort((a, b) => a.dx * a.dx + a.dy * a.dy - b.dx * b.dx - b.dy * b.dy || a.dy - b.dy || a.dx - b.dx);
     const seats = new Map();
-    const seed = hash(key);
+    const seed = fnv1a(key);
     const candidates = root.TemplePuzzles.KINDS.map(kind => {
       const [min, max] = root.TemplePuzzles.SIZE_RANGES[kind];
       const sizes = Array.from({ length: max - min + 1 }, (_, i) => min + i)

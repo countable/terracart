@@ -34,9 +34,7 @@
   }
   function tintFor(c) {
     if (Number.isFinite(c.tint)) return c.tint;
-    let h = 2166136261;
-    for (const ch of String(c.id)) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
-    return TINTS[(h >>> 0) % TINTS.length];
+    return TINTS[fnv1a(c.id) % TINTS.length];
   }
   function stats(c, now = Date.now()) {
     const result = { maxHp:0, armor:0, attack:0, regen:0 };

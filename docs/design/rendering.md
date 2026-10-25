@@ -1167,17 +1167,31 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
-- Road surfaces use sparse, individually shaded cobbles with transparent ground
-  gaps, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
+- Small-road and path vector bands carry a variant-coloured 20% tint beneath
+  their cobbles. The base pavement tile compensates for the road image alpha;
+  restored tiles add no second tint. It follows exact road widths, larger-road
+  occlusion and water/building keep-outs. The cached tint changes vector art,
+  while grid terrain and roadside ground retain their existing rules.
+- Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
+  joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
   saturation, while restored stones regain colour and add missing cobbles at the
   same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
-  its solid charcoal surface and ember warning. MD/LG rift cobbles use a solid
-  grey-turquoise bed beneath the stones in both restoration states, baked into
-  the cached pavement tile. This vector-road fill does not repaint grid terrain
-  or change its rift-buffer rules. Rail ballast stays solid.
+  its solid charcoal surface and ember warning. Rail ballast stays solid.
+  Medium and Large roads never receive variants or cobbles: `RoadSurfaces`
+  selects their fixed material from source road class and restoration state.
+  Medium roads use cracked gravel with ragged missing chunks before repair,
+  then the Compacted Gravel Causeway with a smooth centre and paired drainage
+  edges. Large roads use the Turquoise Dimensional Scar before repair, then
+  the Ancient Dimensional Conduit with paired channels and native rune glyphs.
+  Native grain and glyph pixels are baked by `tools/build_road_surfaces.py`;
+  materials are cropped once on asset load, without rebuild-time pixel reads.
+  Route detail follows original-way arclength across camera moves and repair
+  cuts. Restored intervals remove the old base surface/decor while retaining
+  its geometric mask for larger-road occlusion, so the scar and missing pieces
+  cannot show through the restored surface. None of this repaints grid terrain.
   Theme ground verges are disabled: source landcover remains beneath and beside
   roads, while existing props, hazard rules and route identities remain in place.
   Commercial ground uses original square concrete, independently of road stone.
@@ -1203,18 +1217,19 @@ the reach rim within the existing player-light radius.
 - Road materials repeat in world space inside the existing vector masks. Their
   source texture replaces procedural stone grain, mushroom spots and slime
   decoration; geometry, widths, keep-outs, rail furniture and edge transitions
-  remain owned by the road overlay. Burned Row retains its ember warning; rift
-  suppression retains its cached turquoise wash and explicit fracture treatment.
+  remain owned by the road overlay. Burned Row retains its ember warning;
+  RoadSurfaces owns the fixed Medium/Large material and route-detail passes.
 - Path paving and lamp palettes follow the assigned segment intervals. Scenic
   geography still owns restoration bonuses; first-walk stories use the assigned
   theme on the restored segment.
-- Suppressed Medium/Large roads use weathered grey-turquoise stone, sparse turquoise mineral
-  fractures and dusty ground across the full road suppression buffer, including
-  after restoration. Restored bands keep the weathered surface color, replacing
-  fractures with a softly glowing turquoise outline around the road geometry. The ground uses the road buffer mask (excluding parking-only
-  suppression), on the surface and outside water/buildings. Dry wasteland texture with sparse baked turquoise gem/star flecks
-  replaces lush biome detail there. Flecks are static paint, never light sources. This render-only palette never enters street
-  theme selection or dressing; runtime and preview share the pavement painter.
+- Medium/Large roads retain the dusty grid-ground treatment across their
+  existing suppression buffer, including after restoration. The ground uses
+  the road buffer mask (excluding parking-only suppression), on the surface
+  and outside water/buildings. Dry wasteland texture with sparse baked
+  turquoise gem/star flecks replaces lush biome detail there. Flecks are
+  static paint, never light sources. This render-only roadside palette is
+  independent of the fixed gravel/scar/conduit road surfaces and never enters
+  variant selection or dressing.
 - Churchyard and every Old Stones Nexus variant use purple RA earth; Tar Yard
   and every tar Nexus variant use smooth neutral-grey RA ground. The atlas bakes
   these palettes once, with low-contrast grain for tar and no paving joints.

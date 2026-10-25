@@ -130,7 +130,7 @@ const FILES = [
   // Pure save-state ladders (castle chain + starter chain), no Phaser/DOM.
   'quests.js',
   // Pure draw math over WorldGen + a stub Graphics, so projection/culling pin without Phaser.
-  'road_overlay.js',
+  'road_surfaces.js', 'road_overlay.js',
   // The POLYGONAL building overlay: pure draw math over WorldGen + a stub fill target.
   // building_lowpoly.js only touches Phaser/DOM inside begin()/add(): loaded so the
   // overlay's WebGL branch (`lowpoly`) is reachable headlessly (building_lowpoly_scene.test.js).

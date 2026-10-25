@@ -1,4 +1,4 @@
-// Original OSM road geometry overlay.
+// Original OSM road geometry overlay. Fixed MD/LG art is owned by RoadSurfaces.
 //
 // The world's roads reach the player as CELLS: worldgen rasterizes each
 // `transportation` line from the vector tile into a one-cell-wide band of
@@ -75,6 +75,7 @@
   const PATH_COLOR = 0x948b75;
   const ROAD_COLOR = 0x89867c;
   const ALPHA = 0.61;    // reads as a band without hiding the map
+  const VARIANT_SHADE_ALPHA = 0.20; // effective opacity beneath Small-road/path cobbles
   const MVT_EXTENT = 4096;
 
   // WorldGen.PATH_CLASSES itself, so a way that rasterizes as a footpath also
@@ -739,15 +740,20 @@
       const delta=(light-source.mean)*scale+(restored?8:0);
       for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,target[channel]+delta));
     }
-    // Ordinary roads retain open ground between cobbles. MD/LG rift roads
-    // share a continuous bed in both states, baked once into this cached tile
-    // so the game and review paint the same surface without changing terrain.
+    // Bake the variant tint once into the base surface. Compensate for the
+    // road image's overall alpha so empty joints show a 20% tint on the map.
+    // Restored cobbles reveal that same base tint rather than adding it twice.
+    // MD/LG rift roads retain their solid bed in both restoration states.
     g.putImageData(pixels,0,0);
-    if (variant === 'suppressed') {
+    if (variant === 'suppressed' || !restored) {
+      g.save();
       g.globalCompositeOperation = 'destination-over';
-      g.fillStyle = global.StreetVariants?.pavementFor(variant)?.weathered || ROAD_THEME_COLORS.suppressed;
+      g.globalAlpha = variant === 'suppressed' ? 1 : VARIANT_SHADE_ALPHA / ALPHA;
+      g.fillStyle = variant === 'suppressed'
+        ? global.StreetVariants?.pavementFor(variant)?.weathered || ROAD_THEME_COLORS.suppressed
+        : ROAD_THEME_COLORS[variant];
       g.fillRect(0,0,c.width,c.height);
-      g.globalCompositeOperation = 'source-over';
+      g.restore();
     }
     return c;
   }
@@ -1243,11 +1249,12 @@
       eraseRect(x, y, w, h) { pass.erases.push([x - originX, y - originY, w, h]); },
       // Track furniture (ties + rails): stroked plain in commit() after the
       // gravel (stays crisp) and before the erases (keep-out punches it out).
-      decorPath(w, c, pts, alpha = 1, roadWidth) {
+      decorPath(w, c, pts, alpha = 1, roadWidth, blend = 'source-over') {
         if (pts && pts.length >= 2) {
-          pass.decorOps.push({ w, c, alpha, roadWidth, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+          pass.decorOps.push({ w, c, alpha, roadWidth, blend, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
         }
       },
+      cutPath(w, pts, roadWidth) { this.decorPath(w, 0, pts, 1, roadWidth, 'destination-out'); },
       texturePhase(x, y) { pass.phaseX = Math.round(x - originX); pass.phaseY = Math.round(y - originY); },
     };
     pass.target._pass = pass;
@@ -1266,7 +1273,8 @@
       const ops = pass.ops.filter(op => op.w === width);
       const layer = scratchLayer(size, pass.scratch, 2);
       if (!layer) continue;
-      yield* paintWidth({ ...pass, ctx: layer.ctx, ops,
+      yield* paintWidth({ ...pass, ctx: layer.ctx,
+        ops: ops.filter(op => !op.coverageOnly),
         decorOps: pass.decorOps.filter(op => op.roadWidth === width),
         erases: [], pats: {}, tex: { refresh() {} } });
       // Restored small roads must also yield to an UNRESTORED larger band.
@@ -1289,6 +1297,7 @@
     const { ctx } = pass;
     for (const op of pass.decorOps) {
       ctx.globalAlpha = op.alpha;
+      ctx.globalCompositeOperation = op.blend || 'source-over';
       ctx.lineWidth = op.w;
       ctx.strokeStyle = cssOf(op.c);
       ctx.beginPath();
@@ -1297,6 +1306,12 @@
       ctx.stroke(); yield;
     }
     ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = 'source-over';
+  }
+
+  function surfaceTile(op, restored) {
+    return op.surface ? global.RoadSurfaces?.tile(op.surface, restored)
+      : selectedRoadTile(op.variant, restored);
   }
 
   // ── The dilapidated pass ─────────────────────────────────────────────────
@@ -1308,7 +1323,7 @@
     ctx.clearRect(0, 0, size, size); yield;
     // Only legacy surfaces and rail get a continuous bed. Selected roads
     // paint directly over terrain so transparent joints reveal that terrain.
-    const bedOps = pass.ops.filter(op => op.c === RAIL_COLOR || !selectedRoadTile(op.variant, false));
+    const bedOps = pass.ops.filter(op => op.c === RAIL_COLOR || (!op.surface && !selectedRoadTile(op.variant, false)));
     yield* strokeOpsSteps(ctx, bedOps, 0);
     const noise = patternOf(ctx, pass.pats, 'edge', edgeNoiseTile());
     if (noise && pass.ops.length) {
@@ -1325,16 +1340,16 @@
     const materialGroups = new Map();
     for (const op of pass.ops) {
       if (op.c === RAIL_COLOR) continue;
-      const id = op.variant || '';
+      const id = op.surface ? 'surface:' + op.surface : op.variant || '';
       if (!materialGroups.has(id)) materialGroups.set(id, []);
       materialGroups.get(id).push(op);
     }
     for (const [variant, ops] of materialGroups) {
-      const tile = selectedRoadTile(variant, false);
-      const layer = tile && scratchLayer(size, pass.scratch, 0);
+      const tile = surfaceTile(ops[0], false);
+      const layer = scratchLayer(size, pass.scratch, 0);
       if (!layer) continue;
       yield* strokeOpsSteps(layer.ctx, ops, 0);
-      const pat = patternOf(layer.ctx, pass.pats, 'ra:' + variant, tile);
+      const pat = tile && patternOf(layer.ctx, pass.pats, 'ra:' + variant, tile);
       if (pat) patternFill(layer.ctx, pass, pat, 'source-in', tile.width);
       ctx.save(); ctx.globalCompositeOperation = 'source-over';
       ctx.drawImage(layer.canvas, 0, 0); ctx.restore(); yield;
@@ -1367,7 +1382,7 @@
     // THAT, and the result drawn back source-atop (re-stroking the rail runs
     // plain would wipe their gravel, and a clip can't be built from a stroke).
     // Rail is identified by its colour: RAIL_COLOR has exactly one source.
-    const roadOps = pass.ops.filter((op) => op.c !== RAIL_COLOR && op.variant !== 'suppressed'
+    const roadOps = pass.ops.filter((op) => !op.surface && op.c !== RAIL_COLOR && op.variant !== 'suppressed'
       && !selectedRoadTile(op.variant, false)
       && !global.StreetVariants?.VARIANT_BY_ID[op.variant]?.hotRoad);
     if (roadOps.length) {
@@ -1405,23 +1420,23 @@
     // may share black stone but still need their own mortar and pattern.
     const themes = new Map();
     for (const op of pass.ops) {
-      const key = `${!!op.isPath}|${op.variant || ''}`;
-      if (!themes.has(key)) themes.set(key, { isPath: !!op.isPath, variant: op.variant, ops: [] });
+      const key = `${op.surface || ''}|${!!op.isPath}|${op.variant || ''}`;
+      if (!themes.has(key)) themes.set(key, { isPath: !!op.isPath, variant: op.variant, surface: op.surface, ops: [] });
       themes.get(key).ops.push(op);
     }
-    for (const { isPath, variant, ops } of [...themes.values()].sort((a, b) => Number(a.isPath) - Number(b.isPath))) {
+    for (const { isPath, variant, surface, ops } of [...themes.values()].sort((a, b) => Number(a.isPath) - Number(b.isPath))) {
       const palette = global.StreetVariants?.pavementFor(variant);
       const stoneColor = palette?.restored, pattern = palette?.pattern, accent = palette?.accent;
       if (!ops.length) continue;
       const layer = scratchLayer(size, pass.scratch, 0);
       if (!layer) break;
       const lx = layer.ctx;
-      const selected = selectedRoadTile(variant, true);
-      const tile = selected || cleanTile(isPath, stoneColor, pattern, accent);
+      const selected = surfaceTile(ops[0], true);
+      const tile = selected || (!surface && cleanTile(isPath, stoneColor, pattern, accent));
       const pat = tile && lx.createPattern(tile, 'repeat');
       yield* strokeOpsSteps(lx, ops, 0);
       if (pat) patternFill(lx, pass, pat, selected ? 'source-in' : 'source-atop', tile.width);
-      if (!selected && pattern !== 'rift') {
+      if (!selected && !surface && pattern !== 'rift') {
         // Ordinary repairs retain the pale stone kerb.
         lx.save();
         lx.globalCompositeOperation = 'source-atop';
@@ -1754,17 +1769,18 @@
   function emitRuns(pts, proj, add) {
     const { projX, projY, minX, maxX, minY, maxY } = proj;
     let px = projX(pts[0].x), py = projY(pts[0].y);
-    let run = [{ x: px, y: py }];
+    let run = [{ x: px, y: py }], walked = 0, startPx = 0;
     for (let i = 1; i < pts.length; i++) {
       const qx = projX(pts[i].x), qy = projY(pts[i].y);
       const offscreen =
         (px < minX && qx < minX) || (px > maxX && qx > maxX) ||
         (py < minY && qy < minY) || (py > maxY && qy > maxY);
-      if (offscreen) { add(run); run = [{ x: qx, y: qy }]; }
+      const distance = Math.hypot(qx - px, qy - py);
+      if (offscreen) { add(run, startPx); run = [{ x: qx, y: qy }]; startPx = walked + distance; }
       else run.push({ x: qx, y: qy });
-      px = qx; py = qy;
+      walked += distance; px = qx; py = qy;
     }
-    add(run);
+    add(run, startPx);
   }
 
   // Stroke a style-bucketed collection — smallest first, larger roads on top.
@@ -1775,8 +1791,8 @@
     const styles = [...runsByStyle.values()]
       .sort((a, b) => (a.widthPx - b.widthPx) || (a.color - b.color)
         || (Number(!!a.isPath) - Number(!!b.isPath)) || String(a.variant || '').localeCompare(String(b.variant || '')));
-    for (const { widthPx, color, runs, variant, isPath, cap, startRound, endRound } of styles) {
-      g.lineStyle(widthPx, color, alpha, { variant, isPath, cap, startRound, endRound });
+    for (const { widthPx, color, runs, variant, isPath, surface, coverageOnly, cap, startRound, endRound } of styles) {
+      g.lineStyle(widthPx, color, alpha, { variant, isPath, surface, coverageOnly, cap, startRound, endRound });
       for (const run of runs) {
         g.beginPath();
         g.moveTo(run[0].x, run[0].y);
@@ -1884,6 +1900,24 @@
     }
   }
 
+  function emitSurfaceInterval(scene, g, rec, proj, widthPx, surface, restored, a, b, coverageOnly, add) {
+    if (!(b > a)) return;
+    const { line, mvtToM, originMx, originMy } = rec;
+    const length = Streets.lineLengthM(line, mvtToM), pxPerM = CELL_PX / scene.cellM;
+    const pts = Streets.subLineM(line, mvtToM, a, b)
+      .map(p => ({ x: originMx + p.x, y: originMy + p.y }));
+    const decor = g.decorPath && {
+      decorPath(w, color, points, alpha, width) { g.decorPath(w, color, points, alpha, width, 'source-atop'); },
+      cutPath: g.cutPath && ((w, points, width) => g.cutPath(w, points, width)),
+    };
+    emitRuns(pts, proj, (run, offsetPx) => {
+      if (run.length < 2) return;
+      add(run, a > 1e-5, b < length - 1e-5);
+      if (!coverageOnly && decor) global.RoadSurfaces.decorate(scene, decor, run, widthPx, surface, restored,
+        { startM: a + offsetPx / pxPerM, pxPerM });
+    });
+  }
+
   // ── The dilapidated network ──────────────────────────────────────────────
   function* rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, g) {
     if (!g) return;
@@ -1895,11 +1929,11 @@
     // segment drawing leaves a notch at every bend.
     const runsByStyle = new Map();   // width, colour, variant and path kind → runs
     const railRuns = [];             // rail-class runs, for the track furniture pass
-    const addRun = (widthPx, color, run, isRail, variant, isPath, cutStart = false, cutEnd = false) => {
+    const addRun = (widthPx, color, run, isRail, variant, isPath, cutStart = false, cutEnd = false, surface = null, coverageOnly = false) => {
       if (run.length < 2) return;
-      const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}|${cutStart}|${cutEnd}`;
+      const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}|${cutStart}|${cutEnd}|${surface || ''}|${coverageOnly}`;
       let bucket = runsByStyle.get(k);
-      if (!bucket) { bucket = { widthPx, color, variant, isPath, cap: scene.roadVariantSeams && (cutStart || cutEnd) ? 'butt' : 'round', startRound: !cutStart, endRound: !cutEnd, runs: [] }; runsByStyle.set(k, bucket); }
+      if (!bucket) { bucket = { widthPx, color, variant, isPath, surface, coverageOnly, cap: (surface || scene.roadVariantSeams) && (cutStart || cutEnd) ? 'butt' : 'round', startRound: !cutStart, endRound: !cutEnd, runs: [] }; runsByStyle.set(k, bucket); }
       bucket.runs.push(run);
       if (isRail) railRuns.push({ run, widthPx });
     };
@@ -1909,6 +1943,22 @@
       const widthPx = widthPxFor(scene, f.tags);
       const color = colorFor(f.tags);
       const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
+      const surface = global.RoadSurfaces?.familyFor(f.tags);
+      if (surface && typeof Streets !== 'undefined') {
+        const length = Streets.lineLengthM(line, mvtToM);
+        const repaired = Streets.intersect(Streets.restoredList(scene.save, r.tileKey, Streets.lineKey(f, i)) || [], [[0, length]]);
+        for (const [a, b] of Streets.subtract([[0, length]], repaired)) {
+          emitSurfaceInterval(scene, g, r, proj, widthPx, surface, false, a, b, false,
+            (run, start, end) => addRun(widthPx, color, run, false, null, false, start, end, surface));
+        }
+        // Keep the geometry as an occluder, but never leave the old scar or
+        // missing gravel behind a restored surface's transparent edge.
+        for (const [a, b] of repaired) {
+          emitSurfaceInterval(scene, g, r, proj, widthPx, surface, false, a, b, true,
+            (run, start, end) => addRun(widthPx, color, run, false, null, false, start, end, surface, true));
+        }
+        yield; continue;
+      }
       const styles = !isRail && global.StreetVariants && global.Streets
         ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : null;
       const cuts = scene.roadVariantSeams && styles ? variantSeams(line, mvtToM, styles) : [];
@@ -1958,11 +2008,11 @@
     const S = (typeof Streets !== 'undefined') ? Streets : null;
     if (S && scene.save) {
       const runsByStyle = new Map();
-      const addRun = (widthPx, color, run, variant, isPath, cutStart = false, cutEnd = false) => {
+      const addRun = (widthPx, color, run, variant, isPath, cutStart = false, cutEnd = false, surface = null) => {
         if (run.length < 2) return;
-        const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}|${cutStart}|${cutEnd}`;
+        const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}|${cutStart}|${cutEnd}|${surface || ''}`;
         let bucket = runsByStyle.get(k);
-        if (!bucket) { bucket = { widthPx, color, variant, isPath, cap: scene.roadVariantSeams && (cutStart || cutEnd) ? 'butt' : 'round', startRound: !cutStart, endRound: !cutEnd, runs: [] }; runsByStyle.set(k, bucket); }
+        if (!bucket) { bucket = { widthPx, color, variant, isPath, surface, cap: (surface || scene.roadVariantSeams) && (cutStart || cutEnd) ? 'butt' : 'round', startRound: !cutStart, endRound: !cutEnd, runs: [] }; runsByStyle.set(k, bucket); }
         bucket.runs.push(run);
       };
       for (const r of transportLines(tiles)) {
@@ -1972,6 +2022,15 @@
           if (list && list.length) {
             const widthPx = widthPxFor(scene, f.tags);
             const color = restoredColorFor(f.tags);
+            const surface = global.RoadSurfaces?.familyFor(f.tags);
+            if (surface) {
+              const length = S.lineLengthM(line, mvtToM);
+              for (const [a, b] of S.intersect(list, [[0, length]])) {
+                emitSurfaceInterval(scene, g, r, proj, widthPx, surface, true, a, b, false,
+                  (run, start, end) => addRun(widthPx, color, run, null, false, start, end, surface));
+              }
+              yield; continue;
+            }
             const styles = global.StreetVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : [{ a: 0, b: Infinity }];
             const cuts = scene.roadVariantSeams ? variantSeams(line, mvtToM, styles) : [];
             for (const style of styles) for (const iv of S.intersect(list, [[style.a, style.b]])) {
@@ -2124,7 +2183,7 @@
     }
   }
 
-  global.RoadOverlay = { variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

@@ -183,6 +183,7 @@ const HeadingUp = {
     scene.events.once('shutdown', () => {
       scene.game.events.off('prerender', pre);
       scene.game.events.off('postrender', post);
+      HeadingUp.cancelGpsRequest(scene);
       scene._headingUp = false;
       main.disableCull = previousCull;
       main.roundPixels = previousRoundPixels;

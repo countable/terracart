@@ -20,7 +20,7 @@
   const rogueEnabled = () => typeof RogueObjects !== 'undefined' && RogueObjects.enabled;
   const materialColor = material => rogueEnabled() && material.startsWith('hedge')
     ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
-  const hash = (x, y) => ((Math.imul(x + 173, 374761393) ^ Math.imul(y + 97, 668265263)) >>> 0) / 4294967296;
+  const hash = (x, y) => hash2U01(x, y, 173, 97);
   function postHeight(index = 0) {
     const total = WOOD.height + WOOD.tipHeight;
     return (Math.trunc(index) & 1) ? total * WOOD.staggerScale - WOOD.tipHeight : WOOD.height;

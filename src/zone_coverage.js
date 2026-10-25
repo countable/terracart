@@ -3,6 +3,7 @@
   'use strict';
   const EXT = 4096;
   const PARK_SHORE_ADJACENCY_M = 30;
+  const cross = root.PolygonGeometry.cross;
   // The ray test and the row crossings are WorldGen's (one spelling for the
   // flora scatter, the scenic index and this fill).
   const contains = (rings, x, y) => root.WorldGen.pointInRings(rings, x, y);
@@ -32,7 +33,6 @@
       const t = Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / (dx * dx + dy * dy || 1)));
       return (p.x - a.x - t * dx) ** 2 + (p.y - a.y - t * dy) ** 2;
     };
-    const cross = (a, b, p) => (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
     let scanned = 0;
     for (const beach of beaches) {
       const h = geometry({ rings: beach.geom });
@@ -485,7 +485,6 @@
       return (p.x-a.x-t*dx)**2 + (p.y-a.y-t*dy)**2;
     };
     const touch = (a, b, c, d) => {
-      const cross = (p, q, r) => (q.x-p.x)*(r.y-p.y) - (q.y-p.y)*(r.x-p.x);
       // Bounding-box rejection happens in the bucket query below.
       if (cross(a,b,c)*cross(a,b,d) < 0 && cross(c,d,a)*cross(c,d,b) < 0) return true;
       return Math.min(distance2(a,c,d),distance2(b,c,d),distance2(c,a,b),distance2(d,a,b)) <= tolerance*tolerance;

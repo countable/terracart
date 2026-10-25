@@ -24,7 +24,7 @@
   };
   Reader.prototype.readSVarint = function () {
     const v = this.readVarint();
-    return (v >>> 1) ^ -(v & 1);
+    return v % 2 ? -(v + 1) / 2 : v / 2;
   };
   // Every LEN-prefixed field (string / submessage / packed array) declares its
   // own byte length as a varint with no relation to what's actually left in

@@ -219,6 +219,13 @@ data.activeProfile = 'rogue';
 data.biomePainter = data.groundMaterialSource + '\n' + vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.
 data.roadPainter = read('road_overlay');
+data.roadImageAlpha = {
+  base: ctx.RoadOverlay.ALPHA,
+  restored: ctx.RoadOverlay.RESTORED_ALPHA,
+};
+// The road showcase must initialize the same selected atlas as the game;
+// otherwise the optional authored-material hook falls back to legacy pavers.
+data.selectedMaterialPainter = slice(read('textures'), 'const SELECTED_MATERIAL_FRAMES =', 'function drawSelectedTerrain(');
 data.zoneTraits = Object.fromEntries(ctx.ZoneVariantData.variants.map(row => [row.id, ctx.ZoneVariants.traitsFor(row)]));
 data.variantSource = read('zone_variant_data') + '\n' + read('zone_variants') + '\n' + read('street_variants');
 process.stdout.write(JSON.stringify(data));

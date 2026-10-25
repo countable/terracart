@@ -738,7 +738,7 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
     for (let i = 0; i < secs * 30; i++) {
       clock.t += 1000 / 30;
       const h = s._bodyHold();
-      if (!h.pinned) s._followStep(1 / 30, h.capMS);
+      if (!h.blocked) s._followStep(1 / 30, h.capMS);
     }
   };
   const free = body(); step(free, 2);
@@ -750,7 +750,7 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
   assert.gt(slowed.playerM.x - x0, SLOW * 3, 'off the patch it catches up on the ordinary ramp');
   // One gate: the pin still wins over the slow.
   const pinned = body(); pinned._slowHere = 'stakes'; pinned.save = { conditions: { pinned: { remainingMs: 5000 } } };
-  assert.truthy(pinned._bodyHold().pinned && pinned._bodyHold().capMS == null, 'a pinned body is held, not capped');
+  assert.truthy(pinned._bodyHold().blocked && pinned._bodyHold().capMS == null, 'a pinned body is held, not capped');
   assert.truthy(SV.isSlowKind('tar') && SV.isSlowKind('stakes') && !SV.isSlowKind('waystone'),
     'the slow props are one table');
 });
@@ -2252,3 +2252,19 @@ test('Grassy Lane fills its road and both verges with unique harvestable grass',
   assert.truthy(SaveState.regrows('longgrass'), 'road grass shares normal harvest regrowth');
 });
 })();
+
+
+test('street variants: MD/LG reject stale assigned variants in every paving lookup', () => {
+  for (const cls of ['secondary', 'tertiary', 'primary', 'motorway']) {
+    const feature = { type: 2, tags: { class: cls }, geom: [[{x:0,y:0},{x:100,y:0}]] };
+    const rec = { fi:0, li:0, tags:feature.tags, size:'major', line:feature.geom[0],
+      variant:'orchard', fallbackVariant:'berry', variantSegments:[{a:0,b:100,variant:'lantern'}] };
+    const entry = { streetIndex:{lines:[rec]}, layers:[] };
+    assert.eq(StreetVariants.variantFor('fixed-road', 'Orchard', 'major'), null);
+    assert.eq(StreetVariants.variantAt(rec, 50), null);
+    assert.eq(StreetVariants.pavementVariantFor(feature.tags, 'orchard'), null);
+    const styles = StreetVariants.lineStyles(entry, feature, 0, 0, 1);
+    assert.eq(styles.length, 1, 'stale variant interval cannot split a fixed road');
+    assert.eq(styles[0].variant, null);
+  }
+});

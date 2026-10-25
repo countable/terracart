@@ -4,9 +4,7 @@
 (function (root) {
   'use strict';
   function noise(x, y, salt = 0) {
-    let h = Math.imul(x + 173, 374761393) ^ Math.imul(y + 719, 668265263) ^ salt;
-    h = Math.imul(h ^ (h >>> 13), 1274126177);
-    return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+    return hash2U01(x, y, 173, 719, salt, true);
   }
   // Cardinal connections in atlas order: straights, corners, T junctions,
   // then the cross and north/east/south/west end caps (named by closed tip).

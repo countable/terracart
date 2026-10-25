@@ -205,10 +205,8 @@
       if (scene.lightTex) scene.lightTex.__lightKey = null;
       return false;
     }
-    let saved = null;
     const start = global.__boot ? performance.now() : 0;
     try {
-      saved = { framebuffer: r.currentFramebuffer };
       // This pass runs during scene update, outside camera rendering. Phaser
       // owns the viewport, scissor and stencil state; no GPU state queries.
       r.pipelines.clear();
@@ -238,11 +236,6 @@
       for (const stamp of plan.stamps)
         canvasQuad(st, stamp, stamp.x, stamp.y, stamp.width, stamp.height,
           0, 0, stamp.canvas.width, stamp.canvas.height, stamp.alpha, true);
-      if (plan.cover) {
-        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-        canvasQuad(st, plan.cover, plan.cover.x, plan.cover.y,
-          plan.cover.canvas.width, plan.cover.canvas.height);
-      }
       // All active source canvases are pinned until composition finishes. Drop
       // inactive sources now so GPU uploads cannot keep evicted canvases alive.
       for (const [canvas, source] of st.sources) if (source.used !== st.frames) {
@@ -258,11 +251,11 @@
       if (scene.lightTex) scene.lightTex.__lightKey = null;
       return false;
     } finally {
-      if (saved && !gl.isContextLost()) {
+      if (!gl.isContextLost()) {
         // Raw GL must leave Phaser's cached program/blend/buffer state invalid.
-        // Restore the framebuffer before rebind, which may touch stencil state.
-        gl.bindFramebuffer(gl.FRAMEBUFFER, saved.framebuffer?.webGLFramebuffer || null);
-        r.currentFramebuffer = saved.framebuffer;
+        // The entry guard guarantees the main framebuffer was current.
+        gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+        r.currentFramebuffer = null;
         r.pipelines.rebind();
         r.resetViewport();
         r.resetScissor();

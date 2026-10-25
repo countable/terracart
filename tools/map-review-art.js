@@ -348,18 +348,85 @@ const MapReviewArt = (() => {
         if(f.type!==2||WorldGen.isLotLane(f.tags)||WorldGen.classifyLine('transportation',f.tags)==null)continue;
         const width=WorldGen.roadOverlayWidthM(f.tags);if(!width)continue;
         const mvtToM=edge/(roads.extent||4096),isPath=WorldGen.PATH_CLASSES.has(f.tags?.class);
+        const surface=typeof RoadSurfaces!=='undefined'?RoadSurfaces.familyFor(f.tags):null;
         for(const [li,line] of (f.geom||[]).entries()) {
           if(line.length<2)continue;
           for(const style of StreetVariants.lineStyles(e,f,fi,li,mvtToM)) {
-            for(const points of MapReviewPaths.clipLine(Streets.subLineM(line,mvtToM,style.a,style.b),edge)) {
+            const section=Streets.subLineM(line,mvtToM,style.a,style.b);
+            for(const [from,to] of Streets.tileSpans(section,1,edge)) {
+              const points=Streets.subLineM(section,1,from,to);
               let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
               for(const p of points) {minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y);}
-              result.push({width,isPath,variant:style.variant,points,minX,minY,maxX,maxY});
+              result.push({width,isPath,surface,variant:surface?null:style.variant,startM:style.a+from,points,minX,minY,maxX,maxY});
             }
           }
         }
       }
       this._roadGeometry.set(e,result);return result;
+    },
+    // Road layers remain separate from terrain: width knockouts and missing
+    // gravel chunks must reveal the existing ground, never erase that ground.
+    _paintRoads(g,size,project) {
+      const edge=this.options.getEdge(),rows=[];
+      for(const entry of this._world.tiles) {
+        const a=project(entry.tx*edge,entry.ty*edge),b=project((entry.tx+1)*edge,(entry.ty+1)*edge);
+        const scale=(b.x-a.x)/entry.cellsPerEdge/32;
+        for(const road of this._roadsForTile(entry,edge)) {
+          const width=road.width/edge*(b.x-a.x),pad=width/2;
+          const points=road.points.map(p=>({x:a.x+p.x/edge*(b.x-a.x),y:a.y+p.y/edge*(b.y-a.y)}));
+          if(points.every(p=>p.x < -pad)||points.every(p=>p.x>size.x+pad)||points.every(p=>p.y < -pad)||points.every(p=>p.y>size.y+pad))continue;
+          rows.push({...road,entry,points,width,scale,a,b});
+        }
+      }
+      if(!rows.length)return;
+      rows.sort((a,b)=>a.width-b.width||String(a.surface||a.variant||'').localeCompare(String(b.surface||b.variant||'')));
+      const ratio=g.getTransform?.().a||1;
+      this._roadScratch ||= [];
+      const scratch=index=>{
+        const canvas=this._roadScratch[index]||(this._roadScratch[index]=document.createElement('canvas'));
+        canvas.width=Math.ceil(size.x*ratio);canvas.height=Math.ceil(size.y*ratio);
+        const ctx=canvas.getContext('2d');ctx.scale(ratio,ratio);ctx.lineCap='round';ctx.lineJoin='round';ctx.imageSmoothingEnabled=false;
+        return {canvas,ctx};
+      };
+      const network=scratch(0),material=scratch(1),state=scratch(2);
+      const path=(ctx,row)=>{ctx.lineWidth=row.width;ctx.beginPath();row.points.forEach((p,i)=>ctx[i?'lineTo':'moveTo'](p.x,p.y));};
+      const paintState=(row,restored)=>{
+        const ctx=state.ctx;ctx.clearRect(0,0,size.x,size.y);
+        const key=JSON.stringify([row.surface,row.variant,row.isPath,restored]);
+        this._pavementTiles ||= new Map();
+        let tile=row.surface?RoadSurfaces.tile(row.surface,restored):this._pavementTiles.get(key);
+        if(!tile&&!row.surface) {
+          const selected=RoadOverlay.selectedRoadTile(row.variant,restored);
+          tile=document.createElement('canvas');tile.width=tile.height=selected?.width||RoadOverlay.CLEAN_TILE_PX;
+          RoadOverlay.paintPavementTile(tile.getContext('2d'),tile.width,row.isPath,restored,row.variant);
+          this._pavementTiles.set(key,tile);
+        }
+        const pattern=tile&&ctx.createPattern(tile,'repeat');
+        if(pattern) {
+          pattern.setTransform(new DOMMatrix([row.scale,0,0,row.scale,row.a.x-row.entry.tx*row.entry.cellsPerEdge*row.scale*32,row.a.y-row.entry.ty*row.entry.cellsPerEdge*row.scale*32]));
+          ctx.strokeStyle=pattern;path(ctx,row);ctx.stroke();
+        }
+        if(row.surface) {
+          const target={decorPath:(w,c,points,alpha,_width,blend='source-over')=>{
+            ctx.save();ctx.globalAlpha=alpha;ctx.globalCompositeOperation=blend;ctx.lineWidth=w*row.scale;ctx.strokeStyle='#'+c.toString(16).padStart(6,'0');
+            ctx.beginPath();points.forEach((p,i)=>ctx[i?'lineTo':'moveTo'](p.x*row.scale,p.y*row.scale));ctx.stroke();ctx.restore();
+          }};
+          target.cutPath=(w,points,width)=>target.decorPath(w,0,points,1,width,'destination-out');
+          RoadSurfaces.decorate({viewLeft:0,viewTop:0,viewSize:Math.max(size.x,size.y)/row.scale,cellM:WorldGen.CELL_M},target,
+            row.points.map(p=>({x:p.x/row.scale,y:p.y/row.scale})),row.width/row.scale,row.surface,restored,{startM:row.startM,pxPerM:32/WorldGen.CELL_M});
+          ctx.save();ctx.globalCompositeOperation='destination-in';ctx.strokeStyle='#000';path(ctx,row);ctx.stroke();ctx.restore();
+        }
+        material.ctx.save();material.ctx.globalAlpha=restored?RoadOverlay.RESTORED_ALPHA:RoadOverlay.ALPHA;
+        material.ctx.drawImage(state.canvas,0,0,size.x,size.y);material.ctx.restore();
+      };
+      for(const row of rows) {
+        material.ctx.clearRect(0,0,size.x,size.y);
+        if(!row.surface||!this._restoredLamps)paintState(row,false);
+        if(this._restoredLamps)paintState(row,true);
+        network.ctx.save();network.ctx.globalCompositeOperation='destination-out';network.ctx.strokeStyle='#000';path(network.ctx,row);network.ctx.stroke();network.ctx.restore();
+        network.ctx.drawImage(material.canvas,0,0,size.x,size.y);
+      }
+      g.drawImage(network.canvas,0,0,size.x,size.y);
     },
     _paintPathWebs(g,e,edge,size,project) {
       const cellM=edge/e.cellsPerEdge;
@@ -477,34 +544,9 @@ const MapReviewArt = (() => {
           const sand=this._reviewTints&&pirateSand(e,y*N+x);
           if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}
         }
-        // Follow the source road centreline, using the game's physical widths.
-        g.lineCap='round';g.lineJoin='round';
-        const patterns=new Map();
-        for(const road of this._roadsForTile(e,edge)) {
-          const lineWidth=road.width/edge*(b.x-a.x),pad=lineWidth/2;
-          if(a.x+road.minX/edge*(b.x-a.x)>size.x+pad||a.y+road.minY/edge*(b.y-a.y)>size.y+pad||
-            a.x+road.maxX/edge*(b.x-a.x)<-pad||a.y+road.maxY/edge*(b.y-a.y)<-pad)continue;
-          const key=JSON.stringify([road.variant,road.isPath,!!this._restoredLamps]);
-          let pattern=patterns.get(key);
-          if(!pattern) {
-            this._pavementTiles ||= new Map();
-            let tile=this._pavementTiles.get(key);
-            if(!tile) {
-              const selected=RoadOverlay.selectedRoadTile(road.variant,!!this._restoredLamps);
-              tile=document.createElement('canvas');tile.width=tile.height=selected?.width||RoadOverlay.CLEAN_TILE_PX;
-              RoadOverlay.paintPavementTile(tile.getContext('2d'),tile.width,road.isPath,!!this._restoredLamps,road.variant);
-              this._pavementTiles.set(key,tile);
-            }
-            pattern=g.createPattern(tile,'repeat');
-            pattern.setTransform(new DOMMatrix([dx/32,0,0,dy/32,a.x-e.tx*N*dx,a.y-e.ty*N*dy]));
-            patterns.set(key,pattern);
-          }
-          g.lineWidth=lineWidth;g.strokeStyle=pattern;g.beginPath();
-          road.points.forEach((p,i)=>g[i?'lineTo':'moveTo'](a.x+p.x/edge*(b.x-a.x),a.y+p.y/edge*(b.y-a.y)));
-          g.stroke();
-        }
-        this._paintPathWebs(g,e,edge,size,project);
       }
+      this._paintRoads(g,size,project);
+      for(const e of this._world.tiles)this._paintPathWebs(g,e,edge,size,project);
       // All terrain first: a ring crossing a tile boundary must not be erased
       // by the neighbouring tile. This pass is retained in the ground cache.
       this._paintBuildingFootprints(g,size,project);

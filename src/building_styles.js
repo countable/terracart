@@ -12,8 +12,7 @@
     fort: { wall: 0x9b9e91, roof: 0xb6b6a2, trim: 0xd5ceb2, height: 14 },
     ruin: { wall: 0xa98c73, roof: 0x9d826a, trim: 0xc6aa84, height: 4 },
   };
-  const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-  const area = p => p.reduce((a, v, i) => { const q = p[(i + 1) % p.length]; return a + v.x * q.y - q.x * v.y; }, 0) / 2;
+  const { cross, polyArea: area, pointInPolygon, ensureCCW } = PolygonGeometry;
   function clean(points) {
     const out = [];
     for (const p of points || []) {
@@ -22,18 +21,10 @@
       if (!last || Math.hypot(p.x - last.x, p.y - last.y) > EPS) out.push({ x: p.x, y: p.y });
     }
     if (out.length > 1 && Math.hypot(out[0].x - out.at(-1).x, out[0].y - out.at(-1).y) < EPS) out.pop();
-    if (area(out) < 0) out.reverse();
+    ensureCCW(out);
     return out;
   }
-  function inside(p, ring) {
-    let hit = false;
-    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
-      const a = ring[i], b = ring[j];
-      if (Math.abs(cross(a, b, p)) < EPS && p.x >= Math.min(a.x, b.x) - EPS && p.x <= Math.max(a.x, b.x) + EPS && p.y >= Math.min(a.y, b.y) - EPS && p.y <= Math.max(a.y, b.y) + EPS) return true;
-      if ((a.y > p.y) !== (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) hit = !hit;
-    }
-    return hit;
-  }
+  const inside = (p, ring) => pointInPolygon(ring, p, EPS);
   function intersects(a, b, c, d) {
     const abC = cross(a, b, c), abD = cross(a, b, d), cdA = cross(c, d, a), cdB = cross(c, d, b);
     return abC * abD < -EPS && cdA * cdB < -EPS;

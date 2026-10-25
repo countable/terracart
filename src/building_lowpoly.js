@@ -95,10 +95,10 @@
     if(restored&&RESTORED_ROLES[role]&&(!LOOK.restoredRoles||LOOK.restoredRoles.includes(role)))Object.assign(recipe,RESTORED_ROLES[role]);
     return recipe;
   }
-  const cross = (a,b,c) => (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x);
+  const cross = PolygonGeometry.cross;
   function triangulate(input) {
     const ring=input.map(p=>({...p}));
-    if(ring.reduce((s,p,i)=>s+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring.reverse();
+    PolygonGeometry.ensureCCW(ring);
     PolygonGeometry.removeCollinear(ring);
     return {ring,triangles:PolygonGeometry.triangulate(ring)};
   }
@@ -127,8 +127,8 @@
   }
   function flatBands(ring,z,add,faces){
     if(typeof BuildingStyles==='undefined')return;
-    // Terrace rings may run either way; inset() needs the triangulate() winding.
-    if(ring.reduce((n,p,i)=>n+p.x*ring[(i+1)%ring.length].y-p.y*ring[(i+1)%ring.length].x,0)<0)ring=[...ring].reverse();
+    // Terrace rings may run either way; copy because the caller owns this ring.
+    ring=PolygonGeometry.ensureCCW(ring.slice());
     const band=(outer,inner,flag,layer)=>outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],c=inner[(i+1)%inner.length],d=inner[i];
       for(const tri of [[a,b,c],[a,c,d]]){add(tri.map(p=>({x:p.x,y:p.y,z:z+.01,u:0,v:0})),'trim',1);Object.assign(faces.at(-1),{[flag]:true,layer,inkGroup:1});}});
     const rim=BuildingStyles.inset(ring,LOOK.flatRim,2),shade=rim&&BuildingStyles.inset(ring,LOOK.flatShade,2);
@@ -311,12 +311,15 @@
     return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths,entranceEdge};
   }
   const meshCache=new Map();
+  function cachePut(cache,key,value,limit=96){
+    if(cache.size>=limit)cache.delete(cache.keys().next().value);
+    cache.set(key,value);return value;
+  }
   function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null,roofRise=14){
     const key=variant+':'+roofRise+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance,roofRise);
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
-    meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // THE ROOM. A building's geometry with its roof off, for the player's house
   // while they stand inside it (recipe.interior): every wall cut level at the
@@ -386,8 +389,7 @@
     });
     const mesh={...base,faces,height:H,wallOutset:outer?thickness:0,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
       edges:ring.map((a,i)=>({a,b:ring[(i+1)%ring.length],index:i}))};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
-    meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // Use the imported style silhouettes, but omit their geometric surface marks.
   // Adjacent parapet segments share interior walls; cancel those before submission.
@@ -463,7 +465,7 @@
     const minU=Math.min(...roofPoints.map(p=>p.u)),minV=Math.min(...roofPoints.map(p=>p.v));
     for(const p of roofPoints){p.u-=minU;p.v-=minV;}
     const mesh={faces,ring:points,height:model.height,uvBaseline:true,roofTriangles:faces.filter(f=>f.kind!=='wall').length,wallTriangles:faces.filter(f=>f.kind==='wall').length};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(cacheKey,mesh);return mesh;
+    return cachePut(meshCache,cacheKey,mesh);
   }
   // Compact special silhouettes are independent of the source footprint outline.
   // Player-restored wizard: fixed octagon, footprint plinth, street-facing door.
@@ -502,7 +504,7 @@
     tip.forEach((a,i)=>{const b=tip[(i+1)%8],dir={x:b.x-a.x,y:b.y-a.y};quad([v(a,apex-1),v(b,apex-1),v(b,apex+2),v(a,apex+2)],'trim',apex,{color:0xc7a76c,wallDirection:dir});tri([v(a,apex+2),v(b,apex+2),v({x:cx,y:cy},apex+4)],'trim',apex+1,{color:0xc7a76c});});
     const mesh={ring,faces,height:apex+4,eaveHeight:h,uvBaseline:true,entrance,center:{x:cx,y:cy},
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // One shared pixel atlas: 32x24 face bays and a triangular standing-seam panel.
   function wizardSheet(scene,recipe){
@@ -549,7 +551,6 @@
         const length=Math.hypot(r.x-q.x,r.y-q.y)||1,chip=Math.min(1,length*.2);
         return {x:q.x+(r.x-q.x)*chip/length,y:q.y+(r.y-q.y)*chip/length};
       }));
-      const roofPatches=[],roofOutline=[];
       const streetEntrance=streetDoor(ring,streets);
       let gap=null,doorway=null;
       if(inner&&inner.length===ring.length){
@@ -598,6 +599,8 @@
             color:0xffffff,layer:2.4,wallTop:true,rawUV:true,chippedCap:true});
         });
       }else for(const f of base.faces.filter(f=>f.kind==='wall')){faces.push(f);faces.push({...f,interior:true,light:WRECK_INSIDE_LIGHT,points:[...f.points].reverse()});}
+      // This wreck scatter retains its boundary-exclusive ray rule; rubble on
+      // the wall edge must stay outside rather than use pointInPolygon's epsilon.
       const inside=p=>{let hit=false;
         points.forEach((a,i)=>{const b=points[(i+1)%points.length];if((a.y>p.y)!==(b.y>p.y)&&p.x<a.x+(b.x-a.x)*(p.y-a.y)/(b.y-a.y))hit=!hit;});return hit;};
       // Flat ground follows the exact triangulated footprint, including concave returns.
@@ -639,16 +642,16 @@
       if(gap){const mx=(gap.o0.x+gap.o1.x)/2,my=(gap.o0.y+gap.o1.y)/2,ox=mx-(gap.i0.x+gap.i1.x)/2,oy=my-(gap.i0.y+gap.i1.y)/2,ol=Math.hypot(ox,oy)||1;
         const tx=gap.o1.x-gap.o0.x,ty=gap.o1.y-gap.o0.y;
         for(const [along,out] of [[-.3,4],[.25,6]]){chunk(chunks++,mx+tx*along+ox/ol*out,my+ty*along+oy/ol*out);}}
-      const rubbleCount=Math.max(10,Math.min(24,Math.round(Math.abs(points.reduce((a,p,i)=>{const q=points[(i+1)%points.length];return a+p.x*q.y-q.x*p.y;},0)/2)/900)));
+      const rubbleCount=Math.max(10,Math.min(24,Math.round(Math.abs(PolygonGeometry.polyArea(points))/900)));
       for(let k=0;k<rubbleCount*8&&chunks<rubbleCount;k++){const n=hash(seed+k,41),m=hash(seed+k,43);
         const x=xlo+6+(xhi-xlo-12)*n,y=ylo+6+(yhi-ylo-12)*m;
         if(inside({x,y})&&inside({x:x+4,y})&&inside({x:x-4,y})&&inside({x,y:y+4})&&inside({x,y:y-4}))chunk(chunks++,x,y);}
-      const mesh={...base,faces,pieces,roofPatches,roofOutline,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
-      if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+      const mesh={...base,faces,pieces,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
+      return cachePut(meshCache,key,mesh);
     }
-    const faces=[],wizard=recipe.shape==='wizard',radius=wizard?23:26,h=wizard?39:17;
+    const faces=[],radius=26,h=17;
     const push=(p,kind,layer=0,light=.8)=>faces.push({points:p,kind,layer,light});
-    const ring=Array.from({length:wizard?8:4},(_,i)=>{const a=i*Math.PI*2/(wizard?8:4)+(wizard?Math.PI/8:Math.PI/4);return {x:cx+Math.cos(a)*radius,y:cy+Math.sin(a)*radius};});
+    const ring=Array.from({length:4},(_,i)=>{const a=i*Math.PI/2+Math.PI/4;return {x:cx+Math.cos(a)*radius,y:cy+Math.sin(a)*radius};});
     function prism(ring,lo,hi,kind='wall',capped=true){
       ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y)/DETAIL_SCALE;
         const p=[{...a,z:lo,u:14-len/2,v:105-lo},{...b,z:lo,u:14+len/2,v:105-lo},{...b,z:hi,u:14+len/2,v:105-hi},{...a,z:hi,u:14-len/2,v:105-hi}];
@@ -656,23 +659,16 @@
       });
       if(capped)for(const tri of triangulate(ring).triangles)push(tri.map(p=>({...p,z:hi,u:p.x-cx+radius,v:p.y-cy+radius})),'roof',hi);
     }
-    prism(ring,0,h,'wall',!wizard);
-    if(wizard){
-      const outer=ring.map(p=>({x:cx+(p.x-cx)*1.23,y:cy+(p.y-cy)*1.23}));
-      outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],width=Math.hypot(b.x-a.x,b.y-a.y);
-        push([{...a,z:h,u:0,v:42},{...b,z:h,u:width,v:42},{x:cx,y:cy,z:h+21.5,u:width/2,v:0}],'roof',h+1,.8-(a.x-cx)/radius*.2);
-      });
-    }else{
-      // Eight crenels, including the four corners, on a compact castle shell.
-      const lo=cx-radius/Math.sqrt(2),top=cy-radius/Math.sqrt(2),side=radius*Math.sqrt(2),w=8;
-      for(const [u,v] of [[0,0],[.5,0],[1,0],[1,.5],[1,1],[.5,1],[0,1],[0,.5]]){
-        const x=lo+u*(side-w),y=top+v*(side-w);
-        prism([{x,y},{x:x+w,y},{x:x+w,y:y+w},{x,y:y+w}],h,h+4,'trim');
-      }
+    prism(ring,0,h,'wall');
+    // Eight crenels, including the four corners, on a compact castle shell.
+    const lo=cx-radius/Math.sqrt(2),top=cy-radius/Math.sqrt(2),side=radius*Math.sqrt(2),w=8;
+    for(const [u,v] of [[0,0],[.5,0],[1,0],[1,.5],[1,1],[.5,1],[0,1],[0,.5]]){
+      const x=lo+u*(side-w),y=top+v*(side-w);
+      prism([{x,y},{x:x+w,y},{x:x+w,y:y+w},{x,y:y+w}],h,h+4,'trim');
     }
-    const mesh={ring,faces,height:h+(wizard?21.5:4),eaveHeight:h,uvBaseline:true,
+    const mesh={ring,faces,height:h+4,eaveHeight:h,uvBaseline:true,
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // Material sheets cut from the approved sheet, assets/Objects/BuildingMaterials/
   // approved-materials-v1.png (tools/build_approved_materials.py packs it from
@@ -1093,7 +1089,7 @@
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
     const blend=(a,b,t)=>{let c=0;for(const shift of [16,8,0])c|=Math.round(((a>>shift)&255)*(1-t)+((b>>shift)&255)*t)<<shift;return css(c);};
-    const noise=(x,y)=>{let n=Math.imul(x+17,374761393)^Math.imul(y+31,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
+    const noise=(x,y)=>hash2U01(x,y,17,31,0,true);
     const rect=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
     rect(0,0,512,128,css(recipe.body));rect(0,128,512,384,css(recipe.roof));
     // Atlas tiles are seamless and drawn 1:1; texel density is decided by
@@ -1732,11 +1728,7 @@
     const loY=Math.min(...points.map(p=>p.y))*.5,hiY=Math.max(...points.map(p=>p.y))*.5;
     const W=hiX-loX,D=hiY-loY;
     let fitRing=ring;
-    const inside=p=>{let hit=false;for(let i=0,j=fitRing.length-1;i<fitRing.length;j=i++){
-      const a=fitRing[j],b=fitRing[i];
-      if(Math.abs(cross(a,b,p))<1e-7&&p.x>=Math.min(a.x,b.x)-1e-7&&p.x<=Math.max(a.x,b.x)+1e-7&&p.y>=Math.min(a.y,b.y)-1e-7&&p.y<=Math.max(a.y,b.y)+1e-7)return true;
-      if((a.y>p.y)!==(b.y>p.y)&&p.x<(b.x-a.x)*(p.y-a.y)/(b.y-a.y)+a.x)hit=!hit;
-    }return hit;};
+    const inside=p=>PolygonGeometry.pointInPolygon(fitRing,p,1e-7);
     const fits=(cx,cy,scale,pad=0)=>{
       const hw=W*scale/2+pad,hd=D*scale/2+pad;
       const rect=[{x:cx-hw,y:cy-hd},{x:cx+hw,y:cy-hd},{x:cx+hw,y:cy+hd},{x:cx-hw,y:cy+hd}];

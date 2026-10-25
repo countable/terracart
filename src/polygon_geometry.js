@@ -3,6 +3,31 @@
   'use strict';
   const EPSILON = 1e-8;
   const cross = (a, b, c) => (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
+  const polyArea = ring => ring.reduce((sum, point, i) => {
+    const next = ring[(i + 1) % ring.length];
+    return sum + point.x * next.y - next.x * point.y;
+  }, 0) / 2;
+
+  // Mutates an owned ring because geometry builders retain its starting point.
+  function ensureCCW(ring) {
+    if (polyArea(ring) < 0) ring.reverse();
+    return ring;
+  }
+
+  // The optional tolerance admits points on an edge. Consumers pass their own
+  // geometry epsilon because castle and building scales differ.
+  function pointInPolygon(ring, point, epsilon = 0) {
+    let inside = false;
+    for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+      const a = ring[j], b = ring[i];
+      if (epsilon > 0 && Math.abs(cross(a, b, point)) < epsilon
+          && point.x >= Math.min(a.x, b.x) - epsilon && point.x <= Math.max(a.x, b.x) + epsilon
+          && point.y >= Math.min(a.y, b.y) - epsilon && point.y <= Math.max(a.y, b.y) + epsilon) return true;
+      if ((a.y > point.y) !== (b.y > point.y)
+          && point.x < (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+    }
+    return inside;
+  }
 
   // Mutates an owned ring. Callers retain their winding/canonicalization order:
   // that order determines ear selection and therefore the retained roof mesh.
@@ -111,5 +136,6 @@
     return Math.min(1, Math.max(0, area));
   }
 
-  root.PolygonGeometry = { removeCollinear, triangulate, pointInRings, unionAreaInCell };
+  root.PolygonGeometry = { cross, polyArea, ensureCCW, pointInPolygon,
+    removeCollinear, triangulate, pointInRings, unionAreaInCell };
 })(globalThis);

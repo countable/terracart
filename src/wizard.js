@@ -158,18 +158,8 @@
     return Number.isFinite(save.wizardBuys) ? int(save.wizardBuys) : derivedBuys(save);
   }
 
-  // mulberry32 — the same generator as WorldGen.makeRng, inlined so this
-  // module stays loadable on its own.
-  function makeRng(seed) {
-    let a = seed >>> 0;
-    return function () {
-      a = (a + 0x6d2b79f5) >>> 0;
-      let t = a;
-      t = Math.imul(t ^ (t >>> 15), t | 1);
-      t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-    };
-  }
+  // Wizard offers share util.js's seeded stream; each purchase changes the
+  // seed, so no offer history depends on the former local generator.
   function offerSeed(save) {
     const salt = (save && save.relicSalt != null) ? (save.relicSalt >>> 0) : 0;
     return (Math.imul(buys(save) + 1, 0x9E3779B1) ^ salt ^ OFFER_SALT) >>> 0;
@@ -211,7 +201,7 @@
     const pool = unfinishedTracks(save, opts);
     let picked = pool;
     if (pool.length > OFFER_COUNT) {
-      const rng = makeRng(offerSeed(save));
+      const rng = makeRng32(offerSeed(save));
       const left = pool.slice();
       picked = [];
       while (picked.length < OFFER_COUNT) {

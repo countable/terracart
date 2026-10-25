@@ -46,7 +46,7 @@ function groundPreview(tile) {
 function preview(row) {
   if (row.size === 'path') return previewPath(row);
   let name = 'Preview';
-  const tags = { class: row.size === 'major' ? 'secondary' : 'minor' };
+  const tags = { class: 'minor' };
   const layers = [
     { name: 'landuse', features: [{ type: 3, tags: { class: 'park' },
       geom: [[point(0, 0), point(N - 1, 0), point(N - 1, N - 1), point(0, N - 1)]] }] },
@@ -146,11 +146,11 @@ function previewPath(row) {
     line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
 }
 
-const rows = SV.STREET_VARIANTS.map(preview);
+const rows = SV.STREET_VARIANTS.filter(row => ['minor', 'path'].includes(row.size)).map(preview);
 // Use the runtime weighting helper, with no name match, to make soft affinities
 // inspectable without changing the generated art fixture or rarity roll.
 const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland', 'damp', 'formal', 'sacred', 'ruined', 'coastal'].map(trait =>
-  [trait, Object.fromEntries(['minor', 'major'].map(size =>
+  [trait, Object.fromEntries(['minor'].map(size =>
     [size, SV.selectionWeights('Preview', size, trait === 'neutral' ? {} : {[trait]: 1})]))]));
 const rules = {
   slime_trail: `Glossy slime paving. One seeded species per section, chosen from green, purple, fire or splitting slimes. Two guards at each eligible post every ${SV.VARIANT_BY_ID.slime_trail.enemyStepM} m; short sections use a midpoint post. No daily reset.`,
@@ -178,5 +178,5 @@ for (const row of rows) {
 }
 process.stdout.write(JSON.stringify({ cellM, terrainVergeCells: Number(read('street_variants').match(/const TERRAIN_VERGE_CELLS = ([\d.]+)/)[1]), affinityContexts, fixture: { tx, ty, cellsPerEdge: N }, rows, baseline: SV.BANDIT_STORY,
   maxVariantLengthM: SV.MAX_VARIANT_LENGTH_M, wagonStopShare: SV.WAGON_STOP_SHARE, rockStreetShare: SV.ROCK_STREET_SHARE,
-  plainShare: Object.fromEntries(['minor', 'major'].map((size) =>
-    [size, 1 - (size === 'minor' ? SV.MINOR_VARIANT_SHARE : rows.filter((r) => r.size === size).reduce((sum, r) => sum + r.share, 0))])) }, null, 2) + '\n');
+  variantSizes: ['minor', 'path'], variantShadeAlpha: ctx.RoadOverlay.VARIANT_SHADE_ALPHA,
+  plainShare: { minor: 1 - SV.MINOR_VARIANT_SHARE } }, null, 2) + '\n');

@@ -198,13 +198,13 @@
       .map(v => (v == null ? '' : String(v))).join('/');
   }
   function rerollPeek(cur, peek, current, tries = REROLL_RETRIES) {
-    if (cur) cur.rerolls = (cur.rerolls | 0) + 1;
     let next = peek();
     const was = offerKey(current);
     for (let i = 0; i < tries && next != null && offerKey(next) === was; i++) {
       if (cur) cur.skips = (cur.skips | 0) + 1;
       next = peek();
     }
+    if (cur && next != null) cur.rerolls = (cur.rerolls | 0) + 1;
     return next;
   }
 

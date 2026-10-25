@@ -52,6 +52,10 @@ const FORGE_CEREMONY = {
 // Deliveries (plain-house produce-set turn-ins) pay this multiple of the set's
 // summed full price — a 50% premium over selling the items individually.
 const DELIVERY_BONUS_MULT = 1.5;
+function deliverySetPrice(wanted) {
+  return Math.max(1, Math.round(
+    wanted.reduce((sum, id) => sum + Math.max(1, itemValue(id)), 0) * DELIVERY_BONUS_MULT));
+}
 // The fort unlock wood ladder (FORT_UNLOCK_WOOD*) and what a wreck can be
 // restored as (Houses.BUILD_OPTIONS) live in houses.js with the rules that read them.
 // Delivery wishlists unlock higher tiers as the player's lifetime tally grows;
@@ -460,7 +464,7 @@ class SceneShops {
       return;
     }
     // THEMED SHOPS (role key 'shop') sell one line each — seed, supply,
-    // potion, ore, relic or pet, by restore order — see presentThemedShop.
+    // potion, relic, book or pet, by restore order — see presentThemedShop.
     if (shopType === 'shop') {
       this.presentThemedShop(sx, sy, house, recordDeal);
       return;
@@ -631,8 +635,8 @@ class SceneShops {
 
   // The line and tier a themed shop (role key 'shop') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
-  // potion, ore, relic, then round again a tier up (the Book and Pet lines
-  // are one-off stamps, Shops.SOLO_LINES). The tutorial's shop
+  // potion, relic, then round again a tier up (the Book and Pet lines are
+  // one-off stamps, Shops.SOLO_LINES). The tutorial's shop
   // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
@@ -702,8 +706,7 @@ class SceneShops {
           .filter((id, i) => have[i] < 1)
           .map(id => itemName(id));
         const stock = missing.length ? `need ${missing.join(', ')}` : '✓ you have everything';
-        const setPrice = Math.max(1, Math.round(
-          h.wanted.reduce((sum, id) => sum + Math.max(1, itemValue(id)), 0) * DELIVERY_BONUS_MULT));
+        const setPrice = deliverySetPrice(h.wanted);
         const row = mkBtn(
           `<span style="flex:1;min-width:0;">`
           + `<span style="display:flex;align-items:center;gap:4px;">${icons}`
@@ -814,8 +817,7 @@ class SceneShops {
     // Price of one complete set = sum of each wanted item's full price, plus a
     // delivery premium (DELIVERY_BONUS_MULT) so delivering the set beats selling
     // the items individually. Drives both the modal display and the payout.
-    const setPrice = Math.max(1, Math.round(
-      wanted.reduce((sum, id) => sum + Math.max(1, itemValue(id)), 0) * DELIVERY_BONUS_MULT));
+    const setPrice = deliverySetPrice(wanted);
     // Keep each icon beside its name and requested count, including bundles.
     const requested = wanted.map(id =>
       `<div style="display:flex;align-items:center;gap:8px;text-align:left;">` +
@@ -895,6 +897,9 @@ class SceneShops {
   // guild (items.js guildDiscounted, Houses.guildRole) — every deal a shop,
   // smithy or trader quotes passes through here once.
   guildPrice(house, n) { return guildDiscounted(this.save, Houses.guildRole(this.save, house), n); }
+  finalPrice(house, n) {
+    return this.guildPrice(house, Math.max(1, Math.ceil(n * this.priceMul(house))));
+  }
   shopBucketState(house) {
     return ShopsMath.bucketState(this.save, house);
   }
@@ -942,8 +947,8 @@ class SceneShops {
   // shelf's next item; the trader's next barter) and `present` the method
   // that re-renders it. `opts.current` is what is on display: the draw goes
   // through ShopsMath.rerollPeek, which re-draws (for free) until it is
-  // something else. The purse is checked BEFORE the peek, which climbs the
-  // ladder, so a short purse never pays a rung.
+  // something else. The purse is checked before the peek, and the ladder
+  // climbs only when that peek produces an offer.
   _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts) {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = opts.cost(curState?.rerolls || 0);
@@ -1076,8 +1081,7 @@ class SceneShops {
     if (!choices.includes(id)) id = choices[Math.floor(rng() * choices.length)];
     const units = Shops.themedQuantity(id, tier, rng);
     const base = units * ShopsMath.listPrice(this.save, id, itemValue(id));
-    const price = this.guildPrice(house, Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, base, rng) * this.priceMul(house))));
+    const price = this.finalPrice(house, ShopsMath.buyPrice(this.save, base, rng));
     return { id, units, price };
   }
 
@@ -1194,7 +1198,7 @@ class SceneShops {
     const blurb = (gearDef(offer.kind, offer.slot)?.blurb || '') + this.shopTierBadgeHTML(house);
     // The charm's hour and the hammer's standing cut (floor $1) — priceMul —
     // then a guild badge takes its share off (guildPrice).
-    const price = this.guildPrice(house, Math.max(1, Math.ceil(offer.price * this.priceMul(house))));
+    const price = this.finalPrice(house, offer.price);
     return {
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
@@ -1988,8 +1992,8 @@ class SceneShops {
       : undefined;
     // The charm's hour and the hammer's standing cut (floor $1) — see priceMul —
     // then a guild badge takes its share off (guildPrice).
-    const cashCost = opts.price ?? this.guildPrice(opts.house, Math.max(1,
-      Math.ceil(ShopsMath.buyPrice(this.save, baseValue, priceRng) * this.priceMul(opts.house))));
+    const cashCost = opts.price ?? this.finalPrice(opts.house,
+      ShopsMath.buyPrice(this.save, baseValue, priceRng));
     return {
       kind: 'money',
       label: this.moneyHTML(cashCost),

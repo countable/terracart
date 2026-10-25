@@ -247,6 +247,7 @@ class SceneModals {
       wrap.remove();
       onClose?.();
     };
+    wrap.closeModal = dismissShell;
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap && !speech) dismissShell(); });
     }
@@ -691,7 +692,7 @@ class SceneModals {
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
   showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections }) {
-    document.getElementById('offer-modal')?.remove();
+    document.getElementById('offer-modal')?.closeModal?.();
     let dismissed = false;
     const dismiss = () => {
       if (dismissed) return;

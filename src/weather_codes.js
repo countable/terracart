@@ -34,5 +34,5 @@
     return kind !== 'none' ? kind : SKY_BY_CODE.get(Number(code)) || '';
   }
 
-  return { CODES, SKY, kindFor, labelFor };
+  return { CODES, kindFor, labelFor };
 });
