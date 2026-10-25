@@ -760,9 +760,10 @@ Home's sign reads "Home (Rank)", with no score: the rank is the
 (Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). It is the one
 Home label, shown at all hours, typed out with Home's introduction, and
 re-read from `Furniture.luxuryOf` every frame so it changes as furniture does.
-Home also shows its current luxury as a white number above its sign while indoors
-and from outside after dark. The score updates immediately, separately from
-Home's introductory typing, and fades when it overlaps the player.
+The map never shows the score itself: Home's Sell and Upgrade dialog carries it
+as "Luxury N" on its label chip. While the player is inside, the sign rises out
+of the roofless room to sit `HomeArea.INDOOR_SIGN_GAP_PX` above the lit
+silhouette's top (`Lighting.indoorTopPx`), in the mask's dark outside.
 
 Old Archive Court's existing style deterministically selects delivery or luxury
 jobs without changing castle style assignment. The luxury card is titled
