@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-d44eac9a';
+    window.__shellVersion = 'shell-172c28f7';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -2102,6 +2102,9 @@
         '  app.js parse      ' + ms(sum(span('app.js'))).padStart(8),
         '  phaser assets     ' + ms(sum(span('phaser preload'))).padStart(8),
         '  scene create      ' + ms(sum(span('scene create'))).padStart(8),
+        // The three costliest create phases (scene_create.js _phase).
+        '     of which: ' + (span('create · ').sort((a, b) => b.ms - a.ms).slice(0, 3)
+          .map(x => x.name.slice(9) + ' ' + ms(x.ms)).join(', ') || 'not split'),
         '  centre tile       ' + ms(centre.length ? Math.max(...centre.map(x => x.ms)) : 0).padStart(8),
         '     of which: fetch ' + ms(sum(span('tile').filter(x => x.name.endsWith('fetch')
             && x.t < (playable ? playable.t : Infinity)))).padStart(7)
@@ -3359,7 +3362,7 @@
   <script src="src/geo.js?v=c1099b24"></script>
   <script src="src/art_thumbs.js?v=3b7e97f0"></script>
   <script src="src/modal_shell.js?v=ecbf12d8"></script>
-  <script src="src/scene_geo.js?v=5f8030e6"></script>
+  <script src="src/scene_geo.js?v=68ee1d38"></script>
   <script src="src/npc.js?v=018a7525"></script>
   <script src="src/npc_benefits.js?v=2fa75978"></script>
   <script src="src/scene_creatures.js?v=fb4d0588"></script>
@@ -3368,7 +3371,7 @@
   <script src="src/heading_up.js?v=c5a5fa95"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=23421475"></script>
+  <script src="src/scene_create.js?v=d0a0c7ec"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>

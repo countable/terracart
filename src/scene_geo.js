@@ -10,7 +10,7 @@
 //     on idle), _whenIdle, _tileFailureKind, _scheduleTileRetry (the backoff
 //     re-fetch), and the dumpTileDebug readout.
 // Plus the constants only they read: ORIGIN_STRANDED_M, RING_IDLE_TIMEOUT_MS,
-// TILE_RETRY_BASE_MS, TILE_RETRY_MAX_MS.
+// RING_IDLE_FRAME_MS, TILE_RETRY_BASE_MS, TILE_RETRY_MAX_MS.
 //
 // The methods live on `class SceneGeo`, a MIXIN: app.js installs them onto
 // MapScene.prototype right after the class closes (installSceneMixin, from
@@ -42,6 +42,9 @@
 // entirely. 25 km is well past a day's walk and well past any GPS error.
 const ORIGIN_STRANDED_M = 25000;
 const RING_IDLE_TIMEOUT_MS = 400;
+// A frame gap at or under this (a 30 fps frame) counts as idle for _whenIdle's
+// rAF fallback.
+const RING_IDLE_FRAME_MS = 34;
 const TILE_RETRY_BASE_MS = 4000;
 const TILE_RETRY_MAX_MS = 60000;
 
@@ -1066,12 +1069,25 @@ class SceneGeo {
   // latest. A tile build overruns any idle deadline on its own (it is one
   // uninterruptible chunk), so this is about picking a better MOMENT, not
   // about fitting inside the budget.
+  //
+  // Without requestIdleCallback (iOS Safari) the rAF fallback resolves on the
+  // first frame-to-frame gap of RING_IDLE_FRAME_MS or less; the timeout is the
+  // ceiling for a thread that never settles. A flat 400 ms wait here left the
+  // iPhone ring idle for ~450 ms before every tile (3.5 s of a 9 s ring).
   _whenIdle() {
     return new Promise((resolve) => {
       if (typeof requestIdleCallback === 'function') {
         requestIdleCallback(() => resolve(), { timeout: RING_IDLE_TIMEOUT_MS });
       } else if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => setTimeout(resolve, RING_IDLE_TIMEOUT_MS));
+        const start = performance.now();
+        let last = null;
+        const step = (now) => {
+          if (last !== null && (now - last <= RING_IDLE_FRAME_MS
+              || now - start >= RING_IDLE_TIMEOUT_MS)) { resolve(); return; }
+          last = now;
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
       } else {
         setTimeout(resolve, RING_IDLE_TIMEOUT_MS);
       }
