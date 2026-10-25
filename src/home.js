@@ -260,6 +260,9 @@ const HomeArea = {
   },
   // Home's sign over the roof, nudged off its centred spot (render.js).
   SIGN_NUDGE_PX: { x: -3, y: 4 },
+  // While the player is inside, the sign's gap above the lit room's top
+  // edge, px — it reads in the mask's dark rather than over the floor.
+  INDOOR_SIGN_GAP_PX: 2,
   // Smoke wisping off the cold pit (render.js): `puffs` soft grey puffs, each
   // rising `risePx` over `periodMs` with a sideways sway, growing from
   // radiusPx[0] to radiusPx[1] and fading out from `alpha`.

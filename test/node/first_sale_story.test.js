@@ -13,7 +13,7 @@ function saleTest(fn) {
   let busy = false;
   document.body = { classList: { contains: () => busy } };
   const s = makeScene({ ...methods, save: { inv: [{ id: 'rubble', count: 3 }], selSlot: 0, money: 0, relics: {} },
-    modals: [], _homeTabs: () => [], _homeKindIcon: () => undefined,
+    modals: [], _homeTabs: () => [], _homeKindIcon: () => undefined, _homeKindLabel: () => undefined,
     moneyHTML: String, _clampSelSlot() {}, _finishInventoryChange() {},
     questEvent() {}, showOfferModal(o) { this.offer = o; }, showMessageModal(o) { this.modals.push(o); },
   });

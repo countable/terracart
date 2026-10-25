@@ -3994,20 +3994,6 @@ Render.drawLowPolyProps = function (scene, items) {
   return drawn;
 };
 
-// Score text has its own cache and never enters Home's session typing clock.
-// At night it stays readable from outside, above the unlit roof.
-Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
-  const home = scene.save?.starterShopId;
-  const inside = !!home && !!scene.homeInside?.();
-  const dark = (scene.depth || 0) === 0 && Lighting.daylight(scene, Date.now()) < 0.5;
-  const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
-  const key = `${home}|${inside}|${dark}|${score}`;
-  if (scene._homeLuxuryLabel?.key !== key) {
-    scene._homeLuxuryLabel = { key, text: home && (inside || dark) ? String(score) : null };
-  }
-  return scene._homeLuxuryLabel.text;
-};
-
 // The resident board replaces the delivery bubble. Portraits use the same
 // identity as conversation, including Tilly's housed face after moving in.
 Render.residentPlaque = function residentPlaque(scene, house) {
@@ -5381,11 +5367,12 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
-  const luxuryText = Render.homeLuxuryLabel(scene);
-  if (luxuryText !== null) {
-    const home = plain.find(item => item.o.id === scene.save.starterShopId);
-    if (home) plain.push({ ...home, luxuryText });
-  }
+  // Inside Home the roof is off and the lighting mask darkens everything
+  // past its walls: the sign rises out of the room into that dark, just
+  // above the lit silhouette's top (Lighting.indoorTopPx).
+  const homeInterior = scene.homeInterior?.() || null;
+  const indoorTop = homeInterior && typeof Lighting !== 'undefined' && Lighting.indoorTopPx
+    ? Lighting.indoorTopPx(scene, homeInterior, pWorldX, pWorldY) : null;
   Render.renderPool(scene, scene.shopLabelPool, scene.labelContainer, plain, (tx, item) => {
     const { o, dx, dy } = item;
     const { x: px, y: py } = project(dx, dy);
@@ -5393,11 +5380,10 @@ Render.drawObjects = function drawObjects(scene) {
     const sx = px + mid.x, sy = py + mid.y;
     // The label TOP hangs 12px below the art's middle (origin [0.5, 0], so
     // position y = label top): across the building's lower front, by its door.
-    const luxury = item.luxuryText !== undefined;
-    const full = luxury ? item.luxuryText : _houseSignText(o);
+    const full = _houseSignText(o);
     const home = _houseRole(o) === 'trailer';
-    const typed = home && !luxury ? _homeSignTyped(full) : full;
-    setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o, _houseRole(o))));
+    const typed = home ? _homeSignTyped(full) : full;
+    setColorOnce(tx, _lighten30(_houseSignInk(o, _houseRole(o))));
     tx.setText(full);
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
@@ -5406,7 +5392,9 @@ Render.drawObjects = function drawObjects(scene) {
     // the house is prisms, which have no art height.
     const nudge = home ? HomeArea.SIGN_NUDGE_PX : { x: 0, y: 0 };
     const homeLift = home ? (_houseArtH(o) ? _houseArtH(o) / 2 : HomeArea.HOUSE.signLiftPx) : 0;
-    const top = home ? Math.round(sy - homeLift - tx.height + nudge.y - (luxury ? tx.height + 4 : 0)) : Math.round(sy) + 12;
+    const top = home && indoorTop !== null && o.id === scene.save?.starterShopId
+      ? Math.round(indoorTop - tx.height - HomeArea.INDOOR_SIGN_GAP_PX)
+      : home ? Math.round(sy - homeLift - tx.height + nudge.y) : Math.round(sy) + 12;
     if (typed === full) {
       tx.setPosition(Math.round(clampTextX(sx + nudge.x, tx.width, CANVAS_W)), top);
     } else {
