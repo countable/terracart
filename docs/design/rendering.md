@@ -1164,8 +1164,13 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
-- Road surfaces use sparse, individually shaded cobbles with transparent ground
-  gaps, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
+- Small-road and path vector bands carry a variant-coloured 20% tint beneath
+  their cobbles. The base pavement tile compensates for the road image alpha;
+  restored tiles add no second tint. It follows exact road widths, larger-road
+  occlusion and water/building keep-outs. The cached tint changes vector art,
+  while grid terrain and roadside ground retain their existing rules.
+- Road surfaces use sparse, individually shaded cobbles with ground-revealing
+  joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
   saturation, while restored stones regain colour and add missing cobbles at the
   same positions. Both states keep the approved Promenade light–dark contrast.

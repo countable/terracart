@@ -1,0 +1,1 @@
+{"cases":[{"id":"variant-shading","seams":false,"roads":[{"name":"Lantern Row","class":"minor","variant":"lantern","points":[[-8,-2],[8,-2]]},{"name":"Confusion Path","class":"path","tags":{"subclass":"footway"},"variant":"confusion_path","points":[[-8,1],[8,1]]},{"name":"Greenway","class":"path","tags":{"subclass":"footway"},"variant":"greenway","points":[[-8,4],[8,4]]}]}]}

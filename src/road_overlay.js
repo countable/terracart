@@ -75,6 +75,7 @@
   const PATH_COLOR = 0x948b75;
   const ROAD_COLOR = 0x89867c;
   const ALPHA = 0.61;    // reads as a band without hiding the map
+  const VARIANT_SHADE_ALPHA = 0.20; // effective opacity beneath Small-road/path cobbles
   const MVT_EXTENT = 4096;
 
   // WorldGen.PATH_CLASSES itself, so a way that rasterizes as a footpath also
@@ -739,15 +740,20 @@
       const delta=(light-source.mean)*scale+(restored?8:0);
       for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,target[channel]+delta));
     }
-    // Ordinary roads retain open ground between cobbles. MD/LG rift roads
-    // share a continuous bed in both states, baked once into this cached tile
-    // so the game and review paint the same surface without changing terrain.
+    // Bake the variant tint once into the base surface. Compensate for the
+    // road image's overall alpha so empty joints show a 20% tint on the map.
+    // Restored cobbles reveal that same base tint rather than adding it twice.
+    // MD/LG rift roads retain their solid bed in both restoration states.
     g.putImageData(pixels,0,0);
-    if (variant === 'suppressed') {
+    if (variant === 'suppressed' || !restored) {
+      g.save();
       g.globalCompositeOperation = 'destination-over';
-      g.fillStyle = global.StreetVariants?.pavementFor(variant)?.weathered || ROAD_THEME_COLORS.suppressed;
+      g.globalAlpha = variant === 'suppressed' ? 1 : VARIANT_SHADE_ALPHA / ALPHA;
+      g.fillStyle = variant === 'suppressed'
+        ? global.StreetVariants?.pavementFor(variant)?.weathered || ROAD_THEME_COLORS.suppressed
+        : ROAD_THEME_COLORS[variant];
       g.fillRect(0,0,c.width,c.height);
-      g.globalCompositeOperation = 'source-over';
+      g.restore();
     }
     return c;
   }
@@ -2124,7 +2130,7 @@
     }
   }
 
-  global.RoadOverlay = { variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,
