@@ -756,9 +756,9 @@ receipt. Both persist after the transaction.
 `Weather` asks the relay for the current conditions at the player's projected
 latitude and longitude every ten minutes, or after one kilometre of movement.
 The relay owns the WeatherAPI credential and returns only precipitation kind,
-rounded temperature, condition code and cache time. The client never calls
-WeatherAPI directly. A disabled or unreachable relay leaves the last good state
-in place without player-facing network errors.
+rounded temperature, wind speed, condition code and cache time. The client never
+calls WeatherAPI directly. A disabled or unreachable relay leaves the last good
+state in place without player-facing network errors.
 
 Falling precipitation uses the native turquoise water-drop phases from Rogue
 Adventure's `RA_Atlantis_Animated01.png`. `Weather.EFFECTS` is the single owner
@@ -775,6 +775,12 @@ Hardworking buff for ten minutes and cancels that surcharge. At or below 0°C,
 water entry applies the `Conditions.DEFINITIONS.frozen` row. Hot and cold
 surface births deterministically reweight plain slimes toward fire and
 ice-blue splitting slimes without changing their spawn ids.
+
+`Whirlwinds.CONFIG.wind` owns wind-driven tornado frequency, group size and
+cooldown. At 10 km/h and above, weather tornadoes may rise in every surface
+biome and stronger wind raises larger groups. The shared hazard gate still
+excludes roads, restricted land, kindergarten cells and private ground, while
+`HomeArea.isNear` keeps the starting area calm.
 
 The sole lighting pass receives a faint red or blue profile tint and a matching
 player aura. In winter, wild `longgrass` sprites use the table's warm-yellow

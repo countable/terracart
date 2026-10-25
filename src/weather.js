@@ -40,7 +40,7 @@ const Weather = (() => {
   const KINDS = EFFECTS.precipitation;
   const EARTH_M = 6371000;
   const S = {
-    scene: null, kind: 'none', precip: false, condition: 0, temp: null, cachedAt: 0,
+    scene: null, kind: 'none', precip: false, condition: 0, temp: null, windKph: null, cachedAt: 0,
     lastPollAt: 0, lastPosition: null, loading: false, emitter: null,
     drawnKind: 'none', drawnLayout: '', stopped: true,
   };
@@ -202,6 +202,7 @@ const Weather = (() => {
     S.kind = value?.precip ? kind : 'none'; S.precip = S.kind !== 'none';
     S.condition = Number.isInteger(value?.condition) ? value.condition : 0;
     S.temp = Number.isFinite(value?.temp) ? Math.round(value.temp) : null;
+    S.windKph = Number.isFinite(value?.windKph) ? Math.round(value.windKph * 10) / 10 : null;
     S.cachedAt = Number(value?.cachedAt) || 0;
     if (S.scene) syncOverlay(S.scene);
   }
@@ -237,7 +238,8 @@ const Weather = (() => {
     scene.events?.once?.('shutdown', () => { if (S.scene === scene) stop(); });
     tick(scene);
   }
-  function state() { return { kind: S.kind, precip: S.precip, condition: S.condition, temp: S.temp, cachedAt: S.cachedAt }; }
+  function state() { return { kind: S.kind, precip: S.precip, condition: S.condition,
+    temp: S.temp, windKph: S.windKph, cachedAt: S.cachedAt }; }
 
   return { EFFECTS, POLL_MS, MOVE_POLL_M, KINDS, distanceM, pollNeeded, band, surfaceBand,
     effectiveKind, lightEffect, auraEffect, coldGrassTint, enemyBirthKind, workCostMultiplier, workCost,

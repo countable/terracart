@@ -26,9 +26,9 @@
       { lat: 49.898, lon: -119.496 }), 'about 1.1 km north refreshes before the timer');
   });
 
-  test('weather: rounded relay temperature selects one surface band and winter grass tint', () => {
-    Weather.accept({ temp: -0.4, kind: 'none', precip: false, cachedAt: 7 });
-    assert.eq(Weather.state().temp, 0); assert.eq(Weather.band(), 'cold');
+  test('weather: rounded relay temperature and wind survive the compact client state', () => {
+    Weather.accept({ temp: -0.4, windKph: 18.26, kind: 'none', precip: false, cachedAt: 7 });
+    assert.eq(Weather.state().temp, 0); assert.eq(Weather.state().windKph, 18.3); assert.eq(Weather.band(), 'cold');
     assert.eq(Weather.coldGrassTint({ depth: 0 }, 'longgrass'), Weather.EFFECTS.cold.grassTint);
     assert.eq(Weather.coldGrassTint({ depth: 1 }, 'longgrass'), null);
     assert.eq(Weather.coldGrassTint({ depth: 0 }, 'flowers'), null);

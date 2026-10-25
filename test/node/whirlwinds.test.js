@@ -4,6 +4,8 @@
   function fixture(run) {
     const W = WorldGen, key = W.tileKey(0, 0), previous = W.tileCache.get(key);
     const rng = W.makeRng, nearby = W.forEachItemNear, veto = W.privateVetoAt, home = HomeArea.worldM;
+    const weather = Weather.state();
+    Weather.accept({ kind: 'none', precip: false, temp: null, windKph: null });
     HomeArea.worldM = null;
     const entry = { cellsPerEdge: 8, grid: new Uint8Array(64).fill(W.T.GRASS),
       creatures: [], _spawnOpts: { roadMask: new Uint8Array(64), spawnWhy: new Uint16Array(64), occupied: new Set() } };
@@ -30,6 +32,7 @@
     try { run(scene, entry); } finally {
       if (previous) W.tileCache.set(key, previous); else W.tileCache.delete(key);
       W.makeRng = rng; W.forEachItemNear = nearby; W.privateVetoAt = veto; HomeArea.worldM = home;
+      Weather.accept(weather);
     }
   }
   test('whirlwind: gusty afternoons raise a group, spaced apart, on a likelier roll', () => fixture((s, e) => {
@@ -45,6 +48,45 @@
     for (const a of s._whirlwinds) for (const b of s._whirlwinds)
       if (a !== b) assert.gte(Math.hypot(a.x - b.x, a.y - b.y), s.cellM, 'never stacked');
     assert.eq(s._whirlwindNextEncounter, G.cooldownMs);
+  }));
+  test('whirlwind: weather wind raises larger groups across surface biomes with a shorter cooldown', () => fixture((s, e) => {
+    const W = Whirlwinds.CONFIG.wind;
+    assert.eq(W.maxActiveFor(10), 1); assert.eq(W.maxActiveFor(20), 2); assert.eq(W.maxActiveFor(30), 3);
+    assert.eq(W.maxActiveFor(80), 3, 'phone-sized fields cap the group');
+    assert.eq(W.cooldownFor(10), 45000); assert.eq(W.cooldownFor(20), 35000); assert.eq(W.cooldownFor(30), 25000);
+    for (const type of [WorldGen.T.SAND, WorldGen.T.PARK, WorldGen.T.FOREST, WorldGen.T.WASTELAND]) {
+      e.grid.fill(type);
+      assert.truthy(Whirlwinds.ground(s, 24, 24, null, Whirlwinds.WEATHER_GROUND), `biome ${type}`);
+    }
+    e.grid.fill(WorldGen.T.SAND);
+    Weather.accept({ kind: 'none', precip: false, windKph: 31 });
+    const seats = [{ x: 40, y: 24 }, { x: 40, y: 32 }, { x: 48, y: 24 }];
+    s.findWalkableDestination = (d, opts) => {
+      assert.eq(opts.cls, 'hazard');
+      return seats.find(p => opts.accept(p.x, p.y)) || null;
+    };
+    Whirlwinds.observe(s, 0, CALM);
+    assert.eq(s._whirlwinds.length, 3, '31 km/h fixes a three-tornado group at the encounter roll');
+    assert.eq(s._whirlwindNextEncounter, W.cooldownFor(31));
+  }));
+  test('whirlwind: rising wind never rerolls a cell whose calm visit already missed', () => fixture((s, e) => {
+    WorldGen.makeRng = () => () => Whirlwinds.CONFIG.chance * 2;
+    Weather.accept({ kind: 'none', precip: false, windKph: 9 });
+    Whirlwinds.observe(s, 0, CALM); assert.eq(s._whirlwinds.length, 0);
+    Weather.accept({ kind: 'none', precip: false, windKph: 40 });
+    Whirlwinds.observe(s, 100000, CALM);
+    assert.eq(s._whirlwinds.length, 0, 'the cell/day visit stays decided after the wind rises');
+  }));
+  test('whirlwind: weather wind keeps Home and shared hazard exclusions calm', () => fixture((s, e) => {
+    e.grid.fill(WorldGen.T.SAND);
+    HomeArea.setOrigin(0, 0);
+    assert.falsy(Whirlwinds.ground(s, 24, 24, null, Whirlwinds.WEATHER_GROUND), 'starting area');
+    assert.truthy(Whirlwinds.ground(s, 24, 24, null, true), 'the Scroll of Wind keeps its broader movement gate');
+    HomeArea.worldM = null;
+    e._spawnOpts.spawnWhy[27] = WorldGen.SPAWN_WHY.KINDERGARTEN;
+    assert.falsy(Whirlwinds.ground(s, 24, 24, null, Whirlwinds.WEATHER_GROUND), 'kindergarten');
+    e._spawnOpts.spawnWhy[27] = 0; e._spawnOpts.roadMask[27] = 1;
+    assert.falsy(Whirlwinds.ground(s, 24, 24, null, Whirlwinds.WEATHER_GROUND), 'road');
   }));
   test('whirlwind: unmapped default grass (between houses) is not open turf', () => fixture((s, e) => {
     e.mappedLand = new Uint8Array(64);
