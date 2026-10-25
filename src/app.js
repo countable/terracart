@@ -730,15 +730,13 @@ const TURRET_SCAN_MS = 300;
 function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 
 // --- Debug ---
-// WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
-// Must default false: the keyboard takeover this gates (see the WASD block in
+// WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed only
+// with `?debug=true`. The keyboard takeover this gates (see the WASD block in
 // update() and the SPACE/T/F bindings below) latches GPS off for the rest of
-// the session on the first keypress it sees, so shipping it live meant any
-// GPS-tracked session with a keyboard attached (a Chromebook, a Bluetooth
-// keyboard case) could have the player silently auto-walk off toward wherever
-// a stray key sent them instead of their real position, with no way back but
-// a reload. Flip it locally for desktop testing.
-const DEBUG = false;
+// the session on the first keypress it sees, so the default must never expose
+// it to a GPS-tracked Chromebook or Bluetooth keyboard.
+const DEBUG = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('debug') === 'true';
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
 // sprite. For its minute the player walks as if they had boots at this
@@ -2287,9 +2285,9 @@ class MapScene extends Phaser.Scene {
         capMS = Math.min(capMS ?? Infinity, WALK_M_S * contact.speedMul);
       }
     }
-    const held = Conditions.movementBlocked(this.save);
+    const blocked = Conditions.movementBlocked(this.save);
     const balancing = typeof ObstacleStep !== 'undefined' && ObstacleStep.speedMul(this._obstacleStep) < 1;
-    return { pinned: held, capMS, slowed: !held && (capMS > 0 || balancing) };
+    return { blocked, capMS, slowed: !blocked && (capMS > 0 || balancing) };
 
   }
 
@@ -3578,7 +3576,7 @@ class MapScene extends Phaser.Scene {
       // A story can open while a pointer is held or a target is still ahead.
       // Keep receiving GPS fixes, but hold the body until reading finishes.
       this._playDirected(this.player, 'idle');
-    } else if (bodyHold.pinned) {
+    } else if (bodyHold.blocked) {
       // Held still, but sharp ground continues hurting.
       const { x, y } = playerWorldM(this);
       this._tickWalkHazards(dt, x, y, x, y);
@@ -6889,12 +6887,19 @@ class MapScene extends Phaser.Scene {
     if (!cam || typeof cam.fadeOut !== 'function') { place(); return; }
     if (this._teleporting) return;
     this._teleporting = true;
+    const cut = this._teleportCutToken = {};
+    const clear = () => {
+      if (this._teleportCutToken !== cut) return;
+      this._teleporting = false;
+      this._teleportCutToken = null;
+    };
     const p = this.playerScreen();
     this._burstAt('shiny', p.x, p.y);
     cameraBlackout(this, place, {
       outMs: TELEPORT_FADE_OUT_MS, inMs: TELEPORT_FADE_IN_MS,
-      onDone: () => { this._teleporting = false; },
+      onDone: clear,
     });
+    this.time?.delayedCall?.(TELEPORT_FADE_OUT_MS + TELEPORT_FADE_IN_MS + 500, clear);
   }
   // Dig out the cave-wall cell under the player's feet, if that is what they
   // are standing in. Called after a placement underground, and again from the

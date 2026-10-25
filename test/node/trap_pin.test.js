@@ -84,7 +84,7 @@ test('trap pin: the spring branch applies the pinned status row', () => {
 test('trap pin: the movement block is gated on the pin, all four steps together', () => {
   assert.truthy(/const pinned = Conditions\.active\(this\.save, 'pinned'\);/.test(HOLD_SRC),
     '_bodyHold reads the pin');
-  assert.truthy(/if \(bodyHold\.pinned\) \{/.test(MOVE_SRC), 'update() gates on it');
+  assert.truthy(/if \(bodyHold\.blocked\) \{/.test(MOVE_SRC), 'update() gates on it');
   for (const step of ['this._steerManual(stick.x, stick.y, dt);',
                       'this._driftHome(dt);',
                       'this._steerTarget(vx, vy, speedMul, dt);',

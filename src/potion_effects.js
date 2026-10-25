@@ -119,7 +119,7 @@
     if (TIMERS[id]) {
       // Seed health before Giant expands the maximum; increasing capacity is not healing.
       Combat.hp(c);
-      c[TIMERS[id]] = now + spec.durationMs;
+      c[TIMERS[id]] = Buffs.laterOf(c[TIMERS[id]], spec.durationMs, now);
       if (id === 'blight_potion') c._potionBlightAt = now + 1000;
       c._hp = Math.min(c._hp, Combat.maxHp(c));
       if (id === 'fire_resistance_potion' || id === 'immortal_potion') extinguish(c);

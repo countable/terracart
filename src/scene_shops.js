@@ -460,7 +460,7 @@ class SceneShops {
       return;
     }
     // THEMED SHOPS (role key 'shop') sell one line each — seed, supply,
-    // potion, ore, relic or pet, by restore order — see presentThemedShop.
+    // potion, relic, book or pet, by restore order — see presentThemedShop.
     if (shopType === 'shop') {
       this.presentThemedShop(sx, sy, house, recordDeal);
       return;
@@ -631,8 +631,8 @@ class SceneShops {
 
   // The line and tier a themed shop (role key 'shop') sells: its place in
   // the save's restore order of shops, through Shops.themeAt — seed, supply,
-  // potion, ore, relic, then round again a tier up (the Book and Pet lines
-  // are one-off stamps, Shops.SOLO_LINES). The tutorial's shop
+  // potion, relic, then round again a tier up (the Book and Pet lines are
+  // one-off stamps, Shops.SOLO_LINES). The tutorial's shop
   // (Houses.BUILD_OPTIONS, from the third rebuild) is the first shop, so it is still the
   // beginner's T1 seed shop. The sign, the offer title, the restoration card
   // and the stock all read this one answer.
@@ -942,8 +942,8 @@ class SceneShops {
   // shelf's next item; the trader's next barter) and `present` the method
   // that re-renders it. `opts.current` is what is on display: the draw goes
   // through ShopsMath.rerollPeek, which re-draws (for free) until it is
-  // something else. The purse is checked BEFORE the peek, which climbs the
-  // ladder, so a short purse never pays a rung.
+  // something else. The purse is checked before the peek, and the ladder
+  // climbs only when that peek produces an offer.
   _makeRerollSecondary(house, sx, sy, emptyMsg, present, opts) {
     const curState = house?.id ? this.shopBucketState(house) : null;
     const rerollCost = opts.cost(curState?.rerolls || 0);

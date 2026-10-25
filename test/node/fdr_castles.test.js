@@ -158,6 +158,11 @@
       const faces=group.blocks.filter(b=>Math.abs(b.x-keep.x)<1e-7&&Math.abs(b.y-keep.y)<1e-7).flatMap(b=>b.materialFaces);
       for(const material of ['door','door-seam','door-handle'])
         assert.gt(faces.filter(f=>f.material===material).length,0,`${family}: closed doors retain ${material}`);
+      for(const face of faces.filter(f=>f.material==='door')) {
+        const center=face.points.reduce((sum,p)=>({u:sum.u+p.u/3,v:sum.v+p.v/3}),{u:0,v:0});
+        assert.eq(Math.floor(center.u*4)+4*Math.floor(center.v*4),5,
+          'closed door artwork uses the shared gate atlas rather than an open entrance');
+      }
       assert.eq(faces.filter(f=>f.material==='banner').length,0,'no keep banner covers its entrance');
     }
   });
@@ -173,6 +178,8 @@
         const faces=group.blocks.filter(b=>Math.abs(b.x-part.x)<1e-7&&Math.abs(b.y-part.y)<1e-7).flatMap(b=>b.materialFaces);
         const roof=faces.filter(f=>f.material==='roof');
         assert.eq(roof.length,active?4:2,'a roof is four planar triangles, or two surviving planes on a wreck');
+        assert.eq(new Set(roof.map(f=>f.color)).size,roof.length,
+          'each retained roof plane has its own flat cel value without adding triangles');
         for(const face of roof) {
           assert.eq(face.points.length,3);
           assert.truthy(face.points.some(p=>p.z>part.height),'the roof has a visible peak above the shaft');
@@ -183,6 +190,112 @@
       const faces=group.blocks.flatMap(b=>b.materialFaces);
       assert.falsy(faces.some(f=>/wood|timber|beam|rafter/i.test(f.material||'')),'Archive wood and frameworks are absent in both states');
       assert.eq(faces.filter(f=>f.material==='banner').length,0,'Archive has no book flag');
+    }
+  });
+  test('FDR castles: intact military crowns have raised teeth on all four sides', () => {
+    for(const family of ['citadel','bastion']) {
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
+        add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      const {layout}=FDRCastleGeometry.draw(scene,'castles',L.rect(0,0,240,180),{family,active:true});
+      for(const part of [...layout.towers,layout.keep]) {
+        const shaft=group.blocks.find(b=>b.bottom===0&&b.top===part.height
+          &&Math.abs(b.x-part.x)<1e-7&&Math.abs(b.y-part.y)<1e-7);
+        assert.truthy(shaft);
+        const teeth=group.blocks.filter(b=>b.support===shaft.support&&b.bottom===part.height&&b.top>part.height);
+        const sides=new Set();
+        for(const tooth of teeth) {
+          const dx=tooth.x-part.x,dy=tooth.y-part.y;
+          if(Math.abs(dx)<part.width/4&&dy<-part.depth/3)sides.add('back');
+          if(Math.abs(dx)<part.width/4&&dy>part.depth/3)sides.add('front');
+          if(Math.abs(dy)<part.depth/4&&dx<-part.width/3)sides.add('left');
+          if(Math.abs(dy)<part.depth/4&&dx>part.width/3)sides.add('right');
+          assert.truthy(tooth.materialFaces.some(f=>!f.normal&&f.points.every(p=>p.z===tooth.top)),
+            'each tooth has a real lit top plane');
+        }
+        assert.eq([...sides].sort().join(','),'back,front,left,right',
+          `${family}: tower and keep crowns remain complete from every camera heading`);
+      }
+    }
+  });
+  test('FDR castles: Bastion plinths taper into the exact wall-cutout shaft using existing basal faces', () => {
+    for(const active of [true,false]) {
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
+        add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      const {layout}=FDRCastleGeometry.draw(scene,'castles',L.rect(0,0,240,180),{family:'bastion',active});
+      for(const part of layout.towers) {
+        const shaft=group.blocks.find(b=>b.bottom===0&&b.top===part.height
+          &&Math.abs(b.x-part.x)<1e-7&&Math.abs(b.y-part.y)<1e-7);
+        const sides=shaft.materialFaces.filter(f=>f.material==='stone'&&f.normal);
+        const foot=sides.flatMap(f=>f.points).filter(p=>p.z===0);
+        const above=sides.flatMap(f=>f.points).filter(p=>p.z>=4);
+        assert.eq(sides.filter(f=>f.points.every(p=>p.z<=4)).length,8,
+          'four tapered basal quads reuse eight triangles rather than adding a plinth mesh');
+        for(const p of above) {
+          const dx=Math.abs(p.x-part.x),dy=Math.abs(p.y-part.y);
+          assert.truthy(dx<=part.width/2+1e-7&&dy<=part.depth/2+1e-7
+            &&(Math.abs(dx-part.width/2)<1e-7||Math.abs(dy-part.depth/2)<1e-7),
+          'at z4 and above the shaft fills its exact curtain cutout, with no inset slots');
+        }
+        for(const [axis,size] of [['x',part.width],['y',part.depth]]) {
+          assert.lt(Math.abs(Math.min(...foot.map(p=>p[axis]))-(part[axis]-size/2-2)),1e-7);
+          assert.lt(Math.abs(Math.max(...foot.map(p=>p[axis]))-(part[axis]+size/2+2)),1e-7,
+            'the foot extends only two pixels beyond the shaft');
+        }
+      }
+    }
+  });
+  test('FDR castles: wreck curtain teeth always have full-height support under their complete footprint', () => {
+    const key=points=>JSON.stringify(points.map(p=>[p.x,p.y]));
+    for(const family of ['citadel','bastion','archive'])for(const points of [L.rect(0,0,240,180),concave,
+      [{x:0,y:0},{x:180,y:20},{x:120,y:140},{x:-30,y:90}]]) {
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
+        add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      const {layout}=FDRCastleGeometry.draw(scene,'castles',points,{family,active:false});
+      const wallKeys=new Set(layout.walls.map(w=>key(w.points)));
+      const walls=group.blocks.filter(b=>b.bottom===0&&wallKeys.has(key(b.points)));
+      assert.gt(walls.filter(b=>b.top<24).length,0,'the fixture contains genuinely lowered broken crests');
+      let raised=0;
+      for(const merlon of layout.merlons) {
+        const tooth=group.blocks.find(b=>b.bottom===merlon.base&&b.top===merlon.top&&key(b.points)===key(merlon.points));
+        if(!tooth)continue;
+        raised++;
+        const footprintArea=Math.abs(L.area(tooth.points));let supported=0;
+        for(const wall of walls) {
+          const overlap=Math.abs(L.area(L.intersect(tooth.points,wall.points)));
+          if(overlap<1e-7)continue;
+          assert.gte(wall.top,tooth.bottom,'no tooth floats above a lowered curtain fragment');
+          supported+=overlap;
+        }
+        assert.lt(Math.abs(supported-footprintArea),1e-3,'the entire raised tooth remains supported');
+      }
+      assert.gt(raised,0,'damage leaves some supported battlements standing');
+    }
+  });
+  test('FDR castles: ruin weathering stays in shared textures rather than extra moss geometry', () => {
+    const atlasSlot=face=>{
+      const center=face.points.reduce((sum,p)=>({u:sum.u+p.u/3,v:sum.v+p.v/3}),{u:0,v:0});
+      return Math.floor(center.u*4)+4*Math.floor(center.v*4);
+    };
+    for(const family of ['citadel','bastion','archive'])for(const active of [true,false]) {
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
+        add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      FDRCastleGeometry.draw(scene,'castles',L.rect(0,0,240,180),{family,active});
+      const faces=group.blocks.flatMap(b=>b.materialFaces);
+      const upperStone=faces.filter(f=>f.material==='stone'&&f.normal&&f.points.every(p=>p.z>=4));
+      assert.gt(upperStone.length,0);
+      const slots=new Set(upperStone.map(atlasSlot));
+      assert.eq([...slots].join(','),!active&&family!=='citadel'?'14':'13',
+        'Bastion/Archive wrecks use shared moss marks; Citadel and intact walls use quiet stone');
+      assert.falsy(faces.some(f=>/moss|ivy|vegetation/.test(f.material||'')),
+        'surface weathering does not introduce modeled vegetation');
     }
   });
   test('FDR castles: three visual families preserve legacy quest identities and lighten after restoration', () => {

@@ -61,7 +61,7 @@
     assert.eq(f.calls.refresh, 0, 'GPU composition does not refresh the Canvas texture');
     assert.eq(f.calls.reach, 0, 'Canvas contribution compositor is bypassed');
     assert.eq(f.calls.plan.base.revision, 1, 'first base canvas carries a revision');
-    assert.eq(f.calls.plan.cover, null, 'GPU lighting does not multiply the grey fog');
+    assert.eq(f.calls.plan.cover, undefined, 'GPU lighting omits the grey-fog lane');
     assert.eq(f.draw(), false, 'unchanged light key skips both backends');
     assert.eq(f.calls.gpu, 1);
   });

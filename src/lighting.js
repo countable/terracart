@@ -1919,7 +1919,7 @@
       }
       const plan = scene._lightGPUPlan = { key, width: W, height: H, base,
         reach: { masks: contribution.items, gradient, gain: REACH_OUTPUT_K },
-        world: cookies.items, stamps, cover: null };
+        world: cookies.items, stamps };
       gpuPainted = LightingGPU.draw(scene, plan);
       // The backend restores the Canvas image on failure. Paint it immediately,
       // then invalidate the mode key so the next frame cannot reuse stale work.

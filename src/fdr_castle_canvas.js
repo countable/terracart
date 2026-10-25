@@ -18,7 +18,7 @@
       const slot=Math.floor(center.u*4)+4*Math.floor(center.v*4);
       // Only fully opaque materials participate. Gates, windows, coping and
       // base tiles contain transparent source pixels and retain exact clips.
-      if(![3,4,8,9,10,13].includes(slot)&&!whitePatch(t.uv))return;
+      if(![0,3,4,5,8,9,10,13,14].includes(slot)&&!whitePatch(t.uv))return;
       const plane=planeKey(t.uv);if(!plane)return;
       const groupKey=plane+'|'+slot+'|'+t.color;let path=groups.get(groupKey);
       if(!path){path=new Path2D();groups.set(groupKey,path);}paths[index]=path;

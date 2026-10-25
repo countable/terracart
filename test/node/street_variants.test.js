@@ -738,7 +738,7 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
     for (let i = 0; i < secs * 30; i++) {
       clock.t += 1000 / 30;
       const h = s._bodyHold();
-      if (!h.pinned) s._followStep(1 / 30, h.capMS);
+      if (!h.blocked) s._followStep(1 / 30, h.capMS);
     }
   };
   const free = body(); step(free, 2);
@@ -750,7 +750,7 @@ test('slow: tar or stakes underfoot cap the body at SLOW_BODY_M_S, and the cap l
   assert.gt(slowed.playerM.x - x0, SLOW * 3, 'off the patch it catches up on the ordinary ramp');
   // One gate: the pin still wins over the slow.
   const pinned = body(); pinned._slowHere = 'stakes'; pinned.save = { conditions: { pinned: { remainingMs: 5000 } } };
-  assert.truthy(pinned._bodyHold().pinned && pinned._bodyHold().capMS == null, 'a pinned body is held, not capped');
+  assert.truthy(pinned._bodyHold().blocked && pinned._bodyHold().capMS == null, 'a pinned body is held, not capped');
   assert.truthy(SV.isSlowKind('tar') && SV.isSlowKind('stakes') && !SV.isSlowKind('waystone'),
     'the slow props are one table');
 });

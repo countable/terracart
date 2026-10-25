@@ -525,7 +525,7 @@ test('shared ids: only creatures marked where the world makes them; every per-de
   site('creature_ai.js', 'fished_slime_${pcW.tx}_${pcW.ty}_${Math.floor(now)}');
   site('creature_ai.js', 'const twin = WorldGen.makeCreature(');
   site('scene_creatures.js', 'pest_deer_${pc.tx}_${pc.ty}_${Math.floor(now)}');
-  site('scene_venues.js', 'guildfoe_${tx}_${ty}_${Math.floor(now)}_${i}');
+  site('scene_venues.js', 'guildfoe_${tx}_${ty}_${seat.ix}_${seat.iy}');
   site('scene_venues.js', 'WorldGen.makeCreature(f.kind, f.x, f.y, f.id, { shiny: false, bounty: gb.id })');
   site('app.js', 'enemy_dev_${Date.now()}');
   site('story_encounters.js', 'WorldGen.makeCreature(kind, p.x, p.y, id, fields)');

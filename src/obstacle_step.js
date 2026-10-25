@@ -30,7 +30,7 @@ const ObstacleStep = (() => {
     hedgeSingle: Object.freeze({ liftPx: 0, radius: 0.4, shape: 'round', cover: true }),
   });
   const KINDS = { mineralrock: 'rock', stronghold_wall: 'wall', _firepit: 'rock', _fire: 'rock' };
-  const CROPS = { rubble: 'rock', shrub: 'bush', berry: 'bush', poisonberry: 'bush', goldenberry: 'bush' };
+  const CROPS = { shrub: 'bush', berry: 'bush', poisonberry: 'bush', goldenberry: 'bush' };
 
   function profile(o) {
     if (!o) return null;

@@ -203,8 +203,6 @@
       flash: 'The tar yard. Mind your feet.',
       keeper: ['“Nobody keeps this yard. The tar keeps itself.”'] },
   };
-  const KIND_BY_CODE = [null];
-  for (const [kind, row] of Object.entries(ZONE_KINDS)) KIND_BY_CODE[row.code] = kind;
   const R_MAX_M = Math.max(...Object.values(ZONE_KINDS).map((k) => k.R));
   const R_EDGE_MAX_M = R_MAX_M * (1 + EDGE_JITTER);
 
@@ -1090,7 +1088,7 @@
 
   root.Zones = {
     POI_BUFFER_UNITS, W_MAX_M, R_MIN_M, R_MAX_M, MERGE_M, WINDOW_MARGIN_M, EDGE_JITTER, edgeJitterFor,
-    NOISE_UNITS, CORE_S, MAX_FIELD_ANCHORS, ZONE_KINDS, KIND_BY_CODE, NEXUS_PATTERNS,
+    NOISE_UNITS, CORE_S, MAX_FIELD_ANCHORS, ZONE_KINDS, NEXUS_PATTERNS,
     SHRINE_SEAT_R, GROVE_CROWD_MAX, HEADSTONE_GHOST_P, HEADSTONE_HOARD_SHARE, HEADSTONE_CONTEXT, HEADSTONE_TIER,
     SHRINE_CONTEXT, GROVE_PATTERNS, SYMMETRIC_PATTERNS, RESCUE_CELLS, rayStep, figureCells, GRAVE_ROW, GRAVE_COL, HEADSTONE_P, CHURCHYARD_ROCK_P,
     FRINGE_M, FRINGE_JITTER, FRINGE_NOISE_UNITS, FRINGE_FILL_M, FRINGE_FILL_P, GROVE_FILL_P,

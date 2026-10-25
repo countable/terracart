@@ -917,7 +917,6 @@ const NPC = (() => {
     const record = () => { ShopsMath.recordDeal(scene.save, c); };
     if (c.role === 'trader') scene.presentTraderOffer(sx, sy, c, record);
     else scene.presentThemedShop(sx, sy, c, record);
-    meetHomeNeighbour(scene, c);
   }
   return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, spreadSeat, startingSeat, rememberPin, meetHomeNeighbour, markDelivery, residentOf, houseResident, houseFront, MOVE_IN_DELAY_MS, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, dialogSource, offerArt, interact };
 })();
