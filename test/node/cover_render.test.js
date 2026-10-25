@@ -1,9 +1,9 @@
 // Rendering must conceal the same covered targets as interactions (any cover
-// hides what stands behind it) and reuse its fog mask between changes.
+// hides what stands behind it) and reuse its hatch mask between changes.
 (function () {
   function fixture(coverAt = () => 2) {
     let revision = 1, allocations = 0, clears = 0, samples = 0, uploads = 0, blits = 0, images = 0;
-    const rasters = [];
+    const rasters = [], strokes = [];
     const document = { createElement(kind) {
       assert.eq(kind, 'canvas'); allocations++;
       const ctx = {
@@ -19,6 +19,11 @@
         },
         drawImage() { blits++; },
         fillRect() {},
+        beginPath() { this.lines = []; },
+        moveTo(x, y) { this.from = [x, y]; },
+        lineTo(x, y) { this.lines.push([this.from, [x, y]]); },
+        stroke() { strokes.push({ colour: this.strokeStyle, width: this.lineWidth,
+          alpha: this.globalAlpha, lines: this.lines }); },
         getImageData() { throw new Error('Cover must never read pixels back'); },
       };
       return { width: 0, height: 0, getContext: () => ctx };
@@ -36,7 +41,7 @@
       Combat, visibility, document, scene => scene.playerM, 32, FOG_SUB, fogWisp, fogSample);
     const scene = { depth: 0, cellM: 4, playerM: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 },
       viewCenterX: 0, viewCenterY: 0, viewLeft: 0, viewTop: 0 };
-    return { scene, frame, rasters, bumpRevision() { revision++; },
+    return { scene, frame, rasters, strokes, bumpRevision() { revision++; },
       stats: () => ({ allocations, clears, samples, uploads, blits, images }) };
   }
 
@@ -73,50 +78,51 @@
     }
   });
 
-  test('cover render: covered interiors use 25% grey fog at either depth', () => {
-    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 64], [2, 0, 64], [1, 1, 64], [2, 1, 64]]) {
+  test('cover render: partial and full cover use a hard mask at either depth', () => {
+    for (const [cover, depth, alpha] of [[0, 0, 0], [1, 0, 255], [2, 0, 255], [1, 1, 255], [2, 1, 255]]) {
       const f = fixture(() => cover);
       f.scene.depth = depth;
       f.frame(f.scene, 0, 0, 128, 64);
       const raster = f.rasters[0];
-      assert.truthy(raster, 'upload the generated raster');
       assert.eq(raster.data[raster.data.length - 1], alpha, `cover ${cover}, depth ${depth}: far interior`);
-      assert.truthy(alphas(raster).every(a => a <= 64), 'fog never exceeds 25% opacity');
-      assert.truthy(raster.data.every((value, i) => i % 4 === 3 || value === 128), 'neutral grey RGB supplies a veil');
+      assert.truthy(alphas(raster).every(a => a === 0 || a === 255), 'no softened mask boundary');
+      const stroke = f.strokes[0];
+      assert.eq(stroke.colour, 'rgb(24,29,26)');
+      assert.eq(stroke.width, 2);
+      assert.eq(stroke.alpha, .32);
+      for (const [[x0,y0],[x1,y1]] of stroke.lines) {
+        assert.gt(y1,y0); assert.eq(x1-x0, -(y1-y0), 'single-direction 45 degree diagonals');
+      }
     }
   });
 
-  test('cover render: a narrow partial shadow stays visible with a soft peak', () => {
-    // A lone bush casts a narrow wedge; soften its peak without losing the cue.
-    const f = fixture(x => Math.abs(x - 9) < 1 ? 1 : 0);
+  test('cover render: one-cell pullback excludes the nearest covered band and thin strips', () => {
+    const f = fixture(x => x < 8 ? 0 : 1);
     f.frame(f.scene, 0, 0, 128, 64);
-    const peak = Math.max(...alphas(f.rasters[0]));
-    assert.gt(peak, 0, 'a narrow shadow still has a visible cue');
-    assert.lte(peak, 64, 'narrow shadows stay within the 25% fog opacity');
-    assert.truthy(alphas(f.rasters[0]).some(a => a > 0 && a < peak), 'the narrow shadow retains a soft boundary');
+    const raster = f.rasters[0];
+    const at = (x,y) => raster.data[(y*raster.width+x)*4+3];
+    // Half-cell samples x=6,7,8 have world centres 9,11,13 metres.
+    assert.eq(at(5,2), 0, 'clear ground');
+    assert.eq(at(6,2), 0, 'first hidden half-cell omitted');
+    assert.eq(at(7,2), 0, 'second hidden half-cell omitted');
+    assert.eq(at(8,2), 255, 'cover beyond one full cell retained');
+    const thin = fixture(x => Math.abs(x-9)<1 ? 1 : 0);
+    thin.frame(thin.scene,0,0,128,64);
+    assert.truthy(alphas(thin.rasters[0]).every(a=>a===0), 'a thin strip cannot bridge clear inward samples');
   });
 
-  test('cover render: the boundary has graded alpha and world-fixed wisps after player movement', () => {
+  test('cover render: mask and diagonal phase remain world-aligned when the camera scrolls', () => {
     const f = fixture(x => x < 8 ? 0 : 2);
-    f.frame(f.scene, 0, 0, 128, 64);
-    const initial = f.rasters[0];
-    const values = new Set(alphas(initial));
-    assert.truthy(values.has(0), 'clear side remains clear');
-    assert.truthy(values.has(64), 'covered interior reaches the fog opacity');
-    assert.gt(values.size, 8, 'the edge contains a smooth gradient instead of flat half-cell squares');
-    f.scene.playerM.x = .5;
-    f.frame(f.scene, 0, 0, 128, 64);
-    assert.eq(f.stats().uploads, 2, 'movement recalculates sight and repaints');
-    assert.truthy(alphas(f.rasters[1]).every(a => a <= 64), 'moving pullback retains the opacity bound');
-    const beforeScroll = f.rasters[1];
-    f.frame(f.scene, 2, 0, 128, 64);
-    const scrolled = f.rasters[2], shift = FOG_SUB / 2;
-    assert.eq(scrolled.width, initial.width);
-    for (let y = 0; y < initial.height; y++) for (let x = 0; x < initial.width - shift; x++) {
-      const before = beforeScroll.data[(y * initial.width + x + shift) * 4 + 3];
-      const after = scrolled.data[(y * scrolled.width + x) * 4 + 3];
-      assert.lte(Math.abs(before - after), 1, 'crossing a sample boundary preserves world-aligned fog');
+    f.frame(f.scene,0,0,128,64);
+    const initial=f.rasters[0], first=f.strokes[0];
+    f.frame(f.scene,2,0,128,64);
+    const scrolled=f.rasters[1],second=f.strokes[1];
+    for(let y=0;y<initial.height;y++)for(let x=0;x<initial.width-1;x++){
+      assert.eq(initial.data[(y*initial.width+x+1)*4+3],scrolled.data[(y*scrolled.width+x)*4+3]);
     }
+    const period=12*Math.SQRT2;
+    const phaseShift=((second.lines[0][0][0]-first.lines[0][0][0]+16)%period+period)%period;
+    assert.lt(Math.min(phaseShift,period-phaseShift),1e-9,'diagonal phase shifts by one half-cell with the window');
   });
 
   test('cover render: stationary and subcell camera frames reuse the mask; movement, depth and blockers redraw', () => {

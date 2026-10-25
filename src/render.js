@@ -4275,9 +4275,10 @@ Render.cullCovered = function cullCovered(scene, list, field, scenery = false) {
 };
 
 // The ground mask cannot decide visibility for raised art: a visible crown can
-// project into its own shadow. Replace the mask under each drawn silhouette,
-// in painter order, with sight to that object's ground anchor. Visible actors
-// are already culled by gameplay and must remain clear wherever they project.
+// project into its own shadow. Subtract silhouettes whose ground anchors are
+// visible. Covered scenery leaves the pulled-back hatch unchanged; it must not
+// paint cover back into the clear band. Visible actors are already culled by
+// gameplay and remain clear wherever they project.
 Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
   if (!cover || !scene.worldContainer?.list || typeof document === 'undefined') return cover;
   let state = scene._coverScenery;
@@ -4301,21 +4302,6 @@ Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
       rememberFeet(root);
       HeadingUp._upright(root, -heading, saved);
     }
-    const sin = Math.sin(heading), cos = Math.cos(heading), keys = new Map();
-    for (const root of roots) {
-      const foot = root._huFoot || HeadingUp._firstFoot(root);
-      keys.set(root, foot ? sin * foot.x + cos * foot.y : 0);
-    }
-    const player = scene.playerWorldContainer;
-    if (keys.has(player)) for (const root of roots) {
-      if (root.visible && root._stepSupport) keys.set(player, Math.max(keys.get(player), keys.get(root) + .001));
-    }
-    const ground = scene._worldDecalCount || 0;
-    roots.sort((a, b) => {
-      const ag = a.depth < ground, bg = b.depth < ground;
-      return ag || bg ? ag && bg ? a.depth - b.depth : ag ? -1 : 1
-        : keys.get(a) - keys.get(b) || a.depth - b.depth;
-    });
   }
   let used = 0;
   const visit = (sprite, parentAlpha = 1) => {
@@ -4336,8 +4322,7 @@ Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
       }
       sight = cached.cover;
     }
-    const amount = sight === Visibility.CLEAR ? 0
-      : sight === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
+    if (sight !== Visibility.CLEAR) return;
     const matrix = sprite.getWorldTransformMatrix();
     const fx = sprite.flipX ? -1 : 1, fy = sprite.flipY ? -1 : 1;
     const ox = sprite.displayOriginX ?? sprite.originX * frame.realWidth;
@@ -4347,7 +4332,7 @@ Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
     const values = [source, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
       matrix.a * fx, matrix.b * fx, matrix.c * fy, matrix.d * fy,
       matrix.e - scene.viewLeft - cover.x, matrix.f - scene.viewTop - cover.y,
-      x, y, alpha, amount];
+      x, y, alpha];
     const old = state.rows[used];
     if (!old || values.some((v, i) => v !== old[i])) { state.rows[used] = values; dirty = true; }
     used++;
@@ -4371,7 +4356,7 @@ Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
     ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'copy';
     ctx.drawImage(cover.canvas, 0, 0);
     for (const row of state.rows) {
-      const [source, sx, sy, sw, sh, a, b, c, d, e, f, x, y, alpha, amount] = row;
+      const [source, sx, sy, sw, sh, a, b, c, d, e, f, x, y, alpha] = row;
       // Blit only this transformed frame's bounds. Hundreds of small pieces
       // must not each clear and composite two viewport-sized canvases.
       const xs = [a*x+c*y+e, a*(x+sw)+c*y+e, a*x+c*(y+sh)+e, a*(x+sw)+c*(y+sh)+e];
@@ -4390,14 +4375,6 @@ Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
       stamp.setTransform(1, 0, 0, 1, 0, 0);
       ctx.globalCompositeOperation = 'destination-out';
       ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
-      if (amount) {
-        stamp.globalCompositeOperation = 'source-in'; stamp.globalAlpha = amount;
-        stamp.fillStyle = '#000'; stamp.fillRect(x0, y0, w, h);
-        // Add the replacement alpha to the retained background fraction.
-        // Source-over would attenuate that background twice on faded art.
-        ctx.globalCompositeOperation = 'lighter';
-        ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
-      }
       stamp.restore();
     }
     ctx.globalCompositeOperation = 'source-over';
