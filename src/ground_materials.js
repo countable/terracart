@@ -1,11 +1,13 @@
 // Ground material sources and mappings shared by export tools and rendering.
 // Family order is the atlas row order; keep indices stable when extending it.
+// A second block of rows repeats every family with corners rounded at
+// atlas.roundedRadius; `grass` rows select it where they meet other ground.
 // No browser dependencies: the atlas exporter evaluates this same data file.
 const GroundMaterials = {
-  atlas: {"key":"ra_terrain_source","path":"assets/ArtTrials/RogueTerrain/tiles.png","frameSize":16,"waterFamily":"water"},
+  atlas: {"key":"ra_terrain_source","path":"assets/ArtTrials/RogueTerrain/tiles.png","frameSize":16,"waterFamily":"water","roundedRadius":6},
   families: [
-    {"id":"villageGrass","source":"RA_Ground_Tiles.png","options":{"x":80,"y":64,"tileSize":16,"inner":{"nw":[112,48],"ne":[80,48],"sw":[112,16],"se":[80,16]}}},
-    {"id":"forestGrass","source":"RA_Jungle.png","options":{"x":0,"y":528,"tileSize":16,"inner":{"nw":[64,544],"ne":[48,544],"sw":[64,528],"se":[48,528]}}},
+    {"id":"villageGrass","grass":true,"source":"RA_Ground_Tiles.png","options":{"x":80,"y":64,"tileSize":16,"inner":{"nw":[112,48],"ne":[80,48],"sw":[112,16],"se":[80,16]}}},
+    {"id":"forestGrass","grass":true,"source":"RA_Jungle.png","options":{"x":0,"y":528,"tileSize":16,"inner":{"nw":[64,544],"ne":[48,544],"sw":[64,528],"se":[48,528]}}},
     {"id":"oliveSoil","source":"RA_Jungle.png","options":{"x":80,"y":528,"tileSize":16,"inner":{"nw":[144,544],"ne":[128,544],"sw":[144,528],"se":[128,528]}}},
     {"id":"darkSoil","source":"RA_Jungle.png","options":{"x":160,"y":528,"tileSize":16,"inner":{"nw":[224,544],"ne":[208,544],"sw":[224,528],"se":[208,528]}}},
     {"id":"water","source":"RA_Animated_Water.png","options":{"x":0,"y":64,"tileSize":16,"inner":{"nw":[32,48],"ne":[0,48],"sw":[32,16],"se":[0,16]}},"calmWater":true},
@@ -19,9 +21,9 @@ const GroundMaterials = {
     {"id":"concreteAlt","selectedMaterial":"R02","maskFamily":"oliveSoil","group":"concrete"},
     {"id":"scrub","selectedMaterial":"G04","maskFamily":"oliveSoil","group":"scrub"},
     {"id":"scrubAlt","selectedMaterial":"G08","maskFamily":"oliveSoil","group":"scrub"},
-    {"id":"meadow","selectedMaterial":"G01","maskFamily":"oliveSoil"},
-    {"id":"orchard","selectedMaterial":"G02","maskFamily":"oliveSoil"},
-    {"id":"grove","selectedMaterial":"G03","maskFamily":"oliveSoil"},
+    {"id":"meadow","grass":true,"selectedMaterial":"G01","maskFamily":"oliveSoil"},
+    {"id":"orchard","grass":true,"selectedMaterial":"G02","maskFamily":"oliveSoil"},
+    {"id":"grove","grass":true,"selectedMaterial":"G03","maskFamily":"oliveSoil"},
     {"id":"farmland","selectedMaterial":"G05","maskFamily":"oliveSoil"},
     {"id":"mushroom","selectedMaterial":"G06","maskFamily":"oliveSoil"},
     {"id":"selectedSand","selectedMaterial":"G10","maskFamily":"oliveSoil"},
