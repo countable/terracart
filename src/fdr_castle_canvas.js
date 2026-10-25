@@ -1,6 +1,7 @@
 // FDR Canvas coverage: close paired opaque edges, including adjacent flat roof planes.
 // Exterior silhouettes and transparent material clips remain exact.
 (function (global) {
+  const { wallTintSource, wallUVAffine } = global.WallSurfaceRenderer;
   const whitePatch=points=>points?.every(p=>p.u>=496/512&&p.u<=504/512&&p.v>=496/512&&p.v<=504/512);
   const pointKey = p => [p.x,p.y,p.z].map(n=>Math.round(n*1e5)).join(',');
   function planeKey(points) {
@@ -72,11 +73,6 @@
       return inverse.transformPoint({x,y});
     });
   }
-  function source(texture,color) {
-    const image=texture.getSourceImage();if(color===0xffffff)return image;
-    texture._wallTintSources||=new Map();if(texture._wallTintSources.has(color))return texture._wallTintSources.get(color);
-    const canvas=document.createElement('canvas');canvas.width=image.width;canvas.height=image.height;const g=canvas.getContext('2d');g.drawImage(image,0,0);g.globalCompositeOperation='multiply';g.fillStyle='#'+color.toString(16).padStart(6,'0');g.fillRect(0,0,canvas.width,canvas.height);g.globalCompositeOperation='destination-in';g.drawImage(image,0,0);texture._wallTintSources.set(color,canvas);return canvas;
-  }
   function attach(target) {
     if(!target._wallTriangles||target._fdrCanvasCoverage)return;
     target._fdrCanvasCoverage=true;
@@ -89,13 +85,7 @@
       // GetCalcMatrix already includes the camera; replace the inherited Canvas transform.
       g.save();g.setTransform(matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f);g.imageSmoothingEnabled=false;const transform=g.getTransform();
       src._fdrCanvasSharedEdges=shared.reduce((n,edges)=>n+edges.filter(Boolean).length,0);
-      const affine=t=>{
-        if(!t.uv||whitePatch(t.uv))return null;
-        const [a,b,c]=t.points,[u,v,w]=t.uv.map(p=>({x:p.u*image.width,y:p.v*image.height})),ux=v.x-u.x,uy=v.y-u.y,vx=w.x-u.x,vy=w.y-u.y,det=ux*vy-uy*vx;
-        if(Math.abs(det)<1e-9)return null;
-        const ax=b.x-a.x,ay=b.y-a.y,bx=c.x-a.x,by=c.y-a.y,m0=(ax*vy-bx*uy)/det,m1=(ay*vy-by*uy)/det,m2=(bx*ux-ax*vx)/det,m3=(by*ux-ay*vx)/det;
-        return [m0,m1,m2,m3,a.x-m0*u.x-m2*u.y,a.y-m1*u.x-m3*u.y];
-      };
+      const affine=t=>!t.uv||whitePatch(t.uv)?null:wallUVAffine(t.points,t.uv,image.width,image.height);
       const affines=src._wallTriangles.map(affine);
       for(let index=0;index<src._wallTriangles.length;index++){
         const t=src._wallTriangles[index],map=affines[index];
@@ -113,7 +103,7 @@
           if(paths[index+1]!==path||next.color!==t.color||next.alpha!==t.alpha||!nextMap||map.some((v,j)=>Math.abs(v-nextMap[j])>1e-7))break;
           append(++index);
         }
-        g.save();if(path)g.clip(path);g.clip();g.transform(...map);g.drawImage(source(src._wallAtlas,t.color),0,0);g.restore();
+        g.save();if(path)g.clip(path);g.clip();g.transform(...map);g.drawImage(wallTintSource(src._wallAtlas,t.color),0,0);g.restore();
       }g.restore();
     };
   }
