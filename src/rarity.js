@@ -101,6 +101,14 @@
   const _ARMOR_DEFS = (typeof ARMOR_DEFS !== 'undefined') ? ARMOR_DEFS : {};
   const _gearPrice  = (typeof gearPrice  !== 'undefined') ? gearPrice  : null;
   const _pickFromArray = (typeof pickFromArray !== 'undefined') ? pickFromArray : (arr) => arr[Math.floor(Math.random() * arr.length)];
+  function consolationGold(kind, slot, tier) {
+    const price = typeof _gearPrice === 'function' ? _gearPrice(kind, slot, tier) : 0;
+    return Math.max(1, Math.floor(price / 2));
+  }
+  function clampedChestTier(opts) {
+    const cap = typeof chestTierMaxFor === 'function' ? chestTierMaxFor(opts.depth) : 5;
+    return Math.max(1, Math.min(cap, opts.tier || 2));
+  }
 
   function buildClassTierIndex() {
     const out = {};
@@ -238,14 +246,12 @@
     const owned = ownedTable?.[slot]?.tier ?? 0;
     if (t > owned) return { kind, slot, tier: t, jackpot: rolled.jackpot || 0 };
     t = owned;
-    const priceFor = (tier) => (typeof _gearPrice === 'function')
-      ? _gearPrice(kind, slot, tier) : 0;
     // Slot already at the cap: cash out consolation gold, not a useless duplicate.
     if (t >= cap) {
       return {
         kind: 'gold',
         slot, tier: t, gearKind: kind,
-        amount: Math.max(1, Math.floor(priceFor(t) / 2)),
+        amount: consolationGold(kind, slot, t),
         jackpot: rolled.jackpot || 0,
       };
     }
@@ -254,7 +260,7 @@
         return {
           kind: 'gold',
           slot, tier: t, gearKind: kind,
-          amount: Math.max(1, Math.floor(priceFor(t) / 2)),
+          amount: consolationGold(kind, slot, t),
           jackpot: rolled.jackpot || 0,
         };
       }
@@ -426,7 +432,7 @@
     // A fresh reward stream consumes one ambient seed, never a world-generation stream.
     rng = rng || makeRng32(Math.floor(Math.random() * 0x100000000));
     theme = ChestThemes.normalize(theme);
-    const chestTier = Math.max(1, Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(opts.depth) : 5, opts.tier || 2));
+    const chestTier = clampedChestTier(opts);
     const ctx = RARITY_TUNING.chestTierMod[chestTier];
     const quality = rollRewardQuality(ctx, 'chestQuality', save, rng, opts);
     quality.tier = Math.max(quality.tier, ChestThemes.qualityFloor(chestTier));
@@ -440,7 +446,7 @@
   }
   function resolveChestRewardRaw(theme, quality, save, rng, opts = {}) {
     theme = ChestThemes.normalize(theme);
-    const chestTier = Math.max(1, Math.min(typeof chestTierMaxFor === 'function' ? chestTierMaxFor(opts.depth) : 5, opts.tier || 2));
+    const chestTier = clampedChestTier(opts);
     const { tier, bracket, jackpotApplied } = quality;
     const selectionOpts = { ...opts, theme, chestTier, save };
     if ((_ITEM_BY_ID[opts.venueProduct]?.baseTier || 1) < ChestThemes.qualityFloor(chestTier))
@@ -535,7 +541,7 @@
     const owned = (drop.kind === 'armor' ? save?.armor : save?.relics)?.[drop.slot]?.tier || 0;
     if (owned >= tier) {
       return { kind: 'gold', slot: drop.slot, gearKind: drop.kind, tier,
-        amount: Math.max(1, Math.floor(_gearPrice(drop.kind, drop.slot, tier) / 2)), ...meta };
+        amount: consolationGold(drop.kind, drop.slot, tier), ...meta };
     }
     return { ...drop, tier, ...meta };
   }
@@ -718,8 +724,7 @@
       ? (currentRelics?.[sp.slot]?.tier ?? 0)
       : (currentArmor?.[sp.slot]?.tier ?? 0);
     if (pickedTier > cur) return { kind: sp.kind, slot: sp.slot, tier: pickedTier };
-    const price = _gearPrice ? _gearPrice(sp.kind, sp.slot, pickedTier) : 0;
-    return { kind: 'gold', amount: Math.max(1, Math.floor(price / 2)), slot: sp.slot, gearKind: sp.kind, tier: pickedTier };
+    return { kind: 'gold', amount: consolationGold(sp.kind, sp.slot, pickedTier), slot: sp.slot, gearKind: sp.kind, tier: pickedTier };
   }
 
   global.RARITY_TUNING          = RARITY_TUNING;

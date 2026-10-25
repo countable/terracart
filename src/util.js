@@ -212,6 +212,14 @@ function fnv1aFrom(seed, str) {
 // street dressing, the zone layouts, the reef and the enemy rolls all take.
 function u01(h) { return (h >>> 0) / 4294967296; }
 function hash01(str) { return u01(fnv1a(str)); }
+// The coordinate mix shared by low-poly material noise, wall materials and
+// quarry layouts. Offsets and salt stay with each caller because they separate
+// its stream; `avalanche` preserves the sites that already finalise the mix.
+function hash2U01(x, y, xOffset = 0, yOffset = 0, salt = 0, avalanche = false) {
+  let h = Math.imul(x + xOffset, 374761393) ^ Math.imul(y + yOffset, 668265263) ^ salt;
+  if (avalanche) h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return u01(avalanche ? h ^ (h >>> 16) : h);
+}
 // The two integer finalisers behind every per-coordinate hash in the game,
 // each byte-identical to the loops it replaces (a world re-rolls otherwise):
 //   murmurMix32 — murmur3's fmix (0x85ebca6b / 0xc2b2ae35): worldgen.js

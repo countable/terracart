@@ -1,5 +1,5 @@
 (function () {
-  const methods = ['_presentThemedItem', '_buildThemedItemOffer', '_buildRelicOffer', '_spendMoney', '_gearUpgradeOk', '_shopBagSpaceReason', 'buildShopOffer', '_settleDeal'].map(name => {
+  const methods = ['_presentThemedItem', '_buildThemedItemOffer', '_buildRelicOffer', '_spendMoney', '_gearUpgradeOk', '_shopBagSpaceReason', 'finalPrice', 'buildShopOffer', '_settleDeal'].map(name => {
     const start = SCENE_SRC.indexOf('\n  ' + name + '(');
     return SCENE_SRC.slice(start, SCENE_SRC.indexOf('\n  }\n', start) + 4);
   });

@@ -29,8 +29,9 @@ test('magic hammer: restoreAs marks the house shiny and every price reads priceM
   assert.eq(Houses.HAMMER_PRICE_MUL, 0.8);
   save.shopCharm = { a: Date.now() + 60000 };
   assert.inRange(Houses.priceMul(save, h('a')), 0.4 - 1e-9, 0.4 + 1e-9, 'the charm stacks for its hour');
-  assert.truthy(/Math\.ceil\(offer\.price \* this\.priceMul\(house\)\)/.test(SCENE_SRC), 'relic offers');
-  assert.truthy(/ShopsMath\.buyPrice\(this\.save, baseValue, priceRng\) \* this\.priceMul\(opts\.house\)/.test(SCENE_SRC), 'cash buys');
+  assert.truthy(/finalPrice\(house, n\)[\s\S]*Math\.ceil\(n \* this\.priceMul\(house\)\)/.test(SCENE_SRC), 'one price helper reads the hammer');
+  assert.truthy(/this\.finalPrice\(house, offer\.price\)/.test(SCENE_SRC), 'relic offers use it');
+  assert.truthy(/this\.finalPrice\(opts\.house,[\s\S]*ShopsMath\.buyPrice\(this\.save, baseValue, priceRng\)/.test(SCENE_SRC), 'cash buys use it');
   assert.truthy(/const target = baseValue \* \(1\.0 \+ rng\(\)\) \* this\.priceMul\(house\);/.test(SCENE_SRC), 'the trader\'s ask');
   assert.truthy(/&& this\.shopCharmMul\(house\) === 1\)/.test(SCENE_SRC), 'the flower gift still asks the charm alone');
 });

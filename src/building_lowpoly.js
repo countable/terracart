@@ -311,12 +311,15 @@
     return {ring,roofRing,actualOverhang,faces,roofTriangles,wallTriangles,trimTriangles:faces.length-roofTriangles-wallTriangles,height,roofZ,ridge:{x:ux,y:uy},chimneyMouths,entranceEdge};
   }
   const meshCache=new Map();
+  function cachePut(cache,key,value,limit=96){
+    if(cache.size>=limit)cache.delete(cache.keys().next().value);
+    cache.set(key,value);return value;
+  }
   function geometry(input,variant='ridge',height=29,overhang=0,chimneys=null,entrance=null,roofRise=14){
     const key=variant+':'+roofRise+':'+height+':'+overhang+':'+(chimneys?chimneys.count+'x'+chimneys.scale+'x'+(chimneys.flare||0):'')+':'+(entrance??'')+':'+input.map(p=>p.x.toFixed(4)+','+p.y.toFixed(4)).join(';');
     if(meshCache.has(key))return meshCache.get(key);
     const mesh=buildGeometry(input,variant,height,overhang,chimneys,entrance,roofRise);
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
-    meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // THE ROOM. A building's geometry with its roof off, for the player's house
   // while they stand inside it (recipe.interior): every wall cut level at the
@@ -386,8 +389,7 @@
     });
     const mesh={...base,faces,height:H,wallOutset:outer?thickness:0,roofTriangles:0,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,interior:true,
       edges:ring.map((a,i)=>({a,b:ring[(i+1)%ring.length],index:i}))};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);
-    meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // Use the imported style silhouettes, but omit their geometric surface marks.
   // Adjacent parapet segments share interior walls; cancel those before submission.
@@ -463,7 +465,7 @@
     const minU=Math.min(...roofPoints.map(p=>p.u)),minV=Math.min(...roofPoints.map(p=>p.v));
     for(const p of roofPoints){p.u-=minU;p.v-=minV;}
     const mesh={faces,ring:points,height:model.height,uvBaseline:true,roofTriangles:faces.filter(f=>f.kind!=='wall').length,wallTriangles:faces.filter(f=>f.kind==='wall').length};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(cacheKey,mesh);return mesh;
+    return cachePut(meshCache,cacheKey,mesh);
   }
   // Compact special silhouettes are independent of the source footprint outline.
   // Player-restored wizard: fixed octagon, footprint plinth, street-facing door.
@@ -502,7 +504,7 @@
     tip.forEach((a,i)=>{const b=tip[(i+1)%8],dir={x:b.x-a.x,y:b.y-a.y};quad([v(a,apex-1),v(b,apex-1),v(b,apex+2),v(a,apex+2)],'trim',apex,{color:0xc7a76c,wallDirection:dir});tri([v(a,apex+2),v(b,apex+2),v({x:cx,y:cy},apex+4)],'trim',apex+1,{color:0xc7a76c});});
     const mesh={ring,faces,height:apex+4,eaveHeight:h,uvBaseline:true,entrance,center:{x:cx,y:cy},
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // One shared pixel atlas: 32x24 face bays and a triangular standing-seam panel.
   function wizardSheet(scene,recipe){
@@ -643,7 +645,7 @@
         const x=xlo+6+(xhi-xlo-12)*n,y=ylo+6+(yhi-ylo-12)*m;
         if(inside({x,y})&&inside({x:x+4,y})&&inside({x:x-4,y})&&inside({x,y:y+4})&&inside({x,y:y-4}))chunk(chunks++,x,y);}
       const mesh={...base,faces,pieces,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
-      if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+      return cachePut(meshCache,key,mesh);
     }
     const faces=[],radius=26,h=17;
     const push=(p,kind,layer=0,light=.8)=>faces.push({points:p,kind,layer,light});
@@ -664,7 +666,7 @@
     }
     const mesh={ring,faces,height:h+4,eaveHeight:h,uvBaseline:true,
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
-    if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
+    return cachePut(meshCache,key,mesh);
   }
   // Material sheets cut from the approved sheet, assets/Objects/BuildingMaterials/
   // approved-materials-v1.png (tools/build_approved_materials.py packs it from
@@ -1085,7 +1087,7 @@
     const tex=scene.textures.createCanvas(key,512,512),ctx=tex.getContext();
     const css=c=>'#'+c.toString(16).padStart(6,'0');
     const blend=(a,b,t)=>{let c=0;for(const shift of [16,8,0])c|=Math.round(((a>>shift)&255)*(1-t)+((b>>shift)&255)*t)<<shift;return css(c);};
-    const noise=(x,y)=>{let n=Math.imul(x+17,374761393)^Math.imul(y+31,668265263);n=Math.imul(n^(n>>>13),1274126177);return ((n^(n>>>16))>>>0)/4294967296;};
+    const noise=(x,y)=>hash2U01(x,y,17,31,0,true);
     const rect=(x,y,w,h,color)=>{ctx.fillStyle=color;ctx.fillRect(Math.round(x),Math.round(y),Math.max(1,Math.round(w)),Math.max(1,Math.round(h)));};
     rect(0,0,512,128,css(recipe.body));rect(0,128,512,384,css(recipe.roof));
     // Atlas tiles are seamless and drawn 1:1; texel density is decided by

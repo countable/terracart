@@ -604,7 +604,7 @@
       if(wallTextures.has(key))return wallTextures.get(key);
       const canvas=document.createElement('canvas');canvas.width=canvas.height=64;
       const ink=canvas.getContext('2d');
-      const rand=(x,y)=>((Math.imul(x+17,374761393)^Math.imul(y+31,668265263))>>>0)/4294967296;
+      const rand=(x,y)=>hash2U01(x,y,17,31);
       const dark=cssOf(mix(body,trim,0.24)),lite=cssOf(mix(body,0xe5d5b5,0.17));
       if(material==='timber') {
         for(let x=0;x<64;x+=8) {
