@@ -60,26 +60,28 @@
   const visible = scene => scene.shopLabelPool.filter(slot => slot.visible);
   const homeSign = rank => `${Shops.BUILDING_LABEL.trailer} (${rank})`;
 
-  test('Home upgrade: button appears only inside, persists two storeys and cannot repeat', () => withHome((scene) => {
-    assert.eq(HomeArea.storeys(scene.save), 1);
+  test('Home upgrade: a tab of the Home dialog, never a map button; one-time and persisted', () => withHome((scene) => {
     Render.drawObjects(scene);
-    const button = scene._homeUpgradeButton;
-    assert.truthy(button?.visible);
-    assert.eq(button.text, '[upgrade]');
-    let stopped = false;
-    button.handlers.pointerdown(null, 0, 0, { stopPropagation() { stopped = true; } });
-    assert.truthy(stopped, 'button does not tap through to the map');
+    assert.falsy(scene._homeUpgradeButton, 'no in-world upgrade button');
+    const offers = [];
+    Object.assign(scene, {
+      _homeTabs: liftSceneMethod('_homeTabs'), presentHomeUpgrade: liftSceneMethod('presentHomeUpgrade'),
+      presentHomeSell() { offers.push({ sell: true }); },
+      _homeKindIcon: () => undefined, flash() {}, showOfferModal(o) { offers.push(o); },
+    });
+    const tabs = scene._homeTabs(0, 0, 'sell');
+    assert.eq(tabs.map(t => t.label).join(','), 'Sell,Upgrade');
+    assert.truthy(tabs[0].active); assert.falsy(tabs[1].active);
+    tabs[1].onSelect();
+    const page = offers.pop();
+    assert.eq(page.acceptLabel, 'Upgrade');
+    assert.truthy(page.tabs[1].active, 'the Upgrade tab is the open page');
+    page.onAccept();
     assert.eq(HomeArea.storeys(JSON.parse(JSON.stringify(scene.save))), 2, 'upgrade survives save serialization');
-    assert.falsy(button.visible);
     assert.falsy(scene.upgradeHome(), 'one-time upgrade');
-    Render.drawObjects(scene);
-    assert.falsy(button.visible);
-    scene.save.homeStoreys = 1;
-    scene.playerM = { x: 100, y: 100 };
-    Render.drawObjects(scene);
-    assert.falsy(button.visible, 'hidden outside');
-    assert.falsy(scene.upgradeHome(), 'stale callback cannot upgrade outside');
-    assert.eq(HomeArea.storeys(scene.save), 1);
+    assert.eq(scene._homeTabs(0, 0, 'sell').length, 0, 'no tab row once there is nothing left to upgrade');
+    scene.presentHomeUpgrade(0, 0);
+    assert.truthy(offers.pop().sell, 'a stale Upgrade tab falls back to Sell');
   }));
 
   test('furniture HUD: indoor score renders instantly in white above Home and fades over the player', () => withHome((scene, labels) => {

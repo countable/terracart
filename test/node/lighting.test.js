@@ -151,6 +151,27 @@ test('lighting: a staff bolt stays paint-only', () => {
     'the brightness gameplay check ignores the staff bolt painted at this point');
 });
 
+test('lighting: the GPS fix lights its ring in the dark, paint-only, fading with the ring', () => {
+  const far = scene({ gpsM: { x: 4 * 5, y: 0 }, _lights: [] });
+  assert.eq(Lighting.collectGps(far, 0, 0, HALF_M), 1, 'a fix four cells off throws its light');
+  const [L] = far._lights;
+  assert.eq(L.kind, 'gps');
+  assert.eq(L.dx, 20, 'at the fix, against the anchor');
+  assert.eq(L.a, 1, 'full while the ring is fully drawn');
+  const near = scene({ gpsM: { x: 0.1 * 5, y: 0 }, _lights: [] });
+  assert.eq(Lighting.collectGps(near, 0, 0, HALF_M), 0, 'no light where the ring is hidden at the feet');
+  const mid = scene({ gpsM: { x: 1.4 * 5, y: 0 }, _lights: [] });
+  Lighting.collectGps(mid, 0, 0, HALF_M);
+  const ring = Render.gpsMarkerStyle(1.4).ringAlpha;
+  assert.eq(mid._lights[0].a, Math.round(ring * Lighting.GPS_LIGHT_STEPS) / Lighting.GPS_LIGHT_STEPS,
+    'the ring\'s fade, stepped so frameKey moves only a few times');
+  assert.eq(Lighting.collectGps(scene({ gpsM: null, _lights: [] }), 0, 0, HALF_M), 0, 'no fix, no light');
+  const sc = scene({ depth: 1, playerM: null, startWorldM: null, _lightAnchor: { x: 0, y: 0 },
+    _lights: [{ kind: 'gps', dx: 0, dy: 0, id: 'gps', a: 1 }] });
+  assert.eq(Lighting.brightnessAt(sc, 0, 0, 0, { playerGlow: false }), 0,
+    'the brightness gameplay check ignores the GPS light');
+});
+
 test('lighting: a fire and a Home light exactly the ring they warm you in', () => {
   assert.eq(Lighting.radiusCells('fire'), FIRE_REST_R,
     'the fire light radius is FIRE_REST_R — stand in the light, stand in the warmth');

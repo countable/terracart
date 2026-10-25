@@ -11,7 +11,7 @@
       document: { createElement: canvas }, window: {}, CELL_PX: 32, REACH_OUTPUT_K: 1,
       lightClock: () => 0, pulseClock: () => 0,
       collectMagicTraps: noop, collectFires: noop, collectLamps: noop, collectPlayer: noop,
-      collectBolts: noop, collectBlasts: noop, criticalLights: () => null,
+      collectBolts: noop, collectGps: noop, collectBlasts: noop, criticalLights: () => null,
       critPaintProfile: (scene, p) => p, weatherPaintProfile: (scene, p) => p, profile: () => ({ lit: 1, edge: 0, litColour: 0xffffff }),
       daylight: () => 1, radiusCells: () => 5, playerLightMul: () => 1,
       reachRadiusM: () => 0, ensurePlayerCookie: () => ({}),

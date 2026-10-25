@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-9f30b67a';
+    window.__shellVersion = 'shell-6952bf10';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=31f092fd" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=872056c9" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3318,9 +3318,9 @@
   <script src="src/interact.js?v=cca1a655"></script>
   <script src="src/play_tips.js?v=4d1075a6"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=1e3b9dba"></script>
+  <script src="src/lighting.js?v=f3794691"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=0d9e9df4"></script>
+  <script src="src/render.js?v=b8b2841b"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=298c9219"></script>
@@ -3375,13 +3375,13 @@
   <script src="src/heading_up.js?v=c5a5fa95"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=39a422bc"></script>
+  <script src="src/scene_create.js?v=1c07175f"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=237780aa"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=dd59dd48"></script>
+  <script src="src/scene_venues.js?v=3074df4f"></script>
   <script src="src/scene_furniture.js?v=16a790f0"></script>
   <script src="src/scene_streets.js?v=6148751f"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
@@ -3454,7 +3454,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=31f092fd';
+      const APP_SRC = 'src/app.js?v=872056c9';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

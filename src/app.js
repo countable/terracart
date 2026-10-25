@@ -6066,14 +6066,16 @@ class MapScene extends Phaser.Scene {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
   }
 
-  // The waterline follows the body, not the camera. Crop in frame coordinates
+  // The waterline follows the body, not the camera. Only liquid sinks the
+  // body: long grass and hedges leave it standing (ObstacleStep's `covered`
+  // is foliage, not a waterline). Crop in frame coordinates
   // so walking directions and heading-up counterrotation keep the upper half.
   // This is a pose only: movement, reach and world sorting keep the same feet.
   _updatePlayerSubmersion() {
     const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
     let submerged = false, weatherWater = false;
     if (!airborne && !Combat.playerDowned(this.save.energy)
-        && (!(this._obstacleStep?.liftPx > 0) || this._obstacleStep?.covered) && this.startWorldM && this.playerM) {
+        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
       if (cell.loaded) {
         const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
@@ -6084,7 +6086,7 @@ class MapScene extends Phaser.Scene {
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
         const channel = FloorWallMaterials.isSewerChannel(entry, cell.iy * (entry?.cellsPerEdge || 0) + cell.ix, cell.type);
         weatherWater = basin || channel || cell.type === WorldGen.T.WATER;
-        submerged = !!this._obstacleStep?.covered || weatherWater || cell.type === WorldGen.T.TAR_YARD
+        submerged = weatherWater || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }

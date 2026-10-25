@@ -5381,8 +5381,6 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
-  scene._homeUpgradeButton?.setVisible(false);
-  const canUpgradeHome = HomeArea.storeys(scene.save) === 1 && scene.homeInside?.();
   const luxuryText = Render.homeLuxuryLabel(scene);
   if (luxuryText !== null) {
     const home = plain.find(item => item.o.id === scene.save.starterShopId);
@@ -5401,7 +5399,6 @@ Render.drawObjects = function drawObjects(scene) {
     const typed = home && !luxury ? _homeSignTyped(full) : full;
     setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o, _houseRole(o))));
     tx.setText(full);
-    const fullWidth = tx.width;
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
     // Over the drawn top on the low-poly path (_houseArtH reads the model's
@@ -5420,24 +5417,6 @@ Render.drawObjects = function drawObjects(scene) {
       tx.setPosition(Math.round(left + tx.width / 2), top);
     }
     fadeLabelOverPlayer(tx, _playerBox);
-    if (home && !luxury && canUpgradeHome) {
-      let button = scene._homeUpgradeButton;
-      if (!button) {
-        button = scene._homeUpgradeButton = scene.add.text(0, 0, '[upgrade]',
-          { ...phaserFontUI('12px'), color: '#ffffff', backgroundColor: '#242424', padding: { x: 6, y: 5 } })
-          .setOrigin(0, 0).setInteractive({ useHandCursor: true })
-          .on('pointerdown', (_pointer, _x, _y, event) => {
-            event?.stopPropagation();
-            scene.upgradeHome();
-          });
-        scene.labelContainer.add(button);
-      }
-      // Reserve both widths so the action stays beside the label at the map edge.
-      const labelWidth = fullWidth;
-      const left = Math.max(0, Math.min(tx.x - tx.width / 2, CANVAS_W - labelWidth - button.width - 6));
-      tx.setPosition(Math.round(left + tx.width / 2), top);
-      button.setPosition(Math.round(left + labelWidth + 6), top - 5).setVisible(true);
-    }
   }, labelFactory('sign'));
 
   // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
