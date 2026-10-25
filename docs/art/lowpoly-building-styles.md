@@ -60,7 +60,9 @@ to existing game roles ship.
 The fort uses the full `city_storefront` shell at a fixed size, its proportions
 kept (`BuildingLowPoly.FORT_HALL`): three cells wide when that fits with half a
 cell of plank deck all round, else two cells, else the largest that fits.
-The lot's centre is tried first. One solid dice board is centered above its entrance. It keeps the
+It stands on the lot's centre of mass in whichever orientation fits (the
+roomiest first); only a lot whose centre of mass falls outside it seats the
+hall elsewhere. One solid dice board is centered above its entrance. It keeps the
 original procedural horizontal plank floor (`biome11_0`), rather than the
 interior sheet or RA paving. The shared palisade has true square posts 32/6
 units wide. Short logs are 22.5 units tall, with an 8.5-unit carved point; every

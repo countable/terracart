@@ -4535,10 +4535,6 @@ class MapScene extends Phaser.Scene {
       const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
       chips.push({ id, icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: shortDuration(left), text: `${def.label} · ${shortDuration(left)}${drain}` });
     }
-    if (this._bodyHold?.().slowed) {
-      const def = Conditions.CONTEXT_STATUS.slowed;
-      chips.push({ id: 'slowed', icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: 'Here', text: `${def.label} · while on this ground` });
-    }
     for (const b of Buffs.active(this.save, this)) {
       chips.push({ id: b.id, icon: b.icon, kind: 'buff', action: b.action, ink: b.color, bg: b.stroke + 'e8', time: shortDuration(b.remainingMs), text: `${b.name} · ${shortDuration(b.remainingMs)}` });
     }

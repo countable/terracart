@@ -491,7 +491,8 @@ centre of mass at the fort row of `BUILDING_ART`; the overlay never records
 the fort in `scene._proceduralBuildings`, which is what keeps that sprite
 visible. `Render.BUILDING_STYLE_ROLES` has no `fort` row. On the low-poly path
 the copper `city_storefront` hall replaces that sprite at the fixed width of
-`BuildingLowPoly.FORT_HALL` (3 cells, else 2), whatever the lot's size. With the overlay off, the tiled pass draws the
+`BuildingLowPoly.FORT_HALL` (3 cells, else 2), whatever the lot's size,
+centred on the footprint's centre of mass in any orientation. With the overlay off, the tiled pass draws the
 same rim from cell edges (`render.js`, tier 11). Turrets, wizard towers and
 castles keep their own treatments.
 

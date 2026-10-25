@@ -1768,7 +1768,7 @@
       const x0=Math.min(...fitRing.map(p=>p.x)),x1=Math.max(...fitRing.map(p=>p.x)),y0=Math.min(...fitRing.map(p=>p.y)),y1=Math.max(...fitRing.map(p=>p.y));
       const candidates=[{x:(x0+x1)/2,y:(y0+y1)/2},...seeds.map(local)];
       for(let y=1;y<6;y++)for(let x=1;x<6;x++)candidates.push({x:x0+(x1-x0)*x/6,y:y0+(y1-y0)*y/6});
-      return {max:Math.min((x1-x0)/W,(y1-y0)/D),candidates,world:p=>({x:c*p.x-sn*p.y,y:sn*p.x+c*p.y})};
+      return {max:Math.min((x1-x0)/W,(y1-y0)/D),candidates,local,world:p=>({x:c*p.x-sn*p.y,y:sn*p.x+c*p.y})};
     };
     let best={scale:0,x:ring[0].x,y:ring[0].y,angle:0};
     for(const angle of angles){const {max,candidates,world}=seatsAt(angle);
@@ -1777,15 +1777,30 @@
         if(lo>best.scale+1e-6)best={...world(p),scale:lo,angle};
       }
     }
-    // A fixed-size fit (FORT_HALL): the first width whose shell and its
-    // clearance fit at some seat (the lot's centre first, at the roomiest
-    // orientation first); with none, the largest shell that fits at all,
-    // never wider than the last width.
+    // A fixed-size fit (FORT_HALL) is CENTRED on the lot's centre of mass in
+    // whatever orientation it takes (the roomiest first): the first width
+    // whose shell and its clearance fit there, else the largest shell that
+    // fits there, never wider than the last width. Only a lot whose centre
+    // of mass lies outside it (a deep concave notch) seats it elsewhere,
+    // at the first seat that holds a width, else the largest fit.
     let scale=best.scale*inset;
     if(typeof inset==='object'){
       const pad=inset.clearCells*CELL_PX,order=[best.angle,...angles.filter(a=>a!==best.angle)];
+      const centre=WorldGen.ringCentroid(ring),cap=inset.widthsCells.at(-1)*CELL_PX/W;
       let seat=null;
       for(const w of inset.widthsCells.map(n=>n*CELL_PX)){
+        for(const angle of order){const {local,world}=seatsAt(angle),p=local(centre);
+          if(inside(p)&&fits(p.x,p.y,w/W,pad)){seat={...world(p),scale:w/W,angle};break;}
+        }
+        if(seat)break;
+      }
+      if(!seat)for(const angle of order){const {max,local,world}=seatsAt(angle),p=local(centre);
+        if(!inside(p))continue;
+        let lo=0,hi=Math.min(max,cap);
+        if(fits(p.x,p.y,hi))lo=hi;else for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+        if(lo>(seat?.scale||0))seat={...world(p),scale:lo,angle};
+      }
+      if(!seat)for(const w of inset.widthsCells.map(n=>n*CELL_PX)){
         for(const angle of order){const {candidates,world}=seatsAt(angle);
           const p=candidates.find(q=>inside(q)&&fits(q.x,q.y,w/W,pad));
           if(p){seat={...world(p),scale:w/W,angle};break;}
@@ -1793,7 +1808,7 @@
         if(seat)break;
       }
       if(seat)best={...seat};
-      scale=seat?seat.scale:Math.min(best.scale,inset.widthsCells.at(-1)*CELL_PX/W);
+      scale=seat?seat.scale:Math.min(best.scale,cap);
     }
     fitRing=ring;
     if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;

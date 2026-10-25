@@ -213,6 +213,29 @@
     assert.lt(Math.abs(hall(200,160).height/(wide*CELL_PX)-nativeHeight/(native.faces.flatMap(f=>f.points.map(p=>p.x)).reduce((a,b)=>Math.max(a,b),0))),1e-6,
       'scaled uniformly: proportions kept');
   });
+  test('authored fort: the copper hall stands on the fort\'s centre of mass in any orientation', () => {
+    const spec=AuthoredBuildings.SPECS.city_storefront,unit=16/spec.door[3];
+    const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
+    for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const rect=(w,h)=>[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
+    const lots={wide:rect(200,160),tall:rect(128,256),tiny:rect(40,40),
+      ell:[{x:0,y:0},{x:256,y:0},{x:256,y:160},{x:160,y:160},{x:160,y:256},{x:0,y:256}]};
+    for(const [name,lot] of Object.entries(lots)){
+      const m=BuildingLowPoly.authoredGeometry(native,lot,BuildingLowPoly.FORT_HALL),c=WorldGen.ringCentroid(lot);
+      const foot=m.faces.filter(f=>f.kind==='wall').flatMap(f=>f.points).filter(p=>p.z<1e-6);
+      const mid=k=>(Math.min(...foot.map(p=>p[k]))+Math.max(...foot.map(p=>p[k])))/2;
+      assert.lt(Math.hypot(m.center.x-c.x,m.center.y-c.y),1e-6,`${name}: seated on the centre of mass`);
+      assert.lt(Math.hypot(mid('x')-c.x,mid('y')-c.y),.5,`${name}: the walls stand round it`);
+    }
+    // A thin L's centre of mass lies in its notch: the hall seats inside the fence instead.
+    const notch=[{x:0,y:0},{x:256,y:0},{x:256,y:96},{x:96,y:96},{x:96,y:256},{x:0,y:256}];
+    const c=WorldGen.ringCentroid(notch),n=BuildingLowPoly.authoredGeometry(native,notch,BuildingLowPoly.FORT_HALL);
+    assert.truthy(c.x>96&&c.y>96,'the fixture\'s centre is outside it');
+    assert.truthy(n.faces.every(f=>f.points.every(p=>p.x>=-1e-6&&p.y>=-1e-6&&(p.x<=96+1e-6||p.y<=96+1e-6))),'its hall stays in the fort');
+    const tall=BuildingLowPoly.authoredGeometry(native,lots.tall,BuildingLowPoly.FORT_HALL);
+    const ys=tall.faces.flatMap(f=>f.points.map(p=>p.y));
+    assert.gt(Math.max(...ys)-Math.min(...ys),2*CELL_PX,'a tall fort turns its hall lengthwise, still centred');
+  });
   test('authored buildings: Dreamland attic glazing stays source-sized on a larger real footprint', () => {
     const spec=AuthoredBuildings.SPECS.dreamland_house;
     const skin={key:'dreamland_house',spec,template:{},texel:.5,flat:false,
