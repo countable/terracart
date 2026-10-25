@@ -186,13 +186,13 @@
   // Visual families are independent of the historical four hash/quest slots.
   // Old ruin sites keep their hunt jobs and IDs, but use Bastion architecture.
   const renderFamilies = Object.freeze({
-    citadel: { wall: 0x858994, side: 0x6f7581, top: 0xc2c1b8, base: 0x535b66,
-      floor: 0xb1a78d, roof: 0x73818b, roofSide: 0x56616b, roofBack: 0x73818b, roofLight: 0x85919b, door: 0x303941,
-      accent: 0xd6c18d, towerWidth: 32, towerHeight: 40, keepHeight: 48, roofHeight: 0 },
-    bastion: { wall: 0xc8ac7d, side: 0xa88b61, top: 0xf0d2a0, base: 0x827354,
+    citadel: { wall: 0x747985, side: 0x59616f, top: 0xe2d2b4, base: 0x454e5b,
+      floor: 0xc5b18a, roof: 0x73818b, roofSide: 0x56616b, roofBack: 0x73818b, roofLight: 0x85919b, door: 0x303941,
+      accent: 0xffd575, towerWidth: 32, towerHeight: 40, keepHeight: 48, roofHeight: 0 },
+    bastion: { wall: 0xc4a374, side: 0x96754e, top: 0xf7d9a7, base: 0x786447,
       floor: 0xc8b38b, roof: 0xbba57a, roofSide: 0xa58d66, roofBack: 0xbba57a, roofLight: 0xceba93, door: 0x554737,
       accent: 0xb84731, towerWidth: 36, towerHeight: 32, keepHeight: 42, roofHeight: 0 },
-    archive: { wall: 0xcabea3, side: 0xa79b82, top: 0xeee0bf, base: 0x80765f,
+    archive: { wall: 0xd0bfa0, side: 0xa28e70, top: 0xf6e5c4, base: 0x7c6c55,
       floor: 0xc3b08a, roof: 0x286e83, roofSide: 0x1f5267, roofBack: 0x377d91, roofLight: 0x5594a4, door: 0x3e4748,
       accent: 0xb7a06c, towerWidth: 32, towerHeight: 30, keepHeight: 40, roofHeight: 12 },
   });
@@ -207,7 +207,7 @@
     if (!active) {
       value.base = id === 'citadel' ? 0x262f3b : 0x666e50;
       if(id==='citadel'){value.wall=0x434956;value.side=0x343c47;value.top=0x92969b;value.door=0x242c36;}
-      value.accent = id === 'citadel' ? 0x7c3237 : 0x827657;
+      value.accent = id === 'citadel' ? 0xa52e34 : 0x827657;
     }
     value.geometry = Object.freeze({ towerWidth: source.towerWidth, towerHeight: source.towerHeight,
       keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 24, roofHeight: source.roofHeight });

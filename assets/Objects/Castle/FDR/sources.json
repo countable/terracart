@@ -124,68 +124,6 @@
       }
     },
     {
-      "slot": 7,
-      "name": "side-coping",
-      "source": "castle",
-      "sourceRect": [
-        128,
-        48,
-        8,
-        16
-      ],
-      "normalizedSize": [
-        8,
-        16
-      ],
-      "atlasContentRect": [
-        392,
-        136,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        0,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0.07
-      }
-    },
-    {
-      "slot": 8,
-      "name": "merlon-top",
-      "source": "castle",
-      "sourceRect": [
-        131,
-        29,
-        10,
-        4
-      ],
-      "normalizedSize": [
-        10,
-        4
-      ],
-      "atlasContentRect": [
-        8,
-        264,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        255,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0.07
-      }
-    },
-    {
       "slot": 9,
       "name": "merlon-face",
       "source": "castle",
@@ -394,12 +332,54 @@
       ]
     },
     {
+      "slot": 7,
+      "name": "arched-window",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        8,
+        40
+      ],
+      "atlasContentRect": [
+        392,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 8,
+      "name": "roof-ridge-and-eave",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        64,
+        64
+      ],
+      "atlasContentRect": [
+        8,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
       "slot": 13,
       "name": "quiet-stone",
       "source": "authored cel pixel material",
       "normalizedSize": [
-        32,
-        32
+        64,
+        64
       ],
       "atlasContentRect": [
         136,
@@ -419,8 +399,8 @@
       "name": "weathered-stone",
       "source": "authored cel pixel material",
       "normalizedSize": [
-        32,
-        32
+        64,
+        64
       ],
       "atlasContentRect": [
         264,
@@ -438,7 +418,7 @@
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "ec8172cf5b961d650e330a025e77ccfaefff8703a93be3405a209fb8cb817ade",
+      "sha256": "80681690372e34616685af17298937a6de6143e678d92e5e7705bbb91dfd3a39",
       "size": [
         512,
         512
@@ -452,7 +432,7 @@
       ]
     },
     "weathered-floor.png": {
-      "sha256": "fa7f3ae73fcf36fbc54039a7dc77a56e0ad2b474ce2e4f52af450a0bd0c63380",
+      "sha256": "258f6fee5a00c20fd5a198a899804e6f5b9ba605c6de79890cbdb5e37277908d",
       "size": [
         64,
         64
