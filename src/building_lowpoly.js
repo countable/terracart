@@ -1697,8 +1697,8 @@
   }
   // THE FORT HALL'S SIZE (owner, Oct 2026): the copper hall stands at a fixed
   // width whatever the fort's lot, its proportions kept — three cells across
-  // when it fits with `clearCells` of plank deck all round, else two
-  // (authoredGeometry's fixed-size fit).
+  // when it fits with `clearCells` of plank deck all round, else two, else
+  // the whole footprint (authoredGeometry's fixed-size fit).
   const FORT_HALL=Object.freeze({widthsCells:Object.freeze([3,2]),clearCells:.5});
   // `inset` scales the largest fit (a number) or names a fixed-size fit
   // ({widthsCells, clearCells}: FORT_HALL).
@@ -1779,26 +1779,22 @@
     }
     // A fixed-size fit (FORT_HALL) is CENTRED on the lot's centre of mass in
     // whatever orientation it takes (the roomiest first): the first width
-    // whose shell and its clearance fit there, else the largest shell that
-    // fits there, never wider than the last width. Only a lot whose centre
-    // of mass lies outside it (a deep concave notch) seats it elsewhere,
-    // at the first seat that holds a width, else the largest fit.
+    // whose shell and its clearance fit there. Only a lot whose centre of
+    // mass lies outside it (a deep concave notch) seats a width elsewhere,
+    // at the first seat that holds one. A lot too small for even the
+    // narrowest width with its clearance gives the hall its entire
+    // footprint: the largest fit, uncapped and centred where it can be
+    // (owner, Oct 2026).
     let scale=best.scale*inset;
     if(typeof inset==='object'){
       const pad=inset.clearCells*CELL_PX,order=[best.angle,...angles.filter(a=>a!==best.angle)];
-      const centre=WorldGen.ringCentroid(ring),cap=inset.widthsCells.at(-1)*CELL_PX/W;
+      const centre=WorldGen.ringCentroid(ring);
       let seat=null;
       for(const w of inset.widthsCells.map(n=>n*CELL_PX)){
         for(const angle of order){const {local,world}=seatsAt(angle),p=local(centre);
           if(inside(p)&&fits(p.x,p.y,w/W,pad)){seat={...world(p),scale:w/W,angle};break;}
         }
         if(seat)break;
-      }
-      if(!seat)for(const angle of order){const {max,local,world}=seatsAt(angle),p=local(centre);
-        if(!inside(p))continue;
-        let lo=0,hi=Math.min(max,cap);
-        if(fits(p.x,p.y,hi))lo=hi;else for(let i=0;i<14;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
-        if(lo>(seat?.scale||0))seat={...world(p),scale:lo,angle};
       }
       if(!seat)for(const w of inset.widthsCells.map(n=>n*CELL_PX)){
         for(const angle of order){const {candidates,world}=seatsAt(angle);
@@ -1807,8 +1803,16 @@
         }
         if(seat)break;
       }
+      // The whole footprint: the largest fit, on the centre of mass when a
+      // seat there is as large (a rectangle's always is).
+      if(!seat)for(const angle of order){const {max,local,world}=seatsAt(angle),p=local(centre);
+        if(!inside(p))continue;
+        let lo=0,hi=max;
+        if(fits(p.x,p.y,hi))lo=hi;else for(let i=0;i<20;i++){const mid=(lo+hi)/2;if(fits(p.x,p.y,mid))lo=mid;else hi=mid;}
+        if(lo>=best.scale*.99&&lo>(seat?.scale||0))seat={...world(p),scale:lo,angle};
+      }
       if(seat)best={...seat};
-      scale=seat?seat.scale:Math.min(best.scale,cap);
+      scale=best.scale;
     }
     fitRing=ring;
     if(door){const {x:nx,y:ny}=door.normal,run=(Math.abs(nx)*W+Math.abs(ny)*D)*scale/2;
