@@ -12,10 +12,13 @@ from build_prop_materials import opaque_crop
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets/ArtTrials/RogueProps'
+# The approved-flora inputs are archived provenance: the packer reads them
+# from extra_assets/inactive, never from the live tree.
+FLORA_MANIFEST = ROOT / 'extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/manifest.json'
 
 
 def build():
-    rows = json.loads((OUT / 'approved-flora/manifest.json').read_text())['entries']
+    rows = json.loads(FLORA_MANIFEST.read_text())['entries']
     sheets = {}
     bounds = {}
     for row in rows:
