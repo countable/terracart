@@ -141,21 +141,25 @@ test('chest themes: cooked meals, spears and minerals are reachable at their qua
   }
 });
 
+// Authored shares less the equipment lane (ChestThemes.CHEST_GEAR), which
+// also follows the chest tier: 7 points at T1, 28 from T4.
+const nearShare = (got, want, msg) => assert.inRange(got, want - 1e-9, want + 1e-9, msg);
 test('chest themes: high-tier weights use the chest tier, not jackpot quality', () => {
-  assert.eq(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 40.5);
-  assert.eq(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 40.5);
-  assert.eq(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 50);
-  assert.eq(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 50);
-  assert.eq(ChestThemes.weights('food', 4, { tier: 1 }).food, 100,
+  nearShare(ChestThemes.weights('roadside', 7, { tier: 1 }).supplies, 40.5 * 83 / 90);
+  nearShare(ChestThemes.weights('roadside', 1, { tier: 4 }).supplies, 40.5 * 62 / 90);
+  nearShare(ChestThemes.weights('flora', 4, { tier: 4 }).flowerSeeds, 36);
+  nearShare(ChestThemes.weights('flora', 7, { tier: 4 }).flowerSeeds, 36);
+  nearShare(ChestThemes.weights('food', 4, { tier: 1 }).food, 93,
     'a starter jackpot keeps the food chest identity');
 });
 
 test('chest themes: cave mixture adds medicine and retains the location share', () => {
   for (let tier = 1; tier <= 7; tier++) {
     const w = ChestThemes.weights('school', tier, { depth: 1 });
-    assert.eq(w.books, 36, '60% of the surface book share');
-    if (tier === 1) assert.eq(w.antidote, 24);
-    else assert.eq(w.caveMagic, tier === 2 ? 24 : 32);
+    const rest = (100 - Math.min(28, 7 * tier)) / 100;   // less the equipment lane
+    nearShare(w.books, 36 * rest, '60% of the surface book share');
+    if (tier === 1) nearShare(w.antidote, 24 * rest);
+    else nearShare(w.caveMagic, (tier === 2 ? 24 : 32) * rest);
   }
   for (const tier of [6, 7]) {
     const r = ChestThemes.resolve('caveMagic', tier, { depth: 1 });
@@ -184,7 +188,9 @@ test('chest themes: health stays in its medical-magic lane', () => {
     if (tier < 3) assert.eq(revival.group, 'restorative');
     else assert.eq(ChestThemes.selectableIds(revival).join(','), tier >= 5 ? 'resurrection_potion' : 'revival_potion');
     // (A T2 chest lends a fifth of its row to the Book — ChestThemes.BOOK_T2_SHARE.)
-    assert.eq(ChestThemes.weights('health', tier).medicalMagic, tier === 2 ? 100 - ChestThemes.BOOK_T2_SHARE : 100);
+    // ... and the equipment lane its CHEST_GEAR share.
+    nearShare(ChestThemes.weights('health', tier).medicalMagic,
+      100 - Math.min(28, 7 * tier) - (tier === 2 ? ChestThemes.BOOK_T2_SHARE : 0));
     const resolved = ChestThemes.resolve('medicalMagic', tier, opts);
     assert.eq(resolved.group, tier === 1 ? 'antidote' : 'medicalMagic');
     for (const id of ChestThemes.selectableIds(resolved)) {
@@ -217,8 +223,10 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
         assert.lte(r.qty, ['wood', 'rubble'].includes(r.id) ? 12 : ChestThemes.cap(r.id));
       }
       if (r.kind === 'relic' || r.kind === 'armor') {
-        assert.gt(tier, 1);
         assert.truthy(r.slot !== 'ring');
+        // The equipment lane (ChestThemes.CHEST_GEAR) may hand any slot at any tier.
+        if (r.resolvedGroup === 'bonusGear') continue;
+        assert.gt(tier, 1);
         if (r.resolvedGroup === 'supplies') {
           assert.eq(tier, 2);
           assert.eq(r.kind, 'relic');
@@ -229,6 +237,47 @@ test('chest themes: unrelated gear and items never leak across themes', () => {
           r.resolvedGroup === 'supplies' ? ['dagger', 'lance', 'musket'] : ['bag', 'watering_can', 'hoe', 'fishing_rod', 'net'], r.slot);
       }
     }
+  }
+});
+
+test('chest themes: gear starts a tier low and rerolls an exact duplicate once before coins', () => {
+  const slots = ChestThemes.gearSlots('bonusGear');
+  const wearing = tier => ({
+    relics: Object.fromEntries(slots.filter(s => s.kind === 'relic').map(s => [s.slot, { tier }])),
+    armor: Object.fromEntries(slots.filter(s => s.kind === 'armor').map(s => [s.slot, { tier }])),
+    inv: Gear.uniqueRelics().map(it => ({ id: it.id, count: 1 })),
+  });
+  const gearRolls = (save, quality, chestTier, seed) => {
+    const rng = makeRng32(seed);
+    const out = [];
+    for (let i = 0; i < 6000; i++) {
+      const r = resolveChestReward('culture', { tier: quality, bracket: 0, jackpotApplied: 0 }, save, rng, { tier: chestTier });
+      if (['culturalGear', 'bonusGear'].includes(r.resolvedGroup) && (r.kind !== 'gold' || r.slot)) out.push(r);
+    }
+    return out;
+  };
+  // Nothing worn: a T3 roll offers T2 gear. A material-tier weapon (1, 3, 5)
+  // has no T2 rung and would fall under the chest floor, so it keeps T3.
+  const materialTiers = slot => RELIC_DEFS[slot]?.tiers;
+  const fresh = gearRolls({ relics: {}, armor: {} }, 3, 3, 31).filter(r => r.kind === 'relic' || r.kind === 'armor');
+  assert.gt(fresh.length, 500);
+  for (const r of fresh) {
+    if (r.kind === 'relic' && materialTiers(r.slot)) assert.eq(r.tier, 3, r.slot + ' keeps the chest floor');
+    else assert.lte(r.tier, 2, 'the first roll starts one tier under the chest');
+  }
+  assert.gt(fresh.filter(r => r.tier === 2).length / fresh.length, 0.8);
+  // Everything worn at T2: the T2 duplicate rerolls at the full T3, so
+  // upgrades still arrive; without the reroll every one of these would be coins.
+  const worn = gearRolls(wearing(2), 3, 3, 32);
+  const upgrades = worn.filter(r => r.kind !== 'gold');
+  for (const r of upgrades) assert.eq(r.tier, 3, 'the reroll drops the penalty');
+  assert.inRange(upgrades.length / worn.length, 0.4, 0.85, 'the reroll upgrades most exact duplicates');
+  // A second exact duplicate pays the usual half-price coins.
+  const twice = gearRolls(wearing(1), 1, 2, 33);
+  assert.gt(twice.length, 500);
+  for (const r of twice) {
+    assert.eq(r.kind, 'gold');
+    assert.eq(r.amount, Math.max(1, Math.floor(gearPrice(r.gearKind, r.slot, r.tier) / 2)));
   }
 });
 
@@ -257,7 +306,7 @@ test('chest themes: T2 supplies introduce Rusty weapons only in empty slots', ()
   const found = new Set();
   for (const tier of [1, 2, 3]) for (let i = 0; i < 1500; i++) {
     const r = resolveChestReward('roadside', { tier: 7, bracket: 0, jackpotApplied: 0 }, {}, rng, { tier });
-    if (r.kind !== 'relic') continue;
+    if (r.kind !== 'relic' || r.group === 'bonusGear') continue;
     assert.eq(tier, 2, 'starter weapons require displayed T2 even with jackpot quality');
     assert.eq(r.tier, 1);
     assert.includes(slots, r.slot);
@@ -268,6 +317,7 @@ test('chest themes: T2 supplies introduce Rusty weapons only in empty slots', ()
     const save = { relics: Object.fromEntries(slots.map(slot => [slot, { tier: ownedTier }])) };
     for (let i = 0; i < 500; i++) {
       const r = resolveChestReward('roadside', { tier: 2, bracket: 0, jackpotApplied: 0 }, save, rng, { tier: 2 });
+      if (r.group === 'bonusGear') continue;
       assert.truthy(r.kind !== 'relic', 'supply rolls do not duplicate or downgrade held weapons');
     }
   }
@@ -318,7 +368,7 @@ test('chest themes: a high-tier venue does not force starter food', () => {
 
 test('chest themes: commerce holds its identity underground - coins, gems and furniture', () => {
   const w = ChestThemes.weights('commerce', 5, { depth: 1 });
-  assert.eq(Object.keys(w).sort().join(), ['cash', 'caveGems', 'furniture', 'gems'].sort().join(),
+  assert.eq(Object.keys(w).sort().join(), ['bonusGear', 'cash', 'caveGems', 'furniture', 'gems'].sort().join(),
     'no field supplies, no magic pools, no traps at depth');
 });
 

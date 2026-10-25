@@ -122,8 +122,9 @@ function xorRng(seed) {
   return () => { x ^= x << 13; x >>>= 0; x ^= x >> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; };
 }
 
-test('roadside chest: every tier stays with supplies, minerals, cash and furniture', () => {
-  assert.eq(ChestThemes.weights('roadside', 1).supplies, 40.5);
+test('roadside chest: every tier stays with supplies, minerals, cash, furniture and the equipment lane', () => {
+  assert.eq(ChestThemes.themes.roadside.weights.supplies, 40.5);
+  assert.eq(ChestThemes.weights('roadside', 1).supplies, 40.5 * 83 / 90, 'the T1 equipment lane takes 7 of the 90 non-furniture points');
   const supplyIds = new Set(['torch', 'rope', 'trap_disarm_kit', 'throwing_spear', 'barricade', 'sugar_potion', 'blank_scroll', 'javelin', 'renovation_permit', 'evertorch']);
   for (const tier of [1, 2, 3, 5]) {
     const rng = xorRng(0x70C4 + tier);
@@ -151,6 +152,9 @@ test('roadside chest: every tier stays with supplies, minerals, cash and furnitu
         assert.eq(r.qty, 1);
       } else if (r.group === 'materials') {
         assert.includes(['wood', 'rubble', 'flint_shard', ...Object.values(MINERAL_TIERS).map(row => row.barId)], r.id);
+      } else if (r.group === 'bonusGear') {
+        // The cross-theme equipment lane (ChestThemes.CHEST_GEAR).
+        assert.truthy(r.kind === 'relic' || r.kind === 'armor' || r.kind === 'gold' || r.cls === 'unique_relic');
       } else if (r.group === 'plainBook') {
         // A T2 chest lends a fifth of its row to the Book (ChestThemes.BOOK_T2_SHARE).
         assert.eq(tier, 2, 'the Book joins the roadside row at tier 2 only');
@@ -162,9 +166,10 @@ test('roadside chest: every tier stays with supplies, minerals, cash and furnitu
     }
     const share = ChestThemes.weights('roadside', tier, { tier }).supplies / 100;
     assert.inRange(supplies / n, share - 0.03, share + 0.03, `T${tier}: supply share`);
-    // About 31% after tier jackpots; allow sampling variance when reward
-    // quantity changes consume a different number of random draws.
-    if (tier === 1) assert.inRange(torches / n, 0.25, 0.31, 'roadside T1 remains a dependable Torch source');
+    // About 27% after tier jackpots and the T1 equipment lane; allow sampling
+    // variance when reward quantity changes consume a different number of
+    // random draws.
+    if (tier === 1) assert.inRange(torches / n, 0.22, 0.30, 'roadside T1 remains a dependable Torch source');
   }
 });
 

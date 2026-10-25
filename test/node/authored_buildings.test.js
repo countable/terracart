@@ -210,6 +210,13 @@
     const tiny=hall(40,40);
     assert.lte(tiny.width,40+1e-6,'a lot too small for either width still holds its hall');
     assert.gt(tiny.width,0);
+    // Too small for the narrow hall and its deck: the hall takes the whole footprint.
+    for(const [w,h] of [[40,40],[narrow*CELL_PX+2*clearCells*CELL_PX-1,90],[90,60]]){
+      const lot=[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}],full=BuildingLowPoly.authoredGeometry(native,lot,1);
+      const xs=full.faces.flatMap(f=>f.points.map(p=>p.x));
+      assert.lt(Math.abs(hall(w,h).width-(Math.max(...xs)-Math.min(...xs))),1e-3*w,`${w}×${h}: the largest fit`);
+    }
+    assert.gt(hall(narrow*CELL_PX+2*clearCells*CELL_PX-1,90).width,narrow*CELL_PX,'not capped at the narrow width');
     assert.lt(Math.abs(hall(200,160).height/(wide*CELL_PX)-nativeHeight/(native.faces.flatMap(f=>f.points.map(p=>p.x)).reduce((a,b)=>Math.max(a,b),0))),1e-6,
       'scaled uniformly: proportions kept');
   });
