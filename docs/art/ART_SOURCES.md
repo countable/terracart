@@ -1,11 +1,25 @@
 # Art sources
 
-Keep original paintings and unused sprite packs outside the checkout. Only
-runtime exports and inputs required by repository tools belong in `assets/`.
+`assets/` contains the art used by the active Rogue runtime profile. Superseded
+profiles, unused exports, and offline generator inputs live under
+`extra_assets/inactive/`, preserving their original paths (for example,
+`extra_assets/inactive/assets/Objects/Furniture/source/`). Generator output
+still goes into `assets/`; generator inputs point into the archive.
+`docs/art/inactive-art-manifest.json` records moved files and SHA-256 hashes.
+The local `extra_assets` library is ignored by Git; preserve it when backing up
+art. Runtime play does not need it. Rebuilding art requires the relevant inputs.
 
-The default archive is `~/.artifacts/terracart-art/`. Set `TERRACART_ART_ROOT`
-to an absolute path to use another location. Python preview tools also accept
-`--reserve-root` for the unused-pack directory.
+Residential bedrock uses the purchased `top_down_mountain_edges_ITCH` pack in
+`extra_assets/`. `tools/build_mountain_edges.py` exports only the runtime boundary
+atlas to `assets/terrain/mountain-edges.png`, with source hashes and palette in
+`mountain-edges.json`. The derivative uses 32px tiles, an RA-compatible olive-grey
+ramp and RA olive-soil substrate. Original sheets remain in the local source pack;
+the game does not load them or the earlier rock-option study assets.
+
+The earlier painting-master archive remains at `~/.artifacts/terracart-art/`.
+Set `TERRACART_ART_ROOT` to an absolute path to use another master location.
+Python preview tools also accept `--reserve-root` for that unused-pack directory.
+Its existing contents are:
 
 - `approved-story-art/`: approved full-resolution story masters.
 - `story-style-references/`: unchanged approved visual references.
@@ -98,7 +112,7 @@ stay upright as the compass turns. See the geometry in
 
 ## Map chest tiers
 
-`assets/Objects/Approved/chest-tiers.png` is the approved seven-frame 112×16
+`extra_assets/inactive/assets/Objects/Approved/chest-tiers.png` is the approved seven-frame 112×16
 map sheet. Frames 0–6 are Wood, Copper, Iron, Gold, lavender-Platinum, Crimson
 and Frost. Load the authored colors directly; do not recolor the first frame
 at runtime. Ordinary T1 supplies still use crates through `chestLook`.
@@ -125,7 +139,7 @@ The final masters, prompts and runtime hashes are recorded in
 
 ## Book-reading page
 
-`assets/art/book_page.webp` is the blank half-book background for live reading
+`extra_assets/inactive/assets/art/book_page.webp` is the blank half-book background for live reading
 text; the library list and non-book scenes keep their existing paintings.
 The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
 `book-reading.png` beside it records the panel composition.
@@ -159,13 +173,6 @@ so the transition cannot restore the earlier, shorter player proportions.
 `assets/Objects/BuildingMaterials/wreck-floor-cel.png` was regenerated with the built-in image tool on 2026-10-19: darker dense crushed cel-shaded masonry, predominantly smaller irregular pieces with varied fragment sizes, splintered planks and barely recognizable buried furniture and metal fragments, with deep shadow gaps and no exposed ground. Brick faces use the same warm grey base, pale edge highlight and brown edge shadow as the procedural wall atlas. Runtime samples the source at 128px with nearest filtering and snaps nearby warm light masonry tones to the exact 3D rubble colour `#aa9b88`. Touching wall courses follow `source/b4d-pp/AsmithStone.png`, with full light top/left and dark bottom/right borders; the three-tone loose blocks also reference the existing cel-shaded rock study.
 
 The wreck roof's procedural tile pattern references `extra_assets/16x16/Modular Pixel Houses Pack 03/com_houses_03_c.png`: narrow tiles running down the slope, staggered end joints, full dark outlines and warm bright edges. Its palette is darkened to weathered rusty red-orange for the wreck.
-
-Residential bedrock uses the purchased `top_down_mountain_edges_ITCH` pack in
-`extra_assets/`. `tools/build_mountain_edges.py` exports only the runtime boundary
-atlas to `assets/terrain/mountain-edges.png`, with source hashes and palette in
-`mountain-edges.json`. The derivative uses 32px tiles, an RA-compatible olive-grey
-ramp and RA olive-soil substrate. Original sheets remain in the local source pack;
-the game does not load them or the earlier rock-option study assets.
 
 ### Falling through the ground
 

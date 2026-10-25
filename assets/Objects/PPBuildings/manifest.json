@@ -142,7 +142,7 @@
         ]
       ],
       "landmarks": "Four colored sheet quadrants, ridge tops, upper eaves, accessory rows, lower eaves and garage steps.",
-      "original": "assets/Objects/AuthoredBuildings/com_houses_05.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/com_houses_05.png",
       "reference": "docs/art/pp-building-references/com_houses_05.png",
       "output": "assets/Objects/PPBuildings/com_houses_05.png",
       "sourceCrop": [
@@ -246,7 +246,7 @@
         ]
       ],
       "landmarks": "Four tower centers, roof eave, tower base and both detached door/window rows.",
-      "original": "assets/Objects/AuthoredBuildings/wizard.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/wizard.png",
       "reference": "docs/art/pp-building-references/wizard.png",
       "output": "assets/Objects/PPBuildings/wizard.png",
       "sourceCrop": [
@@ -318,7 +318,7 @@
         ]
       ],
       "landmarks": "Main ridge and eave, upper-floor band, porch eave, door and foundation.",
-      "original": "assets/Objects/AuthoredBuildings/steam-home.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/steam-home.png",
       "reference": "docs/art/pp-building-references/steam-home.png",
       "output": "assets/Objects/PPBuildings/steam-home.png",
       "sourceCrop": [
@@ -398,7 +398,7 @@
         ]
       ],
       "landmarks": "Finial, dome spring, dome eave, both floor cornices and base. Original alpha removes generated background glow.",
-      "original": "assets/Objects/AuthoredBuildings/steam-wizard.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/steam-wizard.png",
       "reference": "docs/art/pp-building-references/steam-wizard.png",
       "output": "assets/Objects/PPBuildings/steam-wizard.png",
       "sourceCrop": [
@@ -482,7 +482,7 @@
         ]
       ],
       "landmarks": "Smoke top, parapet top, roof edge, facade band and double-door center.",
-      "original": "assets/Objects/AuthoredBuildings/city-storefront.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-storefront.png",
       "reference": "docs/art/pp-building-references/city-storefront.png",
       "output": "assets/Objects/PPBuildings/city-storefront.png",
       "sourceCrop": [
@@ -566,7 +566,7 @@
         ]
       ],
       "landmarks": "Ridge, gable spring, eave, floor beam, door canopy and foundation.",
-      "original": "assets/Objects/AuthoredBuildings/city-gearhouse.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-gearhouse.png",
       "reference": "docs/art/pp-building-references/city-gearhouse.png",
       "output": "assets/Objects/PPBuildings/city-gearhouse.png",
       "sourceCrop": [
@@ -639,9 +639,9 @@
         ]
       ],
       "landmarks": "Three chimney centers, chimney tops, roof back edge, roof front edge and doors.",
-      "original": "assets/Objects/AuthoredBuildings/city-factory.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-factory.png",
       "reference": "docs/art/pp-building-references/city-factory.png",
-      "output": "assets/Objects/PPBuildings/city-factory.png",
+      "output": "extra_assets/inactive/assets/Objects/PPBuildings/city-factory.png",
       "sourceCrop": [
         0,
         0,
@@ -716,9 +716,9 @@
         ]
       ],
       "landmarks": "Padded roof top, roof eave, balcony, door head and foundation.",
-      "original": "assets/Objects/AuthoredBuildings/city-clock.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-clock.png",
       "reference": "docs/art/pp-building-references/city-clock.png",
-      "output": "assets/Objects/PPBuildings/city-clock.png",
+      "output": "extra_assets/inactive/assets/Objects/PPBuildings/city-clock.png",
       "sourceCrop": [
         0,
         0,
@@ -797,9 +797,9 @@
         ]
       ],
       "landmarks": "Smoke top, chimney mouth, roof back edge, roof front edge and door head.",
-      "original": "assets/Objects/AuthoredBuildings/city-chimney.png",
+      "original": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-chimney.png",
       "reference": "docs/art/pp-building-references/city-chimney.png",
-      "output": "assets/Objects/PPBuildings/city-chimney.png",
+      "output": "extra_assets/inactive/assets/Objects/PPBuildings/city-chimney.png",
       "sourceCrop": [
         0,
         0,

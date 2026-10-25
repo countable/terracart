@@ -491,5 +491,39 @@
         12
       ]
     ]
+  },
+  {
+    "id": "rain",
+    "source": "extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets/RA_Atlantis_Animated01.png",
+    "rect": [
+      160,
+      16,
+      64,
+      16
+    ],
+    "note": "Right falling strokes from four native turquoise water-splash phases; the splash bulbs are cleared for diagonal rain.",
+    "sourceSHA256": "eb22e04ed59d368bd998a09e45a07f62c2b678abf6872cbdac3ad64fc2db0377",
+    "bounds": {
+      "fw": 64,
+      "fh": 16,
+      "minX": 7,
+      "minY": 5,
+      "maxX": 59,
+      "maxY": 9
+    },
+    "frameWidth": 16,
+    "frameHeight": 16,
+    "sourceFrames": [
+      30,
+      31,
+      32,
+      33
+    ],
+    "keepWithinFrame": [
+      7,
+      5,
+      11,
+      8
+    ]
   }
 ]

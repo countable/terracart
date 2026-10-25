@@ -2,10 +2,3989 @@
   "version": 1,
   "entries": [
     {
+      "path": "assets/ArtTrials/ALT-0038.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/ALT-0038.png",
+      "bytes": 895,
+      "sha256": "aac45b0d189bc7b305e5ed92a2c6a65a67a5b1302674cce297062c6d01a61fcd"
+    },
+    {
+      "path": "assets/ArtTrials/ALT-0131.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/ALT-0131.png",
+      "bytes": 247,
+      "sha256": "4c93ea1a8e52a7d9cc73043d24fbb8ffdcf1ea6c11dfd577875219ce0bafac77"
+    },
+    {
+      "path": "assets/ArtTrials/ALT-0168.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/ALT-0168.png",
+      "bytes": 642,
+      "sha256": "73324a308d58faa0f4a65b37ddb24ca4021716f0b7e8279be67516bec139a90e"
+    },
+    {
+      "path": "assets/ArtTrials/ALT-0176.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/ALT-0176.png",
+      "bytes": 1191,
+      "sha256": "45ad53793ad42949c3af38e19aacf34c82de951ff5b47573cc35331cae6c0a0f"
+    },
+    {
+      "path": "assets/ArtTrials/ALT-0245.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/ALT-0245.png",
+      "bytes": 808,
+      "sha256": "bf2eff7a328b117c5eb5f5732fb3a0871dc4145c11c0ceeeed9cd80450bce31c"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/crate-stack.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/crate-stack.png",
+      "bytes": 415,
+      "sha256": "141e1fca5c5ffc922e46c75905ac0137b5f416aff7539283c08d26454276c805"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/flower.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/flower.png",
+      "bytes": 145,
+      "sha256": "f8c3ac37b8f4e5781ec38823f3771d30910f3de25c6eec832f1eb8415efb8288"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/flowers.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/flowers.png",
+      "bytes": 234,
+      "sha256": "5088f96b9c83a706dcd91ffff3f71327097b9bc9861f7d8c1f31ee0416d0f6ed"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/fountain-water.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/fountain-water.png",
+      "bytes": 2305,
+      "sha256": "2d6ef67f800a87916b686ac3e227f10b6a6360d4c119b0330225a8af36932a02"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/manifest.json",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/manifest.json",
+      "bytes": 3393,
+      "sha256": "6862a0162da9fd8dc4c1df92b5430640916ea13b3fc98658af6632f9789c8cee",
+      "archivedSha256": "b15034bcb77335c79c282841dcfedcf91156a6402a778abcb2cacfac442a4e3b"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/short-grass.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/short-grass.png",
+      "bytes": 120,
+      "sha256": "1a2ec0d61adc21116f0d184680f126a8c548c441fcb0263cba7122998e439f9f"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/shrub-flower.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/shrub-flower.png",
+      "bytes": 358,
+      "sha256": "ae7f719c3010b62e7d973100a35066e50bede657e326d6ce6ba8f2e4c5f4b238"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/shrub.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/shrub.png",
+      "bytes": 486,
+      "sha256": "36350491445d9c0621c82854cf701d8b74e508b08af05fc15f6789a9d5b9b55d"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/slab-small.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/slab-small.png",
+      "bytes": 282,
+      "sha256": "bd46765b7b6a8faa431a2bacc8645283a2ac79c099fa6cd6a4fe2f1b3b1093ab"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/slab-split.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/slab-split.png",
+      "bytes": 257,
+      "sha256": "9eb6c85c7ec6f11d7f90d3aa55a9c26b1d058c89e81c10c2b045350bc949abea"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/slab.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/slab.png",
+      "bytes": 196,
+      "sha256": "64e55043da400ad16539cefcefbb374dff2b1387d1a4e839beaa6fbb0ab39eb7"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/tree-tall.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/tree-tall.png",
+      "bytes": 826,
+      "sha256": "9c5fd3c690f8b6fee2e6815f2bc37e41b4846c6944a754fa20e685f26e76b6fe"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandEnrichment/well.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandEnrichment/well.png",
+      "bytes": 790,
+      "sha256": "b45bca0a27cbe2e8b5d549402f30b6ffd9905528ac949fd070f5da087a330a41"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/chimney-right.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/chimney-right.png",
+      "bytes": 508,
+      "sha256": "3c8c39f26a53de97e2f32b5e337de69e4364d6e18a76ffd409bd5593d0c864a5"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/chimney.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/chimney.png",
+      "bytes": 490,
+      "sha256": "8d0a41776b49dbd6e790d0d1387ad7bfd6dcb5521ba3428c75eb555e3f1f7602"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/crate-stack.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/crate-stack.png",
+      "bytes": 407,
+      "sha256": "fd424399a38e26442e8834a30f9f740f0c9c23877ab7edf59b323418e6c3d586"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/crate.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/crate.png",
+      "bytes": 228,
+      "sha256": "a2e81b4422408ec5ee5f1b64dea3cc1f715efec62846efe136b394b69b97a89a"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/fountain.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/fountain.png",
+      "bytes": 1576,
+      "sha256": "d772ff4fe27afe67592f3e7f1e1986d3502a0390832cc2cd7ce29bae21795053"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/ground-base.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/ground-base.png",
+      "bytes": 86,
+      "sha256": "157b629d846cd9b0408c4c47485e3acc82f066f444de08755538d141c0a37157"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/ground-patch-small.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/ground-patch-small.png",
+      "bytes": 606,
+      "sha256": "5adb132390f039f320e0a7e04cfc188a831e5dd472758ecd7dcb5330d48b53f4"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/ground-patch.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/ground-patch.png",
+      "bytes": 909,
+      "sha256": "f7db26e9f129f7f4a8f71c74f3f62b382ec8427f1bd05cd2b565d64d59243b89"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/ground-specks-a.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/ground-specks-a.png",
+      "bytes": 123,
+      "sha256": "7c4c389273472a1a162c890dce32000c6705be3f6ddaf450af8c2a3deff4111c"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/ground-specks-b.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/ground-specks-b.png",
+      "bytes": 124,
+      "sha256": "72d1ac97ded809d124a1610de1d359e5b4e5c37d9ffe542105c0fe716ebadb90"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/ground-specks-c.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/ground-specks-c.png",
+      "bytes": 127,
+      "sha256": "8ab1dce5e25a5e58442c93cf2ba60866675189904ba4e33716bfd3ad116f0f5b"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/house-collapsed.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/house-collapsed.png",
+      "bytes": 1737,
+      "sha256": "786ffd26b75db6e5a855c085b920b127744d6fb140d867e6f3341b5e39cff9a3"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/house-wide.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/house-wide.png",
+      "bytes": 4120,
+      "sha256": "1c4f9667503345f262f09cd74f8331bbb45509789b24e4bf426e2556edc85795"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/house.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/house.png",
+      "bytes": 2476,
+      "sha256": "bf8a7201a878f384cae8be37e210ba5fa8d9a0414198eba770fdf4d7e77f3b1a"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/lamp-unlit.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/lamp-unlit.png",
+      "bytes": 585,
+      "sha256": "4c95b25a06ce46efa1a238fa27e47b4ac4e82a51a114b555f39b6dac533cc332"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/lamp.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/lamp.png",
+      "bytes": 602,
+      "sha256": "5b4c60bfc5c94a57587da5feb1b0b887439cb2f966e253eb0f852040f94a21e8"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/manifest.json",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/manifest.json",
+      "bytes": 25279,
+      "sha256": "b0b0ecb33f22a6e58e65e893c280ecb9b730fa8f041ce7755365588800b2148c"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/sign.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/sign.png",
+      "bytes": 289,
+      "sha256": "f416755b7cd38e95778137ae976331969325b6561fffdcfcde326173e46f6219"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/tree-young.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/tree-young.png",
+      "bytes": 704,
+      "sha256": "206c3ef83d85cfc1774d2ae2be1a8500295009eaaeeab5cd0b76dac9c1d21edd"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/tree.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/tree.png",
+      "bytes": 945,
+      "sha256": "e80313241db4f7187b70a1fb8c4b937f0867f1eaa60d2e7c4bbac284282dfc3e"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/well.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/well.png",
+      "bytes": 778,
+      "sha256": "05a458d3ee422cb80e064786d782310005bcb2f9de394bf8c118109bfaf1d1f0"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/wreck-interior.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/wreck-interior.png",
+      "bytes": 10499,
+      "sha256": "651766101cb87e87d66a12bc84b66a848bee3e2ad30ce876cfd4c2f1ec250ecb"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandObjects/wreck-material.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandObjects/wreck-material.png",
+      "bytes": 5637,
+      "sha256": "b92205f01f0f0a021001c935874a340bed3e06d4f994490cbc7a052d225780b8"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/fountain.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/fountain.png",
+      "bytes": 1576,
+      "sha256": "d772ff4fe27afe67592f3e7f1e1986d3502a0390832cc2cd7ce29bae21795053"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/grass.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/grass.png",
+      "bytes": 86,
+      "sha256": "157b629d846cd9b0408c4c47485e3acc82f066f444de08755538d141c0a37157"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/hanging-lamp.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/hanging-lamp.png",
+      "bytes": 647,
+      "sha256": "08b7cd33b316804a29239ecfeddca29c4c25909e701c6ec3a95cefbcfac5fee6"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/manifest.json",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/manifest.json",
+      "bytes": 28409,
+      "sha256": "008d2a9db36d536d7d3facbe914a9a5300aa40669cf5926c57dd478d20b34813"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/path-restored.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/path-restored.png",
+      "bytes": 742,
+      "sha256": "dc712e2e787cb1acb5b8ea2fd1a277b8a7826aa1d0b5ef4c2ee79a1af45dc0f1"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/path.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/path.png",
+      "bytes": 1066,
+      "sha256": "b156bd86db4e6c6f724a1f42dc4bde36884df2f3fbfe7f58e437b104a2ab0aee"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/round-tree-reference.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/round-tree-reference.png",
+      "bytes": 1042,
+      "sha256": "f3ad3b886227aefc8ee3c7ffa581edf8ed43549c26ee298fcecb356feea6d80a"
+    },
+    {
+      "path": "assets/ArtTrials/DreamlandTerrain/terrain.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/DreamlandTerrain/terrain.png",
+      "bytes": 9419,
+      "sha256": "ef7a49387d94de87da7cceca7b5fa0b6f0b917dab8811276e9b61540322ac3ae"
+    },
+    {
+      "path": "assets/ArtTrials/RogueObjects/house-large.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueObjects/house-large.png",
+      "bytes": 4457,
+      "sha256": "03d57d89f8675333e3afcc2b2be50007eeb7c347cbc6338bac5de214315a574c"
+    },
+    {
+      "path": "assets/ArtTrials/RogueObjects/house-small.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueObjects/house-small.png",
+      "bytes": 2812,
+      "sha256": "d889c2b5d471ae6e09fc4cd368db3067cf1ee719ef5e7f6ea9faaa5b5d5556b8"
+    },
+    {
+      "path": "assets/ArtTrials/RogueObjects/house-sw.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueObjects/house-sw.png",
+      "bytes": 3964,
+      "sha256": "8b70125db0ec3682a7f6402a01814471ec97806e66499e5afde379478c6991f2"
+    },
+    {
+      "path": "assets/ArtTrials/RogueObjects/ladder-down.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueObjects/ladder-down.png",
+      "bytes": 337,
+      "sha256": "d266ae2ecf232b0376b4628de0f57cee84c48fe21545c191a0c41f706672707f"
+    },
+    {
+      "path": "assets/ArtTrials/RogueObjects/lamp-unlit.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueObjects/lamp-unlit.png",
+      "bytes": 238,
+      "sha256": "03d576f5c5b46b54a7f803773a1830178c95680f49de1cdb843b9b513853a3bb"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/bramble.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/bramble.png",
+      "bytes": 800,
+      "sha256": "3ce0d9e72966a179788c8175884c6c37dd5562041d7de262b03704723cb795bb"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/flowers.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/flowers.png",
+      "bytes": 368,
+      "sha256": "dec28dc16c7fe3c5cc0c7e4825f905290f2f06cc7c2ae4203ee28d67a2b52877"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/hedge.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/hedge.png",
+      "bytes": 813,
+      "sha256": "9d5993da8a46834130c633d2a1ebc750ec8d868a32862de6d0e254f0c7029886"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/longgrass.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/longgrass.png",
+      "bytes": 309,
+      "sha256": "770367612944c0513875883722ffe5bf79eecc9ba36c0e12953f91146baa69e4"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/loose_rock.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/loose_rock.png",
+      "bytes": 215,
+      "sha256": "242f7250a6cf1d9347964f4b7f9a57b619347f2e8fa419c9616adf1b0bc460f4"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/manifest.json",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/manifest.json",
+      "bytes": 17306,
+      "sha256": "7ffe9f276bd440bbf9911749d0910ddf70061791cb45910f8702048cdc9fce56",
+      "archivedSha256": "981cbc050d256c3dd1d25037a6be3cf3c66e59d60cb92253dab4828d1075b37d"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/marigold.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/marigold.png",
+      "bytes": 585,
+      "sha256": "cbc6fe4c02c50533bda16d742c36a8d46f8160497ce2cb592c20eae24b1280c3"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/mushroom_alt.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/mushroom_alt.png",
+      "bytes": 182,
+      "sha256": "f32438a300ae6050f0e447f72397cb1b61a44aaa1a111c78b9f55ee1937fcd56"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/nettle.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/nettle.png",
+      "bytes": 366,
+      "sha256": "aec05bbf459e6644912c23c26a6b30eb96c94ad580ff51d84de3f52bd0d78fb1"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/ore_iron.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/ore_iron.png",
+      "bytes": 401,
+      "sha256": "572406810450e1541f96b57907cea721f3817d5d7deeaab8b222a33b8c75ff1b"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/petnip.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/petnip.png",
+      "bytes": 406,
+      "sha256": "af901c0e609779a9f20a81d49a44540aa7ad02d69cdcd92a2964c98c8899b1c6"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/potato.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/potato.png",
+      "bytes": 296,
+      "sha256": "1b37093a251fba0521b608405993eba7ab56e8ad4ebdb98ddc2d3379010e2e69"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/reeds.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/reeds.png",
+      "bytes": 267,
+      "sha256": "0af4406780da771dd0b2c48a6c710f0bf182817fea082fddbac5716d2b891e8b"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/approved-flora/starflower.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/starflower.png",
+      "bytes": 363,
+      "sha256": "20937e14cabcbd7ea27e3962dba44982c70177f6ac61af8ce62873f4151b97bd"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-0.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-0.png",
+      "bytes": 778,
+      "sha256": "28b2d841f6c002a81bd2ae881b56396f490378befd3c14fc04c22d9a7a1792bb"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-1.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-1.png",
+      "bytes": 800,
+      "sha256": "26536b466f03f07b43efc7acf10f6c0174534bc370af23eb7714cb2058d0ddb9"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-2.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-2.png",
+      "bytes": 826,
+      "sha256": "763c83f9f626c566cdb2bf2e416a4e79a338279ce798970362b386a51db0ab25"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-3.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-3.png",
+      "bytes": 810,
+      "sha256": "bcfeda2d65d14aa1e39ded14a5859fab8cf730e2aeada67645f4363890b7b82d"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-4.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-4.png",
+      "bytes": 824,
+      "sha256": "568c56297da90bffb1de71caa1375a4ee36c4fb6347ec46ae2f63d9f2fce4a60"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-5.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-5.png",
+      "bytes": 791,
+      "sha256": "8c34d2392fbd6a4568bfdbdc08884cd6bc3b0d79269140bdadec5313d9fd2479"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/chest-6.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/chest-6.png",
+      "bytes": 804,
+      "sha256": "c196f674dd4a9022a230543492bdb8472331663e8fc2fa8d6f750d8fc64b09b7"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/manifest.json",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/manifest.json",
+      "bytes": 9368,
+      "sha256": "705e43e59b9cef3975496fea060fdb6e5893a4e0fb53f571055069939ffcfd17",
+      "archivedSha256": "cd1b7ffee2f2aba662ca24bee6523d313a6ae5bc470a0713ca0050f4a28542de"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/pot-1.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/pot-1.png",
+      "bytes": 388,
+      "sha256": "f0dc66c0efc41d5bbddf4d12a212c28d159677a1f998a46660c7a575036efb53"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/wood-0.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/wood-0.png",
+      "bytes": 662,
+      "sha256": "178a91b7000161e72c20ccc0f27e55841b0ff6b445652ed45f81ce853152ad34"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/wood-1.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/wood-1.png",
+      "bytes": 673,
+      "sha256": "a292b6c73326856dc72f9ee71607a71a7bd726c9cd5750789f4a9fe53a899a3f"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/containers/source/wood-2.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/containers/source/wood-2.png",
+      "bytes": 675,
+      "sha256": "ec9b755cc646b7554ac9fdd139bae7814a7b2b74abf56f93a2b7c4379935dbf8"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/approved.json",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/approved.json",
+      "bytes": 28383,
+      "sha256": "097c93a3149c88cfc236742869df46859b9da84649f878bef12f1e073be57913",
+      "archivedSha256": "d98f2dd512ac5d97bb527ceb515a53d4673f2440d4ae046dd9d311ebb91e646f"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/barricade.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/barricade.png",
+      "bytes": 604,
+      "sha256": "cc09063d079f5f98798e103e4974536da33fde1e42379d4e47f29b34d2e67f61"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/elevator-0.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/elevator-0.png",
+      "bytes": 2394,
+      "sha256": "f15265ed00e1c124c7c7eb9e6b1b5be2cd90a22e530dd8cdca5d0f92fa8807ff"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/elevator-1.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/elevator-1.png",
+      "bytes": 2401,
+      "sha256": "69f1b3e26a826f5610dfabf1bd3982bb81bbd6a1e20530d44176e967f4bd8ef1"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/gatepost.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/gatepost.png",
+      "bytes": 417,
+      "sha256": "93e51df33a3abbbfcf1894ec1afe427df552a8f818aa976a13deccdd63a7e741"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/grave.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/grave.png",
+      "bytes": 322,
+      "sha256": "ceb86b1bf1b3b6adb65dc2fa2cd96c4046b8aaf6a7b7e69ff96548f65e6b6b2d"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/ladder-down.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/ladder-down.png",
+      "bytes": 2739,
+      "sha256": "3408a7646b3675037350b31c023db7d64a9d52a6514d847da5145f5be8736df2"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/ladder-up.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/ladder-up.png",
+      "bytes": 2912,
+      "sha256": "633b7dd8992db2b20d7243c6c7867ba624c9a3aef971d3ac8f72a391f8b8abfc"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/lamp-unlit.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/lamp-unlit.png",
+      "bytes": 238,
+      "sha256": "da082fac82aa2fd4ba1237d7f6d89618acf31a4762b734b42a9202961999dca6"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/scope.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/scope.png",
+      "bytes": 484,
+      "sha256": "75efa6e78a84b84c0706e42a85d981b12a0a374dc157711e4d42a230f6065072"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-0.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-0.png",
+      "bytes": 2178,
+      "sha256": "aad6fe24d9d167619cf9f0122e61e9ffb29948111ee8ce23a1fe3036a725079e"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-1.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-1.png",
+      "bytes": 2292,
+      "sha256": "e74bc9322acd46bd93662440f52009719cf1bf04d99d41e3126983c23869c92f"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-10.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-10.png",
+      "bytes": 2513,
+      "sha256": "fb43420a015e49c03777860e88799f3ccc870d7d468b837b540fa3304f36361b"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-2.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-2.png",
+      "bytes": 1858,
+      "sha256": "6a8ddfdd6b0e7110ee6c9dcb21312ac483ff450b30257fd3b57071db434bae80"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-3.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-3.png",
+      "bytes": 2629,
+      "sha256": "169df4aa6e1d148113dbb8224bd1d6bc8c9bb14e4eff0c2a6e1499a26effa785"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-4.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-4.png",
+      "bytes": 1599,
+      "sha256": "9c5e9314ce5ca745536fc692090485a4b7715a476a48193fa2efa358f1688f4c"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-5.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-5.png",
+      "bytes": 2416,
+      "sha256": "261a051495bb45c649c8c914ba7bdf7f8a8a701503e8b0d82f4e2eb7087056c5"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-6.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-6.png",
+      "bytes": 2608,
+      "sha256": "7d965ba5e7393014d1e74dac871a6138e3b29b44d871cd59b61e63bec75550ca"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-7.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-7.png",
+      "bytes": 2332,
+      "sha256": "dca33baf74948748e712f3cc019b3ee53cf048cf78a5ce58737fd3a7480b919f"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-8.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-8.png",
+      "bytes": 1533,
+      "sha256": "cfe993b3f7408709824efe2c394a8fbcf3ea019416eb20560cde3a6e29c4dd59"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/shrine-9.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/shrine-9.png",
+      "bytes": 1745,
+      "sha256": "9023afd52f2218eed3a54492e7b3db19525f999d8e6d2c5920f51b37233999ae"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/votive.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/votive.png",
+      "bytes": 1773,
+      "sha256": "9612ce2b62c878dd844eed507ad30faf5a95efb356d403330c5347d9d2572a5a"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/waystone-0.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/waystone-0.png",
+      "bytes": 309,
+      "sha256": "7f7e225c8c3ebc196dc7eb2e5edfaa7d64eb0f154ab65abf08e22b0c57864a3c"
+    },
+    {
+      "path": "assets/ArtTrials/RogueProps/fixtures/source/well.png",
+      "archive": "extra_assets/inactive/assets/ArtTrials/RogueProps/fixtures/source/well.png",
+      "bytes": 1737,
+      "sha256": "91483c49af974736c0c2529f68b33bbe82e3627ef55bc52942521aa3a0586419"
+    },
+    {
+      "path": "assets/Enemy/Dragons/BlackDragon.png",
+      "archive": "extra_assets/inactive/assets/Enemy/Dragons/BlackDragon.png",
+      "bytes": 6860,
+      "sha256": "c79fcde0b72733d356631c208e77f5fe699d3f721c9b702d65dcdd79cba8ed18"
+    },
+    {
+      "path": "assets/Enemy/Dragons/BlueDragon.png",
+      "archive": "extra_assets/inactive/assets/Enemy/Dragons/BlueDragon.png",
+      "bytes": 7252,
+      "sha256": "95ce81efe9096162b88bc3b11153e35f4813b0c8183643aad8efa515707cd756"
+    },
+    {
+      "path": "assets/Enemy/Dragons/WhiteDragon.png",
+      "archive": "extra_assets/inactive/assets/Enemy/Dragons/WhiteDragon.png",
+      "bytes": 20479,
+      "sha256": "2092da28e9bce13672b39fd1a50b481b0632a47130fe76ce810192cb940dcea5"
+    },
+    {
+      "path": "assets/Enemy/Dragons/YellowDragon.png",
+      "archive": "extra_assets/inactive/assets/Enemy/Dragons/YellowDragon.png",
+      "bytes": 7189,
+      "sha256": "b08b5eb38c6dd6d0da8e7dcbcde7ac4ae4503e86df61f06393434cbc7c94e5b4"
+    },
+    {
+      "path": "assets/Enemy/LargeAttack/frames.json",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeAttack/frames.json",
+      "bytes": 1447,
+      "sha256": "c7bad58ec6e3b8845e1b30bf8fb4c23685f7d2319eee276625e4c1d9e896ce19"
+    },
+    {
+      "path": "assets/Enemy/LargeAttack/large-enemies-32.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeAttack/large-enemies-32.png",
+      "bytes": 76464,
+      "sha256": "113f0a8836f5346f85afa9534ea54396d10e2a86781f85c791c101db6a0d915a"
+    },
+    {
+      "path": "assets/Enemy/LargeAttack/prompt.txt",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeAttack/prompt.txt",
+      "bytes": 2667,
+      "sha256": "6c447dc60adf628a660d5684b4d259b1a1496b686c5379fdffeee5879eaa1e58"
+    },
+    {
+      "path": "assets/Enemy/LargeAttack/source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeAttack/source.png",
+      "bytes": 2151270,
+      "sha256": "4fa80b02c2a363feccc9725789e91412f7750841f902fc0b8a5f7c08c78615ec"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/README.md",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/README.md",
+      "bytes": 1273,
+      "sha256": "04225088f13eb597ea9a5db36a7c4afda37c8cc772a38838438c5e40218cc51d"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/bugbear-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/bugbear-source.png",
+      "bytes": 1609292,
+      "sha256": "97e3f267ddfa8b149f16e8bccb3b9d1d9895535e6d0d4eb962d234414802d033"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/bugbear.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/bugbear.png",
+      "bytes": 47557,
+      "sha256": "6d6780deb90f99a0a5a36d0e1bda4b4dcf2411753d6741409bdc7a0c7ad44afa"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/export-checks.json",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/export-checks.json",
+      "bytes": 28717,
+      "sha256": "7ef96028eaa62465b8aa1a470183e1d9eb7303433fe55db40ef2ac33b716e146"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/frames.json",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/frames.json",
+      "bytes": 15647,
+      "sha256": "4cc5bd1fc63d7eaea458f01d48d53172c38d69db591bd66ab34544a3180c22df",
+      "archivedSha256": "99976a49afcf741e3aa2f9007a9bca144e4ad11fb37df1578fc31250a3c368ac"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/giant-bear-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/giant-bear-source.png",
+      "bytes": 1467222,
+      "sha256": "d13ad1ca02f66ac37c16c58d20d0a8046e4ac288c0d00d9229e814aa26a0ca51"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/giant-bear.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/giant-bear.png",
+      "bytes": 44949,
+      "sha256": "b581d8b018fe16f84ec603ab73a87529cd34000a931e3254c964d1dc329886c1"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/giant-reaper-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/giant-reaper-source.png",
+      "bytes": 1702389,
+      "sha256": "ea7fe1abf08c64a1c66888e5b446f86190be484fccb80d8d05d9042ce7bd1b4c"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/giant-reaper.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/giant-reaper.png",
+      "bytes": 49033,
+      "sha256": "783b157e687cd4f66a1890dcebe7d0ba952a5226dee463c64c693676452d5c8c"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/giant-serpent-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/giant-serpent-source.png",
+      "bytes": 1759513,
+      "sha256": "e40f647e5f75b77b9a9b03c282b752feb129592c5b81b4f233e18543ec5fe0c5"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/giant-serpent.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/giant-serpent.png",
+      "bytes": 53732,
+      "sha256": "7a1198bc78a3d7009727b259cea5a52326787a4d483a504a84bd343f7e76bdcb"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/index.html",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/index.html",
+      "bytes": 5686,
+      "sha256": "576f49f5828618a4335ed881c61d1fcb7bf59a6feb1610ca80c0ec7bebbd0742"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/ogre-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/ogre-source.png",
+      "bytes": 1598333,
+      "sha256": "656a418f7ef5a4bc1234649e2104c31b27bbf0ac0a51f618516422c045c0d277"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/ogre.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/ogre.png",
+      "bytes": 48225,
+      "sha256": "101787f4bedcabe2ad75e72f946d22a8917ae4fc1fab2caae79c1f010c019bb5"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/prompts.json",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/prompts.json",
+      "bytes": 364,
+      "sha256": "384c60ce41bc2965989bd2a0843b0d88d4bd26701d95096a4afdbab4063b6952",
+      "archivedSha256": "55a39c086530a6f773d26eb890c3c18bdb789f90f12dd48e2328725644d49f1e"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/troll-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/troll-source.png",
+      "bytes": 1631818,
+      "sha256": "a4247f545ce022a03481d0fd87017b33a6da80f8f72823210c3431649a547860"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectional/troll.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectional/troll.png",
+      "bytes": 49008,
+      "sha256": "11e748486aa15a0c75d91a235a3a9e79ee013b9168634dc7ab0db079fcc2650c"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/bugbear-previous.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/bugbear-previous.png",
+      "bytes": 47557,
+      "sha256": "6d6780deb90f99a0a5a36d0e1bda4b4dcf2411753d6741409bdc7a0c7ad44afa"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/bugbear-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/bugbear-source.png",
+      "bytes": 1515707,
+      "sha256": "3172fd4d3cc858df6a5b1c5d8bc27a0c6a0b6fe5703a023e5d8005169b12b3fd"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-bear-previous.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-bear-previous.png",
+      "bytes": 44949,
+      "sha256": "b581d8b018fe16f84ec603ab73a87529cd34000a931e3254c964d1dc329886c1"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-bear-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-bear-source.png",
+      "bytes": 1435883,
+      "sha256": "09c1c3b0e6a2c48cbadb16c285b888efda1fc17921f52b8922593faf1e9d0a07"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-reaper-previous.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-reaper-previous.png",
+      "bytes": 49033,
+      "sha256": "783b157e687cd4f66a1890dcebe7d0ba952a5226dee463c64c693676452d5c8c"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-reaper-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-reaper-source.png",
+      "bytes": 1405424,
+      "sha256": "3df1e9517e10e611cfaeffd551d046ae59d6afbcd71cc5ccddf8b5cc0f206387"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-serpent-candidate1-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-serpent-candidate1-source.png",
+      "bytes": 1603892,
+      "sha256": "0a9a6cff4334099ca051bb35721c72919b011e152e1167b23faa9a267c0b8924"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-serpent-previous.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-serpent-previous.png",
+      "bytes": 53732,
+      "sha256": "7a1198bc78a3d7009727b259cea5a52326787a4d483a504a84bd343f7e76bdcb"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-serpent-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-serpent-source.png",
+      "bytes": 1554265,
+      "sha256": "f92871f6266d4d093f3e842bca89286a78253a4037a4ae315efd941c3ae79f20"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/giant-serpent.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/giant-serpent.png",
+      "bytes": 47439,
+      "sha256": "f36f58056f78ddbc8b12c7996b1d61ec95deff29e31e4097e398ccbe32a670cc"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/ogre-previous.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/ogre-previous.png",
+      "bytes": 48225,
+      "sha256": "101787f4bedcabe2ad75e72f946d22a8917ae4fc1fab2caae79c1f010c019bb5"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/ogre-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/ogre-source.png",
+      "bytes": 1450952,
+      "sha256": "61d164dacde2c3d35d6a70537042e199035ad9564bf3d556e6a952738e8ed6f4"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/troll-previous.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/troll-previous.png",
+      "bytes": 49008,
+      "sha256": "11e748486aa15a0c75d91a235a3a9e79ee013b9168634dc7ab0db079fcc2650c"
+    },
+    {
+      "path": "assets/Enemy/LargeDirectionalV2/troll-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/LargeDirectionalV2/troll-source.png",
+      "bytes": 1596001,
+      "sha256": "ac7f52503646023b13bbcaedba059f8dfa1ee95d46e1273cd8d21c418a4cddd3"
+    },
+    {
+      "path": "assets/Enemy/Orcs/Minotaur.png",
+      "archive": "extra_assets/inactive/assets/Enemy/Orcs/Minotaur.png",
+      "bytes": 5109,
+      "sha256": "ca823dae67c9bcdfacf8ccb2ff9c11fd4b34f3fe2e7597d97ebfb0ba9c665d5d"
+    },
+    {
+      "path": "assets/Enemy/SegmentedSerpent/parts-source.png",
+      "archive": "extra_assets/inactive/assets/Enemy/SegmentedSerpent/parts-source.png",
+      "bytes": 1027662,
+      "sha256": "a4c8ce3ad6f642e2cf404d40a81558830b8766138768a01958ecc1004d0e1daa"
+    },
+    {
+      "path": "assets/Enemy/SegmentedSerpent/preview.png",
+      "archive": "extra_assets/inactive/assets/Enemy/SegmentedSerpent/preview.png",
+      "bytes": 112545,
+      "sha256": "054d91eb8875292eeccaf1a4b834b17d9343a9e2ceddc7e1f0c91e147f013755"
+    },
+    {
+      "path": "assets/Enemy/SegmentedSerpent/tail-directions.png",
+      "archive": "extra_assets/inactive/assets/Enemy/SegmentedSerpent/tail-directions.png",
+      "bytes": 82746,
+      "sha256": "f98e89f9193086c9e5601c630814b1a433b15228c3236c7c7eed6818ae382f23"
+    },
+    {
+      "path": "assets/Enemy/spr_Colossal_monsters_1000yearsRedDragon.png",
+      "archive": "extra_assets/inactive/assets/Enemy/spr_Colossal_monsters_1000yearsRedDragon.png",
+      "bytes": 12164,
+      "sha256": "a8571da436b1bd66ff80f55aafc68e080967e487ee677049482124b3026d6688"
+    },
+    {
+      "path": "assets/Enemy/spr_Colossal_monsters_hydra.png",
+      "archive": "extra_assets/inactive/assets/Enemy/spr_Colossal_monsters_hydra.png",
+      "bytes": 13738,
+      "sha256": "2b2fd0930fd4f9aaa59a86ffc844f6f2b0401f652e4a1e9800f1e09923a7395b"
+    },
+    {
+      "path": "assets/Enemy/spr_Colossal_monsters_spritesheet.png",
+      "archive": "extra_assets/inactive/assets/Enemy/spr_Colossal_monsters_spritesheet.png",
+      "bytes": 15513,
+      "sha256": "d0930abd255bcb15cc6ea302b09edc736f5f58a225c8d444d9f4066913733820"
+    },
+    {
+      "path": "assets/Enemy/spr_big_monsters_spritesheet.png",
+      "archive": "extra_assets/inactive/assets/Enemy/spr_big_monsters_spritesheet.png",
+      "bytes": 40562,
+      "sha256": "2e3d8aa2d9234eae0defb43516ab710f55f675ceae1a8d958d5e112049a877fb"
+    },
+    {
+      "path": "assets/Farm Animals/Boar.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/Boar.png",
+      "bytes": 2291,
+      "sha256": "7f2d20f1fbe103f7c783284c6622e75a1cbc9e4117e1d92f8584094d8735b528"
+    },
+    {
+      "path": "assets/Farm Animals/Chick.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/Chick.png",
+      "bytes": 994,
+      "sha256": "72d47ccabc735d777768479839803c19913371edcc6c82e6daf35b9b79f5407e"
+    },
+    {
+      "path": "assets/Farm Animals/Chicken.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/Chicken.png",
+      "bytes": 1332,
+      "sha256": "473d946ba3bede660b2b0ec1d6263f9aae6b91bb114c3625a84b8d9cd1097483"
+    },
+    {
+      "path": "assets/Farm Animals/HornedSheep.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/HornedSheep.png",
+      "bytes": 1706,
+      "sha256": "de98d8f8cbeeef67ef431d21ae793a748ad6534d95ad70ab6b3682095d30fac3"
+    },
+    {
+      "path": "assets/Farm Animals/Horse(32x32).png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/Horse(32x32).png",
+      "bytes": 10839,
+      "sha256": "34847aa7d36ce67b2acb13947adbca4e12c522e35426846b89b0976c93ccede8"
+    },
+    {
+      "path": "assets/Farm Animals/MarineAnimals.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/MarineAnimals.png",
+      "bytes": 2455,
+      "sha256": "f38cdae34a485707a6b77adf516109dd08e4a85a62ec7c3fbcd9556e89b7e78c"
+    },
+    {
+      "path": "assets/Farm Animals/Pig.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/Pig.png",
+      "bytes": 2265,
+      "sha256": "0e583192269d5303304c640e5a7e75344cf110f0a75f800cb23605f5df3ce694"
+    },
+    {
+      "path": "assets/Farm Animals/Sheep.png",
+      "archive": "extra_assets/inactive/assets/Farm Animals/Sheep.png",
+      "bytes": 1613,
+      "sha256": "601f7519fc525859797421dd94a091fe6ef4bb203eb02f839444f3408d330a00"
+    },
+    {
+      "path": "assets/Icons/AltWeapons/source/muskets.png",
+      "archive": "extra_assets/inactive/assets/Icons/AltWeapons/source/muskets.png",
+      "bytes": 580,
+      "sha256": "7db175b7e4e15a3c819d80b37f2e1d021688f7ec5803c02afd0ddf84fc39ff1b"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/generated-01.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/generated-01.png",
+      "bytes": 1742522,
+      "sha256": "74c7da04860215242f6f71c3acf86dbaf8a316e44c80bd5807457de8209b70ed"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/generated-02.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/generated-02.png",
+      "bytes": 1796922,
+      "sha256": "30c921719a1b5fe9a69d01e18838cc8197ac4d537721ea863eeb9f100d9e1c8d"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/generated-03.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/generated-03.png",
+      "bytes": 1831927,
+      "sha256": "eb5b9654e38e8ad7dfb94b3108d31774cf91526524e97960047f94d7cd0d3fa8"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/generated-04.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/generated-04.png",
+      "bytes": 1378199,
+      "sha256": "3b78f24d3953c0388fdc9e3750eb2a3e6a3b6216d5d64b619cae53d0815a56b3"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/generated-05.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/generated-05.png",
+      "bytes": 1194449,
+      "sha256": "633ed6155f62984adb268df4586abb0630bb9c774679d313dd93bfab305aeaa8"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/mapping-01.json",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/mapping-01.json",
+      "bytes": 29773,
+      "sha256": "bef754559aa0f6f595582f91f9db6e6d26bd1c59ad46c16ade29a51310d94d65"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/reference-01.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/reference-01.png",
+      "bytes": 25609,
+      "sha256": "d4ffdc459b67131b510763cb83d4a1539925b4ef6a6fc467917d3963936d13d2"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/reference-02.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/reference-02.png",
+      "bytes": 39764,
+      "sha256": "0d8100c9fc099fc308e076211273d0024d2796e280357fe79b9a8d1fcef12b5b"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/reference-03.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/reference-03.png",
+      "bytes": 27057,
+      "sha256": "87b7a59ca572218f2dbda33002ab8867d71f0b1ba4955bd46656d9edbe9b812c"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/reference-04.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/reference-04.png",
+      "bytes": 22079,
+      "sha256": "9b588307911f829a164925be74ba36f9fcc5e299de96bf1da8939c2b02af7419"
+    },
+    {
+      "path": "assets/Icons/DialogItems/source/reference-05.png",
+      "archive": "extra_assets/inactive/assets/Icons/DialogItems/source/reference-05.png",
+      "bytes": 17014,
+      "sha256": "92048a9a5f878cbc15cc2a0d235a23892f0e9f0909b2c39d45cb403621376626"
+    },
+    {
+      "path": "assets/Icons/Fish/Sea/Creatures/Shell.png",
+      "archive": "extra_assets/inactive/assets/Icons/Fish/Sea/Creatures/Shell.png",
+      "bytes": 348,
+      "sha256": "5d89572507f9ad7fae472c899c686eae4765d86b34413442ec8b8ae6730ad774"
+    },
+    {
+      "path": "assets/Icons/Items/RavenScroll.svg",
+      "archive": "extra_assets/inactive/assets/Icons/Items/RavenScroll.svg",
+      "bytes": 553,
+      "sha256": "2b42167fd0f9ef427e550869ae18d8d5f200696947a09bf8f46b59cbee4f3932"
+    },
+    {
+      "path": "assets/Icons/Items/RavenScrollStamp.svg",
+      "archive": "extra_assets/inactive/assets/Icons/Items/RavenScrollStamp.svg",
+      "bytes": 383,
+      "sha256": "76e24db4b3a83d2d76b53e7a77648cbcd316e9ccbd906e1cc8731b46ebb4ee50"
+    },
+    {
+      "path": "assets/Icons/Items/SkeletonScrollStamp.svg",
+      "archive": "extra_assets/inactive/assets/Icons/Items/SkeletonScrollStamp.svg",
+      "bytes": 284,
+      "sha256": "e7c9829990186153b0376e95b1b58dc6a7552541ccf277fd304c974954e10bbb"
+    },
+    {
+      "path": "assets/Icons/Items/ThunderScrollStamp.svg",
+      "archive": "extra_assets/inactive/assets/Icons/Items/ThunderScrollStamp.svg",
+      "bytes": 233,
+      "sha256": "9993a3cdac6d80496f0e0bb104a89d52ae9bc9c7ba2c6b964b59bedc53e53133"
+    },
+    {
+      "path": "assets/Icons/Items/WraithScrollStamp.svg",
+      "archive": "extra_assets/inactive/assets/Icons/Items/WraithScrollStamp.svg",
+      "bytes": 293,
+      "sha256": "33cff3a347acd98043b67e0bc8df7d2cd8cc6923b73a715e62600b60b86c1790"
+    },
+    {
+      "path": "assets/Icons/Items/source/lantern-48.png",
+      "archive": "extra_assets/inactive/assets/Icons/Items/source/lantern-48.png",
+      "bytes": 2653,
+      "sha256": "f31040e739d98db9ea46c75d3f349e57c84cadb00451b6d414317b3ba360617d"
+    },
+    {
+      "path": "assets/Icons/RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "archive": "extra_assets/inactive/assets/Icons/RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png",
+      "bytes": 92853,
+      "sha256": "2d85a7261403d95feaceb23e0c57a616c68911c0129bb0e20283cf4db0fc4ef8"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-0.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-0.png",
+      "bytes": 157069,
+      "sha256": "0ebff767e6724f2f18c72ba0ec26347712d30f2e12bb30716d788c052719f83f"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-1.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-1.png",
+      "bytes": 161974,
+      "sha256": "dade77bc3dcd61b5935be517ca4f1e383b0242251fa356638bdbd62cbef12d39"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-2.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-2.png",
+      "bytes": 164881,
+      "sha256": "74be6eaf89387ca8873054d170ee3064f1e56daa9ddd2b4c601baaebd16df341"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-3.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-3.png",
+      "bytes": 164262,
+      "sha256": "d3edc61b1e1644c8b8c4362377be879c4a122a7a8c2ef03610c9f75e0f03fb61"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-4.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-4.png",
+      "bytes": 146460,
+      "sha256": "217f39c4f1bd2af052399212fa8b5495e5c02ee2c12d647757bef97458f89a41"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-5.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-5.png",
+      "bytes": 158264,
+      "sha256": "2852a4d077fef48c89a0ca5214ccc66e0f10eda74d146b0ae29ebe6ebd06a423"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-6.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-6.png",
+      "bytes": 182247,
+      "sha256": "6c070bc78c32e1d240a5b01529324fc5483116409feaa3ca8379807ebb155487"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-7.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-7.png",
+      "bytes": 164167,
+      "sha256": "d7076d4309fd2bb48770e08fbfd2d116b6bd891aa67bd319303cca1ff3c6a069"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-8.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-8.png",
+      "bytes": 157662,
+      "sha256": "97e4bd3cbbed1749cea7644c08615bd266c0fe40da8d4ade1fb5dfe5eef5add7"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idol-9.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idol-9.png",
+      "bytes": 155392,
+      "sha256": "4a570162c59ef882c4897220c6c12e2062cd04fcdfe37d247ea778822278b461"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/idols.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/idols.png",
+      "bytes": 1649456,
+      "sha256": "7c888b52cb7e4440fa699d6fe255c8003a2e9524b6097445ffc506f9cecfc9db"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012/mossy_grave.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012/mossy_grave.png",
+      "bytes": 325651,
+      "sha256": "b970af7644b0d2829d04a5cbef20ead690933dda1e04e7cb4a8310659aabd822"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/barricade.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/barricade.png",
+      "bytes": 870310,
+      "sha256": "cdab7ea2be32ff2be258e39290bf32a01cf2af3d16128cd93570f5679a99d829"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/cart.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/cart.png",
+      "bytes": 630103,
+      "sha256": "d3f647b20a0af4dd75ff68ed7f1218584d4b84a8f0ffdb0ffc6deb7ab01fefef"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/maple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/maple.png",
+      "bytes": 1008536,
+      "sha256": "e27665d5ecab2bbc1c9367cf06d07bee5abd3ac0b862ad744b418e33a8919a6a"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/mushroom.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/mushroom.png",
+      "bytes": 731327,
+      "sha256": "1126e20e83dc2f6dfccdc1c91e880e0637ef34d448488c9da6ee85fa429a3021"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/palm.png",
+      "bytes": 575800,
+      "sha256": "fff90034af3ef03ac6083d2508d1e8af8393b8021ba4e305944b142e32ebe9cf"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/pillar.png",
+      "bytes": 628422,
+      "sha256": "37d91b0afae392816de1655a11423c472d75735e9353e5cb63a1949b8358d423"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/shell.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/shell.png",
+      "bytes": 352717,
+      "sha256": "41689e06ec682c7a196656fea789788b7bb833925469ad3932ee4d5971593f4c"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/ArtRedo20261012Round2/waystone.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/ArtRedo20261012Round2/waystone.png",
+      "bytes": 647820,
+      "sha256": "9c2740048a7c5a3ad2c536e9dbd0d73ce6372baf86e6645a1d63443637765737"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/FortGamingHall/fort-restored-native.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/FortGamingHall/fort-restored-native.png",
+      "bytes": 5193,
+      "sha256": "2ce99bf022bbdba3f9c04b1dc2eef0da8ad1cc7010d329109a0cac01d62d7f70"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/FortGamingHall/fort-unclaimed-native.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/FortGamingHall/fort-unclaimed-native.png",
+      "bytes": 4667,
+      "sha256": "6c9204286e46a4e2adc80415c0f07a60046d5e4447b3dfa482f585a8d501c0c8"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/FortGamingHall/fort.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/FortGamingHall/fort.png",
+      "bytes": 1044387,
+      "sha256": "df3781b363f61ff2fcb4bb197445c074156822b0e085ede73ab39a6391bda08a"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/approved_charred_stakes-native.png",
+      "bytes": 744,
+      "sha256": "380d334c25133ed0426a41e55af1067cc258bbb9d2c7a48d759da0f83bdd7725"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/barricade-native.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/barricade-native.png",
+      "bytes": 877,
+      "sha256": "34456b11476f90f1194b259aee27046952b9b8b706d49d33a88d9a10fa51c6f9"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/bramble-native.png",
+      "bytes": 828,
+      "sha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/general-0.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/general-0.png",
+      "bytes": 55237,
+      "sha256": "f7105cb2729a03ff0d974daafdab64e01448416ae3ebf373a0aee41ef2c64468"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/general-1.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/general-1.png",
+      "bytes": 63200,
+      "sha256": "8b761af4a1285120be6c2f4aad9e1047b213acb253d5d8282e8ec17914d3d9ec"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/general-3.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/general-3.png",
+      "bytes": 75773,
+      "sha256": "69ce4145e53034314c5744009744b5f0cbe6493983554d195f942936f470b8f0"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/general-5.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/general-5.png",
+      "bytes": 61509,
+      "sha256": "b88be3a47075bf9c95d91dde86fcde58e5c80d1a9fd7561140994be2e64e7ab1"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/general-6.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/general-6.png",
+      "bytes": 53936,
+      "sha256": "b32aaf1a245f376c4faa775237d6346db7f636754b1dc81a9e158dafe88a191b"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shipwreck-a.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shipwreck-a.png",
+      "bytes": 27610,
+      "sha256": "48293206caa491239537296f4c042de4328c61347d49246f5a2926642d89ffaa"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-0.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-0.png",
+      "bytes": 76289,
+      "sha256": "ed58892903bfab1e75045e076af5052aa975f663d4f4d814a90a18b30bedff2c"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-1.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-1.png",
+      "bytes": 83788,
+      "sha256": "2906f5ba168d6c738b8767089409dcd8f29bac301f509d2b32cdf3bfb8538a8e"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-2.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-2.png",
+      "bytes": 105262,
+      "sha256": "2333894a9322c0157b721b3ba12f0f2715c924a54ec54f1d7e4204e46f06bb1a"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-3.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-3.png",
+      "bytes": 80606,
+      "sha256": "abd743c59480ea83ee1333c8baa430a385fecbdfabf22dfa78f40472868330fb"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-4.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-4.png",
+      "bytes": 79412,
+      "sha256": "4380f0845523839a0b5e5b3ec0e9e689aa8eb877c4ac35bc9ba5c3f335f5b8d1"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-5.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-5.png",
+      "bytes": 75916,
+      "sha256": "a2208560b28b50c09fd5be4feee9fa8b15d60a6c62d8c3f04a3e059545753d70"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-6.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-6.png",
+      "bytes": 112107,
+      "sha256": "37ad1175967c56f2e8ef48ad0c09c8ec8ecb554967d791106c05e4c1b8cef0bc"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-7.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-7.png",
+      "bytes": 81655,
+      "sha256": "6a7f826d4030ac673e01fb4b72d8d9bf4a51f6201e7603079f4fa5481a87566b"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-8.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-8.png",
+      "bytes": 83711,
+      "sha256": "b15c291fad3c557dfbde66ffad6f35f4d64c89ed1b5b760325fccfc112c26470"
+    },
+    {
+      "path": "assets/Objects/Approved/Sources/WorldArt/shrines-9.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/shrines-9.png",
+      "bytes": 76679,
+      "sha256": "a287bf0cb58dca895a598bde912c97100be3e59cc9a4acd623b6527120f8acbd"
+    },
+    {
+      "path": "assets/Objects/Approved/approved_clipped_hedge.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/approved_clipped_hedge.png",
+      "bytes": 482,
+      "sha256": "0a8673b887a1ed1a6004dee1a3374dc92afe6c8c3a785085d02abd70a6714206"
+    },
+    {
+      "path": "assets/Objects/Approved/approved_masonry_rubble.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/approved_masonry_rubble.png",
+      "bytes": 329,
+      "sha256": "3f6a6b613ed92fc27c4b46a76f35cc44d142a4b2b634e2818aba09c955130ea6"
+    },
+    {
+      "path": "assets/Objects/Approved/approved_moss_rocks.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/approved_moss_rocks.png",
+      "bytes": 26260,
+      "sha256": "d02621314e1557b40888a91637b0c7b4c57e3ff5d7a887c09da446e1b8cb5a8f"
+    },
+    {
+      "path": "assets/Objects/Approved/approved_wetland_reeds.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/approved_wetland_reeds.png",
+      "bytes": 325,
+      "sha256": "d4c2dd1f776025ea5bcac76ce921a3d5685c515bf9d8aeefc5e6773c23a3c424"
+    },
+    {
+      "path": "assets/Objects/Approved/barrel.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/barrel.png",
+      "bytes": 545,
+      "sha256": "dcf6b6246d4f337e5c1a62dd53ca8feb5a33b6f3fd65f8a807b28e09e50a94b6"
+    },
+    {
+      "path": "assets/Objects/Approved/box.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/box.png",
+      "bytes": 628,
+      "sha256": "d61b3d0a0f233feb01367de9fe0d006d221892fe2ce44149364d66a1e16c7b17"
+    },
+    {
+      "path": "assets/Objects/Approved/bramble.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/bramble.png",
+      "bytes": 828,
+      "sha256": "0b1fa85c0edc14b3c3611c978a1507a77cf74fb18601ac7c5276294e9436cc7c"
+    },
+    {
+      "path": "assets/Objects/Approved/bushes.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/bushes.png",
+      "bytes": 1231,
+      "sha256": "951ad187bcf0da7279e42396eb5421d80c47214fc9333f4a10da516674983ade"
+    },
+    {
+      "path": "assets/Objects/Approved/chest-tiers.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/chest-tiers.png",
+      "bytes": 4825,
+      "sha256": "f3f6c2927d9331b47106f12134e22915699143451f54de2f8522aedc5210b927"
+    },
+    {
+      "path": "assets/Objects/Approved/chest.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/chest.png",
+      "bytes": 356,
+      "sha256": "91c7f776188496f9e23a33db66cea295515749d9f872cbb3045154a3f61a3aa4"
+    },
+    {
+      "path": "assets/Objects/Approved/flint.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/flint.png",
+      "bytes": 288,
+      "sha256": "c8a456ea0ae21a00e315fac498d101df6ff166523b88fe634e5a9212bd0f8903"
+    },
+    {
+      "path": "assets/Objects/Approved/gas-mushroom-small.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/gas-mushroom-small.png",
+      "bytes": 373,
+      "sha256": "0ee11760498c9c1121dc96d62a78a98b77692d546ba7739440e7b264de84f32a"
+    },
+    {
+      "path": "assets/Objects/Approved/gatepost.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/gatepost.png",
+      "bytes": 460,
+      "sha256": "84c866ba1a5d8f1de348dd6be31808c38bc666bb00e8c46a48165fe33a3beca7"
+    },
+    {
+      "path": "assets/Objects/Approved/grove_votive.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/grove_votive.png",
+      "bytes": 409,
+      "sha256": "3a142c5ca01a90d4b5242d85d234d2340ee457ba98f7770744bcd2ac9d2c2545"
+    },
+    {
+      "path": "assets/Objects/Approved/market_stand.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/market_stand.png",
+      "bytes": 9027,
+      "sha256": "4e7287b3e6662d8e0374c09c8c5fd789d729e5e380dddba0a1409c1979a374b2"
+    },
+    {
+      "path": "assets/Objects/Approved/pillar.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/pillar.png",
+      "bytes": 814,
+      "sha256": "5f9bce9c5e41e14f46751b8210c381fec321e262840523dae9285e72c0f360e3"
+    },
+    {
+      "path": "assets/Objects/Approved/potofgold.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/potofgold.png",
+      "bytes": 1177,
+      "sha256": "ff74669a214d51541b4fedbb65e42d4f852c765385904d6090ce35eb13834d24"
+    },
+    {
+      "path": "assets/Objects/Approved/signpost.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/signpost.png",
+      "bytes": 392,
+      "sha256": "934076b9cfb875bb634ff7b0551bd3ca4fb03ad19ea65a5c1aaf64d4fd21ad6b"
+    },
+    {
+      "path": "assets/Objects/Approved/vista_scope.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/vista_scope.png",
+      "bytes": 528,
+      "sha256": "22d7039ba6b1f083c9541d907dc8f33be3a3e5c9b38de37b6345d86c7db64a2c"
+    },
+    {
+      "path": "assets/Objects/Approved/wagon.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/wagon.png",
+      "bytes": 12122,
+      "sha256": "9ee6ea9d9be9878b327acb3798d0ebb0461d512396a03c64f72e8b153113a503"
+    },
+    {
+      "path": "assets/Objects/Approved/waystone-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/waystone-24.png",
+      "bytes": 914,
+      "sha256": "06b7d36ad083a422270b26af19ed1f0ab03280ca8302ac3663851a2f16911ca0"
+    },
+    {
+      "path": "assets/Objects/Approved/waystone.png",
+      "archive": "extra_assets/inactive/assets/Objects/Approved/waystone.png",
+      "bytes": 510,
+      "sha256": "121d51f921f0f9cc0971d44edffbbf8b5bdb2b016b9c8baae5aff121618db56b"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/city-chimney.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-chimney.png",
+      "bytes": 14463,
+      "sha256": "731772468e179fde311f1ba290da5652b20f0417d7ef3a15b46cf1f5d7a2a839"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/city-clock.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-clock.png",
+      "bytes": 14285,
+      "sha256": "9fbd266806ba294ac35d2f721ab96fbe23f3fb927fbf4f145e8ae5b580b3d097"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/city-factory.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-factory.png",
+      "bytes": 49566,
+      "sha256": "6adfd94a75e55f117bb6c0536158aa958a80a23f167e2a674edb15d9baab5e24"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/city-gearhouse.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-gearhouse.png",
+      "bytes": 32064,
+      "sha256": "67f8bb35123d1132f3d6881b6231fa99966aa070ad5db7624e3b136e0c25d04e"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/city-storefront.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/city-storefront.png",
+      "bytes": 48173,
+      "sha256": "071a027e0e5556ecfadf743831fd63d9cb4132e321fece6fc8380c33cc527efb"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/com_houses_05.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/com_houses_05.png",
+      "bytes": 19755,
+      "sha256": "c2173f12a5859835c5c9353c0a1ad2fc7184041c6842ad669d99ffb8b639c25d"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/house_market.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/house_market.png",
+      "bytes": 2948,
+      "sha256": "97a3c417fef4e83479baa76f06932a3beee11fdad6dd0f51b3405b05cd282c4f"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/house_trader.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/house_trader.png",
+      "bytes": 4870,
+      "sha256": "79246b87576a3410460aa72375e7983e8c233cb02f2617073e2c3298453f2442"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/steam-home.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/steam-home.png",
+      "bytes": 49081,
+      "sha256": "ae0e25773a362c93c9e395b2a551962890bf198a6bd15301e4f52d18875ec314"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/steam-wizard.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/steam-wizard.png",
+      "bytes": 25322,
+      "sha256": "e8f738ca51423cef405489d99f8fac4c008026bf2de6169f236836da509b55fd"
+    },
+    {
+      "path": "assets/Objects/AuthoredBuildings/wizard.png",
+      "archive": "extra_assets/inactive/assets/Objects/AuthoredBuildings/wizard.png",
+      "bytes": 12024,
+      "sha256": "9cd01e9bc0cfa676f0020cdf85e6098ec79953f92d2954346b4319681054cd22"
+    },
+    {
+      "path": "assets/Objects/Beach/driftwood.png",
+      "archive": "extra_assets/inactive/assets/Objects/Beach/driftwood.png",
+      "bytes": 142,
+      "sha256": "f46727ec5864d7b8d5835405d1b84f568322c1d49a88444b00f67c7e11e4b34a"
+    },
+    {
+      "path": "assets/Objects/Beach/palms-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Beach/palms-24.png",
+      "bytes": 2147,
+      "sha256": "57a86ae93af77fc0390033b28353796be983eebb088ef98e47259bc0614d69c6"
+    },
+    {
+      "path": "assets/Objects/Beach/palms.png",
+      "archive": "extra_assets/inactive/assets/Objects/Beach/palms.png",
+      "bytes": 1483,
+      "sha256": "6520c5b7c10c06e9ad073d818c7f3e81e5019b3a5c60f4467d737a0d06668c20"
+    },
+    {
+      "path": "assets/Objects/Beach/shipwreck_shrine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Beach/shipwreck_shrine.png",
+      "bytes": 1037241,
+      "sha256": "4948c3c0457229ce3930a02389384cab27a77ff1613bd712eabff147c4908143"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/awningblueSlate.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/awningblueSlate.png",
+      "bytes": 173,
+      "sha256": "28849365efab202ae60f5407b9327eb9705b7f181561653d7e86d47e68d4be05"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/awningplum.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/awningplum.png",
+      "bytes": 174,
+      "sha256": "9d4a51ea3c60810f89cd3bcdc1ffd35d75414502295523a6b53f1e4d2b382ed6"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/awningred.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/awningred.png",
+      "bytes": 176,
+      "sha256": "6d5c81257acdf0d9b07c22fb6e9b0e90b001988ef7c30aa9c1a6458a95ca9be9"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/awningstrawGreen.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/awningstrawGreen.png",
+      "bytes": 174,
+      "sha256": "a6e175472aa23e6c59299ad73567ac702b2a02503062672b4cd9dc289089cbe4"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/awningverdigris.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/awningverdigris.png",
+      "bytes": 173,
+      "sha256": "05a14eddee7ed4dc9b1c8afd41ab57c19d113316ef4a5ecc37ee4ad46a8d9312"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/awningviolet.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/awningviolet.png",
+      "bytes": 173,
+      "sha256": "04dea552638b8a59ecfec82370869f5def816423631c0ca59d2681666fc1cd6a"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/boards.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/boards.png",
+      "bytes": 421,
+      "sha256": "40e59d963251b20743232f79b4de71d63a0059267fd1d97b98f21824548d9c67"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/book.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/book.png",
+      "bytes": 189,
+      "sha256": "3839aa12496733264d3c6ad26e6df72c8c27473f5150a51b8b794bfe630aecd6"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/brassWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/brassWindow.png",
+      "bytes": 237,
+      "sha256": "38b3dde5decabceaa2750a792a3135b100f8228f6c05b9a7819278acc6d1ac9d"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/cog.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/cog.png",
+      "bytes": 277,
+      "sha256": "d84b8c8d1dd5734b8568b523630e5aa903de0bee0e406ecb9bfac32329c3c055"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/cream.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/cream.png",
+      "bytes": 404,
+      "sha256": "cfdf2140bfbe57a8e4764014668bf28ef969c1a230f559bed7a0e5ac57374670"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/houseDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/houseDoor.png",
+      "bytes": 253,
+      "sha256": "6ee69563b050498a4701bdb0b45b63a74f12dd02950fc1811711c73d97afb537"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/pet.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/pet.png",
+      "bytes": 196,
+      "sha256": "1f680db9287cbcd452156cb17922e5dd640a61fbbafc8447f7a1b7718ff5dc62"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/porthole.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/porthole.png",
+      "bytes": 372,
+      "sha256": "8b157e391fe516b7b4b39ba83cd3032c5d5d07472918e107a0f9c32ee2f68536"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/potion.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/potion.png",
+      "bytes": 193,
+      "sha256": "a06f2f12a403eb0b7d162338d19e98a7680c6e046cab7cda83c6a61ad4d59686"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/pp-provenance.json",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/pp-provenance.json",
+      "bytes": 4962,
+      "sha256": "7dc69f25a12fa3224fc2ce912c6fca0a866998ec4aadc4cba6d47b2be5e769e6"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/provenance.json",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/provenance.json",
+      "bytes": 321,
+      "sha256": "b51d943b0f819542ce6c6f4480dee9acf9b2eea6830266378aa5ff2d1209e182"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/relic.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/relic.png",
+      "bytes": 191,
+      "sha256": "50916e77e92140283fe16efe169038612634951d722ed62dfaf1102c3a24b8ef"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/seed.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/seed.png",
+      "bytes": 200,
+      "sha256": "cb4c05133fe8f9d910e40ad5f0018c01fed69192bab7c0522d971611e8cac966"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/shop.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/shop.png",
+      "bytes": 184,
+      "sha256": "40c8fca2504ccf04285b019b5a550d1e19ad8f999bcdba16a0b12767ef82f964"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/shopDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/shopDoor.png",
+      "bytes": 309,
+      "sha256": "dbda3069de642f4ab195a3e447c5eb05d640bc8b2ac570c8154f6450a539dc82"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/shopWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/shopWindow.png",
+      "bytes": 359,
+      "sha256": "d44a304e8ae27b9ecfd975b8072c77f48a46e1013e9c2dc33a1a11c614b9e1f7"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/smithDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/smithDoor.png",
+      "bytes": 311,
+      "sha256": "98407d69650879313e121b79e978ecca0503743d8605b202ff70047d98b4ddbd"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/smithStone.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/smithStone.png",
+      "bytes": 528,
+      "sha256": "e52cfe9166adfcc717ece36c944089751ed6be14c90f63d2142832cee075f2ec"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/supply.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/supply.png",
+      "bytes": 178,
+      "sha256": "dbc49a50ed98ce8f95a77e885891c83bc12c439aaf5f99b3358dfbb8ec8e9458"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/timberWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/timberWindow.png",
+      "bytes": 234,
+      "sha256": "f6dd04c047e116395465cad71e37aaf5529cbb01b0d92b588dbb44a1d24c2829"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/trader.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/trader.png",
+      "bytes": 203,
+      "sha256": "797b19fe40b1e1d00cfa9493d50d43c0cc3688f28cedb4fdf9093701ed9a946a"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4-facade/whitePlaster.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4-facade/whitePlaster.png",
+      "bytes": 501,
+      "sha256": "6a31c76fa3d9ba3ab76de8a7bbed8b5f55a962786372d663195fe9e0ce463863"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/Aboards.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/Aboards.png",
+      "bytes": 295,
+      "sha256": "9df84de48914a6714381e919061a756e0d59fd77fa52a8d8d1824e13904a8865"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AbrassWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AbrassWindow.png",
+      "bytes": 257,
+      "sha256": "e4ce104cc6f188ff2b86c5524a7f55a492a9b07998eb92c1598af8025d4585c1"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AhouseDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AhouseDoor.png",
+      "bytes": 190,
+      "sha256": "9aa5203c8ae91784b54bd90499d6e169cf5df642334e6818f62edb610f7f33c0"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AorangeBrick.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AorangeBrick.png",
+      "bytes": 461,
+      "sha256": "f6e7e0dce776bdd29b3a2731145f2be5508a3c131c5edb4b062243da1c92982a"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AshopDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AshopDoor.png",
+      "bytes": 318,
+      "sha256": "7ae11b333fdc3a21cfbfe4fc62da898be661e8e8fbd37e0e52e6cf047ea77533"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AshopWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AshopWindow.png",
+      "bytes": 346,
+      "sha256": "ddc7723fe40056f65a06c8c13c2c0b343cf1a173f39fd6da519961ad018716d7"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AsmithDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AsmithDoor.png",
+      "bytes": 223,
+      "sha256": "8ac9eea36c1755c8762ef5d8de561401bff9cfc0a29bf0a696c72eb0f5f583f6"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AsmithStone.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AsmithStone.png",
+      "bytes": 378,
+      "sha256": "aece2462891ced707188aee92c6aa917d442cfce01c034b00ee73f8da0fc53fb"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AtimberWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AtimberWindow.png",
+      "bytes": 251,
+      "sha256": "3216329d04de6a93dd66a0867bcec9558a061c822876d0c3cb97f68e112f7915"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/AwhitePlaster.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/AwhitePlaster.png",
+      "bytes": 481,
+      "sha256": "f9daef703a0b31b72278bd55ef3603912f2c156d94ff6d9677e6e9a9aadd2c93"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/Bboards.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/Bboards.png",
+      "bytes": 273,
+      "sha256": "70ada82acc0b09232b2436718219ba5d123287abb6742889b170adf7675f4772"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BbrassWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BbrassWindow.png",
+      "bytes": 289,
+      "sha256": "9f69a34f70aef4f6babaf8eaedf0297e6870c6b1189af2148a911739d00b8ab4"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BhouseDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BhouseDoor.png",
+      "bytes": 245,
+      "sha256": "292235bfef218d369a95606320fd2e8e290f6234e7c7772675d817436be53a84"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BorangeBrick.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BorangeBrick.png",
+      "bytes": 464,
+      "sha256": "55119bf076171900e636194755e5570d3abc2bf112d42fbe3396330c21ef2e74"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BshopDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BshopDoor.png",
+      "bytes": 289,
+      "sha256": "0c3f86e01d11459574b1bf9addff706f2e63ab66a8b93e4462a156b40c26fe24"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BshopWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BshopWindow.png",
+      "bytes": 337,
+      "sha256": "6ee91954bd3437b6b7bec1cc66fc0191f7808d0ed4cc6cd42dc6a38d6603f1c4"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BsmithDoor.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BsmithDoor.png",
+      "bytes": 332,
+      "sha256": "5cdb959e8d3a23938b4785d152ec1f02f188a35cd23b1ca36dac509b89806162"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BsmithStone.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BsmithStone.png",
+      "bytes": 631,
+      "sha256": "0cd0a48b86b448f756cd4c517e413cb5a979f7529d2e37acc7c563113a6d56be"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BtimberWindow.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BtimberWindow.png",
+      "bytes": 291,
+      "sha256": "20bfe65ae2495703e88350a38be150262145818eff8dcd155435a7146408bf3a"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/BwhitePlaster.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/BwhitePlaster.png",
+      "bytes": 485,
+      "sha256": "70de358b4093029f46d926f1827fdd003abeb8641497e59edaa6862fe94fb73b"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/b4d-pp/provenance.json",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/b4d-pp/provenance.json",
+      "bytes": 5972,
+      "sha256": "2a8598fe580340709a45f3906da8b6cdc1325f0e9e9f8bc3567719019f94a35a"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/materials-gen-a.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/materials-gen-a.png",
+      "bytes": 2057501,
+      "sha256": "3ee4002b9f417c818a9bf202faeb217373c3bb9045c8e0a2a9766c01e353f48a"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/materials-gen-b.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/materials-gen-b.png",
+      "bytes": 2457196,
+      "sha256": "5d01594c6d66db51c8342be44e6d82ed93aee1e50850091310971f01635d4f8b"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/painterly-tileset-v1.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/painterly-tileset-v1.png",
+      "bytes": 663924,
+      "sha256": "528ca2a19b9372231810cda39c24551f12ffe65a8886eb058f7bb2a670fdd404"
+    },
+    {
+      "path": "assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png",
+      "archive": "extra_assets/inactive/assets/Objects/BuildingMaterials/source/pixel-tileset-v3.png",
+      "bytes": 949640,
+      "sha256": "d3d5415a41bc3647481e758295d9cf4700d9be30067876d877d436bbd0e797fb"
+    },
+    {
+      "path": "assets/Objects/Castle/tower_master.png",
+      "archive": "extra_assets/inactive/assets/Objects/Castle/tower_master.png",
+      "bytes": 1591101,
+      "sha256": "195b25766ee2ab9c9c7def8ab6b522dc757f9dd10ac8dc5b4847f6dfd014549c"
+    },
+    {
+      "path": "assets/Objects/Castle/tower_ruin_master.png",
+      "archive": "extra_assets/inactive/assets/Objects/Castle/tower_ruin_master.png",
+      "bytes": 1282853,
+      "sha256": "42d55bee8368aa760ef43555847ba031189fa5d6a8cc483557329fee946797bd"
+    },
+    {
+      "path": "assets/Objects/Cave/mechanisms.png",
+      "archive": "extra_assets/inactive/assets/Objects/Cave/mechanisms.png",
+      "bytes": 17948,
+      "sha256": "5d1896d8f70ab785c3ea2e569ef1127f9af19ea80ec9deda21e07938cee6d3d1"
+    },
+    {
+      "path": "assets/Objects/Cave/source/selected.png",
+      "archive": "extra_assets/inactive/assets/Objects/Cave/source/selected.png",
+      "bytes": 42423,
+      "sha256": "b82da57c0536c4d225a564f4d89348904b7ab64aaf9c743e904b431e83b1bb64"
+    },
+    {
+      "path": "assets/Objects/Cave/source/supplement.png",
+      "archive": "extra_assets/inactive/assets/Objects/Cave/source/supplement.png",
+      "bytes": 13122,
+      "sha256": "7958b7b607dd7511e1a288e5c6368359e528297edf9f33cda5bebedd7fd51491"
+    },
+    {
+      "path": "assets/Objects/CelProps/approved-study-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/CelProps/approved-study-24.png",
+      "bytes": 85030,
+      "sha256": "0ab4451a07d5b75775ae4f5b4ddd62ddbd22b002ce7a2a32d67552aad5101e29"
+    },
+    {
+      "path": "assets/Objects/CelProps/barrels.png",
+      "archive": "extra_assets/inactive/assets/Objects/CelProps/barrels.png",
+      "bytes": 10591,
+      "sha256": "7ef9bfee2f5eab469a77bfd7113ff54a5d8eb9219871e71d7f6df27114234f72"
+    },
+    {
+      "path": "assets/Objects/CelProps/bramble.png",
+      "archive": "extra_assets/inactive/assets/Objects/CelProps/bramble.png",
+      "bytes": 5655,
+      "sha256": "cf9d88c8fb2f8776f5587dac029e82dbbf5d61c2349456e2d64923cc6721eb3d"
+    },
+    {
+      "path": "assets/Objects/CelProps/bushes.png",
+      "archive": "extra_assets/inactive/assets/Objects/CelProps/bushes.png",
+      "bytes": 10738,
+      "sha256": "a3a792213211f481f47f9899ef4ff9f90ae5889af93c9a52af4d11a89f1db73c"
+    },
+    {
+      "path": "assets/Objects/CelProps/clipped.png",
+      "archive": "extra_assets/inactive/assets/Objects/CelProps/clipped.png",
+      "bytes": 10775,
+      "sha256": "918330b372411a60fed3ccff327fa6f851effb1c0bdbf03a5f1d147ec3225347"
+    },
+    {
+      "path": "assets/Objects/CelProps/pots.png",
+      "archive": "extra_assets/inactive/assets/Objects/CelProps/pots.png",
+      "bytes": 5449,
+      "sha256": "09bee54c63aa19c97135ac9f2d23253cdce5fab8e8668a7df936518e91317a69"
+    },
+    {
+      "path": "assets/Objects/Chests.png",
+      "archive": "extra_assets/inactive/assets/Objects/Chests.png",
+      "bytes": 1039,
+      "sha256": "392948a72121d411be3e85f50549359634c23f46553ea84f02b44ff00451b959"
+    },
+    {
+      "path": "assets/Objects/Crops.png",
+      "archive": "extra_assets/inactive/assets/Objects/Crops.png",
+      "bytes": 56145,
+      "sha256": "b151e77a456d09c7fea984a8ca2e8c3be3f418eafbf56fa80b0a80334e61652e"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/approvals.json",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/approvals.json",
+      "bytes": 23206,
+      "sha256": "6d0311db058164fd6c63df78b20b0c364db332f51c1347f093c8a4be0e00c334",
+      "archivedSha256": "3df70133ee1f2129c2c38eeca2e292472d62e2e3c76ebe2b9d1e1475d21afb69"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-ancient.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-ancient.png",
+      "bytes": 1372,
+      "sha256": "7a9d4b235e7de4c64614ef81bbffa92a5c8235db8ac43dca2ed7f63855bc0b5b"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-crude.png",
+      "bytes": 1011,
+      "sha256": "edd3c317d21e571183b626444f16ee438479e4482724bec997b1a2c5f14f7f0e"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-fine.png",
+      "bytes": 1028,
+      "sha256": "72e448751cc80b2b3cb93dd32f51995bbfe716ce50be8c11dc8f5e499fa2a014"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-masterwork.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-masterwork.png",
+      "bytes": 1065,
+      "sha256": "90d36fddfac6f2f900a4a7970802c0612823155b0fcb85487018d474dcc47b31"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-royal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-royal.png",
+      "bytes": 1451,
+      "sha256": "e9157aac3b73b0b10a7ea8267742b89b1c0a4f4057d99298769694002e67924e"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-simple.png",
+      "bytes": 960,
+      "sha256": "35a2ff89063e3c07676e6f9b1a38bf58cda237a4b5096cb2ba6523ec9ce14d7a"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bed-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bed-veblen.png",
+      "bytes": 1163,
+      "sha256": "2b1d41ef022cef5e3999503d100e5b7483aa4b1543cfc09a8d1ba7231b99a78a"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-ancient.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-ancient.png",
+      "bytes": 1106,
+      "sha256": "5fdd7b85b8b5e6437fc35c7fff5dd6010893aec9c6b015238a2b6ceb0067636c"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-crude.png",
+      "bytes": 1076,
+      "sha256": "63f243fb573354085363a65c19db14ac765a410852cf4baa0ff204bd007d2360"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-fine.png",
+      "bytes": 1205,
+      "sha256": "963a80e8d82c81d0f1a6fc42442b34fac1b8b523d55cb355ed67a031d0ad1ced"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-masterwork.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-masterwork.png",
+      "bytes": 1090,
+      "sha256": "cf0b2029af76be76513dbb186cb7f9d259637903e9177a25bcdd2fda10163f3f"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-royal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-royal.png",
+      "bytes": 1309,
+      "sha256": "577e4810d4b57c9eedb5feebc69a7a65c45b652514710da5e1202288f2d64d08"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-simple.png",
+      "bytes": 1047,
+      "sha256": "0785d12b8103db3d500b95c21199f34b822ca7ae08612b9c3ca79cf5ecee0be0"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/bookshelf-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/bookshelf-veblen.png",
+      "bytes": 1163,
+      "sha256": "41994f74400deb904f7ed447c4c99980ece895ddb759b4e75e599c8a6705154b"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-ancient.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-ancient.png",
+      "bytes": 548,
+      "sha256": "2cd28d0f9f8dfe2ac6dc5494e819cf76aaa3a70401d6a20f98c68bbfbd0c26c1"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-crude.png",
+      "bytes": 528,
+      "sha256": "243ba7231d89e4c57b58532d0552a451c211b958a0cac3910fa130f6cfbdfaae"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-fine.png",
+      "bytes": 586,
+      "sha256": "fee02cce707bf05b3d8ba3aa0bbbb5f41990a3f3723c151fe0fa79db4d5e9f49"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-masterwork.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-masterwork.png",
+      "bytes": 496,
+      "sha256": "f40d1ee8e97e982ff0159c7ecb7fb998090bf41b0f474a1066da8557cf100f6c"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-royal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-royal.png",
+      "bytes": 496,
+      "sha256": "acc10669961be2b9aecabded1b0624202b960018469556246b0aa7369cbf8026"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-simple.png",
+      "bytes": 552,
+      "sha256": "8507213da711a1733e1a6d814f340632555484e518928b439ebc30cdb0735616"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/dresser-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/dresser-veblen.png",
+      "bytes": 507,
+      "sha256": "8d4433058d1769a97cad17da5356bcb08123a628581fd9ec7d42c33629549665"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/globe-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/globe-crude.png",
+      "bytes": 510,
+      "sha256": "a43ba94c7149dbbc3c2e3d17d5b572c6b8da3a71e77364a3e5d0da805b5110c9"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/globe-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/globe-fine.png",
+      "bytes": 570,
+      "sha256": "0daf2c6e9782825175ef7d0758ada495fad5015160d9c7bf90a4b1002bbfb6ca"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/globe-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/globe-veblen.png",
+      "bytes": 516,
+      "sha256": "97a825a6161ba4a21777afb53c30789da47024958a1dbdaebf5cb4157fb70e48"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-ancient.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-ancient.png",
+      "bytes": 699,
+      "sha256": "937ec2e44e9de39fc9bb8909be7f7eb380a84faa94d8f87035b2e6f1df307487"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-crude.png",
+      "bytes": 733,
+      "sha256": "8dbc0e7e11de5c295b6388ad40dbc202581cfa3485243aabc2bf863868799683"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-fine.png",
+      "bytes": 657,
+      "sha256": "8c2d321253704f4648d53c56762e3d7ceaba90d31a500466a1656e02e9dab9fc"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-masterwork.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-masterwork.png",
+      "bytes": 668,
+      "sha256": "9460ff1419330e58dad85c786685478b22d09fd8f3a4e0000808078ab0c4a438"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-royal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-royal.png",
+      "bytes": 491,
+      "sha256": "a23314517146cb3c71accde1ff33beadcc3edbab89ae2f6d7acdfde9cbf37263"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-simple.png",
+      "bytes": 492,
+      "sha256": "c102ce38ebf05e0df7c6c0570339956befcd5b31b8de4aae1fe076e1784d7167"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/rug-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/rug-veblen.png",
+      "bytes": 613,
+      "sha256": "7935a542276d57303c6d1ed16dfea0e3da3be1048e5aa285fbaadb13afb61f8c"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-ancient.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-ancient.png",
+      "bytes": 474,
+      "sha256": "65daebf9e71df75102254ca9d5c46f2e2eb692c71f60d0f1d0cf8de5a3231283"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-crude.png",
+      "bytes": 467,
+      "sha256": "30ce86c31cc04a6e82538e2ae260976f74e0eb3564a3b3155e5789ae3a0f0a1f"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-fine.png",
+      "bytes": 410,
+      "sha256": "fe7482ecc7adbf07081f25cbcb703e285e138aecddd08dc1726077fcc2377122"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-masterwork.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-masterwork.png",
+      "bytes": 498,
+      "sha256": "f9249523d06c1073acd37353c37923e28af76e419c4ad0ea87b800009e282d9a"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-royal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-royal.png",
+      "bytes": 533,
+      "sha256": "8458056c8a6f9ebc846de59cf66d15661a897d87f244b4a0d672b10ceaad045e"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-simple.png",
+      "bytes": 393,
+      "sha256": "0fbc88652a00f8cbaf2c7f9780b3b4eb7b69249105ed5341cac4aa21b474e03d"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/table-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/table-veblen.png",
+      "bytes": 469,
+      "sha256": "58cb49cc41746eb5d5ad91d1433fac595114afb379ec15ee72ddd410b27c1ba4"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-ancient.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-ancient.png",
+      "bytes": 739,
+      "sha256": "ee29aa20a741c5db7305fd08256d3acb8faed7b01ba9b0c3e3e3c7a47763581d"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-crude.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-crude.png",
+      "bytes": 772,
+      "sha256": "5510f9bfaf677075b17379c5cf9e486a791c169c3a83475dc5319ffd6febc67a"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-fine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-fine.png",
+      "bytes": 679,
+      "sha256": "5e42105c5d4501504bcc55bfe3880d46fe63c4750b02e942a89a701e53450841"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-masterwork.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-masterwork.png",
+      "bytes": 585,
+      "sha256": "e3ee2b653b133c324f2fcd4a599e0d6e2f2c1d4641af57a467815bb6995b86a8"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-royal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-royal.png",
+      "bytes": 641,
+      "sha256": "fd389cc7d73f50af2f6d6141f4f3efdecaea39b8703ecd215055f211627808de"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-simple.png",
+      "bytes": 567,
+      "sha256": "3ef61a843edfd28716c91634cab30eff1eefbee2f668fbb293a44b44d1048402"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/approved/tub-veblen.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/approved/tub-veblen.png",
+      "bytes": 558,
+      "sha256": "95d465b2ae65fb44552c6c67f7109726e98bbf085356f1d4eb873076ae306c47"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/concept_mirror.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/concept_mirror.png",
+      "bytes": 893621,
+      "sha256": "8df7f932606f41a6cd9e98c29ce2ba8ce23596835aa3a6b4a63d217b6dc2b291"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/concept_planter_clay_v2.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/concept_planter_clay_v2.png",
+      "bytes": 801739,
+      "sha256": "b5dd0e2eed9407138ef72da6b67752ec098f2e135de7ad30a11b75fc7ac9f162"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/concept_planter_copper_v2.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/concept_planter_copper_v2.png",
+      "bytes": 1030283,
+      "sha256": "bee4d05fec5342af6d3a37e2bd0624bafa31ac59bfba44513b200037dc1cd0b5"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/concept_workbench.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/concept_workbench.png",
+      "bytes": 872955,
+      "sha256": "a3b0cbdf12b0efba1d80d17972b55431378a4e74a86360c90ec319b40964975e"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/floorlamp_T1.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/floorlamp_T1.png",
+      "bytes": 159522,
+      "sha256": "0688b5c068cb8f546e3f210db6af60e2edc1a8057936f21a278764fcdcbe07b2"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/furniture-tiers-32.png",
+      "bytes": 175509,
+      "sha256": "9b864525fd69a3ba97f038976f0ebe7e5fa8cdf526a6f8b9d0e508fb980e29a7"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-ancient-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-ancient-24.png",
+      "bytes": 1115,
+      "sha256": "85c23b28cb41d9a32e5c2896193b7e274621407b132769d5521a7f4e7b9e6494"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-crude-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-crude-24.png",
+      "bytes": 950,
+      "sha256": "ae383247cee30d903a9b1366ade48b534288a2f716e5e86c11957a0634f6de4d"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-fine-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-fine-24.png",
+      "bytes": 876,
+      "sha256": "06d40a16e567a630a2c99628d499d211f082192075c7e08707c427f9a59a5eeb"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-masterwork-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-masterwork-24.png",
+      "bytes": 947,
+      "sha256": "5cc62c500af442ddd6c685e8b1cba3e8f57ceb21693d1a59fb6cc31f355b5a1b"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-royal-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-royal-24.png",
+      "bytes": 1058,
+      "sha256": "d145f94b09961dbbca326b3f557c281b937f59f83d6812dd400db3de84143530"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-simple-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-simple-24.png",
+      "bytes": 931,
+      "sha256": "29421e77c993e84f578d6996895b3c9c5d067248e828323153284813f67946a8"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/clock-veblen-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/clock-veblen-24.png",
+      "bytes": 939,
+      "sha256": "9e738ea30f6548b8b5197dbc028b15715ebc0de179d1aa6bbda38d60522d34d3"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/owl-clock-planter-master.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/owl-clock-planter-master.png",
+      "bytes": 706145,
+      "sha256": "0498e29e363f24e1d5c846259fbdb230e322673ae44e9ce70c5868b8d59cab48"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/owl-clock-planter-provenance.json",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/owl-clock-planter-provenance.json",
+      "bytes": 8377,
+      "sha256": "e05a8fa1078ebbbb704fbd578eea188a452b4910d561119297c3d525e587ca07",
+      "archivedSha256": "a6ee2b6400d3d45c4c887193b7ac35709f9056058847270ddfc5393d13812d49"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-ancient-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-ancient-24.png",
+      "bytes": 1080,
+      "sha256": "56e77c33ccc2372c558768cab46078548185252a770604630b2047cbb0afb075"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-crude-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-crude-24.png",
+      "bytes": 1092,
+      "sha256": "388550aeb18477ed22c3fe050d2a953e0f76bb26178d0d04b4a4cf72d17fd629"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-fine-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-fine-24.png",
+      "bytes": 1062,
+      "sha256": "5327bbab85ee8b7c6f9446d52c2276db76cb7cdfbbbfdeb0015773928493e983"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-masterwork-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-masterwork-24.png",
+      "bytes": 1052,
+      "sha256": "e2b00bf47fb45d07d3060f6f081d42e618f74be9f82449111981a019abcfac68"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-royal-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-royal-24.png",
+      "bytes": 1042,
+      "sha256": "2372940045af56239db782faf6b32df06bdc4d6e26746392d18ddcea0d114578"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-simple-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-simple-24.png",
+      "bytes": 1099,
+      "sha256": "89415949ff86c0c8f68235f183013f59459169f22d6d6be980a5e8ed2b3d74d3"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/planter-veblen-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/planter-veblen-24.png",
+      "bytes": 1051,
+      "sha256": "96309e75022e3492ffa9d90ed4f9a21ad79ca447ab769ee2bb3f2da4e32f558f"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-ancient-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-ancient-24.png",
+      "bytes": 1267,
+      "sha256": "0d6f0c983154a321750052ff9cdd4be8a783f917a611a335b224bc155f673ad0"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-crude-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-crude-24.png",
+      "bytes": 1149,
+      "sha256": "e0d04d457c9cb57200f21ae4f4c3b6d52485b239b68bc85f38b5002c48e9a95b"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-fine-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-fine-24.png",
+      "bytes": 1225,
+      "sha256": "c7289a80c1a156dcdfbf3f1c6fdee7e5e7f73a31e0df6f3764ecf47a59249d36"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-masterwork-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-masterwork-24.png",
+      "bytes": 1221,
+      "sha256": "f4dcbcb376070c00f7f2e1cb9b28cbffd5ad62c5d3166df1a8f6487236a09737"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-royal-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-royal-24.png",
+      "bytes": 1206,
+      "sha256": "d54b8090588803828f3ddf077051975afe6b65990cbf6c76cec1094659f244de"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-simple-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-simple-24.png",
+      "bytes": 1206,
+      "sha256": "aeaf3ac2cf5272c3b0cc47d83e9a0226ebe4a424cd0f2544426a4c53bbc4cf86"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/generated/statue-veblen-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/generated/statue-veblen-24.png",
+      "bytes": 1221,
+      "sha256": "4c624014d0bcd23d77270ef266e967fb50252c7ba2a3610a5de543e5006d3056"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/statue_T2.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/statue_T2.png",
+      "bytes": 430991,
+      "sha256": "7139b900086689d79203c944c9f0bdd8496ca522470cc9bfefb7598b59660992"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/stock-floor-lamp.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/stock-floor-lamp.png",
+      "bytes": 4466,
+      "sha256": "272291a095836d3e507b4bbea27c1a44c6b3205ab670d18d5e6b14105dc65f7e"
+    },
+    {
+      "path": "assets/Objects/Furniture/source/tub_T1.png",
+      "archive": "extra_assets/inactive/assets/Objects/Furniture/source/tub_T1.png",
+      "bytes": 676526,
+      "sha256": "2fce36281575ff65935d9cb5c983166651619df2da49909e525fd8641d1c86a8"
+    },
+    {
+      "path": "assets/Objects/Generated/apothecary.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/apothecary.png",
+      "bytes": 5849,
+      "sha256": "5370279bb5ed79a56eb9354a6fe437b48fff30adb2cc3b72ce13c5b990dae90b"
+    },
+    {
+      "path": "assets/Objects/Generated/barrel.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/barrel.png",
+      "bytes": 489,
+      "sha256": "34a5ee3ca286ee4d9a64902b4cb61c5df109bb1c1030b810affd8dd7064d35b4"
+    },
+    {
+      "path": "assets/Objects/Generated/barricade.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/barricade.png",
+      "bytes": 436,
+      "sha256": "c5c33df41ec86a3876ee3a34eca8c15cc59764201251c8d3f8830b0a8ce1a62e"
+    },
+    {
+      "path": "assets/Objects/Generated/bike_rack.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/bike_rack.png",
+      "bytes": 391,
+      "sha256": "bddf234dc81776061b08e7fda83d310e990688be3fc5581b6488ffb83f52c362"
+    },
+    {
+      "path": "assets/Objects/Generated/bottle.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/bottle.png",
+      "bytes": 319,
+      "sha256": "44cc8efd1c94c4f79e4f702f51507d0e3d59809a92ab0bb2343f78f3e8d31c54"
+    },
+    {
+      "path": "assets/Objects/Generated/castle_tower_restored.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/castle_tower_restored.png",
+      "bytes": 3027,
+      "sha256": "50e754939a903f4cdcdc8f5a828a0fcaf4245c827ae4beb2a6ebce87aaab4502"
+    },
+    {
+      "path": "assets/Objects/Generated/castle_tower_wreck.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/castle_tower_wreck.png",
+      "bytes": 3316,
+      "sha256": "d4c8b44162c09456429df60a2dd1377cf00c9df49118c3370e969c76c67fa7de"
+    },
+    {
+      "path": "assets/Objects/Generated/chapel.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/chapel.png",
+      "bytes": 6346,
+      "sha256": "a17fb238712e33fee1f77244baedfe56370c243cae8c9eaa406b479df5be19ab"
+    },
+    {
+      "path": "assets/Objects/Generated/curio.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/curio.png",
+      "bytes": 4552,
+      "sha256": "4d7c0f1d3004a7eecd2cc3f321f7e90a42eee82e4ae3c5614b06f057383f9db8"
+    },
+    {
+      "path": "assets/Objects/Generated/driftwood.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/driftwood.png",
+      "bytes": 301,
+      "sha256": "c68a488041b8e2bba572dbfd51bd52cade6ab71c97cb7d7d36c980f7faa1e79e"
+    },
+    {
+      "path": "assets/Objects/Generated/flint.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/flint.png",
+      "bytes": 209,
+      "sha256": "7acbc684e2839b9064a6b37607703828eea42823c1e13231d480b498857c68a9"
+    },
+    {
+      "path": "assets/Objects/Generated/guildhall.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/guildhall.png",
+      "bytes": 6370,
+      "sha256": "ebc918f7cadf26ab7b533091448494a6004b429f415f7a006c0271cc453e6c58"
+    },
+    {
+      "path": "assets/Objects/Generated/headstone.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/headstone.png",
+      "bytes": 354,
+      "sha256": "2971d26f00351123e624132abd836ada696c833abe5ce43e124713f9382e51fc"
+    },
+    {
+      "path": "assets/Objects/Generated/hedge_end.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/hedge_end.png",
+      "bytes": 479,
+      "sha256": "9ed0587aa408dad94c0f04a700532ee38ab77fb349c7c3557166b1353c5281bc"
+    },
+    {
+      "path": "assets/Objects/Generated/inn.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/inn.png",
+      "bytes": 5339,
+      "sha256": "bde5598f3bd5752b8511d27ff805d66dd5061c817026f9b07872843275c93b98"
+    },
+    {
+      "path": "assets/Objects/Generated/macro_booths_simple.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/macro_booths_simple.png",
+      "bytes": 33657,
+      "sha256": "daaa570183444d2711820adf7a8977fd3f360e765a6fc324cf4d220ccd2ee982"
+    },
+    {
+      "path": "assets/Objects/Generated/pillar_a.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/pillar_a.png",
+      "bytes": 414,
+      "sha256": "a584ec006a8c34917573785067be0af6983eae6b317ca43dfe1c7f912f0ba244"
+    },
+    {
+      "path": "assets/Objects/Generated/pillar_c.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/pillar_c.png",
+      "bytes": 411,
+      "sha256": "e0507f5c3b03df47baf39c2592049e704749c32fe96c4d5af6902df04d74aae2"
+    },
+    {
+      "path": "assets/Objects/Generated/pot.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/pot.png",
+      "bytes": 460,
+      "sha256": "5a20c83f2a1a4489c244196a9eca4f5df9ccde9f2d1d6e10fbe897c1d6e495ef"
+    },
+    {
+      "path": "assets/Objects/Generated/pot_smashed.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/pot_smashed.png",
+      "bytes": 396,
+      "sha256": "4ed4c13538896ac25c46ffb64103192fad679df44633bb471cef6a152f3dc92c"
+    },
+    {
+      "path": "assets/Objects/Generated/scholar.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/scholar.png",
+      "bytes": 1263,
+      "sha256": "4247ebf6d9ae2103f9d26010f4470b285a5c76224aa23b3b8f29e84563ba35ad"
+    },
+    {
+      "path": "assets/Objects/Generated/scope.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/scope.png",
+      "bytes": 488,
+      "sha256": "7018efa8b51a20f566931b3fc34ba8dffcaac39bc0ae65b3dd0ce00ac1dd2657"
+    },
+    {
+      "path": "assets/Objects/Generated/scriptorium.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/scriptorium.png",
+      "bytes": 5479,
+      "sha256": "10a5ba474cc43fd80f0010f7e67cacf8ae6e8a605956370ddca20e0afc8a9dd1"
+    },
+    {
+      "path": "assets/Objects/Generated/shrine.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/shrine.png",
+      "bytes": 487,
+      "sha256": "9c78d47e6960d96bca8aa5eec44ceb53a94eaddd8d25bdf94acad4673c04c373"
+    },
+    {
+      "path": "assets/Objects/Generated/shrines-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/shrines-24.png",
+      "bytes": 15258,
+      "sha256": "ecd2f405f0206dec3c547ada30f7ac7fc51270164419a1d11aa71f242f4a1383"
+    },
+    {
+      "path": "assets/Objects/Generated/shrines.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/shrines.png",
+      "bytes": 7571,
+      "sha256": "dff1836913f90f06be2c9cefb7f7ef0c2a8bb2706d10012d489328bef84855a8"
+    },
+    {
+      "path": "assets/Objects/Generated/signpost.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/signpost.png",
+      "bytes": 306,
+      "sha256": "712c8565c1a77a0eb71cc533cb6a1c3529721bdbe1fb3980bf28827ae5f22353"
+    },
+    {
+      "path": "assets/Objects/Generated/stakes_a.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/stakes_a.png",
+      "bytes": 252,
+      "sha256": "e2c8ab23c2aa19078db87ff45ede633cf212476771da070c63d4fe91566be49f"
+    },
+    {
+      "path": "assets/Objects/Generated/sundries.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/sundries.png",
+      "bytes": 6587,
+      "sha256": "99ee4aa3426352338956bae2c4c10871bc435f920db25829a415e24dbccf108e"
+    },
+    {
+      "path": "assets/Objects/Generated/tar.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/tar.png",
+      "bytes": 310,
+      "sha256": "aa3b5715ed13d167a97a8386a3b9af646c3b6252532a114ebe4c4ed2d72ca2cd"
+    },
+    {
+      "path": "assets/Objects/Generated/training.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/training.png",
+      "bytes": 4689,
+      "sha256": "037f665b51739eb852cc87f00f2b88e63c37aa5aad66778ff6d0bacfd181c806"
+    },
+    {
+      "path": "assets/Objects/Generated/wagon.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/wagon.png",
+      "bytes": 11971,
+      "sha256": "fa55ee5b472df48c6f32d9b27bf7392115e85f3266123d4fedfb9afce78de4b5"
+    },
+    {
+      "path": "assets/Objects/Generated/waystone.png",
+      "archive": "extra_assets/inactive/assets/Objects/Generated/waystone.png",
+      "bytes": 409,
+      "sha256": "f2a53bf12c60084a0d0fc8d87af09a170730dffd95551b67a880fa4b132c66c8"
+    },
+    {
+      "path": "assets/Objects/Gold Chest.png",
+      "archive": "extra_assets/inactive/assets/Objects/Gold Chest.png",
+      "bytes": 732,
+      "sha256": "877c117dc5c72598efaa71afb7c66a74de2389d2c57e7c37b296be516b7b5c78"
+    },
+    {
+      "path": "assets/Objects/Handmade/waystone.png",
+      "archive": "extra_assets/inactive/assets/Objects/Handmade/waystone.png",
+      "bytes": 479,
+      "sha256": "f635954ce85d412884a25aa994b37870d0c81f8359dde2601e5854c77abc865b"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/correction-prompts.json",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/correction-prompts.json",
+      "bytes": 936,
+      "sha256": "672c2ae25a09b2a0ffe3bf560584c8dbcc9307b34107b4c7feb9c53a76b34298"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/frames.json",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/frames.json",
+      "bytes": 2199,
+      "sha256": "7fa2a76b5a9119652fcdd53cce840f072bb31d0b833b81367cca8beda544f2e2"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/index.html",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/index.html",
+      "bytes": 3995,
+      "sha256": "193bccc70ece9bf7869088e05f7d6ac67af505da7d2d877d5c32fffdc8654e3a"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/prompts.json",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/prompts.json",
+      "bytes": 51,
+      "sha256": "1c8684d539a29c8931411128d02c37e941aa1ba62d6636c809afa370dbe8a1b3"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/sinkhole-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/sinkhole-source.png",
+      "bytes": 1288361,
+      "sha256": "c12db4b5d54343604d74411d000f64170ffff0c560bb4da4fe24d39a0492767c"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/sinkhole.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/sinkhole.png",
+      "bytes": 41894,
+      "sha256": "6b955a4f0e0f69464604e33217e9fed4338fe43fead17aa2f9a9d1125db2f010"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/tornado-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/tornado-source.png",
+      "bytes": 1141397,
+      "sha256": "e797b712fda5840dcc60e1d19830a5bb44338705279de54805d9b9e436c4683b"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/tornado.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/tornado.png",
+      "bytes": 23894,
+      "sha256": "d638aa4095f9cf12653d91bd5e0b23946e4879fff6897e7410cb58c75d60efce"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/vent-active-reference.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/vent-active-reference.png",
+      "bytes": 30207,
+      "sha256": "6b6f2cc3f1d3b9f027b492731851d3b8baa615ac9d55f69fb08fbb464119d809"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/vent-cycle.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/vent-cycle.png",
+      "bytes": 9102,
+      "sha256": "f723deb1885199bd55aaeb45603126e0a3d1c45a310106fab1182c5c243a1f71"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/vent-warnings-before-base-fix.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/vent-warnings-before-base-fix.png",
+      "bytes": 7952,
+      "sha256": "f19f3afa35668b3bcfc6f49f4694142321af0d0e8d927b913539c44bf26b58e3"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/vent-warnings-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/vent-warnings-source.png",
+      "bytes": 1132270,
+      "sha256": "ae2c5a95d618bfd702e16405ee6a16656cb5dde504f204924bc68c6f19a16c02"
+    },
+    {
+      "path": "assets/Objects/HazardAnimations/vent-warnings.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimations/vent-warnings.png",
+      "bytes": 6535,
+      "sha256": "f3b03093b30588a6449f2aafc2826568118aa8817114bd4d75689fcb69d04eaa"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/cavein-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/cavein-source.png",
+      "bytes": 1499312,
+      "sha256": "2c3bdc6e15a8caae2304110dda9c263528655eb636f73ade79e7f94e8d3a3beb"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/cavein-stages-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/cavein-stages-source.png",
+      "bytes": 534671,
+      "sha256": "f4575310c312d16005eb741f635e64499fd710a81fe9b18ca3e8a0b72ec7aebf"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/poison-vent-inactive.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/poison-vent-inactive.png",
+      "bytes": 625,
+      "sha256": "ec1b834af0341cc2b8e513bf449ec06eab4ce2d60727f5f34fd6ddc7facc18ec"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/sinkhole-ground-patch.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/sinkhole-ground-patch.png",
+      "bytes": 39462,
+      "sha256": "f00aa09303d17f4a6c3983e908a72fa5b4c213eb2d22aab7169d9f5b3f0165e2"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/sinkhole-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/sinkhole-source.png",
+      "bytes": 1389549,
+      "sha256": "8544fbd7833e6467d5d1cd50eef6096edba6c3ca1d4a4d4471ecc7a8dfbee4db"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/sinkhole-transparent-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/sinkhole-transparent-source.png",
+      "bytes": 686628,
+      "sha256": "47b6d1c8cd0448123a0c88926bb55f5f7bc2760ccc40e4560bdfc4614c7be789"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/tornado-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/tornado-source.png",
+      "bytes": 1139721,
+      "sha256": "37705e16f0fbf6e507317ecaf63e94b3a9efceecba9d10795a3c3e537a40dfe5"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/vent-active-reference.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/vent-active-reference.png",
+      "bytes": 30207,
+      "sha256": "6b6f2cc3f1d3b9f027b492731851d3b8baa615ac9d55f69fb08fbb464119d809"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/vent-cycle.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/vent-cycle.png",
+      "bytes": 9102,
+      "sha256": "f723deb1885199bd55aaeb45603126e0a3d1c45a310106fab1182c5c243a1f71"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/vent-inactive-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/vent-inactive-source.png",
+      "bytes": 149627,
+      "sha256": "e10c72bdac8d31aed2ac68e681c74b5ca467a428270f1a8058c0870fc93a5024"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/vent-inactive.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/vent-inactive.png",
+      "bytes": 1522,
+      "sha256": "1fd11ef5adbc9403947724d4953f207f53b33145af08d7841b521b1e4538ffbe"
+    },
+    {
+      "path": "assets/Objects/HazardAnimationsV2/vent-warnings.png",
+      "archive": "extra_assets/inactive/assets/Objects/HazardAnimationsV2/vent-warnings.png",
+      "bytes": 6535,
+      "sha256": "f3b03093b30588a6449f2aafc2826568118aa8817114bd4d75689fcb69d04eaa"
+    },
+    {
+      "path": "assets/Objects/Hedges/approved-props-v3.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/approved-props-v3.png",
+      "bytes": 85030,
+      "sha256": "0ab4451a07d5b75775ae4f5b4ddd62ddbd22b002ce7a2a32d67552aad5101e29"
+    },
+    {
+      "path": "assets/Objects/Hedges/bottom_left.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/bottom_left.png",
+      "bytes": 774,
+      "sha256": "8bf33b1f47de242b4aa65cc0e7e817d4d85ca43b4de3883af6a0223848248a4d"
+    },
+    {
+      "path": "assets/Objects/Hedges/bottom_right.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/bottom_right.png",
+      "bytes": 770,
+      "sha256": "1304f242a788bbce645bfd84ee0d9e841682fb081ddf8f12c1b200810339b476"
+    },
+    {
+      "path": "assets/Objects/Hedges/cross.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/cross.png",
+      "bytes": 915,
+      "sha256": "f162de35c7746ad96e9c72a4c52dc81bd7e5ca6c290da0a98b132f2ab1c97ed5"
+    },
+    {
+      "path": "assets/Objects/Hedges/end_east.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/end_east.png",
+      "bytes": 565,
+      "sha256": "4800ae6895362090ee372acec82ae7c27ddb88872120ed528369af8578801978"
+    },
+    {
+      "path": "assets/Objects/Hedges/end_north.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/end_north.png",
+      "bytes": 382,
+      "sha256": "ee477eb4067c2037d018c892956bd3f77fe766d14632e1eebf49cc64975a350a"
+    },
+    {
+      "path": "assets/Objects/Hedges/end_south.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/end_south.png",
+      "bytes": 535,
+      "sha256": "7ef4432e52fa812abd1bba56d66b916e6d6d96edf287b59f2da657e6ed546fd4"
+    },
+    {
+      "path": "assets/Objects/Hedges/end_west.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/end_west.png",
+      "bytes": 569,
+      "sha256": "7d77354b026c0d67f5b73efc3189b0286a8cd4680e8f6f04d0d8af6bceaa2e6f"
+    },
+    {
+      "path": "assets/Objects/Hedges/horizontal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/horizontal.png",
+      "bytes": 554,
+      "sha256": "0c1690461c08fd4e715d166ee0d62a3a92b88d873c2563efe194c01a7e67b308"
+    },
+    {
+      "path": "assets/Objects/Hedges/single.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/single.png",
+      "bytes": 1226,
+      "sha256": "f5b630c325af61fb52bf58d31549dc4312431a33ab0cf9af0bf3e6d91d915d3b"
+    },
+    {
+      "path": "assets/Objects/Hedges/source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/source.png",
+      "bytes": 1390119,
+      "sha256": "2992aaca4d8863a82a933ba704670aab97b3b059dc84ada1bca47c6c257ff530"
+    },
+    {
+      "path": "assets/Objects/Hedges/t_east.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/t_east.png",
+      "bytes": 812,
+      "sha256": "2294228b86ba8252ef1f60ce95454eaafd67b457a66f07bcfdfc761928bf1a1a"
+    },
+    {
+      "path": "assets/Objects/Hedges/t_north.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/t_north.png",
+      "bytes": 800,
+      "sha256": "40d2ae22389954e234af4f1b198d1b0a93fcc2dfc2423a94fa7ab901a4c125ef"
+    },
+    {
+      "path": "assets/Objects/Hedges/t_south.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/t_south.png",
+      "bytes": 809,
+      "sha256": "b63daec066876f184b557ad2581a49fdac0848b98d21975f304c8f430aa90e09"
+    },
+    {
+      "path": "assets/Objects/Hedges/t_west.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/t_west.png",
+      "bytes": 834,
+      "sha256": "999b3f59588f858ae441e0551cb119958a913ad480cd1092dfc0507e2eb7c4d9"
+    },
+    {
+      "path": "assets/Objects/Hedges/top_left.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/top_left.png",
+      "bytes": 750,
+      "sha256": "07afb1e36b5098415df382357436e5e769c8ccde5741928cb2b2079f1373623a"
+    },
+    {
+      "path": "assets/Objects/Hedges/top_right.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/top_right.png",
+      "bytes": 771,
+      "sha256": "ab2cfb97dffaf261b4e0184af4bf7ab2402e7fa25911f3312a51278e2ae5b69c"
+    },
+    {
+      "path": "assets/Objects/Hedges/vertical.png",
+      "archive": "extra_assets/inactive/assets/Objects/Hedges/vertical.png",
+      "bytes": 377,
+      "sha256": "e9ddd4265edca27b3efa2d6589528608345ecd21e05f486587a5d24457678c0b"
+    },
+    {
+      "path": "assets/Objects/House.png",
+      "archive": "extra_assets/inactive/assets/Objects/House.png",
+      "bytes": 4927,
+      "sha256": "9c7ddb00b96abbc272a82bf1a68a40dc312a274936ede2f4b9c4b9e971ba12b1"
+    },
+    {
+      "path": "assets/Objects/Houses/Wreck.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/Wreck.png",
+      "bytes": 4965,
+      "sha256": "fda0d220370e15ad19f64b8cad85f7ff250d0681aadb1d495ad0e61a1295c404"
+    },
+    {
+      "path": "assets/Objects/Houses/blacksmith.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/blacksmith.png",
+      "bytes": 2845,
+      "sha256": "c7f02e607256f4e8d09416cf613a7893290689cdbe4bbdf26b72e557429621e0"
+    },
+    {
+      "path": "assets/Objects/Houses/fort.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/fort.png",
+      "bytes": 6149,
+      "sha256": "f603b7e11dfc78ef6294364fd81a071d1ecb0f4aa4579123ac614d4ced454d98"
+    },
+    {
+      "path": "assets/Objects/Houses/market.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/market.png",
+      "bytes": 2129,
+      "sha256": "51237ebc93c53dcbf9ed8afdaa3e540ef67ae40627c9f7abd2ee02f1e038cc70"
+    },
+    {
+      "path": "assets/Objects/Houses/trader.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/trader.png",
+      "bytes": 3475,
+      "sha256": "5acce38e5efa4ef4b577288109439fb0ec4e7f00a77ec5071748dede5e1542b9"
+    },
+    {
+      "path": "assets/Objects/Houses/trailer.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/trailer.png",
+      "bytes": 2004,
+      "sha256": "1a9c07434010bfbc17e85603f2dcbf9cdda58ea425477d692c9cc918439e4d2a"
+    },
+    {
+      "path": "assets/Objects/Houses/wizard.png",
+      "archive": "extra_assets/inactive/assets/Objects/Houses/wizard.png",
+      "bytes": 12024,
+      "sha256": "9cd01e9bc0cfa676f0020cdf85e6098ec79953f92d2954346b4319681054cd22"
+    },
+    {
+      "path": "assets/Objects/Landmarks/README.md",
+      "archive": "extra_assets/inactive/assets/Objects/Landmarks/README.md",
+      "bytes": 1025,
+      "sha256": "3a5877f50a0e484027c1840d1691206f148974979b67fbff2c05eec8fdaa8ad2"
+    },
+    {
+      "path": "assets/Objects/Landmarks/VERDANT-LICENSE.txt",
+      "archive": "extra_assets/inactive/assets/Objects/Landmarks/VERDANT-LICENSE.txt",
+      "bytes": 2519,
+      "sha256": "b76b0836ec6a3c450fab7e66c2b5af1b8c7eb0e24562f46872cb93dfa295b2c1"
+    },
+    {
+      "path": "assets/Objects/Landmarks/headstone-basalt.png",
+      "archive": "extra_assets/inactive/assets/Objects/Landmarks/headstone-basalt.png",
+      "bytes": 127,
+      "sha256": "7af55e0e6092a3a2a6020a6617daf0fcd12123281f144941ed0e67e4b5b600c3"
+    },
+    {
+      "path": "assets/Objects/Landmarks/shrine-figure.png",
+      "archive": "extra_assets/inactive/assets/Objects/Landmarks/shrine-figure.png",
+      "bytes": 3329,
+      "sha256": "374344e93da6107f47182ad9222cf4a1f90818989c965fa7fc846f2feeb7b3f3"
+    },
+    {
+      "path": "assets/Objects/Landmarks/shrine-votive.png",
+      "archive": "extra_assets/inactive/assets/Objects/Landmarks/shrine-votive.png",
+      "bytes": 406,
+      "sha256": "add495add656782ab61f497b022302dcf01178839aea75dcd991da47d63f6418"
+    },
+    {
+      "path": "assets/Objects/LowPolyProps/manifest.json",
+      "archive": "extra_assets/inactive/assets/Objects/LowPolyProps/manifest.json",
+      "bytes": 16639,
+      "sha256": "f5124d08153e2883b19d58817e3b186709a1208995332a8dd564ba85e22d3d8b",
+      "archivedSha256": "d8a263451387f9ae9b8757356fd2c6166e3660d9397e50e105e0b8cbabc76f8d"
+    },
+    {
+      "path": "assets/Objects/LowPolyProps/materials.png",
+      "archive": "extra_assets/inactive/assets/Objects/LowPolyProps/materials.png",
+      "bytes": 25030,
+      "sha256": "37fbf147724fed710e417fefe4f1d82ede3c6ab5e50addb3e0d8ecddf84f2831"
+    },
+    {
+      "path": "assets/Objects/Maple Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Maple Tree.png",
+      "bytes": 2279,
+      "sha256": "864ca59a3f23596fa31afff3ae30efaf62e7388ce48a8d0ab7b43eee48fe62c5"
+    },
+    {
+      "path": "assets/Objects/PPBuildings/city-chimney.png",
+      "archive": "extra_assets/inactive/assets/Objects/PPBuildings/city-chimney.png",
+      "bytes": 17437,
+      "sha256": "003ed7e9281e6714c13d82c16ea187381e6e8783bc6604ceba028362db5cf8c4"
+    },
+    {
+      "path": "assets/Objects/PPBuildings/city-clock.png",
+      "archive": "extra_assets/inactive/assets/Objects/PPBuildings/city-clock.png",
+      "bytes": 16742,
+      "sha256": "7db65b2efc5954aedd66b7829414d2c2becf5252834dfeb49930a217a34b7d81"
+    },
+    {
+      "path": "assets/Objects/PPBuildings/city-factory.png",
+      "archive": "extra_assets/inactive/assets/Objects/PPBuildings/city-factory.png",
+      "bytes": 55578,
+      "sha256": "029dd3d1bd6ad10beefc7538138249c68bf4a1d1158e2ab2d0f22d4599716c9b"
+    },
+    {
+      "path": "assets/Objects/Portal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Portal.png",
+      "bytes": 944,
+      "sha256": "ccf366a4b2f6cb7ba79768972bfd95928bd8d8c0fcf8aeea71337580a0251f87"
+    },
+    {
+      "path": "assets/Objects/Reef/reef_atlas.png",
+      "archive": "extra_assets/inactive/assets/Objects/Reef/reef_atlas.png",
+      "bytes": 1246780,
+      "sha256": "5f9e17164400a0cc59078985f1585cd9885410e02aa91b88f6100c04e02c7e22"
+    },
+    {
+      "path": "assets/Objects/Rocks/README.md",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/README.md",
+      "bytes": 2100,
+      "sha256": "ca7017861de99b05037b95865b8050e253dce1293729d28b00c0a893765f469b",
+      "archivedSha256": "839ac5661f793d38c4750d35334773fa80c6bc842fb3ad80fef49ccef38d6e0f"
+    },
+    {
+      "path": "assets/Objects/Rocks/cel-shaded-study-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/cel-shaded-study-24.png",
+      "bytes": 78984,
+      "sha256": "a875306d8ce075fe708061f25df17406d93eb6dca2b3310004329afe7c7cd243"
+    },
+    {
+      "path": "assets/Objects/Rocks/dg-study-16.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/dg-study-16.png",
+      "bytes": 21085,
+      "sha256": "96575532e6785a2accebd2ec5c43b25ca0d7ccb9aed27a7a10b668c4626a3130"
+    },
+    {
+      "path": "assets/Objects/Rocks/export.cjs",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/export.cjs",
+      "bytes": 2464,
+      "sha256": "f592ba016922c8152fdf3b663c1585b8213bc92847bb14afea5b0bf7eacc539e",
+      "archivedSha256": "662aedb338b0001f6c20fa616d5df4ba2441ce81c3b77a21ef2ea0240fbc7b47"
+    },
+    {
+      "path": "assets/Objects/Rocks/export.json",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/export.json",
+      "bytes": 8772,
+      "sha256": "1a40a35518c190c052b1b5c9fa791759f4d125ffaf50bb70dd1a7ad357fad447"
+    },
+    {
+      "path": "assets/Objects/Rocks/graphic-storybook-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/graphic-storybook-source.png",
+      "bytes": 1779735,
+      "sha256": "b977c19790a8370f10dc10d64baa63bf01db81c9ccd19e41e165c763c2221c6d"
+    },
+    {
+      "path": "assets/Objects/Rocks/manifest.json",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/manifest.json",
+      "bytes": 7250,
+      "sha256": "731ee19b98515b82dd5e34f98cacf02a8e61329adaa4873512159f39948a87a4"
+    },
+    {
+      "path": "assets/Objects/Rocks/neutral-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/neutral-source.png",
+      "bytes": 1092559,
+      "sha256": "ef190610328044c2803eaac9625f4f0cc1a7665d84bb4705c8fb2e0e6ecfaa4b"
+    },
+    {
+      "path": "assets/Objects/Rocks/plain-shapes-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/plain-shapes-source.png",
+      "bytes": 1029380,
+      "sha256": "db1383e55df9799d411de7f1e51ea549f98aa94fbc0ad0001e3eaafadfd1ad26"
+    },
+    {
+      "path": "assets/Objects/Rocks/preview.html",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/preview.html",
+      "bytes": 3199,
+      "sha256": "7b18f1a228dee5998054c62ee6153df21a9a4b396334e6740114c19c710ec030"
+    },
+    {
+      "path": "assets/Objects/Rocks/quarry-reef-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/quarry-reef-source.png",
+      "bytes": 632972,
+      "sha256": "6e8512f9a2a2f000764760787dd3b673d8c2d5011e65d973dba4fb8ff75b3220"
+    },
+    {
+      "path": "assets/Objects/Rocks/rocks-16.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/rocks-16.png",
+      "bytes": 23136,
+      "sha256": "2362a47f93ab1631206035996c59ff81202c6d8338a9619b5b8084adfd9807d4"
+    },
+    {
+      "path": "assets/Objects/Rocks/rocks-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/rocks-24.png",
+      "bytes": 74553,
+      "sha256": "be3fccf21a160e095331892da5e19ad5cd27b3daa8b07cc5ebba6e684fe5f4bc"
+    },
+    {
+      "path": "assets/Objects/Rocks/slab-lava-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/slab-lava-source.png",
+      "bytes": 550099,
+      "sha256": "619d387cacb1be5cf30dfaf897ea2f4bbd507acb1288cd25e8041fc9f93cb441"
+    },
+    {
+      "path": "assets/Objects/Rocks/zone-plain-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/zone-plain-source.png",
+      "bytes": 740741,
+      "sha256": "8c852a11b95695854e6a43a6c2f80b6b776a554c08ba724e44966ce757b917eb"
+    },
+    {
+      "path": "assets/Objects/Rocks/zone-themed-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rocks/zone-themed-source.png",
+      "bytes": 772576,
+      "sha256": "0ecf041c61ef06753a1ab006bf140f2bd7ef37bc553c68c16252919d7fee7d79"
+    },
+    {
+      "path": "assets/Objects/RollingBallAndWall/ball-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/RollingBallAndWall/ball-source.png",
+      "bytes": 937155,
+      "sha256": "b6f10bdfe1d6da8f305047b212967b36b4688e0ca8270d12b60dedbca48b0e4b"
+    },
+    {
+      "path": "assets/Objects/RollingBallAndWall/spike-wall-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/RollingBallAndWall/spike-wall-source.png",
+      "bytes": 679759,
+      "sha256": "2abefe420d8f831c0b3669163afe973c01c45fa11a6db3a563728a447c792972"
+    },
+    {
+      "path": "assets/Objects/Rustic/Props.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rustic/Props.png",
+      "bytes": 23396,
+      "sha256": "10f4f186da71bf81988df6994dca86577d0aee16d96854a25f28592ba7f138b7"
+    },
+    {
+      "path": "assets/Objects/Rustic/README.md",
+      "archive": "extra_assets/inactive/assets/Objects/Rustic/README.md",
+      "bytes": 1192,
+      "sha256": "7fcf8bf2481ce47af88475cecf4300f456aab7872c71612e7d5c242392cb0751"
+    },
+    {
+      "path": "assets/Objects/Rustic/bush.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rustic/bush.png",
+      "bytes": 969,
+      "sha256": "60a976a5d00ab6e44aeb2013efecb994c4fcf75c4ba7c582fcb01e8a5af8d1bf"
+    },
+    {
+      "path": "assets/Objects/Rustic/pot.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rustic/pot.png",
+      "bytes": 319,
+      "sha256": "67fa95e91d66381b2f6b91659c193218f83e962fc010e6469bf69a8a9525ba8a"
+    },
+    {
+      "path": "assets/Objects/Rustic/pot_smashed.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rustic/pot_smashed.png",
+      "bytes": 302,
+      "sha256": "4883d791e162bb855ed8b583791ccf09d8c089db6963c2267b4efe1afcfa5f40"
+    },
+    {
+      "path": "assets/Objects/Rustic/trees.png",
+      "archive": "extra_assets/inactive/assets/Objects/Rustic/trees.png",
+      "bytes": 1607,
+      "sha256": "fc4d368998cf2cf510ca59a948b8b470d7e227283b3f5a3d151186e67a56940d"
+    },
+    {
+      "path": "assets/Objects/Scarecrow_16x16.png",
+      "archive": "extra_assets/inactive/assets/Objects/Scarecrow_16x16.png",
+      "bytes": 2280,
+      "sha256": "e0e3fa74b23b046ab468710c94190171e69496b5d1832e7dfe63f5c8ed42a5fa"
+    },
+    {
+      "path": "assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "archive": "extra_assets/inactive/assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "bytes": 381,
+      "sha256": "3eadeac62de5dfe2f8e36291541d164c3fb5c941037fa1dedd811a007d964a3a"
+    },
+    {
+      "path": "assets/Objects/SelectedFlora/selected_rubble.png",
+      "archive": "extra_assets/inactive/assets/Objects/SelectedFlora/selected_rubble.png",
+      "bytes": 210,
+      "sha256": "62e8db319a1accd530c2f6220d6eafc7458fed6d0b8248a5fd8ba65044717c29"
+    },
+    {
       "path": "assets/Objects/SelectedProps/selected_streetlamp.png",
       "archive": "extra_assets/inactive/assets/Objects/SelectedProps/selected_streetlamp.png",
       "bytes": 738,
       "sha256": "4ff7cf12bdc8cd12f2f442d575d09b53ed9e61a53e78acb8f567ee7ef5d651dc"
+    },
+    {
+      "path": "assets/Objects/SelectedProps/torch.png",
+      "archive": "extra_assets/inactive/assets/Objects/SelectedProps/torch.png",
+      "bytes": 189,
+      "sha256": "f2746f292bf0bfdfde2d5f4098fd2d516d9b363b8e6a68965fb249ff53a9f410"
+    },
+    {
+      "path": "assets/Objects/Signs.png",
+      "archive": "extra_assets/inactive/assets/Objects/Signs.png",
+      "bytes": 921,
+      "sha256": "894aada002bd832217d342f5cabb922081c25ecb0affb4f994b40d46c330f679"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/frames.json",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/frames.json",
+      "bytes": 1481,
+      "sha256": "84e64367ff915663a607b2e6a4aa72c95a11877f05af537a969b00f0a5c2a210"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/index.html",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/index.html",
+      "bytes": 4335,
+      "sha256": "6db6ec58b4007c1a7d33f411c35c0c6368e15ce1b010dd471f36482a1d777003",
+      "archivedSha256": "bb04834df553afd9f5139385596892d24f5c3119092b5c204405f514bc583a58"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/prompts.json",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/prompts.json",
+      "bytes": 34,
+      "sha256": "f90f397e2bdbe447efc69d48407d410bb8dcf55a1e8e7ecc8898ea61e7ea6876"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/spike-wall-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/spike-wall-source.png",
+      "bytes": 727629,
+      "sha256": "03908a97e9e6adcd359e111484ab2916865e8f030b1eb168ac41b27d1dc549e1"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/spike-wall.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/spike-wall.png",
+      "bytes": 2302,
+      "sha256": "d1726c2b530bc460159c7eec93bb72dfa7b59e5b6b93b166c2ee6a5deafbd238"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/spikeball-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/spikeball-source.png",
+      "bytes": 1925251,
+      "sha256": "0cc2d5bf024c633acb7dc6428d9e15099325c49b5bbd9fc25501bd33426622f5"
+    },
+    {
+      "path": "assets/Objects/SpikeTraps/spikeball.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTraps/spikeball.png",
+      "bytes": 47099,
+      "sha256": "76e2a820cc0c4f5e4fc4001461a5970223f9aedb3608a55fa076e96ead5d10cd"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/frames.json",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/frames.json",
+      "bytes": 2144,
+      "sha256": "1b1d481bd96bd06137a9e39206602b803e36aa7f9d314fe4cc2868fb87262fc2"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/index.html",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/index.html",
+      "bytes": 4285,
+      "sha256": "b55df99efcc630f12d78e6555568b0966e38f3f7ac959ccab3c5879d055bbdf5",
+      "archivedSha256": "46122584ed062135a87c1a2a4aa29841498ef2ec4e042d863fd8bc202593de7d"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/prompts.json",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/prompts.json",
+      "bytes": 34,
+      "sha256": "f90f397e2bdbe447efc69d48407d410bb8dcf55a1e8e7ecc8898ea61e7ea6876"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/south-camera-prompt.txt",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/south-camera-prompt.txt",
+      "bytes": 1600,
+      "sha256": "af5620c1980a4d74511ddac5cc4ea09474028645f69ff4191c79dcad0f883b81"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/spike-wall-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/spike-wall-source.png",
+      "bytes": 611504,
+      "sha256": "1bd67e4f695912e97a948bc533c533363392e8f367ffe2b640d46638c068c165"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/spike-wall.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/spike-wall.png",
+      "bytes": 1895,
+      "sha256": "0710208ea3f5eb357d2e274fc967c4a9fce22d4aee486edc9c47976b596025d0"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/spikeball-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/spikeball-source.png",
+      "bytes": 1660530,
+      "sha256": "842927faffd1ad1ed88e867b42b6b62db7e889e2e249250df4139aea1e581424"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/spikeball.png",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/spikeball.png",
+      "bytes": 30969,
+      "sha256": "a52c556d630cacf6866b27326e1e5cab186121b2258514810f43a079c65c0238"
+    },
+    {
+      "path": "assets/Objects/SpikeTrapsTopDown/wall-export.json",
+      "archive": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/wall-export.json",
+      "bytes": 999,
+      "sha256": "884a164508230b8c42fd1260690ec27874c7a3a0c30c9a1a9e1afbbeaef70ae5"
+    },
+    {
+      "path": "assets/Objects/Spring Crops.png",
+      "archive": "extra_assets/inactive/assets/Objects/Spring Crops.png",
+      "bytes": 7017,
+      "sha256": "f9f8fa8f31472a2291067df8191f1fd7cbb9c0f892f596497a52669bbdd08915"
+    },
+    {
+      "path": "assets/Objects/StreetSigns.png",
+      "archive": "extra_assets/inactive/assets/Objects/StreetSigns.png",
+      "bytes": 11903,
+      "sha256": "83d9e5d2cf9571947d48479448018ee16f76fc68b47017d87a139b23ff52bc47"
+    },
+    {
+      "path": "assets/Objects/Stronghold/bottom_left.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/bottom_left.png",
+      "bytes": 716,
+      "sha256": "5f5972b40c4040c0444819ac28945ea979160c347f84a493a409c67fb940a2dc"
+    },
+    {
+      "path": "assets/Objects/Stronghold/bottom_right.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/bottom_right.png",
+      "bytes": 685,
+      "sha256": "e99b25fe9c242490c5b0404a614e8dd62ba9e1eccd0f7d5f22622b1abdc7c270"
+    },
+    {
+      "path": "assets/Objects/Stronghold/cross.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/cross.png",
+      "bytes": 1211,
+      "sha256": "ba426dfad187af1c9b67d62b666106e48428313b7e909ce9da6b0f02c1816381"
+    },
+    {
+      "path": "assets/Objects/Stronghold/end_east.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/end_east.png",
+      "bytes": 532,
+      "sha256": "cac6fd7cce2089033b61f0ec8a95ac345df2e7a35761635ed217c635864bb2a7"
+    },
+    {
+      "path": "assets/Objects/Stronghold/end_north.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/end_north.png",
+      "bytes": 459,
+      "sha256": "cfc00426bfeec911df6114eece1c01776fee2f68ad0366b7ade68cc47cbae675"
+    },
+    {
+      "path": "assets/Objects/Stronghold/end_south.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/end_south.png",
+      "bytes": 409,
+      "sha256": "add755fa296b49010c8a13363f56c6c8a2fcb21c04663520d920f1f195d9519a"
+    },
+    {
+      "path": "assets/Objects/Stronghold/end_west.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/end_west.png",
+      "bytes": 548,
+      "sha256": "310251ebb79cc04b7c6e06235c448b66bf62cc235f5a8416df80e8cea8e51abc"
+    },
+    {
+      "path": "assets/Objects/Stronghold/horizontal.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/horizontal.png",
+      "bytes": 772,
+      "sha256": "eb2bdce2516855263bad288d060cc3f1b257f851744e5034b489fdbf28c72131"
+    },
+    {
+      "path": "assets/Objects/Stronghold/junction-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/junction-source.png",
+      "bytes": 522307,
+      "sha256": "5fd9cb866fa705edc15470fabc1a0579828e795b6f783891a3aaf563284d2d0d"
+    },
+    {
+      "path": "assets/Objects/Stronghold/source.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/source.png",
+      "bytes": 768714,
+      "sha256": "0ff3f75964654a6359963d353f3aa0f083e0928685a250e20a10fa00dd6d52e1"
+    },
+    {
+      "path": "assets/Objects/Stronghold/t_east.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/t_east.png",
+      "bytes": 881,
+      "sha256": "6add35239dbbd0c00ec6638d6ed12965f175f2c7c11e416812cee8765293adfa"
+    },
+    {
+      "path": "assets/Objects/Stronghold/t_north.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/t_north.png",
+      "bytes": 905,
+      "sha256": "f37913a3769aeca72e44adc103ed326d0b089cc624c4e0265de30dde65abafbc"
+    },
+    {
+      "path": "assets/Objects/Stronghold/t_south.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/t_south.png",
+      "bytes": 1005,
+      "sha256": "352c5098b9fa857052f79f30676b52182b8060a4ad9e70e8c79dae21754240e4"
+    },
+    {
+      "path": "assets/Objects/Stronghold/t_west.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/t_west.png",
+      "bytes": 931,
+      "sha256": "5d711ff7844018976addc59a36dc2131215539a1b13038b1f221136250b8aa01"
+    },
+    {
+      "path": "assets/Objects/Stronghold/top_left.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/top_left.png",
+      "bytes": 768,
+      "sha256": "fb683e7b5b0283cada58fc969ec9faef26667990225a965c501a4dfa5e253892"
+    },
+    {
+      "path": "assets/Objects/Stronghold/top_right.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/top_right.png",
+      "bytes": 767,
+      "sha256": "3ee4d9ba2d7859bcefd85b2295bc4c2db93d2ac7c5f4b3230fc00616dde54bd1"
+    },
+    {
+      "path": "assets/Objects/Stronghold/vertical.png",
+      "archive": "extra_assets/inactive/assets/Objects/Stronghold/vertical.png",
+      "bytes": 607,
+      "sha256": "d5f39e6ac3f379d672c3c19d41f135348fd74c241ff545a98d938a65505b0acb"
+    },
+    {
+      "path": "assets/Objects/Temple/footprint-tar.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/footprint-tar.svg",
+      "bytes": 1087,
+      "sha256": "d21184da1d30dadfe55d7f11ae4a041163390318871f476c0b1f50f92c0abd5e"
+    },
+    {
+      "path": "assets/Objects/Temple/footprint.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/footprint.svg",
+      "bytes": 1087,
+      "sha256": "1326b60c10bff0294b0f040d5b4add75446dd76de61f4201b6a04ef847219415"
+    },
+    {
+      "path": "assets/Objects/Temple/preview.html",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/preview.html",
+      "bytes": 9155,
+      "sha256": "603f4f67cf1b5f5784ff4ebd774afda389b90edf62c2fd8888ae4742c832f789"
+    },
+    {
+      "path": "assets/Objects/Temple/runes-lit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/runes-lit.svg",
+      "bytes": 3105,
+      "sha256": "13a909940897952699d6b65cd9b72637dd7bf07c148644c949282a94708e1c7e"
+    },
+    {
+      "path": "assets/Objects/Temple/runes-tar-lit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/runes-tar-lit.svg",
+      "bytes": 3105,
+      "sha256": "9f5dc6ecf886cdeed43f02f8c73b2a902ab2d398bab4ddf4708acd306d3a5f20"
+    },
+    {
+      "path": "assets/Objects/Temple/runes-tar-unlit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/runes-tar-unlit.svg",
+      "bytes": 3083,
+      "sha256": "2d316cf782ad41504ac2d996576eac976a929fde2d74f1301bd8d373b3c614d5"
+    },
+    {
+      "path": "assets/Objects/Temple/runes-unlit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/runes-unlit.svg",
+      "bytes": 3083,
+      "sha256": "e849ab9b823c4603f12742b466627205a9034fa66a9c23460c70569f2ecc1417"
+    },
+    {
+      "path": "assets/Objects/Temple/temple-lit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/temple-lit.svg",
+      "bytes": 3552,
+      "sha256": "e2a648fe1769ba256f70a881042a30bb1bbe5eba2f369f194dfbe694428d3623"
+    },
+    {
+      "path": "assets/Objects/Temple/temple-tar-lit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/temple-tar-lit.svg",
+      "bytes": 3552,
+      "sha256": "32d8a58731ff95f53c95ceb4cbd18833dffd5545406fbb0ddcc391cca336f205"
+    },
+    {
+      "path": "assets/Objects/Temple/temple-tar-unlit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/temple-tar-unlit.svg",
+      "bytes": 3530,
+      "sha256": "07751ed50b70aa79079d466edde2d8993991a8e67043c4b85e6a92621c272885"
+    },
+    {
+      "path": "assets/Objects/Temple/temple-unlit.svg",
+      "archive": "extra_assets/inactive/assets/Objects/Temple/temple-unlit.svg",
+      "bytes": 3530,
+      "sha256": "838f065b524b051fcba170e976891f2ca1222d2182078dbaaccfca8bb6435ace"
+    },
+    {
+      "path": "assets/Objects/Tombstones.png",
+      "archive": "extra_assets/inactive/assets/Objects/Tombstones.png",
+      "bytes": 1114,
+      "sha256": "9d297b4cdabdb1f6071d2bef89db1d613a73a6b6ffcc4546419ac2f761dfb6eb"
+    },
+    {
+      "path": "assets/Objects/Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Tree.png",
+      "bytes": 10723,
+      "sha256": "b1d02bbe17a7e324154071832498d3e8eb4fff768947ed3a59a7289aa5ab7ddf"
+    },
+    {
+      "path": "assets/Objects/Well.png",
+      "archive": "extra_assets/inactive/assets/Objects/Well.png",
+      "bytes": 1090,
+      "sha256": "f65295588c25f3c318cfae6f80685d594a2a06d0a88ad3116e760e25f1a896c1"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Apple Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Apple Tree.png",
+      "bytes": 7113,
+      "sha256": "d8f4ce4404683d3221dddd011fcb4d52aa7b26f8ceb590af9acf3712638e0802"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Birch Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Birch Tree.png",
+      "bytes": 6898,
+      "sha256": "ce3fcba0bd7027048974a76f82c691f8a16e55178bfd3c5c07c8ab9be5e6b438"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Box_Single_16x16.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Box_Single_16x16.png",
+      "bytes": 624,
+      "sha256": "e9fcb325dbdfe8738986006bb01982a4913da192b4458976a02c3d77e13dc8b7"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Bridge Beach.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Bridge Beach.png",
+      "bytes": 3008,
+      "sha256": "aedd8618a9f3e9dea56e0f1d91b937ccf2a71215a988ff3d29a791b9ece24dd9"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Fantasy Mushroom.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Fantasy Mushroom.png",
+      "bytes": 9591,
+      "sha256": "b9ae73275084b7071e40d6a94f546906ba6b648cc22c44d17819764db54c48da"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Mahogany Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Mahogany Tree.png",
+      "bytes": 7306,
+      "sha256": "bb8a49c81863e667754f3de84393a732b227b4840f3a3dd486b5f30bd0eeb4e6"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Peach Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Peach Tree.png",
+      "bytes": 6104,
+      "sha256": "8157d69803e57b9a087f3ba179dfb57123cda6b6ba6b4d8ea5cc6b384abd5a6c"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Pine Tree.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Pine Tree.png",
+      "bytes": 6170,
+      "sha256": "aa9a32533a463a541c3b90877f7244696fb38bd6ab58e3d48371d8488a1aa032"
+    },
+    {
+      "path": "assets/Objects/Wilderness/Props.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/Props.png",
+      "bytes": 22613,
+      "sha256": "aef6c69aa3bf876c5d8eae2e35278605b1d676674617d8d3bff560b0deae96a3"
+    },
+    {
+      "path": "assets/Objects/Wilderness/bushes.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/bushes.png",
+      "bytes": 13438,
+      "sha256": "069c4c18bb439c018cd9720093fdfe83b562d0ae78ee998080057e961d3850fd"
+    },
+    {
+      "path": "assets/Objects/Wilderness/crystal_cluster.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/crystal_cluster.png",
+      "bytes": 153,
+      "sha256": "ff70aa1a2bb182a06c4ffd9105cfe2ee3c9834d4d1730a86c59827738d67fd08"
+    },
+    {
+      "path": "assets/Objects/Wilderness/pillar.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/pillar.png",
+      "bytes": 224,
+      "sha256": "37e53deeaa811cf51bc430de2581514b53da88b095025deb93d8f94850fec07f"
+    },
+    {
+      "path": "assets/Objects/Wilderness/stone with minerals.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/stone with minerals.png",
+      "bytes": 19769,
+      "sha256": "e44e9b1e3588b7c1e13e85219ba440eee2603572a517590632fdf994fd27e367"
+    },
+    {
+      "path": "assets/Objects/Wilderness/torch.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/torch.png",
+      "bytes": 329,
+      "sha256": "fdd57d1271eb28359ec1d188ca37f5148ce7a3f304b454093f39b62c71f3754b"
+    },
+    {
+      "path": "assets/Objects/Wilderness/well.png",
+      "archive": "extra_assets/inactive/assets/Objects/Wilderness/well.png",
+      "bytes": 2028,
+      "sha256": "d8e21f0df2c9af941d11826a9f3f5866669020adcb6970bae7610b2e457bbb07"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/amphora.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/amphora.png",
+      "bytes": 1239,
+      "sha256": "7d9fd8ebff9cc384fca456689988a9a9e2ec0e60efc86a2c0bcc9051a9121d03"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/atlas-1024.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/atlas-1024.png",
+      "bytes": 1370256,
+      "sha256": "739a77763ac3a06327bee1586afa648a3445354808a1a409355e432a17fcf841"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/barrel.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/barrel.png",
+      "bytes": 1162,
+      "sha256": "8caafb3d2550229b680fbfec4ea938770fe56eb134304b54b989ef440007f775"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/berry_bush.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/berry_bush.png",
+      "bytes": 1283,
+      "sha256": "1c7a0cb89eb7348c864599916805414d6e178c3ed5120f6c8f274bc73d367031"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/birdbath.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/birdbath.png",
+      "bytes": 1136,
+      "sha256": "009580549cee3541b6478d3af08876d36bc9405334503099d0723d9f214a9677"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/broken_column.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/broken_column.png",
+      "bytes": 826,
+      "sha256": "fdcb8168b09ae566b1479e16143cccc58cc9acbbe394a6b996b2841a246d530c"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/burial_slab.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/burial_slab.png",
+      "bytes": 916,
+      "sha256": "3e3c4fd1d55dbb74e2b475e8f18ccb47e6dd3da1aca8a36db7150d9979dae49c"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_antler.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_antler.png",
+      "bytes": 1154,
+      "sha256": "a2193e751576cae0d787b559896434291887e2400b7b58a734acb15e4db64ff4"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_brain.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_brain.png",
+      "bytes": 1254,
+      "sha256": "67ebe13c328a0ee656b37814983837b9d03f9ef0aa06f1f9acdb3737760822d1"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_fan.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_fan.png",
+      "bytes": 1208,
+      "sha256": "8f6d2a194e7e22d7964af79bf76add529f7ed15517f0d26c1379a3bfae0eaaa2"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_pink.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_pink.png",
+      "bytes": 1155,
+      "sha256": "0c7053b400de7bfc0292f294da3d3461532c6cf7f1a4fe4cfdce2ddf6e505620"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_plate.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_plate.png",
+      "bytes": 1223,
+      "sha256": "194be754556d9cd1d8d6d50a406ae76abadd9afafdd3bec21ea39fa9420fd6b3"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_teal.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_teal.png",
+      "bytes": 1039,
+      "sha256": "96c387bc11d1b6190852b140a7eec845594c34e739505b36d9c107b5253ca13c"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/coral_tube.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/coral_tube.png",
+      "bytes": 1213,
+      "sha256": "118a5ff3b2ef2575cfbfd695f006b04a8ecee6476c73cd4d059e8abfe13fb05d"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/fallen_column.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/fallen_column.png",
+      "bytes": 930,
+      "sha256": "4a43c875a0bcae621aad42df5b84f0b9f6b92bb8352e26ca8fa9811823505d84"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/handcart.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/handcart.png",
+      "bytes": 993,
+      "sha256": "80fcc75fe30b83b0c3dae6ed64800af5fc8f55403e5014771826086933b2e5e0"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/hedge_corner.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/hedge_corner.png",
+      "bytes": 1183,
+      "sha256": "5fb6420798b1a3b94fbabbfc6526bf66314a97de471820d8a5364c00a8dca780"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/mossy_grave_pillar.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/mossy_grave_pillar.png",
+      "bytes": 814,
+      "sha256": "58c1a4380b89a7a1e5fb285f3b45ce6df0d6d7dbbac2f523e11533636211723f"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/mushroom_red.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/mushroom_red.png",
+      "bytes": 1227,
+      "sha256": "2d104654ff2f08893061e16c1ed47925d282fc62928333d930c9ffa6b7f88d17"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/objects-16.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/objects-16.png",
+      "bytes": 29041,
+      "sha256": "232650e315ce698d2b08cddc316770127cacb2ac3dc3741d436f3d0a5e4604cb"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/objects-24.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/objects-24.png",
+      "bytes": 64973,
+      "sha256": "d8d2848b39b6f4ba025cf6bbb6ad93b1835812c84e6bacb7cf618b4e4f92c0b7"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/paired_grave_posts.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/paired_grave_posts.png",
+      "bytes": 1111,
+      "sha256": "b1c1e6e1b71758f5cf85829151874021dbf36c85bca60a49aa468c2db6c5fca7"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/pots-smashed-source.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/pots-smashed-source.png",
+      "bytes": 340583,
+      "sha256": "119f415851d4293beed4962102d072bcd2ef8154dad71d68ad05fe95a0d78c5e"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/pots_cracked.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/pots_cracked.png",
+      "bytes": 1277,
+      "sha256": "bf62cc1460f9cf5f709718655688544237b277cd198163ad0059ae24a3711196"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/pots_smashed.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/pots_smashed.png",
+      "bytes": 956,
+      "sha256": "2ff5c87546ffb4f088bdbd1b6c1a34c1adae8a1080e56693d113bcffe77c9e87"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/quartz.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/quartz.png",
+      "bytes": 1247,
+      "sha256": "0c689d583c30e1ad8a1ae41787acda2c05b61338c15136f179367e9e48195fc0"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/reef_crystal.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/reef_crystal.png",
+      "bytes": 1261,
+      "sha256": "ffc35984f11d19469a0f9d464ddb489cb3c8208bd18b0b5c4d268bae3ff0bb5b"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/black_ring.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/black_ring.png",
+      "bytes": 1078,
+      "sha256": "388f73627ed7600c6ad8aa8fcc1de99f71669125615ca19d7fcf05702ab47b0d"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/broken_depot.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/broken_depot.png",
+      "bytes": 1067,
+      "sha256": "9468f40067d4b9a2cceae1de48d1d3c19dd5f3f37899d0983f92c78d36f1ab9c"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/broken_masonry.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/broken_masonry.png",
+      "bytes": 1155,
+      "sha256": "2237a091bccf7003ac2ba3f03b606c356391e65641aacbcade6974db00be2664"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/flint_field.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/flint_field.png",
+      "bytes": 1032,
+      "sha256": "51913f925f674607de0f5d0e69a5306709da4d338b8621cba4b4f1f4662ee594"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/pirate_cove.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/pirate_cove.png",
+      "bytes": 1127,
+      "sha256": "81eae64a9d921f2fa64b5ce08f7333d37a35f570ae43759b943db40e6a69ef49"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/seep.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/seep.png",
+      "bytes": 1052,
+      "sha256": "d380a8fa847d47053534aec9af2f54588f32d75156205ba3ef2661aa32f65775"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/stone_garden.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/stone_garden.png",
+      "bytes": 1077,
+      "sha256": "b166a32cd54c041bcceb907d9eafbf1a78aa98eccea35d2f3857f8dda47ff63c"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/rocks/work_yard.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/rocks/work_yard.png",
+      "bytes": 1080,
+      "sha256": "ceaf28a0dea7c8fd8be7289178ba3aa43353797e60c04ac9849c535aec17f5a8"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/sapphire.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/sapphire.png",
+      "bytes": 1181,
+      "sha256": "da0876cb4d3dc66323034e53a2bab0959187d29bf4ac47a623f736c8f71f98fd"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/seed_shrine.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/seed_shrine.png",
+      "bytes": 1108,
+      "sha256": "8e0bedcbc1e0380aa377411065fa122c2abf1aeb4fbf5113c93f8f4d698dc016"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/shell_rock.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/shell_rock.png",
+      "bytes": 1310,
+      "sha256": "236734ce4d1429b9edc597d068fb6ce181ca4972b1d8c68e15a2fb12d005c15d"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/shell_shrine.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/shell_shrine.png",
+      "bytes": 1157,
+      "sha256": "85276a8d2c8e9398ccd02be8e9e1fd8afae369b1705543bcc134864930597d62"
+    },
+    {
+      "path": "assets/Objects/ZoneVariants/source.png",
+      "archive": "extra_assets/inactive/assets/Objects/ZoneVariants/source.png",
+      "bytes": 1981623,
+      "sha256": "bdadb41a621d4f3d2e535fdf984038fb13e429144fa41f085be3162255fb48cf"
+    },
+    {
+      "path": "assets/Objects/animated_transparent.png",
+      "archive": "extra_assets/inactive/assets/Objects/animated_transparent.png",
+      "bytes": 522,
+      "sha256": "6f04045a836b6a80473b0a25067d205ed1b18095197c7c1991f558cad8555836"
+    },
+    {
+      "path": "assets/Objects/market_stand.png",
+      "archive": "extra_assets/inactive/assets/Objects/market_stand.png",
+      "bytes": 6752,
+      "sha256": "098d227f469a54ce8ca99d3d6919f99e6db8fcf7fdae47b2dd7c361ba8d4f5d1"
+    },
+    {
+      "path": "assets/Objects/props_large_transparent.png",
+      "archive": "extra_assets/inactive/assets/Objects/props_large_transparent.png",
+      "bytes": 527,
+      "sha256": "822ca0bba95984ace3f10112604a0c6aa52e17b5c3ab1868dc7f6bda301d1745"
+    },
+    {
+      "path": "assets/Objects/stair_down.png",
+      "archive": "extra_assets/inactive/assets/Objects/stair_down.png",
+      "bytes": 396,
+      "sha256": "ad126b24dab95d51cc9e5fef0a478e5b6473a596c5ec59807f722e25891458e2"
+    },
+    {
+      "path": "assets/Objects/stair_up.png",
+      "archive": "extra_assets/inactive/assets/Objects/stair_up.png",
+      "bytes": 206,
+      "sha256": "c0982663d3ee02ade9e49397705aed9b1c86b5af3662b59c2c7028294a3398f5"
+    },
+    {
+      "path": "assets/Objects/trunk.png",
+      "archive": "extra_assets/inactive/assets/Objects/trunk.png",
+      "bytes": 1294,
+      "sha256": "77fdcb9858c59ce618792914738a7bfea1646e9fb93247c5d58403220c193df1"
+    },
+    {
+      "path": "assets/art/book_page.webp",
+      "archive": "extra_assets/inactive/assets/art/book_page.webp",
+      "bytes": 120688,
+      "sha256": "7d3a2759b5a3fe08945e2a29c28d14390ab3aa1afe3bcf712953e3365bdb9c52"
+    },
+    {
+      "path": "assets/art/dragon_clear_cave.webp",
+      "archive": "extra_assets/inactive/assets/art/dragon_clear_cave.webp",
+      "bytes": 315570,
+      "sha256": "bd7a8fc998c270e3dec106ac99228b35ad55fbb274ba71e626166005295ae6ea"
+    },
+    {
+      "path": "assets/art/kind_inn.webp",
+      "archive": "extra_assets/inactive/assets/art/kind_inn.webp",
+      "bytes": 220008,
+      "sha256": "0d004420af40782fbe980b39a4b0e30de77d23d1318e2fc1e9f92633d2524deb"
+    },
+    {
+      "path": "assets/art/kind_spirit.webp",
+      "archive": "extra_assets/inactive/assets/art/kind_spirit.webp",
+      "bytes": 162816,
+      "sha256": "67c5d22aacd1f510735186faaf6233f80553d3706a7700c5afbf48033ebb56db"
+    },
+    {
+      "path": "assets/art/shrine_waystone.webp",
+      "archive": "extra_assets/inactive/assets/art/shrine_waystone.webp",
+      "bytes": 245658,
+      "sha256": "a3469fa3e2eb2e3370232bbd7d912b8504e69fe030a4f309b325d70cc5ac400b"
+    },
+    {
+      "path": "assets/art/story_dragon_hunters_arrive.webp",
+      "archive": "extra_assets/inactive/assets/art/story_dragon_hunters_arrive.webp",
+      "bytes": 353332,
+      "sha256": "06db0f570ea8cc6a635efa4cf82184eefe19945ae311f6e6452c7bcbd03e787a"
+    },
+    {
+      "path": "assets/art/story_nightmare_close.webp",
+      "archive": "extra_assets/inactive/assets/art/story_nightmare_close.webp",
+      "bytes": 294772,
+      "sha256": "6d71eedaec69bbe4aade0d934f72d5112522d3fe90b75bf096321df36a48e7a8"
+    },
+    {
+      "path": "assets/art/story_nightmare_close_frame2.webp",
+      "archive": "extra_assets/inactive/assets/art/story_nightmare_close_frame2.webp",
+      "bytes": 282492,
+      "sha256": "033cafddb1569c5bc18b7e0e385d7fe25e2dec28ef2650f1eba4429fc1b38aec"
+    },
+    {
+      "path": "assets/art/story_white_dragon_tower.webp",
+      "archive": "extra_assets/inactive/assets/art/story_white_dragon_tower.webp",
+      "bytes": 365164,
+      "sha256": "c9ebf82251b1406f03407fe7ad81063fa98128ccdea68f54bd5d24f9870df435"
+    },
+    {
+      "path": "assets/portraits/npcs-1.png",
+      "archive": "extra_assets/inactive/assets/portraits/npcs-1.png",
+      "bytes": 246053,
+      "sha256": "b917b5f42ed5798bc2ff29cc3d9ddb8afe89f7948daa51cc29f16a16c12fe44b"
+    },
+    {
+      "path": "assets/portraits/npcs-2.png",
+      "archive": "extra_assets/inactive/assets/portraits/npcs-2.png",
+      "bytes": 257691,
+      "sha256": "4cd1572da389fd12898822aa69e4f430df646dfe30121c49810d9997de17fdba"
+    },
+    {
+      "path": "assets/portraits/pets.png",
+      "archive": "extra_assets/inactive/assets/portraits/pets.png",
+      "bytes": 187456,
+      "sha256": "8c2726896ac25172390894abf2d3a245b868622ef873e094ca1986de29996468"
+    },
+    {
+      "path": "assets/portraits/sources/npcs-1.png",
+      "archive": "extra_assets/inactive/assets/portraits/sources/npcs-1.png",
+      "bytes": 2904209,
+      "sha256": "65f9ce66296c1e8add103ab7d8d154510e8d55c863ada36794db43004619c791"
+    },
+    {
+      "path": "assets/portraits/sources/npcs-2.png",
+      "archive": "extra_assets/inactive/assets/portraits/sources/npcs-2.png",
+      "bytes": 3081532,
+      "sha256": "0a8663bf7a4f26f52119c9b9685f56bcb682d111204955696d97e2d9813ddc9a"
+    },
+    {
+      "path": "assets/portraits/sources/pets.png",
+      "archive": "extra_assets/inactive/assets/portraits/sources/pets.png",
+      "bytes": 1998403,
+      "sha256": "0b27f63f9252b012c6f5519eec75c58c70f5aa1fabf6ffc574a60e34fd14aa3b"
+    },
+    {
+      "path": "assets/ui/compass/body-carving.webp",
+      "archive": "extra_assets/inactive/assets/ui/compass/body-carving.webp",
+      "bytes": 97210,
+      "sha256": "ba67176ce0792df0cee9d7ee86cc479ff270a89dfb8af789f91701ca07f49202"
+    },
+    {
+      "path": "assets/ui/compass/living-silver-body.webp",
+      "archive": "extra_assets/inactive/assets/ui/compass/living-silver-body.webp",
+      "bytes": 92428,
+      "sha256": "4b3053a82e1f53cf2470f16a29eb402aba81b2ffd08a878dd77624148b076c44"
+    },
+    {
+      "path": "assets/ui/compass/north-arrow.webp",
+      "archive": "extra_assets/inactive/assets/ui/compass/north-arrow.webp",
+      "bytes": 17304,
+      "sha256": "d656d1141131e1886a1ca52658daa0c7126a42f4bb7d206a954ea3c77a89f74f"
+    },
+    {
+      "path": "assets/ui/compass/panel-top.webp",
+      "archive": "extra_assets/inactive/assets/ui/compass/panel-top.webp",
+      "bytes": 43772,
+      "sha256": "02579d750c919a12d357925fc60c46ece5a12a42d953c966cd8a497cd8df1050"
+    },
+    {
+      "path": "src/art-trials.js",
+      "archive": "extra_assets/inactive/src/art-trials.js",
+      "bytes": 2289,
+      "sha256": "6081aac90662b5fcea7dafaf22419c35fcf12eba8701c7110b582495e0f3ac0b"
+    },
+    {
+      "path": "src/dreamland_objects.js",
+      "archive": "extra_assets/inactive/src/dreamland_objects.js",
+      "bytes": 7256,
+      "sha256": "7f3db73da2d8c30d1768e9af11aad5a6dd525502a9001c2a30cc838295067307"
     },
     {
       "path": "test/dreamland-objects-unit.cjs",
@@ -44,6 +4023,24 @@
       "sha256": "31fcef6ad05d6037ee05e4770c8c22788ae1a67091182c00cd606ac4f70a157d"
     },
     {
+      "path": "test/node/art_trials.test.js",
+      "archive": "extra_assets/inactive/test/node/art_trials.test.js",
+      "bytes": 3847,
+      "sha256": "8bceeffd5eef37c803f3315897d6420c3fbae6a24c64d9a1bd415a3724f31786"
+    },
+    {
+      "path": "test/ra-terrain-unit-with-dreamland.cjs",
+      "archive": "extra_assets/inactive/test/ra-terrain-unit-with-dreamland.cjs",
+      "bytes": 9902,
+      "sha256": "e4a0d8fbc1e7bdf525a097390cbacaa3dfd9a51aca5d4f972e8b29549c0bcb1a"
+    },
+    {
+      "path": "tools/build_art_trials.py",
+      "archive": "extra_assets/inactive/tools/build_art_trials.py",
+      "bytes": 1424,
+      "sha256": "c65501f9c0bbd9f703b38126e309d4c6529f1549d995b57a232a7233c140cfdc"
+    },
+    {
       "path": "tools/build_selected_hedge.py",
       "archive": "extra_assets/inactive/tools/build_selected_hedge.py",
       "bytes": 1079,
@@ -54,6 +4051,138 @@
       "archive": "extra_assets/inactive/tools/build_selected_streetlamp.py",
       "bytes": 844,
       "sha256": "7e43e10b26026cdeb11f9e179b02d31a57bf53c96e40f34ba7b3abd98979e8fc"
+    },
+    {
+      "path": "tools/dreamland-square-study/README.md",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/README.md",
+      "bytes": 7355,
+      "sha256": "4161a9f50f88cd0cdeb5204e94aae085a82e14953ede2ace0c21ec2da1dc462f"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/fountain.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/fountain.png",
+      "bytes": 1576,
+      "sha256": "d772ff4fe27afe67592f3e7f1e1986d3502a0390832cc2cd7ce29bae21795053"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/grass.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/grass.png",
+      "bytes": 86,
+      "sha256": "157b629d846cd9b0408c4c47485e3acc82f066f444de08755538d141c0a37157"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/hanging-lamp.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/hanging-lamp.png",
+      "bytes": 647,
+      "sha256": "08b7cd33b316804a29239ecfeddca29c4c25909e701c6ec3a95cefbcfac5fee6"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/manifest.json",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/manifest.json",
+      "bytes": 28081,
+      "sha256": "149afa6ab81719e724ab4bd5ec0822c269721c178aec5492abeef344f6897866"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/path-restored.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/path-restored.png",
+      "bytes": 742,
+      "sha256": "dc712e2e787cb1acb5b8ea2fd1a277b8a7826aa1d0b5ef4c2ee79a1af45dc0f1"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/path.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/path.png",
+      "bytes": 1066,
+      "sha256": "b156bd86db4e6c6f724a1f42dc4bde36884df2f3fbfe7f58e437b104a2ab0aee"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/round-tree-reference.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/round-tree-reference.png",
+      "bytes": 1042,
+      "sha256": "f3ad3b886227aefc8ee3c7ffa581edf8ed43549c26ee298fcecb356feea6d80a"
+    },
+    {
+      "path": "tools/dreamland-square-study/assets/terrain.png",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/assets/terrain.png",
+      "bytes": 5724,
+      "sha256": "8fa0cbd0792b1da6c5cf84310b814a7ac0d1b93774916912f52fd1aa865723d8"
+    },
+    {
+      "path": "tools/dreamland-square-study/build_assets.py",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/build_assets.py",
+      "bytes": 5696,
+      "sha256": "b3208f7ae8e915f319fc2ea108e3dd3fa0b839cde9097be68b675cbdf1133bd0"
+    },
+    {
+      "path": "tools/dreamland-square-study/build_enrichment.py",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/build_enrichment.py",
+      "bytes": 2701,
+      "sha256": "fe76d575533944cdc1d9478037b5e55e13b4c679433aa0464362e4d6fbab0054"
+    },
+    {
+      "path": "tools/dreamland-square-study/build_objects.py",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/build_objects.py",
+      "bytes": 9804,
+      "sha256": "9137a8109457d5a75f10a885568bbad2f583103a9efa3feefed9d9524437f8ca"
+    },
+    {
+      "path": "tools/dreamland-square-study/build_reference_ground.py",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/build_reference_ground.py",
+      "bytes": 2763,
+      "sha256": "2751b4dec2b77d73db55f285289d97dad9e0764b9041d5a9bf2523c88bea2938"
+    },
+    {
+      "path": "tools/dreamland-square-study/capture-geographic.cjs",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/capture-geographic.cjs",
+      "bytes": 12741,
+      "sha256": "255e1eb174b21d657c0c110d94fdb34995fdef82dd8089e4f6f1e3959869d12c"
+    },
+    {
+      "path": "tools/dreamland-square-study/capture-match.cjs",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/capture-match.cjs",
+      "bytes": 3049,
+      "sha256": "78fb4d753561a4eda2c241ec5ac3b47ca16b1085863c09af09c9accfb77cdba1"
+    },
+    {
+      "path": "tools/dreamland-square-study/hook.test.cjs",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/hook.test.cjs",
+      "bytes": 1668,
+      "sha256": "442ffd8781e98205cd41c7c627e9dbcc9dcedff9d3a8f1f3eb64068a68a82234"
+    },
+    {
+      "path": "tools/dreamland-square-study/presentation.py",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/presentation.py",
+      "bytes": 5982,
+      "sha256": "6ac770cc0d005ad91f6ee6f10532bb006f39246e395c921d32dec2f67aadd936"
+    },
+    {
+      "path": "tools/dreamland-square-study/reference-fixture.js",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/reference-fixture.js",
+      "bytes": 8847,
+      "sha256": "eee9e9c9b6fc3e975909031ccde043a616439969edc46ec55627f1f34ec735f4"
+    },
+    {
+      "path": "tools/dreamland-square-study/reference-layout.json",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/reference-layout.json",
+      "bytes": 78818,
+      "sha256": "88b06a61d93c74a45ffd7440e571fd369bcef1c25bf21e7d76074d401799fb79"
+    },
+    {
+      "path": "tools/dreamland-square-study/reference-server.cjs",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/reference-server.cjs",
+      "bytes": 1510,
+      "sha256": "09f11e2f2a8c3be347e89675e211baed3beba19adbd6a69d9c5988a2216c091b"
+    },
+    {
+      "path": "tools/dreamland-square-study/reference_review.py",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/reference_review.py",
+      "bytes": 3848,
+      "sha256": "848708cc61979641182d6ce8c3093b573c559e60205c28d67e4e6a7956eeb202"
+    },
+    {
+      "path": "tools/dreamland-square-study/terrain-hook.js",
+      "archive": "extra_assets/inactive/tools/dreamland-square-study/terrain-hook.js",
+      "bytes": 4678,
+      "sha256": "e9a8a3e4b2e522aea0a0eca241d72431d7d856632902b0641f20e373259ce03b"
     },
     {
       "path": "tools/legacy_streetlamp_art.js",

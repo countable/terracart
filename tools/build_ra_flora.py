@@ -12,10 +12,13 @@ from build_prop_materials import opaque_crop
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / 'assets/ArtTrials/RogueProps'
+# The approved-flora inputs are archived provenance: the packer reads them
+# from extra_assets/inactive, never from the live tree.
+FLORA_MANIFEST = ROOT / 'extra_assets/inactive/assets/ArtTrials/RogueProps/approved-flora/manifest.json'
 
 
 def build():
-    rows = json.loads((OUT / 'approved-flora/manifest.json').read_text())['entries']
+    rows = json.loads(FLORA_MANIFEST.read_text())['entries']
     sheets = {}
     bounds = {}
     for row in rows:
@@ -52,9 +55,9 @@ def build():
                 sha256=hashlib.sha256(output.read_bytes()).hexdigest())
     # Rocks render as 3D meshes. Update just the two approved stone materials;
     # preserve every crate material and every other rock frame byte-for-byte.
-    material = Image.open(ROOT / 'assets/Objects/LowPolyProps/materials.png').convert('RGBA')
-    manifest = json.loads((ROOT / 'assets/Objects/LowPolyProps/manifest.json').read_text())
-    stones = sheets['assets/Objects/Rocks/rocks-16.png']['image']
+    material = Image.open(ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps/materials.png').convert('RGBA')
+    manifest = json.loads((ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps/manifest.json').read_text())
+    stones = sheets['extra_assets/inactive/assets/Objects/Rocks/rocks-16.png']['image']
     for entry in manifest['entries']:
         if entry['kind'] != 'rock' or entry['frame'] not in (0, 20):
             continue

@@ -23,7 +23,7 @@
       "changedFrames": [
         0
       ],
-      "original": "assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "original": "extra_assets/inactive/assets/Objects/SelectedFlora/selected_clipped_hedge.png",
       "sha256": "9d5993da8a46834130c633d2a1ebc750ec8d868a32862de6d0e254f0c7029886"
     },
     "approved_clipped_hedge": {
@@ -36,7 +36,7 @@
       "changedFrames": [
         0
       ],
-      "original": "assets/Objects/SelectedFlora/selected_clipped_hedge.png",
+      "original": "extra_assets/inactive/assets/Objects/SelectedFlora/selected_clipped_hedge.png",
       "sha256": "9d5993da8a46834130c633d2a1ebc750ec8d868a32862de6d0e254f0c7029886"
     },
     "approved_wetland_reeds": {
@@ -49,7 +49,7 @@
       "changedFrames": [
         0
       ],
-      "original": "assets/Objects/Approved/approved_wetland_reeds.png",
+      "original": "extra_assets/inactive/assets/Objects/Approved/approved_wetland_reeds.png",
       "sha256": "0af4406780da771dd0b2c48a6c710f0bf182817fea082fddbac5716d2b891e8b"
     },
     "bramble": {
@@ -62,7 +62,7 @@
       "changedFrames": [
         0
       ],
-      "original": "assets/Objects/Approved/bramble.png",
+      "original": "extra_assets/inactive/assets/Objects/Approved/bramble.png",
       "sha256": "3ce0d9e72966a179788c8175884c6c37dd5562041d7de262b03704723cb795bb"
     },
     "props": {
@@ -118,7 +118,7 @@
         20,
         0
       ],
-      "original": "assets/Objects/Rocks/rocks-16.png",
+      "original": "extra_assets/inactive/assets/Objects/Rocks/rocks-16.png",
       "sha256": "cf2745709060a7cdf58ec110d3439b6dec5895bac1a28c7a426b67ed39463855"
     },
     "springcrops": {

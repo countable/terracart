@@ -10,7 +10,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | --- | --- | --- |
 | Home | Pixel Plains timber cabin (Home's alone) | Orange |
 | Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, steam home, or native Pixel Plains flat shops; stable ID selection | Yellow, or native flat-shop color |
-| Blacksmith T1 / T2–T3 / T4–T7 | White plaster cottage / full FDR / steam blacksmith | Slate |
+| Blacksmith T1–T3 / T4–T7 | FDR / steam blacksmith | Slate |
 | Trader T1 / T2+ | White plaster cottage / trader | Green |
 | Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
 | Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
@@ -18,7 +18,7 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 | First / second wizard tower | Purple wizard / steam wizard | Purple |
 | Fort | City copper hall inside pointed square timber palisade | Copper |
 
-All tier-one businesses, including blacksmiths, traders and generic shops,
+Tier-one traders and shops, including generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
@@ -48,8 +48,9 @@ clearance around narrow returns, preventing almost-closed roof slits.
 Decorative flat-roof rims cap corner mitres at twice the band width to avoid
 inward spikes at acute corners. Doors stand 13 units tall on every model. Tier-one shops keep the full cottage
 facade and door scale. Model-only
-features (porches, painted chimneys, dormers) do not appear on lot-outline
-buildings. Wizard towers and the fort hall keep their whole shells, fit inside
+features (porches and dormers) do not appear on lot-outline
+buildings. Smithies retain a broad stone chimney at every tier, with a flared
+base, capped dark mouth and smoke; their dedicated facade never uses the cottage. Wizard towers and the fort hall keep their whole shells, fit inside
 the lot with uniform scale. Their fitter tries dominant lot-edge orientations
 and interior triangle centres to avoid shrinking unnecessarily on diagonal
 wings; an explicit entrance direction remains fixed. Only models assigned
@@ -163,19 +164,36 @@ These settings do not stretch or add floors to the reviewed exterior models.
 
 ## Wrecks
 
-Wrecks follow the Foundation trace art preview: sparse 1–2-unit stone
-footings, about three units thick, with two surviving bays in each nine-bay
-run. Small fallen fragments stay below two units. Roofs, rafters and leaning
-panels are absent. Every height step has an outward-facing end cap. Arbitrary
-concave footprints retain their exact ground area.
-
-`tools/build_wreck_plinth.py` builds `wreck-plinth.png` from the preview's
-Ruined Medieval Village B03 stone crop (16,18,16,10) and Rogue Adventure
-Cavern dirt and grit tiles at (224,16) and (272,16). Caps and sides share the
-weathered stone pixels; fine source chips cover the flat earth. The shared
-512px atlas holds side masonry in its upper-left quarter, caps in the
-upper-right, and flat rubble below y=128. No per-building material is
-generated. Rogue/Dreamland retain their prepared profile palette variants.
+Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
+Individual 3D blocks centre on the old wall line, with eight-unit thickness,
+half-unit joints and one-unit clipped corners. Five bays in each nine-bay run
+rise through approximately 5, 10, 14, 11 and 5 units; long sides and the street
+entrance retain broad openings. Seeded wear varies the heights slightly. Loose
+fallen blocks are 2–4 units tall; their count scales with footprint area up to
+24. No roofs or raised framing remain.
+`tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
+speckled caps, and a restrained ground scatter using the same warm stone
+palette. Broad tarnish patches replace the study’s fine tiled grain and red
+brick flecks. The generator also supports buried-rubble and worn-ground previews.
+A five-unit brown border follows the footprint at 72% opacity. A shared
+64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
+replacing individual dash polygons without a custom shader or per-building bake.
+All profiles use the shared mask; their masonry palettes remain independent.
+The border stays on the ground
+beneath actors and masonry. Loose rubble uses the same clipped-corner
+footprints as the wall blocks, without sharp highlight strips. Their side
+vertices shade from 65% brightness at ground contact to unchanged brightness
+at the top, adding no geometry and leaving the lids unchanged.
+The subdued brown base has alpha 185/255 (73%, byte-rounded). Broad, softly
+blended grime and worn patches reduce ground alpha to 86–144/255, exposing
+more underlying terrain without adding fine grain. The background alone is
+20% darker, with grime another 20% darker. Embedded stone scatter is 20%
+lighter and more opaque; raised masonry keeps its original palette.
+Sparse ground chips are composited separately, while raised
+masonry stays opaque. The WebGL overlay must not paint an opaque floor beneath
+this atlas. Ground follows the exact triangulated footprint and sorts below
+the player. Rogue preparation preserves the approved colors and alpha without
+an additional olive wash. No per-building material is generated.
 The floor sorts below actors; individual raised sections sort at their wall
 baselines. Breaches, doorway clearance and scattered blocks use stable IDs.
 

@@ -1449,7 +1449,7 @@
       "category": "ground",
       "sources": [
         {
-          "path": "assets/Objects/Wilderness/Bridge Beach.png",
+          "path": "extra_assets/inactive/assets/Objects/Wilderness/Bridge Beach.png",
           "frame": 20,
           "frameWidth": 16,
           "frameHeight": 16
@@ -1468,7 +1468,7 @@
       "preserveLuminance": true,
       "rationale": "A crisp narrow plank reads better at map scale than a detailed replacement bridge.",
       "candidate": {
-        "path": "assets/Objects/Wilderness/Bridge Beach.png",
+        "path": "extra_assets/inactive/assets/Objects/Wilderness/Bridge Beach.png",
         "frame": 20,
         "frameWidth": 16,
         "frameHeight": 16,

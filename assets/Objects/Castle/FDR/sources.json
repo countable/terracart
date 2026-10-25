@@ -11,8 +11,8 @@
       "sha256": "ce48e1a8ad5de30b257bcccd1842cb94491e1f1ca7902b2fe411d9d62488a820"
     }
   },
-  "processing": "Source crops, nearest-neighbour scaling and padded atlas packing only; no generated imagery or recoloring.",
-  "palette": "Warm native palette; condition tint is applied by the renderer.",
+  "processing": "Source crops with mean-preserving masonry contrast compression, a modest sky-facing material lift, nearest-neighbour scaling and padded atlas packing; no generated imagery.",
+  "palette": "Warm source-derived palette; the renderer applies condition tint and one lower-half wall shade band.",
   "atlas": {
     "size": [
       512,
@@ -55,7 +55,11 @@
       "alphaRange": [
         0,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0.07
+      }
     },
     {
       "slot": 3,
@@ -82,7 +86,11 @@
       "alphaRange": [
         255,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0
+      }
     },
     {
       "slot": 4,
@@ -109,7 +117,11 @@
       "alphaRange": [
         255,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 1,
+        "skyLift": 0.07
+      }
     },
     {
       "slot": 5,
@@ -136,7 +148,11 @@
       "alphaRange": [
         0,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 1,
+        "skyLift": 0
+      }
     },
     {
       "slot": 6,
@@ -163,7 +179,11 @@
       "alphaRange": [
         0,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 1,
+        "skyLift": 0
+      }
     },
     {
       "slot": 7,
@@ -190,7 +210,11 @@
       "alphaRange": [
         0,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0.07
+      }
     },
     {
       "slot": 8,
@@ -217,7 +241,11 @@
       "alphaRange": [
         255,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0.07
+      }
     },
     {
       "slot": 9,
@@ -244,7 +272,11 @@
       "alphaRange": [
         255,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0
+      }
     },
     {
       "slot": 10,
@@ -271,7 +303,11 @@
       "alphaRange": [
         255,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0
+      }
     },
     {
       "slot": 11,
@@ -298,7 +334,11 @@
       "alphaRange": [
         0,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0
+      }
     },
     {
       "slot": 12,
@@ -325,12 +365,16 @@
       "alphaRange": [
         0,
         255
-      ]
+      ],
+      "treatment": {
+        "contrast": 0.6,
+        "skyLift": 0.07
+      }
     }
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "1b3a670d097912b29929b2db22b34b3dadbe3a8bafdceacde0a9966e69cbb3a6",
+      "sha256": "6050c66767128594527f0a7ad269e16edf1eee11c4aa80bc648ff475da7b1c36",
       "size": [
         512,
         512
