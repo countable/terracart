@@ -136,20 +136,31 @@ Tilled beds overlay the continuous native ground without removing its dual tile;
 otherwise the neighbouring half-cells would lose their texture.
 Map review deliberately displays each owning material without transitions.
 Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 26 families
-(416 frames, 256 × 416 pixels), including public residential light slate, cold slate, original square commercial
+(416 native frames), including public residential light slate, cold slate, original square commercial
 concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
 Grove ground uses the green Meadow grass interior in both native masks and
 fallback tiles. Grove variants retain green ground beneath their authored props
 and accents; the game and map review share these material choices.
 `tools/build_ra_terrain_trial.py` records each interior and mask source in the
-export manifest. Both rendering backends select these frames without a
+export manifest.
+Grass meets other ground on rounded corners. Below the native rows the atlas
+repeats every family (256 × 832 pixels) with masks re-cut on the logical cell
+boundary: convex corners rounded and concave corners filleted at
+`GroundMaterials.atlas.roundedRadius` (6 of 16 px), each family's own opaque
+centre and re-derived edge ink, and a mirrored one-pixel wobble so islands stay
+centred. Water's row copies its authored bank rocks. `layersFor` offsets every
+overlay frame into that block when the cell's four materials include a `grass`
+family and a non-grass one, so the cost is one frame offset and boundaries
+between non-grass materials keep their native shape.
+`tools/round_terrain_corners.py` bakes the block as the exporter's last step;
+run it alone to refresh the rounded rows of the committed atlas. Both rendering backends select these frames without a
 permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
 use stable world-cell hashes; variants within one material share a boundary
 mask, so concrete grout and rubble do not acquire internal soil cutouts.
 Collision and logical terrain remain unchanged. `GroundMaterials` owns family
 rows, selected crops, terrain mappings and variant groups for both export and
 runtime. Surface atlas selection precedes fallback texture lookup. The retired
-rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
+standalone rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
 and empty border layer are removed.
 The colour-ramp blur and legacy shoreline strips are removed; structural
 floors, source road paving, mountain edges and rift ground keep their owners.

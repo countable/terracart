@@ -8,6 +8,8 @@ const TerrainTransitions = (() => {
   const MATERIALS = Object.fromEntries(GroundMaterials.families.flatMap((row, index) =>
     row.selectedMaterial ? [[row.selectedMaterial, index]] : []));
   const groups = GroundMaterials.families.map((row, index) => row.group || index);
+  const grass = GroundMaterials.families.map(row => !!row.grass);
+  const ROUNDED = families.length * 16;
   function material(type) { return GroundMaterials.terrainFamilies[type]?.[0] ?? -1; }
   function materialForGround(type, textureKey, x = 0, y = 0) {
     if (textureKey?.startsWith('zone_ground_')) return MATERIALS[textureKey.slice(12)] ?? -1;
@@ -32,12 +34,14 @@ const TerrainTransitions = (() => {
     }
     return normalized;
   }
+  // Where grass meets other ground, overlays use the atlas's rounded rows.
   function layersFor(values) {
     values = transitionValues(values);
+    const offset = values.some(v => grass[v]) && values.some(v => !grass[v]) ? ROUNDED : 0;
     const frames = [];
     for (const family of LAYER_ORDER) {
       const mask = maskFor(values, family);
-      if (mask) frames.push(family * 16 + (frames.length ? mask : 15));
+      if (mask) frames.push(frames.length ? offset + family * 16 + mask : family * 16 + 15);
     }
     return frames;
   }
