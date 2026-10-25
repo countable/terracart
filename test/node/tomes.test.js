@@ -110,7 +110,7 @@
     assert.falsy(/TOME_EFFECT_MUL|TOME_THUNDER_DMG|TOME_HEALING_ENERGY/.test(APP), 'no second multiplier or derived constant in app.js');
   });
 
-  test('vista: grails hold treasure only - no tools, produce or field supplies', () => {
+  test('vista: grails hold treasure only - no produce, field supplies or tools outside the equipment lane', () => {
     const banned = new Set(['potato', 'berry', 'cress', 'egg', 'milk', 'rope', 'trap_disarm_kit', 'torch', 'taming_potion',
       'watering_can', 'hoe', 'fishing_rod', 'net', 'bag']);
     const rng = seeded(4242);
@@ -120,7 +120,8 @@
       const r = pickReward('chest:vista', save, rng, { tier: 5, depth: 0 });
       if (!r) continue;
       rolled++;
-      if (r.slot) assert.falsy(banned.has(r.slot), `vista never hands the tool slot ${r.slot}`);
+      // The cross-theme equipment lane (ChestThemes.CHEST_GEAR) may hand any slot.
+      if (r.slot) assert.truthy(r.group === 'bonusGear' || !banned.has(r.slot), `vista never hands the tool slot ${r.slot}`);
       else if (r.kind === 'item') assert.falsy(banned.has(r.id), `vista never hands ${r.id}`);
     }
     assert.truthy(rolled > 1400, 'the picker produced a full sample');

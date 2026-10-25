@@ -31,6 +31,10 @@
           for (const { kind, slot } of ChestThemes.gearSlots(resolved.group)) {
             for (let t = 1; t <= Math.min(7, quality); t++) out.add(`${kind}:${slot}:${t}`);
           }
+          // The equipment lane also draws unique relics (rarity.js rollChestGear).
+          if (ChestThemes.groups[resolved.group].withUniques && tier >= 2) {
+            for (const id of ChestThemes.eligible('uniqueRelics', quality, opts)) out.add(id);
+          }
         }
       }
     }

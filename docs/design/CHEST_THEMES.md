@@ -68,7 +68,7 @@ chest's position, id, tier, sprite or cave eligibility.
   (`WorldGen.isSensitivePoi`), so there is no memorial theme.
 
 Surprise comes from rarer eligible items inside a theme, never from a
-universal off-theme pool. Starter crates, the starter gear chest, market
+universal off-theme pool. The one cross-theme lane is equipment (below). Starter crates, the starter gear chest, market
 stalls and coin pots keep their own interactions.
 
 ## Selection invariants
@@ -111,9 +111,23 @@ stalls and coin pots keep their own interactions.
   explicit coin allowance through `ChestThemes.quantityForBudget`, sharing
   the same item prices, shares and caps (including wood/rubble). POI density
   sets their full chance and allowance; see [generation](generation.md).
-- **Gear and coins keep their own paths** (`rollGearUpgrade`, `cashValue` in
-  `src/rarity.js`; a purse pays the whole budget); a theme only restricts
-  gear slots (`ChestThemes.gearSlots`).
+- **Gear and coins keep their own paths** (`rollChestGear` /
+  `rollGearUpgrade`, `cashValue` in `src/rarity.js`; a purse pays the whole
+  budget); a theme only restricts gear slots (`ChestThemes.gearSlots`).
+- **Every chest carries equipment.** `ChestThemes.CHEST_GEAR` adds the
+  `bonusGear` lane at `sharePerTier` points per displayed chest tier, up to
+  `maxShare`, taken from the row's non-gear lanes (themed gear lanes, unique
+  relics and furniture keep their shares; a T2 Book share holds it too). It
+  draws evenly over every armour and relic slot and, from T2 chests, the
+  unique relics eligible at the gear tier. It is the only gear a T1 chest
+  offers.
+- **Chest gear starts a tier low.** Every chest gear roll starts
+  `CHEST_GEAR.tierPenalty` under the rolled quality (never under T1; a
+  material-tier weapon with no rung between the chest floor and the lowered
+  tier keeps the full roll). A roll
+  that lands on a slot the player holds at exactly that tier rerolls once at
+  the full quality; only a second miss, or a first roll under owned gear,
+  pays the half-price coins.
 - **Unique finds stay unique.** Unique relics never drop to a player who
   already carries one (`ChestThemes.eligible`).
 - **Books reach the scholar.** Every chest seated at T2 carries a Book share

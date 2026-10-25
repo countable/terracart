@@ -2,6 +2,9 @@
   const uniques = () => ITEMS.filter(item => item.kind === 'unique_relic' && !isTome(item.id) && !item.progressionOnly);
   const held = ids => ({ inv: ids.map(id => ({ id, count: 1 })), relics: {}, armor: {} });
   const quality = { tier: 7, bracket: 5, jackpotApplied: 0 };
+  // A T4 culture roll whose group draw lands on uniqueRelics (just ahead of
+  // the trailing equipment lane), then takes the top of every later draw.
+  const uniqueLaneRng = () => { let n = 0; return () => (n++ ? 0.999 : 0.7); };
 
   test('unique relic rewards: civic owns a broad lane; culture, authority and vista add 5%', () => {
     // A boss's hoard is its own lane: half equipment, half unique relics.
@@ -43,7 +46,7 @@
   test('unique relic rewards: the shipping chooser passes the save and pays one unowned item', () => {
     for (const missing of uniques()) {
       const save = held(uniques().filter(item => item.id !== missing.id).map(item => item.id));
-      const result = resolveChestReward('culture', quality, save, () => 0.999, { tier: 4 });
+      const result = resolveChestReward('culture', quality, save, uniqueLaneRng(), { tier: 4 });
       assert.eq(result.group, 'uniqueRelics');
       assert.eq(result.id, missing.id);
       assert.eq(result.tier, missing.baseTier, 'the relic keeps its fixed equipment tier');
@@ -54,7 +57,7 @@
 
   test('unique relic rewards: exhausted eligible tier falls back to magic, but absent copies can be found again', () => {
     const save = held(uniques().map(item => item.id));
-    const result = resolveChestReward('culture', quality, save, () => 0.999, { tier: 4 });
+    const result = resolveChestReward('culture', quality, save, uniqueLaneRng(), { tier: 4 });
     assert.eq(ITEM_BY_ID[result.id].kind, 'magic'); assert.eq(result.resolvedGroup, 'magic'); assert.truthy(result.fallback);
     const low = ChestThemes.resolve('uniqueRelics', 2, { save, theme: 'culture' });
     assert.eq(low.group, 'magic', 'do not jump above the rolled tier');

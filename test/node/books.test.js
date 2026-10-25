@@ -47,7 +47,9 @@ test('books: a school chest beats every other chest at handing one over', () => 
 });
 
 test('books: the school theme owns the dedicated Book group', () => {
-  assert.eq(ChestThemes.weights('school', 3).books, 60);
+  // 60 of the authored row, less the T3 equipment lane's 21 points (ChestThemes.CHEST_GEAR).
+  assert.eq(ChestThemes.themes.school.weights.books, 60);
+  assert.inRange(ChestThemes.weights('school', 3).books, 47.4 - 1e-9, 47.4 + 1e-9);
   assert.eq(ChestThemes.weights('civic', 3).books, undefined,
     'civic chests reserve their identity for relics, supplies and coins');
 });
@@ -90,7 +92,7 @@ test('school category: the split re-priced nothing — tier, pad and cave mirror
 });
 
 test('school category: Book odds have one owner, without a second favorite roll', () => {
-  assert.eq(ChestThemes.weights('school', 3).books, 60);
+  assert.eq(ChestThemes.themes.school.weights.books, 60);
   assert.eq(LOOT_CONTEXTS['chest:school'].favourite, undefined);
 });
 
