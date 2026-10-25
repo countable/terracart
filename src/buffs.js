@@ -23,10 +23,10 @@
 // one extend rule, laterOf). Pure: no Phaser, no DOM.
 //
 // `extend(save, scene, id, ms)` is THE WRITER of every row's expiry (owner,
-// Oct 2026): a second dose while one runs EXTENDS — the new expiry is
+// Oct 2026): a second dose while one runs EXTENDS - the new expiry is
 // max(now, until) + ms, so nothing a potion or shrine lends is thrown away
-// and nothing refuses while active. Shrines.grant, the bike rack and the
-// hardworking potion pull it; app.js's potion handlers are to follow.
+// and nothing refuses while active. `extendField` applies that same rule to a
+// creature's potion fields. Consumables, shrines and foods use these writers.
 // ─────────────────────────────────────────────────────────────────────────
 (function (root) {
   'use strict';
@@ -107,6 +107,13 @@
   function laterOf(until, ms, now = Date.now()) {
     return Math.max(now, Number(until) || 0) + ms;
   }
+  // Extend one direct epoch field. Player rows and creature potions share this
+  // writer, so both bank a second dose with the rule above.
+  function extendField(holder, field, ms, now = Date.now()) {
+    if (!holder || !field) return false;
+    holder[field] = laterOf(holder[field], ms, now);
+    return true;
+  }
   // A rim mark's slot (save.telescopeCompass, scene.pairyCompass, … — app.js
   // MARKERS) holds a LIST, so several bearings of one kind show at once: two
   // neighbours' directions, two telescope finds, two maps' chests. An older
@@ -131,12 +138,11 @@
   function extend(save, scene, id, ms, now = Date.now()) {
     const k = KINDS[id];
     if (!k || !save) return false;
-    const next = laterOf(until(id, save, scene), ms, now);
-    if (k.save) save[k.save] = next;
-    else if (k.scene) { if (scene) scene[k.scene] = next; }
-    else if (k.boon) (save.boonUntil ||= {})[k.boon] = next;
-    else return false;
-    return true;
+    if (k.save) return extendField(save, k.save, ms, now);
+    // Preserve the row writer's success for a scene row before its scene exists.
+    if (k.scene) return scene ? extendField(scene, k.scene, ms, now) : true;
+    if (k.boon) return extendField((save.boonUntil ||= {}), k.boon, ms, now);
+    return false;
   }
 
   // The running effects, in table order: [{ id, name, color, stroke, remainingMs }].
@@ -149,5 +155,5 @@
     return out;
   }
 
-  root.Buffs = { KINDS, until, active, laterOf, extend, marks, withMark, latestUntil };
+  root.Buffs = { KINDS, until, active, laterOf, extendField, extend, marks, withMark, latestUntil };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

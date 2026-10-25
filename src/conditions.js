@@ -132,6 +132,9 @@
     if (!def) return false;
     return !def.flicker || Math.floor(now / FLICKER_MS) % 2 === 0;
   }
+  // Conditions count foreground time and keep row-specific contact semantics:
+  // harmful contact resets or preserves a row as defined below. It does not
+  // bank like a second consumable dose, whose wall-clock rule Buffs owns.
   function apply(save, id, now = Date.now(), options = {}) {
     const def = DEFINITIONS[id];
     if (!def) return false;

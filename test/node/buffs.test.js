@@ -78,6 +78,10 @@
     assert.falsy(Buffs.extend(save, scene, 'nope', 1000, T0));
     assert.eq(Buffs.laterOf(T0 + 300, 200, T0), T0 + 500, 'the rule: max(now, until) + ms');
     assert.eq(Buffs.laterOf(0, 200, T0), T0 + 200);
+    const creature = { speedPotionUntil: T0 + 300 };
+    assert.truthy(Buffs.extendField(creature, 'speedPotionUntil', 200, T0));
+    assert.eq(creature.speedPotionUntil, T0 + 500, 'the direct-field writer banks a creature potion too');
+    assert.falsy(Buffs.extendField(null, 'speedPotionUntil', 200, T0));
     assert.eq(Buffs.KINDS.treasure.read({ treasureCompass: { until: T0 + 9 } }), T0 + 9, 'the Treasure Map has a chip');
   });
 
