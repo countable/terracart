@@ -139,7 +139,7 @@ The final masters, prompts and runtime hashes are recorded in
 
 ## Book-reading page
 
-`extra_assets/inactive/assets/art/book_page.webp` is the blank half-book background for live reading
+`assets/art/book_page.webp` is the blank half-book background for live reading
 text; the library list and non-book scenes keep their existing paintings.
 The approved master is `~/.artifacts/dialog-style-exploration/book-page.png`;
 `book-reading.png` beside it records the panel composition.

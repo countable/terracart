@@ -90,7 +90,8 @@ def archive(plan, manifest, runtime_inventory=None, rewrite=False, apply=False):
     # Avoid matching assets/... inside an already archived path. All source
     # changes are prepared before mutations; runtime paths may never be rewritten.
     replacements = []
-    pattern = re.compile(r'(?<![A-Za-z0-9_./-])(?:' +
+    # A relative prefix (`../assets/...` from css/) is still a reference.
+    pattern = re.compile(r'(?:(?<=\.\./)|(?<![A-Za-z0-9_./-]))(?:' +
                          '|'.join(re.escape(name) for name in sorted(mapping, key=len, reverse=True)) +
                          r')(?![A-Za-z0-9_.-])') if mapping else None
     if pattern:

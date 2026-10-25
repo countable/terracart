@@ -1328,6 +1328,25 @@ for (const f of testFiles) {
   }
 }
 
+// ── Stylesheet art (every url() in css/ and index.html) ───────────────────
+// A missing background is a blank surface, not an error: the archive sweep
+// once removed the Book page's parchment because `../assets/…` hid the link.
+{
+  const sheets = fs.readdirSync(path.join(ROOT, 'css')).filter((n) => n.endsWith('.css'))
+    .map((n) => path.join('css', n)).concat(['index.html']);
+  for (const rel of sheets) {
+    ctx.__tests.push({ name: `stylesheet art: every url() in ${rel} ships`, fn: () => {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      for (const m of text.matchAll(/url\(\s*['"]?([^'")]+?)['"]?\s*\)/g)) {
+        const ref = m[1];
+        if (/^(data:|https?:|#|blob:)/.test(ref) || ref.includes('${')) continue;
+        const file = path.join(ROOT, path.dirname(rel), ref.split(/[?#]/)[0]);
+        if (!fs.existsSync(file)) throw new Error(`missing art file: ${ref}`);
+      }
+    } });
+  }
+}
+
 // ── Restore cards' paintings (houses.js BUILD_OPTIONS) ────────────────────
 // Every card a wreck can be restored as names the painting its Restored!
 // card opens on; a missing file is a blank banner. Files on disk, so node scope.

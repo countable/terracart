@@ -631,7 +631,7 @@ pixels and decorative details do not define additional tap cells.
   respect deferral rather than draining during the remove/remount gap.
 - The Books read list remains a full mechanical panel with every learned book
   in one scrolling list. Reading or rereading a book puts live dark serif text, scrolling when
-  needed, on `extra_assets/inactive/assets/art/book_page.webp`,
+  needed, on `assets/art/book_page.webp`,
   a full-height illustrated half-book beneath the silver dragon rail.
   `bookPage: true` selects this surface without changing the shared `book_read`
   painting used elsewhere. Closing a reread returns to the book shelf.
