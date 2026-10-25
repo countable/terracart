@@ -616,7 +616,7 @@
       || opts.roadClass?.[i] & (ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_JUNCTION_EXCLUDE | ROAD_CLASS_JUNCTION_SOFT)) return 3;
     return 1;
   }
-  function landRefused(mask, i, pois, cx, cy) {
+  function landRefused(mask, i) {
     if (!mask) return false;
     return !global.GameplayTiers.allowed(spawnTierAt(null, i, { spawnWhy: mask }), 'minor');
   }
@@ -692,7 +692,7 @@
       if (quiet && quiet[g.iy * N + g.ix]) continue;
       // …nor one on land the spawn gate refuses (kindergarten grounds, a
       // yard behind a house): the mask's reading of the same question.
-      if (landRefused(spawnWhy, g.iy * N + g.ix, null, g.ix, g.iy)) continue;
+      if (landRefused(spawnWhy, g.iy * N + g.ix)) continue;
       const opts = { roadMask, quiet, spawnWhy, pois: [g] };
       // The posts are scenery (a minor spawn); the gate's daily FOE is a lair
       // point spawnInTile holds to the attractor rule.
@@ -6253,14 +6253,13 @@
         }
         // THE SPAWN GATE, as a MINOR spawn (flora, rocks, scenery — they may
         // stand on SUPPRESSED ground): whatever its FINAL cell's land refuses
-        // goes — a back yard with no frontage (a POI in reach vouches for
-        // it), a yard behind a house, restricted or sensitive land. Terrain-
+        // goes — a yard behind a house, restricted or sensitive land. Terrain-
         // based, NOT tied to which polygon spawned the thing: a wilderness
         // ROCK or INDUSTRIAL cluster can drop a rock that ends up on a
         // residential cell after the grid is fully painted. A POI chest is
         // the place itself (isSpawnCell's note) and reads only the quiet land
         // above. Forts, castles, houses and towers are already exempt above.
-        if (o.kind !== 'chest' && landRefused(spawnWhy, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) return true;
+        if (o.kind !== 'chest' && landRefused(spawnWhy, iy * w + ix)) return true;
         return false;
       };
       streetRockRefused = _mrDrop;
@@ -6311,7 +6310,7 @@
           if (_onRoadOrBuilding(wtc, ix, iy)) drop = true;
           else if (poiPadCells.has(iy * w + ix)) drop = true;
           // The spawn gate, a MINOR spawn (quiet land folded in).
-          else if (landRefused(spawnWhy, iy * w + ix, _mrSpawnOpts.pois, ix, iy)) drop = true;
+          else if (landRefused(spawnWhy, iy * w + ix)) drop = true;
         }
         if (!drop) wildplants[wpKeep++] = wp;
       }
@@ -7516,15 +7515,15 @@
     for (const o of entry.objects) if (o.kind === 'chest' || o.kind === 'grove_shrine') _sxPois.push(_sxCell(o.x, o.y));
     for (const ch of sx.chests) _sxPois.push(_sxCell(ch.x, ch.y));
     const spawnWhy = entry.spawnWhy || null;
-    const _sxSpawnOpts = { pois: _sxPois, roadMask, quiet, spawnWhy };
+    const _sxSpawnOpts = { roadMask, quiet, spawnWhy };
     // THE SPAWN GATE for the bin's scenery (a MINOR spawn): the land the mask
-    // refuses — quiet, restricted, sensitive, behind a house, no frontage
-    // (the chests above and in the bin vouch for their frontage). Terrain and
-    // band keep each stream's own rule below (a well may repaint a road).
+    // refuses — quiet, restricted, sensitive, behind a house or without
+    // frontage. Terrain and band keep each stream's own rule below (a well may
+    // repaint a road).
     const _sxYardOK = (wx, wy) => {
       const { ix, iy } = _sxCell(wx, wy);
       if (ix < 0 || iy < 0 || ix >= cpe || iy >= cpe) return true;
-      if (spawnWhy) return !landRefused(spawnWhy, iy * cpe + ix, _sxPois, ix, iy);
+      if (spawnWhy) return !landRefused(spawnWhy, iy * cpe + ix);
       if (quiet && quiet[iy * cpe + ix]) return false;   // quiet land hosts nothing
       if (!isLotTerrain(grid[iy * cpe + ix])) return true;
       return isSpawnCell(grid, cpe, cpe, ix, iy, _sxSpawnOpts, 'minor');

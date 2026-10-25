@@ -730,15 +730,13 @@ const TURRET_SCAN_MS = 300;
 function raiderEatsCrop(p) { return Crops.raiderEats(p); }
 
 // --- Debug ---
-// WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed when DEBUG is true.
-// Must default false: the keyboard takeover this gates (see the WASD block in
+// WASD and arrow keys move the player at DEBUG_SPEED_MUL × walk speed only
+// with `?debug=true`. The keyboard takeover this gates (see the WASD block in
 // update() and the SPACE/T/F bindings below) latches GPS off for the rest of
-// the session on the first keypress it sees, so shipping it live meant any
-// GPS-tracked session with a keyboard attached (a Chromebook, a Bluetooth
-// keyboard case) could have the player silently auto-walk off toward wherever
-// a stray key sent them instead of their real position, with no way back but
-// a reload. Flip it locally for desktop testing.
-const DEBUG = false;
+// the session on the first keypress it sees, so the default must never expose
+// it to a GPS-tracked Chromebook or Bluetooth keyboard.
+const DEBUG = typeof location !== 'undefined'
+  && new URLSearchParams(location.search).get('debug') === 'true';
 const DEBUG_SPEED_MUL = 10;
 // Dragon Powder is not a movement mode — it's a stat buff wearing a dragon
 // sprite. For its minute the player walks as if they had boots at this

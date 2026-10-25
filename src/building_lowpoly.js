@@ -549,7 +549,6 @@
         const length=Math.hypot(r.x-q.x,r.y-q.y)||1,chip=Math.min(1,length*.2);
         return {x:q.x+(r.x-q.x)*chip/length,y:q.y+(r.y-q.y)*chip/length};
       }));
-      const roofPatches=[],roofOutline=[];
       const streetEntrance=streetDoor(ring,streets);
       let gap=null,doorway=null;
       if(inner&&inner.length===ring.length){
@@ -643,12 +642,12 @@
       for(let k=0;k<rubbleCount*8&&chunks<rubbleCount;k++){const n=hash(seed+k,41),m=hash(seed+k,43);
         const x=xlo+6+(xhi-xlo-12)*n,y=ylo+6+(yhi-ylo-12)*m;
         if(inside({x,y})&&inside({x:x+4,y})&&inside({x:x-4,y})&&inside({x,y:y+4})&&inside({x,y:y-4}))chunk(chunks++,x,y);}
-      const mesh={...base,faces,pieces,roofPatches,roofOutline,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
+      const mesh={...base,faces,pieces,gap,doorway,roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length,damaged:true};
       if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
     }
-    const faces=[],wizard=recipe.shape==='wizard',radius=wizard?23:26,h=wizard?39:17;
+    const faces=[],radius=26,h=17;
     const push=(p,kind,layer=0,light=.8)=>faces.push({points:p,kind,layer,light});
-    const ring=Array.from({length:wizard?8:4},(_,i)=>{const a=i*Math.PI*2/(wizard?8:4)+(wizard?Math.PI/8:Math.PI/4);return {x:cx+Math.cos(a)*radius,y:cy+Math.sin(a)*radius};});
+    const ring=Array.from({length:4},(_,i)=>{const a=i*Math.PI/2+Math.PI/4;return {x:cx+Math.cos(a)*radius,y:cy+Math.sin(a)*radius};});
     function prism(ring,lo,hi,kind='wall',capped=true){
       ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y)/DETAIL_SCALE;
         const p=[{...a,z:lo,u:14-len/2,v:105-lo},{...b,z:lo,u:14+len/2,v:105-lo},{...b,z:hi,u:14+len/2,v:105-hi},{...a,z:hi,u:14-len/2,v:105-hi}];
@@ -656,21 +655,14 @@
       });
       if(capped)for(const tri of triangulate(ring).triangles)push(tri.map(p=>({...p,z:hi,u:p.x-cx+radius,v:p.y-cy+radius})),'roof',hi);
     }
-    prism(ring,0,h,'wall',!wizard);
-    if(wizard){
-      const outer=ring.map(p=>({x:cx+(p.x-cx)*1.23,y:cy+(p.y-cy)*1.23}));
-      outer.forEach((a,i)=>{const b=outer[(i+1)%outer.length],width=Math.hypot(b.x-a.x,b.y-a.y);
-        push([{...a,z:h,u:0,v:42},{...b,z:h,u:width,v:42},{x:cx,y:cy,z:h+21.5,u:width/2,v:0}],'roof',h+1,.8-(a.x-cx)/radius*.2);
-      });
-    }else{
-      // Eight crenels, including the four corners, on a compact castle shell.
-      const lo=cx-radius/Math.sqrt(2),top=cy-radius/Math.sqrt(2),side=radius*Math.sqrt(2),w=8;
-      for(const [u,v] of [[0,0],[.5,0],[1,0],[1,.5],[1,1],[.5,1],[0,1],[0,.5]]){
-        const x=lo+u*(side-w),y=top+v*(side-w);
-        prism([{x,y},{x:x+w,y},{x:x+w,y:y+w},{x,y:y+w}],h,h+4,'trim');
-      }
+    prism(ring,0,h,'wall');
+    // Eight crenels, including the four corners, on a compact castle shell.
+    const lo=cx-radius/Math.sqrt(2),top=cy-radius/Math.sqrt(2),side=radius*Math.sqrt(2),w=8;
+    for(const [u,v] of [[0,0],[.5,0],[1,0],[1,.5],[1,1],[.5,1],[0,1],[0,.5]]){
+      const x=lo+u*(side-w),y=top+v*(side-w);
+      prism([{x,y},{x:x+w,y},{x:x+w,y:y+w},{x,y:y+w}],h,h+4,'trim');
     }
-    const mesh={ring,faces,height:h+(wizard?21.5:4),eaveHeight:h,uvBaseline:true,
+    const mesh={ring,faces,height:h+4,eaveHeight:h,uvBaseline:true,
       roofTriangles:faces.filter(f=>f.kind==='roof').length,wallTriangles:faces.filter(f=>f.kind==='wall').length,trimTriangles:faces.filter(f=>f.kind==='trim').length};
     if(meshCache.size>=96)meshCache.delete(meshCache.keys().next().value);meshCache.set(key,mesh);return mesh;
   }

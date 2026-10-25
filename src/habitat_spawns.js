@@ -193,7 +193,6 @@
     return { key: profile ? `land:${root.WorldGen.T[nameOf(type)]}${beach ? ':shore' : ''}` : null,
       profile, type, beach };
   }
-  function at(entry, cx, cy) { return resolve(entry, cy * entry?.cellsPerEdge + cx); }
   function faunaRows(profile) { return profile?.fauna || []; }
   function pickFauna(profile, id) { return pick(faunaRows(profile), unit(id + ':fauna'), row => row.weight)?.kind || null; }
   function faunaBudget(profile, id) {
@@ -463,7 +462,7 @@
       faunaRequested: totals.fauna.requested, enemyRequested: totals.enemies.requested };
     return out;
   }
-  const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve, at,
+  const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve,
     faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

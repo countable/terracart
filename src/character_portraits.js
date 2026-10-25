@@ -29,7 +29,7 @@ const CharacterPortraits = (() => {
   function npc(c, { housed = false } = {}) {
     if (!c) return null;
     if (c.role === 'wanderer' && housed) return url('wanderer_housed');
-    if (NPC_IDS.includes(c.role) && ['warden', 'witness', 'wanderer', 'believer', 'archaeologist', 'stranger', 'wizard'].includes(c.role)) return url(c.role);
+    if (['warden', 'witness', 'wanderer', 'believer', 'archaeologist', 'stranger', 'wizard'].includes(c.role)) return url(c.role);
     const sheet = SpriteLayout.npcSheet({ ...c, culture: c.culture || 'village' });
     const id = sheet.idle.replace(/^npc_/, '').replace(/_idle$/, '');
     if (NPC_IDS.includes(id)) return url(id);
