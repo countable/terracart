@@ -916,7 +916,11 @@ access or tile lifecycle mechanics.
   lookahead while the exact centre entry remains ready and spawned. Replacing
   or evicting that entry still starts a fresh pass for Overpass or recovery.
   Prefetched failures enter the normal tile failure path when their build turn
-  arrives.
+  arrives. The first surface centre tile runs its deterministic raster steps as
+  one boot-priority burst because the loading overlay still owns the screen.
+  Every later centre and neighbour returns to the sliced scheduler before the
+  map becomes playable. The burst changes scheduling only; cache keys, seeds
+  and generated records remain identical.
 - `WorldGen.prepareTile` shares a persistent surface-base cache between the
   game and map review. Its key includes the existing shell content version,
   source MVT SHA-256, tile coordinates, cell count, metre frame and review salt.

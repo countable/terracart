@@ -6988,9 +6988,9 @@
   let _lastRasterSlices = 0;
   let _lastRasterWorstMs = 0;
   let _lastRasterWorstAt = '';
-  async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+  async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM, burst = false) {
     const stats = {};
-    const value = await driveStepsSliced(rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM), stats);
+    const value = await driveStepsSliced(rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM), stats, null, burst);
     _lastRasterSlices = stats.slices;
     _lastRasterWorstMs = Math.round(stats.worstMs);
     _lastRasterWorstAt = stats.worstAt;
@@ -7030,7 +7030,7 @@
         || !Array.isArray(source.objects) || !Array.isArray(source.wildplants))) return false;
     return true;
   }
-  async function prepareTile(bytes, N, tx, ty, tileEdgeM) {
+  async function prepareTile(bytes, N, tx, ty, tileEdgeM, opts = null) {
     const bp = global.__boot, label = `tile ${tileKey(tx, ty)}`;
     const endCache = bp?.begin(`${label} generation cache`);
     const store = generatedTileStore();
@@ -7052,7 +7052,11 @@
     const layers = await runHeavyPhase(() => MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
     endDecode?.(`${layers.length} layers`);
     const endRaster = bp?.begin(`${label} rasterize`);
-    const result = await runHeavyPhase(() => rasterizeTileSliced(layers, N, tx, ty, tileEdgeM));
+    // The first centre tile owns the boot overlay. Drive its deterministic
+    // steps without frame waits because no playable world exists to protect;
+    // every later tile keeps the sliced scheduler used during live play.
+    const result = await runHeavyPhase(() => rasterizeTileSliced(layers, N, tx, ty, tileEdgeM,
+      !!opts?.bootPriority));
     endRaster?.(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
     // Await the write before callers can mutate these arrays for live play.
     // The persistence facade swallows quota/availability/clone failures.
@@ -7072,7 +7076,7 @@
   //           promise resolves with ABORTED. For a pass whose target can be
   //           replaced while it waits (a tile evicted mid-spawn).
   const ABORTED = Symbol('aborted');
-  async function driveStepsSliced(it, stats, abort) {
+  async function driveStepsSliced(it, stats, abort, burst = false) {
     let started = _now();
     let slices = 1, worst = 0, worstAt = '';
     for (;;) {
@@ -7090,7 +7094,7 @@
       // huge polygon between two yields blocks for as long as it takes however
       // short the budget is. If a profile shows a worst block far above the
       // budget, THAT is the thing left to chunk.
-      if (held >= _sliceMs) {
+      if (!burst && held >= _sliceMs) {
         const handedBack = _now();
         await _yieldToPaint();
         const back = _now();
@@ -7118,7 +7122,7 @@
     const o = opts || {};
     return runHeavyPhase(() => {
       if (o.abort && o.abort()) return ABORTED;
-      return driveStepsSliced(makeSteps(), o.stats, o.abort);
+      return driveStepsSliced(makeSteps(), o.stats, o.abort, !!o.burst);
     });
   }
 
@@ -7238,7 +7242,7 @@
         (fromCache ? 'from cache' : 'from network'));
       // Cache hits skip both source decoding and rasterization. Misses retain
       // the same serial, sliced heavy phases; all live overlays run below.
-      const { layers, result } = await prepareTile(bytes, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { layers, result } = await prepareTile(bytes, entry.cellsPerEdge, x, y, tileEdgeM, opts);
       const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = result;
       // NO cross-tile dedup. A seam used to hand the same POI / the same
       // house to two tiles, and a proximity dedup against whatever was already
