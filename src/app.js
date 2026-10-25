@@ -4594,7 +4594,8 @@ class MapScene extends Phaser.Scene {
       const chip = BossEncounters.KINDS[e.kind].chip;
       chips.push({ id: `boss_${e.key}`, icon: chip.icon, kind: 'boss', ink: chip.ink, bg: chip.bg, time: shortDuration(e.remainingMs), text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
     }
-    row.hidden = chips.length === 0;
+    const hide = chips.length === 0;
+    if (row.hidden !== hide) row.hidden = hide;
     const order = chips.map((c) => c.id).join(',');
     if (this._statusRowDOM !== order) {
       this._statusRowDOM = order;

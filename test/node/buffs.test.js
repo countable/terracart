@@ -102,6 +102,7 @@
     assert.truthy(/`\$\{b\.name\} · \$\{shortDuration\(b\.remainingMs\)\}`/.test(body), 'name · shortDuration');
     assert.truthy(/if \(this\._statusRowDOM !== order\)/.test(body), 'the DOM is only rebuilt when the set or order changes');
     assert.falsy(/_bodyHold|'Here'/.test(body), 'slowing ground and contact show no chip: the row is timed effects only');
+    assert.truthy(/if \(row\.hidden !== hide\) row\.hidden = hide;/.test(body), 'the per-frame tick changes visibility only when it changes');
     assert.truthy(/if \(el\._statusTimer\.textContent !== c\.time\) el\._statusTimer\.textContent = c\.time;/.test(body), 'text writes guarded');
     assert.truthy(/this\._syncStatusRow\(\);/.test(app.match(/\n  _tickConditions\(\) \{\n([\s\S]*?)\n  \}\n/)[1]), 'driven every frame from the condition tick');
     assert.truthy(/#status-row \{\n  position: fixed;\n  top: calc\(8px \+ env\(safe-area-inset-top, 0px\) \+ var\(--hud-chip-h\) \+ 6px\);/.test(app),

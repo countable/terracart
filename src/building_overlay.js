@@ -1324,17 +1324,28 @@
       pending.steps.return?.();
       scene._buildingGeomPending = pending = null;
     }
+    let handledPending = false;
     if (pending) {
       const retained = retainedOverlayOffset(scene, previous, frame);
-      if (claimOverlayRebuild(scene, 'building', !retained)) {
-        timedOverlayRebuild('building overlay rebuild', () => finishRebuild(pending.steps));
-        scene._buildingGeomFrame = pending.paint;
-        scene._buildingGeomKey = pending.key;
-        scene._buildingGeomPainted = true;
-        scene._buildingGeomPending = null;
-        offset = pending.paint;
-      } else offset = retained;
-    } else if (paint.rebuild) {
+      if (!retained) {
+        // The camera outran the plan before its paint update. Drop that old
+        // anchor and take the synchronous path below, because publishing the
+        // stale plan would move every footprint several cells for one frame.
+        pending.steps.return?.();
+        scene._buildingGeomPending = pending = null;
+      } else {
+        handledPending = true;
+        if (claimOverlayRebuild(scene, 'building', false)) {
+          timedOverlayRebuild('building overlay rebuild', () => finishRebuild(pending.steps));
+          scene._buildingGeomFrame = pending.paint;
+          scene._buildingGeomKey = pending.key;
+          scene._buildingGeomPainted = true;
+          scene._buildingGeomPending = null;
+          offset = pending.paint;
+        } else offset = retained;
+      }
+    }
+    if (!handledPending && paint.rebuild) {
       // Null = the retained paint cannot follow the anchor (a teleport
       // outran its pad): spend this update's upload rather than show stale
       // geometry for a frame.

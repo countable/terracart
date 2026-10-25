@@ -887,8 +887,9 @@ the surrounding grove’s shrub scale.
   building paint still covers the padded view, `BuildingOverlay` plans the
   next geometry on one update and paints that saved plan on the next. First
   paint and teleports remain synchronous because no retained picture can cover
-  them. A changed frame key cancels an unpainted plan, so claims and tile
-  replacements cannot land stale geometry. The road overlay
+  them. A changed frame key or movement beyond the retained pad cancels an
+  unpainted plan, so claims, tile replacements and same-tile teleports cannot
+  land stale geometry. The road overlay
   retains its visible base/restored pair while it paints a hidden pair in 2 ms
   slices, then swaps both atomically; each pass reuses its full-size scratch
   layers between rebuilds. Measured: one read-back per building per crossing

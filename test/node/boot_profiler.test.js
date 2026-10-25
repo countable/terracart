@@ -187,6 +187,34 @@ test('overlay rebuild slot: road and building canvas uploads land on separate up
   }
 });
 
+test('overlay rebuild slot: a same-tile teleport drops a staged building plan', () => {
+  WorldGen.tileCache.clear();
+  putBuildingTile(0, 0, [{ tier: 9, ownerKey: 'b1',
+    ring: [{ x: 0, y: 0 }, { x: 10, y: 0 }, { x: 10, y: 10 }, { x: 0, y: 10 }] }]);
+  const scene = makeOverlayScene({ _overlayFrameSeq: 1 });
+  const boot = makeBootStub();
+  window.__boot = boot;
+  try {
+    BuildingOverlay.draw(scene);                    // first paint at cell 0
+    scene.playerM.x += scene.cellM * 1.75;
+    scene._overlayFrameSeq++;
+    BuildingOverlay.draw(scene);                    // plan at cell 1
+    assert.truthy(scene._buildingGeomPending, 'the retained picture covers one planning update');
+
+    scene.playerM.x += scene.cellM * 3;
+    scene._overlayFrameSeq++;
+    BuildingOverlay.draw(scene);                    // teleport to cell 4
+    assert.falsy(scene._buildingGeomPending, 'the old-anchor plan is discarded');
+    assert.eq(scene._buildingGeomFrame.x, scene.cellM * 4,
+      'the synchronous replacement belongs to the teleported anchor');
+    assert.eq(scene.buildingGeomContainer.x, -CELL_PX * 0.75,
+      'fresh paint keeps only the current sub-cell offset');
+  } finally {
+    window.__boot = undefined;
+    WorldGen.tileCache.clear();
+  }
+});
+
 // ── Render.drawObjects: entries scanned / kept ──────────────────────────────
 // Render.drawObjects draws real sprites via Phaser (scene.add, textures,
 // pools) well past the counting loop this test targets, so the fixture below
