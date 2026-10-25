@@ -20,7 +20,8 @@
   function nearby(items,poly){const box=bounds(poly);return items.filter(item=>touches(box,item.bounds||(item.bounds=bounds(item.points))));}
   function compute(points,options){
     const perimeter=points.reduce((sum,p,i)=>sum+Math.hypot(points[(i+1)%points.length].x-p.x,points[(i+1)%points.length].y-p.y),0);
-    const sectionLength=Math.max(16,perimeter/LIMITS.sections),pitch=Math.max(16,perimeter/LIMITS.merlons);
+    const sectionLength=Math.max(options.sectionLength || 16,perimeter/LIMITS.sections),pitch=Math.max(options.merlonPitch || 16,perimeter/LIMITS.merlons);
+    const towerWidth=options.towerWidth || 32,wallHeight=options.wallHeight || 24;
     const triangles=PolygonGeometry.triangulate(points).map(t=>area(t)<0?t.slice().reverse():t),edges=points.map((a,i)=>({a,b:points[(i+1)%points.length],strip:edgeStrip(a,points[(i+1)%points.length])}));
     if(!triangles.length)return null;
     const towers=[];
@@ -31,9 +32,9 @@
       const before=Math.hypot(p.x-previous.x,p.y-previous.y),after=Math.hypot(next.x-p.x,next.y-p.y);
       if(Math.min(before,after)<24)continue;
       const nx=-(p.y-previous.y)/before-(next.y-p.y)/after,ny=(p.x-previous.x)/before+(next.x-p.x)/after,length=Math.hypot(nx,ny);
-      const x=p.x+4*nx/length,y=p.y+4*ny/length,box=rect(x,y,32,32);
-      if(overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)&&!towers.some(t=>overlap(rect(x,y,40,40),t.points))){
-        towers.push({x,y,width:32,depth:32,height:32,points:box,corner:i});
+      const x=p.x+4*nx/length,y=p.y+4*ny/length,box=rect(x,y,towerWidth,towerWidth);
+      if(overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)&&!towers.some(t=>overlap(rect(x,y,towerWidth+8,towerWidth+8),t.points))){
+        towers.push({x,y,width:towerWidth,depth:towerWidth,height:options.towerHeight || 32,points:box,corner:i});
       }
     }
     const walls=[];
@@ -65,7 +66,7 @@
         const box=[[-4,-4],[4,-4],[4,4],[-4,4]].map(([u,v])=>({x:cx+ux*u+nx*v,y:cy+uy*u+ny*v}));
         if(!contains(box,points)||towers.some(t=>overlap(box,t.points))||merlons.some(m=>overlap(box,m.points)))continue;
         const covered=nearby(walls,box).reduce((sum,w)=>sum+Math.abs(area(intersect(box,w.points))),0);if(Math.abs(covered-64)>1e-3)continue;
-        merlons.push({edge,points:box,base:24,top:32,rimTop:24,rim:edges[edge].strip,coveredArea:covered});
+        merlons.push({edge,points:box,base:wallHeight,top:wallHeight+8,rimTop:wallHeight,rim:edges[edge].strip,coveredArea:covered});
       }
     }
     const box=bounds(points),cx=(box.left+box.right)/2,cy=(box.top+box.bottom)/2,choices=[];
@@ -75,7 +76,7 @@
     for(let ix=1;ix<10;ix++)for(let iy=1;iy<10;iy++)candidates.push({x:box.left+(box.right-box.left)*ix/10,y:box.top+(box.bottom-box.top)*iy/10});
     if(options.keep!==false)for(const {x,y} of candidates){
       const clearance=rect(x,y,88,72);if(!contains(clearance,points)||nearby([...towers,...walls],clearance).some(t=>overlap(clearance,t.points)))continue;
-      choices.push({x,y,width:64,depth:48,height:48,points:rect(x,y,64,48),clearance,score:(x-cx)**2+(y-cy)**2});
+      choices.push({x,y,width:64,depth:48,height:options.keepHeight || 48,points:rect(x,y,64,48),clearance,score:(x-cx)**2+(y-cy)**2});
     }
     choices.sort((a,b)=>a.score-b.score||a.y-b.y||a.x-b.x);const keep=choices[0]||null;
     return {points,towers,walls,merlons,keep,perimeter,pitch};
@@ -92,7 +93,7 @@
       if(cross(a,b,c)*cross(a,b,d)<-EPS&&cross(c,d,a)*cross(c,d,b)<-EPS)return null;
     }
     if(area(points)<0)points.reverse();const start=points.reduce((best,p,i)=>p.x<points[best].x||(p.x===points[best].x&&p.y<points[best].y)?i:best,0);points=points.slice(start).concat(points.slice(0,start));
-    const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y})),key=JSON.stringify([local,options.keep!==false]);
+    const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y})),key=JSON.stringify([local,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.sectionLength]);
     let layout=cache.get(key);
     if(layout===undefined){layout=compute(local,options);if(cache.size>=LIMITS.cache)cache.delete(cache.keys().next().value);cache.set(key,layout);}
     if(!layout)return null;

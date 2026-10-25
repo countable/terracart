@@ -1,6 +1,7 @@
-// FDR atlas Canvas coverage: close only paired opaque coplanar edges.
+// FDR Canvas coverage: close paired opaque edges, including adjacent flat roof planes.
 // Exterior silhouettes and transparent material clips remain exact.
 (function (global) {
+  const whitePatch=points=>points?.every(p=>p.u>=496/512&&p.u<=504/512&&p.v>=496/512&&p.v<=504/512);
   const pointKey = p => [p.x,p.y,p.z].map(n=>Math.round(n*1e5)).join(',');
   function planeKey(points) {
     const [a,b,c]=points, u={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},v={x:c.x-a.x,y:c.y-a.y,z:c.z-a.z};
@@ -10,21 +11,29 @@
     return [...n,n[0]*a.x+n[1]*a.y+n[2]*a.z].map(x=>Math.round(x*1e5)).join(',');
   }
   function internalEdges(triangles) {
-    const shared=triangles.map(()=>[false,false,false]),edges=new Map(),groups=new Map(),paths=[];
+    const shared=triangles.map(()=>[false,false,false]),edges=new Map(),solidEdges=new Map(),groups=new Map(),paths=[];
     triangles.forEach((t,index)=>{
       if(!t.uv||t.alpha!==1)return;
       const center=t.uv.reduce((p,q)=>({u:p.u+q.u/3,v:p.v+q.v/3}),{u:0,v:0});
       const slot=Math.floor(center.u*4)+4*Math.floor(center.v*4);
       // Only fully opaque materials participate. Gates, windows, coping and
       // base tiles contain transparent source pixels and retain exact clips.
-      if(![3,4,8,9,10].includes(slot))return;
+      if(![3,4,8,9,10,13].includes(slot)&&!whitePatch(t.uv))return;
       const plane=planeKey(t.uv);if(!plane)return;
       const groupKey=plane+'|'+slot+'|'+t.color;let path=groups.get(groupKey);
       if(!path){path=new Path2D();groups.set(groupKey,path);}paths[index]=path;
       const [a,b,c]=t.points,reverse=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0;
       for(let i=0;i<3;i++){
         const j=(i+1)%3,ka=pointKey(t.uv[i]),kb=pointKey(t.uv[j]);
-        const key=groupKey+'|'+[ka,kb].sort().join('|');
+        const rawKey=[ka,kb].sort().join('|');
+        // Different cel colours and roof slopes still meet at one opaque edge.
+        // Flat fills can overlap that shared edge without touching silhouettes.
+        if(whitePatch(t.uv)){
+          const pair=solidEdges.get(rawKey);
+          if(pair){shared[index][i]=true;shared[pair.index][pair.edge]=true;}
+          else solidEdges.set(rawKey,{index,edge:i});
+        }
+        const key=groupKey+'|'+rawKey;
         const existing=edges.get(key);
         if(existing){shared[index][i]=true;shared[existing.index][existing.edge]=true;existing.paired=true;}
         else edges.set(key,{index,edge:i,groupKey,a:reverse?t.points[j]:t.points[i],b:reverse?t.points[i]:t.points[j],ka:reverse?kb:ka,kb:reverse?ka:kb});
@@ -81,7 +90,7 @@
       g.save();g.setTransform(matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f);g.imageSmoothingEnabled=false;const transform=g.getTransform();
       src._fdrCanvasSharedEdges=shared.reduce((n,edges)=>n+edges.filter(Boolean).length,0);
       const affine=t=>{
-        if(!t.uv)return null;
+        if(!t.uv||whitePatch(t.uv))return null;
         const [a,b,c]=t.points,[u,v,w]=t.uv.map(p=>({x:p.u*image.width,y:p.v*image.height})),ux=v.x-u.x,uy=v.y-u.y,vx=w.x-u.x,vy=w.y-u.y,det=ux*vy-uy*vx;
         if(Math.abs(det)<1e-9)return null;
         const ax=b.x-a.x,ay=b.y-a.y,bx=c.x-a.x,by=c.y-a.y,m0=(ax*vy-bx*uy)/det,m1=(ay*vy-by*uy)/det,m2=(bx*ux-ax*vx)/det,m3=(by*ux-ay*vx)/det;
@@ -94,7 +103,7 @@
         g.beginPath();
         const append=i=>{let clip=expanded(src._wallTriangles[i].points,shared[i],transform);const [a,b,c]=clip;if((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0)clip=clip.slice().reverse();g.moveTo(clip[0].x,clip[0].y);g.lineTo(clip[1].x,clip[1].y);g.lineTo(clip[2].x,clip[2].y);g.closePath();};
         append(index);
-        if(!t.uv){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
+        if(!t.uv||whitePatch(t.uv)){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
         if(!map)continue;
         const path=paths[index];
         // Consecutive opaque triangles with the identical texture transform

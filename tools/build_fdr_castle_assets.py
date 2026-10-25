@@ -98,6 +98,16 @@ def build(out):
                          atlasContentRect=[ox + PAD, oy + PAD, CONTENT, CONTENT],
                          gutterX='wrap' if wrap_x else 'clamp', gutterY='wrap' if wrap_y else 'clamp',
                          alphaRange=list(native.getchannel('A').getextrema()), treatment=paint))
+    # Quiet neutral pixel marks for the cel-shaded family palettes. This is a
+    # shared material repeat, not per-building geometry or a runtime bake.
+    quiet = Image.new('RGBA', (32, 32), (255, 255, 255, 255))
+    for x, y, width in [(4, 8, 5), (21, 18, 6), (12, 27, 4)]:
+        for xx in range(x, x + width): quiet.putpixel((xx, y), (238, 238, 238, 255))
+        quiet.putpixel((x + width - 1, y - 1), (245, 245, 245, 255))
+    atlas.paste(padded(quiet, True, True), (128, 384))
+    rows.append(dict(slot=13, name='quiet-stone', source='authored neutral pixel marks',
+                     normalizedSize=[32, 32], atlasContentRect=[136, 392, CONTENT, CONTENT],
+                     gutterX='wrap', gutterY='wrap', alphaRange=[255, 255]))
     # Shared retained renderer samples its untextured triangles at (500, 500).
     atlas.paste((255, 255, 255, 255), (496, 496, 504, 504))
     atlas.save(out / 'atlas.png')
@@ -109,7 +119,7 @@ def build(out):
             'floor': dict(path=str(FLOOR_SOURCE.relative_to(ROOT)), sha256=digest(FLOOR_SOURCE)),
         },
         processing='Source crops with mean-preserving masonry contrast compression, a modest sky-facing material lift, nearest-neighbour scaling and padded atlas packing; no generated imagery.',
-        palette='Warm source-derived palette; the renderer applies condition tint and one lower-half wall shade band.',
+        palette='Legacy source crops plus a neutral quiet-stone repeat and white patch for the three cel-shaded family palettes; basal wall band is authored in geometry.',
         atlas=dict(size=[SIZE, SIZE], slotSize=SLOT, padding=PAD, contentSize=CONTENT,
                    whitePatch=[496, 496, 8, 8], unusedSlots='Transparent'),
         materials=rows,
