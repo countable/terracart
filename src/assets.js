@@ -29,6 +29,9 @@ const ASSETS = {
   selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
   selected_shrub: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/shrub-olive.png', frameWidth: 16, frameHeight: 16 },
   weather_rain: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/rain.png', frameWidth: 16, frameHeight: 16 },
+  // One native 24px top-down steel snare frame, cropped with provenance in
+  // ArtTrials/RogueObjects/manifest.json. textures.js seats it in the 32px cell.
+  snare_open: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/snare_open.png', frameWidth: 24, frameHeight: 24 },
   selected_rubble: {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 48, "y": 64, "width": 16, "height": 16}, "frameRects": {"0": {"x": 48, "y": 64, "width": 16, "height": 16}}},
   selected_mushroom: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-selected_mushroom.png", "frameWidth": 16, "frameHeight": 16},
   selected_longgrass: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-selected_longgrass.png", "frameWidth": 16, "frameHeight": 16},

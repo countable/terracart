@@ -525,5 +525,25 @@
       11,
       8
     ]
+  },
+  {
+    "id": "snare-open",
+    "source": "extra_assets/inactive/assets/Objects/SpikeTrapsTopDown/spikeball.png",
+    "rect": [
+      0,
+      0,
+      24,
+      24
+    ],
+    "note": "Top-down steel-toothed snare frame selected from the archived spike-trap sheet; the cropped frame has alpha, a black upper outline, bright tooth tips and a centred one-cell silhouette.",
+    "sourceSHA256": "a52c556d630cacf6866b27326e1e5cab186121b2258514810f43a079c65c0238",
+    "bounds": {
+      "fw": 24,
+      "fh": 24,
+      "minX": 1,
+      "minY": 1,
+      "maxX": 22,
+      "maxY": 22
+    }
   }
 ]
