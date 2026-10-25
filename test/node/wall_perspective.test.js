@@ -19,6 +19,22 @@
   }
   function close(a, b, message) { assert.lt(Math.abs(a - b), 1e-8, message); }
 
+  test('render prism group pass seats a new group and scrolls retained geometry', () => {
+    const s = scene(), points = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }];
+    let paints = 0;
+    const paint = group => {
+      paints++; group.renderDepth = 0;
+      WallPerspective.prism(s, 'shared-test', points, 0, 4, { face: 1, top: 2, dark: 3 });
+    };
+    assert.truthy(Render.prismGroupPass(s, 'shared-test', '_sharedTestKey', 'first', -3, -4, paint));
+    const group = s._wallPerspective['shared-test'], block = group.blocks[0];
+    assert.eq(group.x, -3); assert.eq(group.y, -4); assert.eq(paints, 1);
+    assert.falsy(Render.prismGroupPass(s, 'shared-test', '_sharedTestKey', 'first', -8, -9, paint));
+    assert.eq(group.x, -8); assert.eq(group.y, -9); assert.eq(group.blocks[0], block); assert.eq(paints, 1);
+    assert.truthy(Render.prismGroupPass(s, 'shared-test', '_sharedTestKey', 'second', -8, -9, paint));
+    assert.eq(paints, 2); assert.truthy(group.blocks[0] !== block, 'a changed key rebuilds geometry');
+  });
+
   test('wall perspective: short and angled palisade intervals keep square sixth-cell posts', () => {
     for(const [ax,ay,bx,by] of [[0,0,4,0],[0,0,8,8],[20,10,20,42]]){
       const s=scene(),group=WallPerspective.begin(s,'polygon');
