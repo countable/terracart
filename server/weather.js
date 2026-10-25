@@ -2,7 +2,7 @@
 
 const { kindFor } = require('../src/weather_codes.js');
 
-const CACHE_MS = 10 * 60 * 1000;
+const CACHE_MS = 60 * 60 * 1000;
 const ROUND_DEGREES = 0.05;
 
 function weatherError(message, status = 503) {
@@ -34,8 +34,20 @@ function compactWeather(payload, now = Date.now()) {
   if (!Number.isInteger(code) || !Number.isFinite(temp) || !Number.isFinite(windKph))
     throw weatherError('Weather service unavailable');
   const kind = kindFor(code, current.precip_mm);
-  return { precip: kind !== 'none', kind, condition: code, temp: Math.round(temp),
-    windKph: Math.round(windKph * 10) / 10, cachedAt: now };
+  // Today's forecast high and low plus the place's UTC offset let the client
+  // interpolate the temperature between hourly measurements.
+  const day = payload.forecast?.forecastday?.[0]?.day;
+  const hi = Number(day?.maxtemp_c), lo = Number(day?.mintemp_c);
+  const epoch = Number(payload.location?.localtime_epoch);
+  const local = Date.parse(String(payload.location?.localtime || '').replace(' ', 'T') + 'Z');
+  const offset = Number.isFinite(epoch) && Number.isFinite(local) ? Math.round((local - epoch * 1000) / 60000 / 15) * 15 : NaN;
+  const measured = Number(current.last_updated_epoch);
+  return { precip: kind !== 'none', kind, condition: code, temp: Math.round(temp * 10) / 10,
+    windKph: Math.round(windKph * 10) / 10,
+    hi: Number.isFinite(hi) && Number.isFinite(lo) ? Math.round(hi * 10) / 10 : null,
+    lo: Number.isFinite(hi) && Number.isFinite(lo) ? Math.round(lo * 10) / 10 : null,
+    utcOffsetMin: Number.isFinite(offset) ? offset : null,
+    measuredAt: Number.isFinite(measured) && measured > 0 ? measured * 1000 : now, cachedAt: now };
 }
 
 function createWeatherService(options = {}) {
@@ -48,10 +60,12 @@ function createWeatherService(options = {}) {
   async function load(point) {
     if (!apiKey) throw weatherError('weather disabled');
     if (typeof fetchWeather !== 'function') throw weatherError('Weather service unavailable');
-    const upstream = new URL('https://api.weatherapi.com/v1/current.json');
+    const upstream = new URL('https://api.weatherapi.com/v1/forecast.json');
     upstream.searchParams.set('key', apiKey);
     upstream.searchParams.set('q', `${point.lat},${point.lon}`);
+    upstream.searchParams.set('days', '1');
     upstream.searchParams.set('aqi', 'no');
+    upstream.searchParams.set('alerts', 'no');
     let response;
     try { response = await fetchWeather(upstream); } catch (_) { throw weatherError('Weather service unavailable'); }
     if (!response?.ok) throw weatherError('Weather service unavailable');

@@ -65,7 +65,7 @@ tiles. The model's confidence is descriptive, not a calibrated probability.
 The systemd unit stores files in `/var/lib/terracart/geometry` and optionally
 reads `/etc/terracart/geometry.env`. Create that environment file as root with
 mode 0600, add `OPENROUTER_API_KEY=...` and `WEATHERAPI_KEY=...`, then restart
-the relay. The weather service keeps results in memory for ten minutes per
+the relay. The weather service keeps results in memory for an hour per
 rounded location; missing weather configuration returns HTTP 503 and the game
 keeps a clear sky. The `StateDirectory` remains writable under service hardening and survives upgrades
 and restarts. Back it up: losing it causes regeneration and may change crowns.
@@ -77,14 +77,15 @@ geometry caches.
 
 Set `WEATHERAPI_KEY` only on the relay. The browser asks
 `GET /weather?lat=<latitude>&lon=<longitude>` and receives compact precipitation,
-temperature and wind readings; it never contacts WeatherAPI or receives the
+temperature, wind and today's high/low readings (from WeatherAPI's one-day
+`forecast.json`); it never contacts WeatherAPI or receives the
 credential. The relay rounds nearby locations together and holds each result
-for ten minutes. WeatherAPI's published condition table owns the rain, drizzle,
-sleet and snow mapping through `src/weather_codes.js`.
+for an hour. WeatherAPI's published condition table owns the rain, drizzle,
+sleet, snow, fog and mist mapping through `src/weather_codes.js`.
 
 ```sh
 curl 'http://localhost:8787/weather?lat=49.888&lon=-119.496'
-# {"precip":false,"kind":"none","condition":1000,"temp":23.1,"windKph":7.4,"cachedAt":...}
+# {"precip":false,"kind":"none","condition":1000,"temp":23.1,"windKph":7.4,"hi":26.2,"lo":14.8,"utcOffsetMin":-420,"measuredAt":...,"cachedAt":...}
 ```
 
 The game requests only the player's current z18 tile in the background as they

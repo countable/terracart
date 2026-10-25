@@ -782,11 +782,19 @@ receipt. Both persist after the transaction.
 ## Live weather
 
 `Weather` asks the relay for the current conditions at the player's projected
-latitude and longitude every ten minutes, or after one kilometre of movement.
+latitude and longitude once an hour, or after one kilometre of movement.
 The relay owns the WeatherAPI credential and returns only precipitation kind,
-rounded temperature, wind speed, condition code and cache time. The client never
-calls WeatherAPI directly. A disabled or unreachable relay leaves the last good
+temperature, wind speed, condition code, today's forecast high and low, the
+place's UTC offset, and measurement and cache times. The client never calls
+WeatherAPI directly. A disabled or unreachable relay leaves the last good
 state in place without player-facing network errors.
+
+Between measurements `Weather.currentTemp` moves the last reading along a
+half-cosine daily curve through the forecast low (dawn) and high
+(mid-afternoon), `Weather.EFFECTS.diurnal`; gameplay bands use the same value.
+The readout beside the map has no background and shows only the temperature,
+`windy` above `Weather.EFFECTS.windyKph`, and one condition word
+(`WeatherCodes.labelFor`: drizzle, rain, sleet, snow, fog or mist).
 
 Falling precipitation uses the native turquoise water-drop phases from Rogue
 Adventure's `RA_Atlantis_Animated01.png`. `Weather.EFFECTS` is the single owner

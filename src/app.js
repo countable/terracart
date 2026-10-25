@@ -6260,30 +6260,24 @@ class MapScene extends Phaser.Scene {
     weather.className = 'weather-readout';
     weather.setAttribute('role', 'status');
     weather.setAttribute('aria-live', 'polite');
-    const WEATHER_GLYPH = Object.freeze({ rain: '☂', drizzle: '☂', snow: '❄', sleet: '⛆', none: '·' });
     let lastWeather;
     const syncWeather = this._syncWeatherReadout = () => {
-      const state = typeof Weather !== 'undefined' ? Weather.state?.() : null;
+      const W = typeof Weather !== 'undefined' ? Weather : null;
       // Only finite readings render: Number(null) is 0, and an unavailable
-      // forecast must hide the chip, not read as a flat zero.
-      const temp = Number.isFinite(state?.temp) ? state.temp : NaN;
-      const wind = Number.isFinite(state?.windKph) ? state.windKph : NaN;
-      const kind = state?.kind || 'none', visible = Number.isFinite(temp) || !!state?.precip;
-      const signature = `${visible}:${kind}:${temp}:${wind}`;
+      // forecast must hide the readout, not read as a flat zero.
+      const temp = W?.currentTemp?.();
+      const label = W?.conditionLabel?.() || '', windy = !!W?.windy?.();
+      const visible = Number.isFinite(temp) || !!label;
+      const parts = visible ? [Number.isFinite(temp) ? `${temp}°` : '', windy ? 'windy' : '', label].filter(Boolean) : [];
+      const signature = parts.join(' ');
       if (signature === lastWeather) return;
       lastWeather = signature;
       weather.hidden = !visible;
       if (!visible) return;
-      const glyph = WEATHER_GLYPH[kind] || WEATHER_GLYPH.none;
-      const parts = [glyph];
-      if (Number.isFinite(temp)) parts.push(`${Math.round(temp)}°`);
-      if (Number.isFinite(wind) && wind >= 10) parts.push(`↑${Math.round(wind)}`);
-      weather.textContent = parts.join(' ');
-      const names = { rain: 'Rain', drizzle: 'Drizzle', snow: 'Snow', sleet: 'Sleet', none: 'Clear' };
-      const label = [names[kind] || 'Weather', Number.isFinite(temp) ? `${Math.round(temp)} degrees` : '',
-        Number.isFinite(wind) && wind >= 10 ? `wind ${Math.round(wind)} kilometres per hour` : ''].filter(Boolean).join(', ');
-      weather.setAttribute('aria-label', label);
-      weather.title = label;
+      weather.textContent = signature;
+      const spoken = [Number.isFinite(temp) ? `${temp} degrees` : '', windy ? 'windy' : '', label].filter(Boolean).join(', ');
+      weather.setAttribute('aria-label', spoken);
+      weather.title = spoken;
     };
     syncWeather();
     control.appendChild(weather);
