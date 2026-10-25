@@ -31,3 +31,22 @@ benchmarks. Pixel comparisons use the road texture inputs to exclude unrelated
 rift-ground policy differences, and use actual scene screenshots for seam on/off.
 Seams are enabled only for these fixtures with `scene.roadVariantSeams = true`.
 The seam-off case renders identical geometry with the flag disabled.
+
+## Medium/Large solid-bed comparison
+
+The optional `FIXTURE` path selects a different controlled geometry JSON.
+`ROAD_ALPHA_AUDIT=1` records cached material alpha counts without asserting
+that a baseline is already opaque. For the solid-bed change:
+
+```sh
+git show <pre-solid-bed-commit>:src/road_overlay.js > /tmp/mdlg-road-before.js
+OUT_DIR="$HOME/.artifacts/mdlg-road-fill" FIXTURE=tools/road-readability-study/solid-fill-fixture.json ROAD_ALPHA_AUDIT=1 ROAD_SOURCE=/tmp/mdlg-road-before.js LABEL=before node tools/road-readability-study/capture.cjs
+OUT_DIR="$HOME/.artifacts/mdlg-road-fill" FIXTURE=tools/road-readability-study/solid-fill-fixture.json ROAD_ALPHA_AUDIT=1 LABEL=after node tools/road-readability-study/capture.cjs
+python3 tools/road-readability-study/solid-fill-report.py "$HOME/.artifacts/mdlg-road-fill"
+```
+
+The last command verifies fully opaque MD/LG cached materials in both finishes,
+unchanged transparent gaps on plain roads and Lantern Row, and fully opaque
+interior pixels in the actual road canvases. It also creates the comparison
+report. The road image's existing overall alpha remains unchanged; the bed
+removes material holes, rather than changing terrain-grid painting.

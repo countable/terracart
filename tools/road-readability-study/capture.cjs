@@ -9,7 +9,7 @@ const OUT = process.env.OUT_DIR || '/home/claude/.artifacts/road-readability-imp
 const LABEL = process.env.LABEL || 'after';
 const CELLS = Number(process.env.CELLS || 11);
 const WIDTH = CELLS * 32;
-const fixture = require('./fixture.json');
+const fixture = require(process.env.FIXTURE ? path.resolve(process.env.FIXTURE) : './fixture.json');
 const roadSource=fs.readFileSync(process.env.ROAD_SOURCE||path.join(ROOT,'src/road_overlay.js'),'utf8');
 const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
 (async () => {
@@ -112,7 +112,18 @@ const sourceSha256=crypto.createHash('sha256').update(roadSource).digest('hex');
       fs.writeFileSync(path.join(OUT,file),Buffer.from(image.split(',')[1],'base64'));
       results.push({...data,file});console.log('SNAP',file,'lamps',data.allLampCount);
     }
-    const audit={label:LABEL,sourceSha256,cells:CELLS,source:process.env.ROAD_SOURCE||'src/road_overlay.js',boot,results,errors,webglError:await page.evaluate(()=>__game.renderer.gl?.getError()??null)};
+    // Capture-only pixel inspection; the shipping renderer never reads these pixels.
+    const materialAlpha = process.env.ROAD_ALPHA_AUDIT ? await page.evaluate(() =>
+      ['suppressed', 'plain', 'lantern'].flatMap(variant => [false, true].map(restored => {
+        const tile = RoadOverlay.selectedRoadTile(variant, restored);
+        const data = tile.getContext('2d').getImageData(0, 0, tile.width, tile.height).data;
+        let transparent = 0, partial = 0, opaque = 0;
+        for (let i = 3; i < data.length; i += 4) {
+          if (data[i] === 0) transparent++; else if (data[i] === 255) opaque++; else partial++;
+        }
+        return { variant, restored, pixels: tile.width * tile.height, transparent, partial, opaque };
+      }))) : undefined;
+    const audit={label:LABEL,sourceSha256,cells:CELLS,source:process.env.ROAD_SOURCE||'src/road_overlay.js',boot,results,materialAlpha,errors,webglError:await page.evaluate(()=>__game.renderer.gl?.getError()??null)};
     fs.writeFileSync(path.join(OUT,`${LABEL}-metadata-${CELLS}.json`),JSON.stringify(audit,null,2));
     if(errors.length||audit.webglError!==0||boot.renderer!==2) throw Error('Renderer audit failed '+JSON.stringify({boot,errors,webglError:audit.webglError}));
   } finally {await browser.close();}

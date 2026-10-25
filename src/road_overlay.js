@@ -739,8 +739,16 @@
       const delta=(light-source.mean)*scale+(restored?8:0);
       for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,target[channel]+delta));
     }
-    // Alpha is unchanged: the same ground gaps and soft shadows survive.
+    // Ordinary roads retain open ground between cobbles. MD/LG rift roads
+    // share a continuous bed in both states, baked once into this cached tile
+    // so the game and review paint the same surface without changing terrain.
     g.putImageData(pixels,0,0);
+    if (variant === 'suppressed') {
+      g.globalCompositeOperation = 'destination-over';
+      g.fillStyle = global.StreetVariants?.pavementFor(variant)?.weathered || ROAD_THEME_COLORS.suppressed;
+      g.fillRect(0,0,c.width,c.height);
+      g.globalCompositeOperation = 'source-over';
+    }
     return c;
   }
   const themedRoadCanvases = {};

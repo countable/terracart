@@ -1170,7 +1170,10 @@ the reach rim within the existing player-light radius.
   same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
-  its solid charcoal surface and ember warning. Rail ballast stays solid.
+  its solid charcoal surface and ember warning. MD/LG rift cobbles use a solid
+  grey-turquoise bed beneath the stones in both restoration states, baked into
+  the cached pavement tile. This vector-road fill does not repaint grid terrain
+  or change its rift-buffer rules. Rail ballast stays solid.
   Theme ground verges are disabled: source landcover remains beneath and beside
   roads, while existing props, hazard rules and route identities remain in place.
   Commercial ground uses original square concrete, independently of road stone.
