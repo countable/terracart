@@ -1400,6 +1400,50 @@ const IconNet = {
 };
 if (typeof document !== 'undefined' && document.body) IconNet.observe();
 
+// Large-portrait badges (renderItemIcon) reuse the yield's DialogItemArt
+// painting, but those sheets are opaque black tiles. One canvas pass per item
+// keys out the black that touches the tile edge, so only the painting sits on
+// the shared base art; the cached data URL is reused for every later dialog.
+const DialogBadgeArt = {
+  _urls: new Map(),      // sheet#frame → data URL, or null while it decodes
+  url(entry) {
+    const key = `${entry.sheet}#${entry.frame}`;
+    if (this._urls.has(key)) return this._urls.get(key);
+    this._urls.set(key, null);
+    const img = new Image();
+    img.onload = () => {
+      const url = this._key(img, entry);
+      this._urls.set(key, url);
+      document.querySelectorAll('[data-badge-art]').forEach((el) => {
+        if (el.dataset.badgeArt === key) el.style.backgroundImage = `url('${url}')`;
+      });
+    };
+    img.src = entry.sheet;
+    return null;
+  },
+  _key(img, entry) {
+    const cell = DialogItemArt.cell, cols = DialogItemArt.columns;
+    const c = document.createElement('canvas');
+    c.width = c.height = cell;
+    const cx = c.getContext('2d');
+    cx.drawImage(img, entry.frame % cols * cell, Math.floor(entry.frame / cols) * cell, cell, cell, 0, 0, cell, cell);
+    const data = cx.getImageData(0, 0, cell, cell);
+    const px = data.data, seen = new Uint8Array(cell * cell), stack = [];
+    const dark = i => px[i * 4] < 24 && px[i * 4 + 1] < 24 && px[i * 4 + 2] < 24;
+    for (let i = 0; i < cell; i++) stack.push(i, (cell - 1) * cell + i, i * cell, i * cell + cell - 1);
+    while (stack.length) {
+      const i = stack.pop();
+      if (seen[i] || !dark(i)) continue;
+      seen[i] = 1; px[i * 4 + 3] = 0;
+      const x = i % cell, y = (i / cell) | 0;
+      if (x > 0) stack.push(i - 1); if (x < cell - 1) stack.push(i + 1);
+      if (y > 0) stack.push(i - cell); if (y < cell - 1) stack.push(i + cell);
+    }
+    cx.putImageData(data, 0, 0);
+    return c.toDataURL();
+  },
+};
+
 // ── Item icon sheet table ───────────────────────────────────────────────────
 // PNG sheet metadata for renderItemIcon's CSS-clip icons. Module scope so
 // IconNet's prewarmer can enumerate every sheet URL (and so the table isn't
@@ -10115,9 +10159,23 @@ class MapScene extends Phaser.Scene {
         + ` drop-shadow(0 0 ${Math.max(1, Math.round(sizePx * 0.06))}px #ffd23a);`;
     }
     const badgeId = detailed && typeof iconBadgeItem === 'function' && iconBadgeItem(itemId);
-    const badgeHTML = badgeId
-      ? `<span style="position:absolute;right:0;bottom:0;line-height:0;background:#000;border-radius:3px">${this.renderItemIcon(badgeId, Math.round(sizePx * 0.3), 'inline')}</span>`
-      : '';
+    // No backing box: the yield is drawn at 0.6 of the icon with a one-pixel
+    // dark rim (as in the baked 32px badge) so it reads against the base art.
+    let badgeHTML = '';
+    if (badgeId) {
+      const badgePx = Math.round(sizePx * 0.6);
+      const rim = 'filter:drop-shadow(1px 0 #1a1210) drop-shadow(-1px 0 #1a1210) drop-shadow(0 1px #1a1210) drop-shadow(0 -1px #1a1210);';
+      const painted = typeof DialogItemArt !== 'undefined' && DialogItemArt.entries[badgeId];
+      if (painted) {
+        const url = DialogBadgeArt.url(painted);
+        badgeHTML = `<span data-badge-art="${painted.sheet}#${painted.frame}" style="position:absolute;right:0;bottom:0;`
+          + `width:${badgePx}px;height:${badgePx}px;background-size:100% 100%;${rim}`
+          + (url ? `background-image:url('${url}');` : '') + '"></span>';
+      } else {
+        badgeHTML = `<span style="position:absolute;right:0;bottom:0;line-height:0;${rim}">`
+          + `${this.renderItemIcon(badgeId, badgePx, 'inline')}</span>`;
+      }
+    }
     if (badgeHTML) css += 'position:relative;';
     if (style === 'block') {
       const el = document.createElement('span');

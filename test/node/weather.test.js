@@ -38,10 +38,11 @@
 
   test('weather: hourly measurement drifts along the forecast high/low curve', () => {
     const hour = 3600000, day0 = Date.UTC(2026, 9, 25);
-    // Measured 8° at 06:00 local (UTC-7) on a 4°..14° day.
-    Weather.accept({ temp: 8, hi: 14, lo: 4, utcOffsetMin: -420, measuredAt: day0 + 13 * hour, kind: 'none', precip: false });
-    assert.eq(Weather.currentTemp(day0 + 13 * hour), 8);
-    assert.eq(Weather.currentTemp(day0 + 22 * hour), 14, 'mid-afternoon reaches the high');
+    // Measured 6° at 06:00 local (UTC-7) on a 4°..14° day: it rises by the
+    // curve's 10° span but never past the forecast high.
+    Weather.accept({ temp: 6, hi: 14, lo: 4, utcOffsetMin: -420, measuredAt: day0 + 13 * hour, kind: 'none', precip: false });
+    assert.eq(Weather.currentTemp(day0 + 13 * hour), 6);
+    assert.eq(Weather.currentTemp(day0 + 22 * hour), 14, 'mid-afternoon stops at the high');
     assert.eq(Weather.currentTemp(day0 + 17.5 * hour), 11, 'half-way up the curve');
     assert.eq(Weather.diurnalShare(Weather.EFFECTS.diurnal.lowHour), 0);
     assert.eq(Weather.diurnalShare(Weather.EFFECTS.diurnal.highHour), 1);
