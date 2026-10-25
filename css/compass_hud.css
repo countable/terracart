@@ -385,6 +385,10 @@ body.compass-hud > #map-zoom {
  border:2px solid #a6afb0;border-radius:8px;background:linear-gradient(#d6d9d6 0 3%,#626e70 8%,#354346 45%,#1d2b2f 52%,#687679 90%,#bcc3c0);
  box-shadow:0 2px 3px #080e10,inset 0 0 0 1px #27363b,inset 0 2px 1px #f0efdf88;
 }
+/* Reserve the effect strip on short viewports as well as the normal footer. */
+body.compass-hud:has(#status-row:not([hidden])) > #map-zoom {
+ top:min(calc(var(--compass-map-top) + var(--compass-map-size) - 22px),calc(var(--compass-deck-top) - 116px))!important;
+}
 body.compass-hud > #map-zoom::before {
  content:'';position:absolute;left:30px;right:auto;width:21px;top:7px;bottom:7px;border:1px solid #1d292d;border-radius:3px;
  background:repeating-linear-gradient(90deg,#303c40 0 2px,#b8bfbb 2px 3px,#647174 3px 5px);
@@ -407,7 +411,7 @@ body.compass-hud > #map-zoom button:focus-visible {outline:2px solid #ffe7a1;out
 body.compass-hud > #map-zoom button:first-child {order:1;}
 body.compass-hud > #map-zoom button:nth-child(2) {order:0;}
 /* Weather sits over the direction lock, so compass controls keep one compact left rail. */
-body.compass-hud > #map-zoom .weather-readout {position:fixed;top:max(62px,calc(var(--compass-map-top) - 10px));left:calc(var(--phone-left,0px) + 14px);z-index:1;width:auto;min-width:40px;height:26px;padding:1px 3px;border:2px solid #8d713e;border-radius:5px;color:#3d3019;background:linear-gradient(#fff0bc 0 8%,#d8bd73 14%,#c4a25b 68%,#a6833d 100%);box-shadow:inset 1px 0 #f5e4ad,inset -1px 0 #80612d,inset 0 -2px #735625,0 2px 1px #142024;font:700 10px/1 var(--font-ui);text-shadow:0 1px #f6e8b9;white-space:nowrap;pointer-events:none;}
+body.compass-hud > #map-zoom .weather-readout {position:fixed;top:max(62px,calc(var(--compass-map-top) - 10px));left:calc(var(--phone-left,0px) + 14px);z-index:1;width:auto;height:26px;padding:1px 3px;display:flex;align-items:center;color:#fff3cf;background:none;font:700 11px/1 var(--font-ui);text-shadow:1px 0 #1d1810,-1px 0 #1d1810,0 1px #1d1810,0 -1px #1d1810;white-space:nowrap;pointer-events:none;}
 body.compass-hud > #map-zoom .weather-readout[hidden] {display:none;}
 body.compass-hud > #map-zoom .direction-lock {position:fixed;top:max(92px,calc(var(--compass-map-top) + 20px));left:calc(var(--phone-left,0px) + 14px);margin:0;border-radius:50%;box-shadow:inset 0 1px #fff0ba,inset 0 -2px #765b28,0 0 0 2px #a6afb0,0 0 0 3px #354346,0 3px 4px #071014;}
 body.compass-hud > #map-zoom .direction-lock svg {width:24px;height:24px;vertical-align:middle;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;stroke-linejoin:round;filter:drop-shadow(0 1px #f6e8b9);}

@@ -151,6 +151,24 @@
     assert.falsy(a.visible);
     assert.falsy(s._tapEdgeDot(point.x, point.y), 'absent dots have no stale hit targets');
   });
+  test('edge dots: a guide sitting on its visible target leaves the tap to the target', () => {
+    const s = fixture();
+    s.add = { text() { return {
+      width: 60, height: 28,
+      setDepth() { return this; }, setOrigin() { return this; },
+      setText() { return this; }, setPosition() { return this; },
+      setVisible(value) { this.visible = value; return this; },
+    }; } };
+    const until = Date.now() + 10000;
+    s.save.telescopeCompass = [{ targetId: 'near', depth: 0, until, x: 3, y: -4 }, { targetId: 'far', depth: 0, until, x: 100, y: 0 }];
+    s._telescopeTrackedTarget = marker => marker;
+    s._drawMarkers();
+    const near = s._edgeDotPoints['telescopeCompass:near'], far = s._edgeDotPoints['telescopeCompass:far'];
+    assert.truthy(near.onTarget && near.x === 206 && near.y === 232, 'the guide is drawn on its target');
+    assert.falsy(s._tapEdgeDot(near.x, near.y), 'tapping the target (the starter crate) reaches the world');
+    assert.falsy(far.onTarget);
+    assert.truthy(s._tapEdgeDot(far.x, far.y), 'a rim bearing still toggles its label');
+  });
   test('edge dots: label taps are consumed before walk reset or world interaction', () => {
     const start = SCENE_SRC.indexOf('const endPeekPointer = (p) => {');
     const handler = SCENE_SRC.slice(start, SCENE_SRC.indexOf("this.input.on('pointerup'", start));

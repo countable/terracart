@@ -369,17 +369,28 @@ function tillBlockerLine(o) {
 // profile keeps broken art. The one "is something lying here?" scan, shared
 // by the till and the campfire.
 function groundObjectBlocker(scene, save, cwmx, cwmy, cellHalfM) {
-  const pickedAll = new Set([...save.picked, ...(save.burnedObjects || [])]);
   const spent = spentSets(scene, save);
   const inCell = o => Math.abs(o.x - cwmx) < cellHalfM && Math.abs(o.y - cwmy) < cellHalfM;
   for (const e of WorldGen.tileCache.values()) {
-    const wp = (e.wildplants || []).find(wp => !pickedAll.has(wp.id) && inCell(wp));
-    if (wp) return `Pick ${cropName(wp.crop)} first.`;
+    // What STANDS, as drawn (Render.wildplantView): a picked berry bush stays
+    // a bare bush and holds its cell like any other.
+    const wp = (e.wildplants || []).map(wp => inCell(wp) && Render.wildplantView(wp, spent)).find(Boolean);
+    if (wp) return wp._pickedRemnant ? 'A bush stands here.' : `Pick ${cropName(wp.crop)} first.`;
     const oo = (e.objects || []).find(o =>
       !(isSpent(o, spent) && !(isBarrel(o) && chestLook(o).smashedKey)) && inCell(o));
     if (oo) return tillBlockerLine(oo);
   }
   return null;
+}
+
+// Turning a cell's soil ends the regrowth of every cleared wild plant on it
+// (SaveState.stopRegrowth), so grass never grows back through the bed.
+function stopRegrowthUnder(save, cwmx, cwmy, cellHalfM) {
+  for (const e of WorldGen.tileCache.values()) {
+    for (const wp of e.wildplants || []) {
+      if (Math.abs(wp.x - cwmx) < cellHalfM && Math.abs(wp.y - cwmy) < cellHalfM) SaveState.stopRegrowth(save, wp);
+    }
+  }
 }
 
 // Which ground takes a CAMPFIRE: any open ground — soil, a parking lot, a
@@ -803,6 +814,9 @@ const TAP_HANDLERS = [
     const px2m = scene.cellM / scene.cellPx;
     const TAP_PAD_M = 4 * px2m;           // extra touch forgiveness around every creature
     const UNDER_FEET_PAD_M = 0.3;          // a little grace below the art's bottom row
+    // Bodies sit off the cell grid, so their whole padded box is grown a
+    // touch about the drawn centre: a moving target is harder to hit.
+    const TAP_GROW = 1.1;
     // Per-kind horizontal grab half-width (m).
     const HALF_W = {
       npc: 1.8, cow: 2.4, deer: 2.0, dog: 1.8, cat: 1.7, crow: 1.7,
@@ -812,6 +826,9 @@ const TAP_HANDLERS = [
     // Closest tappable creature whose DRAWN box contains the tap. Rank by
     // distance to the body CENTRE so the most on-target animal wins overlaps.
     let target = null, bestD2 = Infinity;
+    // Heading-up turns the map but keeps every sprite upright on screen, so the
+    // body rises toward screen-up, not world north: measure the tap in that frame.
+    const upright = (x, y) => typeof HeadingUp !== 'undefined' ? HeadingUp.toScreenVec(scene, x, y) : { x, y };
     EnemySpawns.refreshHomeFauna(scene, false);
     WorldGen.forEachItem('creatures', (c) => {
       if (save.caught.includes(c.id) || Combat.isConcealed(c) || !EnemySpawns.surfaceActive(scene, c)) return;
@@ -828,14 +845,16 @@ const TAP_HANDLERS = [
       const gMul = SpriteLayout.creatureScale(c.kind) / SpriteLayout.creatureScale(bk) * inst;
       const span = SpriteLayout.creatureTapSpanPx(c.kind, inst)
         || SpriteLayout.creatureTapSpanPx('chicken', inst);
+      const bodyCY = (span.top + span.bottom) / 2 * px2m;   // drawn centre
+      const grow = y => bodyCY + (y - bodyCY) * TAP_GROW;
       const halfW = (HALF_W[bk] ?? 2.0) * gMul + TAP_PAD_M;
-      const topY = c.y + span.top * px2m - TAP_PAD_M;                         // crown (or hop peak)
-      const botY = c.y + span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M;   // under the feet
-      const bodyCY = c.y + (span.top + span.bottom) / 2 * px2m;   // drawn centre
-      if (Math.abs(wm.x - c.x) > halfW) return;
-      if (wm.y < topY || wm.y > botY) return;
+      const topY = grow(span.top * px2m - TAP_PAD_M);                         // crown (or hop peak)
+      const botY = grow(span.bottom * px2m + UNDER_FEET_PAD_M + TAP_PAD_M);   // under the feet
+      const tap = upright(wm.x - c.x, wm.y - c.y);           // from the foot, screen-aligned
+      if (Math.abs(tap.x) > halfW * TAP_GROW) return;
+      if (tap.y < topY || tap.y > botY) return;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, c.x, c.y)) return;
-      const ddx = wm.x - c.x, ddy = wm.y - bodyCY;
+      const ddx = tap.x, ddy = tap.y - bodyCY;
       const d2 = ddx * ddx + ddy * ddy;
       if (d2 < bestD2) { bestD2 = d2; target = c; }
     });
@@ -962,11 +981,18 @@ const TAP_HANDLERS = [
       return true;
     }
 
-    // HUNTING — GAME only, which is crow and deer: SpriteLayout.isGame reads
+    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
+    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
+    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
+    // HUNTING — GAME, which is every wild animal (SpriteLayout.isGame reads
     // the one creature table, so what may be hunted is written beside what
-    // that kill drops instead of in a set of its own here. A pet of any kind
-    // opens its individual menu above.
-    if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {
+    // that kill drops instead of in a set of its own here). HUNTED BY
+    // DEFAULT (owner, Oct 2026): a tap with nothing in hand, or anything
+    // that is not food, hunts it. Its favourite in hand is the catch above;
+    // plant produce feeds a producer (below); any other food is refused
+    // (below). A pet of any kind opens its individual menu above.
+    if (!isTame && SpriteLayout.isGame(target.kind) && !likes && !producerMeal && !isEdible
+        && Gear.activeWeapon(save)) {
       const r = save.relics || {};
       // ONE TOOL TAKES ANIMALS: the BUG NET. Weapons fight ENEMIES
       // (combat.js); the net takes GAME and livestock alike, on the same slot
@@ -1003,9 +1029,6 @@ const TAP_HANDLERS = [
       // it never fights back, and the wheel fails if it runs out of reach.
       return true;
     }
-    const selItem = sel ? ITEM_BY_ID[sel.id] : null;
-    const isEdible = sel && (typeof FOOD_ENERGY !== 'undefined') && (sel.id in FOOD_ENERGY);
-    const isPlantProduce = selItem && selItem.kind === 'produce' && !!selItem.crop;
     // Plant produce gives the species yield on its per-animal cooldown.
     //
     // Per-creature production cooldown: each chicken / cow only yields once
@@ -1105,9 +1128,10 @@ const TAP_HANDLERS = [
     const tideSets = spentSets(scene, save);
     const bestWp = findItemInTapCell(scene, 'wildplants', wm,
       (wp) => (!ctx.grassOnly || WorldGen.isGrassCover(wp))
-        && !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
+        && ((!isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)))
+          || !!wildplantRemnant(wp, tideSets)));
     if (bestWp) {
-      const wp = bestWp;
+      const wp = wildplantRemnant(bestWp, tideSets) || bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
       const rule = wildplantRule(wp.crop);
       const reqRelic = wildplantWorkRelic(wp.crop);
@@ -1122,7 +1146,8 @@ const TAP_HANDLERS = [
       // work (5s for shrubs, versus the usual 9s). Other wildplants
       // (rainberry, pairy, nut, longgrass …) stay instant.
       const award = () => {
-        if (isSpent(wp, spentSets(scene, save))) return false;
+        const current = spentSets(scene, save);
+        if (wp._pickedRemnant ? !wildplantRemnant(bestWp, current) : isSpent(wp, current)) return false;
         // Re-check picked at callback time. The work wheel runs async — if a
         // save reload or some other path already marked this wp.id as picked
         // between handler start and callback fire, awarding again would dupe.
@@ -1131,9 +1156,12 @@ const TAP_HANDLERS = [
         // A shaking bush has a stable occupant; only one fifth hide a baby. Before
         // the pick is written: with no room in the bag for it the bush stays
         // standing, unpicked, to be chopped again once there is.
-        const nest = isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
+        const nest = !wp._pickedRemnant && isNestBush(wp.crop, wp.id) ? nestBushContents(wp.id) : null;
         const babyId = nest?.type === 'baby' ? nest.item : null;
-        if (wp.tide) {
+        if (wp._pickedRemnant) {
+          save.chopped = [...(save.chopped || []), wp.id];
+          if (save.grassRegrowth) delete save.grassRegrowth[wp.id];
+        } else if (wp.tide) {
           Macros.markToday(save, wp.id);
         } else {
           if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
@@ -1147,7 +1175,7 @@ const TAP_HANDLERS = [
         const hiddenItem = WorldGen.isGrassCover(wp) ? wildplantHiddenItem(wp.crop, wp.id) : null;
         if (hiddenItem) scene.addToInv(hiddenItem, 1);
         let bonus = hiddenItem ? ` ✨${itemName(hiddenItem)}` : '';
-        const treasure = wildplantTreasure(wp.crop);
+        const treasure = !wp._pickedRemnant && wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
           if (treasure.coins) {
             addMoney(save, treasure.coins);
@@ -1166,7 +1194,7 @@ const TAP_HANDLERS = [
         if (rule?.sting) scene._sting?.(rule.sting, wp.x, wp.y);
         // Rare shiny flora — 10× money + a memory, on top of the
         // normal pickup, with fanfare.
-        if (isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
+        if (!wp._pickedRemnant && isShiny(wp.id, SHINY_RATE.flora)) scene.awardShinyBonus(outId, sx, sy);
         // The nest bush's baby, and the card that shows it.
         if (babyId) {
           placeFoundAnimal(scene, babyId, wp.id, wp.x, wp.y);
@@ -2045,6 +2073,7 @@ const TAP_HANDLERS = [
         return false;
       }
       scene.tilledSet.add(cellKey);
+      stopRegrowthUnder(save, cwmx, cwmy, at.half);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
       // therefore a better harvest, not just a cheaper one.

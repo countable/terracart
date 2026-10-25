@@ -1,12 +1,12 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v5', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v4', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
   // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
   const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
-  const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7, grassTop: 8, grassSide: 9 };
-  const colors = { grassTop: 0x718345, grassSide: 0x405a32, hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
+  const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
+  const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xb59969, woodSide: 0x9e7e50 };
   // Approved shared RA olive ramp, continuously interpolated by source luminance
   // (+12), then given the review's 20% saturation lift. Bake the eight painted
@@ -42,14 +42,7 @@
         g.fillRect(x, y, w, h);
       };
       fill('#' + colors[name].toString(16).padStart(6, '0'), 0, 0, n, n);
-      if (name.startsWith('grass')) {
-        const side = name === 'grassSide';
-        for (let y = 0; y < n; y += side ? 22 : 12) for (let x = 0; x < n; x += 7) {
-          const v = hash(x, y), xx = x + Math.floor(v * 5), yy = y + Math.floor(hash(y, x) * 10);
-          fill(v > .5 ? '#99a958' : '#657c3d', xx, yy, 2, side ? 12 + v * 10 : 6);
-          fill('#899e50', xx + 2, yy - 3, 2, 5);
-        }
-      } else if (name.startsWith('hedge')) {
+      if (name.startsWith('hedge')) {
         const side = name === 'hedgeSide';
         fill(side ? '#2f5934' : '#477735', 0, 0, n, n);
         for (let y = -8; y < n; y += 10) for (let x = -8; x < n; x += 12) {
@@ -124,31 +117,114 @@
       for (let i = 1; i + 1 < ring.length; i++) result.push({ points: [ring[0], ring[i], ring[i + 1]], normal, color: tint, flatColor: multiplyColors(materialColor(material), tint) });
     }
   }
-  // Dense grass has an opaque cell-sized core and a broken blade silhouette.
-  // The shared atlas is baked once; each cell retains a small triangle mesh.
-  function grassGeometry(points, height, options) {
-    const faces = [], ox = options.textureOriginX || 0, oy = options.textureOriginY || 0;
-    const top = p => ({ ...p, z: height, s: (p.x + ox) / 32, t: (p.y + oy) / 32 });
-    for (const tri of global.PolygonGeometry.triangulate(points)) surface(faces, tri.map(top), 'grassTop', null);
-    points.forEach((a, i) => {
-      const b = points[(i + 1) % points.length], dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy);
-      const normal = { x: dy / len, y: -dx / len }, alongX = Math.abs(dx) >= Math.abs(dy);
-      const side = (p, z) => ({ ...p, z, s: ((alongX ? p.x + ox : p.y + oy) / 32), t: 1 - z / height });
-      surface(faces, [side(a, 0), side(b, 0), side(b, height), side(a, height)], 'grassSide', normal);
-      for (let j = 0; j < 8; j++) {
-        const t = (j + .5) / 8, x = a.x + dx * t, y = a.y + dy * t;
-        const tip = 2 + hash(Math.round(x + ox), Math.round(y + oy)) * 3;
-        const vertex = (x, y, z) => ({ x, y, z, ...WHITE });
-        faces.push({ points: [vertex(x - dx / 24, y - dy / 24, height - 1),
-          vertex(x + dx / 24, y + dy / 24, height - 1), vertex(x + dx / 48, y + dy / 48, height + tip)],
-          normal: null, color: j % 2 ? 0x7f9548 : 0x99a958, flatColor: j % 2 ? 0x7f9548 : 0x99a958 });
+  // Clipped hedges are bushes, not masonry: convex corners round off in plan,
+  // the exposed sides roll over a quarter-round shoulder into the crown, and
+  // the shoulder dips a little at hashed world positions so long runs read
+  // leafy. The crown cap stays flat at the step-over height: its long slivers
+  // would flip winding under projection if their vertices dipped apart.
+  // Open (joined) edges stay square and every wobble is keyed to the world
+  // point, so neighbouring cells still meet on identical vertices.
+  const HEDGE = { corner: 6, shoulder: 4.5, rise: 4.5, bands: 2, step: 8, dip: 1.8, footInset: 1.5, footRise: 2.5, repeat: 124 };
+  function roundHedgeOutline(points, open) {
+    const n = points.length, ring = [], flags = [];
+    for (let i = 0; i < n; i++) {
+      const prev = points[(i + n - 1) % n], p = points[i], next = points[(i + 1) % n];
+      const la = Math.hypot(p.x - prev.x, p.y - prev.y), lb = Math.hypot(next.x - p.x, next.y - p.y);
+      const u = { x: (p.x - prev.x) / la, y: (p.y - prev.y) / la }, w = { x: (next.x - p.x) / lb, y: (next.y - p.y) / lb };
+      const convex = u.x * w.y - u.y * w.x > 1e-8, r = Math.min(HEDGE.corner, la / 2, lb / 2);
+      if (!convex || open[(i + n - 1) % n] || open[i] || r <= 0) { ring.push(p); flags.push(!!open[i]); continue; }
+      // Quarter-round between the two tangent points (outlines are axis-aligned).
+      const nPrev = { x: u.y, y: -u.x }, centre = { x: p.x - u.x * r - nPrev.x * r, y: p.y - u.y * r - nPrev.y * r };
+      for (let k = 0; k <= 3; k++) {
+        const a = k / 3 * Math.PI / 2, last = ring[ring.length - 1];
+        // Two arcs that consume a whole edge share their tangent point.
+        if (k === 0 && last && Math.hypot(last.x - (p.x - u.x * r), last.y - (p.y - u.y * r)) < 1e-6) continue;
+        ring.push({ x: centre.x + nPrev.x * r * Math.cos(a) + u.x * r * Math.sin(a),
+          y: centre.y + nPrev.y * r * Math.cos(a) + u.y * r * Math.sin(a) });
+        flags.push(k === 3 ? !!open[i] : false);
       }
+    }
+    if (ring.length > 1 && Math.hypot(ring[0].x - ring[ring.length - 1].x, ring[0].y - ring[ring.length - 1].y) < 1e-6) { ring.pop(); flags.pop(); }
+    // Split long closed runs so the crown has vertices to dip between.
+    const out = [], outFlags = [];
+    ring.forEach((a, i) => {
+      const b = ring[(i + 1) % ring.length], parts = flags[i] ? 1 : Math.max(1, Math.round(Math.hypot(b.x - a.x, b.y - a.y) / HEDGE.step));
+      for (let k = 0; k < parts; k++) { out.push({ x: a.x + (b.x - a.x) * k / parts, y: a.y + (b.y - a.y) * k / parts }); outFlags.push(flags[i]); }
     });
+    return { points: out, open: outFlags };
+  }
+  function hedgeGeometry(points, height, options) {
+    const faces = [], rounded = roundHedgeOutline(points, options.openEdges || []), open = rounded.open;
+    points = rounded.points;
+    const n = points.length, originX = options.textureOriginX || 0, originY = options.textureOriginY || 0;
+    const normals = points.map((a, i) => { const b = points[(i + 1) % n], l = Math.hypot(b.x - a.x, b.y - a.y); return { x: (b.y - a.y) / l, y: (a.x - b.x) / l }; });
+    const inset = d => points.map((p, i) => {
+      const prev = (i + n - 1) % n, a = normals[prev], b = normals[i], da = open[prev] ? 0 : d, db = open[i] ? 0 : d;
+      const det = a.x * b.y - a.y * b.x;
+      if (Math.abs(det) < 1e-8) return { x: p.x - b.x * db, y: p.y - b.y * db };
+      return { x: p.x + (-da * b.y + db * a.y) / det, y: p.y + (-db * a.x + da * b.x) / det };
+    });
+    const rise = Math.min(HEDGE.rise, height / 2), shoulder = Math.min(HEDGE.shoulder, rise);
+    const wall = height - rise, foot = Math.min(HEDGE.footRise, wall);
+    const dip = p => hash(Math.round((p.x + originX) * 4), Math.round((p.y + originY) * 4)) * HEDGE.dip;
+    // The profile from the ground up: a tucked-in foot, the clipped face, then
+    // the quarter-round shoulder whose upper half takes the crown's leaves.
+    const rings = [{ ring: inset(HEDGE.footInset).map(p => ({ ...p, z: 0 })) }, { ring: inset(0).map(p => ({ ...p, z: foot })) }];
+    for (let k = 0; k <= HEDGE.bands; k++) {
+      const a = k / HEDGE.bands * Math.PI / 2, lift = Math.sin(a);
+      rings.push({ crown: k >= HEDGE.bands / 2 + 1, ring: inset(shoulder * (1 - Math.cos(a)))
+        .map(p => ({ ...p, z: k < HEDGE.bands ? wall + rise * lift - dip(p) * lift : height })) });
+    }
+    const top = p => ({ ...p, s: (p.x + originX) / HEDGE.repeat, t: (p.y + originY) / HEDGE.repeat });
+    const side = (p, alongX) => ({ ...p, s: ((alongX ? p.x + originX : p.y + originY)) / HEDGE.repeat, t: 1 - p.z / HEDGE.repeat });
+    // Every band culls by projected winding (normal null), so the leaning
+    // foot and shoulder show exactly when they face the camera: order each
+    // quad so its 3D normal points outward.
+    const outward = (quad, normal) => {
+      const [a, b, c] = quad, ux = b.x - a.x, uy = b.y - a.y, uz = b.z - a.z, vx = c.x - a.x, vy = c.y - a.y, vz = c.z - a.z;
+      const nx = uy * vz - uz * vy, ny = uz * vx - ux * vz, nz = ux * vy - uy * vx;
+      return nx * normal.x + ny * normal.y + nz * .1 >= 0 ? quad : quad.slice().reverse();
+    };
+    for (let k = 0; k + 1 < rings.length; k++) {
+      const lo = rings[k].ring, hi = rings[k + 1].ring, crown = rings[k + 1].crown;
+      for (let i = 0; i < n; i++) {
+        if (open[i]) continue;
+        const j = (i + 1) % n, alongX = Math.abs(points[j].x - points[i].x) >= Math.abs(points[j].y - points[i].y);
+        const quad = outward([lo[i], lo[j], hi[j], hi[i]], normals[i]).map(p => crown ? top(p) : side(p, alongX));
+        surface(faces, quad, crown ? 'hedgeTop' : 'hedgeSide', null, k === 0 ? 0xc4cfc0 : 0xffffff);
+      }
+    }
+    for (const tri of global.PolygonGeometry.triangulate(rings[rings.length - 1].ring)) surface(faces, tri.map(top), 'hedgeTop', null);
+    if (options.tint != null) for (const face of faces) {
+      face.color = multiplyColors(face.color, options.tint);
+      face.flatColor = multiplyColors(face.flatColor, options.tint);
+    }
+    return faces;
+  }
+  // Selected native RA tuft treatment: four crossed pairs, no opaque core.
+  const GRASS = Object.freeze({ texture: 'selected_longgrass', width: 23, offset: 8, lowHeight: 21, height: 24 });
+  function grassGeometry(points) {
+    const faces = [], cx = points.reduce((sum, p) => sum + p.x, 0) / points.length,
+      cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    for (let tuft = 0; tuft < 4; tuft++) {
+      const x = cx + (tuft % 2 ? GRASS.offset : -GRASS.offset), y = cy + (tuft < 2 ? -GRASS.offset : GRASS.offset);
+      const height = tuft % 2 ? GRASS.height : GRASS.lowHeight;
+      for (let axis = 0; axis < 2; axis++) {
+        const dx = axis ? 0 : GRASS.width / 2, dy = axis ? GRASS.width / 2 : 0;
+        const quad = [{ x: x - dx, y: y - dy, z: 0, u: .001, v: .999 },
+          { x: x + dx, y: y + dy, z: 0, u: .999, v: .999 },
+          { x: x + dx, y: y + dy, z: height, u: .999, v: .001 },
+          { x: x - dx, y: y - dy, z: height, u: .001, v: .001 }];
+        for (const ids of [[0, 1, 2], [0, 2, 3]]) faces.push({ points: ids.map(i => quad[i]),
+          normal: null, twoSided: true, color: 0xffffff, flatColor: 0x7f7f46 });
+      }
+    }
     return faces;
   }
   function geometry(kind, points, height, options = {}) {
-    if (kind === 'grass') return grassGeometry(points, height, options);
+    if (kind === 'grass') return grassGeometry(points);
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
+    if (hedge && points.length >= 3 && height > 0) return hedgeGeometry(points, height, options);
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
     const shadeHeight = wood ? (height + WOOD.tipHeight) / 2 : 0;
     if (n < 3 || height <= 0) return faces;
@@ -223,5 +299,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, postHeight, WOOD, KEY, WHITE };
+  global.WallMaterials = { prepare, geometry, postHeight, WOOD, HEDGE, GRASS, KEY, WHITE };
 })(globalThis);

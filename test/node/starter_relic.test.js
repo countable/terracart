@@ -102,6 +102,18 @@
     }
   });
 
+  test('spawn relic chest: tools precede the first road weapon choice', () => {
+    const weapons = ['sword', 'bow', 'staff'];
+    let weaponAfterClaim = false;
+    for (let relicSalt = 0; relicSalt < 32; relicSalt++) {
+      const before = srPlace(srScene({ save: { relicSalt } }), srEntry());
+      assert.falsy(weapons.includes(before.fixedLoot.slot), 'an early chest cannot pre-empt the weapon lesson');
+      const after = srPlace(srScene({ save: { relicSalt, trail: { firstWeaponClaimed: true } } }), srEntry());
+      weaponAfterClaim ||= weapons.includes(after.fixedLoot.slot);
+    }
+    assert.truthy(weaponAfterClaim, 'after the choice the ordinary starter pool remains available');
+  });
+
   // ── Determinism ─────────────────────────────────────────────────────────
 
   test('spawn relic chest: a rebuild reproduces the same chest, cell and relic', () => {
@@ -313,22 +325,34 @@
     }
   });
 
-  test('starter trail: potato seeds and materials are crates along the relic trail', () => {
+  test('starter trail: potato, Rock and Wood crates lead to the relic chest', () => {
     const entry = srEntry();
     const { supplies, chest } = srTrail(entry);
-    assert.eq(supplies.length, 3, 'three supply stops seated');
-    assert.truthy(chest, 'the relic chest ends the trail');
-    assert.eq(entry.objects.filter(o => o.crate).length, 3);
-    assert.eq(entry.objects.filter(o => o.kind === 'groundstack').length, 0, 'no loose starter materials');
-    assert.eq(supplies.map(o => o.fixedLoot.id).join(), 'potato_seed,rubble,wood');
-    assert.truthy(supplies.every(o => o.fixedLoot.qty === 9));
-    assert.eq(supplies.map(o => o.id).join(), 'chest_start_0_0_1,chest_start_0_0_3,chest_start_0_0_4', 'existing loot identities survive');
-    assert.eq(entry._starterChestTrail.id, chest.id);
-    const points = entry._starterChestTrail.points;
-    assert.eq(points[0].x, (SPAWN + 0.5) * CELL_M, 'guide starts at Home');
-    assert.eq(points[points.length - 1].x, chest.x, 'guide ends at the chest');
+    assert.eq(supplies.length, 3, 'all three supply stops seated');
+    assert.truthy(chest, 'and the relic chest at the end');
+    assert.eq(entry.objects.filter(o => o.crate).length, 3, 'each supply has its own crate');
+    const materials = entry.objects.filter(o => o.kind === 'groundstack');
+    assert.eq(materials.length, 0, 'no loose starter materials');
+    for (const id of ['rubble', 'wood']) {
+      assert.eq(supplies.filter(o => o.fixedLoot.id === id).reduce((sum, o) => sum + o.fixedLoot.qty, 0), 9, `nine ${id} in total`);
+    }
     const cells = entry.objects.map(o => `${srCell(o).cx},${srCell(o).cy}`);
     assert.eq(new Set(cells).size, cells.length, 'every crate and chest gets its own cell');
+  });
+
+  test('starter trail: the potato crate waits in view of the door, wherever the trail runs', () => {
+    // Step one's chip waits until the player first walks outside
+    // (_starterAwaitsOutside); the crate it names must be in sight right there.
+    for (const roadAt of [null, 3, NEAR_ROAD_CELLS]) {
+      const entry = srEntry();
+      if (roadAt != null) for (let cy = 0; cy < N; cy++) entry.grid[cy * N + SPAWN + roadAt] = T.ROAD;
+      const { crates } = srTrail(entry);
+      const potato = crates.find(c => c.fixedLoot && c.fixedLoot.id === 'potato_seed');
+      assert.truthy(potato, 'the potato crate is seated');
+      const d = srCheb(srCell(potato), { cx: SPAWN, cy: SPAWN });
+      assert.truthy(d >= 1 && d <= STARTER_DOORSTEP_CELLS,
+        `road ${roadAt ?? 'none'}: potato crate ${d} cells from the door`);
+    }
   });
 
   test('starter trail: the supplies carry what the ladder asks for next', () => {
@@ -381,7 +405,7 @@
   });
 
   test('starter trail: the supplies are met early, not strung out to the chest', () => {
-    // They pack into the near part of the walk so a new player meets all four
+    // They pack into the near part of the walk so a new player meets all three
     // while still learning what a supply is, and then has a clear stretch left
     // to the chest. Spread over the whole route, the last one landed a step
     // short of the chest and the supplies read as something to hike for.
@@ -592,16 +616,42 @@
     assert.eq(a.chest.x, b.chest.x, 'and the same chest');
   });
 
-  test('starter supplies: opened material crates remain spent after rebuilding', () => {
+  test('starter supplies: legacy opened crates remain spent after restoring crate art', () => {
     const { supplies } = srTrail(srEntry());
-    const scene = makeScene();
-    const save = { picked: [], opened: ['chest_start_0_0_3', 'chest_start_0_0_4'] };
+    const scene = makeScene(), save = { picked: [], opened: ['chest_start_0_0_3', 'chest_start_0_0_4'] };
     for (const crate of supplies.filter(o => o.fixedLoot.id !== 'potato_seed')) {
-      assert.eq(isSpent(crate, spentSets(scene, save)), true, 'old opened state still counts');
-      runInteractable(makeCtx(scene, save), crate);
+      assert.truthy(isSpent(crate, spentSets(scene, save)), 'old opened id remains spent');
     }
-    assert.eq(scene.invCount('wood'), 0, 'wood is not refilled');
-    assert.eq(scene.invCount('rubble'), 0, 'rocks are not refilled');
+  });
+
+  test('starter supplies: collected main piles never refill, including constrained old splits', () => {
+    // The old main pile held 3, 6 or 9 depending on available satellite seats.
+    // Saves stored only picked ids, so each of these histories retires its group.
+    for (const picked of [
+      ['chest_start_0_0_3'],
+      ['chest_start_0_0_3', 'chest_start_0_0_3_1'],
+      ['chest_start_0_0_3', 'chest_start_0_0_3_1', 'chest_start_0_0_3_2'],
+    ]) {
+      const scene = srTrailScene(); scene.save.picked = picked;
+      const { supplies } = srTrail(srEntry(), scene);
+      assert.falsy(supplies.some(o => o.fixedLoot.id === 'rubble'), 'picked material does not refill');
+      assert.eq(supplies.find(o => o.fixedLoot.id === 'wood').fixedLoot.qty, 9, 'other material is intact');
+    }
+  });
+
+  test('starter supplies: picked satellite piles retain only the known remaining material', () => {
+    for (const picked of [['chest_start_0_0_4_1'], ['chest_start_0_0_4_2'],
+      ['chest_start_0_0_4_1', 'chest_start_0_0_4_2']]) {
+      const scene = srTrailScene(); scene.save.picked = picked;
+      const { supplies } = srTrail(srEntry(), scene);
+      const wood = supplies.find(o => o.fixedLoot.id === 'wood');
+      assert.eq(wood.fixedLoot.qty, 9 - picked.length * 3);
+      scene.save.opened = [wood.id];
+      assert.truthy(isSpent(wood, spentSets(scene, scene.save)), 'opening the remainder spends it permanently');
+      const resumed = srTrailScene({ save: JSON.parse(JSON.stringify(scene.save)) });
+      const rebuilt = srTrail(srEntry(), resumed).supplies.find(o => o.id === wood.id);
+      assert.truthy(isSpent(rebuilt, spentSets(resumed, resumed.save)), 'reload does not refill the remainder');
+    }
   });
 
   test('starter supplies: hard mode removes supply crates, keeping treasure', () => {

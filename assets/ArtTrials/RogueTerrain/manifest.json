@@ -1,7 +1,7 @@
 {
   "frameSize": 16,
   "columns": 16,
-  "rows": 25,
+  "rows": 26,
   "families": [
     {
       "id": "villageGrass",
@@ -1803,6 +1803,15 @@
       "maskFamily": "oliveSoil",
       "variant": 3,
       "source": "src/textures.js:drawRockyGroundTex"
+    },
+    {
+      "id": "residentialSlate",
+      "index": 25,
+      "selectedMaterial": "G09-light-slate",
+      "selectedFrame": 67,
+      "maskFamily": "oliveSoil",
+      "variant": null,
+      "source": "assets/selected-terrain/selected-terrain.png"
     }
   ],
   "notes": "Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground."

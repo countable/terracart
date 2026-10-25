@@ -86,7 +86,7 @@
 
   test('cave floor passes: one ordered table, each scatter row off its own stream salt', () => {
     const ids = W.CAVE_PASSES.map((r) => r.id);
-    assert.eq(ids.join(), 'chasms,rocks,mushrooms,rings,wallTorches,coins,treasureMarks,floorTorches,barrels,drills', 'the order the level is laid in');
+    assert.eq(ids.join(), 'chasms,rocks,mushrooms,rings,wallTorches,coins,treasureMarks,floorTorches,barrels,drills,grass', 'the order the level is laid in');
     const salts = new Set();
     for (const r of W.CAVE_PASSES) {
       if (r.run) continue;
@@ -110,7 +110,7 @@
     for (const [v, list] of Object.entries(rows)) {
       for (const row of list) {
         assert.truthy(row.step && typeof row.emit === 'function', `${v}: a step and a piece`);
-        assert.truthy(row.side === 'both' || typeof row.side === 'function', `${v}: a side (or both)`);
+        assert.truthy(row.crossRoad === true || row.side === 'both' || typeof row.side === 'function', `${v}: sides or a road cross-section`);
       }
     }
     assert.truthy(rows.golden[0].fill, 'the golden road fills every free verge cell (a column, not an accident)');

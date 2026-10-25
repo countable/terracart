@@ -63,14 +63,16 @@ def selected_family(name, material, center=None, variant=None):
         selectedFrame=entry['frame'] if entry else None,maskFamily='oliveSoil',
         variant=variant,source='assets/selected-terrain/selected-terrain.png' if entry else 'src/textures.js:drawRockyGroundTex'))
 
-for row in registry['families']:
-    if row.get('selectedMaterial'):
-        selected_family(row['id'],row['selectedMaterial'])
-
+# Preserve row order, including selected materials added after recipe families.
 # Match drawRockyGroundTex at its native 16px scale, including its seeded RNG.
 for row in registry['families']:
-    if row.get('recipe') != 'rockyGround':
+    if row.get('source'):
         continue
+    if row.get('selectedMaterial'):
+        selected_family(row['id'],row['selectedMaterial'])
+        continue
+    if row.get('recipe') != 'rockyGround':
+        raise ValueError('Unknown ground recipe: '+row['id'])
     variant = row['variant']
     center = Image.new('RGBA',(16,16),'#646351')
     draw = ImageDraw.Draw(center)

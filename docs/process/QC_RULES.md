@@ -159,7 +159,9 @@ responds with "too far" or the wrong action.
 
 ## 8. Before you commit
 
-- [ ] **Run `node test/node/run.js`** (it includes `tools/sprite_audit.js`).
+- [ ] **Run `npm run test:fast` plus relevant stress files during iteration.**
+      Before publishing, run `npm test` for the complete suite. Both include
+      `tools/sprite_audit.js`; see `test/node/README.md` for filters and timings.
 - [ ] **Cache-bust is derived, never typed:** the parent runs
       `node tools/cachebust.js --write` once after the last edit.
 - [ ] **Drive the change in `?sandbox=true`** (docs/process/SANDBOX.md) and eyeball the

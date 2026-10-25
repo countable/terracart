@@ -1183,13 +1183,14 @@ class SceneStreets {
   _trailChoiceLabel(reward) {
     // A smaller icon than the single-reward ceremony's own (64px): this one
     // sits in a button, stacked under the banner and the "Take your pick"
-    // copy, and at 64px the choice row was the last straw that pushed the
-    // ceremony past the viewport height into a scroll.
-    const card = Rewards.card(this, reward, 44);
+    // copy, and every pixel of the row is a pixel the ceremony can spill
+    // past the viewport into a scroll. A single item or a piece of gear
+    // shows no "× 1" line for the same reason: only a stack says its count.
+    const card = Rewards.card(this, reward, 36);
     if (!card) return '';
-    const qty = card.qty
+    const qty = card.qty && reward.qty > 1
       ? `<div style="font-size:12px;font-weight:700;color:${card.color}">${card.qty}</div>` : '';
-    return '<div style="display:flex;flex-direction:column;align-items:center;gap:3px;min-width:0">' +
+    return '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;min-width:0">' +
            `<div style="font-size:0;line-height:0">${card.iconHTML}</div>` +
            `<div style="font-size:11px;font-weight:700;color:${card.color};line-height:1.2">${card.name}</div>` +
            qty + '</div>';

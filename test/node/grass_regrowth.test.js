@@ -114,3 +114,34 @@ test('berry regrowth: a picked berry or poisonberry bush stands bare, then fruit
   assert.eq(Render.wildplantView(plants['wp-poisonberry'], back), plants['wp-poisonberry'], 'the poisonberry bush is whole again');
 });
 
+
+test('grass regrowth: a tuft cleared from a tilled cell never grows back', () => {
+  const save = { picked: ['bed-grass'] }, plant = { id: 'bed-grass', crop: 'longgrass' };
+  assert.truthy(SaveState.stopRegrowth(save, plant));
+  assert.falsy(SaveState.stopRegrowth(save, plant), 'already marked');
+  const restored = JSON.parse(JSON.stringify(save));
+  assert.falsy(SaveState.rememberClearedGrass(restored, plant, 1000, () => 0.5), 'no reroll after reload');
+  assert.falsy(SaveState.regrowGrass(restored, 1e15));
+  SaveState.normalize(restored);
+  assert.truthy(restored.picked.includes('bed-grass'), 'the tuft stays cleared');
+  assert.falsy(SaveState.stopRegrowth(save, { id: 'shrub', crop: 'shrub' }), 'only regrowing flora is marked');
+  assert.truthy(SCENE_SRC.includes('SaveState.stopRegrowth(this.save, plant)'), 'the heartbeat checks tilled beds');
+});
+
+test('till: a standing bush blocks the hoe, a picked tuft does not', () => {
+  const key = 'till-blocker-fixture';
+  const scene = { save: null, brokenRockSet: new Set() };
+  WorldGen.tileCache.set(key, { wildplants: [
+    { id: 'tb-berry', crop: 'berry', x: 0, y: 0 },
+    { id: 'tb-grass', crop: 'longgrass', x: 10, y: 0 },
+  ], objects: [] });
+  try {
+    const save = { picked: ['tb-berry', 'tb-grass'], burnedObjects: [] };
+    scene.save = save;
+    assert.eq(groundObjectBlocker(scene, save, 0, 0, 1), 'A bush stands here.', 'picked berry bush still stands');
+    assert.eq(groundObjectBlocker(scene, save, 10, 0, 1), null, 'picked grass leaves the cell clear');
+    const fresh = { picked: [], burnedObjects: [] };
+    scene.save = fresh;
+    assert.truthy(groundObjectBlocker(scene, fresh, 0, 0, 1), 'an unpicked bush blocks too');
+  } finally { WorldGen.tileCache.delete(key); }
+});

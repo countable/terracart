@@ -39,6 +39,8 @@
     assert.falsy(positions(1, 3) === positions(2, 3), 'depth changes random placements');
     assert.falsy(positions(1, 3) === positions(1, 4), 'tile changes random placements');
     assert.eq(generate(1, 3, true).drills.length, 3, 'uses all available cells when fewer than ten exist');
-    assert.eq(WorldGen.CAVE_PASSES[WorldGen.CAVE_PASSES.length - 1].id, 'drills', 'preserves earlier cave dressing');
+    const order = WorldGen.CAVE_PASSES.map(row => row.id);
+    assert.eq(order.indexOf('drills'), order.indexOf('barrels') + 1, 'preserves earlier cave dressing');
+    assert.eq(order[order.length - 1], 'grass', 'grass takes only seats left after drill shrines');
   });
 })();

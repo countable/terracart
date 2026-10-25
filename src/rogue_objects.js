@@ -129,4 +129,5 @@ const RogueObjects = (() => {
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;
+// Rogue is the sole active world art profile.
 const WorldArtProfile=RogueObjects;

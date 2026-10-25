@@ -185,6 +185,18 @@
     deadlines[plant.id] = now + Math.max(1, -Math.log1p(-roll) * WILD_REGROWTH[plant.crop]);
     return true;
   }
+  // Tilled ground keeps its bed (owner, Oct 2026): a cleared tuft or herb
+  // whose cell the hoe has turned never grows back. The mark is a deadline
+  // that never comes, so it persists, never rerolls, and regrowGrass keeps it
+  // while the plant stays cleared.
+  const NEVER_REGROWS = Number.MAX_VALUE;
+  function stopRegrowth(save, plant) {
+    if (!plant || !regrows(plant.crop) || !plant.id || plant.playerOwned) return false;
+    const deadlines = save.grassRegrowth ||= {};
+    if (deadlines[plant.id] === NEVER_REGROWS) return false;
+    deadlines[plant.id] = NEVER_REGROWS;
+    return true;
+  }
   function regrowGrass(save, now = Date.now(), paused = null) {
     const deadlines = save.grassRegrowth;
     if (!deadlines || typeof deadlines !== 'object' || Array.isArray(deadlines)) return false;
@@ -224,5 +236,5 @@
   }
 
   root.SaveState = { SAVE_DEFAULTS, defaults, normalize, hasPlayed,
-    GRASS_REGROWTH_MEAN_MS, WILD_REGROWTH, regrows, rememberClearedGrass, regrowGrass };
+    GRASS_REGROWTH_MEAN_MS, WILD_REGROWTH, regrows, rememberClearedGrass, stopRegrowth, regrowGrass };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

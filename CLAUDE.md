@@ -53,8 +53,16 @@ implementation rationale lives beside the code.
 - Use subagents to batch large or parallelizable tasks.
 - Serve locally with `python3 -m http.server 8000`; use `?sandbox=true` for the
   test world. The game needs HTTP for fetches and the service worker.
-- After the last edit to a file loaded by `index.html`, run
-  `node tools/cachebust.js --write`, then `node test/node/run.js`.
+- After editing a file loaded by `index.html`, run
+  `node tools/cachebust.js --write`. During iteration run `npm run test:fast`
+  plus the relevant simulation/stress files, for example
+  `npm test -- --file tile_build_blocks.test.js`. Use `--match` to narrow a
+  specific regression; a filtered pass is not a full-suite pass.
+- Before publishing a code change, run `npm test` (the complete suite).
+  After merging concurrent changes, rerun affected files and cache checks;
+  repeat the full suite when merge conflicts change behavior or the scope
+  of the affected tests is unclear. Test-runner changes also require
+  `npm run test:runner` and separate fast/stress runs.
   Script `?v=` values and `SHELL_VERSION` are derived hashes; never edit them
   by hand. Resolve merge markers before regenerating hashes.
 - The headless suite includes sprite, cache and layout audits. For browser

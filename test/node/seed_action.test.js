@@ -62,6 +62,17 @@
     assert.eq(JSON.parse(JSON.stringify(f.save)).tilled[0], 'plot', 'bound soil set is persisted');
     assert.eq(f.save.planted[0].watered_t, 0, 'watering remains a separate action');
   }));
+  test('seed action: preparing a cleared tuft keeps origin terrain regrowth suppressed', () => fixture(f => {
+    const tuft = { id: 'cleared-grass', crop: 'longgrass', x: 10, y: 10 };
+    f.save.picked.push(tuft.id);
+    SaveState.rememberClearedGrass(f.save, tuft, 1000, () => 0.5);
+    WorldGen.tileCache.set('seed-regrowth', { wildplants: [tuft], objects: [] });
+    handler('till').try(f.ctx); f.complete();
+    const restored = JSON.parse(JSON.stringify(f.save));
+    assert.falsy(SaveState.regrowGrass(restored, 1e15));
+    assert.truthy(restored.picked.includes(tuft.id), 'grass stays cleared beneath the planted bed');
+    assert.eq(restored.planted[0].crop, 'potato');
+  }));
   test('seed action: invalidated seed, terrain, depth or occupancy refunds work without preparing soil', () => {
     for (const invalidate of [
       f => Inventory.remove(f.save, 'potato_seed', 2),

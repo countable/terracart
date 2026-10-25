@@ -222,7 +222,7 @@ and plain-rock examples remain in the surrounding grid.
 | snare | Iron Lane | a snare chest ringed by iron teeth, a few stray snares down the lane |
 | goblin_gang | Goblin Gang Street | clustered barrels and goblin grunt guards |
 | berry | Berry Lane | every kind of bush on both verges, a rare golden one, runts hiding behind |
-| pottery | Kiln Row | clay pots a cell back from both kerbs |
+| pottery | Kiln Row | two ranks of clay pots a cell back from both kerbs |
 | trade | Market Close | barrels of goods on both verges, goblin grunt pairs behind them |
 | barricade path | Fort Road | barricades, stakes and guard lair |
 | rocky_path | Rocky Road | simple stone-lined road |

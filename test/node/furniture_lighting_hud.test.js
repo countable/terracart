@@ -58,27 +58,30 @@
   }
 
   const visible = scene => scene.shopLabelPool.filter(slot => slot.visible);
+  const homeSign = rank => `${Shops.BUILDING_LABEL.trailer} (${rank})`;
 
-  test('Home upgrade: button appears only inside, persists two storeys and cannot repeat', () => withHome((scene) => {
-    assert.eq(HomeArea.storeys(scene.save), 1);
+  test('Home upgrade: a tab of the Home dialog, never a map button; one-time and persisted', () => withHome((scene) => {
     Render.drawObjects(scene);
-    const button = scene._homeUpgradeButton;
-    assert.truthy(button?.visible);
-    assert.eq(button.text, '[upgrade]');
-    let stopped = false;
-    button.handlers.pointerdown(null, 0, 0, { stopPropagation() { stopped = true; } });
-    assert.truthy(stopped, 'button does not tap through to the map');
+    assert.falsy(scene._homeUpgradeButton, 'no in-world upgrade button');
+    const offers = [];
+    Object.assign(scene, {
+      _homeTabs: liftSceneMethod('_homeTabs'), presentHomeUpgrade: liftSceneMethod('presentHomeUpgrade'),
+      presentHomeSell() { offers.push({ sell: true }); },
+      _homeKindIcon: () => undefined, flash() {}, showOfferModal(o) { offers.push(o); },
+    });
+    const tabs = scene._homeTabs(0, 0, 'sell');
+    assert.eq(tabs.map(t => t.label).join(','), 'Sell,Upgrade');
+    assert.truthy(tabs[0].active); assert.falsy(tabs[1].active);
+    tabs[1].onSelect();
+    const page = offers.pop();
+    assert.eq(page.acceptLabel, 'Upgrade');
+    assert.truthy(page.tabs[1].active, 'the Upgrade tab is the open page');
+    page.onAccept();
     assert.eq(HomeArea.storeys(JSON.parse(JSON.stringify(scene.save))), 2, 'upgrade survives save serialization');
-    assert.falsy(button.visible);
     assert.falsy(scene.upgradeHome(), 'one-time upgrade');
-    Render.drawObjects(scene);
-    assert.falsy(button.visible);
-    scene.save.homeStoreys = 1;
-    scene.playerM = { x: 100, y: 100 };
-    Render.drawObjects(scene);
-    assert.falsy(button.visible, 'hidden outside');
-    assert.falsy(scene.upgradeHome(), 'stale callback cannot upgrade outside');
-    assert.eq(HomeArea.storeys(scene.save), 1);
+    assert.eq(scene._homeTabs(0, 0, 'sell').length, 0, 'no tab row once there is nothing left to upgrade');
+    scene.presentHomeUpgrade(0, 0);
+    assert.truthy(offers.pop().sell, 'a stale Upgrade tab falls back to Sell');
   }));
 
   test('furniture HUD: indoor score renders instantly in white above Home and fades over the player', () => withHome((scene, labels) => {
@@ -106,7 +109,7 @@
     assert.eq(sign.alpha, 1, 'non-overlapping Home label stays opaque');
     scene.player.y = sign.y + sign.height / 2;
     Render.drawObjects(scene);
-    assert.eq(sign.text, Shops.BUILDING_LABEL.trailer);
+    assert.eq(sign.text, homeSign('Homely'));
     assert.eq(sign.alpha, 0.3, 'ordinary Home label uses the same overlap alpha');
     assert.eq(score.alpha, 1, 'score opacity recovers after the overlap ends');
   }));
@@ -158,6 +161,34 @@
     assert.eq(visible(scene).length, 1);
     assert.falsy(score.visible);
   }));
+
+  test('Home sign: rank follows luxury indoors, outdoors, by day and by night', () => withHome(scene => {
+    scene._homeIntro = null;
+    scene._homeSignT0 = performance.now() - 10000;
+    Render.drawObjects(scene);
+    const label = visible(scene)[0];
+    assert.eq(label.text, homeSign('Homely'));
+    scene.save.houseLuxury.home.score = 16;
+    Render.drawObjects(scene);
+    assert.eq(visible(scene)[0], label, 'rank changes update the existing text slot');
+    assert.eq(label.text, homeSign('Comfortable'));
+    scene.save.houseLuxury.home.score = 0;
+    Render.drawObjects(scene);
+    assert.eq(label.text, homeSign(MemoryStory.LUXURY_BARE), 'empty Home still shows its rank');
+    scene.playerM.x = 7.5;
+    for (const daylight of [1, 0]) {
+      scene._daylight.value = daylight;
+      Render.drawObjects(scene);
+      assert.eq(visible(scene)[0].text, homeSign(MemoryStory.LUXURY_BARE));
+    }
+  }));
+
+  test('furniture HUD: luxury descriptor follows the milestone thresholds', () => {
+    assert.eq(MemoryStory.luxuryRank(0), MemoryStory.LUXURY_BARE);
+    assert.eq(MemoryStory.luxuryRank(3), MemoryStory.LUXURY_BARE);
+    for (const row of MemoryStory.LUXURY_MILESTONES) assert.eq(MemoryStory.luxuryRank(row.luxury), row.rank);
+    assert.eq(MemoryStory.luxuryRank(500), 'Regal');
+  });
 
   test('resident plaque: saved housing selects the matching face and excludes player Home', () => withHome(scene => {
     const house = { id: 'tilly-house', kind: 'house', tier: 9 };

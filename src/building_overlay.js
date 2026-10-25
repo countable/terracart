@@ -472,6 +472,22 @@
     roofCache.set(key,result); return result;
   }
 
+  // A tile of the same size holding n×n copies of `src` at 1/n, nearest
+  // sampled, so the repeat and the world phase keep their period. Baked once
+  // per scene pattern (patternFor), never on a cell crossing.
+  function scaledTile(src, scale) {
+    const n = Math.round(1 / scale);
+    if (!(n > 1)) return src;
+    const canvas = document.createElement('canvas');
+    canvas.width = src.width; canvas.height = src.height;
+    const c = canvas.getContext?.('2d');
+    if (!c) return src;
+    c.imageSmoothingEnabled = false;
+    const w = src.width / n, h = src.height / n;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) c.drawImage(src, x * w, y * h, w, h);
+    return canvas;
+  }
+
   function canvasTarget(scene) {
     if (typeof document === 'undefined' || !scene.textures || !scene.buildingGeomContainer) return null;
     if (scene._buildingGeomTarget) return scene._buildingGeomTarget;
@@ -491,15 +507,18 @@
     const patternFor = (tier) => {
       if (patterns.has(tier)) return patterns.get(tier);
       let p = null;
-      const key = tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+      // 'home': Home's own floor, the plank material at HomeArea.HOUSE.floorTexScale.
+      const home = tier === 'home';
+      const key = tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 || home ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
         : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
-        const src = scene.textures.get(key).getSourceImage();
+        let src = scene.textures.get(key).getSourceImage();
         // createPattern THROWS on a zero-sized source (a texture not baked yet)
         // and would take the whole pass down. No material is fine.
-        if (src && src.width && src.height) p = {
-          fill: ctx.createPattern(src, 'repeat'), width: src.width, height: src.height,
-        };
+        if (src && src.width && src.height) {
+          if (home) src = scaledTile(src, HomeArea.HOUSE.floorTexScale);
+          p = { fill: ctx.createPattern(src, 'repeat'), width: src.width, height: src.height };
+        }
       }
       patterns.set(tier, p);
       return p;
@@ -1247,7 +1266,11 @@
   }
 
   function invalidate(scene) {
-    if (scene) scene._buildingGeomKey = null;
+    if (scene) {
+      scene._buildingGeomKey = null;
+      scene._buildingGeomPending?.steps?.return?.();
+      scene._buildingGeomPending = null;
+    }
   }
 
   // The world→screen transform is a pure translation, so the geometry is drawn
@@ -1281,6 +1304,8 @@
         scene._buildingGeomPainted = false;
       }
       scene._buildingGeomKey = null;
+      scene._buildingGeomPending?.steps?.return?.();
+      scene._buildingGeomPending = null;
       return;
     }
 
@@ -1294,17 +1319,41 @@
     const previous = scene._buildingGeomKey ? scene._buildingGeomFrame : null;
     const paint = overlayPaintFrame(scene, frame, previous, claimEpoch(scene));
     let offset = paint;
-    if (paint.rebuild) {
+    let pending = scene._buildingGeomPending;
+    if (pending && pending.key !== paint.key) {
+      pending.steps.return?.();
+      scene._buildingGeomPending = pending = null;
+    }
+    if (pending) {
+      const retained = retainedOverlayOffset(scene, previous, frame);
+      if (claimOverlayRebuild(scene, 'building', !retained)) {
+        timedOverlayRebuild('building overlay rebuild', () => finishRebuild(pending.steps));
+        scene._buildingGeomFrame = pending.paint;
+        scene._buildingGeomKey = pending.key;
+        scene._buildingGeomPainted = true;
+        scene._buildingGeomPending = null;
+        offset = pending.paint;
+      } else offset = retained;
+    } else if (paint.rebuild) {
       // Null = the retained paint cannot follow the anchor (a teleport
       // outran its pad): spend this update's upload rather than show stale
       // geometry for a frame.
       const retained = retainedOverlayOffset(scene, previous, frame);
       if (claimOverlayRebuild(scene, 'building', !retained)) {
-        scene._buildingGeomFrame = paint;
-        scene._buildingGeomKey = paint.key;
-        scene._buildingGeomPainted = true;
-        timedOverlayRebuild('building overlay rebuild',
-          () => rebuild(scene, tiles, paint.fracX, paint.fracY));
+        const steps = rebuildSteps(scene, tiles, paint.fracX, paint.fracY);
+        // A retained canvas can cover one planning update. Standalone draws,
+        // first paint and teleports keep their synchronous contract because
+        // they have no safe old picture to show.
+        if (previous && retained && Number.isFinite(scene._overlayFrameSeq)) {
+          timedOverlayRebuild('building overlay plan frame', () => steps.next());
+          scene._buildingGeomPending = { key: paint.key, paint, steps };
+          offset = retained;
+        } else {
+          timedOverlayRebuild('building overlay rebuild', () => finishRebuild(steps));
+          scene._buildingGeomFrame = paint;
+          scene._buildingGeomKey = paint.key;
+          scene._buildingGeomPainted = true;
+        }
       } else {
         // Road used this update's one canvas upload. Keep both the retained
         // footprint canvas and its upright sprites seated from their old
@@ -1357,44 +1406,30 @@
       + ',' + (scene.activeInterior?.()?.key || '');
   }
 
-  function rebuild(scene, tiles, fracX, fracY) {
+  function* rebuildSteps(scene, tiles, fracX, fracY) {
+    const profile = window.__boot;
+    let stageAt = profile ? performance.now() : 0;
+    const stage = (name) => {
+      if (!profile) return;
+      const now = performance.now();
+      profile.tick(name, now - stageAt);
+      stageAt = now;
+    };
     const g = fillTarget(scene);
-    g.clear();
-    if (!scene._buildingUprightCache) clearUprights(scene);
-    scene._buildingUprightPieces = [];
-    const seen = new Set();
-    if (scene.events && !scene._buildingUprightCleanup) {
-      scene._buildingUprightCleanup = true;
-      scene.events.once('shutdown', () => {
-        clearUprights(scene);
-        scene._buildingUprightCleanup = false;
-        scene._buildingGeomKey = null;
-        scene._buildingGeomTarget = null;
-      });
-    }
-    // Standalone art exporters load the legacy Canvas painter without Phaser.
+    // Plan against immutable tile inputs before touching visible state. draw()
+    // can pause at the yield below and keep the retained overlay on screen,
+    // then paint from this exact plan on the next update.
     const procedural = Render.proceduralBuildings?.() && !!scene.buildingWallContainer && typeof scene.add?.graphics === 'function';
-    scene._proceduralBuildings = new Map();
     const perspective = typeof WallPerspective !== 'undefined' && (WallPerspective.active(scene) || procedural) && !!scene.buildingWallContainer;
-    // This path also owns procedural walls in north-up mode. Their visibility
-    // must not depend on a nearby temple or restored house enabling the group.
-    if (perspective) WallPerspective.begin(scene, 'polygon').alwaysActive = true;
-    else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
     const fdrCastles = perspective && typeof FDRCastleGeometry !== 'undefined'
       && scene.textures?.exists('fdr_castle_atlas');
-    scene._fdrCastleLayouts = new Map();
-    if (fdrCastles) WallPerspective.begin(scene, 'castles').alwaysActive = true;
-    else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'castles');
     const lowpoly = typeof BuildingLowPoly !== 'undefined' && BuildingLowPoly.active(scene);
-    if (lowpoly) BuildingLowPoly.begin(scene);
-    else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
     const separateUprights = !!(scene.buildingWallContainer && scene.add && scene.textures);
     // Home without the low-poly path (Canvas, north-up): its own retained
     // prisms, in the 'home' group, on at every heading. Opened by drawHome
     // and emptied here when Home is out of view.
     const homePrisms = separateUprights && typeof WallPerspective !== 'undefined'
       && typeof scene.add.graphics === 'function';
-    if (homePrisms) WallPerspective.clear(scene, 'home');
     let homeBegun = false;
     // Cell-snapped projection (the container re-applies the sub-cell offset) —
     // the same one the road overlay strokes with — and its padded cull bounds.
@@ -1500,6 +1535,7 @@
 
     // A retail room uses the same open-roof house renderer and floor canvas.
     // Its source footprint survives POI frontage placement and civic dissolves.
+    const retailCovered = [];
     const room = scene.activeInterior?.();
     if (room?.kind === 'retail') {
       const project = ring => ring.map(p => ({ x: projX(p.x), y: projY(p.y) }));
@@ -1515,7 +1551,7 @@
         // Ring start, winding and a duplicated closing point do not matter.
         const verticesMatch = (a, b) => a.every(p => b.some(q => Math.hypot(p.x - q.x, p.y - q.y) < epsilon));
         if (!d.templeZone && sameBounds && verticesMatch(d.pts, pts) && verticesMatch(pts, d.pts)) {
-          if (d.object?.id) scene._proceduralBuildings.set(d.object.id, { height: 0 });
+          if (d.object?.id) retailCovered.push(d.object.id);
           draws.splice(i, 1);
         }
       }
@@ -1528,6 +1564,35 @@
     // by which tile happened to load first.
     // A cleared footprint's shadow lies on the ground, under every building.
     draws.sort((a, b) => (b.cleared - a.cleared) || (a.south - b.south) || (a.left - b.left));
+    stage('building overlay plan');
+    yield 'planned';
+    if (profile) stageAt = performance.now();
+
+    g.clear();
+    if (!scene._buildingUprightCache) clearUprights(scene);
+    scene._buildingUprightPieces = [];
+    const seen = new Set();
+    if (scene.events && !scene._buildingUprightCleanup) {
+      scene._buildingUprightCleanup = true;
+      scene.events.once('shutdown', () => {
+        clearUprights(scene);
+        scene._buildingUprightCleanup = false;
+        scene._buildingGeomKey = null;
+        scene._buildingGeomTarget = null;
+      });
+    }
+    scene._proceduralBuildings = new Map();
+    for (const id of retailCovered) scene._proceduralBuildings.set(id, { height: 0 });
+    scene._fdrCastleLayouts = new Map();
+    // This path also owns procedural walls in north-up mode. Their visibility
+    // must not depend on a nearby temple or restored house enabling the group.
+    if (perspective) WallPerspective.begin(scene, 'polygon').alwaysActive = true;
+    else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
+    if (fdrCastles) WallPerspective.begin(scene, 'castles').alwaysActive = true;
+    else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'castles');
+    if (lowpoly) BuildingLowPoly.begin(scene);
+    else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
+    if (homePrisms) WallPerspective.clear(scene, 'home');
 
     // Anchor the material patterns to the WORLD before anything is filled:
     // texturePoly paints immediately, so the phase has to be in hand first.
@@ -1588,7 +1653,9 @@
             { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 },
             d.retail ? scene.buildingStoreys : HomeArea.storeys(scene.save));
           recipe.interior = inside;
-          recipe.authored = !d.retail && HomeArea.storeys(scene.save) === 2 ? null : authoredRecipe(scene,object,'home');
+          // A retail room keeps its procedural walls; Home wears its skin
+          // inside and out (BuildingLowPoly.interiorGeometry).
+          recipe.authored = d.retail || HomeArea.storeys(scene.save) === 2 ? null : authoredRecipe(scene,object,'home');
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
           // Home's door is the save's doorway wall (the shape's door point,
           // chosen toward the nearest street at placement — scene_venues.js
@@ -1762,6 +1829,7 @@
         g.strokePoly(d.pts, OUTLINE_PX, tune(dim(shaded, OUTLINE_MUL)));
       }
     }
+    stage('building overlay paint');
     if (perspective) scene._wallPerspective.polygon.building = null;
     // Pieces that scrolled out of view (or changed claim state) go.
     for (const [k, p] of scene._buildingUprightCache) {
@@ -1770,13 +1838,24 @@
     if (separateUprights) {
       Render.sortWorldDepth(scene._buildingUprightPieces);
       scene.buildingWallContainer.sort('depth');
+      stage('building overlay finalize');
       commitWallAtlas(scene);
-    }
+      stage('building wall atlas upload');
+    } else stage('building overlay finalize');
     if (lowpoly) BuildingLowPoly.update(scene);
     if (perspective) WallPerspective.finish(scene, 'polygon');
     if (fdrCastles) { scene._wallPerspective.castles.building = null; WallPerspective.finish(scene, 'castles'); }
     if (homeBegun) WallPerspective.finish(scene, 'home');
-    if (g.commit) g.commit();
+    stage('building geometry finalize');
+    if (g.commit) {
+      g.commit();
+      stage('building canvas upload');
+    }
+  }
+  function finishRebuild(steps) {
+    let result = steps.next();
+    while (!result.done) result = steps.next();
+    return result.value;
   }
 
   // ── YOUR HOUSE ───────────────────────────────────────────────────────────
@@ -1802,7 +1881,7 @@
     // No walls at all (a bare fill target): the tiled south face under the floor.
     if (!walled && !d.retail) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
     g.fillPoly(d.pts, floor, undefined, d.holes);
-    if (g.texturePoly) g.texturePoly(d.pts, tier, d.holes, d.retail ? 1 : 0.6);
+    if (g.texturePoly) g.texturePoly(d.pts, d.retail ? tier : 'home', d.holes);
     if (g.gridPoly && !d.retail) g.gridPoly(d.pts, gridInkFor(GRID, floor));
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
   }

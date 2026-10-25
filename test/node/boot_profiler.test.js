@@ -170,7 +170,15 @@ test('overlay rebuild slot: road and building canvas uploads land on separate up
     scene._overlayFrameSeq++;
     RoadOverlay.draw(scene);
     BuildingOverlay.draw(scene);
-    assert.eq(tickCount('building overlay rebuild'), 2, 'building rebuilds from latest state one update later');
+    assert.eq(tickCount('building overlay plan frame'), 1, 'building plans without touching retained paint');
+    assert.eq(tickCount('building overlay rebuild'), 1, 'planning stays separate from the expensive paint');
+    assert.eq(scene.buildingGeomContainer.x, -CELL_PX * 1.75,
+      'the planning update keeps retained paint aligned');
+
+    scene._overlayFrameSeq++;
+    RoadOverlay.draw(scene);
+    BuildingOverlay.draw(scene);
+    assert.eq(tickCount('building overlay rebuild'), 2, 'building paints its saved plan on the following update');
     assert.eq(scene.buildingGeomContainer.x, -CELL_PX * 0.75,
       'fresh paint returns to the current snapped-cell offset');
   } finally {

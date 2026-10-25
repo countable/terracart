@@ -1560,8 +1560,8 @@
           const b = idx.buckets.get(bucketKey(bx, by));
           if (!b) continue;
           for (const worldCand of b) {
-            // An authored per-player introduction can hold or replace this
-            // candidate without changing its world index or any RNG stream.
+            // Authored per-player introductions can hold or replace a candidate
+            // without changing its world index or another structure's stream.
             const cand = o.candidateOverlay ? o.candidateOverlay(worldCand) : worldCand;
             if (!cand) continue;
             const dx = cand.wx - p.x, dy = cand.wy - p.y;

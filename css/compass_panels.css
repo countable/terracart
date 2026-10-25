@@ -1,6 +1,8 @@
 /* Standalone dialogs live on body, outside the scaled game. Use the same
-   phone gutters as the HUD so their panels and backdrops stay in the device. */
-body > :is(#bootload, #story, #howto, #tooshort, #locating) {
+   phone gutters as the HUD so their panels and backdrops stay in the device.
+   #tooshort is left out on purpose: it only shows when that column is too
+   small to use, so it spans the whole viewport instead. */
+body > :is(#bootload, #story, #howto, #locating) {
   left: var(--phone-left, 0px);
   right: var(--phone-right, 0px);
   width: auto;
@@ -77,8 +79,14 @@ body.compass-hud.modal-open:has(.compass-panel)::after {
   width: 100%; height: auto; aspect-ratio: 1;
   border-radius: 0 !important;
 }
+/* Story scenes keep their whole 4:3 frame: they start below the rail's
+   lower bar, so only the medallion tip and the wing corners overlap them
+   (fit() adds the drop back). */
 .compass-panel[data-kind='story'] .modal-art,
-.compass-panel[data-kind='story'] .modal-art-mosaic { height: 100%; aspect-ratio: 4 / 3; }
+.compass-panel[data-kind='story'] .modal-art-mosaic {
+  top: calc(var(--panel-rail-height) * .7) !important;
+  height: calc(100% - var(--panel-rail-height) * .7); aspect-ratio: 4 / 3;
+}
 .compass-panel .compass-action { border-radius: 13px !important; min-height: 38px; }
 .compass-panel .compass-action-primary:not(.compass-action-accent):not(:disabled) {
   background: linear-gradient(#fff0a0, #f4c844 22%, #d79a20 78%, #f4cd63) !important;

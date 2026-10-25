@@ -95,7 +95,7 @@ for (const type of [0,1,2,3,4,5,6,10,15,16,17,18,19,20,21,22,23,27,28,29,31,33])
 }
 for (const type of [9,11,12,24,25,26,32]) assert.equal(art.material(type), -1, 'structures and mountain overlays retain their owners');
 assert.equal(art.material(23), art.material(3), 'pier retains water underneath');
-assert.equal(art.material(5), art.material(10), 'residential and rock share cold slate');
+assert.notEqual(art.material(5),art.material(10),'public residential retains released light slate independently of rock');
 const overrides = {G01:15,G02:16,G03:17,G04:13,G06:19,G10:20,'G09-cold':10,'G06-purple':8,'G09-smooth-grey':9};
 for (const [id, family] of Object.entries(overrides))
   assert.equal(art.materialForGround(28,'zone_ground_'+id,3,-8), family, 'Nexus '+id+' receives its own masked texture');

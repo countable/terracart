@@ -10,7 +10,7 @@
 //     on idle), _whenIdle, _tileFailureKind, _scheduleTileRetry (the backoff
 //     re-fetch), and the dumpTileDebug readout.
 // Plus the constants only they read: ORIGIN_STRANDED_M, RING_IDLE_TIMEOUT_MS,
-// TILE_RETRY_BASE_MS, TILE_RETRY_MAX_MS.
+// RING_IDLE_FRAME_MS, TILE_RETRY_BASE_MS, TILE_RETRY_MAX_MS.
 //
 // The methods live on `class SceneGeo`, a MIXIN: app.js installs them onto
 // MapScene.prototype right after the class closes (installSceneMixin, from
@@ -42,6 +42,9 @@
 // entirely. 25 km is well past a day's walk and well past any GPS error.
 const ORIGIN_STRANDED_M = 25000;
 const RING_IDLE_TIMEOUT_MS = 400;
+// A frame gap at or under this (a 30 fps frame) counts as idle for _whenIdle's
+// rAF fallback.
+const RING_IDLE_FRAME_MS = 34;
 const TILE_RETRY_BASE_MS = 4000;
 const TILE_RETRY_MAX_MS = 60000;
 
@@ -819,7 +822,7 @@ class SceneGeo {
     return true;
   }
 
-  async _loadTileEntry(tx, ty, bytesPromise) {
+  async _loadTileEntry(tx, ty, bytesPromise, opts = null) {
     const kick = this._bootTileKick;
     if (kick && kick.tx === tx && kick.ty === ty && kick.depth === (this.depth || 0)) {
       // preload() started this exact centre before Phaser fetched its assets.
@@ -836,7 +839,8 @@ class SceneGeo {
       // entry before create() reaches it. Read that replacement through the
       // normal cache path rather than spawning the detached old entry.
     }
-    return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise });
+    return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise,
+      bootPriority: !!opts?.bootPriority });
   }
 
   _warmGeometryAround() {
@@ -917,7 +921,9 @@ class SceneGeo {
       const [tx, ty] = k.split('/').map(Number);
       let entry = null;
       try {
-        entry = await this._loadTileEntry(tx, ty, bytesPromise);
+        entry = await this._loadTileEntry(tx, ty, bytesPromise, {
+          bootPriority: k === centreKey && !this._bootOverlayGone,
+        });
         if (entry.status === 'loading') await entry.promise;
         // A NEIGHBOUR's surface spawn pass runs SLICED (_spawnInTileSliced):
         // 20-70 ms of it used to ride this tile's build unbroken. The centre
@@ -1066,12 +1072,25 @@ class SceneGeo {
   // latest. A tile build overruns any idle deadline on its own (it is one
   // uninterruptible chunk), so this is about picking a better MOMENT, not
   // about fitting inside the budget.
+  //
+  // Without requestIdleCallback (iOS Safari) the rAF fallback resolves on the
+  // first frame-to-frame gap of RING_IDLE_FRAME_MS or less; the timeout is the
+  // ceiling for a thread that never settles. A flat 400 ms wait here left the
+  // iPhone ring idle for ~450 ms before every tile (3.5 s of a 9 s ring).
   _whenIdle() {
     return new Promise((resolve) => {
       if (typeof requestIdleCallback === 'function') {
         requestIdleCallback(() => resolve(), { timeout: RING_IDLE_TIMEOUT_MS });
       } else if (typeof requestAnimationFrame === 'function') {
-        requestAnimationFrame(() => setTimeout(resolve, RING_IDLE_TIMEOUT_MS));
+        const start = performance.now();
+        let last = null;
+        const step = (now) => {
+          if (last !== null && (now - last <= RING_IDLE_FRAME_MS
+              || now - start >= RING_IDLE_TIMEOUT_MS)) { resolve(); return; }
+          last = now;
+          requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
       } else {
         setTimeout(resolve, RING_IDLE_TIMEOUT_MS);
       }

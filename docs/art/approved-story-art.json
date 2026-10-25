@@ -365,7 +365,7 @@
       "sha256": "fbb967df86b4a833690ede62e87a7dd967424a24cc4f89cd8fb3dd174372abed",
       "method": "regenerated",
       "crop": null,
-      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close-up of gloved hands guiding another person\u2019s grip on a wooden practice sword, brown leather gloves, muted rust-brown left sleeve, cream cuff at right, timber training yard background. Keep hands anatomically coherent, no extra hands. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
+      "prompt": "Use case: style-transfer. Produce one finished 4:3 landscape story-dialog painting with art to all four edges and NO text zone, border, words, lettering or collage. Image 1 is the original scene: preserve its subject identities, meaningful props, action and close framing; discard the old blank lower copy zone. Image 2 is the approved STYLE master: match its restrained contextual palette, irregular softly painted pixel clusters, simplified shapes and quiet painterly atmosphere. Make it clearly hand-painted pixel art throughout, including the main object, hands, faces, metal and wood: no photoreal textures, razor-sharp outlines, glossy product render, photographic depth of field, tiny detailed rivets or uniform mosaic filter. Not a blur filter: design with soft irregular pixel brush marks and few colors. Keep lighting contextual and time of day ambiguous, no visible sun or conspicuous sunset. Hood, if present, is an adult in the approved brown hood/short outer garment, trousers, boots and backpack; face and hair completely concealed by opaque hood shadow or viewed from behind. Preserve scene camera distance and composition, adapt the upper painted scene to 4:3 without squeezing subjects.  CRITICAL CONTENT LOCK: Copy ONLY scene content from Image 1. Image 2 supplies brushwork and palette discipline ONLY: never import its shopkeeper, Hood, sack, lantern, shelves or any other depicted object into the scene. For object-only paintings, do NOT add any people. Close-up of gloved hands guiding another person’s grip on a wooden practice sword, brown leather gloves, muted rust-brown left sleeve, cream cuff at right, timber training yard background. Keep hands anatomically coherent, no extra hands. ONLY the subjects explicitly listed in this scene, do not add any figures from the style reference."
     },
     {
       "key": "bottle_read",
@@ -2897,32 +2897,53 @@
   "opening_frames": [
     {
       "key": "story_nightmare",
-      "master_path": "../opening-story-refresh/story_nightmare.png",
-      "master_sha256": "922ba679d95a1050e38167055a67464d72456d50fec1e626cb94229f90773863",
+      "master_path": "approved-story-art/story_nightmare-motion-4b0c5df4.png",
+      "master_sha256": "5ca7e828da3d7d09c6ce545c59339e6111900a8623f22ac3a14683385e208dd6",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "fedc35afbd7c6bcb7738726a42a1de337a57b4b92386c45f5a67c6deac790114",
-      "method": "regenerated",
-      "reference": "Original nightmare; paired black smoke fade; red Tiamat eye close-up for 3.6-second zoom"
+      "sha256": "18322b9d94661176ea99f48544b94964d53418234bb2f8e55c7ab401bcf67653",
+      "method": "reference_edit",
+      "reference": "approved-story-art/story_nightmare-motion-reference-4b0c5df4.webp",
+      "generator": "built-in image_gen",
+      "prompt": "Precise animation-frame edit. Preserve camera, crop, zoom, character identities, apparent skull sizes, red/black pixel-art texture and full 2:3 portrait canvas. Keep EVERY building, roof, tower, window and skyline precisely fixed. Animate dragon necks/heads locally, not by moving the whole scene. Smoke changes only subtly; flames and dragon poses change more visibly. No new heads, objects, text or borders. EDIT FRAME 1. Move the fire-breathing action from the dominant upper-center RED head to the lower central DARK head (the lowest dark head, directly beneath the red one). Remove the fire jet from the upper red mouth; leave its mouth partly open, no emitted flame. The lower central dark head now breathes a strong orange fire jet diagonally down/right toward the white dragon's ice, naturally replacing the old central fire stream. Tilt that lower dark head slightly up/right to aim. Give the left tan head a slight backward lean and the upper-right dark head a small downward nod, so their relative poses differ from later frames. Keep central red eye/skull anchored in same position and scale. Preserve the existing white dragon poses as frame1 starting positions. Keep original black lower fade. Output1024x1536 matching original composition exactly.",
+      "reference_sha256": "3cd2f3546fd32e6f93ba98d5c384ec32454548d8ec904f29c852df881f92bec8",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare-motion-reference-4b0c5df4.webp",
+          "sha256": "3cd2f3546fd32e6f93ba98d5c384ec32454548d8ec904f29c852df881f92bec8",
+          "role": "edit target: preserve camera and city; animate local heads, flames and smoke"
+        }
+      ],
+      "intrinsic_zoom": 1
     },
     {
       "key": "story_nightmare_frame2",
-      "master_path": "approved-story-art/story_nightmare_frame2-zoom.png",
-      "master_sha256": "d8b66f3f4d77c316fd10e5e0801e98662699732b9a89c824a1d51cd14a00183d",
+      "master_path": "approved-story-art/story_nightmare_frame2-tiamat-zoom-2d561c76.png",
+      "master_sha256": "2d561c767099a26b1c376d1df72a1a631c2be9f6d703b52e914f3af5e7032c98",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
-      "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
+      "sha256": "4ba210518543075acc58b190851cc5244373774c1ec85c6c80d345a8c35d8ed9",
       "method": "reference_edit",
-      "reference": "assets/art/story_nightmare_frame2.webp; central red dragon face",
-      "generator": "built-in image_gen",
-      "intrinsic_zoom": 1.45,
-      "prompt": "Edit the supplied existing pixel-art dragon battle frame into a sharply resolved closer camera shot. Output a single portrait 2:3 image, ideally 1024x1536 or larger. This is frame 2 of a continuous zoom sequence, not a redesign. Enlarge the entire reference composition by exactly 1.45x around the anchor at 59% of image width and 21% of image height. That anchor near the central RED dragon's glowing eye must stay at 59% width,21% height in the result. Crop outside the portrait canvas; do not fit the whole original scene back into the image. All visible subjects, head poses, identities, architecture, flames, wings and smoke retain the exact spatial relationships from this reference. Central red dragon face is the focus; maintain its red scales, horns, eye, teeth and mouth silhouette exactly. Keep the five-headed hydra and opposing white dragon consistent, showing only whatever portions remain inside the tighter camera crop. Recover crisp high-resolution pixel-art details in scales, horns, eye, teeth and flames rather than blurry enlarged source pixels. No softened interpolation, no text, no new heads, no extra objects, no composition changes other than the specified optical zoom. Preserve dark red and black palette and bright lava-fire lighting. One frame only, not a contact sheet."
+      "generator": "image-gen skill: genimg --ref --opaque --aspect 2:3 --quality high (OpenAI images/edits, gpt-image-2)",
+      "intrinsic_zoom": 1.5,
+      "crop_registration": "59% 21% of the source frame (red head eye), matching the preview's .nightmare-frame transform-origin",
+      "reference": "approved-story-art/story_nightmare_frame2-tiamat-zoom-reference-2d561c76.png",
+      "reference_sha256": "bdbc7ab675b4d60b1a7edb21db362ae3ae970c87474457022b1cf6b212008191",
+      "references": [
+        {
+          "path": "approved-story-art/story_nightmare_frame2-tiamat-zoom-reference-2d561c76.png",
+          "sha256": "bdbc7ab675b4d60b1a7edb21db362ae3ae970c87474457022b1cf6b212008191",
+          "role": "edit target: frame 1 cropped 1.5x about (59%,21%) and upscaled to 1024x1536; keep camera and city, animate heads, flames and smoke"
+        }
+      ],
+      "chain": "frame 1 -> 1.5x crop -> frame 2",
+      "prompt": "EDIT the attached pixel-art painting into the NEXT ANIMATION FRAME of the same scene for a crossfade: an in-place edit, NOT a re-composition. Same camera, same crop, same zoom, same 2:3 portrait canvas, same dark-fantasy red/black 16-bit pixel-art dithering. HARD RULES: every dragon EYE stays at exactly the same pixel position and every skull keeps the same size; the city skyline stays at exactly the same height and position; the red eclipse moon stays top-right. Heads may rotate on their necks, jaws may open or close, necks may bend, but no head moves more than 25 pixels. Do not add or remove heads (five Tiamat heads: central red, left tan, three dark; one white ice dragon at right). SHOW MOVEMENT ONLY IN: the central red head opens its jaws wide and roars a thick orange fire jet toward the white dragon; the lower dark head snaps its jaws shut so its old fire jet breaks into sparks and embers; the tan head twists its snout upward; the upper-right dark head opens its jaws wider; the white dragon spreads its wing wider and its ice-breath plume broadens with flying crystal shards; black smoke columns rise higher from the burning city and curl between the necks; embers drift across the sky. No text, no border, no blur, fill the whole canvas. Flames and smoke are the main visible change; the dragons shift only subtly."
     },
     {
       "key": "story_nightmare_close",
@@ -2952,32 +2973,29 @@
     },
     {
       "key": "story_nightmare_frame3",
-      "master_path": "approved-story-art/story_nightmare_frame3-side-no-fire-b37e89cc.png",
-      "master_sha256": "741f797b376d82278f2fffd286964ef24345e6224ffc2a859045c053a0d8b7da",
+      "master_path": "approved-story-art/story_nightmare_frame3-head-zoom-04b6d89f.png",
+      "master_sha256": "04b6d89f0ca1d46ed82e917b6e5230428e838184d4700f20df3d6b09930beda2",
       "width": 1024,
       "height": 1536,
       "export_width": 1024,
       "export_height": 1536,
       "aspect": 0.6666666666666666,
+      "sha256": "9f2ae15ef61bc206e5b2335ab2bb2c05d8d1d3990f8668456b18e2f551a6d597",
       "method": "reference_edit",
-      "generator": "built-in image_gen",
-      "intrinsic_zoom": 1.74,
-      "prompt": "Precise local image edit. IMAGE1 is the TARGET frame3; IMAGE2 is ONLY the central red dragon's SIDE-FACING POSE reference. Output1024x1536. Keep IMAGE1 camera, zoom, framing and every peripheral dragon, white head, city building, flame and smoke shape in exactly the same pixel positions. Do not change, zoom, move, resize or repaint that background. Change ONLY the central RED dragon head in the upper middle. It must NOT begin turning toward the viewer: restore the same side-facing/right-facing angle as the red dragon in IMAGE2, with just ONE visible glowing eye, long snout pointing RIGHT and slightly downward. No second eye, no frontal symmetry, no gaze at viewer. Keep the skull's SIZE and CENTER as in IMAGE1; rotate it locally in place to the reference profile without enlarging head or neck. It has JUST STOPPED BREATHING FIRE: mouth closes or nearly closes, upper and lower jaws almost touching with a narrow tooth-lined gap; absolutely no flame jet, sparks, embers or smoke leaving its lips. Preserve red scales, jagged horns, neck connection, lighting, fine pixel-painted texture and menacing identity. This is the quiet cessation-of-fire beat BEFORE the later sudden frontal turn. Image2 only supplies yaw angle, not its open mouth/fire, camera, overall composition or scale. Preserve IMAGE1 entire background and proportions. No new heads, limbs, objects, text or borders.",
-      "reference": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
-      "sha256": "cfe5d8e764b4df0330610f8550c54f7c93243a169a02aa8a521f4e1eec060a2b",
-      "reference_sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
+      "generator": "image-gen skill: genimg --ref --opaque --aspect 2:3 --quality high (OpenAI images/edits, gpt-image-2)",
+      "intrinsic_zoom": 1.92,
+      "crop_registration": "59% 21% of the source frame (red head eye), matching the preview's .nightmare-frame transform-origin",
+      "reference": "approved-story-art/story_nightmare_frame3-head-zoom-reference-04b6d89f.png",
+      "reference_sha256": "6a1183e7e94b813d5052d2a1d1ef4afff8c136f8157cc9d504c692bd9f1df562",
       "references": [
         {
-          "path": "approved-story-art/story_nightmare_frame3-reference-side-no-fire-b37e89cc.webp",
-          "sha256": "35351d85f75aa0c34ffae497c0a66fd82b0d68b08403e686f074274a77d474e9",
-          "role": "primary edit target: preserve whole composition, scene scale and background"
-        },
-        {
-          "path": "approved-story-art/story_nightmare_frame2-reference-side-no-fire-b37e89cc.webp",
-          "sha256": "9af40deea94e4488a413a1a443493983735bea0f349ba2c5d2e1d866deb8b983",
-          "role": "supporting reference: side-facing central head pose only"
+          "path": "approved-story-art/story_nightmare_frame3-head-zoom-reference-04b6d89f.png",
+          "sha256": "6a1183e7e94b813d5052d2a1d1ef4afff8c136f8157cc9d504c692bd9f1df562",
+          "role": "edit target: the new frame 2 cropped a further 1.28x about (59%,21%) (1.92x of frame 1) and upscaled to 1024x1536; red head stops fire and turns three-quarter toward the viewer"
         }
-      ]
+      ],
+      "chain": "frame 2 (new) -> 1.28x crop -> frame 3",
+      "prompt": "EDIT the attached pixel-art painting into the NEXT ANIMATION FRAME of the same scene for a crossfade: an in-place edit, NOT a re-composition. Same camera, same crop, same zoom, same 2:3 portrait canvas, same dark-fantasy red/black 16-bit pixel-art dithering, crisp high detail. HARD RULES: every dragon EYE stays at the same pixel position and every skull keeps the same size; the city skyline stays at exactly the same height; no head moves more than 25 pixels; do not add or remove heads. The scene: the central RED head of the five-headed dragon Tiamat dominates the upper middle; its tan sister head is at left, a dark head lower-left, another dark head upper-right, and the white ice dragon at the right edge, above a burning gothic city. SHOW MOVEMENT ONLY IN: the red head STOPS breathing fire, its jaws close to half open with only embers and a wisp of smoke leaving its mouth, and it begins turning its face toward the viewer into a three-quarter view, both glowing eyes now visible and looking at the camera; the lower dark head swings its snout up and snarls; the tan head drops slightly and closes its jaws; the upper-right dark head lunges with open jaws; the white dragon keeps blasting ice so the ice plume and crystal shards grow and drift across the middle; the fire jet that was in the air breaks up into drifting embers and thick black smoke that curls higher between the necks. No text, no border, no blur, fill the whole canvas. The red head turn is clearly visible but stays side-anchored on its existing neck; nothing is enlarged."
     },
     {
       "key": "story_nightmare_frame4",

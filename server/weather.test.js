@@ -2,7 +2,7 @@
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { kindFor } = require('../src/weather_codes.js');
+const { kindFor, labelFor } = require('../src/weather_codes.js');
 const { CACHE_MS, parsePoint, compactWeather, createWeatherService } = require('./weather');
 const { createServer } = require('./index');
 
@@ -16,12 +16,29 @@ test('published WeatherAPI codes map to one display kind and require measured pr
   assert.equal(kindFor(1225, 3), 'snow');
   assert.equal(kindFor(1000, 2), 'none');
   assert.equal(kindFor(1063, 0), 'none');
-  assert.deepEqual(compactWeather({ current: { precip_mm: 2, temp_c: -1.6, wind_kph: 18.26, condition: { code: 1189 } } }, 123),
-    { precip: true, kind: 'rain', condition: 1189, temp: -2, windKph: 18.3, cachedAt: 123 });
+  assert.equal(labelFor(1189, 2), 'rain');
+  assert.equal(labelFor(1135, 0), 'fog');
+  assert.equal(labelFor(1030, 0), 'mist');
+  assert.equal(labelFor(1003, 0), '');
+  assert.deepEqual(compactWeather({ current: { precip_mm: 2, temp_c: -1.64, wind_kph: 18.26, condition: { code: 1189 } } }, 123),
+    { precip: true, kind: 'rain', condition: 1189, temp: -1.6, windKph: 18.3, hi: null, lo: null,
+      utcOffsetMin: null, measuredAt: 123, cachedAt: 123 });
   assert.deepEqual(compactWeather({ current: { precip_mm: 0, temp_c: 8, wind_kph: 3.04, condition: { code: 1000 } } }, 124),
-    { precip: false, kind: 'none', condition: 1000, temp: 8, windKph: 3, cachedAt: 124 });
+    { precip: false, kind: 'none', condition: 1000, temp: 8, windKph: 3, hi: null, lo: null,
+      utcOffsetMin: null, measuredAt: 124, cachedAt: 124 });
   assert.throws(() => compactWeather({ current: { precip_mm: 2, condition: { code: 1189 } } }),
     error => error.status === 503);
+});
+
+test('relay passes today\'s high, low, local offset and measurement time for interpolation', () => {
+  const value = compactWeather({
+    location: { localtime_epoch: 1761400800, localtime: '2025-10-25 07:00' },
+    current: { last_updated_epoch: 1761400500, precip_mm: 0, temp_c: 4.2, wind_kph: 12, condition: { code: 1135 } },
+    forecast: { forecastday: [{ day: { maxtemp_c: 13.46, mintemp_c: 3.1 } }] },
+  }, 999);
+  assert.deepEqual({ hi: value.hi, lo: value.lo, utcOffsetMin: value.utcOffsetMin, measuredAt: value.measuredAt },
+    { hi: 13.5, lo: 3.1, utcOffsetMin: -420,
+      measuredAt: 1761400500000 });
 });
 
 test('weather coordinates are strict', () => {
@@ -31,7 +48,7 @@ test('weather coordinates are strict', () => {
   }
 });
 
-test('nearby requests share a ten-minute cache and never expose the server key', async () => {
+test('nearby requests share an hourly cache and never expose the server key', async () => {
   let calls = 0, fetched = '', now = 1000;
   const service = createWeatherService({ apiKey: 'server-only-key', now: () => now, fetch: async url => {
     calls++; fetched = String(url); return response(1183);
@@ -61,7 +78,7 @@ test('relay returns compact weather with CORS and no credential', async () => {
     const text = await res.text(), value = JSON.parse(text);
     assert.deepEqual({ precip: value.precip, kind: value.kind, condition: value.condition,
       temp: value.temp, windKph: value.windKph },
-      { precip: true, kind: 'rain', condition: 1240, temp: 12, windKph: 18.3 });
+      { precip: true, kind: 'rain', condition: 1240, temp: 12.4, windKph: 18.3 });
     assert.equal(text.includes('server-only-key'), false);
   } finally {
     await relay.close();

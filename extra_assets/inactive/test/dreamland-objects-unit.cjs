@@ -13,7 +13,7 @@ const untouched={key:'native'};assert.equal(art.spec({kind:'tree',_objectArt:'de
 for(const asset of Object.values(assets))assert(fs.existsSync(asset.path),asset.path);
 const terrainSource=fs.readFileSync('src/ground_materials.js','utf8')+'\n'+fs.readFileSync('src/terrain_transitions.js','utf8');const terrain=new Function('location',terrainSource+';return TerrainTransitions;')({search:'?artTrial=dreamland'});const seen=new Set();
 for(let y=-100;y<100;y++)for(let x=-100;x<100;x++){const m=terrain.material(0,x,y);seen.add(m);assert.equal(m,terrain.material(0,x,y));assert.equal(terrain.material(3,x,y),4);}
-assert.deepEqual([...seen].sort(),[1]);console.log('Dreamland: profile isolation, source assets, growth, restoration, special roles, interiors and stable native patches passed');
+assert.deepEqual([...seen].sort(),[terrain.material(0)]);console.log('Dreamland: profile isolation, source assets, growth, restoration, special roles, interiors and stable native patches passed');
 assert.deepEqual(art.lampLightOffset(scene),{dxPx:22,dyPx:-18});
 assert.equal(art.lampLightOffset({depth:1}),null);
 const lamp=art.spec({kind:'_streetlamp',lit:true},scene,{});

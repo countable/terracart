@@ -8,7 +8,7 @@ const h = (id) => ({ kind: 'house', tier: 9, id });
 test('shop lines: the one table — Seed and Supply to T3, Magic odd tiers to T7, Relic even tiers to T6, no Ore', () => {
   assert.eq(Shops.THEMES.join(), 'seed,supply,potion,relic');
   assert.eq(JSON.stringify(Shops.LINE_RULES), JSON.stringify({
-    seed: { maxTier: 3 }, supply: { maxTier: 3 }, potion: { maxTier: 7, tiers: [1, 3, 5, 7], perTier: 1 }, relic: { maxTier: 6, tiers: [2, 4, 6] },
+    seed: { maxTier: 3, shelf: 2 }, supply: { maxTier: 3 }, potion: { maxTier: 7, tiers: [1, 3, 5, 7], perTier: 1 }, relic: { maxTier: 6, tiers: [2, 4, 6], shelf: 2 },
   }));
   assert.eq(Shops.THEMES.join(), Object.keys(Shops.LINE_RULES).join(), 'THEMES is the table\'s keys');
   for (const k of ['ore']) {

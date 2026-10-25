@@ -10,7 +10,7 @@
     // hours an encounter roll is chanceMul times likelier, raises up to
     // maxActive whirlwinds at once, and the next can come after cooldownMs.
     gust: Object.freeze({ fromHour: 14, toHour: 17, chanceMul: 4, maxActive: 3, cooldownMs: 30000 }),
-    // Weather wind starts at 10 km/h because a gentle breeze should stay calm.
+    // Weather wind starts above 10 km/h because a gentle breeze should stay calm.
     // Six times the base chance makes a windy cell visit noticeable, not certain.
     // Each extra 10 km/h raises one tornado and removes ten seconds of cooldown;
     // the caps keep a storm readable on a phone-sized field.

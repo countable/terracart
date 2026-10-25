@@ -11,7 +11,7 @@ const out = process.env.OUT_DIR || '/tmp/wall-smash';
     const page = await browser.newPage({ viewport: { width: 900, height: 1000 }, serviceWorkers: 'block' });
     const errors = []; page.on('pageerror', e => errors.push(String(e)));
     await page.addInitScript(() => { window.__DAYLIGHT = 1; sessionStorage.setItem('terracart.safetySeen', '1'); localStorage.setItem('terracart.introSeen', '1'); localStorage.setItem('terracart.howtoSeen', '1'); });
-    await page.goto('http://127.0.0.1:8000/index.html?sandbox=true', { waitUntil: 'domcontentloaded' });
+    await page.goto((process.env.GAME_URL || 'http://127.0.0.1:8000') + '/index.html?sandbox=true', { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => window.__scene?._bootOverlayGone, null, { timeout: 120000 });
     const setup = await page.evaluate(() => {
       const s = __scene; __game.loop.sleep(); window.__chooseMode?.('hard');

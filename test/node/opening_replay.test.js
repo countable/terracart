@@ -215,4 +215,13 @@ test('opening: wake up is available immediately during the zoom', () => {
   assert.truthy(/prefers-reduced-motion: reduce/.test(html));
 });
 
+
+test('opening: the story waits for the script chain so its first button answers taps', () => {
+  // Opened before the ~7 MB of classic scripts parsed, the first slide's
+  // button ignored taps for seconds on a phone.
+  const gate = html.slice(html.indexOf('if (freshIntro && !window.__skipIntro) {'));
+  assert.truthy(/document\.addEventListener\('DOMContentLoaded', \(\) => \{\s*__storyPending = false;\s*startStory\(/.test(gate),
+    'the fresh-intro gate starts the story on DOMContentLoaded');
+  assert.truthy(html.includes('if (__storyPending) return true;'), 'a pending story holds queued overlays');
+});
 })();

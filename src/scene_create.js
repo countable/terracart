@@ -12,6 +12,12 @@ class SceneCreate {
   create() {
     this._endPreload?.(); this._endPreload = null;
     const _endCreate = window.__boot?.begin('scene create (world + textures)');
+    // Named sub-phases, so a slow create names its culprit in the load
+    // profile's timeline. The 'create ·' prefix keeps them out of the
+    // summary's 'scene create' sum. Each call closes the phase before it.
+    let _endPhase = null;
+    const _phase = (name) => { _endPhase?.(); _endPhase = name ? window.__boot?.begin('create · ' + name) : null; };
+    _phase('save + session');
     window.__bootStatus?.(0.9, 'Surveying the neighbourhood…');
     // ── Phaser's own render step, timed from OUTSIDE it ──────────────────
     // Frame time minus our 'update (all)' tick has always been a black box:
@@ -170,6 +176,7 @@ class SceneCreate {
     this.cellsPerTile = WorldGen.cellsPerEdgeForLat(START_LAT);
     this.cellsForRow = WorldGen.cellsPerEdgeForTile;
     this.tileEdgeM = WorldGen.tileEdgeMeters(START_LAT);
+    _phase('fog + depth + home');
     // Fog of war — load the explored-cell masks. Keyed by tile and sized by
     // that tile's row grid, so it has to come after the grid is known and
     // before the first draw. (src/fog.js owns the storage; the masks
@@ -266,9 +273,12 @@ class SceneCreate {
     // story + the location CTA, so arming it here would count story-reading
     // time against the fix and could silently skip the capture.)
 
+    _phase('authored buildings');
     // Bake terrain patterns and the two castle restoration-state atlases once.
     AuthoredBuildings.prepare(this);
+    _phase('biome textures');
     makeBiomeTextures(this, CELL_PX);
+    _phase('terrain transitions + props');
     if (typeof TerrainTransitions !== 'undefined') TerrainTransitions.prepare(this);
     if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled&&typeof BuildingLowPoly!=='undefined')BuildingLowPoly.prepareRogueWreck(this);
     makeBerryBushTexture(this);
@@ -280,6 +290,7 @@ class SceneCreate {
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
     // a discovered one. Temporary procedural stand-ins — see textures.js.
     makeTrapTextures(this);
+    _phase('item icon bakes');
     // Cache data URLs for items whose map sprite isn't on Crops.png / Spring Crops.png,
     // so the inventory bar and shop modal (which are DOM, not Phaser) can render the
     // exact same image. Run after sheet loads so all source images are ready.
@@ -341,6 +352,10 @@ class SceneCreate {
     // back to the item.icon emoji (a 🪦 headstone), so the held item looked
     // nothing like what gets planted. Bake the frame so all surfaces match.
     window.ITEM_DATA_URLS.scarecrow = bakeSheetFrame('scarecrow', 0, 32, 32);
+    // Barricade — the same: its 24×24 world frame keeps the timber X in its
+    // bottom ten rows, so the sheet route's 16×16 window (renderItemIcon)
+    // showed a few specks and the held item read as an empty slot.
+    window.ITEM_DATA_URLS.barricade = bakeSheetFrame('barricade', 0, 24, 24);
     // Badged icons (iconBadgeItem, items.js): the items whose own art is
     // shared — the Crops.png seeds' one bag, the saplings' one young tree —
     // wear the icon of what they yield in the corner. Baked at 32×32 off the
@@ -414,6 +429,7 @@ class SceneCreate {
     if (this.textures.exists('wagon')) window.WORLD_ICON_URLS.wagon = bakeSheetFrame('wagon', 0, 128, 96);
     // The burn confirm opens with the campfire the player just tapped.
     window.WORLD_ICON_URLS.bonfire = bakeSheetFrame('bonfire', 0, 16, 32);
+    _phase('layers + pools');
     // Concrete pads under POI chests — one rounded, slightly-oversized slab in
     // the single cell under the chest (texture `pad_round1`, see textures.js).
     makeAllPadShapes(this);
@@ -572,6 +588,11 @@ class SceneCreate {
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
+    // Visibility is a grey veil, independent of the multiply lighting pass.
+    this.visibilityFogTex = Render.viewportCanvas(this, 'visibilityfog', 0).tex;
+    this.visibilityFogTex.setFilter(Phaser.Textures.FilterMode.LINEAR);
+    this.visibilityFog = this.add.image(this.viewLeft, this.viewTop, 'visibilityfog')
+      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.NORMAL);
     // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
     // a jackpot / shiny banner, pale chips off a street coming back, leaf
     // flecks off a crop reaching its next stage. ABOVE the lightmap because a
@@ -707,12 +728,12 @@ class SceneCreate {
     this.ghostGlowPool = [];  // the ghost's non-lighting halo (render.js)
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
-    this._homeUpgradeButton = null;
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)
     this.trapPool = [];       // sprites for hidden / sprung traps lying on the ground (src/traps.js)
 
+    _phase('marker + halo bakes');
     // Neutral warning marker for an actor whose optional sheet is still loading.
     // A failed request must not hide a threat or impersonate another species.
     if (!this.textures.exists('creature_loading')) {
@@ -1026,6 +1047,7 @@ class SceneCreate {
       vignette.lineBetween(x0 + size - i - 0.5, y0 + VIG_LIP, x0 + size - i - 0.5, y0 + size - VIG_LIP);
     }
 
+    _phase('player + anims');
     // The player's directional idle / walk cycles come from
     // SpriteLayout.PLAYER_ART below — every sheet (the cyan farmer every save
     // starts on, the callings, the bicycle) authors all four directions.
@@ -1140,8 +1162,9 @@ class SceneCreate {
       .setMask(mask);
     this.weatherAura.clearMask();
     this.playerWorldContainer.add(this.weatherAura);
-    // GPS marker: a soft shadow within one cell of the player, otherwise
-    // the yellow ring. Update scales its radius down to half at five cells.
+    // GPS marker: the yellow ring, fading out to nothing near the player
+    // (Render.gpsMarkerStyle).
+    // Update scales its radius down to half at five cells.
     // Ground paint, so it lives with the shadows and the walk-home lead
     // (shadowContainer, under every standing sprite): the body stands ON the
     // ring, the way an elite stands on its rune circle — a root-level image
@@ -1239,6 +1262,7 @@ class SceneCreate {
       LEFT: Phaser.Input.Keyboard.KeyCodes.LEFT,
       RIGHT: Phaser.Input.Keyboard.KeyCodes.RIGHT,
     });
+    _phase('input');
     // Debug: SPACE teleports to the next-nearest decorated POI chest (first
     // press goes to Windermere Park, subsequent presses cycle by distance); T
     // hops to the next-nearest INDIVIDUAL tree (the standalone OSM street /
@@ -1385,6 +1409,7 @@ class SceneCreate {
     // would dismiss it (and even walks the player), so the chest reward modal
     // gets stuck: "I can still walk around but can't interact." Gate the pads
     // behind a body.modal-open class toggled whenever a .game-modal is shown.
+    _phase('HUD + DOM');
     this._installModalPadGate();
     this._installMenuDialog();
 
@@ -1426,14 +1451,16 @@ class SceneCreate {
     window.__chooseMode = (mode) => this.chooseMode(mode);
 
     // First arrival in the world — show the how-to card over the live map, so
-    // the reach bubble and the objective chip it points at are visible behind
-    // it. Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
+    // the reach bubble it points at is visible behind it (the Spirit's
+    // bubble waits for the card to close — _armStarterGuidance). Shown once (localStorage terracart.howtoSeen); the ☰ menu's "How to
     // play" reopens it any time. Must sit BELOW the Sandbox.install above:
     // that call is what sets _sandboxMode, and the sandbox is a dev world that
     // has no use for the card. index.html queues the first-run card behind the
     // opening story slides, so calling it here can't jump the story.
     if (!this._sandboxMode) window.showHowTo?.();
+    this._armStarterGuidance();
 
+    _phase('tile block kick-off');
     // Boot tile load. The initial 3×3 tile block can take seconds on a cold
     // cache and the in-world shimmer reads as stalled, not loading. Keep the overlay up (its bar
     // fed per-tile by ensureTilesAround itself) until this first call actually
@@ -1456,6 +1483,7 @@ class SceneCreate {
           displayFps > 0 ? 1000 / displayFps : 16.7);
       });
 
+    _phase('listeners + tail');
     // Network status
     window.addEventListener('offline', () => this.showBanner(true, 'offline'));
     // Back online: hide the banner AND fetch now. The retry timer may be a
@@ -1512,6 +1540,7 @@ class SceneCreate {
     // Reconcile saved luxury even when this session starts underground;
     // subsequent surface tile overlays validate the owned-cell associations.
     Furniture.recompute(this);
+    _phase(null);
     _endCreate?.();
     // Other players. No-op until the save carries a player name (the
     // welcome splash / ☰ menu set it); tick() picks it up once it does.

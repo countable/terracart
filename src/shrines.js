@@ -114,7 +114,7 @@
       zoneVariants: [], streets: ['golden'], streetChance: 1,
       name: 'Golden shrine', flash: 'Coins spill along the road.', spent: 'The shrine is dull today',
       body: 'You touch the gilded shrine. Green coins spill from its hands and roll along both sides of the road.' },
-    golden_path_idol: { art: 'street_golden', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
+    golden_path_idol: { art: 'street_golden_path', frame: 10, light: 0xefc46a, reward: 'coins', fillScreen: true, path: true,
       zoneVariants: [], streets: ['golden_path'], streetChance: 1,
       name: 'Golden path shrine', flash: 'Coins line the path.', spent: 'The shrine is dull today',
       body: 'You touch the gilded shrine. Green coins appear in a line down the middle of the path.' },

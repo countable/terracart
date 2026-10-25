@@ -71,7 +71,7 @@
     assert.eq(group.blocks.length, 3, 'one joined material mesh per cell');
     const wallHeight = ObstacleStep.PROFILES.wall.liftPx, hedgeHeight = ObstacleStep.PROFILES.hedge.heightPx;
     assert.eq(group.blocks.filter(b => b.top === wallHeight).length, 2, 'walls rise by their step-over lift');
-    assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 1, 'hedges retain their visual height without step support');
+    assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 1, 'hedges retain their visual height without player lift');
     assert.truthy(group.gfx.triangles.length > 0, 'the batch painted');
   });
 

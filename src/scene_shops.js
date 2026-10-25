@@ -567,11 +567,12 @@ class SceneShops {
       this._setStarterCratesAt(this.save.starterTrailer.x, this.save.starterTrailer.y);
       return;
     }
-    // Anchor on the player's real position: their GPS fix (gpsM, in playerM's
-    // frame). A sandbox session may have no fix at all — fall back to the
-    // player's current position so Home still resolves.
-    const anchor = this.gpsM || (this._sandboxMode ? this.playerM : null);
-    if (!anchor) return;                       // no fix yet — wait for one
+    // Once origin capture has settled, every playable start needs Home —
+    // including denied/unavailable GPS and teleport presets on desktop. Those
+    // sessions never receive gpsM. Use the body at the settled origin instead;
+    // the capture-pending gate above still protects a fresh GPS start.
+    const anchor = this.gpsM || this.playerM;
+    if (!anchor) return;
     const ax = this.startWorldM.x + anchor.x;
     const ay = this.startWorldM.y + anchor.y;
     // Half the visible map viewport (a VIEW_CELLS square centred on the
@@ -961,13 +962,15 @@ class SceneShops {
     };
   }
 
-  // Three offers share one counter. Snapshot each slot so buying one leaves
-  // the other two goods, quantities and prices unchanged, including on reopen.
+  // The line's offers share one counter (Shops.shelfSize). Snapshot each
+  // slot so buying one leaves the other goods, quantities and prices
+  // unchanged, including on reopen.
   presentThemedShop(sx, sy, house, recordDeal) {
     const { theme } = this.shopLine(house);
     const cur = this.shopBucketState(house);
     const draw = (slot, others, previous) => this._drawShopShelf(house, slot, others, previous);
-    const shelf = ShopsMath.shelf(cur, draw);
+    const size = Shops.shelfSize(theme);
+    const shelf = ShopsMath.shelf(cur, draw, null, size);
     persistSave(this.save);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', {
       kind: theme === 'relic' ? 'relics' : 'shop', onClose: () => {},
@@ -1018,7 +1021,7 @@ class SceneShops {
           wrap.remove(); this.presentThemedShop(sx, sy, house, recordDeal); return;
         }
         if (!offer.onAccept()) return;
-        ShopsMath.shelf(cur, draw, slot);
+        ShopsMath.shelf(cur, draw, slot, size);
         persistSave(this.save);
         wrap.remove();
         this.presentThemedShop(sx, sy, house, recordDeal);
@@ -1039,7 +1042,7 @@ class SceneShops {
       const reroll = this._makeRerollSecondary(house, sx, sy, 'Shelves are bare for now.',
         () => { wrap.remove(); this.presentThemedShop(sx, sy, house, recordDeal); }, {
           cost: ShopsMath.themedRerollCost, current: shelf,
-          peek: () => { delete cur.shelf; return ShopsMath.shelf(cur, draw); },
+          peek: () => { delete cur.shelf; return ShopsMath.shelf(cur, draw, null, size); },
         });
       const button = mkBtn(reroll.label, false, reroll.disabled);
       button.addEventListener('click', reroll.onClick);
@@ -1647,6 +1650,13 @@ class SceneShops {
       onAccept: () => {
         if (heldCount() < offer.askQty) {
           this.flash(`Need ${offer.askQty - heldCount()} more ${askItem?.name || offer.askId}`, sx, sy);
+          return;
+        }
+        // The ask is paid only once the bag can hold the whole offer: the
+        // add's refusal is silent, so paying first would take the ask for
+        // nothing.
+        if (Inventory.roomFor(this.save, offer.giveId) < giveQty) {
+          this.flash(`No room for ${giveQty} ${giveItem?.name || offer.giveId}`, sx, sy);
           return;
         }
         Inventory.remove(this.save, offer.askId, offer.askQty);

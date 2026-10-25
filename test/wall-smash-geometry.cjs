@@ -53,3 +53,13 @@ assert.equal(wreckSmash.hold(scene,11,5),false,'wreck crossing is free');
 assert.equal(flashes.length,2,'wreck has no smash popup');
 scene.save.restoredHouses = {house:'plain'};
 assert.equal(wreckSmash.hold(scene,11,5),true,'restored wreck resumes wall wind-up');
+
+// Dense tiles must not scan object ownership for walls outside the step.
+const distant = Array.from({length:3000}, (_,i) => ({key:`far${i}`,tier:9,
+  ring:[100+i,100,101+i,100,101+i,101,100+i,101]}));
+let lookups = 0;
+cache.set('14/0/0', {tileEdgeM:10000,buildingShapes:distant,
+  objects:{find(){lookups++; throw Error('Uncrossed wall queried ownership');}}});
+assert.equal(wreckSmash.hold(scene,11,5),false);
+assert.equal(lookups,0,'distant buildings require no ownership lookups');
+console.log('Wreck crossing, restoration, and dense-tile lookup regression passed');

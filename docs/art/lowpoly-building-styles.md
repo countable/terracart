@@ -8,9 +8,9 @@ shading; walls, chimney shafts, timber trim and dark closures keep their art.
 
 | Gameplay role | Exterior model | Roof |
 | --- | --- | --- |
-| Home | Pixel Plains timber cabin (Home's alone) | Orange |
-| Regular residence | com cottage, Pixel Plains brick/plaster, flat adobe/rooftop, steam home, or native Pixel Plains flat shops; stable ID selection | Yellow, or native flat-shop color |
-| Blacksmith T1–T3 / T4–T7 | FDR / steam blacksmith | Slate |
+| Home | Pixel Plains timber cabin | Orange |
+| Regular residence | Pixel Plains stucco/plaster cottage or log cabin; stable ID selection, pitched roofs | Yellow |
+| Blacksmith T1–T3 / T4–T7 | Full FDR smithy / steam blacksmith, with a broad stone chimney | Slate |
 | Trader T1 / T2+ | White plaster cottage / trader | Green |
 | Seed / supply shop | T1: white plaster cottage; T2+: market / city storefront | Lime / blue |
 | Magic / relic shop | T1: white plaster cottage; T2+: market / city storefront | Teal / red |
@@ -22,7 +22,9 @@ Tier-one traders and shops, including generic shops,
 use the Pixel Plains white plaster cottage (`pp_plaster`). Their existing roof
 colors and role symbols distinguish the trades. Generic shops use blue. Higher
 tiers retain their commercial models; upgrades preserve each trade’s roof color.
-Each T1 entrance carries a small wooden sign beside its door, and its roof
+Blacksmiths use their dedicated masonry workshop at every tier and a broad,
+flared stone chimney with smoke anchored at its dark mouth.
+Each cottage entrance carries a small wooden sign beside its door, and its roof
 carries a roof-coloured sign embossed with the same symbol. Symbols are centered
 by the center of their visible ink, balancing top-heavy marks and excluding
 padding in the source glyph. Both are simple
@@ -39,7 +41,7 @@ Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
 lot (`BuildingLowPoly.authoredOutline`). A model lends only its skin
 (`AuthoredBuildings.skin`): complete doorless facade bays, the door once on the
-entrance wall, its roof material in roof space, and source texels for
+entrance wall (0.2 units proud of it, clear of the facade's depth), its roof material in roof space, and source texels for
 fascia and ridge beams. FDR gables repeat native stone and timber at facade
 texel density, with a continuous native timber crossbeam tying the upper-storey
 posts together below the gables; their ridge rise is capped at the native half-depth (24 texels)
@@ -56,8 +58,12 @@ and interior triangle centres to avoid shrinking unnecessarily on diagonal
 wings; an explicit entrance direction remains fixed. Only models assigned
 to existing game roles ship.
 
-The fort uses the full `city_storefront` shell, fitted at 65% of the available
-lot span, with one solid dice board centered above its entrance. It keeps the
+The fort uses the full `city_storefront` shell at a fixed size, its proportions
+kept (`BuildingLowPoly.FORT_HALL`): three cells wide when that fits with half a
+cell of plank deck all round, else two cells, else the largest that fits.
+It stands on the lot's centre of mass in whichever orientation fits (the
+roomiest first); only a lot whose centre of mass falls outside it seats the
+hall elsewhere. One solid dice board is centered above its entrance. It keeps the
 original procedural horizontal plank floor (`biome11_0`), rather than the
 interior sheet or RA paving. The shared palisade has true square posts 32/6
 units wide. Short logs are 22.5 units tall, with an 8.5-unit carved point; every
@@ -81,7 +87,7 @@ original alpha mask. The manifest records registration knots and source hashes.
 Dreamland, both blacksmiths, adobe/rooftop, market/trader and the three original
 Pixel Plains houses keep their original source textures.
 
-Six `pp_flat_*` residential variants use native Pixel Plains flat-shop art, with a
+Six `pp_flat_*` review variants use native Pixel Plains flat-shop art, with a
 plain source-colored horizontal deck and colored fascia. The native viewer model tucks walls
 three source pixels inside the roof lip (4.8 ground units along depth). Production
 lot-outline meshes keep walls on the real polygon and extend only the roof

@@ -9,7 +9,7 @@ Native grass is the shipped RA Jungle crop [112,496,16,16]; tree-wide-a is the
 project's RA tree reference. The hedge sprite is the existing olive derivative,
 not a native RA sprite. The wall uses copies of shipping wall_materials.js and
 polygon_geometry.js, including the RA palette, original atlas UVs and bevel.
-Its 6-unit height and 16-unit thickness match the runtime hedge profile. Source
+Its 11-unit height and 16-unit thickness match the runtime hedge profile. Source
 snapshots are intentionally retained to make the review reproducible.
 
 Other grass textures are code-native 16px stepped leaf clusters in the RA

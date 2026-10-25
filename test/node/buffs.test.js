@@ -101,7 +101,8 @@
     assert.truthy(body.indexOf('Conditions.DEFINITIONS') < body.indexOf('Buffs.active'), 'statuses above buffs');
     assert.truthy(/`\$\{b\.name\} · \$\{shortDuration\(b\.remainingMs\)\}`/.test(body), 'name · shortDuration');
     assert.truthy(/if \(this\._statusRowDOM !== order\)/.test(body), 'the DOM is only rebuilt when the set or order changes');
-    assert.truthy(/if \(el && el\.textContent !== c\.text\) el\.textContent = c\.text;/.test(body), 'text writes guarded');
+    assert.falsy(/_bodyHold|'Here'/.test(body), 'slowing ground and contact show no chip: the row is timed effects only');
+    assert.truthy(/if \(el\._statusTimer\.textContent !== c\.time\) el\._statusTimer\.textContent = c\.time;/.test(body), 'text writes guarded');
     assert.truthy(/this\._syncStatusRow\(\);/.test(app.match(/\n  _tickConditions\(\) \{\n([\s\S]*?)\n  \}\n/)[1]), 'driven every frame from the condition tick');
     assert.truthy(/#status-row \{\n  position: fixed;\n  top: calc\(8px \+ env\(safe-area-inset-top, 0px\) \+ var\(--hud-chip-h\) \+ 6px\);/.test(app),
       'seated one chip height under the HUD row');
@@ -113,6 +114,14 @@
     assert.falsy(body.includes('getBoundingClientRect'), 'objectives never move the row');
     assert.falsy(/TimerText|_tickBuffTimers|buffTimerTexts/.test(app), 'nothing is drawn over the player\'s head');
     assert.falsy(/boonRemainingMs|shrineBoon = /.test(app + Object.values(Shrines).join('')), 'the last-boon countdown is gone');
+  });
+
+  test('buffs: every effect has an atlas icon', () => {
+    for (const row of [...Object.values(Buffs.KINDS), ...Object.values(Conditions.DEFINITIONS)]) {
+      const frame = StatusIcons.frames[row.icon];
+      assert.truthy(Number.isInteger(frame), `icon ${row.icon}`);
+      assert.truthy(frame >= 0 && frame < StatusIcons.cols * StatusIcons.height / StatusIcons.cellSize);
+    }
   });
 
   test('buffs: a thrown potion times its creature on the field its drinker\'s row names', () => {

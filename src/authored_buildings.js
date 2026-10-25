@@ -324,16 +324,13 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
  return m;
 }
 
- // The timber cabin is Home's alone; flat shops retain their native colorways.
- const RESIDENCES=['com','pp_brick','pp_plaster','flat_adobe','flat_rooftop','steam_home',...Object.keys(FlatBuildings.specs).filter(key=>FlatBuildings.specs[key].ppFlat)];
- const residencePalette=key=>SPECS[key].ppFlat?'native':'yellow';
+ // Restored residences use pitched Pixel Plains stucco/log houses. Home
+ // keeps its orange roof; ordinary residences share the yellow role palette.
+ const RESIDENCES=['pp_plaster','pp_cabin'];
+ const residencePalette=()=> 'yellow';
  const SHOP_ROOFS={seed:'lime',supply:'blue',potion:'teal',relic:'red',pet:'rose',book:'plum',shop:'blue'};
- // A house keeps the facade it had when the cabin was still a residence: the
- // pick runs over the former list, and only former cabins pick again.
- const FORMER_RESIDENCES=['com','pp_brick','pp_plaster','pp_cabin','flat_adobe','flat_rooftop','steam_home'];
  function residenceFor(id){let n=2166136261;for(const c of String(id??'')){n^=c.charCodeAt(0);n=Math.imul(n,16777619);}n>>>=0;
-  const key=FORMER_RESIDENCES[n%FORMER_RESIDENCES.length];
-  return RESIDENCES.includes(key)?key:RESIDENCES[Math.floor(n/FORMER_RESIDENCES.length)%RESIDENCES.length];}
+  return RESIDENCES[n%RESIDENCES.length];}
  function recipeFor(role,id,tier=1,wizardSecond=false){
   if(role==='home')return {key:'pp_cabin',palette:'orange'};
   if(role==='workshop')return {key:'pp_cabin',palette:'green'};

@@ -129,9 +129,9 @@ test('native RA terrain: grass shares orchard and residential uses the selected 
   const native=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
   const selected=new Function(TEXTURES_SRC+'\nreturn SELECTED_TERRAIN;')();
   assert.eq(native.material(0,12,8),native.material(22,12,8));
-  assert.eq(native.material(5,12,8),native.material(10,12,8),'residential and rock share native masked cold slate');
+  assert.truthy(native.material(5,12,8)!==native.material(10,12,8),'public residential retains its light slate independently of rock');
   assert.truthy(native.material(5,12,8)>=0,'cold slate participates in stacked transitions');
-  assert.eq(selected[5].join(','),selected[10].join(','));
+  assert.eq(selected[5].join(','),'67,67','public residential retains the released light-slate crop');
   assert.eq(selected[0].join(','),selected[22].join(','));
 });
 

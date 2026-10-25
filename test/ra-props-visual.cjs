@@ -9,7 +9,7 @@ try{
 console.log('BROWSER READY');const context=await browser.newContext({viewport:{width:900,height:1150},serviceWorkers:'block'}),page=await context.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(String(e)));
 await page.addInitScript(()=>{window.__renderScaleCap=1;window.__DAYLIGHT=1;sessionStorage.setItem('terracart.safetySeen','1');localStorage.setItem('terracart.introSeen','1');localStorage.setItem('terracart.howtoSeen','1');});
-await page.goto('http://localhost:8000/index.html?sandbox=true&deepforest=on',{waitUntil:'domcontentloaded'});
+await page.goto('http://localhost:8000/index.html?sandbox=true&artTrial=rogue&deepforest=on',{waitUntil:'domcontentloaded'});
 console.log('PAGE READY');await page.waitForFunction(()=>window.__scene?._bootStatusDone,null,{timeout:120000});
 await page.waitForFunction(()=>window.__scene?._bootOverlayGone,null,{timeout:120000});
 console.log('BOOT READY');

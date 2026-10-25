@@ -381,7 +381,9 @@ test('scenic: the grail rolls its OWN pool (chest:vista), not the civic town hal
     if (reward.slot) assert.lte(reward.tier, reward.rolledTier, 'gear respects grail quality');
     sum += val(reward);
   }
-  assert.inRange(sum / N, 700, 1100, 'the T5 grail pays its tripled treasure budget without becoming T7');
+  // Chest gear starts a tier under the roll (ChestThemes.CHEST_GEAR), which
+  // took the grail's mean from ~900 to ~570.
+  assert.inRange(sum / N, 450, 750, 'the T5 grail pays a treasure budget without becoming T7');
 });
 
 test('scenic: the scope opens its menu on every visit and gives one backpack', () => {
@@ -557,12 +559,13 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
   const src = INTERACT_SRC;
   const at = src.indexOf("{ name: 'wildplant', try: (ctx) => {");
   const body = src.slice(at, src.indexOf("{ name: 'coindrop'", at));
-  assert.truthy(/const award = \(\) => \{\s*if \(isSpent\(wp, spentSets\(scene, save\)\)\) return false;/.test(body),
-    'the award asks the one spent predicate first');
+  assert.truthy(body.includes('const current = spentSets(scene, save);')
+      && body.includes(': isSpent(wp, current)) return false;'),
+    'ordinary and tide awards recheck the shared spent predicate; remnants recheck their own state');
   assert.truthy(/if \(wp\.tide\) \{\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => \(!ctx\.grassOnly \|\| WorldGen\.isGrassCover\(wp\)\)\s*&& !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
-    'and the tap asks the one spent predicate');
+  assert.truthy(body.includes('!isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id))'),
+    'ordinary and tide tap targets use the shared spent predicate');
 });
 
 // ── Safety and seams on the real fixtures ───────────────────────────────

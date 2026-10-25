@@ -101,8 +101,8 @@ mechanics.
   change signature odds or tiers. The ordinary kill bounty is separate.
 - `combat.js` owns foe HP for melee, projectiles and pets. Damage derives from
   `TOOL_DURATION_MS`; tune that or monster HP, not an extra combat multiplier.
-  Game animals (crow/deer) are not enemies or projectile targets; released
-  slime pets are never targets.
+  Game animals (every wild animal: `SpriteLayout.isGame`) are not enemies or
+  projectile targets; released slime pets are never targets.
 - Route incoming damage through `Combat.playerDamage` and armour mitigation,
   including per-hit arrow bundles. A shield potion halves the raw blow before
   armour; difficulty multiplies the mitigated blow after armour. Armour reduces
@@ -215,8 +215,10 @@ mechanics.
   there, never a timer, colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
-  never under one cell), the light
-  ramp and a carried torch (`Lighting.playerLightMul`) for fifteen seconds.
+  never under one cell), the light ramp's and a carried torch's radius
+  (`Lighting.playerLightMul`) and the player's own light levels (the
+  profile's ramp `edge` and plateau `lit`, `Lighting.dimSight`) for fifteen
+  seconds; the world's ambient floor is untouched.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
@@ -240,13 +242,16 @@ mechanics.
 - Melee strikes resolve individually in the combat tick, using the shared scene
   cooldown and a fresh reach/allegiance check each time. They never enter the
   work queue or hold movement. Ordinary work retains priority over auto-melee.
-  Only a selected, owned melee weapon auto-engages; ranged weapons use their
-  own firing rules. An empty active weapon stops automatic attacks, even if a
-  sword remains owned. Manual Unequip clears the selected weapon and any
-  unlaunched swing or staff charge, persists through reloads and temporary wand
-  expiry, and leaves feeding/catching available. Explicit Equip or obtaining a
-  new weapon resumes the normal equipment flow. Already launched projectiles
-  keep flying, and enemies still attack an unarmed player.
+  A live hostile in melee reach pauses automatic fire from the selected ranged
+  weapon throughout close combat, including between swings. Close attacks use
+  the selected melee weapon, or an owned sword/bare hands while a ranged weapon
+  stays selected. Ranged fire resumes when melee reach clears; paused fire spends
+  no ammunition or energy, and already launched shots keep flying.
+  Manual Unequip clears the active weapon and any unlaunched swing or staff
+  charge. Empty hands stop automatic attacks even while a sword remains owned;
+  the choice survives reloads and temporary wand expiry. Feeding and catching
+  remain available. Explicit Equip or obtaining a new weapon resumes the normal
+  equipment flow. Enemies still attack an unarmed player.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.
@@ -286,7 +291,15 @@ mechanics.
   enemy until the attempt ends. A refused item is never consumed. Story foes
   and `untameable` kinds (the crow: hunted for its feather, never a pet; old
   saves drop a kept one) are not catchable (`Pets.catchable`). Only one pet per species, including
-  baby/shiny variants. Hunting game (deer, crows) with an empty hand is apart.
+  baby/shiny variants. Every wild animal is GAME unless its row opts out
+  (`SpriteLayout.isGame`: not a foe, an ally, a companion kind, the villager
+  or the story's dragon): a tap with nothing or a non-food in hand hunts it on
+  the net wheel, its favourite in hand catches it, plant produce feeds a
+  producer, and other food is refused. A hunt pays the row's `drop` (deer,
+  chicken, cow and horse: meat; rabbit: pelt; crow: feather; the rest:
+  nothing) — livestock fed its favourite is caught alive instead. A
+  roster kind is never game: it is fought, or (the crab, the gull, the raven)
+  caught.
   Use `Pets.carry/deploy/release`, never inventory stacks or id prefixes, for
   ownership. Stats, tint, accessories, growth and recovery stay on that record.
   Pet shops sell accessories. Eggs hatch wild babies that use the same gate.
@@ -382,6 +395,10 @@ mechanics.
   road falls back to the nearest suitable cell one, then two, cells out from
   the player (`HomeArea.firepitCandidates`), so a new game always gets its pit
   when one fits. Later headings and reloads do not move it.
+  Home's footing sweep (`clearHomeFooting`) removes generated objects and
+  wild plants whose footprint touches the doorstep 3×3 or the pit, and any
+  tree up to `HomeArea.FIREPIT_CANOPY_CELLS` due south of the pit, whose
+  canopy would stand over the fire; saved and player-owned things stay.
   This step-over prop sits at its cell centre, with its ring, fire, smoke and
   step-up footprint sharing that anchor. On the first compass reading, older
   saved rings move to this southern cell too; a matching surface fire follows
@@ -393,10 +410,6 @@ mechanics.
   wall facing the player at placement (`doorSide`, saved as
   `starterTrailer.door`), so the spawn gate, the tap zone and the overlay see
   a building; "Move Home here" lifts it again (`_unstampHomeFootprint`).
-  Home starts with one storey. While inside, an `[upgrade]` button beside the
-  Home label permanently raises it to two storeys at no cost (`save.homeStoreys`).
-  The button disappears after upgrading; the building and indoor mask share
-  `HomeArea.storeys(save)` so their heights stay aligned.
   Standing on one of its cells is being inside (`homeInside`; `homeInterior`
   hands the ring to the renderer — see [rendering](rendering.md)). Older saves
   may still have an adopted house as Home; it keeps its own footprint and is

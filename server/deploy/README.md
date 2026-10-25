@@ -52,7 +52,7 @@ distinction explicit. It is not a claim that every broadleaf is a maple.
 | Environment | Default | Purpose |
 |---|---|---|
 | `OPENROUTER_API_KEY` | unset | Required for uncached generation only |
-| `WEATHERAPI_KEY` | unset | Enables the relay's cached `/weather` response; the browser never receives it |
+| `WEATHERAPI_KEY` | unset | Enables the cached `/weather` response; the browser never receives it |
 | `GEOMETRY_CACHE_DIR` | `server/data/geometry` | Permanent atomic JSON tile files |
 | `GEOMETRY_COLD_REQUESTS_PER_HOUR` | `100` | Maximum uncached attempts per process per hour |
 
@@ -65,15 +65,28 @@ tiles. The model's confidence is descriptive, not a calibrated probability.
 The systemd unit stores files in `/var/lib/terracart/geometry` and optionally
 reads `/etc/terracart/geometry.env`. Create that environment file as root with
 mode 0600, add `OPENROUTER_API_KEY=...` and `WEATHERAPI_KEY=...`, then restart
-the relay. The relay keeps weather results in memory for ten minutes per rounded
-location, so clients cannot expose the credential or consume one request per
-frame. Missing weather configuration returns HTTP 503 and the game keeps a
-clear sky. The `StateDirectory` remains writable under service hardening and
-survives upgrades and restarts. Back it up: losing it causes regeneration and
-may change crowns.
+the relay. The weather service keeps results in memory for an hour per
+rounded location; missing weather configuration returns HTTP 503 and the game
+keeps a clear sky. The `StateDirectory` remains writable under service hardening and survives upgrades
+and restarts. Back it up: losing it causes regeneration and may change crowns.
 There is no automatic expiry or public purge endpoint. An intentional re-extract
 requires removing the relevant server file and clients' corresponding local
 geometry caches.
+
+## Live weather
+
+Set `WEATHERAPI_KEY` only on the relay. The browser asks
+`GET /weather?lat=<latitude>&lon=<longitude>` and receives compact precipitation,
+temperature, wind and today's high/low readings (from WeatherAPI's one-day
+`forecast.json`); it never contacts WeatherAPI or receives the
+credential. The relay rounds nearby locations together and holds each result
+for an hour. WeatherAPI's published condition table owns the rain, drizzle,
+sleet, snow, fog and mist mapping through `src/weather_codes.js`.
+
+```sh
+curl 'http://localhost:8787/weather?lat=49.888&lon=-119.496'
+# {"precip":false,"kind":"none","condition":1000,"temp":23.1,"windKph":7.4,"hi":26.2,"lo":14.8,"utcOffsetMin":-420,"measuredAt":...,"cachedAt":...}
+```
 
 The game requests only the player's current z18 tile in the background as they
 move, rather than generating all 256 z18 children of a z14 game tile. It reuses
@@ -81,20 +94,6 @@ the relay host (`window.MP_SERVER_URL` overrides both services), keeps local
 IndexedDB copies, and refreshes the surface tile when geometry arrives. Use
 `?geometry=off` to retain the existing tree sources; sandbox/test modes never
 request paid geometry.
-
-## Live weather
-
-Set `WEATHERAPI_KEY` only on the relay. The browser asks
-`GET /weather?lat=<latitude>&lon=<longitude>` and receives a compact
-precipitation state; it never contacts WeatherAPI or receives the credential.
-The relay rounds nearby locations together and holds each result for ten
-minutes. WeatherAPI's published condition table owns the rain, drizzle, sleet
-and snow mapping through `src/weather_codes.js`.
-
-```sh
-curl 'http://localhost:8787/weather?lat=49.888&lon=-119.496'
-# {"precip":false,"kind":"none","condition":1000,"cachedAt":...}
-```
 
 ## Deploy (once)
 

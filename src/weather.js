@@ -6,8 +6,12 @@ const Weather = (() => {
   'use strict';
 
   const EFFECTS = Object.freeze({
-    pollMs: 10 * 60 * 1000,
+    pollMs: 60 * 60 * 1000,
     movePollM: 1000,
+    // Between hourly measurements the readout follows a daily curve through the
+    // forecast low (at dawn) and high (mid-afternoon), local solar-clock hours.
+    diurnal: Object.freeze({ lowHour: 6, highHour: 15 }),
+    windyKph: 10,
     maxForegroundStepMs: 1000,
     precipitation: Object.freeze({
       none: null,
@@ -41,6 +45,7 @@ const Weather = (() => {
   const EARTH_M = 6371000;
   const S = {
     scene: null, kind: 'none', precip: false, condition: 0, temp: null, windKph: null, cachedAt: 0,
+    hi: null, lo: null, utcOffsetMin: null, measuredAt: 0,
     lastPollAt: 0, lastPosition: null, loading: false, emitter: null,
     drawnKind: 'none', drawnLayout: '', stopped: true,
   };
@@ -57,7 +62,32 @@ const Weather = (() => {
     return !lastAt || now - lastAt >= POLL_MS || distanceM(lastPosition, position) >= MOVE_POLL_M;
   }
 
-  function band(temp = S.temp) {
+  // 0 at the forecast low hour, 1 at the high hour, half-cosine between them.
+  function diurnalShare(localHour) {
+    const { lowHour, highHour } = EFFECTS.diurnal;
+    const h = ((localHour % 24) + 24) % 24;
+    const rise = highHour - lowHour, since = ((h - lowHour) % 24 + 24) % 24;
+    const t = since <= rise ? since / rise : 1 - (since - rise) / (24 - rise);
+    return 0.5 - 0.5 * Math.cos(Math.PI * t);
+  }
+
+  // The latest measurement moves along the hi/low curve by the time elapsed
+  // since it was taken; without a forecast the measurement stands as is.
+  function estimateTemp(now = Date.now(), s = S) {
+    if (!Number.isFinite(s.temp)) return null;
+    const { hi, lo, utcOffsetMin: offset, measuredAt } = s;
+    if (!Number.isFinite(hi) || !Number.isFinite(lo) || hi < lo || !Number.isFinite(offset) || !(measuredAt > 0)) return s.temp;
+    const hour = at => (at / 3600000 + offset / 60) % 24;
+    const value = s.temp + (hi - lo) * (diurnalShare(hour(now)) - diurnalShare(hour(measuredAt)));
+    return Math.min(Math.max(hi, s.temp), Math.max(Math.min(lo, s.temp), value));
+  }
+
+  function currentTemp(now = Date.now()) {
+    const value = estimateTemp(now);
+    return value == null ? null : Math.round(value);
+  }
+
+  function band(temp = currentTemp()) {
     const value = typeof temp === 'object' ? temp?.temp : temp;
     if (!Number.isFinite(value)) return 'mild';
     if (value <= EFFECTS.cold.maxTempC) return 'cold';
@@ -201,7 +231,11 @@ const Weather = (() => {
     const kind = value && typeof value.kind === 'string' && Object.prototype.hasOwnProperty.call(KINDS, value.kind) ? value.kind : 'none';
     S.kind = value?.precip ? kind : 'none'; S.precip = S.kind !== 'none';
     S.condition = Number.isInteger(value?.condition) ? value.condition : 0;
-    S.temp = Number.isFinite(value?.temp) ? Math.round(value.temp) : null;
+    S.temp = Number.isFinite(value?.temp) ? value.temp : null;
+    S.hi = Number.isFinite(value?.hi) ? value.hi : null;
+    S.lo = Number.isFinite(value?.lo) ? value.lo : null;
+    S.utcOffsetMin = Number.isFinite(value?.utcOffsetMin) ? value.utcOffsetMin : null;
+    S.measuredAt = Number(value?.measuredAt) || Number(value?.cachedAt) || 0;
     S.windKph = Number.isFinite(value?.windKph) ? Math.round(value.windKph * 10) / 10 : null;
     S.cachedAt = Number(value?.cachedAt) || 0;
     if (S.scene) syncOverlay(S.scene);
@@ -238,12 +272,20 @@ const Weather = (() => {
     scene.events?.once?.('shutdown', () => { if (S.scene === scene) stop(); });
     tick(scene);
   }
-  function state() { return { kind: S.kind, precip: S.precip, condition: S.condition,
-    temp: S.temp, windKph: S.windKph, cachedAt: S.cachedAt }; }
+  // The readout's one-word condition: precipitation kind, else fog or mist.
+  function conditionLabel() {
+    if (S.precip) return S.kind;
+    return typeof WeatherCodes !== 'undefined' ? WeatherCodes.labelFor(S.condition, 0) : '';
+  }
+  function windy() { return Number.isFinite(S.windKph) && S.windKph > EFFECTS.windyKph; }
+
+  function state(now = Date.now()) { return { kind: S.kind, precip: S.precip, condition: S.condition,
+    temp: currentTemp(now), windKph: S.windKph, hi: S.hi, lo: S.lo, cachedAt: S.cachedAt }; }
 
   return { EFFECTS, POLL_MS, MOVE_POLL_M, KINDS, distanceM, pollNeeded, band, surfaceBand,
     effectiveKind, lightEffect, auraEffect, coldGrassTint, enemyBirthKind, workCostMultiplier, workCost,
     showHeatFeedback, advanceGameplayClock, coldGrassPauseMs, waterRainCrop, waterContact, accept,
+    diurnalShare, estimateTemp, currentTemp, conditionLabel, windy,
     conditionKind: (code, precipMm) => WeatherCodes.kindFor(code, precipMm), start, stop, tick, state };
 })();
 if (typeof window !== 'undefined') window.Weather = Weather;

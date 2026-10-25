@@ -872,8 +872,11 @@ test('zones: every zone terrain is enumerated — colour, texture, family, walka
   }
   assert.eq(BiomeProfiles.flora(T.GROVE), BiomeProfiles.flora(T.PARK), 'a grove plays like a park');
   assert.falsy(BIOME_FAUNA.deer.primary.includes(T.GROVE), 'deer are confined to forest and residential ground');
-  const transitions=new Function(ALL_SRC['ground_materials.js']+'\n'+ALL_SRC['terrain_transitions.js']+'\nreturn TerrainTransitions;')();
-  assert.truthy(transitions.material(29)>=0 && transitions.material(31)>=0, 'both halo materials use native transition masks');
+  const transitions = new Function(ALL_SRC['ground_materials.js'] + '\n' +
+    ALL_SRC['terrain_transitions.js'] + '\nreturn TerrainTransitions;')();
+  for (const code of [T.GROVE, T.CHURCHYARD, T.TAR_YARD])
+    assert.truthy(transitions.material(code) >= 0, 'each halo has native transition masks');
+  assert.falsy(RENDER_SRC.includes('FLAT_ROUNDABLE'), 'halo edges no longer use generic corner rounding');
   assert.eq(T.GROVE !== 30 && T.CHURCHYARD !== 30 && T.TAR_YARD !== 30, true, '30 stays the unmapped veil');
 });
 

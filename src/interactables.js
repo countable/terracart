@@ -67,6 +67,13 @@ function isBuilding(kind) {
   return kind === 'house' || kind === 'tower';
 }
 
+// What may turn see-through while the player stands behind it: buildings and
+// trees of medium canopy or larger (treeSizeClass). Every other prop — small
+// trees, rocks, lamps, stalls — stays opaque over the body.
+function fadesOverPlayer(o) {
+  return !!o && (isBuilding(o.kind) || (isTreeLike(o.kind) && treeSizeClass(o) !== 'small'));
+}
+
 // Each ordinary surface chest keeps its disguise across reloads and visits.
 // A separate seeded stream leaves its loot and all world placement unchanged.
 function chestHidesMimic(o) {
@@ -1101,6 +1108,16 @@ function restocks(o) {
   if (L.barrel) return false;
   return !!(L.box && !L.stand && !L.bike && !L.macro && !L.wagon);
 }
+// Fruit picking leaves a bare plant that can still be chopped. Rendering and
+// taps share this view; the generated fruit record and its picked id stay intact.
+function wildplantRemnant(plant, sets) {
+  if (plant.tide || !sets.picked.has(plant.id) || sets.chopped?.has(plant.id)
+      || sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  const crop = wildplantRule(plant.crop)?.pickedCrop;
+  return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary',
+    _hedgeFrame: undefined, _zoneObjectFrame: undefined, _streetArt: undefined } : null;
+}
+
 function isSpent(o, sets) {
   if (o && sets.burned?.has(o.id)) return true;
   if (o && sets.burnedGround?.(o)) return true;
@@ -1143,6 +1160,7 @@ function isSpent(o, sets) {
     // waterline today (Scenic.tideLive, which also sets its crop to the day's
     // find) or was taken today (the day ledger — never save.picked).
     case 'wildplant':
+      if (sets.chopped?.has(o.id)) return true;
       if (o.tide) {
         const live = typeof Scenic === 'undefined' || Scenic.tideLive(o, sets.day);
         return !live || takenToday(o, sets);
@@ -1272,7 +1290,10 @@ function runInteractable(ctx, o, definition) {
   // Tool pipeline: gate → spend energy → start the tier-driven work wheel.
   const blockMsg = def.gate ? def.gate(o, save) : null;
   if (blockMsg) return refuseToolGate(ctx, blockMsg, def.tierShort ? def.tierShort(o, save) : 0, job);
-  return job(toolDurationMs(save.relics, def.tool), def.energy ? def.energy(save, o) : 0);
+  // `workMul(o)`, when a row declares it, scales the tool's time for this
+  // object (the smallest rock art mines at double speed).
+  const workMul = def.workMul ? def.workMul(o) : 1;
+  return job(toolDurationMs(save.relics, def.tool) * workMul, def.energy ? def.energy(save, o) : 0);
 }
 
 

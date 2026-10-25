@@ -1549,6 +1549,7 @@
       },
       "story": "street_overgrown",
       "title": "Gone to seed",
+      "label": "Overgrown Lane",
       "body": "Saplings crowd the verge beneath tall pines. You push past branches reaching into the street.",
       "flash": "The green is taking it back.",
       "code": 2,
@@ -8332,7 +8333,7 @@
       "words": "(thorn|bramble|briar|brier)",
       "lampGlow": "#b1bd78",
       "story": "street_thorny",
-      "art": "street_overgrown",
+      "art": "street_thorny",
       "title": "Thorny Way",
       "body": "Tangled brambles crowd both sides of the road. You follow the narrow opening between their thorns.",
       "flash": "Brambles crowd the road.",
@@ -9848,7 +9849,7 @@
       "barrelsPerCluster": 5,
       "lampGlow": "#dca452",
       "story": "street_goblin_gang",
-      "art": "street_barricade",
+      "art": "street_goblin_gang",
       "title": "Goblin Gang Street",
       "body": "Goblin grunts gather in little gangs beside stacks of barrels along the street.",
       "flash": "Goblins and barrel stacks.",
@@ -10281,7 +10282,7 @@
       "coinPlacement": "centerline",
       "shrinePlacement": "ends",
       "story": "street_golden_path",
-      "art": "street_golden",
+      "art": "street_golden_path",
       "title": "Golden Path",
       "body": "A gilded shrine stands beside the path. Touch it each day, and green coins appear in a line down the path.",
       "flash": "Gold glimmers along the path.",
@@ -10496,7 +10497,7 @@
       "enemyStepM": 70,
       "guardsPerPost": 2,
       "story": "street_slime_trail",
-      "art": "street_greenway",
+      "art": "street_slime_trail",
       "title": "Slime Trail",
       "body": "Wet slime gleams across the path. A colony of slimes has claimed this trail.",
       "flash": "A glistening trail of slime.",
@@ -10642,7 +10643,7 @@
       "lampGlow": "#d5d2e4",
       "webDensity": 0.35,
       "story": "street_spider_path",
-      "art": "street_toadstool",
+      "art": "street_spider_path",
       "title": "Spider Path",
       "body": "Lasting webs lie scattered across the path. Spiders lurk nearby; touching silk briefly pins you in place.",
       "flash": "Silk glistens across the path.",
@@ -10805,7 +10806,7 @@
       "ventKind": "poison",
       "ventStepM": 42,
       "story": "street_poison_path",
-      "art": "street_toadstool",
+      "art": "street_poison_path",
       "title": "Poison Path",
       "body": "Poison geysers erupt beside the path. A shrine offers a daily boon along the way.",
       "flash": "Poison geysers line the path.",
@@ -10970,7 +10971,7 @@
       "ventKind": "fire",
       "ventStepM": 42,
       "story": "street_fire_path",
-      "art": "street_burned",
+      "art": "street_fire_path",
       "title": "Fire Path",
       "body": "Fire geysers erupt beside the path. A shrine offers a daily boon along the way.",
       "flash": "Fire geysers line the path.",
@@ -11134,7 +11135,7 @@
       "ventKind": "paralysis",
       "ventStepM": 42,
       "story": "street_paralysis_path",
-      "art": "street_lantern",
+      "art": "street_paralysis_path",
       "title": "Paralysis Path",
       "body": "Paralysis geysers erupt beside the path. A shrine offers a daily boon along the way.",
       "flash": "Paralysis geysers hiss.",
@@ -11299,7 +11300,7 @@
       "ventKind": "confusion",
       "ventStepM": 42,
       "story": "street_confusion_path",
-      "art": "street_toadstool",
+      "art": "street_confusion_path",
       "title": "Confusion Path",
       "body": "Confusion geysers erupt beside the path. A shrine offers a daily boon along the way.",
       "flash": "Confusion geysers hiss.",
@@ -11469,7 +11470,7 @@
         ]
       },
       "story": "street_berry",
-      "art": "street_orchard",
+      "art": "street_berry",
       "title": "Berry Lane",
       "body": "Bushes crowd both verges: berries, poison berries and thorns, and once in a long while a golden one. Something small may be hiding behind them.",
       "flash": "Berry bushes line the lane.",
@@ -12087,7 +12088,7 @@
       },
       "lampGlow": "#f2c14e",
       "story": "street_berry_trail",
-      "art": "street_orchard",
+      "art": "street_berry_trail",
       "title": "Berry Trail",
       "body": "Bushes crowd the trail: berries, poison berries and thorns, and once in a long while a golden one. Something small may be hiding behind them.",
       "flash": "Berry bushes line the trail.",
@@ -12444,7 +12445,7 @@
       "words": "(pott|clay|kiln|ceram|t[\u00f6o]pfer|crock)",
       "lampGlow": "#e0a060",
       "story": "street_pottery",
-      "art": "street_golden",
+      "art": "street_pottery",
       "title": "Pottery Road",
       "body": "Clay pots stand along both sides of the road. Most are empty, but a coin rolls out of the odd one you smash.",
       "flash": "Clay pots line the road.",
@@ -12578,6 +12579,24 @@
           "x": 738.5,
           "y": 815.5,
           "id": "pot_2622_5615_105_116",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 745.5,
+          "y": 787.5,
+          "id": "pot_2622_5615_106_112",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 745.5,
+          "y": 815.5,
+          "id": "pot_2622_5615_106_116",
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery"
@@ -12908,6 +12927,330 @@
         },
         {
           "kind": "chest",
+          "x": 696.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_99_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 696.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_99_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 710.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_101_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 710.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_101_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 717.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_102_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 717.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_102_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 731.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_104_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 731.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_104_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 752.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_107_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 752.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_107_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 773.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_110_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 773.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_110_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 794.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_113_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 794.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_113_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 808.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_115_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 808.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_115_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 815.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_116_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 815.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_116_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 822.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_117_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 822.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_117_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 836.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_119_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 836.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_119_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 843.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_120_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 843.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_120_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 850.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_121_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 850.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_121_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 857.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_122_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 857.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_122_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 871.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_124_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 871.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_124_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 892.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_127_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 892.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_127_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 899.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_128_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 899.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_128_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 906.5,
+          "y": 780.5,
+          "id": "pot_2622_5615_129_111",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
+          "x": 906.5,
+          "y": 822.5,
+          "id": "pot_2622_5615_129_117",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery"
+        },
+        {
+          "kind": "chest",
           "x": 906.5,
           "y": 801.5,
           "id": "crate_end_2622_5615_129_114",
@@ -13021,7 +13364,7 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Clay pots along both verges, one sample a cell with 35% left empty, each a cell back from the kerb on the reward gate. No guards."
+      "placement": "Clay pots along both verges, one sample a cell with 15% left empty, each a cell back from the kerb on the reward gate. No guards."
     },
     {
       "id": "trade",
@@ -13042,7 +13385,7 @@
       "words": "(trade|market|merchant|handel|markt|bazaar)",
       "lampGlow": "#dca452",
       "story": "street_trade",
-      "art": "street_bandit",
+      "art": "street_trade",
       "title": "Trade Row",
       "body": "Barrels of goods line both sides of the road, and goblin grunts pick through them in twos.",
       "flash": "Barrels and goblin grunts.",
@@ -13638,8 +13981,9 @@
       },
       "lampGlow": "#d8cf9c",
       "story": "street_rocky_path",
-      "art": "street_golden",
+      "art": "street_rocky_path",
       "title": "Rocky Road / Path",
+      "label": "Rocky Road",
       "body": "Loose stones and low rocks line this simple route.",
       "flash": "Rocky Road / Path.",
       "code": 27,
@@ -13951,9 +14295,9 @@
       },
       "lampGlow": "#d8cf9c",
       "story": "street_grassy_lane",
-      "art": "street_greenway",
+      "art": "street_grassy_lane",
       "title": "Grassy Lane",
-      "body": "Soft grass, herbs and small bushes line the lane.",
+      "body": "Thick grass covers the road and its verges, with herbs and bushes along the edges.",
       "flash": "Grassy Lane.",
       "code": 28,
       "baseTerrain": 6,
@@ -13966,23 +14310,63 @@
       "objects": [
         {
           "kind": "chest",
-          "x": 906.5,
-          "y": 801.5,
-          "id": "crate_end_2622_5615_129_114",
+          "x": 913.5,
+          "y": 794.5,
+          "id": "crate_end_2622_5615_130_113",
           "crate": true,
           "tierSeed": 1
         },
         {
           "kind": "chest",
-          "x": 696.5,
-          "y": 801.5,
-          "id": "crate_end_2622_5615_99_114",
+          "x": 689.5,
+          "y": 794.5,
+          "id": "crate_end_2622_5615_98_113",
           "crate": true,
           "tierSeed": 1
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
+          "x": 696.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_99_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 696.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_99_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 696.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_99_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 696.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_99_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 703.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_100_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 703.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_100_113",
@@ -13990,7 +14374,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
+          "crop": "longgrass",
           "x": 703.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_100_115",
@@ -13998,7 +14382,23 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_100_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 717.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_102_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 717.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_102_113",
@@ -14006,7 +14406,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
           "x": 717.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_102_115",
@@ -14014,7 +14414,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
+          "crop": "longgrass",
+          "x": 717.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_102_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 724.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_103_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 724.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_103_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 724.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_103_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 724.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_103_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 731.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_104_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 731.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_104_113",
@@ -14022,7 +14470,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
+          "crop": "longgrass",
           "x": 731.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_104_115",
@@ -14030,23 +14478,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
-          "x": 745.5,
-          "y": 787.5,
-          "id": "route_grassy_lane_2622_5615_106_112",
+          "crop": "longgrass",
+          "x": 731.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_104_116",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
-          "x": 745.5,
+          "crop": "longgrass",
+          "x": 738.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_105_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 738.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_105_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 738.5,
           "y": 808.5,
-          "id": "route_grassy_lane_2622_5615_106_115",
+          "id": "route_grassy_lane_2622_5615_105_115",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
+          "x": 738.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_105_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 759.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_108_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 759.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_108_113",
@@ -14054,7 +14534,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
           "x": 759.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_108_115",
@@ -14062,7 +14542,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
+          "x": 759.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_108_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 766.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_109_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 766.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_109_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 766.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_109_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 766.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_109_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 773.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_110_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 773.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_110_113",
@@ -14070,7 +14598,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
           "x": 773.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_110_115",
@@ -14078,23 +14606,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
-          "x": 787.5,
-          "y": 787.5,
-          "id": "route_grassy_lane_2622_5615_112_112",
+          "crop": "longgrass",
+          "x": 773.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_110_116",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
-          "x": 787.5,
+          "crop": "longgrass",
+          "x": 794.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_113_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 794.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_113_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 794.5,
           "y": 808.5,
-          "id": "route_grassy_lane_2622_5615_112_115",
+          "id": "route_grassy_lane_2622_5615_113_115",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
+          "crop": "longgrass",
+          "x": 794.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_113_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 801.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_114_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 801.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_114_113",
@@ -14102,7 +14662,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
           "x": 801.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_114_115",
@@ -14110,23 +14670,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
-          "x": 815.5,
-          "y": 787.5,
-          "id": "route_grassy_lane_2622_5615_116_112",
+          "crop": "longgrass",
+          "x": 801.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_114_116",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
-          "x": 815.5,
+          "crop": "longgrass",
+          "x": 808.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_115_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 808.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_115_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 808.5,
           "y": 808.5,
-          "id": "route_grassy_lane_2622_5615_116_115",
+          "id": "route_grassy_lane_2622_5615_115_115",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
+          "x": 808.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_115_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 829.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_118_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 829.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_118_113",
@@ -14134,7 +14726,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
+          "crop": "longgrass",
           "x": 829.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_118_115",
@@ -14142,7 +14734,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "petnip",
+          "crop": "longgrass",
+          "x": 829.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_118_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 836.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_119_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 836.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_119_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 836.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_119_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 836.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_119_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 843.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_120_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 843.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_120_113",
@@ -14150,7 +14790,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
           "x": 843.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_120_115",
@@ -14158,23 +14798,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
-          "x": 857.5,
-          "y": 787.5,
-          "id": "route_grassy_lane_2622_5615_122_112",
+          "crop": "longgrass",
+          "x": 843.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_120_116",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
-          "x": 857.5,
+          "crop": "longgrass",
+          "x": 864.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_123_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 864.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_123_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 864.5,
           "y": 808.5,
-          "id": "route_grassy_lane_2622_5615_122_115",
+          "id": "route_grassy_lane_2622_5615_123_115",
           "_street": "grassy_lane"
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
+          "x": 864.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_123_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 871.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_124_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 871.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_124_113",
@@ -14182,7 +14854,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
+          "crop": "longgrass",
           "x": 871.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_124_115",
@@ -14190,7 +14862,55 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
+          "x": 871.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_124_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 878.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_125_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 878.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_125_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 878.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_125_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 878.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_125_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 885.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_126_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 885.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_126_113",
@@ -14198,7 +14918,7 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
           "x": 885.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_126_115",
@@ -14206,7 +14926,23 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
+          "x": 885.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_126_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 899.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_128_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
           "x": 899.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_128_113",
@@ -14214,10 +14950,290 @@
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
+          "crop": "longgrass",
           "x": 899.5,
           "y": 808.5,
           "id": "route_grassy_lane_2622_5615_128_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 899.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_128_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 906.5,
+          "y": 801.5,
+          "id": "route_grassy_lane_2622_5615_129_114",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 906.5,
+          "y": 794.5,
+          "id": "route_grassy_lane_2622_5615_129_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 906.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_129_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 906.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_129_116",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 703.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_100_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 703.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_100_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 717.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_102_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 717.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_102_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 731.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_104_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 731.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_104_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 745.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_106_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 745.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_106_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 759.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_108_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 759.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_108_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 773.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_110_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 773.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_110_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 787.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_112_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 787.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_112_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 801.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_114_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 801.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_114_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 815.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_116_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 815.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_116_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 829.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_118_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 829.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_118_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 843.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_120_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 843.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_120_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 857.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_122_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 857.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_122_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 871.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_124_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 871.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_124_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 885.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_126_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 885.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_126_117",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "petnip",
+          "x": 899.5,
+          "y": 780.5,
+          "id": "route_grassy_lane_2622_5615_128_111",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 899.5,
+          "y": 822.5,
+          "id": "route_grassy_lane_2622_5615_128_117",
           "_street": "grassy_lane"
         }
       ],
@@ -14337,7 +15353,7 @@
       },
       "lampGlow": "#d8cf9c",
       "story": "street_old_growth_path",
-      "art": "street_overgrown",
+      "art": "street_old_growth_path",
       "title": "Old Growth Path",
       "body": "Mature trees shade a path edged with shrubs and mushrooms.",
       "flash": "Old Growth Path.",
@@ -14893,7 +15909,7 @@
       },
       "lampGlow": "#d8cf9c",
       "story": "street_haunted_forest_path",
-      "art": "street_toadstool",
+      "art": "street_haunted_forest_path",
       "title": "Haunted Forest Path",
       "body": "Dark trees crowd the way. Old headstones stand among the mushrooms.",
       "flash": "Haunted Forest Path.",
@@ -15408,7 +16424,7 @@
       },
       "lampGlow": "#d8cf9c",
       "story": "street_way_of_variety",
-      "art": "street_orchard",
+      "art": "street_way_of_variety",
       "title": "Way of Variety",
       "body": "Common finds crowd both sides: herbs, berries, mushrooms, rocks, trees and pots.",
       "flash": "Way of Variety.",

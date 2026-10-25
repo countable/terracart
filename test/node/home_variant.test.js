@@ -62,7 +62,7 @@
       object('chicken_greeter_1_2', 105, 105, { kind: 'chicken' }),
       object('npc_wanderer_1_2', 105, 105, { kind: 'npc' }), object('pet', 105, 105, { pet: true }),
       object('planted', 105, 105, { planted: true }), object('mapped', 105, 105, { kind: 'house' }),
-      object('outside', 180, 180)];
+      object('outside', 180, 180), object('stash_pile_near_1_2_1', 105, 105, { kind: 'groundstack' })];
     e.objects = [...kept, object('forest'), object('nexus', 105, 105, { zoneVariant: 'grove' }), object('road', 105, 105, { _street: 'lantern' })];
     e.creatures = [object('ambient_chicken', 105, 105, { kind: 'chicken' }), kept[3], kept[4]];
     HomeVariant.apply(s, e, 0, 0);

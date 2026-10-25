@@ -120,6 +120,23 @@ test('street key: the same street keys alike across a seam, its lineKeys do not'
   assert.eq(SV.normName('Café Row'), 'cafe row', 'diacritics strip');
 });
 
+// ── Map labels ──────────────────────────────────────────────────────────
+// A road label reads "<official first word> <variant name>"; every variant
+// that can mark a road cell has a short, article-free name for it.
+test('labels: each variant names itself for a road label after the official name', () => {
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.pottery), 'Pottery Road');
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.hedgerow), 'Hedged Lane', 'the leading article drops');
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.way_of_variety), 'Way of Variety', 'small words stay lower case');
+  assert.eq(SV.labelName(SV.VARIANT_BY_ID.overgrown), 'Overgrown Lane', 'a row label overrides a story title');
+  assert.eq(SV.labelName(SV.variantByCode(SV.STREET_VARIANTS.indexOf(SV.VARIANT_BY_ID.pottery) + 1)), 'Pottery Road',
+    'the per-cell mark code resolves to the same name');
+  assert.eq(SV.labelName(null), '', 'a plain street adds nothing');
+  for (const row of SV.STREET_VARIANTS) {
+    const name = SV.labelName(row);
+    assert.truthy(/^[A-Z][\w'-]*( ([A-Z][\w'-]*|of|the|and))*$/.test(name), `${row.id}: "${name}" reads as a name`);
+  }
+});
+
 test('street key: an unnamed way keys off its own geometry in its own tile', () => {
   const line = pts([[0, 3], [9, 3]]);
   assert.eq(SV.anonKey(1, 2, line), SV.anonKey(1, 2, pts([[0, 3], [9, 3]])), 'deterministic');
@@ -1816,7 +1833,7 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   const {d,r}=dressedVariants();
   const generated = [...(r.streetDress?.objects || []), ...(r.streetDress?.wildplants || [])]
     .filter(o => o._street === 'barricade' && o._streetScenery);
-  assert.gt(generated.length, 6, 'actual rasterization keeps barricades through continuous grass cover');
+  assert.gt(generated.length, 6, 'actual rasterization keeps barricades through clustered grass cover');
   const pieces=[...d.objects,...d.wildplants].filter(o=>o._street==='barricade'&&o._streetScenery);
   const rows=new Map();
   for(const o of pieces){const y=cellOf(o.y,TY);if(!rows.has(y))rows.set(y,[]);rows.get(y).push(cellOf(o.x,TX));}
@@ -2032,7 +2049,7 @@ test('berry lane: a Small-road row and a path row, appended last, bushes of ever
   assert.eq(lane.size, 'minor'); assert.eq(lane.share, 0.05);
   assert.eq(trail.size, 'path'); assert.eq(trail.pathWeight, 0.04);
   assert.eq(trail.code, lane.code + 1); assert.eq(SV.VARIANT_BY_ID.pottery.code, trail.code + 1, 'only Pottery Road after them');
-  assert.eq(lane.art, 'street_orchard', 'an existing painting');
+  assert.eq(lane.art, 'street_berry', 'dedicated berry lane painting');
   assert.truthy(SV.VERGE_ROWS.berry === SV.VERGE_ROWS.berry_trail, 'one dressing for the lane and the trail');
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
@@ -2090,9 +2107,10 @@ test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts,
 });
 
 // ── Pottery Road ─────────────────────────────────────────────────────────
-// The road on row 6 of vergeFixture (halfW half a cell): its pots stand on
-// rows 4 and 8 (k = 2) or, where a seat is taken, rows 3 and 9 (k = 3) —
-// never on the kerb cells (rows 5 and 7).
+// The road on row 6 of vergeFixture (halfW half a cell): its front rank
+// stands on rows 4 and 8 (k = 2) or, where a seat is taken, rows 3 and 9
+// (k = 3); the back rank on rows 3 and 9 — never on the kerb cells (rows 5
+// and 7).
 function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
   const f = vergeFixture('pottery');
   f.index.dressingLines[0].key = key;
@@ -2105,30 +2123,31 @@ function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
     .map(o => ({ ...o, ix: cellOfM(o.x - tx * f.N * 7), iy: cellOfM(o.y) }));
   return { d, pots, f };
 }
-test('pottery road: a Small-road row, appended last, clay pots a cell back from the kerb on both verges', () => {
+test('pottery road: a Small-road row, appended last, two ranks of clay pots a cell back from the kerb on both verges', () => {
   const row = SV.VARIANT_BY_ID.pottery;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05); assert.eq(row.code, SV.VARIANT_BY_ID.trade.code - 1, 'older row codes stay stable');
-  assert.eq(row.art, 'street_golden', 'an existing painting'); assert.eq(row.sectionMaxM, 250);
+  assert.eq(row.art, 'street_pottery', 'dedicated pottery painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('pottery'), 'its shrine kind');
-  assert.eq(SV.POTTERY_GAP, 0.35);
+  assert.eq(SV.POTTERY_GAP, 0.15); assert.eq(SV.POTTERY_BACK_GAP, 0.5);
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'pottery') plain++;
     if (SV.variantFor(`s${i}|0,0`, `Kiln ${i}`, 'minor') === 'pottery') named++;
   }
   assert.gt(named, plain * 2, `a kiln street is likelier a Pottery Road (${named} vs ${plain})`);
-  let total = 0, samples = 0, north = 0, south = 0;
+  let front = 0, back = 0, samples = 0, north = 0, south = 0;
   for (let tx = 0; tx < 200; tx++) {
     const { pots } = potteryRoad(tx);
-    samples += 10 * 2;   // ten cells of road, two sides
+    samples += 9 * 2;   // the line spans nine cells (x 1.5 to 10.5): a sample each, two sides
     for (const p of pots) {
       assert.truthy(p.kind === 'chest' && p.barrel === true && p.barrelStyle === 'clay_pot' && p._street === 'pottery', 'a generated clay pot');
-      assert.eq(p.iy, p.iy < 6 ? 4 : 8, `a cell back from the kerb: ${p.ix},${p.iy}`);
+      assert.truthy([3, 4, 8, 9].includes(p.iy), `a cell or two back from the kerb: ${p.ix},${p.iy}`);
       if (p.iy < 6) north++; else south++;
-      total++;
+      if (p.iy === 4 || p.iy === 8) front++; else back++;
     }
   }
-  assert.inRange(total / samples, 1 - SV.POTTERY_GAP - 0.05, 1 - SV.POTTERY_GAP + 0.05, 'POTTERY_GAP of the seats are left empty');
+  assert.inRange(front / samples, 1 - SV.POTTERY_GAP - 0.05, 1 - SV.POTTERY_GAP + 0.05, 'POTTERY_GAP of the front seats are left empty');
+  assert.inRange(back / samples, 1 - SV.POTTERY_BACK_GAP - 0.05, 1 - SV.POTTERY_BACK_GAP + 0.05, 'POTTERY_BACK_GAP of the back seats are left empty');
   assert.inRange(north / south, 0.8, 1.25, 'both verges');
   const a = potteryRoad(7), b = potteryRoad(7);
   assert.eq(JSON.stringify(a.pots), JSON.stringify(b.pots), 'a reload lays the same pots');
@@ -2156,7 +2175,7 @@ function tradeRow(tx, key = `trade-${tx}`) {
 test('trade row: a Small-road row, appended last, barrels a cell back from the kerb and grunt pairs behind them', () => {
   const row = SV.VARIANT_BY_ID.trade;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.04); assert.eq(row.code, SV.VARIANT_BY_ID.rocky_path.code - 1, 'older row codes stay stable');
-  assert.eq(row.art, 'street_bandit', 'an existing painting'); assert.eq(row.sectionMaxM, 250);
+  assert.eq(row.art, 'street_trade', 'dedicated trade row painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('trade'), 'its shrine kind');
   assert.eq(SV.TRADE_BARREL_GAP, 0.3); assert.eq(SV.TRADE_GRUNT_STEP_M, 25); assert.eq(SV.TRADE_GRUNT_CHANCE, 2 / 3);
   assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 2, 'a pair of grunts a post');
@@ -2200,7 +2219,7 @@ test('common route themes: deterministic dressing, dense variety and shared safe
     assert.gt(finds.length, 0, id + ' dresses its verges');
     assert.eq(JSON.stringify(finds), JSON.stringify([...b.objects, ...b.wildplants]), id + ' is stable');
     assert.eq(blocked.objects.length + blocked.wildplants.length, 0, id + ' respects restricted ground');
-    assert.truthy(finds.every(o => Math.floor(o.y / 7) !== 6), id + ' leaves the route clear');
+    if (id !== 'grassy_lane') assert.truthy(finds.every(o => Math.floor(o.y / 7) !== 6), id + ' leaves the route clear');
   }
   const variety = dress('way_of_variety');
   const finds = [...variety.objects, ...variety.wildplants];
@@ -2208,5 +2227,28 @@ test('common route themes: deterministic dressing, dense variety and shared safe
   assert.gt(new Set(finds.map(o => o.crop || o.kind)).size, 4, 'variety mixes common interactables');
   assert.truthy(dress('haunted_forest_path').objects.some(o => o.kind === 'headstone'), 'haunted route has headstones');
   assert.truthy(dress('old_growth_path').objects.some(o => o.kind === 'tree' && o.variant === 3), 'old growth has mature trees');
+});
+test('Grassy Lane fills its road and both verges with unique harvestable grass', () => {
+  const build = (blocked = false, major = false, duplicate = false) => {
+    const f = vergeFixture('grassy_lane');
+    if (blocked) f.spawnWhy.fill(WorldGen.SPAWN_WHY.RESTRICTED);
+    if (major) for (let x = 1; x < 11; x++) f.grid[6 * f.N + x] = T.ROAD_MD;
+    if (duplicate) f.index.dressingLines.push({ ...f.index.dressingLines[0] });
+    return SV.dress({ ...f, tx: 0, ty: 0, tileEdgeM: f.N * 7,
+      spawnOpts: { roadMask: f.roadMask, spawnWhy: f.spawnWhy, occupied: new Set([6 * f.N + 5]) } });
+  };
+  const plants = build().wildplants, grass = plants.filter(p => p.crop === 'longgrass');
+  const cells = new Set(grass.map(p => Math.floor(p.x / 7) + ',' + Math.floor(p.y / 7)));
+  for (let x = 1; x < 10; x++) for (let y = 4; y <= 8; y++) {
+    if (x === 5) continue; // an occupied centre stops this cross-section
+    assert.truthy(cells.has(x + ',' + y), `thick grass at ${x},${y}`);
+  }
+  assert.falsy(cells.has('5,6'), 'existing occupants keep their seat');
+  assert.eq(new Set(plants.map(p => p.id)).size, plants.length, 'one stable identity per seat');
+  assert.eq(JSON.stringify(build(true).wildplants), '[]', 'restricted land remains empty');
+  assert.falsy(build(false, true).wildplants.some(p => Math.floor(p.y / 7) === 6), 'major road exclusions stay intact');
+  assert.eq(JSON.stringify(build(false, false, true).wildplants.filter(p => p.crop === 'longgrass').map(p => p.id)),
+    JSON.stringify(grass.map(p => p.id)), 'duplicate mapped pieces cannot multiply grass');
+  assert.truthy(SaveState.regrows('longgrass'), 'road grass shares normal harvest regrowth');
 });
 })();

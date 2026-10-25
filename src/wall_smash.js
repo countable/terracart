@@ -35,12 +35,13 @@ const WallSmash = (() => {
           Math.max(ay, by) < oy || Math.min(ay, by) > oy + entry.tileEdgeM) continue;
       for (const [shapeIndex, shape] of (entry.buildingShapes || []).entries()) {
         if (!shape.ring || shape.cleared) continue;
-        const house = (entry.objects || []).find(o => o.id === shape.key);
-        // Use the restoration predicate so rebuilt houses immediately regain impacts.
-        if (typeof Houses !== 'undefined' && Houses.isHouseWreck(scene.save || {},
-          house || { id: shape.key, kind: 'house', tier: shape.tier })) continue;
         const h = crossing(ax, ay, bx, by, shape.ring, ox, oy);
         if (!h) continue;
+        // Resolve ownership only for walls crossed by this movement segment.
+        // Looking up every distant footprint makes dense tiles quadratic.
+        const house = (entry.objects || []).find(o => o.id === shape.key);
+        if (typeof Houses !== 'undefined' && Houses.isHouseWreck(scene.save || {},
+          house || { id: shape.key, kind: 'house', tier: shape.tier })) continue;
         const id = `${key}:${shape.key ?? shapeIndex}:${h.edge}`;
         if ((scene._wallSmashPass?.get(id) || 0) > now) continue;
         if (!nearest || h.t < nearest.t) nearest = { ...h, id };

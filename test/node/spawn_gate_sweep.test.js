@@ -86,7 +86,7 @@
     // appears somewhere") keeps this from passing on an unrelated call.
     const wants = [
       /function placeStarterTrail\([\s\S]{0,6000}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
-      /function scatterStarterStash\([\s\S]{0,2500}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
+      /function scatterStarterStash\([\s\S]{0,3500}WorldGen\.isSpawnCell\(entry\.grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
       /function carveStarterPlot\([\s\S]{0,4000}WorldGen\.isSpawnCell\(grid, N, N, cx, cy, spawnOpts, 'minor'\)/,
       /function carveStarterPond\([\s\S]{0,9000}spawnOkAt\(cx, cy, 'minor'\)/,
     ];

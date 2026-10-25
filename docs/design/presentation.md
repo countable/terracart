@@ -158,7 +158,9 @@ pixels and decorative details do not define additional tap cells.
   with warmer saturation to match their gold. Its letter seats match the HUD CSS.
 
 - The four opening panes show the compass discovery, dragon-war dream,
-  house awakening, then the ruined street. Discovery and the street each
+  house awakening, then the ruined street. They open at `DOMContentLoaded`,
+  after the classic script chain parses, so every pane's button answers taps
+  at once; the loading view covers the parse. Discovery and the street each
   dissolve between two aligned paintings after a brief hold. The dream uses
   four aligned portrait paintings under one camera. They dissolve once in
   sequence during the 16-second push toward the dragon's eye. Each successive
@@ -227,6 +229,8 @@ pixels and decorative details do not define additional tap cells.
   Engravings retain their aspect ratio rather than stretching to viewport height.
   Body-level loading, opening-story, help, and location dialogs use the shared
   phone gutters, including their backdrops; they never span desktop margins.
+  Copyable diagnostics and load profiles also live on body, above the compass
+  and dialogs, with sticky Copy/Dismiss controls above the scrolling report.
   The dragon header reserves its full 750:220 aspect ratio at the phone-panel width;
   its chrome stays above scene paintings and loading mosaics without cropping the head.
   Sheets have no duplicate metal side rails or border: the outer compass housing
@@ -265,10 +269,13 @@ pixels and decorative details do not define additional tap cells.
   for the development prototype.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
-  speech bubble on the upper map. Each step gives one spoken instruction;
+  speech bubble at the top of the screen. It stays hidden until the opening story,
+  safety card and how-to card have cleared and the first map tile is up, then
+  waits five more seconds; a save still on step 1 first hears Tori's
+  two-line hello (`STARTER_INTRO`, once per save). Each step gives one spoken instruction;
   completion briefly acknowledges it in the same bubble. The portrait and bubble
-  sit 25px higher, and a 44px-tall “Got it” button acknowledges only the current
-  instruction. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  sit above the map, and a gold primary “Got it” button (at least 66×44px)
+  acknowledges the current instruction; the final road hint ends guidance. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
   grant no bonus coins; ordinary loot and sales retain their own rewards.
 
@@ -421,7 +428,9 @@ pixels and decorative details do not define additional tap cells.
   selection and capacity, above `_presentRecipeOffer` transactions.
   `HOME_RECIPES.station` assigns crafting recipes to restored Workshops.
   Workshop is available from the second restoration and uses the ordinary
-  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell.
+  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell, with an Upgrade tab
+  (`_homeTabs`) beside it until the one-time second storey is built. There is
+  no in-world upgrade button.
   The portable workbench is removed; loading old saves removes its inventory
   stacks and placed records. The starter-known Spear and all ingredient and
   discovery requirements are unchanged. Several known recipes open an icon
@@ -456,7 +465,8 @@ pixels and decorative details do not define additional tap cells.
   Generate paintings with `tools/gen_story_art.js`'s `scene()` composition:
   4:3, with a complete scene and no baked dark text area. Paintings fit the
   full width, anchored at the top without stretching. The image begins at the
-  window top behind the fixed silver dragon rail. Paintings keep their top
+  window top behind the fixed silver dragon rail; story scenes start below
+  the rail's lower bar, so only its medallion tip and wing corners overlap them. Paintings keep their top
   edge and use at most half the available body height, independently of copy
   length. This leaves readable copy space on short phones without collapsing
   art as more text is added. Story crops preserve uniform image scaling.
@@ -494,18 +504,24 @@ pixels and decorative details do not define additional tap cells.
   use unless `used.art` overrides it. Dragon Powder uses `event_dragon_powder`
   only for the completed transformation. Lighting or relighting a Torch uses
   `torch_light`, a close-up of the flame catching.
-- The opening nightmare uses four full-resolution paintings. Later paintings
-  redraw progressively closer crops of the entire scene. Runtime inverse zoom
-  offsets are 1/1.5, 1/1.92 and 1/2.112 around Tiamat’s eye (59% across,
+- The opening nightmare uses four full-resolution paintings. The second and final paintings
+  redraw closer crops of the entire scene; the third retains the second’s
+  framing to keep the main head’s position and pose aligned. Runtime inverse zoom
+  offsets are 1/1.5, 1/1.5 and 1/2.112 around Tiamat’s eye (59% across,
   21% down). These use measured head sizes rather than the nominal art crops:
-  face-patch comparisons give adjacent scale ratios near 1.5, 1.28 and 1.10.
+  face-patch comparisons give adjacent scale ratios near 1.5, 1.0 and 1.408.
   Every outgoing and incoming image shares the same camera, preserving those
   scale offsets throughout each fade. Painted head motion and perspective
   still vary locally; the offsets match overall head scale, not every contour.
-  Tiamat stops breathing fire while staying side-facing in the third painting,
+  The lower dark head breathes fire in the first painting; the main red head
+  takes over in the second while the white dragon lifts its head.
+  Tiamat stops breathing fire with her mouth half closed, retaining the
+  second painting’s head position and side-facing pose in the third painting,
   then turns toward the viewer for her closed-mouth stare in the fourth;
   her head turns in place rather than growing independently. Peripheral
-  dragons keep shifting as flames flicker and smoke curls.
+  dragons change their relative head heights and neck angles in every painting,
+  with a distinct recoil and lean in the third. Flame and ice plumes reshape
+  with those poses while smoke curls drift only slightly.
   One continuous camera zoom runs from 1.5× to 4.2× over 13.33 seconds,
   starting slowly, pushing in through the middle, then slowing throughout
   the final quarter (3.33 seconds) to settle on the final frame.
@@ -570,7 +586,8 @@ pixels and decorative details do not define additional tap cells.
   the direction lock and money widgets. Three equal columns wrap additional
   chips into new rows. The unpadded container and passive chips pass taps
   through; only action buttons accept taps. The row floats above HUD controls
-  and below dialogs, with no objective-dependent repositioning. One chip per
+  and below dialogs, with no objective-dependent repositioning. Chips show pixel icons and
+  countdowns; names and drains stay in accessible labels and hover text. One chip per
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`
   (`src/buffs.js`: a potion, powder, torch, coffee, the bike, the compass, a
   shrine boon — its expiry field, word and ink). A new timed effect is a
@@ -578,7 +595,10 @@ pixels and decorative details do not define additional tap cells.
   `Buffs.extend(save, scene, id, ms)` is the one writer of a row's expiry
   (max(now, until) + ms — a second dose extends, never resets or refuses). A status
   LANDING announces itself from those tables (`_announceStatuses`: the body
-  flicks the row's ink, the word pops on the cell) — never at the writer.
+  flicks the row's ink, and the row's word pops over the player's head as a
+  `status`-tier toast in the row's own ink and chip background, bigger and
+  longer-lived than a cell number so it reads beside the "-N" and the dimmed
+  light a blinding touch brings) — never at the writer.
   Food energy and condition notices stay separate; the food receipt must not
   repeat the condition announcement. A creature's status (sleep, charm, frost,
   fear, psychosis) is a row of
@@ -595,6 +615,9 @@ pixels and decorative details do not define additional tap cells.
   onscreen, otherwise on the compass edge: a bright 3px-radius core with a translucent
   pulse expanding to a 12px radius every 3 seconds. Labels use their dot’s
   colour and stay beside it; crowded labels do not stack away from their dots.
+  Only an edge dot takes a tap (`_tapEdgeDot` toggles its label); a dot on
+  its target leaves the tap to the target, so the starter crate under its
+  guide still opens.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
@@ -610,7 +633,7 @@ pixels and decorative details do not define additional tap cells.
   respect deferral rather than draining during the remove/remount gap.
 - The Books read list remains a full mechanical panel with every learned book
   in one scrolling list. Reading or rereading a book puts live dark serif text, scrolling when
-  needed, on `extra_assets/inactive/assets/art/book_page.webp`,
+  needed, on `assets/art/book_page.webp`,
   a full-height illustrated half-book beneath the silver dragon rail.
   `bookPage: true` selects this surface without changing the shared `book_read`
   painting used elsewhere. Closing a reread returns to the book shelf.
@@ -732,7 +755,12 @@ instructions and replacement explanations are omitted. A vacant delivered house
 shows its empty slots and explains that it is ready for an available neighbour;
 furnishing starts after the neighbour moves in.
 
-Home shows its current luxury as a white number above its sign while indoors
+Home's sign reads "Home (Rank)", with no score: the rank is the
+`MemoryStory.luxuryRank` descriptor for the luxury milestone thresholds
+(Bare below 4, then Homely, Comfortable, Fine, Grand, Regal). It is the one
+Home label, shown at all hours, typed out with Home's introduction, and
+re-read from `Furniture.luxuryOf` every frame so it changes as furniture does.
+Home also shows its current luxury as a white number above its sign while indoors
 and from outside after dark. The score updates immediately, separately from
 Home's introductory typing, and fades when it overlaps the player.
 
@@ -754,11 +782,19 @@ receipt. Both persist after the transaction.
 ## Live weather
 
 `Weather` asks the relay for the current conditions at the player's projected
-latitude and longitude every ten minutes, or after one kilometre of movement.
+latitude and longitude once an hour, or after one kilometre of movement.
 The relay owns the WeatherAPI credential and returns only precipitation kind,
-rounded temperature, wind speed, condition code and cache time. The client never
-calls WeatherAPI directly. A disabled or unreachable relay leaves the last good
+temperature, wind speed, condition code, today's forecast high and low, the
+place's UTC offset, and measurement and cache times. The client never calls
+WeatherAPI directly. A disabled or unreachable relay leaves the last good
 state in place without player-facing network errors.
+
+Between measurements `Weather.currentTemp` moves the last reading along a
+half-cosine daily curve through the forecast low (dawn) and high
+(mid-afternoon), `Weather.EFFECTS.diurnal`; gameplay bands use the same value.
+The readout beside the map has no background and shows only the temperature,
+`windy` above `Weather.EFFECTS.windyKph`, and one condition word
+(`WeatherCodes.labelFor`: drizzle, rain, sleet, snow, fog or mist).
 
 Falling precipitation uses the native turquoise water-drop phases from Rogue
 Adventure's `RA_Atlantis_Animated01.png`. `Weather.EFFECTS` is the single owner
@@ -777,8 +813,8 @@ surface births deterministically reweight plain slimes toward fire and
 ice-blue splitting slimes without changing their spawn ids.
 
 `Whirlwinds.CONFIG.wind` owns wind-driven tornado frequency, group size and
-cooldown. At 10 km/h and above, weather tornadoes may rise in every surface
-biome and stronger wind raises larger groups. The shared hazard gate still
+cooldown. Above 10 km/h, weather tornadoes may rise in every surface biome and
+stronger wind raises larger groups. The shared hazard gate still
 excludes roads, restricted land, kindergarten cells and private ground, while
 `HomeArea.isNear` keeps the starting area calm.
 

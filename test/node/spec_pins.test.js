@@ -72,27 +72,38 @@ test('#1 reward grant: the interact path equips the same way', () => {
   assert.eq(save.energy, 100, 'without touching the bar');
 });
 
-// The approved thematic chest design supersedes the old flat-gear-rate spec.
-// These are surface group probabilities before quality eligibility/fallbacks.
-test('chest themes: gear belongs to cultural and protective groups', () => {
-  for (const theme of ['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'civic', 'school']) {
-    const gearShare = Object.entries(ChestThemes.weights(theme, 4))
-      .filter(([group]) => ChestThemes.groups[group].kind === 'gear')
-      .reduce((sum, [, weight]) => sum + weight, 0);
-    assert.eq(gearShare, 0, `${theme}: no unrelated gear`);
+// The approved thematic chest design supersedes the old flat-gear-rate spec;
+// gear outside the cultural and protective lanes rides one cross-theme lane
+// (ChestThemes.CHEST_GEAR). These are surface group probabilities before
+// quality eligibility/fallbacks.
+test('chest themes: every chest carries the equipment lane, 7 points per tier up to 28', () => {
+  for (const theme of Object.keys(ChestThemes.themes).filter(t => t !== 'boss')) for (let tier = 1; tier <= 7; tier++) {
+    const row = ChestThemes.weights(theme, tier);
+    assert.eq(row.bonusGear, Math.min(28, 7 * tier), `${theme} T${tier}`);
+    if (['roadside', 'commerce', 'food', 'health', 'park', 'farm', 'flora', 'worship', 'civic', 'school'].includes(theme)) {
+      const themeGear = Object.entries(row)
+        .filter(([group]) => group !== 'bonusGear' && ChestThemes.groups[group].kind === 'gear')
+        .reduce((sum, [, weight]) => sum + weight, 0);
+      assert.eq(themeGear, 0, `${theme}: no themed gear lane`);
+    }
   }
+  assert.eq(ChestThemes.weights('boss', 4).bonusGear, undefined, 'a hoard that is all gear has nothing to give up');
   assert.eq(ChestThemes.weights('civic', 4).uniqueRelics, 25);
   assert.eq(ChestThemes.weights('culture', 4).culturalGear, 18 * 85 / 90);
   assert.eq(ChestThemes.weights('authority', 4).protectiveGear, 40 * 0.95);
+  assert.eq(ChestThemes.weights('roadside', 4).furniture, 10, 'furniture keeps its share');
 });
 
-test('chest themes: roadside never awards gear, even at high quality', () => {
+test('chest themes: roadside gear comes only through the equipment lane', () => {
   const rng = seededPrng(0x51de);
+  let gear = 0;
   for (let i = 0; i < 2000; i++) {
     const reward = pickReward('chest:lowtier', { relics: {}, armor: {} }, rng, { tier: 5 });
+    if (reward.group === 'bonusGear') { gear++; continue; }
     assert.truthy(reward.kind === 'item' || reward.kind === 'gold');
     assert.truthy(['supplies', 'materials', 'cash', 'furniture'].includes(reward.group));
   }
+  assert.inRange(gear / 2000, 0.25, 0.31, 'T5 roadside gear share');
 });
 
 test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () => {
@@ -112,13 +123,14 @@ test('#7 no milestone gate on gear tiers: a top chest can roll every tier', () =
     'with no progress at all, a tier-5 chest reaches tiers through its rolled quality');
 });
 
-test('chest themes: T1 excludes gear for every location, even on jackpot rolls', () => {
+test('chest themes: T1 gear comes only through the equipment lane, never a unique relic', () => {
   for (const theme of Object.keys(ChestThemes.themes)) {
     for (const depth of [0, 2]) {
       const rng = seededPrng(771);
       for (let i = 0; i < 300; i++) {
         const reward = pickReward('chest:' + theme, { relics: {}, armor: {} }, rng, { tier: 1, depth });
-        assert.falsy(reward.kind === 'relic' || reward.kind === 'armor', `${theme}, depth ${depth}: T1 gear`);
+        if (reward.kind === 'relic' || reward.kind === 'armor') assert.eq(reward.group, 'bonusGear', `${theme}, depth ${depth}: T1 gear`);
+        if (reward.group === 'bonusGear') assert.falsy(ITEM_BY_ID[reward.id]?.kind === 'unique_relic', `${theme}, depth ${depth}: T1 unique`);
       }
     }
   }
@@ -129,19 +141,21 @@ test('chest themes: civic offers unique relics, supplies and coins', () => {
   let uniqueCount = 0;
   for (let i = 0; i < 3000; i++) {
     const reward = pickReward('chest:civic', { relics: {}, armor: {} }, rng, { tier: 4 });
-    assert.falsy(reward.kind === 'armor' || reward.kind === 'relic', 'civic excludes ordinary equipment');
+    if (reward.group === 'bonusGear') continue;
+    assert.falsy(reward.kind === 'armor' || reward.kind === 'relic', 'civic equipment rides the equipment lane');
     if (reward.kind === 'item' && ITEM_BY_ID[reward.id]?.kind === 'unique_relic') uniqueCount++;
     else assert.truthy(['supplies', 'cash'].includes(reward.group), 'civic keeps its supply or coin identity');
   }
   assert.gt(uniqueCount, 0, 'the unique-relic group resolves');
 });
 
-test('chest themes: culture can award relics and armor; authority awards protective gear only', () => {
+test('chest themes: culture can award relics and armor; authority\'s own lane is protective gear only', () => {
   for (const theme of ['culture', 'authority']) {
     const kinds = new Set();
     const rng = seededPrng(55121);
     for (let i = 0; i < 3000; i++) {
       const reward = pickReward('chest:' + theme, { relics: {}, armor: {} }, rng, { tier: 4 });
+      if (reward.group === 'bonusGear') continue;
       if (reward.kind === 'relic' || reward.kind === 'armor') kinds.add(reward.kind);
     }
     assert.truthy(kinds.has('armor'), `${theme} provides armor`);

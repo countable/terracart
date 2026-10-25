@@ -24,7 +24,7 @@
     }
   },
   "book_page": {
-    "source": "repo:extra_assets/inactive/assets/art/book_page.webp",
+    "source": "repo:assets/art/book_page.webp",
     "width": 900,
     "height": 1145,
     "source_kind": "runtime_original",

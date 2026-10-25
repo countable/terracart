@@ -805,11 +805,11 @@ test('staircase handler: fires on the stair\'s cell, not the cell above it', () 
 // helpers are stubbed so tooFar() returns true (→ 'far') whenever the creature
 // is FOUND — that lets us assert "found" (='far') vs "fell through" (=false)
 // without exercising the full catch/feed flow. cellInReach=false forces 'far'.
-function runCreatureTap(kind, wm, cellInReach) {
+function runCreatureTap(kind, wm, cellInReach, sceneOver = {}) {
   const orig = {
     WG: globalThis.WorldGen, CIR: globalThis.cellInReach, WMC: globalThis.worldMetersToAbsCell,
   };
-  const scene = Object.assign(makeScene(), { feetOffsetM: 0, cellM: 7, cellPx: 32, flash: () => {} });
+  const scene = Object.assign(makeScene(), { feetOffsetM: 0, cellM: 7, cellPx: 32, flash: () => {} }, sceneOver);
   const save  = { caught: [], inv: [], selSlot: 0 };
   const ctx   = Object.assign(makeCtx(scene, save), { wm });
   const h = TAP_HANDLERS.find(x => x.name === 'creature');
@@ -861,11 +861,32 @@ test('creature: touch padding accepts near misses for animals, NPCs and enemies'
   for (const [kind, halfW] of [['chicken', 1.5], ['npc', 1.8], ['slime', 2]]) {
     const span = SpriteLayout.creatureTapSpanPx(kind);
     const cy = (span.top + span.bottom) / 2 * 7 / 32;
-    assert.eq(runCreatureTap(kind, { x: halfW + 0.7, y: cy }, false), 'far');
-    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), false);
+    // The padded box (4 px pad = 0.875 m here) grows 10% for off-grid bodies.
+    const edge = (halfW + 0.875) * 1.1;
+    assert.eq(runCreatureTap(kind, { x: edge - 0.05, y: cy }, false), 'far');
+    assert.eq(runCreatureTap(kind, { x: edge + 0.05, y: cy }, false), false);
+    assert.eq(runCreatureTap(kind, { x: halfW + 1, y: cy }, false), 'far',
+      'a tap just past the old edge now lands');
     assert.eq(runCreatureTap(kind, { x: 0, y: span.top * 7 / 32 - 0.7 }, false), 'far');
     assert.eq(runCreatureTap(kind, { x: 0, y: span.bottom * 7 / 32 + 1 }, false), 'far');
   }
+});
+
+test('creature: a turned heading-up map still taps the upright body (Tilly)', () => {
+  // Heading-up keeps sprites upright on screen while the map turns. At a half
+  // turn the body rises toward world SOUTH; a world-north box missed it and
+  // the tap tilled the ground beside the neighbour.
+  const turned = { _headingUp: true, mapRot: Math.PI };
+  const enabled = HeadingUp.enabled;
+  HeadingUp.enabled = true;
+  try {
+    assert.eq(runCreatureTap('npc', { x: 0, y: 2.5 }, false, turned), 'far',
+      'tap on the upright body, south of the foot on a half-turned map, finds the NPC');
+    assert.eq(runCreatureTap('npc', { x: 0, y: -2.5 }, false, turned), false,
+      'world-north of the foot is below the sprite on a half-turned map');
+    assert.eq(runCreatureTap('chicken', { x: -1.6, y: 0 }, false, { _headingUp: true, mapRot: Math.PI / 2 }), 'far',
+      'a quarter turn puts the body world-west of the foot');
+  } finally { HeadingUp.enabled = enabled; }
 });
 
 test('creature: a tap two cells to the side finds nothing (false)', () => {
@@ -912,17 +933,21 @@ test('reach: the removed rule leaves nothing behind to feed it', () => {
 // (combat.js); the net takes GAME and livestock alike, on the same slot the
 // catch wheel already used. app.js/interact.js can't be driven headlessly this
 // deep, so the wiring is pinned as source text.
-test('hunt: the crow/deer wheel is the bug net\'s, not a weapon\'s', () => {
+test('hunt: the game wheel is the bug net\'s, not a weapon\'s', () => {
   const src = INTERACT_SRC;
   // WHICH kinds are game is no longer a set spelled out here: it is the
-  // creature table's `game` row, read through SpriteLayout.isGame — beside
-  // what a kill of that kind drops (app.js resolveDefeat), so the two halves
-  // of "crow and deer are hunted" cannot name different kinds.
-  const huntStart = src.indexOf("if (SpriteLayout.isGame(target.kind) && !sel && Gear.activeWeapon(save)) {");
-  const hunt = src.slice(huntStart, src.indexOf('const selItem =', huntStart));
+  // creature table, read through SpriteLayout.isGame (every wild animal by
+  // default since Oct 2026) — beside what a kill of that kind drops (app.js
+  // resolveDefeat), so the two halves of "it is hunted" cannot name
+  // different kinds. The tap hunts unless the hand holds its favourite, a
+  // producer's meal or other food.
+  const huntStart = src.indexOf("if (!isTame && SpriteLayout.isGame(target.kind) && !likes && !producerMeal && !isEdible");
+  const hunt = src.slice(huntStart, src.indexOf('// Plant produce gives the species yield', huntStart));
   assert.truthy(hunt.length > 0, 'found the hunt branch');
-  assert.eq(Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k)).join(),
-    'deer,crow', 'and the table still calls exactly the crow and the deer game');
+  assert.truthy(/&& Gear\.activeWeapon\(save\)\) \{/.test(hunt), 'armed');
+  const game = Object.keys(SpriteLayout.CREATURE_BEHAVIOUR).filter((k) => SpriteLayout.isGame(k));
+  for (const k of ['deer', 'crow', 'rabbit', 'chicken', 'cow']) assert.includes(game, k, `${k} is game`);
+  for (const k of ['cat', 'dog', 'npc', 'slime', 'goblin']) assert.falsy(game.includes(k), `${k} is not`);
   // Named plainly since Sep 2026: an unowned slot is the bare-handed rung in
   // toolDurationMs, and "you own no net, so wear no badge" is answered once in
   // app.js _setWorkProgressIcon rather than re-tested here (see
@@ -1115,4 +1140,45 @@ test('light-fire: surface farming does not block the mirrored cave cell', () => 
     WorldGen.tileCache.clear();
     for (const [key, entry] of entries) WorldGen.tileCache.set(key, entry);
   }
+});
+
+test('picked berry bushes on Small roads chop once instead of falling through to road soil refusal', () => {
+  const original = globalThis.WorldGen;
+  try {
+    for (const crop of ['berry', 'poisonberry', 'goldenberry']) {
+      let id = crop + '-road-bush';
+      while (!isNestBush('shrub', id)) id += 'x';
+      const plant = { kind: 'wildplant', crop, id, x: 2.5, y: 2.5 };
+      globalThis.WorldGen = { ...original, forEachItem: (layer, cb) => { if (layer === 'wildplants') cb(plant); } };
+      const save = { picked: [id], energy: 100, relics: { axe: { tier: 1 } },
+        grassRegrowth: { [id]: Date.now() + 10000 } };
+      let finish, duration; const messages = [];
+      const scene = makeGridScene({ save, flash: msg => messages.push(msg),
+        startWorkProgress: (x, y, cb, ms) => { finish = cb; duration = ms; },
+        showBabyFound: () => { throw Error('Bare fruit bushes do not contain nest bonuses'); },
+        awardShinyBonus: () => { throw Error('Fruit picking already handled shiny rewards'); },
+      });
+      const ctx = { scene, save, wm: { x: 2.5, y: 2.5 }, sx: 0, sy: 0,
+        cell: { type: TERRAIN.ROAD, underRoad: true } };
+      const consumed = TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx);
+      if (!consumed) TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx);
+      assert.eq(consumed, true, 'the visible bare bush owns the tap');
+      assert.falsy(messages.some(msg => /earth to turn/i.test(msg)), 'road soil does not intercept chopping');
+      assert.eq(duration, toolDurationMs(save.relics, 'axe'));
+      assert.eq(scene.invCount('wood'), 0, 'completion awards the wood');
+      finish(); finish();
+      assert.eq(scene.invCount('wood'), wildplantRewards('shrub')[0].qty, 'one wood reward despite repeat callbacks');
+      assert.eq(scene.invCount(crop), 0, 'no repeat fruit reward');
+      assert.eq(save.chopped.filter(x => x === id).length, 1);
+      assert.eq(save.picked.filter(x => x === id).length, 1, 'original fruit stays spent');
+      assert.eq(save.grassRegrowth[id], undefined, 'felling cancels fruit regrowth');
+      const restored = JSON.parse(JSON.stringify(save));
+      const sets = spentSets(scene, restored);
+      assert.eq(Render.wildplantView(plant, sets), null, 'felled bush stays gone after reload');
+      assert.truthy(isSpent(plant, sets));
+      SaveState.regrowGrass(restored, Date.now() + 100000);
+      assert.eq(Render.wildplantView(plant, spentSets(scene, restored)), null);
+      assert.falsy(TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx), 'chopped plant no longer accepts taps');
+    }
+  } finally { globalThis.WorldGen = original; }
 });

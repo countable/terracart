@@ -61,7 +61,7 @@ trials still run in the paused overlay scene (`temple_scene.js`).
 | 2 | Natural caves | Prior L1 wall mask: buildings, water and Small roads form rock; Medium/Large roads and paths stay open | Original natural authored areas and selection seed, quarry provenance, floor torches and barrels; lighter Abandoned Mines walls | Existing depth-2 roster |
 | 3 | Goblin warrens | Building-only base walls, connected warren rooms across eligible ground | Open doors and protected route/landmark approaches; existing authored stores and pressure traps move with the warren profile | Existing depth-3 roster |
 | 4 | Deep stone + dwarves | Stone surrounding buffered road/path tunnels and eligible park, grove, playground, pitch and commercial clearings | Clearings carry Deep groves and Dwarven cities; approved blue masonry | Existing depth-4 roster |
-| 5 | Fungal Underdark | One open cavern; no rockwalls | Fungal wall art is a comparison sample only; arena key gate remains at depth 5 | Existing depth-5 roster |
+| 5 | Fungal Underdark | One open cavern; no rockwalls | Rounded pink grass mirrors surface grass regions on eligible open floor; existing cave placements keep first claim; arena key gate remains at depth 5 | Existing depth-5 roster |
 | 6 | Lava + demons | Surface-derived walls; building footprints become ground-level lava pits | Near-black basalt caps; stable one-in-four cracked face variants on remaining rockwalls | Fire elementals and existing depth-6 roster |
 | 7 | Dragons | Surface-derived rock masses with Dreams violet masonry | Independent of open L5 and lava cells above | Existing dragon roster |
 | 8 | Deep roosts | Same dragon masonry and surface-derived wall rule | Existing finite dragon-roost placement | Red dragons and roost guards |

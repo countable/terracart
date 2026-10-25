@@ -49,16 +49,10 @@
 
 const Render = {};
 
-// Picked fruit can leave its plant standing. This is a render-only view:
-// the original id stays spent, including after reloading the saved ledger.
+// Picked fruit remains choppable scenery until the plant itself is cleared.
 Render.wildplantView = function (plant, sets) {
-  if (sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
-  const picked = !plant.tide && sets.picked.has(plant.id);
-  if (picked) {
-    const crop = wildplantRule(plant.crop)?.pickedCrop;
-    return crop ? { ...plant, crop, _pickedRemnant: true, _plantArt: 'ordinary', _hedgeFrame: undefined,
-      _zoneObjectFrame: undefined, _streetArt: undefined } : null;
-  }
+  if (sets.chopped?.has(plant.id) || sets.burned?.has(plant.id) || sets.burnedGround?.(plant)) return null;
+  if (!plant.tide && sets.picked.has(plant.id)) return wildplantRemnant(plant, sets);
   return isSpent(plant, sets) ? null : plant;
 };
 
@@ -2788,7 +2782,11 @@ Render.drawCells = function drawCells(scene) {
             // cells along its rotation, which is fine — map labels do too.
             // worldgen pre-normalizes angle into (-90°, 90°] so the text is
             // never upside down.
-            lt.setText(info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+            // The street's variant name follows its official one, read off
+            // the dressed tile's per-cell marks (none until it is dressed).
+            const mark = entry.streetMarks ? entry.streetMarks[iy2 * entry.cellsPerEdge + ix2] : 0;
+            const variant = mark ? StreetVariants.labelName(StreetVariants.variantByCode(mark)) : '';
+            lt.setText(variant ? `${info.text} ${variant}` : info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
               .setRotation(info.angle).setVisible(true);
           } else {
             lt.setVisible(false);
@@ -3607,8 +3605,9 @@ Render.playerBuildingKey = function(scene) {
   return entry?.ownerKeys?.[entry.owners?.[i]] || null;
 };
 
-// Upright props fade only while their visible art covers the player's body
-// and their shared world depth places them in front. Read the boot-time art
+// Buildings and medium-or-larger trees (fadesOverPlayer) fade only while
+// their visible art covers the player's body and their shared world depth
+// places them in front; every other prop stays opaque. Read the boot-time art
 // bounds, never texture pixels; untrimmed procedural art uses its frame box.
 // On a turned heading-up map (`view`, from Render.headingFadeView) each body
 // stands upright at its turned feet, and lower turned feet draw in front, so
@@ -3618,7 +3617,8 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
   const building = !!s._staticObject && isBuilding(s._staticObject.kind);
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
-  if (box && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
+  const eligible = fadesOverPlayer(s._staticObject);
+  if (box && eligible && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
     const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
     const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
     const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
@@ -3798,8 +3798,8 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // join as the map turns. Each piece is a core block plus an arm to every
 // connected edge, so neighbours meet exactly at the shared cell edge at any
 // heading. Height is the step-over lift (ObstacleStep.PROFILES): the top the
-// player stands on is the top the camera sees. Hedges retain their separate
-// visual height while the player walks through their cover. Thickness and colours follow
+// player stands on is the top the camera sees. Hedges keep their visual height
+// while the player walks through their cover. Thickness and colours follow
 // the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
 // north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
 // garden bush its rounded sprite: neither is a wall.
@@ -3917,11 +3917,10 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   return drawn;
 };
 
-// Native RA grass is four retained crossed tufts per harvestable square.
-// Each tuft sorts among actors and props; texture alpha leaves natural gaps.
+// Retained textured blades sort by their grounded roots among actors and props.
 Render.drawGrassPrisms = function (scene, plantItems) {
   const drawn = new Set();
-  if (typeof WallPerspective === 'undefined' || !scene.textures?.exists(WallMaterials.GRASS.texture)) return drawn;
+  if (typeof WallPerspective === 'undefined' || !WallMaterials.prepareGrass(scene)) return drawn;
   const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
   const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
   const pieces = [];
@@ -3940,14 +3939,15 @@ Render.drawGrassPrisms = function (scene, plantItems) {
     const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
     const x = at.x + fx - CELL_PX / 2, y = at.y + fy - CELL_PX / 2;
     const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
-    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height);
-    for (let tuft = 0; tuft < 4; tuft++) {
-      const cx = x + CELL_PX / 2 + (tuft % 2 ? WallMaterials.GRASS.offset : -WallMaterials.GRASS.offset), cy = y + CELL_PX / 2 + (tuft < 2 ? -WallMaterials.GRASS.offset : WallMaterials.GRASS.offset);
+    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height,
+      { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
+    for (let blade = 0; blade < faces.length; blade += 2) {
+      const { x: cx, y: cy } = faces[blade].billboard;
       const half = WallMaterials.GRASS.width / 2;
       WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
         { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
         { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
-        { materialFaces: faces.slice(tuft * 4, tuft * 4 + 4) });
+        { materialFaces: faces.slice(blade, blade + 2) });
     }
   }
   scene._grassPrismKey = key; WallPerspective.offset(scene, 'grass', -fx, -fy);
@@ -4218,24 +4218,26 @@ const GROUND_MARK = {
 // walk-home lead stops on the ring (app.js). Its own on-screen width and tilt
 // rather than GROUND_MARK's (at the shared 0.5 tilt it read squashed), and
 // the facing caret's paint rather than the rune circle's halo: a gold line on
-// a dark outline, with a soft drop shadow `shadowPx` down the screen. `line`
-// and `outline` are on-screen px, as the caret's are (FACING_CHEVRON).
+// a dark outline, and no drop shadow — the marker is paint on the ground, and
+// a soft shadow under it read as a blur. `line` and `outline` are on-screen
+// px, as the caret's are (FACING_CHEVRON).
 const GPS_RING = { r: 30, tick: 5, periodDeg: 90, px: 34, tilt: 0.6,
-  line: 1.2, outline: 2.8, shadowPx: 1, ink: '#ffe066' };
+  line: 1.2, outline: 2.8, ink: '#ffe066' };
 // Physical distance controls appearance independently of map zoom and heading.
+// Nearing the body the ring fades out, and at the feet nothing is drawn — no
+// disc or second shadow that follows the fix. Fully the gold ring from
+// `fade.ringCells` out, gone within `fade.hideCells`.
+GPS_RING.fade = { hideCells: 0.25, ringCells: 2.5 };
 Render.gpsMarkerStyle = function gpsMarkerStyle(distanceCells) {
-  const near = distanceCells <= 1;
+  const F = GPS_RING.fade;
+  const t = Math.max(0, Math.min(1, (distanceCells - F.hideCells) / (F.ringCells - F.hideCells)));
   const scale = 1 - .5 * Math.max(0, Math.min(1, (distanceCells - 1) / 4));
-  return {key: near ? 'bldg_shadow' : 'gps_ring', alpha: near ? .35 : 1,
-    width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
+  return {ringAlpha: t, width: GPS_RING.px * scale, height: GPS_RING.px * GPS_RING.tilt * scale};
 };
-// The ring's stroke passes in bake px, [width, colour, alpha, dy]: dy shifts
-// a pass down the bake before it turns, which the tilt lays flat as screen-down
-// (the ring is counter-rotated to stay screen-flat under heading-up).
+// The ring's stroke passes in bake px, [width, colour, alpha, dy].
 GPS_RING.passes = (() => {
   const k = GROUND_MARK.bakePx / GPS_RING.px;
-  return [[GPS_RING.outline * k, '#000', 0.45, GPS_RING.shadowPx * k / GPS_RING.tilt],
-    [GPS_RING.outline * k, '#1a1208', 1, 0],
+  return [[GPS_RING.outline * k, '#1a1208', 1, 0],
     [GPS_RING.line * k, GPS_RING.ink, 1, 0]];
 })();
 // The frame of rotation strip `key` showing the mark turned `turnDeg`
@@ -4284,6 +4286,139 @@ Render.cullCovered = function cullCovered(scene, list, field, scenery = false) {
   let n = 0;
   for (const item of list) if (!Render.coverHidden(scene, item[field], scenery)) list[n++] = item;
   list.length = n;
+};
+
+// The ground mask cannot decide visibility for raised art: a visible crown can
+// project into its own shadow. Replace the mask under each drawn silhouette,
+// in painter order, with sight to that object's ground anchor. Visible actors
+// are already culled by gameplay and must remain clear wherever they project.
+Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
+  if (!cover || !scene.worldContainer?.list || typeof document === 'undefined') return cover;
+  let state = scene._coverScenery;
+  if (!state) state = scene._coverScenery = {
+    canvas: document.createElement('canvas'), stamp: document.createElement('canvas'), rows: [], revision: 0,
+  };
+  const W = cover.canvas.width, H = cover.canvas.height;
+  let dirty = state.key !== cover.key || state.canvas.width !== W || state.canvas.height !== H;
+  const eye = playerWorldM(scene), heading = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
+  const sightKey = [Visibility.revision(scene), eye.x, eye.y].join('|');
+  if (state.sightKey !== sightKey) { state.sightKey = sightKey; state.sight = new WeakMap(); }
+  const saved = [], feet = new Map(), roots = scene.worldContainer.list.slice();
+  // Use exactly the standing-art transform used by the renderer. Restore it
+  // before returning; game coordinates and the render hook remain untouched.
+  if (heading) {
+    const rememberFeet = sprite => {
+      feet.set(sprite, sprite._huFoot);
+      for (const child of sprite.list || []) rememberFeet(child);
+    };
+    for (const root of roots) {
+      rememberFeet(root);
+      HeadingUp._upright(root, -heading, saved);
+    }
+    const sin = Math.sin(heading), cos = Math.cos(heading), keys = new Map();
+    for (const root of roots) {
+      const foot = root._huFoot || HeadingUp._firstFoot(root);
+      keys.set(root, foot ? sin * foot.x + cos * foot.y : 0);
+    }
+    const player = scene.playerWorldContainer;
+    if (keys.has(player)) for (const root of roots) {
+      if (root.visible && root._stepSupport) keys.set(player, Math.max(keys.get(player), keys.get(root) + .001));
+    }
+    const ground = scene._worldDecalCount || 0;
+    roots.sort((a, b) => {
+      const ag = a.depth < ground, bg = b.depth < ground;
+      return ag || bg ? ag && bg ? a.depth - b.depth : ag ? -1 : 1
+        : keys.get(a) - keys.get(b) || a.depth - b.depth;
+    });
+  }
+  let used = 0;
+  const visit = (sprite, parentAlpha = 1) => {
+    if (!sprite.visible || sprite.alpha === 0 || sprite._worldGeometry) return;
+    const alpha = parentAlpha * (sprite.alpha ?? 1);
+    if (sprite.list) { for (const child of sprite.list) visit(child, alpha); return; }
+    const frame = sprite.frame, source = frame?.source?.image;
+    if (!source || !sprite.getWorldTransformMatrix || frame.rotated || sprite.isCropped) return;
+    const o = sprite._coverObject || sprite._staticObject;
+    if (!o && (sprite._worldLayer === WorldLayers.GROUND_DECAL
+        || sprite._worldLayer === WorldLayers.GROUNDCOVER)) return;
+    let sight = Visibility.CLEAR;
+    if (o) {
+      let cached = state.sight.get(o);
+      if (!cached || cached.x !== o.x || cached.y !== o.y) {
+        cached = { x: o.x, y: o.y, cover: Visibility.coverBetween(scene, eye.x, eye.y, o.x, o.y) };
+        state.sight.set(o, cached);
+      }
+      sight = cached.cover;
+    }
+    const amount = sight === Visibility.CLEAR ? 0
+      : sight === Visibility.PARTIAL ? Visibility.PARTIAL_DARKNESS : Visibility.FULL_DARKNESS;
+    const matrix = sprite.getWorldTransformMatrix();
+    const fx = sprite.flipX ? -1 : 1, fy = sprite.flipY ? -1 : 1;
+    const ox = sprite.displayOriginX ?? sprite.originX * frame.realWidth;
+    const oy = sprite.displayOriginY ?? sprite.originY * frame.realHeight;
+    const x = (frame.x || 0) - ox + (sprite.flipX ? -frame.realWidth + 2 * ox : 0);
+    const y = (frame.y || 0) - oy + (sprite.flipY ? -frame.realHeight + 2 * oy : 0);
+    const values = [source, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
+      matrix.a * fx, matrix.b * fx, matrix.c * fy, matrix.d * fy,
+      matrix.e - scene.viewLeft - cover.x, matrix.f - scene.viewTop - cover.y,
+      x, y, alpha, amount];
+    const old = state.rows[used];
+    if (!old || values.some((v, i) => v !== old[i])) { state.rows[used] = values; dirty = true; }
+    used++;
+  };
+  try { for (const root of roots) visit(root); }
+  finally {
+    for (let i = saved.length - 1; i >= 0; i--) {
+      const [sprite, x, y, rotation] = saved[i];
+      sprite.x = x; sprite.y = y; sprite.rotation = rotation;
+      sprite._huFoot = feet.get(sprite) ?? null;
+    }
+  }
+  if (state.rows.length !== used) { state.rows.length = used; dirty = true; }
+  if (dirty) {
+    for (const canvas of [state.canvas, state.stamp]) {
+      if (canvas.width !== W) canvas.width = W;
+      if (canvas.height !== H) canvas.height = H;
+    }
+    const ctx = state.canvas.getContext('2d'), stamp = state.stamp.getContext('2d');
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'copy';
+    ctx.drawImage(cover.canvas, 0, 0);
+    for (const row of state.rows) {
+      const [source, sx, sy, sw, sh, a, b, c, d, e, f, x, y, alpha, amount] = row;
+      // Blit only this transformed frame's bounds. Hundreds of small pieces
+      // must not each clear and composite two viewport-sized canvases.
+      const xs = [a*x+c*y+e, a*(x+sw)+c*y+e, a*x+c*(y+sh)+e, a*(x+sw)+c*(y+sh)+e];
+      const ys = [b*x+d*y+f, b*(x+sw)+d*y+f, b*x+d*(y+sh)+f, b*(x+sw)+d*(y+sh)+f];
+      const x0 = Math.max(0, Math.floor(Math.min(...xs)) - 1), y0 = Math.max(0, Math.floor(Math.min(...ys)) - 1);
+      const w = Math.min(W, Math.ceil(Math.max(...xs)) + 1) - x0;
+      const h = Math.min(H, Math.ceil(Math.max(...ys)) + 1) - y0;
+      if (w <= 0 || h <= 0) continue;
+      stamp.setTransform(1, 0, 0, 1, 0, 0);
+      stamp.save(); stamp.beginPath(); stamp.rect(x0, y0, w, h); stamp.clip();
+      stamp.clearRect(x0, y0, w, h);
+      stamp.globalAlpha = alpha; stamp.globalCompositeOperation = 'source-over';
+      stamp.imageSmoothingEnabled = false;
+      stamp.setTransform(a, b, c, d, e, f);
+      stamp.drawImage(source, sx, sy, sw, sh, x, y, sw, sh);
+      stamp.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
+      if (amount) {
+        stamp.globalCompositeOperation = 'source-in'; stamp.globalAlpha = amount;
+        stamp.fillStyle = '#000'; stamp.fillRect(x0, y0, w, h);
+        // Add the replacement alpha to the retained background fraction.
+        // Source-over would attenuate that background twice on faded art.
+        ctx.globalCompositeOperation = 'lighter';
+        ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
+      }
+      stamp.restore();
+    }
+    ctx.globalCompositeOperation = 'source-over';
+    state.key = cover.key; state.revision++;
+  }
+  const revision = cover.key + '|scenery:' + state.revision;
+  return { ...cover, canvas: state.canvas, key: revision, revision };
 };
 
 Render.drawObjects = function drawObjects(scene) {
@@ -4955,6 +5090,7 @@ Render.drawObjects = function drawObjects(scene) {
     setWorldDepth(s, item.depth);
     s.setAlpha(item.treeSprite.alpha);
     s._huAnchor = item.treeSprite._huAnchor;
+    s._coverObject = item.treeSprite._staticObject;
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -5176,7 +5312,8 @@ Render.drawObjects = function drawObjects(scene) {
     // Wrecks have no sign - their identity is hidden until the player
     // restores them. The owner then returns the correct shop / house role.
     if (role === 'wreck') return null;
-    if (role === 'trailer') return Shops.BUILDING_LABEL.trailer;
+    // Home names its luxury rank, never the score: "Home (Homely)".
+    if (role === 'trailer') return `${Shops.BUILDING_LABEL.trailer} (${MemoryStory.luxuryRank(Furniture.luxuryOf(scene.save, o.id))})`;
     if (role === 'wizard') return Shops.TOWER_LABEL[MemoryStory.towerAccess(scene.save, o)];
     // The settled role the player picked at the wreck (blacksmith / trader /
     // shop / turret / wizard).
@@ -5244,8 +5381,6 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
-  scene._homeUpgradeButton?.setVisible(false);
-  const canUpgradeHome = HomeArea.storeys(scene.save) === 1 && scene.homeInside?.();
   const luxuryText = Render.homeLuxuryLabel(scene);
   if (luxuryText !== null) {
     const home = plain.find(item => item.o.id === scene.save.starterShopId);
@@ -5264,7 +5399,6 @@ Render.drawObjects = function drawObjects(scene) {
     const typed = home && !luxury ? _homeSignTyped(full) : full;
     setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o, _houseRole(o))));
     tx.setText(full);
-    const fullWidth = tx.width;
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
     // Over the drawn top on the low-poly path (_houseArtH reads the model's
@@ -5283,24 +5417,6 @@ Render.drawObjects = function drawObjects(scene) {
       tx.setPosition(Math.round(left + tx.width / 2), top);
     }
     fadeLabelOverPlayer(tx, _playerBox);
-    if (home && !luxury && canUpgradeHome) {
-      let button = scene._homeUpgradeButton;
-      if (!button) {
-        button = scene._homeUpgradeButton = scene.add.text(0, 0, '[upgrade]',
-          { ...phaserFontUI('12px'), color: '#ffffff', backgroundColor: '#242424', padding: { x: 6, y: 5 } })
-          .setOrigin(0, 0).setInteractive({ useHandCursor: true })
-          .on('pointerdown', (_pointer, _x, _y, event) => {
-            event?.stopPropagation();
-            scene.upgradeHome();
-          });
-        scene.labelContainer.add(button);
-      }
-      // Reserve both widths so the action stays beside the label at the map edge.
-      const labelWidth = fullWidth;
-      const left = Math.max(0, Math.min(tx.x - tx.width / 2, CANVAS_W - labelWidth - button.width - 6));
-      tx.setPosition(Math.round(left + tx.width / 2), top);
-      button.setPosition(Math.round(left + labelWidth + 6), top - 5).setVisible(true);
-    }
   }, labelFactory('sign'));
 
   // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
@@ -5636,6 +5752,7 @@ Render.drawObjects = function drawObjects(scene) {
   const spritePlants = prismDrawn.size ? plantedList.filter(it => !prismDrawn.has(it)) : plantedList;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, spritePlants, (s, item) => {
     const { p, dx, dy } = item;
+    s._coverObject = p;
     const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the
@@ -5915,6 +6032,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Where the body's centre landed — the glow pass below sits on it, so the
     // halo rides the hover and the bob with the sprite.
     item._bodyY = s.y - (s.originY - 0.5) * s.displayHeight;
+    item._groundAnchor = s._huAnchor;
     if (c._meleeSwing && !down) {
       const pose = Render.meleePose(c._meleeSwing, performance.now(), 'sword',
         c._meleeSwing.reachCells * CELL_PX);
@@ -5949,6 +6067,10 @@ Render.drawObjects = function drawObjects(scene) {
       s.setOrigin(0.5, 0.5).setDisplaySize(glow.px * creatureInstScale(item.c), glow.px * creatureInstScale(item.c))
        .setPosition(Math.round(sx), Math.round(item._bodyY))
        .setAlpha(glow.alpha);
+      // The body's own ground anchor: heading-up turns the hovering body
+      // upright about its feet, and the halo must turn with it or it is
+      // left floating beside the ghost whenever the map is rotated.
+      s._huAnchor = item._groundAnchor;
     });
   }
 
@@ -6626,18 +6748,18 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // multi-frame sheets and would otherwise keep a stale frame index.
     well:   { key: 'well', frame: 0, origin: [0.5, 0.5], scale: 0.9, seat: true, shadow: true },
     // Ground stack — an item id + qty sitting on the map. Texture +
-    // frame come from inventoryIconSource(itemId) so any item with an
-    // inventory icon can sit on the ground without per-kind plumbing.
-    // World stacks use the same selected sprite as inventory and shops.
+    // frame come from groundStackArt(itemId): the item's inventory icon, so
+    // any item can sit on the ground without per-kind plumbing (items.js
+    // GROUND_STACK_ART).
     groundstack: {
       layer: WorldLayers.GROUND_DECAL,
-      key: (o) => (inventoryIconSource(o.itemId) || {}).sheet || 'wood',
+      key: (o) => (groundStackArt(o.itemId) || {}).sheet || 'wood',
       frame: (o) => {
         // Quantity remains on the stack record; it does not change its artwork.
-        return (inventoryIconSource(o.itemId) || {}).frame ?? 0;
+        return (groundStackArt(o.itemId) || {}).frame ?? 0;
       },
       // Dropped inventory art lies flat on the ground and follows its heading.
-      origin: [0.5, 0.5], scale: 1.8,
+      origin: [0.5, 0.5], scale: GROUND_STACK_ART.scale,
     },
   };
   // Resolve once per draw pass: animated frames, seating and shadow geometry

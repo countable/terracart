@@ -62,31 +62,37 @@
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
     }
   });
-  test('chest trails: the starter relic guide follows its authored Home route until opened', () => {
+  test('chest trails: the starter relic chest gets a trail from Home\'s door until it is opened', () => {
+    const pass = c => Math.abs(c.cellIX) < 20 && Math.abs(c.cellIY) < 20 && !(c.cellIX === 3 && c.cellIY > -6);
+    const route = Starter.trailRoute(cell(6, 0), null, pass, next, 0, cell(0, 0));
+    assert.eq(key(route[0]), '0,0', 'starts at the reachable cell nearest the door');
+    assert.eq(key(route[route.length - 1]), '6,0', 'ends at the chest');
+    assert.truthy(route.every(pass), 'round the wall, never through it');
     const prior = [...WorldGen.tileCache];
     WorldGen.tileCache.clear();
     const N = 64, m = 7, at = (x, y) => ({ x: (x + 0.5) * m, y: (y + 0.5) * m });
-    const chest = { id: 'chest_start_relic_0_0', kind: 'chest', fixedLoot: { kind: 'relic', slot: 'axe', tier: 1 }, ...at(36, 32) };
-    const points = [at(32, 32), at(33, 32), at(34, 32), at(35, 32), at(36, 32)];
-    const entry = { grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), cellsPerEdge: N,
-      objects: [chest], _starterChestTrail: { id: chest.id, points } };
+    const relic = { id: 'chest_start_0_0_5', kind: 'chest', ...at(32 + VIEW_CELLS, 32) };
+    const crate = { id: 'chest_start_0_0_1', kind: 'chest', crate: true, ...at(34, 32) };
+    const entry = { grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), cellsPerEdge: N, objects: [crate, relic], spawnWhy: new Uint16Array(N * N) };
     WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
     const scene = { depth: 0, cellM: m, cellsPerTile: N, tileEdgeM: N * m, mPerPx: N * m / WorldGen.TILE_PX,
-      originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, playerM: at(32, 32), save: { opened: [] } };
+      originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, playerM: at(32, 32),
+      save: { starterCratesAt: at(32, 32), opened: [] } };
     try {
       const paths = Starter.trailPaths(scene, 0);
-      assert.eq(paths.length, 1, 'fixed starter loot still receives its guide');
-      assert.eq(paths[0].id, chest.id);
-      assert.eq(paths[0].points[0].x, points[0].x, 'begins at the doorstep');
-      assert.eq(paths[0].points.at(-1).x, chest.x);
-      scene.save.opened.push(chest.id);
-      assert.eq(Starter.trailPaths(scene, 1).length, 0, 'opened chest removes its guide');
+      const trail = paths.find(p => p.id === relic.id);
+      assert.truthy(trail, 'the wooden tool chest has a trail');
+      assert.falsy(paths.some(p => p.id === crate.id), 'supply crates still get none');
+      const first = trail.points[0];
+      assert.lte(Math.hypot(first.x - scene.save.starterCratesAt.x, first.y - scene.save.starterCratesAt.y), m,
+        'it begins at the door');
+      scene.save.opened.push(relic.id);
+      assert.falsy(Starter.trailPaths(scene, 2000).some(p => p.id === relic.id), 'opening retires it');
     } finally {
       WorldGen.tileCache.clear();
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
     }
   });
-
   test('chest trails: X marks get a trail and show from afar; found ones lose it', () => {
     const prior = [...WorldGen.tileCache];
     WorldGen.tileCache.clear();

@@ -26,7 +26,10 @@ one of everything — see [docs/process/SANDBOX.md](docs/process/SANDBOX.md).
 ## Test it
 
 ```sh
-npm test                       # headless suite + sprite/cache-bust/layout audits
+npm run test:fast               # development checks + static audits
+npm run test:stress             # measured slow simulation/generation files
+npm test                       # complete headless suite before publication
+npm test -- --file particles.test.js  # focused file, regardless of suite
 ```
 
 The headless suite needs Node.js; it can also run directly with

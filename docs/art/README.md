@@ -12,6 +12,21 @@ and `src/terrain_transitions.js` own native terrain selection. The full runtime
 contract lives in [rendering.md](../design/rendering.md), and the camera, scale
 and palette direction lives in [art-direction-brief.md](art-direction-brief.md).
 
+Approved world-art replacements are recorded by review ID and destination frame
+in `assets/Objects/Approved/world-art-imports.json`. The source crops under
+`extra_assets/inactive/assets/Objects/Approved/Sources/WorldArt/` retain the generated pixels before
+review downsampling, with original sheet hashes and crop coordinates in that
+manifest. Run `python3 tools/import_world_art_candidates.py` after rebuilding a
+legacy sheet. It replaces only approved frames, preserves atlas geometry and
+all neighbouring pixels, and updates the Approved manifest hashes. The map-art
+baker calls this automatically after its older recolour recipes. The approved
+wood log fills all three quantity frames so the world and inventory stay aligned.
+The fort uses the approved inner timber building on a tight 64×43 canvas in
+both states; external palisades remain separate. Its explicit `wholeImage`
+imports replace the old larger canvases. Shipwreck A retains its `fitRect`
+within the existing canvas. Use repeatable `--review` arguments to import only
+selected replacements without rewriting other approved art.
+
 ## Runtime art and rebuilding
 
 Resolve art from the installed registry and the game's appearance functions.

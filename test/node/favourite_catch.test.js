@@ -244,6 +244,42 @@ test('favourite: a hunt (deer, empty hand, weapon active) starts the hunt wheel,
   assert.eq(rec2.hunts.length, 0); assert.eq(rec2.catches.length, 1);
   assert.eq(Inventory.count(save2, fav), 0, 'the favourite is given');
 });
+
+// EVERY WILD ANIMAL IS GAME (owner, Oct 2026): a bare-handed tap hunts it;
+// its favourite in hand catches it; plant produce feeds a producer; other
+// food is refused. The rabbit is the case the delivery board asks for.
+const armed = () => newSave({ activeWeapon: 'sword', boonUntil: {} });
+test('hunt by default: a bare-handed tap on a rabbit starts the hunt wheel for its pelt', () => {
+  const rabbit = { id: 'wild_rabbit', kind: 'rabbit', x: 2.5, y: 2.5 };
+  const rec = tapCreature(rabbit, armed(), null);
+  assert.eq(rec.hunts.length, 1, 'the hunt wheel'); assert.eq(rec.hunts[0].tool, 'net');
+  assert.eq(rec.catches.length, 0, 'not a catch');
+  assert.eq(SpriteLayout.creatureDrop('rabbit'), 'rabbit_pelt', 'and the kill pays the pelt');
+  // A tool in hand hunts too: only food changes the tap.
+  const rec2 = tapCreature({ id: 'wild_rabbit_2', kind: 'rabbit', x: 2.5, y: 2.5 }, armed(), 'torch');
+  assert.eq(rec2.hunts.length, 1, 'a torch in hand still hunts');
+});
+test('hunt by default: its favourite in hand catches instead, and another food is refused', () => {
+  const fav = favouriteItems('rabbit')[0];
+  const save = armed();
+  const rec = tapCreature({ id: 'wild_rabbit_3', kind: 'rabbit', x: 2.5, y: 2.5 }, save, fav);
+  assert.eq(rec.hunts.length, 0); assert.eq(rec.catches.length, 1, 'a catch');
+  assert.eq(Inventory.count(save, fav), 0, 'the favourite is given');
+  const save2 = armed();
+  const rec2 = tapCreature({ id: 'wild_rabbit_4', kind: 'rabbit', x: 2.5, y: 2.5 }, save2, 'apple');
+  assert.eq(rec2.hunts.length, 0, 'an apple is not a hunt');
+  assert.eq(rec2.catches.length, 0, 'nor a catch');
+  assert.truthy(rec2.flashes.some(t => /Not its favourite/.test(t)), 'it is refused');
+  assert.eq(Inventory.count(save2, 'apple'), 1, 'and kept');
+});
+test('hunt by default: livestock is game, a companion kind is not', () => {
+  assert.eq(tapCreature({ id: 'wild_cow', kind: 'cow', x: 2.5, y: 2.5 }, armed(), null).hunts.length, 1, 'a cow is hunted');
+  assert.eq(tapCreature({ id: 'wild_cat', kind: 'cat', x: 2.5, y: 2.5 }, armed(), null).hunts.length, 0, 'a cat is not');
+  // Without a weapon the tap only says what it wants.
+  const rec = tapCreature({ id: 'wild_rabbit_5', kind: 'rabbit', x: 2.5, y: 2.5 }, newSave(), null);
+  assert.eq(rec.hunts.length, 0);
+  assert.truthy(rec.flashes.some(t => /Offer .* to catch it/.test(t)));
+});
 })();
 
 test('favourite: a shore crab favours a shell', () => {

@@ -48,7 +48,7 @@ function grass(m,v,x,y,seed=0){
 }
 function hedge(m,x,y,length=96,vertical=false){
  const w=vertical?16:length,d=vertical?length:16;
- const faces=WallMaterials.geometry('hedge',[{x:x-w/2,y:y-d/2},{x:x+w/2,y:y-d/2},{x:x+w/2,y:y+d/2},{x:x-w/2,y:y+d/2}],6);
+ const faces=WallMaterials.geometry('hedge',[{x:x-w/2,y:y-d/2},{x:x+w/2,y:y-d/2},{x:x+w/2,y:y+d/2},{x:x-w/2,y:y+d/2}],11);
  for(const f of faces){const light=f.normal?.y>0?.88:f.normal?.x<0?.78:1;triangle(m,'wall',f.points.map(p=>[p.x,p.y,p.z,p.u,p.v]),light);}
 }
 function person(m,x,y){box(m,x-3,y,0,4,5,12,'#514832');box(m,x+3,y,0,4,5,12,'#514832');box(m,x,y,12,12,7,14,'#b29b5c');box(m,x,y,26,11,9,10,'#6c7546');box(m,x,y+4.8,28,6,1,5,'#282c21');}

@@ -22,7 +22,8 @@
 //   Lighting.collectMagicTraps(scene, ax, ay, halfM) — add the set magic traps
 //   Lighting.collectLamps(scene, ax, ay, halfM) — add the restored streets' lamps
 //   Lighting.collectPlayer(scene, ax, ay, halfM, now?) — add the player's torch, if lit
-//   Lighting.playerLightMul(scene) — the player's light as a fraction (blinded: ½)
+//   Lighting.playerLightMul(scene) — the player's light as a fraction (blinded: ½
+//                                   the reach AND half the ramp / plateau levels)
 //   Lighting.TORCH_RADIUS_MUL     — the torch's radius, in player radii
 //   Lighting.profile(scene, daylight) — ambient / lit / edge levels at this depth
 //   Lighting.lowEnergyFrac(scene) — 0..1, how far into the low-energy warning
@@ -263,6 +264,14 @@
     // the height the bolt is DRAWN at (SHOT_DRAW_LIFT_PX) as a draw-space
     // `dyPx`, so the glow sits on the orb, not on the ground under it.
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
+    // THE GPS FIX (scene.gpsM — the gold ring at your REAL position, the
+    // gpsGhost). The ring is ground paint under the lightmap, so at night or
+    // in a cave a fix beyond the player's own light went as dark as the
+    // ground it marks. A small warm-white pool lights it there: white so the
+    // ring keeps its own gold, about the ring's width so it marks the fix
+    // and lights no street. Steady — it is a position, not a call for
+    // attention. PAINT ONLY (collectGps): a ghost does not answer to it.
+    gps:      { radiusCells: 1.25, colour: 0xfff4d6, peak: 0.85, flicker: 0 },
   };
   // Treasure trunks from T3 upward cast the same colour as their rarity badge.
   // The ordinary POI row owns their radius, strength and breathing cadence;
@@ -652,6 +661,21 @@
   // `daylight` defaults to noon so the derivation is pinned without a clock;
   // draw() passes the frame's real value.
   function profile(scene, daylightIn, nowIn) {
+    return dimSight(scene, profileLevels(scene, daylightIn, nowIn));
+  }
+  // Blindness dims the player's OWN light as well as shortening it: the ramp
+  // (`edge`) and the plateau (`lit`) run at Conditions.lightMul, the same
+  // fraction that shrinks their reach (playerLightMul, reachRadiusM). The
+  // ambient floor is the world's light, not the player's, so it stands. Both
+  // levels scale together, so `lit > edge`, PLATEAU_FALL's shading and the
+  // plateau colour's ratio all hold; frameKey and the player cookie's key
+  // carry both, so the picture repaints as the touch lands and lifts.
+  function dimSight(scene, prof) {
+    const sight = playerLightMul(scene);
+    if (sight >= 1) return prof;
+    return { ...prof, edge: prof.edge * sight, lit: prof.lit * sight };
+  }
+  function profileLevels(scene, daylightIn, nowIn) {
     const depth = scene.depth ?? 0;
     // This realm has no sun or cave darkness. Its violet sky lights the entire
     // square, while a small player glow still marks interaction reach. Keep
@@ -1085,16 +1109,37 @@
   }
   let boltSeq = 0;
 
+  // The GPS FIX's light (the `gps` row) at the fix, while the ring shows.
+  // Its alpha is the ring's own (Render.gpsMarkerStyle, the fade to nothing
+  // near the body) in GPS_LIGHT_STEPS steps, so walking up to the fix moves
+  // frameKey a few times rather than every frame. Paint only, like the bolt:
+  // brightnessAt does not call this.
+  const GPS_LIGHT_STEPS = 4;
+  function collectGps(scene, ax, ay, halfM) {
+    const g = scene && scene.gpsM, s = scene && scene.startWorldM, p = scene && scene.playerM;
+    if (!g || !s || !p || !(scene.cellM > 0)) return 0;
+    const dx = s.x + g.x - ax, dy = s.y + g.y - ay;
+    if (!inRange(scene, dx, dy, 'gps', halfM)) return 0;
+    const style = (typeof Render !== 'undefined' && Render.gpsMarkerStyle)
+      ? Render.gpsMarkerStyle(Math.hypot(g.x - p.x, g.y - p.y) / scene.cellM) : { ringAlpha: 1 };
+    const a = Math.round(style.ringAlpha * GPS_LIGHT_STEPS) / GPS_LIGHT_STEPS;
+    if (!(a > 0)) return 0;
+    if (!scene._lights) scene._lights = [];
+    scene._lights.push({ kind: 'gps', dx, dy, id: 'gps', a });
+    return 1;
+  }
+
   // The player's light beyond the ramp: the torch cookie, at the feet (metres
   // from the camera anchor, like every light — it slides with a peek), while
   // one burns. Returns the row the player lit as. The plain 'player' row
   // pushes nothing: the ramp IS that light, and a cookie on top of it would
   // brighten the surface picture the profile derivation pins.
   const PLAYER_OBJ = { kind: 'player', id: 'player' };
-  // How far the player's OWN light carries this frame, as a fraction of its
-  // row: Conditions.lightMul (a ghost's blinding touch halves it). Scales the
-  // ramp's extent (draw, playerLightAt) and a carried torch's cookie
-  // (collectPlayer's `r`); the reach plateau shrinks in reachRadiusM itself.
+  // How far — and how bright — the player's OWN light is this frame, as a
+  // fraction of its row: Conditions.lightMul (a ghost's blinding touch halves
+  // it). Scales the ramp's extent (draw, playerLightAt), a carried torch's
+  // cookie (collectPlayer's `r`) and the profile's `edge` / `lit` levels
+  // (dimSight); the reach plateau shrinks in reachRadiusM itself.
   function playerLightMul(scene) {
     return (window.Conditions && window.Conditions.lightMul) ? window.Conditions.lightMul(scene?.save) : 1;
   }
@@ -1139,7 +1184,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt', 'gps']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1683,10 +1728,9 @@
   // Returns true when it painted, false when the still-frame gate reused the
   // last upload. Times itself for the load profile: scene._boot_lightMs is
   // what drawObjects' own tick subtracts, since this runs inside that pass.
-  // The cover mask uses the exploration fog's low-resolution, world-keyed
-  // wisps. Its half-cell sight samples stay authoritative for gameplay;
-  // interpolation only softens the visual edge. Full interiors retain their
-  // exact opacity, and no second lighting texture or pixel readback is needed.
+  // Gameplay sight stays exact. This cached visual mask uses a low-resolution
+  // pullback and separable smoothing, then paints 25% neutral grey fog.
+  // It never reads canvas pixels or changes actor/scenery visibility.
   function coverFrame(scene, ax, ay, W, H) {
     if (scene.save?.energy != null && Combat.playerDowned(scene.save.energy)) return null;
     if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
@@ -1718,6 +1762,8 @@
         mask.img = mask.ctx.createImageData(N, N);
         mask.field = new Float32Array(D * D);
         mask.feather = new Float32Array(D * D);
+        mask.effect = new Float32Array(N * N);
+        mask.effectTemp = new Float32Array(N * N);
         mask.sampleX = new Float32Array(N * N);
         mask.sampleY = new Float32Array(N * N);
         mask.latticeKey = null;
@@ -1762,11 +1808,54 @@
       for (let i = 0; i < N * N; i++) {
         data[i * 4 + 3] = Math.round(255 * fogSample(mask.field, D, mask.sampleX[i], mask.sampleY[i]));
       }
+      // Pull the visual boundary 0.7 cells away from the snapped observer.
+      // Work on the existing CPU alpha buffer; retained arrays avoid readback
+      // and allocations on each observer step. Partial and full cover share
+      // the fog colour/opacity; Visibility still decides which entities hide.
+      const px = (eye.x / stepM - x0 - 2) * samples;
+      const py = (eye.y / stepM - y0 - 2) * samples;
+      const retreat = .7 * 2 * samples;
+      const effect = mask.effect, temp = mask.effectTemp;
+      const at = (x, y) => data[(Math.max(0, Math.min(N - 1, y)) * N
+        + Math.max(0, Math.min(N - 1, x))) * 4 + 3] / 128;
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        const dx = x + .5 - px, dy = y + .5 - py, r = Math.hypot(dx, dy);
+        if (r <= retreat) { effect[y * N + x] = 0; continue; }
+        const fx = x - dx / r * retreat, fy = y - dy / r * retreat;
+        const ix = Math.floor(fx), iy = Math.floor(fy), tx = fx - ix, ty = fy - iy;
+        effect[y * N + x] = Math.min(1,
+          (at(ix, iy) * (1 - tx) + at(ix + 1, iy) * tx) * (1 - ty)
+          + (at(ix, iy + 1) * (1 - tx) + at(ix + 1, iy + 1) * tx) * ty);
+      }
+      // Seven-sample rolling averages round small steps without tracing a
+      // polygon. A bounded smooth threshold retains a soft, compact edge.
+      const radius = 3, span = 7;
+      for (let y = 0; y < N; y++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) sum += effect[y * N + Math.max(0, Math.min(N - 1, k))];
+        for (let x = 0; x < N; x++) {
+          temp[y * N + x] = sum / span;
+          sum += effect[y * N + Math.min(N - 1, x + radius + 1)] - effect[y * N + Math.max(0, x - radius)];
+        }
+      }
+      for (let x = 0; x < N; x++) {
+        let sum = 0;
+        for (let k = -radius; k <= radius; k++) sum += temp[Math.max(0, Math.min(N - 1, k)) * N + x];
+        for (let y = 0; y < N; y++) {
+          const t = Math.max(0, Math.min(1, (sum / span - .30) / .40)), i = (y * N + x) * 4;
+          data[i] = data[i + 1] = data[i + 2] = 128;
+          data[i + 3] = Math.round(255 * .25 * t * t * (3 - 2 * t));
+          sum += temp[Math.min(N - 1, y + radius + 1) * N + x] - temp[Math.max(0, y - radius) * N + x];
+        }
+      }
       mask.ctx.putImageData(mask.img, 0, 0);
       const ctx = canvas.getContext('2d');
       ctx.imageSmoothingEnabled = true;
       ctx.globalCompositeOperation = 'copy';
       ctx.drawImage(buffer, 0, 0, N, N, 0, 0, canvas.width, canvas.height);
+      ctx.globalCompositeOperation = 'source-in';
+      ctx.fillStyle = '#808080';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       ctx.globalCompositeOperation = 'source-over';
       mask.key = key;
     }
@@ -1791,6 +1880,7 @@
     collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM, now);
     collectBolts(scene, ax, ay, halfM);
+    collectGps(scene, ax, ay, halfM);
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
@@ -1819,13 +1909,25 @@
     const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
     const cover = coverFrame(scene, ax, ay, tex.width, tex.height);
+    // Grey fog uses NORMAL blending above the multiply lightmap, independently
+    // cached so moving lights cannot force mask uploads or per-object work.
+    const fog = scene.visibilityFogTex;
+    if (fog) {
+      const fogKey = (cover?.key || 'clear') + '|' + fog.width + ',' + fog.height;
+      if (fog.__coverKey !== fogKey) {
+        fog.context.clearRect(0, 0, fog.width, fog.height);
+        if (cover) fog.context.drawImage(cover.canvas, cover.x, cover.y);
+        fog.refresh();
+        fog.__coverKey = fogKey;
+      }
+    }
     // INDOORS (scene_venues.js activeInterior): the room round the player.
     // The mask is painted on the canvas path, so the GPU path stands down
     // while it is up.
     const indoors = scene.activeInterior ? scene.activeInterior()
       : scene.homeInterior ? scene.homeInterior() : null;
     const gpu = typeof LightingGPU !== 'undefined' && LightingGPU.active(scene) && !indoors;
-    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|cover:' + (cover?.key || '') + '|gpu:' + gpu
+    const key = frameKey(scene, ps, ox, oy, prof, r0, rMax, reachM, now, pnow) + '|gpu:' + gpu
       + '|in:' + (indoors ? indoorKey(scene, indoors) : '');
     if (key === tex.__lightKey) {
       scene._boot_lightMs = 0;
@@ -1876,7 +1978,7 @@
       }
       const plan = scene._lightGPUPlan = { key, width: W, height: H, base,
         reach: { masks: contribution.items, gradient, gain: REACH_OUTPUT_K },
-        world: cookies.items, stamps, cover };
+        world: cookies.items, stamps, cover: null };
       gpuPainted = LightingGPU.draw(scene, plan);
       // The backend restores the Canvas image on failure. Paint it immediately,
       // then invalidate the mode key so the next frame cannot reuse stale work.
@@ -1926,7 +2028,6 @@
       ctx.globalCompositeOperation = 'source-over';
       const uploadT0 = B ? performance.now() : 0;
       if (indoors) paintIndoorMask(ctx, scene, indoors, ax, ay, ox, oy, W, H);
-      if (cover) ctx.drawImage(cover.canvas, cover.x, cover.y);
       tex.refresh();
       if (B) B.tick('lighting upload', performance.now() - uploadT0);
     }
@@ -2100,7 +2201,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, playerGlow, plateauColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
+    profile, playerCookieAlpha, playerGlow, plateauColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, collectGps, GPS_LIGHT_STEPS, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, coverFrame, draw,

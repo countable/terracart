@@ -1,7 +1,8 @@
 // The starter stash: four Books, a Rope and a Trap Disarm Kit, one per small
-// crate, scattered through the resource ring around home
-// (starter.js scatterStarterStash behind app.js's _scatterStarterStash
-// wrapper; STARTER_STASH, STARTER_STASH_R_CELLS in app.js).
+// crate, scattered through the resource ring
+// around home (starter.js scatterStarterStash behind app.js's
+// _scatterStarterStash wrapper; STARTER_STASH, STARTER_STASH_R_CELLS,
+// STARTER_STASH in app.js).
 //
 // The function is lifted out of starter.js and RUN on a synthetic tile, with the
 // coords helpers stubbed to the tile's own metre grid (1 m cells), so what is
@@ -38,17 +39,26 @@ test('starter stash: four Books, a Rope and a Trap Disarm Kit', () => {
 });
 
 test('starter stash: every crate is seated, in the resource ring, one to a cell', () => {
-  const crates = run();
-  assert.eq(crates.length, stash.length, 'all six seated on open ground');
+  const all = run();
+  const crates = all.filter((o) => o.kind === 'chest');
+  assert.eq(crates.length, stash.length, 'all six crates seated on open ground');
+  assert.eq(all.length, stash.length, 'only the six stash crates');
   const cells = new Set();
   for (const c of crates) {
     assert.truthy(c.fixedLoot && c.crate, 'a fixed-contents crate');
     assert.truthy(/^stash_start_/.test(c.id), 'its own id — never the trail arrow\'s chest_start_');
+  }
+  for (const c of all) {
     const d = Math.max(Math.abs(Math.floor(c.x) - 32), Math.abs(Math.floor(c.y) - 32));
-    assert.truthy(d >= R[0] - 1 && d <= R[1] + 1, `${c.id} ${d} cells out, inside the ring`);
+    const [lo, hi] = R;
+    assert.truthy(d >= lo - 1 && d <= hi + 1, `${c.id} ${d} cells out, inside its ring`);
     cells.add(Math.floor(c.x) + ',' + Math.floor(c.y));
   }
-  assert.eq(cells.size, crates.length, 'no two share a cell');
+  assert.eq(cells.size, all.length, 'no two share a cell');
+});
+
+test('starter stash: no extra Wood or Rock scatter remains', () => {
+  assert.eq(run().filter(o => o.kind === 'groundstack').length, 0);
 });
 
 test('starter stash: the same anchor seats the same crates (PLACED, not rolled)', () => {

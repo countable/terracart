@@ -416,7 +416,8 @@ class SceneModals {
       const fit = () => {
         frame = 0;
         if (!wrap.isConnected || !spacer) return;
-        const full = fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9;
+        // A story scene sits lower under the rail (compass_panels.css).
+        const full = (fullFrameArt ? body.clientWidth / artAspect : body.clientWidth * .9) + artLayer.offsetTop;
         // Reserve most of a short sheet for readable text and whole controls.
         // Art stays independent of content length, so long copy never erases it.
         const footerHeight = body.querySelector('.modal-offer-footer')?.offsetHeight || 0;
@@ -1283,7 +1284,9 @@ class SceneModals {
       // no room for a third picture - an empty div would still cost its
       // margins as a blank band under the banner.
       (iconHTML ? `<div style="margin:0 0 6px;font-size:0">${iconHTML}</div>` : '') +
-      `<div style="font-size:18px;font-weight:700;color:${color};line-height:1.2">${name}${qtyHtml}</div>` +
+      // A card pick's name is only its prompt ("Choose one gift"): the cards
+      // are the subject, so it reads smaller and leaves them the height.
+      `<div style="font-size:${cards ? 15 : 18}px;font-weight:700;color:${color};line-height:1.2">${name}${qtyHtml}</div>` +
       tierHtml +
       subHtml;
     // A reward card with a `desc` (Rewards.desc — the item's own ITEM_EFFECTS
@@ -1305,7 +1308,7 @@ class SceneModals {
       // must pick an action so the chest is never left half-resolved. Overlay
       // clicks are inert (no close listener on wrap).
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;gap:' + (cards ? 6 : 8) + 'px;justify-content:center;margin-top:10px;'
+      row.style.cssText = 'display:flex;gap:' + (cards ? 6 : 8) + 'px;justify-content:center;margin-top:' + (cards ? 6 : 10) + 'px;'
         + (cards ? 'flex-wrap:nowrap;align-items:stretch;' : 'flex-wrap:wrap;');
       // One shared line under the row: the pick's hint, then the SELECTED
       // card's info. Word buttons (no cards) have no line.
@@ -1323,7 +1326,7 @@ class SceneModals {
       // The card buttons: a primary word in the ceremony's accent (the shell's
       // raised control), the rest ghosts. A card row's buttons share the row.
       const cardCss = 'position:relative;border-radius:7px;font:700 12px var(--font-ui);' +
-        (cards ? 'flex:1 1 0;min-width:0;padding:8px 4px 6px;' : 'padding:9px 14px;');
+        (cards ? 'flex:1 1 0;min-width:0;padding:6px 4px 5px;' : 'padding:9px 14px;');
       for (const a of actions) {
         const b = mkBtn(a.label, a.primary ? { accent, css: cardCss } : { variant: 'ghost', css: cardCss });
         b.addEventListener('click', (e) => {
@@ -1344,7 +1347,7 @@ class SceneModals {
         // The one button that pays: the shell's primary in the ceremony's
         // accent, dead until a card is selected.
         take = mkBtn(confirmLabel, { accent, css:
-          'margin-top:8px;min-width:55%;padding:10px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
+          'margin-top:6px;min-width:55%;padding:8px 18px;border-radius:7px;font:700 14px var(--font-ui);' });
         take._setEnabled(false);
         take.addEventListener('click', (e) => {
           e.stopPropagation();

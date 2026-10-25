@@ -225,7 +225,11 @@ access or tile lifecycle mechanics.
   (`SaveState.GRASS_REGROWTH_MEAN_MS`, every row's mean today). A crop grows
   back by having a row; the mechanism is one. A picked berry bush stands as
   a bare bush meanwhile (`WILDPLANT_RULES` `pickedCrop`) and fruits again
-  when its id leaves `picked`; the golden berry bush has no row.
+  when its id leaves `picked`; the golden berry bush has no row. Tapping a
+  bare bush starts ordinary shrub axe work, including on Small roads. Completion
+  awards wood once, records the plant in `chopped`, and cancels its fruit-regrowth
+  deadline. It does not repeat fruit, nest, treasure or shiny rewards. Rendering
+  and tap targeting share the bare-plant view; chopped plants stay gone on reload.
   Harvest records the deadline in `save.grassRegrowth`; normalization and
   the ten-second save heartbeat remove expired ids from `picked` /
   `burnedObjects`. Deadlines persist across reloads and run while offline.
@@ -235,6 +239,13 @@ access or tile lifecycle mechanics.
   and starts their clocks on that visit; ids cannot safely be inferred from
   prefixes shared with other crops. Player-owned plants and all other cleared
   objects (bushes, berries, barriers) retain their existing rules.
+  Tilled soil ends regrowth: tilling a cell, or the heartbeat finding a
+  cleared plant on a tilled cell, sets its deadline to
+  `SaveState.stopRegrowth`'s never-arriving mark, and a plant that already
+  grew back through a bed is cleared again.
+- The till refuses any cell where something stands as drawn
+  (`Render.wildplantView`), so a picked berry bush's bare remnant blocks
+  the hoe like the bush itself.
 - Picking a wild berry records its original id in `save.picked` as usual,
   but leaves the same bush at that location, with only its berries removed.
   Mature berry bushes use the ordinary bush frame and scale; a texture baked
@@ -316,6 +327,13 @@ access or tile lifecycle mechanics.
   fallback. Tunnels do not become settlement clearings or surface street
   overlays. Open terrain
   does not relax inherited spawn safety.
+  The Underdark floor opts into harvestable longgrass via its floor-profile
+  `grass` flag. A final cave pass reuses the surface grass-stand candidate mask on surface
+  grass-fill terrain, plus generated surface longgrass seats in parks and grassy
+  lanes. It reads the immutable surface grid and generated plants, so harvesting
+  above does not reroll the fungal field. It then applies the ordinary floor, spawn-safety and occupancy gates; it never
+  displaces landings, rewards, authored areas or existing cave flora. IDs are
+  stable per depth and absolute cell.
   `docs/design/floors.md` owns the per-floor catalog.
 
 - Player movement permits wading through actual water on every floor, including
@@ -424,12 +442,19 @@ access or tile lifecycle mechanics.
   then it is neither drawn nor diggable. A covering rock adds no rule of its
   own. The Treasure Map's dot is apart.
 - X-mark density: every ambient X stream (tile scatter, low-tier quota,
-  footpath and inland-sand bonuses, shoreline, cave floors) scales its count
+  footpath, inland-sand and front-yard bonuses, shoreline, cave floors) scales its count
   by `loot.js X_MARK_FREQUENCY`; authored marks (parking, hoards) stay one
   per site. Shoreline marks use an additional 0.7 density multiplier and
   seeded farthest-first placement, at least three cells apart from each other
   and earlier X marks on the tile. Their positions repeat for every player
   and reload; crowded beaches may place fewer when no spaced legal seat remains.
+- Residential front yards have their own X stream, because the reveal radius
+  is one cell and the flat scatter puts half its yard marks two or three cells
+  off the street. A RESIDENTIAL cell touching a road, its band or a footpath
+  is a front yard; a tile lays one mark per `YARD_X_PER_CELLS` of them
+  × `X_MARK_FREQUENCY`, at most `YARD_X_MAX`, through the same minor spawn
+  gate and the shoreline's farthest-first spacing, on a salted stream of its
+  own (`scene_creatures.js`).
 - A GREAT X (`loot.js GREAT_X`): `GREAT_X.share` (a tenth) of every X mark,
   whatever stream laid it, chosen by `isGreatX` off the mark's id. Drawn thick
   and dark red, it digs the `treasure:great` pool (gold, a tool or weapon, or
@@ -453,8 +478,8 @@ access or tile lifecycle mechanics.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
-  surface; crates never get one. The starter relic chest also gets its authored
-  route from Home, passing the supply crates. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
+  surface, plus the unopened starter relic chest (from Home's door); supply
+  crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
   (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
   approaching feet and returns when walking away. Segment clipping preserves dash positions and
@@ -652,11 +677,15 @@ access or tile lifecycle mechanics.
   between special sections. The existing special-theme roll retains its rarity;
   its remaining stretches select a common route theme. Paths also select these
   common themes alongside their existing choices. Rocky Road / Path has simple
-  rocks and loose stone; Grassy Lane has herbs and bushes; Old Growth Path has
+  rocks and loose stone; Grassy Lane fills eligible road cells and two verge
+  cells on each side with harvestable long grass, with herbs and bushes farther
+  out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
+  the shared land/occupancy gates. Old Growth Path has
   mature trees, shrubs and mushrooms; Haunted Forest Path has dark trees,
   headstones and mushrooms. Way of Variety densely fills both verges with
   deterministic common plants, rocks, mature trees, pots and barrels. All use
-  existing interactions and shared spawn gates, leaving the route itself clear.
+  existing interactions and shared spawn gates; Grassy Lane intentionally covers
+  its road surface too.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression and nighttime
@@ -887,7 +916,11 @@ access or tile lifecycle mechanics.
   lookahead while the exact centre entry remains ready and spawned. Replacing
   or evicting that entry still starts a fresh pass for Overpass or recovery.
   Prefetched failures enter the normal tile failure path when their build turn
-  arrives.
+  arrives. The first surface centre tile runs its deterministic raster steps as
+  one boot-priority burst because the loading overlay still owns the screen.
+  Every later centre and neighbour returns to the sliced scheduler before the
+  map becomes playable. The burst changes scheduling only; cache keys, seeds
+  and generated records remain identical.
 - `WorldGen.prepareTile` shares a persistent surface-base cache between the
   game and map review. Its key includes the existing shell content version,
   source MVT SHA-256, tile coordinates, cell count, metre frame and review salt.
@@ -992,19 +1025,27 @@ Higher-priority placements and their access space take precedence in this order:
    into view. The ordinary caught-id ledger prevents a second bird after capture.
    Incidental chickens in the Home fauna circle also wait during the lessons.
    Hard's slime greeters retain their immediate seats.
-   The starter trail has three supply crates: nine potato seeds, nine Rock and
-   nine Wood. There is no rockfruit-seed crate or loose material scatter.
    Until the first road weapon is chosen, the starter relic chest offers tools
    rather than Sword, Bow or Staff, so it cannot pre-empt that introduction.
-   The crates follow the route from Home to the first relic chest, whose dotted guide
-   uses that authored route. The Rock crate stays within the opening screen's
-   circular inset around Home whenever legal ground is available, so Tori can
-   point out repair supplies without sending the player offscreen. A farther
-   route seat moves to the closest eligible nearby cell without changing its id.
-   Seats use the spawn gate and avoid Home's footing. Supplies stay deterministic,
-   revealed and included in tutorial guidance.
-   Crate suffixes 1, 3 and 4 retain their existing payload identities and opened
-   state. Hard mode removes the supply crates and keeps the relic chest.
+   The starter trail has three crates: nine potato seeds, nine Rock and nine
+   Wood. There is no rock-seed crate or loose material scatter, including the
+   former material piles in and around Home. The potato crate seats first,
+   within `STARTER_DOORSTEP_CELLS` of the anchor so it is visible on the first
+   step outside; step one's chip and arrow wait for that step
+   (`_starterAwaitsOutside`, latched in `save.starter.wentOutside`). The unopened
+   starter relic chest has a dotted trail from the reachable cell nearest Home's
+   door (`Starter.trailPaths`), with supply crates along the route. The Rock
+   crate stays within the opening screen's circular inset around Home whenever
+   legal ground is available, so Tori can point out repair supplies onscreen.
+   A farther route seat moves to the closest eligible nearby cell without
+   changing its id or remaining contents. All seats
+   use the spawn gate and avoid Home's footing. Supply ids retain suffixes 1, 3
+   and 4 so old opened crates stay spent. Picked former satellite piles deduct
+   their known three items each from the replacement crate. A picked main pile
+   retires that material group: old saves recorded no quantity and that pile
+   could have held three, six or nine, so no remaining stock can safely be
+   inferred. Hard mode removes supply crates while retaining the relic chest.
+
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -1042,10 +1083,11 @@ Higher-priority placements and their access space take precedence in this order:
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
    Pottery Road (a Small-road row, sections up to 250 m) lines both verges
-   with generated clay pots (`VERGE_ROWS.pottery`): one sample a cell with
-   `POTTERY_GAP` (35%) left empty, each pot the first free cell from the
-   second verge cell out on the reward gate, so none stands on the kerb cell
-   or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
+   a cell with `POTTERY_GAP` (15%) left empty, each pot the first free cell
+   from the second verge cell out, and a back rank on the third verge cell
+   alone (its own stream, `POTTERY_BACK_GAP` 50% empty), both on the reward
+   gate, so none stands on the kerb cell or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with
@@ -1072,6 +1114,12 @@ Higher-priority placements and their access space take precedence in this order:
    Authored park/Nexus coverage excludes ordinary imported trees and keeps
    its own tree choices; fruit trees keep their species. Outside forests,
    mapped trees retain their original mix.
+   Fruit-tree species roll once per stable cell through `fruitTreeSpecies`.
+   Planted rows (orchard landcover, Orchard streets, zone dressing) draw a
+   Worldpeach one time in `PEACH_ONE_IN` (50). A standalone fruit tree (an
+   `individual` OSM-mapped or DeepForest-detected tree in the sidecar bins)
+   is the lone rare find and draws one in `PEACH_ONE_IN_LONE` (10); the
+   DeepForest classifier's own apple/peach label is never used.
    Tree-bearing street variants declare their timber species on the variant
    row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
    Street timber also marks `treeSpeciesFixed`, so its type stays consistent
@@ -1178,8 +1226,10 @@ plus the actual house position. Reloading reconstructs existing assignments
 without needing their origin tile. Seats prefer the renderer's source doorway
 when available, otherwise safe nearby cells within four cells of the house;
 movement keeps the four-cell leash and asks the live NPC spawn gate on each
-step. The player Home and specialty buildings never accept NPC assignments. Trying
-to move Home onto an occupied NPC house is rejected with a message asking the
+step. The player Home and specialty buildings never accept NPC assignments.
+The first restored plain house asks for one potato. A housed Tilly thanks the
+player on their next conversation; that conversation completes her starter lesson.
+Trying to move Home onto an occupied NPC house is rejected with a message asking the
 player to move elsewhere; the resident and furnishings remain untouched.
 
 ### Furniture
@@ -1255,7 +1305,10 @@ Multi-cell footprints and per-tier sheet frames remain later phases.
 
 ### Initial Home orientation
 
-A new live game waits for the first compass reading before placing its house
+Home waits for pending GPS-origin capture to settle. Once capture completes,
+is skipped, or falls back, placement uses the GPS position when available and
+the player position otherwise; denied/unavailable GPS and teleport presets must
+still receive Home. A new live game waits for the first compass reading before placing its house
 and campfire, for at most `HomeArea.FIREPIT_COMPASS_GRACE_MS`; with no reading
 by then it places them north-up. The player remains at their GPS position. The starting offsets
 rotate into that heading once for a newly constructed 2×2 house, whose anchor

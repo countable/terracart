@@ -5,7 +5,7 @@
 // This runner covers the logic that needs no rendering: it loads the pure /
 // data modules into a single vm context with light browser stubs, then runs
 // plain assertion tests with `node test/node/run.js`. No Phaser, no DOM, no
-// jsdom — fast enough for every commit / CI.
+// jsdom. Use --suite fast during iteration and the full suite before publishing.
 //
 // How the load works (mirrors how the browser shares one global scope across
 // <script> tags): all modules are concatenated into ONE script so their
@@ -14,6 +14,15 @@
 // the `const` exports (INTERACTABLES, ITEM_BY_ID, …) are copied onto globalThis
 // by a bridge appended to the bundle, so the separately-loaded *.test.js files
 // can reach them by bare name — exactly like the browser.
+
+const Runner = require('./runner.cjs');
+const { stressFiles } = require('./suites.cjs');
+const runStarted = Runner.now();
+let options;
+try { options = Runner.parseArgs(process.argv.slice(2)); }
+catch (e) { console.error(e.message); process.exit(2); }
+if (options.help) { console.log(Runner.HELP); process.exit(0); }
+const registration = [];
 
 const fs = require('fs');
 const vm = require('vm');
@@ -96,7 +105,7 @@ const FILES = [
   // Scenic paths, beaches and viewpoints. Pure, after street_variants.js like the page.
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
-  'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
+  'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'status_icons.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
   'enemy_protocol.js', 'weather_codes.js', 'multiplayer.js', 'weather.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
@@ -187,7 +196,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   BIKE_RACK_SPEED_MUL, BIKE_RACK_MS, steerSpeedMul,
   CHEST_CAVE_SKIP_CATEGORIES, produceStandFor, STAND_ITEM_FRAME, STAND_KEYWORD_ITEM, STAND_GENERIC_ITEM,
   STAND_CLASS_ITEM, STAND_NEVER_CLASSES,
-  ArtAtlas, SelectedWorldAtlas, SelectedItemArt, CROP_SPRITE, CROP_ROW, ROCK_VARIANT_ART, ZONE_PLAIN_ROCK_FRAMES, ZONE_ROCK_THEMES, mineralRockArtScale, mineralRockTint, zonePlainRockFrame, mineralRockArtKey, mineralRockMaterial, mineralRockArtFrame, assignSurfaceBoulder, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
+  ArtAtlas, SelectedWorldAtlas, SelectedItemArt, CROP_SPRITE, CROP_ROW, ROCK_VARIANT_ART, GROUND_STACK_ART, ZONE_PLAIN_ROCK_FRAMES, ZONE_ROCK_THEMES, mineralRockArtScale, mineralRockTint, zonePlainRockFrame, mineralRockArtKey, mineralRockMaterial, mineralRockArtFrame, assignSurfaceBoulder, MINERAL_ICON_SHEET, MINERAL_TIERS, CRYSTAL_DEPOSIT, GEM_DEPOSITS, quarryGemDeposit, mineralDeposit, mineralRockFrame, mineralBarId,
   // The plain rock's ladder and the GLINT rock built on it — glint_rock.test.js.
   PLAIN_ROCK_FLINT_P, GEM_BY_TIER, GEM_P_BY_TIER, GLINT_ROCK_FINDS, GLINT_ROCK_PERIOD_MS, GLINT_ROCK_SHOW_MS,
   // Baby pets and the nest bush — pet_baby.test.js.
@@ -196,10 +205,10 @@ const BRIDGE = `;Object.assign(globalThis, {
   // What a WILD plant does when tapped (drop, work relic, cost, bonus, glow);
   // wildplant_table.test.js drives the accessors.
   WILDPLANT_CONTEXT_ART, WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
-  wildplantWorkCost, wildplantTreasure, wildplantLight,
+  wildplantWorkCost, wildplantTreasure, wildplantHiddenItem, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
   TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
-  Quests, questEnemies, questAnimals, STARTER_CHAIN,
+  Quests, questEnemies, questAnimals, STARTER_CHAIN, STARTER_INTRO,
 });`;
 try {
   // The floor viewer's fake region: loaded here so its regression test runs
@@ -266,7 +275,7 @@ ctx.RARITY_SRC = readSrc('rarity.js');
     'VIEW_CELLS', 'CREATURE_SIM_CELLS',
     'HOME_GREETER_MIN_CELLS', 'HOME_GREETER_MAX_CELLS', 'HOME_GREETER_SLACK_CELLS', 'HOME_GREETER_DIR_VEC',
     'PEST_FREE_CELLS', 'STARTER_STASH', 'STARTER_STASH_R_CELLS',
-    'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS', 'NEAR_ROAD_CELLS',
+    'HOME_REVEAL_CELLS', 'TRAIL_REVEAL_CELLS', 'NEAR_ROAD_CELLS', 'STARTER_DOORSTEP_CELLS',
     'POND_MIN_CELLS', 'POND_MAX_CELLS', 'POND_POI_CELLS',
     'STARTER_SMITH_SLOTS', 'STARTER_RELIC_SLOTS', 'STARTER_RELIC_TIER',
   ];
@@ -350,6 +359,8 @@ const starterWrapper = (name) => {
                       'HOME_R',
                       // Buried X mark density on sand (beach_treasure.test.js).
                       'BEACH_X_PER_CELLS',
+                      // …and on residential front yards (beach_treasure.test.js).
+                      'YARD_X_PER_CELLS', 'YARD_X_MAX',
                       // The campfire's depth cap on its ward — authored in
                       // app.js since it is the FIRE's rule, not the table's.
                       'FIRE_WARD_MAX_DEPTH']) {
@@ -977,7 +988,7 @@ Object.assign(ctx, {
 }
 
 // ── The bonus buried-X streams (spawnInTile) ──────────────────────────────
-// The path-side and beach streams, and the single grid pass that feeds them,
+// The path-side, beach and front-yard streams, and the single grid pass that feeds them,
 // lifted as ONE runnable block for beach_treasure.test.js: the cap, the cell
 // packing (wrong above 256 cells per edge) and the "on the sand, beside the
 // path" difference are decided in here. It closes over entry / tx / ty / N /
@@ -1292,8 +1303,11 @@ const testFiles = fs.readdirSync(__dirname)
   .filter((f) => f.endsWith('.test.js'))
   .sort();
 for (const f of testFiles) {
+  const firstTest = ctx.__tests.length, started = Runner.now();
   try {
     vm.runInContext(fs.readFileSync(path.join(__dirname, f), 'utf8'), ctx, { filename: f });
+    for (const t of ctx.__tests.slice(firstTest)) t.file = `test/node/${f}`;
+    registration.push({ file: `test/node/${f}`, durationMs: Runner.now() - started });
   } catch (e) {
     console.error(`Failed to load ${f}:\n`, e && e.stack || e);
     process.exit(2);
@@ -1310,6 +1324,25 @@ for (const f of testFiles) {
       if (!rel) throw new Error(`no gear asset path for relic/${slot}/T${ctx.STARTER_RELIC_TIER}`);
       if (!/1\. Wood/.test(rel)) throw new Error(`${slot} T1 art is not wooden-tier art: ${rel}`);
       if (!fs.existsSync(path.join(ROOT, rel))) throw new Error(`missing art file: ${rel}`);
+    } });
+  }
+}
+
+// ── Stylesheet art (every url() in css/ and index.html) ───────────────────
+// A missing background is a blank surface, not an error: the archive sweep
+// once removed the Book page's parchment because `../assets/…` hid the link.
+{
+  const sheets = fs.readdirSync(path.join(ROOT, 'css')).filter((n) => n.endsWith('.css'))
+    .map((n) => path.join('css', n)).concat(['index.html']);
+  for (const rel of sheets) {
+    ctx.__tests.push({ name: `stylesheet art: every url() in ${rel} ships`, fn: () => {
+      const text = fs.readFileSync(path.join(ROOT, rel), 'utf8');
+      for (const m of text.matchAll(/url\(\s*['"]?([^'")]+?)['"]?\s*\)/g)) {
+        const ref = m[1];
+        if (/^(data:|https?:|#|blob:)/.test(ref) || ref.includes('${')) continue;
+        const file = path.join(ROOT, path.dirname(rel), ref.split(/[?#]/)[0]);
+        if (!fs.existsSync(file)) throw new Error(`missing art file: ${ref}`);
+      }
     } });
   }
 }
@@ -1466,17 +1499,35 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
   } });
 }
 
+// The rabbit pelt's inventory frame must carry light ink: Black rabbit
+// Fur.png's frame 0 is all near-black and vanished on the inventory's
+// near-black window, so a found pelt read as missing from the bag.
+ctx.__tests.push({ name: 'item icon: the rabbit pelt reads on the dark inventory window', fn: () => {
+  const { loadPng } = require('../../tools/sprite_audit.js');
+  const m = /rabbit_pelt:\s*\{\s*sheet:\s*'icon_pelt',\s*frame:\s*(\d+)/.exec(fs.readFileSync(path.join(ROOT, 'src/items.js'), 'utf8'));
+  const sheet = /icon_pelt:\s*\{\s*url:\s*'([^']+)'/.exec(fs.readFileSync(path.join(ROOT, 'src/app.js'), 'utf8'));
+  ctx.assert.truthy(m && sheet, 'rabbit_pelt icon row (MINERAL_ICON_SHEET) and icon_pelt sheet found');
+  const row = { frame: Number(m[1]) };
+  const img = loadPng(sheet[1]);
+  let light = 0;
+  for (let y = 0; y < 16; y++) for (let x = 0; x < 16; x++) {
+    const i = (y * img.w + row.frame * 16 + x) * 4;
+    if (img.data[i + 3] > 128 && 0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2] > 128) light++;
+  }
+  ctx.assert.truthy(light >= 8, `frame ${row.frame} has ${light} light pixels`);
+} });
+
 // ── App-shell audit (tools/shell_audit.js) ────────────────────────────────
 // File-level checks that index.html and sw.js agree about what the app is made of.
 {
   const shell = require('../../tools/shell_audit.js');
-  for (const c of shell.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of shell.CHECKS) ctx.__tests.push({ file: "tools/shell_audit.js", name: c.name, fn: c.run });
 }
 
 // Cache lifecycle checks use the real worker with isolated network and storage.
 {
   const worker = require('../../tools/service_worker_checks.js');
-  for (const c of worker.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of worker.CHECKS) ctx.__tests.push({ file: "tools/service_worker_checks.js", name: c.name, fn: c.run });
 }
 
 // ── Cache-bust audit (tools/cachebust.js) ─────────────────────────────────
@@ -1484,7 +1535,7 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 // stale beside a fresh app.js ("Combat.playerDowned is not a function").
 {
   const cachebust = require('../../tools/cachebust.js');
-  for (const c of cachebust.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of cachebust.CHECKS) ctx.__tests.push({ file: "tools/cachebust.js", name: c.name, fn: c.run });
 }
 
 // ── Vertical-layout audit (tools/layout_audit.js) ─────────────────────────
@@ -1493,7 +1544,7 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 // player, no big empty band).
 {
   const layout = require('../../tools/layout_audit.js');
-  for (const c of layout.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of layout.CHECKS) ctx.__tests.push({ file: "tools/layout_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Viewport-vignette audit (tools/vignette_audit.js) ─────────────────────
@@ -1502,7 +1553,7 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 // screen edges, get the soft ramp alone (no black side bars).
 {
   const vignette = require('../../tools/vignette_audit.js');
-  for (const c of vignette.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of vignette.CHECKS) ctx.__tests.push({ file: "tools/vignette_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Offer-modal audit (tools/modal_audit.js) ──────────────────────────────
@@ -1510,7 +1561,7 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 // with the same text (the castle quest board once printed its progress twice).
 {
   const modal = require('../../tools/modal_audit.js');
-  for (const c of modal.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of modal.CHECKS) ctx.__tests.push({ file: "tools/modal_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Display-layer audit (tools/layer_audit.js) ────────────────────────────
@@ -1520,24 +1571,30 @@ ctx.__tests.push({ name: 'zone variants: generated browser data matches the cano
 // seams) and stay below the sprites.
 {
   const layers = require('../../tools/layer_audit.js');
-  for (const c of layers.CHECKS) ctx.__tests.push({ name: c.name, fn: c.run });
+  for (const c of layers.CHECKS) ctx.__tests.push({ file: "tools/layer_audit.js", name: c.name, fn: c.run });
 }
 
 // ── Run + report ──────────────────────────────────────────────────────────
 (async () => {
-  let pass = 0, fail = 0;
-  for (const t of ctx.__tests) {
-    try {
-      await t.fn();
-      console.log('  ✓ ' + t.name);
-      pass++;
-    } catch (e) {
-      console.log('  ✗ ' + t.name);
-      const lines = String((e && e.stack) || e).split('\n').slice(0, 4);
-      for (const ln of lines) console.log('      ' + ln);
-      fail++;
-    }
+  const tests = ctx.__tests.map(t => ({ ...t, file: t.file || 'test/node/run.js' }));
+  const knownFiles = new Set(tests.map(t => t.file));
+  for (const file of stressFiles) {
+    if (!knownFiles.has(file)) throw new Error(`Stale stress-suite entry: ${file}`);
   }
-  console.log(`\n${pass} passed, ${fail} failed (${ctx.__tests.length} total)`);
-  process.exit(fail ? 1 : 0);
-})();
+  const selected = Runner.selectTests(tests, options, stressFiles);
+  if (!selected.length) throw new Error('No tests matched the requested suite/file/name filters');
+  if (options.list) {
+    for (const t of selected) console.log(`${t.suite}  ${t.file}  ${t.name}`);
+    console.log(`${selected.length} selected / ${tests.length} registered`);
+    return;
+  }
+  const setupMs = Runner.now() - runStarted;
+  const result = await Runner.runTests(selected, options);
+  const report = { schemaVersion: 1, suite: options.suite,
+    filters: { files: options.files, match: options.match },
+    registered: tests.length, selected: selected.length, setupMs,
+    totalMs: Runner.now() - runStarted, registration, ...result };
+  Runner.printSummary(report);
+  if (options.report) Runner.writeReport(options.report, report);
+  process.exitCode = result.failed ? 1 : 0;
+})().catch(e => { console.error(e.stack || e); process.exitCode = 2; });

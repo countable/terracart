@@ -519,6 +519,13 @@ function applyRenderScale(cam) {
 //             at all (a road, a snowfield, a lit plot) and the number has to
 //             read against every one of them. Short and quick: a job pays one,
 //             a rest ticks one a second, and they must not pile up.
+//   status  — THE WORD a status pops over the player's head as it LANDS
+//             ("Blinded", "Poison", "Speed": _flashPlayerStatus, from
+//             _announceStatuses). A chip in the row's own ink and background
+//             (the status-row chip's colours), bigger, slower and longer than
+//             a cell number, because a touch that blinds also dims the light
+//             and pops a "-N" in the same instant, and a 10px word that lived
+//             a second under both went unseen. Stacks above the number.
 //   damage  — the "-N" over a foe as a hit lands (_popDamageNumber). The cell
 //             tier's dress at the health bar's scale (it sits ON the bar, so it
 //             is the smallest text on the map) and the cell tier's stroke and
@@ -539,6 +546,9 @@ const TOAST_TIER = {
   cell:    { font: 'bold 10px', stroke: 2, pad: 6,  padY: 4, depth: 100, dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 700, fade: 500, rise: 14, ease: 'Sine.In' },
+  status:  { font: 'bold 12px', stroke: 3, pad: 8,  padY: 4, depth: 102, dy:  -70,
+             shadow: { offsetX: 1, offsetY: 2, blur: 3 },
+             pop: 140, popScale: 0.6, overshoot: 1.15, hold: 1900, fade: 600, rise: 28, ease: 'Sine.In' },
   damage:  { font: 'bold 10px', stroke: 3, pad: 6,  padY: 4, depth: 96,  dy:  -70,
              bg: null, shadow: { offsetX: 1, offsetY: 2, blur: 3 },
              pop: 90, popScale: 0.7, hold: 90, fade: 520, rise: 13, ease: 'Sine.Out' },
@@ -561,7 +571,8 @@ const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
-// Gear.meleeActive requires an equipped melee weapon; unequipped hands stay idle.
+// Gear.meleeActive permits close combat while armed; manually unequipped
+// hands stay idle.
 const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -772,6 +783,11 @@ const TRAIL_REVEAL_CELLS = 5;
 // is in view from the doorstep, so the trail still starts with a crate the
 // player can see.
 const NEAR_ROAD_CELLS = 6;
+// The potato seed crate seats within this many cells (Chebyshev) of the
+// anchor, the doorway row the player starts on: inside the opening view
+// (VIEW_CELLS across, the player in the middle), so it is in sight the
+// moment they step outside (starter.js placeStarterTrail).
+const STARTER_DOORSTEP_CELLS = 2;
 // THE FISHING POND (see _carveStarterPond). A 2x2 of open water carved TWO
 // SCREENS out from Home — POND_MIN_CELLS is 2 × VIEW_CELLS (11), pinned by
 // starter_pond.test.js — so it sits past the relic chest (one screen) and the
@@ -1384,6 +1400,50 @@ const IconNet = {
 };
 if (typeof document !== 'undefined' && document.body) IconNet.observe();
 
+// Large-portrait badges (renderItemIcon) reuse the yield's DialogItemArt
+// painting, but those sheets are opaque black tiles. One canvas pass per item
+// keys out the black that touches the tile edge, so only the painting sits on
+// the shared base art; the cached data URL is reused for every later dialog.
+const DialogBadgeArt = {
+  _urls: new Map(),      // sheet#frame → data URL, or null while it decodes
+  url(entry) {
+    const key = `${entry.sheet}#${entry.frame}`;
+    if (this._urls.has(key)) return this._urls.get(key);
+    this._urls.set(key, null);
+    const img = new Image();
+    img.onload = () => {
+      const url = this._key(img, entry);
+      this._urls.set(key, url);
+      document.querySelectorAll('[data-badge-art]').forEach((el) => {
+        if (el.dataset.badgeArt === key) el.style.backgroundImage = `url('${url}')`;
+      });
+    };
+    img.src = entry.sheet;
+    return null;
+  },
+  _key(img, entry) {
+    const cell = DialogItemArt.cell, cols = DialogItemArt.columns;
+    const c = document.createElement('canvas');
+    c.width = c.height = cell;
+    const cx = c.getContext('2d');
+    cx.drawImage(img, entry.frame % cols * cell, Math.floor(entry.frame / cols) * cell, cell, cell, 0, 0, cell, cell);
+    const data = cx.getImageData(0, 0, cell, cell);
+    const px = data.data, seen = new Uint8Array(cell * cell), stack = [];
+    const dark = i => px[i * 4] < 24 && px[i * 4 + 1] < 24 && px[i * 4 + 2] < 24;
+    for (let i = 0; i < cell; i++) stack.push(i, (cell - 1) * cell + i, i * cell, i * cell + cell - 1);
+    while (stack.length) {
+      const i = stack.pop();
+      if (seen[i] || !dark(i)) continue;
+      seen[i] = 1; px[i * 4 + 3] = 0;
+      const x = i % cell, y = (i / cell) | 0;
+      if (x > 0) stack.push(i - 1); if (x < cell - 1) stack.push(i + 1);
+      if (y > 0) stack.push(i - cell); if (y < cell - 1) stack.push(i + cell);
+    }
+    cx.putImageData(data, 0, 0);
+    return c.toDataURL();
+  },
+};
+
 // ── Item icon sheet table ───────────────────────────────────────────────────
 // PNG sheet metadata for renderItemIcon's CSS-clip icons. Module scope so
 // IconNet's prewarmer can enumerate every sheet URL (and so the table isn't
@@ -1436,17 +1496,22 @@ const STATUS_ROW_CSS = `
   align-items: start; gap: 4px; padding: 0; margin: 0;
   z-index: 10; pointer-events: none;
 }
+#status-row[hidden] { display: none; }
 #status-row .status-chip {
   min-width: 0; white-space: normal; overflow-wrap: anywhere;
   padding: 3px 7px; border-radius: 6px; pointer-events: none;
   font: 700 11px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: center;
 }
-#status-row button.status-chip {
-  pointer-events: auto; cursor: pointer; border: 1px solid currentColor;
-  min-height: 32px; padding: 6px 10px;
+#status-row .status-icon {
+  display: block; width: 32px; height: 32px; flex: 0 0 32px;
+  background-repeat: no-repeat; image-rendering: pixelated;
 }
+#status-row .status-time { color: #fff4dc; white-space: nowrap; font-variant-numeric: tabular-nums; }
+#status-row button.status-chip { cursor: pointer; pointer-events: auto; }
+#status-row :focus-visible { outline: 2px solid #ffe066; outline-offset: -2px; }
 body.modal-open #status-row { visibility: hidden; }
 body.modal-open #status-row button.status-chip { pointer-events: none; }
 body.booting #status-row { visibility: hidden; }
@@ -1882,7 +1947,7 @@ class MapScene extends Phaser.Scene {
     // its normalized save before any spawn pass, so the early build and the
     // live scene always point at the same per-depth cache.
     WorldGen.setDepth(depth);
-    const promise = WorldGen.loadTile(tx, ty, START_LAT);
+    const promise = WorldGen.loadTile(tx, ty, START_LAT, { bootPriority: true });
     this._bootTileKick = { tx, ty, depth, promise };
     // Surface loadTile returns its in-flight entry immediately; observe that
     // entry's eventual failure now so a fast network error cannot become an
@@ -2415,22 +2480,39 @@ class MapScene extends Phaser.Scene {
   // (SaveState.WILD_REGROWTH) from saves that predate regrowth, including
   // burned tufts. Chunk queries keep this
   // bounded to the current neighbourhood rather than scanning the tile cache.
+  // A plant on tilled soil never regrows (SaveState.stopRegrowth); one that
+  // already grew back through a bed, in a save from before that rule, is
+  // cleared again.
   _tickGrassRegrowth(now = Date.now()) {
     let changed = false;
     const coldPause = typeof Weather !== 'undefined' ? Weather.coldGrassPauseMs(this) : 0;
     const cleared = new Set([...(this.save.picked || []), ...(this.save.burnedObjects || [])]);
-    if (cleared.size) {
+    const tilled = (this.depth || 0) === 0 && this.tilledSet?.size ? this.tilledSet : null;
+    const onBed = plant => {
+      if (!tilled) return false;
+      const c = worldMetersToAbsCell(this, plant.x, plant.y);
+      return tilled.has(cellKeyFromAbsCell(c.cellIX, c.cellIY));
+    };
+    const regrown = [];
+    if (cleared.size || tilled) {
       const pc = this.playerToWorldCell(), p = playerWorldM(this);
       const radius = Math.max(16, this.viewCells || 0) * this.cellM;
       forEachLoadedTile(pc.tx, pc.ty, entry => {
         WorldGen.forEachItemInBox(entry, 'wildplants',
           p.x - radius, p.y - radius, p.x + radius, p.y + radius, plant => {
-            // This also teaches SaveState the generated crop kind for an older
-            // numeric deadline before the cold-band gate is evaluated.
-            if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now, Math.random, coldPause) || changed;
+            if (!onBed(plant)) {
+              // This also teaches SaveState the generated crop kind for an older
+              // numeric deadline before the cold-band gate is evaluated.
+              if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now, Math.random, coldPause) || changed;
+            } else if (SaveState.stopRegrowth(this.save, plant)) {
+              changed = true;
+              if (!cleared.has(plant.id)) regrown.push(plant.id);
+            }
           });
       });
     }
+    // A new array refreshes the memoised setOf membership.
+    if (regrown.length) this.save.picked = [...(this.save.picked || []), ...regrown];
     changed = SaveState.regrowGrass(this.save, now, { crop: 'longgrass', elapsedMs: coldPause }) || changed;
     if (changed) persistSave(this.save);
   }
@@ -2978,12 +3060,13 @@ class MapScene extends Phaser.Scene {
       px = cx + ox + ux * ray; py = cy + oy + uy * ray;
     }
     const guide = r === EDGE_DOT_R;
+    let onTarget = false;
     if (guide) {
       const target = this.worldMetersToScreen(targetWX, targetWY);
-      const inside = HeadingUp.active(this)
+      onTarget = HeadingUp.active(this)
         ? Math.hypot(target.x - this.viewCenterX, target.y - this.viewCenterY) <= (this.viewSize / 2 - inset) / zoom
         : target.x >= left && target.x <= right && target.y >= top && target.y <= bottom;
-      if (inside) { px = target.x; py = target.y; }
+      if (onTarget) { px = target.x; py = target.y; }
       const pulse = (performance.now() % 3000) / 3000;
       this.facingGfx.fillStyle(fillColor, 0.35 * (1 - pulse));
       this.facingGfx.fillCircle(px, py, r * (1 + 3 * pulse) / zoom);
@@ -2993,7 +3076,7 @@ class MapScene extends Phaser.Scene {
     }
     this.facingGfx.fillStyle(fillColor, 1);
     this.facingGfx.fillCircle(px, py, r / zoom);
-    return { x: px, y: py, left, right, top, bottom };
+    return { x: px, y: py, left, right, top, bottom, onTarget };
   }
 
   // THE GPS FIX IS NEVER OUT OF SIGHT. The ring (gpsGhost) is drawn whenever
@@ -3034,9 +3117,12 @@ class MapScene extends Phaser.Scene {
 
   // A generous hit area keeps the small rim dots usable on touchscreens.
   // `key` is the mark's own (_drawMarker), so each of a row's dots toggles alone.
+  // A guide drawn ON its visible target (onTarget) takes no tap: the tap
+  // belongs to the crate or find beneath it, or the dot would swallow it.
   _tapEdgeDot(sx, sy) {
     let key = null, nearest = 16 * 16;
     for (const [candidate, point] of Object.entries(this._edgeDotPoints || {})) {
+      if (point.onTarget) continue;
       const d2 = (sx - point.x) ** 2 + (sy - point.y) ** 2;
       if (d2 <= nearest) { key = candidate; nearest = d2; }
     }
@@ -3257,7 +3343,6 @@ class MapScene extends Phaser.Scene {
     }
   }
 
-  // The same decision supplies the instruction and compass bearing.
   _starterTillyLesson() {
     const save = this.save, people = [], houses = [];
     for (const entry of WorldGen.tileCacheFor(0).values()) {
@@ -3570,19 +3655,20 @@ class MapScene extends Phaser.Scene {
     // _followStep, which steps the body toward the target and mines any wall
     // in the way — see the target-follow branch above.)
 
-    // The fix is a quiet shadow within one cell, a yellow ring farther away.
-    // Ring radius falls linearly to half at five cells; the rim dot still
-    // indicates an offscreen fix. This is presentation only, at every depth.
+    // The fix is the yellow ring, fading out to nothing as it nears the body
+    // (Render.gpsMarkerStyle). Ring radius
+    // falls linearly to half at five cells; the rim dot still indicates an
+    // offscreen fix. This is presentation only, at every depth.
     if (this.gpsM) {
       const g = worldMetersToScreen(this,
         this.startWorldM.x + this.gpsM.x,
         this.startWorldM.y + this.gpsM.y);
       const marker = Render.gpsMarkerStyle(Math.hypot(this.gpsM.x - this.playerM.x,
         this.gpsM.y - this.playerM.y) / this.cellM);
-      this.gpsGhost.setPosition(Math.round(g.x), Math.round(g.y)).setVisible(true);
-      if (this.gpsGhost.texture.key !== marker.key) this.gpsGhost.setTexture(marker.key);
-      if (marker.key === 'gps_ring') this.gpsGhost.setFrame(Render.groundMarkFrame(this, 'gps_ring'));
-      this.gpsGhost.setDisplaySize(marker.width, marker.height).setAlpha(marker.alpha);
+      const gx = Math.round(g.x), gy = Math.round(g.y);
+      this.gpsGhost.setPosition(gx, gy).setVisible(marker.ringAlpha > 0)
+        .setFrame(Render.groundMarkFrame(this, 'gps_ring'))
+        .setDisplaySize(marker.width, marker.height).setAlpha(marker.ringAlpha);
     } else if (this.gpsGhost.visible) {
       this.gpsGhost.setVisible(false);
     }
@@ -3817,6 +3903,7 @@ class MapScene extends Phaser.Scene {
         prints.push(sx2, sy2);
         printKey += `${sx2},${sy2},${fp.alpha},${fp.ux},${fp.uy},${fp.side};`;
       }
+
       if (printKey !== this._footprintKey) {
         this._footprintKey = printKey;
         this.footprintGfx.clear();
@@ -3840,6 +3927,9 @@ class MapScene extends Phaser.Scene {
     // has actually appeared (including after opening dialogs finish).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
+      // Stepping outside releases step one's chip (_starterAwaitsOutside).
+      const indoors = this._starterAwaitsOutside();
+      if (indoors !== this._starterWasIndoors) { this._starterWasIndoors = indoors; this.updateObjectiveDOM(); }
       // Memoise the goal on a 500 ms clock. _starterGuidanceGoal walks every
       // object in every cached tile (crates, wrecks) — fine as a tap-time
       // query, far too heavy per frame, and it ran per frame for the entire
@@ -3859,7 +3949,7 @@ class MapScene extends Phaser.Scene {
           && !this._dialogOpen() && objective?.getClientRects().length) {
         this._starterIntroducedStep = step.id;
       }
-      const goal = this._starterGoalMemo.goal;
+      const goal = indoors ? null : this._starterGoalMemo.goal;
       if (goal) {
         if (this._starterIntroducedStep === step?.id) {
           const point = this._drawEdgeDot(goal.x, goal.y, STARTER_MARK.color);
@@ -4029,6 +4119,11 @@ class MapScene extends Phaser.Scene {
   // brief on-screen banner, since DevTools isn't reachable on a phone.
   _reportLoopError(e) {
     const now = (typeof performance !== 'undefined') ? performance.now() : Date.now();
+    // The latest error and a count, kept for the Developer page's lighting
+    // dump: a frame that breaks before the lightmap pass leaves the last
+    // uploaded lightmap on screen, and the overlay may have been dismissed.
+    this._lastLoopErr = { at: now, count: (this._lastLoopErr?.count || 0) + 1,
+      msg: (e && (e.message || e.toString())) || 'frame error', stack: (e && e.stack) || '' };
     if (this._lastLoopErrAt && now - this._lastLoopErrAt < 3000) return;   // throttle a per-frame storm
     this._lastLoopErrAt = now;
     try { console.error('update() frame error (loop kept alive):', e); } catch (_) {}
@@ -4069,10 +4164,9 @@ class MapScene extends Phaser.Scene {
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
   // staff loose its shots (the bow along the compass, the staff at the nearest
   // foe — Combat.shotHeading), fly the shots already out, and —
-  // when a melee weapon is selected, engage the nearest foe in reach.
-  // Deliberately empty hands never attack. Only one of sword/bow/staff
-  // (save.activeWeapon) acts on its own here at a time; the rest sit inert
-  // until switched to. The maths (what
+  // while armed — engage the nearest foe in close reach without being asked.
+  // Manually unequipped hands stay idle. The active weapon selects ranged fire;
+  // close combat uses the existing melee fallback. The maths (what
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
   // this method is the scene glue.
   _combatTick(dt) {
@@ -4322,10 +4416,8 @@ class MapScene extends Phaser.Scene {
     this._drawShots();
 
     // ── Melee: auto-engage ─────────────────────────────────────────────────
-    // With no ranged weapon in hand you never have to tap the slime that is
-    // already chewing on you: the nearest enemy IN REACH is picked up on its
-    // own. That is the sword's lane AND bare hands'. An equipped bow or staff
-    // turns it off — Gear.meleeActive — see the WEAPON_SLOTS note above.
+    // An armed player engages the nearest enemy IN REACH automatically.
+    // Explicit Unequip disables this lane too (Gear.meleeActive).
     if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress && !this._wreckRepair) {
       let best = null, bestD2 = Infinity;
       for (const c of visibleEnemies) {
@@ -4444,7 +4536,7 @@ class MapScene extends Phaser.Scene {
     for (const [id, def] of Object.entries(Conditions.DEFINITIONS)) {
       if (!Conditions.active(this.save, id)) continue;
       next['c:' + id] = 1;
-      if (seen && !seen['c:' + id]) this._flashPlayerStatus(def.label, def.ink);
+      if (seen && !seen['c:' + id]) this._flashPlayerStatus(def.label, def.ink, def.bg);
     }
     for (const [id, k] of Object.entries(Buffs.KINDS)) {
       const until = Buffs.until(id, this.save, this);
@@ -4453,11 +4545,13 @@ class MapScene extends Phaser.Scene {
       // Pushed out by more than a clock's jitter: a relit torch, a second
       // potion. A buff merely still running is not announced again.
       const prev = seen?.['b:' + id];
-      if (seen && (prev == null || until > prev + STATUS_EXTEND_SLACK_MS)) this._flashPlayerStatus(k.name, k.color);
+      if (seen && (prev == null || until > prev + STATUS_EXTEND_SLACK_MS)) this._flashPlayerStatus(k.name, k.color, k.stroke + 'e8');
     }
     this._statusSeen = next;
   }
-  _flashPlayerStatus(label, color) {
+  // `bg` is the row's chip background (a condition's `bg`, a buff's stroke
+  // at the status row's alpha) — the word wears the same chip as the row.
+  _flashPlayerStatus(label, color, bg) {
     this._statusFlashUntilT = performance.now() + Combat.STATUS_FLASH_MS;
     this._statusFlashTint = parseInt(String(color).slice(1), 16);
     let ix, iy;
@@ -4465,21 +4559,19 @@ class MapScene extends Phaser.Scene {
       const p = playerReachCell(this);
       ix = p.cellIX; iy = p.cellIY;
     }
-    this._popCellNumber(label, color, ix, iy);
+    this._popStatusWord(label, color, bg, ix, iy);
+  }
+  // The status word at the energy pop's seat on the player's cell — above
+  // the head (_energyPopAt), where the toast stack lifts it clear of the
+  // "-N" that landed with it — in the status tier.
+  _popStatusWord(text, color, bg, ix, iy) {
+    if (!this.add) return null;
+    const at = this._energyPopAt(ix, iy);
+    return this._toast(text, { tier: 'status', color, bg, ...at });
   }
 
-  // THE STATUS ROW — every status, buff and timer on the player, as chips
-  // at the top centre (#status-row, STATUS_ROW_CSS; built by
-  // _buildStatusRow): first the conditions (the rows of
-  // Conditions.DEFINITIONS the player carries, in table order — label, time
-  // left and the drain it levies now, in the row's ink on its bg), then every running timed effect
-  // (Buffs.active — potions, powders, the torch, coffee, the bike, the
-  // compass, every shrine boon — "<name> · <wait>", in the row's ink on its
-  // stroke). One chip per id, kept in that order; a chip whose effect has
-  // run out is removed. Runs every frame from _tickConditions, so every DOM
-  // write is guarded on the value having changed: the order string decides
-  // whether anything is re-appended, the text only rewrites when the
-  // shown second ticks over. Nothing is drawn over the player's head.
+  // One icon and countdown per effect in the fixed top grid. Accessible
+  // labels retain names and drains; only changed timers write to the DOM.
   _syncStatusRow() {
     const row = this.statusRowEl;
     if (!row) return;
@@ -4492,20 +4584,17 @@ class MapScene extends Phaser.Scene {
       const left = this.save.conditions[id].remainingMs;
       const loss = id === 'burning' ? Conditions.burnTickLoss(left) : def.energyLoss;
       const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
-      chips.push({ id, ink: def.ink, bg: def.bg, text: `${def.label} · ${shortDuration(left)}${drain}` });
-    }
-    if (this._bodyHold?.().slowed) {
-      const def = Conditions.CONTEXT_STATUS.slowed;
-      chips.push({ id: 'slowed', ink: def.ink, bg: def.bg, text: def.label });
+      chips.push({ id, icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: shortDuration(left), text: `${def.label} · ${shortDuration(left)}${drain}` });
     }
     for (const b of Buffs.active(this.save, this)) {
-      chips.push({ id: b.id, action: b.action, ink: b.color, bg: b.stroke + 'e8', text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+      chips.push({ id: b.id, icon: b.icon, kind: 'buff', action: b.action, ink: b.color, bg: b.stroke + 'e8', time: shortDuration(b.remainingMs), text: `${b.name} · ${shortDuration(b.remainingMs)}` });
     }
     // A live boss fight's clock (BossEncounters — the citadel's, the serpent's).
     for (const e of BossEncounters.list(this.save)) {
       const chip = BossEncounters.KINDS[e.kind].chip;
-      chips.push({ id: `boss_${e.key}`, ink: chip.ink, bg: chip.bg, text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
+      chips.push({ id: `boss_${e.key}`, icon: chip.icon, kind: 'boss', ink: chip.ink, bg: chip.bg, time: shortDuration(e.remainingMs), text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
     }
+    row.hidden = chips.length === 0;
     const order = chips.map((c) => c.id).join(',');
     if (this._statusRowDOM !== order) {
       this._statusRowDOM = order;
@@ -4526,6 +4615,20 @@ class MapScene extends Phaser.Scene {
           }
           el.className = 'status-chip';
           el.dataset.id = c.id;
+          el.dataset.kind = c.kind;
+          if (!c.action) el.setAttribute('role', 'img');
+          const icon = document.createElement('span');
+          icon.className = 'status-icon';
+          icon.setAttribute('aria-hidden', 'true');
+          const frame = StatusIcons.frames[c.icon], scale = 32 / StatusIcons.cellSize;
+          icon.style.backgroundImage = `url("${StatusIcons.src}")`;
+          icon.style.backgroundSize = `${StatusIcons.width * scale}px ${StatusIcons.height * scale}px`;
+          icon.style.backgroundPosition = `${-(frame % StatusIcons.cols) * 32}px ${-Math.floor(frame / StatusIcons.cols) * 32}px`;
+          const timer = document.createElement('span');
+          timer.className = 'status-time';
+          timer.setAttribute('aria-hidden', 'true');
+          el.append(icon, timer);
+          el._statusTimer = timer;
           el.style.color = c.ink;
           el.style.background = c.bg;
         }
@@ -4534,7 +4637,12 @@ class MapScene extends Phaser.Scene {
     }
     for (const c of chips) {
       const el = row.querySelector(`[data-id="${c.id}"]`);
-      if (el && el.textContent !== c.text) el.textContent = c.text;
+      if (!el) continue;
+      if (el._statusTimer.textContent !== c.time) el._statusTimer.textContent = c.time;
+      if (el.title !== c.text) {
+        el.title = c.text;
+        el.setAttribute('aria-label', c.text);
+      }
     }
   }
 
@@ -4548,9 +4656,13 @@ class MapScene extends Phaser.Scene {
     if (!el) {
       el = document.createElement('div');
       el.id = 'status-row';
+      el.setAttribute('role', 'group');
+      el.setAttribute('aria-label', 'Active effects');
+      el.tabIndex = 0;
       document.body.appendChild(el);
     }
     el.replaceChildren();
+    el.hidden = true;
     this.statusRowEl = el;
     this._statusRowDOM = null;
   }
@@ -5998,14 +6110,16 @@ class MapScene extends Phaser.Scene {
     return Combat.playerDowned(this.save.energy) ? PLAYER_DOWNED_ROTATION : (this._obstacleLean || 0);
   }
 
-  // The waterline follows the body, not the camera. Crop in frame coordinates
+  // The waterline follows the body, not the camera. Only liquid sinks the
+  // body: long grass and hedges leave it standing (ObstacleStep's `covered`
+  // is foliage, not a waterline). Crop in frame coordinates
   // so walking directions and heading-up counterrotation keep the upper half.
   // This is a pose only: movement, reach and world sorting keep the same feet.
   _updatePlayerSubmersion() {
     const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
     let submerged = false, weatherWater = false;
     if (!airborne && !Combat.playerDowned(this.save.energy)
-        && (!(this._obstacleStep?.liftPx > 0) || this._obstacleStep?.covered) && this.startWorldM && this.playerM) {
+        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
       if (cell.loaded) {
         const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
@@ -6016,7 +6130,7 @@ class MapScene extends Phaser.Scene {
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
         const channel = FloorWallMaterials.isSewerChannel(entry, cell.iy * (entry?.cellsPerEdge || 0) + cell.ix, cell.type);
         weatherWater = basin || channel || cell.type === WorldGen.T.WATER;
-        submerged = !!this._obstacleStep?.covered || weatherWater || cell.type === WorldGen.T.TAR_YARD
+        submerged = weatherWater || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
@@ -6190,30 +6304,24 @@ class MapScene extends Phaser.Scene {
     weather.className = 'weather-readout';
     weather.setAttribute('role', 'status');
     weather.setAttribute('aria-live', 'polite');
-    const WEATHER_GLYPH = Object.freeze({ rain: '☂', drizzle: '☂', snow: '❄', sleet: '⛆', none: '·' });
     let lastWeather;
     const syncWeather = this._syncWeatherReadout = () => {
-      const state = typeof Weather !== 'undefined' ? Weather.state?.() : null;
+      const W = typeof Weather !== 'undefined' ? Weather : null;
       // Only finite readings render: Number(null) is 0, and an unavailable
-      // forecast must hide the chip, not read as a flat zero.
-      const temp = Number.isFinite(state?.temp) ? state.temp : NaN;
-      const wind = Number.isFinite(state?.windKph) ? state.windKph : NaN;
-      const kind = state?.kind || 'none', visible = Number.isFinite(temp) || !!state?.precip;
-      const signature = `${visible}:${kind}:${temp}:${wind}`;
+      // forecast must hide the readout, not read as a flat zero.
+      const temp = W?.currentTemp?.();
+      const label = W?.conditionLabel?.() || '', windy = !!W?.windy?.();
+      const visible = Number.isFinite(temp) || !!label;
+      const parts = visible ? [Number.isFinite(temp) ? `${temp}°` : '', windy ? 'windy' : '', label].filter(Boolean) : [];
+      const signature = parts.join(' ');
       if (signature === lastWeather) return;
       lastWeather = signature;
       weather.hidden = !visible;
       if (!visible) return;
-      const glyph = WEATHER_GLYPH[kind] || WEATHER_GLYPH.none;
-      const parts = [glyph];
-      if (Number.isFinite(temp)) parts.push(`${Math.round(temp)}°`);
-      if (Number.isFinite(wind) && wind >= 10) parts.push(`↑${Math.round(wind)}`);
-      weather.textContent = parts.join(' ');
-      const names = { rain: 'Rain', drizzle: 'Drizzle', snow: 'Snow', sleet: 'Sleet', none: 'Clear' };
-      const label = [names[kind] || 'Weather', Number.isFinite(temp) ? `${Math.round(temp)} degrees` : '',
-        Number.isFinite(wind) && wind >= 10 ? `wind ${Math.round(wind)} kilometres per hour` : ''].filter(Boolean).join(', ');
-      weather.setAttribute('aria-label', label);
-      weather.title = label;
+      weather.textContent = signature;
+      const spoken = [Number.isFinite(temp) ? `${temp} degrees` : '', windy ? 'windy' : '', label].filter(Boolean).join(', ');
+      weather.setAttribute('aria-label', spoken);
+      weather.title = spoken;
     };
     syncWeather();
     control.appendChild(weather);
@@ -9415,8 +9523,19 @@ class MapScene extends Phaser.Scene {
     // empty green field. Hold the chip until at least one tile is ready; the
     // #banner is what's talking to the player in that state.
     if (this._tilesReady === 0) { el.style.display = 'none'; return; }
+    // Held until the opening clears (_armStarterGuidance), then the hello.
+    if (this._starterWaiting) { el.style.display = 'none'; return; }
+    const hello = this._starterIntroLine;
+    if (hello != null) {
+      el.querySelector('.step').textContent  = '';
+      el.querySelector('.title').textContent = '';
+      el.querySelector('.body').textContent  = hello;
+      this._objectiveStep = null;
+      el.style.display = this._objectiveAcknowledgedIntro === hello ? 'none' : 'block';
+      return;
+    }
     const step = Quests.starterCurrent(this.save);
-    if (!step) { el.style.display = 'none'; return; }
+    if (!step || this._starterAwaitsOutside()) { el.style.display = 'none'; return; }
     const idx = Quests.starterStepIndex(this.save);
     el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
     el.querySelector('.title').textContent = step.title;
@@ -9432,13 +9551,59 @@ class MapScene extends Phaser.Scene {
 
   acknowledgeObjective() {
     if (Date.now() < (this._objectiveCheeringUntil || 0)) return;
-    if (Quests.starterCurrent(this.save)?.event === 'roads') {
-      this.questEvent('roads');
+    if (this._starterIntroLine != null) this._objectiveAcknowledgedIntro = this._starterIntroLine;
+    else if (Quests.starterCurrent(this.save)?.event === 'roads') this.questEvent('roads');
+    else this._objectiveAcknowledged = this._objectiveStep;
+    this.updateObjectiveDOM();
+  }
+
+  // Step one waits for the door: while a new player is still inside Home the
+  // supply-crate instruction and its arrow stay down, so the first thing the
+  // Spirit points at is outside, where the doorstep crate is in view
+  // (STARTER_DOORSTEP_CELLS). Latched in save.starter.wentOutside the first
+  // time the feet are outside, so walking back in never hides it again.
+  _starterAwaitsOutside() {
+    const ss = this.save.starter;
+    if (!ss || ss.wentOutside || !this.save.starterShopId || typeof this.homeInside !== 'function') return false;
+    if (Quests.starterCurrent(this.save)?.event !== 'pickup') return false;
+    if (this.homeInside()) return true;
+    ss.wentOutside = true;
+    persistSave(this.save);
+    return false;
+  }
+
+  // Keep the Spirit quiet through the opening: wait until every boot overlay
+  // and the how-to card are gone (index.html __introUp) and the first tile is
+  // up, then STARTER_INTRO.revealMs more, then say hello and give the first step.
+  _armStarterGuidance() {
+    this._starterWaiting = true;
+    this.updateObjectiveDOM();
+    let clearAt = null;
+    const poll = setInterval(() => {
+      const now = performance.now();
+      // No tiles yet means no bubble to speak in (updateObjectiveDOM).
+      if (window.__introUp?.() || !(this._tilesReady > 0)) { clearAt = null; return; }
+      if (clearAt == null) clearAt = now;
+      if (now - clearAt < STARTER_INTRO.revealMs) return;
+      clearInterval(poll);
+      this._starterWaiting = false;
+      this._playStarterIntro(Quests.starterHidden(this.save) ? [] : Quests.starterIntroLines(this.save));
+    }, 250);
+  }
+
+  // One hello line per STARTER_INTRO.lineMs in the step bubble, then the
+  // ladder's current instruction. Marked heard only once the last line has
+  // shown, so a reload mid-hello replays it.
+  _playStarterIntro(lines) {
+    if (!lines.length) {
+      if (this._starterIntroLine != null) { Quests.starterMarkIntroduced(this.save); persistSave(this.save); }
+      this._starterIntroLine = null;
       this.updateObjectiveDOM();
       return;
     }
-    this._objectiveAcknowledged = this._objectiveStep;
+    this._starterIntroLine = lines[0];
     this.updateObjectiveDOM();
+    setTimeout(() => this._playStarterIntro(lines.slice(1)), STARTER_INTRO.lineMs);
   }
 
   // Hide the tutorial for good (the skip action). The ladder keeps tracking quietly
@@ -9592,7 +9757,7 @@ class MapScene extends Phaser.Scene {
     // conversation. The starter tutorial independently reads the same events.
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
-    // Facts performed ahead of the current lesson must survive a reload too.
+    // Facts completed ahead of the current lesson must survive a reload too.
     persistSave(this.save);
     if (!done) return;
     // Tutorial progress is guidance, not an extra source of coins.
@@ -9994,9 +10159,23 @@ class MapScene extends Phaser.Scene {
         + ` drop-shadow(0 0 ${Math.max(1, Math.round(sizePx * 0.06))}px #ffd23a);`;
     }
     const badgeId = detailed && typeof iconBadgeItem === 'function' && iconBadgeItem(itemId);
-    const badgeHTML = badgeId
-      ? `<span style="position:absolute;right:0;bottom:0;line-height:0;background:#000;border-radius:3px">${this.renderItemIcon(badgeId, Math.round(sizePx * 0.3), 'inline')}</span>`
-      : '';
+    // No backing box: the yield is drawn at 0.6 of the icon with a one-pixel
+    // dark rim (as in the baked 32px badge) so it reads against the base art.
+    let badgeHTML = '';
+    if (badgeId) {
+      const badgePx = Math.round(sizePx * 0.6);
+      const rim = 'filter:drop-shadow(1px 0 #1a1210) drop-shadow(-1px 0 #1a1210) drop-shadow(0 1px #1a1210) drop-shadow(0 -1px #1a1210);';
+      const painted = typeof DialogItemArt !== 'undefined' && DialogItemArt.entries[badgeId];
+      if (painted) {
+        const url = DialogBadgeArt.url(painted);
+        badgeHTML = `<span data-badge-art="${painted.sheet}#${painted.frame}" style="position:absolute;right:0;bottom:0;`
+          + `width:${badgePx}px;height:${badgePx}px;background-size:100% 100%;${rim}`
+          + (url ? `background-image:url('${url}');` : '') + '"></span>';
+      } else {
+        badgeHTML = `<span style="position:absolute;right:0;bottom:0;line-height:0;${rim}">`
+          + `${this.renderItemIcon(badgeId, badgePx, 'inline')}</span>`;
+      }
+    }
     if (badgeHTML) css += 'position:relative;';
     if (style === 'block') {
       const el = document.createElement('span');

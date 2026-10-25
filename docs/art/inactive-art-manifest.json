@@ -3861,12 +3861,6 @@
       "sha256": "77fdcb9858c59ce618792914738a7bfea1646e9fb93247c5d58403220c193df1"
     },
     {
-      "path": "assets/art/book_page.webp",
-      "archive": "extra_assets/inactive/assets/art/book_page.webp",
-      "bytes": 120688,
-      "sha256": "7d3a2759b5a3fe08945e2a29c28d14390ab3aa1afe3bcf712953e3365bdb9c52"
-    },
-    {
       "path": "assets/art/dragon_clear_cave.webp",
       "archive": "extra_assets/inactive/assets/art/dragon_clear_cave.webp",
       "bytes": 315570,
@@ -3989,8 +3983,8 @@
     {
       "path": "test/dreamland-objects-unit.cjs",
       "archive": "extra_assets/inactive/test/dreamland-objects-unit.cjs",
-      "bytes": 6453,
-      "sha256": "a70b74f5d82036cdaefa42dd23912af39e394cc70612fbba308160f87c11982e"
+      "bytes": 6471,
+      "sha256": "3add52d32dc39228e01ddcb3e78222ac3922b74914bd0bd6f578d24166342fbb"
     },
     {
       "path": "test/legacy_ra_roads_lamps.test.js",

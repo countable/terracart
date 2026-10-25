@@ -79,7 +79,6 @@ test('dialog item art: large icons use detailed frames and preserve variant iden
   assert.truthy(draw('filtered', 96).includes('filter:sepia(1)'), 'fallback retains palette treatment');
 });
 
-
 test('selected item art: longgrass fallback uses the native tuft without a profile override', () => {
   const source = inventoryIconSource('longgrass');
   const sheet = selectedIconSheetsForTest()[source.sheet];

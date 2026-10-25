@@ -14,10 +14,14 @@
   // Forests and wooded parks take their fixed species from BiomeProfiles.
   const TREE_SPECIES = Object.freeze(['maple', 'pine']);
   // Natural fruit trees share one Worldpeach chance per stable cell.
-  // No RNG draws or placement order affect the species.
+  // No RNG draws or placement order affect the species. Planted rows
+  // (orchard landcover, Orchard streets, zone dressing) use PEACH_ONE_IN; a
+  // lone standalone tree (an `individual` OSM or DeepForest fruit tree, with
+  // no row around it) is the rare find, so it rolls at PEACH_ONE_IN_LONE.
   const PEACH_ONE_IN = 50;
-  function fruitTreeSpecies(hash) {
-    return (hash >>> 0) % PEACH_ONE_IN === 0 ? 'worldpeach' : 'apple';
+  const PEACH_ONE_IN_LONE = 10;
+  function fruitTreeSpecies(hash, oneIn = PEACH_ONE_IN) {
+    return (hash >>> 0) % oneIn === 0 ? 'worldpeach' : 'apple';
   }
   // Opt in to satellite detections for areas with extracted crowns. Elsewhere
   // keep the procedural residential canopy until detection coverage expands.
@@ -6984,9 +6988,9 @@
   let _lastRasterSlices = 0;
   let _lastRasterWorstMs = 0;
   let _lastRasterWorstAt = '';
-  async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM) {
+  async function rasterizeTileSliced(layers, cellsPerEdge, tx, ty, tileEdgeM, burst = false) {
     const stats = {};
-    const value = await driveStepsSliced(rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM), stats);
+    const value = await driveStepsSliced(rasterizeTileSteps(layers, cellsPerEdge, tx, ty, tileEdgeM), stats, null, burst);
     _lastRasterSlices = stats.slices;
     _lastRasterWorstMs = Math.round(stats.worstMs);
     _lastRasterWorstAt = stats.worstAt;
@@ -7026,7 +7030,7 @@
         || !Array.isArray(source.objects) || !Array.isArray(source.wildplants))) return false;
     return true;
   }
-  async function prepareTile(bytes, N, tx, ty, tileEdgeM) {
+  async function prepareTile(bytes, N, tx, ty, tileEdgeM, opts = null) {
     const bp = global.__boot, label = `tile ${tileKey(tx, ty)}`;
     const endCache = bp?.begin(`${label} generation cache`);
     const store = generatedTileStore();
@@ -7048,7 +7052,11 @@
     const layers = await runHeavyPhase(() => MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
     endDecode?.(`${layers.length} layers`);
     const endRaster = bp?.begin(`${label} rasterize`);
-    const result = await runHeavyPhase(() => rasterizeTileSliced(layers, N, tx, ty, tileEdgeM));
+    // The first centre tile owns the boot overlay. Drive its deterministic
+    // steps without frame waits because no playable world exists to protect;
+    // every later tile keeps the sliced scheduler used during live play.
+    const result = await runHeavyPhase(() => rasterizeTileSliced(layers, N, tx, ty, tileEdgeM,
+      !!opts?.bootPriority));
     endRaster?.(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
     // Await the write before callers can mutate these arrays for live play.
     // The persistence facade swallows quota/availability/clone failures.
@@ -7068,7 +7076,7 @@
   //           promise resolves with ABORTED. For a pass whose target can be
   //           replaced while it waits (a tile evicted mid-spawn).
   const ABORTED = Symbol('aborted');
-  async function driveStepsSliced(it, stats, abort) {
+  async function driveStepsSliced(it, stats, abort, burst = false) {
     let started = _now();
     let slices = 1, worst = 0, worstAt = '';
     for (;;) {
@@ -7086,7 +7094,7 @@
       // huge polygon between two yields blocks for as long as it takes however
       // short the budget is. If a profile shows a worst block far above the
       // budget, THAT is the thing left to chunk.
-      if (held >= _sliceMs) {
+      if (!burst && held >= _sliceMs) {
         const handedBack = _now();
         await _yieldToPaint();
         const back = _now();
@@ -7114,7 +7122,7 @@
     const o = opts || {};
     return runHeavyPhase(() => {
       if (o.abort && o.abort()) return ABORTED;
-      return driveStepsSliced(makeSteps(), o.stats, o.abort);
+      return driveStepsSliced(makeSteps(), o.stats, o.abort, !!o.burst);
     });
   }
 
@@ -7234,7 +7242,7 @@
         (fromCache ? 'from cache' : 'from network'));
       // Cache hits skip both source decoding and rasterization. Misses retain
       // the same serial, sliced heavy phases; all live overlays run below.
-      const { layers, result } = await prepareTile(bytes, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { layers, result } = await prepareTile(bytes, entry.cellsPerEdge, x, y, tileEdgeM, opts);
       const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = result;
       // NO cross-tile dedup. A seam used to hand the same POI / the same
       // house to two tiles, and a proximity dedup against whatever was already
@@ -7328,9 +7336,11 @@
       //   baseGrid    — the rasterized terrain, copied, never written again.
       //   genObjects  — the rasterized objects + generated mine mouths (no
       //                 bin injections, nothing app.js pushes).
+      //   genWildplants — generated grass/flora seats, before harvesting or regrowth.
       entry.baseGrid = grid.slice();
       registerGameplayTiers(entry.baseGrid, spawnWhy, gameplayTiers);
       entry.genObjects = entry.objects.slice();
+      entry.genWildplants = entry.wildplants.slice();
       entry.parkingTreasures = parkingTreasures || [];
       entry.roadLabels = roadLabels || {};
       entry.pathUnder   = pathUnder   || {};
@@ -8030,12 +8040,13 @@
             if (props.score != null && props.score < SATEXTRACT_TREE_MIN_SCORE) continue;
             const p = project(lon, lat0);
             const { lix, liy } = p;
-            // The classifier over-reported peaches; use the same rare-peach
-            // rate as orchards, keyed by the tree's stable cell identity.
+            // The classifier over-reported peaches; ignore its label and roll
+            // by the tree's stable cell identity. A standalone fruit tree is
+            // the lone rare find, so it uses the lone rate, not the orchard's.
             const ftHash = cellHash(p.tx, p.ty, lix, liy);
             binFor(p.tx, p.ty).fruittrees.push({
               kind: 'fruittree', lix, liy,
-              species: fruitTreeSpecies(ftHash),
+              species: fruitTreeSpecies(ftHash, PEACH_ONE_IN_LONE),
               // Named by osm_id when it has one, else by its settled cell at
               // injection (loadTile) — see the tree row above.
               id: osmId ? `ft_osm_${osmId}` : undefined,
@@ -9378,6 +9389,30 @@
       },
       emit: (L, c, p) => L.objects.push(makeObject('grove_shrine', p.x, p.y,
         cellId(`cdrill_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { shrineKind: 'drill', depth: L.depth })) },
+    // Last: grass takes only empty floor seats, never displacing cave rewards,
+    // authored areas, landings or the existing mushroom/rock population.
+    { id: 'grass', when: (L) => !!floorProfile(L.depth).grass, pivot: 1, from: 0, tries: 1,
+      salt: 0x6C8E9CF5,
+      setup: (L) => {
+        const candidates = runSteps(grassFillSteps(L.tx, L.ty, L.N));
+        const source = L.surface?.baseGrid || L.surface?.grid;
+        for (let i = 0; i < candidates.length; i++) {
+          if (!source || !BiomeProfiles.GRASS_FILL.terrains.includes(source[i])) candidates[i] = 0;
+        }
+        // Surface grass also occurs outside field terrain (parks and grassy
+        // lanes). Read generated records so harvesting above cannot alter the
+        // fungal field below; the cave pass still enforces its own safety.
+        for (const plant of L.surface?.genWildplants || L.surface?.wildplants || []) {
+          if (!isGrassCover({ ...plant, kind: 'wildplant' })) continue;
+          const c = cellIndexOf(L.tx, L.ty, plant.x, plant.y, L.tileEdgeM, L.N);
+          if (c.lix >= 0 && c.lix < L.N && c.liy >= 0 && c.liy < L.N) candidates[c.liy * L.N + c.lix] = 1;
+        }
+        return candidates;
+      },
+      pick: (rng, px, py, L, candidates) => candidates[py * L.N + px] ? { lix: px, liy: py } : null,
+      emit: (L, c, p) => L.wildplants.push(makeWildplant('longgrass', p.x, p.y,
+        cellId(`cgrass_${L.depth}`, L.tx, L.ty, c.lix, c.liy),
+        { _ix: c.lix, _iy: c.liy, _cave: true, depth: L.depth })) },
   ];
   // One pass over a level — see CAVE_PASSES for the two walks. `L` is the
   // level: { grid, N, tx, ty, tileEdgeM, depth, occupied (flat cell indices,
@@ -9550,7 +9585,7 @@
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 5, arrivalStory: 'dungeon_underdark', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
-      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false,
+      pressureTraps: false, caveAreas: null, streetGems: null, biome: 'underdark', terrain: 'open', streetMirror: false, grass: true,
       fallLandings: false, chestSource: 'surface', quarryProvenance: false, lava: false }),
     Object.freeze({ depth: 6, arrivalStory: 'dungeon_lava', entryKey: 'level4Key',
       vents: Object.freeze(['poison', 'fire', 'paralysis']),
@@ -9860,6 +9895,7 @@
     const ambientOccupied = new Set([...occupied, ...caveAreas.reserved]);
     objects.push(...caveQuarryGemsFrom(profile.quarryProvenance ? (surface.genObjects || surface.objects || []) : aboveObjects, grid, N, x, y, tileEdgeM, depth, ambientOccupied));
     const level = cavePassLevel(grid, N, x, y, tileEdgeM, depth, ambientOccupied, { objects, wildplants, spawnWhy });
+    level.surface = surface;
     level.underground = underground;
     level.cityDrillsPlaced = !!profile.warren;
     for (const row of CAVE_PASSES) runCavePass(row, level);
@@ -10108,7 +10144,7 @@
     // headless tests that pin those odds.
     rollSurfaceRockTier, SURFACE_PLAIN_ROCK_P: caveRockP(0), caveRockP, caveOreWeights, caveOreTiers, LEVEL1_COPPER_SHARE,
     // Mixed-tree species and deterministic fruit/cave distribution helpers.
-    TREE_SPECIES, PEACH_ONE_IN, fruitTreeSpecies, rollVeinTable,
+    TREE_SPECIES, PEACH_ONE_IN, PEACH_ONE_IN_LONE, fruitTreeSpecies, rollVeinTable,
     // Per-class road width — the road-geometry overlay strokes with it.
     roadWidthM,
     // …and the width it actually COVERS, large-tier weighting included. The

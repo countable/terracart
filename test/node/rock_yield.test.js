@@ -274,3 +274,25 @@ test('flint-bearing rocks: visible seams guarantee one flint and still yield sto
     }
   } finally { Math.random = original; }
 });
+
+
+// --- Map rocks draw only the bigger plain shapes ---------------------------
+// The smallest plain stone (frame 0) is no longer a map rock, and every rock
+// mines at the tool's own time: no shape is quicker work than another.
+test('plain rocks: the smallest plain stone is never a map rock, and every shape is full work', () => {
+  assert.falsy(ROCK_VARIANT_ART.plainFrames.includes(0), 'frame 0 is not a plain shape');
+  const area = f => { const b = SpriteLayout.ART_BOUNDS['rock_variants:' + f]; return (b.maxX - b.minX) * (b.maxY - b.minY); };
+  for (const f of ROCK_VARIANT_ART.plainFrames) assert.lt(area(0), area(f), `plain frame ${f} draws bigger than frame 0`);
+  const seen = [];
+  const relics = { pickaxe: { tier: 4 } };
+  const full = toolDurationMs(relics, 'pickaxe');
+  for (let k = 0; k < 200; k++) {
+    const o = { kind: 'mineralrock', id: `mineralrock_7_7_${k}_0`, x: 0, y: 0, yieldTier: 1 };
+    assert.truthy(mineralRockArtFrame(o) !== 0, `${o.id} draws a bigger shape`);
+    if (k >= 8) continue;
+    const scene = makeScene({ startWorkProgress: (x, y, cb, durationMs) => { seen.push(durationMs); cb(); } });
+    seen.length = 0;
+    assert.eq(runInteractable(makeCtx(scene, { relics }), o), true);
+    assert.eq(seen[0], full, `${o.id} mines at the tool's time`);
+  }
+});

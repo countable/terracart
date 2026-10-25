@@ -64,8 +64,8 @@
       BuildingLowPoly.begin(scene);
       const recipe=BuildingLowPoly.recipeFor('fort');recipe.authored=AuthoredBuildings.recipeFor('fort','fort');
       const placed=BuildingLowPoly.add(scene,ring,recipe,null,'fort');
-      const expected=BuildingLowPoly.authoredGeometry(model,ring.map(p=>({x:p.x-100,y:p.y-100})),.65,null,emblem);
-      assert.eq(placed.height,expected.height,'sourceShell preserves the fort .65 fit margin');
+      const expected=BuildingLowPoly.authoredGeometry(model,ring.map(p=>({x:p.x-100,y:p.y-100})),BuildingLowPoly.FORT_HALL,null,emblem);
+      assert.eq(placed.height,expected.height,'sourceShell keeps the fort hall\'s fixed-size fit');
       assert.eq(placed.mountedSign,true,'overlay can suppress its extra label');
       assert.eq(placed.faces.filter(f=>f.feature==='fort-sign').length,2,'one board remains on the native shell');
     } finally {

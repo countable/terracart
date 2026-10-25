@@ -61,9 +61,9 @@
       // T2 chests don't leak T1 items like coal × 1. Jackpot is the only
       // path above the chest tier (~8% tier-side, ~8% budget-side per pull).
       //
-      // T1 chests never offer relics — they're the floor-tier 'small treats'
-      // chest. chainSteps=0 means tier stays at T1; only jackpot produces
-      // variance.
+      // T1 chests are the floor-tier 'small treats' chest: their only gear is
+      // the cross-theme equipment lane (ChestThemes.CHEST_GEAR). chainSteps=0
+      // means tier stays at T1; only jackpot produces variance.
       1: { chainSteps: 0, chainMax: 1, maxTier: 4, relicCap: 0 },
       2: { chainSteps: 1, chainMax: 2, maxTier: 5, relicCap: 2 },
       3: { chainSteps: 2, chainMax: 3, maxTier: 7, relicCap: 4 },
@@ -192,7 +192,7 @@
       const items = _ITEMS.filter(i => ['magic', 'supply'].includes(i.kind) && !i.caveOnly && !i.uniqueJewelry && !i.cooked && !i.shiny && !i.progressionOnly && i.baseTier <= tier);
       if (!items.length) return null;
       const top = Math.max(...items.map(i => i.baseTier));
-      return weightedPickBy(items.filter(i => i.baseTier === top), i => i.dropWeight || 1, rng).id;
+      return weightedPickBy(dropEligible(items.filter(i => i.baseTier === top)), i => i.dropWeight || 1, rng).id;
     }
     const byTier = ITEMS_BY_CLASS_TIER[cls];
     if (!byTier) return null;
@@ -200,11 +200,20 @@
     for (let t = tier - 1; t >= 1 && (!pool || !pool.length); t--) pool = (byTier[t] || []).filter(id => !_ITEM_BY_ID[id]?.uniqueJewelry);
     if (!pool || !pool.length) return null;
     // Weighted by item.dropWeight (default 1), so items can be rarer than tier
-    // peers without re-tiering; the pool's total is always positive.
-    return weightedPickBy(pool, (id) => {
+    // peers without re-tiering. A dropWeight of 0 (syrup: the hive's prize,
+    // never a roll) leaves the pool while any peer remains, so the pool's
+    // total stays positive.
+    return weightedPickBy(dropEligible(pool), (id) => {
       const w = _ITEM_BY_ID[id]?.dropWeight;
       return (typeof w === 'number' && w > 0) ? w : 1;
     }, rng);
+  }
+  // Members whose dropWeight is not 0 — or everyone, when that would empty
+  // the pool. Takes ids or item rows.
+  function dropEligible(pool) {
+    const row = (m) => (typeof m === 'string' ? _ITEM_BY_ID[m] : m);
+    const kept = pool.filter(m => row(m)?.dropWeight !== 0);
+    return kept.length ? kept : pool;
   }
 
   // ────────────────────────────────────────────────────────────────
@@ -454,9 +463,7 @@
       return { kind: 'relic', slot: _pickFromArray(starterSlots, rng), tier: 1, ...meta };
     }
     if (resolved.kind === 'gear') {
-      const gear = rollGearUpgrade(rng, save?.relics, tier, save?.armor, ChestThemes.gearSlots(resolved.group),
-        typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0,
-        chestTier >= 3 ? chestTier - 1 : 1, theme === 'vista' ? tier : 7);
+      const gear = rollChestGear(resolved.group, tier, chestTier, save, rng, selectionOpts);
       if (theme !== 'vista' || gear.kind !== 'gold') return { ...gear, ...meta };
       // A grail never turns an owned equipment roll into a coin consolation.
       resolved = ChestThemes.resolve('magic', tier, selectionOpts);
@@ -470,6 +477,42 @@
     return { kind: 'item', id, qty: ChestThemes.quantity(id, tier, bracket, chestTier),
       tier: _ITEM_BY_ID[id].kind === 'unique_relic' ? _ITEM_BY_ID[id].baseTier : tier,
       cls: _ITEM_BY_ID[id].kind, ...meta };
+  }
+
+  // CHEST GEAR (ChestThemes.CHEST_GEAR). The first roll starts tierPenalty
+  // below the rolled quality; a roll landing on a piece the player already
+  // holds at exactly that tier rerolls once without the penalty, and only a
+  // miss on that second roll takes rollGearUpgrade's half-price coins. A roll
+  // under owned gear (a downgrade) pays the coins at once. A `withUniques`
+  // group (bonusGear) draws evenly over its slots and the unique relics
+  // eligible at the gear tier, as the class picker's `gear` draw does.
+  function rollChestGear(group, tier, chestTier, save, rng, opts) {
+    const slots = ChestThemes.gearSlots(group);
+    const luck = typeof Shrines !== 'undefined' && Shrines.leverActive(save, 'fortune') ? Shrines.FORTUNE_LUCK_BONUS : 0;
+    const roll = (penalty) => {
+      const gearTier = Math.max(1, tier - penalty);
+      // A physical T1 chest never pays a unique relic, as in ChestThemes.weights.
+      const uniques = ChestThemes.groups[group].withUniques && chestTier >= 2
+        ? ChestThemes.eligible('uniqueRelics', gearTier, opts) : [];
+      const pick = Math.floor(rng() * (slots.length + uniques.length));
+      if (pick >= slots.length) {
+        const id = uniques[pick - slots.length];
+        return { kind: 'item', id, qty: 1, tier: _ITEM_BY_ID[id].baseTier, cls: 'unique_relic' };
+      }
+      const slot = slots[pick];
+      const floor = chestTier >= 3 ? chestTier - 1 : 1;
+      // A material-tier weapon (Rusty / Iron / Magic: 1, 3, 5) with no rung
+      // between the chest floor and the lowered tier takes the full roll
+      // rather than falling under the floor.
+      const rungs = slot.kind === 'relic' && _RELIC_DEFS[slot.slot]?.tiers;
+      const slotTier = rungs && !rungs.some(t => t >= Math.min(gearTier, floor) && t <= gearTier) ? tier : gearTier;
+      return rollGearUpgrade(rng, save?.relics, slotTier, save?.armor, [slot], luck,
+        floor, opts.theme === 'vista' ? tier : 7);
+    };
+    const first = roll(ChestThemes.CHEST_GEAR.tierPenalty);
+    if (first.kind !== 'gold') return first;
+    const owned = (first.gearKind === 'armor' ? save?.armor : save?.relics)?.[first.slot]?.tier ?? 0;
+    return owned === first.tier ? roll(0) : first;
   }
 
   // Resolve one authored signature for gameplay and the monster review page.

@@ -13,7 +13,7 @@ const off=load('');
 assert.equal(off.art.enabled,true,'Rogue is the default without an opt-in');
 assert.equal(off.assets.selected_longgrass.kind,'spritesheet');
 assert.equal(off.assets.bushes.path,'assets/ArtTrials/RogueObjects/bushes-olive.png');
-for(const search of ['?artTrial=dreamland','?artTrial=trees-water']) {
+for(const search of ['?artTrial=baseline','?artTrial=dreamland','?artTrial=trees-water']) {
  const retired=load(search);
  assert.equal(retired.art.enabled,true,'retired URLs still select Rogue');
  assert.deepEqual(Object.keys(retired.assets),Object.keys(off.assets));
@@ -112,3 +112,8 @@ for (const [key,frames] of Object.entries(profile.frameCrops)) {
   assert(layout.ART_BOUNDS[key+':'+frame].maxY<=height);
  }
 }
+
+for(const search of ['', '?deepforest=on']) {
+ const defaults=load(search);assert(defaults.art.enabled);assert.equal(defaults.assets.selected_longgrass.path,profile.assets.selected_longgrass.path);
+}
+assert.equal(load('?artTrial=dreamland').art.enabled,true,'retired profile URL uses Rogue');

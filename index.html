@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-f435d18a';
+    window.__shellVersion = 'shell-bb1ecc24';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=ba4e08ed" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=59f234a8" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -410,13 +410,6 @@
       font: 24px var(--font-ui); touch-action: manipulation; cursor: pointer;
     }
     #map-zoom button + button { border-top: 0; }
-    #map-zoom .weather-readout {
-      width: 36px; min-height: 28px; box-sizing: border-box; display: flex;
-      align-items: center; justify-content: center; padding: 2px; border: 1px solid #777;
-      border-radius: 0; background: #222; color: #fff; font: 700 11px/1 var(--font-ui);
-      text-align: center; white-space: nowrap; pointer-events: none;
-    }
-    #map-zoom .weather-readout[hidden] { display: none; }
     #map-zoom button:disabled { color: #777; cursor: default; }
     #map-zoom button:active:not(:disabled) { background: #444; }
     #map-zoom button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -489,10 +482,13 @@
        the whole message + stack can be read or copied on a phone where
        DevTools isn't reachable. */
     #errbar {
-      position: absolute; top: 8px; left: 50%; transform: translateX(-50%);
-      max-width: min(92vw, 560px); max-height: 60vh; overflow: auto;
+      /* Body-level so the scaled game cannot trap this below the compass HUD. */
+      position: fixed; top: calc(env(safe-area-inset-top, 0px) + 8px);
+      left: calc(var(--phone-left, 0px) + 8px); right: calc(var(--phone-right, 0px) + 8px);
+      margin: 0 auto; box-sizing: border-box; max-width: 560px;
+      max-height: 60vh; overflow: auto; touch-action: pan-y; overscroll-behavior: contain;
       background: var(--danger); color: #fff; padding: 8px 10px; border-radius: 8px;
-      font: 12px/1.45 var(--font-ui); display: none; z-index: 20;
+      font: 12px/1.45 var(--font-ui); display: none; z-index: 105;
       box-shadow: 0 4px 16px #0008;
       white-space: pre-wrap; word-break: break-word;
       -webkit-user-select: text; user-select: text;
@@ -502,8 +498,8 @@
       margin-top: 6px; font-size: 11px; opacity: .92; white-space: pre-wrap;
     }
     #errbar .errbtns {
-      display: flex; gap: 8px; margin-top: 8px;
-      position: sticky; bottom: 0;
+      display: flex; gap: 8px; margin-bottom: 8px; padding-bottom: 6px;
+      position: sticky; top: 0; z-index: 1; background: var(--danger);
     }
     #errbar button {
       font: 700 12px var(--font-ui); color: var(--danger); background: #fff;
@@ -855,7 +851,8 @@
       padding: 20px;
     }
     #tooshort .box {
-      max-width: 340px; background: #000; color: #fff;
+      max-width: 340px; max-height: 100%; overflow-y: auto;
+      box-sizing: border-box; background: #000; color: #fff;
       border: 2px solid var(--dialog-border); border-radius: 12px;
       padding: 22px 20px; text-align: center;
       font: 14px var(--font-ui); line-height: 1.45;
@@ -863,6 +860,13 @@
     #tooshort .glyph { font-size: 34px; line-height: 1; margin-bottom: 12px; }
     #tooshort p { margin: 0 0 14px; }
     #tooshort .sub { font-size: 12px; opacity: .75; }
+    /* A phone on its side can be barely 320px tall: tighten the card. */
+    @media (max-height: 360px) {
+      #tooshort { padding: 12px; }
+      #tooshort .box { padding: 14px 18px; }
+      #tooshort .glyph { font-size: 26px; margin-bottom: 6px; }
+      #tooshort p { margin-bottom: 10px; }
+    }
     #tooshort button {
       background: transparent; color: var(--gold-dark);
       border: 1px solid #6b5a2c; border-radius: 8px;
@@ -1059,7 +1063,7 @@
       animation: story-crossfade 2.4s ease-in-out 750ms forwards;
     }
     /* Match painted head sizes, not the nominal zoom requested for the art.
-       Measured adjacent ratios are about 1.5, 1.28 and 1.10; their cumulative
+       Measured adjacent ratios are about 1.5, 1.0 and 1.408; their cumulative
        inverse offsets keep scale stable throughout each shared-camera fade. */
     #story .nightmare-frame {
       position: absolute; inset: 0; opacity: 0;
@@ -1327,26 +1331,26 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=cf004e79">
+  <link rel="stylesheet" href="css/compass_hud.css?v=0061d6f7">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=3aa5db4f">
+  <link rel="stylesheet" href="css/compass_panels.css?v=ba728547">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
-  <link rel="stylesheet" href="css/book_reader.css?v=6c9148bc">
+  <link rel="stylesheet" href="css/book_reader.css?v=9c1378ea">
 </head>
 <!-- Keep the HUD hidden until live values and the compass skin are ready. -->
 <body class="booting">
   <div id="frame">
     <div id="game">
       <div id="banner">can't reach the map — tap to retry</div>
-      <div id="errbar">
-        <div class="errmsg"></div>
-        <div class="errstack"></div>
-        <div class="errbtns">
-          <button type="button" data-act="copy">Copy</button>
-          <button type="button" data-act="dismiss">Dismiss</button>
-        </div>
-      </div>
     </div>
+  </div>
+  <div id="errbar">
+    <div class="errbtns">
+      <button type="button" data-act="copy">Copy</button>
+      <button type="button" data-act="dismiss">Dismiss</button>
+    </div>
+    <div class="errmsg"></div>
+    <div class="errstack"></div>
   </div>
   <div id="save-notice" role="status" hidden>Progress isn’t saving</div>
   <!-- All HUD overlays live OUTSIDE #game so position:fixed actually anchors
@@ -1414,6 +1418,7 @@
           <button id="debug-enemies">Spawn enemies</button>
           <button id="debug-items">Item cheats</button>
           <button id="debug-nearby-foes">Nearby foes (debug)</button>
+          <button id="debug-lighting">Lighting debug</button>
           <button id="debug-dump-tile">Dump tile (debug)</button>
           <button id="debug-road-ids">Road IDs (debug)</button>
           <button id="debug-gps-stick" aria-pressed="false">GPS stick: off</button>
@@ -2047,6 +2052,7 @@
       if (sc && typeof Quests !== 'undefined' && Quests.starterShow) {
         Quests.starterShow(sc.save);
         sc._objectiveAcknowledged = null;
+        sc._objectiveAcknowledgedIntro = null;
         if (typeof persistSave === 'function') persistSave(sc.save);
         sc.updateObjectiveDOM?.();
       }
@@ -2098,6 +2104,9 @@
         '  app.js parse      ' + ms(sum(span('app.js'))).padStart(8),
         '  phaser assets     ' + ms(sum(span('phaser preload'))).padStart(8),
         '  scene create      ' + ms(sum(span('scene create'))).padStart(8),
+        // The three costliest create phases (scene_create.js _phase).
+        '     of which: ' + (span('create · ').sort((a, b) => b.ms - a.ms).slice(0, 3)
+          .map(x => x.name.slice(9) + ' ' + ms(x.ms)).join(', ') || 'not split'),
         '  centre tile       ' + ms(centre.length ? Math.max(...centre.map(x => x.ms)) : 0).padStart(8),
         '     of which: fetch ' + ms(sum(span('tile').filter(x => x.name.endsWith('fetch')
             && x.t < (playable ? playable.t : Infinity)))).padStart(7)
@@ -2430,6 +2439,67 @@
         '', ...(rows.length ? rows.map(r => r.line) : ['no foes within 80m']),
       ];
       window.showError?.('NEARBY FOES (copy me)', out.join('\n'));
+    });
+    // LIGHTING DEBUG — everything the lightmap pass reads, from the device that
+    // shows the picture: the camera (zoom, heading, peek), the body's screen
+    // point against the sprite that is drawn there, the lightmap image and
+    // its texture key (sampled twice a second apart, so a key that never moves
+    // while the body walks is a frozen lightmap), the lighting profile, the
+    // interior mask, and the last update() error even after its overlay was
+    // dismissed. For "the screen went black" reports that no desktop
+    // reproduces.
+    document.getElementById('debug-lighting').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const m = document.getElementById('menu'); if (m) m.open = false;
+      const scene = window.__scene;
+      if (!scene || !scene.playerM) { window.showError?.('lighting debug unavailable', 'scene not ready'); return; }
+      const f = (v, d = 2) => (typeof v === 'number' && Number.isFinite(v)) ? +v.toFixed(d) : String(v);
+      const hex = (c) => (typeof c === 'number') ? '#' + (c >>> 0).toString(16).padStart(6, '0') : String(c);
+      const cells = (px) => f(px / CELL_PX, 2);
+      const snap = () => {
+        const tex = scene.lightTex, img = scene.lightMap;
+        const ps = scene.playerScreen?.() || {};
+        return {
+          key: tex?.__lightKey || '', staticKey: tex?.__lightStaticKey || '',
+          ps: `${f(ps.x)},${f(ps.y)}`, sprite: scene.player ? `${f(scene.player.x)},${f(scene.player.y)}` : '-',
+          shadow: scene.playerShadow ? `${f(scene.playerShadow.x)},${f(scene.playerShadow.y)}` : '-',
+          img: img ? `${f(img.x)},${f(img.y)} ${f(img.displayWidth)}x${f(img.displayHeight)} vis ${img.visible} depth ${img.depth} camFilter ${img.cameraFilter} alpha ${f(img.alpha)}` : 'none',
+          body: `${f(scene.playerM.x)},${f(scene.playerM.y)}`,
+        };
+      };
+      const a = snap();
+      setTimeout(() => {
+        const b = snap();
+        const r = window.__game?.renderer, cam = scene.cameras?.main;
+        const prof = (typeof Lighting !== 'undefined' && Lighting.profile) ? Lighting.profile(scene, Lighting.daylight(scene, Date.now()), Date.now()) : null;
+        const interior = scene.activeInterior?.() || null;
+        const reachM = (typeof reachRadiusM === 'function') ? reachRadiusM(scene) : null;
+        const peek = scene.peekM || { x: 0, y: 0 };
+        const err = scene._lastLoopErr;
+        const lights = (scene._lights || []).map(L => `${L.kind}@${f(L.dx / scene.cellM, 1)},${f(L.dy / scene.cellM, 1)}`).slice(0, 12);
+        const out = [
+          `renderer ${r ? (r.type === Phaser.WEBGL ? 'WebGL' : 'Canvas') : '?'}, contextLost ${!!r?.contextLost}, canvas ${window.__game?.canvas?.width}x${window.__game?.canvas?.height}, RENDER_SCALE ${f(RENDER_SCALE)}, dpr ${f(window.devicePixelRatio)}`,
+          `view centre ${scene.viewCenterX},${scene.viewCenterY} left/top ${scene.viewLeft},${scene.viewTop} size ${scene.viewSize}`,
+          `zoom ${f(scene.mapZoom)} (rest ${f(scene._mapZoomRest)}), heading-up ${typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)}, mapRot ${f((scene.mapRot || 0) * 180 / Math.PI, 1)}°, compass ${f(scene.compassDeg, 1)}, locked ${!!scene._compassDirectionLocked}`,
+          `camera ${cam ? `${cam.x},${cam.y} ${cam.width}x${cam.height} zoom ${f(cam.zoom)} rot ${f(cam.rotation, 3)} scroll ${f(cam.scrollX)},${f(cam.scrollY)} origin ${cam.originX},${cam.originY} round ${cam.roundPixels}` : '-'}`,
+          `peek ${cells(peek.x * CELL_PX / scene.cellM)},${cells(peek.y * CELL_PX / scene.cellM)} cells, dragging ${!!scene._peekDragging}, returning ${!!scene._peekReturning}, pinch ${!!scene._pinch}, homeIntro ${scene._homeIntro?.phase || '-'}, wreckRepair ${!!scene._wreckRepair}`,
+          `depth ${scene.depth || 0}, energy ${scene.save?.energy}/${scene.save?.maxEnergy}, lightMul ${f(typeof Conditions !== 'undefined' ? Conditions.lightMul(scene.save) : 1)}, reach ${reachM == null ? '?' : f(reachM / scene.cellM) + ' cells'}, fullView ${!!(typeof Energy !== 'undefined' && Energy.fullViewReachActive(scene.save))}`,
+          `daylight ${f(scene._daylight?.value, 3)} (minute ${scene._daylight?.minute}), override ${window.__DAYLIGHT ?? '-'}`,
+          prof ? `profile dimA ${f(prof.dimA, 3)} edge ${f(prof.edge, 3)} lit ${f(prof.lit, 3)} ambient ${hex(prof.ambient)} dimColour ${hex(prof.dimColour)} night ${f(prof.night, 3)}` : 'profile -',
+          `interior ${interior ? `${interior.kind} ${interior.key} ring ${interior.ring?.length}` : 'none'}, homeInside ${!!scene.homeInside?.()}, fog ${typeof Fog !== 'undefined' && Fog.enabled}, gpu ${typeof LightingGPU !== 'undefined' && LightingGPU.active(scene)}`,
+          `lightTex ${scene.lightTex ? `${scene.lightTex.width}x${scene.lightTex.height}` : 'none'}, image ${a.img}`,
+          `lights now (${(scene._lights || []).length}): ${lights.join(' ') || '-'}`,
+          '',
+          `t0: body ${a.body} ps ${a.ps} sprite ${a.sprite} shadow ${a.shadow}`,
+          `t1: body ${b.body} ps ${b.ps} sprite ${b.sprite} shadow ${b.shadow}`,
+          `key moved between samples: ${a.key !== b.key}`,
+          `key t1: ${b.key.slice(0, 240)}`,
+          `static key t1: ${b.staticKey.slice(0, 120)}`,
+          '',
+          err ? `last update() error x${err.count} ${Math.round((performance.now() - err.at) / 1000)}s ago: ${err.msg}\n${(err.stack || '').slice(0, 600)}` : 'no update() errors this session',
+        ];
+        window.showError?.('LIGHTING DEBUG (copy me)', out.join('\n'));
+      }, 1000);
     });
     // Teleport presets — relocate the world origin to a well-mapped suburb to
     // show off OSM features. A preset writes localStorage and reloads so the
@@ -2788,7 +2858,7 @@
         btn: "Let's go",
       },
     ];
-    let __storyStarted = false;
+    let __storyStarted = false, __storyPending = false;
     function startStory(onDone) {
       // Idempotent: never show the opening story more than once per page load,
       // even if something calls this twice (the overlay is removed on finish,
@@ -2843,6 +2913,7 @@
     // problem the other way up: the card would be hidden behind it and
     // silently marked seen.)
     function introOverlayUp() {
+      if (__storyPending) return true;
       for (const id of ['story', 'safety', 'locating', 'tooshort']) {
         const el = document.getElementById(id);
         // Tests what actually RENDERS rather than the inline style: dismissed
@@ -2888,6 +2959,12 @@
       __howtoPending = false;
       syncHowToSkip();
       overlay.style.display = 'flex';
+    };
+    // Is the opening still on screen — a boot overlay, or the how-to card
+    // showing or queued? app.js holds the Spirit's first bubble until not.
+    window.__introUp = function () {
+      return introOverlayUp() || __howtoPending
+        || document.getElementById('howto')?.style.display === 'flex';
     };
     // Called from each boot overlay as it clears. No-ops until the LAST one is
     // gone, so it is safe to fire from all of them.
@@ -2993,7 +3070,16 @@
       if (freshIntro && !window.__skipIntro) {
         const safetyEl = document.getElementById('safety');
         if (safetyEl) safetyEl.style.display = 'none';
-        startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
+        // The story opens once the classic script chain below has parsed:
+        // opened here, the first slide sat on screen while ~7 MB of game
+        // script parsed and its button ignored taps for seconds on a phone.
+        // The loading view (#bootload) covers the wait; introOverlayUp counts
+        // the pending story so nothing queued behind it shows first.
+        __storyPending = true;
+        document.addEventListener('DOMContentLoaded', () => {
+          __storyPending = false;
+          startStory(() => { if (safetyEl) safetyEl.style.display = 'flex'; });
+        }, { once: true });
       }
     }
     // Reset THIS game: wipe only the active save slot's progress, plus every
@@ -3014,7 +3100,7 @@
       // 1) Global runtime state: replay the intro + how-to on the fresh game,
       //    through the same one writer "+ New game" uses.
       replayOpening();
-      // 2) Map-tile caches. Two layers persist tiles across loads:
+      // 2) Map-tile caches. Raw and generated tiles persist across loads:
       //    a) Cache API tile bucket(s) populated by the service worker, and
       //    b) the worldgen IndexedDB ('mapgame-tiles') of raw tile bytes.
       //    In-memory worldgen caches reset on reload, so the load below is clean.
@@ -3123,34 +3209,35 @@
   <script src="src/creature_spawns.js?v=eca089d3"></script>
   <script src="src/enemy_habitats.js?v=27382a73"></script>
   <script src="src/difficulty.js?v=f761e425"></script>
-  <script src="src/util.js?v=9b617591"></script>
+  <script src="src/util.js?v=b180b1b8"></script>
   <script src="src/polygon_geometry.js?v=643bd51f"></script>
   <script src="src/particles.js?v=139210f6"></script>
   <script src="src/trail.js?v=ca4ab8ce"></script>
   <script src="src/streets.js?v=2b6f3303"></script>
-  <script src="src/street_variants.js?v=b3644b5e"></script>
+  <script src="src/street_variants.js?v=8512f2b2"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=41986665"></script>
   <script src="src/zone_variant_data.js?v=407ce7bf"></script>
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=30f0e0de"></script>
-  <script src="src/shrines.js?v=8d66c0d8"></script>
-  <script src="src/buffs.js?v=9c6e04b6"></script>
+  <script src="src/shrines.js?v=faed427d"></script>
+  <script src="src/status_icons.js?v=229d3571"></script>
+  <script src="src/buffs.js?v=4c8c6973"></script>
   <script src="src/zone_coverage.js?v=275a522d"></script>
   <script src="src/quarry_layout.js?v=6b945d34"></script>
   <script src="src/zone_dressing.js?v=38567d46"></script>
   <script src="src/reef_layout.js?v=5ac55392"></script>
-  <script src="src/sprite_layout.js?v=48eedffc"></script>
+  <script src="src/sprite_layout.js?v=46d70e97"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=92e9a8d3"></script>
-  <script src="src/home_variant.js?v=d962f23f"></script>
+  <script src="src/home.js?v=61bdd944"></script>
+  <script src="src/home_variant.js?v=538a200a"></script>
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
   <script src="src/biome_profiles.js?v=0dc0e0fd"></script>
   <script src="src/habitat_spawns.js?v=28ec83dc"></script>
   <script src="src/traps.js?v=925461a6"></script>
-  <script src="src/whirlwinds.js?v=eeea21c2"></script>
+  <script src="src/whirlwinds.js?v=39f9eb81"></script>
   <script src="src/hazard_falls.js?v=6834dff4"></script>
   <script src="src/environment_hazards.js?v=798bb638"></script>
   <script src="src/spider_webs.js?v=4677643f"></script>
@@ -3158,7 +3245,7 @@
   <script src="src/pressure_traps.js?v=cb929211"></script>
   <script src="src/gas.js?v=c1623ebe"></script>
   <script src="src/mushroom_gas.js?v=35fbd79f"></script>
-  <script src="src/lairs.js?v=00e99c46"></script>
+  <script src="src/lairs.js?v=ec917330"></script>
   <script src="src/dungeon_progression.js?v=3a8af653"></script>
   <script src="src/elevators.js?v=e02a2b01"></script>
   <script src="src/arena.js?v=e1e49ed1"></script>
@@ -3172,48 +3259,48 @@
   <script src="src/geometry.js?v=8575e0b6"></script>
   <script src="src/gameplay_tiers.js?v=e124d893"></script>
   <script src="src/generated_tile_cache.js?v=043e889f"></script>
-  <script src="src/worldgen.js?v=2c8613cb"></script>
+  <script src="src/worldgen.js?v=b17b5d18"></script>
   <script src="src/castle_styles.js?v=8a4d031c"></script>
-  <script src="src/ground_materials.js?v=da0fff78"></script>
-  <script src="src/textures.js?v=bc09ec5a"></script>
+  <script src="src/ground_materials.js?v=a57f0e3a"></script>
+  <script src="src/textures.js?v=d34e2ea4"></script>
   <script src="src/floor_wall_materials.js?v=e3674686"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=f8224905"></script>
+  <script src="src/items.js?v=092d6cb1"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=37a1a7a0"></script>
+  <script src="src/conditions.js?v=3c3a7300"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=286067fc"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
-  <script src="src/save_state.js?v=6d6313d9"></script>
+  <script src="src/save_state.js?v=6db5975e"></script>
   <script src="src/gear.js?v=7cc0ead5"></script>
   <script src="src/rewards.js?v=497251ef"></script>
-  <script src="src/shops_math.js?v=6e742728"></script>
-  <script src="src/shops.js?v=d8c33954"></script>
+  <script src="src/shops_math.js?v=1370170e"></script>
+  <script src="src/shops.js?v=49946170"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
-  <script src="src/chest_themes.js?v=b1264fc8"></script>
+  <script src="src/chest_themes.js?v=1e812367"></script>
   <script src="src/loot_contexts.js?v=2b9057c3"></script>
-  <script src="src/rarity.js?v=3b10f893"></script>
-  <script src="src/loot.js?v=720ebf19"></script>
+  <script src="src/rarity.js?v=41415f36"></script>
+  <script src="src/loot.js?v=759b31b7"></script>
   <script src="src/macros.js?v=bf577fa0"></script>
-  <script src="src/quests.js?v=26f27942"></script>
+  <script src="src/quests.js?v=54a99701"></script>
   <script src="src/hidden_objects.js?v=20e79e34"></script>
   <script src="src/push_blocks.js?v=e0527454"></script>
   <script src="src/temple_puzzles.js?v=a09c5625"></script>
   <script src="src/temple_layout.js?v=1cd816bd"></script>
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
-  <script src="src/interactables.js?v=5526e8d3"></script>
-  <script src="src/boss_encounters.js?v=6b33000d"></script>
+  <script src="src/interactables.js?v=8b13fb7b"></script>
+  <script src="src/boss_encounters.js?v=7515cc30"></script>
   <script src="src/houses.js?v=6073d351"></script>
-  <script src="src/wall_smash.js?v=f76e0740"></script>
-  <script src="src/obstacle_step.js?v=ef2df060"></script>
+  <script src="src/wall_smash.js?v=c7e8cf59"></script>
+  <script src="src/obstacle_step.js?v=42d705bf"></script>
   <script src="src/visibility.js?v=d44ced3c"></script>
   <script src="src/spawn_ownership.js?v=cb498972"></script>
-  <script src="src/starter.js?v=ff48f977"></script>
+  <script src="src/starter.js?v=3561a432"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=8d58779b"></script>
   <script src="src/pirates.js?v=362fddf3"></script>
@@ -3224,27 +3311,27 @@
 
   <script src="src/wizard.js?v=cc6328ca"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=3e0bffdc"></script>
+  <script src="src/memory_story.js?v=a170ec02"></script>
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=8599dfcc"></script>
+  <script src="src/interact.js?v=cca1a655"></script>
   <script src="src/play_tips.js?v=4d1075a6"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=8ccdcba9"></script>
+  <script src="src/lighting.js?v=f3794691"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=450992b3"></script>
+  <script src="src/render.js?v=b8b2841b"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
-  <script src="src/weather_codes.js?v=298c9219"></script>
+  <script src="src/weather_codes.js?v=0f020b2e"></script>
   <script src="src/multiplayer.js?v=2af3d29f"></script>
-  <script src="src/weather.js?v=4b82d76a"></script>
-  <script src="src/road_overlay.js?v=0e0cc783"></script>
+  <script src="src/weather.js?v=210d772d"></script>
+  <script src="src/road_overlay.js?v=9460ed5d"></script>
   <script src="src/temple_art.js?v=8e47066c"></script>
-  <script src="src/wall_materials.js?v=9b6e86a9"></script>
+  <script src="src/wall_materials.js?v=03c68460"></script>
   <script src="src/wall_surface_renderer.js?v=d11a558d"></script>
   <script src="src/prop_lowpoly.js?v=7a976750"></script>
-  <script src="src/wall_perspective.js?v=e9e0ecf4"></script>
+  <script src="src/wall_perspective.js?v=f79f89c0"></script>
   <script src="src/building_styles.js?v=d936c33a"></script>
   <script src="src/authored-buildings/roof-materials.js?v=5cb7dd3c"></script>
   <script src="src/authored-buildings/facade-materials.js?v=3c611157"></script>
@@ -3255,21 +3342,21 @@
   <script src="src/authored-buildings/steam-wizard.js?v=6dd87779"></script>
   <script src="src/authored-buildings/city-buildings.js?v=cde9efc7"></script>
   <script src="src/authored_roof_palette.js?v=8c7edfba"></script>
-  <script src="src/authored_buildings.js?v=c7ffc52d"></script>
+  <script src="src/authored_buildings.js?v=53a52af1"></script>
   <script src="src/authored_building_renderer.js?v=8da48b5e"></script>
-  <script src="src/building_lowpoly.js?v=d9561864"></script>
+  <script src="src/building_lowpoly.js?v=1b9d5b48"></script>
   <script src="src/fdr_castle_layout.js?v=39a4988f"></script>
   <script src="src/fdr_castle_geometry.js?v=166dd87d"></script>
   <script src="src/fdr_castle_canvas.js?v=61b2dd7d"></script>
-  <script src="src/building_overlay.js?v=22275695"></script>
+  <script src="src/building_overlay.js?v=4c138f28"></script>
   <script src="src/art_atlas.js?v=bcd97f7b"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>
-  <script src="src/assets.js?v=ca488c49"></script>
+  <script src="src/assets.js?v=0198f6f9"></script>
   <script src="src/terrain_transitions.js?v=4572a944"></script>
   <script src="src/mountain_edges.js?v=d945f4c2"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
   <script src="src/rogue_prop_profile.js?v=db5c63e0"></script>
-  <script src="src/rogue_objects.js?v=6e8dbd54"></script>
+  <script src="src/rogue_objects.js?v=5872e643"></script>
   <script src="src/sandbox_destinations.js?v=4ba9061a"></script>
   <script src="src/sandbox.js?v=d2c9b280"></script>
   <script src="src/sandbox_scenarios.js?v=277dff08"></script>
@@ -3277,26 +3364,26 @@
   <script src="src/sandbox_art.js?v=ec5360fe"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=63ed1fae"></script>
-  <script src="src/art_thumbs.js?v=e4f358a1"></script>
-  <script src="src/modal_shell.js?v=622bfc45"></script>
-  <script src="src/scene_geo.js?v=5f8030e6"></script>
+  <script src="src/art_thumbs.js?v=3b7e97f0"></script>
+  <script src="src/modal_shell.js?v=67c460be"></script>
+  <script src="src/scene_geo.js?v=cce5eca8"></script>
   <script src="src/npc.js?v=018a7525"></script>
   <script src="src/npc_benefits.js?v=a52ebc14"></script>
-  <script src="src/scene_creatures.js?v=7d06ca88"></script>
+  <script src="src/scene_creatures.js?v=6f3947dc"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=b1311492"></script>
-  <script src="src/heading_up.js?v=7edafbe8"></script>
+  <script src="src/scene_shops.js?v=fc428fd6"></script>
+  <script src="src/heading_up.js?v=c5a5fa95"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=ebb941b6"></script>
+  <script src="src/scene_create.js?v=1c07175f"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=237780aa"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=b8b90042"></script>
+  <script src="src/scene_venues.js?v=3074df4f"></script>
   <script src="src/scene_furniture.js?v=16a790f0"></script>
-  <script src="src/scene_streets.js?v=b870182c"></script>
+  <script src="src/scene_streets.js?v=6148751f"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -3367,7 +3454,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=ba4e08ed';
+      const APP_SRC = 'src/app.js?v=59f234a8';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
@@ -3413,7 +3500,6 @@
       // Does this load need to capture a home origin? Mirrors the
       // _homeCapturePending conditions in app.js create().
       function needsHomeCapture() {
-        if (Geo.debugLocation()) return false;
         if (window.__TEST_MODE) return false;
         if (typeof navigator === 'undefined' || !navigator.geolocation) return false;
         // A teleport preset relocates the origin explicitly — no capture.

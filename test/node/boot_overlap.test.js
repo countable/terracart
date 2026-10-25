@@ -15,7 +15,7 @@
     const WorldGen = {
       tileXYForLonLat(lon, lat) { calls.push(['xy', lon, lat]); return { x: 12, y: 34 }; },
       setDepth(depth) { calls.push(['depth', depth]); },
-      loadTile(tx, ty, lat) { calls.push(['load', tx, ty, lat]); return Promise.resolve(entry); },
+      loadTile(tx, ty, lat, opts) { calls.push(['load', tx, ty, lat, opts?.bootPriority]); return Promise.resolve(entry); },
     };
     const run = new Function('window', 'Sandbox', 'loadSave', 'WorldGen', 'START_LON', 'START_LAT',
       `return function(${m.args}) {${m.body}}`)({}, { detect: () => false }, () => ({ depth: 3 }),
@@ -24,7 +24,7 @@
     run.call(scene);
     await Promise.resolve();
     assert.eq(calls.map((c) => c.join(':')).join(','),
-      'xy:-119.4:49.8,depth:3,load:12:34:49.8');
+      'xy:-119.4:49.8,depth:3,load:12:34:49.8:true');
     assert.eq(scene._bootTileKick.tx, 12);
     assert.eq(scene._bootTileKick.ty, 34);
     assert.eq(scene._bootTileKick.depth, 3);
@@ -51,17 +51,18 @@
   test('boot overlap: an atomically replaced early entry falls back to live cache', async () => {
     const m = method(SCENE_GEO_SRC, '_loadTileEntry', true);
     const early = { status: 'ready' }, live = { status: 'ready' };
-    let loads = 0;
+    let loads = 0, loadOpts = null;
     const WorldGen = {
       tileKey: (tx, ty) => `${tx}/${ty}`,
       tileCache: new Map([['12/34', live]]),
-      loadTile() { loads++; return Promise.resolve(live); },
+      loadTile(_tx, _ty, _lat, opts) { loads++; loadOpts = opts; return Promise.resolve(live); },
     };
     const run = new Function('WorldGen', 'START_LAT',
       `return async function(${m.args}) {${m.body}}`)(WorldGen, 49.8);
     const scene = { depth: 0, _bootTileKick: { tx: 12, ty: 34, depth: 0, promise: Promise.resolve(early) } };
-    assert.eq(await run.call(scene, 12, 34), live);
+    assert.eq(await run.call(scene, 12, 34, null, { bootPriority: true }), live);
     assert.eq(loads, 1, 'replacement is read through loadTile');
+    assert.truthy(loadOpts.bootPriority, 'a boot centre replacement keeps priority');
   });
 
   test('boot overlap: high-priority hints use the executed script URLs', () => {

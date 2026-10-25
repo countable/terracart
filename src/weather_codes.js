@@ -17,12 +17,22 @@
     sleet: Object.freeze([1069, 1198, 1201, 1204, 1207, 1237, 1249, 1252, 1261, 1264]),
     snow: Object.freeze([1066, 1114, 1117, 1210, 1213, 1216, 1219, 1222, 1225, 1255, 1258, 1279, 1282]),
   });
+  // Obscured-sky codes have no falling precipitation, so they only label the readout.
+  const SKY = Object.freeze({ fog: Object.freeze([1135, 1147]), mist: Object.freeze([1030]) });
   const KIND_BY_CODE = new Map(Object.entries(CODES).flatMap(([kind, codes]) => codes.map(code => [code, kind])));
+  const SKY_BY_CODE = new Map(Object.entries(SKY).flatMap(([label, codes]) => codes.map(code => [code, label])));
 
   function kindFor(code, precipMm) {
     if (!(Number(precipMm) > 0)) return 'none';
     return KIND_BY_CODE.get(Number(code)) || 'none';
   }
 
-  return { CODES, kindFor };
+  // One lower-case word for the readout: falling precipitation first, then fog
+  // or mist; clear and cloudy skies return '' so nothing is shown.
+  function labelFor(code, precipMm) {
+    const kind = kindFor(code, precipMm);
+    return kind !== 'none' ? kind : SKY_BY_CODE.get(Number(code)) || '';
+  }
+
+  return { CODES, SKY, kindFor, labelFor };
 });

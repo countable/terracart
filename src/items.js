@@ -162,7 +162,10 @@ const ROCK_WORLD_SCALE = (24 / 16) * (16 / 15) * 0.92 * 0.88;
 const ROCK_VARIANT_ART = Object.freeze({
   columns: 8, rows: 9, smallScale: ROCK_WORLD_SCALE, largeScale: ROCK_WORLD_SCALE,
   themedScale: ROCK_WORLD_SCALE, placedScale: 1.6 * 0.88,
-  plainFrames: Object.freeze([0, 30, 32, 34]),
+  // The plain shapes a map rock draws. Frame 0, the smallest (11×9 opaque
+  // pixels), is not one: map rocks read at the bigger plain sizes, and loose
+  // Rock lying on the ground wears its inventory icon (GROUND_STACK_ART).
+  plainFrames: Object.freeze([30, 32, 34]),
   materials: Object.freeze(['plain', 'flint', 'quartz', 'topaz', 'amethyst',
     'sapphire', 'ruby', 'emerald', 'diamond', 'copper', 'iron', 'gold',
     'platinum', 'crimson', 'frost']),
@@ -708,15 +711,17 @@ const MINERAL_ICON_SHEET = {
   // MiniWorld spear: frame 0 points right; frame 1 points down.
   throwing_spear:        { sheet: 'icon_throwing_spear', frame: 0 },
   javelin:      { sheet: 'icon_javelin', frame: 0 },
-  // Wilderness drops — meat is beef, rabbit_pelt uses one of the colour
-  // variants, crow_feather uses the chicken-feather sheet's first frame.
+  // Wilderness drops — meat is beef, rabbit_pelt is the black fur's
+  // white-outlined frame (frame 0 is near-black on the inventory's
+  // near-black window, so a found pelt looked missing), crow_feather uses
+  // the chicken-feather sheet's first frame.
   meat:         { sheet: 'icon_meat',    frame: 0 },
   // Beef.png is 2×2: row 0 raw (plain, outlined), row 1 COOKED — frame 2.
   grilled_meat: { sheet: 'icon_meat',    frame: 2 },
   // The rest of the campfire's dishes — one baked sheet, see COOKED_FOODS.
   ...Object.fromEntries(Object.values(COOKED_FOODS).map((c, i) =>
     [c.id, { sheet: 'icon_cooked', frame: i }])),
-  rabbit_pelt:  { sheet: 'icon_pelt',    frame: 0 },
+  rabbit_pelt:  { sheet: 'icon_pelt',    frame: 1 },
   crow_feather: { sheet: 'icon_feather', frame: 0 },
   // Beach pickup — the original pink cowrie at frame 0 is shared by
   // the map, inventory, shops and pickup icons.
@@ -743,6 +748,17 @@ const MINERAL_ICON_SHEET = {
 // Inventory, drops, projectiles and world pickups share the approved source.
 Object.assign(MINERAL_ICON_SHEET, SelectedItemArt.icons);
 MINERAL_ICON_SHEET.flint_shard = { sheet: 'flint', frame: 0 };
+
+// A loose stack lying on the map (render.js RENDER_SPEC.groundstack) wears its
+// inventory icon, Rock included; `items` holds any per-item exception.
+// One scale for every stack keeps a pickup smaller than the cell it lies in.
+const GROUND_STACK_ART = Object.freeze({
+  scale: 1.2,
+  items: Object.freeze({}),
+});
+function groundStackArt(itemId) {
+  return GROUND_STACK_ART.items[itemId] || inventoryIconSource(itemId);
+}
 
 function inventoryIconSource(itemId) {
   // Minerals + gems use the dedicated sheet table above. Read BEFORE the item

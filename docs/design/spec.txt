@@ -147,10 +147,12 @@ ONBOARDING (the first session)
    kerb; otherwise it follows a walkable route around water and buildings.
    The Rock crate stays inside the opening screen's circular inset whenever
    legal ground is available, so Tori can point to repair supplies nearby.
+   The potato crate seats within `STARTER_DOORSTEP_CELLS`; step one's chip and
+   arrow wait until the player first steps outside (`save.starter.wentOutside`).
    Seeds come first along the trail. Seats avoid roads, occupied cells and
    Home's footing. Stable crate ids preserve opened state after relocation.
  - THE RELIC CHEST: one real treasure chest a screen from spawn, on a cell the
-   anchor can walk to, holding ONE random wooden relic — the only thing in the
+   anchor can walk to, holding ONE random wooden tool until the first road weapon is claimed — the only thing in the
    opening that hands out a TOOL. Derived from the frozen spawn anchor, so a
    rebuild reproduces it; never a downgrade (`rarity.js`
    `reconcileRelicOffer`).
@@ -438,6 +440,8 @@ FARMING LOOP
      5) tap mature crop → HARVEST: produce, the plant is gone, a chance of a
         bonus seed.
  - any tillable cell (non-water, non-building, unoccupied) can be tilled.
+ - The seed action uses the shared busy-work guard, so house repairs and
+   other manual work cannot overlap with planting.
  - PRODUCE QUALITY IS THE BED'S, AND THE HOE SETS IT. Tilling banks the hoe's
    tier on the cell; planting spends it onto the crop, and quality raises the
    bonus-seed chance and the yield at harvest (`Crops.bedQuality`). A tame
@@ -463,7 +467,8 @@ MINING
 ================================================================================
  - all mining is via MINERAL ROCKS — clusters on quarry / industrial /
    residential / scree polygons. A plain rock is open to bare hands and pays
-   stone with a chance of more; an ORE rock pays coal and its tier's bar, the
+   stone with a chance of more (map rocks draw only the bigger plain shapes,
+   `ROCK_VARIANT_ART.plainFrames`); an ORE rock pays coal and its tier's bar, the
    higher ones a gem, and needs a pick near its tier (see the tool gate in
    MOVEMENT & REACH; drops: `interactables.js` `mineralrock`).
  - density by zone: residential sparse and low-tier; industrial dense mid-tier;
@@ -874,7 +879,8 @@ ECONOMY (buying & selling)
    The THIRD purchase is a one-time CALLING (`Wizard.CLASSES`: Hunter,
    Runner, Enforcer, Enchanter). What each rung does lives with the module
    that applies it; printed numbers come from that module, never a copy.
- - SHOP COUNTER: three offers visible together, each with its price and Buy
+ - SHOP COUNTER: three offers visible together (two at Seed and Relic shops,
+   `Shops.LINE_RULES` `shelf`), each with its price and Buy
    button (greyed if unaffordable or the bag cannot fit the purchase). Buying
    replaces only that slot; the other offers survive reopening. Tiny stock
    pools can repeat items; exhausted relic slots show no upgrades left. Shops

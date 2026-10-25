@@ -20,16 +20,19 @@
       }
     }
   });
-  test('authored buildings: Home alone uses the cabin and residences retain stable palettes', () => {
+  test('authored buildings: residences use pitched PP stucco or log houses with stable palettes', () => {
     assert.eq(recipe('home', 'player').key, 'pp_cabin');
     assert.eq(recipe('home', 'player').palette, 'orange');
-    assert.falsy(AuthoredBuildings.RESIDENCES.includes('pp_cabin'), 'no other house is a log cabin');
+    assert.eq(AuthoredBuildings.RESIDENCES.join(','), 'pp_plaster,pp_cabin');
     for (const role of [...Shops.THEMES, ...Object.keys(Shops.SOLO_LINES), 'blacksmith', 'trader', 'wizard', 'fort'])
       assert.falsy(recipe(role, 'x').palette === 'orange', role);
     const seen = new Set();
     for (let i = 0; i < 1000; i++) {
       const id = `house:${i}`, first = recipe('plain', id), again = recipe('plain', id, 7);
-      assert.eq(first.palette, AuthoredBuildings.SPECS[first.key].ppFlat ? 'native' : 'yellow');
+      assert.eq(first.palette, 'yellow');
+      assert.truthy(['pp_plaster','pp_cabin'].includes(first.key), 'only stucco/log homes');
+      assert.falsy(AuthoredBuildings.SPECS[first.key].flatRoof, 'no flat residential roof');
+      assert.truthy(AuthoredBuildings.SPECS[first.key].eave > AuthoredBuildings.SPECS[first.key].peak, 'roof rises above eaves');
       assert.eq(first.key, again.key, 'rank does not replace a residential facade');
       assert.truthy(AuthoredBuildings.SPECS[first.key]);
       seen.add(first.key);
@@ -48,7 +51,8 @@
     const onEdge = (p) => lot.some((a, i) => { const b = lot[(i + 1) % lot.length];
       const t = ((p.x - a.x) * (b.x - a.x) + (p.y - a.y) * (b.y - a.y)) / ((b.x - a.x) ** 2 + (b.y - a.y) ** 2);
       return t > -1e-6 && t < 1 + 1e-6 && Math.hypot(a.x + (b.x - a.x) * t - p.x, a.y + (b.y - a.y) * t - p.y) < 0.2; });
-    const ground = mesh.faces.filter((f) => f.kind === 'wall').flatMap((f) => f.points).filter((p) => p.z < 1e-6);
+    // The door overlay (layer .1) stands proud of its wall, clear of its depth.
+    const ground = mesh.faces.filter((f) => f.kind === 'wall' && f.layer !== .1).flatMap((f) => f.points).filter((p) => p.z < 1e-6);
     assert.truthy(ground.length > 0, 'walls reach the ground');
     for (const p of ground) assert.truthy(onEdge(p), `wall foot ${p.x.toFixed(1)},${p.y.toFixed(1)} lies on the lot outline`);
     for (const a of lot) assert.truthy(ground.some((p) => Math.hypot(p.x - a.x, p.y - a.y) < 1e-6), 'every lot corner is a wall corner');
@@ -57,6 +61,32 @@
       assert.truthy(p.tu >= 0 && p.tu <= 1 && p.tv >= 0 && p.tv <= 1, 'every texel lies on the sheet');
     }
     assert.eq(seen.length, 1, 'the roof palette is applied once');
+  });
+  test('authored buildings: Home\'s room keeps its skin on the walls, cut at the eaves', () => {
+    const spec = AuthoredBuildings.SPECS.pp_cabin;
+    const skin = { key: 'pp_cabin', spec, texture: {}, template: {}, texel: 0.5, flat: false,
+      facade: { v: 900, rows: spec.base - spec.eave }, roof: { u: 256, v: 616, w: 256, h: 240 },
+      door: { u: 32, v: 68, w: 32, h: 28, bottom: 0 }, wall: [16, 80], recolor: () => {} };
+    const lot = [{ x: 0, y: 0 }, { x: 64, y: 0 }, { x: 64, y: 64 }, { x: 0, y: 64 }];
+    const house = BuildingLowPoly.authoredOutline(skin, lot, 2);
+    const room = BuildingLowPoly.interiorGeometry(house, BuildingLowPoly.LOOK.wallThickness);
+    const H = house.eaveHeight;
+    assert.truthy(room.authored, 'the room is drawn as source art');
+    assert.eq(room.faces.filter(f => f.kind === 'roof').length, 0, 'no roof inside');
+    assert.truthy(room.faces.every(f => f.points.every(p => p.z <= H + 1e-6)), 'cut level at the eaves');
+    assert.gt(house.height, H, 'the skin\'s roof stands above its eaves');
+    assert.eq(room.height, H, 'the room is as tall as its cut walls, not the roof peak (the indoor mask sweeps by it)');
+    assert.truthy(room.faces.every(f => Number.isInteger(f.edge)), 'every face stands on a wall');
+    const outside = room.faces.filter(f => f.kind === 'wall' && !f.interior);
+    const skinned = house.faces.filter(f => f.kind === 'wall' && f.points.every(p => p.z <= H + 1e-6));
+    assert.eq(outside.length, skinned.length, 'every facade triangle stays outside');
+    for (const f of outside) assert.truthy(f.sourceArt && f.points.every(p => p.tu >= 0 && p.tu <= 1 && p.tv >= 0 && p.tv <= 1),
+      'outer faces wear the skin, not the procedural atlas');
+    assert.eq(room.faces.filter(f => f.interior).length, outside.length, 'each facade triangle has an inner face');
+    const tops = room.faces.filter(f => f.wallTop);
+    assert.eq(tops.length, 8, 'a top band per wall');
+    const [tu, tv] = house.faces.find(f => f.fallbackUV).fallbackUV;
+    assert.truthy(tops.every(f => f.points.every(p => p.tu === tu && p.tv === tv)), 'tops take the plain wall texel');
   });
   test('authored smithy: a broad textured stack survives the lot-outline skin', () => {
     const spec = AuthoredBuildings.SPECS.fdr;
@@ -156,6 +186,62 @@
     assert.lt(Math.max(...model.faces.flatMap(f=>f.points.map(p=>p.x)))-Math.min(...model.faces.flatMap(f=>f.points.map(p=>p.x))),90,'hall leaves its surrounding plank deck');
     assert.falsy(native.mountedSign,'shared startup model stays unmodified');
     assert.falsy(BuildingLowPoly.authoredGeometry(native,lot,.65).mountedSign,'no marker unless requested');
+  });
+  test('authored fort: the copper hall is three cells wide when it fits with its deck, else two', () => {
+    const spec=AuthoredBuildings.SPECS.city_storefront,C=Math.cos(Math.PI/6),unit=16/spec.door[3];
+    const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
+    for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const nativeHeight=Math.max(...native.faces.flatMap(f=>f.points.map(p=>p.z)))*C;
+    const {widthsCells:[wide,narrow],clearCells}=BuildingLowPoly.FORT_HALL;
+    const hall=(w,h)=>{
+      const lot=[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}],m=BuildingLowPoly.authoredGeometry(native,lot,BuildingLowPoly.FORT_HALL);
+      const xs=m.faces.flatMap(f=>f.points.map(p=>p.x));
+      return {width:Math.max(...xs)-Math.min(...xs),height:m.height,left:Math.min(...xs),right:Math.max(...xs)};
+    };
+    for(const [w,h] of [[200,160],[320,320],[(wide+2*clearCells)*CELL_PX+1,96]]){
+      const m=hall(w,h);
+      assert.lt(Math.abs(m.width-wide*CELL_PX),1e-6,`${w}×${h}: ${wide} cells wide`);
+      assert.gte(m.left,clearCells*CELL_PX-1e-6,'a deck stays clear to the palisade');
+      assert.lte(m.right,w-clearCells*CELL_PX+1e-6);
+    }
+    assert.lt(Math.abs(hall(200,160).height-hall(320,320).height),1e-6,'the same hall in any roomy fort');
+    for(const [w,h] of [[120,100],[(wide+2*clearCells)*CELL_PX-1,96]])
+      assert.lt(Math.abs(hall(w,h).width-narrow*CELL_PX),1e-6,`${w}×${h}: ${narrow} cells wide`);
+    const tiny=hall(40,40);
+    assert.lte(tiny.width,40+1e-6,'a lot too small for either width still holds its hall');
+    assert.gt(tiny.width,0);
+    // Too small for the narrow hall and its deck: the hall takes the whole footprint.
+    for(const [w,h] of [[40,40],[narrow*CELL_PX+2*clearCells*CELL_PX-1,90],[90,60]]){
+      const lot=[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}],full=BuildingLowPoly.authoredGeometry(native,lot,1);
+      const xs=full.faces.flatMap(f=>f.points.map(p=>p.x));
+      assert.lt(Math.abs(hall(w,h).width-(Math.max(...xs)-Math.min(...xs))),1e-3*w,`${w}×${h}: the largest fit`);
+    }
+    assert.gt(hall(narrow*CELL_PX+2*clearCells*CELL_PX-1,90).width,narrow*CELL_PX,'not capped at the narrow width');
+    assert.lt(Math.abs(hall(200,160).height/(wide*CELL_PX)-nativeHeight/(native.faces.flatMap(f=>f.points.map(p=>p.x)).reduce((a,b)=>Math.max(a,b),0))),1e-6,
+      'scaled uniformly: proportions kept');
+  });
+  test('authored fort: the copper hall stands on the fort\'s centre of mass in any orientation', () => {
+    const spec=AuthoredBuildings.SPECS.city_storefront,unit=16/spec.door[3];
+    const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
+    for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
+    const rect=(w,h)=>[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}];
+    const lots={wide:rect(200,160),tall:rect(128,256),tiny:rect(40,40),
+      ell:[{x:0,y:0},{x:256,y:0},{x:256,y:160},{x:160,y:160},{x:160,y:256},{x:0,y:256}]};
+    for(const [name,lot] of Object.entries(lots)){
+      const m=BuildingLowPoly.authoredGeometry(native,lot,BuildingLowPoly.FORT_HALL),c=WorldGen.ringCentroid(lot);
+      const foot=m.faces.filter(f=>f.kind==='wall').flatMap(f=>f.points).filter(p=>p.z<1e-6);
+      const mid=k=>(Math.min(...foot.map(p=>p[k]))+Math.max(...foot.map(p=>p[k])))/2;
+      assert.lt(Math.hypot(m.center.x-c.x,m.center.y-c.y),1e-6,`${name}: seated on the centre of mass`);
+      assert.lt(Math.hypot(mid('x')-c.x,mid('y')-c.y),.5,`${name}: the walls stand round it`);
+    }
+    // A thin L's centre of mass lies in its notch: the hall seats inside the fence instead.
+    const notch=[{x:0,y:0},{x:256,y:0},{x:256,y:96},{x:96,y:96},{x:96,y:256},{x:0,y:256}];
+    const c=WorldGen.ringCentroid(notch),n=BuildingLowPoly.authoredGeometry(native,notch,BuildingLowPoly.FORT_HALL);
+    assert.truthy(c.x>96&&c.y>96,'the fixture\'s centre is outside it');
+    assert.truthy(n.faces.every(f=>f.points.every(p=>p.x>=-1e-6&&p.y>=-1e-6&&(p.x<=96+1e-6||p.y<=96+1e-6))),'its hall stays in the fort');
+    const tall=BuildingLowPoly.authoredGeometry(native,lots.tall,BuildingLowPoly.FORT_HALL);
+    const ys=tall.faces.flatMap(f=>f.points.map(p=>p.y));
+    assert.gt(Math.max(...ys)-Math.min(...ys),2*CELL_PX,'a tall fort turns its hall lengthwise, still centred');
   });
   test('authored buildings: Dreamland attic glazing stays source-sized on a larger real footprint', () => {
     const spec=AuthoredBuildings.SPECS.dreamland_house;
