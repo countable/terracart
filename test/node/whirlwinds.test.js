@@ -69,6 +69,16 @@
     assert.eq(s._whirlwinds.length, 3, '31 km/h fixes a three-tornado group at the encounter roll');
     assert.eq(s._whirlwindNextEncounter, W.cooldownFor(31));
   }));
+  test('whirlwind: weather tornadoes require wind strictly above ten kilometres per hour', () => fixture((s, e) => {
+    e.grid.fill(WorldGen.T.SAND);
+    Weather.accept({ kind: 'none', precip: false, windKph: 10 });
+    Whirlwinds.observe(s, 0, CALM);
+    assert.eq(s._whirlwinds.length, 0, 'ten stays below the weather-tornado gate');
+    s.playerM = { x: 32, y: 24 };
+    Weather.accept({ kind: 'none', precip: false, windKph: 10.1 });
+    Whirlwinds.observe(s, 0, CALM);
+    assert.eq(s._whirlwinds.length, 1, 'the first reading above ten enables weather tornadoes');
+  }));
   test('whirlwind: rising wind never rerolls a cell whose calm visit already missed', () => fixture((s, e) => {
     WorldGen.makeRng = () => () => Whirlwinds.CONFIG.chance * 2;
     Weather.accept({ kind: 'none', precip: false, windKph: 9 });

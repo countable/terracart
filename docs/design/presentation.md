@@ -789,8 +789,8 @@ surface births deterministically reweight plain slimes toward fire and
 ice-blue splitting slimes without changing their spawn ids.
 
 `Whirlwinds.CONFIG.wind` owns wind-driven tornado frequency, group size and
-cooldown. At 10 km/h and above, weather tornadoes may rise in every surface
-biome and stronger wind raises larger groups. The shared hazard gate still
+cooldown. Above 10 km/h, weather tornadoes may rise in every surface biome and
+stronger wind raises larger groups. The shared hazard gate still
 excludes roads, restricted land, kindergarten cells and private ground, while
 `HomeArea.isNear` keeps the starting area calm.
 
