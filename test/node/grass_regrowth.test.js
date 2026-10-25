@@ -69,7 +69,21 @@ test('grass regrowth: offline boot expires grass and prunes orphan deadlines', (
 
 test('grass regrowth: runtime heartbeat and harvest use the shared save mechanism', () => {
   assert.truthy(SCENE_SRC.includes('if (SaveSession.touch()) this._tickGrassRegrowth();'));
-  assert.truthy(SCENE_SRC.includes('SaveState.regrowGrass(this.save, now)'));
+  assert.truthy(SCENE_SRC.includes("SaveState.regrowGrass(this.save, now, { crop: 'longgrass', elapsedMs: coldPause })"));
+});
+
+test('grass regrowth: cold foreground time pauses longgrass without moving or resetting its deadline', () => {
+  const save = { picked: ['grass', 'flower'] };
+  SaveState.rememberClearedGrass(save, { id: 'grass', crop: 'longgrass' }, 1000, () => 0.5, 0);
+  SaveState.rememberClearedGrass(save, { id: 'flower', crop: 'flowers' }, 1000, () => 0.5, 0);
+  const deadline = save.grassRegrowth.grass, snapshot = JSON.stringify(save.grassRegrowth);
+  assert.truthy(SaveState.regrowGrass(save, deadline + 1, { crop: 'longgrass', elapsedMs: 5000 }));
+  assert.truthy(save.picked.includes('grass'), 'longgrass remains paused past its wall-clock deadline');
+  assert.falsy(save.picked.includes('flower'), 'other wildplant clocks continue');
+  assert.eq(save.grassRegrowth.grass, deadline, 'pause never rewrites the saved deadline');
+  assert.eq(JSON.parse(snapshot).grass, deadline, 'the original roll remains intact');
+  assert.truthy(SaveState.regrowGrass(save, deadline + 5001, { crop: 'longgrass', elapsedMs: 5000 }));
+  assert.falsy(save.picked.includes('grass'), 'normal timer progress resumes after the band');
 });
 
 test('berry regrowth: a picked berry or poisonberry bush stands bare, then fruits again through the one grass table', () => {

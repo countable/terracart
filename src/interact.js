@@ -1166,7 +1166,8 @@ const TAP_HANDLERS = [
         } else {
           if (save.picked.includes(wp.id) || (save.burnedObjects || []).includes(wp.id)) return false;
           save.picked = [...save.picked, wp.id];
-          SaveState.rememberClearedGrass(save, wp);
+          SaveState.rememberClearedGrass(save, wp, Date.now(), Math.random,
+            typeof Weather !== 'undefined' ? Weather.coldGrassPauseMs(scene) : 0);
         }
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;

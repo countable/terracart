@@ -6,7 +6,7 @@ const { kindFor } = require('../src/weather_codes.js');
 const { CACHE_MS, parsePoint, compactWeather, createWeatherService } = require('./weather');
 const { createServer } = require('./index');
 
-const response = (code, precipMm = 1) => ({ ok: true, json: async () => ({ current: { precip_mm: precipMm, condition: { code } } }) });
+const response = (code, precipMm = 1, tempC = 12.4) => ({ ok: true, json: async () => ({ current: { precip_mm: precipMm, temp_c: tempC, condition: { code } } }) });
 
 test('published WeatherAPI codes map to one display kind and require measured precipitation', () => {
   assert.equal(kindFor(1153, 0.2), 'drizzle');
@@ -15,8 +15,10 @@ test('published WeatherAPI codes map to one display kind and require measured pr
   assert.equal(kindFor(1225, 3), 'snow');
   assert.equal(kindFor(1000, 2), 'none');
   assert.equal(kindFor(1063, 0), 'none');
-  assert.deepEqual(compactWeather({ current: { precip_mm: 2, condition: { code: 1189 } } }, 123),
-    { precip: true, kind: 'rain', condition: 1189, cachedAt: 123 });
+  assert.deepEqual(compactWeather({ current: { precip_mm: 2, temp_c: -1.6, condition: { code: 1189 } } }, 123),
+    { precip: true, kind: 'rain', condition: 1189, temp: -2, cachedAt: 123 });
+  assert.throws(() => compactWeather({ current: { precip_mm: 2, condition: { code: 1189 } } }),
+    error => error.status === 503);
 });
 
 test('weather coordinates are strict', () => {
@@ -54,8 +56,8 @@ test('relay returns compact weather with CORS and no credential', async () => {
     const res = await fetch(`http://127.0.0.1:${server.address().port}/weather?lat=49&lon=-123`);
     assert.equal(res.status, 200); assert.equal(res.headers.get('access-control-allow-origin'), '*');
     const text = await res.text(), value = JSON.parse(text);
-    assert.deepEqual({ precip: value.precip, kind: value.kind, condition: value.condition },
-      { precip: true, kind: 'rain', condition: 1240 });
+    assert.deepEqual({ precip: value.precip, kind: value.kind, condition: value.condition, temp: value.temp },
+      { precip: true, kind: 'rain', condition: 1240, temp: 12 });
     assert.equal(text.includes('server-only-key'), false);
   } finally {
     await relay.close();

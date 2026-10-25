@@ -763,6 +763,38 @@ rechecks the placed record, owned Home cell, lockout and missing energy at black
 Inn sleep retains payment, daily-use and failure checks; only success queues its
 receipt. Both persist after the transaction.
 
+## Live weather
+
+`Weather` asks the relay for the current conditions at the player's projected
+latitude and longitude every ten minutes, or after one kilometre of movement.
+The relay owns the WeatherAPI credential and returns only precipitation kind,
+rounded temperature, condition code and cache time. The client never calls
+WeatherAPI directly. A disabled or unreachable relay leaves the last good state
+in place without player-facing network errors.
+
+Falling precipitation uses the native turquoise water-drop phases from Rogue
+Adventure's `RA_Atlantis_Animated01.png`. `Weather.EFFECTS` is the single owner
+of weather bands, colors, multipliers, durations and cadences, including the
+`Weather.KINDS` precipitation view. The overlay sits above the world and below
+the HUD, accepts no input, and stops underground.
+
+Weather gameplay is surface-only and runtime-only: it never enters generated
+tile cache keys or saved object identity. Rain waters one deterministically
+ordered growing crop per cadence through `Crops.waterOne` without a can jump.
+Above 28°C, tapped work costs twice its ordinary Energy price and gives a
+rate-limited “It’s too hot!” notice; entering water grants the status-row-only
+Hardworking buff for ten minutes and cancels that surcharge. At or below 0°C,
+water entry applies the `Conditions.DEFINITIONS.frozen` row. Hot and cold
+surface births deterministically reweight plain slimes toward fire and
+ice-blue splitting slimes without changing their spawn ids.
+
+The sole lighting pass receives a faint red or blue profile tint and a matching
+player aura. In winter, wild `longgrass` sprites use the table's warm-yellow
+per-sprite tint. Longgrass regrowth deadlines remain numeric and unchanged in
+the save: a runtime foreground-cold offset pauses their comparison clock, then
+normal progress resumes when the cold band ends. The short terrain grass fill
+has no longgrass painter, so it is not rebuilt or recolored.
+
 ## Schoolyard tile game
 
 Schoolyard field flags start a round when walked onto. The HUD shows score,

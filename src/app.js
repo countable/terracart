@@ -2440,6 +2440,7 @@ class MapScene extends Phaser.Scene {
   // cleared again.
   _tickGrassRegrowth(now = Date.now()) {
     let changed = false;
+    const coldPause = typeof Weather !== 'undefined' ? Weather.coldGrassPauseMs(this) : 0;
     const cleared = new Set([...(this.save.picked || []), ...(this.save.burnedObjects || [])]);
     const tilled = (this.depth || 0) === 0 && this.tilledSet?.size ? this.tilledSet : null;
     const onBed = plant => {
@@ -2455,7 +2456,9 @@ class MapScene extends Phaser.Scene {
         WorldGen.forEachItemInBox(entry, 'wildplants',
           p.x - radius, p.y - radius, p.x + radius, p.y + radius, plant => {
             if (!onBed(plant)) {
-              if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now) || changed;
+              // This also teaches SaveState the generated crop kind for an older
+              // numeric deadline before the cold-band gate is evaluated.
+              if (cleared.has(plant.id)) changed = SaveState.rememberClearedGrass(this.save, plant, now, Math.random, coldPause) || changed;
             } else if (SaveState.stopRegrowth(this.save, plant)) {
               changed = true;
               if (!cleared.has(plant.id)) regrown.push(plant.id);
@@ -2465,7 +2468,7 @@ class MapScene extends Phaser.Scene {
     }
     // A new array refreshes the memoised setOf membership.
     if (regrown.length) this.save.picked = [...(this.save.picked || []), ...regrown];
-    changed = SaveState.regrowGrass(this.save, now) || changed;
+    changed = SaveState.regrowGrass(this.save, now, { crop: 'longgrass', elapsedMs: coldPause }) || changed;
     if (changed) persistSave(this.save);
   }
 
@@ -4047,6 +4050,7 @@ class MapScene extends Phaser.Scene {
     this.drawRoadGeometry();
     this.drawBuildingGeometry();
     if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
+    if (typeof Weather !== 'undefined') Weather.tick(this, Date.now(), dt * 1000);
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
@@ -6068,7 +6072,7 @@ class MapScene extends Phaser.Scene {
   // This is a pose only: movement, reach and world sorting keep the same feet.
   _updatePlayerSubmersion() {
     const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
-    let submerged = false;
+    let submerged = false, weatherWater = false;
     if (!airborne && !Combat.playerDowned(this.save.energy)
         && (!(this._obstacleStep?.liftPx > 0) || this._obstacleStep?.covered) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
@@ -6080,11 +6084,13 @@ class MapScene extends Phaser.Scene {
         const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
         const channel = FloorWallMaterials.isSewerChannel(entry, cell.iy * (entry?.cellsPerEdge || 0) + cell.ix, cell.type);
-        submerged = !!this._obstacleStep?.covered || basin || channel || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+        weatherWater = basin || channel || cell.type === WorldGen.T.WATER;
+        submerged = !!this._obstacleStep?.covered || weatherWater || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
     this._playerSubmerged = submerged;
+    if (typeof Weather !== 'undefined') Weather.waterContact(this, weatherWater);
     if (!this.player) return;
     if (submerged) {
       const frame = this.player.frame;
@@ -6118,6 +6124,7 @@ class MapScene extends Phaser.Scene {
     // current ground feet, independent of the body's step or flight lift.
     this.playerShadow?.setPosition(ps.x, ps.y - 1);
     if (this.playerHalo?.visible) this.playerHalo.setPosition(ps.x, ps.y + this.playerBodyDy());
+    if (this.weatherAura?.visible) this.weatherAura.setPosition(ps.x, ps.y + this.playerBodyDy());
   }
 
   // A Phaser pointer's position in LOGICAL px (coords.js gamePt), at this
@@ -7306,6 +7313,18 @@ class MapScene extends Phaser.Scene {
       this.player.setTint((!this._dragonActive && this._playerArt?.robeColor == null && this.save.playerColor) || 0xffffff);
       if (this.playerHalo.visible) this.playerHalo.setVisible(false);
     }
+    // A faint temperature halo is a second, lower aura channel: warnings above
+    // may still use playerHalo, while Weather.EFFECTS owns this colour and beat.
+    const weatherAura = typeof Weather !== 'undefined' ? Weather.auraEffect(this) : null;
+    if (this.weatherAura && weatherAura) {
+      const ps = this.playerScreen();
+      const pulse = 0.5 + 0.5 * Math.sin((nowMs % weatherAura.auraPeriodMs) / weatherAura.auraPeriodMs * Math.PI * 2);
+      const key = `halo_weather_${weatherAura.band}`;
+      if (this.weatherAura.texture.key !== key) this.weatherAura.setTexture(key);
+      const size = weatherAura.auraSize + weatherAura.auraPulsePx * pulse;
+      this.weatherAura.setDisplaySize(size, size).setAlpha(weatherAura.auraAlpha)
+        .setPosition(ps.x, ps.y + this.playerBodyDy()).setVisible(true);
+    } else if (this.weatherAura?.visible) this.weatherAura.setVisible(false);
     // THE GHOST. While nothing can perceive the player — a Shadow Powder's
     // minute, or collapsed on an empty bar — the body fades, and its contact
     // shadow fades with it. It is the same isUnnoticed() every hostile branch
@@ -7549,7 +7568,8 @@ class MapScene extends Phaser.Scene {
     // the energy back, so a whole tunnel could be dug for almost nothing.
     // Charge at COMPLETION instead (in the wheel callback below): a dug wall
     // always costs, an interrupted one costs nothing — and isn't dug.
-    if (cost > (this.save.energy ?? 0)) {
+    const payableCost = typeof Weather !== 'undefined' ? Weather.workCost(this, cost) : cost;
+    if (payableCost > (this.save.energy ?? 0)) {
       this.flashAtPlayer(TOO_TIRED_MSG);
       this._followPaused = true;   // out of energy — stop chewing the wall
       return;
@@ -9728,7 +9748,12 @@ class MapScene extends Phaser.Scene {
   // "too tired" is: an auto-firing weapon must not spam the map.
   spendEnergy(cost, sx, sy, cell = null) {
     if (cost <= 0) return true;
-    const r = Energy.spend(this.save, cost);
+    // Interactions hand through a tap/cell; silent weapon drains do not. Only
+    // the former are work and receive the hot-weather multiplier.
+    const work = sx != null || sy != null || cell != null;
+    const charged = work && typeof Weather !== 'undefined' ? Weather.workCost(this, cost) : cost;
+    if (charged > cost) Weather.showHeatFeedback(this, sx, sy);
+    const r = Energy.spend(this.save, charged);
     if (!r.ok) {
       if (sx != null && sy != null) this.flash(TOO_TIRED_MSG, sx, sy);
       return false;

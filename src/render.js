@@ -5773,6 +5773,10 @@ Render.drawObjects = function drawObjects(scene) {
     const stage = Math.min(MAX_GROWTH_STAGE, p.stage ?? 0);
     const ov = wildplantSprite(p);
     if (ov?.tint != null) s.setTint(ov.tint);
+    // Surface longgrass wears a per-sprite winter yellow while live weather is
+    // at or below freezing. This never mutates the plant or rebuilds a texture.
+    const weatherTint = typeof Weather !== 'undefined' ? Weather.coldGrassTint(scene, p.crop) : null;
+    if (weatherTint != null) s.setTint(weatherTint);
     if (ov && ov.custom) {
       // Custom-sheet wildplants. Some are one frame (longgrass, the flowers),
       // others vary per cell (the mushroom's two cave caps), so the same world

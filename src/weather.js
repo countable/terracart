@@ -1,22 +1,46 @@
-// Live precipitation is presentation only. The relay protects the WeatherAPI
-// key and returns a compact state; this module owns polling and the RA overlay.
+// Live weather comes through the credential-protecting relay. It is a runtime
+// overlay only: generated ids, tile-cache keys and saved object identity never
+// depend on it. EFFECTS is the one owner of every weather band, duration,
+// multiplier, colour and cadence used by presentation or gameplay.
 const Weather = (() => {
   'use strict';
 
-  const POLL_MS = 10 * 60 * 1000;
-  const MOVE_POLL_M = 1000;
-  const EARTH_M = 6371000;
-  // One table owns density and motion for every relay kind. The turquoise
-  // Rogue Adventure water-drop frames stay crisp at the game's 2x art scale.
-  const KINDS = Object.freeze({
-    none: null,
-    drizzle: Object.freeze({ frequency: 260, speedX: [15, 28], speedY: [150, 210], lifespan: 2600, scale: 1.45, alpha: 0.58 }),
-    rain: Object.freeze({ frequency: 72, speedX: [28, 46], speedY: [250, 340], lifespan: 1800, scale: 1.6, alpha: 0.82 }),
-    sleet: Object.freeze({ frequency: 130, speedX: [5, 18], speedY: [210, 280], lifespan: 2100, scale: 1.45, alpha: 0.72 }),
-    snow: Object.freeze({ frequency: 240, speedX: [-8, 8], speedY: [50, 78], lifespan: 6200, scale: 1.3, alpha: 0.68 }),
+  const EFFECTS = Object.freeze({
+    pollMs: 10 * 60 * 1000,
+    movePollM: 1000,
+    maxForegroundStepMs: 1000,
+    precipitation: Object.freeze({
+      none: null,
+      drizzle: Object.freeze({ frequency: 260, speedX: [15, 28], speedY: [150, 210], lifespan: 2600, scale: 1.45, alpha: 0.58 }),
+      rain: Object.freeze({ frequency: 72, speedX: [28, 46], speedY: [250, 340], lifespan: 1800, scale: 1.6, alpha: 0.82 }),
+      sleet: Object.freeze({ frequency: 130, speedX: [5, 18], speedY: [210, 280], lifespan: 2100, scale: 1.45, alpha: 0.72 }),
+      snow: Object.freeze({ frequency: 240, speedX: [-8, 8], speedY: [50, 78], lifespan: 6200, scale: 1.3, alpha: 0.68 }),
+    }),
+    rain: Object.freeze({ cropCadenceMs: 20 * 1000 }),
+    cold: Object.freeze({
+      maxTempC: 0,
+      grassTint: 0xd8bd55,
+      frozenMs: 10 * 1000,
+      auraTint: 0x68bfff, auraPeak: 0.34, auraAlpha: 0.34, auraSize: 54, auraPulsePx: 5, auraPeriodMs: 2400,
+      lightTint: 0x96cfff, lightMix: 0.12,
+      enemyBirth: Object.freeze({ from: 'slime', kind: 'split_slime', baseWeight: 1, themedWeight: 3 }),
+    }),
+    hot: Object.freeze({
+      minTempC: 28,
+      workCostMul: 2,
+      hardworkingMs: 10 * 60 * 1000,
+      feedbackCooldownMs: 12 * 1000,
+      feedback: 'It’s too hot!',
+      auraTint: 0xff6a3d, auraPeak: 0.32, auraAlpha: 0.3, auraSize: 54, auraPulsePx: 5, auraPeriodMs: 2000,
+      lightTint: 0xff8b62, lightMix: 0.11,
+      enemyBirth: Object.freeze({ from: 'slime', kind: 'fire_slime', baseWeight: 1, themedWeight: 3 }),
+    }),
   });
+  const POLL_MS = EFFECTS.pollMs, MOVE_POLL_M = EFFECTS.movePollM;
+  const KINDS = EFFECTS.precipitation;
+  const EARTH_M = 6371000;
   const S = {
-    scene: null, kind: 'none', precip: false, condition: 0, cachedAt: 0,
+    scene: null, kind: 'none', precip: false, condition: 0, temp: null, cachedAt: 0,
     lastPollAt: 0, lastPosition: null, loading: false, emitter: null,
     drawnKind: 'none', drawnLayout: '', stopped: true,
   };
@@ -33,8 +57,112 @@ const Weather = (() => {
     return !lastAt || now - lastAt >= POLL_MS || distanceM(lastPosition, position) >= MOVE_POLL_M;
   }
 
-  function effectiveKind(kind, depth) {
-    return (depth || 0) > 0 || !KINDS[kind] ? 'none' : kind;
+  function band(temp = S.temp) {
+    const value = typeof temp === 'object' ? temp?.temp : temp;
+    if (!Number.isFinite(value)) return 'mild';
+    if (value <= EFFECTS.cold.maxTempC) return 'cold';
+    if (value > EFFECTS.hot.minTempC) return 'hot';
+    return 'mild';
+  }
+
+  function surfaceBand(scene) { return (scene?.depth || 0) === 0 ? band() : 'mild'; }
+  function effectiveKind(kind, depth) { return (depth || 0) > 0 || !KINDS[kind] ? 'none' : kind; }
+  function lightEffect(scene) {
+    const row = EFFECTS[surfaceBand(scene)];
+    return row?.lightTint == null ? null : { tint: row.lightTint, mix: row.lightMix };
+  }
+  function auraEffect(scene) {
+    const name = surfaceBand(scene), row = EFFECTS[name];
+    return row?.auraTint == null ? null : { band: name, ...row };
+  }
+  function coldGrassTint(scene, crop) {
+    return crop === 'longgrass' && surfaceBand(scene) === 'cold' ? EFFECTS.cold.grassTint : null;
+  }
+
+  function enemyBirthKind(kind, id, scene) {
+    const row = EFFECTS[surfaceBand(scene)]?.enemyBirth;
+    if (!row || kind !== row.from || !id) return kind;
+    const total = row.baseWeight + row.themedWeight;
+    const value = typeof hash01 === 'function' ? hash01(`${id}:weather:${surfaceBand(scene)}`) : 0.5;
+    return value * total < row.themedWeight ? row.kind : kind;
+  }
+
+  function hardworking(scene, now = Date.now()) {
+    return typeof Buffs !== 'undefined' && Buffs.until('work', scene?.save, scene) > now;
+  }
+  function workCostMultiplier(scene, now = Date.now()) {
+    return surfaceBand(scene) === 'hot' && !hardworking(scene, now) ? EFFECTS.hot.workCostMul : 1;
+  }
+  function workCost(scene, cost, now = Date.now()) {
+    return Math.ceil(Math.max(0, Number(cost) || 0) * workCostMultiplier(scene, now));
+  }
+  function showHeatFeedback(scene, sx, sy, now = Date.now()) {
+    if (workCostMultiplier(scene, now) === 1) return false;
+    const previous = Number(scene?._weatherHeatFeedbackAt) || 0;
+    if (previous && now - previous < EFFECTS.hot.feedbackCooldownMs) return false;
+    scene._weatherHeatFeedbackAt = now;
+    if (sx != null && sy != null && typeof scene.flash === 'function') scene.flash(EFFECTS.hot.feedback, sx, sy, EFFECTS.hot.auraTint);
+    else scene.flashAtPlayer?.(EFFECTS.hot.feedback, EFFECTS.hot.auraTint);
+    return true;
+  }
+
+  // This clock accumulates only foreground time spent in the surface cold band.
+  // SaveState subtracts the runtime-only offset when judging known longgrass
+  // deadlines; no saved deadline is moved, reset or rerolled.
+  function advanceGameplayClock(scene, now = Date.now(), foregroundMs = null) {
+    if (!scene) return;
+    const clock = scene._weatherGrassClock || (scene._weatherGrassClock = { at: now, cold: surfaceBand(scene) === 'cold', total: 0 });
+    const elapsed = Number.isFinite(foregroundMs)
+      ? Math.min(EFFECTS.maxForegroundStepMs, Math.max(0, foregroundMs)) : Math.max(0, now - clock.at);
+    if (clock.cold) clock.total += elapsed;
+    clock.at = now; clock.cold = surfaceBand(scene) === 'cold';
+  }
+  function coldGrassPauseMs(scene) {
+    return scene?._weatherGrassClock?.total || 0;
+  }
+
+  function stableCropKey(p) {
+    return `${Number(p?.x) || 0},${Number(p?.y) || 0}:${String(p?.crop || '')}`;
+  }
+  function waterRainCrop(scene, now) {
+    if (!S.precip || !['drizzle', 'rain', 'sleet'].includes(S.kind) || (scene?.depth || 0) !== 0) {
+      scene._weatherRainWaterAt = now;
+      return false;
+    }
+    const last = Number(scene._weatherRainWaterAt);
+    if (!Number.isFinite(last)) { scene._weatherRainWaterAt = now; return false; }
+    if (now - last < EFFECTS.rain.cropCadenceMs) return false;
+    scene._weatherRainWaterAt = now;
+    const candidates = (scene.save?.planted || []).filter(p => (p.stage ?? 0) < Crops.maxStage() && !p.watered_t)
+      .slice().sort((a, b) => stableCropKey(a).localeCompare(stableCropKey(b)));
+    if (!candidates.length) return false;
+    const index = (scene._weatherRainCropCursor || 0) % candidates.length;
+    scene._weatherRainCropCursor = index + 1;
+    // No watering-can relic is passed, so weather can only start the ordinary
+    // stage hold; it can never trigger the can's immediate stage jump.
+    const result = Crops.waterOne(scene.save, candidates[index], null, now, () => 0.5);
+    if (!result) return false;
+    if (typeof persistSave === 'function') persistSave(scene.save);
+    scene.drawObjects?.();
+    return true;
+  }
+
+  function waterContact(scene, inWater, now = Date.now()) {
+    const entering = !!inWater && !scene?._weatherInWater;
+    if (scene) scene._weatherInWater = !!inWater;
+    if (!entering || (scene?.depth || 0) !== 0 || !scene.save) return false;
+    const name = surfaceBand(scene);
+    let changed = false;
+    if (name === 'cold' && typeof Conditions !== 'undefined') {
+      changed = Conditions.apply(scene.save, 'frozen', now, { durationMs: EFFECTS.cold.frozenMs }) || Conditions.active(scene.save, 'frozen');
+    } else if (name === 'hot' && typeof Buffs !== 'undefined') {
+      changed = Buffs.extend(scene.save, scene, 'work', EFFECTS.hot.hardworkingMs, now);
+    }
+    if (changed) {
+      if (typeof persistSave === 'function') persistSave(scene.save);
+      scene._syncStatusRow?.();
+    }
+    return changed;
   }
 
   function destroyEmitter() {
@@ -62,20 +190,18 @@ const Weather = (() => {
         speedY: { min: row.speedY[0], max: row.speedY[1] },
         lifespan: row.lifespan, frequency: row.frequency,
         scale: { start: row.scale, end: row.scale * 0.75 },
-        alpha: { start: row.alpha, end: 0.12 },
-        quantity: 1,
+        alpha: { start: row.alpha, end: 0.12 }, quantity: 1,
       });
-      S.emitter.setDepth?.(90);
-      S.emitter.setScrollFactor?.(0);
+      S.emitter.setDepth?.(90); S.emitter.setScrollFactor?.(0);
       S.drawnKind = kind; S.drawnLayout = layout;
     } catch (_) { destroyEmitter(); }
   }
 
   function accept(value) {
     const kind = value && typeof value.kind === 'string' && Object.prototype.hasOwnProperty.call(KINDS, value.kind) ? value.kind : 'none';
-    S.kind = value?.precip ? kind : 'none';
-    S.precip = S.kind !== 'none';
+    S.kind = value?.precip ? kind : 'none'; S.precip = S.kind !== 'none';
     S.condition = Number.isInteger(value?.condition) ? value.condition : 0;
+    S.temp = Number.isFinite(value?.temp) ? Math.round(value.temp) : null;
     S.cachedAt = Number(value?.cachedAt) || 0;
     if (S.scene) syncOverlay(S.scene);
   }
@@ -84,8 +210,7 @@ const Weather = (() => {
     if (S.loading || typeof fetch !== 'function' || typeof Multiplayer === 'undefined') return;
     S.loading = true; S.lastPollAt = now; S.lastPosition = position;
     const url = new URL(Multiplayer.httpUrl() + '/weather');
-    url.searchParams.set('lat', position.lat.toFixed(5));
-    url.searchParams.set('lon', position.lon.toFixed(5));
+    url.searchParams.set('lat', position.lat.toFixed(5)); url.searchParams.set('lon', position.lon.toFixed(5));
     try {
       const response = await fetch(url, { cache: 'no-store' });
       if (response.status === 503) { accept({ precip: false, kind: 'none' }); return; }
@@ -96,19 +221,15 @@ const Weather = (() => {
     } finally { S.loading = false; }
   }
 
-  function tick(scene, now = Date.now()) {
+  function tick(scene, now = Date.now(), foregroundMs = null) {
     if (!scene || S.stopped) return;
-    syncOverlay(scene);
+    syncOverlay(scene); advanceGameplayClock(scene, now, foregroundMs); waterRainCrop(scene, now);
     if ((scene.depth || 0) > 0 || !scene.playerM || typeof localMToLonLat !== 'function' || typeof playerWorldM !== 'function') return;
     const player = playerWorldM(scene), position = localMToLonLat(scene, player.x, player.y);
     if (pollNeeded(S.lastPollAt, S.lastPosition, now, position)) poll(scene, position, now);
   }
 
-  function stop() {
-    destroyEmitter();
-    S.scene = null; S.stopped = true; S.loading = false;
-  }
-
+  function stop() { destroyEmitter(); S.scene = null; S.stopped = true; S.loading = false; }
   function start(scene) {
     if (!scene) return;
     if (S.scene && S.scene !== scene) stop();
@@ -116,12 +237,11 @@ const Weather = (() => {
     scene.events?.once?.('shutdown', () => { if (S.scene === scene) stop(); });
     tick(scene);
   }
+  function state() { return { kind: S.kind, precip: S.precip, condition: S.condition, temp: S.temp, cachedAt: S.cachedAt }; }
 
-  function state() {
-    return { kind: S.kind, precip: S.precip, condition: S.condition, cachedAt: S.cachedAt };
-  }
-
-  return { POLL_MS, MOVE_POLL_M, KINDS, distanceM, pollNeeded, effectiveKind,
+  return { EFFECTS, POLL_MS, MOVE_POLL_M, KINDS, distanceM, pollNeeded, band, surfaceBand,
+    effectiveKind, lightEffect, auraEffect, coldGrassTint, enemyBirthKind, workCostMultiplier, workCost,
+    showHeatFeedback, advanceGameplayClock, coldGrassPauseMs, waterRainCrop, waterContact, accept,
     conditionKind: (code, precipMm) => WeatherCodes.kindFor(code, precipMm), start, stop, tick, state };
 })();
 if (typeof window !== 'undefined') window.Weather = Weather;
