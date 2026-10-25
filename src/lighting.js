@@ -264,6 +264,14 @@
     // the height the bolt is DRAWN at (SHOT_DRAW_LIFT_PX) as a draw-space
     // `dyPx`, so the glow sits on the orb, not on the ground under it.
     bolt:     { radiusCells: 1.5, colour: 0x9ad6ff, peak: 0.95, flicker: 0.14 },
+    // THE GPS FIX (scene.gpsM — the gold ring at your REAL position, the
+    // gpsGhost). The ring is ground paint under the lightmap, so at night or
+    // in a cave a fix beyond the player's own light went as dark as the
+    // ground it marks. A small warm-white pool lights it there: white so the
+    // ring keeps its own gold, about the ring's width so it marks the fix
+    // and lights no street. Steady — it is a position, not a call for
+    // attention. PAINT ONLY (collectGps): a ghost does not answer to it.
+    gps:      { radiusCells: 1.25, colour: 0xfff4d6, peak: 0.85, flicker: 0 },
   };
   // Treasure trunks from T3 upward cast the same colour as their rarity badge.
   // The ordinary POI row owns their radius, strength and breathing cadence;
@@ -1101,6 +1109,26 @@
   }
   let boltSeq = 0;
 
+  // The GPS FIX's light (the `gps` row) at the fix, while the ring shows.
+  // Its alpha is the ring's own (Render.gpsMarkerStyle, the fade to nothing
+  // near the body) in GPS_LIGHT_STEPS steps, so walking up to the fix moves
+  // frameKey a few times rather than every frame. Paint only, like the bolt:
+  // brightnessAt does not call this.
+  const GPS_LIGHT_STEPS = 4;
+  function collectGps(scene, ax, ay, halfM) {
+    const g = scene && scene.gpsM, s = scene && scene.startWorldM, p = scene && scene.playerM;
+    if (!g || !s || !p || !(scene.cellM > 0)) return 0;
+    const dx = s.x + g.x - ax, dy = s.y + g.y - ay;
+    if (!inRange(scene, dx, dy, 'gps', halfM)) return 0;
+    const style = (typeof Render !== 'undefined' && Render.gpsMarkerStyle)
+      ? Render.gpsMarkerStyle(Math.hypot(g.x - p.x, g.y - p.y) / scene.cellM) : { ringAlpha: 1 };
+    const a = Math.round(style.ringAlpha * GPS_LIGHT_STEPS) / GPS_LIGHT_STEPS;
+    if (!(a > 0)) return 0;
+    if (!scene._lights) scene._lights = [];
+    scene._lights.push({ kind: 'gps', dx, dy, id: 'gps', a });
+    return 1;
+  }
+
   // The player's light beyond the ramp: the torch cookie, at the feet (metres
   // from the camera anchor, like every light — it slides with a peek), while
   // one burns. Returns the row the player lit as. The plain 'player' row
@@ -1156,7 +1184,7 @@
   //     list — the scan has not looked there.
   // Each cookie is its baked shape: peak · (1 - r/R)² times the row's flicker
   // or pulse and the entry's own alpha / scale, at the colour's luminance.
-  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt']);
+  const COLLECTED_KINDS = new Set(['player', 'handtorch', 'evertorch', 'fire', 'ground_fire', 'magic_trap', 'cobble', 'blast', 'bolt', 'gps']);
   function cookieLevel(L, qx, qy, cellM, now, pulseNow) {
     const row = KINDS[L.kind];
     if (!row || !(row.peak > 0)) return 0;
@@ -1852,6 +1880,7 @@
     collectLamps(scene, ax, ay, halfM);
     collectPlayer(scene, ax, ay, halfM, now);
     collectBolts(scene, ax, ay, halfM);
+    collectGps(scene, ax, ay, halfM);
     // The live blasts, converted against THIS frame's anchor (they are stored
     // in world metres) and pruned as they burn out.
     collectBlasts(scene, ax, ay, halfM, now);
@@ -2172,7 +2201,7 @@
     LOW_ENERGY_TINT, LOW_ENERGY_A, LOW_ENERGY_FRAC, lowEnergyFrac, CRITICAL_LIGHT_MIX, CRITICAL_LIGHT_DIM, CRITICAL_LIGHT_DIP, CRITICAL_PLAYER_TINT_A, criticalLights, critPaintProfile, mixColour, mixToWhite, scaleColour, lum, atLuminance,
     CRITICAL_ENERGY_FRAC, CRITICAL_W, HEARTBEAT_PERIOD_MS, HEARTBEAT_AMPLITUDE, heartbeatShape, heartbeatMul,
     PLATEAU_FALL, plateauLevel, PLAYER_RAMP_PAST_CORNER_CELLS,
-    profile, playerCookieAlpha, playerGlow, plateauColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, objectLightPadCells, wildplantLightPadCells,
+    profile, playerCookieAlpha, playerGlow, plateauColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, collectGps, GPS_LIGHT_STEPS, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
     flickerAlpha, coverFrame, draw,

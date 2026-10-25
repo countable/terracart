@@ -428,7 +428,9 @@ pixels and decorative details do not define additional tap cells.
   selection and capacity, above `_presentRecipeOffer` transactions.
   `HOME_RECIPES.station` assigns crafting recipes to restored Workshops.
   Workshop is available from the second restoration and uses the ordinary
-  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell.
+  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell, with an Upgrade tab
+  (`_homeTabs`) beside it until the one-time second storey is built. There is
+  no in-world upgrade button.
   The portable workbench is removed; loading old saves removes its inventory
   stacks and placed records. The starter-known Spear and all ingredient and
   discovery requirements are unchanged. Several known recipes open an icon

@@ -145,18 +145,18 @@
     assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
     assert.eq(method('playerBodyDy').call(s), -9);
   }));
-  test('foliage cover: half-body crop persists while stopped and clears on harvest or exit', () => fixture((s,c,e,update) => {
+  test('foliage: long grass and hedges never sink the body, only liquid does', () => fixture((s,c,e,update) => {
     c.type=WorldGen.T.GRASS;
     const grass={kind:'wildplant',crop:'longgrass',x:42,y:63};
     for (const plant of [grass,{...grass,crop:'shrub',_plantArt:'zone_hedge'}]) {
       s._obstacleStep=ObstacleStep.sample(42,63,[plant],5);
-      for (let i=0;i<2;i++) { update.call(s); assert.truthy(s._playerSubmerged); assert.eq(s.player.crop.join(','),'0,0,16,8'); }
-      s.save.flightPotionUntil=Date.now()+60000; update.call(s); assert.falsy(s.player.isCropped);
-      delete s.save.flightPotionUntil;
-      s._obstacleStep=ObstacleStep.sample(42,63,[plant,{kind:'mineralrock',x:42,y:63}],5);
-      update.call(s); assert.truthy(s.player.isCropped,'a small prop does not remove foliage cover');
-      s._obstacleStep=ObstacleStep.sample(42,63,[],5); update.call(s);
-      assert.falsy(s.player.isCropped); assert.eq(method('playerBodyDy').call(s),-9);
+      assert.truthy(s._obstacleStep.covered, 'the plant still covers the feet cell');
+      update.call(s);
+      assert.falsy(s._playerSubmerged); assert.falsy(s.player.isCropped);
+      assert.eq(method('playerBodyDy').call(s),-9, 'feet stay on the ground');
+      c.type=WorldGen.T.WATER; update.call(s);
+      assert.truthy(s.player.isCropped, 'foliage standing in water still wades');
+      c.type=WorldGen.T.GRASS;
     }
   }));
 

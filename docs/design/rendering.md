@@ -281,8 +281,8 @@ and its connected arms, seated on the cells' terrain slots, rising by the
 step-over lift (walls) or separate `heightPx` (walk-through hedges) in
 `ObstacleStep.PROFILES`, with thickness from
 `Render.CONNECTED_WALL_ART` and surfaces from `WallMaterials`. Those pieces leave the sprite pools for the frame;
-they still interact from their data cells. Walls support steps; hedges provide
-waist-high cover without a hop or balancing slowdown. An isolated
+they still interact from their data cells. Walls support steps; hedges are walked
+through without a hop, balancing slowdown or body crop. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
 `wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
 and bevels without a pale coping band. Hedges have their own profile there
@@ -619,9 +619,9 @@ the surrounding grove’s shrub scale.
   the raised body; its shadow never inherits the support lift.
 - Long grass leaves the player at the normal feet-on-ground position, with no
   half-body crop, sinking, step lift or balancing slowdown. Only foreground
-  blades naturally obscure the body. Clipped hedges retain the water half-body
-  crop within their foliage footprint (connected arms for rows, a rounded crown
-  for lone hedges), and stop covering when removed from the drawn plant list.
+  blades naturally obscure the body. Clipped hedges likewise never crop or
+  sink the body; only liquid (below) does. `ObstacleStep`'s `covered` marks
+  the foliage footprint and is not a waterline.
 - Water, tar-yard terrain and unburned street tar puddles lower the player's
   body to the waterline and crop away the lower half of its current sprite frame.
   Furniture with height `basin` does the same at the player's feet cell on the
@@ -1007,6 +1007,12 @@ the reach rim within the existing player-light radius.
   `Lighting.KINDS` row. It takes visual precedence while both lights burn;
   neither expands interaction reach. Its stock carryable-lantern icon comes from
   Medieval Furniture and uses the shared inventory/offer/toast renderer.
+
+- The GPS ring is ground paint under the lightmap, so the fix carries a small
+  paint-only `gps` row of `Lighting.KINDS` (`collectGps`): a warm-white pool at
+  the fix, faded with the ring (`Render.gpsMarkerStyle`) in a few steps, that
+  keeps the ring readable at night and underground. Like staff bolts it is
+  never counted by `brightnessAt`, so ghosts ignore it.
 
 - Gas uses a translucent cell-bound pixel cloud above world sprites and below
   lighting and fog, clipped to the world viewport. `GasRender` eases density

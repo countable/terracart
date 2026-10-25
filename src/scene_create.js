@@ -716,7 +716,6 @@ class SceneCreate {
     this.ghostGlowPool = [];  // the ghost's non-lighting halo (render.js)
     this.sparkPool = [];      // gold sparkle sprites floated above shiny entities
     this.chestLabelPool = []; // Phaser.Text objects for POI names above chests
-    this._homeUpgradeButton = null;
     this.shopLabelPool  = []; // Phaser.Text objects for specialty-shop labels above houses
     this.padPool = [];        // sprites for per-POI concrete-pad textures under chests
     this.coinPool = [];       // sprites for in-world coin drops (coin-burst mechanic)

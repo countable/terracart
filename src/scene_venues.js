@@ -682,7 +682,7 @@ class SceneVenues {
     const sel = targetId == null ? this.save.inv[this.save.selSlot]
       : this.save.inv.find(stack => stack.id === targetId && stack.count > 0);
     const hasSel = sel && sel.id && Inventory.ownedCount(this.save, sel.id) > 0;
-    const tabs = [];
+    const tabs = this._homeTabs(sx, sy, 'sell');
     const kindIcon = this._homeKindIcon();
     // Nothing sellable in hand: the page says what it is for rather than
     // flashing a stock phrase — selling is home-only, the single most
@@ -731,6 +731,31 @@ class SceneVenues {
         this.flashLoot(`+${gain}`, UI_GOLD, 1, sellId);
         this.questEvent('sell');
         this._firstSaleStory();
+      },
+    });
+  }
+
+  // Home's tab row: Sell, and Upgrade while the second storey is still to
+  // build (HomeArea.storeys). One page needs no row, so it is empty after.
+  _homeTabs(sx, sy, active) {
+    if (HomeArea.storeys(this.save) >= 2) return [];
+    return [
+      { label: 'Sell', active: active === 'sell', onSelect: () => this.presentHomeSell(sx, sy) },
+      { label: 'Upgrade', active: active === 'upgrade', onSelect: () => this.presentHomeUpgrade(sx, sy) },
+    ];
+  }
+
+  // UPGRADE page: the one-time second storey (upgradeHome).
+  presentHomeUpgrade(sx, sy) {
+    if (HomeArea.storeys(this.save) >= 2) { this.presentHomeSell(sx, sy); return; }
+    this.showOfferModal({
+      kind: 'shop', kindIcon: this._homeKindIcon(), tabs: this._homeTabs(sx, sy, 'upgrade'), art: 'home_sell',
+      title: 'Upgrade your home',
+      get: 'A second storey',
+      blurb: 'Raise Home to two storeys. This is permanent.',
+      cost: '', canAfford: true, acceptLabel: 'Upgrade', cancelLabel: 'Leave',
+      onAccept: () => {
+        if (this.upgradeHome()) this.flash('Home rises a storey.', sx, sy);
       },
     });
   }
@@ -1472,11 +1497,10 @@ class SceneVenues {
     return PlacedFloor.homeCell(this, x, y);
   }
   upgradeHome() {
-    if (!this.save.starterShopId || !this.homeInside() || HomeArea.storeys(this.save) >= 2) return false;
+    if (!this.save.starterShopId || HomeArea.storeys(this.save) >= 2) return false;
     this.save.homeStoreys = 2;
     persistSave(this.save);
     this._buildingGeomKey = null;
-    this._homeUpgradeButton?.setVisible(false);
     return true;
   }
 
