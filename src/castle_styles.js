@@ -5,7 +5,7 @@
     { id: 'citadel', name: 'Citadel', floor: 0xaaa7a4,
       stone: { LITE: 0xc4c0bb, BODY: 0x999795, FACE: 0x858487, SIDE: 0x797a80, SHADOW: 0x5b5d67, DARK: 0x393d49 },
       rampart: { merlons: 4, toothHeight: 3, wallHeight: 10, topDepth: 3.6 } },
-    { id: 'ruin', name: 'Weathered Ruin', guards: false, questType: 'hunt', floor: 0xa6a087,
+    { id: 'ruin', name: 'Bastion', guards: false, questType: 'hunt', floor: 0xa6a087,
       stone: { LITE: 0xbdb9a4, BODY: 0x959a85, FACE: 0x858c79, SIDE: 0x747e6c, SHADOW: 0x596957, DARK: 0x384b3f },
       rampart: { merlons: 4, toothHeight: 2.5, wallHeight: 10, topDepth: 3.6, broken: true } },
     { id: 'bastion', name: 'Intact Bastion', guards: false, questType: 'kill', floor: 0xc3b597,
@@ -183,5 +183,34 @@
     texture.refresh();
     return name;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
+  // Visual families are independent of the historical four hash/quest slots.
+  // Old ruin sites keep their hunt jobs and IDs, but use Bastion architecture.
+  const renderFamilies = Object.freeze({
+    citadel: { wall: 0x858994, side: 0x6f7581, top: 0xc2c1b8, base: 0x535b66,
+      floor: 0xb1a78d, roof: 0x73818b, roofSide: 0x56616b, door: 0x303941,
+      accent: 0xd6c18d, towerWidth: 32, towerHeight: 40, keepHeight: 48, roofHeight: 0 },
+    bastion: { wall: 0xbba57a, side: 0xa58d66, top: 0xe0c596, base: 0x827354,
+      floor: 0xc8b38b, roof: 0xbba57a, roofSide: 0xa58d66, door: 0x554737,
+      accent: 0xa3563a, towerWidth: 36, towerHeight: 32, keepHeight: 42, roofHeight: 0 },
+    archive: { wall: 0xbab6a4, side: 0x9e9f95, top: 0xdfd7bf, base: 0x7d8278,
+      floor: 0xb6ab8e, roof: 0x4d8293, roofSide: 0x365f73, door: 0x3e4748,
+      accent: 0xb7a06c, towerWidth: 32, towerHeight: 30, keepHeight: 40, roofHeight: 12 },
+  });
+  const renderCache = new Map();
+  function renderStyle(key, active = true) {
+    const legacy = variantFor(key), id = legacy === 'ruin' ? 'bastion' : legacy;
+    const cacheKey = `${id}:${active ? 1 : 0}`;
+    if (renderCache.has(cacheKey)) return renderCache.get(cacheKey);
+    const source = renderFamilies[id], value = { id, active: !!active };
+    for (const field of ['wall', 'side', 'top', 'base', 'floor', 'roof', 'roofSide', 'door', 'accent'])
+      value[field] = active ? source[field] : weathered(source[field], field === 'floor');
+    if (!active) {
+      value.base = id === 'citadel' ? 0x323a43 : 0x666e50;
+      value.accent = id === 'citadel' ? 0x7c3237 : 0x827657;
+    }
+    value.geometry = Object.freeze({ towerWidth: source.towerWidth, towerHeight: source.towerHeight,
+      keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 24, roofHeight: source.roofHeight });
+    const style = Object.freeze(value); renderCache.set(cacheKey, style); return style;
+  }
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

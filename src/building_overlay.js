@@ -1639,12 +1639,10 @@
         const group = scene._wallPerspective.castles;
         group.building = { key: d.key, footprint: d.pts,
           anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 } };
-        const model = FDRCastleGeometry.draw(scene, 'castles', d.pts, { active: isMine, keep: true });
+        const model = FDRCastleGeometry.draw(scene, 'castles', d.pts, { family: d.key, active: isMine, keep: true });
         if (model) {
           scene._fdrCastleLayouts.set(d.key, { ...model, source: 'castles' });
-          g.fillPoly(d.pts, 0xa99a75);
-          if (g.texturePoly) g.texturePoly(d.pts, 'fdr');
-          if (!isMine) g.fillPoly(d.pts, 0x1b231b, .25);
+          g.fillPoly(d.pts, model.style.floor);
           continue;
         }
       }

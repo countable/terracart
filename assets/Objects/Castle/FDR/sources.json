@@ -12,7 +12,7 @@
     }
   },
   "processing": "Source crops with mean-preserving masonry contrast compression, a modest sky-facing material lift, nearest-neighbour scaling and padded atlas packing; no generated imagery.",
-  "palette": "Warm source-derived palette; the renderer applies condition tint and one lower-half wall shade band.",
+  "palette": "Legacy source crops plus a neutral quiet-stone repeat and white patch for the three cel-shaded family palettes; basal wall band is authored in geometry.",
   "atlas": {
     "size": [
       512,
@@ -370,11 +370,32 @@
         "contrast": 0.6,
         "skyLift": 0.07
       }
+    },
+    {
+      "slot": 13,
+      "name": "quiet-stone",
+      "source": "authored neutral pixel marks",
+      "normalizedSize": [
+        32,
+        32
+      ],
+      "atlasContentRect": [
+        136,
+        392,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
     }
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "6050c66767128594527f0a7ad269e16edf1eee11c4aa80bc648ff475da7b1c36",
+      "sha256": "b9b5fef040103b0731d4363dced741631f174db29e69e00f183cda327246f6a4",
       "size": [
         512,
         512
