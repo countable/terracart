@@ -165,8 +165,8 @@
     ]
   ],
   "recipes": {
-    "md": "approved compacted gravel causeway, G07 plus 18% G08 grit; weathered holes use seed71309",
-    "lgWeathered": "approved turquoise dimensional scar Hell crust",
-    "lgRestored": "approved ancient dimensional conduit mineral bed and native rune silhouette"
+    "md": "neutral low-contrast mineral bedding, G07 plus 18% G08 grit; road-aligned ancient pavers are geometry; weathered holes use seed71309; no vegetation",
+    "lgWeathered": "fine broken slate plates over turquoise dimensional scar Hell crust",
+    "lgRestored": "ancient dimensional conduit mineral bed with fine joints, paired channels and small native rune silhouette"
   }
 }

@@ -515,6 +515,269 @@
           ]
         }
       ]
+    },
+    {
+      "id": "md-bend",
+      "seams": false,
+      "cameraCheck": true,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              -2
+            ],
+            [
+              -2,
+              -2
+            ],
+            [
+              1,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restoreRanges": [
+            [
+              0.45,
+              0.8
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-acute",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              2
+            ],
+            [
+              2,
+              2
+            ],
+            [
+              -1,
+              -1
+            ],
+            [
+              12,
+              -3
+            ]
+          ],
+          "restoreRanges": [
+            [
+              0.35,
+              0.8
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-junction",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restored": true
+        },
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "restored": true
+        }
+      ]
+    },
+    {
+      "id": "lg-junction",
+      "seams": false,
+      "roads": [
+        {
+          "name": "Dimensional Rift",
+          "class": "primary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restored": true
+        },
+        {
+          "name": "Dimensional Rift",
+          "class": "primary",
+          "variant": null,
+          "points": [
+            [
+              0,
+              -12
+            ],
+            [
+              0,
+              0
+            ]
+          ],
+          "restored": true
+        }
+      ]
+    },
+    {
+      "id": "md-ground-park",
+      "seams": false,
+      "terrain": "PARK",
+      "isolateTerrain": true,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restoreRanges": [
+            [
+              0.5,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-ground-sand",
+      "seams": false,
+      "terrain": "SAND",
+      "isolateTerrain": true,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restoreRanges": [
+            [
+              0.5,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-ground-rock",
+      "seams": false,
+      "terrain": "ROCK",
+      "isolateTerrain": true,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restoreRanges": [
+            [
+              0.5,
+              1
+            ]
+          ]
+        }
+      ]
+    },
+    {
+      "id": "md-ground-farmland",
+      "seams": false,
+      "terrain": "FARMLAND",
+      "isolateTerrain": true,
+      "roads": [
+        {
+          "name": "Old Trade Road",
+          "class": "secondary",
+          "variant": null,
+          "points": [
+            [
+              -12,
+              0
+            ],
+            [
+              12,
+              0
+            ]
+          ],
+          "restoreRanges": [
+            [
+              0.5,
+              1
+            ]
+          ]
+        }
+      ]
     }
   ]
 }
