@@ -6,7 +6,7 @@
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
-    "test": "node test.js && node geometry.test.js"
+    "test": "node test.js && node geometry.test.js && node --test weather.test.js"
   },
   "dependencies": {
     "sharp": "^0.35.5",

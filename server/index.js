@@ -360,7 +360,9 @@ function createRelay(server) {
 // browser tab (or a deploy check) can tell the service is up without a socket.
 function createServer(options = {}) {
   const { createGeometryService, parseTile } = require('./geometry');
+  const { createWeatherService, parsePoint } = require('./weather');
   const geometry = options.geometry || createGeometryService(options.geometryOptions);
+  const weather = options.weather || createWeatherService(options.weatherOptions);
   const server = http.createServer(async (req, res) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Content-Type', 'application/json');
@@ -377,6 +379,22 @@ function createServer(options = {}) {
         res.statusCode = error.status || 503;
         res.setHeader('Cache-Control', 'no-store');
         res.end(JSON.stringify({ error: error.status ? error.message : 'Geometry service unavailable' }));
+      }
+      return;
+    }
+    if (req.url === '/weather' || req.url.startsWith('/weather?')) {
+      res.setHeader('Access-Control-Allow-Methods', 'GET, OPTIONS');
+      if (req.method === 'OPTIONS') { res.writeHead(204); res.end(); return; }
+      if (req.method !== 'GET') { res.writeHead(405); res.end(JSON.stringify({ error: 'GET required' })); return; }
+      try {
+        const point = parsePoint(new URL(req.url, 'http://localhost'));
+        const value = await weather.get(point);
+        res.setHeader('Cache-Control', 'public, max-age=300');
+        res.end(JSON.stringify(value));
+      } catch (error) {
+        res.statusCode = error.status || 503;
+        res.setHeader('Cache-Control', 'no-store');
+        res.end(JSON.stringify({ error: error.status ? error.message : 'Weather service unavailable' }));
       }
       return;
     }
