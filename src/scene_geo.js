@@ -822,7 +822,7 @@ class SceneGeo {
     return true;
   }
 
-  async _loadTileEntry(tx, ty, bytesPromise) {
+  async _loadTileEntry(tx, ty, bytesPromise, opts = null) {
     const kick = this._bootTileKick;
     if (kick && kick.tx === tx && kick.ty === ty && kick.depth === (this.depth || 0)) {
       // preload() started this exact centre before Phaser fetched its assets.
@@ -839,7 +839,8 @@ class SceneGeo {
       // entry before create() reaches it. Read that replacement through the
       // normal cache path rather than spawning the detached old entry.
     }
-    return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise });
+    return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise,
+      bootPriority: !!opts?.bootPriority });
   }
 
   _warmGeometryAround() {
@@ -920,7 +921,9 @@ class SceneGeo {
       const [tx, ty] = k.split('/').map(Number);
       let entry = null;
       try {
-        entry = await this._loadTileEntry(tx, ty, bytesPromise);
+        entry = await this._loadTileEntry(tx, ty, bytesPromise, {
+          bootPriority: k === centreKey && !this._bootOverlayGone,
+        });
         if (entry.status === 'loading') await entry.promise;
         // A NEIGHBOUR's surface spawn pass runs SLICED (_spawnInTileSliced):
         // 20-70 ms of it used to ride this tile's build unbroken. The centre

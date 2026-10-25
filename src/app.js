@@ -1947,7 +1947,7 @@ class MapScene extends Phaser.Scene {
     // its normalized save before any spawn pass, so the early build and the
     // live scene always point at the same per-depth cache.
     WorldGen.setDepth(depth);
-    const promise = WorldGen.loadTile(tx, ty, START_LAT);
+    const promise = WorldGen.loadTile(tx, ty, START_LAT, { bootPriority: true });
     this._bootTileKick = { tx, ty, depth, promise };
     // Surface loadTile returns its in-flight entry immediately; observe that
     // entry's eventual failure now so a fast network error cannot become an

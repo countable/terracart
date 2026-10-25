@@ -58,4 +58,29 @@
       }
     }
   });
+
+  test('generated tile preparation: boot burst and sliced scheduling produce the same base', async () => {
+    const original = { cache: globalThis.GeneratedTileCache, version: globalThis.__shellVersion,
+      raf: globalThis.requestAnimationFrame };
+    globalThis.GeneratedTileCache = undefined;
+    globalThis.__shellVersion = null;
+    globalThis.requestAnimationFrame = callback => callback();
+    const bytes = new Uint8Array([8, 0]);
+    try {
+      const sliced = (await WorldGen.prepareTile(bytes, 8, 0, 0, 56)).result;
+      const burst = (await WorldGen.prepareTile(bytes, 8, 0, 0, 56, { bootPriority: true })).result;
+      for (const name of ['grid', 'variantBaseGrid', 'mappedLand', 'owners', 'roadClass',
+        'roadMask', 'quietMask', 'spawnWhy', 'gameplayTiers', 'gameplayReasons']) {
+        assert.eq(Array.from(burst[name]).join(','), Array.from(sliced[name]).join(','), `${name} is byte-identical`);
+      }
+      assert.eq(JSON.stringify(burst.objects), JSON.stringify(sliced.objects), 'object records keep their order and identity');
+      assert.eq(JSON.stringify(burst.wildplants), JSON.stringify(sliced.wildplants), 'wild plants keep their order and identity');
+      assert.eq(JSON.stringify(burst.buildingShapes), JSON.stringify(sliced.buildingShapes), 'building geometry stays identical');
+    } finally {
+      for (const [name, value] of Object.entries({ GeneratedTileCache: original.cache,
+        __shellVersion: original.version, requestAnimationFrame: original.raf })) {
+        if (value === undefined) delete globalThis[name]; else globalThis[name] = value;
+      }
+    }
+  });
 })();

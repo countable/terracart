@@ -1142,14 +1142,11 @@ function makePotOfGoldTexture(scene) {
   });
 }
 
-// === Traps — TEMPORARY procedural art ==================================
-// Two single-frame canvas textures, both exactly one cell (TRAP_PX) square so
-// the mark reads as belonging to ONE cell (CLAUDE.md: interactables must be
-// clearly in one cell) — the art is inset from every edge, and the renderer
-// centres it on the cell, so nothing spills onto a neighbour.
-//
-// These are STAND-INS for hand-drawn sprites: a trap has to say two opposite
-// things with one silhouette.
+// === Traps ===============================================================
+// Each texture is one cell (TRAP_PX) square, so the renderer centres a trap
+// on its own cell without spilling into a neighbour. The hidden mark stays a
+// procedural ground scuff; the sprung state scales one shipped Rogue-style
+// steel-snare frame once at scene setup.
 //
 //   trap_hidden — a scuff of disturbed ground: a broken ring of small round
 //     stones (a shadowed underside, a paler lit top), a couple of twig slivers
@@ -1160,10 +1157,9 @@ function makePotOfGoldTexture(scene) {
 //     ceiling the sprung trap's opaque ink clears. Under the lightmap an unlit
 //     cell hides it completely, which is why caves are the dangerous half.
 //
-//   trap_open — a sprung iron jaw: dark pit, rust-brown ring, two arcs of
-//     triangular teeth meeting across it, lit from the top-left. Loud on
-//     purpose: once it has bitten, standing on it is an ongoing cost, so the
-//     art's job is "get off, and don't walk back onto it".
+//   trap_open — a sprung steel-toothed snare. It stays high contrast because
+//     standing on a sprung trap is an ongoing cost and the player needs to
+//     move away rather than mistake it for ordinary ground scatter.
 const TRAP_PX = 32;                 // one cell — CELL_PX in app.js
 
 function makeTrapTextures(scene) {
@@ -1207,86 +1203,25 @@ function makeHiddenTrapTexture(scene) {
 }
 
 function makeSprungTrapTexture(scene) {
-  const S = TRAP_PX, c = S / 2;
-  bakeCanvas(scene, 'trap_open', S, S, (ctx) => {
-  ctx.clearRect(0, 0, S, S);
-
-  // The whole jaw is drawn at SPRUNG_K of the cell and EVERY number below is
-  // scaled by it, so resizing is one constant. Edge to edge it crowded the
-  // ground marks and neighbouring sprites; at 0.85 it still shouts.
-  const SPRUNG_K = 0.85;
-  const k = SPRUNG_K;
-  const RX = (c - 3) * k, RY = (c - 3) * 0.84 * k;   // squashed — seen from above
-  const IRON = '#7b6553', IRON_HI = '#ac967f', IRON_LO = '#332a22';
-  const RUST = '#8a4a28';
-
-  // The plate and the dark hole inside it, which the teeth bite into (without
-  // it the whole thing reads as a disc).
-  blob(ctx, c, c, RX, RY, 'rgba(38,27,18,0.9)');
-  blob(ctx, c, c, RX - 4 * k, RY - 2 * k, '#0b0908');
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = RUST;
-  ctx.beginPath(); ctx.ellipse(c, c, RX - 0.5 * k, RY - 0.5 * k, 0, 0, Math.PI * 2); ctx.stroke();
-
-  // TWO JAWS, not a ring: each a thick arc over roughly the top (or bottom)
-  // two-thirds of the plate, with a GAP at each side for the hinge and spring.
-  // The gaps and the dark slit between tooth tips make a closed mouth rather
-  // than a wheel.
-  const A0 = 0.14, A1 = 0.86;                 // jaw arc, in units of π
-  const jaw = (flip) => {
-    const s = flip ? Math.PI * (1 + A0) : Math.PI * A0;
-    const e = flip ? Math.PI * (1 + A1) : Math.PI * A1;
-    ctx.lineWidth = 3 * k;
-    ctx.strokeStyle = IRON;
-    ctx.beginPath(); ctx.ellipse(c, c, RX - 2 * k, RY - 2 * k, 0, s, e); ctx.stroke();
-    // Lit edge on the OUTSIDE of each jaw, so the bands read as separate pieces of metal.
-    ctx.lineWidth = 1;
-    ctx.strokeStyle = flip ? IRON_HI : IRON_LO;
-    ctx.beginPath(); ctx.ellipse(c, c, RX - 0.8 * k, RY - 0.8 * k, 0, s, e); ctx.stroke();
-  };
-  jaw(true);      // upper
-  jaw(false);     // lower
-
-  // The teeth hang STRAIGHT DOWN off the upper jaw and straight up off the
-  // lower, never along the radius, over the middle of each arc only, so the
-  // rows meet in a narrow horizontal zigzag: the mouth of a CLOSED trap.
-  // Radial teeth read as a WHEEL at every length (near the sides they point
-  // sideways, and no jaw has sideways teeth).
-  const TOOTH = 4.6 * k, HALF_W = 1.5 * k;
-  const B0 = 0.20, B1 = 0.80;                 // tooth span, in units of π
-  const tooth = (ang, down) => {
-    const bx = c + Math.cos(ang) * (RX - 3 * k);
-    const by = c + Math.sin(ang) * (RY - 3 * k);
-    ctx.fillStyle = IRON_HI;
-    ctx.beginPath();
-    ctx.moveTo(bx - HALF_W, by);
-    ctx.lineTo(bx + HALF_W, by);
-    ctx.lineTo(bx, by + (down ? TOOTH : -TOOTH));
-    ctx.closePath();
-    ctx.fill();
-  };
-  const TEETH = 5;
-  for (let i = 0; i < TEETH; i++) {
-    const t = (i + 0.5) / TEETH;
-    tooth(Math.PI * (1 + B0 + (B1 - B0) * t), true);    // upper jaw, biting down
-    tooth(Math.PI * (B0 + (B1 - B0) * t), false);       // lower jaw, biting up
-  }
-
-  // Hinge and spring, one each side, filling the jaws' gaps. They break the
-  // circle (a plain disc reads as a treasure pad here; see makeRoundPadTexture).
-  // Anchored to the PLATE's rim (2 units outside the ellipse, running inward),
-  // so they bridge the gap at any SPRUNG_K.
-  const HW = 5 * k, HH = 4 * k, LIP = 1 * k;
-  const hxL = c - RX - 2 * k, hxR = c + RX + 2 * k - HW, hy = c - HH / 2;
-  ctx.fillStyle = IRON;
-  ctx.fillRect(hxL, hy, HW, HH);
-  ctx.fillRect(hxR, hy, HW, HH);
-  ctx.fillStyle = RUST;
-  ctx.fillRect(hxL, hy, HW, LIP);
-  ctx.fillRect(hxR, hy, HW, LIP);
-  ctx.fillStyle = IRON_LO;
-  ctx.fillRect(hxL, hy + HH - LIP, HW, LIP);
-  ctx.fillRect(hxR, hy + HH - LIP, HW, LIP);
+  // The source frame is smaller than a map cell. Bake it once at the shared
+  // cell size so trapPool keeps the same centred, one-cell contract as the
+  // hidden scuff; nearest-neighbour scaling preserves Rogue Adventure pixels.
+  const source = scene.textures.get?.('snare_open')?.getSourceImage?.();
+  bakeCanvas(scene, 'trap_open', TRAP_PX, TRAP_PX, (ctx) => {
+    ctx.clearRect(0, 0, TRAP_PX, TRAP_PX);
+    if (source) {
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(source, 0, 0, 24, 24, 0, 0, TRAP_PX, TRAP_PX);
+      return;
+    }
+    // The node recorder supplies only createCanvas. Its opaque silhouette keeps
+    // the trap-art contract measurable while production paints the shipped frame.
+    ctx.fillStyle = '#534d45';
+    ctx.fillRect(5, 11, 22, 10);
+    ctx.fillRect(9, 7, 14, 18);
+    ctx.fillRect(2, 14, 6, 4);
+    ctx.fillRect(24, 14, 6, 4);
+    ctx.fillRect(13, 4, 6, 24);
   });
 }
 

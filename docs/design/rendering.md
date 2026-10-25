@@ -883,7 +883,12 @@ the surrounding grove’s shrub scale.
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages
   (`building_overlay.js` wall atlas) and apply a colour treatment to the
-  colours (`unclaimedMaterialColor`), not to finished pixels. The road overlay
+  colours (`unclaimedMaterialColor`), not to finished pixels. When retained
+  building paint still covers the padded view, `BuildingOverlay` plans the
+  next geometry on one update and paints that saved plan on the next. First
+  paint and teleports remain synchronous because no retained picture can cover
+  them. A changed frame key cancels an unpainted plan, so claims and tile
+  replacements cannot land stale geometry. The road overlay
   retains its visible base/restored pair while it paints a hidden pair in 2 ms
   slices, then swaps both atomically; each pass reuses its full-size scratch
   layers between rebuilds. Measured: one read-back per building per crossing

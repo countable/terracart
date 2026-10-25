@@ -180,10 +180,26 @@
 
   test('slice budget: the boot does NOT adapt', () => {
     // While the overlay is up nobody can tap anything and there is no frame
-    // rate to protect — a controller there would only make the boot longer.
+    // rate to protect - a controller there would only make the boot longer.
     W.setSliceBudgetMs(24, false);
     assert.eq(sbFeed(500, 50), 24, 'held flat through frames that would rout the live dial');
     sbReset();
+  });
+
+  test('slice budget: the first centre tile can burst without paint waits', async () => {
+    const original = globalThis.requestAnimationFrame;
+    let paints = 0;
+    globalThis.requestAnimationFrame = callback => { paints++; callback(); };
+    const stats = {};
+    function* work() { for (let i = 0; i < 5; i++) yield `step ${i}`; return 7; }
+    try {
+      assert.eq(await W.runStepsSliced(() => work(), { stats, burst: true }), 7);
+      assert.eq(paints, 1, 'the heavy-phase gate paints once, then generation adds no slice waits');
+      assert.eq(stats.slices, 1, 'the burst is one uninterrupted generation slice');
+    } finally {
+      if (original === undefined) delete globalThis.requestAnimationFrame;
+      else globalThis.requestAnimationFrame = original;
+    }
   });
 
   test('slice budget: junk measurements are ignored', () => {
