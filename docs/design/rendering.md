@@ -984,24 +984,27 @@ the reach rim within the existing player-light radius.
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
-  provide partial cover, with a non-stacking 25% mid-grey fog treatment. Small
+  provide partial cover, indicated by non-stacking dark diagonal hatching. Small
   rocks and the smallest tree saplings provide no cover. The facing blocker
   stays visible. Any cover (`Visibility.hidden`) removes the actors behind
   it — creatures, peers, coins, shots — with their labels, shadows and
   target affordances. Scenery (objects, plants, crops, traps, hazards) and
   the ground stay drawn and tappable in the shadow so the player keeps their
   bearings; full cover removes scenery as well. Both cover types use the same
-  grey fog; gameplay sight and hiding are independent of its softened boundary.
+  hatching; gameplay sight and hiding are independent of its visual boundary.
   At zero energy, cover stops hiding actors/scenery and the obstruction mask
   clears; both return on revival. Physical cover for enemy sight is unchanged.
-  `Lighting.coverFrame` caches a world-aligned mask with 0.7-cell radial pullback.
-  A seven-sample separable average and smooth threshold round its low-resolution
-  edges before smooth upscaling. Retained CPU buffers avoid pixel readback,
-  contour tracing and per-object exclusions. There is no desaturation, scenery
-  blur, contrast adjustment or extra edge-feather pass. A cached NORMAL-blended
-  viewport texture sits above the multiply lightmap, below effects and labels;
-  grey is RGB (128,128,128), with at most 25% opacity. Mask changes refresh only
-  this texture, not the lighting texture. Cover queries always
+  `Lighting.coverFrame` caches a hard, world-aligned half-cell mask with a
+  one-cell radial pullback: the nearest full cell of each hidden band stays clear.
+  Both inward half-cell samples must be covered. No blur, feather, noise,
+  interpolated sampling or smooth upscaling is used. The cached overlay draws
+  single-direction dark 45° lines, 2 logical pixels wide and 12 pixels apart,
+  RGB (24,29,26) at 32% opacity. Their phase stays fixed in world coordinates.
+  `Render.protectCoverScenery` subtracts visible sprite silhouettes without
+  adding cover back into the pulled-back band. Retained buffers avoid pixel
+  readback. The NORMAL-blended viewport texture uses nearest filtering above
+  the multiply lightmap, below effects and labels; mask or silhouette changes
+  refresh only this texture, not lighting. Cover queries always
   originate at the player's body, including during camera peeks; the mask alone
   traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
   inside its own cell, so walking and GPS glide repaint it per step rather than
