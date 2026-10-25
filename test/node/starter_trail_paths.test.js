@@ -62,6 +62,31 @@
       for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
     }
   });
+  test('chest trails: the starter relic guide follows its authored Home route until opened', () => {
+    const prior = [...WorldGen.tileCache];
+    WorldGen.tileCache.clear();
+    const N = 64, m = 7, at = (x, y) => ({ x: (x + 0.5) * m, y: (y + 0.5) * m });
+    const chest = { id: 'chest_start_relic_0_0', kind: 'chest', fixedLoot: { kind: 'relic', slot: 'axe', tier: 1 }, ...at(36, 32) };
+    const points = [at(32, 32), at(33, 32), at(34, 32), at(35, 32), at(36, 32)];
+    const entry = { grid: new Uint8Array(N * N).fill(WorldGen.T.GRASS), cellsPerEdge: N,
+      objects: [chest], _starterChestTrail: { id: chest.id, points } };
+    WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+    const scene = { depth: 0, cellM: m, cellsPerTile: N, tileEdgeM: N * m, mPerPx: N * m / WorldGen.TILE_PX,
+      originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, playerM: at(32, 32), save: { opened: [] } };
+    try {
+      const paths = Starter.trailPaths(scene, 0);
+      assert.eq(paths.length, 1, 'fixed starter loot still receives its guide');
+      assert.eq(paths[0].id, chest.id);
+      assert.eq(paths[0].points[0].x, points[0].x, 'begins at the doorstep');
+      assert.eq(paths[0].points.at(-1).x, chest.x);
+      scene.save.opened.push(chest.id);
+      assert.eq(Starter.trailPaths(scene, 1).length, 0, 'opened chest removes its guide');
+    } finally {
+      WorldGen.tileCache.clear();
+      for (const [k, e] of prior) WorldGen.tileCache.set(k, e);
+    }
+  });
+
   test('chest trails: X marks get a trail and show from afar; found ones lose it', () => {
     const prior = [...WorldGen.tileCache];
     WorldGen.tileCache.clear();

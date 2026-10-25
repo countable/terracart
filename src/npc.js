@@ -231,6 +231,7 @@ const NPC = (() => {
     if (Combat.isParalyzed(c)) { Combat.cancelCreatureAction(c); return; }
     if (isDormant(c)) { c._moving = false; return; }
     standUp(c);
+    if (typeof NPCBenefits !== 'undefined' && NPCBenefits.tick(scene, c, now, dt)) return;
     // Integrate only active time: returning to a neighbour never jumps them
     // across their old path. Small steps cannot skip a road cell or building.
     dt = Math.min(0.1, Math.max(0, dt));
@@ -240,8 +241,11 @@ const NPC = (() => {
     // (creature_ai.js creatureStepRefused), asked on every swept sample.
     const allow = (x, y) => {
       const dest = scene.cellAt(x, y);
-      return dest.loaded && !dest.underRoad && !Combat.faunaBlocksCell(dest.type) && !WorldGen.isRoadTerrain(dest.type)
-        && Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) <= scene.cellM * WANDER_CELLS;
+      if (!dest.loaded || dest.underRoad || Combat.faunaBlocksCell(dest.type) || WorldGen.isRoadTerrain(dest.type)
+        || Math.hypot(x - (c.homeX ?? c.x), y - (c.homeY ?? c.y)) > scene.cellM * WANDER_CELLS) return false;
+      const entry = dest.tx != null && WorldGen.tileCacheFor(0).get(WorldGen.tileKey(dest.tx, dest.ty));
+      return !entry?.grid || WorldGen.isSpawnCell(entry.grid, entry.cellsPerEdge, entry.cellsPerEdge,
+        dest.ix, dest.iy, WorldGen.spawnOptsOf(entry), 'npc');
     };
     if (now < (c._npcRestUntil || 0)) {
       c._moving = characterMove(scene, c, c.x, c.y, now, { pace: WALK_MPS * dt * Combat.paceMul(c), allow });
@@ -296,7 +300,7 @@ const NPC = (() => {
   //   THE STRANGER is Ayo in human form (story bible §2): white hair, no
   // name given — the lane calls her the white-haired woman — in town from
   // eleven memories. She is `transient`: passing through, so no talk ever
-  // moves her into a restored house (meetHomeNeighbour).
+  // assigns her a restored house.
   const CHILD_SCALE = 0.77;
   const STORY_ROLES = {
     warden: { label: 'Warden', name: 'Bryn', art: 'npc_bryn', minMemories: 3 },
@@ -322,24 +326,13 @@ const NPC = (() => {
     return memoriesOf(save) >= (STORY_ROLES[role]?.minMemories ?? 0);
   }
 
-  // THE PEOPLE COME BACK AS THE PAST DOES (Sep 2026, owner's call). A tile's
-  // residents are still drawn in full by spawn() — the same people on the
-  // same seats for every player — but at the start of a save none of them
-  // is about: Tilly by the trailer is the one neighbour on screen. They
-  // RETURN as memories are recovered, RETURN_PER_MEMORY of the tile's draw
-  // order per memory (returnedCount), and a returning resident does not go
-  // back to its old seat: it lingers where there is something to come back
-  // to — just outside Home's ring until a roof is found for them
-  // (homeWaitBand) or within LINGER_CELLS of a RESTORED house (the restoration
-  // ledger, save.restoredHouses). On a tile with neither, nobody returns.
-  // A named zone's KEEPER never left (stayers: the first keeper the draw
-  // seats on each zone kind — the one seatKeepers guarantees — keeps its
-  // seat and its story: "the fire took the roofs, not the stone"); the
-  // wizard tower's shrine neighbours arrive with its restoration (shrineResidents).
-  // Arrivals are seated only OFF SCREEN
-  // (tickArrivals), so a neighbour is found waiting, never seen to
-  // appear on it. The seat is drawn on the resident's own stream
-  // (`<id>:return`), so a given ledger seats a given person on one cell.
+  // Memories bring two ordinary neighbours back per tile. Waiting people
+  // have fixed, evenly spread wander centres in the starting area, preferring
+  // Home over any restored roof. Away from Home they wait near restoration;
+  // that waiting anchor never owns a house. Keepers stay in their named zones.
+  // A successful delivery opens one restored plain house after a short delay;
+  // only a live, unhoused neighbour may move in. Assigned identities and safe
+  // entrance-side wander centres survive unloaded origins and tile rebuilds.
   const RETURN_PER_MEMORY = 2;
   const LINGER_CELLS = WANDER_CELLS;
   const ARRIVALS_MS = 2000;
@@ -367,8 +360,7 @@ const NPC = (() => {
     anchors.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0));
     return anchors;
   }
-  // WAITING FOR A ROOF: a neighbour anchored on Home (no restored house of
-  // its own yet — meetHomeNeighbour / houseNeighbours assign one) waits
+  // WAITING FOR A ROOF: an unhoused neighbour waits
   // OUTSIDE Home's ring, pinned far enough off that its stroll (WANDER_CELLS)
   // never carries it onto the doorstep, and within LINGER_CELLS beyond that.
   // The band is read off scene.inHomeRing, the ring's one owner: a seat
@@ -388,14 +380,16 @@ const NPC = (() => {
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const rng = WorldGen.makeRng(fnv1a(`${r.id}:return`));
-    const a = anchors[Math.floor(rng() * anchors.length)];
+    const a = anchors.find(a => a.home) || anchors[Math.floor(rng() * anchors.length)];
     const ax = Math.floor((a.x - tx0) / cellM), ay = Math.floor((a.y - ty0) / cellM);
     const ring = a.home && scene.inHomeRing ? homeWaitBand(scene, a, cellM) : null;
     const reach = ring ? ring.reach : LINGER_CELLS;
+    const reserved = new Set(Object.entries(scene.save.npcVillagePins || {}).filter(([id]) => id !== r.id)
+      .map(([, p]) => `${Math.floor((p.x - tx0) / cellM)},${Math.floor((p.y - ty0) / cellM)}`));
     const cells = [];
     for (let cy = ay - reach; cy <= ay + reach; cy++) {
       for (let cx = ax - reach; cx <= ax + reach; cx++) {
-        if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === ax && cy === ay) || occupied.has(cx + ',' + cy)) continue;
+        if (cx < 0 || cy < 0 || cx >= N || cy >= N || (cx === ax && cy === ay) || occupied.has(cx + ',' + cy) || reserved.has(cx + ',' + cy)) continue;
         if (Combat.faunaBlocksCell(entry.grid[cy * N + cx])) continue;
         if (!WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'npc')) continue;
         const x = tx0 + (cx + 0.5) * cellM, y = ty0 + (cy + 0.5) * cellM;
@@ -403,7 +397,38 @@ const NPC = (() => {
         cells.push({ x, y, cx, cy, anchorKey: a.key });
       }
     }
+    if (a.home) return spreadSeat(cells, entry.creatures, cellM, a);
     return cells.length ? cells[Math.floor(rng() * cells.length)] : null;
+  }
+  // Maximise the distance between fixed wander centres. Existing pins never
+  // move as new neighbours arrive, and the final tie break is world position.
+  function spreadSeat(cells, people = [], cellM, anchor) {
+    const pins = people.filter(c => c.kind === 'npc' && c._homeAnchor === '')
+      .map(c => ({ x: c.homeX ?? c.x, y: c.homeY ?? c.y }));
+    const score = p => pins.length ? Math.min(...pins.map(c => Math.hypot(c.x - p.x, c.y - p.y)))
+      : -Math.abs(Math.hypot(p.x - anchor.x, p.y - anchor.y) - cellM * WANDER_CELLS);
+    cells.sort((a, b) => score(b) - score(a) || a.y - b.y || a.x - b.x);
+    return cells[0] || null;
+  }
+  function startingSeat(scene, entry, tx, ty, anchor, minCells, maxCells, opts, id) {
+    const f = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM), cells = [];
+    const { ix: ax, iy: ay } = f.cellOf(anchor.x, anchor.y);
+    const reserved = new Set(Object.entries(scene.save.npcVillagePins || {}).filter(([otherId]) => otherId !== id)
+      .map(([, p]) => { const c = f.cellOf(p.x, p.y); return `${c.ix},${c.iy}`; }));
+    for (let iy = ay - maxCells; iy <= ay + maxCells; iy++) for (let ix = ax - maxCells; ix <= ax + maxCells; ix++) {
+      const d = Math.max(Math.abs(ix - ax), Math.abs(iy - ay));
+      if (d < minCells || !f.inTile(ix, iy) || reserved.has(`${ix},${iy}`) || Combat.faunaBlocksCell(entry.grid[iy * f.N + ix])
+        || !WorldGen.isSpawnCell(entry.grid, f.N, f.N, ix, iy, opts, 'npc')) continue;
+      cells.push({ ...f.centre(ix, iy), ix, iy });
+    }
+    const pin = id && scene.save.npcVillagePins?.[id];
+    return (pin && cells.find(c => c.x === pin.x && c.y === pin.y)) || spreadSeat(cells, entry.creatures, f.cellM, anchor);
+  }
+  function rememberPin(scene, c) {
+    const pins = scene.save.npcVillagePins ||= {}, old = pins[c.id];
+    if (old?.x === c.homeX && old?.y === c.homeY) return false;
+    pins[c.id] = { x: c.homeX, y: c.homeY };
+    return true;
   }
   // Seat the residents of `entry` that are due and not yet about. Idempotent
   // by id; returns the newcomers. `opts.offscreen(x, y)` may refuse a seat the
@@ -411,20 +436,31 @@ const NPC = (() => {
   // no such worry and passes none).
   function arrivals(scene, entry, tx, ty, residents = entry?._residents, opts = {}) {
     if (!entry || !entry.grid || !entry._spawned || !Array.isArray(residents)) return [];
+    const due = returnedCount(scene.save), stayed = stayers(residents);
+    if (!residents.some((r, i) => (i < due || stayed.has(r.id)) && !scene.save.npcHomes?.[r.id]?.houseId)) return [];
     const N = entry.cellsPerEdge, cellM = scene.tileEdgeM / N;
     const tx0 = tx * scene.tileEdgeM, ty0 = ty * scene.tileEdgeM;
     const people = entry.creatures || (entry.creatures = []);
     const present = new Set(people.map(c => c.id));
     const cellKey = (x, y) => Math.floor((x - tx0) / cellM) + ',' + Math.floor((y - ty0) / cellM);
-    const occupied = new Set();
-    for (const o of (entry.objects || [])) occupied.add(cellKey(o.x, o.y));
-    for (const w of (entry.wildplants || [])) occupied.add(cellKey(w.x, w.y));
-    for (const c of people) occupied.add(cellKey(c.x, c.y));
-    const due = returnedCount(scene.save), stayed = stayers(residents);
+    // Most polls have no missing resident, or no restored anchor to return to.
+    // Build occupancy only when a returning neighbour actually needs a seat.
+    // A keeper added earlier is already in people when this first runs.
+    let occupied = null;
+    const occupancy = () => {
+      if (!occupied) {
+        occupied = new Set();
+        for (const o of (entry.objects || [])) occupied.add(cellKey(o.x, o.y));
+        for (const w of (entry.wildplants || [])) occupied.add(cellKey(w.x, w.y));
+        for (const c of people) occupied.add(cellKey(c.x, c.y));
+      }
+      return occupied;
+    };
     const spawnOpts = entry._spawnOpts || { roadMask: entry.roadMask, spawnWhy: entry.spawnWhy, gameplayTiers: entry.gameplayTiers };
     const housed = new Set(Object.values(scene.save.npcHomes || {}).map(h => h.houseId).filter(Boolean));
     let anchors = null;
     const added = [];
+    let pinned = false;
     residents.forEach((r, i) => {
       if (present.has(r.id) || scene.save.npcHomes?.[r.id]?.houseId) return;
       let seat;
@@ -433,94 +469,191 @@ const NPC = (() => {
         if (i >= due) return;
         if (!anchors) anchors = anchorsIn(scene, entry, tx, ty).filter(a => a.home || !housed.has(a.key));
         if (!anchors.length) return;
-        seat = lingerSeat(scene, entry, tx, ty, r, anchors, occupied, spawnOpts);
+        const pin = scene.save.npcVillagePins?.[r.id];
+        if (pin) {
+          const cx = Math.floor((pin.x - tx0) / cellM), cy = Math.floor((pin.y - ty0) / cellM);
+          if (cx >= 0 && cy >= 0 && cx < N && cy < N && !occupancy().has(cx + ',' + cy)
+            && !Combat.faunaBlocksCell(entry.grid[cy * N + cx])
+            && WorldGen.isSpawnCell(entry.grid, N, N, cx, cy, spawnOpts, 'npc')) seat = pin;
+        }
+        seat ||= lingerSeat(scene, entry, tx, ty, r, anchors, occupancy(), spawnOpts);
         if (!seat) return;
       }
       if (opts.offscreen && !opts.offscreen(seat.x, seat.y)) return;
-      const c = { ...r, x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y, _homeAnchor: seat.anchorKey };
+      const c = { ...r, x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y, _homeAnchor: stayed.has(r.id) ? undefined : '' };
       people.push(c);
       present.add(c.id);
-      occupied.add(cellKey(c.x, c.y));
+      occupied?.add(cellKey(c.x, c.y));
       added.push(c);
+      if (!stayed.has(r.id)) pinned = rememberPin(scene, c) || pinned;
     });
+    if (pinned) Save.persist(scene.save);
     return added;
   }
-  // A completed conversation makes a Home-anchored neighbour eligible for a
-  // roof. Pending records survive until a free restored house is loaded; an
-  // assigned record owns that house even while its tile is unloaded. The move
-  // itself waits until both the speaker and the new seat are off screen (the
-  // arrivals rule), so nobody vanishes from in front of the player mid-talk.
+  // A conversation makes an arrived neighbour eligible; only a delivery opens
+  // a roof. Existing assignments remain valid when older saves lack this ledger.
   function meetHomeNeighbour(scene, c) {
-    if ((scene.depth || 0) !== 0 || c?.kind !== 'npc' || c._homeAnchor !== '' || isDormant(c)
-      || STORY_ROLES[c.role]?.transient) return false;
-    const homes = scene.save.npcHomes ||= {};
-    if (!homes[c.id]) {
-      homes[c.id] = { role: c.role, culture: c.culture, zoneKind: c.zoneKind,
-        x: c.homeX ?? c.x, y: c.homeY ?? c.y };
-      Save.persist(scene.save);
-    }
-    houseNeighbours(scene, { offscreen: offscreenAt(scene) });
+    if (!c?.id || c.kind !== 'npc' || STORY_ROLES[c.role]?.transient || (scene.depth || 0) !== 0) return false;
+    const met = scene.save.npcMet ||= {};
+    if (met[c.id]) return false;
+    met[c.id] = true;
+    Save.persist(scene.save);
     return true;
   }
-
-  function houseNeighbours(scene, { offscreen } = {}) {
-    const homes = scene.save?.npcHomes;
-    if ((scene.depth || 0) !== 0 || !homes || !Object.keys(homes).length) return 0;
+  const HOME_ROLE_PRIORITY = ['wanderer', 'warden', 'witness', 'believer', 'archaeologist'];
+  function homePriority(c) {
+    const rank = HOME_ROLE_PRIORITY.indexOf(c.role);
+    return rank < 0 ? HOME_ROLE_PRIORITY.length : rank;
+  }
+  const MOVE_IN_DELAY_MS = 15000;
+  const MOVE_IN_VISIBLE_GRACE_MS = 15000;
+  function markDelivery(scene, house, now = Date.now()) {
+    if (!house?.id || (scene.depth || 0) !== 0) return false;
+    const due = scene.save.npcMoveInAfter ||= {};
+    if (!due[house.id]) { due[house.id] = now + MOVE_IN_DELAY_MS; Save.persist(scene.save); }
+    return true;
+  }
+  function residentOf(save, house) {
+    const id = typeof house === 'string' ? house : house?.id;
+    if (!id || save?.restoredHouses?.[id] !== 'plain' || !Delivery.isSatisfied(save, { id })) return null;
+    const found = Object.entries(save?.npcHomes || {}).find(([, row]) => row.houseId === id);
+    if (!found) return null;
+    const [npcId, record] = found;
+    return { ...(STORY_ROLES[record.role] ? storyNeighbour(npcId, record.role)
+      : identity(npcId, record.culture, record.role)), ...record, id: npcId, kind: 'npc' };
+  }
+  function houseResident(scene, house) {
+    const resident = residentOf(scene.save, house);
+    if (!resident) return null;
+    for (const entry of WorldGen.tileCacheFor(0).values()) {
+      const live = entry.creatures?.find(c => c.id === resident.id);
+      if (live) return restore(scene, live);
+    }
+    return restore(scene, { ...resident, x: resident.x, y: resident.y, homeX: resident.x, homeY: resident.y, _homeAnchor: resident.houseId });
+  }
+  // Source geometry is in tile-local metres. Ask the same door selector as
+  // the renderer at its native pixel scale, then return world metres.
+  function houseFront(scene, entry, tx, ty, house) {
+    const shape = entry.buildingShapes?.find(s => s.key === house.id);
+    if (!shape) return null;
+    const origin = { x: tx * scene.tileEdgeM, y: ty * scene.tileEdgeM };
+    if (shape.door) return { x: origin.x + shape.door.x, y: origin.y + shape.door.y };
+    if (typeof BuildingLowPoly === 'undefined' || typeof RoadOverlay === 'undefined' || !RoadOverlay.transportLines) return null;
+    const scale = (typeof CELL_PX === 'number' ? CELL_PX : 48) / (scene.tileEdgeM / entry.cellsPerEdge);
+    const points = [];
+    for (let i = 0; i < shape.ring.length; i += 2) points.push({ x: (origin.x + shape.ring[i]) * scale, y: (origin.y + shape.ring[i + 1]) * scale });
+    const streets = [];
+    const tiles = [...WorldGen.tileCacheFor(0)].map(([key, entry]) => { const [, tx, ty] = key.split('/').map(Number); return { entry, tx, ty }; });
+    for (const { line, mvtToM, originMx, originMy } of RoadOverlay.transportLines(tiles.filter(t => t.entry.layers))) {
+      for (let i = 1; i < line.length; i++) streets.push([line[i - 1], line[i]].map(p => ({ x: (originMx + p.x * mvtToM) * scale, y: (originMy + p.y * mvtToM) * scale })));
+    }
+    const door = BuildingLowPoly.streetDoor(points, streets);
+    return door ? { x: door.center.x / scale, y: door.center.y / scale } : null;
+  }
+  function houseNeighbours(scene, { offscreen, now = Date.now() } = {}) {
+    if ((scene.depth || 0) !== 0) return 0;
+    const homes = scene.save.npcHomes ||= {};
+    const due = scene.save.npcMoveInAfter ||= {};
+    const invalid = new Set(), playerHome = scene.homeWorldPos?.();
+    let moved = 0, dirty = false;
+    // Conversation-era claims were allowed before a delivery, even on shops.
+    // Release those claims before either spawner decides the owner is absent.
+    for (const [id, record] of Object.entries(homes)) {
+      if (!record.houseId || (record.houseId !== playerHome?.id
+        && scene.save.restoredHouses?.[record.houseId] === 'plain'
+        && Delivery.isSatisfied(scene.save, { id: record.houseId }))) continue;
+      delete record.houseId; delete record.houseX; delete record.houseY;
+      invalid.add(id); dirty = true;
+    }
+    const hasDeliveredHouse = Object.keys(scene.save.restoredHouses || {}).some(id =>
+      id !== playerHome?.id && scene.save.restoredHouses[id] === 'plain' && Delivery.isSatisfied(scene.save, { id }));
     const tiles = [], houses = new Map(), live = new Map();
     for (const [key, entry] of WorldGen.tileCacheFor(0)) {
       if (!entry?._spawned || !entry.grid) continue;
-      const [, tx, ty] = key.split('/').map(Number);
-      const tile = { entry, tx, ty };
+      const [, tx, ty] = key.split('/').map(Number), tile = { entry, tx, ty };
       tiles.push(tile);
-      for (const c of entry.creatures || []) if (homes[c.id]) live.set(c.id, { c, tile });
-      for (const a of anchorsIn(scene, entry, tx, ty)) if (!a.home && !houses.has(a.key)) houses.set(a.key, { ...a, tile });
+      for (const c of entry.creatures || []) if (c.kind === 'npc') {
+        if (invalid.has(c.id)) {
+          c._homeAnchor = '';
+          const pin = scene.save.npcVillagePins?.[c.id];
+          if (pin) {
+            const frame = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM), p = frame.cellOf(pin.x, pin.y);
+            if (frame.inTile(p.ix, p.iy) && WorldGen.isSpawnCell(entry.grid, frame.N, frame.N, p.ix, p.iy, WorldGen.spawnOptsOf(entry), 'npc'))
+              Object.assign(c, { x: pin.x, y: pin.y, homeX: pin.x, homeY: pin.y, _npcSteps: 0, _moving: false });
+          }
+        }
+        live.set(c.id, { c, tile });
+      }
+      for (const a of hasDeliveredHouse ? anchorsIn(scene, entry, tx, ty) : []) {
+        if (a.home || scene.save.restoredHouses?.[a.key] !== 'plain') continue;
+        const object = entry.objects.find(o => o.id === a.key);
+        if (!Delivery.isSatisfied(scene.save, object)) continue;
+        houses.set(a.key, { ...a, object, tile });
+      }
     }
     const claimed = new Set(Object.values(homes).map(h => h.houseId).filter(Boolean));
-    for (const { entry } of tiles) for (const c of entry.creatures || []) {
-      if (c.kind === 'npc' && c._homeAnchor) claimed.add(c._homeAnchor);
-    }
-    let moved = 0, dirty = false;
+    // Waiting beside a restored house never reserves it: only saved assignments do.
+    for (const [id, { c }] of live) if (c._homeAnchor && !homes[id]?.houseId) c._homeAnchor = '';
+    // Legacy delivered houses get the same short delay on their first visit.
+    for (const id of houses.keys()) if (!claimed.has(id) && !due[id]) { due[id] = now + MOVE_IN_DELAY_MS; dirty = true; }
     const seatAt = (id, record, house) => {
       const { entry, tx, ty } = house.tile;
       const frame = WorldGen.tileFrame(entry, tx, ty, scene.tileEdgeM);
-      const occupied = WorldGen.occupiedIndexSet(frame, entry.objects, entry.wildplants,
-        (entry.creatures || []).filter(c => c.id !== id));
+      const occupied = WorldGen.occupiedIndexSet(frame, entry.objects, entry.wildplants, (entry.creatures || []).filter(c => c.id !== id));
       const opts = WorldGen.spawnOptsOf(entry, { occupied });
-      if (record.houseId) {
-        const { ix, iy } = frame.cellOf(record.x, record.y);
-        if (frame.inTile(ix, iy) && !Combat.faunaBlocksCell(entry.grid[iy * frame.N + ix])
-          && WorldGen.isSpawnCell(entry.grid, frame.N, frame.N, ix, iy, opts, 'npc')) return { x: record.x, y: record.y };
+      const legal = (x, y) => {
+        const { ix, iy } = frame.cellOf(x, y);
+        return frame.inTile(ix, iy) && !Combat.faunaBlocksCell(entry.grid[iy * frame.N + ix])
+          && WorldGen.isSpawnCell(entry.grid, frame.N, frame.N, ix, iy, opts, 'npc');
+      };
+      if (record.houseId && legal(record.x, record.y)) return { x: record.x, y: record.y };
+      const front = houseFront(scene, entry, tx, ty, house.object) || house;
+      const { ix: ax, iy: ay } = frame.cellOf(front.x, front.y), cells = [];
+      for (let iy = ay - LINGER_CELLS; iy <= ay + LINGER_CELLS; iy++) for (let ix = ax - LINGER_CELLS; ix <= ax + LINGER_CELLS; ix++) {
+        const point = frame.centre(ix, iy), distance = Math.hypot(point.x - front.x, point.y - front.y);
+        if (distance <= LINGER_CELLS * frame.cellM && legal(point.x, point.y)) cells.push({ ...point, distance });
       }
-      const keys = new Set([...occupied].map(i => `${i % frame.N},${Math.floor(i / frame.N)}`));
-      return lingerSeat(scene, entry, tx, ty, { id }, [house], keys, opts);
+      cells.sort((a, b) => a.distance - b.distance || a.y - b.y || a.x - b.x);
+      return cells[0] || null;
     };
+    const move = (id, record, house, current) => {
+      const seat = seatAt(id, record, house);
+      if (!seat) return false;
+      // Leave a brief opportunity for an unseen move, but never wait forever
+      // when the player remains beside the house after their delivery.
+      if (!record.houseId && now < due[house.key] + MOVE_IN_VISIBLE_GRACE_MS && offscreen
+        && ((current && !offscreen(current.c.x, current.c.y)) || !offscreen(seat.x, seat.y))) return false;
+      const c = current?.c || WorldGen.makeCreature('npc', seat.x, seat.y, id,
+        STORY_ROLES[record.role] ? storyNeighbour(id, record.role) : { ...identity(id, record.culture, record.role), zoneKind: record.zoneKind });
+      Object.assign(record, { houseId: house.key, x: seat.x, y: seat.y, houseX: house.x, houseY: house.y });
+      homes[id] = record;
+      if (scene.save.npcVillagePins) delete scene.save.npcVillagePins[id];
+      claimed.add(house.key);
+      for (const { entry } of tiles) entry.creatures = (entry.creatures || []).filter(other => other.id !== id);
+      Object.assign(c, { x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y,
+        _homeHouseX: house.x, _homeHouseY: house.y, _homeAnchor: house.key, _moving: false, _npcSteps: 0 });
+      restore(scene, c);
+      house.tile.entry.creatures.push(c);
+      dirty = true; moved++;
+      return true;
+    };
+    // Only existing assignments may reconstruct an NPC with its origin unloaded.
     for (const [id, record] of Object.entries(homes)) {
-      const current = live.get(id);
-      if (current && (isDormant(current.c) || (offscreen && !offscreen(current.c.x, current.c.y)))) continue;
-      // An already settled live neighbour keeps its wandering position.
-      if (record.houseId && current?.c._homeAnchor === record.houseId) continue;
-      const candidates = record.houseId ? [houses.get(record.houseId)].filter(Boolean)
-        : [...houses.values()].filter(h => !claimed.has(h.key)).sort((a, b) =>
-          Math.hypot(a.x - record.x, a.y - record.y) - Math.hypot(b.x - record.x, b.y - record.y)
-          || a.key.localeCompare(b.key));
-      for (const house of candidates) {
-        const seat = seatAt(id, record, house);
-        if (!seat || (offscreen && !offscreen(seat.x, seat.y))) continue;
-        if (record.houseId !== house.key || record.x !== seat.x || record.y !== seat.y) dirty = true;
-        Object.assign(record, { houseId: house.key, x: seat.x, y: seat.y });
-        claimed.add(house.key);
-        const c = current?.c || WorldGen.makeCreature('npc', seat.x, seat.y, id,
-          STORY_ROLES[record.role] ? storyNeighbour(id, record.role)
-            : { ...identity(id, record.culture, record.role), zoneKind: record.zoneKind });
-        // Remove the old tile's copy before admitting the destination. The
-        // saved ID also suppresses the original spawn on subsequent rebuilds.
-        for (const { entry } of tiles) entry.creatures = (entry.creatures || []).filter(other => other.id !== id);
-        Object.assign(c, { x: seat.x, y: seat.y, homeX: seat.x, homeY: seat.y,
-          _homeAnchor: house.key, _moving: false, _npcSteps: 0 });
-        restore(scene, c);
-        house.tile.entry.creatures.push(c);
-        moved++;
-        break;
+      if (!record.houseId) continue;
+      const current = live.get(id), house = houses.get(record.houseId);
+      if (!house || current?.c._homeAnchor === record.houseId || (current && isDormant(current.c))) continue;
+      move(id, record, house, current);
+    }
+    const available = [...live.entries()].filter(([id, { c }]) => (c._homeAnchor === '' || (STORY_ROLES[c.role] && !c._homeAnchor)) && !homes[id]?.houseId
+      && (c.role !== 'witness' || scene.save.storyEncounter?.status === 'rewarded')
+      && scene.save.npcMet?.[id] && !STORY_ROLES[c.role]?.transient && !isDormant(c))
+      .sort(([, a], [, b]) => homePriority(a.c) - homePriority(b.c) || a.c.id.localeCompare(b.c.id));
+    for (const house of [...houses.values()].sort((a, b) => due[a.key] - due[b.key] || a.key.localeCompare(b.key))) {
+      if (claimed.has(house.key) || now < due[house.key]) continue;
+      const ordered = available.filter(([id]) => !homes[id]?.houseId);
+      for (const [id, current] of ordered) {
+        const c = current.c, record = { role: c.role, culture: c.culture, zoneKind: c.zoneKind };
+        if (move(id, record, house, current)) break;
       }
     }
     if (dirty) Save.persist(scene.save);
@@ -544,7 +677,7 @@ const NPC = (() => {
     if ((scene.depth || 0) !== 0 || now < (scene._npcArrivalsNext || 0)) return 0;
     scene._npcArrivalsNext = now + ARRIVALS_MS;
     const offscreen = offscreenAt(scene);
-    let n = houseNeighbours(scene, { offscreen });
+    let n = houseNeighbours(scene, { offscreen, now });
     for (const entry of WorldGen.tileCacheFor(0).values()) {
       const at = entry?._residentsTile;
       if (!at || !entry._spawned || !entry.grid) continue;
@@ -668,7 +801,8 @@ const NPC = (() => {
         body = `${daily(['<em>Points past the wrecks.</em>', '<em>Nods down the lane.</em>', '<em>Lowers their voice.</em>'])}\n${SIGHTINGS[label](whereabouts(c, o, d))}`;
       } else body = daily(['“Quiet lanes today. Nothing new to show you. Come back tomorrow.”', '<em>Shrugs.</em>\n“Nothing new on this stretch today. Try me tomorrow.”', '“No fresh sightings today. I will keep looking.”']);
     }
-    const talk = talkOf(title, body);
+    const benefit = !isDormant(c, now) && typeof NPCBenefits !== 'undefined' ? NPCBenefits.dialogue(scene, c, now) : '';
+    const talk = talkOf(title, benefit ? [...(Array.isArray(body) ? body : [body]), benefit] : body);
     if (story && firstStrangerMeeting) talk.art = 'story_ayo_arrival';
     if (target) talk.target = target;
     return talk;
@@ -705,9 +839,13 @@ const NPC = (() => {
     // (#story, #howto, …) always carry .game-modal and only toggle display,
     // so a presence test swallowed every tap on every neighbour.
     if (MemoryStory.dialogOpen(scene)) return;
+    meetHomeNeighbour(scene, c);
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
+    const benefit = !isDormant(c) && typeof NPCBenefits !== 'undefined' ? NPCBenefits.visit(scene, c) : null;
+    const housedTilly = c.role === 'wanderer' && !isDormant(c) && MemoryStory.wandererHoused(scene.save, c);
     const talk = dialogue(scene, c);
+    if (benefit?.message && !talk.body.includes(benefit.message)) { talk.pages.push(benefit.message); talk.body = talk.pages.join('\n\n'); }
     // All sections share one scrolling conversation and its painting or portrait.
     const say = () => {
       if (talk.target && !isDormant(c)) {
@@ -720,7 +858,9 @@ const NPC = (() => {
       }
       MemoryStory.showPages(scene, talk.pages, { ...speech(c),
         ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c),
-        onDone: () => meetHomeNeighbour(scene, c) });
+        onDone: () => {
+          if (housedTilly && MemoryStory.wandererHoused(scene.save, c)) scene.questEvent?.('tilly');
+        } });
     };
     if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {
@@ -729,17 +869,31 @@ const NPC = (() => {
       let answered = false;
       scene.showChestRewardModal({
         kind: 'talk', header: speech(c).kindLabel, name: conversation.title,
-        sub: conversation.body, portrait: face, source: dialogSource(scene, c),
+        sub: [conversation.body, benefit?.message || (typeof NPCBenefits !== 'undefined' && NPCBenefits.dialogue(scene, c))].filter(Boolean).join('\n\n'), portrait: face, source: dialogSource(scene, c),
         actions: [
           ...conversation.choices.map(choice => ({
             label: choice.label,
             onClick: () => {
               if (answered) return;
               answered = true;
+              // Validate before granting: a stale dialog cannot duplicate a gift.
+              if (MemoryStory.archaeologistConversation(scene.save).id !== conversation.id) return;
+              const gift = conversation.gift;
+              if (gift && scene.addToInv(gift.id, gift.qty, false, { notWild: true, deferRefresh: true }) !== gift.qty) {
+                scene.showMessageModal({ ...speech(c), body: 'Make room in your bag. I will keep the table here for you.',
+                  portrait: face, source: dialogSource(scene, c) });
+                return;
+              }
               const reply = MemoryStory.acknowledgeArchaeologist(scene.save, conversation.id, choice.id);
               if (!reply) return;
               Save.persist(scene.save);
-              scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face, source: dialogSource(scene, c) });
+              if (gift) {
+                scene._finishInventoryChange?.();
+                Rewards.present(scene, gift, { extra: { kind: 'talk', header: speech(c).kindLabel,
+                  portrait: face, source: dialogSource(scene, c), sub: reply.body } });
+              } else {
+                scene.showMessageModal({ ...speech(c), body: reply.body, portrait: face, source: dialogSource(scene, c) });
+              }
             },
           })),
           // Leaving or reloading does not consume an introduction or a topic.
@@ -765,5 +919,5 @@ const NPC = (() => {
     else scene.presentThemedShop(sx, sy, c, record);
     meetHomeNeighbour(scene, c);
   }
-  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, meetHomeNeighbour, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, dialogSource, offerArt, interact };
+  return { REST_MS_AFTER_HIT, RESTING_LINE, restore, isDormant, hit, canTarget, prepareTargets, enemyTarget, COUNT, CULTURES, LABELS, WALK_MPS, WANDER_CELLS, WARDEN_LINE, CHILD_SCALE, STORY_ROLES, STORY_NEIGHBOURS, storyNeighbour, warden, storyNeighbourDue, RETURN_PER_MEMORY, LINGER_CELLS, returnedCount, stayers, anchorsIn, arrivals, spreadSeat, startingSeat, rememberPin, meetHomeNeighbour, markDelivery, residentOf, houseResident, houseFront, MOVE_IN_DELAY_MS, houseNeighbours, offscreenAt, tickArrivals, KEEPER_DEFAULT, nearestWreck, identity, cultureFor, spawn, seatKeepers, shrineResidents, restoreShrine, tick, dialogue, portrait, speech, dialogSource, offerArt, interact };
 })();

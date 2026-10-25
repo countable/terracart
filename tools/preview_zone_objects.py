@@ -58,12 +58,12 @@ for frame, zone in zip(range(16,22), ['Stone Garden','Ordered Graves','Overgrown
 
 assign(22,22,'Total-replacement','Abandoned Quarry; Global barrel locations','Intact barrel appearance; existing loot and restock behavior.',('barrel',0),'Current intact barrel')
 assign(24,27,'Variant','Mystic Reef','Installed as noninteractive water scenery at scale 4/3: a 24px source frame occupies a 32px game cell.')
-old = Image.open(ROOT / 'assets/Objects/Reef/reef_atlas.png').convert('RGBA')
+old = Image.open(ROOT / 'extra_assets/inactive/assets/Objects/Reef/reef_atlas.png').convert('RGBA')
 for i in range(24,28):
     f=i-24; im=old.crop((round(f*old.width/4),0,round((f+1)*old.width/4),round(old.height/4)))
     im=im.crop(im.getbbox());im.thumbnail((56,56),Image.Resampling.NEAREST)
     path=f'art/previous-coral-{f}.png';im.save(out/path)
-    rows[i].update(status='Live',before={'image':path,'label':'Previous coral art (superseded)','source':'assets/Objects/Reef/reef_atlas.png','frame':f,'width':im.width,'height':im.height})
+    rows[i].update(status='Live',before={'image':path,'label':'Previous coral art (superseded)','source':'extra_assets/inactive/assets/Objects/Reef/reef_atlas.png','frame':f,'width':im.width,'height':im.height})
 assign(28,31,'Variant','Mystic Reef','Additional coral appearances already packed into the asset, but not selected by generation.',('reef_coral',0),'Existing coral role — pink example')
 assign(32,33,'New prop','Mystic Reef; Other shorelines (optional)','New seaweed scenery; harvesting is not defined.')
 assign(34,34,'Variant','Mystic Reef; Shellwater Strand','Coastal appearance for the existing rock role; no separate shell yield defined.',('mineralrock',171),'Existing plain rock example')
@@ -125,14 +125,14 @@ for r in rows:
     elif r['frame'] in (58,59):
         r['note'] = 'Two stable appearances for existing quarry crystal deposits. Same crystal resource and pick requirement; no new quartz item.'
 
-atlas=Image.open(ROOT/'assets/Objects/ZoneVariants/objects-24.png')
+atlas=Image.open(ROOT/'extra_assets/inactive/assets/Objects/ZoneVariants/objects-24.png')
 for r in rows:
     x,y=r['column']*24,r['row']*24
     path=f'art/{r["name"]}.png';atlas.crop((x,y,x+24,y+24)).save(out/path)
     r.update(image=path,sourcePixels=24,previewPixels=32,previewScale=32/24)
 (out/'catalog.json').write_text(json.dumps(rows,indent=2)+'\n')
 shutil.copy2(ROOT/'assets/Objects/ZoneVariants/approved-24.png',out/'objects-24.png')
-shutil.copy2(ROOT/'assets/Objects/ZoneVariants/pots_smashed.png',out/'art/pots_smashed.png')
+shutil.copy2(ROOT/'extra_assets/inactive/assets/Objects/ZoneVariants/pots_smashed.png',out/'art/pots_smashed.png')
 esc=html.escape
 body=[]
 for r in rows:

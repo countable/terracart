@@ -1151,7 +1151,7 @@ test('lighting: indoors, the world outside the house is masked on the canvas pat
   // The lift is the height the walls are drawn at and nothing more: lifted by
   // the wall's thickness as well, the cut cleared the far wall's top and a
   // band of lit ground showed above it.
-  assert.truthy(/function indoorLift[\s\S]*?dyPx: -\(drawn \|\| HA\.wallPx\)/.test(L), 'the lift is the drawn wall height alone');
+  assert.truthy(/function indoorLift[\s\S]*?dyPx: -\(drawn \|\| HA\.wallPx \* storeys\)/.test(L), 'the lift is the drawn wall height alone');
   const indoorsSrc = L.slice(L.indexOf('// ── Indoors'), L.indexOf('window.Lighting = {'));
   assert.truthy(!/thicknessPx/.test(indoorsSrc), 'the wall thickness plays no part in the cut');
 
@@ -1281,4 +1281,23 @@ test('lighting: retail mask uses its own wall height and keeps courtyard ground 
   near(Math.max(...shell.map(o => o[1])), 176 + 32 + 2.8);
   near(Math.min(...shell.map(o => o[2])), 176 - 32 - 2.8 - 70);
   near(Math.max(...shell.map(o => o[2])), 176 + 32 + 2.8);
+});
+
+test('lighting: Home mask ignores exterior height and follows the saved interior storeys', () => {
+  const points = [];
+  const ctx = { save() {}, restore() {}, clearRect() {}, fillRect() {}, beginPath() {},
+    moveTo(x,y) { points.push(y); }, lineTo(x,y) { points.push(y); }, closePath() {}, fill() {}, drawImage() {} };
+  const scene = { viewCenterX: 176, viewCenterY: 176, cellM: 7, save: { starterShopId: 'home' },
+    _proceduralBuildings: new Map([['home', { height: 70, storeys: 1 }]]),
+    _indoorMaskLayer: { width: 352, height: 352, getContext: () => ctx } };
+  const room = { key: 'home', buildingKey: 'home', ring: [{x:-7,y:-7},{x:7,y:-7},{x:7,y:7},{x:-7,y:7}] };
+  const lift = () => { points.length = 0; Lighting.paintIndoorMask(ctx, scene, room, 0, 0, 0, 0, 352, 352);
+    return 176 - 32 - Math.min(...points); };
+  assert.eq(lift(), HomeArea.HOUSE.wallPx, 'stale two-storey exterior cannot enlarge one-storey mask');
+  scene._proceduralBuildings.get('home').interiorHeight = 18;
+  assert.eq(lift(), 18, 'matching drawn interior is authoritative');
+  scene.save.homeStoreys = 2;
+  assert.eq(lift(), HomeArea.HOUSE.wallPx * 2, 'old one-storey model cannot survive upgrade');
+  scene._proceduralBuildings.set('home', { height: 34, interiorHeight: 34, storeys: 2 });
+  assert.eq(lift(), 34, 'rebuilt two-storey interior matches its mask');
 });

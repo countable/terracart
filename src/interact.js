@@ -259,6 +259,7 @@ const TERRAIN = {
   CAVE_WALL: WorldGen.T.CAVE_WALL,           // 25
   CAVE_LAVA: WorldGen.T.CAVE_LAVA,           // 26
   EXCLUSION_ROCK: WorldGen.T.EXCLUSION_ROCK, // 32
+  ROCKY_GROUND: WorldGen.T.ROCKY_GROUND,       // 33
   TAR_YARD: WorldGen.T.TAR_YARD,             // 31
 };
 
@@ -310,6 +311,7 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
   [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock. No tilling.',
+  [TERRAIN.ROCKY_GROUND]: 'Rocky ground. No tilling.',
 };
 
 // …and the refusal on soil a street lamp stands on (cellAt's underLamp).
@@ -581,6 +583,23 @@ function homeFurnitureTap(ctx, building) {
       .some(o => sameAbsCell(scene, o.x, o.y, wm.x, wm.y));
 }
 
+function npcHouseFurnitureTap(ctx, house) {
+  const held = getSelectedSlot(ctx.save);
+  if (!Furniture.isNpcHouse(ctx.scene, house) || !(held?.count > 0 && furnitureSpec(held.id))) return false;
+  if (tooFar(ctx, house.x, house.y)) return 'far';
+  const result = Furniture.furnishHouse(ctx.scene, house, held.id);
+  if (result.accepted) {
+    ctx.dirty = true;
+    ctx.scene.buildInventoryDOM();
+    if (result.replaced) ctx.scene.flash('Furnished; old item returned.', ctx.sx, ctx.sy);
+    else ctx.scene.flash('House furnished.', ctx.sx, ctx.sy);
+  } else {
+    const msg = result.reason;
+    ctx.scene.flash(msg, ctx.sx, ctx.sy);
+  }
+  return true;
+}
+
 function furnitureGround(ctx) {
   const { scene, cell, cwmx, cwmy } = ctx;
   if (cell.underRoad) return false;
@@ -639,6 +658,20 @@ const TAP_HANDLERS = [
     if (performance.now() - (wp.startT || 0) < 150) return true;   // swallow, don't cancel
     ctx.scene.abortWorkProgress();   // refund any up-front energy — bailing costs nothing
     return true;
+  }},
+
+  // The covering square is the first interaction, even when a flower, chest
+  // or treasure shares its cell. Delegate to the ordinary harvest transaction.
+  { name: 'grass-cover', try: (ctx) => {
+    if (ctx.building || (typeof RoadSafety !== 'undefined'
+        && RoadSafety.nightRoadZone(ctx.scene, ctx.wm.x, ctx.wm.y))) return false;
+    const previous = ctx.grassOnly;
+    ctx.grassOnly = true;
+    try { return TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx); }
+    finally {
+      if (previous === undefined) delete ctx.grassOnly;
+      else ctx.grassOnly = previous;
+    }
   }},
 
   // (Eat-by-tapping-the-player and the honey/book/potion/sapphire tap-on-feet
@@ -736,6 +769,8 @@ const TAP_HANDLERS = [
   { name: 'building-art', try: (ctx) => {
     const o = ctx.building;
     if (!o) return false;
+    const furnishing = npcHouseFurnitureTap(ctx, o);
+    if (furnishing) return furnishing;
     if (homeFurnitureTap(ctx, o)) return false;
     if (tooFar(ctx, o.x, o.y)) return 'far';
     return runInteractable(ctx, o);
@@ -1069,7 +1104,8 @@ const TAP_HANDLERS = [
     // spent predicate (isSpent — on the waterline today, not taken today).
     const tideSets = spentSets(scene, save);
     const bestWp = findItemInTapCell(scene, 'wildplants', wm,
-      (wp) => !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
+      (wp) => (!ctx.grassOnly || WorldGen.isGrassCover(wp))
+        && !isSpent(wp, tideSets) && (wp.tide || !pickedSet.has(wp.id)));
     if (bestWp) {
       const wp = bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
@@ -1107,15 +1143,17 @@ const TAP_HANDLERS = [
         const rewards = wildplantRewards(wp.crop);
         const outId = rewards[0].id;
         for (const reward of rewards) scene.addToInv(reward.id, reward.qty);
-        let bonus = '';
+        const hiddenItem = WorldGen.isGrassCover(wp) ? wildplantHiddenItem(wp.crop, wp.id) : null;
+        if (hiddenItem) scene.addToInv(hiddenItem, 1);
+        let bonus = hiddenItem ? ` ✨${itemName(hiddenItem)}` : '';
         const treasure = wildplantTreasure(wp.crop);
         if (treasure && Math.random() < treasure.chance) {
           if (treasure.coins) {
             addMoney(save, treasure.coins);
-            bonus = ` ✨${treasure.coins} coin`;
+            bonus += ` ✨${treasure.coins} coin`;
           } else {
             scene.addToInv(treasure.bonus, 1);
-            bonus = ` ✨${itemName(treasure.bonus)}`;
+            bonus += ` ✨${itemName(treasure.bonus)}`;
           }
         }
         persistSave(save);
@@ -1366,7 +1404,7 @@ const TAP_HANDLERS = [
         building = o;
         return true;
       });
-      if (building) return runInteractable(ctx, building);
+      if (building) return npcHouseFurnitureTap(ctx, building) || runInteractable(ctx, building);
     }
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)
@@ -1720,6 +1758,7 @@ const TAP_HANDLERS = [
       // First real watering the save ever does tells its story - here, where
       // the water landed, not on a dry tap of an already-watered plant.
       scene._toolActionStory?.('water');
+      scene.questEvent?.('water');
       // The can does ONE thing now: the growth jump above — how soon you get
       // it. WHAT you get (produce quality) is the bed's, set by the hoe that
       // tilled it and banked on the crop at planting (Crops.bedQuality).
@@ -1877,7 +1916,7 @@ const TAP_HANDLERS = [
       scene.flash('Move the planter indoors.', sx, sy);
       return true;
     }
-    const sel = getSelectedSlot(save);
+    const sel = ctx.plantSeedId ? { id: ctx.plantSeedId, count: Inventory.count(save, ctx.plantSeedId) } : getSelectedSlot(save);
     const item = sel ? ITEM_BY_ID[sel.id] : null;
     if (!item || item.kind !== 'seed') {
       scene.flash('Pick a seed from your bag.', sx, sy);
@@ -1891,7 +1930,7 @@ const TAP_HANDLERS = [
       scene.flash('Choose a crop or flower seed.', sx, sy);
       return true;
     }
-    if (!scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
+    if (!ctx.plantEnergyPaid && !scene.spendEnergy(ENERGY_COST?.plant ?? 0, sx, sy)) return true;
     if (item.plants) {
       // Plant a sapling → a growing tree (persisted in save.fruittrees,
       // re-injected per tile in spawnInTile). TWO kinds share this path and
@@ -1932,7 +1971,7 @@ const TAP_HANDLERS = [
                 { species: item.grows, planted: true, planted_t }));
         }
       }
-      consumeSelected(save);
+      Inventory.remove(save, sel.id, 1);
       ctx.dirty = true;
       scene.buildInventoryDOM();
       // NAMES, not ids — 'planted apple sapling' read as a stray database row
@@ -1950,7 +1989,7 @@ const TAP_HANDLERS = [
       depth: scene.depth ?? 0, qualBoost: Crops.takeBedQuality(save, cellKey),
       ...(planter ? { planter: planter.id } : {}) });
     Crops.invalidateSpatialIndex(save);
-    consumeSelected(save);
+    Inventory.remove(save, sel.id, 1);
     ctx.dirty = true;
     scene.buildInventoryDOM();
     // 'planted rainberry' → 'Planted Rainberry — water it.' The nudge is the
@@ -1961,10 +2000,16 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2d) Untilled tillable cell → till it (refuses if occupied by any interactable).
+  // Only the seed's explicit action may prepare ground; map taps never till.
   { name: 'till', try: (ctx) => {
+    if (!ctx.seedAction) return false;
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
+    const seed = getSelectedSlot(save);
+    if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) return false;
+    if (!isTillableCell(cell) || scene.tilledSet.has(cellKey)) return false;
+    const seedId = seed.id, depth = scene.depth ?? 0;
     let blocker = at.furnitureIdx >= 0 ? 'Furniture stands here.' : null;
+    if (at.fireIdx >= 0 || at.scarecrowIdx >= 0 || at.magicTrapIdx >= 0) blocker = 'Something stands here.';
     if (scene.placedRockSet.has(cellKey)) blocker = 'Your own stone fence.';
     if (!blocker && at.plantedIdx >= 0) blocker = `${cropName(save.planted[at.plantedIdx].crop)} grows here.`;
     if (!blocker) blocker = groundObjectBlocker(scene, save, cwmx, cwmy, at.half);
@@ -1980,17 +2025,33 @@ const TAP_HANDLERS = [
     tillMs = Math.round(tillMs / 2);
     if (GRASSLAND_TILL.has(cell.type)) tillMs = Math.round(tillMs / 2);
     // Hoe relic discounts (and sometimes zeroes out) the till cost.
-    const tillCost = effectiveTillCost(save.relics);
+    const tillCost = effectiveTillCost(save.relics) + (ENERGY_COST?.plant ?? 0);
     return startToolJob(ctx, { x: cwmx, y: cwmy, tool: 'hoe', durationMs: tillMs, cost: tillCost, action: 'till',
       after: (startingTier) => scene._barehandWorkStory?.('hoe', startingTier), onDone: () => {
+      // Work can outlive the selected stack or a tile repaint. Recheck the
+      // captured seed and target before changing soil or consuming anything.
+      const liveCell = scene.cellAt(cwmx, cwmy), live = cellOccupants(scene, save, cwmx, cwmy);
+      const free = (scene.depth ?? 0) === depth && liveCell.loaded && isTillableCell(liveCell)
+        && !scene.tilledSet.has(cellKey) && !scene.placedRockSet.has(cellKey)
+        && live.furnitureIdx < 0 && live.fireIdx < 0 && live.scarecrowIdx < 0
+        && live.magicTrapIdx < 0 && live.plantedIdx < 0
+        && !groundObjectBlocker(scene, save, cwmx, cwmy, live.half);
+      if (!free || Inventory.count(save, seedId) < 1) {
+        Energy.set(save, (save.energy ?? 0) + tillCost, Energy.maxEnergy(save));
+        scene.updateEnergyDOM?.();
+        persistSave(save);
+        scene.flash('Planting cancelled.', sx, sy);
+        return false;
+      }
       scene.tilledSet.add(cellKey);
       // The bed remembers the hoe that made it - that's the produce QUALITY a
       // crop planted here will carry (Crops.bedQuality). A better hoe is
       // therefore a better harvest, not just a cheaper one.
-      const bedQ = Crops.setBedQuality(save, cellKey, save.relics?.hoe?.tier || 0);
-      persistSave(save);
-      scene.flash(bedQ ? `tilled — quality ${bedQ}` : 'tilled', sx, sy);
+      Crops.setBedQuality(save, cellKey, save.relics?.hoe?.tier || 0);
       scene.questEvent?.('till');
+      TAP_HANDLERS.find(h => h.name === 'plant').try({ ...ctx, at: live,
+        plantSeedId: seedId, plantEnergyPaid: true });
+      persistSave(save);
       // Now and then the hoe turns something up (items.js rollTillFind).
       const find = rollTillFind(Math.random, save.relics?.hoe?.tier || 0);
       if (find?.kind === 'treasure') {
@@ -2021,6 +2082,24 @@ function _tapDiag(scene, sx, sy, reason) {
   if (typeof window === 'undefined' || !window.DEBUG_TAPS) return;
   try { console.debug('[tap]', reason, `@(${Math.round(sx)},${Math.round(sy)})`); } catch (_) {}
   if (typeof scene.flash === 'function') scene.flash(`⚠ ${reason}`, sx, sy);
+}
+
+// The seed action works at the player's feet, never at the peek camera.
+function plantSelectedSeed(scene) {
+  if (scene._busyWheel?.() || scene._zeroEnergyLocked?.()) return false;
+  const selected = getSelectedSlot(scene.save);
+  if (!selected || ITEM_BY_ID[selected.id]?.kind !== 'seed' || !(selected.count > 0)) return false;
+  const wm = playerWorldM(scene), at = scene.worldMetersToScreen(wm.x, wm.y);
+  const ctx = { scene, save: scene.save, wm, sx: at.x, sy: at.y, dirty: false, seedAction: true };
+  if (TAP_HANDLERS.find(h => h.name === 'cell-resolve').try(ctx)) return false;
+  if (!isTillableCell(ctx.cell) && !planterAt(ctx)) {
+    scene.flash('Stand on clear soil to plant.', ctx.sx, ctx.sy);
+    return false;
+  }
+  const planted = TAP_HANDLERS.find(h => h.name === 'plant').try(ctx)
+    || TAP_HANDLERS.find(h => h.name === 'till').try(ctx);
+  if (ctx.dirty) persistSave(scene.save);
+  return !!planted;
 }
 
 function interactTap(scene, sx, sy) {

@@ -18,6 +18,8 @@
 
   window.loadGame = async function loadGame() {
     const html = await (await fetch('../index.html', { cache: 'no-store' })).text();
+    // Tools share the game's generated-tile namespace, even without its worker.
+    window.__shellVersion = html.match(/window\.__shellVersion\s*=\s*'([^']*)'/)?.[1] || null;
     const srcs = [...html.matchAll(/<script src="(src\/[^"?]+)(?:\?([^"]*))?"><\/script>/g)].map((m) => m[1] + (m[2] ? '?' + m[2] : ''));
     srcs.push(html.match(/const APP_SRC = '([^']+)'/)?.[1] || 'src/app.js');
     // Fetch together, execute in document order: these classic scripts share

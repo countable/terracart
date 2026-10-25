@@ -1,7 +1,7 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v4', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v6', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
   // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
   const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
@@ -117,7 +117,28 @@
       for (let i = 1; i + 1 < ring.length; i++) result.push({ points: [ring[0], ring[i], ring[i + 1]], normal, color: tint, flatColor: multiplyColors(materialColor(material), tint) });
     }
   }
+  // Selected native RA tuft treatment: four crossed pairs, no opaque core.
+  const GRASS = Object.freeze({ texture: 'selected_longgrass', width: 23, offset: 8, lowHeight: 21, height: 24 });
+  function grassGeometry(points) {
+    const faces = [], cx = points.reduce((sum, p) => sum + p.x, 0) / points.length,
+      cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+    for (let tuft = 0; tuft < 4; tuft++) {
+      const x = cx + (tuft % 2 ? GRASS.offset : -GRASS.offset), y = cy + (tuft < 2 ? -GRASS.offset : GRASS.offset);
+      const height = tuft % 2 ? GRASS.height : GRASS.lowHeight;
+      for (let axis = 0; axis < 2; axis++) {
+        const dx = axis ? 0 : GRASS.width / 2, dy = axis ? GRASS.width / 2 : 0;
+        const quad = [{ x: x - dx, y: y - dy, z: 0, u: .001, v: .999 },
+          { x: x + dx, y: y + dy, z: 0, u: .999, v: .999 },
+          { x: x + dx, y: y + dy, z: height, u: .999, v: .001 },
+          { x: x - dx, y: y - dy, z: height, u: .001, v: .001 }];
+        for (const ids of [[0, 1, 2], [0, 2, 3]]) faces.push({ points: ids.map(i => quad[i]),
+          normal: null, twoSided: true, color: 0xffffff, flatColor: 0x7f7f46 });
+      }
+    }
+    return faces;
+  }
   function geometry(kind, points, height, options = {}) {
+    if (kind === 'grass') return grassGeometry(points, height, options);
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;
     const shadeHeight = wood ? (height + WOOD.tipHeight) / 2 : 0;
@@ -193,5 +214,5 @@
     }
     return faces;
   }
-  global.WallMaterials = { prepare, geometry, postHeight, WOOD, KEY, WHITE };
+  global.WallMaterials = { prepare, geometry, postHeight, WOOD, GRASS, KEY, WHITE };
 })(globalThis);

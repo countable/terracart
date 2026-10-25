@@ -21,6 +21,24 @@ test('player occlusion: foreground props fade only while covering the body', () 
   assert.eq(s.alpha, 1, 'being behind a nearby object without overlap does not fade it');
 });
 
+test('player occlusion: faded shinies suspend their gold glow and restore it when clear', () => {
+  const s = sprite();
+  const glow = s._shinyGlowFx = { active: true };
+  const shine = s._shineFx = { active: true };
+  Render.fadeObjectOverPlayer(s, appearance, box, 4, 1);
+  assert.eq(s.alpha, 0.5);
+  assert.falsy(glow.active, 'faded body pixels must not become gold outer-glow pixels');
+  assert.truthy(shine.active, 'the glint remains available');
+  Render.fadeObjectOverPlayer(s, appearance, box, 4, 1);
+  assert.falsy(glow.active, 'cached faded frames keep the glow off');
+  Render.fadeObjectOverPlayer(s, appearance, { ...box, x0: 140, x1: 152 }, 4, 1);
+  assert.eq(s.alpha, 1);
+  assert.truthy(glow.active, 'walking clear restores the same rim controller');
+  assert.eq(s._shinyGlowFx, glow, 'no effect reallocation during movement');
+  Render.fadeObjectOverPlayer(s, appearance, null, 4, 0.6);
+  assert.falsy(glow.active, 'inherently translucent objects also avoid the gold fill');
+});
+
 test('player occlusion: a turned heading-up map fades by the turned feet', () => {
   const scene = { _headingUp: true, mapRot: Math.PI, playerScreen: () => ({ x: 100, y: 100 }) };
   const { view, box: turned } = Render.headingFadeView(scene, box);

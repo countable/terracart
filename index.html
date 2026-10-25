@@ -9,12 +9,16 @@
   <meta http-equiv="Expires" content="0" />
   <meta name="theme-color" content="#111" />
   <script>
+    // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
+    window.__shellVersion = 'shell-b33e3fb4';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
       const sandbox = params.has('sandbox') && !['false', '0', 'no'].includes((params.get('sandbox') || '').toLowerCase());
-      window.__sandboxSkipStory = sandbox && params.get('skipStory') === 'true';
-      window.__sandboxSkipTutorial = sandbox && params.get('skipTutorial') === 'true';
+      // Map-review launches use the same session-only skips in the real world.
+      const preview = sandbox || params.get('fakeGps') === '1';
+      window.__sandboxSkipStory = preview && params.get('skipStory') === 'true';
+      window.__sandboxSkipTutorial = preview && params.get('skipTutorial') === 'true';
       // `?skipIntro=true` (testing, any world): no opening story slides and no
       // how-to card. Nothing is marked seen, and the location splash stays.
       window.__skipIntro = window.__sandboxSkipStory || params.get('skipIntro') === 'true';
@@ -101,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=458bb947" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=698fd379" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -574,21 +578,22 @@
       text-shadow: 0 1px 0 #000;
       -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px);
     }
-    /* The Spirit teaches on the map; only dismiss intercepts world taps. */
+    /* The Spirit teaches at the top; only its acknowledgement intercepts taps. */
     #objective {
-      position:fixed;top:calc(72px + env(safe-area-inset-top,0px));
-      left:calc(var(--phone-left,0px) + 32px);right:calc(var(--phone-right,0px) + 32px);
+      position:fixed;top:calc(6px + env(safe-area-inset-top,0px));
+      left:calc(var(--phone-left,0px) + 8px);right:calc(var(--phone-right,0px) + 8px);
       z-index:9;pointer-events:none;font-family:var(--font-ui);
-      padding-left:54px;min-height:64px;
+      padding-left:38px;min-height:44px;
     }
     #objective .tutorial-spirit {
-      position:absolute;left:-4px;top:5px;width:60px;height:76px;
+      position:absolute;left:-2px;top:0;width:42px;height:54px;
       object-fit:contain;image-rendering:pixelated;
       filter:drop-shadow(0 2px 2px #10251bcc) drop-shadow(0 0 5px #dbeab84d);
       animation:tutorial-spirit-float 3.6s ease-in-out infinite;
     }
     #objective .tutorial-bubble {
-      position:relative;padding:9px 12px 11px;border:1px solid #bfc9ae;
+      position:relative;padding:6px 8px;border:1px solid #bfc9ae;
+      display:grid;grid-template-columns:minmax(0,1fr) auto;column-gap:8px;align-items:center;
       border-radius:15px;background:linear-gradient(150deg,#edf0df,#d6dec9);
       color:#26382d;box-shadow:0 2px 5px #06120d66,inset 0 1px #ffffed;
     }
@@ -597,23 +602,23 @@
       background:#e6ebd8;border-left:1px solid #bfc9ae;border-bottom:1px solid #bfc9ae;
       transform:rotate(45deg);
     }
-    #objective .row {display:flex;align-items:center;gap:7px;padding-right:22px;}
+    #objective .row {display:flex;align-items:center;gap:7px;grid-column:1;}
     #objective .speaker {font:700 10px/1.2 var(--font-ui);color:#58694b;}
     #objective .step {font:600 9px/1.2 var(--font-ui);color:#647254;white-space:nowrap;}
     #objective .title {display:none;}
-    #objective .body {position:relative;margin-top:5px;font:13px/1.35 var(--font-ui);}
-    #objective .close {
-      position:absolute;right:0;top:-7px;min-width:44px;min-height:44px;
+    #objective .body {position:relative;grid-column:1;margin-top:3px;font:12px/1.2 var(--font-ui);}
+    #objective .acknowledge {
+      position:relative;grid-column:2;grid-row:1/3;margin:0;min-width:66px;min-height:44px;padding:0 8px;
       display:grid;place-items:center;pointer-events:auto;cursor:pointer;
-      border:0;background:none;color:#58694b;font:20px/1 var(--font-ui);
+      border:1px solid #dfc684;border-radius:10px;background:linear-gradient(#f7e3a0,#e8c35f 22%,#ce9f3c 82%,#d9b55c);color:#241d0e;font:600 14px/1 var(--font-ui);
     }
-    #objective .close:focus-visible {outline:2px solid #927024;outline-offset:-6px;border-radius:12px;}
+    #objective .acknowledge:focus-visible {outline:2px solid #927024;outline-offset:-6px;border-radius:12px;}
     #objective.done .tutorial-bubble {background:#e5efd7;border-color:#bbd59e;}
     @keyframes tutorial-spirit-float {50% {transform:translateY(-4px);}}
     @media (max-width:360px), (max-height:650px) {
-      #objective {left:calc(var(--phone-left,0px) + 22px);right:calc(var(--phone-right,0px) + 22px);padding-left:45px;}
-      #objective .tutorial-spirit {width:50px;height:64px;}
-      #objective .tutorial-bubble {padding:8px 10px 9px;}
+      #objective {padding-left:34px;}
+      #objective .tutorial-spirit {width:38px;height:49px;}
+      #objective .tutorial-bubble {padding:6px;column-gap:6px;}
       #objective .body {font-size:12px;}
     }
     @media (prefers-reduced-motion:reduce) {#objective .tutorial-spirit {animation:none;}}
@@ -1315,9 +1320,9 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=07ea7c4a">
+  <link rel="stylesheet" href="css/compass_hud.css?v=9ff7ffca">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
-  <link rel="stylesheet" href="css/compass_panels.css?v=00ec4765">
+  <link rel="stylesheet" href="css/compass_panels.css?v=3aa5db4f">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
   <link rel="stylesheet" href="css/book_reader.css?v=6c9148bc">
 </head>
@@ -1360,7 +1365,7 @@
     <div class="tutorial-bubble">
       <div class="row"><span class="speaker">Dragon Spirit</span><span class="step"></span><span class="title"></span></div>
       <div class="body" role="status" aria-live="polite" aria-atomic="true"></div>
-      <button type="button" class="close" id="objective-hide" aria-label="Hide tutorial">&times;</button>
+      <button type="button" class="acknowledge compass-action compass-action-primary" id="objective-hide">Got it</button>
     </div>
   </div>
   <details id="menu">
@@ -2034,6 +2039,7 @@
       const sc = window.__scene;
       if (sc && typeof Quests !== 'undefined' && Quests.starterShow) {
         Quests.starterShow(sc.save);
+        sc._objectiveAcknowledged = null;
         if (typeof persistSave === 'function') persistSave(sc.save);
         sc.updateObjectiveDOM?.();
       }
@@ -2643,7 +2649,9 @@
       if (!btn) return;
       const sc = window.__scene;
       const on = !!(sc && typeof Quests !== 'undefined'
-        && Quests.starterDismissed && Quests.starterDismissed(sc.save));
+        && ((Quests.starterDismissed && Quests.starterDismissed(sc.save))
+          || (sc._objectiveAcknowledged != null
+            && sc._objectiveAcknowledged === Quests.starterCurrent(sc.save)?.id)));
       btn.style.display = on ? '' : 'none';
     });
     // Safety splash dismiss (the CTA under the STAY SAFE message — tapping it
@@ -2755,7 +2763,7 @@
     const STORY_PAN_MS = 16000 / 1.2;
     const STORY_SLIDES = [
       {
-        art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies in grass beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
+        art: '<div class="story-frames"><img src="assets/art/story_compass.webp" alt="An ancient silver compass engraved with dragons and stars lies half hidden beneath leaves beside a residential sidewalk."><img class="story-frame-next" src="assets/art/story_compass_frame2.webp" alt="" aria-hidden="true"></div>',
         text: 'You find a strange compass, engraved with dragons and stars.', btn: 'Next', fullscreen: true,
       },
       {
@@ -3011,6 +3019,7 @@
             .map(k => caches.delete(k).catch(() => {})));
         }
       } catch {}
+      try { await window.WorldGen?.clearGeneratedTileCache(); } catch {}
       try { indexedDB.deleteDatabase('mapgame-tiles'); } catch {}
       location.reload();
     });
@@ -3103,100 +3112,104 @@
   <script src="src/mvt.js?v=919b21d0"></script>
   <script src="src/enemy_roster.js?v=86cd980c"></script>
 
-  <script src="src/enemy_spawns.js?v=f18fa6e8"></script>
+  <script src="src/enemy_spawns.js?v=3305df09"></script>
   <script src="src/creature_spawns.js?v=eca089d3"></script>
   <script src="src/enemy_habitats.js?v=27382a73"></script>
   <script src="src/difficulty.js?v=f761e425"></script>
   <script src="src/util.js?v=9b617591"></script>
-  <script src="src/polygon_geometry.js?v=1324c71a"></script>
-  <script src="src/particles.js?v=4527614a"></script>
-  <script src="src/trail.js?v=1ebf6f16"></script>
-  <script src="src/streets.js?v=e75a9d17"></script>
-  <script src="src/street_variants.js?v=b2797784"></script>
+  <script src="src/polygon_geometry.js?v=643bd51f"></script>
+  <script src="src/particles.js?v=139210f6"></script>
+  <script src="src/trail.js?v=ca4ab8ce"></script>
+  <script src="src/streets.js?v=2b6f3303"></script>
+  <script src="src/street_variants.js?v=b3644b5e"></script>
   <script src="src/scenic.js?v=76288367"></script>
-  <script src="src/zones.js?v=5beaaecb"></script>
+  <script src="src/zones.js?v=41986665"></script>
   <script src="src/zone_variant_data.js?v=407ce7bf"></script>
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=30f0e0de"></script>
-  <script src="src/shrines.js?v=568066e5"></script>
+  <script src="src/shrines.js?v=8d66c0d8"></script>
   <script src="src/buffs.js?v=9c6e04b6"></script>
-  <script src="src/zone_coverage.js?v=82ef283c"></script>
+  <script src="src/zone_coverage.js?v=275a522d"></script>
   <script src="src/quarry_layout.js?v=6b945d34"></script>
   <script src="src/zone_dressing.js?v=38567d46"></script>
   <script src="src/reef_layout.js?v=5ac55392"></script>
-  <script src="src/sprite_layout.js?v=276de7fb"></script>
+  <script src="src/sprite_layout.js?v=48eedffc"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
-  <script src="src/home.js?v=8a5ccc56"></script>
+  <script src="src/home.js?v=92e9a8d3"></script>
   <script src="src/home_variant.js?v=d962f23f"></script>
   <script src="src/coords.js?v=85d2df4c"></script>
   <script src="src/fog.js?v=f59fad6c"></script>
-  <script src="src/biome_profiles.js?v=af29d553"></script>
-  <script src="src/habitat_spawns.js?v=4b5281ab"></script>
+  <script src="src/biome_profiles.js?v=0dc0e0fd"></script>
+  <script src="src/habitat_spawns.js?v=ccd92227"></script>
   <script src="src/traps.js?v=925461a6"></script>
   <script src="src/whirlwinds.js?v=30217fab"></script>
   <script src="src/hazard_falls.js?v=6834dff4"></script>
   <script src="src/environment_hazards.js?v=798bb638"></script>
   <script src="src/spider_webs.js?v=4677643f"></script>
   <script src="src/waystones.js?v=26bf68e3"></script>
-  <script src="src/pressure_traps.js?v=16c3e12f"></script>
+  <script src="src/pressure_traps.js?v=cb929211"></script>
   <script src="src/gas.js?v=c1623ebe"></script>
   <script src="src/mushroom_gas.js?v=35fbd79f"></script>
-  <script src="src/lairs.js?v=26d8a6f7"></script>
+  <script src="src/lairs.js?v=00e99c46"></script>
   <script src="src/dungeon_progression.js?v=3a8af653"></script>
   <script src="src/elevators.js?v=e02a2b01"></script>
   <script src="src/arena.js?v=e1e49ed1"></script>
   <script src="src/schoolyard_game.js?v=241e1b43"></script>
-  <script src="src/schoolyard_fields.js?v=8c76ad65"></script>
+  <script src="src/schoolyard_fields.js?v=4835f6a2"></script>
   <script src="src/scene_schoolyard.js?v=c9b6f61e"></script>
   <script src="src/cave_hazards.js?v=706d510e"></script>
   <script src="src/cave_areas.js?v=89b1e211"></script>
   <script src="src/underground.js?v=16469a87"></script>
   <script src="src/underground_stories.js?v=deb09860"></script>
+  <script src="src/geometry.js?v=8575e0b6"></script>
   <script src="src/gameplay_tiers.js?v=e124d893"></script>
-  <script src="src/worldgen.js?v=e26e0436"></script>
+  <script src="src/generated_tile_cache.js?v=043e889f"></script>
+  <script src="src/worldgen.js?v=2c8613cb"></script>
   <script src="src/castle_styles.js?v=8a4d031c"></script>
-  <script src="src/textures.js?v=664f1bc5"></script>
+  <script src="src/ground_materials.js?v=da0fff78"></script>
+  <script src="src/textures.js?v=bc09ec5a"></script>
   <script src="src/floor_wall_materials.js?v=e3674686"></script>
   <script src="src/save.js?v=5d02b05e"></script>
-  <script src="src/dialog_item_art.js?v=946ddc58"></script>
+  <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=66eb8b9d"></script>
+  <script src="src/items.js?v=f8224905"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=ebae5f35"></script>
+  <script src="src/conditions.js?v=6d18eead"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=cec6c482"></script>
   <script src="src/crops.js?v=286067fc"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
-  <script src="src/save_state.js?v=4fb6041a"></script>
-  <script src="src/gear.js?v=9a5ec3b7"></script>
+  <script src="src/save_state.js?v=35c6e4e3"></script>
+  <script src="src/gear.js?v=7cc0ead5"></script>
   <script src="src/rewards.js?v=497251ef"></script>
   <script src="src/shops_math.js?v=6e742728"></script>
-  <script src="src/shops.js?v=f29e7032"></script>
+  <script src="src/shops.js?v=d8c33954"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
   <script src="src/chest_themes.js?v=b1264fc8"></script>
   <script src="src/loot_contexts.js?v=2b9057c3"></script>
   <script src="src/rarity.js?v=3b10f893"></script>
   <script src="src/loot.js?v=720ebf19"></script>
   <script src="src/macros.js?v=bf577fa0"></script>
-  <script src="src/quests.js?v=a1d7a8e9"></script>
+  <script src="src/quests.js?v=26f27942"></script>
   <script src="src/hidden_objects.js?v=20e79e34"></script>
   <script src="src/push_blocks.js?v=e0527454"></script>
   <script src="src/temple_puzzles.js?v=a09c5625"></script>
   <script src="src/temple_layout.js?v=1cd816bd"></script>
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
-  <script src="src/interactables.js?v=e13fe0b6"></script>
+  <script src="src/interactables.js?v=5526e8d3"></script>
   <script src="src/boss_encounters.js?v=6b33000d"></script>
-  <script src="src/houses.js?v=8e849dbb"></script>
-  <script src="src/obstacle_step.js?v=85052b4b"></script>
-  <script src="src/visibility.js?v=aabd91f3"></script>
+  <script src="src/houses.js?v=6073d351"></script>
+  <script src="src/wall_smash.js?v=f76e0740"></script>
+  <script src="src/obstacle_step.js?v=ef2df060"></script>
+  <script src="src/visibility.js?v=d44ced3c"></script>
   <script src="src/spawn_ownership.js?v=cb498972"></script>
-  <script src="src/starter.js?v=012c9ac4"></script>
+  <script src="src/starter.js?v=ff48f977"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
   <script src="src/combat.js?v=8d58779b"></script>
-  <script src="src/pirates.js?v=c810956f"></script>
+  <script src="src/pirates.js?v=362fddf3"></script>
   <script src="src/pets.js?v=bb70653d"></script>
   <script src="src/character_portraits.js?v=68d5e562"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
@@ -3204,25 +3217,27 @@
 
   <script src="src/wizard.js?v=cc6328ca"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
-  <script src="src/memory_story.js?v=5bec4c16"></script>
+  <script src="src/memory_story.js?v=3e0bffdc"></script>
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
-  <script src="src/story_encounters.js?v=6613d99e"></script>
-  <script src="src/interact.js?v=e81c936a"></script>
-  <script src="src/play_tips.js?v=207b8210"></script>
+  <script src="src/story_encounters.js?v=8fcc4b0c"></script>
+  <script src="src/interact.js?v=50d70fa2"></script>
+  <script src="src/play_tips.js?v=4d1075a6"></script>
   <script src="src/lighting_gpu.js?v=5dd349a5"></script>
-  <script src="src/lighting.js?v=6926d776"></script>
+  <script src="src/lighting.js?v=d405439d"></script>
   <script src="src/safety.js?v=4da84751"></script>
-  <script src="src/render.js?v=557019ae"></script>
+  <script src="src/render.js?v=2266f500"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
-  <script src="src/multiplayer.js?v=f939dd1a"></script>
-  <script src="src/road_overlay.js?v=3d102a43"></script>
+  <script src="src/weather_codes.js?v=298c9219"></script>
+  <script src="src/multiplayer.js?v=2af3d29f"></script>
+  <script src="src/weather.js?v=bb48807e"></script>
+  <script src="src/road_overlay.js?v=fafbd0ba"></script>
   <script src="src/temple_art.js?v=8e47066c"></script>
-  <script src="src/wall_materials.js?v=7fd31bb0"></script>
-  <script src="src/wall_surface_renderer.js?v=f688d056"></script>
+  <script src="src/wall_materials.js?v=9b6e86a9"></script>
+  <script src="src/wall_surface_renderer.js?v=d11a558d"></script>
   <script src="src/prop_lowpoly.js?v=7a976750"></script>
-  <script src="src/wall_perspective.js?v=32757f00"></script>
+  <script src="src/wall_perspective.js?v=e9e0ecf4"></script>
   <script src="src/building_styles.js?v=d936c33a"></script>
   <script src="src/authored-buildings/roof-materials.js?v=5cb7dd3c"></script>
   <script src="src/authored-buildings/facade-materials.js?v=3c611157"></script>
@@ -3233,49 +3248,48 @@
   <script src="src/authored-buildings/steam-wizard.js?v=6dd87779"></script>
   <script src="src/authored-buildings/city-buildings.js?v=cde9efc7"></script>
   <script src="src/authored_roof_palette.js?v=8c7edfba"></script>
-  <script src="src/authored_buildings.js?v=d316af6a"></script>
+  <script src="src/authored_buildings.js?v=c7ffc52d"></script>
   <script src="src/authored_building_renderer.js?v=8da48b5e"></script>
-  <script src="src/building_lowpoly.js?v=0dc357e6"></script>
+  <script src="src/building_lowpoly.js?v=d9561864"></script>
   <script src="src/fdr_castle_layout.js?v=39a4988f"></script>
-  <script src="src/fdr_castle_geometry.js?v=4709b972"></script>
+  <script src="src/fdr_castle_geometry.js?v=166dd87d"></script>
   <script src="src/fdr_castle_canvas.js?v=61b2dd7d"></script>
-  <script src="src/building_overlay.js?v=a7743902"></script>
+  <script src="src/building_overlay.js?v=22275695"></script>
   <script src="src/art_atlas.js?v=bcd97f7b"></script>
   <script src="src/selected_world_atlas.js?v=82836550"></script>
-  <script src="src/assets.js?v=9f4ef660"></script>
-  <script src="src/art-trials.js?v=6081aac9"></script>
-  <script src="src/ra_terrain_trial.js?v=eb27b1dc"></script>
-  <script src="src/mountain_edges.js?v=684856dd"></script>
-  <script src="src/dreamland_objects.js?v=7f3db73d"></script>
+  <script src="src/assets.js?v=ca488c49"></script>
+  <script src="src/terrain_transitions.js?v=4572a944"></script>
+  <script src="src/mountain_edges.js?v=d945f4c2"></script>
   <script src="src/rogue_object_bounds.js?v=01efcee0"></script>
   <script src="src/rogue_prop_profile.js?v=db5c63e0"></script>
-  <script src="src/rogue_objects.js?v=8648baf9"></script>
+  <script src="src/rogue_objects.js?v=6e8dbd54"></script>
   <script src="src/sandbox_destinations.js?v=4ba9061a"></script>
-  <script src="src/sandbox.js?v=80f35ee3"></script>
+  <script src="src/sandbox.js?v=d2c9b280"></script>
   <script src="src/sandbox_scenarios.js?v=277dff08"></script>
   <script src="src/floor_sandbox.js?v=38f9ea2d"></script>
   <script src="src/sandbox_art.js?v=ec5360fe"></script>
   <script src="src/testtools.js?v=5767ffd9"></script>
-  <script src="src/geo.js?v=c1099b24"></script>
-  <script src="src/art_thumbs.js?v=1e019f74"></script>
-  <script src="src/modal_shell.js?v=d88dfa8c"></script>
-  <script src="src/scene_geo.js?v=e5a70604"></script>
-  <script src="src/npc.js?v=d2c7e857"></script>
-  <script src="src/scene_creatures.js?v=bda39a68"></script>
+  <script src="src/geo.js?v=63ed1fae"></script>
+  <script src="src/art_thumbs.js?v=e4f358a1"></script>
+  <script src="src/modal_shell.js?v=622bfc45"></script>
+  <script src="src/scene_geo.js?v=5f8030e6"></script>
+  <script src="src/npc.js?v=018a7525"></script>
+  <script src="src/npc_benefits.js?v=a52ebc14"></script>
+  <script src="src/scene_creatures.js?v=7d06ca88"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=fd98f3ad"></script>
-  <script src="src/heading_up.js?v=132f5072"></script>
-  <script src="src/compass_modules.js?v=f8bc41b9"></script>
-  <script src="src/compass_hud.js?v=4b87bec3"></script>
-  <script src="src/scene_create.js?v=4ac9fd13"></script>
+  <script src="src/scene_shops.js?v=b1311492"></script>
+  <script src="src/heading_up.js?v=7edafbe8"></script>
+  <script src="src/compass_modules.js?v=e8e1834b"></script>
+  <script src="src/compass_hud.js?v=73bc6d2d"></script>
+  <script src="src/scene_create.js?v=e61867e2"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>
   <script src="src/scene_consumables.js?v=237780aa"></script>
   <script src="src/scene_pets.js?v=b0c58511"></script>
-  <script src="src/scene_venues.js?v=fbbef711"></script>
-  <script src="src/scene_furniture.js?v=b5a06d20"></script>
-  <script src="src/scene_streets.js?v=0c23180d"></script>
+  <script src="src/scene_venues.js?v=b8b90042"></script>
+  <script src="src/scene_furniture.js?v=16a790f0"></script>
+  <script src="src/scene_streets.js?v=b870182c"></script>
   <script src="src/scene_boss.js?v=eb142e7f"></script>
   <script>window.__boot?.mark('scripts parsed');</script>
   <script>
@@ -3346,7 +3360,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=458bb947';
+      const APP_SRC = 'src/app.js?v=698fd379';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
@@ -3392,6 +3406,7 @@
       // Does this load need to capture a home origin? Mirrors the
       // _homeCapturePending conditions in app.js create().
       function needsHomeCapture() {
+        if (Geo.debugLocation()) return false;
         if (window.__TEST_MODE) return false;
         if (typeof navigator === 'undefined' || !navigator.geolocation) return false;
         // A teleport preset relocates the origin explicitly — no capture.

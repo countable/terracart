@@ -620,6 +620,11 @@ STREET_COLORS = {
 }
 
 
+def container_look(o):
+    """The chest-kind object's container art look, as material_art resolves it."""
+    return o.get('barrelStyle') or ('barrel' if o.get('barrel') else 'chest')
+
+
 def street_material_key(o):
     kind = o.get('crop', o['kind'])
     suffix = ('_' + o.get('species', 'apple')) if kind in ('tree', 'fruittree') else ''
@@ -629,6 +634,10 @@ def street_material_key(o):
         suffix += '_' + o['_streetArt']
     if o.get('kind') == 'stakes' and o.get('_street') == 'burned':
         suffix += '_charred'
+    if o.get('kind') == 'chest':
+        # street_materials keeps one object per key, so a crate chest and a
+        # clay pot sharing 'chest' would bake one symbol for both.
+        suffix += '_' + container_look(o)
     return kind + suffix
 
 
@@ -678,7 +687,9 @@ def street_svg(v, cell_m, detail=False):
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
     for o in v['objects']:
         kind = o.get('crop', o['kind'])
-        color = STREET_COLORS.get(kind, '#d4d4d4')
+        if o.get('kind') == 'chest' and container_look(o) != 'chest':
+            kind = 'clay pot' if container_look(o) == 'clay_pot' else 'salvage barrel'
+        color = STREET_COLORS.get(o.get('crop', o['kind']), '#d4d4d4')
         size = cell_m * .8
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')

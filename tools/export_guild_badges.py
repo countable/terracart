@@ -12,7 +12,7 @@ from pathlib import Path
 from PIL import Image
 
 ROOT = Path(__file__).resolve().parents[1]
-PACK = ROOT / "assets/Icons/RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png"
+PACK = ROOT / "extra_assets/inactive/assets/Icons/RPG icons/Extras/16x16_RPG_Pack_v3.0_packed_no_background.png"
 DEST = ROOT / "assets/Icons/Items"
 
 INK = {

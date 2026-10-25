@@ -29,7 +29,7 @@ def main():
    x,y,x2,y2=c.getbbox();bounds[f'{key}:{i}']={'fw':w,'fh':h,'minX':x,'minY':y,'maxX':x2,'maxY':y2}
  # Keep all existing frame numbers for other puzzle mechanisms. Native16 crops
  # are centered in their established24 cells; extra pairs add the second looks.
- old=Image.open(ROOT/'assets/Objects/Cave/mechanisms.png').convert('RGBA')
+ old=Image.open(ROOT/'extra_assets/inactive/assets/Objects/Cave/mechanisms.png').convert('RGBA')
  sheet=Image.new('RGBA',(96,120));sheet.paste(old,(0,0))
  replacements={0:29,1:29,2:30,3:30,5:30,6:30,14:31,15:31,16:32,17:32,18:398,19:398}
  manifest['cave_mechanisms']=[]

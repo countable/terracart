@@ -64,25 +64,83 @@ const MapReviewArt = (() => {
         const t=textures.createCanvas(`biome${type}_${v}`,32,32);
         drawBiomeTexture(t.getContext(),32,type,v,0);
       }
-      if (typeof RATerrainTrial !== 'undefined') RATerrainTrial.prepare(scene);
+      if (typeof ZONE_SELECTED_MATERIALS !== 'undefined') {
+        for (const id of new Set(Object.values(ZONE_SELECTED_MATERIALS))) {
+          const t=textures.createCanvas('zone_ground_'+id,32,32);
+          drawSelectedMaterial(t.getContext(),32,id);
+        }
+      }
+      if (typeof TerrainTransitions !== 'undefined') TerrainTransitions.prepare(scene);
       return {textures,failures,scene};
     })();
     return assetsPromise;
   }
-  function cropAppearance(o) {
+  function cropAppearance(o,scene) {
     const spec=wildplantSprite(o), stage=Math.min(MAX_GROWTH_STAGE,o.stage ?? MAX_GROWTH_STAGE);
     const custom=spec?.custom, spring=spec?.sheet==='springcrops';
-    return { visible:true, texKey:custom?(spec.texture||spec.sheet):spring?'springcrops':'crops',
-      frameVal:custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage,
-      scl:spec?.scale??2,scaleYMul:1,tint:spec?.tint??(BiomeProfiles.tint(o._biome,o.crop)||0xffffff),origin:[.5,stage===0&&!custom&&!spring?.85:.5],dxPx:0,dyPx:0 };
+    const frameVal=custom?wildplantFrame(o):spring?spec.row*SPRING_CROPS_COLS+stage:(CROP_ROW[o.crop]??1)*CROPS_SHEET_COLS+stage;
+    const placement=Render.plantPlacement(o,spec,wildplantFrame(o),stage,scene);
+    return { visible:true, texKey:custom?(spec.texture||spec.sheet):spring?'springcrops':'crops',frameVal,
+      scl:placement.scl,scaleYMul:1,tint:spec?.tint??((o.crop==='rubble'?mineralRockTint(o):BiomeProfiles.tint(o._biome,o.crop))||0xffffff),
+      origin:[.5,placement.oy],dxPx:placement.dxPx,dyPx:placement.dyPx };
   }
-  function creatureAppearance(o) {
+  function creatureAppearance(o,scene) {
     const art=SpriteLayout.creatureArt(o.kind); if(!art)return null;
     const npc=o.kind==='npc'?SpriteLayout.npcAppearance(o,0,false):null;
-    return {visible:true,texKey:npc?.sheet||art.sheet,frameVal:npc?.frame??0,
+    const pose=npc||SpriteLayout.creatureAppearance({...o,_attackUntil:0,_moveUntil:0},0);
+    const elite=!npc&&Combat.isElite(o),pet=!npc&&Combat.isTame(o);
+    const texKey=npc?.sheet||(pet?Render.petTexture(scene,o.kind,art.sheet,o.tint):elite?Render.vividTexture(scene,o.kind,art.sheet):art.sheet);
+    return {visible:true,texKey,frameVal:pose.frame,flipX:!!pose.flipX,
       scl:SpriteLayout.creatureScale(o.kind,SpriteLayout.creatureInstScale(o)),scaleYMul:1,
-      origin:[.5,art.foot],dxPx:0,dyPx:-(art.float||0),
-      tint:npc?.tint??SpriteLayout.creatureTint(o.kind),alpha:SpriteLayout.creatureAlpha(o.kind)};
+      origin:[.5,art.foot],dxPx:0,dyPx:SpriteLayout.CREATURE_GROUND_DY-(art.float||0),
+      tint:pet&&Number.isFinite(o.tint)?o.tint:npc?.tint??SpriteLayout.creatureTint(o.kind),alpha:SpriteLayout.creatureAlpha(o.kind)};
+  }
+  function pressurePlateAppearance(o) {
+    return {visible:true,texKey:'cave_mechanisms',
+      frameVal:((fnv1aFrom(0x706c6174,o.id)>>>0)%2?16:2)+(o.pressed?1:0),
+      scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,
+      displayWidth:SpriteLayout.CELL_PX,displayHeight:SpriteLayout.CELL_PX,
+      alpha:o.effect==='ghost'?1:PressureTraps.CONFIG.plateAlpha,tint:o.pressed?0x999999:0xffffff};
+  }
+  // Review symbols describe the current role without resurrecting facade art.
+  // Specialised shop glyphs come from the game's own roof signs.
+  const SYMBOLS={
+    plain:{label:'House',px:['....#....','...###...','..#####..','.#######.','##.....##','.#.....#.','.#..#..#.','.#..#..#.','.#######.']},
+    trailer:{label:'Home',px:['....#....','...###...','..#####..','.#######.','##.....##','.#.#.#.#.','.#.###.#.','.#..#..#.','.#######.']},
+    wreck:{label:'Ruin',px:['....#....','...#.#...','..#...#..','.#.....#.','##.....##','.#...#...','.#..#....','.#.#...#.','.##..###.']},
+    fort:{label:'Fort',px:['#.#.#.#.#','#########','#.......#','#.......#','#.......#','#..###..#','#..#.#..#','#..#.#..#','#########']},
+    castle:{label:'Castle',px:['#.#...#.#','###.#.###','.#.###.#.','.#..#..#.','.#..#..#.','.#.....#.','.#.###.#.','.#.#.#.#.','.#######.']},
+    temple:{label:'Temple',px:['....#....','..#####..','#########','.........','.#..#..#.','.#..#..#.','.#..#..#.','.........','#########']},
+    shop:{label:'Shop',px:['.#######.','#########','#.#.#.#.#','.........','.#.....#.','.#.##..#.','.#.##..#.','.#.....#.','.#######.']},
+    trader:{label:'Trader',px:['.........','..#####..','.#######.','#.......#','.#######.','..#...#..','..#...#..','...###...','.........']},
+    wizard:{label:'Wizard',px:['....#....','....##...','...###...','...####..','..#####..','..######.','.#######.','#########','.........']},
+    turret:{label:'Turret',px:['..#.#.#..','..#####..','...###...','...#.#...','...###...','...#.#...','...###...','..#####..','.#######.']},
+  };
+  function buildingSymbol(o,scene) {
+    const role=o.kind==='temple'?'temple':scene.save?.starterShopId&&scene.save.starterShopId===o.id?'trailer':o.kind==='tower'||o.tier===12?'castle':Houses.displayRole(scene.save,o)||'plain';
+    const theme=role==='shop'?Shops.lineFor(scene.save,o)?.theme:null;
+    const glyph=Render.shopSignGlyph(theme,role);
+    return {key:theme?`shop:${theme}`:role,label:Shops.roleLabel(role,theme)||SYMBOLS[role]?.label||'House',
+      px:glyph||(SYMBOLS[role]||SYMBOLS.plain).px};
+  }
+  function symbolCanvas(symbol) {
+    const c=document.createElement('canvas');c.width=c.height=26;
+    const g=c.getContext('2d');
+    g.fillStyle='#24291fe8';g.fillRect(2,2,22,22);g.strokeStyle='#d3c7a4';g.lineWidth=1;g.strokeRect(2.5,2.5,21,21);
+    g.fillStyle='#f4e5bd';
+    symbol.px.forEach((row,y)=>[...row].forEach((v,x)=>{if(v==='#')g.fillRect(4+x*2,4+y*2,2,2);}));
+    return c;
+  }
+  // A horizontal interior span seats a marker inside concave footprints too.
+  function footprintPoint(ring) {
+    const ys=[];for(let i=1;i<ring.length;i+=2)ys.push(ring[i]);
+    const y=(Math.min(...ys)+Math.max(...ys))/2,xs=[];
+    for(let i=0,j=ring.length-2;i<ring.length;j=i,i+=2) {
+      if((ring[i+1]>y)!==(ring[j+1]>y))xs.push(ring[i]+(y-ring[i+1])*(ring[j]-ring[i])/(ring[j+1]-ring[i+1]));
+    }
+    xs.sort((a,b)=>a-b);let best=null;
+    for(let i=0;i+1<xs.length;i+=2)if(!best||xs[i+1]-xs[i]>best.width)best={x:(xs[i]+xs[i+1])/2,y,width:xs[i+1]-xs[i]};
+    return best||{x:ring[0],y:ring[1]};
   }
   const Layer = L.Layer.extend({
     initialize(options) { L.setOptions(this,options); this._world=null; this._sprites=[];this._groundCache=new Map();this._groundBytes=0; },
@@ -114,6 +172,7 @@ const MapReviewArt = (() => {
       this._groundCache.clear();this._groundBytes=0;this._terrainRings=new WeakMap();
       // A changed world or lamp mode must never retain previous art.
       this._canvasTopLeft=null;
+      this._drawnSymbols=[];
       if(this._canvas)this._canvas.getContext('2d').clearRect(0,0,this._canvas.width,this._canvas.height);
     },
     _requestRedraw() {
@@ -124,6 +183,8 @@ const MapReviewArt = (() => {
     setRestoredLamps(restored) {
       this._invalidateGround();this._restoredLamps=!!restored;this._prepare();this.redraw();return this;
     },
+    setReviewTints(enabled) { this._reviewTints=!!enabled;this._invalidateGround();this.redraw();return this; },
+    symbolAt(point) { return this._drawnSymbols?.find(s=>Math.abs(s.at.x-point.x)<=s.size/2&&Math.abs(s.at.y-point.y)<=s.size/2); },
     _prepare() {
       if(!this._world||!this._assets)return;
       const scene={save:this._world.scene.save,depth:this._world.scene.depth,textures:this._assets.textures,cellM:WorldGen.CELL_M};
@@ -135,12 +196,12 @@ const MapReviewArt = (() => {
       const tideDay=utcDayKey();
       const spent=spentSets(scene,scene.save);
       let connectedArt=new Map();
-      const add=(e,o,category)=>{
+      const add=(e,o,category,symbol=null)=>{
         if(!Number.isFinite(o.x)||!Number.isFinite(o.y))return;
         const override=connectedArt.get(o);
         const art=override?{...o,...override}:o;
-        const appearance=o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o):category==='plant'?cropAppearance(art):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
-        if(appearance?.visible&&category!=='plant'&&category!=='creature')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
+        const appearance=symbol?null:o.kind==='pressure_plate'?pressurePlateAppearance(o):o.kind==='_pathvent'?{visible:true,texKey:EnvironmentHazards.CONFIG.vent.texture,frameVal:EnvironmentHazards.VENTS[o.ventKind].row*5+3,scl:SpriteLayout.CELL_PX/EnvironmentHazards.CONFIG.vent.frameSize,scaleYMul:1,origin:EnvironmentHazards.CONFIG.vent.renderAnchor,dxPx:0,dyPx:0}:category==='creature'?creatureAppearance(o,this._assets.scene):category==='plant'?cropAppearance(art,scene):o.kind==='trap'?{visible:true,texKey:'trap_hidden',scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0}:o.kind==='coindrop'?{visible:true,texKey:Render.coinPile(o).texture,frameVal:0,scl:1,scaleYMul:1,origin:[.5,.5],dxPx:0,dyPx:0,displayWidth:Render.coinPile(o).width,displayHeight:Render.coinPile(o).width}:resolve(art);
+        if(appearance?.visible&&category!=='plant'&&category!=='creature'&&o.kind!=='pressure_plate')appearance.tint=Render.spriteTint(art,scene,appearance.texKey);
         if(o.kind==='_streetlamp'&&appearance?.visible&&typeof appearance.spec?.after==='function') {
           // The shipping after hook owns lamp sizing and dark-stone alpha.
           appearance.spec.after({
@@ -160,8 +221,20 @@ const MapReviewArt = (() => {
             x:p.dxPx,y:p.dyPx,depth:0},o,scene,appearancePass);
           fruit.push(...fruitList);
         }
-        this._sprites.push({e,o,category,kind,appearance,fruit});
+        this._sprites.push({e,o,category,kind,appearance,fruit,symbol});
       };
+      const buildings=new Map(),represented=new Set();
+      for(const e of this._world.tiles)for(const o of e.objects||[])if(o.kind==='house'||o.kind==='temple')buildings.set(o.id,o);
+      // One identity marker per source footprint, including buildings without
+      // a surviving house anchor. Castle corner towers never multiply icons.
+      if(!scene.depth)for(const e of this._world.tiles)for(const shape of e.buildingShapes||[]) {
+        if(!shape.ring||shape.ring.length<6||shape.key&&represented.has(shape.key))continue;
+        const anchor=footprintPoint(shape.ring),original=buildings.get(shape.key);
+        const o={...(original||{kind:shape.kind==='temple'?'temple':shape.tier===12?'tower':'house',id:shape.key,tier:shape.tier}),
+          x:e.tx*this.options.getEdge()+anchor.x,y:e.ty*this.options.getEdge()+anchor.y};
+        if(shape.key)represented.add(shape.key);
+        add(e,o,'object',buildingSymbol(o,scene));
+      }
       for(const e of this._world.tiles) {
         const edge=this.options.getEdge();
         connectedArt=Render.connectedArtForTile(e,e.tx,e.ty,edge,spent,
@@ -172,7 +245,14 @@ const MapReviewArt = (() => {
           add(e,{...lamp,kind:'_streetlamp',lit:!!this._restoredLamps},'infrastructure');
         }
         for(const o of e.reefCorals||[])add(e,o,'scenery');
-        for(const o of e.objects||[])add(e,o,'object');
+        for(const o of e.objects||[]) {
+          if(['house','tower','temple'].includes(o.kind)) {
+            const key=o.kind==='tower'?o.castle:o.id;
+            if(key&&represented.has(key))continue;
+            if(key)represented.add(key);
+            add(e,o,'object',buildingSymbol(o,scene));
+          } else add(e,o,'object');
+        }
         for(const o of e.coinDrops||[])add(e,o,'object');
         for(const o of e.wildplants||[]) {
           const plant=ZoneReview.livePlant(o,tideDay);
@@ -207,19 +287,40 @@ const MapReviewArt = (() => {
       const types=new Int8Array(stride*stride),materials=new Int8Array(stride*stride);
       types.fill(-1);materials.fill(-1);
       const byTile=new Map(this._world.tiles.map(e=>[`${e.tx},${e.ty}`,e]));
+      // Only the one-cell border needs cross-tile coordinate resolution.
+      for(let y=0;y<n;y++)types.set(entry.grid.subarray(y*n,(y+1)*n),(y+1)*stride+1);
       for(let y=-1;y<=n;y++)for(let x=-1;x<=n;x++) {
+        if(x>=0&&x<n&&y>=0&&y<n)continue;
         const gx=entry.tx+(x+.5)/n,gy=entry.ty+(y+.5)/n;
         const tx=Math.floor(gx),ty=Math.floor(gy),e=byTile.get(`${tx},${ty}`);
         if(!e)continue;
-        const m=e.cellsPerEdge,ix=Math.floor((gx-tx)*m),iy=Math.floor((gy-ty)*m),i=iy*m+ix,j=(y+1)*stride+x+1;
-        let type=types[j]=e.grid[i];
-        const cell=tileCellToAbs(this._world.scene,tx,ty,ix,iy);
-        if(zoneGroundColor(e,ix,iy,type)!=null)continue;
-        if(WorldGen.isCobbleTerrain(type))type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
-        else if(isBuildingType(type)&&!e.syntheticBuildingCells?.[i])type=this._world.scene.neighborNonRoadType(cell.cellIX,cell.cellIY);
-        if(type!=null)materials[j]=RATerrainTrial.material(type,cell.cellIX,cell.cellIY);
+        const m=e.cellsPerEdge,ix=Math.floor((gx-tx)*m),iy=Math.floor((gy-ty)*m);
+        types[(y+1)*stride+x+1]=e.grid[iy*m+ix];
       }
+      // Resolve materials only for visible cells at a zoom that displays them.
+      // -1 is a valid missing material; -2 means it has not been resolved yet.
+      materials.fill(-2);
       const result={types,materials,stride};this._terrainRings.set(entry,result);return result;
+    },
+    _terrainMaterial(entry,x,y,native,cell) {
+      const index=(y+1)*native.stride+x+1;
+      if(native.materials[index]!==-2)return native.materials[index];
+      const i=y*entry.cellsPerEdge+x;
+      let type=entry.grid[i],material=-1;
+      const tintedNative=type===WorldGen.T.CHURCHYARD||type===WorldGen.T.TAR_YARD;
+      let textureKey=zoneGroundTexture(entry,i,type);
+      if(tintedNative||textureKey||zoneGroundColor(entry,x,y,type)==null) {
+        if(WorldGen.isCobbleTerrain(type))type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
+        else if(isBuildingType(type)&&!entry.syntheticBuildingCells?.[i])type=this._world.scene.neighborNonRoadType(cell.cellIX,cell.cellIY);
+        if(type!=null)material=TerrainTransitions.materialForGround(type,textureKey,cell.cellIX,cell.cellIY);
+      }
+      if(native.types[index]===32&&typeof MountainEdges!=='undefined') {
+        type=MountainEdges.groundType(native.types,native.stride,index);
+        textureKey=zoneGroundTexture(entry,i,type);
+        material=TerrainTransitions.materialForGround(type,textureKey,cell.cellIX,cell.cellIY);
+      }
+      native.materials[index]=material;
+      return material;
     },
     _tintedFrame(texture,frame,tint=0xffffff) {
       // Cache the cropped, multiply-tinted frame just as Phaser's sprite tint
@@ -286,14 +387,43 @@ const MapReviewArt = (() => {
         g.fillStyle='rgba(246,248,255,.85)';g.beginPath();g.arc(at.x,at.y,Math.max(.6,side/32*1.5),0,Math.PI*2);g.fill();
       }
     },
+    _paintBuildingFootprints(g,size,project) {
+      if(this._world.scene.depth)return;
+      const edge=this.options.getEdge();
+      this._buildingBounds ||= new WeakMap();
+      for(const e of this._world.tiles)for(const shape of e.buildingShapes||[]) {
+        const ring=shape.ring;
+        if(!ring||ring.length<6)continue;
+        let bounds=this._buildingBounds.get(shape);
+        if(!bounds) {
+          bounds={minX:Infinity,minY:Infinity,maxX:-Infinity,maxY:-Infinity};
+          for(let i=0;i<ring.length;i+=2) {
+            bounds.minX=Math.min(bounds.minX,ring[i]);bounds.maxX=Math.max(bounds.maxX,ring[i]);
+            bounds.minY=Math.min(bounds.minY,ring[i+1]);bounds.maxY=Math.max(bounds.maxY,ring[i+1]);
+          }
+          this._buildingBounds.set(shape,bounds);
+        }
+        const ox=e.tx*edge,oy=e.ty*edge;
+        const a=project(ox+bounds.minX,oy+bounds.minY),b=project(ox+bounds.maxX,oy+bounds.maxY);
+        if(a.x>size.x+1||a.y>size.y+1||b.x<-1||b.y<-1)continue;
+        g.beginPath();
+        for(let i=0;i<ring.length;i+=2) {
+          const p=project(ox+ring[i],oy+ring[i+1]);
+          g[i?'lineTo':'moveTo'](p.x,p.y);
+        }
+        g.closePath();
+        g.fillStyle='#'+(BUILDING_FACE_COLOR[shape.tier]??BUILDING_FACE_COLOR[9]).toString(16).padStart(6,'0');
+        g.fill();g.strokeStyle='#302c26';g.lineWidth=1;g.lineJoin='round';g.stroke();
+      }
+    },
     _paintGround(g,size,project) {
       const edge=this.options.getEdge(),textures=this._assets.textures;
       for(const e of this._world.tiles) {
         const a=project(e.tx*edge,e.ty*edge),b=project((e.tx+1)*edge,(e.ty+1)*edge),N=e.cellsPerEdge;
         const dx=(b.x-a.x)/N,dy=(b.y-a.y)/N;
-        const native=!this._world.scene.depth&&this._assets.scene?._raTerrainReady?this._terrainRing(e):null;
         // Include road caps that extend beyond the source tile.
         if(a.x>size.x+128||a.y>size.y+128||b.x < -128||b.y < -128)continue;
+        const native=!this._world.scene.depth&&this._assets.scene?._terrainTransitionsReady?this._terrainRing(e):null;
         const x0=Math.max(0,Math.floor(-a.x/dx)),y0=Math.max(0,Math.floor(-a.y/dy));
         const x1=Math.min(N,Math.ceil((size.x-a.x)/dx)),y1=Math.min(N,Math.ceil((size.y-a.y)/dy));
         for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++) {
@@ -302,11 +432,25 @@ const MapReviewArt = (() => {
             const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y);
             type=Render.roadBackdropType(this._world.scene,type,cell.cellIX,cell.cellIY);
           }
-          let selected=null;
+          // Source polygons own the building silhouette. Keep ordinary ground
+          // beneath them instead of leaking square floor tiles around the ring.
+          const polygonGround=!this._world.scene.depth&&e.buildingShapes?.length&&isBuildingType(type)&&!e.syntheticBuildingCells?.[y*N+x];
+          if(polygonGround) {
+            const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y);
+            type=this._world.scene.neighborNonRoadType(cell.cellIX,cell.cellIY)??WorldGen.T.GRASS;
+          }
+          const zoneTexture=typeof zoneGroundTexture==='function' && zoneGroundTexture(e,y*N+x,polygonGround?type:e.grid[y*N+x]);
+          let selected=null,rock=null;
+          if(native&&type===32&&typeof MountainEdges!=='undefined') {
+            const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y),index=(y+1)*native.stride+x+1;
+            rock=MountainEdges.select(native.types,native.stride,index,cell.cellIX,cell.cellIY);
+            type=MountainEdges.groundType(native.types,native.stride,index);
+          }
           if(native&&dx>=4) {
             const cell=tileCellToAbs(this._world.scene,e.tx,e.ty,x,y),index=(y+1)*native.stride+x+1;
-            selected=(typeof MountainEdges!=='undefined'&&MountainEdges.select(native.types,native.stride,index,cell.cellIX,cell.cellIY))
-              ||RATerrainTrial.select(this._assets.scene,native.materials,native.stride,index,cell.cellIX,cell.cellIY);
+            // Review the actual material interior without blending neighbouring cells.
+            const material=this._terrainMaterial(e,x,y,native,cell);
+            selected=TerrainTransitions.select(this._assets.scene,[material,material,material,material],2,0,cell.cellIX,cell.cellIY);
           }
           const texture=selected&&textures.get(selected.key),frame=texture?.get(selected.frame);
           if(frame) {
@@ -314,12 +458,23 @@ const MapReviewArt = (() => {
             const left=Math.floor(a.x+x*dx),top=Math.floor(a.y+y*dy);
             g.drawImage(texture.getSourceImage(),frame.cutX,frame.cutY,frame.width,frame.height,left,top,
               Math.ceil(a.x+(x+1)*dx)-left,Math.ceil(a.y+(y+1)*dy)-top);
+            for(const layer of selected.layers||[]) {
+              const overlay=texture.get(layer);
+              g.drawImage(texture.getSourceImage(),overlay.cutX,overlay.cutY,overlay.width,overlay.height,left,top,
+                Math.ceil(a.x+(x+1)*dx)-left,Math.ceil(a.y+(y+1)*dy)-top);
+            }
+
           } else {
             const spec=BIOME_TEX[type],h=((e.tx*N+x)*2246822519)^((e.ty*N+y)*3266489917);
             g.fillStyle='#'+(zoneGroundColor(e,x,y,type)??COLORS[type]??0x71845b).toString(16).padStart(6,'0');g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
-            if(spec&&dx>=4)g.drawImage(textures.get(`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
+            if((zoneTexture||spec)&&dx>=4)g.drawImage(textures.get(zoneTexture||`biome${type}_${Math.abs(h)%spec.variants}`).getSourceImage(),a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);
           }
-          const sand=pirateSand(e,y*N+x);
+          if(rock&&dx>=4) {
+            const texture=textures.get(rock.key),frame=texture?.get(rock.frame);
+            if(frame)g.drawImage(texture.getSourceImage(),frame.cutX,frame.cutY,frame.width,frame.height,
+              Math.floor(a.x+x*dx),Math.floor(a.y+y*dy),Math.ceil(a.x+(x+1)*dx)-Math.floor(a.x+x*dx),Math.ceil(a.y+(y+1)*dy)-Math.floor(a.y+y*dy));
+          }
+          const sand=this._reviewTints&&pirateSand(e,y*N+x);
           if(sand){g.fillStyle=sand.wash;g.fillRect(a.x+x*dx,a.y+y*dy,dx+.5,dy+.5);}
         }
         // Follow the source road centreline, using the game's physical widths.
@@ -335,8 +490,9 @@ const MapReviewArt = (() => {
             this._pavementTiles ||= new Map();
             let tile=this._pavementTiles.get(key);
             if(!tile) {
-              tile=document.createElement('canvas');tile.width=tile.height=RoadOverlay.CLEAN_TILE_PX;
-              RoadOverlay.paintPavementTile(tile.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,road.isPath,!!this._restoredLamps,road.variant);
+              const selected=RoadOverlay.selectedRoadTile(road.variant,!!this._restoredLamps);
+              tile=document.createElement('canvas');tile.width=tile.height=selected?.width||RoadOverlay.CLEAN_TILE_PX;
+              RoadOverlay.paintPavementTile(tile.getContext('2d'),tile.width,road.isPath,!!this._restoredLamps,road.variant);
               this._pavementTiles.set(key,tile);
             }
             pattern=g.createPattern(tile,'repeat');
@@ -349,6 +505,9 @@ const MapReviewArt = (() => {
         }
         this._paintPathWebs(g,e,edge,size,project);
       }
+      // All terrain first: a ring crossing a tile boundary must not be erased
+      // by the neighbouring tile. This pass is retained in the ground cache.
+      this._paintBuildingFootprints(g,size,project);
     },
     _groundChunks(size,project,dpr) {
       const edge=this.options.getEdge(),first=this._world.tiles[0];
@@ -453,6 +612,7 @@ const MapReviewArt = (() => {
       const g=c.getContext('2d');g.scale(dpr,dpr);g.imageSmoothingEnabled=false;
       g.fillStyle='#24332b';g.fillRect(0,0,size.x,size.y);
       let detailed=false,drawn=0;
+      const symbols=[];
       this._drawGround(g,chunks);
       const first=this._world.tiles[0];
       if(first)detailed=(project((first.tx+1)*edge,first.ty*edge).x-project(first.tx*edge,first.ty*edge).x)/first.cellsPerEdge>=4;
@@ -460,16 +620,20 @@ const MapReviewArt = (() => {
         const {e,o,category,appearance:p}=item;
         if(category!=='infrastructure'&&this.options.visible&&!this.options.visible(e,o,category,item.kind))continue;
         const at=project(o.x,o.y);if(at.x < -180 || at.y < -180 || at.x>size.x+180||at.y>size.y+180)continue;
+        if(item.symbol) { if(zoom>=17)symbols.push({symbol:item.symbol,at,o});continue; }
         const cellM=edge/(e?.cellsPerEdge||this._world.tiles[0].cellsPerEdge);
         const scale=(project(o.x+cellM,o.y).x-at.x)/32;
         if(scale*32<4)continue;
         if(o.kind==='xmark') { const great=isGreatX(o);const r=(great?GREAT_X.halfSize:5.1)*scale;g.strokeStyle=great?'#6e0b0be6':'#2a1d108c';g.lineWidth=(great?GREAT_X.width:2)*scale;g.beginPath();g.moveTo(at.x-r,at.y-r);g.lineTo(at.x+r,at.y+r);g.moveTo(at.x+r,at.y-r);g.lineTo(at.x-r,at.y+r);g.stroke();continue; }
+        if(!p?.visible)continue;
         const t=p?.visible&&textures.get(p.texKey),f=t&&t.get(p.frameVal);
         if(!f) {g.fillStyle='#ffd86a';g.fillRect(at.x-1,at.y-1,3,3);continue;}
         const w=(p.displayWidth??f.width*p.scl)*scale,h=(p.displayHeight??f.height*p.scl*p.scaleYMul)*scale;
         g.globalAlpha=p.alpha??1;
         const source=this._tintedFrame(t,f,p.tint);
-        g.drawImage(source,0,0,f.width,f.height,at.x+p.dxPx*scale-w*p.origin[0],at.y+p.dyPx*scale-h*p.origin[1],w,h);drawn++;
+        g.save();g.translate(at.x+p.dxPx*scale,at.y+p.dyPx*scale);
+        if(p.flipX)g.scale(-1,1);
+        g.drawImage(source,0,0,f.width,f.height,-w*p.origin[0],-h*p.origin[1],w,h);g.restore();drawn++;
         g.globalAlpha=1;
         for(const fruit of item.fruit) {
           const ft=textures.get(fruit.key),ff=ft?.get(fruit.frame);
@@ -479,9 +643,25 @@ const MapReviewArt = (() => {
             at.x+fruit.x*scale-fw/2,at.y+fruit.y*scale-fh/2,fw,fh);
         }
       }
+      this._symbolCanvases ||= new Map();
+      this._drawnSymbols=[];
+      const occupied=new Set(),symbolSize=zoom>=19?26:22;
+      const priority={trailer:0,temple:1,castle:2,fort:3,wreck:5};
+      symbols.sort((a,b)=>(priority[a.symbol.key]??4)-(priority[b.symbol.key]??4));
+      for(const {symbol,at,o} of symbols) {
+        const cells=[];
+        for(let y=Math.floor((at.y-symbolSize/2)/26);y<=Math.floor((at.y+symbolSize/2)/26);y++)
+          for(let x=Math.floor((at.x-symbolSize/2)/26);x<=Math.floor((at.x+symbolSize/2)/26);x++)cells.push(x+','+y);
+        if(cells.some(key=>occupied.has(key)))continue;
+        cells.forEach(key=>occupied.add(key));
+        if(!this._symbolCanvases.has(symbol.key))this._symbolCanvases.set(symbol.key,symbolCanvas(symbol));
+        g.drawImage(this._symbolCanvases.get(symbol.key),Math.round(at.x-symbolSize/2),Math.round(at.y-symbolSize/2),symbolSize,symbolSize);
+        this._drawnSymbols.push({symbol,at,o,size:symbolSize});
+      }
       this.options.onStatus?.(detailed?`Game art · ${drawn.toLocaleString()} sprites in view${this._assets.failures.length?' · '+this._assets.failures.length+' missing assets':''}`:'Game art · zoom in for textures and sprites');
       return this;
     },
   });
-  return {layer:options=>new Layer(options),pirateSand};
+  return {layer:options=>new Layer(options),pirateSand,cropAppearance,creatureAppearance,buildingSymbol,footprintPoint,
+    symbolLegend:()=>[...Object.values(SYMBOLS),...['blacksmith','workshop'].map(role=>({label:Shops.roleLabel(role),px:Render.shopSignGlyph(null,role)}))].map(symbol=>({label:symbol.label,url:symbolCanvas(symbol).toDataURL()}))};
 })();

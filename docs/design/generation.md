@@ -98,6 +98,10 @@ access or tile lifecycle mechanics.
   spawn gate. A blocked frontage drops its guards instead of moving them behind
   the building. With no detected doorway, the existing ring remains. Fort and
   castle core/roof formations keep their authored seats.
+  Doorway geometry and converted street segments are cached per generated tile
+  and source footprint; seats and live eligibility remain fresh on each wake.
+  Map review shares one live-occupancy snapshot within each synchronous tile
+  batch, where no objects change between buildings.
 - Triggered bush fauna and ambient haunting consult the owning habitat. Headstone
   ghosts, starter/story creatures, crop pests, saved pets and summons remain
   feature/progression/player-driven exceptions; all placement still uses the
@@ -119,6 +123,11 @@ access or tile lifecycle mechanics.
 - Rendering and simulation use `EnemySpawns.isSurfaceResident`, including
   habitat-only residents without ordinary roster metadata. Evening suppression
   is reevaluated after dusk and dawn, including specialized Metal Slimes.
+  Home-fauna refresh retains deer candidates between creature-list changes;
+  their current positions, health, catches and ownership still select the one
+  resident each step. Home, tile and discarded-mask changes invalidate the
+  cache. Active creatures recheck policy during simulation; distant creatures
+  use the surface recheck clock instead of a full-world eligibility scan.
 
 ## Authored preview sandboxes
 
@@ -164,8 +173,17 @@ access or tile lifecycle mechanics.
   24 hours after landing; another shot refreshes that cell without duplicating
   it. Silk in flight is transient and is cleared when depth changes.
 
-- School fields carry denser wild grass plus common PetNip and rarer
-  Nettle, with densities owned by `BiomeProfiles`. Plain Small-road verges
+- Grassland (including unmapped ground), schoolyards and pitches share a
+  harvestable tallgrass pattern covering roughly half their eligible ground.
+  `BiomeProfiles.GRASS_FILL` places dense circular stands with open gaps and
+  sparse random tufts between them; globally seeded regions continue across
+  tile boundaries. Roads, building footprints, restricted sites
+  and authored zone/road replacements still take precedence. Cover coexists
+  with ordinary props and herbs; it does not reserve their spawn seats.
+  Existing grass IDs remain unchanged; a newly shared grass cell receives a
+  `_grass` suffix only when its underlying plant already owns that ID.
+  School fields retain common PetNip and rarer Nettle beneath the cover.
+  Plain Small-road verges
   sample herb seats on both sides every 21 metres; PetNip is the common roll,
   Nettle the rare one. The ordinary spawn gate excludes unsafe seats, road
   nexuses and themed stretches. Both herbs use the standard wildplant harvest
@@ -195,6 +213,11 @@ access or tile lifecycle mechanics.
   basket or recycling point) wears the full pad (`padShapeKeyForPoi`). One seat in ten (`HOUSE_CRATE_SHARE`, a hash
   of the seat) stands a tier-1 restocking crate instead of a barrel.
 
+- One percent of wild longgrass cells hide an egg, selected deterministically
+  from the plant ID by `wildplantHiddenItem`. Clearing the cell gives the egg
+  alongside the grass and preserves the independent coin bonus. These cells
+  do not use the nest-bush wiggle. The `grass-cover` tap handler clears one
+  covering square before co-located plants, chests or treasure can react.
 - Cleared wild longgrass, the wild herbs (the wild flowers, PetNip and
   the nettle) and the picked berry and poisonberry bushes (the rows of
   `SaveState.WILD_REGROWTH`, read through `SaveState.regrows`) return after
@@ -337,7 +360,7 @@ access or tile lifecycle mechanics.
   empty plots lose both their tilled marker and bed quality through the saved
   set binding; rendering never repairs farming state.
   Barricades are tier-2 supplies found in supply/field loot or supply shops.
-  Finding one unlocks its workbench recipe: three wood makes one barricade. Select
+  Finding one unlocks its workshop recipe: three wood makes one barricade. Select
   it and tap an empty safe cell to place it on the current floor. Saved
   barricades reuse the wild obstacle's art, slowing, damage and axe/fire/kit
   clearing rules; floor-tagged records survive reloads without reappearing
@@ -430,7 +453,8 @@ access or tile lifecycle mechanics.
 - Treasure trails (`HomeArea.chestTrailCandidates`, up to `CHEST_TRAIL_LIMIT`)
   lead to the nearest unopened T2+ surface chests and unfound, uncovered X
   marks within `CHEST_TRAIL_RADIUS_CELLS` of the player, anywhere on the
-  surface; crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
+  surface; crates never get one. The starter relic chest also gets its authored
+  route from Home, passing the supply crates. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
   (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
   approaching feet and returns when walking away. Segment clipping preserves dash positions and
@@ -513,11 +537,18 @@ access or tile lifecycle mechanics.
   creatures and generated placements use the same tile field. A new geographic
   rule belongs in `GameplayTiers`, not in a spawner. Occupancy, habitat choice,
   finite encounter budgets and live building clearance remain placement rules.
-- Excluded ground uses permanent `EXCLUSION_ROCK`, which blocks player movement
-  and cannot be mined or tilled. Medium/large road surfaces remain visible roads
-  while refusing every spawn. Water and building footprints retain their
-  physical surfaces and remain Excluded. Building ownership protects house/footprint
-  cells even if their terrain was repainted. Tier classification precedes final placement so
+- Only Excluded private residential ground uses permanent `EXCLUSION_ROCK`,
+  which blocks player movement and cannot be mined or tilled. Source residential
+  terrain and private/backyard/restricted evidence identify that ground before
+  Nexus paint. Roads and paths, including their drawn footprints, never become
+  rock. Building terrain retains its surface. Other eligible cells become solid
+  rock when houses cover less than 15% of their area; coverage of 15% or more
+  uses passable, non-tillable `ROCKY_GROUND` rubble. Coverage uses the union of
+  source footprints, so overlapping or duplicate houses do not count twice.
+  Ownership protects repainted building cells when intersecting shape geometry
+  is absent. Thin slivers at tile edges use the same area threshold.
+  Roads, water and building terrain retain their physical surfaces
+  while refusing every spawn. Tier classification precedes final placement so
   a rejected cell cannot retain an object from an earlier placement pass.
 - Source access evidence still records private/restricted/quiet land, sensitive
   sites, kindergarten grounds, public pier access and farm/golf restrictions.
@@ -574,10 +605,9 @@ access or tile lifecycle mechanics.
   levels and bridge/tunnel classes never join, and disconnected geometry
   never joins just because it shares a feature ID. Sections are tile-local;
   generation never depends on which neighbouring tiles are loaded.
-  Path sections have their own weighted pool: mostly Greenway, Park Path and
-  Promenade, with occasional Lantern Row and Barricade and a rare Golden Path
-  (2% base weight), plus Slime Trail and Spider Path (5% each, taken equally
-  from Greenway and Park Path). Slime Trail picks one species per stable section
+  Path sections have a weighted pool of common route themes, Greenway, Park
+  Path and Promenade, with Lantern Row, Barricade, Golden Path, Slime Trail
+  and Spider Path. All path weights are normalized together. Slime Trail picks one species per stable section
   from green, purple, fire and splitting slimes. Seeded posts every 70 m hold
   two of that species, with a midpoint post on short sections where placement
   allows. These are finite path-authored enemies using the ordinary defeated
@@ -588,19 +618,19 @@ access or tile lifecycle mechanics.
   seat per cell is sampled along the
   exact path centreline, never snapped to cell centres or placed on verges.
   Occupancy and spawn restrictions leave gaps; path-authored seats survive
-  Nexus crossings. Scenic overrides still apply. Small-road variants
-  never enter that pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
+  Nexus crossings. Scenic overrides still apply. Special Small-road variants
+  stay in their road pool; the five common route variants also enter the path pool. A majority-scenic section uses its landscape's look. Scenic restoration bonuses still follow the
   original geographic intervals. Painting, dressing, lamps, stories and map
   review all consume the same section assignment.
-- Poison Path, Fire Path, Paralysis Path and Confusion Path each have 3% base
-  weight, taking six percentage points each from Greenway and Park Path. Their
+- Poison Path, Fire Path, Paralysis Path and Confusion Path retain their
+  authored path weights. Their
   matching geysers use seeded verge seats every 42 m, with a midpoint sample
   for short sections. The hazard gate and occupancy can leave gaps. Every
   section attempts a daily shrine before claiming geyser cells, searching its
   length for safe public ground. Poison lends Mending, Fire lends Ember,
   Paralysis lends Shield, and Confusion lends Light; these are ordinary daily
   boons, not immunity to the matching gas. Geysers yield to Nexus coverage.
-- Spider Path has 5% base selection weight. A seeded 35% of cell-spaced
+- Spider Path retains its authored path selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
   occupancy, vehicle roads and road-junction safety can leave gaps. One
@@ -618,6 +648,15 @@ access or tile lifecycle mechanics.
   routes for up to 150 m, fading with route distance; parallel disconnected
   roads and different bridge/tunnel levels do not inherit it. The path pool's
   normal weights live on its rows as `pathWeight`; Small roads retain `share`.
+- Every eligible Small-road stretch has a variant, including short ends and gaps
+  between special sections. The existing special-theme roll retains its rarity;
+  its remaining stretches select a common route theme. Paths also select these
+  common themes alongside their existing choices. Rocky Road / Path has simple
+  rocks and loose stone; Grassy Lane has herbs and bushes; Old Growth Path has
+  mature trees, shrubs and mushrooms; Haunted Forest Path has dark trees,
+  headstones and mushrooms. Way of Variety densely fills both verges with
+  deterministic common plants, rocks, mature trees, pots and barrels. All use
+  existing interactions and shared spawn gates, leaving the route itself clear.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression and nighttime
@@ -755,8 +794,14 @@ access or tile lifecycle mechanics.
   seats. These use the ordinary tree identity, save ledger and shared spawn
   gate; they are not extra decorative pickups. Dark olive soil covers eligible
   Grove ground without altering roads, buildings or exclusion ownership.
-- Nexus coverage: `ZoneCoverage` owns the union of the influence footprint and the
-  associated park footprint plus park fringe. Its ground and declarative layout
+- Nexus coverage: `ZoneCoverage` owns Grove park polygons plus a 15 m outer
+  fringe; Grove anchors locate shrines and focal patterns without adding a circular
+  influence footprint. The legacy ragged park-ground fringe reaches 6–10 m.
+  Old Stones uses a fixed 15 m point-influence radius, without crowding shrinkage
+  or boundary noise; Tar Yard retains its existing 22.5–37.5 m range. Other Nexus
+  coverage combines its influence footprint with any associated park footprint.
+  Coastal park classification still checks for a beach within 30 m; reducing
+  ground coverage does not reclassify Marine Meadows. Its ground and declarative layout
   (`docs/data/zone-variants.json`, `ZoneDressing`) replace ordinary terrain paint and
   ambient fill, including procedural residential yard trees; roads and buildings
   remain visible. Ordinary mapped trees yield to Nexus coverage, including its empty cells.
@@ -843,6 +888,21 @@ access or tile lifecycle mechanics.
   or evicting that entry still starts a fresh pass for Overpass or recovery.
   Prefetched failures enter the normal tile failure path when their build turn
   arrives.
+- `WorldGen.prepareTile` shares a persistent surface-base cache between the
+  game and map review. Its key includes the existing shell content version,
+  source MVT SHA-256, tile coordinates, cell count, metre frame and review salt.
+  The page exposes the same derived version as the worker's `SHELL_VERSION`;
+  tool loaders copy it from that page. Algorithm/table changes therefore miss
+  older entries automatically, and changed source bytes invalidate only that
+  tile. Old versions age out within the same 64-entry disk LRU.
+  Records preserve typed arrays, Maps, Sets, shared references and source-layer
+  parking edits through IndexedDB structured cloning. Hits skip decode and
+  rasterization, then restore geographic-policy registrations for the surface
+  and both cave-source grids. Cave entrances, current tree/Overpass bins,
+  creatures and player overlays still run afterward. Await each base write
+  before callers can mutate it; never persist a live tile entry. Missing build
+  versions, denied/quota-limited storage and invalid records fall back to
+  sliced generation. Reset this game clears generated and raw tile caches.
 - Yield during tile-wide cell/object/polygon passes in `rasterizeTileSteps`,
   including helpers via `yield*`. Keep unsliced post-rasterize work linear.
   A profile's worst-block label identifies the block ending at that yield.
@@ -916,7 +976,7 @@ Higher-priority placements and their access space take precedence in this order:
    `HomeVariant` reserves a 50 m circle around the frozen `starterCratesAt`
    anchor on the surface only. It overrides road, Nexus and ordinary biome
    content with the curated starter area: Tilly and other unlocked story
-   neighbours, the doorstep chicken, starter supplies and authored starter
+   neighbours, the arriving starter chicken, starter supplies and authored starter
    placements. Player possessions and mapped buildings remain. Physical roads
    keep their geometry and safety rules but lose their themes inside Home.
    A live street-index copy uses the same boundary intervals as Nexus road
@@ -925,14 +985,26 @@ Higher-priority placements and their access space take precedence in this order:
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
-   The starter trail has two seed crates (nine potato seeds and nine rockfruit
-   seeds). Its nine Rock and nine Wood are instant `groundstack` pickups,
-   normally three piles of three per material; cramped ground keeps the
-   remainder in fewer piles. All seats use the same spawn gate and avoid Home's
-   footing. Supplies stay deterministic, revealed and included in tutorial
-   guidance. `save.picked` spends individual piles; an opened legacy material
-   crate spends every replacement pile through `legacyChestId`. Hard mode
-   removes both seed crates and loose material supplies.
+   Easy's chicken waits until `Quests.starterAllDone`. Its legal offscreen
+   entrance stays inside the creature simulation bubble, and normal wild-animal
+   home bias carries it toward its near-Home destination. `starter.chickenArrival`
+   pins its identity and entrance; `starter.chickenArrived` records first entry
+   into view. The ordinary caught-id ledger prevents a second bird after capture.
+   Incidental chickens in the Home fauna circle also wait during the lessons.
+   Hard's slime greeters retain their immediate seats.
+   The starter trail has three supply crates: nine potato seeds, nine Rock and
+   nine Wood. There is no rockfruit-seed crate or loose material scatter.
+   Until the first road weapon is chosen, the starter relic chest offers tools
+   rather than Sword, Bow or Staff, so it cannot pre-empt that introduction.
+   The crates follow the route from Home to the first relic chest, whose dotted guide
+   uses that authored route. The Rock crate stays within the opening screen's
+   circular inset around Home whenever legal ground is available, so Tori can
+   point out repair supplies without sending the player offscreen. A farther
+   route seat moves to the closest eligible nearby cell without changing its id.
+   Seats use the spawn gate and avoid Home's footing. Supplies stay deterministic,
+   revealed and included in tutorial guidance.
+   Crate suffixes 1, 3 and 4 retain their existing payload identities and opened
+   state. Hard mode removes the supply crates and keeps the relic chest.
 2. Building-related objects: entrances, building rewards and frontage objects.
 3. Other place-specific landmarks: named viewpoints, wells, cave entrances and
    similar location-bound features. Incidental mapped trees, shrubs and poles
@@ -1004,7 +1076,27 @@ Higher-priority placements and their access space take precedence in this order:
    row: Overgrown uses pine and Orchard uses maple alongside its fruit trees.
    Street timber also marks `treeSpeciesFixed`, so its type stays consistent
    through the starter area. Unfixed trees keep the existing near-home pine rule.
-   Residential yard trees are the newest ambient fill: while the DeepForest
+   Live Gemini crowns are fetched for the player's current z18 tile by
+   `Geometry` (`src/geometry.js`) from the multiplayer relay's HTTP origin.
+   Each success is permanent shared server evidence, with origin/schema-scoped
+   IndexedDB copies; failures retain existing trees and retry with backoff.
+   The request never blocks base geometry. `WorldGen.warmGeometry` refreshes
+   the surface through serialized detached rebuilds when its observed coverage
+   changes, including movement within one z14 game tile. Deferred/failed
+   rebuilds retry; an underground response never installs a cave as a surface.
+   Within successful coverage, including an empty result, crowns replace
+   imported static/Overpass trees and ambient ordinary/yard timber. Detected crowns supersede generated scenery, including Nexus and street
+   dressing. Explicit variant `treeSpecies`, tree material replacements and
+   tree looks apply at the final seat; without a mapping, the detected type stays.
+   Mapped species are fixed against the near-home overlay and drop the source
+   crown tint. Buildings, planted/player trees and hard placement gates remain
+   authoritative. Outside coverage the existing sources remain. Conifer maps
+   to game pine and broadleaf to maple with `treeSpeciesFixed`; unknown uses
+   the existing seeded mix. These are crown-center estimates, not trunk surveys
+   or exact species identification. Gemini trees work independently of
+   `?deepforest=on`; `?geometry=off` disables their use and requests. Sandbox
+   and test modes never warm the geometry service.
+   Residential yard trees are ambient fill: while the DeepForest
    layer is off (enable it with `?deepforest=on`), each residential polygon
    seeds random-sized trees from the `T.RESIDENTIAL` `yardTrees` row
    (`BiomeProfiles.yardTrees`). They seat after every older object and wild
@@ -1041,7 +1133,60 @@ Higher-priority placements and their access space take precedence in this order:
   If an authored footprint cannot fit, use its deterministic eligible fallback
   or report a shortfall; never spill it into forbidden or higher-priority space.
 
+### The first onward wreck
+
+`Starter.tickIntroductions` reserves a reachable unclaimed wreck beyond both
+the thief's 250 m starter-anchor minimum and Easy's 350 m quiet-Home radius.
+The reservation stores only `starter.thiefWreck` (the building identity and
+stable authored lair id). `Starter.introductionLair` holds that candidate until
+`trail.firstWeaponClaimed`, then substitutes the fixed one-member
+`Lairs.GROUPS.starter_thief` formation through the residency candidate overlay.
+The regular garrison's spawn exclusions, seats, sleep/wake cycle, theft and
+caught-id defeat ledger still apply. Reserving an already awake wreck removes
+its ordinary resident guards so they cannot appear early or duplicate the thief.
+A tile rebuild reconstructs the same encounter rather than saving an enemy.
+
+### Village residents
+
+Arrival polls build tile occupancy only when a missing, due resident has a
+usable anchor. Offscreen retries and housing decisions still read current
+membership and save state on every poll.
+
+Village neighbours have fixed wander centres. Memory-driven arrivals prefer
+Home's starting area, choosing legal cells as far from the existing village
+pins as possible; story neighbours share that spacing rule. `save.npcVillagePins`
+retains legal wander centres across tile rebuilds, so existing pins stay put when
+more people arrive. A newly blocked pin is replaced by another legal seat. Ordinary waiters stay outside Home's ring with
+enough space for their four-cell wander radius. Waiting near another restored
+roof does not reserve it. Named-zone keepers and special story arrivals keep
+their authored places until eligible to move.
+
+A restored **plain** house becomes available only after its delivery discovery
+(`Delivery.isSatisfied`). `NPC.markDelivery` records a 15-second move-in delay
+in `save.npcMoveInAfter`; old delivered houses start that delay when loaded.
+One live, unhoused, unwounded resident whom the player has spoken to may then
+move in. Conversation records eligibility in `save.npcMet`; delivery still opens
+the roof, and absent pending records cannot create a resident. Eligible neighbours
+take homes in a fixed role order: Tilly, Bryn, Maud, Edda, Orrin, then ordinary
+residents by stable id. Distance and tile loading order do not change that priority.
+Unmet residents wait until a conversation; existing saved assignments remain
+valid without a meeting stamp. The transient
+stranger is excluded; Maud is eligible after her rescue reward. The move prefers
+an unseen moment for at most another 15 seconds. `save.npcHomes` owns the
+one-resident-per-house assignment, identity and safe outside wander centre,
+plus the actual house position. Reloading reconstructs existing assignments
+without needing their origin tile. Seats prefer the renderer's source doorway
+when available, otherwise safe nearby cells within four cells of the house;
+movement keeps the four-cell leash and asks the live NPC spawn gate on each
+step. The player Home and specialty buildings never accept NPC assignments. Trying
+to move Home onto an occupied NPC house is rejected with a message asking the
+player to move elsewhere; the resident and furnishings remain untouched.
+
 ### Furniture
+
+The retired portable workbench is removed from inventory and placed furniture
+during save normalization, with the migration persisted. Workshop buildings
+provide crafting instead.
 
 Furniture is durable player property in `save.furniture`, exempt from history
 trimming. Each one-cell record stores item identity, a cell-derived id, world
@@ -1050,7 +1195,7 @@ Floor lamps, owl statues, clocks and planters occupy one floor cell. The stock
 floor lamp retains its upright proportions; all seven owl, clock and planter
 tiers use generated 24×24 exports. The furniture manifest maps both legacy
 and tier frames to these exports; source masters and crop provenance live in
-`assets/Objects/Furniture/source/generated/`.
+`extra_assets/inactive/assets/Objects/Furniture/source/generated/`.
 `PlacedFloor.restoreFurniture` overlays it into normal `entry.objects` after
 saved barricades on both surface and cave loads. Surface loading first calls
 `ensureStarterTrailerObject` to stamp synthetic Home ownership, then derives
@@ -1062,7 +1207,8 @@ occupancy without changing its generated set, so pickup releases only the
 furniture claim. Starter story seating and reward seats also respect saved pieces.
 
 `Furniture.recompute` is the sole writer of `save.houseLuxury`, a map from
-Home key to `{ score, footprintKey }`. Consumers use `Furniture.luxuryOf`.
+house key to `{ score, footprintKey }` (the footprint key is Home-only).
+Consumers use `Furniture.luxuryOf`.
 Saved indoor furniture contributes catalog tier squared (1/4/9/16/25), or its
 metadata `luxury` override. Outdoor and cave furniture contributes zero;
 one record counts once even when its future footprint spans several cells.
@@ -1073,6 +1219,17 @@ eviction does not erase luxury; unloaded geometry cannot authorize an ability.
 A new Home location invalidates that association even when its synthetic id
 is reused. Inactive Homes score zero. Reconciliation also refreshes luxury
 quests and banks newly reached milestone memories through the discovery ledger.
+
+Occupied NPC houses accept furniture by tapping their roof, walls or owned
+footprint with a furnishing selected. These exterior attachments live in
+`save.houseFurniture[houseId]`, separately from floor placements: they neither
+reserve ground cells nor enable furniture abilities. Each house keeps four
+items, ranked by `Furniture.itemLuxury` (the same tier-squared or override
+rule). A higher-scoring fifth item replaces the weakest furnishing and returns
+it to the bag. Equal or weaker items remain in hand; a full return stack
+refuses the transaction before consuming the upgrade. Pickup verifies inventory
+acceptance before removing an attachment. The player's indoor furniture and
+its luxury remain independent and retain their existing floor-placement rules.
 
 Placement uses `placeOnEmptyCell`: any owned Home floor cell, including its
 anchor and doorway, or ordinary open ground accepted by `isSpawnCell` with
@@ -1119,3 +1276,7 @@ The seven-cell-wide play area uses reachable safe field cells around the flag;
 small fields without nine playable cells are skipped. Placement is deterministic
 from terrain and occupancy; flags and active rounds are scene overlays rather
 than saved world objects.
+Occupancy queries skip empty regions and reject distant single-cell objects
+against cached field bounds. Larger footprints retain the canonical cross-tile
+expansion. Relevant placements and removals are read live, so cached regions
+never freeze the board's occupancy.

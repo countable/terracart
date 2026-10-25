@@ -4,7 +4,7 @@ from PIL import Image
 import hashlib
 import json
 ROOT = Path(__file__).resolve().parents[1]
-path = ROOT / 'assets/Objects/LowPolyProps'
+path = ROOT / 'extra_assets/inactive/assets/Objects/LowPolyProps'
 manifest = json.loads((path/'manifest.json').read_text())
 atlas = Image.open(path/'materials.png').convert('RGBA')
 assert atlas.size == (manifest['size'], manifest['size'])

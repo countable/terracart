@@ -7,13 +7,6 @@
   const DISTANCE_M = 200;
   const SOURCES = Object.freeze({ inventory: 'inv', joystick: 'move-pad',
     distance: 'roadchip', memories: 'memories', books: 'bookchip' });
-  const AWAKENING = Object.freeze({
-    inventory: 'Inventory activated. Your items are now within reach.',
-    memories: 'Memories activated. Gather memories to awaken your abilities.',
-    books: 'Books activated. Your discoveries can now be read here.',
-    distance: 'Distance activated. The compass now records your travels.',
-    joystick: 'Spirit walking activated. Use the compass controls to move.',
-  });
   function source(id) { return root.document?.getElementById?.(SOURCES[id]); }
   const HINTS = Object.freeze({
     inventory: 'You have no items. Find an item to power up the inventory.',
@@ -46,8 +39,8 @@
     if (!has(state.active)) state.active = {};
     if (!Array.isArray(state.pending)) state.pending = [];
     state.pending = [...new Set(state.pending.filter(id => Object.hasOwn(MODULES, id) && state.active[id] === true))];
-    if (!Array.isArray(state.unread)) state.unread = [...state.pending];
-    state.unread = [...new Set(state.unread.filter(id => Object.hasOwn(MODULES, id) && state.active[id] === true))];
+    // Retire activation introductions retained by older saves.
+    delete state.unread;
     if (!Number.isFinite(state.walkedM) || state.walkedM < 0) state.walkedM = 0;
     state.walkedM = Math.min(DISTANCE_M, state.walkedM);
     if (fresh) {
@@ -67,7 +60,6 @@
     if (state.active[id] === true) return false;
     state.active[id] = true;
     state.pending.push(id);
-    state.unread.push(id);
     persist(scene);
     return true;
   }
@@ -96,12 +88,11 @@
   }
   function tap(scene, id) {
     if (!Object.hasOwn(MODULES, id)) return false;
-    const state = initialize(scene.save);
     const active = isActive(scene.save, id);
-    if (active && !state.unread.includes(id)) return true;
+    if (active) return true;
     if (busy(scene, false)) return false;
     const panel = { kind: 'spirit', source: source(id), okLabel: 'Got it',
-      body: active ? AWAKENING[id] : `${MODULES[id]} not activated. Power low.\n\n${HINTS[id]}` };
+      body: `${MODULES[id]} not activated. Power low.\n\n${HINTS[id]}` };
     scene._compassSpiritOpen = true;
     const close = () => { scene._compassSpiritOpen = false; };
     try {
@@ -112,13 +103,7 @@
           activate(scene, id);
           scene.updateHUD?.();
         } });
-      else {
-        scene.showMessageModal({ ...panel, onDismiss: close });
-        if (active) {
-          state.unread = state.unread.filter(value => value !== id);
-          persist(scene);
-        }
-      }
+      else scene.showMessageModal({ ...panel, onDismiss: close });
     } catch (error) { close(); throw error; }
     return false;
   }

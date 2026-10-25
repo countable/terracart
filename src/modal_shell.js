@@ -86,7 +86,7 @@ const MODAL_KINDS = {
   relics:   { icon: '💍', label: 'Relics', art: 'kind_relics' },   // relic + armor offers
   delivery: { icon: '📦', label: 'Delivery', art: 'kind_delivery' },   // household orders
   build:    { icon: '🛠', label: 'Build', art: 'kind_build' },   // restoring wrecks, unsealing forts, moving home
-  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Home / workbench recipes (HOME_RECIPES)
+  craft:    { icon: '🪵', label: 'Craft', art: 'kind_craft' },   // Workshop recipes (HOME_RECIPES)
   wizard:   { icon: '🔮', label: 'Wizard', art: 'kind_wizard' },   // spends memories on gifts
   spirit:   { icon: '✧', label: 'Dragon Spirit', portrait: 'assets/portraits/dragon_spirit.png' },
   memory:   { icon: '🌟', label: 'Memories', art: 'kind_memory' },   // the memories chip's explainer
@@ -118,9 +118,10 @@ class SceneModals {
   //             with the blue-white (spec §UI COLOUR LANGUAGE).
   //   scrollContent — keep offer price/actions below the scrolling copy.
   //             Every dialog scrolls naturally when its content overflows.
+  //   artTrimPx — shorten a utility panel's painting while keeping its minimum.
   makeModalShell(id, { zIndex = 50, borderColor = UI_CONTROL_DIM,
     textAlign = 'center', wrapBg = '#0002', wrapExtra = '', boxExtra = '', onClose,
-    kind, kindLabel, kindIcon, header = true, story = false, art, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scrollContent = false } = {}) {
+    kind, kindLabel, kindIcon, header = true, story = false, art, artTrimPx = 0, portrait, centerBody = false, fullscreen = false, source, bookPage = false, scrollContent = false } = {}) {
     document.getElementById(id)?.remove();
     // Every dialog opens on a painting: the caller's, or its kind's default.
     // Scene art is a story-sized dialog with a 4:3 image above its copy.
@@ -421,7 +422,9 @@ class SceneModals {
         const footerHeight = body.querySelector('.modal-offer-footer')?.offsetHeight || 0;
         const available = Math.max(0, body.clientHeight - footerHeight);
         const minimum = Math.min(100, available * .35);
-        spacer.style.height = `${Math.min(full, Math.max(minimum, available * .5))}px`;
+        const height = Math.min(full, Math.max(minimum, available * .5));
+        const trim = Math.min(Math.max(0, artTrimPx), Math.max(0, height - minimum));
+        spacer.style.height = `${height - trim}px`;
       };
       const scheduleFit = () => {
         if (!frame) frame = requestAnimationFrame(fit);
@@ -551,7 +554,7 @@ class SceneModals {
   }
 
   // Station controls above an offer or a pick grid: a top-right ghost action
-  // (a workbench's Pick up) and a tab row (Home's Sell / Craft). Each tab is
+  // (furniture's Pick up) and a tab row (Brewing's Shop / Brew). Each tab is
   // { label, active, onSelect }; tapping an inactive tab leaves this dialog
   // and onSelect re-presents the sibling — cheap tabs without a stateful panel.
   _stationChrome(box, mkBtn, { topAction, tabs, isClosed, leave }) {
@@ -586,7 +589,7 @@ class SceneModals {
     }
   }
 
-  // A station's PICK GRID: every option at once as icon cards (a workbench's
+  // A station's PICK GRID: every option at once as icon cards (a workshop's
   // recipes). A long grid scrolls — it is browsed, not a transaction — and a
   // tap leaves for that option's own offer (`onSelect`), which comes back with
   // ‹ Back. `ready` cards say so in green; the rest stay tappable so their
@@ -1041,7 +1044,12 @@ class SceneModals {
             ? 'padding:12px 6px 10px;font:700 13px var(--font-ui);'
             : 'flex:1 1 30%;min-width:84px;max-width:32.5%;padding:5px 3px 3px;font:700 12px var(--font-ui);')
             + 'border-radius:7px;' });
-        b.addEventListener('click', (e) => { e.stopPropagation(); if (c.disabled) return; selected = c; paint(); });
+        b.addEventListener('click', (e) => {
+          e.stopPropagation();
+          if (closed || c.disabled) return;
+          if (c.onSelect) { close('transition'); c.onSelect(c.key); return; }
+          selected = c; paint();
+        });
         cardRow.appendChild(b);
         cards.push({ c, b });
       }

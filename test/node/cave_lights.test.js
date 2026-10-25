@@ -194,8 +194,11 @@ test('cave torches: the torch is a seated one-cell sprite with the selected nati
   assert.truthy(/seat: true, seatFrame: 0/.test(spec[0]), 'seated from its selected frame');
   assert.truthy(/frame: 0/.test(spec[0]), 'uses the selected static frame');
   assert.truthy(/shadow: true/.test(spec[0]), 'a torch casts a ground shadow like the campfire');
-  assert.truthy(/torch:\s*\{\s*kind: 'spritesheet', path: 'assets\/Objects\/SelectedProps\/torch\.png', frameWidth: 16, frameHeight: 16\s*\}/.test(ASSETS_SRC.replace(/'(\w+)':/g, '$1:')),
-    'assets.js declares the selected 16×16 torch sheet');
+  const assets = Function('SpriteLayout', 'EnemyRoster', `${ASSETS_SRC}; return ASSETS;`)(SpriteLayout, EnemyRoster);
+  assert.eq(assets.torch.kind, 'atlas-alias');
+  assert.eq(assets.torch.frameWidth, 16);
+  assert.eq(assets.torch.frameHeight, 16);
+  assert.truthy(pngDims(assets.torch.path), 'selected torch atlas ships');
   assert.truthy(SpriteLayout.ART_BOUNDS['torch:0'], 'and sprite_layout carries its trimmed bounds (tools/sprite_audit.js --emit-bounds)');
 });
 

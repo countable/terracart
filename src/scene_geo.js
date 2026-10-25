@@ -839,7 +839,20 @@ class SceneGeo {
     return WorldGen.loadTile(tx, ty, START_LAT, { bytesPromise });
   }
 
+  _warmGeometryAround() {
+    if (this.depth || this.sandbox || typeof Geometry === 'undefined' || !Geometry.enabled()) return;
+    const fix = localMToLonLat(this, this.playerM.x, this.playerM.y);
+    const tile = Geometry.tileAt(fix.lon, fix.lat), key = `${tile.x}/${tile.y}`;
+    const previous = this._geometryWarm;
+    if (previous?.key === key && (previous.pending || Date.now() - previous.at < 5000)) return;
+    const state = this._geometryWarm = { key, at: Date.now(), pending: true };
+    return WorldGen.warmGeometry(fix.lon, fix.lat, START_LAT).then(changed => {
+      if (changed && !this.depth) return this.ensureTilesAround();
+    }).catch(() => {}).finally(() => { state.pending = false; });
+  }
+
   async ensureTilesAround() {
+    this._warmGeometryAround?.();
     const cell = this.playerToWorldCell();
     // ONE PASS PER CENTRE AT A TIME. create(), the warmOverpass re-entry, the walk
     // check and the tile-failure retry can all call ensureTilesAround and none knows

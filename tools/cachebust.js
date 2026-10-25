@@ -14,7 +14,7 @@
 // the tags. What ships and what the URL claims are one value read twice:
 //
 //   node tools/cachebust.js            # check: names every stale tag, exits 1
-//   node tools/cachebust.js --write    # rewrite index.html + sw.js
+//   node tools/cachebust.js --write    # rewrite game/review HTML + sw.js
 //
 // The check is wired into tools/shell_audit.js, so `node test/node/run.js`
 // fails on drift rather than shipping it. A merge cannot collide two numbers,
@@ -26,6 +26,7 @@ const crypto = require('crypto');
 
 const ROOT = path.resolve(__dirname, '..');
 const INDEX = 'index.html';
+const REVIEW = 'tools/map-review.html';
 const SW = 'sw.js';
 
 // Eight hex characters of sha256. Long enough that two of this repo's modules
@@ -51,27 +52,40 @@ function isOwn(url) {
 // The versioned URL for one script or stylesheet path: `src/combat.js` → `src/combat.js?v=<hash>`.
 // Anything that is not a same-origin .js/.css we can read is handed back untouched,
 // so a future non-script <script src> can't be mangled into a 404.
-function versioned(url) {
+function versioned(url, directory = '.') {
   const file = url.split('?')[0];
   if (!isOwn(url) || !/\.(js|css)$/.test(file)) return url;
-  if (!fs.existsSync(path.join(ROOT, file))) return url;
-  return `${file}?v=${hashOf(file)}`;
+  const rel = path.join(directory, file);
+  if (!fs.existsSync(path.join(ROOT, rel))) return url;
+  return `${file}?v=${hashOf(rel)}`;
 }
 
 // index.html with every script URL rewritten to its content hash. Covers the
 // plain <script src> tags, the high-priority script preloads, and app.js, which
 // the boot gate injects from APP_SRC rather than a tag. One versioner keeps a
 // preload and the later request on the same cache key.
-function expectedIndex(html = readFile(INDEX)) {
-  return html
+function expectedIndex(html = readFile(INDEX), directory = '.') {
+  const versionedHtml = html
     .replace(/(<script[^>]+src=["'])([^"']+)(["'])/g,
-      (_, a, url, b) => a + versioned(url) + b)
+      (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(<link(?=[^>]*\brel=["']preload["'])(?=[^>]*\bas=["']script["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
-      (_, a, url, b) => a + versioned(url) + b)
+      (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(<link(?=[^>]*\brel=["']stylesheet["'])[^>]+\bhref=["'])([^"']+)(["'][^>]*>)/g,
-      (_, a, url, b) => a + versioned(url) + b)
+      (_, a, url, b) => a + versioned(url, directory) + b)
     .replace(/(APP_SRC\s*=\s*['"])([^'"]+)(['"])/,
-      (_, a, url, b) => a + versioned(url) + b);
+      (_, a, url, b) => a + versioned(url, directory) + b);
+  // Only resource URLs/media participate in SHELL_VERSION, never this inline
+  // value itself. Passing the URLs explicitly avoids recursive derivation.
+  return versionedHtml.replace(/(window\.__shellVersion\s*=\s*')[^']*(')/,
+    (_, a, b) => a + expectedShellVersion(shellUrls(versionedHtml)) + b);
+}
+
+function documentVersion(html = readFile(INDEX)) {
+  return (html.match(/window\.__shellVersion\s*=\s*'([^']*)'/) || [])[1];
+}
+function documentVersionProblem(html, want) {
+  const has = documentVersion(html);
+  return has === want ? null : `index.html __shellVersion ${has} → ${want}`;
 }
 
 // Every same-origin script URL the expected index.html asks for, in order.
@@ -142,20 +156,22 @@ function expectedSw(sw = readFile(SW), version = expectedShellVersion()) {
 // match in first, so a (a, url, b) callback silently hashes the `<script src="`
 // prefix instead of the URL and reports everything clean.
 function staleTags() {
-  const html = readFile(INDEX);
   const out = [];
-  const urls = new Set([...shellUrls(html), ...scriptPreloadUrls(html)]);
-  for (const url of urls) {
-    const want = versioned(url);
-    if (want !== url) out.push({ url, want });
+  for (const page of [INDEX, REVIEW]) {
+    const html = readFile(page);
+    const urls = new Set([...shellUrls(html), ...scriptPreloadUrls(html)]);
+    for (const url of urls) {
+      const want = versioned(url, path.dirname(page));
+      if (want !== url) out.push({ page, url, want });
+    }
   }
   return out;
 }
 
 function check() {
   const problems = [];
-  for (const { url, want } of staleTags()) {
-    problems.push(`${url} → ${want}`);
+  for (const { page, url, want } of staleTags()) {
+    problems.push(`${page}: ${url} → ${want}`);
   }
   const sw = readFile(SW);
   if (!sw.includes('/* ASSET_HASHES_START */') || !sw.includes('/* ASSET_HASHES_END */')) {
@@ -163,6 +179,8 @@ function check() {
   }
   if (sw !== expectedSw(sw)) problems.push('sw.js asset manifest/version needs refresh');
   const want = expectedShellVersion();
+  const documentProblem = documentVersionProblem(readFile(INDEX), want);
+  if (documentProblem) problems.push(documentProblem);
   const has = (sw.match(/const SHELL_VERSION = '([^']*)'/) || [])[1];
   if (has !== want) problems.push(`sw.js SHELL_VERSION ${has} → ${want}`);
   return problems;
@@ -177,7 +195,7 @@ function check() {
 // refuses to touch a file that still carries them, and the audit fails on it.
 const CONFLICT_MARKER = /^(<<<<<<< |=======$|>>>>>>> )/m;
 function conflictMarkers() {
-  return [INDEX, SW].filter((f) => CONFLICT_MARKER.test(readFile(f)));
+  return [INDEX, REVIEW, SW].filter((f) => CONFLICT_MARKER.test(readFile(f)));
 }
 
 function write() {
@@ -189,10 +207,16 @@ function write() {
   const html = expectedIndex();
   const changedHtml = html !== readFile(INDEX);
   if (changedHtml) fs.writeFileSync(path.join(ROOT, INDEX), html);
+  // Review modules used unversioned URLs, so an already-active game worker
+  // could pair current HTML with cached controls from before its last edit.
+  // Hash their relative URLs too; this bypasses even an older worker's cache.
+  const review = expectedIndex(readFile(REVIEW), path.dirname(REVIEW));
+  const changedReview = review !== readFile(REVIEW);
+  if (changedReview) fs.writeFileSync(path.join(ROOT, REVIEW), review);
   const sw = expectedSw(readFile(SW), expectedShellVersion(shellUrls(html)));
   const changedSw = sw !== readFile(SW);
   if (changedSw) fs.writeFileSync(path.join(ROOT, SW), sw);
-  return { changedHtml, changedSw };
+  return { changedHtml, changedReview, changedSw };
 }
 
 // ── Audit ──────────────────────────────────────────────────────────────────
@@ -204,7 +228,7 @@ function write() {
 // over exactly the drift it exists to catch.
 const CHECKS = [
   {
-    name: 'cache-bust: no merge conflict marker survives in index.html or sw.js',
+    name: 'cache-bust: no merge conflict marker survives in versioned HTML or sw.js',
     run() {
       const marked = conflictMarkers();
       if (marked.length) throw new Error(`conflict markers left in ${marked.join(', ')}`);
@@ -235,6 +259,21 @@ const CHECKS = [
       const bare = urls.filter((u) => !/\?v=[0-9a-f]+$/.test(u));
       if (bare.length) {
         throw new Error(`unversioned script(s): ${bare.join(', ')} — an unversioned URL never invalidates`);
+      }
+    },
+  },
+  {
+    name: 'cache-bust: map review scripts resolve relative to the tool and carry current content hashes',
+    run() {
+      const urls = scriptUrls(readFile(REVIEW));
+      for (const file of ['game-loader.js', 'map-review-gameplay-layer.js', '../src/gameplay_tiers.js']) {
+        const url = urls.find(u => u.split('?')[0] === file);
+        if (!url || url !== versioned(file, 'tools')) throw new Error(`stale review dependency: ${file}`);
+      }
+      if (urls.some(url => !/\?v=[0-9a-f]{8}$/.test(url))) throw new Error('unversioned review script');
+      const relative = expectedIndex('<script src="../src/gameplay_tiers.js"></script>', 'tools');
+      if (!relative.includes(`../src/gameplay_tiers.js?v=${hashOf('src/gameplay_tiers.js')}`)) {
+        throw new Error('parent-relative classifier does not share the game content hash');
       }
     },
   },
@@ -321,6 +360,60 @@ const CHECKS = [
     },
   },
   {
+    name: 'cache-bust: source, data-table and stylesheet edits advance the exposed shell version',
+    run() {
+      const files = ['tools/.cachebust_source_probe.js', 'tools/.cachebust_data_probe.js', 'tools/.cachebust_style_probe.css'];
+      const html = "<script>window.__shellVersion = 'stale';</script>"
+        + files.slice(0, 2).map(file => `<script src="${file}"></script>`).join('')
+        + `<link rel="stylesheet" href="${files[2]}">`;
+      try {
+        for (const file of files) fs.writeFileSync(path.join(ROOT, file), '/* first */');
+        const first = expectedIndex(html), initialVersion = documentVersion(first);
+        if (initialVersion !== expectedShellVersion(shellUrls(first))) throw new Error('document and worker derivations disagree');
+        if (expectedIndex(first) !== first) throw new Error('exposed version derivation is not idempotent');
+        for (const file of files) {
+          fs.writeFileSync(path.join(ROOT, file), '/* changed */');
+          if (documentVersion(expectedIndex(html)) === initialVersion) throw new Error(`${file} did not advance exposed shell version`);
+          fs.writeFileSync(path.join(ROOT, file), '/* first */');
+          if (documentVersion(expectedIndex(html)) !== initialVersion) throw new Error(`${file} restore changed the generation`);
+        }
+      } finally { for (const file of files) fs.rmSync(path.join(ROOT, file), { force: true }); }
+    },
+  },
+  {
+    name: 'cache-bust: document version drift is rejected and generated cache loads before worldgen',
+    run() {
+      const html = expectedIndex(), want = expectedShellVersion(shellUrls(html));
+      if (documentVersionProblem(html, want)) throw new Error('derived document was rejected');
+      const missing = html.replace(/window\.__shellVersion\s*=\s*'[^']*';?/, '');
+      if (!documentVersionProblem(missing, want)) throw new Error('missing document version passed the audit');
+      const stale = html.replace(/(window\.__shellVersion\s*=\s*')[^']*(')/, '$1shell-stale$2');
+      if (!documentVersionProblem(stale, want)) throw new Error('stale document version passed the audit');
+      if (expectedIndex(stale) !== html) throw new Error('document version drift did not repair');
+      const urls = scriptUrls(html).map(url => url.split('?')[0]);
+      const worldgen = urls.indexOf('src/worldgen.js');
+      if (urls[worldgen - 1] !== 'src/generated_tile_cache.js') throw new Error('generated cache must load immediately before worldgen');
+      if (html.indexOf('window.__shellVersion') > html.indexOf('<script src="src/')) throw new Error('version was exposed after game modules');
+    },
+  },
+  {
+    name: 'cache-bust: tools inherit the fetched document version before loading game modules',
+    async run() {
+      const vm = require('vm'), html = expectedIndex(), want = documentVersion(html), loaded = [];
+      if (!/^shell-[0-9a-f]{8}$/.test(want)) throw new Error('test document has no valid shell generation');
+      const context = { window: {}, fetch: async () => ({ text: async () => html }),
+        document: { createElement: () => ({}), head: { appendChild(script) {
+          if (context.window.__shellVersion !== want) throw new Error('tool module loaded before its document generation');
+          loaded.push(script.src); script.onload();
+        } } } };
+      vm.runInNewContext(readFile('tools/game-loader.js'), context);
+      await context.window.loadGame();
+      if (context.window.__shellVersion !== want) throw new Error('tool did not inherit the fetched game document version');
+      const before = loaded.findIndex(url => url.split('?')[0] === '../src/generated_tile_cache.js');
+      if (before < 0 || !loaded[before + 1]?.startsWith('../src/worldgen.js')) throw new Error('tool changed cache/worldgen module order');
+    },
+  },
+  {
     // SHELL_VERSION is the worker's cache key, derived from the script list so
     // it moves when any module does. Two branches both hand-bumping it to
     // shell-v182 for different content is the collision derivation retires.
@@ -345,11 +438,11 @@ module.exports = {
 if (require.main === module) {
   if (process.argv.includes('--write')) {
     const before = check();
-    const { changedHtml, changedSw } = write();
-    if (!changedHtml && !changedSw) console.log('cache-bust: already up to date');
+    const { changedHtml, changedReview, changedSw } = write();
+    if (!changedHtml && !changedReview && !changedSw) console.log('cache-bust: already up to date');
     else {
       for (const p of before) console.log(`  ${p}`);
-      console.log(`cache-bust: rewrote ${[changedHtml && INDEX, changedSw && SW].filter(Boolean).join(' + ')}`);
+      console.log(`cache-bust: rewrote ${[changedHtml && INDEX, changedReview && REVIEW, changedSw && SW].filter(Boolean).join(' + ')}`);
     }
   } else {
     const problems = check();

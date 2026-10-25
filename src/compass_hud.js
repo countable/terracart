@@ -93,7 +93,7 @@ const CompassHUD = {
       const control = e.target.closest?.('#memories,#bookchip,#roadchip,#inv-tabs,#inv,#move-pad');
       const id = control && this.modules[control.id];
       if (!id) return;
-      if (CompassModules.isActive(scene.save, id) && !CompassModules.initialize(scene.save).unread.includes(id)) return;
+      if (CompassModules.isActive(scene.save, id)) return;
       e.preventDefault(); e.stopImmediatePropagation();
       if (e.type === 'click' || control.id === 'move-pad') CompassModules.tap(scene, id);
     };

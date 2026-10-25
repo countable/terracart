@@ -118,28 +118,63 @@
     assert.truthy(/^“[^<>]+”$/.test(MemoryStory.HOME.body), 'Bryn opens with brief quoted speech');
   });
 
-  test('story neighbours: the wanderer is homeless until the first restoration after you meet them', () => {
+  test('story neighbours: Tilly has a housed portrait and dialogue only after a valid move-in', () => {
     const w = person('wanderer');
     const s = scene({ discovered: {}, restoredHouses: { h0: 'blacksmith' } });
     assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer.png');
-    assert.falsy(s.save.memoryStory, 'reading the portrait does not start her housing ledger');
-    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'sad on the first meeting even after a restoration they never saw');
-    assert.eq(s.save.memoryStory.met[w.id], 1, 'the meeting is stamped with the day\'s count');
-    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless, 'still sad tomorrow');
-    assert.eq(Houses.STORY_RESTORES.childHome, 1, 'owner\'s call (Oct 2026): one roof is enough');
+    assert.falsy(s.save.memoryStory, 'reading the portrait does not start her meeting ledger');
+    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.homeless);
     s.save.restoredHouses.h1 = 'trader';
-    assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer_housed.png', 'the live target changes her portrait before the next talk');
-    assert.eq(NPC.dialogue(s, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the first restoration after meeting gives them a roof');
+    s.save.restoredHouses.h2 = 'plain';
+    assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer.png', 'restoration does not move her in');
+    assert.eq(MemoryStory.wandererLine(s, w), MemoryStory.NEIGHBOURS.wanderer.homeless);
+    s.save.discovered['house:h2'] = true;
+    assert.falsy(MemoryStory.wandererHoused(s.save, w), 'a delivery without an assignment is insufficient');
+    s.save.npcHomes = { [w.id]: { houseId: 'h2', role: 'wanderer', culture: 'village' } };
+    assert.truthy(MemoryStory.wandererHoused(s.save, w));
+    assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer_housed.png');
+    assert.eq(MemoryStory.wandererLine(s, w), MemoryStory.NEIGHBOURS.wanderer.housed);
+    assert.truthy(NPC.dialogue(s, w).body.startsWith(MemoryStory.NEIGHBOURS.wanderer.housed));
     const reloaded = scene(JSON.parse(JSON.stringify(s.save)));
-    assert.eq(NPC.dialogue(reloaded, w).body, MemoryStory.NEIGHBOURS.wanderer.housed);
+    assert.eq(MemoryStory.wandererLine(reloaded, w), MemoryStory.NEIGHBOURS.wanderer.housed);
     assert.eq(NPC.portrait(reloaded, w), 'assets/portraits/wanderer_housed.png');
-    assert.eq(s.save.memoryStory.met[w.id], 1, 'the stamp never moves');
     const stamped = scene({ restoredHouses: { first: 'plain', second: 'plain' }, memoryStory: { met: { [w.id]: 1 }, childHomeAt: { [w.id]: 3 } } });
-    assert.eq(NPC.dialogue(stamped, w).body, MemoryStory.NEIGHBOURS.wanderer.housed, 'the target derives from the meeting, so a child met under the old rule moves in too');
-    assert.eq(NPC.portrait(stamped, w), 'assets/portraits/wanderer_housed.png');
-    const later = scene(towerSave(12)); later.save.memoryStory.met = { [w.id]: 3 };
-    assert.eq(NPC.dialogue(later, w).body, MemoryStory.NEIGHBOURS.wanderer.settled, 'settled by the second act');
+    assert.eq(MemoryStory.wandererLine(stamped, w), MemoryStory.NEIGHBOURS.wanderer.homeless, 'legacy restoration targets do not invent a home');
+    assert.eq(NPC.portrait(stamped, w), 'assets/portraits/wanderer.png');
+    stamped.save.npcHomes = { [w.id]: { houseId: 'second', role: 'wanderer' } };
+    assert.falsy(MemoryStory.wandererHoused(stamped.save, w), 'legacy undelivered assignments are invalid');
+    stamped.save.discovered = { 'house:second': true }; stamped.save.restoredHouses.second = 'trader';
+    assert.falsy(MemoryStory.wandererHoused(stamped.save, w), 'specialty buildings cannot house her');
+    const later = scene(towerSave(12));
+    later.save.npcHomes = { [w.id]: { houseId: 'h0', role: 'wanderer' } }; later.save.discovered['house:h0'] = true;
+    assert.eq(MemoryStory.wandererLine(later, w), MemoryStory.NEIGHBOURS.wanderer.settled, 'actual housing unlocks the settled second-act line');
     assert.truthy(/, Wanderer$/.test(NPC.dialogue(s, w).title));
+  });
+
+  test('story neighbours: Tilly remains homeless during the post-delivery move-in delay', () => {
+    const cache = WorldGen.tileCacheFor(0), previous = [...cache]; cache.clear();
+    try {
+      const home = { id: 'player_home', kind: 'house', x: 10.5 * CELL_M, y: 10.5 * CELL_M };
+      const roof = { id: 'tilly_roof', kind: 'house', x: 30.5 * CELL_M, y: 25.5 * CELL_M };
+      const w = { ...person('wanderer'), x: home.x + 3 * CELL_M, y: home.y, _homeAnchor: '' };
+      w.homeX = w.x; w.homeY = w.y;
+      const s = scene({ discovered: { ['house:' + roof.id]: true }, restoredHouses: { [roof.id]: 'plain' } });
+      s.homeWorldPos = () => home;
+      const entry = starterEntry(); entry.objects = [home, roof]; entry.creatures = [w];
+      cache.set(WorldGen.tileKey(0, 0), entry);
+      NPC.meetHomeNeighbour(s, w);
+      NPC.markDelivery(s, roof, 1000);
+      assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS - 1 }), 0);
+      assert.falsy(MemoryStory.wandererHoused(s.save, w));
+      assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer.png');
+      assert.eq(MemoryStory.wandererLine(s, w), MemoryStory.NEIGHBOURS.wanderer.homeless);
+      assert.eq(NPC.houseNeighbours(s, { now: 1000 + NPC.MOVE_IN_DELAY_MS }), 1);
+      assert.truthy(MemoryStory.wandererHoused(s.save, w));
+      assert.eq(NPC.portrait(s, w), 'assets/portraits/wanderer_housed.png');
+      assert.eq(MemoryStory.wandererLine(s, w), MemoryStory.NEIGHBOURS.wanderer.housed);
+    } finally {
+      cache.clear(); for (const [key, value] of previous) cache.set(key, value);
+    }
   });
 
   test('roles: every role a culture draws has its own untinted sheet, one per label', () => {

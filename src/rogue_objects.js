@@ -38,8 +38,8 @@ const RogueObjects = (() => {
     // fruiting/picked states from this same canopy, with unchanged 24px frames.
     if (assets.bushes) assets.bushes = {...assets.bushes,
       path:'assets/ArtTrials/RogueObjects/bushes-olive.png'};
-    if (assets.selected_shrub) assets.selected_shrub = {...assets.selected_shrub,
-      path:'assets/ArtTrials/RogueObjects/shrub-olive.png'};
+    assets.selected_shrub = {kind:'spritesheet',
+      path:'assets/ArtTrials/RogueObjects/shrub-olive.png',frameWidth:16,frameHeight:16};
     // Ambient shrubs use the planted-pool resolver, not spec(). Urban shrub
     // cells otherwise select the old mint clipped hedge and bypass this palette.
     // Keep explicitly authored hedge rows, brambles and palms in their own looks.

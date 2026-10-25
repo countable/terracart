@@ -2,18 +2,29 @@ const fs=require('node:fs'),assert=require('node:assert/strict');
 const profile=new Function(fs.readFileSync('src/rogue_prop_profile.js','utf8')+';return ROGUE_PROP_PROFILE;')();
 const code=fs.readFileSync('src/rogue_prop_profile.js','utf8')+'\n'+fs.readFileSync('src/rogue_object_bounds.js','utf8')+'\n'+fs.readFileSync('src/rogue_objects.js','utf8');
 function load(search) {
- const assets={selected_shrub:{kind:'spritesheet',path:'assets/Objects/SelectedFlora/selected_shrub.png',frameWidth:16,frameHeight:16},bushes:{kind:'spritesheet',path:'assets/Objects/CelProps/bushes.png',frameWidth:24,frameHeight:24}},layout={ART_BOUNDS:{},groveShrineArt:()=>({key:'grove_votive'}),SHRINE_KIND_ART:{scale:1.5}};
+ const assets={selected_shrub:{kind:'atlas-alias',path:'old-shrub.png',atlasKey:'legacy',frameRects:{0:{x:48,y:32,width:16,height:16}},onLoad:()=>{throw Error('stale shrub alias');},frameWidth:16,frameHeight:16},bushes:{kind:'spritesheet',path:'old-bushes.png',frameWidth:24,frameHeight:24}},layout={ART_BOUNDS:{},groveShrineArt:()=>({key:'grove_votive'}),SHRINE_KIND_ART:{scale:1.5}};
  for(const key of Object.keys(profile.assets)) assets[key]={kind:'atlas-alias',path:'old.png',atlasKey:'legacy',frameRects:{0:{x:48,y:32,width:16,height:16}},onLoad:()=>{throw Error('stale callback');}};
  const bushes={sheet:'bushes',custom:true,frames:[0,1,2,3,4,5,6,7],scale:1};
  const crops={shrub:{sheet:'selected_shrub',looks:{bramble:{sheet:'bramble'},clipped:{sheet:'approved_clipped_hedge'}}}};
  const art=new Function('location','ASSETS','SpriteLayout','DreamlandObjects','treeArtFrame','mineralRockMaterial','CELL_PX','Houses','WorldLayers','CROP_SPRITE','BUSH_SPRITE','Elevators',code+'\nreturn RogueObjects;')({search},assets,layout,{},o=>o.stage||3,o=>o.material||'plain',32,{displayRole:()=> 'wreck'},{STANDING_PROP:'standing'},crops,bushes,{isRepaired:save=>!!save?.repaired});
  return {art,assets,layout,crops};
 }
-const off=load('');assert.equal(off.assets.selected_longgrass.kind,'atlas-alias');assert.equal(off.assets.bushes.path,'assets/Objects/CelProps/bushes.png');
+const off=load('');
+assert.equal(off.art.enabled,true,'Rogue is the default without an opt-in');
+assert.equal(off.assets.selected_longgrass.kind,'spritesheet');
+assert.equal(off.assets.bushes.path,'assets/ArtTrials/RogueObjects/bushes-olive.png');
+for(const search of ['?artTrial=dreamland','?artTrial=trees-water']) {
+ const retired=load(search);
+ assert.equal(retired.art.enabled,true,'retired URLs still select Rogue');
+ assert.deepEqual(Object.keys(retired.assets),Object.keys(off.assets));
+ for(const key of Object.keys(off.assets)) assert.equal(retired.assets[key].path,off.assets[key].path);
+}
 const {art,assets,layout,crops}=load('?artTrial=rogue');assert.equal(Object.keys(assets).length,14+Object.keys(profile.assets).filter(key=>!['rogue_ladder_down','rogue_lamp_unlit'].includes(key)).length);
 assert.equal(assets.bushes.path,'assets/ArtTrials/RogueObjects/bushes-olive.png');
-assert.equal(off.assets.selected_shrub.path,'assets/Objects/SelectedFlora/selected_shrub.png');
+assert.equal(off.assets.selected_shrub.path,'assets/ArtTrials/RogueObjects/shrub-olive.png');
 assert.equal(assets.selected_shrub.path,'assets/ArtTrials/RogueObjects/shrub-olive.png');
+assert.equal(assets.selected_shrub.kind,'spritesheet','olive shrub replaces the complete legacy atlas alias');
+for(const stale of ['atlasKey','sheetRect','frameRects','sourcePath','onLoad']) assert.equal(assets.selected_shrub[stale],undefined,'shrub cannot retain '+stale);
 assert.equal(assets.selected_shrub.frameWidth,16);assert.equal(assets.selected_shrub.frameHeight,16);
 assert.equal(assets.bushes.frameWidth,24);assert.equal(assets.bushes.frameHeight,24);
 for(const [key,asset] of Object.entries(assets)) {
@@ -26,7 +37,11 @@ assert.equal(first.key,art.spec(tree,{},original).key);
 assert(first.key.startsWith('rogue_tree_'));assert.equal(first.after,undefined,'native colors survive DeepForest crown tint');
 assert.equal(original.key,'trees');assert.equal(art.spec(tree,{depth:1},original),original);
 assert(art.spec({...tree,stage:1},{},original).scale<first.scale);
-assert.equal(art.spec({kind:'mineralrock',material:'gold'},{},original),original,'named ores retain meaningful art');
+const gold=art.spec({kind:'mineralrock',material:'gold'},{},original);
+const iron=art.spec({kind:'mineralrock',material:'iron'},{},original);
+assert.equal(gold.key,'rogue_minerals','named ores use the active mineral atlas');
+assert.equal(gold.frame,10,'gold retains its material-specific frame');
+assert.notEqual(gold.frame,iron.frame,'different ores remain visually distinct');
 assert(['rogue_rock_mid','rogue_stone'].includes(art.spec({kind:'mineralrock',material:'plain'},{},original).key));
 assert.equal(art.spec({kind:'staircase',dir:'down'},{},original).key,'rogue_ladder_down');
 assert.equal(art.spec({kind:'staircase',dir:'up'},{},original).key,'rogue_ladder_up');
@@ -37,7 +52,7 @@ assert.equal(art.spec({kind:'_streetlamp',lit:false},{},original),original);
 console.log('RA reference objects: default and retired-URL routing, assets/bounds, growth, source palette, semantic exclusions and restoration conditions passed');
 
 
-assert.equal(off.crops.shrub.sheet,'selected_shrub');
+assert.equal(off.crops.shrub.sheet,'bushes');
 assert.equal(crops.shrub.sheet,'bushes','RA ordinary shrubs use rounded olive bush');
 assert.deepEqual(crops.shrub.frames,[0,1,2,3,4,5,6,7]);
 assert.equal(crops.shrub.scale,1,'24px frame preserves original shrub footprint');
@@ -53,7 +68,8 @@ for(const [key,entry] of Object.entries(profile.assets)) {
 }
 for(const [key,bounds] of Object.entries(profile.bounds)) assert.deepEqual(layout.ART_BOUNDS[key],bounds,key);
 const iconSheets=Object.fromEntries(Object.keys(profile.icons).map(key=>[key,{url:'old-atlas.png',frames:{0:{x:48,y:32}}}]));
-const untouched=structuredClone(iconSheets);off.art.installIcons(iconSheets);assert.deepEqual(iconSheets,untouched);
+off.art.installIcons(iconSheets);
+for(const [key,sheet] of Object.entries(profile.icons)) assert.deepEqual(iconSheets[key],sheet,'default profile replaces stale icon metadata');
 art.installIcons(iconSheets);
 for(const [key,sheet] of Object.entries(profile.icons)) {
  assert.deepEqual(iconSheets[key],sheet,key);
@@ -63,7 +79,7 @@ for(const [key,sheet] of Object.entries(profile.icons)) {
  assert.equal(sheet.cols,sheet.srcW/assets[key].frameWidth);
 }
 for(const depth of [0,1,3]) for(const dir of ['up','down']) {
- assert.equal(off.art.spec({kind:'staircase',dir},{depth},original),original);
+ assert.equal(off.art.spec({kind:'staircase',dir},{depth},original).key,'rogue_ladder_'+dir,'default access art matches Rogue at every depth');
  const steps=art.spec({kind:'staircase',dir},{depth},original);
  assert.equal(steps.key,'rogue_ladder_'+dir);assert.equal(steps.groundAtOrigin,dir==='down');assert.equal(steps.seat,dir==='up');
  for(const repaired of [false,true]) {

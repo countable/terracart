@@ -32,8 +32,8 @@
 <meta name="artifact-review" content="disabled">
 <title>Map review</title>
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<link rel="stylesheet" href="../vendor/leaflet/leaflet.css?v=a7837102">
+<script src="../vendor/leaflet/leaflet.js?v=db49d009"></script>
 <style>
   html,body{margin:0;height:100%;font:13px system-ui,sans-serif;background:#111}
   #map{position:absolute;inset:0 290px 0 0}
@@ -60,12 +60,12 @@
   #legend button{display:flex;align-items:center;gap:6px;width:100%;text-align:left;margin:2px 0;padding:5px 6px;background:transparent;border:1px solid transparent}
   #legend button[aria-pressed="true"]{border-color:#fff;background:#3a3a3a;color:#fff}
   #legend button:focus-visible{outline:2px solid #fff;outline-offset:1px}
+  .open-in-game{display:inline-block;padding:8px 12px;border-radius:4px;background:#35583e;color:#fff!important;text-decoration:none;font-weight:600}
   .zone-label{background:transparent;border:0;box-shadow:none;color:#fff;font-weight:600;font-size:calc(11px - 2pt);text-shadow:0 1px 2px #16140f,1px 0 2px #16140f,-1px 0 2px #16140f}
   .zone-label::before{display:none}
   .poi-label{background:transparent;border:0;box-shadow:none;padding:1px 3px;color:#eee8dc;font-size:10px;font-weight:400;text-shadow:0 1px 2px #16140f,1px 0 2px #16140f,-1px 0 2px #16140f}
   .poi-label::before{display:none}
-  .path-label{background:#17201cdd;border:1px solid #ffffff66;border-radius:3px;color:#fff;box-shadow:none;padding:2px 4px;font-size:10px;white-space:nowrap;pointer-events:none}
-  .path-label::before{display:none}
+  .path-label-canvas{pointer-events:none}
 </style>
 </head>
 <body>
@@ -100,12 +100,16 @@
 </div></details>
   <details class="review-section"><summary>Base map</summary><div class="section-body"><div id="bases"></div>
   <div id="artStatus" hidden style="color:#aaa;margin:4px 0"></div>
-  <div id="artOptions" hidden><label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label></div>
+  <div id="artOptions" hidden>
+    <label><input id="restoredLamps" type="checkbox">Preview restored roads and lamps</label>
+    <label><input id="reviewTints" type="checkbox">Highlight Pirate Cove sand</label>
+    <details><summary>Building symbols (zoom 17+)</summary><div id="buildingSymbols" style="display:grid;grid-template-columns:1fr 1fr;gap:5px;padding-top:6px"></div></details>
+  </div>
 </div></details>
   <details class="review-section"><summary>Road variants</summary><div class="section-body">
   <div id="roadVariantControls"></div>
   <label><input id="pathEndpoints" type="checkbox" checked> Path endpoints (yellow: theme change; orange: inferred; white: original)</label>
-  <label title="Visible at zoom level 17 and closer"><input id="pathLabels" type="checkbox" checked> Path names (zoom in)</label>
+  <label title="Visible at zoom level 17 and closer"><input id="pathLabels" type="checkbox" checked> Path variants and names (zoom in)</label>
   <p id="pathSummary" style="font-size:11px;color:#aaa;line-height:1.5"></p>
   <label><input id="removedLanes" type="checkbox"><span class="sw" style="background:#ff40c8"></span> Removed lanes (pink dashed)</label>
   <label><input id="keptServiceRoads" type="checkbox"><span class="sw" style="background:#31d9ff"></span> Kept service roads (cyan)</label>
@@ -131,16 +135,16 @@
 </div></details>
 </div>
 <div id="game"></div>
-<script src="game-loader.js"></script>
-<script src="map-review-zones.js"></script>
-<script src="map-review-lanes.js"></script>
-<script src="map-review-paths.js"></script>
-<script src="map-review-art.js"></script>
-<script src="map-review-terrain.js"></script>
-<script src="../src/gameplay_tiers.js"></script>
-<script src="map-review-gameplay-layer.js"></script>
-<script src="map-review-ground.js"></script>
-<script src="map-review-routes.js"></script>
+<script src="game-loader.js?v=60c03d3e"></script>
+<script src="map-review-zones.js?v=8be0e1b4"></script>
+<script src="map-review-lanes.js?v=e9708224"></script>
+<script src="map-review-paths.js?v=b65a2ea5"></script>
+<script src="map-review-art.js?v=8fad0f91"></script>
+<script src="map-review-terrain.js?v=44e05489"></script>
+<script src="../src/gameplay_tiers.js?v=e124d893"></script>
+<script src="map-review-gameplay-layer.js?v=0f425516"></script>
+<script src="map-review-ground.js?v=3205d17d"></script>
+<script src="map-review-routes.js?v=2a810850"></script>
 <script>
 // ── Tiles ───────────────────────────────────────────────────────────────────
 const Q = new URLSearchParams(location.search);
@@ -202,7 +206,7 @@ async function fetchTiles() {
         tileBytes(tx, ty),
         WorldGen.getTileBin(tx, ty, WorldGen.latOfRowCentre(ty)),
       ]);
-      if (b) got[i] = { tx, ty, layers: MVT.decodeTile(b), bin };
+      if (b) got[i] = { tx, ty, bytes: b, bin };
       $('status').textContent = `fetching tiles… ${++done}/${list.length}`;
     }
   };
@@ -242,10 +246,12 @@ async function buildWorld(home, onPreview) {
   WorldGen.setDepth(0);
   const scene = reviewScene(home, reviewDepth);
   let tiles = [];
-  for (const { tx, ty, layers, bin } of raw) {
+  for (const tile of raw) {
+    const { tx, ty, bytes, bin } = tile;
     const N = WorldGen.cellsPerEdgeForTile(ty);
     $('status').textContent = `Building terrain… ${tiles.length + 1}/${raw.length}`;
-    const r = await WorldGen.runStepsSliced(() => WorldGen.rasterizeTileSteps(layers, N, tx, ty, EDGE));
+    const { layers, result: r } = await WorldGen.prepareTile(bytes, N, tx, ty, EDGE);
+    tile.layers = layers;
     const entry = Object.assign({ tx, ty, cellsPerEdge: N, tileEdgeM: EDGE, layers, status: 'ready', depth: 0 }, r);
     entry.objects = r.objects.slice();
     // Match loadTile: keep the generated layer stable, then seat real-world
@@ -298,9 +304,10 @@ async function buildWorld(home, onPreview) {
     try {
       const cellM = EDGE / e.cellsPerEdge;
       const idx = Lairs.buildIndex(e, e.tx, e.ty, cellM, EDGE);
+      const liveOccupied = Lairs.liveOccupiedFor(e, e.tx, e.ty, EDGE);
       for (const bucket of idx.buckets.values()) {
         for (const cand of bucket) {
-          for (const g of Lairs.garrisonFor(e, cand, { tileEdgeM: EDGE, homeM: home })) guards.push(g);
+          for (const g of Lairs.garrisonFor(e, cand, { tileEdgeM: EDGE, homeM: home, liveOccupied })) guards.push(g);
         }
       }
     } catch (err) { errors.push(`garrison ${e.tx}/${e.ty}: ${err.message}`); }
@@ -345,6 +352,7 @@ const DEFAULT_BASE = Q.get('base') === 'esri' ? 'Satellite (Esri)' : Q.get('base
 bases[DEFAULT_BASE].addTo(map);
 $('artStatus').hidden = $('artOptions').hidden = DEFAULT_BASE !== 'Game art';
 $('restoredLamps').onchange = () => gameArt.setRestoredLamps($('restoredLamps').checked);
+$('reviewTints').onchange = () => gameArt.setReviewTints($('reviewTints').checked);
 Object.keys(bases).forEach((k) => mkRow($('bases'), 'radio', k, k === DEFAULT_BASE, () => {
   Object.values(bases).forEach((b) => map.removeLayer(b)); bases[k].addTo(map).bringToBack();
   $('artStatus').hidden = k !== 'Game art';
@@ -474,9 +482,10 @@ function zoneAnchorOf(e, o) {
   const a = e.zone.anchors.find((z) => z.owned && z.lx === lx && z.ly === ly);
   return { kind: k.kind, ghosts: k.ghosts, a };
 }
-function popupHTML(e, o, label) {
+function popupHTML(e, o, label, category = '') {
   const rows = [`<b>${esc(o.name || label)}</b>`];
-  const category = (e.creatures || []).includes(o) ? 'creature' : '';
+  if ((e.creatures || []).includes(o)) category = 'creature';
+  rows.push(`Kind: <b>${esc(o.kind === 'wildplant' ? o.crop : o.kind)}</b>${o.elite ? ' · elite' : ''}`);
   rows.push(`Source: <b>${esc(ZoneReview.SOURCES[ZoneReview.source(e,o,category)].label)}</b>`);
   if (o._treeSource) rows.push(`Tree evidence: <b>${esc(o._treeSource === 'gemini' ? 'Relay satellite detection' : o._treeSource)}</b>`);
   if (o.zoneVariant) rows.push(`Variant: <b>${esc(ZoneVariants.byId(o.zoneVariant)?.name || o.zoneVariant)}</b>${o.zoneLayer ? ' · '+esc(o.zoneLayer) : ''}`);
@@ -488,6 +497,11 @@ function popupHTML(e, o, label) {
     const talk = NPC.dialogue(window.__world.scene, o);
     rows.push(`<b>Today's dialogue</b><br>${esc(talk.body).replace(/\n/g, '<br>')}`);
     rows.push('<small>Daily dialogue for this review world, with no player progress.</small>');
+  } else if (category === 'creature') {
+    rows.push(`Type: <b>${Combat.isEnemy(o) ? 'Enemy' : 'Animal'}</b>`);
+    const hp = Combat.maxHp(o), stats = Combat.monster(o.kind);
+    rows.push(`HP: ${esc(o.hp ?? hp)} / ${esc(hp)}`);
+    if (stats) rows.push(`Base damage: ${esc(stats.dmg || 0)} · armour: ${esc(stats.armor || 0)}`);
   } else if (o.kind === 'chest' || o.kind === 'grove_shrine') {
     const tags = (o._poiAt && poiTagsOf(e).get(o._poiAt)) || {};
     rows.push(`POI: ${esc(o.poiClass || tags.class || '?')}${tags.subclass && tags.subclass !== o.poiClass ? ' / ' + esc(tags.subclass) : ''}`);
@@ -805,6 +819,13 @@ for (const f of TERRAIN_FAMILIES) {
 // Spawn overlays share the game's verdict: globally blocked or suppressed.
 const SPAWN_GATE_COLOUR = { invalid: 'rgba(230,40,40,.62)', suppressed: 'rgba(255,190,40,.58)' };
 let reviewOverlays = [];
+// Diagnostic rasters are hidden initially. Keep counts eager, but allocate and
+// encode their canvases only when the reviewer first enables the layer.
+function lazyReviewImage(paint, bounds, options, group) {
+  const layer = L.layerGroup();
+  layer.once('add', () => L.imageOverlay(paint(), bounds, options).addTo(layer));
+  layer.addTo(group);
+}
 function overlays(world) {
   pathReview.update(world);
   reviewOverlays.forEach(layer => map.removeLayer(layer));
@@ -822,20 +843,21 @@ function overlays(world) {
   for (const e of world.tiles) {
     const N = e.cellsPerEdge;
     const mk = (paint) => { const c = document.createElement('canvas'); c.width = N; c.height = N; const g = c.getContext('2d'); paint(g); return c.toDataURL(); };
-    const terr = mk((g) => { for (let i = 0; i < N * N; i++) { used.add(e.grid[i]); g.fillStyle = MapReviewArt.pirateSand(e,i)?.colour || hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
+    for (const type of e.grid) used.add(type);
+    const terr = () => mk((g) => { for (let i = 0; i < N * N; i++) { g.fillStyle = MapReviewArt.pirateSand(e,i)?.colour || hue(e.grid[i]); g.fillRect(i % N, (i / N) | 0, 1, 1); } });
     // Count and paint the shared spawn verdict.
     const cls=Uint8Array.from(e.grid,(_,i)=>tierVerdicts[WorldGen.spawnTierAt(e.grid,i,
       {gameplayTiers:e.gameplayTiers,spawnWhy:e.spawnWhy})] ?? WorldGen.SPAWN_INVALID);
     for(const verdict of cls) gate[verdict]++;
     const gateImg = (verdict, colour) => mk((g) => { g.fillStyle=colour;
       for(let i=0;i<N*N;i++) if(cls[i]===verdict) g.fillRect(i%N,(i/N)|0,1,1); });
-    const inv = gateImg(WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
-    const sup = gateImg(WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
+    const inv = () => gateImg(WorldGen.SPAWN_INVALID, SPAWN_GATE_COLOUR.invalid);
+    const sup = () => gateImg(WorldGen.SPAWN_SUPPRESSED, SPAWN_GATE_COLOUR.suppressed);
     const n = n14(), latOf = (yt) => Math.atan(Math.sinh(Math.PI * (1 - 2 * yt / n))) * 180 / Math.PI;
     const b = [[latOf(e.ty + 1), e.tx / n * 360 - 180], [latOf(e.ty), (e.tx + 1) / n * 360 - 180]];
-    L.imageOverlay(terr, b, { opacity: 0.55 }).addTo(groups['Terrain codes']);
-    L.imageOverlay(inv, b, { opacity: 0.85 }).addTo(groups['Global no-spawn zone']);
-    L.imageOverlay(sup, b, { opacity: 0.85 }).addTo(groups['Suppression zone']);
+    lazyReviewImage(terr, b, { opacity: 0.55 }, groups['Terrain codes']);
+    lazyReviewImage(inv, b, { opacity: 0.85 }, groups['Global no-spawn zone']);
+    lazyReviewImage(sup, b, { opacity: 0.85 }, groups['Suppression zone']);
     tileBounds.push({ e, b, N, mk });
     reviewOverlays.push(L.rectangle(b, { color: '#fff', weight: 1, fill: false, dashArray: '4 4' }).bindTooltip(`tile ${e.tx}/${e.ty}`).addTo(map));
   }
@@ -843,7 +865,7 @@ function overlays(world) {
   const nexusLayers = new Set([coverageLayer]);
   for (const { e, b, N, mk } of tileBounds) {
     if (!e.zone || !e.zone.coverage) continue;
-    const img = mk(g => {
+    const img = () => mk(g => {
       for (let i = 0; i < N * N; i++) {
         const slot = e.zone.coverage[i];
         if (!slot) continue;
@@ -852,7 +874,7 @@ function overlays(world) {
         g.fillRect(i % N, (i / N) | 0, 1, 1);
       }
     });
-    L.imageOverlay(img, b, { opacity: .3 }).addTo(coverageLayer);
+    lazyReviewImage(img, b, { opacity: .3 }, coverageLayer);
   }
   // COMMERCIAL GROUND BY ITS NEAREST POI (WorldGen.commercialPoiField — the
   // one field stampSpawnWhySteps reads): every exterior T.COMMERCIAL /
@@ -906,6 +928,13 @@ function overlays(world) {
           L.circleMarker(ll, { radius: 3, color: ZC.quarry, weight: 1, fillOpacity: .4 })
             .bindTooltip('Quarry · parking-lane component reference; not a POI')
             .bindPopup('<b>Quarry</b><br>Coverage comes from buffered parking-lane geometry, not this reference point. No POI or light source.')
+            .addTo(zg);
+          continue;
+        }
+        if (Zones.ZONE_KINDS[a.kind]?.influence === false) {
+          L.circleMarker(ll, { radius: 3, color: ZC[a.kind] || '#fff', weight: 1, fillOpacity: .4 })
+            .bindTooltip(`${a.kind} · focal anchor`)
+            .bindPopup(`<b>${esc(a.kind)}</b><br>Coverage follows the mapped park and its outer buffer. This anchor locates the shrine and focal pattern.`)
             .addTo(zg);
           continue;
         }
@@ -1123,6 +1152,12 @@ async function detectTreesAtCentre() {
     // Optional relay override also scopes the game's persistent detection cache.
     if (Q.get('relay')) window.MP_SERVER_URL = Q.get('relay');
     await loadGame();
+    for(const symbol of MapReviewArt.symbolLegend()) {
+      const row=document.createElement('span'),img=document.createElement('img');
+      img.src=symbol.url;img.alt='';img.width=img.height=26;img.style.verticalAlign='middle';
+      row.append(img,document.createTextNode(' '+symbol.label));$('buildingSymbols').append(row);
+    }
+
     $('detectTrees').onclick = detectTreesAtCentre;
     for (let depth = 0; depth <= 99; depth++) {
       const option = document.createElement('option');
@@ -1153,13 +1188,27 @@ async function detectTreesAtCentre() {
       if (!placing) {
         if (ev.propagatedFrom) return;
         const point = toM(ev.latlng.lat, ev.latlng.lng, EDGE);
+        const symbol = map.hasLayer(gameArt) && gameArt.symbolAt(ev.containerPoint || map.latLngToContainerPoint(ev.latlng));
         const route = MapReviewRoutes.inspect({ world: window.__world, point, edge: EDGE,
           project: p => map.latLngToLayerPoint(toLL(p.x, p.y, EDGE)) });
         const hit = MapReviewGround.inspect(window.__world, point, EDGE);
         const tier = $('gameplayTiers').checked ? gameplayReview.inspect(ev.latlng) : null;
         const ground = hit?.content || 'No generated tile loaded at this location.';
-        const content = (route ? route.content + '<hr><details><summary>Ground beneath click</summary>' + ground + '</details>' : ground)
-          + (tier ? '<hr>' + tier.content : '');
+        const occupants = MapReviewGround.objectsAt(window.__world, hit, gameArt._sprites || []);
+        const contents = occupants.length ? `<b>In this tile (${occupants.length})</b><hr>`
+          + occupants.map(({entry,object,category}) => popupHTML(entry,object,object.name || object.crop || object.kind,category)).join('<hr>') + '<hr>' : '';
+        const groundInfo = occupants.length ? '<details><summary>Ground</summary>' + ground + '</details>' : ground;
+        const gameUrl = new URL('../index.html', location.href);
+        gameUrl.searchParams.set('fakeGps', '1');
+        gameUrl.searchParams.set('skipIntro', 'true');
+        gameUrl.searchParams.set('skipStory', 'true');
+        gameUrl.searchParams.set('skipTutorial', 'true');
+        gameUrl.searchParams.set('lat', ev.latlng.lat);
+        gameUrl.searchParams.set('lon', ev.latlng.lng);
+        const content = contents + (symbol ? `<b>${esc(symbol.symbol.label)}</b>${symbol.o.name ? '<br>'+esc(symbol.o.name) : ''}<hr>` : '')
+          + (route ? route.content + '<hr><details><summary>Ground beneath click</summary>' + groundInfo + '</details>' : groundInfo)
+          + (tier ? '<hr>' + tier.content : '')
+          + `<hr><a class="open-in-game" href="${gameUrl.href}" target="_blank" rel="noopener">Open in game</a>`;
         L.popup({ maxWidth: 380, maxHeight: 420 }).setLatLng(ev.latlng).setContent(content).openOn(map);
         return;
       }

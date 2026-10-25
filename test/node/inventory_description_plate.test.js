@@ -50,7 +50,7 @@
       renderItemIcon() { return element('img'); },
       iconSpanHTML(id, size) { return `<i data-size="${size}"></i>`; },
       gearIconHTML(kind, slot, tier, size) { return `<i data-size="${size}"></i>`; },
-      syncEatButton() {}, syncConsumableButton() {}, syncEquipButton() {}, syncFurnitureFlipButton() {},
+      syncEatButton() {}, syncConsumableButton() {}, syncEquipButton() {}, syncFurnitureFlipButton() {}, syncSeedButton() {},
     };
     for (const name of ['refreshInventoryHighlight', '_effectLineEl', '_openSelectedDescription']) s[name] = lift(name);
     wire.call(s, plate);

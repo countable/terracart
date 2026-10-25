@@ -299,13 +299,15 @@
     const centre = (ix, iy) => ({ x: ox + (ix + 0.5) * cellM, y: oy + (iy + 0.5) * cellM });
     return { N, cellM, ox, oy, inTile, cellOf, idxOf, centre };
   }
-  // The flat cell indices every record of `lists` stands on (records outside
-  // the square are skipped) — THE occupancy set, keyed the way isSpawnCell's
+  // Grass is cover above a seat, not a reservation against props or creatures.
+  function isGrassCover(o) { return o?.kind === 'wildplant' && o.crop === 'longgrass' && o._plantArt !== 'reeds'; }
+  // The flat cell indices reserved by records of `lists` (outside records and
+  // walk-through grass cover are skipped), keyed the way isSpawnCell's
   // `occupied` reads it, so a placer's own occupancy can be handed to the gate.
   function occupiedIndexSet(frame, ...lists) {
     const out = new Set();
     for (const list of lists) {
-      for (const o of list || []) { const i = frame.idxOf(o.x, o.y); if (i >= 0) out.add(i); }
+      for (const o of list || []) { if (isGrassCover(o)) continue; const i = frame.idxOf(o.x, o.y); if (i >= 0) out.add(i); }
     }
     return out;
   }
@@ -460,6 +462,7 @@
     CHURCHYARD: 29,
     TAR_YARD: 31,
     EXCLUSION_ROCK: 32, // permanent bedrock in inaccessible rear-lot interiors
+    ROCKY_GROUND: 33, // flat private-lot rubble where buildings trim bedrock
   };
 
   // --- Walkability / spawnability (single source of truth) ---
@@ -598,7 +601,7 @@
     const here = grid?.[i], why = opts.spawnWhy?.[i] || 0;
     const hardLand = SPAWN_WHY_LAND & ~W_.JUNCTION;
     if (why & hardLand || opts.quiet?.[i] || here === T.ROAD_MD || here === T.ROAD_LG
-      || here === T.EXCLUSION_ROCK || here === T.GOLF || isBuildingTerrain(here) || here === T.WATER) return 4;
+      || here === T.EXCLUSION_ROCK || here === T.ROCKY_GROUND || here === T.GOLF || isBuildingTerrain(here) || here === T.WATER) return 4;
     if (here === T.PIER && !opts.spawnWhy) return 4;
     if (here === T.PATH) return 1;
     if (here === T.ROAD) return 2;
@@ -627,7 +630,7 @@
     if (!global.GameplayTiers.allowed(tier, cls || 'minor')) return false;
     // Geography is decided above. These are live physical placement checks:
     // a new wall or occupied seat must not be reopened by a cached tier.
-    if (isBuildingTerrain(here) || here === T.WATER || here === T.EXCLUSION_ROCK
+    if (isBuildingTerrain(here) || here === T.WATER || here === T.EXCLUSION_ROCK || here === T.ROCKY_GROUND
       || here === T.CAVE_WALL) return false;
     if (opts?.waterOnly) return false; // water is Excluded for every spawn profile
     if (opts?.occupied?.has(i)) return false;
@@ -2725,6 +2728,25 @@
     } catch {}
   }
 
+  // Read-modify-write within one transaction so concurrent tabs cannot lose
+  // each other's geometry children in a shared z14 aggregate.
+  async function idbMergeGeometry(parentKey, childKey, fc) {
+    try {
+      const db = await openIDB();
+      return await new Promise((resolve, reject) => {
+        const tx = db.transaction('tiles', 'readwrite'), store = tx.objectStore('tiles');
+        const read = store.get(parentKey); let value;
+        read.onsuccess = () => {
+          value = { ...(read.result || {}), [childKey]: fc };
+          store.put(value, parentKey);
+        };
+        tx.oncomplete = () => resolve(value);
+        tx.onerror = () => reject(tx.error);
+        tx.onabort = () => reject(tx.error);
+      });
+    } catch (_) { return null; }
+  }
+
   // --- External map data caching -------------------------------------------
   // The OpenFreeMap MVT bytes for a tile are cached in IndexedDB and served
   // from there FOREVER. Age never invalidates anything: once the bytes are
@@ -3123,7 +3145,10 @@
     n = _clipHalfPlane(_clipB, n, _clipA, 1, -1, cy + 1);  if (n < 3) return 0;
     let s = 0;
     for (let i = 0, j = n - 1; i < n; j = i++) {
-      s += _clipA[j * 2] * _clipA[i * 2 + 1] - _clipA[i * 2] * _clipA[j * 2 + 1];
+      // Cell-local coordinates avoid cancellation for thin polygons near a
+      // large tile index, where subtracting two large products loses area.
+      s += (_clipA[j * 2] - cx) * (_clipA[i * 2 + 1] - cy)
+        - (_clipA[i * 2] - cx) * (_clipA[j * 2 + 1] - cy);
     }
     return Math.abs(s) / 2;   // one cell has area 1 in cell units
   }
@@ -4017,7 +4042,7 @@
   function churchyardBufferM() {
     const Z = (typeof Zones !== 'undefined') ? Zones : null;
     const k = Z && Z.ZONE_KINDS && Z.ZONE_KINDS.stones;
-    return k ? k.R * (1 + (Z.EDGE_JITTER || 0)) : 100;
+    return k ? k.R * (1 + Z.edgeJitterFor('stones')) : 100;
   }
   // Two-pass chamfer distance (in cells) over an E×E Float32 grid whose
   // sources hold 0 and everything else a big number.
@@ -4401,6 +4426,11 @@
   function* grassFillSteps(tx, ty, w, h = w) {
     const grass = BiomeProfiles.GRASS_FILL;
     const candidates = new Uint8Array(w * h);
+    // Full fields need no regional noise or per-cell RNG allocation.
+    if (grass.dMin >= 1 && grass.dMax >= 1 && grass.dense >= 1) {
+      candidates.fill(1);
+      return candidates;
+    }
     const grassRegions = new Map();
     const grassRegion = (bx, by) => {
       const key = `${bx}_${by}`;
@@ -6105,15 +6135,15 @@
     const finalTierField = yield* global.GameplayTiers.buildTileSteps({ ...tierInput, zone }, tierGeography);
     gameplayTiers.set(finalTierField.tiers);
     gameplayReasons.set(finalTierField.reasons);
-    // Replace polygon grass on final GRASS cells, so overlapping mapped
-    // polygons and the unclassified fallback get the same single fill pass.
-    // Other plants stay first in the occupancy queue; landmarks, special
-    // Nexus/Road Variant areas and the shared spawn gate still own their cells.
+    // Replace polygon grass on final field terrain with one clustered cover
+    // pass. Other plants keep their identities underneath the cover; the
+    // shared spawn gate and special Nexus/Road Variant replacement still apply.
+    const grassTerrains = new Set(BiomeProfiles.GRASS_FILL.terrains);
     let grassKeep = 0;
     for (let i = 0; i < wildplants.length; i++) {
       if ((i & 63) === 0) yield 'grass polygon cleanup';
       const wp = wildplants[i];
-      if (wp.crop === 'longgrass' && grid[wp._iy * w + wp._ix] === T.GRASS) continue;
+      if (wp.crop === 'longgrass' && grassTerrains.has(grid[wp._iy * w + wp._ix])) continue;
       wildplants[grassKeep++] = wp;
     }
     wildplants.length = grassKeep;
@@ -6121,7 +6151,7 @@
     for (let iy = 0; iy < h; iy++) {
       if ((iy & 7) === 0) yield 'grass placement rows';
       for (let ix = 0; ix < w; ix++) {
-        if (grid[iy * w + ix] !== T.GRASS || !grassCandidates[iy * w + ix]) continue;
+        if (!grassTerrains.has(grid[iy * w + ix]) || !grassCandidates[iy * w + ix]) continue;
         const { mx, my } = cellCenterMeters(ix, iy);
         wildplants.push(makeWildplant(BiomeProfiles.GRASS_FILL.crop, mx, my,
           cellId('wp', tx, ty, ix, iy), { _ix: ix, _iy: iy }));
@@ -6360,10 +6390,8 @@
     }
 
     yield 'castle towers';
-    // Unified occupancy pass — at most one object per cell.
-    // Strict priority: chest > house > tree > wildplant.
-    // The first one to claim a cell wins; everything else in that cell is
-    // dropped so we never have shrubs hiding under chests or pads.
+    // One prop/plant seat per cell, plus a separate tallgrass cover layer.
+    // Strict seat priority: chest > house > tree > ordinary wildplant.
     const occupiedCells = new Set();
     const cellKeyOfWorld = (x, y) => {
       const { ix, iy } = cellOfWorldM(x, y);
@@ -6437,7 +6465,8 @@
       keptStructs.push(o);
     }
 
-    // 2) Wildplants — biome-appropriate cells only, never on a structure cell.
+    // 2) Wildplants — biome-appropriate cells only. Ordinary flora reserves
+    // one seat; tallgrass is a separate cover layer above low props/plants.
     //    Roads/paths/water/buildings are painted AFTER landuse, so a residential
     //    polygon may have had debris dropped into a cell that later became
     //    road, OR a park polygon's shrubs may have ended up under a residential
@@ -6460,6 +6489,9 @@
         yield* forEachPolygonCellSteps(w, h, p.rings, mvtToCell, (x, y) => { parkCells[y * w + x] = 1; });
       }
     }
+    const grassBlockedCells = new Set(keptStructs.filter(o => isBuilding(o.kind) || o.kind === 'temple')
+      .map(o => cellKeyOfWorld(o.x, o.y)));
+    const grassCoverCells = new Set(), plantIds = new Set();
     let wpOccI = 0;
     for (const wp of wildplants) {
       if ((wpOccI & 63) === 0) yield 'wildplant occupancy sweep';
@@ -6468,8 +6500,16 @@
       const cellKey = `${wp._ix}_${wp._iy}`;
       const grows = (wp._yard ? BiomeProfiles.yardAllows(wp.crop, t) : BiomeProfiles.allows(wp.crop, t))
         && !(parkCells && parkCells[wp._iy * w + wp._ix] && BiomeProfiles.exclusive(wp.crop));
-      if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && !occupiedCells.has(cellKey)) {
-        occupiedCells.add(cellKey);
+      const cover = wp.crop === 'longgrass' && grassTerrains.has(t);
+      const free = cover ? !grassBlockedCells.has(cellKey) && !grassCoverCells.has(cellKey) : !occupiedCells.has(cellKey);
+      if (grows && (wp._floraTerrain == null || wp._floraTerrain === t) && free) {
+        if (cover) {
+          grassCoverCells.add(cellKey);
+          // Old grass seats retain their save IDs. Only newly shared seats
+          // need a second identity, so picking cover never picks its hidden herb.
+          if (plantIds.has(wp.id)) wp.id += '_grass';
+        } else occupiedCells.add(cellKey);
+        plantIds.add(wp.id);
         wp._biome = t;
         // Reed silhouettes identify the one-cell wetland margin. Only art
         // changes: keep this plant's generated id, density and harvest.
@@ -6724,8 +6764,7 @@
         }
       }
     }
-    // Scenic selection reads source geography before road terrain. Keep its
-    // shoreline rewards tied to original beaches, not newly painted sand.
+    // Scenic selection and shoreline rewards read the source geography.
     let scenic = null, scenicDress = null;
     if (typeof Scenic !== 'undefined') {
       scenic = yield* Scenic.buildSteps(layersByName, tx, ty, w, grid, false, zone && zone.under);
@@ -6735,8 +6774,8 @@
       yield* StreetVariants.suppressNexusRoadThemesSteps(streetIndex, zone, w);
       streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
     }
-    // Polygon scatter is legacy input for caves; surface corridor replacement
-    // follows affinity selection and precedes zone paint and all dressings.
+    // Retain the road-ground contract for tile consumers. Sparse themed
+    // cobbles now preserve the source ground, so no verge cleanup is needed.
     const streetGround = new Uint8Array(w * h);
     const streetTerrain = typeof StreetVariants !== 'undefined'
       ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,
@@ -6874,23 +6913,60 @@
       list.length = keep;
       yield 'tier placement cleanup';
     }
-    const hasExclusionRock = stampExclusionRock(grid, w, h, { gameplayTiers, gameplayReasons, owners }) > 0;
+    const hasExclusionRock = stampExclusionRock(grid, w, h,
+      { gameplayTiers, gameplayReasons, spawnWhy, roadMask, owners, buildingShapes, cellWidthM, residentialGrid: variantBaseGrid }) > 0;
     assignScholarFallback(deduped);
     return { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects: deduped, wildplants: filtered, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetAreaVariants: streetArea?.variants || null, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource: hasStreetArea || hasStreetTerrain || hasExclusionRock ? caveSource : null };
   }
 
-  // Material follows the shared policy, including tile borders. Preserve
-  // structural water/buildings and the MD/LG carriageway's drawn surface.
+  // Bedrock represents excluded private residential ground. Other exclusions
+  // keep their material; route footprints stay clear even after Nexus repaint.
+  const EXCLUSION_ROCK_HOUSE_COVER = .15;
   function stampExclusionRock(grid, w, h, opts = {}) {
     const tiers = gameplayTiersOf(grid, opts);
     if (!tiers) return 0;
+    const residential = opts.residentialGrid || grid;
+    const privateLand = W_.PRIVATE | W_.BEHIND_HOUSE | W_.RESTRICTED;
+    // House slivers below 15% no longer leave a full-cell gap in bedrock.
+    // Keep exact union coverage when several houses intersect the same cell.
+    const footprints = new Map();
+    for (const shape of opts.buildingShapes || []) {
+      const ring = shape.ring, scale = opts.cellWidthM;
+      if (!ring?.length || !(scale > 0)) continue;
+      const poly = [];
+      let minX = w, minY = h, maxX = 0, maxY = 0;
+      for (let j = 0; j < ring.length; j += 2) {
+        const x = ring[j] / scale, y = ring[j + 1] / scale;
+        poly.push({ x, y });
+        minX = Math.min(minX, x); minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x); maxY = Math.max(maxY, y);
+      }
+      for (let y = Math.max(0, Math.floor(minY)); y < Math.min(h, Math.ceil(maxY)); y++)
+        for (let x = Math.max(0, Math.floor(minX)); x < Math.min(w, Math.ceil(maxX)); x++) {
+          const cover = cellCoverFraction(poly, x, y);
+          if (!(cover > 0)) continue;
+          const i = y * w + x, existing = footprints.get(i);
+          if (existing) { existing.rings.push(poly); existing.sum += cover; existing.max = Math.max(existing.max, cover); }
+          else footprints.set(i, { rings: [poly], sum: cover, max: cover });
+        }
+    }
     let count = 0;
     for (let i = 0; i < grid.length; i++) {
-      if (tiers[i] !== 4 || opts.owners?.[i] || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
-        || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
+      if (tiers[i] !== 4 || residential[i] !== T.RESIDENTIAL
+        || !(opts.spawnWhy?.[i] & privateLand) || opts.roadMask?.[i]
+        || (opts.spawnWhy?.[i] & W_.ROAD)
+        || opts.gameplayReasons?.[i] === global.GameplayTiers.R.MAJOR_SURFACE
+        || grid[i] === T.ROAD || grid[i] === T.ROAD_MD || grid[i] === T.ROAD_LG
+        || grid[i] === T.PATH || grid[i] === T.PIER
         || isBuildingTerrain(grid[i]) || grid[i] === T.WATER) continue;
-      grid[i] = T.EXCLUSION_ROCK;
-      count++;
+      const footprint = footprints.get(i);
+      // Only ambiguous multiple overlaps need a union calculation. Ownership
+      // remains a conservative fallback when no intersecting geometry exists.
+      let cover = footprint?.sum || 0;
+      if (footprint && footprint.max < EXCLUSION_ROCK_HOUSE_COVER && cover >= EXCLUSION_ROCK_HOUSE_COVER)
+        cover = global.PolygonGeometry.unionAreaInCell(footprint.rings, i % w, Math.floor(i / w));
+      grid[i] = cover >= EXCLUSION_ROCK_HOUSE_COVER - 1e-12 || !footprint && opts.owners?.[i] ? T.ROCKY_GROUND : T.EXCLUSION_ROCK;
+      if (grid[i] === T.EXCLUSION_ROCK) count++;
     }
     return count;
   }
@@ -6916,6 +6992,70 @@
     _lastRasterWorstAt = stats.worstAt;
     return value;
   }
+
+  // Persist only the generated surface, before CV bins, saves and player
+  // overlays. A read returns a fresh structured clone, including the source
+  // layer edits made by parking-lane detection during rasterization.
+  const GENERATED_TILE_SCHEMA = 1;
+  let _generatedTileStore;
+  function generatedTileStore() {
+    if (typeof GeneratedTileCache === 'undefined') return null;
+    return _generatedTileStore || (_generatedTileStore = GeneratedTileCache.create());
+  }
+  async function generatedTileKey(bytes, N, tx, ty, tileEdgeM) {
+    if (!global.__shellVersion || !global.crypto?.subtle || !bytes) return null;
+    try {
+      const digest = await global.crypto.subtle.digest('SHA-256', bytes);
+      const hash = Array.from(new Uint8Array(digest), b => b.toString(16).padStart(2, '0')).join('');
+      return [GENERATED_TILE_SCHEMA, global.__shellVersion, Z, tx, ty, N, tileEdgeM, _reviewSalt, hash].join('/');
+    } catch (_) { return null; }
+  }
+  function validGeneratedTile(record, key, N) {
+    const r = record?.result, count = N * N;
+    if (record?.schema !== GENERATED_TILE_SCHEMA || record.key !== key || !Array.isArray(record.layers) || !r) return false;
+    if (record.layers.some(layer => typeof layer?.name !== 'string' || !Array.isArray(layer.features))) return false;
+    for (const name of ['grid', 'variantBaseGrid', 'mappedLand', 'syntheticBuildingCells', 'roadMask', 'quietMask', 'gameplayTiers', 'gameplayReasons'])
+      if (!(r[name] instanceof Uint8Array) || r[name].length !== count) return false;
+    for (const name of ['owners', 'roadClass'])
+      if (!(r[name] instanceof Uint16Array) || r[name].length !== count) return false;
+    if (!(r.spawnWhy instanceof Uint32Array) || r.spawnWhy.length !== count) return false;
+    if (!(r.poiPadCells instanceof Set) || !Array.isArray(r.objects) || !Array.isArray(r.wildplants) || !Array.isArray(r.buildingShapes)) return false;
+    for (const source of [r.caveSource, r.zone?.caveSource])
+      if (source && (!(source.grid instanceof Uint8Array) || source.grid.length !== count
+        || !(source.spawnWhy instanceof Uint32Array) || source.spawnWhy.length !== count
+        || !Array.isArray(source.objects) || !Array.isArray(source.wildplants))) return false;
+    return true;
+  }
+  async function prepareTile(bytes, N, tx, ty, tileEdgeM) {
+    const bp = global.__boot, label = `tile ${tileKey(tx, ty)}`;
+    const endCache = bp?.begin(`${label} generation cache`);
+    const store = generatedTileStore();
+    const key = store && await generatedTileKey(bytes, N, tx, ty, tileEdgeM);
+    if (key) {
+      const record = await store.get(key);
+      if (validGeneratedTile(record, key, N)) {
+        const r = record.result;
+        registerGameplayTiers(r.grid, r.spawnWhy, r.gameplayTiers);
+        for (const source of [r.caveSource, r.zone?.caveSource])
+          if (source) registerGameplayTiers(source.grid, source.spawnWhy, r.gameplayTiers);
+        endCache?.('hit');
+        return { layers: record.layers, result: r, fromCache: true };
+      }
+      if (record) await store.remove(key);
+    }
+    endCache?.(key ? 'miss' : 'unavailable');
+    const endDecode = bp?.begin(`${label} decode`);
+    const layers = await runHeavyPhase(() => MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
+    endDecode?.(`${layers.length} layers`);
+    const endRaster = bp?.begin(`${label} rasterize`);
+    const result = await runHeavyPhase(() => rasterizeTileSliced(layers, N, tx, ty, tileEdgeM));
+    endRaster?.(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
+    // Await the write before callers can mutate these arrays for live play.
+    // The persistence facade swallows quota/availability/clone failures.
+    if (key) await store.put(key, { schema: GENERATED_TILE_SCHEMA, key, layers, result });
+    return { layers, result, fromCache: false };
+  }
+  async function clearGeneratedTileCache() { await generatedTileStore()?.clear(); }
 
   // THE SLICE DRIVER, shared by every sliced pass (the rasterize above, the
   // post-rasterize tail in loadTile, the scene's spawn pass): run a steps
@@ -7092,17 +7232,10 @@
       const { bytes, fromCache } = await (opts?.bytesPromise || fetchTileBytes(x, y));
       if (_endFetch) _endFetch(opts?.bytesPromise ? 'prefetched bytes (remaining wait)' :
         (fromCache ? 'from cache' : 'from network'));
-      // Decode and rasterize in separate scheduled turns (see runHeavyPhase):
-      // the two heaviest chunks of a tile build each get their own slice, and
-      // the spawn/dedup post-passes below ride the rasterize turn.
-      const _endDecode = _bp && _bp.begin(`tile ${key} decode`);
-      const layers = await runHeavyPhase(() =>
-        MVT.decodeTileSliced(bytes, _yieldToPaint, sliceBudgetMs));
-      if (_endDecode) _endDecode(`${layers.length} layers`);
-      const _endRaster = _bp && _bp.begin(`tile ${key} rasterize`);
-      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = await runHeavyPhase(() => rasterizeTileSliced(layers, entry.cellsPerEdge, x, y, tileEdgeM));
-      if (_endRaster) _endRaster(`${_lastRasterSlices} slices @ ${_sliceMs.toFixed(1)}ms, ` +
-        `worst block ${_lastRasterWorstMs}ms in ${_lastRasterWorstAt}`);
+      // Cache hits skip both source decoding and rasterization. Misses retain
+      // the same serial, sliced heavy phases; all live overlays run below.
+      const { layers, result } = await prepareTile(bytes, entry.cellsPerEdge, x, y, tileEdgeM);
+      const { grid, variantBaseGrid, owners, ownerKeys, syntheticBuildingCells, mappedLand, objects, wildplants, parkingTreasures, roadLabels, pathUnder, roadUnder, streetGround, poiPadCells, roadMask, quietMask, spawnWhy, gameplayTiers, gameplayReasons, roadClass, streetIndex, streetArea, streetDress, zone, zoneDress, scenic, scenicDress, chestTopUp, buildingShapes, retailInteriors, caveSource } = result;
       // NO cross-tile dedup. A seam used to hand the same POI / the same
       // house to two tiles, and a proximity dedup against whatever was already
       // cached kept the copy of whichever tile loaded FIRST — so two players
@@ -7267,6 +7400,7 @@
   }
   function* injectTileBinSteps(entry, bin, x, y) {
     if (!bin) return;
+    entry._geometryRevision = bin._geometryRevision || '';
     let _yi = 0;
     // One yield per 256 rows of any loop below (the label names the stream).
     const tick = (label) => ((_yi++) & 255) === 255 ? label : null;
@@ -7318,6 +7452,17 @@
       if (isSensitivePoi({ class: r.poiClass, name: r.name })) continue;
       if (r.poiClass === POI_GATE_CLASS) { if (r.lix != null && r.liy != null) gateCells.push({ ix: r.lix, iy: r.liy }); continue; }
       binChests.push(r);
+    }
+    // Successful observations (including empty ones) replace only ambient tree
+    // fill in their covered cells. Authored variants and player trees retain ownership.
+    if (bin._geometryCoverage?.length) {
+      entry.objects = entry.objects.filter(o => {
+        if (o.kind !== 'tree' || o.placed || o.planted || o.playerOwned ||
+            !(o._yardTree || /^(tree_|ptree_)/.test(o.id || ''))) return true;
+        const c = _sxCell(o.x, o.y);
+        if (_sxReserved(c.ix, c.iy)) return true;
+        return !bin._geometryCoverage.some(b => c.ix + 0.5 >= b[0] && c.ix + 0.5 < b[2] && c.iy + 0.5 >= b[1] && c.iy + 0.5 < b[3]);
+      });
     }
     const sx = {
       chests: _sxRows(binChests), trees: _sxRows(bin.trees),
@@ -7860,7 +8005,9 @@
               // OSM trees have none → fall back to the seeded random species.
               // The WORLD's species: softwood-near-home is a per-player overlay
               // (HomeArea.applySoftwood, app.js), never baked into a bin.
-              species: TREE_SPECIES.includes(props.species) ? props.species
+              species: props.source === 'gemini' && props.tree_type === 'conifer' ? 'pine'
+                : props.source === 'gemini' && props.tree_type === 'broadleaf' ? 'maple'
+                : TREE_SPECIES.includes(props.species) ? props.species
                 : TREE_SPECIES[seed % TREE_SPECIES.length],
               // An OSM tree is named by its osm_id; a detection (no id) is
               // named by the cell it SETTLES on, at injection (loadTile).
@@ -7868,7 +8015,8 @@
               // DeepForest crown diameter (metres) + discrete size class + sampled
               // crown colour → sprite size / tint in render.js. Undefined for OSM
               // trees, which fall back to the flat species scale and no tint.
-              _treeSource: props.score != null ? 'deepforest' : undefined,
+              _treeSource: props.source === 'gemini' ? 'gemini' : props.score != null ? 'deepforest' : undefined,
+              treeSpeciesFixed: props.source === 'gemini' && ['conifer', 'broadleaf'].includes(props.tree_type),
               crown_m: props.crown_m,
               size: props.size === 'bush' ? 'small' : props.size,
               crown_color: props.crown_color,
@@ -7891,7 +8039,8 @@
               // Named by osm_id when it has one, else by its settled cell at
               // injection (loadTile) — see the tree row above.
               id: osmId ? `ft_osm_${osmId}` : undefined,
-              _treeSource: props.score != null ? 'deepforest' : undefined,
+              _treeSource: props.source === 'gemini' ? 'gemini' : props.score != null ? 'deepforest' : undefined,
+              treeSpeciesFixed: props.source === 'gemini' && ['conifer', 'broadleaf'].includes(props.tree_type),
               crown_m: props.crown_m,
               size: props.size,
               wild: true,            // mature & fruiting (vs a planted sapling)
@@ -8279,7 +8428,7 @@
   // isn't cached yet, we kick the fetch (to fill IDB for next time) and return
   // null now, so this load renders the MVT base immediately. Decoration shows
   // up on the next load of the tile (revisit / reset), served from cache.
-  async function getTileBin(x, y, lat) {
+  async function getBaseTileBin(x, y, lat) {
     const sx = await ensureSatextract(lat);
     const stat = sx && sx.get(`${x}_${y}`);
     if (stat) { ovpNote(x, y, 'static', stat); return stat; }
@@ -8296,6 +8445,56 @@
       }
     }
     return null;   // not cached yet; caller must call warmOverpass() to schedule the fetch
+  }
+
+  let _geometryClient = null;
+  function geometryClient() {
+    if (typeof Geometry === 'undefined' || !Geometry.enabled() || typeof Multiplayer === 'undefined') return null;
+    return _geometryClient || (_geometryClient = Geometry.createClient({
+      origin: () => Multiplayer.httpUrl(), get: idbGet, put: idbPut, merge: idbMergeGeometry,
+    }));
+  }
+  async function getTileBin(x, y, lat) {
+    const base = await getBaseTileBin(x, y, lat);
+    const client = geometryClient();
+    if (!client) return base;
+    let observations, geometryRevision;
+    try {
+      const aggregate = await client.readParent(x, y);
+      observations = Object.values(aggregate);
+      geometryRevision = Geometry.revision(aggregate);
+    } catch (_) { return base; }
+    if (!observations.length) return base;
+    const merged = { ...(base || emptyBin()) };
+    const features = observations.flatMap(fc => fc.features.filter(f => f.geometry?.type === 'Point' && f.properties?.source === 'gemini' && f.properties.kind === 'tree'));
+    const trees = buildBinsFromGeoJSON({ features }, lat).get(`${x}_${y}`)?.trees || [];
+    const N = cellsPerEdgeForTile(y);
+    merged._geometryRevision = geometryRevision;
+    merged._geometryCoverage = observations.map(fc => {
+      const [w, south, east, north] = fc.coverage.bbox;
+      const nw = lonLatToWorldPx(w, north, Z), se = lonLatToWorldPx(east, south, Z);
+      return [(nw.x / TILE_PX - x) * N, (nw.y / TILE_PX - y) * N,
+        (se.x / TILE_PX - x) * N, (se.y / TILE_PX - y) * N];
+    });
+    const covered = t => merged._geometryCoverage.some(b => t.lix + 0.5 >= b[0] && t.lix + 0.5 < b[2] && t.liy + 0.5 >= b[1] && t.liy + 0.5 < b[3]);
+    merged.trees = [...trees, ...(base?.trees || []).filter(t => !covered(t))];
+    merged.fruittrees = (base?.fruittrees || []).filter(t => !covered(t));
+    return merged;
+  }
+  async function warmGeometry(lon, lat, frameLat) {
+    const client = geometryClient();
+    if (!client) return false;
+    await client.warm(lon, lat);
+    const tile = Geometry.tileAt(lon, lat), x = Math.floor(tile.x / 16), y = Math.floor(tile.y / 16);
+    const revision = Geometry.revision(await client.readParent(x, y));
+    if (!revision) return false;
+    let entry = cacheFor(0).get(tileKey(x, y));
+    if (entry?.status === 'loading' && entry.promise) {
+      try { await entry.promise; } catch (_) { return false; }
+      entry = cacheFor(0).get(tileKey(x, y));
+    }
+    if (!entry || entry._geometryRevision === revision) return false;
+    return rebuildTileWithBin(x, y, frameLat);
   }
 
   // ── THE LIVE PRIVATE-GROUND VETO (Sep 2026) — per-player things ONLY ──────
@@ -8454,7 +8653,18 @@
   //
   // (The build has no cross-tile dedup to confuse with the live entry any
   // more — ownership is decided per tile from its own data; see loadTile.)
+  const _binRebuilds = new Map();
   async function rebuildTileWithBin(x, y, lat) {
+    const key = tileKey(x, y);
+    // Each queued rebuild reads the latest aggregate. A late Overpass rebuild
+    // cannot overwrite the Geometry rebuild (or vice versa) with stale content.
+    const previous = _binRebuilds.get(key) || Promise.resolve();
+    const next = previous.catch(() => false).then(() => rebuildTileWithBinNow(x, y, lat));
+    _binRebuilds.set(key, next);
+    return next.finally(() => { if (_binRebuilds.get(key) === next) _binRebuilds.delete(key); });
+  }
+  async function rebuildTileWithBinNow(x, y, lat) {
+    if (activeDepth !== 0) return false;
     const cache = cacheFor(0);
     const key = tileKey(x, y);
     const prev = cache.get(key);
@@ -8466,7 +8676,7 @@
     } catch (_) {
       fresh = null;                      // rebuild failed — the original stands
     }
-    if (!fresh || fresh.status !== 'ready') return false;
+    if (activeDepth !== 0 || !fresh || fresh.status !== 'ready' || (fresh.depth != null && fresh.depth !== 0)) return false;
     // Carry over live per-session state the rebuild can't reconstruct.
     if (prev.creatures && !fresh.creatures) fresh.creatures = prev.creatures;
     if (prev.coinDrops && !fresh.coinDrops) fresh.coinDrops = prev.coinDrops;
@@ -9811,7 +10021,7 @@
     // (test/node/tile_build_blocks.test.js) can time the build one step at
     // a time — the only way to see the thing that actually stutters, which
     // is not the total but the longest stretch between two yields.
-    rasterizeTileSteps, grassFillSteps,
+    rasterizeTileSteps, grassFillSteps, prepareTile, clearGeneratedTileCache,
     setSliceBudgetMs, sliceBudgetMs, noteSliceFrameTargetMs, noteSliceFrame, sliceFrameTargetMs,
     // The shared slice driver (see driveStepsSliced): a steps generator run
     // straight through, or sliced as a turn on the heavy chain — the scene's
@@ -9832,7 +10042,7 @@
     // stair id built from it.
     cellHash, cellId, tileStreamSeed, caveStairId,
     // The tile frame and what every placer derives from it (see tileFrame).
-    tileFrame, occupiedIndexSet, spawnOptsOf, dressFrame, footprintFree, compactSteps,
+    tileFrame, isGrassCover, occupiedIndexSet, spawnOptsOf, dressFrame, footprintFree, compactSteps,
     // Sidecar / Overpass GeoJSON → per-tile bins of tile-local cells —
     // exported so world_frame.test.js can pin that binning is frame-free.
     buildBinsFromGeoJSON,
@@ -9941,6 +10151,6 @@
     // all of them.
     makeWildplant, makeCreature, makeObject,
     spawnForestHives, HIVE_SPEC, clearZoneAmbientSteps,
-    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, MIN_VARIANT_CELLS, getTileBin,
+    clearStreetAmbientSteps, variantOwnerAt, zoneAnchorAt, smallVariantMask, MIN_VARIANT_CELLS, getTileBin, warmGeometry,
   };
 })(window);

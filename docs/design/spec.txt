@@ -112,22 +112,22 @@ ONBOARDING (the first session)
  - OPENING: two story slides (trailer → wrecked neighbourhood), then the safety
    splash + "Go to my location". On a brand-new save the first GPS fix triggers
    a reload to anchor the projection, so nothing shown before it survives.
- - THE ONE NEIGHBOUR: on a new save the safe area's WARDEN (`npc.js`
-   `STORY_ROLES`, seated by `Starter.placeSafeAreaWarden`) is the only person
-   on screen. The family's plea is what the warden SAYS ON A TAP — never
-   splashed over the map. Everyone else comes back as memories are recovered:
+ - THE ONE NEIGHBOUR: on a new save Tilly, the Wanderer (`npc.js`
+   `STORY_ROLES`, seated by `Starter.placeSafeAreaWarden`), is the first
+   neighbour. Her story is spoken on a tap. Everyone else comes back as memories are recovered:
    the story neighbours at their role's memory threshold, ordinary residents
-   beside a restored house (or just outside Home's ring until one is theirs),
-   off screen, never watched
-   appearing (`NPC.arrivals`, `NPC.tickArrivals`). Nexus keepers never left.
+   on evenly spaced starting-area pins outside Home's ring, arriving off screen
+   (`NPC.arrivals`, `NPC.tickArrivals`). Restoring a plain house and completing
+   its delivery lets an available neighbour move in after a short delay, then
+   wander near that house's entrance. Nexus keepers never left.
    CLAUDE.md ("Dialogs, feedback and teaching") owns the rule.
  - HOW-TO-PLAY CARD: shown once over the LIVE map on first arrival (after that
    reload), covering movement, reach, the farming loop, energy and home-only
    selling. Reopenable from ☰ "How to play".
  - SPIRIT GUIDANCE: the floating Dragon Spirit dialogue sprite speaks the
    ONE next thing to do in a compact map speech bubble (`quests.js`
-   `STARTER_CHAIN` — open a crate → till → plant → restore a wreck → harvest
-   → sell at Home). Steps auto-advance on gameplay events fired from the sites
+   `STARTER_CHAIN` — pick up supplies → plant a seed → water → restore a wreck
+   → deliver one potato and hear Tilly’s thanks → road hint). Steps auto-advance on gameplay events fired from the sites
    that perform them (`scene.questEvent`), with a spoken acknowledgement and
    no tutorial coin bonus. Ordinary crate contents and sale proceeds are
    unchanged. The Spirit retires when the ladder finishes or is dismissed
@@ -137,16 +137,18 @@ ONBOARDING (the first session)
  - STARTER COMPASS: a light-green rim dot (the tutorial's colour), drawn and
    labelled like every other map-rim bearing, toward
    the ACTIVE step's own space (`app.js` `_starterGuidanceGoal`): the nearest
-   crate, the plot, the soil, a wreck, the crop, Home. When a step needs
+   seed crate, the plot, the dry crop, a wreck, then Tilly, her first delivery
+   house or the potato crop according to what is still needed. When a step needs
    something the bag lacks (a seed, the restore price) it points back at the
-   crates. The dot must never lead away from what the Spirit asks for.
- - THE STARTER TRAIL: four supply crates are laid along the walk from spawn to
-   the relic chest, packed into its near part (`starter.js` `TRAIL_SPAN`) so
-   all four are met early. Each stop is in view from the one before. A road
-   near the anchor takes the trail onto its kerb; otherwise it follows a
-   walkable route that bends round water and buildings. Contents run in the LADDER's order of need, nearest first —
-   seeds before the stone and wood a rebuild needs. Crates seat only on legal
-   ground, never the road band or the trailer's moat.
+   crate holding the needed item (especially Rock for repair). The dot must never lead away from what the Spirit asks for.
+ - THE STARTER TRAIL: three supply crates hold nine potato seeds, nine Rock
+   and nine Wood. They follow the near part of the walk from Home to the relic
+   chest (`starter.js` `TRAIL_SPAN`). A nearby road takes the trail onto its
+   kerb; otherwise it follows a walkable route around water and buildings.
+   The Rock crate stays inside the opening screen's circular inset whenever
+   legal ground is available, so Tori can point to repair supplies nearby.
+   Seeds come first along the trail. Seats avoid roads, occupied cells and
+   Home's footing. Stable crate ids preserve opened state after relocation.
  - THE RELIC CHEST: one real treasure chest a screen from spawn, on a cell the
    anchor can walk to, holding ONE random wooden relic — the only thing in the
    opening that hands out a TOOL. Derived from the frozen spawn anchor, so a
@@ -159,12 +161,10 @@ ONBOARDING (the first session)
    rather than teaching a fight. A spawn rule, not a cull, baked at tile build.
 
 --------------------------------------------------------------------------------
-PLANNED ONBOARDING REVISION: a deliberate first walk
+OPENING PROGRESSION: a deliberate first walk
 --------------------------------------------------------------------------------
- Status: approved direction to implement; the current ladder described above
- still runs through harvest and selling. This section owns the replacement
- sequence. It also changes Tilly's first move-in, the starter chicken's arrival,
- the first road prize, and combat while deliberately unarmed.
+ This sequence uses the ordinary delivery and NPC housing systems. It also
+ orders the starter chicken, first road prize and first authored thief.
 
  The opening teaches gathering, growing and rebuilding, then gives those acts
  a human payoff. The Spirit guides one action at a time through step 5. After
@@ -176,20 +176,24 @@ PLANNED ONBOARDING REVISION: a deliberate first walk
     restoration materials available before their respective lessons need them.
  2. PLANT AND WATER. Guide planting, then watering as two distinct actions.
     Complete this lesson after the planted crop is watered. The crop keeps
-    growing while the player does other things; harvesting and selling no
-    longer hold up the introduction.
+    growing while the player restores a home. Harvesting one potato supplies
+    the first delivery; selling is not required.
  3. RESTORE A WRECK. Point to a nearby wreck that can become a home for Tilly,
     with enough accessible supplies to finish it. Let restoration complete
-    before introducing the next instruction: speak to Tilly.
- 4. TILLY MOVES IN WHEN SPOKEN TO. After the restoration, Tilly thanks the
-    player in conversation and moves into that restored home. This is the
-    visible payoff for rebuilding. For this first move-in, talking replaces
-    the ordinary delivery requirement and automatic delayed assignment.
-    Restoring alone must not silently house her before the conversation.
+    before introducing the next instruction: meet Tilly and feed the home.
+ 4. ONE POTATO AND A HOME FOR TILLY. The first restored plain house asks for
+    exactly one potato. The player meets Tilly, harvests the potato and makes
+    that delivery. The ordinary housing delay and assignment then apply.
+    Housing uses a fixed priority: Tilly, Bryn, Maud, Edda, Orrin, then ordinary
+    neighbours by stable identity. Unmet people wait; distance cannot let a
+    later neighbour jump ahead of an eligible Tilly. Existing assignments
+    remain valid. Speak to Tilly after she moves in to hear her grateful
+    acknowledgement; that conversation completes this lesson.
  5. MENTION ROADS, THEN END THE TUTORIAL. After Tilly moves in, the Spirit
     briefly mentions repairing roads if the player has not already repaired
     any. If they have, acknowledge their progress instead of asking again.
-    End guidance here without requiring road repair or another objective.
+    Acknowledge this final hint with Got it to end guidance, without requiring
+    road repair or another objective.
  6. THE CHICKEN WANDERS IN. Only after the tutorial ends, bring the starting
     chicken into view from outside the screen. Leave the player to discover
     feeding and catching through the existing animal interactions. Catching
@@ -197,9 +201,13 @@ PLANNED ONBOARDING REVISION: a deliberate first walk
  7. FIRST ROAD REPAIR REWARD: CHOOSE A WEAPON. The player's first earned road
     milestone offers exactly three fixed choices: a starting Sword, Bow or
     Staff, at the starting tier (Wood). Grant only the selected weapon and
-    autoequip it through the normal equipment flow. Later road prizes keep
-    their normal reward rules. Preserve earned road progress: if this prize
-    arrives early, retain the choice until the opening guidance and chicken
+    autoequip it through the normal equipment flow. The second road prize
+    offers nine Throwing Spears, Wood Boots (or the lowest useful boot tier
+    above what the player owns), and three Pairys. The player keeps one. If
+    Frost Boots are already owned, their card uses the normal duplicate-gear
+    cash consolation. Later road prizes keep their normal reward rules.
+    Preserve earned road progress: if the first prize arrives early, retain
+    the choice until the opening guidance and chicken
     arrival have had their turn. Never require the player to catch the chicken.
     Manual weapon unequip means the player stops attacking, including the
     automatic bare-handed melee fallback. Keep that choice through ticks,
@@ -207,7 +215,9 @@ PLANNED ONBOARDING REVISION: a deliberate first walk
     autoequip still work. This lets a player approach and catch a slime without
     killing it. Unequipping does not make enemies passive.
  8. A THIEF IN THE NEXT WRECK. Place an authored thief encounter in a wreck
-    just outside the starting zone, on a reachable onward route. Keep it out
+    just outside the enemy-safe region, on a reachable onward route. The wreck
+    respects both the 250 m starter-anchor exclusion and Easy’s 350 m Home
+    guard exclusion, rather than sitting just beyond the 50 m starter pocket. Keep it out
     of the gathering, crop and Tilly lessons. Present it after the weapon
     choice so the player encounters danger with a way to respond. Reuse the
     ordinary thief's theft and combat behaviour; entering the wreck remains
@@ -216,11 +226,12 @@ PLANNED ONBOARDING REVISION: a deliberate first walk
  Sequencing and implementation contract:
  - Use saved action milestones and one pending introduction at a time, rather
    than elapsed-time scripts. Advance from actual collection, planting,
-   watering, restoration and Tilly conversation events. Acknowledgement may
+   watering, restoration, potato delivery and Tilly conversation events. Acknowledgement may
    finish before the next instruction appears.
  - Players may act ahead. Recognize completed actions when their lesson comes
-   up instead of requiring a second crop, wreck or road repair. Reserve a
-   suitable restored home for Tilly until her conversation completes move-in.
+   up instead of requiring a second crop, wreck or road repair. First-meeting
+   flags and the fixed housing order keep Tilly first without a separate
+   conversation-based housing exception.
  - Separate hiding guidance from finishing it. Dismissing a bubble must not
    strand the chicken or subsequent encounters. Hard mode and explicitly
    skipped tutorials bypass the lessons and release the later introductions.
@@ -235,7 +246,7 @@ PLANNED ONBOARDING REVISION: a deliberate first walk
    the existing authored encounter and spawn rules for the thief. Extend
    these systems instead of running a second tutorial alongside them.
 
- Verification when implemented: walk a fresh save through all eight beats;
+ Verification: walk a fresh save through all eight beats;
  repeat with early road repair, actions done ahead, dismissed/skipped guidance,
  a reload before Tilly's conversation and during the weapon choice, and tile
  rebuilds after each arrival. Check all three weapon choices autoequip, manual
@@ -403,8 +414,8 @@ INTERACTION MODEL
    cell it stands in, however tall its art (CLAUDE.md "Coordinates, rendering
    and performance"). Creatures are tapped by their drawn sprite. A tap on any
    building cell routes to that building.
- - the auto-till fallthrough never tills a cell occupied by something, so a
-   near-miss never silently tills under it.
+ - ordinary map taps never till. Preparing ground requires the selected
+   seed's explicit Till & plant action, which refuses occupied cells.
  - routine actions flash briefly; bigger loot pops are rarity-coloured. Map
    copy and toast tiers: CLAUDE.md ("Dialogs, feedback and teaching").
 
@@ -412,7 +423,11 @@ INTERACTION MODEL
 FARMING LOOP
 ================================================================================
  - all farming is tap-driven; tools are implicit (a Hoe only helps).
-     1) tap untilled tillable cell → TILL.
+     1) select a seed and press Till & plant while standing on clear soil →
+        till and plant that seed in one work action. It charges both actions'
+        energy up front, consumes one seed on completion, and refunds energy
+        if cancelled or if the seed/target is no longer valid. Changing the
+        selected stack during work never substitutes a different seed.
      2) tap tilled empty cell with a seed selected → PLANT. With no seed
         selected the tap only says so — soil is NEVER un-tilled by tapping
         it. (That toggle existed until Aug 2026 and fired on exactly the tap a
@@ -568,9 +583,9 @@ COMBAT
  - HIT POINTS: every enemy has HP; damage from any source drains the one pool,
    and a foe left alone heals back after a while. HP is in-memory.
  - ONLY ONE WEAPON FIGHTS AT A TIME (`save.activeWeapon`, `Gear.activeWeapon`).
-   MELEE IS THE DEFAULT and needs no weapon: with no ranged weapon in hand,
-   the hands (or the sword) auto-engage the nearest enemy in reach
-   (`Gear.meleeActive`). A newly obtained or upgraded weapon becomes active;
+   An equipped melee weapon auto-engages the nearest enemy in reach
+   (`Gear.meleeActive`). Unequip stops player attacks and leaves bare hands
+   inactive. A newly obtained or upgraded weapon becomes active;
    switching is an explicit Equip / Unequip, and the active weapon wears an
    "E" badge. Melee always follows the closest eligible foe; an auto-engaged
    fight never swallows taps, roots the character or blocks the walk home.
@@ -741,12 +756,17 @@ STREET RESTORATION (the road band itself)
  - each sweep pops a small COUNTER on the stretch just rebuilt (`Trail.label`,
    the one formatter), throttled; the paying sweep reads the goal just
    completed, full, never the remainder against the next rung.
- - each prize IS A CHOICE: two different rolls are offered (`Trail.PRIZE_CHOICES`;
+ - each prize IS A CHOICE: three different cards are offered (`Trail.PRIZE_CHOICES`;
    context `Trail.PRIZE_CONTEXT`) and nothing is granted until one is taken.
    The kept gift opens as its own reward card. Rolls improve gradually as the
    walks get longer (`Trail.rollBonusFor`): the first prize rolls T1, each
    prize won adds `PRIZE_TIER_PER_PRIZE` (0.3) of a tier, so T4 is common by
-   prize 10 and sure from prize 11. The first prize's onion-seed card is fixed.
+   prize 10 and sure from prize 11. The first prize replaces the normal row
+   with a fixed Wood Sword/Bow/Staff choice; its saved pending claim waits for
+   the tutorial and chicken entrance. Prize two offers nine Throwing Spears,
+   the next useful Boots tier (Wood first), or three Pairys. Owning Frost Boots
+   changes the boot choice to their normal duplicate-gear cash consolation.
+   Prizes from the third onward keep their normal rules.
    The cash card is not rolled: it pays 15 × √(km banked to that rung + 1)
    coins (`Trail.cashPrize`), 16 at the first rung and ~52 by the tenth.
  - A SINGLE EARNED REWARD IS SHOWN AS A CARD (`app.js` `showRewardCard`),

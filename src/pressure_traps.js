@@ -19,8 +19,11 @@
     for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
       const entry = root.WorldGen.tileCache.get(root.WorldGen.tileKey(cell.tx + dx, cell.ty + dy));
       if (!entry) continue;
-      root.WorldGen.forEachItemInBox(entry, 'objects', p.x - radius, p.y - radius, p.x + radius, p.y + radius, o => {
-        if (o.kind !== 'pressure_plate' || (o.depth || 0) !== (scene.depth || 0)) return;
+      // Keep the same coarse chunk query and order as the object stream,
+      // but only index plates. Their live pressed state is resolved below.
+      if (!derivedObjects(entry, '_grovePlates', o => o.kind === 'pressure_plate').length) continue;
+      root.WorldGen.forEachItemInBox(entry, '_grovePlates', p.x - radius, p.y - radius, p.x + radius, p.y + radius, o => {
+        if ((o.depth || 0) !== (scene.depth || 0)) return;
         Object.assign(o, worldMetersToAbsCell(scene, o.x, o.y));
         o.pressed = !!scene.save.pressedPlates?.[o.id];
         o.frame = o.pressed ? 3 : 2;

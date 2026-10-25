@@ -897,7 +897,7 @@ class SceneStreets {
     // rather than opening in front of it. Nothing is owed until the save has
     // TRAIL_INTRO_MIN_M of road behind it — the first stretches play
     // unexplained, on purpose (see the constant).
-    const greeting = !st.greeted && this._armTrailIntro(now, st);
+    if (!st.greeted) this._armTrailIntro(now, st);
     if (!out.rewards.length) return;
     // A wide reach can sweep past more than one goal in a single step, so this
     // is a COUNT, not a boolean — the queue hands the ceremonies out one at a
@@ -905,10 +905,31 @@ class SceneStreets {
     // prize's ORDINAL, which is what decides how good its roll is.
     // Each is a `prize` ceremony; one owed a greeting holds until the greeting
     // has opened (its beat passes, _openTrailIntroIfDue queues it ahead).
-    const hold = greeting ? () => !!this._trailIntroAt : undefined;
+    const hold = () => !!this._trailIntroAt
+      || (!!st.firstWeaponPending && !st.firstWeaponClaimed);
     for (const { n } of out.rewards) {
+      if (n === 1) {
+        st.firstWeaponPending = true;
+        persistSave(this.save);
+        SceneStreets.prototype._resumeFirstWeaponPrize.call(this);
+        continue;
+      }
       this._enqueueCeremony('prize', (done) => this._fireTrailPrize(n, done), { hold });
     }
+  }
+
+  // The save remembers the earned choice; the scene queue only presents it.
+  // Rebuild this entry after reload, without banking the road a second time.
+  _resumeFirstWeaponPrize() {
+    const st = this.save.trail;
+    if (!st?.firstWeaponPending || st.firstWeaponClaimed || this._firstWeaponQueued) return;
+    this._firstWeaponQueued = true;
+    this._enqueueCeremony('prize', (done) => this._fireTrailPrize(1, () => {
+      this._firstWeaponQueued = false;
+      done();
+    }), { key: 'trail:first-weapon', hold: () => !!this._trailIntroAt
+      || (typeof Quests !== 'undefined' && typeof Quests.starterIntroductionsReady === 'function'
+        && !Quests.starterIntroductionsReady(this.save)) });
   }
 
   // ARM the first-repair dialog, and say whether a greeting is owed. A walker
@@ -1076,9 +1097,8 @@ class SceneStreets {
   // sparkles as chest opens. `onDismiss` is the ceremony queue's `done`
   // (one prize opens as the last is dismissed, never on top of it).
   //
-  // PRIZE #1 LEADS WITH THE ONION SEED: Trail.firstPrize is the first card,
-  // so the first thing a road ever offers names what roads pay in — and the
-  // rest of the row is rolled, so rung one is a choice like every other.
+  // PRIZE #1 offers the fixed Sword/Bow/Staff row after the introduction.
+  // PRIZE #2 offers nine spears, the next boots upgrade, or three pairys.
   // PRIZE #5 IS THE SERPENT IDOL, alone (Trail.FIXED_PRIZES `sole`).
   // Distance milestones offer three relics at their fixed tier.
   //
@@ -1108,7 +1128,8 @@ class SceneStreets {
     };
     const fixed = Trail.fixedPrize(n, this.save);
     const relicTier = Trail.rewardFor(n, pc).relicTier;
-    const choices = relicTier ? Trail.relicChoices(relicTier, this.save)
+    const choices = n === 1 ? Trail.firstWeaponChoices()
+      : n === 2 ? Trail.secondDistanceChoices(this.save) : relicTier ? Trail.relicChoices(relicTier, this.save)
       : fixed?.sole ? [fixed] : Trail.rollCardRow(rollFor, fixed ? [fixed] : []);
     // The ceremony carries the survivors' thanks; the road counter shows progress.
     const header = n === 1 ? 'The survivors are watching' : TRAIL_PRIZE_HEADER;
@@ -1210,9 +1231,20 @@ class SceneStreets {
   // arrived. Consolation coins ride along with whatever was taken; a roll
   // nobody claimed pays none.
   _claimTrailReward(reward, opts = {}) {
+    if (reward?.starterWeapon && this.save.trail?.firstWeaponClaimed) return null;
     const card = Rewards.card(this, reward);
     if (!card) return null;
     Rewards.apply(this.save, reward, this, opts);
+    if (reward.starterWeapon) {
+      // An early find may already be better. Keep its tier and equip the
+      // player's selected slot rather than downgrading or converting the gift.
+      Gear.selectWeapon(this.save, reward.slot);
+      const st = this.save.trail ||= {};
+      st.firstWeaponClaimed = true;
+      st.firstWeaponPending = false;
+      persistSave(this.save);
+      this.questEvent?.('weapon');
+    }
     return card;
   }
 

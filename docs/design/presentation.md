@@ -15,6 +15,19 @@ pixels and decorative details do not define additional tap cells.
 
 ## Dialogs, feedback and teaching
 
+- Crossing a standing surface building footprint holds the player until the GPS
+  or steering target is at least two metres beyond the wall, measured perpendicular
+  to its edge. A brief wind-up then shows “SMASH!” through the regular map-note
+  helper, without cracks or dust. Wrecks can be crossed without a pause or smash
+  text. Buildings remain passable and undamaged. Reversing away cancels the
+  wind-up; a short per-edge cooldown prevents jitter from repeatedly stopping
+  travel. Existing house-entry text remains unchanged.
+
+- Wreck restoration lists building types first. Tapping a type with multiple
+  available ranks opens the rank picker immediately; its type card omits cost.
+  Each rank shows its own price, and Back returns to the type picker. A type
+  with one available rank keeps its price and the existing Restore action.
+
 - Restoring a wreck runs a three-second work sequence before charging materials:
   the player's sprite scurries around all four footprint sides and swings a
   pixel hammer. The body/GPS and interaction origin stay put while movement
@@ -52,6 +65,8 @@ pixels and decorative details do not define additional tap cells.
   Themed item and relic offer builders return the shared quote for shelves and
   individual dialogs. Acceptance rechecks funds and capacity or gear upgrades,
   and returns purchase success; shelves replace a slot only on that success.
+  Shop and relic shelves trim 40px from the shared painting height through
+  `artTrimPx`, retaining its minimum so the item rows and secondary actions fit.
 
 - Rewards converted to coins show only the coin reward in dialogs and toasts,
   without naming the replaced item or explaining the conversion.
@@ -81,6 +96,9 @@ pixels and decorative details do not define additional tap cells.
   informational bubbles without passing the tap to the world. Explicit choices
   still require a response. The main menu, shops, story paintings and book list
   retain their mechanical panels.
+  Mechanical panels and the opening story sheet leave a 3.125% top gap,
+  one quarter of their former 12.5% gap. The shared `--panel-top-gap` owns
+  that spacing; long recipe and book catalogs keep their vertical scrolling.
   The original tall spirit painting remains available for scene art.
   Energy, distance and memories HUD help use this Spirit portrait and speech bubble.
   Energy briefly explains refills and capacity; distance reports true restored
@@ -116,7 +134,10 @@ pixels and decorative details do not define additional tap cells.
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
   46 pixels tall; the shared memories/books window gives these controls more room. A 26-pixel coin with a cast shadow and its
   white inline count sit at the far right, with a seven-pixel gap below the energy dial. The tutorial
-  floats inside the upper map as a Dragon Spirit portrait and speech bubble. Equal responsive
+  sits at the top of the screen as a compact Dragon Spirit portrait and speech
+  bubble, with the normal gold primary “Got it” action beside its copy. Header
+  controls sit below active guidance; short screens keep the banner at the top
+  instead of moving it into the map. Watering has its own step after planting. Equal responsive
   gaps separate all four top widgets, with matching 8-pixel outer margins. The simulated-GPS control sits 20 CSS pixels above its
   ordinary stick baseline. The carving stays visible beneath navigation, with a
   darker graphite recess behind the inventory and a soft outer-edge fade.
@@ -245,8 +266,9 @@ pixels and decorative details do not define additional tap cells.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
   speech bubble on the upper map. Each step gives one spoken instruction;
-  completion briefly acknowledges it in the same bubble. Only the dismiss
-  button intercepts taps. Modal dialogs hide it, reduced-motion preferences
+  completion briefly acknowledges it in the same bubble. The portrait and bubble
+  sit 25px higher, and a 44px-tall “Got it” button acknowledges only the current
+  instruction. Only that button intercepts taps. Modal dialogs hide it, reduced-motion preferences
   stop its float, and the menu can restore dismissed guidance. Tutorial steps
   grant no bonus coins; ordinary loot and sales retain their own rewards.
 
@@ -257,16 +279,14 @@ pixels and decorative details do not define additional tap cells.
   introduction survives spending and reloads; older saves unlock on their next
   earned coin.
 
-- Living-silver compass circuits persist their active state and unread
-  introductions in `save.compassModules`. Inventory activates on the first item
+- Living-silver compass circuits persist their active state in `save.compassModules`. Inventory activates on the first item
   or gear, books on the first book obtained, memories on the first discovery/memory.
   Spending cannot close an activated circuit. Distance activates after 200 m of
   accepted movement; joystick activation requires **Enable spirit walking** in
   its spirit dialog. Closed controls explain low power. Activation gives the
   control a bright, steady turquoise glow for five seconds, without opening a dialog
-  or waiting for the story lane. The first player tap on an awakened control
-  shows its Dragon Spirit introduction; subsequent taps use it normally.
-  Unread introductions survive reloads and are claimed only when shown.
+  or waiting for the story lane. Tapping an awakened control uses it immediately,
+  without a Dragon Spirit activation bubble. Old unread introductions are discarded.
   Existing ownership seeds circuits quietly when upgrading an older save.
 
 - The inventory pet menu's **View info** opens an individual pet card with a
@@ -374,6 +394,17 @@ pixels and decorative details do not define additional tap cells.
   grants one through the inventory path, preserving bag limits and saving it.
   Books are read after closing the picker. Switching teleport cities enables
   the GPS stick before reloading, including a switch back Home.
+- Map review tile popups list all generated props, plants, creatures and lamp
+  infrastructure occupying the clicked cell, including declared footprints and
+  overlapping records, even with markers hidden. Each item shows its kind,
+  source, variant and identity; creatures also show allegiance and combat stats.
+  Ground details remain available underneath.
+- Map review ground popups offer **Open in game**, opening a new tab at the
+  clicked latitude/longitude with simulated GPS and its movement stick active.
+  The explicit `fakeGps=1&lat=…&lon=…` link bypasses device GPS and home capture
+  for that page; it does not overwrite the saved home or teleport preset.
+  Review links also pass `skipIntro=true&skipStory=true&skipTutorial=true` to
+  bypass the opening, location welcome, story prompts and tutorial for that session.
 - Developer → Spawn enemies searches `Combat.enemyKinds()` by name. Each tap
   adds one ordinary enemy on loaded walkable ground near the view edge in
   the active depth. These debug spawns last for the session.
@@ -386,19 +417,17 @@ pixels and decorative details do not define additional tap cells.
   row. Ambient site light persists after a visit; the availability pulse does not.
   Successful visits show their story painting each time. `tools/idols.html`
   reads the same rows for the design sheet.
-- Home, workbenches and brewing share `_presentRecipePicker` for discovery,
+- Workshops and brewing share `_presentRecipePicker` for discovery,
   selection and capacity, above `_presentRecipeOffer` transactions.
-  `HOME_RECIPES.station` keeps Home's Craft tab limited to the starter-known
-  workbench (three Wood and one Rubble). Every former Home recipe, including
-  the starter-known Spear, belongs at a placed workbench. A station with
-  several known recipes opens on `showPickGridModal`: every recipe as an icon
-  card (green when it can be made now), scrolling when long, with the station
-  controls (a workbench's ghost Pick up, Home's or Brewing's tabs) above it. A
-  card opens that recipe's counter, whose ‹ Back (`back`) returns to the grid;
-  a station with one known recipe opens its counter directly. Lists may scroll;
-  a counter never pages or splits its ingredients from Craft — the ingredient
-  list and actions stay pinned. Recheck the station before spending and
-  reopen the same workbench and selected recipe after crafting.
+  `HOME_RECIPES.station` assigns crafting recipes to restored Workshops.
+  Workshop is available from the second restoration and uses the ordinary
+  wreck restoration cost. Tapping it opens crafting directly; Home opens Sell.
+  The portable workbench is removed; loading old saves removes its inventory
+  stacks and placed records. The starter-known Spear and all ingredient and
+  discovery requirements are unchanged. Several known recipes open an icon
+  grid; one known recipe opens its counter directly. A card's Back returns
+  to the grid. Recheck the workshop's restored role before spending and
+  reopen the same workshop and selected recipe after crafting.
   Show each ingredient's
   held and required quantities, its shortfall in text, and a visible reason
   when Craft is disabled. Keep the chosen recipe after crafting and refresh
@@ -416,7 +445,7 @@ pixels and decorative details do not define additional tap cells.
   no confirmation chain or auto-selection of a spell. Inventory labels mark
   borrowed quantities. Returns at any Book Club preserve spell cooldowns.
 - Magic Shops have Shop / Brew tabs at every shop tier. Brew lists only learned
-  recipes, using the same ingredient counts and picker as workbench crafting, plus a
+  recipes, using the same ingredient counts and picker as workshop crafting, plus a
   fixed coin fee. An empty list says "Once you find a potion, you can brew it here."
   Keep the selected recipe after brewing and recheck discovery, bag room,
   ingredients and coins before spending either resource.
@@ -561,13 +590,17 @@ pixels and decorative details do not define additional tap cells.
   add with `Buffs.withMark`: a mark on the same target replaces or extends,
   a new target adds a mark, and nothing refuses or clears another mark.
   The starter ladder's bearing (`STARTER_MARK`) is the same labelled dot,
-  aimed per step by `_starterGuidanceGoal` rather than stored as marks.
+  aimed per step by `_starterGuidanceGoal` rather than stored as marks. It appears
+  only after its instruction is visible. Location dots sit on their target when
+  onscreen, otherwise on the compass edge: a bright 3px-radius core with a translucent
+  pulse expanding to a 12px radius every 3 seconds. Labels use their dot’s
+  colour and stay beside it; crowded labels do not stack away from their dots.
 - Map numbers use toast tiers: `_popEnergy(delta, { ix, iy })` for energy,
   `_popCellNumber` for other cell amounts, `_popDamageNumber` for foes. Name the
   affected cell; body changes default to the player. Body damage calls
   `_flashPlayerHit` when it lands, independently of popup throttling.
 - A repeat offer (an offer with `repeat`: a stall counter, the smelter,
-  Home Sell / Craft, a workbench) reopens over the map, hiding its own toasts. The
+  Home Sell, a Workshop) reopens over the map, hiding its own toasts. The
   confirmation lives in the dialog: an explicit `receipt` line, or else
   the `flashLoot` / `flash` toasts its accept raised, captured by
   `showOfferModal` and reprinted as the reopened dialog's status line.
@@ -577,7 +610,7 @@ pixels and decorative details do not define additional tap cells.
   respect deferral rather than draining during the remove/remount gap.
 - The Books read list remains a full mechanical panel with every learned book
   in one scrolling list. Reading or rereading a book puts live dark serif text, scrolling when
-  needed, on `assets/art/book_page.webp`,
+  needed, on `extra_assets/inactive/assets/art/book_page.webp`,
   a full-height illustrated half-book beneath the silver dragon rail.
   `bookPage: true` selects this surface without changing the shared `book_read`
   painting used elsewhere. Closing a reread returns to the book shelf.
@@ -657,12 +690,16 @@ pixels and decorative details do not define additional tap cells.
   `NPC.tickArrivals`) and speak through `MemoryStory.npcDialogue` by act; a
   new story voice is a role there, not a new placer or dialog path. Ordinary
   residents are drawn in full by `NPC.spawn` but seated by `NPC.arrivals`:
-  they return with memories to a restored house, off screen, or — until one
-  is assigned them — wait just outside Home's ring, beyond a stroll of the door
-  (`homeWaitBand`);
+  they return with memories, off screen, and wait on fixed, evenly spread
+  starting-area pins outside Home's ring (`homeWaitBand`). A completed delivery
+  opens a restored plain house after 15 seconds; an available live neighbour
+  whom the player has spoken to may move in and wander near its entrance.
+  Talking records eligibility; the delivery requirement remains. Fixed housing
+  priority gives Tilly the first available home among eligible neighbours;
+  generation.md owns the full order and saved assignment rules.
   a named zone's keeper stays. The warden's home plea is a tap, never a splash.
   The stranger (Ayo in human form) is such a role, flagged `transient` so a
-  talk never houses her; the lane's gossip about her is one extra page per
+  delivery never houses her; the lane's gossip about her is one extra page per
   neighbour per round (`MemoryStory.STRANGER_RUMOURS`, recorded in
   `save.memoryStory.strangerRumours`), not a line of its own.
 
@@ -672,7 +709,7 @@ Tests: `scene_art`, `duration_notation`, `copy_voice`, `energy_pop`, `hit_flash`
 ## Furniture
 
 Placed furniture opens a dismissible `makeModalShell` panel with its world
-sheet slot shown at exactly 4× above its name, rarity badge and description.
+sheet slot shown at exactly 3× (96×192px) above its name, rarity badge and description.
 Slots are 32×64 with bottom-seated 32×32 pieces, including both lamps; only
 the Grandfather Clock uses the full height. The
 portrait preserves the placed orientation; the category badge keeps the item icon.
@@ -684,9 +721,20 @@ ghost control in a separate top-right row. Flip saves the placed orientation and
 updates the map and portrait. Pickup checks bag capacity and accepted quantity
 before removing the placement, then refreshes inventory and persists explicitly.
 
-Indoors, Home shows its current luxury as a white number above its sign. The
-score updates immediately, separately from Home's introductory typing, and
-fades when it overlaps the player.
+Tapping a delivered residential house opens its compact furniture inspector.
+The header pairs a 48px resident portrait with the house name and luxury score,
+without a category icon. Four slots in a two-column grid show furnishings from
+highest luxury to lowest, each with 24×48px art, name, contribution and Pick up
+control; unused slots retain dashed borders. All four slots fit without scrolling
+on phones. Tilly's only description is “Tilly sometimes helps you water your
+crops.” Other residents retain their benefit summary and visit message. Furnishing
+instructions and replacement explanations are omitted. A vacant delivered house
+shows its empty slots and explains that it is ready for an available neighbour;
+furnishing starts after the neighbour moves in.
+
+Home shows its current luxury as a white number above its sign while indoors
+and from outside after dark. The score updates immediately, separately from
+Home's introductory typing, and fades when it overlaps the player.
 
 Old Archive Court's existing style deterministically selects delivery or luxury
 jobs without changing castle style assignment. The luxury card is titled
@@ -702,6 +750,21 @@ its particles or movement guard. Headless scenes commit immediately. Bed sleep
 rechecks the placed record, owned Home cell, lockout and missing energy at black.
 Inn sleep retains payment, daily-use and failure checks; only success queues its
 receipt. Both persist after the transaction.
+
+## Live weather ambience
+
+`Weather` asks the relay for the current conditions at the player's projected
+latitude and longitude every ten minutes, or after one kilometre of movement.
+The relay owns the WeatherAPI credential and returns only precipitation kind,
+condition code and cache time. The client never calls WeatherAPI directly.
+
+Falling precipitation uses the native turquoise water-drop phases from Rogue
+Adventure's `RA_Atlantis_Animated01.png`. `Weather.KINDS` owns density, speed,
+scale and opacity for drizzle, rain, sleet and snow. The overlay sits above the
+world and below the HUD, accepts no input, and stops underground. Weather is
+ambience only: it changes no terrain, crops, movement, combat or save state.
+A disabled or unreachable relay leaves the map clear without player-facing
+errors.
 
 ## Schoolyard tile game
 

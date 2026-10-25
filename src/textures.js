@@ -137,6 +137,7 @@ const BIOME_TEX = {
   // The influence-zone halos (src/zones.js).
   28: { variants: 1, draw: drawGroveTex },        // GROVE — selected native sward; procedural fallback
   29: { variants: 2, draw: drawChurchyardTex },   // CHURCHYARD — worn sward, stone chips
+  33: { variants: 4, draw: drawRockyGroundTex }, // flat mountain-coloured rubble
   32: { variants: 1, draw: drawRockTex }, // flat slate bedrock; collision does not imply elevation
   31: { variants: 2, patternOpacity: 0.9, draw: drawTarYardTex },      // TAR_YARD — oily ground, black pools
   18: { variants: 2, patternOpacity: 0.9, draw: drawPlaygroundTex },   // PLAYGROUND — bark mulch
@@ -719,6 +720,24 @@ function drawRockTex(ctx, size, rng) {
   grain(ctx, size, rng, 4, 'rgba(255,255,255,0.12)', 2, 1);
 }
 
+// Flat rubble uses the mountain-edge olive-grey ramp, with broad pixel clusters
+// and shallow chips rather than raised cliff faces. Baked once at startup.
+function drawRockyGroundTex(ctx, size, rng) {
+  ctx.fillStyle = '#646351';
+  ctx.fillRect(0, 0, size, size);
+  const unit = size / 16;
+  for (let i = 0; i < 26; i++) {
+    const x = Math.floor(rng() * 16) * unit, y = Math.floor(rng() * 16) * unit;
+    const w = (1 + Math.floor(rng() * 3)) * unit;
+    ctx.fillStyle = i % 3 === 0 ? '#504f40' : '#7a7964';
+    ctx.fillRect(x, y, Math.min(w, size - x), unit);
+    if (i % 4 === 0) {
+      ctx.fillStyle = '#919079';
+      ctx.fillRect(x, y, unit, unit);
+    }
+  }
+}
+
 // ── Cave biome textures ────────────────────────────────────────────────────
 
 function drawCaveWallTex(ctx, size, rng) {
@@ -1286,14 +1305,10 @@ function makeSprungTrapTexture(scene) {
 // cropped without repainting; each cell is scaled with nearest-neighbour pixels.
 // Multiple choices are stable spatial variants, never a timer-driven slideshow.
 // Frame IDs are stable and audited against sources.json; legacy frames0–7 remain.
-const SELECTED_MATERIAL_FRAMES = {"G01": 8, "G02": 9, "G03": 10, "G04": 11, "G05": 12, "G06": 13, "G07": 14, "G08": 15, "G09": 16, "G10": 17, "G11": 18, "G12": 19, "R01": 20, "R02": 21, "R03": 22, "R04": 23, "R05": 24, "R06": 25, "R07": 26, "F01": 27, "F02": 28, "F03": 29, "F04": 30, "F05": 31, "F06": 32, "F07": 33, "F08": 34, "G09-cold": 35, "F09-0": 36, "F09-1": 37, "F09-2": 38, "F09-3": 39, "W01-0": 40, "W01-1": 41, "W01-2": 42, "W01-3": 43, "W01-4": 44, "W01-5": 45, "W01-6": 46, "W01-7": 47, "W02-0": 48, "W02-1": 49, "W02-2": 50, "W02-3": 51, "W02-4": 52, "W02-5": 53, "W02-6": 54, "W02-7": 55, "F10-0": 56, "F10-1": 57};
-const SELECTED_TERRAIN = {
-  0:[8,8], 1:[10,10], 2:[17,17], 3:[40], 4:[12,12], 5:[9], 6:[8,8],
-  8:[11,15], 9:[0], 10:[35,35], 12:[56,57], 15:[8,8], 16:[20,21],
-  17:[11], 18:[8,8], 19:[8,8], 20:[10,10], 21:[8,8], 22:[9,9],
-  // Exclusion bedrock shares the flat ROCK surface, never the legacy cliff-face crop (7).
-  23:[40], 24:[1], 26:[2,3], 27:[11,15], 28:[10], 29:[13,16], 31:[13,13], 32:[35],
-};
+// Shared source crops and terrain choices also drive the transition exporter.
+const SELECTED_MATERIAL_FRAMES = GroundMaterials.selectedMaterialFrames;
+const SELECTED_TERRAIN = GroundMaterials.selectedTerrain;
+
 let selectedTerrainSource = null;
 let selectedWaterTrialSource = null;
 const selectedGroundColours = new Map();
@@ -1315,6 +1330,7 @@ function setSelectedTerrainSource(source) {
     }
     if(best) selectedGroundColours.set(frame,ink);
   }
+  if (typeof RoadOverlay !== 'undefined') RoadOverlay.prepareMaterials?.();
 }
 function selectedGrassBaseColor(type, fallback) {
   // Buildings retain their restoration/house palette owners.
@@ -1366,11 +1382,11 @@ function drawBiomeTexture(ctx, size, type, variant = 0, phase = 0) {
 // Ground-only recipes: no trees, resources, collision or spawn decisions change.
 const ZONE_SELECTED_MATERIALS = {
   mystic_reef:'G10', pirate_cove:'G10', shellwater_strand:'G10',
-  meadow:'G01', marine_meadow:'G01', mushroom_grove:'G06', orchard:'G02',
-  formal_garden:'G01', hedge_garden:'G02', ancient_grove:'G03', sacred_grove:'G03', spooky_woods:'G04',
+  meadow:'G01', marine_meadow:'G01', mushroom_grove:'G01', orchard:'G01',
+  formal_garden:'G01', hedge_garden:'G01', ancient_grove:'G01', sacred_grove:'G01', spooky_woods:'G01',
   'quarry-crater':'G09-cold', 'quarry-abandoned':'G09-cold', 'quarry-strip-mine':'G09-cold', 'quarry-stronghold':'G09-cold',
-  stone_garden:'G06', ordered_graves:'G06', overgrown_graves:'G03', broken_masonry:'R04', silent_circle:'F03',
-  flint_field:'G06', broken_depot:'G04', seep:'G06', work_yard:'R04', black_ring:'R06',
+  stone_garden:'G06-purple', ordered_graves:'G06-purple', overgrown_graves:'G06-purple', broken_masonry:'G06-purple', silent_circle:'G06-purple',
+  flint_field:'G09-smooth-grey', broken_depot:'G09-smooth-grey', seep:'G09-smooth-grey', work_yard:'G09-smooth-grey', black_ring:'G09-smooth-grey',
 };
 const _selectedZoneMaterials = new WeakMap();
 function zoneGroundTexture(entry,index,type) {
@@ -1399,7 +1415,7 @@ const ZONE_GROUND_ACCENTS = {
   spooky_woods: { terrain: 28, color: 0x393c29, fullCoverage: true },
   mushroom_grove: { terrain: 28, color: 0x2f462e, fullCoverage: true },
   ancient_grove: { terrain: 28, color: 0x58623a },
-  silent_circle: { terrain: 29, color: 0xc9c596 },
+  silent_circle: { terrain: 29, color: 0x816b93 },
 };
 const _zoneGroundStates = new WeakMap();
 function zoneGroundColor(entry, ix, iy, type, tx = entry && entry.tx, ty = entry && entry.ty) {
@@ -1609,43 +1625,6 @@ function drawInteriorFloorTexture(ctx, size, source, tier) {
   }
 }
 
-// A single startup atlas preserves the existing four rounded-corner flags.
-// Transparent corner cutouts reveal the diagonal-neighbour fill underneath;
-// the existing border layer still draws above these materials.
-const TERRAIN_CORNER_RADIUS = 6;
-const selectedRoundedTerrainFrames = new Map();
-function makeSelectedRoundedTerrain(scene,size) {
-  selectedRoundedTerrainFrames.clear();
-  const keys=[];
-  for(const [type,spec] of Object.entries(BIOME_TEX)) {
-    if(!SELECTED_TERRAIN[type] || [9,11,12,24,25,26,32].includes(+type)) continue;
-    for(let v=0;v<spec.variants;v++) for(let p=0;p<(spec.animPhases||1);p++)
-      keys.push(`biome${type}_${v}`+(p?`p${p}`:''));
-  }
-  keys.push(...new Set(Object.values(ZONE_SELECTED_MATERIALS).map(id=>'zone_ground_'+id)));
-  const cols=32, count=keys.length*15;
-  const tex=scene.textures.createCanvas('selected_rounded_terrain',cols*size,Math.ceil(count/cols)*size);
-  const ctx=tex.getContext();ctx.imageSmoothingEnabled=false;
-  let frame=0;
-  for(const key of keys) {
-    selectedRoundedTerrainFrames.set(key,frame);
-    const source=scene.textures.get(key).getSourceImage();
-    for(let mask=1;mask<16;mask++,frame++) {
-      const x=frame%cols*size,y=Math.floor(frame/cols)*size;
-      const tl=mask&1?TERRAIN_CORNER_RADIUS:0,tr=mask&2?TERRAIN_CORNER_RADIUS:0;
-      const bl=mask&4?TERRAIN_CORNER_RADIUS:0,br=mask&8?TERRAIN_CORNER_RADIUS:0;
-      ctx.save();ctx.translate(x,y);ctx.beginPath();
-      ctx.moveTo(tl,0);ctx.lineTo(size-tr,0);ctx.arcTo(size,0,size,tr,tr);
-      ctx.lineTo(size,size-br);ctx.arcTo(size,size,size-br,size,br);
-      ctx.lineTo(bl,size);ctx.arcTo(0,size,0,size-bl,bl);
-      ctx.lineTo(0,tl);ctx.arcTo(0,0,tl,0,tl);ctx.closePath();ctx.clip();
-      ctx.drawImage(source,0,0,size,size);ctx.restore();
-      tex.add(frame,0,x,y,size,size);
-    }
-  }
-  tex.refresh();
-}
-
 function makeBiomeTextures(scene, size) {
   selectedWaterTrialSource = typeof ArtTrials !== 'undefined' && ArtTrials.water
     && scene.textures.exists(ArtTrials.waterKey)
@@ -1674,11 +1653,7 @@ function makeBiomeTextures(scene, size) {
       }
     }
   }
-  for (const id of new Set(Object.values(ZONE_SELECTED_MATERIALS))) {
-    bakeCanvas(scene, 'zone_ground_'+id, size, size, ctx => drawSelectedMaterial(ctx,size,id));
-  }
   bakeCanvas(scene, 'selected_pier_deck', size, size, ctx => drawSelectedMaterial(ctx,size,'F08'));
-  makeSelectedRoundedTerrain(scene,size);
   makeCastlePavingTexture(scene, size);
   for (let v = 0; v < RIFT_GROUND_VARIANTS; v++) {
     bakeCanvas(scene, `rift_ground_${v}`, size, size, (ctx) => drawRiftGroundTex(ctx, size, v));

@@ -2,7 +2,7 @@
 // a random WOODEN relic in it, plus the fixed-payload reward path that hands
 // the relic over (src/interactables.js › fixedChestReward).
 //
-// Why it exists: the four supply crates give a new player materials, but
+// Why it exists: the three supply crates give a new player materials, but
 // nothing gives them a TOOL. Bare-handed work is 9 s and 9 energy a swing; a
 // wooden tool is 4 s and 3, so the first relic is the difference between the
 // opening hour being playable and being a chore — and every other relic in the
@@ -313,19 +313,22 @@
     }
   });
 
-  test('starter trail: two seed crates, scattered materials and the relic chest', () => {
+  test('starter trail: potato seeds and materials are crates along the relic trail', () => {
     const entry = srEntry();
     const { supplies, chest } = srTrail(entry);
-    assert.eq(supplies.length, 4, 'all four supply stops seated');
-    assert.truthy(chest, 'and the relic chest at the end');
-    assert.eq(entry.objects.filter(o => o.crate).length, 2, 'only the seed supplies are crates');
-    const materials = entry.objects.filter(o => o.kind === 'groundstack');
-    assert.eq(materials.length, 6, 'rocks and wood each scatter into three piles');
-    for (const id of ['rubble', 'wood']) {
-      assert.eq(materials.filter(o => o.itemId === id).reduce((sum, o) => sum + o.qty, 0), 9, `nine ${id} in total`);
-    }
+    assert.eq(supplies.length, 3, 'three supply stops seated');
+    assert.truthy(chest, 'the relic chest ends the trail');
+    assert.eq(entry.objects.filter(o => o.crate).length, 3);
+    assert.eq(entry.objects.filter(o => o.kind === 'groundstack').length, 0, 'no loose starter materials');
+    assert.eq(supplies.map(o => o.fixedLoot.id).join(), 'potato_seed,rubble,wood');
+    assert.truthy(supplies.every(o => o.fixedLoot.qty === 9));
+    assert.eq(supplies.map(o => o.id).join(), 'chest_start_0_0_1,chest_start_0_0_3,chest_start_0_0_4', 'existing loot identities survive');
+    assert.eq(entry._starterChestTrail.id, chest.id);
+    const points = entry._starterChestTrail.points;
+    assert.eq(points[0].x, (SPAWN + 0.5) * CELL_M, 'guide starts at Home');
+    assert.eq(points[points.length - 1].x, chest.x, 'guide ends at the chest');
     const cells = entry.objects.map(o => `${srCell(o).cx},${srCell(o).cy}`);
-    assert.eq(new Set(cells).size, cells.length, 'every crate, pile and chest gets its own cell');
+    assert.eq(new Set(cells).size, cells.length, 'every crate and chest gets its own cell');
   });
 
   test('starter trail: the supplies carry what the ladder asks for next', () => {
@@ -336,12 +339,12 @@
     // far end.
     const { supplies } = srTrail(srEntry());
     const carried = supplies.map(c => c.fixedLoot?.id || c.itemId);
-    assert.eq(carried.length, 4, 'four payloads');
+    assert.eq(carried.length, 3, 'three payloads');
     assert.eq(ITEM_BY_ID[carried[0]].kind, 'seed', `nearest crate holds a seed, not ${carried[0]}`);
     assert.eq(carried[carried.length - 1], 'wood', 'wood rides at the far end');
     // And each crate carries its own thing — a doubled payload means one of the
     // ladder's needs is missing from the trail entirely.
-    assert.eq(new Set(carried).size, 4, `no repeats: ${carried.join(',')}`);
+    assert.eq(new Set(carried).size, 3, `no repeats: ${carried.join(',')}`);
     // Every stack fits the no-bag cap, or the first thing the game does is
     // hand the player an overflow prompt.
     for (const c of supplies) assert.falsy((c.fixedLoot?.qty || c.qty) > 9, `${c.id} fits the stack cap`);
@@ -392,6 +395,31 @@
       `the last supply is still in the near part of the walk (${out[out.length - 1]}/${total})`);
   });
 
+  test('starter trail: a long route keeps the Rock crate onscreen beside Home', () => {
+    const entry = srEntry();
+    entry.roadMask = new Uint8Array(N * N);
+    entry.roadMask[(SPAWN + 1) * N + SPAWN + 3] = 1;
+    entry.grid[(SPAWN - 1) * N + SPAWN + 3] = T.BUILDING;
+    let reserved;
+    const scene = srTrailScene({
+      _placeStarterRelicChest() {
+        return { path: Array.from({ length: 25 }, (_, dx) => ({ cx: SPAWN + dx, cy: SPAWN })) };
+      },
+      _carveStarterPlot(_entry, _tx, _ty, _x, _y, seats) { reserved = new Set(seats); },
+    });
+    const { supplies } = srTrail(entry, scene);
+    const rock = supplies.find(o => o.fixedLoot.id === 'rubble'), at = srCell(rock);
+    assert.eq(rock.id, 'chest_start_0_0_3', 'existing opened-ledger identity survives relocation');
+    assert.eq(rock.fixedLoot.qty, 9);
+    assert.truthy(Math.hypot(at.cx - SPAWN, at.cy - SPAWN) <= Math.floor(VIEW_CELLS / 2) - 1,
+      'fits inside the opening viewport even after heading rotation');
+    assert.truthy(WorldGen.isSpawnCell(entry.grid, N, N, at.cx, at.cy, WorldGen.spawnOptsOf(entry), 'minor'));
+    assert.truthy(reserved.has(at.cx + ',' + at.cy), 'plot and later placements protect the new seat');
+    assert.falsy(reserved.has((SPAWN + 9) + ',' + SPAWN), 'the abandoned route seat is available again');
+    const cells = supplies.map(o => `${srCell(o).cx},${srCell(o).cy}`);
+    assert.eq(new Set(cells).size, supplies.length, 'nearby Rock never covers another crate');
+  });
+
   test('starter trail: every crate stands on legal ground', () => {
     const entry = srEntry();
     srTrail(entry);
@@ -415,7 +443,7 @@
     const ROAD_X = SPAWN + 3;
     for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
     const { supplies, chest } = srTrail(entry);
-    assert.eq(supplies.length, 4, 'all four supplies seated');
+    assert.eq(supplies.length, 3, 'all three supplies seated');
     assert.truthy(chest, 'the relic chest is still the destination');
     const onShoulder = (o, what) => {
       const cell = srCell(o);
@@ -454,7 +482,7 @@
     const PATH_Y = SPAWN - 2;
     for (let cx = 0; cx < N; cx++) entry.grid[PATH_Y * N + cx] = T.PATH;
     const { supplies } = srTrail(entry);
-    assert.eq(supplies.length, 4, 'all four supplies seated');
+    assert.eq(supplies.length, 3, 'all three supplies seated');
     for (const c of supplies) {
       const cell = srCell(c);
       const onShoulder = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) =>
@@ -472,7 +500,7 @@
     const ROAD_X = SPAWN + NEAR_ROAD_CELLS + 4;
     for (let cy = 0; cy < N; cy++) entry.grid[cy * N + ROAD_X] = T.ROAD;
     const { supplies } = srTrail(entry);
-    assert.eq(supplies.length, 4, 'all four supplies seated');
+    assert.eq(supplies.length, 3, 'all three supplies seated');
     const out = supplies.map(c => srCheb(srCell(c), { cx: SPAWN, cy: SPAWN }));
     assert.falsy(out[0] > 3, `the first supply is still right by home (${out[0]} cells out)`);
   });
@@ -485,7 +513,7 @@
       for (let cx = SPAWN + 2; cx <= SPAWN + 8; cx++) entry.grid[cy * N + cx] = T.WATER;
     }
     const { supplies, chest } = srTrail(entry);
-    assert.eq(supplies.length, 4, 'still four supplies');
+    assert.eq(supplies.length, 3, 'still three supplies');
     const legs = [{ cx: SPAWN, cy: SPAWN }, ...supplies.map(srCell), srCell(chest)];
     for (const l of legs) {
       assert.falsy(entry.grid[l.cy * N + l.cx] === T.WATER, `(${l.cx},${l.cy}) is not in the pond`);
@@ -527,7 +555,7 @@
     const entry = srEntry();
     const scene = srTrailScene();
     const { supplies, chest } = srTrail(entry, scene);
-    assert.eq(supplies.length, 4, 'the trail seated, so there is something to check');
+    assert.eq(supplies.length, 3, 'the trail seated, so there is something to check');
     for (const o of entry.objects) {
       const c = srCell(o);
       assert.eq(Fog.seen(0, 0, c.cx, c.cy), true,
@@ -564,51 +592,19 @@
     assert.eq(a.chest.x, b.chest.x, 'and the same chest');
   });
 
-  test('starter supplies: loose materials collect instantly once, with no tools or energy', () => {
-    const { materials } = srTrail(srEntry());
-    const scene = makeScene({ workWheel() { throw new Error('loose supplies must not start work'); } });
-    const save = { picked: [], opened: [], energy: 0, relics: {} };
-    for (const pile of materials) {
-      assert.eq(runInteractable(makeCtx(scene, save), pile), true, 'tap collects the pile');
-      assert.includes(save.picked, pile.id, 'pickup is saved');
-      assert.eq(isSpent(pile, spentSets(scene, save)), true, 'render and tap agree it is spent');
-      runInteractable(makeCtx(scene, save), pile);
-    }
-    assert.eq(scene.invCount('rubble'), 9, 'nine rocks, even with repeated taps');
-    assert.eq(scene.invCount('wood'), 9, 'nine wood, even with repeated taps');
-    assert.eq(save.energy, 0, 'no energy spent');
-  });
-
-  test('starter supplies: a full or nearly full stack leaves the whole pile for later', () => {
-    const pile = srTrail(srEntry()).materials.find(o => o.itemId === 'wood');
-    const scene = makeScene();
-    const save = { picked: [], opened: [], inv: [{ id: 'wood', count: 9 }] };
-    for (const count of [9, 8]) {
-      save.inv[0].count = count;
-      assert.lt(Inventory.roomFor(save, 'wood'), pile.qty, 'the pile cannot fully fit');
-      runInteractable(makeCtx(scene, save), pile);
-      assert.falsy(isSpent(pile, spentSets(scene, save)), 'rejected pile stays on the ground');
-      assert.eq(scene.invCount('wood'), 0, 'no partial grant');
-    }
-    save.inv[0].count = 6;
-    runInteractable(makeCtx(scene, save), pile);
-    assert.includes(save.picked, pile.id, 'pickup succeeds once the whole pile fits');
-    assert.eq(scene.invCount('wood'), 3, 'the full pile is still available');
-  });
-
-  test('starter supplies: opened legacy material crates spend all their replacement piles', () => {
-    const { materials } = srTrail(srEntry());
+  test('starter supplies: opened material crates remain spent after rebuilding', () => {
+    const { supplies } = srTrail(srEntry());
     const scene = makeScene();
     const save = { picked: [], opened: ['chest_start_0_0_3', 'chest_start_0_0_4'] };
-    for (const pile of materials) {
-      assert.eq(isSpent(pile, spentSets(scene, save)), true, 'old opened state still counts');
-      runInteractable(makeCtx(scene, save), pile);
+    for (const crate of supplies.filter(o => o.fixedLoot.id !== 'potato_seed')) {
+      assert.eq(isSpent(crate, spentSets(scene, save)), true, 'old opened state still counts');
+      runInteractable(makeCtx(scene, save), crate);
     }
     assert.eq(scene.invCount('wood'), 0, 'wood is not refilled');
     assert.eq(scene.invCount('rubble'), 0, 'rocks are not refilled');
   });
 
-  test('starter supplies: hard mode removes seed crates and loose materials, keeping treasure', () => {
+  test('starter supplies: hard mode removes supply crates, keeping treasure', () => {
     const previous = Difficulty.mode();
     try {
       const entry = srEntry();

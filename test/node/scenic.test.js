@@ -256,7 +256,7 @@ test('scenic: bonusMetres pays (mul − 1) on the restored metres that ARE sceni
   const way = { id: 7, type: 2, tags: { class: 'path', subclass: 'footway' },
     geom: [[{ x: 0, y: EXT / 2 }, { x: EXT, y: EXT / 2 }]] };
   const scene = () => Object.assign({
-    depth: 0, save: { energy: 10, reachUpgrades: 0 }, cellM: CELL_M, cellsPerTile: NN, mPerPx: M_PER_PX,
+    depth: 0, save: { energy: 10, reachUpgrades: 0, trail: { greeted: true } }, cellM: CELL_M, cellsPerTile: NN, mPerPx: M_PER_PX,
     originPx: { x: 0, y: 0 }, startWorldM: { x: 0, y: 0 }, feetOffsetM: 0,
     playerM: { x: MID_M, y: MID_M }, peekM: { x: 0, y: 0 }, gpsM: { x: MID_M, y: MID_M },
     toasts: [], _toast(text, opts) { this.toasts.push({ text, opts }); },
@@ -561,7 +561,7 @@ test('scenic: a tide pickup taps into the day ledger, never save.picked', () => 
     'the award asks the one spent predicate first');
   assert.truthy(/if \(wp\.tide\) \{\s*Macros\.markToday\(save, wp\.id\);/.test(body),
     'a tide pick is written to the day ledger');
-  assert.truthy(/\(wp\) => !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
+  assert.truthy(/\(wp\) => \(!ctx\.grassOnly \|\| WorldGen\.isGrassCover\(wp\)\)\s*&& !isSpent\(wp, tideSets\) && \(wp\.tide \|\| !pickedSet\.has\(wp\.id\)\)/.test(body),
     'and the tap asks the one spent predicate');
 });
 

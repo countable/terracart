@@ -383,32 +383,68 @@ test('trail prize: the payout hangs off the button, not the offer', () => {
 
 });
 
-// ── THE FIRST PRIZE IS AN ONION SEED ──────────────────────────────────────
-// Prize #1 always offers the onion seed. This first planting reward
-// says so out loud rather than sampling a pool that could hand a new player
-// coins and leave them none the wiser.
-test('trail prize: the first rung is the onion seed, and only the first', () => {
-  const first = Trail.firstPrize(1);
-  assert.truthy(first, 'rung one is fixed');
-  assert.eq(first.id, 'onion_seed', 'an onion seed');
-  assert.eq(first.id, Trail.FIRST_PRIZE_ID, 'through the constant');
-  assert.truthy(ITEM_BY_ID[first.id], 'which is a real item');
-  assert.eq(ITEM_BY_ID[first.id].kind, 'seed', 'a planting option');
-  assert.eq(first.tier, ITEM_BY_ID[first.id].baseTier, 'carrying its own tier');
-  assert.gt(first.qty, 1, 'as a pack, since seeds are planted in bulk');
-  assert.eq(first.kind, 'item', 'in exactly the shape pickReward returns');
-  assert.eq(first.jackpot, 0);
-  assert.eq(first.consolation, 0);
-  for (const n of [0, 2, 3, 10]) assert.falsy(Trail.firstPrize(n), `rung ${n} is rolled`);
+test('trail prize: the first row is exactly the three Wood starting weapons', () => {
+  const row = Trail.firstWeaponChoices();
+  assert.eq(row.map(r => r.slot).join(','), 'sword,bow,staff');
+  assert.eq(row.length, 3);
+  for (const reward of row) {
+    assert.eq(reward.kind, 'relic'); assert.eq(reward.tier, 1);
+    assert.truthy(reward.starterWeapon);
+  }
+  row[0].tier = 7;
+  assert.eq(Trail.firstWeaponChoices()[0].tier, 1, 'offers are fresh records');
 });
 
-test('trail prize: the fixed first rung pays out through the ordinary claim', () => {
+test('trail prize: each first weapon choice grants only that weapon and persists one claim', () => {
+  for (const reward of Trail.firstWeaponChoices()) {
+    const s = scene(); s.save.trail = { firstWeaponPending: true, prizes: 1 };
+    const card = s._claimTrailReward(reward);
+    assert.truthy(card);
+    assert.eq(Object.keys(s.save.relics).join(','), reward.slot);
+    assert.eq(s.save.relics[reward.slot].tier, 1);
+    assert.eq(s.save.activeWeapon, reward.slot);
+    assert.truthy(s.save.trail.firstWeaponClaimed);
+    assert.falsy(s.save.trail.firstWeaponPending);
+    s.save = JSON.parse(JSON.stringify(s.save));
+    assert.eq(s._claimTrailReward(Trail.firstWeaponChoices()[0]), null, 'reloaded choice cannot pay twice');
+  }
+});
+
+test('trail prize: a saved first weapon choice recovers once and waits for introductions', () => {
+  const resume = liftSceneMethod('_resumeFirstWeaponPrize');
+  const oldReady = Quests.starterIntroductionsReady;
+  let ready = false;
+  Quests.starterIntroductionsReady = () => ready;
+  try {
+    let queued = [], fired = 0;
+    const s = { save: { trail: { prizes: 1, firstWeaponPending: true } },
+      _enqueueCeremony(kind, open, options) { queued.push({ open, ...options }); },
+      _fireTrailPrize(n) { assert.eq(n, 1); fired++; } };
+    resume.call(s); resume.call(s);
+    assert.eq(queued.length, 1, 'repeated update ticks queue one offer');
+    assert.truthy(queued[0].hold());
+    ready = true;
+    assert.falsy(queued[0].hold(), 'arrival releases the choice without another road repair');
+    queued[0].open(() => {});
+    assert.eq(fired, 1);
+    s.save = JSON.parse(JSON.stringify(s.save));
+    delete s._firstWeaponQueued; queued = [];
+    resume.call(s);
+    assert.eq(queued.length, 1, 'reload reconstructs earned but unclaimed choice');
+    s.save.trail.firstWeaponClaimed = true; delete s._firstWeaponQueued; queued = [];
+    resume.call(s);
+    assert.eq(queued.length, 0, 'claimed choices do not return');
+    s.save.trail = { prizes: 4 }; resume.call(s);
+    assert.eq(queued.length, 0, 'legacy paid first prizes are not granted again');
+  } finally { Quests.starterIntroductionsReady = oldReady; }
+});
+
+test('trail prize: selecting an already better first weapon preserves it and equips it', () => {
   const s = scene();
-  const card = s._claimTrailReward(Trail.firstPrize(1));
-  assert.truthy(card, 'it draws a card like any other reward');
-  assert.eq(s.taken.length, 1, 'and lands in the bag');
-  assert.eq(s.taken[0][0], 'onion_seed');
-  assert.eq(s.taken[0][1], Trail.FIRST_PRIZE_QTY, 'as the whole pack');
+  s.save.relics.sword = { tier: 3 }; s.save.activeWeapon = null;
+  s._claimTrailReward(Trail.firstWeaponChoices()[0]);
+  assert.eq(s.save.relics.sword.tier, 3);
+  assert.eq(s.save.activeWeapon, 'sword');
 });
 
 test('trail prize: the ceremony rolls the ROAD pool, and rung one skips the roll', () => {
@@ -429,22 +465,21 @@ test('trail prize: rung five is the Serpent Idol, alone, and nowhere else', () =
   assert.eq(p.id, 'serpent_idol');
   assert.eq(p.qty, 1);
   assert.truthy(p.sole, 'offered alone: it cannot be picked past');
-  assert.eq(Trail.fixedPrize(1).id, Trail.FIRST_PRIZE_ID, 'rung one is unchanged');
+  assert.eq(Trail.fixedPrize(1), null, 'the first weapon row is separate from later fixed rewards');
   for (const n of [2, 4, 8]) assert.eq(Trail.fixedPrize(n), null);
   assert.truthy(ITEM_BY_ID.serpent_idol.progressionOnly, 'never a find, a ware or a trailer sale');
   Trail.fixedPrize(5).qty = 9;
   assert.eq(Trail.fixedPrize(5).qty, 1, 'callers get a copy');
 });
 
-test('trail prize: rung one offers the onion seed AND a full row to pick from', () => {
-  let n = 0;
-  const rolls = [{ kind: 'item', id: 'onion_seed', qty: 1 }, { kind: 'gold', amount: 4 },
-                 { kind: 'item', id: 'carrot_seed', qty: 2 }];
-  const out = Trail.rollCardRow(() => rolls[n++] || null, [Trail.firstPrize(1)]);
-  assert.eq(out.length, Trail.PRIZE_CHOICES, 'three cards, not one');
-  assert.eq(out[1].id, 'onion_seed', 'the seed takes the seed card');
-  assert.eq(out[1].qty, Trail.FIRST_PRIZE_QTY, 'as the fixed pack, not the rolled duplicate');
-  assert.eq(out.filter(r => r.id === 'onion_seed').length, 1, 'a rolled onion is re-rolled');
+test('trail prize: first row bypasses mixed road prizes and grants nothing before selection', () => {
+  const fire = liftSceneMethod('_fireTrailPrize');
+  let offered;
+  const s = scene({ _offerTreasurePick(options) { offered = options; } });
+  fire.call(s, 1, () => {});
+  assert.eq(offered.choices.map(r => r.slot).join(','), 'sword,bow,staff');
+  assert.eq(Object.keys(s.save.relics).length, 0);
+  assert.eq(s.taken.length, 0);
 });
 
 test('trail prize: story hint leaves the next threshold to the road counter', () => {
@@ -606,7 +641,8 @@ const sweepScene = (over) => Object.assign({
   _offerRoadRepair: liftSceneMethod('_offerRoadRepair'),
 }, over || {}, {
   // Existing restoration tests exercise an already-started legacy save.
-  save: { streetsEpoch: 1, energy: 10, reachUpgrades: 0, ...over?.save },
+  save: { streetsEpoch: 1, energy: 10, reachUpgrades: 0,
+    starter: { sequence: 'first-neighbour', step: STARTER_CHAIN.length, chickenArrived: true }, ...over?.save },
 });
 
 // Run `fn` with the clock frozen, over a tile carrying one transportation way.

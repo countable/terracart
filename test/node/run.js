@@ -88,7 +88,7 @@ const FILES = [
   // read Difficulty.get() at call time and app.js pins it at boot.
   'enemy_roster.js', 'enemy_spawns.js', 'creature_spawns.js', 'enemy_habitats.js', 'difficulty.js',
   'sprite_layout.js',
-  'mvt.js', 'util.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
+  'mvt.js', 'util.js', 'ground_materials.js', 'floor_wall_materials.js', 'polygon_geometry.js', 'particles.js', 'trail.js',
   // Street restoration's arithmetic (pure); beside trail.js, whose ladder it feeds.
   'streets.js',
   // Street variants. Pure (reads WorldGen / Streets at CALL time), before worldgen.js like the page.
@@ -97,13 +97,13 @@ const FILES = [
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
   'zones.js', 'zone_variant_data.js', 'terrain.js', 'zone_variants.js', 'shrines.js', 'buffs.js', 'zone_coverage.js', 'quarry_layout.js', 'zone_dressing.js', 'reef_layout.js',
-  'enemy_protocol.js', 'multiplayer.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
+  'enemy_protocol.js', 'weather_codes.js', 'multiplayer.js', 'weather.js', 'placed_floor.js', 'campfires.js', 'coords.js', 'fog.js', 'biome_profiles.js', 'habitat_spawns.js', 'home.js', 'home_variant.js',
   // Traps — pure (reads WorldGen at CALL time); index.html puts it first, so do we.
   'traps.js', 'whirlwinds.js', 'hazard_falls.js', 'environment_hazards.js', 'waystones.js', 'pressure_traps.js', 'spider_webs.js',
   'gas.js', 'mushroom_gas.js',
   // Derelict lairs — pure, reads WorldGen at CALL time like traps.js.
   'lairs.js',
-  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'gameplay_tiers.js', 'worldgen.js', 'save.js',
+  'dungeon_progression.js', 'elevators.js', 'arena.js', 'schoolyard_game.js', 'schoolyard_fields.js', 'cave_hazards.js', 'cave_areas.js', 'underground.js', 'underground_stories.js', 'geometry.js', 'gameplay_tiers.js', 'worldgen.js', 'save.js',
   'compass_modules.js', 'art_atlas.js', 'selected_world_atlas.js', 'selected_item_art.js', 'items.js', 'inventory.js', 'energy.js', 'conditions.js', 'player_time.js', 'potion_effects.js', 'crops.js', 'delivery.js', 'save_state.js', 'gear.js', 'rewards.js', 'shops_math.js', 'shops.js', 'egg_hatch.js', 'chest_themes.js', 'loot_contexts.js', 'rarity.js', 'loot.js',
   // The macro stalls' rules (inn, chapel, apothecary, …). Pure; reads the modules around it at CALL time.
   'macros.js',
@@ -112,7 +112,7 @@ const FILES = [
   // starter constants as GLOBALS at call time; run.js injects those below (STARTER_CONSTS).
   'spawn_ownership.js', 'starter.js',
   // Fight maths (pure; combat.test.js registers a synthetic monster table).
-  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'character_portraits.js', 'companions.js', 'creature_ai.js', 'npc.js',
+  'ground_fire.js', 'combat.js', 'pirates.js', 'pets.js', 'character_portraits.js', 'companions.js', 'creature_ai.js', 'npc.js', 'npc_benefits.js',
   // The wizard tower's offers — pure, so wizard.test.js drives the shipping rules.
   'wizard.js', 'dragon_story.js', 'memory_story.js', 'pet_story_art.js', 'pet_stories.js', 'story_encounters.js',
   'interact.js',
@@ -140,7 +140,7 @@ const FILES = [
   'sandbox_art.js',
   'sandbox.js',
   // render.js reads no globals at load time (see the CANVAS_W comment in
-  // drawObjects), so it loads safely and exposes pure helpers (edgeNeedsBorder).
+  // drawObjects), so it loads safely and exposes its pure helpers.
   // The lightmap: only draw() touches Phaser, and no test calls it.
   'lighting_gpu.js', 'lighting.js', 'safety.js', 'obstacle_step.js', 'visibility.js',
   'render.js',
@@ -159,10 +159,11 @@ const FILES = [
 // (loaded as separate scripts) can reach them by bare name. Functions + IIFE
 // `window.X` exports already live on the global.
 const BRIDGE = `;Object.assign(globalThis, {
+  Geometry,
   SceneFurniture, Furniture,
   Arena,
   GasRender,
-  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
+  GroundFire, SceneFire, INTERACTABLES, runInteractable, NPC, NPCBenefits, CharacterPortraits, SceneModals, DragonStory, MemoryStory, PetStoryArt, PetStories, StoryEncounters, ObstacleStep, WorldLayers, Visibility,
   // The lit boundary's corner rule (coords.js) — read by the plateau fill,
   // the one pass that draws that edge; reach_corners.test.js drives it.
   ITEM_BY_ID, TIER_BY_NUM, SHINY_RATE, MAP_MSG_MAX,
@@ -762,7 +763,7 @@ Object.assign(ctx, {
 // (chip step X → the arrow points at X's own space, never a leftover crate fallback).
 {
   // The wreck rules are houses.js now; the scene keeps one-line wrappers.
-  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate() {',
+  const methods = ['_starterGuidanceGoal(step) {', '_nearestStarterCrate(itemId = null) {',
     "_nearestObject(pred, { list = 'objects', from = playerWorldM(this) } = {}) {"]
     .map(sceneMethodSource).concat([
       '_isHouseWreck(house) { return Houses.isHouseWreck(this.save, house); }',
@@ -913,7 +914,7 @@ Object.assign(ctx, {
     return function (entry, tx, ty) { return WorldGen.runSteps(steps.call(this, entry, tx, ty)); };
   };`, ctx, { filename: 'run.js#spawnPassFn' });
   ctx.SPAWN_CAVE_SRC         = slice(creaturesSrc, '  spawnCaveCreatures(entry, tx, ty, depth) {\n', '\n  // Catch wheel:', 'spawnCaveCreatures');
-  ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBin(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBin');
+  ctx.REBUILD_WITH_BIN_SRC   = slice(wgSrc,  '  async function rebuildTileWithBinNow(x, y, lat) {\n', '\n  }\n', 'rebuildTileWithBinNow');
   // The trail placer (scene methods read `scene.`, not `this.`); the slice runs to the reveal.
   ctx.STARTER_TRAIL_SRC      = slice(ctx.STARTER_JS_SRC, '  function placeStarterTrail(scene, entry, tx, ty) {\n',
     '\n  function revealStarterTrail', 'the starter trail');
@@ -1171,26 +1172,25 @@ ctx.ROGUE_OBJECT_BOUNDS = new Function(readSrc('rogue_object_bounds.js') + ';ret
 // with the stubs above); tilled_bed.test.js runs drawTilledTex against a recording 2D context.
 ctx.TILLED_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
-  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('ground_materials.js') + '\n' + readSrc('textures.js')
     + '\nglobalThis.__x = { drawTilledTex, seededRand, TILLED_INSET_PX, TILLED_CORNER_PX, TILLED_VARIANTS, TILLED_COLOR, SHRINE_PAD, makeBerryBushTexture };',
     c, { filename: 'textures.js#tilled' });
   return c.__x;
 })();
 ctx.SHRINE_PAD = ctx.TILLED_TEX.SHRINE_PAD;
 // textures.js as TEXT: traps.test.js pins that both trap textures are baked one cell square off TRAP_PX.
-ctx.TEXTURES_SRC = readSrc('textures.js');
+ctx.TEXTURES_SRC = readSrc('ground_materials.js') + '\n' + readSrc('textures.js');
 // The trap art, in its own context like TILLED_TEX; these makers take a SCENE,
 // so traps.test.js hands them a stub whose createCanvas returns a recording 2D context.
 ctx.TRAP_TEX = (() => {
   const c = vm.createContext({ window: { addEventListener() {} }, console });
-  vm.runInContext(readSrc('util.js') + '\n' + readSrc('textures.js')
+  vm.runInContext(readSrc('util.js') + '\n' + readSrc('ground_materials.js') + '\n' + readSrc('textures.js')
     + '\nglobalThis.__x = { makeHiddenTrapTexture, makeSprungTrapTexture, makeTrapTextures, TRAP_PX };',
     c, { filename: 'textures.js#traps' });
   return c.__x;
 })();
 // The texture catalog as text (assets.js is Phaser-loader data, not bundled).
 ctx.ASSETS_SRC = readSrc('assets.js');
-ctx.ART_TRIALS_SRC = readSrc('art-trials.js');
 // lighting.test.js pins the compositing model (ADD cookies, MULTIPLY map) as text.
 ctx.LIGHTING_SRC = readSrc('lighting.js');
 ctx.FOG_SRC = readSrc('fog.js');
@@ -1344,10 +1344,9 @@ for (const f of testFiles) {
 // ── Every ASSETS file ships ──────────────────────────────────────────────
 // Portraits must retain actual transparent pixels through the RGBA exporter,
 // rather than merely adding an unused alpha channel to a flat background.
-ctx.__tests.push({ name: 'character portraits: every exported cell and atlas has visible art and transparency', fn: () => {
+ctx.__tests.push({ name: 'character portraits: every active cell has visible art and transparency', fn: () => {
   const { decodePng } = require('../../tools/sprite_audit.js');
-  const manifest = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets/portraits/manifest.json'), 'utf8'));
-  const ids = new Set([...Object.keys(manifest.sheets), ...Object.values(manifest.sheets).flat()]);
+  const ids = new Set([...ctx.CharacterPortraits.PET_IDS, ...ctx.CharacterPortraits.NPC_IDS]);
   for (const id of ids) {
     const image = decodePng(fs.readFileSync(path.join(ROOT, `assets/portraits/${id}.png`)));
     let transparent = 0, opaque = 0;

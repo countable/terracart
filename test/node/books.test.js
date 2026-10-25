@@ -148,7 +148,7 @@ test('course: a page read heads on its volume line, with no title row over it', 
 
 test('course: story topics retain their saved-bookmark positions', () => {
   assert.eq(PLAY_TIPS.length, 154, 'new guides append after the existing saved bookmarks');
-  assert.eq(PLAY_TIPS[153], ITEM_GUIDE_TIPS.workbench, 'workbench guide appends after published pages');
+  assert.eq(PLAY_TIPS[153], ITEM_GUIDE_TIPS.workshop, 'workshop guide appends after published pages');
   assert.eq(PLAY_TIPS[152], ITEM_GUIDE_TIPS.growth_powder, 'Growth Powder appends without moving saved pages');
   assert.truthy(/Joined the book club/.test(PLAY_TIPS[141]), 'the published book club page keeps its bookmark');
   assert.eq(PLAY_TIPS[149], ITEM_GUIDE_TIPS.barricade);
@@ -435,8 +435,8 @@ test('mechanics: street restoration retains its dwell and reward ladder', () => 
   assert.eq(Trail.goalFor(1) - Trail.goalFor(0), Trail.GOAL_STEP_M, 'the rungs grow by a step');
   const road = LOOT_CONTEXTS[Trail.PRIZE_CONTEXT].classBias;
   assert.lt(road.seed, road.magic + road.supply + road.boots, 'road supplies outweigh seeds');
-  assert.eq(ITEM_BY_ID[Trail.firstPrize(1).id].kind, 'seed',
-    'the first prize really is a seed');
+  assert.eq(Trail.firstWeaponChoices().map(r => r.slot).join(','), 'sword,bow,staff',
+    'the first prize introduces the starting weapons');
 });
 
 test('mechanics: roads use the shared reward window', () => {

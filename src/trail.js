@@ -167,24 +167,29 @@
   // the shipping ceremony actually rolls.
   const PRIZE_CONTEXT = 'treasure:road';
 
-  // ── The FIRST prize is an ONION SEED ─────────────────────────────────────
-  // Prize #1 always offers onion seeds to introduce planting. The remaining
-  // cards come from the broader road pool, just like every later rung.
-  //
-  // The shape is exactly what pickReward returns, so the ceremony, the card
-  // and the payout all take it without a special case.
-  const FIRST_PRIZE_ID = 'onion_seed';
-  const FIRST_PRIZE_QTY = 3;
-  function firstPrize(n) {
-    if ((n | 0) !== 1) return null;
-    return { kind: 'item', id: FIRST_PRIZE_ID, qty: FIRST_PRIZE_QTY,
-             tier: 2, cls: 'seed', jackpot: 0, consolation: 0 };
+  // The first repaired-road milestone teaches one weapon choice. It is a
+  // complete row, independent of the ordinary mixed road-prize groups.
+  const FIRST_WEAPON_SLOTS = Object.freeze(['sword', 'bow', 'staff']);
+  function firstWeaponChoices() {
+    return FIRST_WEAPON_SLOTS.map(slot => ({ kind: 'relic', slot, tier: 1,
+      cls: 'magic', jackpot: 0, consolation: 0, starterWeapon: true }));
   }
-  // ── THE FIXED RUNGS ──────────────────────────────────────────────────────
-  // A rung that always pays one named thing. Rung one is the onion seed (a
-  // card in the rolled row); rung FIVE is the Serpent Idol (scene_boss.js),
-  // offered ALONE (`sole`): a boss's trigger the player could pick past would
-  // be lost for good — the idol is progressionOnly, found nowhere else.
+  // The second road gift supplies an early throw, a useful boots upgrade,
+  // or a short run of treasure-finding fruit. Boots never step backwards.
+  function secondDistanceChoices(save) {
+    const owned = Math.max(0, save?.armor?.boots?.tier || 0);
+    const tier = MATERIAL_TIERS.map(row => row.tier).find(t => t > owned);
+    const boots = tier
+      ? { kind: 'armor', slot: 'boots', tier, cls: 'boots', jackpot: 0, consolation: 0 }
+      : { ...reconcileRelicOffer({ kind: 'armor', slot: 'boots', tier: owned }, save, () => 0),
+          cls: 'boots', consolation: 0 };
+    return [
+      { kind: 'item', id: 'throwing_spear', qty: 9, tier: 1, cls: 'supply', jackpot: 0, consolation: 0 },
+      boots,
+      { kind: 'item', id: 'pairy', qty: 3, tier: itemTierOf('pairy'), cls: 'fruit', jackpot: 0, consolation: 0 },
+    ];
+  }
+  // Rung five offers the Serpent Idol alone: it cannot be picked past.
   const FIXED_PRIZES = {
     5: { kind: 'item', id: 'serpent_idol', qty: 1, tier: 4, cls: 'magic', jackpot: 0, consolation: 0, sole: true },
   };
@@ -194,7 +199,7 @@
     if ((n | 0) === 3 && !(save?.relics?.pickaxe?.tier > 0)) {
       return { kind: 'relic', slot: 'pickaxe', tier: 1, cls: 'magic', jackpot: 0, consolation: 0 };
     }
-    return firstPrize(n) || (FIXED_PRIZES[n | 0] ? { ...FIXED_PRIZES[n | 0] } : null);
+    return FIXED_PRIZES[n | 0] ? { ...FIXED_PRIZES[n | 0] } : null;
   }
 
   // ── The prize is a CHOICE ────────────────────────────────────────────────
@@ -322,9 +327,10 @@
   // its group (opts.classes); the context's classBias still weighs the
   // classes inside a group, so it stays the one owner of those numbers.
 
-  // BOOTS ARE EARNED BY DISTANCE: the road never offers boots above one tier
-  // per 10 kilometres banked to reach this rung (prize `n`, 1-based) — no boots
-  // at all before 10 km, T1 from 10 km, T2 from 20 km … T7.
+  // Ordinary rolled boots are capped at one tier per 10 kilometres banked
+  // to reach this rung (prize `n`, 1-based): T1 from 10 km, T2 from 20 km … T7.
+  // The fixed second-distance gift is the early boots introduction and
+  // deliberately uses secondDistanceChoices instead of this rolled cap.
   // The general gear/unique-relic card uses this same cap.
   const BOOTS_M_PER_TIER = 10000;
   function bootsTierCap(n, playerClass) {
@@ -355,7 +361,7 @@
 
   // Roll the row: one card per PRIZE_CARDS group, in order. `rollFor(idx)`
   // rolls card idx's group (null = nothing to give). A `preset` reward (the
-  // first rung's onion seed) takes the card of the group naming its class.
+  // third rung's pickaxe) takes the card of the group naming its class.
   // A duplicate of an earlier card is re-rolled up to PRIZE_ROLL_TRIES / count
   // times, then dropped rather than shown twice.
   function rollCardRow(rollFor, preset = []) {
@@ -384,7 +390,7 @@
   root.Trail = {
     STICK_METRES_MUL, PRIZE_CARDS, BOOTS_M_PER_TIER, bootsTierCap, CASH_PER_SQRT_KM, cashPrize, prizeCardClasses, rollCardRow,
     GOAL_STEP_M, RUNNER_GOAL_DIV, goalDiv, goalFor, totalMetres, restoredMetres, repairEnabled, distanceLabel, progress, bank, readout, label,
-    PRIZE_CONTEXT, FIRST_PRIZE_ID, FIRST_PRIZE_QTY, firstPrize, FIXED_PRIZES, fixedPrize,
+    PRIZE_CONTEXT, FIRST_WEAPON_SLOTS, firstWeaponChoices, secondDistanceChoices, FIXED_PRIZES, fixedPrize,
     PRIZE_CHOICES, PRIZE_ROLL_TRIES, rewardKey, RELIC_MILESTONES, relicChoices, rewardFor, rewardsBetween, rewardProgress,
     PRIZE_ROLL_BONUS, PRIZE_TIER_PER_PRIZE, PRIZE_ROLL_BONUS_MAX, rollBonusFor,
   };

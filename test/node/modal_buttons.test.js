@@ -79,7 +79,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
 });
 
 (function () {
-  function furnitureScene(itemId = 'workbench') {
+  function furnitureScene(itemId = 'bed_quilted') {
     const scene = new SceneFurniture();
     scene.depth = 0;
     scene.save = { inv: [], selSlot: -1, furniture: [
@@ -193,7 +193,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
       const art = shell.box.children.find(child => child.className === 'furniture-art');
       assert.includes(art.innerHTML, 'assets/Objects/Furniture/furniture-32.png');
       assert.includes(art.innerHTML, `#frame=${furnitureSpec(record.itemId).frame}`);
-      assert.includes(art.innerHTML, 'width:128px;height:256px', 'world frame has exact 4× dimensions');
+      assert.includes(art.innerHTML, 'width:96px;height:192px', 'world frame has exact 3× dimensions');
       assert.eq(art.style.transform, 'scaleX(-1)', 'portrait preserves the placed flip');
       const pickupRow = shell.box.children[0], actions = shell.box.children[shell.box.children.length - 1];
       assert.eq(pickupRow.children[0].label, 'Pick up');
@@ -213,7 +213,7 @@ test('modal buttons: choice action labels update on selection and retain the mod
       const clockArt = shell.box.children.find(child => child.className === 'furniture-art');
       assert.includes(clockArt.innerHTML, `assets/Objects/Furniture/furniture-32.png#frame=${furnitureFrame('clock_grandfather')}`,
         'tall clock uses its world frame instead of its fitted 16px icon');
-      assert.includes(clockArt.innerHTML, 'width:128px;height:256px');
+      assert.includes(clockArt.innerHTML, 'width:96px;height:192px');
       assert.eq(clockArt.style.transform, '', 'unflipped clock stays upright');
     } finally { document.createElement = oldCreate; }
   });

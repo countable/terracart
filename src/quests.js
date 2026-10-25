@@ -180,53 +180,45 @@ const Quests = {
 // change castle ownership. This answers "what do I do now?" for a player
 // who just watched the intro, and it retires itself once the loop is learned.
 //
-// The steps trace one full pass of the economy — pick up supplies, till, plant,
-// rebuild a neighbour, harvest, cash out — in the order the world actually
-// affords them. `restore` sits BEFORE `harvest` on purpose: a fresh crop needs
-// real time to mature, so the player gets something to do with the wood from
-// the crates while the seed grows, instead of standing over a sprout.
-//
-// Each step is completed by an EVENT fired from the gameplay site that performs
-// it (see scene.questEvent in app.js). Steps auto-advance on completion — there
-// is no claim step — so the Dragon Spirit always explains the next thing to do.
-//
-// The Spirit acknowledges progress without granting money. Supplies, harvests
-// and sales keep their ordinary gameplay rewards; guidance adds no bonus.
+// The first crop grows while the player restores a home. One potato feeds
+// that home; Tilly's thanks finish the guided work, followed by a road hint.
+// Completed actions are saved even when performed ahead of their lesson.
+// Guidance adds no coins and never changes castle quests or ownership.
 const STARTER_CHAIN = [
   {
-    id: 's1_crate', event: 'chest',
+    id: 's1_crate', event: 'pickup',
     title: 'Gather your supplies',
-    body: 'Open a nearby supply crate to gather your first supplies.',
+    body: 'Pick up nearby supplies, or open a supply crate and take its contents.',
     completion: 'These supplies will help you begin.',
   },
   {
-    id: 's2_till', event: 'till',
-    title: 'Break ground',
-    body: 'Till a patch of grass to make a bed for seeds.',
-    completion: 'Good. The earth is ready.',
+    id: 's2_plant', event: 'plant',
+    title: 'Plant your first seed',
+    body: 'Choose a seed from your bag, stand on grass, then tap Till & plant.',
+    completion: 'Your seed is planted. Now give it some water.',
   },
   {
-    id: 's3_plant', event: 'plant',
-    title: 'Sow a seed',
-    body: 'Choose a seed from your bag and plant it in the tilled soil.',
-    completion: 'Let it take root.',
+    id: 's3_water', event: 'water',
+    title: 'Water your seed',
+    body: 'Tap your planted seed to water it and help it grow.',
+    completion: 'That will help it grow. Let’s mend a house while we wait.',
   },
   {
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
-    body: 'While your crop grows, use your supplies to mend a ruined house.',
+    body: 'Open the nearby rock crate, then use the rocks to repair a ruined house.',
     completion: 'A little more of the neighbourhood is home again.',
   },
   {
-    id: 's5_harvest', event: 'harvest',
-    title: 'Bring in the crop',
-    body: 'Water your crop when the soil dries, then harvest it when ripe.',
-    completion: 'Your first harvest. Well tended.',
+    id: 's5_tilly', event: 'tilly',
+    title: 'Help Tilly settle in',
+    body: 'Meet Tilly, then bring one potato to the restored house. Talk to her after she moves in.',
+    completion: 'A roof, a meal and a neighbour. This is how a place becomes home.',
   },
   {
-    id: 's6_sell', event: 'sell',
-    title: 'Cash out at Home',
-    body: 'Bring your harvest Home and sell it.',
+    id: 's6_roads', event: 'roads',
+    title: 'Keep mending',
+    body: 'You can repair the roads as you explore. Keep growing and mending.',
     completion: 'You know the way now. Keep growing, exploring and mending.',
   },
 ];
@@ -236,8 +228,29 @@ const STARTER_CHAIN = [
 // accidentally drive the wrong ladder.
 Object.assign(Quests, {
   _ss(save) {
-    // (Older saves also carry a write-only `done` map here; nothing reads it.)
-    if (!save.starter) save.starter = { step: 0, dismissed: false };
+    const recover = !save.starter || save.starter.sequence !== 'first-neighbour';
+    if (!save.starter) save.starter = { step: 0, dismissed: false, sequence: 'first-neighbour', done: {} };
+    const ss = save.starter;
+    if (ss.sequence !== 'first-neighbour') {
+      const old = Math.max(0, ss.step || 0);
+      const complete = old >= 6;
+      ss.step = complete ? STARTER_CHAIN.length
+        : !ss.sequence && old === 2 && !(save.planted || []).length ? 1 : Math.min(old, 4);
+      ss.done = Object.fromEntries(STARTER_CHAIN.slice(0, ss.step).map(step => [step.event, true]));
+      ss.sequence = 'first-neighbour';
+    }
+    ss.done ||= {};
+    if (!Number.isFinite(ss.step)) ss.step = 0;
+    if (recover && (save.inv || []).some(row => row?.count > 0)) ss.done.pickup = true;
+    if (recover && (save.planted || []).length) ss.done.plant = true;
+    if (recover && ((save.planted || []).some(p => p.watered_t || (p.stage || 0) > 0) || save.hasHarvested)) ss.done.water = true;
+    if (recover && Object.values(save.restoredHouses || {}).includes('plain')) ss.done.restore = true;
+    while (ss.step < STARTER_CHAIN.length) {
+      const event = STARTER_CHAIN[ss.step].event;
+      if (event === 'roads' && ss.dismissed) ss.done.roads = true;
+      if (!ss.done[event]) break;
+      ss.step++;
+    }
     return save.starter;
   },
 
@@ -287,17 +300,24 @@ Object.assign(Quests, {
   starterSkipAll(save) {
     const ss = this._ss(save);
     ss.step = STARTER_CHAIN.length;
+    ss.skipped = true;
   },
 
-  // Fire a gameplay event at the starter ladder. Returns the step it just
-  // completed (so the Spirit can acknowledge it), or null when the event
-  // isn't what the current step is waiting for.
+  // The first weapon ceremony follows the chicken's entrance, never its catch.
+  starterIntroductionsReady(save) {
+    if (!this.starterAllDone(save)) return false;
+    return !!this._ss(save).chickenArrived || !!this._ss(save).skipped || !!window.__sandboxSkipTutorial
+      || (typeof Difficulty !== 'undefined' && Difficulty.get().homeGreeter !== 'chicken');
+  },
+
+  // Record facts before checking the current instruction, so acting ahead is safe.
   onStarterEvent(save, event) {
-    if (this.starterAllDone(save)) return null;
-    const step = this.starterCurrent(save);
-    if (!step || step.event !== event) return null;
     const ss = this._ss(save);
-    ss.step = (ss.step ?? 0) + 1;
-    return step;
+    const step = STARTER_CHAIN[ss.step];
+    const fact = event;
+    if (!STARTER_CHAIN.some(row => row.event === fact)) return null;
+    ss.done[fact] = true;
+    this._ss(save);
+    return step && ss.step > STARTER_CHAIN.indexOf(step) ? step : null;
   },
 });

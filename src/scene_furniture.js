@@ -1,6 +1,47 @@
 // Luxury is derived from durable placements, never the rendered object stream.
 const Furniture = (() => {
   const ENERGY_PER_LUXURY_S = 0.1;
+  const HOUSE_SLOTS = 4;
+  function itemLuxury(itemId) {
+    const spec = furnitureSpec(itemId);
+    return spec ? Math.max(0, spec.luxury ?? itemTierOf(itemId) ** 2) : 0;
+  }
+  function houseFurniture(save, houseKey) {
+    return (save?.houseFurniture?.[houseKey] || []).filter(r => furnitureSpec(r.itemId))
+      .slice().sort((a, b) => itemLuxury(b.itemId) - itemLuxury(a.itemId));
+  }
+  function isNpcHouse(scene, house) {
+    return (scene.depth || 0) === 0 && house?.kind === 'house'
+      && house.id !== scene.save.starterShopId
+      && Object.values(scene.save.npcHomes || {}).some(r => r.houseId === house.id);
+  }
+  // Validate both sides before moving either item. A full house returns its
+  // least luxurious furnishing; an equal or weaker replacement stays in hand.
+  function furnishHouse(scene, house, itemId) {
+    const save = scene.save;
+    if (!isNpcHouse(scene, house) || !furnitureSpec(itemId)
+        || Inventory.ownedCount(save, itemId) < 1) return { accepted: false, reason: 'Choose furniture first.' };
+    const current = houseFurniture(save, house.id);
+    const replaced = current.length >= HOUSE_SLOTS ? current[current.length - 1] : null;
+    if (replaced && itemLuxury(itemId) <= itemLuxury(replaced.itemId)) {
+      return { accepted: false, reason: 'Choose a more luxurious item.' };
+    }
+    if (replaced && Inventory.roomFor(save, replaced.itemId) < 1) {
+      return { accepted: false, reason: bagFullFor(replaced.itemId) };
+    }
+    if (Inventory.remove(save, itemId, 1) !== 1) return { accepted: false, reason: 'Choose furniture first.' };
+    if (replaced) {
+      Inventory.add(save, replaced.itemId, 1);
+      current.splice(current.indexOf(replaced), 1);
+    }
+    let slot = 0;
+    while (current.some(r => r.id === `${house.id}:furniture:${slot}`)) slot++;
+    current.push({ id: `${house.id}:furniture:${slot}`, itemId,
+      flip: !!(furnitureSpec(itemId).flip && scene._furnitureFlip) });
+    (save.houseFurniture ||= {})[house.id] = current;
+    recompute(scene);
+    return { accepted: true, replaced };
+  }
   function luxuryOf(save, houseKey = save?.starterShopId) {
     const score = save?.houseLuxury?.[houseKey]?.score;
     return Number.isFinite(score) ? Math.max(0, score) : 0;
@@ -53,6 +94,11 @@ const Furniture = (() => {
       next[id] = { score: 0, footprintKey: save.houseLuxury[id]?.footprintKey };
     }
     if (houseKey) next[houseKey] = { score, footprintKey: key };
+    for (const id of Object.keys(save.houseFurniture || {})) {
+      if (id === houseKey) continue;
+      next[id] = { score: houseFurniture(save, id).slice(0, HOUSE_SLOTS)
+        .reduce((sum, record) => sum + itemLuxury(record.itemId), 0) };
+    }
     const changed = JSON.stringify(save.houseLuxury) !== JSON.stringify(next);
     save.houseLuxury = next;
     Quests.onEvent(save, 'luxury');
@@ -60,7 +106,8 @@ const Furniture = (() => {
     if (changed) persistSave(save);
     return score;
   }
-  return { luxuryOf, recompute, footprintKey, restBonus, ENERGY_PER_LUXURY_S };
+  return { luxuryOf, recompute, footprintKey, restBonus, ENERGY_PER_LUXURY_S,
+    HOUSE_SLOTS, itemLuxury, houseFurniture, isNpcHouse, furnishHouse };
 })();
 
 // Placed furniture shows its world frame and uses one lossless pickup transaction.
@@ -87,6 +134,109 @@ function cameraBlackout(scene, commit, { outMs = 700, inMs = 1300, onDone } = {}
 }
 
 class SceneFurniture {
+  pickupHouseFurniture(house, record) {
+    const records = this.save.houseFurniture?.[house.id];
+    if (!Furniture.isNpcHouse(this, house) || !records?.includes(record)) return false;
+    if (Inventory.roomFor(this.save, record.itemId) < 1) {
+      this.flashAtPlayer(bagFullFor(record.itemId));
+      return false;
+    }
+    if (this.addToInv(record.itemId, 1, false, { notWild: true, deferRefresh: true }) !== 1) return false;
+    records.splice(records.indexOf(record), 1);
+    Furniture.recompute(this);
+    this._finishInventoryChange();
+    persistSave(this.save);
+    return true;
+  }
+
+  presentHouseFurniture(house, { resident, message, onClose = () => {} } = {}) {
+    const occupied = Furniture.isNpcHouse(this, house);
+    if (!occupied && !(house?.kind === 'house' && house.id !== this.save.starterShopId
+        && (this.depth || 0) === 0 && Delivery.isSatisfied(this.save, house))) return false;
+    const options = { resident, message, onClose };
+    const { wrap, box, mount, mkBtn } = this.makeModalShell('house-furniture-modal', {
+      kind: 'use', header: false, art: false, onClose,
+    });
+    const heading = document.createElement('div');
+    heading.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:10px;margin:0 0 8px;';
+    if (resident) {
+      const face = document.createElement('img');
+      face.className = 'house-resident-portrait';
+      face.src = NPC.portrait(this, resident);
+      face.alt = resident.name;
+      face.width = face.height = 48;
+      face.style.cssText = 'width:48px;height:48px;object-fit:contain;image-rendering:pixelated;';
+      heading.appendChild(face);
+    }
+    const identity = document.createElement('div');
+    const title = document.createElement('h2');
+    title.textContent = resident?.name ? `${resident.name}'s home` : occupied ? 'Neighbour home' : 'Vacant house';
+    title.style.cssText = 'font-size:18px;margin:0;';
+    identity.appendChild(title);
+    const score = document.createElement('div');
+    score.textContent = `Luxury ${Furniture.luxuryOf(this.save, house.id)}`;
+    score.style.cssText = 'font-size:14px;color:#d5b879;margin-top:4px;';
+    identity.appendChild(score);
+    heading.appendChild(identity);
+    box.appendChild(heading);
+    const benefit = resident && typeof NPCBenefits !== 'undefined' ? NPCBenefits.summary(this, resident) : '';
+    const greeting = message || (!occupied ? 'Delivery received. This house is ready for an available neighbour.' : '');
+    if (greeting || benefit) {
+      const speech = document.createElement('p');
+      speech.textContent = resident?.role === 'wanderer' ? 'Tilly sometimes helps you water your crops.'
+        : [...new Set([greeting, benefit].filter(Boolean))].join(' ');
+      speech.style.cssText = 'font-size:13px;line-height:1.35;margin:4px 0 8px;';
+      box.appendChild(speech);
+    }
+    const grid = document.createElement('div');
+    grid.className = 'house-furniture-slots';
+    grid.style.cssText = 'display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:8px 0 0;';
+    const records = Furniture.houseFurniture(this.save, house.id);
+    for (let i = 0; i < Furniture.HOUSE_SLOTS; i++) {
+      const record = records[i], slot = document.createElement('div');
+      slot.className = record ? 'house-furniture-slot occupied' : 'house-furniture-slot empty';
+      slot.style.cssText = 'display:flex;flex-direction:column;justify-content:center;gap:4px;padding:6px;min-height:104px;box-sizing:border-box;border:1px solid #af9768;border-radius:10px;background:rgba(175,151,104,.08);';
+      if (record) {
+        const details = document.createElement('div');
+        details.style.cssText = 'display:flex;align-items:center;gap:6px;min-width:0;';
+        const art = document.createElement('div');
+        art.innerHTML = this.worldIconHTML('furniture', 24, furnitureFrame(record.itemId), 48);
+        art.style.cssText = 'font-size:0;flex:0 0 24px;';
+        art.style.transform = record.flip ? 'scaleX(-1)' : '';
+        details.appendChild(art);
+        const caption = document.createElement('div');
+        caption.style.cssText = 'min-width:0;flex:1;text-align:left;';
+        const name = document.createElement('div');
+        name.textContent = itemName(record.itemId);
+        name.style.cssText = 'font-size:11px;font-weight:700;line-height:1.2;overflow-wrap:anywhere;';
+        caption.appendChild(name);
+        const luxury = document.createElement('div');
+        luxury.textContent = `${Furniture.itemLuxury(record.itemId)} luxury`;
+        luxury.style.cssText = 'font-size:11px;color:#d5b879;margin-top:3px;';
+        caption.appendChild(luxury);
+        details.appendChild(caption);
+        slot.appendChild(details);
+        const pickup = mkBtn('Pick up', { variant: 'ghost', css: 'padding:4px 8px;min-height:32px;font-size:12px;' });
+        pickup.addEventListener('click', () => {
+          if (!this.pickupHouseFurniture(house, record)) return;
+          wrap.remove();
+          this.presentHouseFurniture(house, options);
+        });
+        slot.appendChild(pickup);
+      } else {
+        slot.style.borderStyle = 'dashed';
+        const empty = document.createElement('div');
+        empty.textContent = `Empty slot ${i + 1}`;
+        empty.style.cssText = 'font-size:13px;opacity:.6;';
+        slot.appendChild(empty);
+      }
+      grid.appendChild(slot);
+    }
+    box.appendChild(grid);
+    mount();
+    return true;
+  }
+
   _furnitureAbilityAllowed(o) {
     const record = this._placedFurniture(o);
     if (!record) return false;
@@ -158,7 +308,6 @@ class SceneFurniture {
     }
     if (ability === 'reflect') { this._presentFurnitureReflect(record); return true; }
     if (ability === 'plant') { this.flashAtPlayer('Select a seed; tap the planter.'); return true; }
-    if (ability === 'craft') { this.presentWorkbench(record); return true; }
     return false;
   }
 
@@ -252,35 +401,10 @@ class SceneFurniture {
     return true;
   }
 
-  presentWorkbench(o, targetId = null) {
-    const record = this._placedFurniture(o);
-    if (!record || furnitureSpec(record.itemId).ability !== 'craft') return false;
-    const sx = this.scale?.width / 2 || 0, sy = this.scale?.height / 2 || 0;
-    this._presentRecipePicker(sx, sy, {
-      recipes: HOME_RECIPES.filter(r => r.station === 'workbench'), targetId,
-      present: id => this.presentWorkbench(record, id),
-      kind: 'craft', kindLabel: itemName(record.itemId),
-      kindIcon: this.iconSpanHTML(record.itemId, 32),
-      acceptLabel: 'Craft', costLabel: 'Ingredients',
-      topAction: { label: 'Pick up', onClick: () => this.pickupFurniture(record) },
-      validate: () => {
-        if (this._placedFurniture(record)) return true;
-        this.flashAtPlayer('Place a workbench first.');
-        return false;
-      },
-      onCraft: rec => {
-        this._finishInventoryChange();
-        this.flashLoot(`✨ ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id);
-      },
-    });
-    return true;
-  }
-
   presentFurniture(o) {
     const record = this._placedFurniture(o);
     if (!record) return false;
     const item = ITEM_BY_ID[record.itemId], spec = furnitureSpec(record.itemId);
-    if (spec.ability === 'craft') return this.presentWorkbench(record);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('furniture-modal', {
       kind: 'use', kindLabel: 'Furniture', kindIcon: this.iconSpanHTML(item.id, 32),
       art: false, onClose: () => {},
@@ -297,8 +421,8 @@ class SceneFurniture {
 
     const art = document.createElement('div');
     art.className = 'furniture-art';
-    art.style.cssText = 'font-size:0;margin:0 auto 8px;width:128px;';
-    art.innerHTML = this.worldIconHTML('furniture', 128, furnitureFrame(item.id), 256);
+    art.style.cssText = 'font-size:0;margin:0 auto 8px;width:96px;';
+    art.innerHTML = this.worldIconHTML('furniture', 96, furnitureFrame(item.id), 192);
     art.style.transform = record.flip ? 'scaleX(-1)' : '';
     box.appendChild(art);
     const name = document.createElement('div');

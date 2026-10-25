@@ -113,6 +113,13 @@
       count: 12, angle: [225, 315], speed: [50, 120], lifespan: [350, 600],
       gravityY: 320, scale: [1, 0.4], alpha: [1, 0.2], rotate: [0, 180],
     },
+    // Plaster dust from an impact: a small expanding cloud, without the
+    // bright sparks that mark a successful restoration.
+    dust: {
+      tex: { shape: 'puff', color: '#d3bea0', core: '#f0dfbf', size: 12 },
+      count: 9, angle: [200, 340], speed: [18, 38], lifespan: [550, 950],
+      gravityY: -10, scale: [0.6, 1.5], alpha: [0.65, 0], rotate: [0, 180],
+    },
     // …and the BLAST that goes with it: pale stone sparks with a white-hot
     // core, thrown in a full ring off the restored stretch with no gravity,
     // fading and shrinking to nothing. The chips alone were a small dull puff
@@ -325,6 +332,10 @@
   // `g`, at size S about its centre c, in the preset's inks `t`. A new shape
   // is a row here and a `tex.shape` on its presets.
   const SHAPES = {
+    puff(g, t, S, c) {
+      g.fillStyle(hex(t.color), 0.8); g.fillCircle(c, c, S * 0.4);
+      g.fillStyle(hex(t.core), 0.6); g.fillCircle(c - S * 0.12, c - S * 0.1, S * 0.27);
+    },
     // Soft glow, two crossed slim diamonds (the 4-point glint), white-hot
     // core — the same construction as the shiny marker in app.js.
     star(g, t, S, c) {

@@ -169,8 +169,10 @@
   // rule, the quiet home and the safe area. Two guards, always held, every mode.
   const HABITAT_TIER_GUARDS = { habitat_marsh: 2, habitat_stronghold: 2 };
   Object.assign(TIER_GUARDS, HABITAT_TIER_GUARDS);
-  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
-  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS)]);
+  const STARTER_TIER_GUARDS = { starter_thief: 1 };
+  Object.assign(TIER_GUARDS, STARTER_TIER_GUARDS);
+  const FIXED_GUARD_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS), ...Object.keys(STARTER_TIER_GUARDS)]);
+  const ALWAYS_AWAKE_TIERS = new Set([...Object.keys(STREET_TIER_GUARDS), ...Object.keys(ZONE_TIER_GUARDS), ...DAILY_TIERS, ...Object.keys(HABITAT_TIER_GUARDS), ...Object.keys(STARTER_TIER_GUARDS)]);
   // The strength multiplier — NOT a tuned number. It is exactly what carries
   // the biggest structure from its t = 0 figure to the ceiling, so the ceiling
   // and the tier table are the only things to change.
@@ -253,6 +255,7 @@
     // A gate: the surface pest or the goblin who holds the way — half each,
     // off the gate's own strength.
     gate: ['slime', 'goblin'],
+    starter_thief: ['thief'],
     // The habitat sites: their GROUPS rows seat these (the ladder is the
     // plain roll's, which a group tier never takes).
     habitat_marsh: ['plant', 'slime'],
@@ -344,6 +347,9 @@
     thieves: { label: 'House thieves', tiers: [9], minT: 0, chance: .15,
       story: 'One or two thieves hide around the wreck, steal a purse and flee.',
       members: [{ kind: 'thief', nRange: [1, 2], place: 'ring' }] },
+    starter_thief: { label: 'The first thief', tiers: ['starter_thief'], minT: 0,
+      story: 'A lone thief waits in the next wreck beyond the safe neighbourhood.',
+      members: [{ kind: 'thief', n: 1, place: 'ring' }] },
     splitter: { label: 'Splitting slime', tiers: [9], minT: 0,
       story: 'Strike it and it divides, half its health to each side. Finish a half before it divides again.',
       members: [{ kind: 'split_slime', n: 1, place: 'ring' }] },
@@ -574,6 +580,7 @@
     gate:   { rate: 1, thinned: false },   // a gate's posts — held every day
     habitat_marsh: { rate: 1, thinned: false },      // a habitat site — always held
     habitat_stronghold: { rate: 1, thinned: false },
+    starter_thief: { rate: 1, thinned: false },
   };
 
   for (const kind of SLIME_TRAIL.enemyKinds) OCCUPANCY[`street_slime_trail_${kind}`] = { rate: 1, thinned: false };
@@ -1000,31 +1007,51 @@
 
   // Use the renderer's doorway-side selection on source geometry, independent
   // of loaded neighbours or the camera. Buffered MVT streets cover tile seams.
+  // Geometry belongs to the generated entry; residency may ask for the same
+  // frontage many times. Never cache seats or their live eligibility here.
+  const frontageCache = new WeakMap();
   function buildingFront(entry, cand, cellM, tileEdgeM) {
     const shape = cand.shape, B = root.BuildingLowPoly, R = root.RoadOverlay;
     if (!shape?.ring || !B?.streetDoor || !R?.transportLines) return null;
-    const scale = root.SpriteLayout.CELL_PX / cellM;
-    const points = [];
-    for (let i = 0; i < shape.ring.length; i += 2)
-      points.push({ x: shape.ring[i] * scale, y: shape.ring[i + 1] * scale });
-    let door;
-    if (shape.door) {
-      const at = { x: shape.door.x * scale, y: shape.door.y * scale };
-      door = B.edgeDoor(points, B.ringEdgeNearest(points, at));
-      if (door) door = { ...door, center: at, distance: Infinity };
-    } else {
-      if (!entry.layers) return null;
-      const streets = [];
-      for (const { line, mvtToM } of R.transportLines([{ entry: { ...entry, tileEdgeM }, tx: 0, ty: 0 }]))
-        for (let i = 1; i < line.length; i++)
-          streets.push([line[i - 1], line[i]].map(p => ({ x: p.x * mvtToM * scale, y: p.y * mvtToM * scale })));
-      door = B.streetDoor(points, streets);
+    let cache = frontageCache.get(entry);
+    if (!cache || cache.layers !== entry.layers || cache.cellM !== cellM || cache.tileEdgeM !== tileEdgeM) {
+      cache = { layers: entry.layers, cellM, tileEdgeM, fronts: new WeakMap(), streets: null };
+      frontageCache.set(entry, cache);
     }
-    if (!door) return null;
-    return { x: door.center.x / scale, y: door.center.y / scale,
-      normal: door.normal, along: door.along,
-      depth: Math.min(LAIR_FRONTAGE_CELLS * cellM, door.distance / scale),
+    let saved = cache.fronts.get(shape);
+    if (!saved || saved.ring !== shape.ring || saved.door !== shape.door) {
+      saved = { ring: shape.ring, door: shape.door, front: findBuildingFront() };
+      cache.fronts.set(shape, saved);
+    }
+    if (!saved.front) return null;
+    return { ...saved.front,
       halfSpan: Math.min(LAIR_FRONTAGE_CELLS * cellM, Math.max(cellM, Math.hypot(cand.halfW, cand.halfH))) };
+
+    function findBuildingFront() {
+      const scale = root.SpriteLayout.CELL_PX / cellM;
+      const points = [];
+      for (let i = 0; i < shape.ring.length; i += 2)
+        points.push({ x: shape.ring[i] * scale, y: shape.ring[i + 1] * scale });
+      let door;
+      if (shape.door) {
+        const at = { x: shape.door.x * scale, y: shape.door.y * scale };
+        door = B.edgeDoor(points, B.ringEdgeNearest(points, at));
+        if (door) door = { ...door, center: at, distance: Infinity };
+      } else {
+        if (!entry.layers) return null;
+        if (!cache.streets) {
+          cache.streets = [];
+          for (const { line, mvtToM } of R.transportLines([{ entry: { layers: entry.layers, tileEdgeM }, tx: 0, ty: 0 }]))
+            for (let i = 1; i < line.length; i++)
+              cache.streets.push([line[i - 1], line[i]].map(p => ({ x: p.x * mvtToM * scale, y: p.y * mvtToM * scale })));
+        }
+        door = B.streetDoor(points, cache.streets);
+      }
+      if (!door) return null;
+      return { x: door.center.x / scale, y: door.center.y / scale,
+        normal: door.normal, along: door.along,
+        depth: Math.min(LAIR_FRONTAGE_CELLS * cellM, door.distance / scale) };
+    }
   }
 
   // ── Waking one ruin ──────────────────────────────────────────────────────
@@ -1048,6 +1075,15 @@
   // applied after the fact, per player (the safe area, EnemySpawns.homeAllows).
   function isCitadel(cand) {
     return cand.tier === 12 && root.CastleStyles?.get(cand.key).guards === true;
+  }
+
+  // A synchronous batch may reuse this snapshot while its objects stay fixed.
+  // Ordinary residency calls take a fresh snapshot for current player edits.
+  function liveOccupiedFor(entry, tx, ty, tileEdgeM) {
+    const WG = root.WorldGen;
+    const generated = new Set(entry.genObjects || entry.objects || []);
+    return WG.occupiedIndexSet(WG.tileFrame(entry, tx, ty, tileEdgeM),
+      (entry.objects || []).filter((obj) => !generated.has(obj)));
   }
 
   function garrisonFor(entry, cand, opts) {
@@ -1137,9 +1173,7 @@
     // The live-ground cull matches SceneCreatures._cullOffLiveGround: objects
     // added after generation claim their cell, and a player-repainted cell
     // drops its guard only when the live terrain is no longer walkable.
-    const generated = new Set(genObjects);
-    const liveOccupied = WG.occupiedIndexSet(WG.tileFrame(entry, cand.tx, cand.ty, tileEdgeM),
-      (entry.objects || []).filter((obj) => !generated.has(obj)));
+    const liveOccupied = o.liveOccupied || liveOccupiedFor(entry, cand.tx, cand.ty, tileEdgeM);
     const liveBlocks = (ix, iy) => {
       const at = iy * N + ix;
       if (liveOccupied.has(at)) return true;
@@ -1525,7 +1559,11 @@
         for (let bx = bx0; bx <= bx1; bx++) {
           const b = idx.buckets.get(bucketKey(bx, by));
           if (!b) continue;
-          for (const cand of b) {
+          for (const worldCand of b) {
+            // An authored per-player introduction can hold or replace this
+            // candidate without changing its world index or any RNG stream.
+            const cand = o.candidateOverlay ? o.candidateOverlay(worldCand) : worldCand;
+            if (!cand) continue;
             const dx = cand.wx - p.x, dy = cand.wy - p.y;
             const d2 = dx * dx + dy * dy;
             if (d2 > wakeR2) continue;
@@ -1599,13 +1637,13 @@
     LAIR_RING_PAD_CELLS, CORE_SEATED_TIERS, LAIR_CORE_SPREAD_CELLS, LAIR_CORE_AGGRO_CELLS, inOwnKeep, LAIR_SEAT_TRIES, LAIR_INDEX_CHUNK,
     LAIR_AGGRO_CELLS, LAIR_LEASH_CELLS, LAIR_SEAT_EPS_CELLS,
     OCCUPANCY, LAIR_MAX_PER_TILE, tileThin, occupancyFor, tileHeldExpected, guardState,
-    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
+    TIER_GUARDS, TIERS, MAX_TIER_GUARDS, STREET_TIER_GUARDS, ZONE_TIER_GUARDS, GATE_TIER_GUARDS, HABITAT_TIER_GUARDS, STARTER_TIER_GUARDS, DAILY_TIERS, dailyGuardDay, FIXED_GUARD_TIERS, ALWAYS_AWAKE_TIERS, FAR_MUL, KIND_ORDER, KIND_LADDER,
     TIER_GROUP, GARRISON_INHERIT,
     capFor, countFor, kindsAt, kindFor, structureKey, tileCellM,
     GROUPS, GROUP_RATE, FOCUS_RULES, NEAR_SHORE_CELLS, memberCount, groupRows, groupFor, expandGroup, seatPolar, seatRadii, flies, nearShore, groupLayout,
     hashKey, ringBox,
     bucketKey,
-    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, stepResidency, claimClearedCitadels, resetCitadel,
+    newIndex, indexChunk, buildIndex, indexFor, garrisonFor, liveOccupiedFor, stepResidency, claimClearedCitadels, resetCitadel,
     assertRingsClear,
   };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

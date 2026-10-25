@@ -307,6 +307,7 @@
   // floor rhythm and trim stay authored. No per-frame randomness.
   const WALL_RECIPES = Object.freeze({
     plain: { material:'plaster', body:0xb9a78a, trim:0x735741, roof:0x985c49, stories:1 },
+    workshop: { material:'timber', body:0xb69a70, trim:0x70533d, roof:0x66837e, stories:1 },
     blacksmith: { material:'stone', body:0x92958f, trim:0x626961, roof:0x555b60, stories:1 },
     trader: { material:'sandstone', body:0xc1a77c, trim:0x73573b, roof:0x927349, stories:1 },
     seed: { material:'plaster', body:0xa4ac87, trim:0x64714a, roof:0x507957, stories:1 },
@@ -799,16 +800,17 @@
       // The tier's material, laid inside the ring. One clip + one pattern fill
       // per building; rebuilds are rare (a cell crossing or a tile load), so
       // this is nothing per frame.
-      texturePoly(pts, tier, holes = []) {
+      texturePoly(pts, tier, holes = [], scale = 1) {
         const p = patternFor(tier);
         if (!p || !pts || pts.length < 3) return;
         ctx.save();
         trace(pts, holes);
         ctx.clip('evenodd');
         ctx.fillStyle = p.fill;
-        const x = wrap(phaseX, p.width), y = wrap(phaseY, p.height);
+        const x = wrap(phaseX, p.width * scale), y = wrap(phaseY, p.height * scale);
         ctx.translate(x, y);
-        ctx.fillRect(-x, -y, size, size);
+        if (scale !== 1) ctx.scale(scale, scale);
+        ctx.fillRect(-x / scale, -y / scale, size / scale, size / scale);
         ctx.restore();
       },
       damagePoly(pts, key, claimed, anchorX, anchorY) {
@@ -1341,8 +1343,6 @@
   function authoredRecipe(scene,object,role){
     if(typeof AuthoredBuildings==='undefined')return null;
     const display=Houses.displayRole(scene.save,object);
-    const themed=typeof DreamlandObjects!=='undefined'&&DreamlandObjects.buildingRecipe(object,scene,role);
-    if(themed)return themed;
     return AuthoredBuildings.recipeFor(role,object.id,Shops.shopTier(scene.save,object,display)||1,
       role==='wizard'&&Houses.wizardTowerIdentity(scene.save,object)==='second');
   }
@@ -1351,7 +1351,7 @@
     const n = (o) => (o ? (Array.isArray(o) ? o.length : Object.keys(o).length) : 0);
     return [!!scene._headingUp,scene.game?.renderer?.type,Render.buildingArtStyle,scene.buildingRoofVariant,scene.buildingRoofDetail,scene.buildingStoreys].join(':') + ',' + n(s.restoredHouses) + ',' + n(s.unlockedForts) + ',' + n(s.claimedCastles)
       + ',' + JSON.stringify([s.restoredHouses, s.shopLines, s.shopTiers, s.bookshopId, s.petshopId, s.starterBlacksmithId])
-      + ',' + (s.starterShopId || '') + ',' + Object.values(s.temples || {}).filter(r => r.active).length
+      + ',' + (s.starterShopId || '') + ',' + HomeArea.storeys(s) + ',' + Object.values(s.temples || {}).filter(r => r.active).length
       // Home's roof comes off while the player is inside (drawHome).
       + ',' + (scene.homeInside ? Number(!!scene.homeInside()) : '')
       + ',' + (scene.activeInterior?.()?.key || '');
@@ -1585,9 +1585,10 @@
           const profile = d.retail ? { style: 'whitewash', palette: {} } : Render.buildingProfileFor(object, scene);
           const palette = { ...BuildingStyles.STYLES[profile.style], ...profile.palette };
           const recipe = BuildingLowPoly.recipeFor('home',
-            { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 }, scene.buildingStoreys);
+            { wall: palette.wall, roof: palette.roof, trim: palette.trim ?? 0x614534 },
+            d.retail ? scene.buildingStoreys : HomeArea.storeys(scene.save));
           recipe.interior = inside;
-          recipe.authored = authoredRecipe(scene,object,'home');
+          recipe.authored = !d.retail && HomeArea.storeys(scene.save) === 2 ? null : authoredRecipe(scene,object,'home');
           const variant = scene.buildingRoofVariant === 'styles' ? null : scene.buildingRoofVariant || recipe.variant || 'ridge';
           // Home's door is the save's doorway wall (the shape's door point,
           // chosen toward the nearest street at placement — scene_venues.js
@@ -1599,7 +1600,11 @@
           if (d.retail) for (const [i, hole] of (d.holes || []).entries()) {
             BuildingLowPoly.add(scene, hole, recipe, variant, `${object.id}:court:${i}`, []);
           }
-          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, { height: model.height * BuildingLowPoly.LOOK.heightScale, wallOutset: model.wallOutset || 0 });
+          if (model?.faces?.length) scene._proceduralBuildings.set(object.id, {
+            height: model.height * BuildingLowPoly.LOOK.heightScale,
+            interiorHeight: inside ? model.height * BuildingLowPoly.LOOK.heightScale : undefined,
+            storeys: d.retail ? recipe.stories : HomeArea.storeys(scene.save),
+            wallOutset: model.wallOutset || 0 });
         }
         if (!model?.faces?.length) {
           if (homePrisms) {
@@ -1617,7 +1622,11 @@
             // under the player's container would draw the player over the
             // walls in front of them.
             scene._wallPerspective.home.perWall = inside || room?.kind === 'retail';
-            homeWalls(scene, d, HomeArea.HOUSE, inside);
+            const homeStyle = d.retail ? HomeArea.HOUSE : {
+              ...HomeArea.HOUSE, wallPx: HomeArea.HOUSE.wallPx * HomeArea.storeys(scene.save) };
+            homeWalls(scene, d, homeStyle, inside);
+            if (!d.retail) scene._proceduralBuildings.set(d.key, { height: homeStyle.wallPx,
+              interiorHeight: inside ? homeStyle.wallPx : undefined, storeys: HomeArea.storeys(scene.save) });
             if (d.retail) for (const hole of d.holes || []) {
               homeWalls(scene, { ...d, pts: hole, door: null }, HomeArea.HOUSE, true);
             }
@@ -1644,7 +1653,9 @@
         const object = d.object || { kind: 'house', id: d.key, tier: d.tier };
         const profile = Render.buildingProfileFor(object, scene);
         const styleId = profile.style;
-        if (styleId === 'ruin') {
+        // The WebGL wreck atlas owns its translucent ground; an opaque
+        // underpainting here would hide the terrain beneath its stains.
+        if (styleId === 'ruin' && !lowpoly) {
           const floor = tuneOf(isMine)(shadeOf(isMine)(floorColor(d.tier, isMine)));
           g.fillPoly(d.pts, floor);
           if (g.texturePoly) g.texturePoly(d.pts, d.tier);
@@ -1661,9 +1672,7 @@
           const paint = c => tuneOf(isMine)(shadeOf(isMine)(c));
           const recipe = BuildingLowPoly.recipeFor(role,{wall:paint(palette.wall),roof:paint(palette.roof),
                 trim:role==='turret'?paint(palette.wall):undefined},Render.buildingStoreysFor(object, scene),isMine);
-          if(typeof DreamlandObjects!=='undefined'&&DreamlandObjects.enabled
-              &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='dreamland';
-          else if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled
+          if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled
               &&role==='wreck'&&object.tier===9&&!object.castle)recipe.artProfile='rogue';
           recipe.authored = styleId==='ruin'?null:authoredRecipe(scene,object,role);
           // Restored recipes own their brass/copper palette; apply the same
@@ -1793,7 +1802,7 @@
     // No walls at all (a bare fill target): the tiled south face under the floor.
     if (!walled && !d.retail) g.fillPoly(d.pts.map((p) => ({ x: p.x, y: p.y + facePx(9) })), tune(faceColor(9, true)));
     g.fillPoly(d.pts, floor, undefined, d.holes);
-    if (g.texturePoly) g.texturePoly(d.pts, tier, d.holes);
+    if (g.texturePoly) g.texturePoly(d.pts, tier, d.holes, d.retail ? 1 : 0.6);
     if (g.gridPoly && !d.retail) g.gridPoly(d.pts, gridInkFor(GRID, floor));
     g.strokePoly(d.pts, OUTLINE_PX, tune(dim(floorColor(9, true), OUTLINE_MUL)));
   }

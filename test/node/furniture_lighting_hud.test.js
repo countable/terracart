@@ -14,6 +14,8 @@
       setVisible(value) { this.visible = value; return this; },
       setActive(value) { this.active = value; return this; },
       setScale() { return this; }, setFlipX() { return this; },
+      setInteractive() { this.interactive = true; return this; },
+      on(event, callback) { this.handlers ||= {}; this.handlers[event] = callback; return this; },
       clearTint() { return this; }, setShadow() { return this; },
     };
   }
@@ -34,10 +36,12 @@
       viewCenterX: 176, viewCenterY: 176,
       save: { starterShopId: 'home', houseLuxury: { home: { score: 9 } } },
       homeInside: liftSceneMethod('homeInside'),
+      upgradeHome: liftSceneMethod('upgradeHome'),
       cellAt(x, y) { return worldMetersToTileCell(this, x, y); },
       playerToWorldCell() { return viewAnchorCell(this); },
       // A footprint-rendered Home has no sprite texture; its sign uses signLiftPx.
       textures: { exists: () => false }, add: { text: textSlot, sprite: () => textSlot() },
+      _daylight: { minute: Math.floor(Date.now() / 60000), value: 1 },
       labelContainer: labels, objectsContainer: { add() {} },
       shopPlateGfx: { clear() {} }, tierGfx: { clear() {} }, _homeIntro: { phase: 'wait' },
     };
@@ -54,6 +58,28 @@
   }
 
   const visible = scene => scene.shopLabelPool.filter(slot => slot.visible);
+
+  test('Home upgrade: button appears only inside, persists two storeys and cannot repeat', () => withHome((scene) => {
+    assert.eq(HomeArea.storeys(scene.save), 1);
+    Render.drawObjects(scene);
+    const button = scene._homeUpgradeButton;
+    assert.truthy(button?.visible);
+    assert.eq(button.text, '[upgrade]');
+    let stopped = false;
+    button.handlers.pointerdown(null, 0, 0, { stopPropagation() { stopped = true; } });
+    assert.truthy(stopped, 'button does not tap through to the map');
+    assert.eq(HomeArea.storeys(JSON.parse(JSON.stringify(scene.save))), 2, 'upgrade survives save serialization');
+    assert.falsy(button.visible);
+    assert.falsy(scene.upgradeHome(), 'one-time upgrade');
+    Render.drawObjects(scene);
+    assert.falsy(button.visible);
+    scene.save.homeStoreys = 1;
+    scene.playerM = { x: 100, y: 100 };
+    Render.drawObjects(scene);
+    assert.falsy(button.visible, 'hidden outside');
+    assert.falsy(scene.upgradeHome(), 'stale callback cannot upgrade outside');
+    assert.eq(HomeArea.storeys(scene.save), 1);
+  }));
 
   test('furniture HUD: indoor score renders instantly in white above Home and fades over the player', () => withHome((scene, labels) => {
     assert.truthy(scene.homeInside(), 'player stands in the owned Home cell');
@@ -116,5 +142,36 @@
     assert.eq(visible(scene)[1], score, 're-entering Home reuses the retired slot');
     assert.eq(score.text, '0');
     assert.truthy(score.active);
+  }));
+
+  test('furniture HUD: Home luxury is readable outside after dark and hides again at dawn', () => withHome(scene => {
+    scene.playerM.x = 7.5;
+    assert.falsy(scene.homeInside());
+    scene._daylight.value = 0;
+    Render.drawObjects(scene);
+    assert.eq(visible(scene).length, 2);
+    const score = visible(scene)[1];
+    assert.eq(score.text, '9');
+    assert.eq(score.style.color, '#ffffff');
+    scene._daylight.value = 1;
+    Render.drawObjects(scene);
+    assert.eq(visible(scene).length, 1);
+    assert.falsy(score.visible);
+  }));
+
+  test('resident plaque: saved housing selects the matching face and excludes player Home', () => withHome(scene => {
+    const house = { id: 'tilly-house', kind: 'house', tier: 9 };
+    scene.save.restoredHouses = { [house.id]: 'plain' };
+    scene.save.discovered = { ['house:' + house.id]: true };
+    scene.save.npcHomes = { tilly: { role: 'wanderer', houseId: house.id, x: 20, y: 20 } };
+    const plaque = Render.residentPlaque(scene, house);
+    assert.eq(plaque.id, 'tilly');
+    assert.eq(plaque.name, 'Tilly');
+    assert.eq(plaque.portrait, 'assets/portraits/wanderer_housed.png');
+    assert.eq(Render.residentPlaque(scene, { id: 'empty' }), null);
+    scene.save.starterShopId = house.id;
+    assert.eq(Render.residentPlaque(scene, house), null);
+    scene.save.starterShopId = 'home'; scene.depth = 1;
+    assert.eq(Render.residentPlaque(scene, house), null);
   }));
 })();

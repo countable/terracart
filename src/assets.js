@@ -2,7 +2,7 @@
 // preload() in app.js walks this object; per-asset post-processing
 // (alpha-keying, manual frame registration) lives in onLoad callbacks.
 const ASSETS = {
-  selected_dead_tree: { kind: 'spritesheet', path: 'assets/Objects/SelectedFlora/selected_dead_tree.png', frameWidth: 64, frameHeight: 64 },
+  selected_dead_tree: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 64, "frameHeight": 64, "sheetRect": {"x": 98, "y": 0, "width": 64, "height": 64}, "frameRects": {"0": {"x": 98, "y": 0, "width": 64, "height": 64}}, "sourcePath": "assets/Objects/SelectedFlora/selected_dead_tree.png"},
   // Reviewed closed building meshes share these native source images.
   authored_source_com: { kind: 'image', path: 'assets/Objects/PPBuildings/com_houses_05.png' },
   authored_source_fdr: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/FDR_Blacksmith.png' },
@@ -27,11 +27,12 @@ const ASSETS = {
   authored_source_pp_flat_pink: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-flat-pink.png' },
   selected_items: { kind: 'spritesheet', path: 'assets/Icons/SelectedItems/items.png', frameWidth: 16, frameHeight: 16 },
   selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
-  selected_shrub: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_shrub.png', 'frameWidth': 16, 'frameHeight': 16},
-  selected_rubble: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_rubble.png', 'frameWidth': 16, 'frameHeight': 16},
-  selected_mushroom: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_mushroom.png', 'frameWidth': 16, 'frameHeight': 16},
-  selected_longgrass: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/selected_longgrass.png', 'frameWidth': 16, 'frameHeight': 16},
-  selected_grave_pillar: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/selected_grave_pillar.png', 'frameWidth': 16, 'frameHeight': 32},
+  selected_shrub: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/shrub-olive.png', frameWidth: 16, frameHeight: 16 },
+  weather_rain: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/rain.png', frameWidth: 16, frameHeight: 16 },
+  selected_rubble: {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 48, "y": 64, "width": 16, "height": 16}, "frameRects": {"0": {"x": 48, "y": 64, "width": 16, "height": 16}}},
+  selected_mushroom: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-selected_mushroom.png", "frameWidth": 16, "frameHeight": 16},
+  selected_longgrass: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-selected_longgrass.png", "frameWidth": 16, "frameHeight": 16},
+  selected_grave_pillar: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/grave.png", "frameWidth": 16, "frameHeight": 32},
   bone_cache: { kind: 'image', path: 'assets/Objects/Approved/bone_pile.png' },
   floor_wall_sources: { kind: 'image', path: 'assets/Objects/Cave/floor-wall-sources.png' },
   interior_floors: { kind: 'image', path: 'assets/Objects/BuildingMaterials/all-floors.png' },
@@ -58,16 +59,16 @@ const ASSETS = {
     } },
   // An inert poison vent: underground street scatter (render.js RENDER_SPEC).
   poison_vent_inactive: { kind: 'spritesheet', path: 'assets/Objects/Cave/poison_vent_inactive.png', frameWidth: 24, frameHeight: 24 },
-  cave_mechanisms: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/cave_mechanisms.png', 'frameWidth': 24, 'frameHeight': 24},
+  cave_mechanisms: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 24, "frameHeight": 24, "sheetRect": {"x": 0, "y": 0, "width": 96, "height": 120}, "frameRects": {"0": {"x": 0, "y": 0, "width": 24, "height": 24}, "1": {"x": 24, "y": 0, "width": 24, "height": 24}, "2": {"x": 48, "y": 0, "width": 24, "height": 24}, "3": {"x": 72, "y": 0, "width": 24, "height": 24}, "4": {"x": 0, "y": 24, "width": 24, "height": 24}, "5": {"x": 24, "y": 24, "width": 24, "height": 24}, "6": {"x": 48, "y": 24, "width": 24, "height": 24}, "7": {"x": 72, "y": 24, "width": 24, "height": 24}, "8": {"x": 0, "y": 48, "width": 24, "height": 24}, "9": {"x": 24, "y": 48, "width": 24, "height": 24}, "10": {"x": 48, "y": 48, "width": 24, "height": 24}, "11": {"x": 72, "y": 48, "width": 24, "height": 24}, "12": {"x": 0, "y": 72, "width": 24, "height": 24}, "13": {"x": 24, "y": 72, "width": 24, "height": 24}, "14": {"x": 48, "y": 72, "width": 24, "height": 24}, "15": {"x": 72, "y": 72, "width": 24, "height": 24}, "16": {"x": 0, "y": 96, "width": 24, "height": 24}, "17": {"x": 24, "y": 96, "width": 24, "height": 24}, "18": {"x": 48, "y": 96, "width": 24, "height": 24}, "19": {"x": 72, "y": 96, "width": 24, "height": 24}}, "sourcePath": "assets/Objects/SelectedProps/cave_mechanisms.png"},
   beehive: { kind: 'spritesheet', path: 'assets/Objects/Wilderness/Beehive.png', frameWidth: 16, frameHeight: 16 },
-  bramble: { kind: 'spritesheet', path: 'assets/Objects/Approved/bramble.png', frameWidth: 24, frameHeight: 24 },
+  bramble: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-bramble.png", "frameWidth": 24, "frameHeight": 24},
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   fdr_castle_atlas: { kind: 'image', path: 'assets/Objects/Castle/FDR/atlas.png' },
   fdr_castle_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/floor.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
   icon_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Potion_light.png', frameWidth: 16, frameHeight: 16 },
-  icon_sugar_potion: { kind: 'spritesheet', path: 'assets/Icons/Items/Honey.png', frameWidth: 16, frameHeight: 16 },
+  icon_sugar_potion: {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 96, "y": 64, "width": 16, "height": 16}, "frameRects": {"0": {"x": 96, "y": 64, "width": 16, "height": 16}}},
   orrin_idle: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_idle.png', frameWidth: 48, frameHeight: 48 },
   orrin_walk: { kind: 'spritesheet', path: 'assets/NPC/Orrin_old_man_walk.png', frameWidth: 48, frameHeight: 48 },
   npc_0_idle: { kind: 'spritesheet', path: 'assets/NPC/Citizen_woman01_idle.png', frameWidth: 48, frameHeight: 48 },
@@ -105,7 +106,7 @@ const ASSETS = {
   cavein: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/cavein.png', frameWidth: 24, frameHeight: 24 },
   sinkhole: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/sinkhole.png', frameWidth: 48, frameHeight: 48 },
   whirlwind: { kind: 'spritesheet', path: 'assets/Objects/HazardAnimationsV2/tornado.png', frameWidth: 48, frameHeight: 48 },
-  crystal_cluster: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/crystal_cluster.png', 'frameWidth': 16, 'frameHeight': 16},
+  crystal_cluster: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 168, "y": 140, "width": 16, "height": 16}, "frameRects": {"0": {"x": 168, "y": 140, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedProps/crystal_cluster.png"},
   // Chicken Red.png is 64×32: a 4-col × 2-row grid of 16×16 frames (NOT
   // 2× 32×32 like its filename + the cow sheet might suggest). Loading at
   // 32×32 made every "frame" a 2×2 cluster of mini-chickens — so each
@@ -139,7 +140,7 @@ const ASSETS = {
   cat:     { kind: 'spritesheet', path: 'assets/Objects/Pets/cat.png', frameWidth: 32, frameHeight: 32 },
   dog:     { kind: 'spritesheet', path: 'assets/Objects/Pets/dog.png', frameWidth: 32, frameHeight: 32 },
   // Seven authored tiers, Wood through Frost, in left-to-right 16px frames.
-  chest:   { kind: 'spritesheet', path: 'assets/Objects/Approved/chest-tiers.png', frameWidth: 16, frameHeight: 16 },
+  chest:   {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/containers/chest.png", "frameWidth": 16, "frameHeight": 16},
   // Market stall — a "produce stand" POI sprite (80×80 per frame). One frame
   // per product family, sharing one ochre roof: 0 fruit, 1 veg, 2 meat, 3 fish,
   // 4 coffee/bakery, 5 dairy/egg, 6 flowers. See produceStandFor() in loot.js.
@@ -169,7 +170,7 @@ const ASSETS = {
   },
   // Spring Crops sheet (224x128, 14x8 of 16x16 frames). Used by crops whose
   // art lives here (e.g. potato) — see CROP_SPRITE override below.
-  springcrops: { kind: 'spritesheet', path: 'assets/Objects/Approved/springcrops.png',  frameWidth: 16, frameHeight: 16 },
+  springcrops: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-springcrops.png", "frameWidth": 16, "frameHeight": 16},
   // The legacy 16px cobble sheet. The game draws nothing from it; it stays loaded for the
   // art review tools (tools/world-art.js, tools/preview_map_art.py) that
   // still read its frames.
@@ -194,7 +195,7 @@ const ASSETS = {
   coin_pile_26_50: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_26_50.png' },
   coin_pile_51: { kind: 'image', path: 'assets/Objects/Approved/coin_pile_51.png' },
   // Misc 16x16 prop — single boxed crate from the Singles tileset.
-  box: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/box.png', 'frameWidth': 16, 'frameHeight': 16},
+  box: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 146, "y": 122, "width": 64, "height": 16}, "frameRects": {"0": {"x": 146, "y": 122, "width": 16, "height": 16}, "1": {"x": 162, "y": 122, "width": 16, "height": 16}, "2": {"x": 178, "y": 122, "width": 16, "height": 16}, "3": {"x": 194, "y": 122, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedProps/box.png"},
   // Forest critters. Sheets are 16x16 frames; renderer picks frames as needed.
   // Deer + Crow sheets are 32×32 frames despite living in a "Wilderness"
   // folder that mostly holds 16×16 props. Loading them as 16×16 sliced each
@@ -230,8 +231,8 @@ const ASSETS = {
   // ground decoration and must not enter the standing tree frame.
   pine_tree:     { kind: 'spritesheet', path: 'assets/Objects/Approved/pine_tree.png',     frameWidth: 32, frameHeight: 48 },
   // Approved DG-style rocks — 128×144 atlas of 16px frames; 65 runtime identities.
-  prop_materials: { kind: 'image', path: 'assets/Objects/LowPolyProps/materials.png' },
-  rock_variants: { kind: 'spritesheet', path: 'assets/Objects/Rocks/rocks-16.png', frameWidth: 16, frameHeight: 16 },
+  prop_materials: {"kind": "image", "path": "assets/ArtTrials/RogueProps/flora-lowpoly-materials.png"},
+  rock_variants: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-rock_variants.png", "frameWidth": 16, "frameHeight": 16},
   mineralrock:    { kind: 'spritesheet', path: 'assets/Objects/Approved/mineralrock.png', frameWidth: 16, frameHeight: 16 },
   // Five complete 32px columns; the trailing 16px mask column is unused.
   // Keep the original 16px key for mineral/item previews that still need it.
@@ -242,30 +243,30 @@ const ASSETS = {
   // STREET VARIANTS (src/street_variants.js): barricades and tar pits.
   // wagon: the intact compact wagon a bandit-road bus stop wears
   // (loot.js chestLook), one compact 32×32 frame.
-  barricade:      { kind: 'spritesheet', path: 'assets/Objects/Approved/barricade.png', frameWidth: 24, frameHeight: 24 },
+  barricade:      {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/barricade.png", "frameWidth": 24, "frameHeight": 24},
   tar:            { kind: 'spritesheet', path: 'assets/Objects/Approved/tar.png', frameWidth: 16, frameHeight: 16 },
   wagon:          { kind: 'spritesheet', path: 'assets/Objects/DailyVisits/wagon.png', frameWidth: 32, frameHeight: 32 },
   // INFLUENCE ZONES (src/zones.js): churchyard headstone, grove votive,
   // and the flint nodule (items.js CROP_SPRITE.flint).
-  grove_votive: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/seed_shrine.png', frameWidth: 24, frameHeight: 24 },
-  flint: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/flint.png', 'frameWidth': 16, 'frameHeight': 16},
+  grove_votive: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/votive.png", "frameWidth": 24, "frameHeight": 36},
+  flint: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 186, "y": 140, "width": 16, "height": 16}, "frameRects": {"0": {"x": 186, "y": 140, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedFlora/flint.png"},
   // SHRINE KINDS (src/shrines.js SHRINE_KINDS `frame`) — eleven 24×36 generated
   // placeholders on one row, in the table's order.
-  shrines:        { kind: 'spritesheet', path: 'assets/Objects/Generated/shrines-24.png', frameWidth: 24, frameHeight: 36 },
+  shrines:        {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/shrines.png", "frameWidth": 24, "frameHeight": 36},
   // SCENIC PLACES (src/scenic.js) — generated placeholders, one art per
   // interactable: the viewpoint's scope (16×24, an object — RENDER_SPEC
   // vista_scope) and the tide line's driftwood and message bottle (wild
   // plants — items.js CROP_SPRITE).
   zone_objects: { kind: 'spritesheet', path: 'assets/Objects/ZoneVariants/approved-24.png', frameWidth: 24, frameHeight: 24 },
-  gas_mushroom_small: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/gas_mushroom_small.png', 'frameWidth': 16, 'frameHeight': 16},
+  gas_mushroom_small: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 100, "y": 140, "width": 32, "height": 16}, "frameRects": {"0": {"x": 100, "y": 140, "width": 16, "height": 16}, "1": {"x": 116, "y": 140, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedProps/gas_mushroom_small.png"},
   gas_mushroom_large: { kind: 'spritesheet', path: 'assets/Objects/Approved/gas-mushroom-large.png', frameWidth: 24, frameHeight: 24 },
-  zone_berry_bush: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedFlora/zone_berry_bush.png', 'frameWidth': 16, 'frameHeight': 16},
+  zone_berry_bush: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 134, "y": 140, "width": 32, "height": 16}, "frameRects": {"0": {"x": 134, "y": 140, "width": 16, "height": 16}, "1": {"x": 150, "y": 140, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedFlora/zone_berry_bush.png"},
   beach_palms: { kind: 'spritesheet', path: 'assets/Objects/CelProps/palms.png', frameWidth: 24, frameHeight: 24 },
-  zone_hedge_single: { kind: 'spritesheet', path: 'assets/Objects/SelectedFlora/selected_clipped_hedge.png', frameWidth: 24, frameHeight: 24 },
+  zone_hedge_single: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-zone_hedge_single.png", "frameWidth": 24, "frameHeight": 24},
   zone_hedge: { kind: 'spritesheet', path: 'assets/Objects/Hedges/hedges-24.png', frameWidth: 24, frameHeight: 24 },
   stronghold_wall: { kind: 'spritesheet', path: 'assets/Objects/Stronghold/walls-24.png?v=42926d98', frameWidth: 24, frameHeight: 24 },
   reef_coral: { kind: 'spritesheet', path: 'assets/Objects/Reef/coral.png', frameWidth: 24, frameHeight: 24 },
-  vista_scope:    { kind: 'spritesheet', path: 'assets/Objects/Approved/vista_scope.png', frameWidth: 16, frameHeight: 24 },
+  vista_scope:    {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/scope.png", "frameWidth": 16, "frameHeight": 24},
   driftwood:      { kind: 'spritesheet', path: 'assets/Objects/Approved/driftwood.png', frameWidth: 16, frameHeight: 16 },
   bottle:         { kind: 'spritesheet', path: 'assets/Objects/Approved/bottle.png', frameWidth: 16, frameHeight: 16 },
   shipwreck_shrine: { kind: 'spritesheet', path: 'assets/Objects/Beach/shipwreck_shrine_runtime.png', frameWidth: 192, frameHeight: 128 },
@@ -273,12 +274,12 @@ const ASSETS = {
   // BARREL or clay pot (standing, then smashed while restocking — isBarrel), a
   // bike rack the bicycle_parking POI (isBikeRack), a notice board the
   // information POI (render.js infoboard) and a gate's two posts (gatepost).
-  barrel: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/barrel.png', 'frameWidth': 16, 'frameHeight': 16},
-  clay_pot: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/clay_pot.png', 'frameWidth': 16, 'frameHeight': 16},
+  barrel: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 0, "y": 122, "width": 144, "height": 16}, "frameRects": {"0": {"x": 0, "y": 122, "width": 16, "height": 16}, "1": {"x": 16, "y": 122, "width": 16, "height": 16}, "2": {"x": 32, "y": 122, "width": 16, "height": 16}, "3": {"x": 48, "y": 122, "width": 16, "height": 16}, "4": {"x": 64, "y": 122, "width": 16, "height": 16}, "5": {"x": 80, "y": 122, "width": 16, "height": 16}, "6": {"x": 96, "y": 122, "width": 16, "height": 16}, "7": {"x": 112, "y": 122, "width": 16, "height": 16}, "8": {"x": 128, "y": 122, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedProps/barrel.png"},
+  clay_pot: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/containers/clay_pot.png", "frameWidth": 16, "frameHeight": 16},
   clay_pot_smashed: { kind: 'spritesheet', path: 'assets/Objects/CelProps/pots-smashed.png', frameWidth: 24, frameHeight: 24 },
   bike_rack:      { kind: 'spritesheet', path: 'assets/Objects/Approved/bike_rack.png', frameWidth: 16, frameHeight: 16 },
-  signpost: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/signpost.png', 'frameWidth': 16, 'frameHeight': 16},
-  gatepost:       { kind: 'spritesheet', path: 'assets/Objects/Approved/gatepost.png', frameWidth: 16, frameHeight: 16 },
+  signpost: {"kind": "atlas-alias", "path": "assets/Objects/SelectedWorld/world.png", "atlasKey": "selected_world_atlas", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 240, "y": 140, "width": 16, "height": 16}, "frameRects": {"0": {"x": 240, "y": 140, "width": 16, "height": 16}}, "sourcePath": "assets/Objects/SelectedProps/signpost.png"},
+  gatepost:       {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/gatepost.png", "frameWidth": 16, "frameHeight": 16},
   // THE MACRO STALLS (loot.js MACRO_KIND_BY_CLASS / macroFor): the in-building
   // POIs that are places you come back to. One 80×80 frame each, the same
   // frame and box as market_stand (art in x:[12,80) y:[0,70)), drawn by
@@ -307,8 +308,7 @@ const ASSETS = {
   // ART bounds — it also dragged the well itself ~4px off the centre of its
   // own cell. Loading the file as a 30px-wide sheet takes frame 0 = the well
   // alone, so what's drawn is the well, centred.
-  well:           { kind: 'spritesheet', path: 'assets/Objects/Wilderness/well.png?v=2',
-                    frameWidth: 30, frameHeight: 32 },
+  well:           {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/well.png", "frameWidth": 30, "frameHeight": 32},
   // Wizard tower — 320×208 sheet, 4 cols × 2 rows of 80×104.
   // Top row = 4 tower variants (blue-ivy, purple-ivy, blue-clean, purple-clean).
   // Wizard houses (role 'wizard') use frame 3 (fully-restored purple-clean).
@@ -319,7 +319,7 @@ const ASSETS = {
   // The Torch consumable's own 16×16 icon, drawn in the world where one lies
   // on a cave floor to be picked up (worldgen.js caveFloorTorches →
   // CROP_SPRITE.torch). Not the wall `torch` stake below, which is a light.
-  icon_torch:  { kind: 'spritesheet', path: 'assets/Icons/Items/Torch.png', frameWidth: 16, frameHeight: 16 },
+  icon_torch:  {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 48, "y": 80, "width": 16, "height": 16}, "frameRects": {"0": {"x": 48, "y": 80, "width": 16, "height": 16}}},
   // Shared inventory and projectile art: frame 0 faces right, frame 1 down.
   icon_throwing_spear:  { kind: 'spritesheet', path: 'assets/Icons/Items/Spear.png', frameWidth: 16, frameHeight: 16 },
   // The stronger throwing weapon keeps the spear silhouette, in cold steel.
@@ -357,13 +357,13 @@ const ASSETS = {
   // Spring/autumn/winter/aqua grass tufts, ferns, wildflowers, mushrooms,
   // pebbles, logs. Wildplants pick a frame via CROP_SPRITE { sheet: 'props',
   // custom: true, frame: N }. Longgrass uses frame 10 (a grass tuft).
-  props:       { kind: 'spritesheet', path: 'assets/Objects/Approved/props.png', frameWidth: 16, frameHeight: 16 },
+  props:       {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-props.png", "frameWidth": 16, "frameHeight": 16},
   // Hand-drawn 16px sprites (tools/art/export_petnip_waystone.py). The
   // waystone's frame 1 is its lit look (Render.setWaystoneMaterial).
-  petnip:      { kind: 'spritesheet', path: 'assets/Objects/Handmade/petnip.png', frameWidth: 16, frameHeight: 16 },
-  waystone:    { kind: 'spritesheet', path: 'assets/Objects/Handmade/waystone.png', frameWidth: 16, frameHeight: 16 },
+  petnip:      {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-petnip.png", "frameWidth": 16, "frameHeight": 16},
+  waystone:    {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/fixtures/waystone.png", "frameWidth": 16, "frameHeight": 16},
   // Rounded woodland bush: shared by shrub wildplants and bush-sized trees.
-  bushes:      { kind: 'spritesheet', path: 'assets/Objects/CelProps/bushes.png', frameWidth: 24, frameHeight: 24 },
+  bushes:      {"kind": "spritesheet", "path": "assets/ArtTrials/RogueObjects/bushes-olive.png", "frameWidth": 24, "frameHeight": 24},
   // Animated campfire — 96×32 = 6 cols × 1 row of 16×32 frames. Lit by burning
   // a coal on bare ground (see interact.js 'light-fire'); the _fire render spec
   // cycles the 6 frames for a flicker. Repels slimes + slowly restores energy.
@@ -379,7 +379,7 @@ const ASSETS = {
   // that does NOT mirror underground, so the spot gets a light instead of a
   // box. Decorative: no interaction. The `torch` render spec cycles the 4
   // frames for a flicker and Lighting.KINDS.torch is its light.
-  torch: {'kind': 'spritesheet', 'path': 'assets/Objects/SelectedProps/torch.png', 'frameWidth': 16, 'frameHeight': 16},
+  torch: {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 48, "y": 80, "width": 16, "height": 16}, "frameRects": {"0": {"x": 48, "y": 80, "width": 16, "height": 16}}},
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
@@ -391,30 +391,7 @@ const ASSETS = {
   // from Sprites/unused/Objects/Props/wood.png) had water tinting in it
   // that read poorly on grass. Renderer picks frame = min(2, qty - 1)
   // so the variant cycles with stack size. Inventory icon uses frame 2.
-  wood:        {
-    kind: 'spritesheet', path: 'assets/Objects/Wilderness/wood.png', frameWidth: 16, frameHeight: 16,
-    // wood.png ships with a solid white background (RGB ≈ 248,248,248)
-    // that reads as a "white outline" around each log when rendered on
-    // the grass terrain. Alpha-key near-white pixels to transparent —
-    // same trick crops.png uses.
-    onLoad: (scene) => {
-      const tex = scene.textures.get('wood');
-      const src = tex.getSourceImage();
-      const c = document.createElement('canvas');
-      c.width = src.width; c.height = src.height;
-      const ctx = c.getContext('2d');
-      ctx.drawImage(src, 0, 0);
-      const data = ctx.getImageData(0, 0, c.width, c.height);
-      for (let i = 0; i < data.data.length; i += 4) {
-        if (data.data[i] > 240 && data.data[i+1] > 240 && data.data[i+2] > 240) {
-          data.data[i+3] = 0;
-        }
-      }
-      ctx.putImageData(data, 0, 0);
-      scene.textures.remove('wood');
-      scene.textures.addSpriteSheet('wood', c, { frameWidth: 16, frameHeight: 16 });
-    },
-  },
+  wood:        {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/containers/wood.png", "frameWidth": 16, "frameHeight": 16},
   // Themed-house sprites (sliced top-left out of NPC house sheets in
   // Sprites/unused/Objects/Exterior/Houses/NPCS houses). Each replaces the
   // generic tinted 'house' for a specific role — see render.js' house key
@@ -435,8 +412,8 @@ const ASSETS = {
   house_wreck:      { unclaimedArt: true, kind: 'image', path: 'assets/Objects/Approved/house_wreck.png' },
   // BEGIN approved map-art states and contexts
   house_fort_unclaimed: {"kind": "image", "path": "assets/Objects/Approved/house_fort_unclaimed.png", "unclaimedArt": true},
-  approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
-  approved_clipped_hedge: { kind: 'spritesheet', path: 'assets/Objects/SelectedFlora/selected_clipped_hedge.png', frameWidth: 24, frameHeight: 24 },
+  approved_wetland_reeds: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-approved_wetland_reeds.png", "frameWidth": 16, "frameHeight": 16},
+  approved_clipped_hedge: {"kind": "spritesheet", "path": "assets/ArtTrials/RogueProps/flora-zone_hedge_single.png", "frameWidth": 24, "frameHeight": 24},
   approved_charred_stakes: {"kind": "spritesheet", "path": "assets/Objects/Approved/approved_charred_stakes.png", "frameWidth": 24, "frameHeight": 24},
   potofgold: {"kind": "image", "path": "assets/Objects/DailyVisits/potofgold.png"},
   // END approved map-art states and contexts

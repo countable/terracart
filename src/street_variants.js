@@ -5,8 +5,8 @@
 // separate), then balance source endpoints, terrain affinity and a soft
 // 300 m length target. Each section has one deterministic theme; short true
 // ends, forks and tile-edge remnants stay intact.
-// Plain Small streets dress nothing of a theme's, but every house fronting
-// one stands 0-2 loot barrels on the verge before it (the house barrels pass).
+// Every Small road has a common variant or a special theme. Common variants
+// also fill short roads and the gaps between compact special-theme patches.
 // Source line records carry variantSegments so paving, lamps, stories and
 // review tools share the same boundaries. Section keys own dressing budgets.
 // Geographic scenic credit remains exact; a majority-scenic section takes
@@ -453,6 +453,31 @@
       lampGlow: '#dca452', story: 'street_trade', art: 'street_bandit', title: 'Trade Row',
       body: 'Barrels of goods line both sides of the road, and goblin grunts pick through them in twos.',
       flash: 'Barrels and goblin grunts.' },
+    { id: 'rocky_path', baseline: true, size: 'minor', share: 0.24, pathWeight: 0.24, rung: 'common',
+      terrain: 'ROCK', affinities: ["ruined"],
+      stone: { weathered: '#929088', restored: '#929088' }, lampGlow: '#d8cf9c',
+      story: 'street_rocky_path', art: 'street_golden', title: 'Rocky Road / Path',
+      body: 'Loose stones and low rocks line this simple route.', flash: 'Rocky Road / Path.' },
+    { id: 'grassy_lane', baseline: true, size: 'minor', share: 0.28, pathWeight: 0.28, rung: 'common',
+      terrain: 'GRASS', affinities: ["cultivated"],
+      stone: { weathered: '#83916c', restored: '#83916c' }, lampGlow: '#d8cf9c',
+      story: 'street_grassy_lane', art: 'street_greenway', title: 'Grassy Lane',
+      body: 'Soft grass, herbs and small bushes line the lane.', flash: 'Grassy Lane.' },
+    { id: 'old_growth_path', baseline: true, size: 'minor', share: 0.2, pathWeight: 0.2, rung: 'common',
+      terrain: 'FOREST', affinities: ["woodland"],
+      stone: { weathered: '#69745b', restored: '#69745b' }, lampGlow: '#d8cf9c',
+      story: 'street_old_growth_path', art: 'street_overgrown', title: 'Old Growth Path',
+      body: 'Mature trees shade a path edged with shrubs and mushrooms.', flash: 'Old Growth Path.' },
+    { id: 'haunted_forest_path', haunting: true, baseline: true, size: 'minor', share: 0.12, pathWeight: 0.12, rung: 'common',
+      terrain: 'FOREST', affinities: ["woodland", "ruined"],
+      stone: { weathered: '#747080', restored: '#747080' }, lampGlow: '#d8cf9c',
+      story: 'street_haunted_forest_path', art: 'street_toadstool', title: 'Haunted Forest Path',
+      body: 'Dark trees crowd the way. Old headstones stand among the mushrooms.', flash: 'Haunted Forest Path.' },
+    { id: 'way_of_variety', baseline: true, size: 'minor', share: 0.16, pathWeight: 0.16, rung: 'common',
+      terrain: 'GRASS', affinities: ["cultivated", "woodland"],
+      stone: { weathered: '#9a9278', restored: '#9a9278' }, lampGlow: '#d8cf9c',
+      story: 'street_way_of_variety', art: 'street_orchard', title: 'Way of Variety',
+      body: 'Common finds crowd both sides: herbs, berries, mushrooms, rocks, trees and pots.', flash: 'Way of Variety.' },
   ];
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
@@ -517,7 +542,34 @@
   const TRADE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < TRADE_BARREL_GAP; }, skip: (at) => at.gap,
     emit: tradeBarrel }];
+  // Common route finds share the normal factories and cell-derived identity.
+  const commonFind = (choices) => (D, at, c) => {
+    const id = D.WG.cellId('route_' + D.v, D.tx, D.ty, c.ix, c.iy);
+    const choice = choices[Math.floor(hash01(id + '|find') * choices.length)];
+    const extra = { _street: D.v, ...choice.extra };
+    if (choice.crop) D.res.wildplants.push(D.WG.makeWildplant(choice.crop, D.cx(c.ix), D.cy(c.iy), id, extra));
+    else D.res.objects.push(D.WG.makeObject(choice.kind, D.cx(c.ix), D.cy(c.iy), id, extra));
+  };
+  const COMMON_ROCK = { kind: 'mineralrock', extra: { requiredTier: 1, yieldTier: 1 } };
+  const OLD_TREE = { kind: 'tree', extra: { species: 'maple', treeSpeciesFixed: true, variant: 3 } };
+  const DARK_TREE = { kind: 'tree', extra: { species: 'pine', treeSpeciesFixed: true, variant: 3 } };
   const VERGE_ROWS = {
+    rocky_path: [{ step: 21, side: 'both', walk: 2,
+      emit: commonFind([COMMON_ROCK, { crop: 'flint' }, { crop: 'rubble' }]) }],
+    grassy_lane: [{ step: 14, side: 'both', walk: 2,
+      emit: commonFind([{ crop: 'petnip' }, { crop: 'shrub' }, { crop: 'berry' }]) }],
+    old_growth_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([OLD_TREE]) },
+      { step: 14, side: 'both', walk: 1, emit: commonFind([{ crop: 'shrub' }, { crop: 'mushroom' }]) }],
+    haunted_forest_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([DARK_TREE]) },
+      { step: 49, side: 'both', walk: 2, gate: 'headstone', emit: commonFind([{ kind: 'headstone' }]) },
+      { step: 21, side: 'both', walk: 1, emit: commonFind([{ crop: 'mushroom' }]) }],
+    way_of_variety: [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3,
+      fill: true, gate: 'reward', emit: commonFind([
+        { crop: 'petnip' }, { crop: 'berry' }, { crop: 'shrub' }, { crop: 'mushroom' },
+        { crop: 'flint' }, { crop: 'rubble' }, COMMON_ROCK, OLD_TREE,
+        { kind: 'chest', extra: { barrel: true, barrelStyle: 'clay_pot' } },
+        { kind: 'chest', extra: { barrel: true, barrelStyle: 'barrel' } },
+      ]) }],
     berry: BERRY_LANE_ROWS, berry_trail: BERRY_LANE_ROWS, pottery: POTTERY_ROWS, trade: TRADE_ROWS,
     // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
     // reached (a claimed cell is simply skipped), no gate stations.
@@ -654,7 +706,7 @@
 
   // Which size a way is, off its terrain tier. Rail/transit/ferry are not
   // streets (classifyLine's fallback would call them ROAD).
-  const NON_STREET = new Set(['rail', 'transit', 'ferry', 'aerialway', 'service', 'track']);
+  const NON_STREET = new Set(['rail', 'transit', 'ferry', 'aerialway']);
   function sizeOfTags(tags) {
     const WG = root.WorldGen;
     const t = tags || {};
@@ -663,7 +715,7 @@
     if (NON_STREET.has(c)) return null;
     const tier = WG.classifyLine('transportation', t);
     if (tier === WG.T.ROAD_MD || tier === WG.T.ROAD_LG) return 'major';
-    if (tier === WG.T.ROAD && (c === 'minor' || c === 'street')) return 'minor';
+    if (tier === WG.T.ROAD) return 'minor';
     return null;
   }
   // Is this a way a vehicle drives (junction / dead-end tests)?
@@ -677,9 +729,9 @@
 
   // Rarity and choice have independent hash lanes. Names and surroundings
   // redistribute the special roads; they never increase their total share.
-  function selectionWeights(name, size, context) {
+  function selectionWeights(name, size, context, baseline = false) {
     const baseWeightFor = row => size === 'path' ? row.pathWeight || 0 : row.share;
-    const weights = STREET_VARIANTS.filter(row => row.size === size && baseWeightFor(row) > 0).map(row => {
+    const weights = STREET_VARIANTS.filter(row => (size === 'path' ? row.pathWeight > 0 : row.size === size && !!row.baseline === baseline) && baseWeightFor(row) > 0).map(row => {
       const baseWeight = baseWeightFor(row);
       const named = !!(name && row.words && row.words.test(name));
       const nameMultiplier = named ? Math.max(1, Math.min(NUDGED_SHARE_MAX, baseWeight * (row.nudge || NAME_NUDGE)) / baseWeight) : 1;
@@ -695,9 +747,9 @@
   }
   function variantFor(key, name, size, context) {
     if (!key || !size || size === 'major') return null;
-    const weights = selectionWeights(name, size, context);
-    const share = size === 'path' ? 1 : size === 'minor' ? MINOR_VARIANT_SHARE : 0;
-    if (hash01('street|' + key) >= share || !weights.length) return null;
+    const baseline = size === 'minor' && hash01('street|' + key) >= MINOR_VARIANT_SHARE;
+    const weights = selectionWeights(name, size, context, baseline);
+    if (!weights.length) return null;
     let ticket = hash01(size === 'minor' ? 'street-kind|' + key : 'street-choice|' + key);
     const golden = size === 'minor' && weights.find(row => row.id === 'golden');
     if (golden) {
@@ -712,13 +764,23 @@
     return weights[weights.length - 1].id;
   }
 
+  function baselineVariantFor(key, name, context) {
+    const weights = selectionWeights(name, 'minor', context, true);
+    let ticket = hash01('street-kind|' + key);
+    for (const row of weights) {
+      ticket -= row.probability;
+      if (ticket < 0) return row.id;
+    }
+    return weights[weights.length - 1]?.id || null;
+  }
+
   // Preserve the original rock substrate used to derive existing caves.
   // Surface rocks are reconciled against the final theme after Nexus coverage.
   function substrateVariantFor(key, name, size) {
     let cumulative = 0;
     const roll = hash01('street|' + key);
     for (const row of STREET_VARIANTS) {
-      if (row.size !== size || row.id === 'golden' || row.id === 'thorny') continue;
+      if (row.baseline || row.size !== size || row.id === 'golden' || row.id === 'thorny') continue;
       const share = row.id === 'hedgerow' || row.id === 'overgrown' ? 0.10 : row.share;
       cumulative += name && row.words && row.words.test(name)
         ? Math.min(NUDGED_SHARE_MAX, share * (row.nudge || NAME_NUDGE)) : share;
@@ -951,11 +1013,13 @@
       for (const rec of records) {
         rec.affinityContext = context;
         rec.selectedVariant = variant;
-        rec.variant = !rec.variantRanges || rec.variantRanges.length ? variant : null;
+        if (rec.fallbackVariant) rec.fallbackVariant = baselineVariantFor(rec.key, rec.name, context);
+        rec.variant = !rec.variantRanges || rec.variantRanges.length ? variant : rec.fallbackVariant;
         rec.rocks = rocksFor(rec.key, rec.size, variant);
       }
-      for (const rec of index.dressingLines || []) if (rec.key === first.affinityKey && rec.size === first.size) {
-        rec.variant = variant;
+      for (const rec of index.dressingLines || []) if ((rec.key === first.affinityKey
+          || (rec.baselineGap && rec.key === first.affinityKey + '|baseline')) && rec.size === first.size) {
+        rec.variant = rec.baselineGap ? baselineVariantFor(first.affinityKey, first.name, context) : variant;
         rec.affinityContext = context;
       }
       yield 'street affinities';
@@ -1437,9 +1501,9 @@
     if (rec.homeSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
     if (rec.nexusSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
     if (rec.variantSegments) return rec.variantSegments.find(p => metres >= p.a - 1e-6 && metres < p.b - 1e-6)?.variant || null;
-    if (!rec.variant) return null;
+    if (!rec.variant) return rec.fallbackVariant || null;
     return !rec.variantRanges || rec.variantRanges.some(([a, b]) => metres >= a - 1e-6 && metres <= b + 1e-6)
-      ? rec.variant : null;
+      ? rec.variant : rec.fallbackVariant || null;
   }
 
   function lineParts(rec, mvtToM) {
@@ -1639,8 +1703,9 @@
         const bounded = group.clipped || group.metres > limits.maxM;
         const long = group.clipped || group.metres > LONG_ROAD_M;
         const paths = [];
-        if (selected && group.metres >= limits.minM) {
-          if (!bounded) paths.push(...canonical.map(line => ({ line, patch: null })));
+        const baseline = !!VARIANT_BY_ID[selected]?.baseline;
+        if (selected && (baseline || group.metres >= limits.minM)) {
+          if (baseline || !bounded) paths.push(...canonical.map(line => ({ line, patch: null })));
           else {
             const units = long ? LONG_PATCH_UNITS : VARIANT_PATCH_UNITS;
             for (let py = 0; py < ext; py += units) {
@@ -1672,6 +1737,24 @@
           out.dressingLines.push({ ...prototype, line, lineKey, patch,
             variant: selected, streetLengthM: group.metres });
         }
+        const fallbackVariant = source.size === 'minor' ? baselineVariantFor(key, source.name) : null;
+        // Fill every interval omitted by the special theme with an ordinary variant.
+        // Work on canonical geometry so duplicate/reversed source fragments cannot
+        // multiply dressing or change its stable identity.
+        if (fallbackVariant && !baseline) for (const line of canonical) {
+          const spans = yield* themeRanges(line, paths.map(p => p.line), 1);
+          const length = S.lineLengthM(line, 1);
+          let start = 0;
+          for (const [a, b] of [...spans, [length, length]]) {
+            if (a - start > 1e-6) {
+              const gap = S.subLineM(line, 1, start, a);
+              out.dressingLines.push({ ...prototype, key: key + '|baseline',
+                line: gap, lineKey: gap.map(p => `${p.x},${p.y}`).join('|'),
+                variant: fallbackVariant, baselineGap: true, streetLengthM: group.metres });
+            }
+            start = b;
+          }
+        }
         for (const rec of records) {
           yield 'street theme intervals';
           const substrateKey = rec.key;
@@ -1682,7 +1765,8 @@
           rec.streetLengthM = group.metres;
           rec.selectedVariant = selected;
           rec.variantRanges = yield* themeRanges(rec.line, paths.map(p => p.line), 1);
-          rec.variant = rec.variantRanges.length ? selected : null;
+          rec.fallbackVariant = fallbackVariant;
+          rec.variant = rec.variantRanges.length ? selected : fallbackVariant;
           // Keep the independent rock treatment compact too; it is not one
           // of the themed dressing rows and has no interval consumer.
           if (bounded) rec.rocks = false;
@@ -1780,85 +1864,12 @@
     return root.WorldGen?.T[VARIANT_BY_ID[variant]?.terrain] ?? null;
   }
 
-  // Select all themes before painting. Theme the ground continuously beneath
-  // the road and out to its two-cell verge. Road/path codes stay intact;
-  // streetGround stores their visible base as terrain + 1 (zero = unset).
-  // Intersections prefer the nearest
-  // road edge, with a stable key breaking ties. Source access reasons remain
-  // authoritative: a cosmetic commercial verge does not become private land.
-  function* paintTerrainSteps({ index, scenic, transportation, grid, N, roadMask, spawnWhy, zone, streetGround }) {
-    const WG = root.WorldGen, S = root.Streets;
-    const painted = new Uint8Array(N * N);
-    if (!WG || !S) return painted;
-    const records = [];
-    const ext = index?.extent || scenic?.ext || transportation?.extent || 4096;
-    for (const rec of index?.dressingLines || []) {
-      if (terrainFor(rec.variant) != null) records.push(rec);
-    }
-    const scale = N * WG.CELL_M / ext;
-    for (const f of transportation?.features || []) {
-      if (f.type !== 2) continue;
-      for (let li = 0; li < (f.geom || []).length; li++) {
-        const key = S.lineKey(f, li);
-        if (index?.lines?.some(rec => rec.lineKey === key && rec.variantSegments)) continue;
-        for (const iv of scenic?.lines?.get(key) || []) {
-          const variant = root.Scenic.KIND_ROW[iv[2]];
-          if (terrainFor(variant) == null) continue;
-          records.push({ key, variant, size: 'path', halfW: WG.roadOverlayWidthM(f.tags) / 2,
-            line: S.subLineM(f.geom[li], scale, iv[0] * scale, iv[1] * scale)
-              .map(p => ({ x: p.x / scale, y: p.y / scale })) });
-        }
-      }
-    }
-    if (!records.length) return painted;
-    const ordinal = (a,b) => a < b ? -1 : a > b ? 1 : 0;
-    records.sort((a,b) => ordinal(String(a.key),String(b.key)) || ordinal(a.variant,b.variant));
-    const nearest = new Float32Array(N * N).fill(Infinity);
-    const original = grid.slice();
-    let candidates = 0;
-    for (const rec of records) {
-      yield 'street terrain lines';
-      // A row may paint its ground further than its claim (terrainVergeCells:
-      // Thorny Way's dry scrub runs as deep as its thickets). Past the claim
-      // the paint is cosmetic only, so land-access exclusions hold there
-      // without the claim's residential exception.
-      const reach = VARIANT_BY_ID[rec.variant]?.terrainVergeCells ?? TERRAIN_VERGE_CELLS;
-      const half = rec.halfW / WG.CELL_M, radius = half + reach;
-      for (let j = 1; j < rec.line.length; j++) {
-        const a = rec.line[j - 1], b = rec.line[j];
-        const ax = a.x * N / ext, ay = a.y * N / ext;
-        const bx = b.x * N / ext, by = b.y * N / ext;
-        const dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
-        for (let y = Math.max(0, Math.floor(Math.min(ay, by) - radius)); y <= Math.min(N-1, Math.floor(Math.max(ay, by) + radius)); y++) {
-          for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N-1, Math.floor(Math.max(ax, bx) + radius)); x++) {
-            if ((++candidates & 511) === 0) yield 'street terrain cells';
-            const i = y * N + x, here = original[i];
-            const inNexus = zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i];
-            if (inNexus && !(rec.size === 'path' && here === WG.T.PATH)) continue;
-            // Road/terrain spawn exclusions remain unchanged; only land-access
-            // exclusions prevent this visual ground paint — except RESIDENTIAL
-            // land cover, which the variant's claim blocks out to its verge
-            // (the lane owns its two cells; a yard's lawn does not run onto it).
-            if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
-                || WG.isBuildingTerrain(here) || here === WG.T.PIER) continue;
-            const t = len2 ? Math.max(0, Math.min(1, ((x+.5-ax)*dx + (y+.5-ay)*dy)/len2)) : 0;
-            const distance = Math.hypot(x+.5-ax-t*dx, y+.5-ay-t*dy) - half;
-            if (distance > reach || distance >= nearest[i] - 1e-6) continue;
-            if (((spawnWhy?.[i] || 0) & WG.SPAWN_WHY_LAND)
-                && (here !== WG.T.RESIDENTIAL || distance > TERRAIN_VERGE_CELLS)) continue;
-            nearest[i] = distance;
-            const terrain = terrainFor(rec.variant);
-            if (WG.isCobbleTerrain(here)) {
-              if (streetGround) streetGround[i] = terrain + 1;
-            } else {
-              grid[i] = terrain;
-              painted[i] = 1;
-            }
-          }
-        }
-      }
-    }
-    return painted;
+  // Road identity now lives in sparse themed cobbles and existing props.
+  // Preserve the source biome beneath gaps and beside every route. Keep the
+  // generator contract for rasterization callers; no cells need repainting
+  // or ambient-scatter cleanup, and streetGround remains unset.
+  function* paintTerrainSteps({ N }) {
+    return new Uint8Array(N * N);
   }
 
   // The café hoard's pick: a pure hash of the POI's GLOBAL MVT point, the

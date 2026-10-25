@@ -1,152 +1,114 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
-const source = fs.readFileSync('src/ra_terrain_trial.js', 'utf8');
-function load(search) {
+const source = fs.readFileSync('src/ground_materials.js', 'utf8') + '\n' + fs.readFileSync('src/terrain_transitions.js', 'utf8');
+function load(search = '') {
   const assets = {};
-  const art = new Function('location','ASSETS','window', source + '\nreturn RATerrainTrial;')({search},assets,{});
-  return {art,assets};
+  const art = new Function('location', 'ASSETS', 'window', source + '\nreturn TerrainTransitions;')({search}, assets, {});
+  return {art, assets};
 }
-for (const search of ['', '?raPreview=jungle','?artTrial=trees-water']) {
-  const {art,assets}=load(search);
-  assert.equal(art.enabled,false);
-  assert.equal(Object.keys(assets).length,0);
-  assert.equal(art.select({},new Int8Array(4),2,0),null);
+for (const search of ['', '?terrainLayers=on', '?terrainLayers=off', '?raPreview=jungle', '?artTrial=dreamland']) {
+  const {art, assets} = load(search);
+  assert.equal(assets.ra_terrain_source.path, 'assets/ArtTrials/RogueTerrain/tiles.png');
+  assert.equal(assets.ra_terrain_source.frameWidth, 16);
+  assert(!Object.keys(assets).some(key => key.startsWith('dreamland_')));
+  assert.equal(art.select({}, new Int8Array(4), 2, 0), null, 'unprepared scene does not select terrain');
+  const scene = {textures: new Proxy({}, {get() { throw Error('prepare must not allocate or inspect a permutation atlas'); }})};
+  art.prepare(scene); art.prepare(scene);
+  assert.equal(art.status(scene).ready, true);
 }
-const {art,assets}=load('?artTrial=rogue');
-assert.equal(assets.ra_terrain_source.path,'assets/ArtTrials/RogueTerrain/tiles.png');
-const frames=new Set();
-for(let a=0;a<8;a++)for(let b=0;b<8;b++)for(let c=0;c<8;c++)for(let d=0;d<8;d++) {
-  const values=[a,b,c,d];
-  const frame=art.frameFor(values);
-  assert(frame>=0&&frame<4096);frames.add(frame);
-  let coverage=0;
-  for(let material=0;material<8;material++) {
-    const mask=art.maskFor(values,material);
-    assert.equal(coverage&mask,0);coverage|=mask;
+const {art} = load();
+const count = art.families.length;
+assert(count >= 25, 'all added selected ground and rocky variants have transition families');
+// The exported rows must match runtime indices and retain exact selected centers.
+const manifest = JSON.parse(fs.readFileSync('assets/ArtTrials/RogueTerrain/manifest.json','utf8'));
+assert.deepEqual(manifest.families.map(family => family.id), [...art.families]);
+assert.equal(manifest.rows, count);
+const {decodePng} = require('../tools/sprite_audit.js');
+const atlas = decodePng(fs.readFileSync('assets/ArtTrials/RogueTerrain/tiles.png'));
+const selected = decodePng(fs.readFileSync('assets/selected-terrain/selected-terrain.png'));
+assert.equal(atlas.w,16*16); assert.equal(atlas.h,count*16);
+const pixel = (image,x,y) => image.data.subarray((y*image.w+x)*4,(y*image.w+x+1)*4);
+for (const family of manifest.families) {
+  for (let y=0;y<16;y++) for (let x=0;x<16;x++) {
+    assert.equal(pixel(atlas,x,family.index*16+y)[3],0,'empty masks stay transparent');
+    const center=pixel(atlas,15*16+x,family.index*16+y);
+    assert.equal(center[3],255,'every material supplies an opaque base');
+    if (family.selectedFrame != null)
+      assert.deepEqual(center,pixel(selected,family.selectedFrame*16+x,y),family.id+' preserves its selected center pixels');
   }
-  assert.equal(coverage,15);
+  if (family.maskFamily === 'oliveSoil') for (let mask=0;mask<16;mask++)
+    for (let y=0;y<16;y++) for (let x=0;x<16;x++)
+      assert.equal(pixel(atlas,mask*16+x,family.index*16+y)[3],pixel(atlas,mask*16+x,2*16+y)[3],
+        family.id+' retains the authored earth silhouette for mask '+mask);
 }
-assert.equal(frames.size,4096);
-assert.equal(art.maskFor([4,0,0,4],4),9,'diagonal water islands retain authored disconnected mask');
-for(const type of [9,10,11,12,24,25,26,28,29,31,32]) assert.equal(art.material(type),-1,'special terrain stays with existing renderer');
-assert.equal(art.material(23),art.material(3),'pier retains water underneath');
-const scene={_raTerrainReady:true,_raTerrainAudit:{drawnCells:0,materials:{}}};
-const ring=new Int8Array([1,-1,2,4]);const before=ring.slice();
-assert.equal(art.select(scene,ring,2,0).frame,art.frameFor([1,1,2,4]));
-assert.deepEqual(ring,before,'render selection never writes input geometry');
-assert.equal(art.status(scene).drawnCells,1);
-assert.equal(art.status(scene).materials.forestGrass,1);
-// Real Canvas-like source shape: prepare builds once and performs zero reads.
-let canvases=0, reads=0, draws=0;const painted=[];const textures=new Map();
-textures.set('ra_terrain_source',{get(frame){return {source:{image:{}},cutX:frame%16*16,cutY:Math.floor(frame/16)*16};}});
-const fakeDocument={createElement(){canvases++;return {getContext(){return {drawImage(...args){draws++;painted.push(args);},getImageData(){reads++;throw Error('pixel read');}};}};}};
-const bake=new Function('location','document',source+'\nreturn RATerrainTrial;')({search:'?artTrial=rogue'},fakeDocument);
-const fakeScene={textures:{exists:k=>textures.has(k),get:k=>textures.get(k),addCanvas(k,c){const t={frames:0,add(){this.frames++;}};textures.set(k,t);return t;}}};
-bake.prepare(fakeScene);bake.prepare(fakeScene);
-assert.equal(canvases,1);assert.equal(reads,0);assert(draws>4096);
-assert.equal(textures.get('ra_terrain_composite').frames,4096);
-for (const family of [1,5]) {
-  const frame=art.frameFor([family,4,family,4]);
-  const x=frame%64*16,y=Math.floor(frame/64)*16;
-  const layers=painted.filter(args=>args[5]===x&&args[6]===y);
-  assert.equal(layers[0][1],15*16,'underfill uses complete center');
-  assert.equal(layers[0][2],family*16,'forest and sand banks reveal their actual local ground');
-  assert(layers.every(args=>args[2]!==0),'no unrelated village grass leaks below shoreline');
-}
-console.log('RA terrain: 4096 combinations, opt-in isolation, native masks, immutable inputs and single startup bake passed');
-const dream = load('?artTrial=dreamland');
-assert.equal(dream.art.enabled,true);
-assert.equal(dream.assets.dreamland_terrain_source.path,'assets/ArtTrials/DreamlandTerrain/terrain.png');
-assert.equal(dream.assets.dreamland_path_source.path,'assets/ArtTrials/DreamlandTerrain/path.png');
-assert.equal(dream.art.roadTile('plain',true),null,'road canvas must be prepared first');
-const dreamTextures=new Map();
-dreamTextures.set('dreamland_terrain_source',textures.get('ra_terrain_source'));
-dreamTextures.set('dreamland_path_source',{getSourceImage:()=>({width:64,height:64})});
-dreamTextures.set('dreamland_path_restored_source',{getSourceImage:()=>({width:64,height:64})});
-const dreamBake=new Function('location','document',source+'\nreturn RATerrainTrial;')({search:'?artTrial=dreamland'},fakeDocument);
-const dreamScene={textures:{exists:k=>dreamTextures.has(k),get:k=>dreamTextures.get(k),addCanvas(k,c){const t={frames:0,add(){this.frames++;}};dreamTextures.set(k,t);return t;}}};
-const beforeBake=canvases;dreamBake.prepare(dreamScene);dreamBake.prepare(dreamScene);
-assert.equal(canvases-beforeBake,3,'two condition road repeats and one terrain atlas at startup');
-assert.equal(dreamBake.status(dreamScene).profile,'dreamland');
-assert.equal(dreamBake.roadTile('',false).width,96,'four native slabs repeat at 24px without changing road masks');
-assert.notEqual(dreamBake.roadTile('lantern',true),dreamBake.roadTile('',false));
-assert.equal(dreamBake.roadTile('lantern',true),dreamBake.roadTile('',true));
-for(const variant of ['suppressed','burned','slime_trail','poison_path','paralysis_path','old_stones']) assert.equal(dreamBake.roadTile(variant,true),null,'special road retains normal material');
-assert.equal(art.roadTile('',true),null,'Rogue profile never overrides roads');
-assert.equal(dreamTextures.get('dreamland_terrain_composite').frames,2976);
-console.log('Dreamland profile: bundled assets, condition-specific startup road repeats, hazard preservation and no Rogue road override passed');
-
-for (const type of [0,1]) {
-  const found=new Set();
-  for(let y=-30;y<30;y++) for(let x=-30;x<30;x++) {
-    const first=art.material(type,x,y);found.add(first);
-    assert.equal(first,art.material(type,x,y),'patchwork is world-stable');
+assert.equal(manifest.families[11].selectedMaterial,'R01','commercial restores square concrete');
+assert.equal(manifest.families[12].selectedMaterial,'R02','commercial keeps its original concrete variant');
+let combinations = 0;
+for (let a = 0; a < count; a++) for (let b = 0; b < count; b++)
+  for (let c = 0; c < count; c++) for (let d = 0; d < count; d++) {
+    const values = [a,b,c,d], before = values.slice();
+    const normalized = art.transitionValues(values), unique = new Set(normalized), layers = art.layersFor(values);
+    assert.deepEqual(values,before,'normalizing variants never changes geographic material inputs');
+    assert.equal(layers.length, unique.size);
+    assert.equal(layers[0] % 16, 15, 'the lowest local material fills every pixel');
+    assert(layers.length <= 4);
+    let coverage = 0;
+    for (const family of unique) {
+      const mask = art.maskFor(normalized, family);
+      assert.equal(coverage & mask, 0, 'each vertex belongs to only one material');
+      coverage |= mask;
+    }
+    assert.equal(coverage, 15, 'all four vertices are covered');
+    for (let i = 0; i < layers.length; i++) {
+      const family = Math.floor(layers[i] / 16);
+      assert(unique.has(family), 'no unrelated ground can leak below a corner');
+      if (i) assert.equal(layers[i] % 16, art.maskFor(normalized, family), 'overlay keeps the native mask');
+    }
+    if (unique.has(4)) assert.equal(Math.floor(layers.at(-1) / 16), 4, 'water banks draw last');
+    combinations++;
   }
-  assert(found.has(type===0 ? 7 : 2),'native soil patches present');
-  assert(found.has(type),'base grass retained');
+// Authored variations are one continuous terrain, not separate soil islands.
+for (const [values, normalized, frames] of [
+  [[11,12,12,11],[11,11,11,11],[11*16+15]],
+  [[12,11,11,12],[12,12,12,12],[12*16+15]],
+  [[14,13,13,14],[14,14,14,14],[14*16+15]],
+  [[24,21,22,23],[24,24,24,24],[24*16+15]],
+  [[12,11,21,22],[12,12,21,21],[12*16+15,21*16+12]],
+  [[0,14,13,4],[0,14,14,4],[15,14*16+6,4*16+8]],
+]) {
+  assert.deepEqual(art.transitionValues(values),normalized,'shared variants use the first local texture');
+  assert.deepEqual(art.layersFor(values),frames,'variant changes do not cut soil-shaped holes');
 }
+assert.equal(art.maskFor([4,0,0,4], 4), 9, 'diagonal water contacts preserve the disconnected mask');
+assert.deepEqual(art.layersFor([10,11,21,4]), [10*16+15,11*16+2,21*16+4,4*16+8]);
+const scene = {_terrainTransitionsReady:true, _terrainTransitionAudit:{drawnCells:0, materials:{}}};
+const ring = new Int8Array([8,-1,4,4]), before = ring.slice();
+assert.deepEqual(art.select(scene, ring, 2, 0),
+  {key:'ra_terrain_source', frame:8*16+15, layers:[4*16+12]});
+assert.deepEqual(ring, before, 'selection never writes geographic inputs');
+assert.equal(art.status(scene).drawnCells, 1);
+assert.equal(art.status(scene).materials.churchyard, 1);
+for (const type of [0,1,2,3,4,5,6,10,15,16,17,18,19,20,21,22,23,27,28,29,31,33]) {
+  const family = art.material(type);
+  assert(family >= 0 && family < count, 'surface material '+type+' has transitions');
+  for (const [x,y] of [[0,0],[-20,13],[31,-18]]) assert.equal(art.material(type,x,y), family);
+}
+for (const type of [9,11,12,24,25,26,32]) assert.equal(art.material(type), -1, 'structures and mountain overlays retain their owners');
+assert.equal(art.material(23), art.material(3), 'pier retains water underneath');
+assert.equal(art.material(5), art.material(10), 'residential and rock share cold slate');
+const overrides = {G01:15,G02:16,G03:17,G04:13,G06:19,G10:20,'G09-cold':10,'G06-purple':8,'G09-smooth-grey':9};
+for (const [id, family] of Object.entries(overrides))
+  assert.equal(art.materialForGround(28,'zone_ground_'+id,3,-8), family, 'Nexus '+id+' receives its own masked texture');
+for (const [type, options] of [[16,[11,12]],[27,[13,14]],[33,[21,22,23,24]]]) {
+  const seen = new Set();
+  for (let y = -12; y < 12; y++) for (let x = -12; x < 12; x++) {
+    const family = art.materialForGround(type,null,x,y);
+    assert(options.includes(family));
+    assert.equal(art.materialForGround(type,null,x,y), family, 'variant selection is world-stable');
+    seen.add(family);
+  }
+  assert.equal(seen.size, options.length, 'all authored variants remain available for '+type);
+}
+console.log('Stacked terrain: '+combinations+' combinations, complete surface coverage, <=4 local layers, water priority and no permutation atlas passed');
 
-const dreamAtlas=fs.readFileSync(dream.assets.dreamland_terrain_source.path);
-assert.equal(dreamAtlas.readUInt32BE(16),16*32,'native-detail export matches source frame width');
-assert.equal(dreamAtlas.readUInt32BE(20),7*32,'all seven families remain in the exported atlas');
-assert.equal(dream.assets.dreamland_terrain_source.frameWidth,32);
-assert.equal(assets.ra_terrain_source.frameWidth,16,'Rogue native scale remains unchanged');
-
-// Detail repeats follow world coordinates, including across negative origins;
-// mixed-material boundaries keep exactly the original native transition frame.
-const uniform = new Int8Array([2,2,2,2]);
-const phases = new Set();
-const beforeSelectCanvases = canvases;
-for (let y = -3; y < 3; y++) for (let x = -3; x < 3; x++) {
-  const selected = dreamBake.select(dreamScene, uniform, 2, 0, x, y).frame;
-  phases.add(selected);
-  assert.equal(selected, dreamBake.select(dreamScene, uniform, 2, 0, x + 3, y + 3).frame);
-  assert(selected >= 2419 && selected < 2428);
-}
-assert.equal(phases.size,9,'24px repeats need nine phase combinations across 32px cells');
-assert.equal(dreamBake.select(dreamScene, new Int8Array([0,2,0,0]), 2, 0, 2, 2).frame,
-  dreamBake.frameFor([0,2,0,0]), 'native transition shape and frame are unchanged');
-assert.equal(canvases,beforeSelectCanvases,'world selection creates no canvases');
-assert.equal(reads,0,'phase baking and selection need no pixel readback');
-console.log('Dreamland smaller interiors: 63 bounded phase frames, world stability and original transitions passed');
-
-// Grass art now has its own half-cell sampling lattice; adjacent gameplay
-// cells must encode the exact same three vertices along their shared edge.
-function grassFrame(x, y) {
-  const ring = new Int8Array([dreamBake.material(0,x,y), dreamBake.material(0,x+1,y),
-    dreamBake.material(0,x,y+1), dreamBake.material(0,x+1,y+1)]);
-  const frame = dreamBake.select(dreamScene,ring,2,0,x,y).frame;
-  assert(frame >= 2464 && frame < 2976);
-  return frame - 2464;
-}
-const right = code => ((code >> 2) & 1) | (((code >> 5) & 1) << 1) | (((code >> 8) & 1) << 2);
-const left = code => (code & 1) | (((code >> 3) & 1) << 1) | (((code >> 6) & 1) << 2);
-const bottom = code => (code >> 6) & 7;
-const top = code => code & 7;
-let fineEdges = 0;
-for (let y = -12; y < 12; y++) for (let x = -12; x < 12; x++) {
-  const code = grassFrame(x,y);
-  assert.equal(right(code),left(grassFrame(x+1,y)), 'horizontal half-cell vertices join across negative and positive origins');
-  assert.equal(bottom(code),top(grassFrame(x,y+1)), 'vertical half-cell vertices join');
-  if (code !== 0 && code !== 511) fineEdges++;
-}
-assert(fineEdges > 100, 'smaller islands include many native-size edge cells');
-const authored = {...dreamScene, _dreamlandGroundFamilyAt:()=>0};
-assert.equal(dreamBake.select(authored,new Int8Array([0,1,0,0]),2,0,2,2).frame,
-  dreamBake.frameFor([0,1,0,0]), 'authored reference grass outlines retain their original scale');
-const forcedCorners = dreamBake.select(dreamScene,new Int8Array([1,0,0,1]),2,0,0,0).frame - 2464;
-assert.equal(forcedCorners & 325,257,'fine grass preserves the world ring corner values');
-// Validate the baked geometry for all 512 states: exactly four 16px underfills,
-// and only 16px overlays, with no drawing outside each 32px composite cell.
-const dreamColumns = Math.ceil(Math.sqrt(2976));
-for (let code = 0; code < 512; code++) {
-  const frame = 2464 + code;
-  const ox = frame % dreamColumns * 32, oy = Math.floor(frame / dreamColumns) * 32;
-  const subtiles = painted.filter(args => args[7] === 16 && args[8] === 16
-    && args[5] >= ox && args[5] < ox+32 && args[6] >= oy && args[6] < oy+32);
-  assert(subtiles.length >= 4);
-  assert(subtiles.every(args => args[3] === 32 && args[4] === 32), 'native grass pixels shrink exactly 2:1');
-}
-assert.equal(canvases,beforeSelectCanvases);
-assert.equal(reads,0);
-console.log('Dreamland grass: 512 native-scale composites, smaller world-stable islands, shared edge vertices and authored preservation passed');
+assert.equal(art.materialForGround(32),art.material(10),'road backdrops inherited from bedrock have a flat masked interior');

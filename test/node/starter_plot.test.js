@@ -1,6 +1,6 @@
 // _carveStarterPlot — the guaranteed 2x2 of tillable ground near spawn.
 //
-// Patch-history motivation: the starter ladder's step 2 ("Break ground") told
+// Patch-history motivation: the starter ladder's planting step told
 // the player to till a patch of grass while the only guidance arrow on screen
 // pointed at a supply CRATE, which is not tillable — and on a spawn with no
 // soil in reach at all (parking lot, terrace, riverbank) there was nothing to

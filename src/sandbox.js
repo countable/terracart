@@ -386,6 +386,11 @@
   // indexing and labels. This keeps the authored road and the road the live
   // overlay sees identical.
   const SHOWCASE_ROUTES = [
+    { name: 'Rocky Road', class: 'minor', type: T.ROAD, y: 2, thick: 1, x0: 27, x1: 47, variant: 'rocky_path' },
+    { name: 'Grassy Lane', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 27, x1: 47, variant: 'grassy_lane' },
+    { name: 'Old Growth Path', class: 'path', type: T.PATH, y: 18, thick: 1, x0: 27, x1: 47, variant: 'old_growth_path' },
+    { name: 'Haunted Forest Path', class: 'path', type: T.PATH, y: 26, thick: 1, x0: 27, x1: 47, variant: 'haunted_forest_path' },
+    { name: 'Way of Variety', class: 'path', type: T.PATH, y: 38, thick: 1, x0: 27, x1: 47, variant: 'way_of_variety' },
     { name: 'Fern Way', class: 'minor', type: T.ROAD, y: 1, thick: 1, x0: 0, x1: 23, variant: 'overgrown' },
     { name: 'Cherry Lane', class: 'minor', type: T.ROAD, y: 4, thick: 1, x0: 0, x1: 23, variant: 'orchard' },
     { name: 'Abbey Walk', class: 'minor', type: T.ROAD, y: 7, thick: 1, x0: 0, x1: 23, variant: 'pilgrim' },
@@ -408,16 +413,16 @@
     { name: 'Ancient Highway', class: 'primary', type: T.ROAD_LG, y: 31, thick: 2, x0: 0, x1: 23, variant: null },
   ];
   const SHOWCASE = {
-    name: 'STREETS', label: 'STREET VARIANTS', w: 24, h: 42, fill: T.GRASS,
+    name: 'STREETS', label: 'STREET VARIANTS', w: 48, h: 42, fill: T.GRASS,
     routes: SHOWCASE_ROUTES,
     subLabels: SHOWCASE_ROUTES.map((r) => ({
       label: r.variant ? r.variant.toUpperCase() : (r.bandit ? 'OLD TRADE ROAD' : r.name.toUpperCase()),
-      dx: 12, dy: r.y,
+      dx: (r.x0 + r.x1) / 2, dy: r.y,
     })),
     paint(p) {
       for (const r of SHOWCASE_ROUTES) {
         p.rect(r.x0, r.y, r.x1 - r.x0 + 1, r.thick, r.type);
-        p.roadLabel(12, r.y, r.name);
+        p.roadLabel((r.x0 + r.x1) / 2, r.y, r.name);
       }
     },
     populate(s) {
@@ -868,15 +873,20 @@
   function scatterSandboxFlora(originIX, originIY, c) {
     if (typeof BiomeProfiles === 'undefined' || typeof WorldGen === 'undefined') return;
     const { grid, objects, wildplants, cellsPerEdge, wmAt, tx, ty, cellM, tileEdgeM } = c;
-    const occupied = new Set();
+    const occupied = new Set(), grassCells = new Set(), grassBlocked = new Set();
     let grassCandidates = null;
     const key = (ix, iy) => `${ix}_${iy}`;
     for (const o of objects) {
       const ix = Math.round((o.x - tx * tileEdgeM) / cellM - 0.5);
       const iy = Math.round((o.y - ty * tileEdgeM) / cellM - 0.5);
       occupied.add(key(ix, iy));
+      if (isBuilding(o.kind) || o.kind === 'temple') grassBlocked.add(key(ix, iy));
     }
     for (const wp of wildplants) {
+      if (WorldGen.isGrassCover(wp)) {
+        grassCells.add(key(Math.floor((wp.x - tx * tileEdgeM) / cellM), Math.floor((wp.y - ty * tileEdgeM) / cellM)));
+        continue;
+      }
       if (wp._ix != null) occupied.add(key(wp._ix, wp._iy));
       else {
         const ix = Math.floor((wp.x - tx * tileEdgeM) / cellM);
@@ -889,12 +899,16 @@
     const zoneCoverage = c.zone && (c.zone.coverage || c.zone.idx);
     const streetArea = c.streetArea;
     if (zoneCoverage || streetArea) for (let i = 0; i < cellsPerEdge * cellsPerEdge; i++) {
-      if (zoneCoverage?.[i] || streetArea?.[i]) occupied.add(key(i % cellsPerEdge, Math.floor(i / cellsPerEdge)));
+      if (zoneCoverage?.[i] || streetArea?.[i]) {
+        const k = key(i % cellsPerEdge, Math.floor(i / cellsPerEdge));
+        occupied.add(k); grassBlocked.add(k);
+      }
     }
     const place = (ix, iy, crop, t, clayPot = false) => {
       const kk = key(ix, iy);
-      if (occupied.has(kk)) return false;
-      occupied.add(kk);
+      const cover = crop === 'longgrass' && BiomeProfiles.GRASS_FILL.terrains.includes(t);
+      if (cover ? grassBlocked.has(kk) || grassCells.has(kk) : occupied.has(kk)) return false;
+      if (cover) grassCells.add(kk); else occupied.add(kk);
       const { x, y } = wmAt(ix, iy);
       if (clayPot) objects.push(WorldGen.makeObject('chest', x, y,
         WorldGen.cellId('hmpot', tx, ty, ix, iy), { barrel: true, barrelStyle: 'clay_pot', _biome: t }));

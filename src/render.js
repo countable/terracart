@@ -377,6 +377,7 @@ Render.shopSignLook = (badge) => {
 // the board down where that role's roof sits lower (the smithy's art).
 Render.ROLE_SIGN_ICONS = Object.freeze({
   blacksmith: { tab: 'armour', dy: 3 },
+  workshop: { px: ['.######..', '.######..', '...##....', '...##....', '...##....', '...##....', '...##....', '...##....', '.........'], dy: 3 },
 });
 Render.shopSignGlyph = (theme, role) => {
   const icon = Render.SHOP_SIGN_ICONS[theme] || Render.ROLE_SIGN_ICONS[role];
@@ -540,21 +541,6 @@ Render.hasShrineFooting = o => o.kind === 'grove_shrine' && o._shrineArt !== 'sh
 // otherwise wipe the grid out wherever a building stands).
 const GRID_LINE = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
 Render.GRID_LINE = GRID_LINE;
-
-// A quarter disc of radius r about (cx, cy), in the quadrant (dx, dy) = ±1,
-// as CORNER_FAN triangles: the rounded zone corner (drawCells) without the
-// ~100-point earcut'd arc a fillRoundedRect costs every frame.
-const CORNER_FAN = 6;
-function fillCornerFan(g, cx, cy, r, dx, dy) {
-  let px = cx + dx * r, py = cy;
-  for (let i = 1; i <= CORNER_FAN; i++) {
-    const a = (i / CORNER_FAN) * (Math.PI / 2);
-    const nx = cx + dx * r * Math.cos(a), ny = cy + dy * r * Math.sin(a);
-    g.fillTriangle(cx, cy, px, py, nx, ny);
-    px = nx; py = ny;
-  }
-}
-Render.fillCornerFan = fillCornerFan;
 
 // ── BAKED GRAPHICS ─────────────────────────────────────────────────────────
 // A cached Graphics layer is NOT free between rebuilds: Phaser's WebGL
@@ -815,6 +801,18 @@ class TerrainCache {
   }
 }
 Render.TerrainCache = TerrainCache;
+// A bounded display-list pool, shared by base tiles and transparent terrain layers.
+// Order is cell-by-cell so overlays never jump above a later neighbour.
+Render.terrainSpriteAt = function(scene, index) {
+  if (!scene.noisePool[index]) {
+    const sprite = scene.add.image(0, 0, 'ra_terrain_source', 15).setOrigin(0, 0)
+      .setDisplaySize(CELL_PX, CELL_PX).setVisible(false);
+    scene.noiseContainer.add(sprite);
+    scene.noisePool.push(sprite);
+  }
+  return scene.noisePool[index];
+};
+
 // Is the POLYGONAL building mode on? When it is, building cells paint as the
 // GROUND around them here and every piece of tiled building art below is
 // skipped — the footprints are drawn from their source rings by
@@ -1174,7 +1172,7 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
   });
 };
 
-// A persistent gold halo makes shinies visible even on fully lit ground,
+// A restrained gold rim makes shinies visible even on fully lit ground,
 // where the multiply lightmap cannot brighten them further. The SHINE is
 // a bright band sweeping the sprite's own pixels (Phaser 3.60+ preFX Shine).
 // WebGL-only: under the Canvas fallback the shiny's light (Lighting.KINDS.shiny)
@@ -1182,9 +1180,9 @@ Render.renderAuras = function renderAuras(scene, pool, list, project) {
 // are reused, so every pool callback that can hold a shiny calls this EVERY
 // frame, and the FX comes off the moment the slot holds something plain.
 const SHINE_SPEED = 0.35;       // sweeps per second, roughly — a slow glint, not a strobe
-const SHINE_LINE_W = 0.35;      // the band's width, as a fraction of the sprite
-const SHINE_GRADIENT = 3;       // how soft the band's edges are
-const SHINY_GLOW_PADDING = 12; // texture pixels reserved around the silhouette
+const SHINE_LINE_W = 0.20;      // the band's width, as a fraction of the sprite
+const SHINE_GRADIENT = 3;       // diagonal slope of the moving band
+const SHINY_GLOW_PADDING = 9; // texture pixels reserved around the silhouette
 // A shiny wears the gold glow and the sweep; an elite (glow false) the sweep
 // alone over its baked vivid sheet (Render.vividTexture), so the rune circle
 // and the creature's own art read clearly.
@@ -1224,7 +1222,8 @@ Render.setShine = function setShine(s, on, id, glow = true) {
     if (glow && !s._shinyGlowFx) {
       s._shinyGlowPadding = fx.padding;
       fx.setPadding(Math.max(fx.padding, SHINY_GLOW_PADDING));
-      s._shinyGlowFx = fx.addGlow(SHINY_TINT, 4, 0.5, false);
+      // No inner glow: retain the sprite's own material and colour.
+      s._shinyGlowFx = fx.addGlow(SHINY_TINT, 2.0, 0, false);
     }
     if (!glow && s._shinyGlowFx) dropShinyGlow(s, fx);
     if (!s._shineFx) s._shineFx = fx.addShine(SHINE_SPEED, SHINE_LINE_W, SHINE_GRADIENT, false);
@@ -1353,83 +1352,13 @@ Render.announceElites = function announceElites(scene, list, project) {
   }
 };
 
-// Linear blend between two packed RGB colours. t=0 -> a, t=1 -> b. Same as
-// BiomeProfiles.mixHex, aliased locally for the per-bordered-edge hot path.
+// Shared colour arithmetic for UI, creature and building material tints.
+// Terrain transitions use native atlas masks, never colour ramps.
 const mixHex = BiomeProfiles.mixHex;
 
-// Biome border wave — precomputed once. Values are integer pixel offsets
-// (±WAVE_AMP) for each column/row index 0..CELL_PX-1.
-const BORDER_W   = 2;
-const WAVE_AMP   = 1;
-const WAVE_LEN   = 16;
-// How far a biome seam darkens the cell's OWN colour. This is now only the
-// SHORELINE case: a land cell facing water keeps its dark wet margin, which is
-// what gives a shore its dark-margin-then-white-surf band (see the surf comment
-// in drawCells). Every other seam blends instead — see BLUR_MIX.
-const BORDER_DIM = 0.86;
-// Biome seams BLEND rather than outline: each cell paints a short inward ramp
-// of its own colour mixed toward the NEIGHBOUR's, and the neighbour paints the
-// mirror, so the seam is BLUR_STEPS*BLUR_W px wide on each side (12px in total
-// across a 32px cell).
-//
-// The two innermost values matter more than they look: the outermost step is
-// 0.55 rather than 0.5 on purpose. At exactly 0.5 both sides of the boundary
-// resolve to the identical colour and the seam goes completely flat, which
-// loses the zone edge as a readable thing. Slightly past halfway, each side
-// leans a hair toward the other and the transition still has a direction.
-const BLUR_STEPS = 3;
-const BLUR_W     = 2;                      // px per step
-const BLUR_MIX   = [0.55, 0.32, 0.14];     // toward the neighbour, outermost first
-const BORDER_TRANS_SKIP = new Set([9, 11, 12, 25]); // buildings and cave walls have hard boundaries
-// Surf: the colour a WATER cell paints its biome-seam edge, in place of the
-// darkened own-colour edge every other terrain uses. Pale blue-white rather
-// than pure white so it reads as foam lit by the same flat daylight as the
-// rest of the map, not as a hard highlight.
-const SURF_COLOR = 0xdff0f7;
-// Lava is drawn as water (the same tile, red — T.CAVE_LAVA), shore and all:
-// its seam edge is this bright crust where water paints its foam.
-const LAVA_CRUST_COLOR = 0xb96628;
-// Does the edge between a cell painted `color` and a neighbour of terrain
-// `nbrType` painted `nbrColor` get the wavy biome border? Rule: the painted
-// colours differ, buildings opted out (their own outline draws the seam).
-// Road/path cells are painted the majority biome AROUND them
-// (neighborNonRoadColor), so two same-tier road cells can differ where a road
-// runs along a zone seam; the border must draw there. See drawCells.
-function edgeNeedsBorder(color, nbrType, nbrColor) {
-  if (BORDER_TRANS_SKIP.has(nbrType)) return false;
-  return nbrColor !== color;
-}
-if (typeof window !== 'undefined') window.edgeNeedsBorder = edgeNeedsBorder;
-// Darkened-edge colours (the cell colour blended BORDER_DIM of the way from
-// black — per channel round(c * BORDER_DIM)) — stable across frames, ~25
-// entries max.
-const _darkCache = new Map();
-const getDark = (c) => { let d = _darkCache.get(c); if (d === undefined) { d = mixHex(0x000000, c, BORDER_DIM); _darkCache.set(c, d); } return d; };
-// Seam blend results, cached like the darkened edges above. Bounded by
-// (palette x palette x BLUR_STEPS) and in practice far smaller — only colour
-// pairs that actually border each other are ever asked for. The key packs both
-// colours and the step into one number rather than a template string: this runs
-// per bordered cell edge on every cell-crossing rebuild.
-const _mixCache = new Map();
-const getBlend = (own, nbr, k) => {
-  const key = (own * 0x1000000 + nbr) * BLUR_STEPS + k;
-  let m = _mixCache.get(key);
-  if (m === undefined) { m = mixHex(own, nbr, BLUR_MIX[k]); _mixCache.set(key, m); }
-  return m;
-};
-const _WAVE_TABLE = (() => {
-  const t = new Int8Array(32); // CELL_PX = 32 (also SpriteLayout.CELL_PX)
-  for (let i = 0; i < 32; i++)
-    t[i] = Math.round(Math.sin(i * 2 * Math.PI / WAVE_LEN) * WAVE_AMP);
-  return t;
-})();
-
-// Flat-only terrain types (no tileset art) get rounded corners at zone
-// boundaries. Module-level: the membership never changes.
 // Watered tilled soil: the old 22%-black wash over the cell, as a sprite tint
 // (multiply by 0.78 per channel). Applied to the `tilled_N` pad sprite.
 const WATERED_TINT = 0xc7c7c7;
-const FLAT_ROUNDABLE = new Set([2, 3, 5, 7, 8, 9, 10, 11, 12, 13, 14, 27, 29, 30, 31]);  // sand, water, residential, all roads, path, all buildings, rock, wasteland, churchyard, unmapped fog, tar yard
 // Fog of war — the wash over land the player has never visited.
 //
 // Neutral grey separates unexplored land from night and cave darkness.
@@ -1870,6 +1799,7 @@ Render.BUILDING_STYLE_ROLES = Object.freeze({
   plain: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
   // Home: the player's house (building_overlay.js drawHome) — the plain house's cream under its red tile.
   trailer: { style: 'multistorey', palette: { wall: 0xddb49b, roof: 0xb45c3a, trim: 0x954a39 } },
+  workshop: { style: 'whitewash', palette: { wall: 0xb69a70, roof: 0x66837e, trim: 0x70533d } },
   blacksmith: { style: 'multistorey', palette: { wall: 0x92958f, roof: 0x555b60, trim: 0x626961 } },
   trader: { style: 'japanese', palette: { wall: 0xbababa, roof: 0x6f9093, trim: 0x954a39 } }, shop: { style: 'japanese' },
   wizard: { style: 'pyramid', palette: { wall: 0x8c8796, roof: 0x8b78a8, trim: 0xc6afcf } },
@@ -1894,6 +1824,7 @@ Render.buildingProfileFor = (o, scene) => {
 // Gameplay ranks, not the footprint's biome tier (9/11/12), set floor count.
 // Higher ranks can add ornament later; their baseline remains two storeys.
 Render.buildingStoreysFor = (o, scene) => {
+  if (o?.id && o.id === scene.save?.starterShopId) return HomeArea.storeys(scene.save);
   if (scene.buildingStoreys != null) return scene.buildingStoreys;
   const tier = Shops.shopTier(scene.save, o, Houses.displayRole(scene.save, o));
   return tier == null ? null : tier >= 2 ? 2 : 1;
@@ -1916,6 +1847,7 @@ Render.houseTextureKey = (role, o, scene) => {
   // drawHome). A null key is an invisible sprite (resolveAppearance).
   if (role === 'trailer') return null;
   if (role === 'plain') return 'house';
+  if (role === 'workshop') return 'house_blacksmith';
   if (role === 'wizard') return 'shrine';
   if (role === 'turret') return 'tower';
   if (role === 'fort' && scene.isClaimedKey && !scene.isClaimedKey(o.id)
@@ -2316,7 +2248,6 @@ Render.drawCells = function drawCells(scene) {
     if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'tiled');
     scene._tiledWallFrame = null;
   }
-  const gb2 = scene.borderGfx;
   scene._uprightPieces = [];
   scene._rampartPoolUsed = 0;
   for (const piece of scene._rampartPool || []) piece.clear().setVisible(false);
@@ -2355,10 +2286,8 @@ Render.drawCells = function drawCells(scene) {
     window.__boot?.count?.('crop candidates', cropWork.candidates);
     window.__boot?.count?.('crop index rebuild entries', cropWork.rebuiltEntries);
   }
-  // Border layer: only redraw geometry when the camera crosses a cell boundary.
-  // Between crossings scroll the container for sub-cell fractional movement.
-  // This keeps the Graphics object's draw-command list stable across frames,
-  // eliminating the GC churn from clear()+rebuild every frame.
+  // Crossing key is shared by atmosphere, fog and profiling. Native atlas
+  // masks own biome seams; no separate border graphics layer remains.
   // A row band on a different grid has its own column phase (viewBand), and
   // it can step on a band-cell crossing that isn't an anchor-cell crossing —
   // so the band layout is part of the key. '' on every uniform view.
@@ -2366,7 +2295,7 @@ Render.drawCells = function drawCells(scene) {
   const borderDirty = baseCellIX !== scene._lastBorderIX || baseCellIY !== scene._lastBorderIY
     || _bandKey !== scene._lastBorderBands;
   if (borderDirty) {
-    gb2.clear(); scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY;
+    scene._lastBorderIX = baseCellIX; scene._lastBorderIY = baseCellIY;
     scene._lastBorderBands = _bandKey;
   }
   // Stamped for the profiler: app.js's drawCells/update wrappers read this
@@ -2374,7 +2303,6 @@ Render.drawCells = function drawCells(scene) {
   // (see the 'update @crossing' / 'drawCells @crossing' ticks). Plain
   // assignment, no allocation — cheap even when nobody's measuring.
   scene._boot_crossing = borderDirty;
-  scene.borderContainer.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
@@ -2387,12 +2315,10 @@ Render.drawCells = function drawCells(scene) {
   // support legs). Pier cells are NOT roads and NOT paths.
   const PIER = 23;
   const PIER_FRAME = 20;
-  const WATER = 3;
-  const LAVA = 26;   // WorldGen.T.CAVE_LAVA — takes water's shore, in LAVA_CRUST_COLOR
   // Pre-compute a ring of cell types (VIEW_CELLS+4) — that's the visible 11×11
   // PLUS a 1-cell halo of pre-rendered cells (so the player never sees a black
-  // gap at the viewport edge mid-step) PLUS another 1-cell halo for per-corner
-  // rounding to read its diagonal neighbor.
+  // gap at the viewport edge mid-step) PLUS another 1-cell halo for transition
+  // masks to read neighbouring materials.
   const RING = VIEW_CELLS + 4;
   if (!_ringTypes || _ringTypes.length !== RING * RING) {
     _ringTypes  = new Int8Array(RING * RING);
@@ -2547,70 +2473,54 @@ Render.drawCells = function drawCells(scene) {
     castleKeys.set(owner, key);
     return key;
   };
-  // An unclaimed castle's COURT is painted in the shaded colour, so every place
-  // that resolves a cell's painted colour has to agree: the fill, the rounded
-  // corners' diagonal fills, and the wavy-border test that asks whether two
-  // cells differ. Disagreeing put a border between every pair of unclaimed
-  // court cells — the whole castle floor came out gridded.
+  // Structural courts retain their own shaded base beneath floor art.
   const baseColor = (type, fallback = GRASS_FALLBACK_COLOR) => Render.groundBaseColor(type, COLORS[type] ?? fallback);
   const groundColor = (colour, c, r) => {
     const accent = _ringGroundColor[(r + 2) * RING + (c + 2)];
     return accent >= 0 ? accent : colour;
   };
   const courtShaded = (t, colour, c, r) =>
+    t === 32 && !scene.depth && typeof MountainEdges !== 'undefined'
+      ? baseColor(MountainEdges.groundType(types, RING, (r + 2) * RING + c + 2), colour) :
     t === 12 ? buildingBackgroundMaterial(CastleStyles.get(castleOwner(c, r), !UNCLAIMED(c, r))).floor :
     UNCLAIMED(c, r) && typeof UNCLAIMED_BUILDING_BASE !== 'undefined' && UNCLAIMED_BUILDING_BASE.floors[t] != null
       ? buildingBackgroundColor(unclaimedMaterialColor(unclaimedShade(UNCLAIMED_BUILDING_BASE.floors[t])))
       : t === 9 || t === 11 ? buildingBackgroundColor(colour) : groundColor(colour, c, r);
-  // Cells whose PAINTED colour isn't COLORS[type] — the ones every neighbour
-  // test has to look THROUGH to the zone underneath. Road and path cells are
-  // painted the majority biome around them; in polygonal mode a building cell
-  // is too (see the base fill below), so the wavy biome borders and the
-  // rounded-corner fills have to resolve it the same way or a building would
-  // be ringed by a seam against the ground it was just painted to match.
   // Generated civic blocks have no source polygon. Keep their exact-cell
-  // floor and walls visible even while mapped buildings use polygon art.
+  // floor and walls while mapped buildings inherit the surrounding ground.
   const polygonBuilding = (c, r) => POLY
     && !_ringSyntheticBuilding[(r + 2) * RING + (c + 2)];
-  const lookThrough = (t, c, r) => isRoadType(t) || t === T_PATH
-    || (polygonBuilding(c, r) && isBuildingType(t));
-  // Optional RA native transitions use the same generated ring and geographic
+  // Native atlas transitions use the same generated ring and geographic
   // row bands as every other terrain pass; no authored fixture or grid rewrite.
-  const raActive = typeof RATerrainTrial !== 'undefined' && RATerrainTrial.enabled
-    && scene._raTerrainReady && !scene.depth && !skyLevel;
-  let raMaterials = null;
-  if (raActive) {
-    raMaterials = scene._raTerrainRing;
-    if (!raMaterials || raMaterials.length !== types.length) raMaterials = scene._raTerrainRing = new Int8Array(types.length);
-    raMaterials.fill(-1);
-    scene._raTerrainAudit = {drawnCells:0, materials:{}};
+  const transitionsActive = typeof TerrainTransitions !== 'undefined'
+    && scene._terrainTransitionsReady && !scene.depth && !skyLevel;
+  let transitionMaterials = null;
+  if (transitionsActive) {
+    transitionMaterials = scene._terrainMaterialRing;
+    if (!transitionMaterials || transitionMaterials.length !== types.length) transitionMaterials = scene._terrainMaterialRing = new Int8Array(types.length);
+    transitionMaterials.fill(-1);
+    scene._terrainTransitionAudit = {drawnCells:0, materials:{}};
     for (let r = -2; r <= VIEW_CELLS + 1; r++) for (let c = -2; c <= VIEW_CELLS + 1; c++) {
       const i = (r + 2) * RING + c + 2;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
       let t = types[i];
-      // Keep special zone grounds, rift buffers and synthetic building floors.
-      if (!entry?.grid || _ringRiftGround[i] || _ringGroundColor[i] >= 0) continue;
+      if (t === 32 && typeof MountainEdges !== 'undefined') t = MountainEdges.groundType(types, RING, i);
+      // Source ground and selected Nexus textures share one transition atlas.
+      // Keep authored accent-only fills, rift buffers and synthetic floors.
+      if (!entry?.grid || _ringRiftGround[i]) continue;
+      const textureKey = zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t);
+      const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
+      if (!textureKey && !tintedNative && _ringGroundColor[i] >= 0) continue;
       if (isRoadType(t) || t === T_PATH) t = Render.roadBackdropType(scene, t, AX(c,r), AY(c,r));
       else if (isBuildingType(t)) {
         if (!polygonBuilding(c,r)) continue;
         t = scene.neighborNonRoadType(AX(c,r), AY(c,r));
       }
-      if (t != null) raMaterials[i] = (typeof scene._dreamlandGroundFamilyAt === 'function'
-        && typeof DreamlandObjects !== 'undefined' && DreamlandObjects.enabled)
-        ? scene._dreamlandGroundFamilyAt(AX(c,r), AY(c,r), t)
-        : RATerrainTrial.material(t, AX(c,r), AY(c,r));
+      if (t != null) transitionMaterials[i] = TerrainTransitions.materialForGround(t, textureKey, AX(c,r), AY(c,r));
     }
   }
-  const raAt = (c,r) => raMaterials ? raMaterials[(r+2)*RING+c+2] : -1;
-  // Only substitute biome seams covered by native bank/edge art. Structural
-  // borders remain in the ordinary renderer and the shared border layer stays.
-  const raSeam = (c,r,dc,dr) => raAt(c,r) >= 0 && raAt(c+dc,r+dr) >= 0;
   const VEIL = (c, r) => _ringVeil[(r + 2) * RING + (c + 2)];
   _fadeRects.length = 0;
-  const CORNER_R = typeof TERRAIN_CORNER_RADIUS !== 'undefined' ? TERRAIN_CORNER_RADIUS : 6;
-  // (Border wave constants are module-level: BORDER_W, WAVE_AMP, WAVE_LEN,
-  //  BORDER_DIM, BORDER_TRANS_SKIP, _WAVE_TABLE — computed once at load time.)
-  const TRANS_SKIP = BORDER_TRANS_SKIP;
   // Render a 1-cell halo beyond the visible VIEW_CELLS×VIEW_CELLS so the player
   // never sees a black bar at the viewport edge while sliding between cells.
   // The mask clips the halo to the visible viewport.
@@ -2649,6 +2559,10 @@ Render.drawCells = function drawCells(scene) {
       // sits within the sample (deep inside a big footprint) it stays -1 and
       // the tier colour shows through — which is under the polygon anyway.
       let polyGround = -1;
+      if (type === 32 && !scene.depth && typeof MountainEdges !== 'undefined') {
+        polyGround = MountainEdges.groundType(types, RING, (row + 2) * RING + col + 2);
+        color = baseColor(polyGround, color);
+      }
       const polyB = polygonBuilding(col, row) && isBuildingType(type);
       if (isRoadType(type) || type === T_PATH || polyB) {
         const wcx = _absIX, wcy = _absIY;
@@ -2720,159 +2634,10 @@ Render.drawCells = function drawCells(scene) {
         if (veil > 0 && veil < 1) _fadeRects.push(sx, sy, veil);
       }
 
-      // Per-corner rounding: a corner rounds only when both orthogonal neighbors AND the
-      // diagonal are a different type (avoids notches between two already-square zones).
-      // Sprite-art zones cover the full 32×32 box, so we skip rounding there entirely.
-      let tl = 0, tr = 0, bl = 0, br = 0;
-      if (FLAT_ROUNDABLE.has(type)) {
-        const tn = T(col, row - 1), ts_ = T(col, row + 1);
-        const tw = T(col - 1, row), te = T(col + 1, row);
-        const tnw = T(col - 1, row - 1), tne = T(col + 1, row - 1);
-        const tsw = T(col - 1, row + 1), tse = T(col + 1, row + 1);
-        // Road/path cells only paint a BACKDROP here (the inherited zone
-        // colour — the carriageway itself is the band drawn above), so for
-        // rounding purposes all road/path tiers count as ONE type: a tier
-        // change must not round corners, and a road-like diagonal's corner
-        // paint must use its inferred backdrop colour, never the raw road
-        // grey from COLORS (which left grey notches at elbows/junctions).
-        const roadish = (t) => isRoadType(t) || t === T_PATH;
-        const selfRoadish = roadish(type);
-        const sameAs = (t) => t === type || (selfRoadish && roadish(t));
-        if (!sameAs(tn) && !sameAs(tw) && !sameAs(tnw)) tl = CORNER_R;
-        if (!sameAs(tn) && !sameAs(te) && !sameAs(tne)) tr = CORNER_R;
-        if (!sameAs(ts_) && !sameAs(tw) && !sameAs(tsw)) bl = CORNER_R;
-        if (!sameAs(ts_) && !sameAs(te) && !sameAs(tse)) br = CORNER_R;
-        // Paint diagonal-neighbor color in each rounded corner first so the pixels
-        // revealed outside the curve are the correct adjacent-zone colour.
-        const cornerColor = (t, dnx, dny) => lookThrough(t, col + dnx, row + dny)
-          ? groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny)
-          : courtShaded(t, baseColor(t), col + dnx, row + dny);
-        if (tl) { g.fillStyle(cornerColor(tnw, -1, -1), 1); g.fillRect(sx, sy, CORNER_R, CORNER_R); }
-        if (tr) { g.fillStyle(cornerColor(tne, 1, -1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy, CORNER_R, CORNER_R); }
-        if (bl) { g.fillStyle(cornerColor(tsw, -1, 1), 1); g.fillRect(sx, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-        if (br) { g.fillStyle(cornerColor(tse, 1, 1), 1); g.fillRect(sx + CELL_PX - CORNER_R, sy + CELL_PX - CORNER_R, CORNER_R, CORNER_R); }
-      }
-      // The cell, then its rounded corners. Not a fillRoundedRect: Phaser
-      // steps each of its arcs at 1% of the sweep (~100 points a cell) and
-      // re-triangulates the lot through earcut every frame, since cellGfx is
-      // cleared every frame. A rounded corner is the cell's colour over the
-      // corner square just painted in the neighbour's, as a fan of
-      // CORNER_FAN triangles about the arc's centre — triangles batch
-      // straight, with no earcut, and at CORNER_R the fan is within a tenth
-      // of a pixel of the arc.
-      if (tl || tr || bl || br) {
-        g.fillStyle(color, 1);
-        g.fillRect(sx + CORNER_R, sy, CELL_PX - 2 * CORNER_R, CELL_PX);
-        g.fillRect(sx, sy + CORNER_R, CORNER_R, CELL_PX - 2 * CORNER_R);
-        g.fillRect(sx + CELL_PX - CORNER_R, sy + CORNER_R, CORNER_R, CELL_PX - 2 * CORNER_R);
-        const R = CORNER_R, E = CELL_PX - CORNER_R;
-        // Each corner square: rounded → a quarter fan; square → filled solid.
-        const corner = (on, x0, y0, dx, dy) => {
-          if (!on) { g.fillRect(x0, y0, R, R); return; }
-          const cx = dx < 0 ? x0 + R : x0, cy = dy < 0 ? y0 + R : y0;
-          fillCornerFan(g, cx, cy, R, dx, dy);
-        };
-        corner(tl, sx, sy, -1, -1);
-        corner(tr, sx + E, sy, 1, -1);
-        corner(bl, sx, sy + E, -1, 1);
-        corner(br, sx + E, sy + E, 1, 1);
-      } else {
-        g.fillStyle(color, 1);
-        g.fillRect(sx, sy, CELL_PX, CELL_PX);
-      }
-
-      // Wavy dark-border at arbitrary biome boundaries.
-      // Skip entirely on non-dirty frames — no closures, no neighborNonRoadColor calls.
-      if (borderDirty && !TRANS_SKIP.has(type)) {
-        const tN = T(col, row - 1), tS = T(col, row + 1);
-        const tW = T(col - 1, row), tE = T(col + 1, row);
-        // Resolve the inferred colour of a road/path neighbour by looking through it.
-        const nbrInferred = (dnx, dny) =>
-          groundColor(scene.neighborNonRoadColor(AX(col + dnx, row + dny), AY(col + dnx, row + dny)) ?? GRASS_FALLBACK_COLOR, col + dnx, row + dny);
-        // An edge needs the wavy border exactly when the PAINTED colours differ across
-        // it (edgeNeedsBorder, above). A road cell is painted the majority biome of its
-        // 7×7 neighbourhood, so a road running ALONG a seam changes colour mid-run and
-        // still needs the border there. Two cells of one non-road type always agree.
-        // The neighbour's PAINTED colour, which both the needs-a-border test
-        // and the blend ramp want — resolved once per side rather than twice.
-        const nbrColorOf = (t, dnx, dny) =>
-          lookThrough(t, col + dnx, row + dny) ? nbrInferred(dnx, dny)
-            : courtShaded(t, baseColor(t), col + dnx, row + dny);
-        const cN = nbrColorOf(tN,  0, -1);
-        const cS = nbrColorOf(tS,  0, +1);
-        const cW = nbrColorOf(tW, -1,  0);
-        const cE = nbrColorOf(tE, +1,  0);
-        const drawN = !raSeam(col, row, 0, -1) && edgeNeedsBorder(color, tN, cN);
-        const drawS = !raSeam(col, row, 0, 1) && edgeNeedsBorder(color, tS, cS);
-        const drawW = !raSeam(col, row, -1, 0) && edgeNeedsBorder(color, tW, cW);
-        const drawE = !raSeam(col, row, 1, 0) && edgeNeedsBorder(color, tE, cE);
-        if (drawN || drawS || drawW || drawE) {
-          // Draw at integer-snapped positions — the borderContainer scrolls by
-          // (-fracX*CELL_PX, -fracY*CELL_PX) each frame to handle sub-cell movement,
-          // so geometry only needs to be rebuilt when baseCellIX/IY changes.
-          const bx = scene.viewCenterX + ox * CELL_PX + Math.round(PHASE(row));
-          const by = scene.viewCenterY + oy * CELL_PX;
-          // One wavy strip of thickness BLUR_W along `side`, `inset` px in from
-          // that edge. Runs are coalesced by wave offset exactly as before —
-          // consecutive columns sharing an offset become a single fillRect.
-          //   side: 0=N 1=S 2=W 3=E
-          const strip = (side, inset) => {
-            for (let i = 0, s = 0; i <= CELL_PX; i++) {
-              if (i !== CELL_PX && _WAVE_TABLE[i] === _WAVE_TABLE[s]) continue;
-              const w = _WAVE_TABLE[s], len = i - s;
-              if      (side === 0) gb2.fillRect(bx + s, by + inset + w, len, BLUR_W);
-              else if (side === 1) gb2.fillRect(bx + s, by + CELL_PX - inset - BLUR_W + w, len, BLUR_W);
-              else if (side === 2) gb2.fillRect(bx + inset + w, by + s, BLUR_W, len);
-              else                 gb2.fillRect(bx + CELL_PX - inset - BLUR_W + w, by + s, BLUR_W, len);
-              s = i;
-            }
-          };
-          // Water draws foam, not a blend: a shore is where the world's one
-          // genuinely hard edge lives, and blurring land into sea would lose
-          // both the surf line and the coast. It stays a single BORDER_W strip
-          // in SURF_COLOR. The land cell opposite likewise keeps its darkened
-          // wet margin (see nbrDark below), preserving the dark-margin-then-
-          // white-surf band a real shoreline has.
-          //
-          // PIER deliberately stays hard-edged too: foam on its own outline
-          // traced the decking in white like a sticker, and the water cells
-          // around it already lap it with their own foam.
-          if (type === WATER || type === LAVA) {
-            gb2.fillStyle(type === LAVA ? LAVA_CRUST_COLOR : SURF_COLOR, 1);
-            if (drawN) strip(0, 0);
-            if (drawS) strip(1, 0);
-            if (drawW) strip(2, 0);
-            if (drawE) strip(3, 0);
-            if (drawN && drawW) gb2.fillCircle(bx + BORDER_W, by + BORDER_W, BORDER_W);
-            if (drawN && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + BORDER_W, BORDER_W);
-            if (drawS && drawW) gb2.fillCircle(bx + BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
-            if (drawS && drawE) gb2.fillCircle(bx + CELL_PX - BORDER_W, by + CELL_PX - BORDER_W, BORDER_W);
-          } else {
-            // Facing water, keep the old darkened margin rather than blending
-            // toward the sea colour — that margin is half of the shoreline.
-            const liquid = (t) => t === WATER || t === LAVA;
-            const edgeCol = (t, nbr, k) =>
-              liquid(t) ? getDark(color) : getBlend(color, nbr, k);
-            for (let k = 0; k < BLUR_STEPS; k++) {
-              const inset = k * BLUR_W;
-              // A water-facing side has no ramp to walk: draw its flat margin
-              // once, on the outermost step only.
-              if (drawN && (!liquid(tN) || k === 0)) { gb2.fillStyle(edgeCol(tN, cN, k), 1); strip(0, inset); }
-              if (drawS && (!liquid(tS) || k === 0)) { gb2.fillStyle(edgeCol(tS, cS, k), 1); strip(1, inset); }
-              if (drawW && (!liquid(tW) || k === 0)) { gb2.fillStyle(edgeCol(tW, cW, k), 1); strip(2, inset); }
-              if (drawE && (!liquid(tE) || k === 0)) { gb2.fillStyle(edgeCol(tE, cE, k), 1); strip(3, inset); }
-              // Round each step's inner corner, as the single-line border did.
-              // The N/S colour wins the shared pixel; at BLUR_W the difference
-              // from the E/W ramp is under a level.
-              const o = inset + BLUR_W;
-              if (drawN && drawW) { gb2.fillStyle(edgeCol(tN, cN, k), 1); gb2.fillCircle(bx + o, by + o, BLUR_W); }
-              if (drawN && drawE) { gb2.fillStyle(edgeCol(tN, cN, k), 1); gb2.fillCircle(bx + CELL_PX - o, by + o, BLUR_W); }
-              if (drawS && drawW) { gb2.fillStyle(edgeCol(tS, cS, k), 1); gb2.fillCircle(bx + o, by + CELL_PX - o, BLUR_W); }
-              if (drawS && drawE) { gb2.fillStyle(edgeCol(tS, cS, k), 1); gb2.fillCircle(bx + CELL_PX - o, by + CELL_PX - o, BLUR_W); }
-            }
-          }
-        }
-      }
+      // Native transition masks own surface contours. Special materials keep
+      // an ordinary rectangular base beneath their independent texture owner.
+      g.fillStyle(color, 1);
+      g.fillRect(sx, sy, CELL_PX, CELL_PX);
 
       // (Building outlines are drawn in a second pass after every cell is
       // filled — drawing them inline gets overpainted by the next cell's
@@ -2900,78 +2665,65 @@ Render.drawCells = function drawCells(scene) {
       // opaque, inset, rounded bed — see textures.js TILLED_INSET_PX — and the
       // terrain colour just painted is what shows in the ring around it.)
 
-      // Procedural biome texture overlay for every ground cell (water and sand
-      // included); transitions are the wavy border drawn above.
+      // Base ground texture, replaced by stacked atlas masks where the shared
+      // material ring provides a native transition.
       {
-        const ns = scene.noisePool[noiseIdx++];
+        const ns = Render.terrainSpriteAt(scene, noiseIdx++);
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
-        let texKey = null;
-        if (isTilled) {
-          texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
-        } else {
-          // Road/path colour and texture share one backdrop. Painting path
-          // pebbles or an untextured road-coloured tile here leaves a second,
-          // grid-aligned lane beside the continuous source-geometry paving.
-          let baseType = type;
-          // Roads and polygonal buildings wear the same
-          // biome texture as their base fill, including beneath the paving.
-          if (polyGround >= 0) baseType = polyGround;
-          // Baked grit and sparse mineral glints cover the rift buffer.
-          // These static texture pixels never enter the lighting pass.
-          if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
-          const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
-          if (spec) {
-            const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
-            texKey = `biome${baseType}_${variantHash % spec.variants}`;
-            // Animated biome (water/pier): pick the pre-baked phase frame from
-            // the wall clock. The key is compared every frame anyway, so a
-            // time-varying one costs a swap only when the phase turns — the
-            // phases were rasterized once at startup (textures.js makeBiomeTextures).
-            // All cells share the clock, so the water drifts as one body.
-            if (spec.animPhases) {
-              const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
-              if (p) texKey += `p${p}`;
+        const selected = transitionsActive && type === T(col, row)
+          ? TerrainTransitions.select(scene, transitionMaterials, RING, _si) : null;
+        let texKey = selected?.key || null;
+        let damageFrame = selected?.frame, terrainLayers = selected?.layers, rockOverlay;
+        if (!selected) {
+          if (isTilled) {
+            texKey = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
+          } else {
+            // Road/path colour and texture share one backdrop. Painting path
+            // pebbles or an untextured road-coloured tile here leaves a second,
+            // grid-aligned lane beside the continuous source-geometry paving.
+            let baseType = type;
+            // Roads and polygonal buildings wear the same
+            // biome texture as their base fill, including beneath the paving.
+            if (polyGround >= 0) baseType = polyGround;
+            // Baked grit and sparse mineral glints cover the rift buffer.
+            // These static texture pixels never enter the lighting pass.
+            if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
+            const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
+            if (spec) {
+              const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
+              texKey = `biome${baseType}_${variantHash % spec.variants}`;
+              // Animated biome (water/pier): pick the pre-baked phase frame from
+              // the wall clock. The key is compared every frame anyway, so a
+              // time-varying one costs a swap only when the phase turns — the
+              // phases were rasterized once at startup (textures.js makeBiomeTextures).
+              // All cells share the clock, so the water drifts as one body.
+              if (spec.animPhases) {
+                const p = Math.floor(texNow / spec.animMs) % spec.animPhases;
+                if (p) texKey += `p${p}`;
+              }
+            }
+          }
+          if (!isTilled && scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
+            const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+            const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+            texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type, texNow) || texKey;
+          }
+          if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
+            const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
+            const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
+            texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
+          }
+          if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
+            const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
+            if (damaged) {
+              texKey = damaged;
+              damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
             }
           }
         }
-        if (!isTilled && !scene.depth && typeof zoneGroundTexture === 'function') {
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = zoneGroundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
-        }
-        if (!isTilled && scene.depth > 0 && typeof FloorWallMaterials !== 'undefined') {
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = FloorWallMaterials.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type, texNow) || texKey;
-        }
-        if (!isTilled && scene._sandboxMode && typeof SandboxArt !== 'undefined') {
-          const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
-          const n = entry?.cellsPerEdge || rowCells(scene, _ringTY[_si]);
-          texKey = SandboxArt.groundTexture(entry, _ringIY[_si] * n + _ringIX[_si], type) || texKey;
-        }
-        let damageFrame;
-        // Reuse the exact corner decisions above; all cutouts were baked once.
-        const roundMask = (tl ? 1 : 0) | (tr ? 2 : 0) | (bl ? 4 : 0) | (br ? 8 : 0);
-        if (!isTilled && roundMask && ![9,11,12].includes(type)
-            && typeof selectedRoundedTerrainFrames !== 'undefined'
-            && selectedRoundedTerrainFrames.has(texKey)) {
-          damageFrame = selectedRoundedTerrainFrames.get(texKey) + roundMask - 1;
-          texKey = 'selected_rounded_terrain';
-        }
-        if (texKey && !polygonBuilding(col, row) && !isTilled && type === 12) {
-          const damaged = CastleStyles.damageTexture(scene, castleOwner(col, row), !UNCLAIMED(col, row));
-          if (damaged) {
-            texKey = damaged;
-            damageFrame = CastleStyles.damageCellIndex(_ringIX[_si], _ringIY[_si]);
-          }
-        }
-        if (raActive && !isTilled && type === T(col, row)) {
-          const selected = RATerrainTrial.select(scene, raMaterials, RING, _si, AX(col, row), AY(col, row));
-          if (selected) { texKey = selected.key; damageFrame = selected.frame; }
-        }
         if (!scene.depth && !skyLevel && !isTilled && typeof MountainEdges !== 'undefined') {
           const rock = MountainEdges.select(types, RING, _si, AX(col, row), AY(col, row));
-          if (rock) { texKey = rock.key; damageFrame = rock.frame; }
+          if (rock) rockOverlay = rock;
         }
         if (texKey) {
           // Only on a swap: Phaser's setTexture re-derives frame, size and crop even for
@@ -2980,15 +2732,41 @@ Render.drawCells = function drawCells(scene) {
           if (damageFrame !== undefined) {
             if (setTextureIfDifferent(ns, texKey, damageFrame)) ns.setDisplaySize(CELL_PX, CELL_PX);
           } else if (setTextureIfDifferent(ns, texKey)) ns.setDisplaySize(CELL_PX, CELL_PX);
-          ns.setPosition(Math.round(sx), Math.round(sy))
+          // Dual-grid vertices are cell centres. Their native tile starts
+          // halfway across this cell, unlike exact-cell floors and rock art.
+          const groundOffset = selected ? CELL_PX / 2 : 0;
+          const groundX = Math.round(sx + groundOffset), groundY = Math.round(sy + groundOffset);
+          ns.setPosition(groundX, groundY)
             .setVisible(true);
           // Watered soil reads a shade darker (damp). The pad is an opaque
           // sprite now, so the tint goes on the sprite — a wash on the cell
           // graphics under it would be hidden, and one over it would darken
           // the ground ring too. The pool is reused every frame, so the tint
           // is set on every path, not only the watered one.
-          ns.setTint(isWatered ? WATERED_TINT : 0xffffff);
+          ns.setTint(isWatered && !selected ? WATERED_TINT : 0xffffff);
           scene.terrainCache?.offer(ns);
+          if (terrainLayers) for (const frame of terrainLayers) {
+            const overlay = Render.terrainSpriteAt(scene, noiseIdx++);
+            if (setTextureIfDifferent(overlay, texKey, frame)) overlay.setDisplaySize(CELL_PX, CELL_PX);
+            overlay.setPosition(groundX, groundY).setTint(0xffffff).setVisible(true);
+            scene.terrainCache?.offer(overlay);
+          }
+
+          if (rockOverlay) {
+            const overlay = Render.terrainSpriteAt(scene, noiseIdx++);
+            if (setTextureIfDifferent(overlay, rockOverlay.key, rockOverlay.frame)) overlay.setDisplaySize(CELL_PX, CELL_PX);
+            overlay.setPosition(Math.round(sx), Math.round(sy)).setTint(0xffffff).setVisible(true);
+            scene.terrainCache?.offer(overlay);
+          }
+          // A bed overlays its logical cell, but cannot remove the dual tile
+          // beneath it: that tile also supplies neighbouring half-cells.
+          if (selected && isTilled) {
+            const bed = Render.terrainSpriteAt(scene, noiseIdx++);
+            const key = `tilled_${Math.abs(h) % TILLED_VARIANTS}`;
+            if (setTextureIfDifferent(bed, key)) bed.setDisplaySize(CELL_PX, CELL_PX);
+            bed.setPosition(Math.round(sx), Math.round(sy)).setTint(isWatered ? WATERED_TINT : 0xffffff).setVisible(true);
+            scene.terrainCache?.offer(bed);
+          }
         } else {
           ns.setVisible(false);
         }
@@ -3044,6 +2822,7 @@ Render.drawCells = function drawCells(scene) {
 
     }
   }
+  for (let i = noiseIdx; i < scene.noisePool.length; i++) scene.noisePool[i].setVisible(false);
   scene.terrainCache?.flush();
   // Mining and arriving tiles change the exposed-face mask, including seams.
   // Geometry stays retained while the compass or fractional camera position moves.
@@ -3466,9 +3245,6 @@ Render.drawCells = function drawCells(scene) {
     scene._atmos.rimKey = -1;   // force a rebuild when we surface again
   }
 
-  // The border layer's rebuild (if this was a crossing) is done: one upload.
-  if (gb2 && gb2.flush) gb2.flush();
-
   // Grid lines align with cell edges. Cells are positioned at
   //   sx = viewCenterX + (ox - fracX) * CELL_PX  (cell center)
   //   left edge = sx - CELL_PX/2 = viewLeft + CELL_PX/2 + (j - fracX) * CELL_PX
@@ -3728,19 +3504,28 @@ Render.buildingHit = function(scene, sx, sy) {
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.
 Render.buildingTriangleOverlaps = function(points, box) {
-  if (!box) return false;
-  const corners = [{ x: box.x0, y: box.y0 }, { x: box.x1, y: box.y0 },
-    { x: box.x1, y: box.y1 }, { x: box.x0, y: box.y1 }];
-  const axes = [{ x: 1, y: 0 }, { x: 0, y: 1 }];
+  if (!box || !points.length) return false;
+  let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  for (const p of points) {
+    x0 = Math.min(x0, p.x); x1 = Math.max(x1, p.x);
+    y0 = Math.min(y0, p.y); y1 = Math.max(y1, p.y);
+  }
+  if (!(x1 >= box.x0 && box.x1 >= x0 && y1 >= box.y0 && box.y1 >= y0)) return false;
+  // Project the box's extreme corners directly. A fade query can test many
+  // roof triangles; none need temporary corner, axis or projection arrays.
   for (let i = 0; i < points.length; i++) {
     const a = points[i], b = points[(i + 1) % points.length];
-    axes.push({ x: b.y - a.y, y: a.x - b.x });
+    const ax = b.y - a.y, ay = a.x - b.x;
+    let lo = Infinity, hi = -Infinity;
+    for (const p of points) {
+      const d = p.x * ax + p.y * ay;
+      lo = Math.min(lo, d); hi = Math.max(hi, d);
+    }
+    const boxLo = (ax >= 0 ? box.x0 : box.x1) * ax + (ay >= 0 ? box.y0 : box.y1) * ay;
+    const boxHi = (ax >= 0 ? box.x1 : box.x0) * ax + (ay >= 0 ? box.y1 : box.y0) * ay;
+    if (!(hi >= boxLo && boxHi >= lo)) return false;
   }
-  return axes.every(axis => {
-    const a = points.map(p => p.x * axis.x + p.y * axis.y);
-    const b = corners.map(p => p.x * axis.x + p.y * axis.y);
-    return Math.max(...a) >= Math.min(...b) && Math.max(...b) >= Math.min(...a);
-  });
+  return true;
 };
 // Subtract the visible triangle union from the body box. Checking only its
 // corners misses courtyard holes; summing triangle areas double-counts overlaps.
@@ -3796,10 +3581,22 @@ Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, of
   const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
     : anchor.y + offset.y > feet.y;
   if (!front) return 1;
-  const projected = triangles.map(triangle => triangle.map(p => {
+  const projected = [];
+  for (const triangle of triangles) {
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const p of triangle) {
+      const x = p.x + offset.x, y = p.y + offset.y;
+      const px = view ? view.cos * x - view.sin * y : x;
+      const py = view ? view.sin * x + view.cos * y : y;
+      x0 = Math.min(x0, px); x1 = Math.max(x1, px);
+      y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+    }
+    if (x1 < box.x0 || x0 > box.x1 || y1 < box.y0 || y0 > box.y1) continue;
+    projected.push(triangle.map(p => {
       const x = p.x + offset.x, y = p.y + offset.y;
       return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
     }));
+  }
   return Render.buildingTrianglesCover(projected, box) ? 0.5 : 1;
 };
 Render.playerBuildingKey = function(scene) {
@@ -3839,6 +3636,10 @@ Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, 
   }
   const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && ((onFootprint && !building) || obscures) ? 0.5 : 1);
   if (s.alpha !== alpha) s.setAlpha(alpha);
+  // Pre-FX receives the faded alpha. Glow treats every translucent body pixel
+  // as an outside edge and fills it gold, defeating the player-reveal fade.
+  // Keep the sweep, but suspend the rim until the object is opaque again.
+  if (s._shinyGlowFx) s._shinyGlowFx.active = alpha >= 1;
 };
 
 // The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
@@ -3997,7 +3798,8 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // join as the map turns. Each piece is a core block plus an arm to every
 // connected edge, so neighbours meet exactly at the shared cell edge at any
 // heading. Height is the step-over lift (ObstacleStep.PROFILES): the top the
-// player stands on is the top the camera sees. Thickness and colours follow
+// player stands on is the top the camera sees. Hedges retain their separate
+// visual height while the player walks through their cover. Thickness and colours follow
 // the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
 // north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
 // garden bush its rounded sprite: neither is a wall.
@@ -4101,7 +3903,8 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   for (const { piece, cell } of pieces) {
     const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
     const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;
-    const height = ObstacleStep.PROFILES[piece.art.profile].liftPx;
+    const profile = ObstacleStep.PROFILES[piece.art.profile];
+    const height = profile.heightPx ?? profile.liftPx;
     const outline = Render.connectedWallOutline(piece.mask, piece.art.thickness);
     WallPerspective.material(scene, 'props', piece.art.profile === 'hedge' ? 'hedge' : 'stone',
       outline.points.map(p => ({ x: x0 + p.x, y: y0 + p.y })), height,
@@ -4112,6 +3915,43 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   }
   WallPerspective.finish(scene, 'props');
   return drawn;
+};
+
+// Native RA grass is four retained crossed tufts per harvestable square.
+// Each tuft sorts among actors and props; texture alpha leaves natural gaps.
+Render.drawGrassPrisms = function (scene, plantItems) {
+  const drawn = new Set();
+  if (typeof WallPerspective === 'undefined' || !scene.textures?.exists(WallMaterials.GRASS.texture)) return drawn;
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
+  const pieces = [];
+  let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
+  for (const item of plantItems) {
+    if (!WorldGen.isGrassCover({ ...item.p, kind: 'wildplant' }) || !item.p.wildId || item.p._pickedRemnant) continue;
+    const cell = worldMetersToAbsCell(scene, item.p.x, item.p.y);
+    pieces.push(cell); drawn.add(item); key += `|${cell.cellIX}:${cell.cellIY}`;
+  }
+  if (!pieces.length) { WallPerspective.clear(scene, 'grass'); scene._grassPrismKey = null; return drawn; }
+  WallPerspective.offset(scene, 'grass', -fx, -fy);
+  if (scene._grassPrismKey === key && scene._wallPerspective?.grass) return drawn;
+  const group = WallPerspective.begin(scene, 'grass'); group.renderDepth = scene.depth ?? 0;
+  group.perWall = true; group.atlas = scene.textures.get(WallMaterials.GRASS.texture);
+  for (const cell of pieces) {
+    const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+    const x = at.x + fx - CELL_PX / 2, y = at.y + fy - CELL_PX / 2;
+    const points = [{ x, y }, { x: x + CELL_PX, y }, { x: x + CELL_PX, y: y + CELL_PX }, { x, y: y + CELL_PX }];
+    const faces = WallMaterials.geometry('grass', points, WallMaterials.GRASS.height);
+    for (let tuft = 0; tuft < 4; tuft++) {
+      const cx = x + CELL_PX / 2 + (tuft % 2 ? WallMaterials.GRASS.offset : -WallMaterials.GRASS.offset), cy = y + CELL_PX / 2 + (tuft < 2 ? -WallMaterials.GRASS.offset : WallMaterials.GRASS.offset);
+      const half = WallMaterials.GRASS.width / 2;
+      WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
+        { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
+        { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
+        { materialFaces: faces.slice(tuft * 4, tuft * 4 + 4) });
+    }
+  }
+  scene._grassPrismKey = key; WallPerspective.offset(scene, 'grass', -fx, -fy);
+  WallPerspective.finish(scene, 'grass'); return drawn;
 };
 
 // Loose props share the wall mesh projection and actor depth sorting. Keep
@@ -4155,16 +3995,27 @@ Render.drawLowPolyProps = function (scene, items) {
 };
 
 // Score text has its own cache and never enters Home's session typing clock.
+// At night it stays readable from outside, above the unlit roof.
 Render.homeLuxuryLabel = function homeLuxuryLabel(scene) {
   const home = scene.save?.starterShopId;
   const inside = !!home && !!scene.homeInside?.();
+  const dark = (scene.depth || 0) === 0 && Lighting.daylight(scene, Date.now()) < 0.5;
   const score = home ? Furniture.luxuryOf(scene.save, home) : 0;
-  const key = `${home}|${inside}|${score}`;
+  const key = `${home}|${inside}|${dark}|${score}`;
   if (scene._homeLuxuryLabel?.key !== key) {
-    scene._homeLuxuryLabel = { key, text: inside ? String(score) : null };
+    scene._homeLuxuryLabel = { key, text: home && (inside || dark) ? String(score) : null };
   }
   return scene._homeLuxuryLabel.text;
 };
+
+// The resident board replaces the delivery bubble. Portraits use the same
+// identity as conversation, including Tilly's housed face after moving in.
+Render.residentPlaque = function residentPlaque(scene, house) {
+  if ((scene.depth || 0) !== 0 || house?.id === scene.save?.starterShopId) return null;
+  const resident = NPC.residentOf(scene.save, house);
+  return resident ? { id: resident.id, name: resident.name, portrait: NPC.portrait(scene, resident) } : null;
+};
+Render.RESIDENT_PLAQUE = Object.freeze({ size: 24, fill: '#293c35', rim: '#d8bc83' });
 
 // Can this object throw a light BEFORE drawObjects' sprite cull — one whose
 // glow reaches past its art (a restored building or Home, a torch, a grove
@@ -4211,6 +4062,7 @@ const MAGIC_TRAP_TINT = (typeof Lighting !== 'undefined' && Lighting.KINDS.magic
 const _ROLE_INK = {
   trailer:    '#a8b0c0',
   blacksmith: '#c25a3a',
+  workshop:   '#e4be82',
   trader:     '#ffae5c',
   shop:     '#5ddcc0',
   wizard:     '#b98cff',   // arcane violet
@@ -4420,7 +4272,7 @@ Render.foeCells = function foeCells(scene) {
 // (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
 Render.lurkBush = function lurkBush(p) {
   const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
-  return prof === ObstacleStep.PROFILES.bush || prof === ObstacleStep.PROFILES.hedge;
+  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover;
 };
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
@@ -4919,6 +4771,7 @@ Render.drawObjects = function drawObjects(scene) {
   // The buildings that sort with the world: the low-poly meshes, and the
   // prism path's per-wall parts (Home's interior without low-poly).
   const lowPolyProps = Render.drawLowPolyProps(scene, filteredObj);
+  const grassPrisms = Render.drawGrassPrisms(scene, plantedList);
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
   Render.cullCovered(scene, whirlwindList, 'h');
@@ -5074,6 +4927,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Heading-up draws connected walls and hedges as ground-attached prisms in
   // the building background; their sprite slots stay empty this frame.
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
+  for (const item of grassPrisms) prismDrawn.add(item);
   for (const item of lowPolyProps) prismDrawn.add(item);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
   const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)
@@ -5390,6 +5244,8 @@ Render.drawObjects = function drawObjects(scene) {
     const glyph = Render.shopSignGlyph(theme, role);
     (badge || theme ? plates : plain).push(badge || theme ? { ...item, badge, glyph, theme } : item);
   }
+  scene._homeUpgradeButton?.setVisible(false);
+  const canUpgradeHome = HomeArea.storeys(scene.save) === 1 && scene.homeInside?.();
   const luxuryText = Render.homeLuxuryLabel(scene);
   if (luxuryText !== null) {
     const home = plain.find(item => item.o.id === scene.save.starterShopId);
@@ -5408,6 +5264,7 @@ Render.drawObjects = function drawObjects(scene) {
     const typed = home && !luxury ? _homeSignTyped(full) : full;
     setColorOnce(tx, luxury ? '#ffffff' : _lighten30(_houseSignInk(o, _houseRole(o))));
     tx.setText(full);
+    const fullWidth = tx.width;
     // Home's sign rides over the roof: the player starts in its doorway,
     // where a sign across the lower front would sit under them and fade out.
     // Over the drawn top on the low-poly path (_houseArtH reads the model's
@@ -5426,6 +5283,24 @@ Render.drawObjects = function drawObjects(scene) {
       tx.setPosition(Math.round(left + tx.width / 2), top);
     }
     fadeLabelOverPlayer(tx, _playerBox);
+    if (home && !luxury && canUpgradeHome) {
+      let button = scene._homeUpgradeButton;
+      if (!button) {
+        button = scene._homeUpgradeButton = scene.add.text(0, 0, '[upgrade]',
+          { ...phaserFontUI('12px'), color: '#ffffff', backgroundColor: '#242424', padding: { x: 6, y: 5 } })
+          .setOrigin(0, 0).setInteractive({ useHandCursor: true })
+          .on('pointerdown', (_pointer, _x, _y, event) => {
+            event?.stopPropagation();
+            scene.upgradeHome();
+          });
+        scene.labelContainer.add(button);
+      }
+      // Reserve both widths so the action stays beside the label at the map edge.
+      const labelWidth = fullWidth;
+      const left = Math.max(0, Math.min(tx.x - tx.width / 2, CANVAS_W - labelWidth - button.width - 6));
+      tx.setPosition(Math.round(left + tx.width / 2), top);
+      button.setPosition(Math.round(left + labelWidth + 6), top - 5).setVisible(true);
+    }
   }, labelFactory('sign'));
 
   // Smoke wisping off cold firepits (HomeArea.FIREPIT_SMOKE): soft
@@ -5554,13 +5429,17 @@ Render.drawObjects = function drawObjects(scene) {
         // can't be mistaken for a house's white quest bubble.
         if (it.wide || it.o.kind !== 'house') continue;
         const deal = _houseRole(it.o) === 'trader' ? _traderDeal(it.o) : null;
-        if (!deal && !_houseIsHost(it.o)) continue;
+        const resident = Render.residentPlaque(scene, it.o);
+        if (!deal && !resident && !_houseIsHost(it.o)) continue;
         const happy = !deal && _houseSatisfied(it.o);
-        const wanted = deal || happy ? null : scene.wantedProduce(it.o);
+        const wanted = deal || resident || happy ? null : scene.wantedProduce(it.o);
         const look = deal ? TRADER_BUBBLE : QUEST_BUBBLE;
         const anchor = project(it.dx, it.dy);
         const mid = _houseArtMidPx(it.o);   // the bubble floats off the art's middle
         let sx = anchor.x + mid.x, sy = anchor.y + mid.y;
+        // A resident's oval board sits on the front facade; errands retain
+        // their floating roof bubble and tail.
+        let signY = resident ? _houseArtH(it.o) * 0.22 : -18;
         if (typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)) {
           const foot = Render.objectGroundAnchor(it._appearance, scene.textures, anchor);
           const drawn = HeadingUp.toOverlayPt(scene, foot.x, foot.y);
@@ -5568,7 +5447,8 @@ Render.drawObjects = function drawObjects(scene) {
           sx = drawn.x + (sx - foot.x) * z;
           // Keep the bubble's own 18px gap unscaled, matching its DOM size.
           sy = drawn.y + (sy - foot.y) * z;
-          if (Math.hypot(sx - scene.viewCenterX, sy - 18 - scene.viewCenterY) > scene.viewSize / 2 - 8) continue;
+          if (resident) signY *= z;
+          if (Math.hypot(sx - scene.viewCenterX, sy + signY - scene.viewCenterY) > scene.viewSize / 2 - 8) continue;
         }
         let slot = pool[psi];
         if (!slot) {
@@ -5589,14 +5469,25 @@ Render.drawObjects = function drawObjects(scene) {
         // changes — the produce set is memoized per house, so this is normally
         // a no-op. The 'happy' sentinel in the key flips the bubble on delivery.
         const pieceKey = (p) => [p.kind, p.id || p.slot, p.tier, p.qty].join(':');
-        const key = it.o.id + '|' + (deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
+        const facePx = Math.max(12, Math.round(Render.RESIDENT_PLAQUE.size * scale));
+        const key = it.o.id + '|' + (resident ? 'resident>' + resident.id + '>' + resident.portrait
+          : deal ? 'trade>' + pieceKey(deal.ask) + '>' + pieceKey(deal.give)
           : happy ? 'happy' : wanted.join(',')) + '|' + sizePx;
         if (slot.key !== key) {
           slot.el.replaceChildren();
-          slot.el.setAttribute('aria-label', deal ? 'Trader barter' : 'House delivery');
-          slot.el.style.background = look.fill;
-          slot.el.style.border = look.border;
-          if (deal) {
+          slot.el.className = resident ? 'delivery-callout resident-plaque' : 'delivery-callout';
+          slot.el.setAttribute('aria-label', resident ? `${resident.name}'s home` : deal ? 'Trader barter' : 'House delivery');
+          slot.el.style.background = resident ? Render.RESIDENT_PLAQUE.fill : look.fill;
+          slot.el.style.border = resident ? `2px solid ${Render.RESIDENT_PLAQUE.rim}` : look.border;
+          slot.el.style.borderRadius = resident ? '45% 45% 8px 8px' : '7px';
+          if (resident) {
+            const face = document.createElement('img');
+            face.src = resident.portrait;
+            face.alt = resident.name;
+            face.width = face.height = facePx;
+            face.style.cssText = 'display:block;image-rendering:pixelated;border-radius:40% 40% 4px 4px;';
+            slot.el.appendChild(face);
+          } else if (deal) {
             const piece = (p) => {
               let ic = null;
               if (p.kind === 'item') ic = scene.renderItemIcon ? scene.renderItemIcon(p.id, sizePx, 'block') : null;
@@ -5634,26 +5525,28 @@ Render.drawObjects = function drawObjects(scene) {
           // Downward tail — a CSS triangle absolutely positioned at the bubble's
           // bottom centre so it points at the house. position:absolute keeps it
           // out of the flex flow, so it doesn't shift the icon row.
-          const tail = document.createElement('div');
-          tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
-            + 'border-left:5px solid transparent;border-right:5px solid transparent;'
-            + `border-top:6px solid ${look.tail};transform:translateX(-50%);`
-            + `filter:drop-shadow(0 1px 0 ${look.tailEdge});`;
-          slot.el.appendChild(tail);
+          if (!resident) {
+            const tail = document.createElement('div');
+            tail.style.cssText = 'position:absolute;left:50%;bottom:-5px;width:0;height:0;'
+              + 'border-left:5px solid transparent;border-right:5px solid transparent;'
+              + `border-top:6px solid ${look.tail};transform:translateX(-50%);`
+              + `filter:drop-shadow(0 1px 0 ${look.tailEdge});`;
+            slot.el.appendChild(tail);
+          }
           slot.key = key;
         }
         // A callout floats ABOVE the house roof: translate(-50%,-100%) anchors
         // it by its bottom-centre at sy-18.
         const px = rect.left + sx * scale;
-        const py = rect.top  + (sy - 18) * scale;
+        const py = rect.top  + (sy + signY) * scale;
         setStyleOnce(slot.el, 'transform', `translate(${Math.round(px)}px, ${Math.round(py)}px) translate(-50%, -100%)`);
         setStyleOnce(slot.el, 'display', 'flex');
         // Box in game px: n icons + 3px gaps, 5px/3px padding, 1px border,
         // 6px tail (CSS px ÷ scale); a barter is two icons and the arrow.
-        const n = deal ? 2.6 : happy ? 1 : Math.max(1, wanted.length);
+        const n = resident ? Render.RESIDENT_PLAQUE.size / ICON_GAME : deal ? 2.6 : happy ? 1 : Math.max(1, wanted.length);
         const bw = n * ICON_GAME + ((Math.ceil(n) - 1) * 3 + 12) / scale;
-        const bh = ICON_GAME + (8 + 6) / scale;
-        const bb = sy - 18 + 6 / scale;
+        const bh = (resident ? Render.RESIDENT_PLAQUE.size : ICON_GAME) + (resident ? 10 : 14) / scale;
+        const bb = sy + signY + (resident ? 0 : 6) / scale;
         const bl = sx - bw / 2, bt = bb - bh;
         const covered = toastRects.some((r) =>
           !(bl + bw <= r.left || bl >= r.right || bb <= r.top || bt >= r.bottom));
@@ -5985,8 +5878,8 @@ Render.drawObjects = function drawObjects(scene) {
     // over either. The plain case is the KIND'S OWN tint, not a blanket
     // white: a cave slime is the surface slime's sheet and its tint is the
     // only thing that says so (SpriteLayout.CAVE_SLIME_TINT). Chilled and
-    // shiny still win over it — both say something about this INSTANCE,
-    // which outranks what it is.
+    // other status tints still win over it. Shiny rarity uses the rim and
+    // sweep without recolouring the body.
     const chilled = Combat.isChilled(c, Date.now());
     // ON FIRE (Combat.burning): the `burning` row's tint, FLICKERED against
     // the body's own colour so it reads as flame, not a sheen. Ice still
@@ -6009,7 +5902,7 @@ Render.drawObjects = function drawObjects(scene) {
       c._statusPop = null;
       if (flick != null && scene._popCreatureText) scene._popCreatureText(c, pop.label, pop.color);
     }
-    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : c.shiny && !vivid ? SHINY_TINT : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
+    s.setTint(flick != null ? flick : chilled ? FROZEN_TINT : afire ? Conditions.DEFINITIONS.burning.tint : poisoned ? Conditions.DEFINITIONS.poison.tint : pet && Number.isFinite(c.tint) ? c.tint : npcArt ? npcArt.tint : creatureTint(c.kind));
     if (c._supportUntil > performance.now() && !chilled) s.setTintFill(0x8cefa0);
     Render.setShine(s, !!c.shiny && !chilled, c.id, !vivid);
     // The row's opacity (the ghost's see-through body), every frame — a pooled
@@ -6169,13 +6062,9 @@ Render.drawObjects = function drawObjects(scene) {
     }));
   }
 
-  // Renderer-AGNOSTIC shiny markers. The gold setTint() above is a WebGL multiply
-  // that does NOTHING under Phaser's Canvas fallback, so a baked-gold sparkle
-  // floats above every shiny entity instead (animated with pure transforms that
-  // render under both). This list is first the SHINIES' LIGHTS (Lighting.KINDS
-  // .shiny, drawn by the 2D-canvas lightmap on every renderer); the star is the
-  // Canvas fallback's extra cue only, since under WebGL the shine sweep on the
-  // sprite itself (Render.setShine) replaces it.
+  // Shiny light sources work on every renderer. When pre-FX is unavailable,
+  // a gold sparkle supplies the rarity cue instead of the rim and sweep.
+  // Both paths preserve the sprite's own colours.
   const sparkList = [];
   const pushSpark = (it, id) => sparkList.push({ dx: it.dx, dy: it.dy, id: id || '' });
   for (const it of creatureList) if (it.c.shiny) pushSpark(it, it.c.id);
@@ -6549,15 +6438,12 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // pass places the art from its trimmed bounds.
     tree:   { key: (o) => {
                 if (o._objectArt === 'dead_tree') return 'selected_dead_tree';
-                const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
-                if (trial) return trial.key;
                 if (o.species === 'pine')     return 'pine_tree';
                 return 'trees'; // maple (default)
               },
               frame: (o) => {
                 if (o._objectArt === 'dead_tree') return 0;
-                const trial = typeof ArtTrials !== 'undefined' && ArtTrials.tree(o);
-                return trial ? trial.frame : treeArtFrame(o);
+                return treeArtFrame(o);
               },
               origin: (o) => {
                 return o.species === 'pine' ? [0.5, 0.92] : [0.5, 0.95];

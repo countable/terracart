@@ -94,3 +94,15 @@
     assert.eq(f.watched(), 2, 'turning it off again never stacks a second watch');
   });
 })();
+
+test('debug GPS: review links require explicit opt-in and valid Mercator coordinates', () => {
+  const geo = new Function(ALL_SRC['geo.js'] + '; return Geo;')();
+  for (const search of ['', '?lat=49&lon=-119', '?fakeGps=0&lat=49&lon=-119',
+    '?fakeGps=1&lat=&lon=0', '?fakeGps=1&lat=0', '?fakeGps=1&lat=NaN&lon=0',
+    '?fakeGps=1&lat=90&lon=0', '?fakeGps=1&lat=0&lon=181']) {
+    assert.eq(geo.debugLocation(search), null, search);
+  }
+  const point = geo.debugLocation('?fakeGps=1&lat=0&lon=-119.4787');
+  assert.eq(point.lat, 0, 'equator is a valid point');
+  assert.eq(point.lon, -119.4787, 'longitude stays exact');
+});

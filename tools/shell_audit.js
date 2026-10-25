@@ -104,11 +104,8 @@ const { blankComments, objectLiteralAt, topLevelEntries, valueBranches } =
 // Keys the game can actually draw with: everything ASSETS registers, plus every
 // procedural canvas texture textures.js creates.
 function providedTextureKeys() {
-  const assets = blankComments(read('src/assets.js'));
-  const at = assets.indexOf('ASSETS');
-  const body = objectLiteralAt(assets, assets.indexOf('{', at));
-  if (body == null) throw new Error('shell_audit: could not parse ASSETS in src/assets.js');
-  const keys = new Set([...topLevelEntries(body).keys()]);
+  // Reuse the audit's effective preload registry, including profile-installed keys.
+  const keys = new Set(Object.keys(require('./sprite_audit.js').ASSETS));
   const tex = blankComments(read('src/textures.js'));
   // `const KEY = 'tower'` — and `const KEY = key || 'tower'`, the parameterised
   // form, whose literal is the DEFAULT key the no-argument call bakes.

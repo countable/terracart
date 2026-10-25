@@ -16,7 +16,7 @@
 //   NON_TILLABLE, isTillable, isTillableCell   (which ground takes a hoe)
 //   INV_CATS, INV_CAT_BY_KEY, invCatForItem    (the inventory's type tabs)
 
-// Crops sheet (assets/Objects/Crops.png, 9 cols x 16 rows of 16x16 cells).
+// Crops sheet (the crop atlas, 9 cols x 16 rows of 16x16 cells).
 // Each crop = 1 row. In-world growth: col 0 (sprout) → col 4 (harvestable).
 // Inventory icons: col 7 = produce, col 8 = seed.
 const CROP_ROW = {
@@ -262,7 +262,7 @@ const WILDPLANT_RULES = {
   // day's; that it was TAKEN today is the day ledger's (interact.js
   // 'wildplant' — never save.picked).
   driftwood: { output: 'wood' },
-  longgrass: { treasure: { chance: 0.01, coins: 1 } },
+  longgrass: { treasure: { chance: 0.01, coins: 1 }, hiddenItem: { chance: 0.01, item: 'egg' } },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
   // `workCharged`. Occasionally hides a gemfruit.
@@ -330,6 +330,11 @@ function wildplantWorkCost(crop, relics, rng) {
 }
 // The surprise bonus a pick may also hand over: { chance, bonus } or null.
 function wildplantTreasure(crop) { return wildplantRule(crop)?.treasure || null; }
+// A fixed hidden find shared by every visitor; it never opts into nest wiggles.
+function wildplantHiddenItem(crop, id) {
+  const find = wildplantRule(crop)?.hiddenItem;
+  return find && id != null && hash01(`${id}|hidden-item`) < find.chance ? find.item : null;
+}
 // Which Lighting.KINDS row this plant lights as, null for everything else.
 function wildplantLight(crop) { return wildplantRule(crop)?.light || null; }
 
@@ -488,7 +493,6 @@ function furnitureTierFrames(row) {
 }
 const FURNITURE_SCALE = 1;
 const FURNITURE = {
-  workbench: { frame: 0, tierSheetFrame: null, flip: true, height: "mid", ability: "craft", light: null, luxury: null },
   bed_quilted: { frame: 1, tierSheetFrame: furnitureTierFrames(0), flip: true, height: "mid", ability: "sleep", light: null, luxury: null },
   washtub: { seatFoot: 2 / 3, frame: 2, tierSheetFrame: furnitureTierFrames(1), flip: true, height: "basin", ability: "wash", light: null, luxury: null },
   mirror_brass: { seatFoot: 2 / 3, frame: 3, tierSheetFrame: furnitureTierFrames(5), flip: false, height: "mid", ability: "reflect", light: null, luxury: null },
@@ -964,7 +968,6 @@ const CARRIED_ITEM_SPEC = {
   traders_guild_badge: { guildRole: 'trader', guildDiscount: 0.1 },
 };
 const ITEMS = [
-  { id: "workbench", name: "Tinker's Workbench", kind: 'furniture', baseTier: 1 },
   { id: "bed_quilted", name: "Quilted Cot", kind: 'furniture', baseTier: 1 },
   { id: "washtub", name: "Washing Tub", kind: 'furniture', baseTier: 1 },
   { id: "mirror_brass", name: "Gear-Rim Looking Glass", kind: 'furniture', baseTier: 2 },
@@ -1934,8 +1937,8 @@ const PRICES = {
   torch:          5,   // T1 — 3 min of the player's own light reaching twice as far (useTorch); cheap: found on cave floors, sold at the first supply shop, never crafted
   javelin:      60,   // T4 — a stronger single-use throw; no starter crafting recipe
   renovation_permit: 180,   // T4 — one rank on one building, forever; a hammer's neighbour
-  barricade: 12,   // T2 — three wood at a workbench; deploys the existing wooden obstacle
-  scarecrow: 20,   // crow/deer ward — crafted at a workbench (HOME_RECIPES) or sold by a Supply Shop
+  barricade: 12,   // T2 — three wood at a workshop; deploys the existing wooden obstacle
+  scarecrow: 20,   // crow/deer ward — crafted at a workshop (HOME_RECIPES) or sold by a Supply Shop
   acorn: 5,
 
   // ── Rock-break minerals ──────────────────────────────────
@@ -2043,14 +2046,14 @@ const FEATHER_REVIVE_ENERGY = 1;
 const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
-  workbench: 'I made a workbench at Home from spare wood and rubble. Now I carry it where the work takes me. A level patch of ground is enough.',
-  growth_powder: 'At the workbench I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
-  barricade: 'I lashed the spare timber into a barricade at the workbench, then carried it down to the cave. The narrow passage needed less wood than I feared.',
+  workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
+  growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
+  barricade: 'I lashed the spare timber into a barricade at the workshop, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
   trap_disarm_kit: 'I laid snares here when the orders came. Today I returned with my tools. No one thanked me. The iron jaws are slack. That will have to be enough.',
   torch: 'Light a torch before descending. By its flame, my hand could reach farther into the dark.',
-  throwing_spear: 'At the workbench I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
+  throwing_spear: 'At the workshop I lash a sharp stone to a straight branch and call it a spear. It flies once. I carry a second.',
   sugar_potion: 'I simmered the berries into a potion and left a little by the gate. The hens followed its scent home.',
   rope: 'Grass rope, coiled and ready. Its fibres bore my weight on the return toward daylight. I checked them again before the next descent.',
   flowers: 'Brought the shopkeeper flowers. A softer voice, a kinder price. I had meant only to give her something lovely.',
@@ -2060,10 +2063,10 @@ const ITEM_GUIDE_TIPS = {
   raven_scroll: 'I traced a raven onto the parchment. Its ink-dark wings stirred before the page was dry.',
   thunder_scroll: 'I copied the thunder words onto a blank scroll. Outside, the sky answered.',
   moonbeam_scroll: 'I copied the moon onto a blank scroll by candlelight. When I blew the candle out, the page kept shining.',
-  fireball_scroll: 'At the workbench I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
-  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the workbench, the parchment trembled.',
-  wind_scroll: 'At the workbench I copied the gust onto a blank scroll from memory. The house door banged open on its own.',
-  treasure_map: 'At the workbench I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
+  fireball_scroll: 'At the workshop I copied the fire spell from memory onto blank parchment. The ink warmed. I moved the bedding away.',
+  fear_scroll: 'I copied the words that had scattered my pursuers onto a blank scroll. Even here at the workshop, the parchment trembled.',
+  wind_scroll: 'At the workshop I copied the gust onto a blank scroll from memory. The house door banged open on its own.',
+  treasure_map: 'At the workshop I traced the remembered map onto a blank scroll. Its hidden paths returned. I had hoped one might lead home.',
 };
 
 // The ordered Book pages live in play_tips.js; their positions are saved bookmarks.
@@ -2079,7 +2082,6 @@ const EGG_HATCH_SPEC = Object.freeze({
 });
 
 const ITEM_EFFECTS = {
-  workbench: "Craft tools, supplies and remembered scrolls here, indoors or outdoors. Make your first workbench at Home.",
   bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
   washtub: "A round wooden washing tub offers a quiet place to freshen up.",
   mirror_brass: "A brass-framed looking glass waits on its own little stand.",
@@ -2180,7 +2182,7 @@ const ITEM_EFFECTS = {
   tome_blight: 'Do not read it near the crops.',
   tome_frost_aura: CONSUMABLE_SPEC.tome_frost_aura.get,
   tome_fire_wall: CONSUMABLE_SPEC.tome_fire_wall.get,
-  blank_scroll: 'At a workbench, remembered scrolls can be written upon this empty page.',
+  blank_scroll: 'At a workshop, remembered scrolls can be written upon this empty page.',
   fireball_scroll: CONSUMABLE_SPEC.fireball_scroll.get,
   explosive_flask: CONSUMABLE_SPEC.explosive_flask.get,
   fear_scroll: CONSUMABLE_SPEC.fear_scroll.get,
@@ -3023,21 +3025,20 @@ function trailerSellMultiplier() {
 function trailerSellPrice(baseValue) {
   return Math.max(1, Math.ceil((baseValue ?? 1) * trailerSellMultiplier()));
 }
-// Home bootstraps the workbench; placed workbenches offer every other recipe.
+// Restored workshops offer these recipes.
 // Keep costs in this catalog: barricade salvage reads its wood cost here too.
 const HOME_RECIPES = [
-  { id: 'workbench', station: 'home', cost: [{ id: 'wood', qty: 3 }, { id: 'rubble', qty: 1 }] },
   // The starter-known spear is the first cave trip's throw. Torches are found
   // on cave floors and sold at the first Supply Shop, never crafted.
-  { id: 'throwing_spear', station: 'workbench', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
-  { id: 'scarecrow', station: 'workbench', cost: [{ id: 'wood', qty: 3 }] },
-  { id: 'barricade', station: 'workbench', cost: [{ id: 'wood', qty: 3 }] },
-  { id: 'rope', station: 'workbench', cost: [{ id: 'longgrass', qty: 5 }] },
-  { id: 'trap_disarm_kit', station: 'workbench', cost: [{ id: 'rubble', qty: 4 }] },
-  { id: 'sugar_potion', station: 'workbench', cost: [{ id: 'berry', qty: 2 }] },
-  { id: 'growth_powder', station: 'workbench', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
+  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
+  { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
+  { id: 'rope', station: 'workshop', cost: [{ id: 'longgrass', qty: 5 }] },
+  { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'rubble', qty: 4 }] },
+  { id: 'sugar_potion', station: 'workshop', cost: [{ id: 'berry', qty: 2 }] },
+  { id: 'growth_powder', station: 'workshop', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
-    id: item.id, station: 'workbench', cost: [{ id: 'blank_scroll', qty: 1 }],
+    id: item.id, station: 'workshop', cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
 ];
 // Magic Shop brewing: one potion per batch, with fixed ingredient and coin costs.
@@ -3053,13 +3054,13 @@ const BREW_RECIPES = [
   { id: 'shielding_potion', cost: [{ id: 'starflower', qty: 2 }, { id: 'milk', qty: 1 }], coins: 20 },
   { id: 'shrinking_potion', cost: [{ id: 'mango', qty: 2 }], coins: 4 },
 ];
-// Workbenches and spears are known from the start in every difficulty. Other recipes
+// Spears are known from the start in every difficulty. Other recipes
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
 // Scrolls require previous use instead: their words must be remembered.
 function homeRecipeLocked(save, id) {
   if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
-  return id !== 'workbench' && id !== 'throwing_spear' && !save?.foundWild?.[id];
+  return id !== 'throwing_spear' && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty
@@ -3102,7 +3103,7 @@ function isLowTierSeed(id) {
 // and render.js' tilled-cell draw.
 // 31 = TAR_YARD (an influence zone's halo round a fuel station, src/zones.js):
 // oily ground that weeps tar — nothing takes root in it.
-const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31, 32]);
+const NON_TILLABLE = new Set([3, 7, 8, 9, 10, 11, 12, 13, 14, 16, 17, 23, 24, 25, 31, 32, 33]);
 function isTillable(type) { return !NON_TILLABLE.has(type); }
 // The full "can this CELL take a hoe / placement / released animal" test:
 // soil-ish terrain AND no drawn road band over it. A cell's terrain says

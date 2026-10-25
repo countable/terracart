@@ -220,14 +220,16 @@ mechanics.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
-- Confusion chooses a random compass heading and turn direction, with a slow
-  rotation held for a complete circle before choosing another turn. Its share
+- Confusion chooses a random compass heading and turn direction, then rotates
+  at the condition row's constant `turnRadS` for the whole effect. Walking input
+  and collisions affect movement only, never this heading. The heading-up map
+  follows this spin without sensor smoothing or a dead zone. Its share
   of movement increases linearly with the remaining duration: five seconds
   gives the compass 25% and player intent 75%; ten seconds splits control
   equally; at twenty seconds or more the compass fully takes over. As the
   timer falls, keyboard, stick and GPS steering recover gradually. Collision,
   holds and walking-speed caps still apply. Device headings keep sampling privately; expiry or cure
-  restores the latest real heading (or the prior movement fallback) and eases
+  restores the latest real heading (or the prior movement and map fallback) and eases
   the body back toward its GPS target at walking pace for at most
   `CONFUSED_RECOVER_MS`; then ordinary following (catch-up ramp, far snap)
   resumes, since walking pace never catches a walking player. Enemy puffs retain their normal duration;
@@ -238,11 +240,13 @@ mechanics.
 - Melee strikes resolve individually in the combat tick, using the shared scene
   cooldown and a fresh reach/allegiance check each time. They never enter the
   work queue or hold movement. Ordinary work retains priority over auto-melee.
-  A live hostile in melee reach pauses automatic fire from the selected ranged
-  weapon throughout close combat, including between swings. Close attacks use
-  the selected melee weapon, or an owned sword/bare hands while a ranged weapon
-  stays selected. Ranged fire resumes when melee reach clears; paused fire spends
-  no ammunition or energy, and already launched shots keep flying.
+  Only a selected, owned melee weapon auto-engages; ranged weapons use their
+  own firing rules. An empty active weapon stops automatic attacks, even if a
+  sword remains owned. Manual Unequip clears the selected weapon and any
+  unlaunched swing or staff charge, persists through reloads and temporary wand
+  expiry, and leaves feeding/catching available. Explicit Equip or obtaining a
+  new weapon resumes the normal equipment flow. Already launched projectiles
+  keep flying, and enemies still attack an unarmed player.
 - Death cancels current work without completion or refund, clears the swing and
   staff charge, and blocks new melee and ranged attacks. Revival does not resume
   the cancelled job. Already launched projectiles continue their flight.
@@ -300,7 +304,7 @@ mechanics.
   Shielding uses Starflowers and Milk. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
-  workbench recipe. Growth Powder is crafted at a workbench from three Nettles
+  workshop recipe. Growth Powder is crafted at a workshop from three Nettles
   and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
 - Home light and ward retain `HOME_R` and surface-only `homeWorldPos()`.
   Home rest uses `isRestingAtHome`: the player's owned Home building cells
@@ -332,6 +336,22 @@ mechanics.
   Luxury milestones at 4/16/36/64/100 each bank one real memory once per save,
   with the normal immediate full heal and lifetime story progression. Pickup
   cannot remove or repeat an earned memory.
+- A housed neighbour's luxury also determines their help (`NPCBenefits`).
+  Tilly waters dry, immature surface crops within 15 cells of her house for
+  one minute per luxury point, followed by an hour's rest. She walks to a crop
+  or a cardinal neighbour through the NPC spawn gate and shared character
+  movement sweep; blocked crops are skipped, and she walks home afterwards.
+  Only foreground simulation waters crops: loading a save never backfills work.
+  Tilly's loaded-home chores continue beyond the player's normal 12-cell
+  creature simulation bubble, so she can reach the full crop radius and return
+  while the player stays home; other distant creatures remain frozen.
+  Actual watering records today's UTC date so talking to Tilly or visiting her
+  house can report, “Hey, I watered your crops today.” Other housed neighbours
+  offer daily gifts on a visit or conversation: Bryn gives Wood, Maud Apples,
+  Edda Flowers, Orrin Rock, and other residents Berries, one per luxury point.
+  Gifts reset by UTC day without accumulating missed days. A partly full bag
+  retains today's uncollected portion; successful collection fixes today's
+  allowance so furniture changes cannot repeat a gift.
 - The Quilted Cot restores all missing energy through `_restoreEnergy` and
   `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
   building cell and refuses full energy or `_zeroEnergyLocked()`, both before
@@ -369,6 +389,10 @@ mechanics.
   wall facing the player at placement (`doorSide`, saved as
   `starterTrailer.door`), so the spawn gate, the tap zone and the overlay see
   a building; "Move Home here" lifts it again (`_unstampHomeFootprint`).
+  Home starts with one storey. While inside, an `[upgrade]` button beside the
+  Home label permanently raises it to two storeys at no cost (`save.homeStoreys`).
+  The button disappears after upgrading; the building and indoor mask share
+  `HomeArea.storeys(save)` so their heights stay aligned.
   Standing on one of its cells is being inside (`homeInside`; `homeInterior`
   hands the ring to the renderer — see [rendering](rendering.md)). Older saves
   may still have an adopted house as Home; it keeps its own footprint and is

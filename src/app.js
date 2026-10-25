@@ -47,8 +47,9 @@ try {
     _saveHome = _sv.home;
   }
 } catch { /* no saved home → fall back to teleport / HOME */ }
-const START_LON = _teleportOverride ? _teleportOverride.lon : (_saveHome ? _saveHome.lon : HOME_LON);
-const START_LAT = _teleportOverride ? _teleportOverride.lat : (_saveHome ? _saveHome.lat : HOME_LAT);
+const _reviewLocation = Geo.debugLocation();
+const START_LON = _reviewLocation ? _reviewLocation.lon : _teleportOverride ? _teleportOverride.lon : (_saveHome ? _saveHome.lon : HOME_LON);
+const START_LAT = _reviewLocation ? _reviewLocation.lat : _teleportOverride ? _teleportOverride.lat : (_saveHome ? _saveHome.lat : HOME_LAT);
 // Expose the preset table + active override so index.html can build the menu.
 if (typeof window !== 'undefined') {
   window.TELEPORT_PRESETS = TELEPORT_PRESETS;
@@ -560,8 +561,7 @@ const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
-// Melee needs no weapon at all: bare hands auto-engage like a sword whenever
-// no ranged weapon is equipped (Gear.meleeActive).
+// Gear.meleeActive requires an equipped melee weapon; unequipped hands stay idle.
 const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -1017,8 +1017,13 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // to walk to, it is where you are.
 const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
-const STARTER_GOAL_LABELS = { till: 'Plot', plant: 'Soil', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
+const STARTER_GOAL_LABELS = { plant: 'Plot', water: 'Crop', restore: 'Wreck', tilly: 'Tilly', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
+  if (step?.event === 'tilly') {
+    if (goal?.kind === 'npc') return goal.name || 'Tilly';
+    if (goal?.kind === 'house') return 'House';
+    if (goal?.crop) return 'Crop';
+  }
   if (goal?.kind === 'groundstack') return ITEM_BY_ID[goal.itemId]?.name || 'Supplies';
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
   return STARTER_GOAL_LABELS[step && step.event] || 'Supply crate';
@@ -1184,6 +1189,7 @@ const COLORS = {
   // paints over the lot and commercial ground around it.
   28: 0x687143, // GROVE       — forest-depth yellow-olive sward
   29: 0x7c7788, // CHURCHYARD  — weathered grey-purple among the old stones
+  33: 0x646351, // ROCKY_GROUND — flat rubble matching mountain edges
   32: 0x665044, // EXCLUSION_ROCK — permanent, non-mineable backyard bedrock
   31: 0x6f6b55, // TAR_YARD    — dark oily ground
   // UNMAPPED (30) — render-only: render.js stamps this on cells whose map tile
@@ -1515,7 +1521,7 @@ const ICON_SHEETS = {
   flint: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.flint.frameRects },
   selected_items: { url: SelectedItemArt.url, cols: SelectedItemArt.cols, srcW: SelectedItemArt.width, srcH: SelectedItemArt.height },
   selected_mushroom: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_mushroom.frameRects },
-  selected_longgrass: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_longgrass.frameRects },
+  selected_longgrass: { url: 'assets/ArtTrials/RogueProps/flora-selected_longgrass.png', cols: 1, srcW: 16, srcH: 16 },
   furniture_icons: { url: 'assets/Objects/Furniture/furniture-icons-16.png', cols: 4, srcW: 64, srcH: 432 },
   giant_mushroom: { url: 'assets/Icons/Items/GiantMushroom.png', cols: 1, srcW: 16, srcH: 16 },
   icon_lantern: { url: 'assets/Icons/Items/Lantern.png', cols: 1, srcW: 16, srcH: 16 },
@@ -2929,15 +2935,14 @@ class MapScene extends Phaser.Scene {
     return mag;
   }
 
-  // Small, persistent bearings sit on the visible map rim, including while
-  // their target is on screen. Intersect the ray with the rectangle so diagonal
+  // Location guides follow visible targets and otherwise sit on the map rim. Intersect the ray with the rectangle so diagonal
   // bearings reach the edge too, and keep the whole dot inside the mask.
   // `r` is the dot's radius in game px (EDGE_DOT_R for a find; the GPS fix's
   // micro dot passes its own); the dark keyline is a pixel wider.
   _drawEdgeDot(targetWX, targetWY, fillColor, r = EDGE_DOT_R) {
     const dx = targetWX - this.startWorldM.x - this.playerM.x;
     const dy = targetWY - this.startWorldM.y - this.playerM.y;
-    if (!Number.isFinite(dx) || !Number.isFinite(dy) || Math.hypot(dx, dy) < 0.001) return;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy)) return;
     // The visible square in unzoomed coordinates: the map zooms about the
     // view centre (_applyMapZoom), so at zoom z only viewSize / z of it shows
     // — a rim measured on the full square sat outside the picture.
@@ -2953,7 +2958,7 @@ class MapScene extends Phaser.Scene {
     const y = Math.max(top, Math.min(bottom, ps.y));
     const tx = dx > 0 ? (right - x) / dx : dx < 0 ? (left - x) / dx : Infinity;
     const ty = dy > 0 ? (bottom - y) / dy : dy < 0 ? (top - y) / dy : Infinity;
-    const t = Math.min(tx, ty);
+    const t = Number.isFinite(Math.min(tx, ty)) ? Math.min(tx, ty) : 0;
     let px = x + dx * t, py = y + dy * t;
     if (HeadingUp.active(this)) {
       // Intersect the player bearing with the visible circle in unzoomed
@@ -2963,13 +2968,25 @@ class MapScene extends Phaser.Scene {
       let ox = ps.x - cx, oy = ps.y - cy;
       const length = Math.hypot(ox, oy);
       if (length >= radius) { ox *= (radius - 1) / length; oy *= (radius - 1) / length; }
-      const mag = Math.hypot(dx, dy), ux = dx / mag, uy = dy / mag;
+      const mag = Math.hypot(dx, dy) || 1, ux = dx / mag, uy = dy / mag;
       const dot = ox * ux + oy * uy;
       const ray = -dot + Math.sqrt(Math.max(0, dot * dot + radius * radius - ox * ox - oy * oy));
       px = cx + ox + ux * ray; py = cy + oy + uy * ray;
     }
-    this.facingGfx.fillStyle(0x000000, 0.85);
-    this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
+    const guide = r === EDGE_DOT_R;
+    if (guide) {
+      const target = this.worldMetersToScreen(targetWX, targetWY);
+      const inside = HeadingUp.active(this)
+        ? Math.hypot(target.x - this.viewCenterX, target.y - this.viewCenterY) <= (this.viewSize / 2 - inset) / zoom
+        : target.x >= left && target.x <= right && target.y >= top && target.y <= bottom;
+      if (inside) { px = target.x; py = target.y; }
+      const pulse = (performance.now() % 3000) / 3000;
+      this.facingGfx.fillStyle(fillColor, 0.35 * (1 - pulse));
+      this.facingGfx.fillCircle(px, py, r * (1 + 3 * pulse) / zoom);
+    } else {
+      this.facingGfx.fillStyle(0x000000, 0.85);
+      this.facingGfx.fillCircle(px, py, (r + 1) / zoom);
+    }
     this.facingGfx.fillStyle(fillColor, 1);
     this.facingGfx.fillCircle(px, py, r / zoom);
     return { x: px, y: py, left, right, top, bottom };
@@ -3033,7 +3050,7 @@ class MapScene extends Phaser.Scene {
     if (this._hiddenEdgeDotLabels?.has(key)) return;
     const labels = (this._edgeDotLabels ||= {});
     const text = labels[key] ||= this.add.text(0, 0, '', {
-      fontFamily: FONT_UI_STACK, fontSize: '11px', color: '#ffffff',
+      fontFamily: FONT_UI_STACK, fontSize: '11px', color: '#' + row.color.toString(16).padStart(6, '0'),
       stroke: '#151920', strokeThickness: 3,
     }).setDepth(12).setOrigin(0, 0);
     // Names and roles belong to the target; anonymous finds use their kind.
@@ -3051,20 +3068,18 @@ class MapScene extends Phaser.Scene {
     x = Math.max(left, Math.min(right - text.width, x));
     y = Math.max(top, Math.min(bottom - text.height, y));
     const bounds = (this._edgeDotLabelBounds ||= []);
-    // Stack nearby bearings inward without moving their actual dots.
-    const step = text.height + 2;
-    const direction = point.y > (top + bottom) / 2 ? -1 : 1;
-    for (let i = 0; i <= bounds.length; i++) {
-      if (!bounds.some(b => x < b.right && x + text.width > b.left && y < b.bottom && y + text.height > b.top)) break;
-      y = Math.max(top, Math.min(bottom - text.height, y + step * direction));
-    }
+    // Keep each label beside its own dot; crowded bearings must not push
+    // earlier labels farther away on every redraw. Tapping still hides one.
     if (HeadingUp.active(this)) {
-      // Keep the entire upright label inside the circle, including near poles.
+      // Labels are upright overlay coordinates, so use the visible circle,
+      // not the unzoomed world bounds. Fit the corners with minimal inset.
       const radius = this.viewSize / 2 - 8;
       const cx = this.viewCenterX, cy = this.viewCenterY;
-      y = Math.max(cy - radius + text.height, Math.min(cy + radius - 2 * text.height, y));
+      const reachY = Math.sqrt(Math.max(0, radius * radius - (text.width / 2) ** 2));
+      y = Math.max(cy - reachY, Math.min(cy + reachY - text.height, point.y - text.height / 2));
       const farY = Math.max(Math.abs(y - cy), Math.abs(y + text.height - cy));
       const half = Math.sqrt(Math.max(0, radius * radius - farY * farY));
+      x = point.x <= cx ? point.x + 8 : point.x - text.width - 8;
       x = Math.max(cx - half, Math.min(cx + half - text.width, x));
     }
     text.setPosition(x, y).setVisible(true);
@@ -3121,7 +3136,7 @@ class MapScene extends Phaser.Scene {
   // nearer it than the crates — "it pointed south but the crates were east".
   // The chest is the trail's END, so it is the target only once no supply
   // crate is left unopened.
-  _nearestStarterCrate() {
+  _nearestStarterCrate(itemId = null) {
     const spent = spentSets(this, this.save);
     // The starter chests of each tile, derived once (util.js derivedObjects)
     // rather than picked out of every cached tile's every object on each ask.
@@ -3130,6 +3145,10 @@ class MapScene extends Phaser.Scene {
       for (const o of derivedObjects(e, '_starterChests', (o) => (o.kind === 'chest' || o.kind === 'groundstack') && !!o.id && String(o.id).startsWith('chest_start_'))) {
         if (!isSpent(o, spent)) starters.push(o);
       }
+    }
+    if (itemId) {
+      const match = this._nearestObject(o => o.fixedLoot?.id === itemId || o.itemId === itemId, { list: starters });
+      if (match) return match;
     }
     return this._nearestObject((o) => o.crate, { list: starters })
       || this._nearestObject((o) => o.kind === 'groundstack', { list: starters })
@@ -3154,12 +3173,12 @@ class MapScene extends Phaser.Scene {
   // the chip is actually talking about, not a generic breadcrumb.
   //
   //   chest   → nearest unopened starter crate (the relic chest included)
-  //   till    → the carved 2x2 starter plot
   //   plant   → the tilled-but-empty soil — or the crates while the bag holds
   //             no seed, since the seeds are in them (nearest crate first)
+  //   water   → the nearest dry planted crop
   //   restore → the nearest wreck — or the crates while the bag can't pay the
   //             restore cost, since the materials are in them
-  //   harvest → the nearest crop the player planted
+  //   tilly → Tilly, the delivery house or the growing potato
   //   sell    → Home (selling only happens there)
   //
   // Falling back to the crates for every step pointed the arrow at the relic
@@ -3175,15 +3194,16 @@ class MapScene extends Phaser.Scene {
       ? { x: sv.starterPlotAt.x + this.cellM / 2, y: sv.starterPlotAt.y + this.cellM / 2 }
       : null;
     switch (step.event) {
-      case 'till':
-        return plotMiddle() || this._nearestStarterCrate();
+      case 'pickup':
+      case 'chest':
+        return this._nearestStarterCrate('potato_seed');
       case 'plant': {
         // An empty seed pocket means the crates are the step's real errand —
         // the nearest one is seeded first (STARTER_LOOT's order of need).
         const hasSeed = (sv.inv || []).some(s =>
           s && (s.count || 0) > 0 && ITEM_BY_ID[s.id]?.kind === 'seed');
-        if (!hasSeed) return this._nearestStarterCrate() || plotMiddle();
-        // The soil the chip says to tap: tilled cells nothing is planted in.
+        if (!hasSeed) return this._nearestStarterCrate('potato_seed') || plotMiddle();
+        // Prefer an existing empty bed; otherwise guide the seed action to the plot.
         const plantedCells = new Set((sv.planted || []).map(p => {
           const c = worldMetersToAbsCell(this, p.x, p.y);
           return cellKeyFromAbsCell(c.cellIX, c.cellIY);
@@ -3201,7 +3221,7 @@ class MapScene extends Phaser.Scene {
         // remaining starter supplies, including loose ground materials.
         const cost = this._wreckRestoreCost(null);
         if (Inventory.count(sv, cost.id) < cost.qty) {
-          const crate = this._nearestStarterCrate();
+          const crate = this._nearestStarterCrate(cost.id);
           if (crate) return crate;
         }
         const wrecks = [];
@@ -3212,6 +3232,13 @@ class MapScene extends Phaser.Scene {
         }
         return nearest(wrecks) || this._nearestStarterCrate();
       }
+      case 'water':
+        return nearest((sv.planted || []).filter(p => !p.watered_t && (p.stage ?? 0) < Crops.maxStage()))
+          || nearest(sv.planted || []) || plotMiddle() || this._nearestStarterCrate('potato_seed');
+      case 'tilly':
+        return this._starterTillyLesson().goal;
+      case 'roads':
+        return null;
       case 'harvest':
         return nearest(sv.planted || []) || this._nearestStarterCrate();
       case 'sell': {
@@ -3224,6 +3251,32 @@ class MapScene extends Phaser.Scene {
       default:
         return this._nearestStarterCrate();
     }
+  }
+
+  // The same decision supplies the instruction and compass bearing.
+  _starterTillyLesson() {
+    const save = this.save, people = [], houses = [];
+    for (const entry of WorldGen.tileCacheFor(0).values()) {
+      for (const c of entry.creatures || []) if (c.kind === 'npc' && c.role === 'wanderer') people.push(c);
+      for (const h of entry.objects || []) if (save.restoredHouses?.[h.id] === 'plain') houses.push(h);
+    }
+    const tilly = this._nearestObject(null, { list: people });
+    const firstId = Object.keys(save.restoredHouses || {}).find(id => save.restoredHouses[id] === 'plain');
+    const house = houses.find(h => h.id === firstId);
+    const housed = Object.entries(save.npcHomes || {}).find(([, row]) => row.role === 'wanderer' && row.houseId);
+    if (housed) return { body: 'Tilly has moved in. Talk to her and see how she likes her new home.',
+      goal: tilly || (housed[1].houseX !== undefined ? { x: housed[1].houseX, y: housed[1].houseY } : house) };
+    if (tilly && !save.npcMet?.[tilly.id]) return {
+      body: 'Talk to Tilly. The first restored home needs just one potato before a neighbour can move in.', goal: tilly };
+    if (house && Delivery.isSatisfied(save, house)) return {
+      body: 'The home is ready. Tilly will move in shortly; then talk to her.', goal: tilly || house };
+    if (Inventory.count(save, 'potato') > 0) return {
+      body: 'Bring one potato to the restored house for its first delivery. Tilly is first in line for a home.', goal: house || tilly };
+    const crops = (save.planted || []).filter(p => p.crop === 'potato');
+    const crop = this._nearestObject(null, { list: crops.filter(p => !p.watered_t || p.stage >= Crops.maxStage()) })
+      || this._nearestObject(null, { list: crops });
+    return { body: 'Water your potato as it grows, then harvest one and deliver it to the restored house.',
+      goal: crop || this._nearestStarterCrate('potato_seed') || tilly || house };
   }
 
   // === Tick ===
@@ -3311,6 +3364,10 @@ class MapScene extends Phaser.Scene {
       DragonStory.drain(this);
       StoryEncounters.tick(this, Date.now());
       NPC.tickArrivals(this, Date.now());
+      Starter.tickIntroductions?.(this);
+      this._resumeFirstWeaponPrize?.();
+      if (typeof Quests !== 'undefined' && Quests.starterCurrent(this.save)
+          && Date.now() >= (this._objectiveCheeringUntil || 0)) this.updateObjectiveDOM();
     }
     this._stopDownedActions();
     const dt = dtMs / 1000;
@@ -3775,23 +3832,8 @@ class MapScene extends Phaser.Scene {
     this._drawMarkers();
     this._drawGpsRimDot();
 
-    // Starter guidance — a LIGHT-GREEN rim dot toward whatever the ACTIVE
-    // ladder step actually wants, shown only while the first-session ladder is
-    // running. It is the same labelled dot as every MARKERS bearing (tap
-    // toggles its label), so the tutorial teaches the rim the rest of the game
-    // uses. Green is the tutorial's colour: the chip's step tag, the
-    // step-complete toast and this dot all wear --green (#a7ffb0), so
-    // everything the ladder owns reads as one system.
-    //
-    // The target is PER-STEP (see _starterGuidanceGoal): the crates while the
-    // chip says to open one, the carved plot for "Break ground", and the
-    // tilled soil / the nearest wreck / the crop / Home for the steps that
-    // happen at those places. (The crates pack into the first cells of the walk,
-    // TRAIL_SPAN, so a crate fallback pointed away from the tap the chip asked for.)
-    //
-    // Retires itself the moment the ladder finishes or is dismissed, and stops
-    // pointing once the player is on top of the target (it is in reach by
-    // then).
+    // Starter guidance follows the location once visible, after its instruction
+    // has actually appeared (including after opening dialogs finish).
     if (this.depth === 0 && typeof Quests !== 'undefined' && !Quests.starterHidden(this.save)) {
       const step = Quests.starterCurrent(this.save);
       // Memoise the goal on a 500 ms clock. _starterGuidanceGoal walks every
@@ -3808,10 +3850,14 @@ class MapScene extends Phaser.Scene {
           goal: step ? this._starterGuidanceGoal(step) : null,
         };
       }
+      const objective = document.getElementById('objective');
+      if (step && this._starterIntroducedStep !== step.id && this._objectiveStep === step.id
+          && !this._dialogOpen() && objective?.getClientRects().length) {
+        this._starterIntroducedStep = step.id;
+      }
       const goal = this._starterGoalMemo.goal;
       if (goal) {
-        const { x: pWX, y: pWY } = playerWorldM(this);
-        if (Math.hypot(goal.x - pWX, goal.y - pWY) > this.cellM * 1.5) {
+        if (this._starterIntroducedStep === step?.id) {
           const point = this._drawEdgeDot(goal.x, goal.y, STARTER_MARK.color);
           this._drawEdgeDotLabel(STARTER_MARK, {}, { label: starterGoalLabel(step, goal) }, point);
         }
@@ -3826,6 +3872,7 @@ class MapScene extends Phaser.Scene {
       // eight idle waits cost about 3.2 s despite every tile already being ready.
       // Missing, rebuilt and unspawned entries fail the predicate and still heal
       // through this path; boot, retries and Overpass re-entry bypass it entirely.
+      this._warmGeometryAround();
       const tileCell = this.playerToWorldCell();
       if (!this._walkTileBlockSettled(tileCell)) {
         window.__boot?.mark('walked 20m — checking tiles');
@@ -3876,6 +3923,7 @@ class MapScene extends Phaser.Scene {
         // up when you come round the corner again.
         this._lairHp = this._lairHp || new Map();
         Lairs.stepResidency(ring, {
+          candidateOverlay: cand => Starter.introductionLair ? Starter.introductionLair(this, cand) : cand,
           cellM: this.cellM,
           tileEdgeM: this.tileEdgeM,
           playerM: playerWorldM(this),
@@ -3954,6 +4002,7 @@ class MapScene extends Phaser.Scene {
     this.drawRoadGeometry();
     this.drawBuildingGeometry();
     if (typeof Multiplayer !== 'undefined') Multiplayer.tick(this);
+    if (typeof Weather !== 'undefined') Weather.tick(this);
     this.drawObjects();
     GasRender.draw(this);
     this._drawArena();
@@ -4015,8 +4064,8 @@ class MapScene extends Phaser.Scene {
   // Per-frame fight tick: pick up the enemies on screen, let the ACTIVE bow or
   // staff loose its shots (the bow along the compass, the staff at the nearest
   // foe — Combat.shotHeading), fly the shots already out, and —
-  // unless a bow or staff is in hand — engage the nearest foe without being
-  // asked, sword or bare hands alike. Only one of sword/bow/staff
+  // when a melee weapon is selected, engage the nearest foe in reach.
+  // Deliberately empty hands never attack. Only one of sword/bow/staff
   // (save.activeWeapon) acts on its own here at a time; the rest sit inert
   // until switched to. The maths (what
   // counts as an enemy, damage per shot, shot flight) all lives in combat.js;
@@ -5794,9 +5843,11 @@ class MapScene extends Phaser.Scene {
     const hit = this._neighborZoneCache.get(key);
     if (hit !== undefined) return hit;
     const R = 3;
-    // Flat counts array beats Map for ~20-element domains; saves the per-call
-    // Map allocation and avoids string keys.
-    const counts = new Int16Array(32);
+    // Reuse a terrain-sized histogram, including bedrock and rocky ground.
+    // Derive the domain from the enum so new ground types cannot fall outside it.
+    const counts = this._neighborTerrainCounts || (this._neighborTerrainCounts =
+      new Int16Array(Math.max(...Object.values(WorldGen.T)) + 1));
+    counts.fill(0);
     const scratch = this._nnScratch || (this._nnScratch = {});
     let bestT = -1, bestN = 0;
     for (let dy = -R; dy <= R; dy++) {
@@ -5949,7 +6000,7 @@ class MapScene extends Phaser.Scene {
     const airborne = Conditions.flying(this.save) || this.isDragonActive?.();
     let submerged = false;
     if (!airborne && !Combat.playerDowned(this.save.energy)
-        && !(this._obstacleStep?.liftPx > 0) && this.startWorldM && this.playerM) {
+        && (!(this._obstacleStep?.liftPx > 0) || this._obstacleStep?.covered) && this.startWorldM && this.playerM) {
       const feet = playerWorldM(this), cell = this.cellAt(feet.x, feet.y);
       if (cell.loaded) {
         const centre = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
@@ -5959,7 +6010,7 @@ class MapScene extends Phaser.Scene {
         const tar = entry?.slowCells?.get(cell.iy * entry.cellsPerEdge + cell.ix) === 'tar';
         const fire = this.save.groundFire?.[GroundFire.key(this.depth || 0, cell.cellIX, cell.cellIY)];
         const channel = FloorWallMaterials.isSewerChannel(entry, cell.iy * (entry?.cellsPerEdge || 0) + cell.ix, cell.type);
-        submerged = basin || channel || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
+        submerged = !!this._obstacleStep?.covered || basin || channel || cell.type === WorldGen.T.WATER || cell.type === WorldGen.T.TAR_YARD
           || (tar && (!fire || GroundFire.active(fire, Date.now())));
       }
     }
@@ -7220,15 +7271,13 @@ class MapScene extends Phaser.Scene {
     if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
     if (!this._confusedLoop) this._confusedLoop = {
       angle: Math.random() * Math.PI * 2,
-      turn: (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.5),
-      left: null,
-      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing } },
+      turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
+      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing }, mapRot: this.mapRot },
     };
     const loop = this._confusedLoop;
     const takeover = Conditions.confusionSteering(this.save);
     const manual = intent && (intent.x || intent.y);
-    // Keep each random turn for a complete circle before choosing another.
-    if (loop.left == null) loop.left = Math.PI * 2 / Math.abs(loop.turn);
+    // Input and collisions affect translation only; the compass turns steadily.
     const balanceMul = typeof ObstacleStep !== 'undefined' ? ObstacleStep.speedMul(this._obstacleStep) : 1;
     const speed = Math.min(WALK_M_S, capMS > 0 ? capMS : Infinity) * balanceMul * Conditions.movementMul(this.save);
     let remaining = dt;
@@ -7236,7 +7285,6 @@ class MapScene extends Phaser.Scene {
       const step = Math.min(remaining, 0.05);
       remaining -= step;
       loop.angle += loop.turn * step;
-      loop.left -= step;
       let ux = 0, uy = 0;
       if (takeover < 1) {
         const target = manual ? intent : !this._followPaused && this._targetM;
@@ -7253,12 +7301,9 @@ class MapScene extends Phaser.Scene {
       const dx = (ux * (1 - takeover) + Math.cos(loop.angle) * takeover) * speed * step;
       const dy = (uy * (1 - takeover) + Math.sin(loop.angle) * takeover) * speed * step;
       const x = this.playerM.x + dx, y = this.playerM.y + dy;
+      if (typeof WallSmash !== 'undefined' && WallSmash.hold(this, x, y)) continue;
       if (!this._cellBlocked(this.startWorldM.x + x, this.startWorldM.y + y + (this.feetOffsetM || 0))) {
         this.playerM.x = x; this.playerM.y = y;
-      } else { loop.angle += Math.PI / 2; }
-      if (loop.left <= 0) {
-        loop.turn = (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.5);
-        loop.left = Math.PI * 2 / Math.abs(loop.turn);
       }
     }
     this.facing = { x: Math.cos(loop.angle), y: Math.sin(loop.angle) };
@@ -7279,6 +7324,11 @@ class MapScene extends Phaser.Scene {
     const compass = this._deviceCompass || this._confusedLoop?.compassBefore;
     this.compassDeg = compass?.deg ?? null;
     if (compass?.facing) this.facing = { ...compass.facing };
+    // Without a sensor heading, heading-up otherwise keeps the last spun angle.
+    if (this.compassDeg == null && compass?.mapRot != null) {
+      this.mapRot = compass.mapRot;
+      this._huTurning = false;
+    }
     this._confusedLoop = null;
     this._confusedRecover = true;
   }
@@ -7343,6 +7393,10 @@ class MapScene extends Phaser.Scene {
       !this._cellBlocked(this.startWorldM.x + nx, this.startWorldM.y + ny + foot);
     const beforeX = body.x, beforeY = body.y;
     const nx = body.x + ux * move, ny = body.y + uy * move;
+    if (typeof WallSmash !== 'undefined' && WallSmash.hold(this, nx, ny)) {
+      this._playDirected(this.player, 'idle');
+      return;
+    }
     if ((ux !== 0) && open(nx, body.y)) body.x = nx;
     if ((uy !== 0) && open(body.x, ny)) body.y = ny;
     // Heading is the facing FALLBACK only — a real compass reading wins, same
@@ -9313,11 +9367,28 @@ class MapScene extends Phaser.Scene {
     const idx = Quests.starterStepIndex(this.save);
     el.querySelector('.step').textContent  = `${idx + 1}/${Quests.starterTotal()}`;
     el.querySelector('.title').textContent = step.title;
-    el.querySelector('.body').textContent  = step.body;
-    el.style.display = 'block';
+    el.querySelector('.body').textContent = step.event === 'restore'
+      && Inventory.count(this.save, 'rubble') >= this._wreckRestoreCost(null).qty
+      ? 'You have the rocks. Tap a ruined house to repair it while your crop grows.'
+      : step.event === 'tilly' ? (this._starterTillyLesson?.().body || step.body)
+      : step.event === 'roads' && Trail.restoredMetres(this.save.trail || {}) > 0
+        ? 'You have already begun repairing roads. Keep growing, exploring and mending.' : step.body;
+    this._objectiveStep = step.id;
+    el.style.display = this._objectiveAcknowledged === step.id ? 'none' : 'block';
   }
 
-  // Hide the chip for good (the × button). The ladder keeps tracking quietly
+  acknowledgeObjective() {
+    if (Date.now() < (this._objectiveCheeringUntil || 0)) return;
+    if (Quests.starterCurrent(this.save)?.event === 'roads') {
+      this.questEvent('roads');
+      this.updateObjectiveDOM();
+      return;
+    }
+    this._objectiveAcknowledged = this._objectiveStep;
+    this.updateObjectiveDOM();
+  }
+
+  // Hide the tutorial for good (the skip action). The ladder keeps tracking quietly
   // underneath, so nothing downstream has to care that it was dismissed.
   dismissObjective() {
     if (typeof Quests === 'undefined') return;
@@ -9468,9 +9539,10 @@ class MapScene extends Phaser.Scene {
     // conversation. The starter tutorial independently reads the same events.
     if (Quests.onEvent(this.save, event)) persistSave(this.save);
     const done = Quests.onStarterEvent(this.save, event);
+    // Facts performed ahead of the current lesson must survive a reload too.
+    persistSave(this.save);
     if (!done) return;
     // Tutorial progress is guidance, not an extra source of coins.
-    persistSave(this.save);
     this.buildInventoryDOM();
     this._celebrateStarterStep(done);
   }
@@ -9509,6 +9581,7 @@ class MapScene extends Phaser.Scene {
     // No chip on screen (dismissed, or not built yet) — just resync and go.
     if (!el || el.style.display === 'none') { this.updateObjectiveDOM(); return; }
     el.classList.add('done');
+    this._objectiveCheeringUntil = Date.now() + 1400;
     el.querySelector('.step').textContent  = '✓';
     el.querySelector('.title').textContent = done.title;
     el.querySelector('.body').textContent = done.completion || 'Well done. Let’s keep going.';
@@ -9590,7 +9663,7 @@ class MapScene extends Phaser.Scene {
     const order = Houses.restoredCount(this.save);
     // EACH CARD HAS ITS OWN PRICE (Houses.buildCost — the House ladder, a
     // shop's stone / ore / gem per tier, the turret's flat five): a type card
-    // quotes its sole rank's price, or "from" its cheapest rank; a rank card
+    // quotes its sole rank's price, or waits for the rank screen; a rank card
     // its own. The charge at accept is the picked rank's.
     const costFor = (row) => Houses.buildCost(this.save, house, row, order);
     const costLine = (c) => {
@@ -9618,7 +9691,8 @@ class MapScene extends Phaser.Scene {
       : undefined;
     // STEP ONE — THE TYPE. Offer availability, not affordability, decides
     // what is listed; a card the player cannot pay for shows its price in
-    // red. Accept restores a sole-rank type on the spot and opens the rank
+    // red. Tapping a multi-rank type opens its rank screen. Accept restores
+    // a sole-rank type on the spot and opens the rank
     // screen for the rest (its button says which); the Hammer does the same,
     // restoring shiny or carrying on to the rank screen. `choice` is the
     // type the player came Back from, kept selected.
@@ -9627,21 +9701,21 @@ class MapScene extends Phaser.Scene {
       title: 'Building type',
       choices: types.map((t) => {
         const row = t.ranks[0], sole = soleRank(t);
-        const costs = t.ranks.map(costFor);
-        const c = sole ? costs[0] : costs.reduce((min, x) => (x.qty < min.qty ? x : min));
+        const c = sole ? costFor(sole) : null;
         const isNew = t.ranks.some((r) => Houses.isNewPick(this.save, r));
-        const line = (sole ? '' : 'from ') + costLine(c);
+        const line = sole ? costLine(c) : '';
         return {
           key: t.key,
           acceptLabel: sole ? 'Restore' : 'Choose rank',
+          onSelect: sole ? undefined : () => showTiers(t.key),
           // Name, NEW, then the price: compact, so the cards and the Restore
           // row fit the dialog without a scroll.
           label: labelFor(row, null)
             + (isNew ? `<div style="line-height:1.15;margin-top:2px">${newBadgeHTML(8)}</div>` : '')
-            + `<div style="margin-top:3px;font-size:11px">${line}</div>`,
+            + (sole ? `<div style="margin-top:3px;font-size:11px">${line}</div>` : ''),
           iconHTML: iconFor(row),
           cost: line,
-          canAfford: costs.some(affords),
+          canAfford: sole ? affords(c) : true,
           suggested: t.ranks.some((r) => r.suggested?.(this.save)),
         };
       }),
@@ -10633,6 +10707,7 @@ class MapScene extends Phaser.Scene {
     }
     const r = Inventory.add(this.save, id, n);
     if (!r.valid) return 0;                      // not a real item / n<=0: no-op, no persist/DOM
+    if (r.accepted > 0 && !silent) this.questEvent?.('pickup');
     // The wild-finds ledger (items.js homeRecipeLocked): every grant counts
     // unless its caller says it was bought, bartered, forged or crafted.
     if (!opts.notWild) (this.save.foundWild = this.save.foundWild || {})[id] = 1;
@@ -11186,6 +11261,16 @@ class MapScene extends Phaser.Scene {
     this.syncConsumableButton();
     this.syncEquipButton();
     this.syncFurnitureFlipButton();
+    this.syncSeedButton();
+  }
+
+  syncSeedButton() {
+    const seed = getSelectedSlot(this.save);
+    const existing = document.getElementById('seed-plant-btn');
+    if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) { existing?.remove(); return; }
+    const button = existing || this._hudActionButton('seed-plant-btn', { onClick: () => plantSelectedSeed(this) });
+    button.textContent = 'Till & plant';
+    button.title = 'Prepare soil and plant this seed where you stand';
   }
 
   // Facing belongs to the held preview, never to a fungible inventory stack.
@@ -11213,9 +11298,7 @@ class MapScene extends Phaser.Scene {
   // highlighted in the Relics tab. Gear selection clears selSlot; selecting
   // a carried relic clears selGear, so its Eat / Use action appears instead.
   // Equip makes the highlighted weapon fight (Gear.selectWeapon). Unequip
-  // puts a ranged weapon away: back to the sword, or bare hands if no sword
-  // is owned (Gear.unequipWeapon). An active melee weapon needs no
-  // button: melee is the default state, so there is nothing to put away.
+  // leaves the player unarmed and stops automatic attacks (Gear.unequipWeapon).
   // This is the ONE way the active weapon changes by hand; tapping a slot
   // only highlights it.
   syncEquipButton() {
@@ -11226,8 +11309,6 @@ class MapScene extends Phaser.Scene {
       && !!Gear.effectiveRelics(this.save)[g.slot];
     if (!isWeapon) { existing?.remove(); return; }
     const active = Gear.activeWeapon(this.save) === g.slot;
-    const ranged = Combat.RANGED_SLOTS.includes(g.slot);
-    if (active && !ranged) { existing?.remove(); return; }
     const tier = Gear.effectiveRelics(this.save)[g.slot]?.tier;
     const verb = active ? 'Unequip' : 'Equip';
     const label = `${this.gearIconHTML('relic', g.slot, tier, 20)} ${verb}`;
@@ -11236,8 +11317,13 @@ class MapScene extends Phaser.Scene {
     const btn = existing || this._hudActionButton('equip-btn', { onClick: () => {
       const sel = this.save.selGear;
       if (!sel || !WEAPON_SLOTS.includes(sel.slot)) return;
-      if (Gear.activeWeapon(this.save) === sel.slot) Gear.unequipWeapon(this.save);
-      else Gear.selectWeapon(this.save, sel.slot);
+      if (Gear.activeWeapon(this.save) === sel.slot) {
+        Gear.unequipWeapon(this.save);
+        this._swing = null;
+        this._staffCharge = null;
+        this._meleeWeaponSprite?.setVisible(false);
+        this.swordSwingGfx?.clear();
+      } else Gear.selectWeapon(this.save, sel.slot);
       this.markRelicsDirty();
       persistSave(this.save);
       this.buildInventoryDOM();   // the "E" badge moves; refreshes this button too

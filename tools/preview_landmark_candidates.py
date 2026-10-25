@@ -25,7 +25,7 @@ VERDANT = 'verdant-props-tileset-16x16/tiles/16x16/'
 # the full source sheets; Fantasy City's sprites do not all start on its grid.
 CANDIDATES = [
     dict(id='grave-current', group='Grave markers', title='Current · weathered stone pillar', current=True, approved=True, render_scale=1.6,
-         path='assets/Objects/Generated/pillar_c.png', rect=(0, 0, 16, 16),
+         path='extra_assets/inactive/assets/Objects/Generated/pillar_c.png', rect=(0, 0, 16, 16),
          note='Approved weathered stone pillar replacing the grave marker. Its visible stone stands 25.6 pixels tall at the 1.6× runtime scale.', provenance='generated'),
     dict(id='grave-verdant', group='Grave markers', title='Rounded grey headstone',
          path=VERDANT+'gravestone.png', rect=(0, 0, 16, 16),
@@ -37,16 +37,16 @@ CANDIDATES = [
          path=FANTASY, rect=(72, 272, 16, 16),
          note='A second complete skull-marker sprite from the row below. Suitable as an alternative look, not a clipped neighbour.', provenance='fantasy'),
     dict(id='shrine-current', group='Grove shrines', title='Previous · moss shrine', current=True, previous=True,
-         path='assets/Objects/Generated/shrine.png', rect=(0, 0, 16, 24),
+         path='extra_assets/inactive/assets/Objects/Generated/shrine.png', rect=(0, 0, 16, 24),
          note='The previous generated green-flame placeholder. It has been replaced by the approved green votive shrine.', provenance='generated'),
     dict(id='shrine-niche', group='Grove shrines', title='Arched stone niche · unused',
          path=FANTASY, rect=(136, 264, 16, 24),
          note='An unused alternative retained for comparison. The green votive was selected instead.', provenance='fantasy'),
     dict(id='shrine-statue', group='Grove shrines', title='Retired · stone figure', previous=True, render_scale=0.7,
-         path='assets/Objects/Landmarks/shrine-figure.png', rect=(0, 0, 48, 48),
+         path='extra_assets/inactive/assets/Objects/Landmarks/shrine-figure.png', rect=(0, 0, 48, 48),
          note='Retired from grove shrine usage; the stone votive is now used. The 48 × 48 frame renders at 0.7×. Copied from Royal City tile-B-03.png, rectangle (192, 240, 48, 48), source frame 84.', provenance='royal'),
     dict(id='shrine-votive', group='Grove shrines', title='Current · green stone votive', current=True, approved=True, render_scale=1.6,
-         path='assets/Objects/Landmarks/shrine-votive.png', rect=(0, 0, 16, 16),
+         path='extra_assets/inactive/assets/Objects/Landmarks/shrine-votive.png', rect=(0, 0, 16, 16),
          note='Retired from grove shrine usage; the stone votive is now used. The 16 × 16 frame renders at 1.6×. Copied from Fantasy City Above.png, rectangle (112, 256, 16, 16).' , provenance='fantasy'),
 
 ]
@@ -72,10 +72,10 @@ PILLAR_CANDIDATES = [
          path=VERDANT+'broken_column.png', rect=(0, 0, 16, 16), provenance='verdant',
          note='A complete upright ruined-column sprite, with a jagged top and short fluted sides. More weathered than the plain bollard; no emblem.'),
     dict(id='verdant-basalt', title='Previous · low basalt column', current=True, previous=True,
-         path='assets/Objects/Landmarks/headstone-basalt.png', rect=(0, 0, 16, 16), provenance='verdant',
+         path='extra_assets/inactive/assets/Objects/Landmarks/headstone-basalt.png', rect=(0, 0, 16, 16), provenance='verdant',
          note='Previously used for headstones; now superseded by the weathered stone pillar. A complete low stone column with rough facets; visible art is 8 × 10 source pixels, rendered at 1.6×.'),
     dict(id='current-grave-reference', title='Previous cross marker · reference', current=True, previous=True,
-         path='assets/Objects/Generated/headstone.png', rect=(0, 0, 16, 16), provenance='generated',
+         path='extra_assets/inactive/assets/Objects/Generated/headstone.png', rect=(0, 0, 16, 16), provenance='generated',
          note='The previous cross marker, retained for comparison. Now replaced by the weathered stone pillar.'),
 ]
 
@@ -154,7 +154,7 @@ def render(reserve, out):
             contact.append((row, image))
     styles = '''*{box-sizing:border-box}body{margin:32px auto;padding:0 24px;max-width:1380px;background:#101a15;color:#e5ecdf;font:16px system-ui}h1{font-size:34px}p{line-height:1.6}a{color:#95d7d1}nav{display:flex;flex-wrap:wrap;gap:20px}.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:18px}article{padding:20px;border:1px solid #334a3a;border-radius:12px;background:#1b2a21}article h3{margin-top:7px}small{font-size:11px;color:#b4c6b4}article:has(>small:first-child){min-width:0}.comparison{display:grid;grid-template-columns:1fr 88px;gap:8px;height:210px;align-items:end;background:#14241b;border-radius:6px;padding:8px}.large{height:194px;display:flex;align-items:center;justify-content:center}.large img{max-width:100%;object-fit:contain}.map-size{height:72px;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px}img{image-rendering:pixelated;object-fit:contain}.map-size img{object-fit:contain}details{font-size:12px;color:#b4c6b4}summary{cursor:pointer}code{display:block;margin-top:12px;overflow-wrap:anywhere}section{margin-top:34px;scroll-margin-top:16px}.intro{max-width:1000px}.note{border-left:3px solid #79a956;padding-left:16px}'''
     page = f'''<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Grave and shrine art · existing candidates</title><style>{styles}</style></head><body>
-<h1>Grave and shrine art already available</h1><div class="intro"><p>The <a href="#shrine-votive">green votive</a> is the current grove shrine art. The oversized stone figure is retired. The previous moss placeholder and unused niche remain below for reference. The low basalt column is the approved current headstone; other grave markers remain for comparison.</p><p class="note">Grove shrine and headstone art have been updated to the approved choices. These are existing local assets, not newly generated art. Large images show source pixels enlarged up to 4×. The approved sprites’ small views show their runtime render scales; other small views are silhouette comparisons.</p><p>The reserve art lives outside the checkout at <code style="display:inline">~/.artifacts/terracart-art/unused_art</code> by default; use <code style="display:inline">TERRACART_ART_ROOT</code> or <code style="display:inline">--reserve-root</code> to select another location. Full source paths, crop coordinates and local provenance notes are inside each card. The existing texture called “shrine” is a different asset: assets/Objects/Houses/wizard.png, frame 3, used for wizard houses; the grove POI is grove_shrine.</p></div>
+<h1>Grave and shrine art already available</h1><div class="intro"><p>The <a href="#shrine-votive">green votive</a> is the current grove shrine art. The oversized stone figure is retired. The previous moss placeholder and unused niche remain below for reference. The low basalt column is the approved current headstone; other grave markers remain for comparison.</p><p class="note">Grove shrine and headstone art have been updated to the approved choices. These are existing local assets, not newly generated art. Large images show source pixels enlarged up to 4×. The approved sprites’ small views show their runtime render scales; other small views are silhouette comparisons.</p><p>The reserve art lives outside the checkout at <code style="display:inline">~/.artifacts/terracart-art/unused_art</code> by default; use <code style="display:inline">TERRACART_ART_ROOT</code> or <code style="display:inline">--reserve-root</code> to select another location. Full source paths, crop coordinates and local provenance notes are inside each card. The existing texture called “shrine” is a different asset: extra_assets/inactive/assets/Objects/Houses/wizard.png, frame 3, used for wizard houses; the grove POI is grove_shrine.</p></div>
 <nav><a href="#grave-markers">Graves</a><a href="#grove-shrines">Grove shrines</a><a href="index.html">Zone preview</a><a href="grave-shrine-contact.png">Compact contact sheet</a></nav>'''
     for group, cards in sections.items():
         anchor = {'Grave markers':'grave-markers', 'Grove shrines':'grove-shrines', 'Related art · different roles':'related-art'}[group]

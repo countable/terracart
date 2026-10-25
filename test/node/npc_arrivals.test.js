@@ -35,6 +35,50 @@
     assert.eq(NPC.returnedCount(s.save), 0);
   });
 
+  test('arrivals: inactive polls skip tile occupancy and retry when residents become due or absent', () => {
+    const s = scene(), e = entry();
+    draw(s, e);
+    let scans = 0;
+    Object.defineProperty(e, 'wildplants', { configurable: true, get() { scans++; return []; } });
+    assert.eq(NPC.arrivals(s, e, 0, 0).length, 0);
+    assert.eq(scans, 0, 'no returning residents means no occupancy scan');
+    remember(s, 2);
+    const first = NPC.arrivals(s, e, 0, 0);
+    assert.eq(first.length, 4);
+    assert.eq(scans, 1, 'one occupancy snapshot serves the whole arrival batch');
+    assert.eq(NPC.arrivals(s, e, 0, 0).length, 0);
+    assert.eq(scans, 1, 'already-present residents do not rebuild occupancy');
+    const missing = e.creatures.shift();
+    const restored = NPC.arrivals(s, e, 0, 0);
+    assert.eq(restored.length, 1); assert.eq(restored[0].id, missing.id);
+    assert.eq(scans, 2, 'a removed resident is reconsidered on the next poll');
+    remember(s, 3);
+    assert.eq(NPC.arrivals(s, e, 0, 0).length, 2, 'new memories remain live');
+    assert.eq(scans, 3);
+  });
+
+  test('arrivals: keeper-only and anchorless passes need no occupancy scan', () => {
+    const s = scene({}, { home: false }), e = entry();
+    e.objects = [];
+    Object.defineProperty(e, 'wildplants', { get() { throw new Error('unnecessary occupancy scan'); } });
+    const keeper = { id: 'keeper', kind: 'npc', role: 'keeper', zoneKind: 'grove', x: 100, y: 100 };
+    const waiter = { id: 'waiter', kind: 'npc', role: 'scout', x: 120, y: 120 };
+    assert.eq(NPC.arrivals(s, e, 0, 0, [keeper, waiter]).length, 1, 'the keeper stays without a seat search');
+    remember(s, 2);
+    assert.eq(NPC.arrivals(s, e, 0, 0, [keeper, waiter]).length, 0, 'a missing anchor still postpones the waiter');
+  });
+
+  test('arrivals: lazy occupancy includes keepers seated earlier in the same pass', () => {
+    const s = scene(), e = entry();
+    remember(s, 2);
+    const keeper = { id: 'keeper', kind: 'npc', role: 'keeper', zoneKind: 'grove', x: 20.5 * CELL_M, y: 10.5 * CELL_M };
+    const waiter = { id: 'waiter', kind: 'npc', role: 'scout', x: 120, y: 120 };
+    s.save.npcVillagePins = { waiter: { x: keeper.x, y: keeper.y } };
+    const added = NPC.arrivals(s, e, 0, 0, [keeper, waiter]);
+    assert.eq(added.length, 2);
+    assert.truthy(added[1].x !== keeper.x || added[1].y !== keeper.y, 'the late-built occupancy rejects the new keeper cell');
+  });
+
   test('arrivals: residents return two a memory, to Home\'s ring or a restored house, never a wreck', () => {
     const s = scene({ restoredHouses: { house_mended: 'plain' } }), e = entry();
     draw(s, e);
@@ -67,6 +111,39 @@
     assert.eq(e.creatures.length, NPC.COUNT, 'in the end, everyone is home');
   });
 
+  test('arrivals: village waiters spread around Home with permanent wander centres', () => {
+    const s = scene({ restoredHouses: { house_mended: 'plain' } }), e = entry(); draw(s, e); remember(s, 4);
+    const back = NPC.arrivals(s, e, 0, 0);
+    assert.eq(back.length, 8);
+    assert.truthy(back.every(c => c._homeAnchor === ''), 'restored roofs do not claim waiting villagers');
+    const quadrants = new Set(back.map(c => `${Math.sign(c.homeX - HOME.x)},${Math.sign(c.homeY - HOME.y)}`));
+    assert.gte(quadrants.size, 4, 'pins fill the starting area instead of clustering at one doorway');
+    for (let i = 0; i < back.length; i++) for (let j = i + 1; j < back.length; j++) {
+      assert.gte(Math.hypot(back[i].homeX - back[j].homeX, back[i].homeY - back[j].homeY), 3 * CELL_M, 'room between wander centres');
+    }
+    const pins = JSON.stringify(back.map(c => [c.id, c.homeX, c.homeY]));
+    remember(s, 5); NPC.arrivals(s, e, 0, 0);
+    assert.eq(JSON.stringify(back.map(c => [c.id, c.homeX, c.homeY])), pins, 'new neighbours never move previous pins');
+  });
+
+  test('arrivals: saved village pins survive a rebuild with later story arrivals', () => {
+    const s = scene({ starterCratesAt: HOME }), e = entry();
+    s._starterTrailAnchor = () => HOME;
+    Starter.placeSafeAreaWarden(s, e, 0, 0);
+    const tilly = e.creatures.find(c => c.role === 'wanderer'), pin = [tilly.homeX, tilly.homeY].join(',');
+    remember(s, 9);
+    const rebuilt = entry();
+    Starter.placeSafeAreaWarden(s, rebuilt, 0, 0);
+    const same = rebuilt.creatures.find(c => c.id === tilly.id);
+    assert.eq([same.homeX, same.homeY].join(','), pin, 'Bryn and Edda cannot take the earlier pin');
+    draw(s, rebuilt); NPC.arrivals(s, rebuilt, 0, 0);
+    const pins = JSON.stringify(rebuilt.creatures.map(c => [c.id, c.homeX, c.homeY]));
+    const again = entry(); draw(s, again); NPC.arrivals(s, again, 0, 0); Starter.placeSafeAreaWarden(s, again, 0, 0);
+    const seats = new Map(again.creatures.map(c => [c.id, [c.homeX, c.homeY].join(',')]));
+    for (const c of rebuilt.creatures) assert.eq(seats.get(c.id), [c.homeX, c.homeY].join(','), 'placement order cannot move a saved pin');
+    assert.truthy(pins.length);
+  });
+
   test('arrivals: the same ledger seats the same person on the same cell, for every player', () => {
     const a = scene({ restoredHouses: { house_mended: 'plain' } }), b = scene({ restoredHouses: { house_mended: 'plain' } });
     const ea = entry(), eb = entry();
@@ -86,6 +163,7 @@
     s.save.restoredHouses.house_wreck = 'plain';
     assert.gt(NPC.arrivals(s, e, 0, 0).length, 0, 'mend it, and they come');
     assert.truthy(e.creatures.every(c => cheb(c, WRECK) <= NPC.LINGER_CELLS), 'all round the one restored house');
+    assert.truthy(e.creatures.every(c => c._homeAnchor === ''), 'these are waiters, not silent house assignments');
   });
 
   test('arrivals: a zone keeper never left', () => {

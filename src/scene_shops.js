@@ -256,10 +256,8 @@ class SceneShops {
       return;
     }
     // House routing:
-    //   HOME (starter trailer)  → the Home panel: a SELL page and a CRAFT
-    //                              page (presentHomeSell / presentHomeCraft).
-    //                              A tap holding a stack opens on Sell, an
-    //                              empty-handed tap on Craft.
+    //   HOME (starter trailer)  → Sell from the stash.
+    //   Workshop               → Craft tools and supplies.
     //   Every other house       → only its PRIMARY interaction (buy /
     //                              trade / smith / relic). Selling
     //                              anywhere but home is intentionally
@@ -267,10 +265,8 @@ class SceneShops {
     //                              come home with their haul.
     const isHome = !!house && this.isStarterShop(house);
     const sel = this.save.inv[this.save.selSlot];
-    const hasSel = sel && sel.id && (sel.count ?? 0) > 0;
     if (isHome) {
-      if (hasSel) this.presentHomeSell(sx, sy);
-      else this.presentHomeCraft(sx, sy);
+      this.presentHomeSell(sx, sy);
       return;
     }
     // A FORT runs a slot machine (presentFortSlots) — before the deal cap and
@@ -286,6 +282,10 @@ class SceneShops {
     // back to the address-derived type for legacy saves). Returns
     // 'blacksmith' for the starter smithy too, so the forge branch fires.
     const shopType = this.houseShopRole(house);
+    if (shopType === 'workshop') {
+      this.presentWorkshop(sx, sy, house);
+      return;
+    }
     if (shopType === 'wizard' && MemoryStory.towerAccess(this.save, house) !== 'open') {
       MemoryStory.visitWizard(this, () => {}, house);
       return;
@@ -301,6 +301,12 @@ class SceneShops {
     // A delivery host (plain house, no shop role) takes ONE delivery ever
     // (Delivery.isSatisfied), and render.js shows its wishlist over the roof.
     const isDeliveryHost = !castle && !isFort && !shopType && !isStarterSmith && !!house;
+    if (isDeliveryHost && Delivery.isSatisfied(this.save, house)) {
+      const resident = NPC.houseResident(this, house);
+      const visit = resident ? NPCBenefits.visit(this, resident) : null;
+      this.presentHouseFurniture(house, { resident, message: visit?.message });
+      return;
+    }
     // There is no per-hour deal cap (shops_math.js header). A deal is still
     // RECORDED against the house — it settles the shop: the shelf turns over
     // (the deal count is in shopRng's seed), the re-roll ladder drops back to
@@ -848,6 +854,7 @@ class SceneShops {
         // (keyed `house:<id>` so a house can't collide with an item id).
         const firstHere = this._bankDiscovery(`house:${house.id}`,
           'a first delivery to a new household');
+        NPC.markDelivery(this, house);
         // That ledger key IS the household's "fed" record (Delivery.isSatisfied
         // reads it): it stops asking and shows a smiling face for good.
         this._settleDeal(recordDeal, [`+${gain}`, UI_GOLD, 1, wanted[0]]);
@@ -964,6 +971,7 @@ class SceneShops {
     persistSave(this.save);
     const { wrap, box, mount, mkBtn } = this.makeModalShell('offer-modal', {
       kind: theme === 'relic' ? 'relics' : 'shop', onClose: () => {},
+      artTrimPx: 40,
       ...NPC.offerArt(this, house),
     });
     wrap.closeModal = () => { wrap.remove(); return true; };
@@ -1294,7 +1302,7 @@ class SceneShops {
     });
   }
 
-  // Home, workbenches and brewing share discovery, selection and capacity.
+  // Workshops and brewing share discovery, selection and capacity.
   // Venues supply navigation, copy, fees on recipe rows, and completion effects.
   // A station with several known recipes opens on a grid of them all; a pick
   // opens that recipe's counter, whose ‹ Back returns to the grid
@@ -1352,7 +1360,7 @@ class SceneShops {
 
   // THE RECIPE COUNTER — the one presenter for "give these ingredients, take
   // that": the crucible (presentSmeltOffer) and the forge
-  // (presentBlacksmithOffer), plus Home, workbenches and brewing through the picker.
+  // (presentBlacksmithOffer), plus Workshops and brewing through the picker.
   // It owns the held count, the coloured cost line
   // (green where the bag covers an ingredient, red where it is short), the
   // shortfall line that names the ingredient and how many more are wanted —

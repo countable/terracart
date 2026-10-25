@@ -140,7 +140,8 @@
         assert.eq(normal.tint, 0x123456, `${windup} keeps its palette`);
         assert.eq(renderTint({ ...c, pet: true, tint: 0xc5ddf2 }, now).tint, 0xc5ddf2, 'a pet keeps its saved individual palette');
         assert.falsy(normal.fill, 'no attack tint fill');
-        assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0xffd23a, 'a shiny without a vivid sheet keeps the sheen');
+        assert.eq(renderTint({ ...c, shiny: true }, now).tint, 0x123456, 'a shiny keeps its original body palette');
+        assert.eq(renderTint({ ...c, shiny: true, pet: true, tint: 0xc5ddf2 }, now).tint, 0xc5ddf2, 'shiny pets retain their saved palette');
         assert.eq(renderTint({ ...c, shiny: true, vivid: true }, now).tint, 0x123456, 'an elite wears its own (vivid) palette, not gold');
         assert.eq(renderTint({ ...c, shiny: true, vivid: true, burning: true }, now).tint, 0xff5500, 'a status still shows on an elite');
         assert.eq(renderTint({ ...c, burning: true }, now).tint, 0xff5500, 'burning remains visible');

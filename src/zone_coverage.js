@@ -2,6 +2,7 @@
 (function (root) {
   'use strict';
   const EXT = 4096;
+  const PARK_SHORE_ADJACENCY_M = 30;
   // The ray test and the row crossings are WorldGen's (one spelling for the
   // flora scatter, the scenic index and this fill).
   const contains = (rings, x, y) => root.WorldGen.pointInRings(rings, x, y);
@@ -298,7 +299,7 @@
         a.variant = V.pick(a).id; all.push(a); sorted.push(a);
         if (f.reach && !a.clipped) f.reach.push(a);
       }
-      const coastal = yield* adjoinsBeachSteps(park, beaches, margin);
+      const coastal = yield* adjoinsBeachSteps(park, beaches, PARK_SHORE_ADJACENCY_M / (N * WG.CELL_M / EXT));
       if (coastal) {
         if (a.kind === 'beach') {
           a = { ...a, kind: 'grove', code: Z.ZONE_KINDS.grove.code, generated: true, parkMeadow: true };
@@ -348,7 +349,7 @@
     // local geometry, and unanchored shores receive no finite encounter.
     if (grid) for (const a of sorted.filter(a => a.kind === 'beach')) {
       const slot = slotFor(a), lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;
-      const r = a.R * (1 + Z.EDGE_JITTER) / a.upm;
+      const r = a.R * (1 + Z.edgeJitterFor(a.kind)) / a.upm;
       for (let y = Math.max(0, Math.floor((ly - r) / unit)); y <= Math.min(N - 1, Math.floor((ly + r) / unit)); y++) {
         if ((y & 15) === 0) yield 'beach coverage';
         for (let x = Math.max(0, Math.floor((lx - r) / unit)); x <= Math.min(N - 1, Math.floor((lx + r) / unit)); x++) {
@@ -384,7 +385,7 @@
       if (!chest) continue;
       const lx = a.gx - tx * EXT, ly = a.gy - ty * EXT;
       if (WG.isBuildingTerrain(grid[Math.floor(ly / unit) * N + Math.floor(lx / unit)])) continue;
-      const r = a.R * (1 + Z.EDGE_JITTER) / a.upm;
+      const r = a.R * (1 + Z.edgeJitterFor(a.kind)) / a.upm;
       if (!(r >= 0) || lx - r < 0 || ly - r < 0 || lx + r >= EXT || ly + r >= EXT) continue;
       if (associated.some(p => key(p.a) === key(a) &&
         (p.g.x0 - margin < 0 || p.g.y0 - margin < 0 || p.g.x1 + margin >= EXT || p.g.y1 + margin >= EXT))) continue;

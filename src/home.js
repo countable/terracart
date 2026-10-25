@@ -52,6 +52,29 @@ const HomeArea = {
     return dx * dx + dy * dy <= radiusM * radiusM;
   },
 
+  // Per-player clearance, applied after generation so shared terrain stays
+  // deterministic. Test the nearest point of the cell, including its edges.
+  suppressExclusionRock(entry, tx, ty, tileEdgeM) {
+    if (!this.worldM || (entry.depth || 0) !== 0 || !entry.grid) return 0;
+    const n = entry.cellsPerEdge, cellM = tileEdgeM / n;
+    let changed = 0;
+    for (let i = 0; i < entry.grid.length; i++) {
+      if (entry.grid[i] !== WorldGen.T.EXCLUSION_ROCK) continue;
+      const x = tx * tileEdgeM + (i % n) * cellM;
+      const y = ty * tileEdgeM + Math.floor(i / n) * cellM;
+      const nearX = Math.max(x, Math.min(x + cellM, this.worldM.x));
+      const nearY = Math.max(y, Math.min(y + cellM, this.worldM.y));
+      if (!this.isNear(nearX, nearY, 50)) continue;
+      const original = entry.variantBaseGrid?.[i];
+      entry.grid[i] = original != null && original !== WorldGen.T.EXCLUSION_ROCK
+        ? original : WorldGen.T.RESIDENTIAL;
+      changed++;
+    }
+    return changed;
+  },
+
+  storeys(save) { return save?.homeStoreys === 2 ? 2 : 1; },
+
   // ── Home's footing ────────────────────────────────────────────────────
   // Where a placed Home sits, in cell offsets from the point it is placed
   // for (the player's first fix, or where they stand for "Move Home here"):

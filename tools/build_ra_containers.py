@@ -5,7 +5,7 @@ import json
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'assets/ArtTrials/RogueProps/containers'
 rows=json.loads((OUT/'source/manifest.json').read_text())
-keys={'assets/Objects/SelectedProps/clay_pot.png':'clay_pot','assets/Objects/Approved/chest-tiers.png':'chest','assets/Objects/Wilderness/wood.png':'wood'}
+keys={'assets/Objects/SelectedProps/clay_pot.png':'clay_pot','extra_assets/inactive/assets/Objects/Approved/chest-tiers.png':'chest','assets/Objects/Wilderness/wood.png':'wood'}
 assets={};bounds={}
 for source,key in keys.items():
  im=Image.open(ROOT/source).convert('RGBA');fw=fh=16

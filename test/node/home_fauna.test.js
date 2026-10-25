@@ -5,6 +5,7 @@
     const entries = groups.map(creatures => ({ creatures }));
     WorldGen.tileCache = new Map(entries.map((entry, i) => [`${i},0`, entry]));
     const scene = { depth: 0, save: { caught: [] }, startWorldM: { x: 0, y: 0 }, _pestFreeZone: () => null };
+    Quests.starterSkipAll(scene.save);  // ordinary fauna policy after the introduction
     try { run(scene, entries); } finally { WorldGen.tileCache = previous; }
   }
   const active = (scene, c) => EnemySpawns.surfaceActive(scene, c);
@@ -35,6 +36,17 @@
       EnemySpawns.refreshHomeFauna(scene);
       for (const c of creatures) assert.falsy(active(scene, c), `${c.kind} is hidden by Home`);
       for (const c of chickens) assert.truthy(active(scene, c), 'chickens are not capped');
+    });
+  });
+
+  test('home fauna: chicken suppression during guided lessons lifts without replacing the animal', () => {
+    const chicken = animal('chicken', 'waiting-chicken', 60);
+    fixture([[chicken]], scene => {
+      delete scene.save.starter;
+      assert.falsy(active(scene, chicken));
+      Quests.starterSkipAll(scene.save);
+      assert.truthy(active(scene, chicken));
+      assert.eq(chicken.id, 'waiting-chicken');
     });
   });
 
@@ -163,6 +175,87 @@
       assert.eq(creatures.length, 3, 'hidden candidates remain available outside the circle');
       assert.eq(creatures.map(c => `${c.id}:${c.kind}:${c.x},${c.y}`).join('|'), identity);
       assert.eq(scene.save.caught.length, 0, 'filtering never records a catch');
+    });
+  });
+
+  test('home fauna: cached refresh tracks live deer movement, taming, death and capture', () => {
+    const incumbent = animal('deer', 'resident', 80), visitor = animal('deer', 'visitor', 260);
+    const pest = animal('deer', 'pest_deer_entering', 270);
+    fixture([[incumbent, visitor, pest]], scene => {
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), incumbent.id);
+      visitor.x = 240;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), incumbent.id, 'an ordinary entrant does not displace the resident');
+      pest.x = 230;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), pest.id, 'a moving pest takes priority without array changes');
+      assert.truthy(incumbent._surfaceInactive, 'the displaced resident is stamped immediately');
+      assert.falsy(pest._surfaceInactive);
+      pest.pet = true;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), incumbent.id, 'a tamed pest releases the slot');
+      assert.falsy(pest._surfaceInactive, 'the former incumbent becomes a visible pet');
+      incumbent.x = 260;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), visitor.id, 'a departed deer releases the slot');
+      visitor._hp = 0;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), null);
+      visitor._hp = 1;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), visitor.id, 'a newly eligible cached candidate is reconsidered');
+      scene.save.caught.push(visitor.id);
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), null);
+    });
+  });
+
+  test('home fauna: cached refresh detects new tiles, same-length tail replacement and Home changes', () => {
+    const incumbent = animal('deer', 'resident', 80), rabbit = animal('rabbit', 'rabbit', 1000);
+    fixture([[incumbent, rabbit]], (scene, entries) => {
+      EnemySpawns.refreshHomeFauna(scene, false);
+      const pest = animal('deer', 'pest_deer_replacement', 80);
+      entries[0].creatures[1] = pest;
+      assert.eq(EnemySpawns.refreshHomeFauna(scene, false), pest.id);
+      WorldGen.tileCache.set('new', { creatures: [rabbit] });
+      EnemySpawns.refreshHomeFauna(scene, false);
+      assert.falsy(rabbit._surfaceInactive);
+      scene._starterTrailAnchor = () => ({ x: 1000, y: 0 });
+      EnemySpawns.refreshHomeFauna(scene, false);
+      assert.truthy(rabbit._surfaceInactive, 'changing Home updates frozen fauna too');
+      scene.depth = 1;
+      EnemySpawns.refreshHomeFauna(scene, false);
+      assert.falsy(rabbit._surfaceInactive, 'leaving the surface clears the old suppression');
+    });
+  });
+
+  test('home fauna: replacing a discarded-variant mask refreshes frozen eligibility', () => {
+    const rabbit = animal('rabbit', 'outside-home', 1000);
+    fixture([[rabbit]], (scene, entries) => {
+      scene.tileEdgeM = 2000;
+      const entry = entries[0];
+      entry.cellsPerEdge = 10;
+      entry.variantDiscarded = new Uint8Array(100);
+      WorldGen.tileCache.clear();
+      WorldGen.tileCache.set(WorldGen.tileKey(0, 0), entry);
+      EnemySpawns.refreshHomeFauna(scene, false);
+      assert.falsy(rabbit._surfaceInactive);
+      entry.variantDiscarded = new Uint8Array(100);
+      entry.variantDiscarded[5] = 1;
+      EnemySpawns.refreshHomeFauna(scene, false);
+      assert.truthy(rabbit._surfaceInactive, 'changed mask applies without a creature-array mutation');
+      entry.variantDiscarded = new Uint8Array(100);
+      EnemySpawns.refreshHomeFauna(scene, false);
+      assert.falsy(rabbit._surfaceInactive, 'removing the policy clears its suppression');
+    });
+  });
+
+  test('home fauna: warm simulation refresh avoids eligibility work for distant frozen fauna', () => {
+    const far = Array.from({ length: 1000 }, (_, i) => animal('rabbit', `far-${i}`, 1000 + i));
+    const deer = animal('deer', 'resident', 80);
+    fixture([[deer, ...far]], scene => {
+      EnemySpawns.refreshHomeFauna(scene, false);
+      const original = HomeVariant.allows;
+      let asks = 0;
+      HomeVariant.allows = (...args) => { asks++; return original(...args); };
+      try {
+        for (let i = 0; i < 30; i++) EnemySpawns.refreshHomeFauna(scene, false);
+        assert.eq(asks, 0, 'stable distant bodies do not repeat per-player eligibility every frame');
+        assert.eq(scene._homeFaunaDeerId, deer.id);
+      } finally { HomeVariant.allows = original; }
     });
   });
 

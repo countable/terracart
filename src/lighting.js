@@ -665,17 +665,13 @@
       dimA = dimA + (NIGHT_DIM_A - dimA) * night;
       dimColour = scaleColour(dimColour, 1 - (1 - NIGHT_TINT_KEEP) * night);
     }
-    // Dreamland's source palette needs neutral daylight, not the biome's
-    // brown wash. Keep night/cave falloff, hazard masks and lamp radii intact.
-    const dreamland = depth === 0 && typeof DreamlandObjects !== 'undefined' && DreamlandObjects.enabled;
-    if (dreamland) dimColour = atLuminance(0xffffff, lum(dimColour));
     const farA = 1 - (1 - dimA) * (1 - FALLOFF_A);
     const floor0 = mixToWhite(dimColour, farA);
     // Lift surface night ambient by 10%, blending back to the same noon.
     // Caves retain their existing ambient floor.
     const nightLum = AMBIENT_K * lum(floor0) * (depth > 0 ? 1 : NIGHT_AMBIENT_GAIN);
     const targetLum = depth > 0 ? nightLum
-      : nightLum + ((dreamland ? 0.54 : AMBIENT_DAY_LUM) - nightLum) * (1 - night);
+      : nightLum + (AMBIENT_DAY_LUM - nightLum) * (1 - night);
     const ambient = atLuminance(floor0, targetLum);
     const edge = (1 - dimA) * FALLOFF_A * PLAYER_OUTPUT_K;
     const lit = Math.max(0, (1 - litDim(depth)) - (1 - farA)) * PLATEAU_OUTPUT_K;
@@ -1634,17 +1630,25 @@
     if (!c) c = scene._lightReachComposite = document.createElement('canvas');
     if (c.width !== W) c.width = W;
     if (c.height !== H) c.height = H;
-    const m = c.getContext('2d');
-    m.clearRect(0, 0, W, H);
-    m.globalCompositeOperation = 'lighter';
-    m.imageSmoothingEnabled = false;
     const item = contribution.items[0];
-    m.drawImage(item.canvas, 0, 0);
-    m.globalAlpha = 1;
-    m.globalCompositeOperation = 'source-in';
-    m.fillStyle = plateauFill(m, prof, ps.x - ox, ps.y - oy, r0);
-    m.fillRect(0, 0, W, H);
-    m.globalCompositeOperation = 'source-over';
+    // World lights and the cover mask can move while the player-centred
+    // gradient stays identical. Retain its coloured mask, not just the circle.
+    const key = `${W},${H},${ps.x - ox},${ps.y - oy},${r0},${item.revision}`
+      + `|${prof.lit},${prof.edge},${prof.litColour}`;
+    if (c._reachKey !== key || c._reachSource !== item.canvas) {
+      const m = c.getContext('2d');
+      m.clearRect(0, 0, W, H);
+      m.globalCompositeOperation = 'lighter';
+      m.imageSmoothingEnabled = false;
+      m.drawImage(item.canvas, 0, 0);
+      m.globalAlpha = 1;
+      m.globalCompositeOperation = 'source-in';
+      m.fillStyle = plateauFill(m, prof, ps.x - ox, ps.y - oy, r0);
+      m.fillRect(0, 0, W, H);
+      m.globalCompositeOperation = 'source-over';
+      c._reachKey = key;
+      c._reachSource = item.canvas;
+    }
     ctx.globalCompositeOperation = 'lighter';
     ctx.globalAlpha = REACH_OUTPUT_K;
     ctx.imageSmoothingEnabled = false;
@@ -1996,8 +2000,14 @@
   // The walls' height: the active building's drawn model (building_overlay.js
   // records it), else the shared prism house height.
   function indoorLift(scene, HA, indoors) {
-    const drawn = scene._proceduralBuildings?.get(indoors.buildingKey || scene.save?.starterShopId)?.height;
-    return liftPx(scene, { dyPx: -(drawn || HA.wallPx) });
+    const key = indoors.buildingKey || scene.save?.starterShopId;
+    const model = scene._proceduralBuildings?.get(key);
+    const home = key === scene.save?.starterShopId;
+    const storeys = home ? HomeArea.storeys(scene.save) : 1;
+    // The exterior cabin's height is not the roofless room's height. On
+    // entry or upgrade, ignore a model from the previous exterior/storey.
+    const drawn = home ? (model?.storeys === storeys ? model.interiorHeight : null) : model?.height;
+    return liftPx(scene, { dyPx: -(drawn || HA.wallPx * storeys) });
   }
   // What the frame key carries for the room: the house and the lift the cut
   // is swept by, which turns with the heading.

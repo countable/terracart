@@ -29,6 +29,7 @@
   // shopInteract(). ink: lettering colour on the wood sign, picked to read on
   // the SHOP_INK_BG dark-wood background (render.js).
   const SHOP_CONFIG = {
+    workshop: { ink: '#e4be82' },
     blacksmith: { ink: '#d8d8d8' },  // steel
     shop:     { ink: '#ff7a6a' },  // red
     trader:     { ink: UI_GOLD },    // gold
@@ -53,6 +54,7 @@
   // shopOrder (older saves' 'market' is migrated on load, save.js migrateSave).
   const ROLE_LABEL = {
     blacksmith: 'Blacksmith',
+    workshop: 'Workshop',
     shop:     'Shop',          // a themed shop with no theme to name (see THEME_LABEL)
     trader:     'Trader',
     wizard:     'Wizard',

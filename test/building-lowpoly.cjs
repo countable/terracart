@@ -63,14 +63,14 @@ for(const role of Object.keys(api.ROLES)){
  const mesh=recipe.shape?api.specialGeometry(points,recipe):recipe.terraced?api.styleGeometry(points,recipe.style,recipe):api.geometry(points,recipe.variant||'ridge',recipe.stories*15.6+2.5,5);
  // Keep structural geometry bounded separately from clipped floor shadows.
  assert(mesh.faces.filter(f=>f.castShadow).length<1000,role+' bounded shadows');
- assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?700:300),role+' bounded geometry');
+ assert(mesh.faces.length>0&&mesh.faces.filter(f=>!f.castShadow).length<(role==='wreck'?1600:300),role+' bounded geometry');
  assert(mesh.faces.every(f=>f.points.every(p=>[p.x,p.y,p.z,p.u,p.v].every(Number.isFinite))),role+' finite vertices');
  if(role==='wizard'||role==='turret'){
   const large=api.specialGeometry(points.map(p=>({x:p.x*3,y:p.y*3})),recipe);
   const width=m=>Math.max(...m.ring.map(p=>p.x))-Math.min(...m.ring.map(p=>p.x));
   assert(Math.abs(width(mesh)-width(large))<1e-8,role+' ignores footprint dimensions');
  }
- if(role==='wreck'){assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'broken plinth has no roof or framing');assert(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=2)),'all wreck geometry stays low');}
+ if(role==='wreck'){assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'broken plinth has no roof or framing');assert(mesh.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=14)),'all wreck geometry stays low');}
 }
 console.log('All role variants: bounded geometry, footprint-independent towers, broken plinth passed.');
 // Every slope is tiled from its own eave (v grows downhill, courses level),
@@ -107,7 +107,7 @@ console.log('Awning skirt orientation passed.');
 const wreckPoints=[{x:0,y:0},{x:120,y:0},{x:120,y:100},{x:0,y:100}];
 const wreck=api.specialGeometry(wreckPoints,api.recipeFor('wreck'));
 assert(!wreck.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),'no roof remnants or framing survive');
-assert(wreck.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=2)),'wall crowns and rubble stay at most two pixels high');
+assert(wreck.faces.every(f=>f.points.every(p=>p.z>=0&&p.z<=14)),'wall crowns and rubble stay at most fourteen pixels high');
 assert(wreck.faces.some(f=>f.wallTop),'walls have thickness: broken tops exist');
 const crowns=wreck.faces.filter(f=>f.wallTop&&!f.rubble);
 assert(crowns.every(f=>f.rawUV),'top faces carry explicit masonry texture coordinates');
@@ -161,8 +161,20 @@ for(const fixture of fixtures){
    assert(contains(points,p),fixture.name+': floor triangle does not bridge a courtyard');
   }
  }
- assert(mesh.faces.every(f=>f.points.every(p=>Number.isFinite(p.z)&&p.z>=0&&p.z<=2)),
+ assert(mesh.faces.every(f=>f.points.every(p=>Number.isFinite(p.z)&&p.z>=0&&p.z<=14)),
   fixture.name+': narrow returns never fall back to full-height walls');
+ const border=mesh.faces.filter(f=>f.footprintBorder);
+ assert(border.length>0,fixture.name+': the footprint has a ground border');
+ const perimeter=points.reduce((sum,p,i)=>{const q=points[(i+1)%points.length];return sum+Math.hypot(q.x-p.x,q.y-p.y);},0);
+ assert(border.length<=points.length*4+Math.ceil(perimeter/64)*2,fixture.name+': border uses strips rather than individual dash polygons');
+ assert(border.every(f=>f.opacity===.72),fixture.name+': border stays translucent');
+ const edgeDistance=p=>Math.min(...points.map((a,i)=>{
+  const b=points[(i+1)%points.length],dx=b.x-a.x,dy=b.y-a.y;
+  const t=Math.max(0,Math.min(1,((p.x-a.x)*dx+(p.y-a.y)*dy)/(dx*dx+dy*dy)));
+  return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);
+ }));
+ assert(border.every(f=>f.debris&&f.points.every(p=>p.z===.01&&edgeDistance(p)<=2.50001)),
+  fixture.name+': the five-pixel ground stroke follows every concave edge without spikes');
  assert(!mesh.faces.some(f=>f.standingRoof||f.fallenRoof||f.rafter||f.beam||f.steel),
   fixture.name+': only masonry and ground rubble remain');
 }
@@ -178,19 +190,13 @@ assert.equal(damage('plinth-stable'),damageBefore,'rebuilding after cache evicti
 assert(new Set(Array.from({length:8},(_,i)=>damage('plinth-house:'+i))).size>=4,
  'same-sized houses have distinct deterministic damage');
 const thicknesses=[];
-for(const f of crowns){
- const [a,b,c]=f.points;
- if(Math.hypot(a.x-b.x,a.y-b.y)<1e-6)continue;
- // The first top triangle follows an outer edge, then crosses the wall.
- if(!wreckPoints.some((p,i)=>{
-  const q=wreckPoints[(i+1)%wreckPoints.length];
-  const cross=r=>(q.x-p.x)*(r.y-p.y)-(q.y-p.y)*(r.x-p.x);
-  return Math.abs(cross(a))<1e-6&&Math.abs(cross(b))<1e-6;
- }))continue;
- if(wreckPoints.some(p=>Math.hypot(p.x-b.x,p.y-b.y)<1e-6))continue;
- thicknesses.push(Math.hypot(c.x-b.x,c.y-b.y));
+for(const piece of new Set(crowns.map(f=>f.piece))){
+ const edge=wreck.pieces[piece],dx=edge.b.x-edge.a.x,dy=edge.b.y-edge.a.y,len=Math.hypot(dx,dy);
+ const across=crowns.filter(f=>f.piece===piece).flatMap(f=>f.points).map(p=>(-dy*p.x+dx*p.y)/len);
+ thicknesses.push(Math.max(...across)-Math.min(...across));
 }
-assert(thicknesses.length>0&&thicknesses.every(w=>w>=2.5&&w<=3.5),'ordinary wall prisms are about three pixels thick');
+assert(thicknesses.length>0&&thicknesses.every(w=>w>=7.5&&w<=8.5),'chipped wall caps retain the study’s eight-pixel thickness');
+assert(crowns.every(f=>f.chippedCap),'standing caps have clipped corners instead of rectangular strip tops');
 // Reusing the same identity with a street on a different side must move
 // the opening without changing its broad, unobstructed entrance.
 for(const street of [
@@ -318,3 +324,9 @@ for(const end of wreck.faces.filter(f=>f.wallEnd)){
   assert(nx*(x-a.x)+ny*(y-a.y)<1e-6,'broken wall end faces the exposed side');}
 }
 assert(exposedEnds>0,'checks exposed wall-end winding');
+
+// Gaps now live in the shared alpha mask, not extra geometry.
+const dashAtlas=require('../tools/sprite_audit.js').decodePng(fs.readFileSync('assets/Objects/BuildingMaterials/wreck-plinth.png'));
+const dashAlpha=Array.from({length:64},(_,x)=>dashAtlas.data[(140*dashAtlas.w+400+x)*4+3]);
+assert(dashAlpha.filter(a=>a===0).length>=30&&dashAlpha.filter(a=>a===255).length>=25,
+ 'shared border texture has substantial clear gaps and solid dashes');

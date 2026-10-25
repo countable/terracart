@@ -78,6 +78,18 @@
     assert.eq(s.hits.length, 0);
   });
 
+  test('melee: manual unequip keeps a nearby catch target alive until re-equipped', () => {
+    const s = scene(), target = foe('catch-me', 1);
+    Gear.unequipWeapon(s.save);
+    tick.call(s, [target], 0, 0);
+    assert.eq(s.hits.length, 0, 'owning a sword cannot attack with an empty hand');
+    assert.eq(s.startCombat(target), false, 'an explicit melee attempt respects unequip too');
+    assert.falsy(s.save.caught?.includes(target.id), 'target remains available for feeding/catching');
+    assert.truthy(Gear.selectWeapon(s.save, 'sword'));
+    tick.call(s, [target], 0, 0);
+    assert.eq(s.hits.length, 1, 'explicit equip resumes normal strikes');
+  });
+
   test('death: cancels overdue work without completion or refund, releases catch, clears attacks', () => {
     const s = scene(), caught = { _beingCaught: true };
     s._workProgress = { startT: 1, durationMs: 100, energyRefund: 10, flee: caught,

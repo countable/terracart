@@ -6,6 +6,21 @@
   const DURATION_MS = 24 * 60 * 60 * 1000;
   const SPEECH_MS = 8000;
   const LINES = ['Arr!', 'Shiver me timbers!'];
+  const memberships = new WeakMap();
+
+  // Species is fixed at spawn; motion and combat state remain live on the
+  // retained bodies. Runtime membership changes append/remove entries or
+  // replace the array; an in-place middle replacement must replace the array
+  // too. Transfers also change its length or tail.
+  function members(entry) {
+    const source = entry.creatures;
+    if (!source?.length) return [];
+    const last = source[source.length - 1], cached = memberships.get(entry);
+    if (cached?.source === source && cached.length === source.length && cached.last === last) return cached.pirates;
+    const pirates = source.filter(isPirate);
+    memberships.set(entry, { source, length: source.length, last, pirates });
+    return pirates;
+  }
 
   function say(scene, c) {
     if ((!isPirate(c) && c?.kind !== 'pirate_mercenary') || !scene.flashAtWorld) return false;
@@ -124,9 +139,11 @@
     }
     const pc = scene.playerToWorldCell();
     let candidate = null;
-    WorldGen.forEachItemNear('creatures', pc.tx, pc.ty, c => {
-      sync(scene, c);
-      if (!candidate && isPirate(c) && inReach(scene, c) && available(scene, c)) candidate = c;
+    forEachLoadedTile(pc.tx, pc.ty, entry => {
+      for (const c of members(entry)) {
+        sync(scene, c);
+        if (!candidate && inReach(scene, c) && available(scene, c)) candidate = c;
+      }
     });
     if (!candidate) scene._pirateEncounterOffered = false;
     if (candidate && !scene._pirateEncounterOffered && peaceUntil(scene) <= Date.now()

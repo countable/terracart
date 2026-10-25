@@ -192,8 +192,8 @@ test('traps: wasteland is no longer trap ground (only paths and park edges)', ()
       { type: 2, tags: { class: 'minor' }, geom: [line([[0, 10], [CPE - 1, 10]])] }] },
   ];
   const r = rasterize(layers);
-  assert.gt(Array.from(r.grid).filter(t => t === T.EXCLUSION_ROCK).length, 0,
-    'restricted railway ground becomes Excluded solid rock');
+  assert.gt(Array.from(r.grid).filter(t => t === T.WASTELAND).length, 0,
+    'restricted railway ground keeps its wasteland surface');
   assert.eq(Traps.spawnSurface(r.grid, r.roadClass, CPE, CPE, 0, 0, TILE_EDGE_M, optsFor(r), 25).length, 0,
     'waste ground holds no traps');
 });

@@ -214,7 +214,12 @@ const HeadingUp = {
       let diff = target - scene.mapRot;
       diff = Math.atan2(Math.sin(diff), Math.cos(diff));
       const dead = HeadingUp.DEAD_DEG * Math.PI / 180;
-      if (Math.abs(diff) > dead || scene._huTurning) {
+      if (manual == null && scene._confusedLoop) {
+        // The confused compass already turns at a fixed rate. Sensor smoothing
+        // and its dead zone would turn that slow spin into visible pulses.
+        scene.mapRot = Math.atan2(Math.sin(target), Math.cos(target));
+        scene._huTurning = false;
+      } else if (Math.abs(diff) > dead || scene._huTurning) {
         scene._huTurning = Math.abs(diff) > dead / 4;
         let step = diff * (1 - Math.exp(-dt / HeadingUp.TAU_S));
         const max = HeadingUp.MAX_DEG_S * Math.PI / 180 * dt;

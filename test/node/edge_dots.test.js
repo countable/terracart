@@ -17,6 +17,7 @@
       startWorldM: { x: 0, y: 0 }, playerM: { x: 0, y: 0 },
       viewLeft: 0, viewTop: 96, viewSize: 352, viewCenterX: 176, viewCenterY: 272,
       playerScreen: () => ({ x: 176, y: 272 }),
+      worldMetersToScreen(x, y) { const p = this.playerScreen(); return { x: p.x + x * 10, y: p.y + y * 10 }; },
       facingGfx: { fillStyle() {}, fillCircle(x, y, r) { circles.push({ x, y, r }); } },
       circles, save: {}, depth: 0,
     }, methods);
@@ -27,7 +28,7 @@
     const labelled = [];
     s._drawEdgeDotLabel = (row, target, marker, point) => labelled.push({ row, marker, point });
     const point = s._drawEdgeDot(40, 0, lifted.STARTER_MARK.color);
-    s._drawEdgeDotLabel(lifted.STARTER_MARK, {}, { label: lifted.starterGoalLabel({ event: 'till' }, { x: 1, y: 1 }) }, point);
+    s._drawEdgeDotLabel(lifted.STARTER_MARK, {}, { label: lifted.starterGoalLabel({ event: 'plant' }, { x: 1, y: 1 }) }, point);
     assert.truthy(point && s.circles.length === 2, 'drawn as the rim dot');
     assert.eq(labelled[0].row.source, 'Tutorial');
     assert.eq(labelled[0].marker.label, 'Plot');
@@ -56,7 +57,7 @@
     s._drawGpsRimDot();
     assert.eq(s.circles.length, 2, 'off the map: keyline and dot');
     assert.eq(s.circles[1].r, DOTS.GPS_RIM_DOT.r, 'a micro dot, smaller than a find\'s');
-    assert.lt(DOTS.GPS_RIM_DOT.r, DOTS.EDGE_DOT_R);
+    assert.eq(DOTS.EDGE_DOT_R * 2, 6);
     assert.eq(s.circles[0].r, DOTS.GPS_RIM_DOT.r + 1, 'its keyline a pixel wider');
     assert.truthy(s.circles[1].x > 300 && Math.abs(s.circles[1].y - 272) < 1, 'on the right rim, toward the fix');
     // Zoomed in, the same screen point is off the map sooner.
@@ -96,10 +97,10 @@
     assert.truthy(at > 0, 'update draws the markers');
     assert.truthy(SCENE_SRC.slice(at - 300, at).includes('this.facingGfx.clear();'), 'facingGfx cleared just before');
   });
-  test('edge labels: source and destination stay inside the map and stack without overlap', () => {
+  test('edge labels: source and destination stay beside their dot in its colour', () => {
     const s = fixture();
-    s.add = { text() {
-      return { width: 60, height: 28,
+    s.add = { text(x, y, value, style) {
+      return { width: 60, height: 28, color: style.color,
         setDepth() { return this; }, setOrigin() { return this; },
         setText(value) { this.text = value; return this; },
         setPosition(x, y) { this.x = x; this.y = y; return this; },
@@ -113,7 +114,10 @@
     assert.eq(s._edgeDotLabels.wayfarerCompass.text, 'Wayfinder\nKeeper', 'a neighbour\'s mark names its speaker, not the Wayfarer\'s post');
     const [a, b] = s._edgeDotLabelBounds;
     assert.truthy(a.right <= point.right && a.bottom <= point.bottom);
-    assert.truthy(b.bottom <= a.top && b.top >= point.top);
+    assert.eq(b.top, a.top, 'crowded labels stay attached instead of stacking away');
+    assert.eq(point.x - a.right, 8, 'label sits eight pixels from its dot');
+    assert.eq(s._edgeDotLabels.telescopeCompass.color, '#ffd24a');
+    assert.eq(s._edgeDotLabels.wayfarerCompass.color, '#4488ff');
   });
   test('edge dots: tapping toggles only the nearest label and survives redraws', () => {
     const s = fixture();
@@ -207,14 +211,16 @@
       }
     } finally { HeadingUp.enabled = wasEnabled; }
   });
-  test('edge dots: close targets retain bearings and a peek uses the player location', () => {
+  test('edge dots: close targets mark their actual location through a peek', () => {
     const s = fixture();
     s.playerScreen = () => ({ x: 80, y: 190 });
     s._drawEdgeDot(2, 1, 0xffd24a);
-    assert.eq(s.circles[1].x, 347);
-    assert.eq(s.circles[1].y, 323.5);
+    assert.eq(s.circles[1].x, 100);
+    assert.eq(s.circles[1].y, 200);
     s._drawEdgeDot(0, 0, 0xffd24a);
-    assert.eq(s.circles.length, 2, 'no undefined bearing when already on target');
+    assert.eq(s.circles.length, 4, 'target at the player remains marked');
+    assert.eq(s.circles[3].x, 80);
+    assert.eq(s.circles[3].y, 190);
   });
   test('edge dots: clipped map boundaries stay within the screen', () => {
     const s = fixture();

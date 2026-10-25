@@ -36,7 +36,7 @@ function makeGfx() {
     fillPoly(pts, color, alpha) { this.ops.push({ op: 'fill', pts: pts.map(p => ({ x: p.x, y: p.y })), color, alpha }); },
     strokePoly(pts, width, color) { this.ops.push({ op: 'stroke', pts, width, color }); },
     insetStroke(pts, width, color, dash) { this.ops.push({ op: 'inset', pts, width, color, dash }); },
-    texturePoly(pts, tier, holes) { this.ops.push({ op: 'texture', pts, tier, holes }); },
+    texturePoly(pts, tier, holes, scale) { this.ops.push({ op: 'texture', pts, tier, holes, scale }); },
     blobsPoly(pts, blobs, ox, oy, color, alpha) {
       this.ops.push({ op: 'slime', pts, blobs, ox, oy, color, alpha });
     },
@@ -888,6 +888,11 @@ test('building overlay: canvas adapter clears and fills the full padded backing 
     assert.eq(fills[0][3], size);
     assert.eq(fills[1][2], size, 'damage pattern covers padded canvas');
     assert.eq(fills[1][3], size);
+    const scales = [];
+    ctx.scale = (...args) => scales.push(args);
+    target.texturePoly(points, 11, [], 0.6);
+    assert.eq(scales[0].join(','), '0.6,0.6', 'shrink the floor repeat, not its clip');
+    assert.eq(fills[2][2], size / 0.6, 'scaled fill still covers the full backing store');
     const translations = [];
     ctx.translate = (x, y) => translations.push([x, y]);
     for (const offset of [0, CELL_PX, 256, -CELL_PX]) {
@@ -1622,8 +1627,25 @@ test('building overlay: Home is walls with a doorway under a roof, from its foot
   // The floor is still the house floor on the canvas, outlined, no sprite.
   const g = scene.buildingGeomGfx;
   assert.eq(g.only('texture').length, 1, 'its floor carries the house material');
+  assert.eq(g.only('texture')[0].scale, 0.6, 'Home floor texture is 40% smaller');
   assert.eq(g.only('stroke').length, 1, 'and the outline');
   assert.eq(g.only('slime').length, 0, 'never dilapidated');
+  clearTiles();
+});
+test('building overlay: Home upgrade rebuilds both walls and mask height without moving its footprint', () => {
+  clearTiles();
+  putShapes(0, 0, [homeShape({ x: 7.5, y: 15 })]);
+  const { scene } = makePerspectiveScene();
+  scene.save = { starterShopId: 'starter_trailer' };
+  scene.homeInside = () => true;
+  BuildingOverlay.draw(scene);
+  const before = scene._wallPerspective.home.blocks.map(b => b.points);
+  assert.eq(scene._proceduralBuildings.get('starter_trailer').interiorHeight, HomeArea.HOUSE.wallPx);
+  scene.save.homeStoreys = 2;
+  BuildingOverlay.draw(scene);
+  assert.eq(scene._proceduralBuildings.get('starter_trailer').interiorHeight, HomeArea.HOUSE.wallPx * 2);
+  assert.eq(JSON.stringify(scene._wallPerspective.home.blocks.map(b => b.points)), JSON.stringify(before));
+  assert.truthy(scene._wallPerspective.home.blocks.every(b => b.top === HomeArea.HOUSE.wallPx * 2));
   clearTiles();
 });
 test('building overlay: inside Home the roof comes off and the walls show their tops', () => {
@@ -1726,6 +1748,35 @@ test('building overlay: a concave mall does not hide a different building with m
   assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === 11), 'different source shell is preserved');
   assert.truthy(scene.buildingGeomGfx.only('texture').some(t => t.tier === 9), 'retail floor also draws');
   clearTiles();
+});
+
+test('building overlay: low-poly Home upgrade uses two-storey geometry inside and outside', () => {
+  clearTiles();
+  const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
+    update: BuildingLowPoly.update, clear: BuildingLowPoly.clear };
+  const added = [];
+  BuildingLowPoly.active = () => true;
+  BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
+  BuildingLowPoly.add = (scene, pts, recipe) => {
+    added.push(recipe); return { faces: [1], height: recipe.stories * 18 };
+  };
+  try {
+    putShapes(0, 0, [homeShape({ x: 7.5, y: 15 })]);
+    const { scene } = makePerspectiveScene();
+    scene.save = { starterShopId: 'starter_trailer' };
+    scene.homeInside = () => true;
+    BuildingOverlay.draw(scene);
+    assert.eq(added.at(-1).stories, 1);
+    assert.eq(scene._proceduralBuildings.get('starter_trailer').interiorHeight, 18 * BuildingLowPoly.LOOK.heightScale);
+    scene.save.homeStoreys = 2;
+    BuildingOverlay.draw(scene);
+    assert.eq(added.at(-1).stories, 2);
+    assert.eq(scene._proceduralBuildings.get('starter_trailer').interiorHeight, 36 * BuildingLowPoly.LOOK.heightScale);
+    scene.homeInside = () => false;
+    BuildingOverlay.draw(scene);
+    assert.eq(added.at(-1).stories, 2);
+    assert.falsy(added.at(-1).authored, 'the one-storey cabin cannot replace the upgraded geometry');
+  } finally { Object.assign(BuildingLowPoly, saved); clearTiles(); }
 });
 
 test('building overlay: retail low-poly walls share Home interior geometry and mask height', () => {
@@ -1843,6 +1894,32 @@ test('building overlay: the low-poly path gives forts a copper hall and mounted 
     assert.truthy(scene._proceduralBuildings.get('fort').mountedSign, 'the mounted dice replaces the floating sign');
     const pickets = scene._wallPerspective.polygon.blocks.filter(b => b.building?.key === 'fort');
     assert.gte(pickets.length, 4 * Math.round(64 / WallMaterials.WOOD.pitch), 'the palisade still rims the fort');
+  } finally {
+    Object.assign(BuildingLowPoly, saved);
+    Render.buildingArtStyle = previousStyle; clearTiles();
+  }
+});
+
+
+test('building overlay: translucent wreck ground has no opaque underpainting', () => {
+  clearTiles();
+  const previousStyle = Render.buildingArtStyle;
+  const saved = { active: BuildingLowPoly.active, begin: BuildingLowPoly.begin, add: BuildingLowPoly.add,
+    update: BuildingLowPoly.update, clear: BuildingLowPoly.clear };
+  let added = 0;
+  Render.buildingArtStyle = 'procedural';
+  BuildingLowPoly.active = () => true;
+  BuildingLowPoly.begin = BuildingLowPoly.update = BuildingLowPoly.clear = () => {};
+  BuildingLowPoly.add = () => { added++; return { faces: [1], height: 3 }; };
+  try {
+    const entry = putShapes(0, 0, [rectShape(0, 0, 10, 10, T.BUILDING, 'wreck')]);
+    entry.objects = [{ kind: 'house', id: 'wreck', tier: 9, x: 5, y: 5 }];
+    const { scene } = makePerspectiveScene();
+    scene.save = { restoredHouses: {} };
+    BuildingOverlay.draw(scene);
+    assert.eq(added, 1, 'the mesh draws the wreck and its translucent ground');
+    assert.eq(scene.buildingGeomGfx.only('fill').length, 0, 'terrain remains visible underneath');
+    assert.eq(scene.buildingGeomGfx.only('texture').length, 0, 'no opaque paving underneath');
   } finally {
     Object.assign(BuildingLowPoly, saved);
     Render.buildingArtStyle = previousStyle; clearTiles();

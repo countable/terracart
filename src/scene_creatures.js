@@ -191,7 +191,8 @@ class SceneCreatures {
     // for exactly this check in the per-frame wander/render loops.
     const caughtSet = setOf(this.save.caught);
     // Cells the tile's own rasterize pass already put something on — a tree,
-    // a rock, a chest, a produce stand, a tuft of grass. Snapshotted ONCE,
+    // a rock, a chest or a produce stand. Grass cover leaves the seat free.
+    // Snapshotted ONCE,
     // before this method adds anything of its own, into the same flat-index
     // shape roadMask already uses (cy*N+cx), so isSpawnCell can check both
     // with one lookup. Without it a trap could spring under a rock sprite (the
@@ -202,6 +203,7 @@ class SceneCreatures {
     let _nOcc = 0;
     for (const records of [genObjects, entry.wildplants || []]) for (const o of records) {
       if (((_nOcc++) & 511) === 511) yield 'spawn occupancy';
+      if (WorldGen.isGrassCover(o)) continue;
       for (const i of SpawnOwnership.tileCells(this, entry, o, tx, ty)) _occupiedIdx.add(i);
     }
     // All surface births use the tile's authoritative tier policy. Source
@@ -518,7 +520,10 @@ class SceneCreatures {
     // rebuilt entry mints fresh objects and re-runs this pass (the `_spawned`
     // gate), so it gets the overlay again. Before any placed/planted tree is
     // added below — a sapling keeps the species it was planted as.
-    if (typeof HomeArea !== 'undefined') HomeArea.applySoftwood(entry.objects);
+    if (typeof HomeArea !== 'undefined') {
+      HomeArea.applySoftwood(entry.objects);
+      HomeArea.suppressExclusionRock(entry, tx, ty, this.tileEdgeM);
+    }
 
     // Wild debris is generated per-polygon in worldgen and lives on entry.wildplants
     // (set by rasterizeTile). Picked-state filtering happens at render/interact time
@@ -1520,6 +1525,7 @@ class SceneCreatures {
     // covers it many times over.
     const RANGE_M = CREATURE_SIM_CELLS * this.cellM;
     const RANGE_SQ = RANGE_M * RANGE_M;
+    const homeChoreActive = c => typeof NPCBenefits !== 'undefined' && NPCBenefits.shouldSimulate(this, c);
     // Per-frame loop hygiene: only the 3×3 tile neighbourhood is simmed (the sim
     // range is a handful of cells, a tile edge hundreds), and caught-membership is a
     // memoised Set.
@@ -1588,7 +1594,7 @@ class SceneCreatures {
     // event rather than a drain. (The dispatched pest
     // was a CROW until Sep 2026. Wild crows raid fields again, from their
     // own tick, but the pump sends only deer.)
-    EnemySpawns.refreshHomeFauna(this);
+    EnemySpawns.refreshHomeFauna(this, false);
     // Only crops a deer actually eats (not potato) justify spawning a pest —
     // and only on HARD (Difficulty.get().cropPests). The pump is not a
     // difficulty KNOB, it is a mode difference: a deer that finds your field
@@ -1691,7 +1697,7 @@ class SceneCreatures {
       WorldGen.forEachItemNear('creatures', pcW.tx, pcW.ty, c => {
         if (caughtSet.has(c.id)) return;
         const ddx = c.x - px, ddy = c.y - py;
-        if (ddx * ddx + ddy * ddy <= RANGE_SQ) {
+        if (ddx * ddx + ddy * ddy <= RANGE_SQ || homeChoreActive(c)) {
           bubble.push(c);
           return;
         }
@@ -1724,7 +1730,7 @@ class SceneCreatures {
     for (const c of bubble) {
       if (caughtSet.has(c.id)) continue;
       const ddx = c.x - px, ddy = c.y - py;
-      if (ddx * ddx + ddy * ddy > RANGE_SQ) {
+      if (ddx * ddx + ddy * ddy > RANGE_SQ && !homeChoreActive(c)) {
         c._walkHazardPrevious = null;
         if (c.kind === 'npc') c._moving = false;
         continue;
@@ -1740,11 +1746,10 @@ class SceneCreatures {
 
     const spacingIndex = this._characterSpacingIndex = buildCharacterSpacingIndex(this);
     const tickCreature = (c) => {
-      if ((EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) && !EnemySpawns.surfaceActive(this, c)) return;
       // Cheapest reject first: the sim range cull. Everything below runs only
       // for the handful of creatures actually near the player.
       const ddx = c.x - px, ddy = c.y - py;
-      const far = ddx * ddx + ddy * ddy > RANGE_SQ;
+      const far = ddx * ddx + ddy * ddy > RANGE_SQ && !homeChoreActive(c);
       // Is this surface foe here for this player (EnemySpawns.surfaceActive —
       // it stamps `_surfaceInactive`, which Combat.isEnemy and the draw read)?
       // Asked every tick inside the bubble. Outside it — hundreds of seats
@@ -1753,7 +1758,7 @@ class SceneCreatures {
       // SURFACE_RECHECK_MS instead: its answer moves with the sun, Home and
       // the pest amnesty, all minutes-slow, so the stamp a far reader
       // (a magic trap, a hint) sees is never more than that stale.
-      if (EnemySpawns.isSurfaceResident(c)) {
+      if (EnemySpawns.isSurfaceResident(c) || EnemySpawns.homeFaunaSubject(c) || c._homeFaunaInactive) {
         if (!far || c._surfaceAskedT == null || now - c._surfaceAskedT >= SURFACE_RECHECK_MS) {
           c._surfaceAskedT = now;
           if (!EnemySpawns.surfaceActive(this, c)) return;

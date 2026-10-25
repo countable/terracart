@@ -666,16 +666,7 @@ class SceneVenues {
     if (st === 'wizard')     return 'The wizard conjures a relic:';
     return 'A villager offers:';
   }
-  // ── HOME: a Sell page and a Craft page ───────────────────────────────
-  // The trailer's panel, as the blacksmith's Forge / Smelt is: sibling
-  // offer modals joined by a tab row, each tab re-presenting the other. A
-  // new page is a new tab here and a present* method beside these two.
-  _homeTabs(active, sx, sy) {
-    return [
-      { label: 'Sell',  active: active === 'sell',  onSelect: () => this.presentHomeSell(sx, sy) },
-      { label: 'Craft', active: active === 'craft', onSelect: () => this.presentHomeCraft(sx, sy) },
-    ];
-  }
+  // ── HOME: sell from the stash ───────────────────────────────
   // The dialog opens with a house: Home is drawn from its footprint, not a
   // sprite, so the plain house art stands in for it.
   _homeKindIcon() {
@@ -691,7 +682,7 @@ class SceneVenues {
     const sel = targetId == null ? this.save.inv[this.save.selSlot]
       : this.save.inv.find(stack => stack.id === targetId && stack.count > 0);
     const hasSel = sel && sel.id && Inventory.ownedCount(this.save, sel.id) > 0;
-    const tabs = this._homeTabs('sell', sx, sy);
+    const tabs = [];
     const kindIcon = this._homeKindIcon();
     // Nothing sellable in hand: the page says what it is for rather than
     // flashing a stock phrase — selling is home-only, the single most
@@ -744,21 +735,21 @@ class SceneVenues {
     });
   }
 
-  // CRAFT page: Home recipes bootstrap a placed workbench, with a
-  // direct recipe picker. `targetId` defaults to the first recipe the
-  // bag can make, so the page opens on something usable.
-  presentHomeCraft(sx, sy, targetId = null) {
+  // Restored workshops use the shared crafting transaction and discovery rules.
+  presentWorkshop(sx, sy, house, targetId = null) {
+    if (this.save.restoredHouses?.[house?.id] !== 'workshop') return false;
     this._presentRecipePicker(sx, sy, {
-      recipes: HOME_RECIPES.filter(r => r.station === 'home'), targetId,
-      present: id => this.presentHomeCraft(sx, sy, id),
-      kind: 'craft', kindIcon: this._homeKindIcon(),
-      tabs: this._homeTabs('craft', sx, sy),
+      recipes: HOME_RECIPES.filter(r => r.station === 'workshop'), targetId,
+      present: id => this.presentWorkshop(sx, sy, house, id),
+      kind: 'craft', kindLabel: 'Workshop',
       acceptLabel: 'Craft', costLabel: 'Ingredients',
+      validate: () => this.save.restoredHouses?.[house.id] === 'workshop',
       onCraft: rec => {
         this._finishInventoryChange();
         this.flashLoot(`✨ ${itemName(rec.id)} ×1`, UI_GOLD, 1.25, rec.id);
       },
     });
+    return true;
   }
 
   // ─── FORT SLOTS ───────────────────────────────────────────────────────────
@@ -1476,6 +1467,15 @@ class SceneVenues {
     }
     return PlacedFloor.homeCell(this, x, y);
   }
+  upgradeHome() {
+    if (!this.save.starterShopId || !this.homeInside() || HomeArea.storeys(this.save) >= 2) return false;
+    this.save.homeStoreys = 2;
+    persistSave(this.save);
+    this._buildingGeomKey = null;
+    this._homeUpgradeButton?.setVisible(false);
+    return true;
+  }
+
   // The house round the player while they are inside it — its ring in world
   // metres and a key naming it — or null. lighting.js masks everything
   // outside that ring; the overlay takes the roof off.

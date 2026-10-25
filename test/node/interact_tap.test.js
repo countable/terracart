@@ -55,9 +55,9 @@ test('TAP_HANDLERS: work-progress is the FIRST handler (priority guard)', () => 
     'work-progress must be index 0 so an in-progress wheel eats every tap first');
 });
 
-test('TAP_HANDLERS: treasure is second (use-consumable removed — Use button now)', () => {
-  assert.eq(HANDLER_NAMES[1], 'treasure',
-    'treasure must be index 1 — the tap-on-feet use-consumable handler was removed in favour of the persistent Use button');
+test('TAP_HANDLERS: grass cover precedes concealed rewards after the work guard', () => {
+  assert.eq(HANDLER_NAMES[1], 'grass-cover');
+  assert.eq(HANDLER_NAMES[2], 'treasure');
 });
 
 test('TAP_HANDLERS: creature precedes wildplant (animals eat taps near plants)', () => {
@@ -305,7 +305,7 @@ function tillAttemptWithObject(object, progress = {}) {
     const flashes = [];
     const save = {
       planted: [], picked: progress.picked || [], chopped: progress.chopped || [],
-      opened: progress.opened || [], relics: {},
+      opened: progress.opened || [], relics: {}, inv: [{ id: 'potato_seed', count: 1 }], selSlot: 0,
     };
     if (progress.takenToday) Macros.markToday(save, object.id);
     const scene = makeScene({
@@ -317,7 +317,7 @@ function tillAttemptWithObject(object, progress = {}) {
       flash: (line) => flashes.push(line),
     });
     const ctx = Object.assign(makeCtx(scene, save), {
-      cell: { type: TERRAIN.GRASS }, cellKey: '0_0', cwmx: 0, cwmy: 0,
+      cell: { type: TERRAIN.GRASS }, cellKey: '0_0', cwmx: 0, cwmy: 0, seedAction: true,
     });
     TAP_HANDLERS.find(h => h.name === 'till').try(ctx);
     return { workStarted, flashes };
@@ -652,6 +652,7 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
   // fails loudly so the ordering tests above can be updated.
   const EXPECTED = [
     'work-progress',
+    'grass-cover',
     'treasure',
     'coindrop',
     'building-art',

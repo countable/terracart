@@ -13,7 +13,7 @@
       for (const kind of [...new Set(root.ZoneVariantData.variants.map(row => row.zone))])
         out.push({ type: 'nexus', kind, rows: root.ZoneVariants.forKind(kind).map(row => ({ id: row.id, label: row.name })) });
       for (const kind of ['minor', 'path']) out.push({ type: 'road', kind,
-        rows: root.StreetVariants.STREET_VARIANTS.filter(row => row.size === kind)
+        rows: root.StreetVariants.STREET_VARIANTS.filter(row => row.size === kind || (kind === 'path' && row.pathWeight > 0))
           .map(row => ({ id: row.id, label: row.title || title(row.id) })) });
     } else {
       const weights = caveWeights(depth);

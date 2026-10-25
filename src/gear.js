@@ -57,15 +57,12 @@
     return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
   }
 
-  // MELEE IS THE DEFAULT (owner, Oct 2026). The hands fight on their own the
-  // way a sword does: app.js _combatTick auto-engages the nearest foe in
-  // arm's reach whenever no RANGED weapon is in hand — a sword if owned, bare
-  // hands on the tier-0 rung if not. Only an EQUIPPED bow or staff
-  // (activeWeapon in Combat.RANGED_SLOTS) turns that off, and equipping one
-  // is an explicit act: the Equip button under the Relics tab
-  // (syncEquipButton), never a side effect of highlighting the slot.
+  // Only a selected, owned melee weapon auto-engages. A deliberately empty
+  // hand stays peaceful so catching a creature never starts a bare-hand fight.
   function meleeActive(save, now = Date.now()) {
-    return !Combat.RANGED_SLOTS.includes(activeWeapon(save, now));
+    const slot = activeWeapon(save, now);
+    return WEAPON_SLOTS.includes(slot) && !Combat.RANGED_SLOTS.includes(slot)
+      && !!effectiveRelics(save, now)[slot];
   }
 
   function selectWeapon(save, slot, now = Date.now()) {
@@ -78,16 +75,12 @@
     return true;
   }
 
-  // Put the ranged weapon away: back to melee — the sword when one is owned,
-  // else bare hands (no active weapon at all). The one way out of a bow or
-  // staff besides equipping the other. During the wand boon it is the boon
-  // choice that is cleared, so the lever's own staff doesn't spring back.
+  // Unequip means no attacks, including after a temporary wand expires.
+  // Keep the boon override empty too, so its default staff cannot spring back.
   function unequipWeapon(save, now = Date.now()) {
-    const slot = effectiveRelics(save, now).sword ? 'sword' : null;
+    save.activeWeapon = null;
     if (Shrines.leverActive(save, 'wand', now)) {
-      save.boonWeapon = { until: save.boonUntil.wand, slot };
-    } else {
-      save.activeWeapon = slot;
+      save.boonWeapon = { until: save.boonUntil.wand, slot: null };
     }
     return true;
   }

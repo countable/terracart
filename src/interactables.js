@@ -523,6 +523,7 @@ const INTERACTABLES = {
         return true;
       }
       scene.addToInv(o.itemId, qty);
+      scene.questEvent?.('pickup');
       save.picked = [...save.picked, o.id];
       ctx.dirty = true;
       const item = ITEM_BY_ID[o.itemId];
