@@ -56,7 +56,19 @@
     noncombatGear: { kind: 'gear', slots: ['bag', 'watering_can', 'hoe', 'fishing_rod', 'net'], fallback: { school: 'books', default: 'supplies' } },
     protectiveGear: { kind: 'gear', armorOnly: true, fallback: { vista: 'magic', default: 'field' } },
     culturalGear: { kind: 'gear', fallback: 'books' },
+    // The cross-theme equipment lane (CHEST_GEAR): every armour and relic slot
+    // plus (from T2) the unique relics, one even draw (rarity.js rollChestGear).
+    // The one gear lane a T1 chest opens.
+    bonusGear: { kind: 'gear', withUniques: true, everyTier: true, fallback: 'torch' },
   };
+  // GEAR IN EVERY CHEST. Each chest tier adds sharePerTier points of the
+  // bonusGear lane, up to maxShare (T1 7%, T2 14%, T3 21%, T4+ 28%), taken
+  // from the row's non-gear lanes. Chest gear rolls start tierPenalty below
+  // the rolled tier; a roll that lands on a piece the player holds at exactly
+  // that tier rerolls once without the penalty before paying coins
+  // (rarity.js rollChestGear).
+  const CHEST_GEAR = Object.freeze({ sharePerTier: 7, maxShare: 28, tierPenalty: 1 });
+  const isGearLane = group => groups[group]?.kind === 'gear' || group === 'uniqueRelics';
   // THE OCT 2026 REBALANCE — one clean identity per theme:
   //   roadside  supplies, minerals, coins and furniture - never produce
   //   commerce  coins, gems and furniture
@@ -164,6 +176,15 @@
         out.uniqueRelics = share;
       }
     }
+    // The equipment lane (CHEST_GEAR) comes out of the non-gear lanes only, so
+    // it adds its full share; furniture keeps its authored 10%.
+    const gearShare = Math.min(CHEST_GEAR.maxShare, CHEST_GEAR.sharePerTier * Math.max(1, opts.tier ?? tier));
+    const nonGear = Object.keys(out).filter(key => key !== 'furniture' && !isGearLane(key));
+    const nonGearTotal = nonGear.reduce((sum, key) => sum + out[key], 0);
+    if (gearShare > 0 && nonGearTotal > gearShare) {
+      for (const key of nonGear) out[key] *= (nonGearTotal - gearShare) / nonGearTotal;
+      out.bonusGear = gearShare;
+    }
     // THE BOOK IN EVERY TIER-2 ROLL (Oct 2026, owner's call): the school's
     // book club (macros.js scholar*) needs Books to turn up, and the Book
     // only drops from the school, culture and worship rows — so every chest
@@ -171,16 +192,17 @@
     // T1, rarity.js rollRewardQuality) carries at least BOOK_T2_SHARE of
     // books, the rest of the row scaled to make room. Rows already past the
     // share (the school's 60) and the rare-finds lane above (uniqueRelics —
-    // exactly 5 where it exists), plus furniture's 10%, are left alone. A row with a books lane
+    // exactly 5 where it exists), the equipment lane and furniture's 10%, are left alone. A row with a books lane
     // (culture, worship) has it topped up; a row without one gets the
     // plainBook group. Applied last: the net share.
     if ((opts.tier ?? tier) === 2) {
       const have = out.books || 0;
       if (have < BOOK_T2_SHARE) {
-        const keep = (out.uniqueRelics || 0) + (out.furniture || 0);
+        const kept = ['uniqueRelics', 'furniture', 'bonusGear'];
+        const keep = kept.reduce((sum, key) => sum + (out[key] || 0), 0);
         const lane = have > 0 ? 'books' : 'plainBook';
         const rest = Object.values(out).reduce((a, b) => a + b, 0) - have - keep;
-        if (rest > 0) for (const key of Object.keys(out)) if (key !== lane && key !== 'uniqueRelics' && key !== 'furniture') out[key] *= (100 - BOOK_T2_SHARE - keep) / rest;
+        if (rest > 0) for (const key of Object.keys(out)) if (key !== lane && !kept.includes(key)) out[key] *= (100 - BOOK_T2_SHARE - keep) / rest;
         out[lane] = BOOK_T2_SHARE;
       }
     }
@@ -233,7 +255,7 @@
       seen.add(group);
       const def = groups[group];
       if (!def) throw new Error('Unknown chest group: ' + group);
-      if (def.kind === 'cash' || (def.kind === 'gear' && (opts.chestTier ?? tier) > 1))
+      if (def.kind === 'cash' || (def.kind === 'gear' && (def.everyTier || (opts.chestTier ?? tier) > 1)))
         return { group, ids: [], kind: def.kind, fallback: group !== original };
       let ids = eligible(group, tier, opts);
       if (group === 'foodSeeds' && opts.venueProduct) {
@@ -332,5 +354,5 @@
   // Catch authored errors early; runtime still has each theme's declared T1
   // terminal so an unexpected bad entry cannot consume a chest for nothing.
   try { validate(); } catch (error) { console.error('Chest theme validation failed', error); }
-  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, BUDGET_PER_BRACKET, quantity, quantityForBudget, gearSlots, seedMultiplier, validate };
+  global.ChestThemes = { themes, highTierWeights, qualityFloor, groups, CHEST_GEAR, normalize, weights, members, BOOK_T2_SHARE, eligible, resolve, selectableIds, pickItem, cap, budget, BUDGET_SHARE, BUDGET_PER_BRACKET, quantity, quantityForBudget, gearSlots, seedMultiplier, validate };
 })(window);
