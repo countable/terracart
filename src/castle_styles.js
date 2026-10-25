@@ -189,11 +189,11 @@
     citadel: { wall: 0x858994, side: 0x6f7581, top: 0xc2c1b8, base: 0x535b66,
       floor: 0xb1a78d, roof: 0x73818b, roofSide: 0x56616b, roofBack: 0x73818b, roofLight: 0x85919b, door: 0x303941,
       accent: 0xd6c18d, towerWidth: 32, towerHeight: 40, keepHeight: 48, roofHeight: 0 },
-    bastion: { wall: 0xbba57a, side: 0xa58d66, top: 0xe0c596, base: 0x827354,
+    bastion: { wall: 0xc8ac7d, side: 0xa88b61, top: 0xf0d2a0, base: 0x827354,
       floor: 0xc8b38b, roof: 0xbba57a, roofSide: 0xa58d66, roofBack: 0xbba57a, roofLight: 0xceba93, door: 0x554737,
-      accent: 0xa3563a, towerWidth: 36, towerHeight: 32, keepHeight: 42, roofHeight: 0 },
-    archive: { wall: 0xbab6a4, side: 0x9e9f95, top: 0xdfd7bf, base: 0x7d8278,
-      floor: 0xb6ab8e, roof: 0x4d8293, roofSide: 0x365f73, roofBack: 0x5e8997, roofLight: 0x739eaa, door: 0x3e4748,
+      accent: 0xb84731, towerWidth: 36, towerHeight: 32, keepHeight: 42, roofHeight: 0 },
+    archive: { wall: 0xcabea3, side: 0xa79b82, top: 0xeee0bf, base: 0x80765f,
+      floor: 0xc3b08a, roof: 0x286e83, roofSide: 0x1f5267, roofBack: 0x377d91, roofLight: 0x5594a4, door: 0x3e4748,
       accent: 0xb7a06c, towerWidth: 32, towerHeight: 30, keepHeight: 40, roofHeight: 12 },
   });
   const renderCache = new Map();

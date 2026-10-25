@@ -105,7 +105,7 @@
       part.crownHeight=height+(geometry.roofHeight||4);
       // The shaft fills the same square used to clip adjoining curtains.
       // Insetting it above a wider plinth leaves vertical slots at those joins.
-      const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight&&!style.active?style.door:style.top,baseOutset:style.id==='bastion'&&!isKeep?2:0});if(!shaft)return;
+      const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.top:style.door):style.floor,baseOutset:style.id==='bastion'&&!isKeep?2:0});if(!shaft)return;
       if(geometry.roofHeight){
         const peak={x,y,z:height+geometry.roofHeight};
         // Four roof triangles restored, two large surviving planes in a wreck.
