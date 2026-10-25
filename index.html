@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-8ca04ade';
+    window.__shellVersion = 'shell-ba5dc6ff';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=27d35146" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=ba4e08ed" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -410,6 +410,13 @@
       font: 24px var(--font-ui); touch-action: manipulation; cursor: pointer;
     }
     #map-zoom button + button { border-top: 0; }
+    #map-zoom .weather-readout {
+      width: 36px; min-height: 28px; box-sizing: border-box; display: flex;
+      align-items: center; justify-content: center; padding: 2px; border: 1px solid #777;
+      border-radius: 0; background: #222; color: #fff; font: 700 11px/1 var(--font-ui);
+      text-align: center; white-space: nowrap; pointer-events: none;
+    }
+    #map-zoom .weather-readout[hidden] { display: none; }
     #map-zoom button:disabled { color: #777; cursor: default; }
     #map-zoom button:active:not(:disabled) { background: #444; }
     #map-zoom button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
@@ -1320,7 +1327,7 @@
     #howto-mode-current span { font-weight: 400; color: #bbb; }
     #howto button#howto-close[hidden] { display: none; }
   </style>
-  <link rel="stylesheet" href="css/compass_hud.css?v=9ff7ffca">
+  <link rel="stylesheet" href="css/compass_hud.css?v=cf004e79">
   <link rel="stylesheet" href="css/compass_inventory.css?v=d0bde0dc">
   <link rel="stylesheet" href="css/compass_panels.css?v=3aa5db4f">
   <link rel="stylesheet" href="css/speech_bubbles.css?v=04301845">
@@ -3143,7 +3150,7 @@
   <script src="src/biome_profiles.js?v=0dc0e0fd"></script>
   <script src="src/habitat_spawns.js?v=28ec83dc"></script>
   <script src="src/traps.js?v=925461a6"></script>
-  <script src="src/whirlwinds.js?v=30217fab"></script>
+  <script src="src/whirlwinds.js?v=0b5f08ce"></script>
   <script src="src/hazard_falls.js?v=6834dff4"></script>
   <script src="src/environment_hazards.js?v=798bb638"></script>
   <script src="src/spider_webs.js?v=4677643f"></script>
@@ -3231,7 +3238,7 @@
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=298c9219"></script>
   <script src="src/multiplayer.js?v=2af3d29f"></script>
-  <script src="src/weather.js?v=e76c0efa"></script>
+  <script src="src/weather.js?v=4b82d76a"></script>
   <script src="src/road_overlay.js?v=fafbd0ba"></script>
   <script src="src/temple_art.js?v=8e47066c"></script>
   <script src="src/wall_materials.js?v=9b6e86a9"></script>
@@ -3360,7 +3367,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=27d35146';
+      const APP_SRC = 'src/app.js?v=ba4e08ed';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
