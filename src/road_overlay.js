@@ -137,7 +137,7 @@
     return out;
   }
 
-  function emitRailDecor(scene, g, run) {
+  function emitRailDecor(scene, g, run, roadWidth) {
     const pxPerM = CELL_PX / scene.cellM;
     const halfGauge = (RAIL_GAUGE_M / 2) * pxPerM;
     const halfTie = (TIE_LEN_M / 2) * pxPerM;
@@ -155,13 +155,13 @@
         g.decorPath(TIE_W_PX, TIE_COLOR, [
           { x: cx - nx * halfTie, y: cy - ny * halfTie },
           { x: cx + nx * halfTie, y: cy + ny * halfTie },
-        ]);
+        ], 1, roadWidth);
         next += tieStep;
       }
       next -= len;
     }
-    g.decorPath(RAIL_W_PX, RAIL_STEEL, offsetPolyline(run, -halfGauge));
-    g.decorPath(RAIL_W_PX, RAIL_STEEL, offsetPolyline(run, halfGauge));
+    g.decorPath(RAIL_W_PX, RAIL_STEEL, offsetPolyline(run, -halfGauge), 1, roadWidth);
+    g.decorPath(RAIL_W_PX, RAIL_STEEL, offsetPolyline(run, halfGauge), 1, roadWidth);
   }
   const colorFor = (tags) => {
     const c = (tags && tags.class) || '';
@@ -809,6 +809,89 @@
   const LAMP_LIGHT_RISE_CELLS = 0.6;
   const LAMP_LIGHT_OFFSET_CELLS = 0.45;
 
+  // Index expanded segment bounds in two-cell buckets. Long diagonals are
+  // split into bucket-sized pieces, avoiding their much larger bounding box.
+  // A lamp queries one bucket rather than scanning every road in the tile.
+  function lampRoadIndex(entry, binM, footRM) {
+    const bins = new Map();
+    for (const layer of entry.layers) {
+      if (layer.name !== 'transportation') continue;
+      const scale = entry.tileEdgeM / (layer.extent || 4096);
+      for (const feature of layer.features) {
+        if (feature.type !== 2 || WorldGen.isLotLane(feature.tags)
+            || WorldGen.classifyLine('transportation', feature.tags || {}) == null) continue;
+        const width = WorldGen.roadOverlayWidthM(feature.tags || {});
+        if (!(width > 0)) continue;
+        for (const [li, line] of (feature.geom || []).entries()) {
+          const key = Streets.lineKey(feature, li);
+          for (let i = 1; i < line.length; i++) {
+            const a = { x: line[i - 1].x * scale, y: line[i - 1].y * scale };
+            const b = { x: line[i].x * scale, y: line[i].y * scale };
+            const segment = { a, b, key, width };
+            const steps = Math.max(1, Math.ceil(Math.max(Math.abs(b.x-a.x), Math.abs(b.y-a.y)) / binM));
+            const pad = width / 2 + footRM + 0.5;
+            for (let j = 0; j < steps; j++) {
+              const x0 = a.x + (b.x-a.x) * j / steps, x1 = a.x + (b.x-a.x) * (j+1) / steps;
+              const y0 = a.y + (b.y-a.y) * j / steps, y1 = a.y + (b.y-a.y) * (j+1) / steps;
+              for (let y = Math.floor((Math.min(y0,y1)-pad)/binM); y <= Math.floor((Math.max(y0,y1)+pad)/binM); y++) {
+                for (let x = Math.floor((Math.min(x0,x1)-pad)/binM); x <= Math.floor((Math.max(x0,x1)+pad)/binM); x++) {
+                  const bucket = `${x},${y}`;
+                  if (!bins.has(bucket)) bins.set(bucket, new Set());
+                  bins.get(bucket).add(segment);
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    return bins;
+  }
+
+  function lampSegmentDistance(x, y, a, b) {
+    const dx = b.x-a.x, dy = b.y-a.y, len2 = dx*dx+dy*dy;
+    const t = len2 ? Math.max(0, Math.min(1, ((x-a.x)*dx+(y-a.y)*dy)/len2)) : 0;
+    return Math.hypot(x-a.x-t*dx, y-a.y-t*dy);
+  }
+
+  function thinLampSites(candidates, entry, ox, oy, cellM, footRM) {
+    if (!candidates.length) return [];
+    const binM = cellM * 2, roads = lampRoadIndex(entry, binM, footRM);
+    const accepted = new Map(), kept = new Set();
+    // A wider road owns a crowded lamp cluster; identity makes ties independent
+    // of source feature order. Existing IDs, visits and metre credit stay intact.
+    const priority = [...candidates].sort((a,b) => b.width-a.width || a.lamp.id.localeCompare(b.lamp.id));
+    for (const candidate of priority) {
+      const { lamp, width, centre } = candidate, x = lamp.x-ox, y = lamp.y-oy;
+      const nearby = roads.get(`${Math.floor(x/binM)},${Math.floor(y/binM)}`) || [];
+      let blocked = false;
+      for (const segment of nearby) {
+        if (segment.key === lamp.lineKey) continue;
+        // Split but collinear ways are a continuous road, not a nearby road.
+        // Ignore the equal-width continuation even though its band is tangent
+        // to this lamp's foot; the clearance must not erase ordinary seams.
+        const dx = segment.b.x-segment.a.x, dy = segment.b.y-segment.a.y;
+        const len = Math.hypot(dx,dy);
+        const parallel = len > 0 && Math.abs(dx*(x-centre.x)+dy*(y-centre.y)) / len < 0.01;
+        if (Math.abs(segment.width-width) < 0.01 && parallel
+            && lampSegmentDistance(centre.x, centre.y, segment.a, segment.b) < 0.01) continue;
+        if (lampSegmentDistance(x,y,segment.a,segment.b) < segment.width/2+footRM+0.5) { blocked = true; break; }
+      }
+      if (blocked) continue;
+      const ix = Math.floor(x/cellM), iy = Math.floor(y/cellM);
+      for (let by = iy-1; by <= iy+1 && !blocked; by++) for (let bx = ix-1; bx <= ix+1; bx++) {
+        for (const other of accepted.get(`${bx},${by}`) || []) {
+          if (other.lineKey !== lamp.lineKey && Math.hypot(other.x-lamp.x,other.y-lamp.y) < cellM) { blocked = true; break; }
+        }
+      }
+      if (blocked) continue;
+      const bucket = `${ix},${iy}`;
+      if (!accepted.has(bucket)) accepted.set(bucket, []);
+      accepted.get(bucket).push(lamp); kept.add(lamp);
+    }
+    return candidates.filter(candidate => kept.has(candidate.lamp)).map(candidate => candidate.lamp);
+  }
+
   // Pure geometry shared by generation, preview and live lamps. Includes
   // every future lamp site regardless of player restoration or brightness.
   function lampSitesForTile(tx, ty, entry) {
@@ -883,14 +966,16 @@
               if (!q) continue;
               const zoneGlow = !suppressed && typeof ZoneVariants !== 'undefined'
                 ? ZoneVariants.lampGlowAt(entry, Math.floor(q.x / cellM), Math.floor(q.y / cellM)) : null;
-              out.push({ tileKey, lineKey, tier, suppressed, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
-                         id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` });
+              const lamp = { tileKey, lineKey, tier, suppressed, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
+                         id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` };
+              out.push({ lamp, width: WorldGen.roadOverlayWidthM(f.tags || {}),
+                centre: Streets.pointAtM(line, mvtToM, sM, 0) });
             }
           }
         }
       }
     }
-    return out;
+    return thinLampSites(out, entry, ox, oy, cellM, footRM);
   }
 
   // Reserve every grid cell touched by the larger of a dark stone and lit
@@ -1056,14 +1141,25 @@
   // outright. `css` overrides the recorded colour (the kerb's pale pass).
   function* strokeOpsSteps(ctx, ops, delta, css) {
     for (const op of ops) {
+      ctx.lineCap = op.cap || 'round';
       ctx.lineWidth = Math.max(1, op.w + delta);
       ctx.strokeStyle = css || cssOf(op.c);
       ctx.beginPath();
       ctx.moveTo(op.pts[0], op.pts[1]);
       for (let i = 2; i < op.pts.length; i += 2) ctx.lineTo(op.pts[i], op.pts[i + 1]);
       ctx.stroke();
+      // A theme cut can be flat at one end while a true source/repair end
+      // stays round. Canvas has one lineCap, so add only the retained caps.
+      if (op.cap === 'butt') {
+        ctx.fillStyle = ctx.strokeStyle;
+        for (const at of [op.startRound ? 0 : -1, op.endRound ? op.pts.length - 2 : -1]) {
+          if (at < 0) continue;
+          ctx.beginPath(); ctx.arc(op.pts[at], op.pts[at + 1], ctx.lineWidth / 2, 0, Math.PI * 2); ctx.fill();
+        }
+      }
       yield;
     }
+    ctx.lineCap = 'round';
   }
   function drainSteps(it) { for (let n = it.next(); !n.done; n = it.next()) {} }
   function strokeOps(ctx, ops, delta, css) { drainSteps(strokeOpsSteps(ctx, ops, delta, css)); }
@@ -1136,9 +1232,9 @@
       eraseRect(x, y, w, h) { pass.erases.push([x - originX, y - originY, w, h]); },
       // Track furniture (ties + rails): stroked plain in commit() after the
       // gravel (stays crisp) and before the erases (keep-out punches it out).
-      decorPath(w, c, pts, alpha = 1) {
+      decorPath(w, c, pts, alpha = 1, roadWidth) {
         if (pts && pts.length >= 2) {
-          pass.decorOps.push({ w, c, alpha, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
+          pass.decorOps.push({ w, c, alpha, roadWidth, pts: pts.map((p) => ({ x: p.x - originX, y: p.y - originY })) });
         }
       },
       texturePhase(x, y) { pass.phaseX = Math.round(x - originX); pass.phaseY = Math.round(y - originY); },
@@ -1147,11 +1243,56 @@
     return pass;
   }
 
+  // Paint complete materials in physical-width order. A full-band knockout
+  // prevents smaller cobbles showing through the transparent gaps of a larger
+  // road. One reusable layer serves every width; scratch slots 0/1 remain the
+  // existing material and edge masks. No pixel reads or per-way canvases.
+  function* compositeWidthsSteps(pass, paintWidth) {
+    const { ctx, size } = pass;
+    ctx.clearRect(0, 0, size, size); yield;
+    const widths = [...new Set(pass.ops.map(op => op.w))].sort((a, b) => a - b);
+    for (const width of widths) {
+      const ops = pass.ops.filter(op => op.w === width);
+      const layer = scratchLayer(size, pass.scratch, 2);
+      if (!layer) continue;
+      yield* paintWidth({ ...pass, ctx: layer.ctx, ops,
+        decorOps: pass.decorOps.filter(op => op.roadWidth === width),
+        erases: [], pats: {}, tex: { refresh() {} } });
+      // Restored small roads must also yield to an UNRESTORED larger band.
+      const higher = (pass.occluders || []).filter(op => op.w > width);
+      if (higher.length) {
+        layer.ctx.save(); layer.ctx.globalCompositeOperation = 'destination-out';
+        yield* strokeOpsSteps(layer.ctx, higher, 0, '#000'); layer.ctx.restore();
+      }
+      ctx.save(); ctx.globalCompositeOperation = 'destination-out';
+      yield* strokeOpsSteps(ctx, ops, 0, '#000'); ctx.restore();
+      ctx.drawImage(layer.canvas, 0, 0); yield;
+    }
+    for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
+    pass.tex.refresh(); yield;
+  }
+  function* commitBaseSteps(pass) { yield* compositeWidthsSteps(pass, paintBaseWidthSteps); }
+  function* commitRestoredSteps(pass) { yield* compositeWidthsSteps(pass, paintRestoredWidthSteps); }
+
+  function* paintRoadDecorSteps(pass) {
+    const { ctx } = pass;
+    for (const op of pass.decorOps) {
+      ctx.globalAlpha = op.alpha;
+      ctx.lineWidth = op.w;
+      ctx.strokeStyle = cssOf(op.c);
+      ctx.beginPath();
+      ctx.moveTo(op.pts[0].x, op.pts[0].y);
+      for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
+      ctx.stroke(); yield;
+    }
+    ctx.globalAlpha = 1;
+  }
+
   // ── The dilapidated pass ─────────────────────────────────────────────────
   // The canvas pass is a generator so the live renderer can build a hidden
   // back-buffer within a time budget. The synchronous wrapper preserves the
   // direct/headless contract used by tools and tests.
-  function* commitBaseSteps(pass) {
+  function* paintBaseWidthSteps(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size); yield;
     // Only legacy surfaces and rail get a continuous bed. Selected roads
@@ -1234,16 +1375,7 @@
         }
       }
     }
-    for (const op of pass.decorOps) {
-      ctx.globalAlpha = op.alpha;
-      ctx.lineWidth = op.w;
-      ctx.strokeStyle = cssOf(op.c);
-      ctx.beginPath();
-      ctx.moveTo(op.pts[0].x, op.pts[0].y);
-      for (let i = 1; i < op.pts.length; i++) ctx.lineTo(op.pts[i].x, op.pts[i].y);
-      ctx.stroke(); yield;
-    }
-    ctx.globalAlpha = 1;
+    yield* paintRoadDecorSteps(pass);
     // Applied LAST so the keep-out holes punch through band, gravel, cracks and track.
     for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
     pass.tex.refresh(); yield;
@@ -1253,10 +1385,9 @@
   // ── The restored pass ────────────────────────────────────────────────────
   // No edge NIBBLE: a rebuilt street is whole. Its outline is feathered as a
   // last step (see "The patch is SOFT") so the setts stay clean.
-  // Roads and paths are laid as SEPARATE layers because their clean tiles
-  // differ and a pattern fill is a whole-canvas operation. Roads go down first
-  // so a footpath crossing a street reads on top.
-  function* commitRestoredSteps(pass) {
+  // Each width retains separate theme masks because clean tiles differ.
+  // The outer compositor lays larger roads over smaller roads and paths.
+  function* paintRestoredWidthSteps(pass) {
     const { ctx, size } = pass;
     ctx.clearRect(0, 0, size, size); yield;
     // Palette colours are not identities: a dark hedge road and park path
@@ -1292,6 +1423,7 @@
       if (pattern === 'rift') yield* paintRiftBorderSteps(lx, size, ops, pass.scratch);
       ctx.drawImage(layer.canvas, 0, 0); yield;
     }
+    yield* paintRoadDecorSteps(pass);
     for (const [x, y, w, h] of pass.erases) { ctx.clearRect(x, y, w, h); yield; }
     pass.tex.refresh(); yield;
   }
@@ -1382,6 +1514,7 @@
   function* roadRebuildSteps(scene, tiles, paint, baseCellIX, baseCellIY, stage) {
     const proj = overlayProjection(scene, paint.fracX, paint.fracY);
     yield* rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, stage.base.target);
+    stage.restored.occluders = stage.base.ops;
     yield* rebuildRestoredSteps(scene, tiles, proj, baseCellIX, baseCellIY, stage.restored.target);
   }
 
@@ -1623,16 +1756,16 @@
     add(run);
   }
 
-  // Stroke a style-bucketed collection — widest first, so a narrow street
-  // crossing a motorway reads on top. Sorted rather than insertion-ordered so
+  // Stroke a style-bucketed collection — smallest first, larger roads on top.
+  // Sorted rather than insertion-ordered so
   // draw order doesn't depend on tile load order; ties break on colour and
   // pavement identity.
   function* strokeBucketsSteps(g, runsByStyle, alpha) {
     const styles = [...runsByStyle.values()]
-      .sort((a, b) => (b.widthPx - a.widthPx) || (a.color - b.color)
+      .sort((a, b) => (a.widthPx - b.widthPx) || (a.color - b.color)
         || (Number(!!a.isPath) - Number(!!b.isPath)) || String(a.variant || '').localeCompare(String(b.variant || '')));
-    for (const { widthPx, color, runs, variant, isPath } of styles) {
-      g.lineStyle(widthPx, color, alpha, { variant, isPath });
+    for (const { widthPx, color, runs, variant, isPath, cap, startRound, endRound } of styles) {
+      g.lineStyle(widthPx, color, alpha, { variant, isPath, cap, startRound, endRound });
       for (const run of runs) {
         g.beginPath();
         g.moveTo(run[0].x, run[0].y);
@@ -1709,6 +1842,37 @@
     return runs;
   }
 
+  // Opt-in seam study: one transverse joint at an actual change of material,
+  // never at a source/tile endpoint or between equal adjacent variants.
+  function variantSeams(line, scale, styles) {
+    const sorted = [...styles].sort((a, b) => a.a - b.a);
+    const out = [], length = Streets.lineLengthM(line, scale);
+    for (let i = 1; i < sorted.length; i++) {
+      const before = sorted[i - 1], after = sorted[i], at = after.a;
+      if (before.variant === after.variant || Math.abs(before.b - at) > 1e-5
+          || at <= 1e-5 || at >= length - 1e-5) continue;
+      const p = Streets.pointAtM(line, scale, at);
+      const off = Streets.pointAtM(line, scale, at, 1);
+      out.push({ ...p, nx: off.x - p.x, ny: off.y - p.y, at,
+        before: before.variant, after: after.variant });
+    }
+    return out;
+  }
+  function emitVariantSeams(scene, g, line, scale, styles, originX, originY, widthPx, proj, restored) {
+    if (!scene.roadVariantSeams || !g.decorPath || !styles) return;
+    for (const seam of variantSeams(line, scale, styles)) {
+      if (restored && !Streets.covers(restored, seam.at)) continue;
+      const wx = originX + seam.x, wy = originY + seam.y;
+      if (homeRoadRuns(scene, [{ x: wx - .01, y: wy }, { x: wx + .01, y: wy }])[0]?.home) continue;
+      const x = proj.projX(wx), y = proj.projY(wy);
+      const half = widthPx * .44;
+      const pts = [{ x: x - seam.nx * half, y: y - seam.ny * half },
+        { x: x + seam.nx * half, y: y + seam.ny * half }];
+      g.decorPath(3, 0x4c4b40, pts, .8, widthPx);
+      g.decorPath(1.2, 0xc7bda0, pts, .95, widthPx);
+    }
+  }
+
   // ── The dilapidated network ──────────────────────────────────────────────
   function* rebuildBaseSteps(scene, tiles, proj, baseCellIX, baseCellIY, g) {
     if (!g) return;
@@ -1720,13 +1884,13 @@
     // segment drawing leaves a notch at every bend.
     const runsByStyle = new Map();   // width, colour, variant and path kind → runs
     const railRuns = [];             // rail-class runs, for the track furniture pass
-    const addRun = (widthPx, color, run, isRail, variant, isPath) => {
+    const addRun = (widthPx, color, run, isRail, variant, isPath, cutStart = false, cutEnd = false) => {
       if (run.length < 2) return;
-      const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}`;
+      const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}|${cutStart}|${cutEnd}`;
       let bucket = runsByStyle.get(k);
-      if (!bucket) { bucket = { widthPx, color, variant, isPath, runs: [] }; runsByStyle.set(k, bucket); }
+      if (!bucket) { bucket = { widthPx, color, variant, isPath, cap: scene.roadVariantSeams && (cutStart || cutEnd) ? 'butt' : 'round', startRound: !cutStart, endRound: !cutEnd, runs: [] }; runsByStyle.set(k, bucket); }
       bucket.runs.push(run);
-      if (isRail) railRuns.push(run);
+      if (isRail) railRuns.push({ run, widthPx });
     };
 
     for (const r of transportLines(tiles)) {
@@ -1736,6 +1900,7 @@
       const isRail = RAIL_CLASSES.has((f.tags && f.tags.class) || '');
       const styles = !isRail && global.StreetVariants && global.Streets
         ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : null;
+      const cuts = scene.roadVariantSeams && styles ? variantSeams(line, mvtToM, styles) : [];
       for (const style of styles || [null]) {
         const sub = style ? Streets.subLineM(line, mvtToM, style.a, style.b) : line.map((p) => ({ x: p.x * mvtToM, y: p.y * mvtToM }));
         const variant = global.StreetVariants?.pavementVariantFor(f.tags, style?.variant);
@@ -1744,16 +1909,19 @@
         const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
         for (const part of homeRoadRuns(scene, pts)) {
           emitRuns(part.pts, proj, (run) => addRun(widthPx, part.home ? color : tint, run,
-            isRail, part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class)));
+            isRail, part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class),
+            !part.home && cuts.some(c => Math.abs(c.at - style?.a) < 1e-5),
+            !part.home && cuts.some(c => Math.abs(c.at - style?.b) < 1e-5)));
         }
 
       }
+      emitVariantSeams(scene, g, line, mvtToM, styles, originMx, originMy, widthPx, proj);
       yield;
     }
 
     yield* strokeBucketsSteps(g, runsByStyle, ALPHA);
     // Dress the railways as track, only where the target can draw decor.
-    if (g.decorPath) for (const run of railRuns) { emitRailDecor(scene, g, run); yield; }
+    if (g.decorPath) for (const { run, widthPx } of railRuns) { emitRailDecor(scene, g, run, widthPx); yield; }
     keepOut(scene, g, baseCellIX, baseCellIY); yield;
     // Anchor the stone pattern to the world, so walking scrolls the texture
     // with the road rather than under it.
@@ -1772,16 +1940,18 @@
   // dwell ended rather than at the nearest vertex. Rail is skipped.
   function* rebuildRestoredSteps(scene, tiles, proj, baseCellIX, baseCellIY, g) {
     if (!g) return;
+    if (g._pass && g !== scene._roadStageRestoredPass?.target)
+      g._pass.occluders = scene._roadGeomTarget?._pass?.ops || [];
     g.clear(); yield;
     const { projX, projY } = proj;
     const S = (typeof Streets !== 'undefined') ? Streets : null;
     if (S && scene.save) {
       const runsByStyle = new Map();
-      const addRun = (widthPx, color, run, variant, isPath) => {
+      const addRun = (widthPx, color, run, variant, isPath, cutStart = false, cutEnd = false) => {
         if (run.length < 2) return;
-        const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}`;
+        const k = `${widthPx}|${color}|${variant || ''}|${!!isPath}|${cutStart}|${cutEnd}`;
         let bucket = runsByStyle.get(k);
-        if (!bucket) { bucket = { widthPx, color, variant, isPath, runs: [] }; runsByStyle.set(k, bucket); }
+        if (!bucket) { bucket = { widthPx, color, variant, isPath, cap: scene.roadVariantSeams && (cutStart || cutEnd) ? 'butt' : 'round', startRound: !cutStart, endRound: !cutEnd, runs: [] }; runsByStyle.set(k, bucket); }
         bucket.runs.push(run);
       };
       for (const r of transportLines(tiles)) {
@@ -1792,6 +1962,7 @@
             const widthPx = widthPxFor(scene, f.tags);
             const color = restoredColorFor(f.tags);
             const styles = global.StreetVariants ? StreetVariants.lineStyles(entry, f, fi, i, mvtToM) : [{ a: 0, b: Infinity }];
+            const cuts = scene.roadVariantSeams ? variantSeams(line, mvtToM, styles) : [];
             for (const style of styles) for (const iv of S.intersect(list, [[style.a, style.b]])) {
               const variant = global.StreetVariants?.pavementVariantFor(f.tags, style.variant);
               const hex = global.StreetVariants?.stoneColorFor(variant);
@@ -1801,9 +1972,12 @@
               const pts = sub.map((p) => ({ x: originMx + p.x, y: originMy + p.y }));
               for (const part of homeRoadRuns(scene, pts)) {
                 emitRuns(part.pts, proj, (run) => addRun(widthPx, part.home ? color : tint, run,
-                  part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class)));
+                  part.home ? undefined : variant, PATH_CLASSES.has(f.tags?.class),
+                  !part.home && cuts.some(c => Math.abs(c.at - iv[0]) < 1e-5),
+                  !part.home && cuts.some(c => Math.abs(c.at - iv[1]) < 1e-5)));
               }
             }
+            emitVariantSeams(scene, g, line, mvtToM, styles, originMx, originMy, widthPx, proj, list);
           }
         }
         yield;
@@ -1939,7 +2113,7 @@
     }
   }
 
-  global.RoadOverlay = { homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

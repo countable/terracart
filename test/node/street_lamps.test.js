@@ -209,6 +209,58 @@ const mkFeature = () => ({
 });
 const mkLayers = () => [{ name: 'transportation', extent: EXTENT, features: [mkFeature()] }];
 const readyEntry = () => ({ tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS, layers: mkLayers() });
+const nearbyEntry = features => ({ tileEdgeM:TILE_EDGE_M, cellsPerEdge:CELLS,
+  layers:[{ name:'transportation', extent:EXTENT, features }] });
+const lineFeature = (id, cls, points) => ({ id, type:2, tags:{ class:cls },
+  geom:[points.map(([x,y]) => ({ x:toMvt(x), y:toMvt(y) }))] });
+const lampIds = lamps => lamps.map(lamp => lamp.id).sort().join('|');
+
+test('street lamps: a nearby crossing removes posts from its pavement, retaining remote sites and credit', () => {
+  const road = mkFeature(), crossing = lineFeature(4243,'primary',[[190,100],[190,280]]);
+  const isolated = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road]));
+  const sites = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road,crossing]));
+  const retained = sites.filter(lamp => lamp.lineKey === isolated[0].lineKey);
+  assert.gt(retained.length,0,'remote small-road posts remain');
+  assert.lt(retained.length,isolated.length,'crossing pavement loses the small-road post');
+  for (const lamp of retained) {
+    const original = isolated.find(old => old.id === lamp.id);
+    assert.eq(JSON.stringify(lamp),JSON.stringify(original),'retained identity, coordinates and credit are unchanged');
+    const x = lamp.x-TX*TILE_EDGE_M;
+    const keepout = WorldGen.roadOverlayWidthM(crossing.tags)/2 + RoadOverlay.LAMP_SITE_R_CELLS*CELL_M_T + .5;
+    assert.truthy(Math.abs(x-190)>=keepout,'the foot is clear of the larger road');
+  }
+});
+
+test('street lamps: close parallel roads share sparse lamp clusters with stable identity priority', () => {
+  const first = mkFeature(), second = lineFeature(4243,'residential',[[280,166],[100,166]]);
+  const firstAlone = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([first]));
+  const secondAlone = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([second]));
+  const sites = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([first,second]));
+  assert.lt(sites.length,firstAlone.length+secondAlone.length,'facing rows no longer double the posts');
+  assert.eq(lampIds(sites),lampIds(RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([second,first]))),'source order cannot change the selected posts');
+  for (let i=0;i<sites.length;i++) for (let j=i+1;j<sites.length;j++) {
+    if (sites[i].lineKey === sites[j].lineKey) continue;
+    assert.truthy(Math.hypot(sites[i].x-sites[j].x,sites[i].y-sites[j].y)>=CELL_M_T,'different roads do not duplicate posts within one cell');
+  }
+});
+
+test('street lamps: parallel wider road wins a lamp cluster; distant and collinear routes keep their sites', () => {
+  const road = mkFeature();
+  const wide = lineFeature(4243,'secondary',[[280,161],[100,161]]);
+  const isolatedWide = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([wide]));
+  const sites = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road,wide]));
+  for (const lamp of isolatedWide) assert.truthy(sites.some(other=>other.id===lamp.id),'wider-road posts win any close cluster');
+  const isolatedSmall = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road]));
+  assert.lt(sites.filter(lamp=>lamp.lineKey===isolatedSmall[0].lineKey).length,isolatedSmall.length,'small-road cluster gives way to a wider-road post');
+  const distant = lineFeature(4243,'residential',[[100,260],[280,260]]);
+  const alone = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road]));
+  const apart = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road,distant]));
+  assert.eq(lampIds(apart.filter(lamp=>lamp.lineKey===alone[0].lineKey)),lampIds(alone),'isolated road stays unchanged');
+  const duplicate = lineFeature(4243,'residential',[[100,178],[280,178]]);
+  const collinear = RoadOverlay.lampSitesForTile(TX,TY,nearbyEntry([road,duplicate]));
+  assert.eq(collinear.length,alone.length,'collinear source fragments retain one complete row, not zero');
+});
+
 test('street lamps: future lamp reservations cover the exact rendered feet and their cell-edge overlap', () => {
   const entry = readyEntry();
   const lamps = RoadOverlay.lampSitesForTile(TX, TY, entry);

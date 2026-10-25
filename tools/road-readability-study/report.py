@@ -1,0 +1,43 @@
+#!/usr/bin/env python3
+"""Build a local comparison report from the actual renderer captures."""
+import json,html,os,sys,statistics
+from pathlib import Path
+root=Path(sys.argv[1] if len(sys.argv)>1 else '/home/claude/.artifacts/road-readability-implementation')
+before=json.loads((root/'before-metadata-11.json').read_text());after=json.loads((root/'after-metadata-11.json').read_text())
+b={r['case']:r for r in before['results']};a={r['case']:r for r in after['results']}
+checks=json.loads((root/'pixel-checks-11.json').read_text()) if (root/'pixel-checks-11.json').exists() else []
+parts=['''<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Road overlap and seams — actual game renderer</title><style>*{box-sizing:border-box}body{margin:0;background:#182018;color:#e6eadf;font:16px/1.55 system-ui,sans-serif}main{max-width:1100px;margin:auto;padding:35px 24px}h1,h2{color:#fff;line-height:1.2}h1{font-size:36px}h2{margin-top:40px}a{color:#c4e2a8}p{max-width:920px}.pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;margin:20px 0}figure{margin:0;background:#273325;border-radius:10px;padding:14px}img{display:block;width:100%;image-rendering:pixelated}figcaption{margin-bottom:10px;font-weight:650}small,.muted{color:#b0bca8}.native img{max-width:352px;margin:auto}.crop{max-height:420px;overflow:hidden}.pill{display:inline-block;padding:3px 8px;background:#334830;border-radius:6px;font-size:13px;margin:3px}table{border-collapse:collapse;width:100%;font-size:14px}td,th{padding:12px;border-bottom:1px solid #46553e;text-align:left;vertical-align:top}th{background:#2b3b26}.note{background:#2c4028;padding:18px;border-left:4px solid #adc98a}code{color:#cee0b4}@media(max-width:650px){.pair{grid-template-columns:1fr}h1{font-size:28px}}</style><main><small>Dragon Hood · 25 October 2026 · actual Phaser WebGL renderer</small><h1>Larger roads cover smaller roads.<br>Variant seams stay sparse.</h1><p class="note">The implemented change paints smaller roads first, removes their surface beneath larger bands, and then paints the larger road. It also filters lamp sites near other roads and nearby lamps. Seams are an optional prototype: a thin pale cross-strip on a dark bed at an actual variant transition. No new neutral-junction design is introduced.</p><p>Each pair uses identical controlled source geometry, authored variant assignments, terrain and daylight. These are captures from the shipping Phaser scene and road/lamp renderers, not the static map viewer. Browser-only fixture setup replaces the world and uses a disposable save; it does not alter a player's save. Native views below are 352 × 352 pixels (11 cells).</p>''']
+labels={'crossing':'Crossing: broad road wins','parallel':'Nearby roads: fewer posts','restored-crossing':'Repaired small road beneath unrepaired large road','seam':'Variant seam prototype','restored-seam':'Restored variant seams'}
+for key,title in labels.items():
+ row=a[key];parts.append(f'<h2>{title}</h2><p>')
+ for road in row['roads']:
+  themes=' → '.join(dict.fromkeys(s['title'] for s in road['styles']))
+  parts.append(f'<span class="pill">{html.escape(road["name"])} · {road["widthM"]:g} m · {html.escape(themes)}'+(' · restored' if road['restored'] else '')+'</span> ')
+ parts.append('</p>')
+ if key in ['crossing','restored-crossing']:parts.append('<p>Horizontal: 9 m Main Road (rift pavement). Vertical: 5.5 m Lantern Row. Upper-left to lower-right diagonal: 2 m Confusion Path.</p>')
+ if key=='parallel':parts.append('<p>Top to bottom: Lantern Row, Berry Trail, Confusion Path, Greenway. These are independent, closely spaced routes.</p>')
+ parts.append('<div class="pair native">')
+ for label,rows in [('Before',b),('After',a)]:
+  file=rows[key]['file'];parts.append(f'<figure><figcaption>{label}</figcaption><a href="{file}"><img src="{file}" alt="{label} {html.escape(title)}"></a></figure>')
+ parts.append('</div>')
+ if key in ['crossing','parallel']:
+  parts.append(f'<p>Whole-fixture lamp sites: <strong>{b[key]["allLampCount"]} → {a[key]["allLampCount"]}</strong>. The count covers each complete source line, including portions outside this crop. Lamps remain at their existing surviving sites.</p>')
+ if key=='seam':parts.append('<p>The upper road changes Lantern Row → Berry Lane at the center. The lower path changes Greenway → Confusion Path. The seam shows the exact interval boundary even when the muted stones look similar.</p>')
+parts.append('<h2>Seam off / on in the new renderer</h2><div class="pair native">')
+for key,label in [('seam-off','Off'),('seam','On')]:
+ file=a[key]['file'];parts.append(f'<figure><figcaption>{label}</figcaption><a href="{file}"><img src="{file}" alt="Seam prototype {label}"></a></figure>')
+parts.append('</div><h3>Seam detail at 2×</h3><div style="width:240px;height:120px;overflow:hidden;position:relative;background:#273325"><img src="after-seam-11.png" alt="Magnified upper-road variant boundary" style="position:absolute;width:704px;max-width:none;left:-264px;top:-324px"></div><p>The seam prototype is opt-in (<code>scene.roadVariantSeams = true</code>). It uses the existing road canvas and cached rebuilds; there is no standing sign or per-frame search.</p>')
+parts.append('<h2>Wider renderer detail</h2><p>These 21-cell views widen the controlled camera at the same pixel scale. The fixed mobile UI mask limits vertical coverage; the useful top region is shown below. Native mobile views above are the primary comparison.</p><div class="pair">')
+for label in ['before','after']:
+ file=f'{label}-crossing-21.png'
+ if not (root/file).exists():continue
+ parts.append(f'<figure><figcaption>{label.title()}</figcaption><div class="crop"><a href="{file}"><img src="{file}" alt="Wide {label} crossing"></a></div></figure>')
+parts.append('</div><h2>Renderer and pixel checks</h2><ul>')
+parts.append(f'<li>Both runs: Phaser renderer type {before["boot"]["renderer"]} / {after["boot"]["renderer"]} (WebGL); page errors {len(before["errors"])} / {len(after["errors"])}; GL errors {before["webglError"]} / {after["webglError"]}.</li>')
+for c in checks:parts.append(f'<li>{html.escape(c["case"])}: {"PASS" if c["pass"] else "FAIL"}; {c["differentPixels"]} differing pixels'+(f' in {c["pixels"]} sampled pixels' if 'pixels'in c else ' between seam off/on')+'.</li>')
+parts.append('</ul><p>The overlap checks compare pixels in the actual base/restored road texture canvases inside the wide road against a wide-road-only reference. Terrain is excluded because narrow paths intentionally interrupt the rift-ground policy; a whole-scene comparison would conflate that terrain difference with road compositing. They include the transparent spaces between pavers, checking that a smaller road does not show through. Pixel checks are capture-harness reads, not runtime game work.</p><h2>Rebuild timing samples</h2><table><tr><th>Fixture</th><th>Before</th><th>After</th></tr>')
+for key in labels:
+ parts.append(f'<tr><td>{labels[key]}</td><td>{b[key]["roadRenderMs"]:.1f} ms</td><td>{a[key]["roadRenderMs"]:.1f} ms</td></tr>')
+parts.append('</table><p class="muted">These are single synchronous rebuild samples in headless Chromium using SwiftShader, after each fixture is installed. They are not device benchmarks, frame-rate measurements, or a claim of a performance improvement. The normal cached per-frame draw and real dense-city tile load remain separate performance concerns.</p><p><a href="before-metadata-11.json">Before metadata</a> · <a href="after-metadata-11.json">After metadata</a> · <a href="pixel-checks-11.json">Pixel checks</a></p></main></html>')
+(root/'index.html').write_text(''.join(parts))
+print(root/'index.html')
