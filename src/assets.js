@@ -27,6 +27,11 @@ const ASSETS = {
   authored_source_pp_flat_pink: { kind: 'image', path: 'assets/Objects/AuthoredBuildings/pp-flat-pink.png' },
   selected_items: { kind: 'spritesheet', path: 'assets/Icons/SelectedItems/items.png', frameWidth: 16, frameHeight: 16 },
   selected_terrain: {'kind': 'image', 'path': 'assets/selected-terrain/selected-terrain.png'},
+  road_surface_atlas: { kind: 'image', path: 'assets/Objects/RoadSurfaces/surfaces.png',
+    onLoad: scene => {
+      RoadSurfaces.setSource(scene.textures.get('road_surface_atlas').getSourceImage());
+      RoadOverlay.invalidate(scene);
+    } },
   selected_shrub: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/shrub-olive.png', frameWidth: 16, frameHeight: 16 },
   weather_rain: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/rain.png', frameWidth: 16, frameHeight: 16 },
   // One native 24px top-down steel snare frame, cropped with provenance in

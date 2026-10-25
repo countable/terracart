@@ -2252,3 +2252,19 @@ test('Grassy Lane fills its road and both verges with unique harvestable grass',
   assert.truthy(SaveState.regrows('longgrass'), 'road grass shares normal harvest regrowth');
 });
 })();
+
+
+test('street variants: MD/LG reject stale assigned variants in every paving lookup', () => {
+  for (const cls of ['secondary', 'tertiary', 'primary', 'motorway']) {
+    const feature = { type: 2, tags: { class: cls }, geom: [[{x:0,y:0},{x:100,y:0}]] };
+    const rec = { fi:0, li:0, tags:feature.tags, size:'major', line:feature.geom[0],
+      variant:'orchard', fallbackVariant:'berry', variantSegments:[{a:0,b:100,variant:'lantern'}] };
+    const entry = { streetIndex:{lines:[rec]}, layers:[] };
+    assert.eq(StreetVariants.variantFor('fixed-road', 'Orchard', 'major'), null);
+    assert.eq(StreetVariants.variantAt(rec, 50), null);
+    assert.eq(StreetVariants.pavementVariantFor(feature.tags, 'orchard'), null);
+    const styles = StreetVariants.lineStyles(entry, feature, 0, 0, 1);
+    assert.eq(styles.length, 1, 'stale variant interval cannot split a fixed road');
+    assert.eq(styles[0].variant, null);
+  }
+});

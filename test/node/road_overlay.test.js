@@ -20,7 +20,7 @@ function makeGfx() {
   return {
     paths: [], cleared: 0, style: null, _cur: null,
     clear() { this.paths.length = 0; this.erased.length = 0; this.cleared++; },
-    lineStyle(w, c, a) { this.style = { w, c, a }; },
+    lineStyle(w, c, a, paving) { this.style = { w, c, a, ...paving }; },
     beginPath() { this._cur = { style: this.style, pts: [] }; },
     moveTo(x, y) { this._cur.pts.push({ x, y }); },
     lineTo(x, y) { this._cur.pts.push({ x, y }); },
@@ -1408,7 +1408,7 @@ test('road overlay: Burned Row shares glowing ember cracks on weathered and rest
   } } finally { document.createElement = previousCreate; }
 });
 
-test('road overlay: suppressed MD/LG pavement stays distinct before and after restoration', () => {
+test('road overlay: MD/LG use fixed class surfaces without variants before and after restoration', () => {
   for (const cls of ['secondary', 'primary']) {
     clearTiles();
     const f = line([{ x: 0, y: 0 }, { x: 64, y: 0 }], { class: cls });
@@ -1416,10 +1416,12 @@ test('road overlay: suppressed MD/LG pavement stays distinct before and after re
     const scene = makeRestoredScene();
     Streets.restore(scene.save, RO_KEY00(), Streets.lineKey(f, 0), [[0, 40]]);
     RoadOverlay.draw(scene);
-    assert.eq(scene.roadGeomGfx.paths[0].style.c, 0x485553);
-    assert.eq(scene.roadRestoredGfx.paths[0].style.c, 0x485553);
-    assert.eq(StreetVariants.pavementVariantFor(f.tags, 'orchard'), 'suppressed');
-    assert.eq(StreetVariants.stoneColorFor('suppressed'), '#485553');
+    const family = cls === 'secondary' ? 'md' : 'lg';
+    assert.eq(scene.roadGeomGfx.paths[0].style.surface, family);
+    assert.eq(scene.roadRestoredGfx.paths[0].style.surface, family);
+    assert.eq(scene.roadGeomGfx.paths[0].style.variant, null);
+    assert.eq(scene.roadRestoredGfx.paths[0].style.variant, null);
+    assert.eq(StreetVariants.pavementVariantFor(f.tags, 'orchard'), null);
     assert.falsy(StreetVariants.VARIANT_BY_ID.suppressed, 'render-only: never a gameplay theme');
   }
 });
@@ -1464,3 +1466,19 @@ test('road overlay: variant seams follow material changes in metre space, exclud
     { a: 0, b: 10, variant: 'lantern' }, { a: 15, b: 40, variant: 'berry' },
   ]).length, 0, 'no seam across a source gap');
 }));
+
+
+test('road overlay: fixed-road repair removes the old surface while retaining larger-road coverage', () => {
+  clearTiles();
+  const f = Object.assign(line([{ x: 0, y: 0 }, { x: 128, y: 0 }], { class: 'primary' }), { id: 8901 });
+  putTile(0, 0, [f]);
+  const scene = makeRestoredScene();
+  Streets.restore(scene.save, RO_KEY00(), Streets.lineKey(f, 0), [[10, 30]]);
+  RoadOverlay.draw(scene);
+  const cover = scene.roadGeomGfx.paths.filter(p => p.style.coverageOnly);
+  assert.eq(cover.length, 1, 'repair retains exactly one geometric occluder');
+  assert.eq(cover[0].style.surface, 'lg');
+  assert.eq(cover[0].style.cap, 'butt', 'the old and new surfaces meet at the exact repair boundary');
+  assert.eq(scene.roadRestoredGfx.paths.length, 1);
+  assert.eq(scene.roadRestoredGfx.paths[0].style.surface, 'lg');
+});

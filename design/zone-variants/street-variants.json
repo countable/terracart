@@ -108,8 +108,7 @@
           "weight": 0.04,
           "probability": 0.0622950819672131
         }
-      ],
-      "major": []
+      ]
     },
     "cultivated": {
       "minor": [
@@ -217,8 +216,7 @@
           "weight": 0.024,
           "probability": 0.026982248520710062
         }
-      ],
-      "major": []
+      ]
     },
     "woodland": {
       "minor": [
@@ -326,8 +324,7 @@
           "weight": 0.04,
           "probability": 0.04362801377726751
         }
-      ],
-      "major": []
+      ]
     },
     "damp": {
       "minor": [
@@ -435,8 +432,7 @@
           "weight": 0.04,
           "probability": 0.05436337625178825
         }
-      ],
-      "major": []
+      ]
     },
     "formal": {
       "minor": [
@@ -544,8 +540,7 @@
           "weight": 0.024,
           "probability": 0.031105047748976808
         }
-      ],
-      "major": []
+      ]
     },
     "sacred": {
       "minor": [
@@ -653,8 +648,7 @@
           "weight": 0.04,
           "probability": 0.04980340760157273
         }
-      ],
-      "major": []
+      ]
     },
     "ruined": {
       "minor": [
@@ -762,8 +756,7 @@
           "weight": 0.08,
           "probability": 0.11411411411411411
         }
-      ],
-      "major": []
+      ]
     },
     "coastal": {
       "minor": [
@@ -871,8 +864,7 @@
           "weight": 0.04,
           "probability": 0.060799999999999986
         }
-      ],
-      "major": []
+      ]
     }
   },
   "fixture": {
@@ -17626,8 +17618,12 @@
   "maxVariantLengthM": 500,
   "wagonStopShare": 0.3333333333333333,
   "rockStreetShare": 0.25,
+  "variantSizes": [
+    "minor",
+    "path"
+  ],
+  "variantShadeAlpha": 0.2,
   "plainShare": {
-    "minor": 0.6,
-    "major": 1
+    "minor": 0.6
   }
 }

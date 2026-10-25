@@ -211,12 +211,21 @@ def art_styles():
 def art_script():
     r = art_registry()
     # Self-contained Canvas2D painters: no network, Phaser or external assets.
-    code = f'const UI_LAMP_GLOW={json.dumps(r["lampGlow"])};\n' + r['painters']
+    code = r['groundMaterialSource'] + '\n' + r['selectedMaterialPainter'] + '\n'
+    code += f'const UI_LAMP_GLOW={json.dumps(r["lampGlow"])};\n' + r['painters']
     code += '\nconst WorldGen={PATH_CLASSES:new Set(' + json.dumps(r['pathClasses']) + '),T:{WATER:' + str(r['waterTerrain']) + '}};'
     code += '\nconst SpriteLayout={CELL_PX:' + str(r['cellPx']) + '};\n'
     code += r['variantSource'] + '\n' + r['roadPainter']
+    code += '\nconst selectedRoadSource=' + json.dumps(sprite_png('selected_terrain', 0, True)) + ';'
+    code += '\nconst previewCellPx=' + str(r['cellPx']) + ';'
+    code += '\nconst previewRoadAlpha=' + json.dumps(r['roadImageAlpha']) + ';'
     code += '''
+const selectedRoadImage = new Image();
+selectedRoadImage.src = selectedRoadSource;
+await selectedRoadImage.decode();
+setSelectedTerrainSource(selectedRoadImage);
 const baked = new Map();
+const pavementSizes = new Map();
 const scene = {textures:{exists:key=>baked.has(key),createCanvas:(key,w,h)=>{
   const c=document.createElement('canvas');c.width=w;c.height=h;
   return {getContext:()=>c.getContext('2d'),refresh:()=>baked.set(key,c.toDataURL())};
@@ -226,16 +235,29 @@ for(const image of document.querySelectorAll('[data-procedural]')){
   const key=image.dataset.procedural;
   if(!baked.has(key)&&key.startsWith('pavement:')){
     const [,variant,state,isPath]=key.split(':');
-    const c=document.createElement('canvas');c.width=c.height=RoadOverlay.CLEAN_TILE_PX;
-    RoadOverlay.paintPavementTile(c.getContext('2d'),RoadOverlay.CLEAN_TILE_PX,isPath==='true',state==='restored',variant);
-    baked.set(key,c.toDataURL());
+    const base=RoadOverlay.selectedRoadTile(variant,false);
+    const repaired=state==='restored'&&RoadOverlay.selectedRoadTile(variant,true);
+    if(!base)throw new Error('Missing selected pavement: '+variant);
+    const c=document.createElement('canvas');c.width=c.height=base.width;
+    const ctx=c.getContext('2d');ctx.imageSmoothingEnabled=false;
+    // Match the live base/restored image composite. The base already bakes
+    // the compensating tint alpha, so it must be drawn at the game's .61.
+    ctx.globalAlpha=previewRoadAlpha.base;ctx.drawImage(base,0,0);
+    if(repaired){ctx.globalAlpha=previewRoadAlpha.restored;ctx.drawImage(repaired,0,0);}
+    baked.set(key,c.toDataURL());pavementSizes.set(key,c.width);
   }
   if(!baked.has(key))throw new Error('Missing preview painter: '+key);
   image.setAttribute('href',baked.get(key));
+  if(pavementSizes.has(key)){
+    const size=pavementSizes.get(key)/previewCellPx*Number(image.dataset.pavementCellM);
+    for(const node of [image,image.closest('pattern')]){
+      node.setAttribute('width',size);node.setAttribute('height',size);
+    }
+  }
 }
 document.documentElement.dataset.artReady='true';
 '''
-    return '<script>(()=>{\n' + code.replace('</script', '<\\/script') + '\n})();</script>'
+    return '<script>(async()=>{\n' + code.replace('</script', '<\\/script') + '\n})().catch(error=>{document.documentElement.dataset.artError=error.message;console.error(error);});</script>'
 
 
 def cycle(material, bx, by):
@@ -681,7 +703,7 @@ def street_svg(v, cell_m, detail=False):
         pid = f'pavement-{v["id"]}-{state}{suffix}'
         painter = f'pavement:{v["id"]}:{state}:{str(v["size"] == "path").lower()}'
         tile_size = cell_m
-        parts.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{tile_size}" height="{tile_size}">' + art_image({'procedural': painter}, f'width="{tile_size}" height="{tile_size}"') + '</pattern></defs>')
+        parts.append(f'<defs><pattern id="{pid}" patternUnits="userSpaceOnUse" width="{tile_size}" height="{tile_size}">' + art_image({'procedural': painter}, f'data-pavement-cell-m="{cell_m}" width="{tile_size}" height="{tile_size}"') + '</pattern></defs>')
         parts.append(f'<path class="sprite-cell pavement-{state}" d="M {a["x"]} {a["y"]} L {b["x"]} {b["y"]}" stroke="url(#{pid})" stroke-width="{v["roadWidthM"]}" stroke-linecap="round"/>')
     art_prefix = f'street-art-{v["id"]}{suffix}'
     parts.append(sprite_symbols(street_materials([v]), art_prefix))
@@ -739,6 +761,7 @@ def street_svg(v, cell_m, detail=False):
 
 def street_section(streets):
     cards = []
+    streets = {**streets, 'rows': [row for row in streets['rows'] if row['size'] in ('minor', 'path')]}
     for v in streets['rows']:
         placement_details = '<dt>Placement</dt><dd>' + html.escape(v['placement']) + '</dd>' if v.get('placement') else ''
         props = len(v['objects'])
@@ -747,7 +770,7 @@ def street_section(streets):
         fauna = 'Local inhabitants from habitat profiles'
         if v.get('pathFauna'):
             fauna = '; '.join(f'{kind.replace("_", " ").title()}: one per {rule["perPathM"]} m of path, at most {rule["max"]} per tile, on adjacent eligible ground; stays defeated. Preview shows one illustrative encounter, not a guaranteed spawn on this short sample.' for kind, rule in v['pathFauna'].items())
-        selection = 'Geography-selected path' if v.get('scenicKind') else f"{v['size']} {'section' if v['size'] == 'path' else 'street'} · {v['share']*100:g}% base share"
+        selection = f"Small road · {v['share']*100:g}% base share"
         if v['size'] == 'path':
             selection = f"Walking path · {v.get('pathWeight', 0)*100:g}% base weight"
         if v.get('vents'):
@@ -759,7 +782,7 @@ def street_section(streets):
         if tiers: monsters += '; stays defeated; placement and home safety can suppress guards'
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
-        terrain_details = f'<dt>Terrain verge</dt><dd>{html.escape(v.get("terrain", "").replace("_", " ").title())} · {streets["terrainVergeCells"]:g} cells ({streets["cellM"]*streets["terrainVergeCells"]:g} m) beyond the road edge, on eligible ground. Special zones take precedence.</dd>'
+        terrain_details = '<dt>Vector background</dt><dd>20% variant-coloured tint beneath the cobbles, within the road or path band. Restoration reuses the same tint once. Surrounding grid terrain keeps its landcover; variants do not repaint a ground verge.</dd>'
         shrine = next((row for row in art_registry()['shrineKinds'].values() if v['id'] in row.get('streets', [])), None)
         shrine_details = ''
         if v.get('ventKind') and shrine:
@@ -782,8 +805,9 @@ target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).
 }}
 select.addEventListener('change',update);update();
 })();</script>"""
-    grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Small roads'), ('major', 'Major roads'), ('path', 'Paths')] if any(row['size'] == size for row in streets['rows']))
-    return f'''<section id="streets"><h1>{len(streets['rows'])} street and path variants</h1><details><summary>How road samples are generated</summary><p>Every shipping street and scenic path row from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road, with an empty occupancy set. Street samples begin on public park ground, then the shipping terrain pass paints each variant’s {streets['terrainVergeCells']:g}-cell verge before special-zone painting and surface dressing. Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Water appears blue in the promenade sample. Vista chests come from the generated scenic stretches, with their rules below. Props and lamps use their game art. With art switched off, squares are props and coloured circles are lamps. Tiny pale dots are source line ends, and outlined diamonds are guard candidate sites. The marked road midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of minor keys and {streets['plainShare']['major']*100:g}% of major keys unthemed. Affinities and street names adjust the choice among special roads, without changing that rarity. Golden Road keeps its fixed 2% share of all minor keys. Long and tile-crossing roads retain their theme in deterministic patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Scenic paths use geography rather than the street-name roll, so their zero roll share is not a spawn probability. Rarity names come from the runtime table. Prop density is the observed sample, not an area-coverage target. Line-piece caps and spawn restrictions limit placement. Real terrain, occupied cells, bends and tile boundaries change the result. Fauna percentages relocate existing animals; guard sites are passed to the later lair spawner. Pavement and verge carpet decoration use the game’s painters, including carpet colour, width, soft edges and any symbols. Lamps show their restored art, configured colour and generated spacing; visit dimming is not simulated. A zone with a lamp tint overrides the street colour in the game.</p><p><b>{html.escape(streets['baseline']['title'])}</b> is the background story for every major road, not another variant row: {html.escape(streets['baseline']['body'])} About {streets['wagonStopShare']*100:.1f}% of eligible bus stops wear its wagon look. The separate {streets['rockStreetShare']*100:g}% minor-street rock roll (excluding hedgerows), ambient plants, café hoards and fauna are not drawn here.</p></details><p><a href="street-variants.json">Generated street geometry and runtime rows</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+    grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Small roads'), ('path', 'Paths')] if any(row['size'] == size for row in streets['rows']))
+    return f'''<section id="streets"><h1>{len(streets['rows'])} Small-road and path variants</h1><p>Variants apply only to Small roads and walking paths. Medium roads are fixed Old Trade Roads; Large roads are fixed dimensional rift roads. Their appearance changes with restoration, not variant selection.</p><details><summary>How road samples are generated</summary><p>Shipping Small-road and path rows from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road. Public park ground remains underneath and beside the source geometry; no variant ground verge is painted. The vector surface uses the selected game cobbles over a 20% variant-coloured background. The worn and restored preview composites use the game's image opacity and native texture scale, with no second background tint after restoration.</p><p>Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Props and lamps use shipping game art. With art switched off, squares are props and coloured circles are lamps. Pale dots mark source line ends; outlined diamonds are guard candidate sites. The marked midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of Small-road keys without a special theme. Affinities and street names adjust the choice among special Small roads without changing that rarity. Long and tile-crossing roads retain deterministic theme patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Paths use their runtime geography and weight rules. Prop density is an observed sample; real terrain, occupied cells, bends and tile boundaries change placement. Fauna percentages relocate existing animals; guard sites reach the later lair spawner. Lamps show restored art and generated spacing; visit dimming is not simulated. Nexus lamp tints take precedence in the game.</p></details><p><a href="street-variants.json">Generated Small-road and path geometry</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+
 
 
 @functools.lru_cache(maxsize=None)
@@ -1311,7 +1335,7 @@ def render(d, out):
     if 'quarry' in categories:
         quick_links += '<a href="#quarry-drafts">Parking-lot stories (4)</a>'
     quick_links += '<a href="#beach-parks">Beach parks</a>'
-    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a><a href="#ambient-layouts" data-view="ambient-layouts">Floor plans</a><a href="#underground" data-view="underground">Cave studies</a></nav>'
+    page += f'<h1>Zones and roads</h1><p>{len(d["variants"])} special zones · {len(streets["rows"])} Small-road and path variants · basic terrain previews · <a href="/nexus-review/">See layouts at real sites</a></p><nav class="page-nav view-tabs" aria-label="Viewer sections"><a href="#basic-zones" data-view="basic-zones">Basic zones</a><a href="#streets" data-view="streets">Roads</a><a href="#zones" data-view="zones">Nexus</a><a href="#ambient-layouts" data-view="ambient-layouts">Floor plans</a><a href="#underground" data-view="underground">Cave studies</a></nav>'
     page += '<div class="controls"><label><input id="show-art" type="checkbox" checked> Game art</label><label><input id="show-monsters" type="checkbox" checked> Monsters</label><label><input id="show-lights" type="checkbox" checked> Light guides</label><label><input id="show-poi" type="checkbox" checked> POIs</label><label><input id="show-bg" type="checkbox" checked> Background</label></div>'
     page += '<div class="controls zone-size-controls" aria-label="Zone sample size"><label>Width (cells) <input id="zone-width" type="number" min="3" max="49" step="1" value="29"></label><label>Height (cells) <input id="zone-height" type="number" min="3" max="49" step="1" value="29"></label><button id="zone-size-reset" type="button">Reset size</button><output id="zone-size-status" aria-live="polite"></output></div>'
     generated_at = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')

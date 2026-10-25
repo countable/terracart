@@ -55,6 +55,10 @@ and every eligible variant keeps a nonzero chance. Context is the anchor's own
 geographic POI tags, falling back to its park character; it never infers a
 parent from a neighbouring tile's clipped polygon.
 
+Only Small roads and paths have variants. Medium and Large roads use fixed
+class-based surfaces with restoration states (`RoadSurfaces`), and never enter
+the variant roll or the variants exploration dashboard.
+
 Road variants roll rarity independently of theme. Street names and the
 surrounding Nexus variants adjust only the conditional theme weights: once
 coverage is final, each eligible road samples its own segments

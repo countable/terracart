@@ -648,7 +648,8 @@
   // look is loot.js chestLook's); its story is here beside the others. A LOOK
   // and a story only: no `attracts` (the dogs no longer work Major-and-Medium road verges —
   // the owner's safety pass, Sep 2026), no foe, no trap.
-  // Render-only identity: never enters variant selection or spawn dressing.
+  // Shared roadside ground/lamp palette; MD/LG paving is owned by
+  // RoadSurfaces. This palette never enters variant selection or dressing.
   const SUPPRESSED_STYLE = {
     id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2, ground: '#596562',
     stone: { weathered: '#485553', restored: '#485553', pattern: 'rift', accent: '#66a99e' },
@@ -657,7 +658,7 @@
     return (variant === SUPPRESSED_STYLE.id ? SUPPRESSED_STYLE : VARIANT_BY_ID[variant])?.stone || null;
   }
   function pavementVariantFor(tags, variant) {
-    return sizeOfTags(tags) === 'major' ? SUPPRESSED_STYLE.id : variant;
+    return sizeOfTags(tags) === 'major' ? null : variant;
   }
   const BANDIT_STORY = {
     story: 'street_bandit', title: 'Old Trade Road',
@@ -1518,7 +1519,7 @@
   }
 
   function variantAt(rec, metres, mvtToM = 1) {
-    if (!rec) return null;
+    if (!rec || rec.size === 'major' || (rec.tags && sizeOfTags(rec.tags) === 'major')) return null;
     metres /= mvtToM;
     if (rec.homeSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
     if (rec.nexusSuppressedRanges?.some(([a, b]) => metres >= a && metres < b)) return null;
@@ -3048,6 +3049,8 @@
   function lineStyles(entry, feature, fi, li, mvtToM) {
     const S = root.Streets, line = feature.geom[li];
     const length = S.lineLengthM(line, mvtToM);
+    // Medium/Large roads have fixed restoration surfaces, never variants.
+    if (sizeOfTags(feature.tags) === 'major') return [{ a: 0, b: length, variant: null, size: 'major' }];
     const rec = indexFor(entry)?.lines?.find((r) => r.fi === fi && r.li === li);
     if (rec) return lineParts(rec, mvtToM).map(part => ({ ...part, size: rec.size }));
     const ivs = entry.scenic?.lines?.get(S.lineKey(feature, li));
