@@ -15,7 +15,7 @@ async function bakeRuntimeTextures(root, registry) {
   if (!registry) {
     // Let the active profile declare both source paths. The empty base entry
     // merely enables its normal replacement of the existing bush texture.
-    const context = { ASSETS: { bushes: {} }, SpriteLayout: { ART_BOUNDS: {} } };
+    const context = { ASSETS: { bushes: {} }, SpriteLayout: { ART_BOUNDS: {}, CROWN_BOUNDS: {} } };
     vm.createContext(context);
     for (const source of sources) vm.runInContext(source, context);
     registry = { assets: context.ASSETS };
@@ -34,7 +34,7 @@ async function bakeRuntimeTextures(root, registry) {
     args: ['--no-sandbox', '--disable-dev-shm-usage'] });
   try {
     const page = await browser.newPage();
-    await page.addScriptTag({ content: 'const ASSETS = {bushes:{}}; const SpriteLayout = {ART_BOUNDS:{}};' });
+    await page.addScriptTag({ content: 'const ASSETS = {bushes:{}}; const SpriteLayout = {ART_BOUNDS:{},CROWN_BOUNDS:{}};' });
     for (const source of sources) await page.addScriptTag({ content: source });
     return await page.evaluate(async images => {
       const entries = new Map();

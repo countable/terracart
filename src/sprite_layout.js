@@ -31,7 +31,10 @@
   const ART_BOUNDS = {
     'wood:0': { fw: 16, fh: 16, minX: 2, minY: 2, maxX: 14, maxY: 14 },
     'selected_rubble:0': { fw: 16, fh: 16, minX: 1, minY: 2, maxX: 15, maxY: 12 },
-    'torch:0': { fw: 16, fh: 16, minX: 1, minY: 1, maxX: 14, maxY: 15 },
+    'torch:0': { fw: 16, fh: 32, minX: 2, minY: 7, maxX: 14, maxY: 30 },
+    'torch:1': { fw: 16, fh: 32, minX: 2, minY: 5, maxX: 14, maxY: 30 },
+    'torch:2': { fw: 16, fh: 32, minX: 2, minY: 7, maxX: 14, maxY: 30 },
+    'torch:3': { fw: 16, fh: 32, minX: 2, minY: 5, maxX: 14, maxY: 30 },
     'zone_berry_bush:1': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'zone_berry_bush:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },
     'selected_shrub:0': { fw: 16, fh: 16, minX: 0, minY: 0, maxX: 16, maxY: 16 },

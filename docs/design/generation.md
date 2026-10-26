@@ -676,15 +676,23 @@ access or tile lifecycle mechanics.
   between special sections. The existing special-theme roll retains its rarity;
   its remaining stretches select a common route theme. Paths also select these
   common themes alongside their existing choices. Rocky Road / Path has simple
-  rocks and loose stone; Grassy Lane fills eligible road cells and two verge
+  rocks and loose stone at cell-spaced attempts on both verges (three times the former attempt density); Grassy Lane fills eligible road cells and two verge
   cells on each side with harvestable long grass, with herbs and bushes farther
   out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
   the shared land/occupancy gates. Old Growth Path has
-  mature trees, shrubs and mushrooms; Haunted Forest Path has dark trees,
+  mature trees, shrubs and mushrooms; Haunted Forest Path uses the shared dead-tree art,
   headstones and mushrooms. Way of Variety densely fills both verges with
-  deterministic common plants, rocks, mature trees, pots and barrels. All use
+  deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
   existing interactions and shared spawn gates; Grassy Lane intentionally covers
   its road surface too.
+- Hedged Lane uses normal street-lamp spacing. Continuous clipped hedge rows
+  stand on both sides, one cell behind the kerb so lamp foot reservations do
+  not erase a row. Occupied or restricted cells still leave gaps.
+- Toadstool Lane fills both two-cell verges with small mushrooms around its
+  existing giant-cap groups, up to 200 extra small caps per line piece.
+  Snare Lane keeps its trapped chest and adds up to 12 seeded scattered
+  snares, spaced at least two cells apart. Barricade Road adds up to six
+  seeded ground stakes along its verges without adding guard posts.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression. Selected mapped bus stops off the MD carriageway can retain
@@ -1042,10 +1050,15 @@ Higher-priority placements and their access space take precedence in this order:
 4. Nexus variants, including their deliberately empty layout cells.
 5. Road variants, across their defined corridor and verge, including
    deliberately empty gaps. The claim reaches two cells past the road band
-   (`StreetVariants.TERRAIN_VERGE_CELLS`): inside it the variant's ground
-   replaces residential land cover and ambient yard fill. Ground materials carry
-   the street theme: Hedgerow uses park, Overgrown forest, and Pilgrim rocky
-   terrain. No separate carpet strips or repeating emblems overlay the verge.
+   (`StreetVariants.TERRAIN_VERGE_CELLS`) for ownership and placement priority.
+   Small-road themes also paint ground beneath the road and within their
+   configured verge: two cells by default, Orchard one cell of grass,
+   Pilgrim Old Stones churchyard ground, and Thorny its existing four-cell
+   verge. Old Growth, Grassy, Spider and Poison path themes opt into forest,
+   grass, cave floor and wetland buffers respectively. Other paths retain
+   source ground. Water, buildings, Nexus coverage, access exclusions and
+   major-road buffers are protected; cave generation retains its original
+   substrate snapshot.
    Generic roadside rocks
    belong only to normal (non-variant) streets and yield throughout variant
    coverage, even when sourced from the same road. The original rock substrate
@@ -1071,11 +1084,14 @@ Higher-priority placements and their access space take precedence in this order:
    third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
+   Berry Trail uses a denser, gap-free first-verge row: 80% berry bushes,
+   10% poisonberry, 5% ordinary shrubs and 5% brambles before the shared
+   golden roll. One existing giant-bear encounter is seated behind the bushes.
    Pottery Road (a Small-road row, sections up to 250 m) lines both verges
    with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
-   a cell with `POTTERY_GAP` (15%) left empty, each pot the first free cell
+   a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero), each pot the first free cell
    from the second verge cell out, and a back rank on the third verge cell
-   alone (its own stream, `POTTERY_BACK_GAP` 50% empty), both on the reward
+   alone, both on the reward
    gate, so none stands on the kerb cell or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.

@@ -72,3 +72,29 @@ test('castle materials: Archive quest variety preserves the four existing style 
   }
   assert.eq([...jobs].sort().join(), 'deliver,luxury', 'real generated Archives reach both jobs');
 });
+
+test('castle growth: contact masks are deterministic, translation-stable and bounded', () => {
+  const points=[{x:0,y:0},{x:280,y:0},{x:280,y:110},{x:0,y:110}];
+  const layout={points,towers:[],keep:null};
+  const patches=CastleStyles.growthPatches('bastion',layout);
+  assert.eq(JSON.stringify(patches),JSON.stringify(CastleStyles.growthPatches('bastion',layout)));
+  const moved=CastleStyles.growthPatches('bastion',{...layout,points:points.map(p=>({x:p.x+391,y:p.y-217}))});
+  assert.eq(moved.length,patches.length);
+  for(let i=0;i<patches.length;i++)for(let j=0;j<patches[i].length;j++){
+    assert.lt(Math.abs(moved[i][j].x-391-patches[i][j].x),1e-7);
+    assert.lt(Math.abs(moved[i][j].y+217-patches[i][j].y),1e-7);
+  }
+  const area=key=>CastleStyles.growthPatches(key,layout).reduce((sum,ring)=>sum+Math.abs(ring.reduce((a,p,i)=>{
+    const q=ring[(i+1)%ring.length];return a+p.x*q.y-q.x*p.y;
+  },0))/2,0);
+  assert.gt(area('bastion'),area('archive'),'Bastion vegetation spreads farther into its court');
+  assert.gt(area('archive'),area('citadel'),'Citadel keeps only sparse contact growth');
+  const archive=CastleStyles.growthPatches('archive',layout);
+  assert.truthy(archive.every(ring=>ring.every(p=>p.x<=19||p.x>=261||p.y<=19||p.y>=91)),
+    'without a keep, Archive growth remains at its edges rather than stamping the open center');
+  const huge=Array.from({length:64},(_,i)=>({x:100000*Math.cos(i*Math.PI/32),y:100000*Math.sin(i*Math.PI/32)}));
+  const complex=CastleStyles.growthPatches('bastion',{points:huge,towers:huge.map(p=>({points:points.map(q=>({x:q.x+p.x,y:q.y+p.y}))})),keep:null});
+  assert.lte(complex.length,2048,'large footprints cannot create unbounded ground painting work');
+  assert.truthy(complex.every(ring=>ring.length===4),'leaf clusters have bounded four-point paths');
+  assert.truthy(complex.every(ring=>ring.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y))));
+});

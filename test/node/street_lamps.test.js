@@ -313,6 +313,39 @@ test('street lamps: rasterized road decorations cannot occupy future lamp footpr
   assert.truthy(sites > 0 && props > 0, 'fixture exercises actual lamps and variant decorations');
 });
 
+test('hedged lane: real lamp reservations leave substantial hedge rows on both sides', () => {
+  let fixture;
+  for (let sample = 0; sample < 60 && !fixture; sample++) {
+    const layers = mkLayers();
+    const road = layers[0].features[0];
+    road.tags.class = 'minor';
+    layers.push({name:'landcover', extent:EXTENT, features:[{type:3, tags:{class:'meadow'},
+      geom:[[{x:0,y:0},{x:EXTENT,y:0},{x:EXTENT,y:EXTENT},{x:0,y:EXTENT}]]}]});
+    layers.push({name:'transportation_name', extent:EXTENT, features:[
+      {type:2, tags:{name:`Hedge Lane ${sample}`}, geom:road.geom}
+    ]});
+    const tile = WorldGen.rasterizeTile(layers, CELLS, TX, TY, TILE_EDGE_M);
+    if (tile.streetIndex.lines[0].variant === 'hedgerow') fixture = {...tile, layers,
+      tileEdgeM:TILE_EDGE_M, cellsPerEdge:CELLS};
+  }
+  assert.truthy(fixture, 'fixture selects Hedged Lane');
+  assert.eq(StreetVariants.lampSpacingFor('hedgerow'), Streets.lampSpacingM(), 'ordinary lamp density');
+  const lamps = RoadOverlay.lampSitesForTile(TX, TY, fixture);
+  assert.gt(lamps.length, 0, 'actual lamps are present');
+  assert.lt(lamps.length, 8, '180m lane does not receive dense Lantern Row spacing');
+  const reserved = RoadOverlay.lampReservedCells(TX, TY, fixture);
+  const hedges = fixture.streetDress.wildplants.filter(p => /^hedge_/.test(p.id));
+  for (const side of [-1, 1]) {
+    const row = hedges.filter(p => Math.sign(p.y - TY * TILE_EDGE_M - 178) === side);
+    assert.gt(row.length, 15, 'both verges retain a hedge row with lamps present');
+    for (const hedge of row) {
+      const ix = Math.floor((hedge.x - TX * TILE_EDGE_M) / CELL_M_T);
+      const iy = Math.floor((hedge.y - TY * TILE_EDGE_M) / CELL_M_T);
+      assert.falsy(reserved.has(iy * CELLS + ix), 'hedge clears lamp foot');
+    }
+  }
+});
+
 const loadingEntry = () => ({ tileEdgeM: TILE_EDGE_M, cellsPerEdge: CELLS });   // no layers yet
 
 // The scene the passes read: the player standing in the middle of that tile,

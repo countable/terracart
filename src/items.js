@@ -83,7 +83,7 @@ const CROP_SPRITE = {
   shell: { sheet: 'shell_sheet', custom: true, frames: [0], scale: 4 / 3 },
   // Torch — the consumable lying on a level-1 cave floor (worldgen.js
   // caveFloorTorches); the floor pickup uses the shared crop renderer.
-  torch: { sheet: 'torch', custom: true, frame: 0, scale: 1.36 },
+  torch: { sheet: 'icon_torch', custom: true, frame: 0, scale: 1.36 },
   // Ordinary wild blooms use the same pink blossom as their inventory icon.
   flowers: { sheet: 'props', custom: true, frame: 12, scale: 1.13 },
   // ── Rare wild flora ── prized foraged flowers. Each is a distinct

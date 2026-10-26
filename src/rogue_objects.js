@@ -2,6 +2,7 @@
 const RogueObjects = (() => {
   const enabled = true;
   const trees = ['tree_wide_a','tree_wide_b','tree_root_a','tree_root_b','tree_rounded_2','tree_rounded_3'];
+  const fruitTrees = { apple: 'tree_rounded_2', worldpeach: 'tree_rounded_3' };
   function hash(id) { let value=2166136261; for (const c of String(id || '')) value=Math.imul(value ^ c.charCodeAt(0),16777619); return value >>> 0; }
   // Native-pixel seams and crystal facets over the reference stone. Bake once
   // at load time; moving or rotating the camera only reuses the flat frames.
@@ -55,6 +56,18 @@ const RogueObjects = (() => {
       assets[key]={kind:'image',path:'assets/ArtTrials/RogueObjects/'+name.replaceAll('_','-')+'.png'};
       if (typeof SpriteLayout !== 'undefined') SpriteLayout.ART_BOUNDS[key+':__BASE']=bounds;
     }
+    // Map fruit trees share the RA silhouettes. Sapling inventory icons retain
+    // their compact legacy sheets; growth, harvests and fruit overlays stay shared.
+    for (const [species, source] of Object.entries(fruitTrees)) {
+      const bounds = ROGUE_OBJECT_BOUNDS[source];
+      for (const suffix of ['', '_blossom']) {
+        const key = 'rogue_fruit_' + species + suffix;
+        assets[key] = {kind:'image', path:'assets/ArtTrials/RogueObjects/fruit-' + species + suffix.replace('_','-') + '.png',
+          frameWidth:bounds.fw, frameHeight:bounds.fh};
+        SpriteLayout.ART_BOUNDS[key+':__BASE'] = {...bounds};
+        SpriteLayout.CROWN_BOUNDS[key+':__BASE'] = {...bounds, maxY:53};
+      }
+    }
     assets.rogue_stone.onLoad = bakeMinerals;
     Object.keys(mineralColors).forEach((material, frame) => {
       SpriteLayout.ART_BOUNDS['rogue_minerals:' + frame] = ROGUE_OBJECT_BOUNDS.stone;
@@ -106,6 +119,18 @@ const RogueObjects = (() => {
     }
     if (o.kind === 'grove_shrine' && SpriteLayout.groveShrineArt(o).key === 'grove_votive')
       return {...original, scale: SpriteLayout.SHRINE_KIND_ART.scale};
+    if (o.kind === 'fruittree') {
+      const state = (o, scene, pass) => Crops.fruitTreeState(o, scene.save?.fruitPicked?.[o.id], pass.fruitNow);
+      return {...original,
+        key:(o, scene, pass) => {
+          const growth = state(o, scene, pass);
+          return 'rogue_fruit_' + (o.species === 'worldpeach' ? 'worldpeach' : 'apple')
+            + (growth.blossoming || growth.stage === 3 ? '_blossom' : '');
+        },
+        frame:'__BASE', origin:[.5,.5],
+        scale:(o, scene, pass) => o.planted ? .35 + .125 * state(o, scene, pass).stage : .85,
+        seat:true, groundAtOrigin:false, dxPx:0, dyPx:0, scaleYMul:1, artBounds:undefined};
+    }
     if ((scene?.depth || 0)>0) return original;
     let key,scale;
     if (o.kind==='tree') {

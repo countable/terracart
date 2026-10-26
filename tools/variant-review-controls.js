@@ -81,14 +81,16 @@
   controls.className = 'controls street-length-controls';
   controls.setAttribute('aria-label', 'Road sample length');
   const groups = [];
-  for (const [size, label, param] of [
-    ['minor', 'Road length (m)', 'roadLength'],
-    ['path', 'Path length (m)', 'pathLength'],
+  for (const [size, label, param, defaultLength] of [
+    ['minor', 'Road length (m)', 'roadLength', 100],
+    ['path', 'Path length (m)', 'pathLength', 60],
   ]) {
     const previews = [...section.querySelectorAll(`#roads-${size} article > figure > svg`)].map(svg => {
       const box = svg.viewBox.baseVal;
       const line = svg.querySelector('path[stroke="#786955"]');
-      return { svg, x: box.x, y: box.y, width: box.width, height: box.height,
+      // Keep the road centred while removing half the surrounding ground.
+      const height = box.height / 2;
+      return { svg, x: box.x, y: box.y + (box.height - height) / 2, width: box.width, height,
         length: line.getTotalLength(), label: svg.getAttribute('aria-label') };
     });
     if (!previews.length) continue;
@@ -97,7 +99,7 @@
     wrapper.textContent = `${label} `;
     const input = document.createElement('input');
     Object.assign(input, { id: `${size}-sample-length`, type: 'number', min: '21',
-      max: String(maximum), step: 'any', value: String(maximum) });
+      max: String(maximum), step: 'any', value: String(defaultLength) });
     input.style.width = '7em';
     wrapper.append(input);
     controls.append(wrapper);
@@ -105,7 +107,7 @@
       preview.caption = document.createElement('span');
       preview.svg.closest('figure').querySelector('figcaption').append(preview.caption);
     }
-    groups.push({ input, previews, maximum, param, current: maximum });
+    groups.push({ input, previews, maximum, param, defaultLength, current: defaultLength });
   }
   if (!groups.length) return;
   const reset = document.createElement('button');
@@ -135,14 +137,14 @@
   function save() {
     const url = new URL(location.href);
     for (const group of groups) {
-      if (group.current === group.maximum) url.searchParams.delete(group.param);
+      if (group.current === group.defaultLength) url.searchParams.delete(group.param);
       else url.searchParams.set(group.param, String(group.current));
     }
     history.replaceState(history.state, '', url);
   }
   function readUrl() {
     const params = new URL(location.href).searchParams;
-    for (const group of groups) show(group, normalise(params.get(group.param), group, group.maximum));
+    for (const group of groups) show(group, normalise(params.get(group.param), group, group.defaultLength));
   }
   for (const group of groups) {
     for (const event of ['input', 'change']) group.input.addEventListener(event, () => {
@@ -152,7 +154,7 @@
     });
   }
   reset.addEventListener('click', () => {
-    for (const group of groups) show(group, group.maximum);
+    for (const group of groups) show(group, group.defaultLength);
     save();
   });
   addEventListener('popstate', readUrl);
