@@ -18,6 +18,81 @@
 
 if (typeof CELL_PX === 'undefined') globalThis.CELL_PX = 32;
 
+function frameProfiler() {
+  const start = INDEX_HTML_SRC.indexOf('    // ── Boot profiler');
+  const end = INDEX_HTML_SRC.indexOf('</script>', start);
+  const source = INDEX_HTML_SRC.slice(start, end);
+  let now = 0, nextFrame;
+  const handlers = new Map();
+  const window = { addEventListener: (name, fn) => handlers.set(name, fn) };
+  const document = { hidden: false, addEventListener: window.addEventListener };
+  new Function('window', 'document', 'performance', 'requestAnimationFrame', 'PerformanceObserver', source)(
+    window, document, { now: () => now }, fn => { nextFrame = fn; }, undefined);
+  return {
+    boot: window.__boot,
+    frame(ms) { now += ms; nextFrame(now); },
+    wait(ms) { now += ms; },
+    hidden(value) { document.hidden = value; handlers.get('visibilitychange')(); },
+    event(name) { handlers.get(name)(); },
+  };
+}
+
+test('boot profiler: browser suspension is excluded without hiding foreground stalls', () => {
+  const d = frameProfiler();
+  d.frame(16); d.frame(16);
+  assert.eq(d.boot.live.n, 1);
+  d.hidden(true);
+  d.frame(1000); // Some browsers still deliver throttled hidden callbacks.
+  d.wait(34000);
+  d.hidden(false);
+  d.frame(16); d.frame(16);
+  assert.eq(d.boot.suspendedMs, 35000);
+  assert.eq(d.boot.live.n, 2);
+  assert.eq(d.boot.live.worst, 16);
+  d.frame(400);
+  assert.eq(d.boot.live.worst, 400, 'a real foreground stall remains visible');
+  assert.eq(d.boot.hitches[0].during, 'unattributed (no named span)');
+});
+
+test('boot profiler: page cache lifecycle also resets the frame baseline', () => {
+  const d = frameProfiler();
+  d.frame(16); d.frame(16);
+  d.event('pagehide');
+  d.hidden(true);
+  d.wait(60000);
+  d.hidden(false); // Still hidden until pageshow, regardless of event order.
+  d.frame(16);
+  d.event('pageshow');
+  d.frame(16); d.frame(16);
+  assert.eq(d.boot.suspendedMs, 60016, 'overlapping lifecycle events count once');
+  assert.eq(d.boot.live.n, 2);
+  assert.eq(d.boot.live.worst, 16);
+});
+
+test('boot profiler: a heading change inside update is not a still step', () => {
+  const start = APP_JS_SRC.indexOf('  update(_, dtMs) {');
+  const end = APP_JS_SRC.indexOf('\n  _updateTimed(', start);
+  const boot = makeBootStub();
+  const update = new Function('window', 'performance', `return ({${APP_JS_SRC.slice(start, end)}}).update;`)(
+    { __boot: boot }, { now: () => 0 });
+  const scene = { playerM: {x: 0, y: 0}, mapRot: 0, _updateTimed() {} };
+  update.call(scene, 0, 33); update.call(scene, 0, 33);
+  assert.truthy(scene._boot_still);
+  scene._updateTimed = function () { this.mapRot += 0.1; };
+  update.call(scene, 0, 33);
+  assert.falsy(scene._boot_still, 'render hook sees the changed heading on the same frame');
+  assert.eq(boot.ticks.filter(t => t.name === 'update @still').length, 1);
+  scene._updateTimed = function () {};
+  scene.peekM = { x: 3, y: 0 };
+  update.call(scene, 0, 33);
+  assert.falsy(scene._boot_still, 'a moving peek is not still');
+  update.call(scene, 0, 33);
+  assert.truthy(scene._boot_still, 'a held peek has a fixed camera');
+  scene.peekM = null;
+  update.call(scene, 0, 33);
+  assert.falsy(scene._boot_still, 'returning from peek moves the camera');
+});
+
 // A minimal recording profiler with the real window.__boot's call shape
 // (tick(name, ms), count(name, n)); the real aggregation is index.html's job.
 function makeBootStub() {

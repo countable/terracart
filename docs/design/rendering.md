@@ -554,7 +554,9 @@ the surrounding grove’s shrub scale.
   “of”), only the first word appears. Full names remain available in dialogs.
 - Road labels show the first word of the street's official name, then its
   street variant's name (`StreetVariants.labelName`, read off the dressed
-  tile's `streetMarks`): "Athalmer Pottery Road". Plain streets show the word alone.
+  tile's `streetMarks`): "Athalmer Pottery". Generic suffixes such as Road and
+  Lane are omitted. Plain streets show the word alone. Labels use 10px text;
+  rotated bounds must leave a small gap, with overlapping anchors hidden.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The resting view a game opens on spans seven cells
@@ -872,6 +874,19 @@ the surrounding grove’s shrub scale.
   helpers, not fixed pixel offsets. Work tools animate at the wheel.
 - Bake repeated cell geometry into textures (e.g. tilled beds). Reset mutable
   properties such as watered tint whenever pooled sprites are reused.
+  Cave wall, chasm and seven depth-wall atlases are exported by
+  `node tools/build_cave_textures.cjs` and preloaded under their existing
+  runtime keys. Run the exporter with `--check` after changing the painters
+  or their source art: it checks decoded pixel parity and the mixed
+  image/canvas tool fallback. The runtime painters remain fallbacks; ordinary
+  surface startup must not regenerate these underground atlases.
+  Authored building preparation shares each native mesh across roof palettes
+  and recolors each distinct RGB only once per palette. Emblem atlases keep
+  their original pixel art in a compact 128×32 texture with matching UVs.
+  Normal scene startup passes `{review:false}` to skip flat-shop review
+  variants; review tools can call the default `prepare` later to add them.
+  `test/authored-startup.cjs` checks geometry and pixels against an optional
+  `BASELINE_DIR` containing the previous authored-building/palette sources.
 - Respect `FPS_LIMIT` and its elapsed-time cadence adapter. The default stays
   30 fps for battery life; `?fps=0` follows the display, including 120 Hz.
   Wall-clock housekeeping must not count game steps. Feed Phaser's measured
@@ -883,6 +898,11 @@ the surrounding grove’s shrub scale.
   state; moving creatures never use the static spatial index. Grove plates
   use a derived plate-only index with the same chunk bounds and ordering as
   the object query, and read pressed state on every visit.
+  The load profile's frame histogram covers foreground time from page load,
+  including startup. Visibility and page-cache suspensions reset its baseline;
+  visible stalls remain recorded. An unattributed gap means no named span was
+  open, not proof of renderer work. Still-frame timing compares body position,
+  camera peek and heading after the update; it does not imply animations stop.
 - Ground coins pulled by the Ring of Gathering move every scene frame using
   elapsed time, capped at 100 ms after a stall. Their speed is independent of
   display cadence; collection still resolves at the player's feet.
@@ -919,6 +939,12 @@ the surrounding grove’s shrub scale.
   slices, then swaps both atomically; each pass reuses its full-size scratch
   layers between rebuilds. Measured: one read-back per building per crossing
   was the walking stutter on iPhone.
+  Castle material meshes retain local triangles, UVs and decorations across
+  camera translations. Each draw gets fresh projection state and is culled
+  against the current view. Cache keys include footprint, family, restoration
+  and keep choice; retained geometry is bounded by entry and face counts and
+  released at scene shutdown. Very large sites keep the original viewport-
+  culled construction so a first paint does not build an unseen perimeter.
 
 - The authored building depth pass hands GL state back through Phaser's
   pipeline rebind, scissor and stencil bookkeeping. Never query GPU state

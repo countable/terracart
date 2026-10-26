@@ -347,9 +347,10 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   return null;
  }
  const caches=new WeakMap();
- function prepare(scene){
-  if(caches.has(scene.textures))return;
-  const models=new Map(),variants=new Map(),emblems=new Map();
+ const reviewPrepared=new WeakSet();
+ function prepare(scene,{review=true}={}){
+  if(caches.has(scene.textures)&&(!review||reviewPrepared.has(scene.textures)))return;
+  const models=caches.get(scene.textures)||new Map(),variants=new Map(),emblems=new Map(),nativeModels=new Map();
   for(const key of RESIDENCES){const palette=residencePalette(key);variants.set(key+':'+palette,{key,palette});}
   for(const role of ['home','workshop','blacksmith','trader','wizard','fort',...Object.keys(SHOP_ROOFS)])for(const tier of [1,2,4])for(const second of [false,true]){
    const r=recipeFor(role,'',tier,second);variants.set(r.key+':'+r.palette,r);
@@ -358,10 +359,14 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
   for(const key of ['dreamland_house','dreamland_wide','dreamland_corner'])if(scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
   // Native PP flat shops are selectable review models; keep their six source
   // colorways without changing the saved world's residential assignments.
-  for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat&&scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
+  if(review)for(const [key,spec] of Object.entries(SPECS))if(spec.ppFlat&&scene.textures.exists(imageKey(key)))variants.set(key+':native',{key,palette:'native'});
   for(const [id,{key,palette}] of variants){
+   if(models.has(id))continue;
    if(!scene.textures.exists(imageKey(key)))continue;
-   const model=buildNative(scene,key);
+   // Roof palettes change face textures, never the source mesh. Build each
+   // material's geometry once, then give each palette its own face records.
+   if(!nativeModels.has(key))nativeModels.set(key,buildNative(scene,key));
+   const native=nativeModels.get(key),model={...native,faces:native.faces.map(face=>({...face}))};
    AuthoredRoofPalette.prepare(scene,model.texture,model,palette);
    models.set(id,model);
    if(['dreamland_house','dreamland_corner'].includes(key))models.set(key+'_chimney:'+palette,buildNative(scene,key,true));
@@ -373,6 +378,7 @@ let source=uv.map(([u,v])=>[u,v+(['market','trader'].includes(key)?800:16)]);
    if(roofTexture)AuthoredRoofPalette.prepareEmblem(scene,emblem,palette,roofTexture);
   }
   caches.set(scene.textures,models);
+  if(review)reviewPrepared.add(scene.textures);
  }
  function build(scene,key,palette){
   const native=caches.get(scene.textures)?.get(key+':'+palette);

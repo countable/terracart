@@ -1,0 +1,67 @@
+{
+  "generator": "node tools/build_cave_textures.cjs",
+  "method": "Original runtime Canvas2D painters, 32px cells; decoded PNG parity checked with --check.",
+  "sources": {
+    "src/util.js": "73791091698090f2823ebbfb398e9f035c3369b3909adb85a9c5917e031e5bc6",
+    "src/ground_materials.js": "88014cb92cec6fadbd5efbdc84abeb97200d76c6257ddd81bf03817865572ddf",
+    "src/textures.js": "6de100548d69c4fb23e135653948c98a32d139ebb19f0e5ff1606b132ef285d0",
+    "src/floor_wall_materials.js": "0ba8b7cb7dd76fc11533741a6ade8c56896c092eeebbdd737b1623f16dfc7033",
+    "assets/Objects/Cave/floor-wall-sources.png": "d3fa1eb3ae63a360be972b0172d0fb88df71b8b5600ad42c1b9e4d7934caa6c6"
+  },
+  "textures": [
+    {
+      "key": "cave_wall_edges",
+      "width": 2048,
+      "height": 140,
+      "frames": 256
+    },
+    {
+      "key": "cave_chasm",
+      "width": 512,
+      "height": 32,
+      "frames": 16
+    },
+    {
+      "key": "floor-wall-l1",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    },
+    {
+      "key": "floor-wall-l2",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    },
+    {
+      "key": "floor-wall-l3",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    },
+    {
+      "key": "floor-wall-l4",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    },
+    {
+      "key": "floor-wall-l5",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    },
+    {
+      "key": "floor-wall-l6",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    },
+    {
+      "key": "floor-wall-l7",
+      "width": 512,
+      "height": 160,
+      "frames": 0
+    }
+  ]
+}
