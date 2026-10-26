@@ -643,9 +643,10 @@
   // Ordinary citizen sheets share six real frames in each directional row:
   // front, back, left, right. Dialog portraits use the same front-facing art.
   const NPC_FRAME = { width: 48, height: 48, cols: 6, frames: [0, 1, 2, 3, 4, 5], portraitFrame: 0 };
-  // Fox sheets have 16px bodies and pale outline ink. Match the citizens'
-  // 20px height at texture load, keeping the shared feet and tap geometry.
-  const FOX_NPC_RENDER = { sourceSize: 16, size: 20, colors: { '#4f4652': '#28202b' } };
+  // Fox sheets have 16px bodies and pale outline ink. Darken the ink to the
+  // citizens' at texture load; keep the bodies at 1:1, since stretching 16px
+  // to the citizens' 20px (1.25x) doubles every fourth pixel row and column.
+  const FOX_NPC_RENDER = { colors: { '#4f4652': '#28202b' } };
   const NPC_SHEETS = [
     { idle: 'npc_0_idle', walk: 'npc_0_walk', path: 'assets/NPC/Citizen_woman01_idle.png' },
     { idle: 'npc_1_idle', walk: 'npc_1_walk', path: 'assets/NPC/Citizen_woman02_idle.png' },

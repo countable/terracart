@@ -815,9 +815,10 @@ the surrounding grove’s shrub scale.
   (`SHADOW_LOOK.creature.dy`), so its feet stand on the ellipse's middle; the
   elite's rune circle shares that centre.
 - NPC sheet corrections live in `SpriteLayout.NPC_SHEETS.render` and bake once
-  through `makeNpcSheet` at asset load. Grove fox bodies match the citizens'
-  height and outline ink while retaining the shared feet anchor; map animations,
-  dialogue portraits and the NPC roster use that same transform.
+  through `makeNpcSheet` at asset load. Grove fox bodies take the citizens'
+  outline ink but stay at their native 16px: a non-integer resize (16 to 20px)
+  doubles uneven pixel rows and reads as glitchy. Map animations, dialogue
+  portraits and the NPC roster use that same transform.
 - An elite (`Combat.isElite`) keeps its own colours, baked vivid once per
   sheet (`Render.vividTexture`), under every renderer. Shiny animals also
   retain their original or individual pet palette. Shiny objects use a moderate
