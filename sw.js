@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-b57af050';
+const SHELL_VERSION = 'shell-308bba7e';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -387,6 +387,15 @@ const ASSET_HASHES = {
   "assets/Objects/Castle/FDR/floor.png": "3c5de081",
   "assets/Objects/Castle/FDR/weathered-floor.png": "258f6fee",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",
+  "assets/Objects/Cave/Baked/cave_chasm.png": "38d8fb9a",
+  "assets/Objects/Cave/Baked/cave_wall_edges.png": "e5c6cb09",
+  "assets/Objects/Cave/Baked/floor-wall-l1.png": "d42d43e5",
+  "assets/Objects/Cave/Baked/floor-wall-l2.png": "e0fd731c",
+  "assets/Objects/Cave/Baked/floor-wall-l3.png": "c8ad32f5",
+  "assets/Objects/Cave/Baked/floor-wall-l4.png": "6d10f209",
+  "assets/Objects/Cave/Baked/floor-wall-l5.png": "420b1481",
+  "assets/Objects/Cave/Baked/floor-wall-l6.png": "e08844bc",
+  "assets/Objects/Cave/Baked/floor-wall-l7.png": "42ebdd14",
   "assets/Objects/Cave/floor-wall-sources.png": "d3fa1eb3",
   "assets/Objects/Cave/poison_vent_inactive.png": "b42d2b64",
   "assets/Objects/Cave/props.png": "6b6f2cc3",

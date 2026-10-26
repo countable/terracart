@@ -149,8 +149,13 @@
       if(cache.size>=LIMITS.cache)cache.delete(cache.keys().next().value);cache.set(key,layout);
     }
     if(!layout)return null;
-    const move=p=>({x:p.x+origin.x,y:p.y+origin.y}),ring=p=>p.map(move),part=p=>({...p,...(Number.isFinite(p.x)?{x:p.x+origin.x,y:p.y+origin.y}:{}),points:ring(p.points),...(p.bounds?{bounds:{left:p.bounds.left+origin.x,right:p.bounds.right+origin.x,top:p.bounds.top+origin.y,bottom:p.bounds.bottom+origin.y}}:{}),...(p.rim?{rim:ring(p.rim)}:{}),...(p.clearance?{clearance:ring(p.clearance)}:{})});
+    return translate(layout,origin.x,origin.y);
+  }
+  // Layout consumers may mutate tower heights and crown metadata. Translated
+  // copies own their rings and parts, leaving the cached source untouched.
+  function translate(layout,dx,dy){
+    const move=p=>({x:p.x+dx,y:p.y+dy}),ring=p=>p.map(move),part=p=>({...p,...(Number.isFinite(p.x)?{x:p.x+dx,y:p.y+dy}:{}),points:ring(p.points),...(p.bounds?{bounds:{left:p.bounds.left+dx,right:p.bounds.right+dx,top:p.bounds.top+dy,bottom:p.bounds.bottom+dy}}:{}),...(p.rim?{rim:ring(p.rim)}:{}),...(p.clearance?{clearance:ring(p.clearance)}:{})});
     return {...layout,points:ring(layout.points),towers:layout.towers.map(part),walls:layout.walls.map(part),merlons:layout.merlons.map(part),keep:layout.keep?part(layout.keep):null};
   }
-  const api={build,area,rect,contains,overlap,intersect,LIMITS};global.FDRCastleLayout=api;if(typeof module!=='undefined')module.exports=api;
+  const api={build,translate,area,rect,contains,overlap,intersect,LIMITS};global.FDRCastleLayout=api;if(typeof module!=='undefined')module.exports=api;
 })(typeof window==='undefined'?globalThis:window);

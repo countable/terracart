@@ -1394,6 +1394,8 @@ const CAVE_WALL_TOP_LIFT = 3;
 const CAVE_WALL_TOP_RGB = [98, 86, 70];
 const CAVE_WALL_TOP_FALLOFF = 0.24;
 function makeCaveWallEdges(scene, size) {
+  // Normal boot preloads the exact painter output. Keep the painter for tools,
+  // missing-asset recovery and tools/build_cave_textures.cjs --check parity.
   if (scene.textures.exists('cave_wall_edges')) return;
   const frameHeight = size + CAVE_WALL_TOP_LIFT;
   const tex = scene.textures.createCanvas('cave_wall_edges', size * CAVE_WALL_EDGE_FRAMES, frameHeight * 4);

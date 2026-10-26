@@ -3320,21 +3320,23 @@ class MapScene extends Phaser.Scene {
   update(_, dtMs) {
     const _uB = window.__boot;
     if (!_uB) return this._updateTimed(_, dtMs);
-    // A STILL step: the body hasn't moved since the last one and the camera
-    // is on it. Most of a session is this — standing at a plot, reading a
-    // dialog — and it is where an unconditional pass wastes the most, so the
-    // profile reports these apart from the walking steps (the render tick
-    // reads the same flag).
-    const _pm = this.playerM, _pk = this.peekM;
-    const _still = !!_pm && this._boot_lastPX === _pm.x && this._boot_lastPY === _pm.y
-      && !(_pk && (_pk.x || _pk.y));
-    if (_pm) { this._boot_lastPX = _pm.x; this._boot_lastPY = _pm.y; }
-    this._boot_still = _still;
+    this._boot_still = false;
     const _ut0 = performance.now();
     try {
       return this._updateTimed(_, dtMs);
     } finally {
       const _dt = performance.now() - _ut0;
+      // Sample after movement/heading updates. Compass rotation changes the
+      // rendered view even when the player's position stays fixed.
+      const _pm = this.playerM, _pk = this.peekM, _rot = this.mapRot || 0;
+      const _peekX = _pk?.x || 0, _peekY = _pk?.y || 0;
+      const _still = !!_pm && this._boot_lastPX === _pm.x && this._boot_lastPY === _pm.y
+        && this._boot_lastRot === _rot
+        && this._boot_lastPeekX === _peekX && this._boot_lastPeekY === _peekY;
+      if (_pm) { this._boot_lastPX = _pm.x; this._boot_lastPY = _pm.y; }
+      this._boot_lastRot = _rot;
+      this._boot_lastPeekX = _peekX; this._boot_lastPeekY = _peekY;
+      this._boot_still = _still;
       _uB.tick('update (all)', _dt);
       if (_still) _uB.tick('update @still', _dt);
       // Terrain borders and fog rebuild on the frame the player crosses a
@@ -4951,9 +4953,14 @@ class MapScene extends Phaser.Scene {
         this._boltGlow(key, Math.round(hx - s.vx * spec.lenPx * 0.5), Math.round(hy - s.vy * spec.lenPx * 0.5),
           SHINY_ARROW_GLOW_PX * 0.6, 0.45);
       }
+      const tailX = Math.round(hx - s.vx * spec.lenPx), tailY = Math.round(hy - s.vy * spec.lenPx);
+      if (spec.inkPx) {
+        g.lineStyle(spec.widthPx + 2 * spec.inkPx, spec.inkColor, 0.9);
+        g.beginPath(); g.moveTo(tailX, tailY); g.lineTo(hx, hy); g.strokePath();
+      }
       g.lineStyle(spec.widthPx, s.color != null ? s.color : spec.color, 0.9);
       g.beginPath();
-      g.moveTo(Math.round(hx - s.vx * spec.lenPx), Math.round(hy - s.vy * spec.lenPx));
+      g.moveTo(tailX, tailY);
       g.lineTo(hx, hy);
       g.strokePath();
     }
