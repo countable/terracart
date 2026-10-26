@@ -35,7 +35,7 @@ square in the default view; its side walls face outward to reveal the thickness.
 The wall sign hangs six units above the door sill, beside the upper
 doorway; the eaves may obscure it. Their geometry follows the doorway and roof plane, including heading,
 occlusion and building fading. Shared material atlases are prepared at startup.
-A mounted sign replaces its floating plate; trader deal bubbles remain.
+The floating roof plate still hangs over a shop with a mounted sign; trader deal bubbles remain.
 Castle, turret and wreck geometry retain their existing paths.
 Home retains its open-roof interior and furniture behavior. The lot outline is
 the building: walls stand on every lot edge at any angle and the roof covers the
