@@ -113,7 +113,6 @@ class SceneShops {
     // A macro counter may price a line itself (`priceOf` — the
     // scriptorium's climbing Book); null is the stall price.
     const unitPrice = opts.priceOf?.(this.save, id) ?? ShopsMath.standPrice(this.save, listPrice);
-    const iconHTML = this.iconSpanHTML(id);
     const itemName = item?.name || id;
     const money = () => this.save.money ?? 0;
     const room = () => this.invRoomFor(id);
@@ -124,7 +123,7 @@ class SceneShops {
     const fmt = (q) => {
       const total = unitPrice * q;
       return {
-        get: `${iconHTML} ${itemName} ×${q}`,
+        get: `${Rewards.itemTapHTML(this, id, 20, itemName)} ×${q}`,
         cost: saved > 0 ? `${this.moneyHTML(total)} <span style="opacity:.6">(save ${this.moneyHTML(saved * q, 12)})</span>`
                         : this.moneyHTML(total),
         canAfford: money() >= total && q <= room(),
@@ -209,7 +208,7 @@ class SceneShops {
       + `<div style="margin-top:6px">${tierBadgeHTML(offer.tier)}</div>`;
     this.showOfferModal({
       kind, kindLabel, art, title,
-      get: `${icon} ${name}`,
+      get: Rewards.tapHTML(offer, `${icon} ${name}`),
       blurb,
       cost: this.moneyHTML(offer.price),
       canAfford: (this.save.money ?? 0) >= offer.price,
@@ -342,7 +341,7 @@ class SceneShops {
         kind: 'shop',
         title: 'Charm the shopkeeper?',
         get: 'A bouquet may soften the shopkeeper’s prices.',
-        cost: `1× ${this.iconSpanHTML('flowers')} Flowers`,
+        cost: `1× ${Rewards.itemTapHTML(this, 'flowers', 20, 'Flowers')}`,
         canAfford: true,
         acceptLabel: 'Gift',
         onAccept: () => {
@@ -378,7 +377,7 @@ class SceneShops {
           kind: 'build',
           title: 'Renovate the building?',
           get: `Masons raise the ${label.toLowerCase()} a rank: ${tierBadgeHTML(to.tier, 11)}`,
-          cost: `1× ${this.iconSpanHTML(Houses.PERMIT_ID)} ${ITEM_BY_ID[Houses.PERMIT_ID]?.name || 'Renovation Permit'}`,
+          cost: `1× ${Rewards.itemTapHTML(this, Houses.PERMIT_ID, 20, ITEM_BY_ID[Houses.PERMIT_ID]?.name || 'Renovation Permit')}`,
           canAfford: true,
           acceptLabel: 'Renovate',
           cancelLabel: 'Later',
@@ -514,7 +513,7 @@ class SceneShops {
       title: this.buildingFlavorTitle(house, 'buy'),
       ...NPC.offerArt(this, house),
       cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
+      get: `${Rewards.itemTapHTML(this, id, 20, item?.name || id)} ×${buyQty}`,
       cost: offer.label,
       canAfford: offer.canAfford(),
       disabledReason: this._shopBagSpaceReason(id, buyQty),
@@ -821,7 +820,7 @@ class SceneShops {
     // Keep each icon beside its name and requested count, including bundles.
     const requested = wanted.map(id =>
       `<div style="display:flex;align-items:center;gap:8px;text-align:left;">` +
-      `${this.iconSpanHTML(id)}<span style="flex:1;min-width:0">${itemName(id)}</span>` +
+      `${this.iconSpanHTML(id)}<span style="flex:1;min-width:0">${Rewards.tapHTML({ kind: 'item', id }, itemName(id))}</span>` +
       `<span style="flex:none">×1</span></div>`).join('');
     this.showOfferModal({
       kind: 'delivery',
@@ -1141,7 +1140,7 @@ class SceneShops {
       title: this.buildingFlavorTitle(house, 'buy'),
       ...NPC.offerArt(this, house),
       cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(id)} ${item?.name || id} ×${buyQty}`,
+      get: `${Rewards.itemTapHTML(this, id, 20, item?.name || id)} ×${buyQty}`,
       blurb: this.shopTierBadgeHTML(house),
       cost: offer.label,
       canAfford: offer.canAfford(),
@@ -1203,7 +1202,7 @@ class SceneShops {
       kind: 'relics',
       title: this.buildingFlavorTitle(house, 'relic'),
       cancelLabel: 'Later',
-      get: `${iconHtml} ${name}`,
+      get: Rewards.tapHTML(offer, `${iconHtml} ${name}`),
       blurb,
       cost: this.moneyHTML(price),
       canAfford: (this.save.money ?? 0) >= price,
@@ -1288,7 +1287,7 @@ class SceneShops {
     this._presentRecipeOffer(sx, sy, {
       recipe: recipeFor(target),
       cancelLabel: 'Leave',
-      get: smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `1× ${outItem?.name || target}`),
+      get: Rewards.tapHTML({ kind: 'item', id: target }, smithyPreviewHTML(this.iconSpanHTML(target, SMITHY_PREVIEW_PX), `1× ${outItem?.name || target}`)),
       canAfford: this.invRoomFor(target) >= 1,
       acceptLabel: 'Smelt',
       tabs,
@@ -1343,7 +1342,7 @@ class SceneShops {
     this._presentRecipeOffer(sx, sy, {
       ...modal, recipe: rec.cost, coinCost: rec.coins || 0,
       topAction: grid ? undefined : topAction,
-      get: `${this.iconSpanHTML(rec.id, 32)} ${itemName(rec.id)}`,
+      get: Rewards.itemTapHTML(this, rec.id, 32),
       blurb: `<div class="recipe-made">Makes 1 · In bag: ${held(rec.id)}</div>${effect || ''}`,
       cancelLabel: 'Leave', canAfford: room >= 1,
       disabledReason: room < 1 ? bagFullFor(rec.id) : undefined,
@@ -1392,14 +1391,14 @@ class SceneShops {
           const have = held(r.id), missing = Math.max(0, r.qty - have);
           return '<div class="recipe-ingredient" style="display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;gap:8px;padding:4px 0;border-top:1px solid #ffffff1f">'
             + `<span style="line-height:0">${this.iconSpanHTML(r.id, 24)}</span>`
-            + `<span style="color:#eee">${itemName(r.id)}</span>`
+            + `<span style="color:#eee">${Rewards.tapHTML({ kind: 'item', id: r.id }, itemName(r.id))}</span>`
             + `<span style="text-align:right;color:${missing ? UI_DANGER_INK : UI_GREEN}">`
             + `<strong>${have} / ${r.qty}</strong>`
             + (missing ? `<small style="display:block;font-size:11px;margin-top:2px">Need ${missing} more</small>` : '')
             + '</span></div>';
         }).join('') + '</div>'
       : recipe.map(r => `<span style="color:${held(r.id) >= r.qty ? UI_GREEN : UI_DANGER_INK}">`
-        + `${r.qty}× ${this.iconSpanHTML(r.id)} ${itemName(r.id)}</span>`).join(' + ');
+        + `${r.qty}× ${Rewards.itemTapHTML(this, r.id)}</span>`).join(' + ');
     if (coinCost > 0) cost += `<div style="margin-top:4px;color:${moneyShort() ? UI_DANGER_INK : UI_GREEN}">`
       + `Brewing fee: ${this.moneyHTML(coinCost)}</div>`;
     this.showOfferModal({
@@ -1600,8 +1599,8 @@ class SceneShops {
   }
   _tradePieceHTML(p) {
     return p.kind === 'item'
-      ? `${this.iconSpanHTML(p.id)} ${this._tradePieceName(p)}`
-      : `${this.gearIconHTML(p.kind, p.slot, p.tier, 20)} ${this._tradePieceName(p)}`;
+      ? Rewards.itemTapHTML(this, p.id, 20, this._tradePieceName(p))
+      : Rewards.tapHTML(p, `${this.gearIconHTML(p.kind, p.slot, p.tier, 20)} ${this._tradePieceName(p)}`);
   }
   peekOrBuildTraderOffer(house) {
     const swap = this.peekTraderGearSwap(house);
@@ -1648,8 +1647,8 @@ class SceneShops {
       ...NPC.offerArt(this, house),
       forLabel: 'for your',
       cancelLabel: 'Later',
-      get: `${this.iconSpanHTML(offer.giveId)} ${giveItem?.name || offer.giveId} ×${giveQty}`,
-      cost: `${offer.askQty}× ${this.iconSpanHTML(offer.askId)} ${askItem?.name || offer.askId}`,
+      get: `${Rewards.itemTapHTML(this, offer.giveId, 20, giveItem?.name || offer.giveId)} ×${giveQty}`,
+      cost: `${offer.askQty}× ${Rewards.itemTapHTML(this, offer.askId, 20, askItem?.name || offer.askId)}`,
       canAfford: heldCount() >= offer.askQty,
       onAccept: () => {
         if (heldCount() < offer.askQty) {
@@ -1875,7 +1874,7 @@ class SceneShops {
       cancelLabel: 'Later',
       get: '🛡️ the fort quartermaster',
       blurb: 'Behind the gate, the quartermaster’s reels still turn.',
-      cost: `${need}× ${this.iconSpanHTML('wood')} ${ITEM_BY_ID['wood']?.name || 'Wood'}`
+      cost: `${need}× ${Rewards.itemTapHTML(this, 'wood', 20, ITEM_BY_ID['wood']?.name || 'Wood')}`
         + (canAfford ? '' : ` <span style="opacity:.7">(have ${heldCount})</span>`),
       canAfford,
       acceptLabel: 'Unseal',
@@ -1947,7 +1946,7 @@ class SceneShops {
     this._presentRecipeOffer(sx, sy, {
       recipe,
       cancelLabel: 'Later',
-      get: smithyPreviewHTML(iconHtml, name),
+      get: Rewards.tapHTML(offer, smithyPreviewHTML(iconHtml, name)),
       blurb: this._trailRewardBlurb(offer),
       acceptLabel: 'Forge',
       tabs,
