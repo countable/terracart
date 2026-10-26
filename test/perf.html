@@ -32,7 +32,7 @@
           return (note) => { B.openNames.delete(name); B.spans.push({ name, t: t0, ms: t() - t0, note }); };
         },
         live: { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) },
-        hitches: [], work: {}, counts: {}, windows: [], _winCur: null, device: null,
+        suspendedMs: 0, hitches: [], work: {}, counts: {}, windows: [], _winCur: null, device: null,
         openNames: new Set(),
         tick(name, ms) {
           let w = B.work[name];
@@ -52,17 +52,41 @@
           L.buckets[i]++;
           if (ms > 100 && B.hitches.length < 400) {
             B.hitches.push({ t: Math.round(t()), ms: Math.round(ms),
-              during: B.openNames.size ? [...B.openNames].join(' + ') : 'nothing (render/update)' });
+              during: B.openNames.size ? [...B.openNames].join(' + ') : 'unattributed (no named span)' });
           }
         },
         reset() {
-          B.work = {}; B.counts = {}; B.hitches = [];
+          B.work = {}; B.counts = {}; B.hitches = []; B.suspendedMs = 0; _lastFrame = 0;
           B.live = { n: 0, sum: 0, worst: 0, over50: 0, over100: 0, over250: 0, buckets: new Int32Array(9) };
         },
       };
       window.__boot = B;
-      let last = t();
-      (function loop() { const now = t(); B.frame(now - last); last = now; requestAnimationFrame(loop); })();
+      let _lastFrame = 0, _pageHidden = false, _pausedAt = null;
+      const _syncVisibility = () => {
+        const paused = _pageHidden || document.hidden;
+        if (paused && _pausedAt === null) _pausedAt = t();
+        if (!paused && _pausedAt !== null) {
+          const elapsed = t() - _pausedAt;
+          B.suspendedMs += elapsed;
+          if (B._winCur) B._winCur.t0 += elapsed;
+          _pausedAt = null;
+        }
+        _lastFrame = 0;
+      };
+      document.addEventListener('visibilitychange', _syncVisibility);
+      window.addEventListener('pagehide', () => { _pageHidden = true; _syncVisibility(); });
+      window.addEventListener('pageshow', () => { _pageHidden = false; _syncVisibility(); });
+      _syncVisibility();
+      const _frameTick = (now) => {
+        // Keep genuine foreground stalls; only known lifecycle suspensions
+        // are excluded. The first callback after resume establishes a baseline.
+        if (_pausedAt === null) {
+          if (_lastFrame) B.frame(now - _lastFrame);
+          _lastFrame = now;
+        }
+        requestAnimationFrame(_frameTick);
+      };
+      if (typeof requestAnimationFrame === 'function') requestAnimationFrame(_frameTick);
     })();
     window.__TEST_MODE = true;
   </script>

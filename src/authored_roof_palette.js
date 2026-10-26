@@ -59,10 +59,19 @@
       context.drawImage(image, 0, 0);
       const pixels = context.getImageData(0, 0, image.width, image.height);
       const data = pixels.data;
+      // Pixel-art atlases repeat a small palette over many texels. Resolve
+      // each RGB once rather than repeating HSL math for every occurrence.
+      const colors = new Map();
       for (let i=0; i<data.length; i+=4) {
         if (!data[i+3]) continue;
-        const rgb = recolor(data[i], data[i+1], data[i+2], COLORS[colorName], key);
-        data[i] = rgb[0]; data[i+1] = rgb[1]; data[i+2] = rgb[2];
+        const source = (data[i] << 16) | (data[i+1] << 8) | data[i+2];
+        let target = colors.get(source);
+        if (target === undefined) {
+          const rgb = recolor(data[i], data[i+1], data[i+2], COLORS[colorName], key);
+          target = (rgb[0] << 16) | (rgb[1] << 8) | rgb[2];
+          colors.set(source, target);
+        }
+        data[i] = target >>> 16; data[i+1] = (target >>> 8) & 255; data[i+2] = target & 255;
       }
       context.putImageData(pixels, 0, 0);
       variant.refresh();
@@ -75,6 +84,7 @@
   }
   const emblems = new WeakMap();
   const EMBLEM_SIZE = 32;
+  const EMBLEM_WIDTH = 128, EMBLEM_HEIGHT = 32;
 
   function emblemGlyph(role) {
     if (typeof Render === 'undefined') return null;
@@ -108,7 +118,7 @@
     if (!texture) {
       // Roof, front board and their solid sides share one startup atlas. The
       // geometry supplies rounded corners and thickness, not alpha cutouts.
-      texture = scene.textures.createCanvas(key, 512, 1024);
+      texture = scene.textures.createCanvas(key, EMBLEM_WIDTH, EMBLEM_HEIGHT);
       const context = texture.getContext();
       context.imageSmoothingEnabled = false;
       context.drawImage(roofTexture.getSourceImage(), 256, 616, EMBLEM_SIZE, EMBLEM_SIZE,
@@ -159,10 +169,10 @@
       texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
     }
     if (!emblems.has(scene.textures)) emblems.set(scene.textures, new Map());
-    const faceUV = x => [(x + .5) / 512, .5 / 1024, (x + EMBLEM_SIZE - .5) / 512, (EMBLEM_SIZE - .5) / 1024];
+    const faceUV = x => [(x + .5) / EMBLEM_WIDTH, .5 / EMBLEM_HEIGHT, (x + EMBLEM_SIZE - .5) / EMBLEM_WIDTH, (EMBLEM_SIZE - .5) / EMBLEM_HEIGHT];
     const result = { roof: texture, sign: texture, roofUV: faceUV(0), signUV: faceUV(40),
-      roofSideUV: [81.5 / 512, 1.5 / 1024], signSideUV: [85.5 / 512, 1.5 / 1024],
-      bracketUV: [89.5 / 512, 1.5 / 1024] };
+      roofSideUV: [81.5 / EMBLEM_WIDTH, 1.5 / EMBLEM_HEIGHT], signSideUV: [85.5 / EMBLEM_WIDTH, 1.5 / EMBLEM_HEIGHT],
+      bracketUV: [89.5 / EMBLEM_WIDTH, 1.5 / EMBLEM_HEIGHT] };
     emblems.get(scene.textures).set(role + ':' + colorName, result);
     return result;
   }

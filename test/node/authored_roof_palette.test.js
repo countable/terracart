@@ -34,8 +34,8 @@
       const result = AuthoredRoofPalette.prepareEmblem(scene, 'seed', 'lime', source);
       assert.eq(calls.creates, 1);
       assert.eq(calls.reads, 1, 'only the startup roof bake reads pixels');
-      assert.eq(result.roof.width, 512); assert.eq(result.roof.height, 1024);
-      assert.eq(result.sign.width, 512); assert.eq(result.sign.height, 1024);
+      assert.eq(result.roof.width, 128); assert.eq(result.roof.height, 32);
+      assert.eq(result.sign.width, 128); assert.eq(result.sign.height, 32);
       assert.eq(result.roof.context.copy[0], image, 'samples the prepared roof itself');
       assert.eq(result.roof, result.sign, 'both plaques share one atlas');
       const paints = result.roof.context.rects;
@@ -49,7 +49,7 @@
       assert.truthy(paints.some(({ rect }) => rect.join(',') === '40,0,32,32'), 'opaque wooden plaque top');
       assert.lt(result.roofUV[2], result.signUV[0], 'face regions do not overlap');
       for (const uv of [result.roofSideUV, result.signSideUV, result.bracketUV]) {
-        const x = uv[0] * 512, y = uv[1] * 1024;
+        const x = uv[0] * result.roof.width, y = uv[1] * result.roof.height;
         assert.truthy(paints.some(({ rect: [rx, ry, w, h] }) => x > rx && x < rx + w && y > ry && y < ry + h),
           'thickness and brackets sample opaque painted swatches');
       }

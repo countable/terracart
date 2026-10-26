@@ -2,6 +2,10 @@
 // preloaded atlas; rebuilding never reads pixels or tessellates individual bricks.
 (function(global){
   const ATLAS_KEY='fdr_castle_atlas',BASE_HEIGHT=4;
+  // Templates contain only immutable geometry, never renderer projections or
+  // scene objects. Limit both footprint count and triangle storage: one large
+  // mapped site must not turn an otherwise small cache into unbounded memory.
+  const MESH_CACHE_LIMIT=24,MESH_CACHE_FACES=32768;
   const WHITE_UV=[[498/512,498/512],[502/512,498/512],[502/512,502/512]];
   function triangle(faces,points,color,normal,material){
     faces.push({points:points.map((p,i)=>({...p,u:p.u??WHITE_UV[i][0],v:p.v??WHITE_UV[i][1]})),normal,color,flatColor:color,material});
@@ -9,7 +13,7 @@
   function polygon(faces,points,color,normal,material){
     for(let i=1;i+1<points.length;i++)triangle(faces,[points[0],points[i],points[i+1]],color,normal,material);
   }
-  function draw(scene,source,points,options={}){
+  function build(scene,source,points,options={}){
     const group=scene._wallPerspective?.[source];
     if(!group||!scene.textures?.exists(ATLAS_KEY))return null;
     const style=CastleStyles.renderStyle(options.family||'citadel',options.active!==false),geometry=style.geometry;
@@ -19,6 +23,7 @@
     const start=group.blocks.length,rect=FDRCastleLayout.rect;
     const colors={face:style.wall,top:style.top,dark:style.base};
     const sideColor=normal=>Math.abs(normal.x)>.5?style.side:style.wall;
+    let massGate=null;
     function prism(ring,bottom,top,support=null,{capped=true,omitEdges=[],topPoints=ring,material='stone',deck=false,capColor=style.top,baseOutset=0,exposedEdges=new Set(),stoneSlot=style.masonrySlot,growthSeed=null}={}){
       if(!WallPerspective.inView(scene,ring,bottom,top))return null;
       const faces=[],winding=Math.sign(FDRCastleLayout.area(ring));
@@ -75,13 +80,14 @@
       }
       const index=group.blocks.length;
       WallPerspective.prism(scene,source,ring,bottom,top,colors,support,capped,{topPoints,materialFaces:faces});
+      if(group.blocks[index])group.blocks[index].castleGate=massGate;
       return group.blocks[index]||null;
     }
     // All curtain fragments and teeth on one edge share the edge's sort anchor.
     // A later body cannot paint over its own crown when the camera turns.
     const supports=layout.points.map((a,i)=>{
       const b=layout.points[(i+1)%layout.points.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);
-      return {x:(a.x+b.x)/2-dy/l*4,y:(a.y+b.y)/2+dx/l*4,order:start+i};
+      return {x:(a.x+b.x)/2-dy/l*4,y:(a.y+b.y)/2+dx/l*4,order:start+i,castleEdge:i};
     });
     // Track lowered pieces before drawing so adjoining tall pieces expose a
     // small end face above the broken crest rather than a see-through hole.
@@ -130,13 +136,14 @@
       if(!style.active&&index%3===1)part.height-=4;
       const height=part.height,support={x,y,order:group.blocks.length};
       const body=rect(x,y,w,h);
+      massGate={points:body,bottom:0,top:height};
       // Keep the roof pitch proportional to its span, using the same four
       // planes as the tower roofs. A fixed rise made the wide keep look flat.
       const roofRise=geometry.roofHeight?geometry.roofHeight*Math.min(w,h)/geometry.towerWidth:0;
       part.crownHeight=height+(roofRise||8);
       // The shaft fills the same square used to clip adjoining curtains.
       // Insetting it above a wider plinth leaves vertical slots at those joins.
-      const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.deck,baseOutset:isKeep?0:towerBaseOutset,stoneSlot:style.towerMasonrySlot,growthSeed:style.active?null:index});if(!shaft)return;
+      const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.deck,baseOutset:isKeep?0:towerBaseOutset,stoneSlot:style.towerMasonrySlot,growthSeed:style.active?null:index});if(!shaft){massGate=null;return;}
       if(geometry.roofHeight){
         const peak={x,y,z:height+roofRise};
         // Four roof triangles restored, two large surviving planes in a wreck.
@@ -185,11 +192,87 @@
           feature(shaft,body,side,6,markCenter-3,markCenter+3,style.heraldry,'banner-mark',shift,style.id==='citadel'?1:6);
         }
       }
+      massGate=null;
     }
     layout.towers.forEach((t,i)=>mass(t,false,i));if(layout.keep)mass(layout.keep,true,0);
     const footprints=[layout.points,...layout.towers.map(t=>style.id==='bastion'?rect(t.x,t.y,t.width+4,t.depth+4):t.points)].flat(),bounds={left:Math.min(...footprints.map(p=>p.x)),right:Math.max(...footprints.map(p=>p.x)),top:Math.min(...footprints.map(p=>p.y)),bottom:Math.max(...footprints.map(p=>p.y))};
     const height=Math.max(geometry.wallHeight+8,...layout.towers.map(t=>t.crownHeight||t.height+geometry.roofHeight),layout.keep?(layout.keep.crownHeight||layout.keep.height+geometry.roofHeight):0);
     return {layout,footprint:layout.points,bounds,height,blocksAdded:group.blocks.length-start,source,family:style.id,active:style.active,style};
   }
-  global.FDRCastleGeometry={ATLAS_KEY,draw};
+  function cacheFor(scene){
+    if(scene._fdrCastleMeshCache)return scene._fdrCastleMeshCache;
+    const cache={entries:new Map(),faces:0,hits:0,misses:0};
+    scene._fdrCastleMeshCache=cache;
+    scene.events?.once('shutdown',()=>{cache.entries.clear();cache.faces=0;scene._fdrCastleMeshCache=null;});
+    return cache;
+  }
+  function draw(scene,source,points,options={}){
+    const group=scene._wallPerspective?.[source];
+    if(!group||!scene.textures?.exists(ATLAS_KEY)||!Array.isArray(points)||points.length<3
+      ||points.length>FDRCastleLayout.LIMITS.vertices||!points.every(p=>Number.isFinite(p.x)&&Number.isFinite(p.y)))return null;
+    // A city-sized perimeter only exposes a small part of its mesh. Keep the
+    // existing culled builder for spans wider than two viewports rather than
+    // making first paint construct a mostly invisible cache entry.
+    if(scene.viewSize>0&&Number.isFinite(scene.viewSize)){
+      const width=Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x));
+      const height=Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y));
+      if(Math.max(width,height)>scene.viewSize*2)return build(scene,source,points,options);
+    }
+    const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y}));
+    const style=CastleStyles.renderStyle(options.family||'citadel',options.active!==false);
+    // Include the complete style so palette, dimensions, material slots and
+    // restored state cannot share stale faces. Camera subtraction noise alone
+    // is rounded, at the layout cache's existing precision.
+    const key=JSON.stringify([local.map(p=>[+p.x.toFixed(9),+p.y.toFixed(9)]),options.keep!==false,style]);
+    const cache=cacheFor(scene);
+    let entry=cache.entries.get(key);
+    if(entry){cache.hits++;cache.entries.delete(key);cache.entries.set(key,entry);}
+    else{
+      cache.misses++;
+      // Build once without viewport culling. Replaying applies the current
+      // view to every block; a camera crossing must reveal previously unseen
+      // walls rather than reuse the first view's incomplete mesh.
+      const templateGroup={blocks:[]};
+      const templateScene={textures:scene.textures,_wallPerspective:{[source]:templateGroup}};
+      const model=build(templateScene,source,local,options);
+      if(!model)return null;
+      const faces=templateGroup.blocks.reduce((n,b)=>n+b.materialFaces.length,0);
+      entry={model,blocks:templateGroup.blocks,faces};
+      if(faces<=MESH_CACHE_FACES){
+        while(cache.entries.size&&(cache.entries.size>=MESH_CACHE_LIMIT||cache.faces+faces>MESH_CACHE_FACES)){
+          const oldest=cache.entries.keys().next().value;cache.faces-=cache.entries.get(oldest).faces;cache.entries.delete(oldest);
+        }
+        cache.entries.set(key,entry);cache.faces+=faces;
+      }
+    }
+    const atlas=scene.textures.get(ATLAS_KEY);atlas.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST??1);group.atlas=atlas;
+    const dx=origin.x,dy=origin.y,ring=p=>p.map(v=>({x:v.x+dx,y:v.y+dy}));
+    const start=group.blocks.length,supports=new Map(),gates=new Map();
+    for(const block of entry.blocks){
+      const gate=block.castleGate;
+      if(gate){
+        if(!gates.has(gate))gates.set(gate,WallPerspective.inView(scene,ring(gate.points),gate.bottom,gate.top));
+        if(!gates.get(gate))continue;
+      }
+      const points=ring(block.points);
+      if(!WallPerspective.inView(scene,points,block.bottom,block.top))continue;
+      let support=supports.get(block.support);
+      if(!support){
+        support={x:block.support.x+dx,y:block.support.y+dy,
+          order:block.support.castleEdge==null?group.blocks.length:start+block.support.castleEdge};
+        supports.set(block.support,support);
+      }
+      // WallPerspective mutates visible/projected fields and sorts blocks.
+      // Give each replay its own state; templates also survive interleaved
+      // review scenes and a claim-state toggle without sharing those writes.
+      const materialFaces=block.materialFaces.map(face=>({normal:face.normal,color:face.color,flatColor:face.flatColor,material:face.material,
+        points:face.points.map(p=>({x:p.x+dx,y:p.y+dy,z:p.z,u:p.u,v:p.v}))}));
+      WallPerspective.prism(scene,source,points,block.bottom,block.top,block.colors,support,block.capped,
+        {topPoints:block.topPoints===block.points?points:ring(block.topPoints),materialFaces});
+    }
+    const model=entry.model,layout=FDRCastleLayout.translate(model.layout,dx,dy),box=model.bounds;
+    return {...model,layout,footprint:layout.points,bounds:{left:box.left+dx,right:box.right+dx,top:box.top+dy,bottom:box.bottom+dy},
+      blocksAdded:group.blocks.length-start,source,style};
+  }
+  global.FDRCastleGeometry={ATLAS_KEY,draw,MESH_CACHE_LIMIT,MESH_CACHE_FACES};
 })(globalThis);

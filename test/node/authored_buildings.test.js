@@ -124,9 +124,14 @@
   });
   test('authored buildings: startup prepares both cottage and upgraded service models', () => {
     const requested = new Set();
-    AuthoredBuildings.prepare({ textures: { exists(key) { requested.add(key); return false; } } });
+    const scene = { textures: { exists(key) { requested.add(key); return false; } } };
+    AuthoredBuildings.prepare(scene, { review: false });
     for (const key of ['pp_plaster', 'fdr', 'steam_blacksmith', 'trader', 'market', 'city_storefront'])
       assert.truthy(requested.has('authored_source_' + key), key + ': available after an upgrade without restarting');
+    assert.falsy([...requested].some(key => key.startsWith('authored_source_pp_flat_')), 'ordinary startup omits review-only colorways');
+    AuthoredBuildings.prepare(scene);
+    for (const color of ['red', 'brown', 'orange', 'blue', 'green', 'pink'])
+      assert.truthy(requested.has('authored_source_pp_flat_' + color), 'a review can expand the same prepared texture manager');
   });
   test('authored buildings: wizard towers and the fort hall keep whole shells', () => {
     const scene = { textures: { exists: () => false } };

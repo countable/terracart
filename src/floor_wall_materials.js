@@ -5,6 +5,7 @@
   const THEMES = [{"id":"l1","label":"L1 \u00b7 Sewer","cap":[76,68,65],"face":0,"ground":1,"road":2,"groundBroken":2,"groundGrate":3,"water":4},{"id":"l2","label":"L2 \u00b7 Natural caves","cap":[86,70,51],"face":5,"ground":6,"road":7,"groundAccent":7},{"id":"l3","label":"L3 \u00b7 Goblin warrens","cap":[88,68,57],"face":8,"ground":7,"road":9},{"id":"l4","label":"L4 \u00b7 Dwarven stone","cap":[69,74,103],"face":10,"ground":11,"road":11,"pad":12,"padSize":32},{"id":"l5","label":"L5 \u00b7 Fungal Underdark","cap":[82,51,72],"face":14,"ground":15,"road":16},{"id":"l6","label":"L6 \u00b7 Lava and demons","cap":[30,27,31],"face":17,"faceAccent":18,"ground":19,"road":19},{"id":"l7","label":"L7 \u00b7 Dragon temple","cap":[75,61,111],"face":20,"ground":21,"road":22,"groundAccent":23,"roadAccent":24}];
   // END GENERATED THEMES
   const CELL = 32, HEIGHT = 19, WIDTH = 512, ATLAS_HEIGHT = 160;
+  const sourceContexts = new WeakMap();
   const theme = depth => THEMES[Math.max(0, Math.min(THEMES.length - 1, Math.floor(depth) - 1))];
   function variant(depth, x, y) {
     const material = theme(depth);
@@ -13,7 +14,19 @@
       : ((x * 31) ^ y) & 3;
   }
   function drawAtlas(g, original, depth, source) {
-    const material = theme(depth), old = original.getContext('2d');
+    // Review tools can mix a preloaded base atlas with a missing themed atlas.
+    // Read that image through one cached canvas; ordinary boot loads both.
+    let old = sourceContexts.get(original);
+    if (!old) {
+      if (original.getContext) old = original.getContext('2d');
+      else {
+        const canvas = document.createElement('canvas');
+        canvas.width = original.width; canvas.height = original.height;
+        old = canvas.getContext('2d'); old.drawImage(original, 0, 0);
+      }
+      sourceContexts.set(original, old);
+    }
+    const material = theme(depth);
     g.imageSmoothingEnabled = false;
     for (let v = 0; v < 4; v++) {
       const tile = v === 0 && material.faceAccent !== undefined ? material.faceAccent : material.face;
