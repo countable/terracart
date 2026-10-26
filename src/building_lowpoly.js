@@ -1380,8 +1380,8 @@
           }
         }};
         const faces=src._lowpolyFaces.filter(f=>f.visible);
-        // A filled ink pass would show through translucent faces and obscure
-        // the player; faded buildings and indoor wall parts omit it.
+        // A filled ink pass would show through translucent faces; translucent
+        // meshes and indoor wall parts omit it.
         if(LOOK.inkPx>0&&src.alpha===1&&!src._noInk)ink(faces);
         paint(faces);
         renderer.pipelines.postBatch(src);
@@ -2034,8 +2034,11 @@
     }
     if(!scene.worldContainer)scene.buildingWallContainer.sort('depth');
     }
-    for(const mesh of state.buildings) mesh.obj.alpha=mesh.role==='wreck'||typeof Render==='undefined'||!Render.buildingFadeAlpha?1:Render.buildingFadeAlpha(scene,mesh.key,mesh.footprint,
-      mesh.visibleTriangles||[],mesh.support,{x:state.offsetX,y:state.offsetY});
+    // Standing buildings that hide the player show its ghost (Render.syncPlayerGhost);
+    // the mesh itself stays opaque. Flat wrecks never hide anyone.
+    state.coversPlayer=visible&&typeof Render!=='undefined'&&!!Render.buildingCoversPlayer&&state.buildings.some(mesh=>
+      mesh.role!=='wreck'&&Render.buildingCoversPlayer(scene,mesh.key,mesh.footprint,
+        mesh.visibleTriangles||[],mesh.support,{x:state.offsetX,y:state.offsetY}));
   }
   // Screen points of every smoking chimney mouth (ROLES[role].smoke), in the
   // wall container's space, projected like the faces. render.js puffs there.
@@ -2054,7 +2057,7 @@
   }
   function clear(scene){
     const state=scene._lowpoly;if(!state)return;
-    state.enabled=false;state.faces=[];state.buildings=[];state.keys.clear();
+    state.enabled=false;state.coversPlayer=false;state.faces=[];state.buildings=[];state.keys.clear();
     for(const obj of state.pool){obj.visible=false;obj._lowpolyFaces=[];}
   }
   const covers=(scene,o)=>active(scene)&&(scene.depth??0)===0&&scene._lowpoly?.enabled&&!!scene._lowpoly?.keys.has(o.id);

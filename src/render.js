@@ -3520,15 +3520,17 @@ Render.buildingTrianglesCover = function(triangles, box) {
   }
   return false;
 };
-Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
-  if (key && key === scene.save?.starterShopId) return 1;
+// Whether a standing building's visible faces hide the whole player body from
+// in front. It never changes the building: Render.syncPlayerGhost answers it.
+Render.buildingCoversPlayer = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
+  if (key && key === scene.save?.starterShopId) return false;
   const feet = scene.playerScreen?.();
-  if (!feet || !scene.player?.visible) return 1;
+  if (!feet || !scene.player?.visible) return false;
   const { box, view } = Render.headingFadeView(scene, playerScreenBox(scene));
-  if (!box) return 1;
+  if (!box) return false;
   const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
     : anchor.y + offset.y > feet.y;
-  if (!front) return 1;
+  if (!front) return false;
   const projected = [];
   for (const triangle of triangles) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -3545,7 +3547,7 @@ Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, of
       return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
     }));
   }
-  return Render.buildingTrianglesCover(projected, box) ? 0.5 : 1;
+  return Render.buildingTrianglesCover(projected, box);
 };
 Render.playerBuildingKey = function(scene) {
   if ((scene.depth || 0) !== 0 || !scene.playerM || !scene.startWorldM) return null;
@@ -3555,44 +3557,68 @@ Render.playerBuildingKey = function(scene) {
   return entry?.ownerKeys?.[entry.owners?.[i]] || null;
 };
 
-// Buildings and medium-or-larger trees (fadesOverPlayer) fade only while
-// their visible art covers the player's body and their shared world depth
-// places them in front; every other prop stays opaque. Read the boot-time art
-// bounds, never texture pixels; untrimmed procedural art uses its frame box.
+// Buildings and medium-or-larger trees (fadesOverPlayer) hide the player only
+// while their visible art covers the player's body and their shared world
+// depth places them in front; every other prop never counts. The occluder
+// itself keeps its opacity: Render.syncPlayerGhost draws the player over it.
+// Read the boot-time art bounds, never texture pixels; untrimmed procedural
+// art uses its frame box.
 // On a turned heading-up map (`view`, from Render.headingFadeView) each body
 // stands upright at its turned feet, and lower turned feet draw in front, so
 // both the boxes and the front test follow the turned feet instead.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null, onFootprint = false) {
-  let obscures = false;
+Render.objectCoversPlayer = function objectCoversPlayer(s, appearance, box, playerDepth, view = null, onFootprint = false) {
+  if (!box || s.visible === false || appearance.layer === WorldLayers.GROUND_DECAL) return false;
   const building = !!s._staticObject && isBuilding(s._staticObject.kind);
+  // Standing inside a castle's grounds, its other pieces count as occluders too.
+  if (!fadesOverPlayer(s._staticObject) && !(onFootprint && !building)) return false;
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
-  const eligible = fadesOverPlayer(s._staticObject);
-  if (box && eligible && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
-    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
-    const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
-    const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
-    const fh = art?.fh ?? s.frame?.realHeight ?? s.frame?.height ?? s.height;
-    const x0 = s.x + ((art?.minX ?? 0) - s.originX * fw) * s.scaleX;
-    const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
-    const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
-    const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
-    // The art keeps its offsets from its feet; only the feet turn.
-    const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
-    const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
-    obscures = building
-      ? x0 + ox <= box.x0 && x1 + ox >= box.x1 && y0 + oy <= box.y0 && y1 + oy >= box.y1
-      : x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
-  }
-  const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && ((onFootprint && !building) || obscures) ? 0.5 : 1);
-  if (s.alpha !== alpha) s.setAlpha(alpha);
-  // Pre-FX receives the faded alpha. Glow treats every translucent body pixel
-  // as an outside edge and fills it gold, defeating the player-reveal fade.
-  // Keep the sweep, but suspend the rim until the object is opaque again.
-  if (s._shinyGlowFx) s._shinyGlowFx.active = alpha >= 1;
+  if (!front) return false;
+  const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+  const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+  const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
+  const fh = art?.fh ?? s.frame?.realHeight ?? s.frame?.height ?? s.height;
+  const x0 = s.x + ((art?.minX ?? 0) - s.originX * fw) * s.scaleX;
+  const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
+  const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
+  const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
+  // The art keeps its offsets from its feet; only the feet turn.
+  const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
+  const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
+  return building
+    ? x0 + ox <= box.x0 && x1 + ox >= box.x1 && y0 + oy <= box.y0 && y1 + oy >= box.y1
+    : x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
 };
 
-// The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
+// Opacity of the player copy drawn over everything while something hides it.
+const PLAYER_GHOST_ALPHA = 0.4;
+// The ghost mirrors the body sprite once per rendered frame (game prerender,
+// ahead of HeadingUp's upright pass, which turns it about the same feet). It
+// shows while any occlusion source last reported cover: the object pass
+// (objectCoversPlayer), retained wall groups and low-poly buildings
+// (buildingCoversPlayer). Each source keeps its flag on its own live state,
+// so a torn-down pass cannot leave a stale ghost behind.
+Render.playerCovered = function playerCovered(scene) {
+  if (scene._objectsCoverPlayer) return true;
+  if (scene._lowpoly?.coversPlayer) return true;
+  return Object.values(scene._wallPerspective || {}).some(g => g?.coversPlayer);
+};
+Render.syncPlayerGhost = function syncPlayerGhost(scene) {
+  const ghost = scene.playerGhost, p = scene.player;
+  if (!ghost) return;
+  const show = !!p && p.visible && p.alpha > 0 && scene.playerWorldContainer?.visible !== false
+    && Render.playerCovered(scene);
+  if (ghost.visible !== show) ghost.setVisible(show);
+  if (!show) return;
+  if (ghost.texture !== p.texture || ghost.frame.name !== p.frame.name) ghost.setTexture(p.texture.key, p.frame.name);
+  ghost.setPosition(p.x, p.y).setOrigin(p.originX, p.originY).setScale(p.scaleX, p.scaleY)
+    .setFlip(p.flipX, p.flipY).setRotation(p.rotation).setAlpha(PLAYER_GHOST_ALPHA * p.alpha);
+  if (p.isTinted) ghost.setTint(p.tintTopLeft, p.tintTopRight, p.tintBottomLeft, p.tintBottomRight);
+  else if (ghost.isTinted) ghost.clearTint();
+  if (scene.playerScreen) ghost._huAnchor = scene.playerScreen();
+};
+
+// The turned-map inputs for objectCoversPlayer: the rotation, the player's
 // turned feet key, and the player's body box moved to its turned feet. Null on
 // a north-up map. Rotating about the origin is enough: only differences
 // between turned feet matter, and every position turns the same way.
@@ -4794,10 +4820,14 @@ Render.drawObjects = function drawObjects(scene) {
   const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
   const playerBuilding = Render.playerBuildingKey(scene);
-  const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView,
-    !!playerBuilding && playerBuilding !== scene.save?.starterShopId
-      && (s._staticObject?.id === playerBuilding || s._staticObject?.castle === playerBuilding));
+  scene._objectsCoverPlayer = false;
+  const coverCheck = (s, appearance) => {
+    if (!scene._objectsCoverPlayer && Render.objectCoversPlayer(s, appearance, bodyBox, playerDepth, fadeView,
+      !!playerBuilding && playerBuilding !== scene.save?.starterShopId
+        && (s._staticObject?.id === playerBuilding || s._staticObject?.castle === playerBuilding))) {
+      scene._objectsCoverPlayer = true;
+    }
+  };
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -4828,8 +4858,10 @@ Render.drawObjects = function drawObjects(scene) {
     s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
     s._staticObject = o;
     s._staticAppearance = appearance;
-    s._objectBaseAlpha = s.alpha;
-    fadeObject(s, appearance);
+    // Glow treats every translucent body pixel as an outside edge and fills
+    // it gold. Keep the sweep, but suspend the rim on translucent art.
+    if (s._shinyGlowFx) s._shinyGlowFx.active = s.alpha >= 1;
+    coverCheck(s, appearance);
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
@@ -4837,7 +4869,7 @@ Render.drawObjects = function drawObjects(scene) {
         || s._staticObject !== item.o || s._staticAppearance !== item._appearance) return false;
     setWorldDepth(s, item._z ?? 0);
     // Body animation/height can change while cached scenery stands still.
-    fadeObject(s, item._appearance);
+    coverCheck(s, item._appearance);
     return true;
   };
   // Heading-up draws connected walls and hedges as ground-attached prisms in

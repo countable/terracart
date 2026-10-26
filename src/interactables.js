@@ -67,9 +67,9 @@ function isBuilding(kind) {
   return kind === 'house' || kind === 'tower';
 }
 
-// What may turn see-through while the player stands behind it: buildings and
-// trees of medium canopy or larger (treeSizeClass). Every other prop — small
-// trees, rocks, lamps, stalls — stays opaque over the body.
+// What counts as hiding the player (and so shows its ghost, Render.syncPlayerGhost)
+// while it stands behind it: buildings and trees of medium canopy or larger
+// (treeSizeClass). Every other prop — small trees, rocks, lamps, stalls — never does.
 function fadesOverPlayer(o) {
   return !!o && (isBuilding(o.kind) || (isTreeLike(o.kind) && treeSizeClass(o) !== 'small'));
 }
