@@ -589,8 +589,8 @@ the surrounding grove’s shrub scale.
   sign boards and smoke counterrotate their drawing commands. Contact shadows
   keep their ellipse orientation. Building shadows share the building pivot,
   retain their screen-vertical inset, and size to the visible art footprint.
-  Broken lamp posts stay upright. Dropped inventory icons, shells, flint and
-  driftwood lie flat and retain the ground rotation.
+  Broken lamp posts and the flint nodule stay upright. Dropped inventory icons,
+  shells and driftwood lie flat and retain the ground rotation.
   Creature appearance directions rotate without changing simulation state.
   The player facing chevron is omitted in heading-up mode when a device
   compass reports, unless direction lock is engaged. The gold lock beside zoom
