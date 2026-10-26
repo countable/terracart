@@ -213,8 +213,9 @@ node tools/castle-real-benchmark.cjs
 `SOURCE_DIR` selects a frozen source checkout, `FIXTURES` selects extracted inputs,
 `OUT_FILE` sets the JSON report and `REPEATS` defaults to three. The benchmark
 separates cold builds, exact cache hits, integer cell shifts and fractional
-translations. Source hashes accompany timings; browser rendering and fixture
-decoding are outside the timed region. Compare reports on the same idle machine.
+translations. Source hashes accompany timings; extractor `cellM` metadata supplies the actual
+`32 / WorldGen.CELL_M` overlay scale. Browser rendering and fixture decoding are
+outside the timed region. Compare reports on the same idle machine.
 
 For adjacent forts, wrecks and restored houses, run
 `node tools/building-real-inputs.cjs`. It writes selected pairs to

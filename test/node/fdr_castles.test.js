@@ -75,7 +75,7 @@
   test('FDR castles: translated complex rings reuse cached triangulation without hiding real edits', () => {
     const source=MVT.decodeTile(FIXTURE_TILES['2753_5565']).find(l=>l.name==='building')
       .features.find(f=>f.id===179969990).geom[1061];
-    const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+    const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/WorldGen.CELL_M;
     const coords=new Float32Array(source.flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
     const points=Array.from({length:coords.length/2},(_,i)=>({x:(coords[i*2]-coords[0])*scale,y:(coords[i*2+1]-coords[1])*scale}));
     const triangulate=PolygonGeometry.triangulate,options={sectionLength:61.23456789};
@@ -532,7 +532,7 @@
       ["2755_5566",6757291610,63,"citadel","b_619879_1252421"]
     ];
     assert.eq(sites.length,26);
-    const tiles=new Map(),edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+    const tiles=new Map(),edge=WorldGen.tileEdgeMeters(49.8801),scale=32/WorldGen.CELL_M;
     for(const [tile,id,index,family,key] of sites) {
       if(!tiles.has(tile))tiles.set(tile,MVT.decodeTile(FIXTURE_TILES[tile]).find(l=>l.name==='building'));
       const source=tiles.get(tile).features.find(f=>f.id===id)?.geom[index];

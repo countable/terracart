@@ -57,7 +57,7 @@ const area = ring => ring.reduce((sum, p, i) => {
 }, 0) / 2;
 const report = {
   provenance: 'Production MVT.decodeTile and WorldGen.rasterizeTile over repository Kelowna OpenFreeMap fixtures. Tier 12 is selected by production distribution; no forced tiers or invented rings. MVT feature IDs are not asserted individual OSM way IDs. Production rings preserve float32 tile-local metres; sourceRing preserves decoded integer tile coordinates.',
-  frameLat, tiles: [], castles: [],
+  frameLat, cellM: WorldGen.CELL_M, tiles: [], castles: [],
 };
 const fixtureDir = path.join(ROOT, 'test/fixtures');
 for (const file of fs.readdirSync(fixtureDir).filter(f => /^275[345]_556[567]\.pbf$/.test(f)).sort()) {

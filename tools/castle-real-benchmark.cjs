@@ -5,6 +5,7 @@ const fs = require('node:fs'), path = require('node:path'), crypto = require('no
 const root = path.resolve(process.env.SOURCE_DIR || path.join(__dirname, '..'));
 const fixturePath = process.env.FIXTURES || '/tmp/complex-castles-all.json';
 const fixtures = JSON.parse(fs.readFileSync(fixturePath));
+if (!(fixtures.cellM > 0)) throw Error('Regenerate inputs with castle-real-inputs.cjs: production cellM is required');
 const repeats = Number(process.env.REPEATS || 3);
 if (!Number.isInteger(repeats) || repeats < 1) throw Error('REPEATS must be a positive integer');
 global.window = globalThis;
@@ -14,7 +15,7 @@ for (const name of modules) require(path.join(root, 'src', name + '.js'));
 const median = values => values.slice().sort((a, b) => a - b)[Math.floor(values.length / 2)];
 const rows = [];
 for (const input of fixtures.castles) {
-  const scale = 32 / (input.tileEdgeM / input.N);
+  const scale = 32 / fixtures.cellM;
   const points = Array.from({ length: input.ring.length / 2 }, (_, i) => ({
     x: (input.ring[i * 2] - input.ring[0]) * scale,
     y: (input.ring[i * 2 + 1] - input.ring[1]) * scale,
@@ -54,8 +55,8 @@ for (const input of fixtures.castles) {
 }
 const accepted = rows.filter(r => r.accepted), sorted = accepted.map(r => r.coldMs).sort((a, b) => a - b);
 const report = { node: process.version, platform: process.platform, architecture: process.arch,
-  sourceDir: root, fixturePath, moduleSHA256: hashes, repeats,
-  method: 'Native require of pure production modules. Cold includes layout plus mesh emission; cached includes retained-layout cloning plus fresh mesh emission. Translated rebuilds follow warm rebuilds at (32,-64) and (32.375,-64.125) game pixels. Module reload/cache clearing, fixture decoding and browser projection are excluded. CPU measurements are machine-dependent.',
+  sourceDir: root, fixturePath, cellM: fixtures.cellM, gamePixelsPerMetre: 32 / fixtures.cellM, moduleSHA256: hashes, repeats,
+  method: 'Native require of pure production modules, using actual overlay projection scale 32/WorldGen.CELL_M from extractor metadata. Cold includes layout plus mesh emission; cached includes retained-layout cloning plus fresh mesh emission. Translated rebuilds follow warm rebuilds at (32,-64) and (32.375,-64.125) game pixels. Module reload/cache clearing, fixture decoding and browser projection are excluded. CPU measurements are machine-dependent.',
   summary: { total: rows.length, accepted: accepted.length,
     ordinary: rows.filter(r => r.ordinaryCastle).length,
     ordinaryComplex: rows.filter(r => r.ordinaryCastle && r.vertices > 64).length,
