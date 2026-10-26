@@ -1500,11 +1500,9 @@ per-building texture creation. The scene's normal map camera projects the
 footprint and screen-up elevation; the concepts do not define another camera.
 Canvas shares these faces and closes opaque triangle seams at surface boundaries.
 Shared-edge coverage and texture transforms are retained until geometry or atlas
-size changes. Camera pans cull wholly offscreen draw batches using projected triangle bounds
-with a two-pixel antialiasing fringe; partly visible unions retain their original
-first texture transform and all triangle paths. Global coverage remains intact so newly visible
-triangles retain the same seam treatment. Coverage expansion uses one inverse
-camera transform per frame, not one per triangle.
+size changes. Original triangle batches and global coverage remain intact across
+camera pans. Coverage expansion uses one inverse camera transform per frame,
+not one per triangle.
 Textured roof slopes share seam coverage only with other roof slopes, so the
 pale underlying cap cannot expand beyond their eaves.
 White-patch materials fill directly with their cel colour on Canvas; only the

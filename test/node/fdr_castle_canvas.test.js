@@ -1,4 +1,4 @@
-test('FDR Canvas: cached coverage survives camera culling and invalidates for atlas or geometry changes', () => {
+test('FDR Canvas: cached coverage and UV transforms invalidate for atlas or geometry changes', () => {
   const previous={Phaser:globalThis.Phaser,Path2D:globalThis.Path2D};
   const matrix={a:1,b:0,c:0,d:1,e:0,f:0},image={width:512,height:512};
   let draws=0,inverses=0;
@@ -22,15 +22,15 @@ test('FDR Canvas: cached coverage survives camera culling and invalidates for at
   const render=()=>target.renderCanvas({currentContext:context},target,camera,null);
   try {
     FDRCastleCanvas.attach(target);render();
-    assert.eq(draws,2,'offscreen members do not split a visible union; fringe draws and wholly offscreen run skips');
+    assert.eq(draws,3,'original same-affine union batches and all retained triangles draw');
     assert.eq(inverses,1,'coverage expansion inverts the camera once for the frame');
     const cache=target._fdrCanvasEdgeCache,affines=cache.affines;
     render();
     assert.truthy(target._fdrCanvasEdgeCache===cache&&cache.affines===affines,'paused frames reuse topology and UV transforms');
     assert.eq(inverses,2);
     matrix.e=-40;draws=0;render();
-    assert.eq(draws,1,'panning brings a previously culled triangle into view');
-    assert.truthy(target._fdrCanvasEdgeCache===cache,'visibility changes do not alter shared-edge coverage');
+    assert.eq(draws,3,'panning preserves the original draw batches');
+    assert.truthy(target._fdrCanvasEdgeCache===cache,'camera changes do not alter shared-edge coverage');
     image.width=1024;render();
     assert.truthy(target._fdrCanvasEdgeCache!==cache,'atlas dimensions invalidate texture transforms');
     assert.eq(target._fdrCanvasEdgeCache.affines[0][0],affines[0][0]/2);
