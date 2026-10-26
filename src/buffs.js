@@ -39,56 +39,98 @@
   const KINDS = {
     portal: { icon: 'portal', name: 'Return', color: '#83caff', stroke: '#10233c', action: 'returnThroughSapphire',
       read: (save, scene) => scene?.depth === save?.sapphireReturn?.depth
-        ? Number(save?.sapphireReturn?.until) || 0 : 0 },
-    dragon:  { icon: 'dragon', name: 'Dragon',  color: GOLD,      stroke: '#5a1400', scene: '_dragonUntil' },
-    shadow:  { icon: 'shadow', name: 'Shadow',  color: '#d9b3ff', stroke: '#2a1040', scene: '_shadowUntil' },
+        ? Number(save?.sapphireReturn?.until) || 0 : 0,
+      effect: 'Tap the chip to return through the sapphire portal before it closes.' },
+    dragon:  { icon: 'dragon', name: 'Dragon',  color: GOLD,      stroke: '#5a1400', scene: '_dragonUntil',
+      effect: 'You take dragon form: you walk fast and your attacks deal double damage.' },
+    shadow:  { icon: 'shadow', name: 'Shadow',  color: '#d9b3ff', stroke: '#2a1040', scene: '_shadowUntil',
+      effect: "Hostile creatures won't chase or attack you, but you can't attack either." },
     // The Scroll of Moonbeam's beam (scene_consumables.js _tickMoonbeam).
-    moonbeam: { icon: 'moonbeam', name: 'Moonbeam', color: '#cfe6ff', stroke: '#14203a', scene: '_moonbeamUntil' },
-    evertorch: { icon: 'evertorch', name: 'Lantern', color: '#75cfff', stroke: '#10233c', save: 'evertorchUntil' },
-    torch:   { icon: 'torch', name: 'Torch',   color: '#ffb347', stroke: '#3a1600', scene: '_torchUntil' },
-    frostAura: { icon: 'frostAura', name: 'Frost aura', color: '#9ad8ff', stroke: '#10233c', save: 'frostAuraUntil' },
-    blight:  { icon: 'blight', name: 'Blight',  color: '#ff6f9a', stroke: '#3a0418', save: 'blightPotionUntil' },
-    speed:   { icon: 'speed', name: 'Speed',   color: '#9fe8ff', stroke: '#0b2a3a', save: 'speedPotionUntil' },
-    protection: { icon: 'protection', name: 'Protection', color: '#c9d6ff', stroke: '#1a2250', save: 'protectionPotionUntil' },
-    immortal: { icon: 'immortal', name: 'Immortal', color: '#ffe066', stroke: '#4a3a00', save: 'immortalPotionUntil' },
-    fireResistance: { icon: 'fireResistance', name: 'Fireproof', color: '#ffb347', stroke: '#3a1600', save: 'fireResistancePotionUntil' },
-    flight: { icon: 'flight', name: 'Flight', color: '#9fe8ff', stroke: '#0b2a3a', save: 'flightPotionUntil' },
-    shrinking: { icon: 'shrinking', name: 'Shrinking', color: '#d9b3ff', stroke: '#2a1040', save: 'shrinkingPotionUntil' },
-    giant: { icon: 'giant', name: 'Giant', color: '#ffb18c', stroke: '#4a180b', save: 'giantPotionUntil' },
-    stoneskin: { icon: 'stoneskin', name: 'Stoneskin', color: '#d5d0c8', stroke: '#292723', save: 'stoneskinUntil' },
-    shield:  { icon: 'shield', name: 'Shield',  color: '#c9d6ff', stroke: '#1a2250', save: 'shieldPotionUntil' },
-    reach:   { icon: 'reach', name: 'Reach',   color: '#fff3a8', stroke: '#4a3a00', save: 'reachPotionUntil' },
-    skeleton: { icon: 'skeleton', name: 'Bones', color: '#ded6bc', stroke: '#27231d', save: 'skeletonUntil' },
-    wraith: { icon: 'wraith', name: 'Wraith', color: '#b9cce2', stroke: '#162034', save: 'wraithUntil' },
-    raven:   { icon: 'raven', name: 'Raven',   color: '#b8b8c8', stroke: '#101018', save: 'spiritRavenUntil' },
-    coffee:  { icon: 'coffee', name: 'Coffee',  color: '#e0b48a', stroke: '#3a2010', save: 'coffeeUntil' },
-    dawnfruit: { icon: 'dawnfruit', name: 'Dawnfruit', color: '#fff3a8', stroke: '#4a3a00', save: 'dawnfruitUntil' },
-    lettuce: { icon: 'lettuce', name: 'Luck', color: '#b7f598', stroke: '#183819', save: 'miracleLettuceUntil' },
+    moonbeam: { icon: 'moonbeam', name: 'Moonbeam', color: '#cfe6ff', stroke: '#14203a', scene: '_moonbeamUntil',
+      effect: () => `A beam runs the way you face and burns every foe in its line for ${CONSUMABLE_SPEC.moonbeam_scroll.dps} damage a second.` },
+    evertorch: { icon: 'evertorch', name: 'Lantern', color: '#75cfff', stroke: '#10233c', save: 'evertorchUntil',
+      effect: () => `Your light reaches ${CONSUMABLE_SPEC.evertorch.radiusMul}× as far in the dark.` },
+    torch:   { icon: 'torch', name: 'Torch',   color: '#ffb347', stroke: '#3a1600', scene: '_torchUntil',
+      effect: () => `Your light reaches ${CONSUMABLE_SPEC.torch.radiusMul}× as far in the dark.` },
+    frostAura: { icon: 'frostAura', name: 'Frost aura', color: '#9ad8ff', stroke: '#10233c', save: 'frostAuraUntil',
+      effect: 'Cold spreads from you and chills every creature that comes near.' },
+    blight:  { icon: 'blight', name: 'Blight',  color: '#ff6f9a', stroke: '#3a0418', save: 'blightPotionUntil',
+      effect: () => `Foes within ${CONSUMABLE_SPEC.blight_potion.radiusCells} cells of you take ${CONSUMABLE_SPEC.blight_potion.damagePerSecond} damage a second.` },
+    speed:   { icon: 'speed', name: 'Speed',   color: '#9fe8ff', stroke: '#0b2a3a', save: 'speedPotionUntil',
+      effect: 'You walk much faster.' },
+    protection: { icon: 'protection', name: 'Protection', color: '#c9d6ff', stroke: '#1a2250', save: 'protectionPotionUntil',
+      effect: () => `You take ${Math.round((1 - CONSUMABLE_SPEC.protection_potion.damageMul) * 100)}% less damage.` },
+    immortal: { icon: 'immortal', name: 'Immortal', color: '#ffe066', stroke: '#4a3a00', save: 'immortalPotionUntil',
+      effect: 'Nothing can damage you.' },
+    fireResistance: { icon: 'fireResistance', name: 'Fireproof', color: '#ffb347', stroke: '#3a1600', save: 'fireResistancePotionUntil',
+      effect: 'Fire and burning cannot hurt you.' },
+    flight: { icon: 'flight', name: 'Flight', color: '#9fe8ff', stroke: '#0b2a3a', save: 'flightPotionUntil',
+      effect: () => CONSUMABLE_SPEC.flight_potion.get },
+    shrinking: { icon: 'shrinking', name: 'Shrinking', color: '#d9b3ff', stroke: '#2a1040', save: 'shrinkingPotionUntil',
+      effect: () => `Half size, half maximum HP and half melee damage, and +${CONSUMABLE_SPEC.shrinking_potion.visionCells} stealth.` },
+    giant: { icon: 'giant', name: 'Giant', color: '#ffb18c', stroke: '#4a180b', save: 'giantPotionUntil',
+      effect: () => `+${CONSUMABLE_SPEC.giant_potion.maxHpBonus} maximum HP and +${CONSUMABLE_SPEC.giant_potion.damageBonus} melee damage.` },
+    stoneskin: { icon: 'stoneskin', name: 'Stoneskin', color: '#d5d0c8', stroke: '#292723', save: 'stoneskinUntil',
+      effect: () => `+${CONSUMABLE_SPEC.stoneskin_potion.armorBonus} armour.` },
+    shield:  { icon: 'shield', name: 'Shield',  color: '#c9d6ff', stroke: '#1a2250', save: 'shieldPotionUntil',
+      effect: () => `Beasts deal ${Math.round((1 - CONSUMABLE_SPEC.shielding_potion.damageMul) * 100)}% less damage to you.` },
+    reach:   { icon: 'reach', name: 'Reach',   color: '#fff3a8', stroke: '#4a3a00', save: 'reachPotionUntil',
+      effect: 'You can see and reach across the whole view.' },
+    skeleton: { icon: 'skeleton', name: 'Bones', color: '#ded6bc', stroke: '#27231d', save: 'skeletonUntil',
+      effect: 'A skeleton fights beside you.' },
+    wraith: { icon: 'wraith', name: 'Wraith', color: '#b9cce2', stroke: '#162034', save: 'wraithUntil',
+      effect: 'A wraith hunts your foes.' },
+    raven:   { icon: 'raven', name: 'Raven',   color: '#b8b8c8', stroke: '#101018', save: 'spiritRavenUntil',
+      effect: 'A smoke raven attacks your foes.' },
+    coffee:  { icon: 'coffee', name: 'Coffee',  color: '#e0b48a', stroke: '#3a2010', save: 'coffeeUntil',
+      effect: 'You walk faster.' },
+    dawnfruit: { icon: 'dawnfruit', name: 'Dawnfruit', color: '#fff3a8', stroke: '#4a3a00', save: 'dawnfruitUntil',
+      effect: 'You see the whole view, and treasure shows on the compass rim like a telescope.' },
+    lettuce: { icon: 'lettuce', name: 'Luck', color: '#b7f598', stroke: '#183819', save: 'miracleLettuceUntil',
+      effect: 'Better luck: rarer finds turn up more often.' },
     fish:    { icon: 'fish', name: 'Fish regen', color: '#a7ffb0', stroke: '#103a18',
-      read: (save) => Number(save?.fishRegen?.until) || 0 },
-    bike:    { icon: 'bike', name: 'Bike',    color: '#a8f0b0', stroke: '#103a18', save: 'bikeUntil' },
+      read: (save) => Number(save?.fishRegen?.until) || 0,
+      effect: 'You slowly regain energy.' },
+    bike:    { icon: 'bike', name: 'Bike',    color: '#a8f0b0', stroke: '#103a18', save: 'bikeUntil',
+      effect: 'You ride at double speed.' },
     field_scope: { icon: 'field_scope', name: 'Telescope', color: '#ffd166', stroke: '#4a3a00',
-      read: save => latestUntil(save?.telescopeCompass) },
+      read: save => latestUntil(save?.telescopeCompass),
+      effect: 'The telescope marks a find on the compass rim.' },
     wayfarer: { icon: 'wayfarer', name: 'Directions', color: '#4d9dff', stroke: '#102a40',
-      read: save => latestUntil(save?.wayfarerCompass) },
+      read: save => latestUntil(save?.wayfarerCompass),
+      effect: 'A blue dot on the compass rim points the way.' },
     compass: { icon: 'compass', name: 'Compass', color: '#67e8f9', stroke: '#2a1040',
-      read: (save, scene) => latestUntil(scene?.pairyCompass) },
+      read: (save, scene) => latestUntil(scene?.pairyCompass),
+      effect: 'A mark on the compass rim points to buried treasure.' },
     // The Treasure Map's mark (app.js useTreasureMap — save.treasureCompass,
     // drawn as the red edge dot), so its quarter hour shows like the others.
     treasure: { icon: 'treasure', name: 'Treasure', color: '#ff5555', stroke: '#3a0a0a',
-      read: save => latestUntil(save?.treasureCompass) },
+      read: save => latestUntil(save?.treasureCompass),
+      effect: "A red dot on the compass rim points to the treasure map's chest." },
   };
   // The shrine boons that keep their own expiry (save.boonUntil[lever]):
   // every lever Shrines.LEVERS maps to a buff id that is not already a row
   // above gets one, named by the kind's `boon` word, inked in its light.
   // `boon` names the save.boonUntil key extend() writes.
   const S = root.Shrines;
+  // What each boon-only lever does, for its chip's Dragon Spirit bubble
+  // (describe); a kind's own `effect` line wins where it has one.
+  const BOON_EFFECTS = {
+    mining: () => `Your pick digs like a tier ${S.MINING_TIER} pick.`,
+    hidden: () => "Creatures won't notice or attack you.",
+    melee: () => `+${Combat.TRAINING_KINDS.melee.drill} melee and archery damage.`,
+    fortune: () => `+${Math.round(S.FORTUNE_LUCK_BONUS * 100)}% luck: rarer finds turn up more often.`,
+    work: () => `Work wheels turn ${S.WORK_SPEED_MUL}× faster.`,
+    regen: () => `You regain ${S.REGEN_PER_SECOND} energy a second.`,
+    wand: () => `Your staff casts as a tier ${S.WAND_TIER} staff.`,
+  };
   if (S) {
     for (const id of S.KIND_IDS) {
       const row = S.SHRINE_KINDS[id], buff = S.LEVERS[row.lever];
       if (!buff || KINDS[buff]) continue;
       KINDS[buff] = {
         icon: buff, name: row.boon, color: '#' + row.light.toString(16).padStart(6, '0'), stroke: BOON_STROKE, boon: buff,
+        effect: row.effect || BOON_EFFECTS[buff],
         read: (save) => Number(save?.boonUntil?.[buff]) || 0,
       };
     }
@@ -155,5 +197,11 @@
     return out;
   }
 
-  root.Buffs = { KINDS, until, active, laterOf, extendField, extend, marks, withMark, latestUntil };
+  // The plain rule a row's chip states when tapped (app.js _showStatusHelp).
+  function describe(id) {
+    const e = KINDS[id]?.effect;
+    return (typeof e === 'function' ? e() : e) || '';
+  }
+
+  root.Buffs = { KINDS, describe, until, active, laterOf, extendField, extend, marks, withMark, latestUntil };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

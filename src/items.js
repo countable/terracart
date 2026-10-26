@@ -69,7 +69,7 @@ const CROP_SPRITE = {
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Approved long grass shares its inventory sprite. Petnip retains its authored art.
   longgrass: { sheet: 'selected_longgrass', custom: true, frame: 0, scale: 1.16 * 0.9 },
-  petnip: { sheet: 'petnip', custom: true, frame: 0, scale: 1.16 },
+  petnip: { sheet: 'petnip', custom: true, frame: 0, scale: 1.16 * 0.85 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,

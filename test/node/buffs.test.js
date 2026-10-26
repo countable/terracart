@@ -112,13 +112,29 @@
     assert.truthy(/#status-row \{\n  position: fixed;\n  top: calc\(8px \+ env\(safe-area-inset-top, 0px\) \+ var\(--hud-chip-h\) \+ 6px\);/.test(app),
       'seated one chip height under the HUD row');
     assert.truthy(/body\.modal-open #status-row \{ visibility: hidden; \}/.test(app), 'dialogs cover the status overlay across stacking contexts');
-    assert.truthy(app.includes('grid-template-columns: repeat(3, minmax(0, 1fr))'), 'three columns wrap extra chips');
+    assert.truthy(app.includes('grid-template-columns: repeat(auto-fill, minmax(36px, 1fr))'), 'icon-wide columns wrap extra chips');
     assert.truthy(app.includes('gap: 4px; padding: 0; margin: 0;'), 'the wrapper has no padding');
     assert.truthy(app.includes('z-index: 10; pointer-events: none;'), 'the overlay passes taps through above the HUD');
     assert.truthy(COMPASS_CSS_SRC.includes('body.compass-hud #status-row {top:max(92px,calc(var(--compass-map-top) + 20px));}'), 'aligned with the top direction lock');
     assert.falsy(body.includes('getBoundingClientRect'), 'objectives never move the row');
     assert.falsy(/TimerText|_tickBuffTimers|buffTimerTexts/.test(app), 'nothing is drawn over the player\'s head');
     assert.falsy(/boonRemainingMs|shrineBoon = /.test(app + Object.values(Shrines).join('')), 'the last-boon countdown is gone');
+  });
+
+  test('buffs: every chip can say what its effect does when tapped', () => {
+    for (const id of Object.keys(Buffs.KINDS)) {
+      const text = Buffs.describe(id);
+      assert.truthy(typeof text === 'string' && text.length > 8 && !/undefined|NaN/.test(text), `buff ${id}: ${text}`);
+    }
+    for (const id of Object.keys(Conditions.DEFINITIONS)) {
+      const text = Conditions.describe(id);
+      assert.truthy(text.length > 40 && !/undefined|NaN/.test(text), `condition ${id}: ${text}`);
+    }
+    for (const [kind, row] of Object.entries(BossEncounters.KINDS)) assert.truthy(row.chip.effect, `boss ${kind}`);
+    assert.eq(Conditions.describe('poison'), 'You lose 1 energy every 2s. An Antidote or an Elixir cures it.');
+    const m = app.match(/\n  _syncStatusRow\(\) \{\n([\s\S]*?)\n  \}\n/);
+    assert.truthy(/if \(c\.action\) this\[c\.action\]\?\.\(\);\s*else this\._showStatusHelp\(el\);/.test(m[1]), 'a plain chip opens its help');
+    assert.truthy(/_showStatusHelp\(el\) \{[\s\S]*?kind: 'spirit'[\s\S]*?source: el/.test(app), 'in the Dragon Spirit bubble, pointing at the chip');
   });
 
   test('buffs: every effect has an atlas icon', () => {
