@@ -281,26 +281,6 @@ test('chest themes: gear starts a tier low and rerolls an exact duplicate once b
   }
 });
 
-test('chest themes: armour climbs one tier past the piece worn, or to the chest floor', () => {
-  const armorRolls = (armor, quality, chestTier, seed) => {
-    const rng = makeRng32(seed), out = [];
-    for (let i = 0; i < 4000; i++) {
-      const r = resolveChestReward('culture', { tier: quality, bracket: 0, jackpotApplied: 0 },
-        { relics: {}, armor }, rng, { tier: chestTier });
-      if (r.kind === 'armor') out.push(r);
-    }
-    return out;
-  };
-  // A jackpot-rolled T6 quality from a T3 chest, nothing worn: Copper at best.
-  const bare = armorRolls({}, 6, 3, 41);
-  assert.gt(bare.length, 100);
-  for (const r of bare) assert.eq(r.tier, 2, 'bare slots stop at the T3 chest floor');
-  // Copper boots open Iron boots, and nothing above; the other bare slots stay at Copper.
-  const booted = armorRolls({ boots: { tier: 2 } }, 6, 3, 42);
-  assert.truthy(booted.some(r => r.slot === 'boots' && r.tier === 3));
-  for (const r of booted) assert.lte(r.tier, r.slot === 'boots' ? 3 : 2, r.slot);
-});
-
 test('chest themes: alternate weapons use only their three material tiers', () => {
   const rng = makeRng32(1872);
   for (const slot of ['dagger', 'lance', 'musket']) {

@@ -66,10 +66,8 @@
   // from the row's non-gear lanes. Chest gear rolls start tierPenalty below
   // the rolled tier; a roll that lands on a piece the player holds at exactly
   // that tier rerolls once without the penalty before paying coins
-  // (rarity.js rollChestGear). Armour climbs the ladder: a roll reaches at
-  // most armorRungsAhead tiers above the piece worn in that slot, or the
-  // chest's floor when that is higher (bare legs from a T3 chest: Copper).
-  const CHEST_GEAR = Object.freeze({ sharePerTier: 7, maxShare: 28, tierPenalty: 1, armorRungsAhead: 1 });
+  // (rarity.js rollChestGear).
+  const CHEST_GEAR = Object.freeze({ sharePerTier: 7, maxShare: 28, tierPenalty: 1 });
   const isGearLane = group => groups[group]?.kind === 'gear' || group === 'uniqueRelics';
   // THE OCT 2026 REBALANCE — one clean identity per theme:
   //   roadside  supplies, minerals, coins and furniture - never produce
