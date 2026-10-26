@@ -770,9 +770,15 @@ the surrounding grove’s shrub scale.
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
   material silhouettes; loot messages report the actual quantity rolled.
-- Apple and Worldpeach trees keep their mature size after picking. Their
+- Map Apple and Worldpeach trees use recoloured RA rounded canopies from
+  `tools/build_rogue_fruit_trees.py`: apple foliage is cool green with cream
+  blossoms; Worldpeach foliage is warm olive with pink blossoms. Bark, roots
+  and alpha retain the source pixels. The active profile registers crown bounds
+  for the existing separate fruit overlay; compact sapling inventory icons keep
+  their original sheets. Planted map trees grow by scale.
+  Both species keep their mature size after picking. Their
   24-hour fruit regrowth is green for the first 12 hours, then uses the mature
-  blossom frame for the final 12 hours (apple frame 8, peach frame 4).
+  blossom artwork for the final 12 hours.
   Ripe trees return to the green frame
   with separate fruit overlays. `Crops.fruitTreeState` owns readiness and the
   blossom window; initial sapling growth still flowers during stage 3.

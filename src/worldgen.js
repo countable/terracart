@@ -6777,12 +6777,12 @@
       yield* StreetVariants.suppressNexusRoadThemesSteps(streetIndex, zone, w);
       streetArea = yield* StreetVariants.areaSteps(streetIndex, w);
     }
-    // Retain the road-ground contract for tile consumers. Sparse themed
-    // cobbles now preserve the source ground, so no verge cleanup is needed.
+    // Paint road-theme ground after source geography and cave inputs have
+    // been captured; clear displaced ambient fill before themed dressing.
     const streetGround = new Uint8Array(w * h);
     const streetTerrain = typeof StreetVariants !== 'undefined'
       ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,
-        transportation: layersByName.transportation, grid, N: w, roadMask, spawnWhy, zone, streetGround }) : null;
+        transportation: layersByName.transportation, grid, N: w, roadMask, roadClass, spawnWhy, zone, streetGround }) : null;
     const hasStreetTerrain = streetTerrain && streetTerrain.some(Boolean);
     if (hasStreetTerrain) yield* clearStreetAmbientSteps({ area: streetTerrain,
       objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM });

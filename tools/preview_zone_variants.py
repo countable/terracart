@@ -88,6 +88,10 @@ def material_art(material):
         container = material['kind']
     if container:
         art = r['containerArt'][container]
+        frames = art.get('byFrame', {})
+        frame = material.get('previewContainerFrame', material.get('_chestLook', {}).get('frame'))
+        if frame is not None and str(frame) in frames:
+            art = frames[str(frame)]
         return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     kind = material['kind']
     if kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase'):
@@ -157,7 +161,7 @@ def sprite_symbols(materials, prefix):
 
 
 def sprite_cell(prefix, material, x, y, size, definition=None):
-    if definition and definition.get('kind') in ('tree', 'wildplant') and definition.get('_plantArt') not in ('zone_hedge', 'zone_hedge_single'):
+    if definition and definition.get('kind') in ('tree', 'fruittree', 'wildplant') and definition.get('_plantArt') not in ('zone_hedge', 'zone_hedge_single'):
         art = material_art(definition)
         if definition['kind'] == 'tree':
             fields = art_registry()['materialArtFields']
@@ -168,8 +172,13 @@ def sprite_cell(prefix, material, x, y, size, definition=None):
         unit = size / .8 / art_registry()['cellPx']
         width, height = art['width'] * unit, art['height'] * unit
         origin = art.get('origin', [.5, .5])
-        return art_image(art, f'class="sprite-cell" data-game-art="{art["sheet"]}" x="{x+size/2+art.get("dxPx",0)*unit-origin[0]*width}" y="{y+size/2+art.get("dyPx",0)*unit-origin[1]*height}" width="{width}" height="{height}"', frame)
-    if definition and (definition.get('_objectArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone')):
+        picture = art_image(art, f'class="sprite-cell" data-game-art="{art["sheet"]}" x="{x+size/2+art.get("dxPx",0)*unit-origin[0]*width}" y="{y+size/2+art.get("dyPx",0)*unit-origin[1]*height}" width="{width}" height="{height}"', frame)
+        fruit = art.get('fruitArt')
+        if fruit:
+            fw, fh = fruit['width'] * unit, fruit['height'] * unit
+            picture += art_image(fruit, f'class="sprite-cell" data-fruit-overlay="{fruit["sheet"]}" x="{x+size/2+fruit["dxPx"]*unit-fw/2}" y="{y+size/2+fruit["dyPx"]*unit-fh/2}" width="{fw}" height="{fh}"')
+        return picture
+    if definition and (definition.get('_objectArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'barrel', 'clay_pot', 'box') or definition.get('barrelStyle') or definition.get('barrel')):
         art = material_art(definition)
         if 'width' in art:
             unit = size / .8 / art_registry()['cellPx']
@@ -782,7 +791,10 @@ def street_section(streets):
         if tiers: monsters += '; stays defeated; placement and home safety can suppress guards'
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
-        terrain_details = '<dt>Vector background</dt><dd>20% variant-coloured tint beneath the cobbles, within the road or path band. Restoration reuses the same tint once. Surrounding grid terrain keeps its landcover; variants do not repaint a ground verge.</dd>'
+        terrain_details = '<dt>Road surface and ground</dt><dd>20% variant-coloured tint beneath the cobbles, within the road or path band. Restoration reuses the same tint once. Small-road themes paint their configured ground verge; opted-in path themes also influence the ground beneath and beside the path. Buildings, water, access exclusions and Nexus coverage stay protected.</dd>'
+        if v['size'] == 'minor' or v.get('pathTerrainInfluence'):
+            reach = v.get('terrainVergeCells', 2)
+            terrain_details += f'<dt>Terrain influence</dt><dd>{html.escape(v.get("terrain", "source ground").replace("_", " " ).title())} · {reach} cells ({reach * streets["cellM"]:g} m) beyond each road edge.</dd>'
         shrine = next((row for row in art_registry()['shrineKinds'].values() if v['id'] in row.get('streets', [])), None)
         shrine_details = ''
         if v.get('ventKind') and shrine:
@@ -806,7 +818,7 @@ target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).
 select.addEventListener('change',update);update();
 })();</script>"""
     grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Small roads'), ('path', 'Paths')] if any(row['size'] == size for row in streets['rows']))
-    return f'''<section id="streets"><h1>{len(streets['rows'])} Small-road and path variants</h1><p>Variants apply only to Small roads and walking paths. Medium roads are fixed Old Trade Roads; Large roads are fixed dimensional rift roads. Their appearance changes with restoration, not variant selection.</p><details><summary>How road samples are generated</summary><p>Shipping Small-road and path rows from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road. Public park ground remains underneath and beside the source geometry; no variant ground verge is painted. The vector surface uses the selected game cobbles over a 20% variant-coloured background. The worn and restored preview composites use the game's image opacity and native texture scale, with no second background tint after restoration.</p><p>Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Props and lamps use shipping game art. With art switched off, squares are props and coloured circles are lamps. Pale dots mark source line ends; outlined diamonds are guard candidate sites. The marked midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of Small-road keys without a special theme. Affinities and street names adjust the choice among special Small roads without changing that rarity. Long and tile-crossing roads retain deterministic theme patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Paths use their runtime geography and weight rules. Prop density is an observed sample; real terrain, occupied cells, bends and tile boundaries change placement. Fauna percentages relocate existing animals; guard sites reach the later lair spawner. Lamps show restored art and generated spacing; visit dimming is not simulated. Nexus lamp tints take precedence in the game.</p></details><p><a href="street-variants.json">Generated Small-road and path geometry</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} Small-road and path variants</h1><p>Variants apply only to Small roads and walking paths. Medium roads are fixed Old Trade Roads; Large roads are fixed dimensional rift roads. Their appearance changes with restoration, not variant selection.</p><details><summary>How road samples are generated</summary><p>Shipping Small-road and path rows from <code>StreetVariants.STREET_VARIANTS</code>. Samples use the real road rasterizer, street/scenic dressing and lamp-placement pass on a {streets['rows'][0]['lengthM']:g} m straight road. The source park fixture receives the same terrain influence as the game: Orchard Lane has a one-cell grass verge; other configured themes use their authored buffer. The vector surface uses the selected game cobbles over a 20% variant-coloured background. The worn and restored preview composites use the game's image opacity and native texture scale, with no second background tint after restoration.</p><p>Path fixtures provide actual water, greenway names or park polygons for the scenic classifier. Props and lamps use shipping game art. With art switched off, squares are props and coloured circles are lamps. Pale dots mark source line ends; outlined diamonds are guard candidate sites. The marked midpoint is a reference point, not an interactable.</p><p>The independent rarity roll keeps {streets['plainShare']['minor']*100:g}% of Small-road keys without a special theme. Affinities and street names adjust the choice among special Small roads without changing that rarity. Long and tile-crossing roads retain deterministic theme patches, each at most {streets['maxVariantLengthM']:g} m, separated by plain gaps. Paths use their runtime geography and weight rules. Prop density is an observed sample; real terrain, occupied cells, bends and tile boundaries change placement. Fauna percentages relocate existing animals; guard sites reach the later lair spawner. Lamps show restored art and generated spacing; visit dimming is not simulated. Nexus lamp tints take precedence in the game.</p></details><p><a href="street-variants.json">Generated Small-road and path geometry</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
 
 
 

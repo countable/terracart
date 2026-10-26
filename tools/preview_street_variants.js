@@ -25,7 +25,7 @@ const middle = Math.floor(N / 2);
 const halfLengthCells = 22 * .7;
 const line = [point(middle - halfLengthCells, middle), point(middle + halfLengthCells, middle)];
 const lengthM = ctx.Streets.lineLengthM(line, tileEdgeM / extent);
-const local = (o) => ({ ...o, x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
+const local = (o) => ({ ...o, ...(o.kind === 'chest' ? { previewContainerFrame: ctx.chestLook(o).frame } : {}), x: o.x - tx * tileEdgeM, y: o.y - ty * tileEdgeM });
 
 // Export the shipping raster, cropped to the preview viewport. Road surfaces are
 // drawn by the pavement painter; park is the fixture's unchanged base ground.
@@ -36,7 +36,9 @@ function groundPreview(tile) {
       const i = y * N + x;
       let type = tile.grid[i];
       if (type === WG.T.PATH) type = tile.pathUnder[`${x}_${y}`] ?? WG.T.PARK;
-      if (type === WG.T.PARK || tile.roadMask[i]) continue;
+      const streetGround = tile.streetGround?.[i];
+      if (streetGround) type = streetGround - 1;
+      if (type === WG.T.PARK || (tile.roadMask[i] && !streetGround)) continue;
       cells.push({x: x * cellM, y: y * cellM, type});
     }
   }
@@ -157,19 +159,20 @@ const rules = {
   spider_path: `Permanent seeded webs on ${SV.VARIANT_BY_ID.spider_path.webDensity * 100}% of eligible cell-spaced samples, with scattered lateral offsets. Webs cause six seconds of paralysis on entry; flying actors are immune. One two-spider garrison per section, where safe ground permits.`,
   golden_path: 'An activation shrine at each safe end shares one daily activation. Coins appear directly on the path centerline, so either direction works without backtracking or a second payout.',
 
-  hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, with aligned gate gaps every ${SV.HEDGE_GATE_EVERY_CELLS} cells. Blocked slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
+  hedgerow: `Two straight rows of cut hedges, one per ${cellM} m cell, one cell behind each kerb to clear the lamps. Normal street-lamp spacing; blocked hedge slots stay empty. One encounter anchor holds two ordinary slimes where safe ground permits.`,
   thorny: `Irregular bramble clusters at ${SV.THORNY_CLUSTER_DENSITY * 100}% density cross the road and reach up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond either edge, stopping at the first obstruction. Selected streets enclose a moss cairn in brambles when the whole ring fits. Brambles burn and cost 1 energy per second while crossed.`,
   overgrown: `One attempt every ${SV.OVERGROWN_STEP_M} m; a sapling-to-mature tree progression, at most ${SV.OVERGROWN_MAX} trees per line piece.`,
   orchard: `One attempt every ${SV.ORCHARD_STEP_M} m, both verges; at most ${SV.ORCHARD_MAX} trees per line piece, alternating half fruit trees (rare Worldpeach among apples) and half mature deciduous maples.`,
-  snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit.`,
+  snare: `One T${SV.SNARE_CHEST_TIER} cave-loot chest at the street midpoint, surrounded by up to ${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps on eligible verge ground. At least ${SV.SNARE_MIN_TRAPS} traps must fit. Up to ${SV.SNARE_STRAYS} additional seeded snares scatter along the road and first verge cells, at least ${SV.SNARE_STRAY_GAP_CELLS} cells apart.`,
   golden: `A golden idol holds eligible coin seats along both verges, sampled every ${SV.GOLDEN_STEP_M} m. Visiting it starts the daily coin spree; coins are not permanent street dressing. Road, lamp and occupied cells stay clear.`,
   pilgrim: 'One compact set of 3–6 rounded waystones per street per tile; step on all before their light fades.',
   lantern: `Lamps at ${SV.lampSpacingFor('lantern', ctx.Streets.lampLayFor({class: 'path'}).spacingM)} m target spacing (${SV.LANTERN_SPACING_DIV}× the usual path density); no extra verge props.`,
   burned: `Glowing ember paving damages the player like lava. One attempt every ${SV.BURNED_STEP_M} m; at most ${SV.BURNED_MAX} tar/stakes per line piece. Placed torches punctuate the verges; red lamps have ${SV.lampSpacingFor('burned')} m target spacing. One fire-slime guard site per stretch, seated back from the kerb.`,
-  barricade: `Perpendicular lines of stakes and barricades cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond either edge, stopping at obstacles; a target of ${SV.BARRICADE_MAX} pieces per line piece, finishing the last cross-road line. A Trap Kit removes each piece. One encounter anchor and its goblin guard site per street per tile.`,
-  toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; at most ${SV.TOADSTOOL_MAX} mushrooms per line piece. Mushrooms only, in three-on/one-gap groups with varying verge setbacks.`,
+  barricade: `Perpendicular lines of stakes and barricades cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond either edge, stopping at obstacles; a target of ${SV.BARRICADE_MAX} pieces per line piece, finishing the last cross-road line. Up to ${SV.BARRICADE_STRAY_MAX} extra ground stakes scatter along the verges. A Trap Kit removes each piece. One encounter anchor and its goblin guard site per street per tile.`,
+  toadstool: `One attempt every ${SV.TOADSTOOL_STEP_M} m; giant-cap groups retain varied setbacks, with up to ${SV.TOADSTOOL_COVER_MAX} extra small mushrooms densely filling both two-cell verges. Blocked ground and lamp seats stay clear.`,
   trade: `Wooden barrels along both verges, one sample a cell with ${SV.TRADE_BARREL_GAP * 100}% left empty, a cell back from the kerb on the reward gate; a two-grunt post every ${SV.TRADE_GRUNT_STEP_M} m, ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% of them held, seated behind the barrels.`,
-  pottery: `Clay pots along both verges, one sample a cell with ${SV.POTTERY_GAP * 100}% left empty, each a cell back from the kerb on the reward gate. No guards.`,
+  pottery: `Clay pots fill two rows on both verges without random gaps, a cell back from the kerb on the reward gate. Obstacles and lamp seats stay clear. Both pot styles are 15% smaller. No guards.`,
+  berry_trail: 'Dense berry bushes directly beside both trail edges, with 80% ordinary berries before the rare golden roll and only 5% brambles. One large bear encounter per section where safe ground permits.',
   goblin_gang: `${SV.VARIANT_BY_ID.goblin_gang.clusters} candidate gangs beside barrel stacks, with up to ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels per cluster where eligible verge cells remain.`,
 };
 for (const row of rows) {

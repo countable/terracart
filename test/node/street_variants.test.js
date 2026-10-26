@@ -274,7 +274,7 @@ test('rocks: the simple rocky route scatters common stone finds along both verge
   const lenM = (CPE - 1) * WorldGen.CELL_M;
   assert.gt(finds.length, 0, 'the street is lined');
   const per = lenM / finds.length;
-  assert.inRange(per, 10, 13, `one common find per ${per.toFixed(1)} m on open ground`);
+  assert.inRange(per, 3.5, 5, `one common find per ${per.toFixed(1)} m on open ground`);
   assert.truthy(finds.every(o => o.kind === 'mineralrock' || ['flint', 'rubble'].includes(o.crop)), 'only common stone finds');
 });
 
@@ -317,8 +317,8 @@ test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles'
   assert.eq(north.join(','),south.join(','),'the two rows match across the road');
   assert.eq(new Set(rows.map(p => cellOf(p.y,TY))).size,2,'one fixed row on each side');
   const sorted = north.slice().sort((a,b)=>a-b);
-  assert.eq(new Set(sorted).size, sorted.length, 'one hedge per kerb cell');
-  assert.eq(sorted.length, sorted[sorted.length-1]-sorted[0]+1, 'no gaps: every kerb cell along the lane is hedged');
+  assert.eq(new Set(sorted).size, sorted.length, 'one hedge per row cell');
+  assert.eq(sorted.length, sorted[sorted.length-1]-sorted[0]+1, 'no gaps: every row cell along the lane is hedged');
   assert.gt(sorted.length, 30, 'the whole covered length');
   const target=rows[2], ix=cellOf(target.x,TX),iy=cellOf(target.y,TY),idx=iy*CPE+ix;
   const expected=rows.filter(p=>p.id!==target.id).map(p=>p.id).join(',');
@@ -574,8 +574,8 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   assert.gt(plants.length, 4, 'the lane is dressed');
   const mush = plants.filter((w) => w.crop === 'mushroom').length;
   assert.truthy(plants.every((w) => ['mushroom', 'giant_mushroom'].includes(w.crop)), 'mushrooms only');
-  assert.inRange(plants.filter((w) => w.crop === 'giant_mushroom').length / plants.length, 0.17, 0.35,
-    'large caps appear in two of every three groups while small caps remain the majority');
+  assert.inRange(plants.filter((w) => w.crop === 'giant_mushroom').length / plants.length, 0.02, 0.25,
+    'large caps remain among the denser small-mushroom cover');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
   for (const w of plants) assert.eq(wildplantSprite(w), CROP_SPRITE[w.crop], 'small and giant caps use their distinct crop art');
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
@@ -1432,9 +1432,9 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
   assert.truthy(result.traps.some(t=>t._iy<25),'traps reach the opposite verge');
   assert.truthy(result.traps.some(t=>t._iy>25),'traps cover the reward verge');
   const strays=result.traps.filter(t=>Math.abs(t._ix-32)>SV_SNARE_CLUSTER_REACH);
-  assert.inRange(strays.length,1,4,'a few lone snares down the lane, off the cluster');
+  assert.inRange(strays.length,8,SV.SNARE_STRAYS,'more seeded snares spread down the lane, off the cluster');
   assert.truthy(strays.every(t=>Math.abs(t._iy-25)<=1),'strays sit on the band or its first verge cell');
-  assert.truthy(strays.every(a=>strays.every(b=>a===b||Math.max(Math.abs(a._ix-b._ix),Math.abs(a._iy-b._iy))>=3)),'strays keep apart');
+  assert.truthy(strays.every(a=>strays.every(b=>a===b||Math.max(Math.abs(a._ix-b._ix),Math.abs(a._iy-b._iy))>=SV.SNARE_STRAY_GAP_CELLS)),'strays keep apart');
   const occupied=new Set();
   for(const o of [chest,...result.traps]) {
     const ix=cellOf(o.x,TX),iy=cellOf(o.y,TY),i=iy*CPE+ix;
@@ -1485,6 +1485,9 @@ test('barricade scenery adds stakes and barriers without multiplying guards', ()
   const { d } = dressedVariants();
   assert.gt(d.wildplants.filter((o) => o._streetScenery && o.crop === 'barricade').length, 4);
   assert.gt(d.objects.filter((o) => o._streetScenery && o.kind === 'stakes').length, 2);
+  const scattered = d.objects.filter(o => o._streetScatter && o.kind === 'stakes');
+  assert.inRange(scattered.length, 1, SV.BARRICADE_STRAY_MAX, 'a few seeded ground stakes beyond the barricade rows');
+  assert.eq(JSON.stringify(scattered), JSON.stringify(dressedVariants().d.objects.filter(o => o._streetScatter && o.kind === 'stakes')), 'scattered stakes keep their positions on rebuild');
   assert.eq(d.lairs.filter((o) => o.tier === 'barricade').length, 1);
 });
 test('hedgerow encounters: one stable post holds two hedge-ambush runts per street and tile', () => {
@@ -1628,19 +1631,20 @@ test('street ground: claims preserve residential land cover and access reasons',
   const painted = paintVerge(f);
   for (const y of [3,4,5]) assert.eq(f.grid[y*N+5],T.RESIDENTIAL);
   assert.eq(f.grid[8*N+5],T.GRASS);
-  assert.falsy(painted.some(Boolean));
+  assert.truthy(painted[7*N+5], 'eligible public ground receives the theme');
   assert.eq(JSON.stringify(Array.from(f.spawnWhy)),reasons);
   assert.eq(SV.TERRAIN_VERGE_CELLS,2,'the existing claim width is unchanged');
 });
 
-test('street ground: Thorny Way preserves ground throughout its thicket footprint', () => {
+test('street ground: Thorny Way paints its thicket footprint but respects private land', () => {
   const f = vergeFixture('thorny');
   f.index.dressingLines[0].halfW = 0;
   const N = f.N;
   f.grid[3*N+4] = T.RESIDENTIAL; f.spawnWhy[3*N+4] = WorldGen.SPAWN_WHY.PRIVATE;
-  const before=JSON.stringify(Array.from(f.grid));
   paintVerge(f);
-  assert.eq(JSON.stringify(Array.from(f.grid)),before);
+  assert.eq(f.grid[3*N+4], T.RESIDENTIAL, 'private land retains its material');
+  assert.eq(f.grid[3*N+5], T.WASTELAND, 'the extended thicket receives dry ground');
+  assert.eq(f.grid[1*N+5], T.GRASS, 'ground beyond four cells stays unchanged');
   assert.eq(SV.THORNY_VERGE_MAX_CELLS,4,'existing thicket reach is unchanged');
 });
 
@@ -1731,20 +1735,61 @@ test('forest roads: every overgrown street posts a sounder of two wild boars bes
   assert.falsy(Lairs.DAILY_TIERS.has(tier));
 });
 
-test('street terrain: every theme preserves the surrounding biome and road backdrop', () => {
-  for (const row of SV.STREET_VARIANTS) for (const ground of [T.GRASS,T.FOREST,T.SAND,T.PARK,T.WETLAND]) {
+test('street terrain: Small-road themes paint their verge and road underlay without changing safety masks', () => {
+  for (const row of SV.STREET_VARIANTS.filter(row => row.size === 'minor')) for (const ground of [T.GRASS,T.FOREST,T.SAND,T.PARK,T.WETLAND]) {
     const f=vergeFixture(row.id), N=f.N;
     f.grid.fill(ground);f.grid[6*N+5]=T.ROAD;f.grid[6*N+6]=T.PATH;
     f.grid[5*N+2]=T.WATER;f.grid[5*N+3]=T.BUILDING;
     f.streetGround=new Uint8Array(N*N);
-    const before=JSON.stringify(Array.from(f.grid));
     const masks=JSON.stringify([Array.from(f.roadMask),Array.from(f.spawnWhy)]);
     const painted=paintVerge(f);
-    assert.eq(JSON.stringify(Array.from(f.grid)),before,row.id+' keeps source ground');
-    assert.falsy(painted.some(Boolean),'no ambient cleanup outside roads');
-    assert.falsy(f.streetGround.some(Boolean),'cobble gaps inherit the surrounding biome');
+    assert.eq(f.grid[5*N+5], SV.terrainFor(row.id), row.id+' themes the verge');
+    assert.eq(f.grid[0*N+5], ground, 'outside the verge retains source ground');
+    assert.eq(f.grid[6*N+5], T.ROAD, 'physical road code remains intact');
+    assert.eq(f.grid[6*N+6], T.PATH, 'crossing path code remains intact');
+    assert.eq(f.streetGround[6*N+5], SV.terrainFor(row.id) + 1, 'cobble gaps receive themed ground');
+    assert.eq(f.streetGround[6*N+6], 0, 'crossing path keeps its own backdrop');
+    assert.eq(f.grid[5*N+2], T.WATER); assert.eq(f.grid[5*N+3], T.BUILDING);
+    assert.truthy(painted[5*N+5], 'painted cells enter ambient cleanup');
     assert.eq(JSON.stringify([Array.from(f.roadMask),Array.from(f.spawnWhy)]),masks);
   }
+});
+
+test('street terrain: Orchard grass stops one cell from the road edge; Pilgrim uses old-stone ground', () => {
+  const f=vergeFixture('orchard'), N=f.N;
+  f.grid.fill(T.FOREST); f.grid[6*N+5]=T.ROAD;
+  f.streetGround=new Uint8Array(N*N);
+  paintVerge(f);
+  assert.eq(f.grid[5*N+5], T.GRASS); assert.eq(f.grid[7*N+5], T.GRASS);
+  assert.eq(f.grid[4*N+5], T.FOREST); assert.eq(f.grid[8*N+5], T.FOREST);
+  assert.eq(f.streetGround[6*N+5], T.GRASS+1, 'zero-valued grass is an explicit underlay');
+  const pilgrim=vergeFixture('pilgrim'); paintVerge(pilgrim);
+  assert.eq(pilgrim.grid[4*N+5], T.CHURCHYARD);
+  assert.eq(SV.terrainFor('pilgrim'), T[Zones.ZONE_KINDS.stones.terrain], 'same material as the old-stones Nexus');
+});
+
+test('street terrain: Nexus coverage, major-road buffers and restricted land retain their ground', () => {
+  const f=vergeFixture('overgrown'), N=f.N;
+  f.zone={coverage:new Uint8Array(N*N)}; f.roadClass=new Uint8Array(N*N);
+  f.zone.coverage[5*N+3]=1; f.roadClass[5*N+4]=WorldGen.ROAD_CLASS_MAJOR_BUFFER;
+  f.spawnWhy[5*N+5]=WorldGen.SPAWN_WHY.RESTRICTED;
+  f.grid[5*N+6]=T.ROAD_MD; f.grid[5*N+7]=T.ROAD_LG; f.grid[5*N+8]=T.PIER;
+  const before=f.grid.slice(); f.streetGround=new Uint8Array(N*N);
+  const painted=paintVerge(f);
+  for (const x of [3,4,5,6,7,8]) {
+    const i=5*N+x; assert.eq(f.grid[i],before[i]); assert.eq(painted[i],0); assert.eq(f.streetGround[i],0);
+  }
+});
+
+test('street terrain: intersecting road themes choose nearest edges and break ties deterministically', () => {
+  const f=vergeFixture('overgrown'), N=f.N;
+  const other={...f.index.dressingLines[0], key:'a-pilgrim', variant:'pilgrim', line:[{x:5.5,y:1.5},{x:5.5,y:10.5}]};
+  f.index.dressingLines.push(other); f.grid.fill(T.GRASS); paintVerge(f);
+  const first=JSON.stringify(Array.from(f.grid));
+  f.index.dressingLines.reverse();f.grid.fill(T.GRASS);paintVerge(f);
+  assert.eq(JSON.stringify(Array.from(f.grid)),first);
+  assert.eq(f.grid[6*N+5],T.CHURCHYARD,'stable key wins equal-distance crossing');
+  assert.eq(f.grid[6*N+9],T.FOREST,'remote horizontal section retains its own theme');
 });
 
 test('street terrain: scenic paths retain their source ground', () => {
@@ -1755,6 +1800,51 @@ test('street terrain: scenic paths retain their source ground', () => {
   const before=JSON.stringify(Array.from(f.grid));
   paintVerge(f);
   assert.eq(JSON.stringify(Array.from(f.grid)),before);
+});
+
+test('street terrain: only opted-in path themes paint their floor and verge', () => {
+  for (const row of SV.STREET_VARIANTS.filter(row => row.size === 'path' || row.pathWeight)) {
+    const f=vergeFixture(row.id), N=f.N;
+    f.index.dressingLines[0].size='path';
+    f.grid.fill(T.SAND); for (let x=1;x<11;x++) f.grid[6*N+x]=T.PATH;
+    f.streetGround=new Uint8Array(N*N);
+    const painted=paintVerge(f);
+    const enabled=['grassy_lane','old_growth_path','spider_path','poison_path'].includes(row.id);
+    assert.eq(f.grid[6*N+5],T.PATH,'path remains a physical path');
+    assert.eq(f.grid[5*N+5],enabled ? SV.terrainFor(row.id) : T.SAND,row.id+' verge policy');
+    assert.eq(f.streetGround[6*N+5],enabled ? SV.terrainFor(row.id)+1 : 0,row.id+' floor policy');
+    assert.eq(Boolean(painted[5*N+5]),enabled);
+    assert.eq(f.grid[2*N+5],T.SAND,'outside the buffer retains its source terrain');
+  }
+});
+
+test('street terrain: opted-in path influence still yields to Nexus ground and access exclusions', () => {
+  const f=vergeFixture('old_growth_path'), N=f.N;
+  f.index.dressingLines[0].size='path'; f.grid.fill(T.SAND);
+  for (let x=1;x<11;x++) f.grid[6*N+x]=T.PATH;
+  f.zone={coverage:new Uint8Array(N*N)};
+  f.zone.coverage[6*N+3]=1; f.zone.coverage[5*N+3]=1;
+  f.spawnWhy[6*N+4]=WorldGen.SPAWN_WHY.RESTRICTED;
+  f.streetGround=new Uint8Array(N*N); paintVerge(f);
+  assert.eq(f.streetGround[6*N+3],0,'Nexus path floor retains the Nexus underlay');
+  assert.eq(f.grid[5*N+3],T.SAND,'Nexus verge retains its ground');
+  assert.eq(f.streetGround[6*N+4],0,'restricted path floor remains unchanged');
+  assert.eq(f.streetGround[6*N+5],T.FOREST+1,'eligible path receives forest floor');
+});
+
+test('street terrain: Spider and Poison buffers remain walkable beneath unchanged paths', () => {
+  for (const [variant, terrain] of [['spider_path',T.CAVE_FLOOR],['poison_path',T.WETLAND]]) {
+    const f=vergeFixture(variant), N=f.N;
+    f.index.dressingLines[0].size='path';
+    f.grid.fill(T.GRASS); for (let x=1;x<11;x++) f.grid[6*N+x]=T.PATH;
+    f.streetGround=new Uint8Array(N*N); paintVerge(f);
+    assert.eq(f.streetGround[6*N+5],terrain+1);
+    assert.eq(f.grid[4*N+5],terrain,'default two-cell verge');
+    assert.truthy(WorldGen.isWalkable(f.grid[4*N+5]),'the themed verge remains traversable');
+    assert.eq(f.grid[6*N+5],T.PATH,'the path raster code is preserved');
+    assert.eq(Render.roadBackdropType({neighborNonRoadType:()=>terrain},T.PATH,0,0),terrain,
+      'surface path renderer accepts its themed base material');
+  }
 });
 
 test('street shrines: chosen streets seat safely and independently without a tile cap', () => {
@@ -1834,7 +1924,7 @@ test('barricade scenery: perpendicular lines reach four cells from the verge', (
   const generated = [...(r.streetDress?.objects || []), ...(r.streetDress?.wildplants || [])]
     .filter(o => o._street === 'barricade' && o._streetScenery);
   assert.gt(generated.length, 6, 'actual rasterization keeps barricades through clustered grass cover');
-  const pieces=[...d.objects,...d.wildplants].filter(o=>o._street==='barricade'&&o._streetScenery);
+  const pieces=[...d.objects,...d.wildplants].filter(o=>o._street==='barricade'&&o._streetScenery&&!o._streetScatter);
   const rows=new Map();
   for(const o of pieces){const y=cellOf(o.y,TY);if(!rows.has(y))rows.set(y,[]);rows.get(y).push(cellOf(o.x,TX));}
   assert.truthy([...rows.values()].some(xs=>xs.length>=6),'multiple pieces form cross-road lines');
@@ -2050,7 +2140,7 @@ test('berry lane: a Small-road row and a path row, appended last, bushes of ever
   assert.eq(trail.size, 'path'); assert.eq(trail.pathWeight, 0.04);
   assert.eq(trail.code, lane.code + 1); assert.eq(SV.VARIANT_BY_ID.pottery.code, trail.code + 1, 'only Pottery Road after them');
   assert.eq(lane.art, 'street_berry', 'dedicated berry lane painting');
-  assert.truthy(SV.VERGE_ROWS.berry === SV.VERGE_ROWS.berry_trail, 'one dressing for the lane and the trail');
+  assert.truthy(SV.VERGE_ROWS.berry !== SV.VERGE_ROWS.berry_trail, 'Berry Trail has its denser road-edge row');
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'berry') plain++;
@@ -2060,7 +2150,7 @@ test('berry lane: a Small-road row and a path row, appended last, bushes of ever
   const counts = {}, total = { n: 0 };
   let thorns = 0, gold = 0;
   for (let tx = 0; tx < 300; tx++) {
-    const { bushes } = berryLane(tx, tx % 2 ? 'berry' : 'berry_trail');
+    const { bushes } = berryLane(tx, 'berry');
     for (const b of bushes) {
       assert.truthy(b.iy !== 6 && Math.abs(b.iy - 6) <= 2, `on a verge: ${b.ix},${b.iy}`);
       assert.truthy(['shrub', 'berry', 'poisonberry', 'goldenberry'].includes(b.crop), b.crop);
@@ -2123,12 +2213,32 @@ function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
     .map(o => ({ ...o, ix: cellOfM(o.x - tx * f.N * 7), iy: cellOfM(o.y) }));
   return { d, pots, f };
 }
+test('Berry Trail: dense berry-led edge rows with few thorns and one large bear', () => {
+  let berries = 0, thorns = 0, total = 0;
+  for (let tx = 0; tx < 50; tx++) {
+    const trail = berryLane(tx, 'berry_trail');
+    const lane = berryLane(tx, 'berry');
+    assert.gt(trail.bushes.length, lane.bushes.length, 'the trail fills more adjacent bush seats');
+    for (const bush of trail.bushes) {
+      total++;
+      if (bush.crop === 'berry' || bush.crop === 'goldenberry') berries++;
+      if (bush._streetArt === 'bramble') thorns++;
+      assert.eq(Math.abs(bush.iy - 6), 1, 'bush directly adjoins road edge');
+    }
+    const bear = trail.d.lairs.filter(l => l.tier === 'street_forest_bear');
+    assert.eq(bear.length, 1, 'one large bear encounter');
+  }
+  assert.gt(berries / total, .70, 'mostly berry bushes');
+  assert.lt(thorns / total, .08, 'few spike bushes');
+  assert.eq(Lairs.KIND_ORDER.street_forest_bear.join(','), 'giant_bear');
+});
+
 test('pottery road: a Small-road row, appended last, two ranks of clay pots a cell back from the kerb on both verges', () => {
   const row = SV.VARIANT_BY_ID.pottery;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05); assert.eq(row.code, SV.VARIANT_BY_ID.trade.code - 1, 'older row codes stay stable');
   assert.eq(row.art, 'street_pottery', 'dedicated pottery painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('pottery'), 'its shrine kind');
-  assert.eq(SV.POTTERY_GAP, 0.15); assert.eq(SV.POTTERY_BACK_GAP, 0.5);
+  assert.eq(SV.POTTERY_GAP, 0); assert.eq(SV.POTTERY_BACK_GAP, 0);
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'pottery') plain++;
@@ -2225,6 +2335,8 @@ test('common route themes: deterministic dressing, dense variety and shared safe
   const finds = [...variety.objects, ...variety.wildplants];
   assert.gt(finds.length, 30, 'variety thickly fills two verge rows per side');
   assert.gt(new Set(finds.map(o => o.crop || o.kind)).size, 4, 'variety mixes common interactables');
+  assert.truthy(finds.some(o => Math.floor(o.y / 7) === 5) && finds.some(o => Math.floor(o.y / 7) === 7), 'variety adjoins both sides of the road');
+  assert.truthy(dress('haunted_forest_path').objects.filter(o => o.kind === 'tree').every(o => o._objectArt === 'dead_tree'), 'haunted trees use the shared dead-tree art');
   assert.truthy(dress('haunted_forest_path').objects.some(o => o.kind === 'headstone'), 'haunted route has headstones');
   assert.truthy(dress('old_growth_path').objects.some(o => o.kind === 'tree' && o.variant === 3), 'old growth has mature trees');
 });

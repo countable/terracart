@@ -604,7 +604,7 @@ test('wooden barrels retain their size increases and have no broken art', () => 
   for (const smashed of [false, true]) {
     const pot = art.resolveAppearance({kind:'chest',barrel:true,barrelStyle:'clay_pot',_smashed:smashed});
     assert.eq(pot.texKey, smashed ? 'clay_pot_smashed' : 'clay_pot');
-    assert.lt(Math.abs(pot.scl * (smashed ? 24 : 16) - 24 * (4 / 3) * 0.8 * 0.9 * 0.92), 1e-9, 'native pots and original shards retain their display size');
+    assert.lt(Math.abs(pot.scl * (smashed ? 24 : 16) - 24 * (4 / 3) * 0.8 * 0.9 * 0.92 * 0.85), 1e-9, 'both pot styles and their shards are 15% smaller');
   }
 });
 
@@ -650,7 +650,7 @@ test('neutral mineral art overrides stale zone frames without changing interacti
   const pot = {kind:'chest',barrel:true,barrelStyle:'clay_pot',id:'selected-pot'};
   assert.eq(art.resolveAppearance(pot).texKey,'clay_pot');
   assert.eq(art.resolveAppearance({...pot,_smashed:true}).texKey,'clay_pot_smashed');
-  assert.lt(Math.abs(art.resolveAppearance(pot).scl*16-32*0.8*0.9*0.92),1e-9,'the pot draws a fifth under its old 32px, then 10% off, then 8% off');
+  assert.lt(Math.abs(art.resolveAppearance(pot).scl*16-32*0.8*0.9*0.92*0.85),1e-9,'both pottery styles draw another 15% smaller');
   assert.truthy(/_zoneObjectFrame: wp\._zoneObjectFrame/.test(RENDER_SRC),'wild mushroom appearance reaches the plant renderer');
 });
 

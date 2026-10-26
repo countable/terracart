@@ -1,0 +1,110 @@
+{
+  "fruit-apple.png": {
+    "source": "assets/ArtTrials/RogueObjects/tree-rounded-2.png",
+    "sourceSHA256": "f5435a41672ec9489e468230cad37309a8b5bca53c2a7c05df114e7555ec6cff",
+    "palette": [
+      [
+        45,
+        53,
+        31
+      ],
+      [
+        92,
+        111,
+        51
+      ],
+      [
+        146,
+        163,
+        67
+      ],
+      [
+        198,
+        201,
+        104
+      ]
+    ],
+    "method": "Olive foliage palette remap only; source pixels, alpha, bark and roots unchanged."
+  },
+  "fruit-apple-blossom.png": {
+    "source": "assets/ArtTrials/RogueObjects/tree-rounded-2.png",
+    "sourceSHA256": "f5435a41672ec9489e468230cad37309a8b5bca53c2a7c05df114e7555ec6cff",
+    "palette": [
+      [
+        78,
+        77,
+        54
+      ],
+      [
+        144,
+        143,
+        102
+      ],
+      [
+        207,
+        203,
+        164
+      ],
+      [
+        243,
+        235,
+        205
+      ]
+    ],
+    "method": "Olive foliage palette remap only; source pixels, alpha, bark and roots unchanged."
+  },
+  "fruit-worldpeach.png": {
+    "source": "assets/ArtTrials/RogueObjects/tree-rounded-3.png",
+    "sourceSHA256": "e40547ab11be92e462bd89611eaad178b1ede828bb181aa6a075552940be6f6a",
+    "palette": [
+      [
+        49,
+        54,
+        34
+      ],
+      [
+        107,
+        119,
+        58
+      ],
+      [
+        162,
+        172,
+        80
+      ],
+      [
+        209,
+        206,
+        118
+      ]
+    ],
+    "method": "Olive foliage palette remap only; source pixels, alpha, bark and roots unchanged."
+  },
+  "fruit-worldpeach-blossom.png": {
+    "source": "assets/ArtTrials/RogueObjects/tree-rounded-3.png",
+    "sourceSHA256": "e40547ab11be92e462bd89611eaad178b1ede828bb181aa6a075552940be6f6a",
+    "palette": [
+      [
+        76,
+        57,
+        60
+      ],
+      [
+        143,
+        91,
+        105
+      ],
+      [
+        203,
+        135,
+        147
+      ],
+      [
+        241,
+        185,
+        185
+      ]
+    ],
+    "method": "Olive foliage palette remap only; source pixels, alpha, bark and roots unchanged."
+  }
+}
