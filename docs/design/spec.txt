@@ -416,8 +416,10 @@ INTERACTION MODEL
    cell it stands in, however tall its art (CLAUDE.md "Coordinates, rendering
    and performance"). Creatures are tapped by their drawn sprite. A tap on any
    building cell routes to that building.
- - ordinary map taps never till. Preparing ground requires the selected
-   seed's explicit Till & plant action, which refuses occupied cells.
+ - only a selected seed tills: tapping bare soil in reach with a seed
+   selected (or the seed's Till & plant action at the player's feet) tills
+   and plants in one job, refusing occupied cells. Taps without a seed
+   never till.
  - routine actions flash briefly; bigger loot pops are rarity-coloured. Map
    copy and toast tiers: CLAUDE.md ("Dialogs, feedback and teaching").
 

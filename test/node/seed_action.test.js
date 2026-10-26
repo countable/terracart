@@ -43,8 +43,17 @@
       assert.eq(f.scene.tilledSet.size, 0);
     });
   });
-  test('seed action: map taps never till, even with a seed held', () => fixture(f => {
+  test('seed action: a map tap with a seed held tills and plants the tapped cell', () => fixture(f => {
     delete f.ctx.seedAction;
+    assert.truthy(handler('till').try(f.ctx));
+    f.complete();
+    assert.truthy(f.scene.tilledSet.has('plot'));
+    assert.eq(f.save.planted.length, 1); assert.eq(f.save.planted[0].crop, 'potato');
+    assert.eq(Inventory.count(f.save, 'potato_seed'), 1);
+  }));
+  test('seed action: a map tap without a seed never tills', () => fixture(f => {
+    delete f.ctx.seedAction;
+    f.save.selSlot = 5;
     assert.falsy(handler('till').try(f.ctx));
     assert.falsy(f.pending()); assert.eq(f.save.energy, 100); assert.eq(f.scene.tilledSet.size, 0);
   }));

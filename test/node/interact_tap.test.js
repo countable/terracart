@@ -200,9 +200,8 @@ test('TERRAIN_FLAVOR: every label is a written line, not a database noun', () =>
 });
 
 test('TERRAIN_FLAVOR: labels describe the ground, never a refused till', () => {
-  // Map taps never till (only the seed's Till & plant action does), so a
-  // label that reads as the hoe refusing the cell teaches a mechanic that
-  // is gone.
+  // Only a selected seed tills, so a label that reads as the hoe refusing
+  // the cell teaches a mechanic that does not exist.
   for (const label of [...NON_TILLABLE_CODES.map(c => TERRAIN_FLAVOR[c]), LAMP_FOOT_FLAVOR]) {
     assert.falsy(/till|hoe|earth to turn/i.test(label), `label implies tapping tills: ${label}`);
   }
