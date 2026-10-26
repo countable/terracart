@@ -1382,8 +1382,8 @@ test('street variants draw pavement without decorative verge strips', () => with
 
 test('street variant identity uses biome verges and retains its themed lamps', () => {
   assert.eq(StreetVariants.VARIANT_BY_ID.hedgerow.lampGlow, '#ffffff');
-  assert.truthy(StreetVariants.VARIANT_BY_ID.hedgerow.lampDensity > 2);
-  for (const [variant,terrain] of Object.entries({hedgerow:'PARK',overgrown:'FOREST',pilgrim:'ROCK'})) {
+  assert.eq(StreetVariants.VARIANT_BY_ID.hedgerow.lampDensity, 1);
+  for (const [variant,terrain] of Object.entries({hedgerow:'PARK',overgrown:'FOREST',pilgrim:'CHURCHYARD'})) {
     assert.eq(StreetVariants.terrainFor(variant),WorldGen.T[terrain]);
     assert.falsy('carpet' in StreetVariants.VARIANT_BY_ID[variant]);
     assert.falsy('emblem' in StreetVariants.VARIANT_BY_ID[variant]);

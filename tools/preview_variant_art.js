@@ -54,11 +54,24 @@ vm.runInContext(`globalThis.previewMaterialArt = object => {
       const asset=ASSETS[key], rect=asset?.frameRects?.[String(frame)];
       return {width:rect?.width ?? asset?.frameWidth, height:rect?.height ?? asset?.frameHeight};
     }}};
-  const appearance = resolveAppearance({...object}, {scene, houseRoles:new Map(), fruitNow:0, fruitList:[]});
+  const pass = {scene, houseRoles:new Map(), fruitNow:0, fruitList:[]};
+  const appearance = resolveAppearance({...object}, pass);
   if (!appearance?.visible) throw new Error('No shipping appearance for ' + object.kind);
   const {texKey:sheet, frameVal:frame = 0, scl:scale, origin, scaleYMul, dxPx, dyPx} = appearance;
   const asset = ASSETS[sheet], rect = asset.frameRects?.[String(frame)];
-  return {sheet, frames:[frame], preserveFrame:true, origin,
+  let fruitArt;
+  if (object.kind === 'fruittree' && appearance.spec.after) {
+    appearance.spec.after({texture:{key:sheet},frame:{name:frame},originX:origin[0],originY:origin[1],
+      scaleX:scale,scaleY:scale*scaleYMul,x:dxPx,y:dyPx,depth:0},object,scene,pass);
+    const fruit = pass.fruitList[0];
+    if (fruit) {
+      const source = ASSETS[fruit.key], rect = source.frameRects?.[String(fruit.frame)];
+      fruitArt = {sheet:fruit.key,frames:[fruit.frame],preserveFrame:true,
+        width:(rect?.width ?? source.frameWidth)*fruit.scale,
+        height:(rect?.height ?? source.frameHeight)*fruit.scale,dxPx:fruit.x,dyPx:fruit.y};
+    }
+  }
+  return {sheet, frames:[frame], preserveFrame:true, origin, fruitArt,
     tint:object.kind === 'mineralrock' ? mineralRockTint(object) : 0xffffff,
     width:(rect?.width ?? asset.frameWidth) * scale, height:(rect?.height ?? asset.frameHeight) * scale * scaleYMul, dxPx, dyPx};
 };`, ctx);
@@ -107,9 +120,12 @@ data.containerLootProfiles = vm.runInContext('({barrel:BARREL_LOOT, clay_pot:CLA
 // Container records use kind=chest even when their visible art is a barrel or
 // pot. Ask the same resolver as the game, including its approved frame choices.
 data.containerArt = vm.runInContext(`Object.fromEntries(['barrel', 'clay_pot', 'box'].map(key => {
-  const look = chestLook({kind:'chest', id:'variant-preview-' + key,
-    barrel:key !== 'box', barrelStyle:key, crate:key === 'box'});
-  return [key, {sheet:look.texKey, frames:[look.frame]}];
+  const object = {kind:'chest', id:'variant-preview-' + key,
+    barrel:key !== 'box', barrelStyle:key, crate:key === 'box'};
+  const look = chestLook(object);
+  const byFrame = Object.fromEntries((SELECTED_CONTAINER_FRAMES[look.texKey] || [look.frame]).map(frame =>
+    [frame, previewMaterialArt({...object, _chestLook:{...look, frame}})]));
+  return [key, {...byFrame[look.frame], byFrame}];
 }))`, ctx);
 data.hedgeFrames = vm.runInContext(`Object.fromEntries(Array.from({length:16}, (_,mask) => {
   const cells = new Set([4]);

@@ -27,226 +27,21 @@
       8,
       8
     ],
+    "copingPatch": [
+      394,
+      488,
+      16,
+      12
+    ],
+    "wornCopingPatch": [
+      418,
+      488,
+      16,
+      12
+    ],
     "unusedSlots": "Transparent"
   },
   "materials": [
-    {
-      "slot": 2,
-      "name": "cap",
-      "source": "castle",
-      "sourceRect": [
-        130,
-        30,
-        12,
-        8
-      ],
-      "normalizedSize": [
-        16,
-        16
-      ],
-      "atlasContentRect": [
-        264,
-        8,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        0,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0.07
-      }
-    },
-    {
-      "slot": 3,
-      "name": "wall",
-      "source": "castle",
-      "sourceRect": [
-        16,
-        64,
-        16,
-        16
-      ],
-      "normalizedSize": [
-        16,
-        16
-      ],
-      "atlasContentRect": [
-        392,
-        8,
-        112,
-        112
-      ],
-      "gutterX": "wrap",
-      "gutterY": "wrap",
-      "alphaRange": [
-        255,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0
-      }
-    },
-    {
-      "slot": 4,
-      "name": "floor",
-      "source": "floor",
-      "sourceRect": [
-        144,
-        48,
-        16,
-        16
-      ],
-      "normalizedSize": [
-        16,
-        16
-      ],
-      "atlasContentRect": [
-        8,
-        136,
-        112,
-        112
-      ],
-      "gutterX": "wrap",
-      "gutterY": "wrap",
-      "alphaRange": [
-        255,
-        255
-      ],
-      "treatment": {
-        "contrast": 1,
-        "skyLift": 0.07
-      }
-    },
-    {
-      "slot": 9,
-      "name": "merlon-face",
-      "source": "castle",
-      "sourceRect": [
-        131,
-        33,
-        10,
-        4
-      ],
-      "normalizedSize": [
-        10,
-        4
-      ],
-      "atlasContentRect": [
-        136,
-        264,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        255,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0
-      }
-    },
-    {
-      "slot": 10,
-      "name": "rim",
-      "source": "castle",
-      "sourceRect": [
-        144,
-        76,
-        16,
-        4
-      ],
-      "normalizedSize": [
-        16,
-        4
-      ],
-      "atlasContentRect": [
-        264,
-        264,
-        112,
-        112
-      ],
-      "gutterX": "wrap",
-      "gutterY": "clamp",
-      "alphaRange": [
-        255,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0
-      }
-    },
-    {
-      "slot": 11,
-      "name": "base",
-      "source": "castle",
-      "sourceRect": [
-        128,
-        104,
-        16,
-        8
-      ],
-      "normalizedSize": [
-        16,
-        8
-      ],
-      "atlasContentRect": [
-        392,
-        264,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        0,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0
-      }
-    },
-    {
-      "slot": 12,
-      "name": "right-coping",
-      "source": "castle",
-      "sourceRect": [
-        168,
-        48,
-        8,
-        16
-      ],
-      "normalizedSize": [
-        8,
-        16
-      ],
-      "atlasContentRect": [
-        8,
-        392,
-        112,
-        112
-      ],
-      "gutterX": "clamp",
-      "gutterY": "clamp",
-      "alphaRange": [
-        0,
-        255
-      ],
-      "treatment": {
-        "contrast": 0.6,
-        "skyLift": 0.07
-      }
-    },
     {
       "slot": 0,
       "name": "lit-coping-and-inset-deck",
@@ -286,6 +81,132 @@
       "gutterY": "clamp",
       "alphaRange": [
         0,
+        255
+      ]
+    },
+    {
+      "slot": 3,
+      "name": "citadel-slate",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        224,
+        64
+      ],
+      "atlasContentRect": [
+        392,
+        8,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 9,
+      "name": "citadel-weathered-slate",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        224,
+        64
+      ],
+      "atlasContentRect": [
+        136,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 10,
+      "name": "bastion-sandstone",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        224,
+        64
+      ],
+      "atlasContentRect": [
+        264,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 4,
+      "name": "bastion-weathered-sandstone",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        224,
+        64
+      ],
+      "atlasContentRect": [
+        8,
+        136,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 11,
+      "name": "archive-tower-ashlar",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        224,
+        64
+      ],
+      "atlasContentRect": [
+        392,
+        264,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
+        255
+      ]
+    },
+    {
+      "slot": 12,
+      "name": "archive-weathered-tower-ashlar",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        224,
+        64
+      ],
+      "atlasContentRect": [
+        8,
+        392,
+        112,
+        112
+      ],
+      "gutterX": "wrap",
+      "gutterY": "wrap",
+      "alphaRange": [
+        255,
         255
       ]
     },
@@ -378,7 +299,7 @@
       "name": "quiet-stone",
       "source": "authored cel pixel material",
       "normalizedSize": [
-        64,
+        224,
         64
       ],
       "atlasContentRect": [
@@ -399,7 +320,7 @@
       "name": "weathered-stone",
       "source": "authored cel pixel material",
       "normalizedSize": [
-        64,
+        224,
         64
       ],
       "atlasContentRect": [
@@ -414,11 +335,99 @@
         255,
         255
       ]
+    },
+    {
+      "slot": 15,
+      "name": "forked-banner-cloth",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        16,
+        50
+      ],
+      "atlasContentRect": [
+        392,
+        392,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ]
+    },
+    {
+      "slot": 2,
+      "name": "military-keep-facades",
+      "source": "authored cel pixel material",
+      "normalizedSize": [
+        112,
+        112
+      ],
+      "atlasContentRect": [
+        264,
+        8,
+        112,
+        112
+      ],
+      "gutterX": "clamp",
+      "gutterY": "clamp",
+      "alphaRange": [
+        0,
+        255
+      ],
+      "frames": [
+        {
+          "family": "citadel",
+          "active": false,
+          "appearance": "portcullis",
+          "rect": [
+            268,
+            12,
+            48,
+            48
+          ]
+        },
+        {
+          "family": "citadel",
+          "active": true,
+          "appearance": "open-timber-leaves",
+          "rect": [
+            324,
+            12,
+            48,
+            48
+          ]
+        },
+        {
+          "family": "bastion",
+          "active": false,
+          "appearance": "closed-timber-leaves",
+          "rect": [
+            268,
+            68,
+            48,
+            48
+          ]
+        },
+        {
+          "family": "bastion",
+          "active": true,
+          "appearance": "closed-timber-leaves",
+          "rect": [
+            324,
+            68,
+            48,
+            48
+          ]
+        }
+      ]
     }
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "80681690372e34616685af17298937a6de6143e678d92e5e7705bbb91dfd3a39",
+      "sha256": "1a494f7ea82ee1b11c7024383d22fa7bf5b55f784f1f4497b36a25efca653ec6",
       "size": [
         512,
         512
@@ -433,6 +442,20 @@
     },
     "weathered-floor.png": {
       "sha256": "258f6fee5a00c20fd5a198a899804e6f5b9ba605c6de79890cbdb5e37277908d",
+      "size": [
+        64,
+        64
+      ]
+    },
+    "bastion-floor.png": {
+      "sha256": "c438355550a08cf5e57ff856657ab1c651f2ac5f59dde54cf472505b8c777b8b",
+      "size": [
+        64,
+        64
+      ]
+    },
+    "archive-floor.png": {
+      "sha256": "93820d3d289d536a986fe32c10094b54b950505aac45f5f4ef66cb1d9bf4e4c9",
       "size": [
         64,
         64

@@ -187,17 +187,19 @@ test('cave mushrooms: the cave look is the crop\'s caveFrames, the item is still
 
 // ── The torch on screen ────────────────────────────────────────────────────
 
-test('cave torches: the torch is a seated one-cell sprite with the selected native16 art', () => {
+test('cave torches: placed torches use an animated standing fixture distinct from the handheld icon', () => {
   const r = RENDER_SRC;
   const spec = r.match(/    torch: \{ key: 'torch',[\s\S]*?\},\n/);
   assert.truthy(spec, 'RENDER_SPEC.torch exists');
   assert.truthy(/seat: true, seatFrame: 0/.test(spec[0]), 'seated from its selected frame');
-  assert.truthy(/frame: 0/.test(spec[0]), 'uses the selected static frame');
+  assert.truthy(/performance.now\(\) \/ 150\) % 4/.test(spec[0]), 'cycles four flame frames');
   assert.truthy(/shadow: true/.test(spec[0]), 'a torch casts a ground shadow like the campfire');
   const assets = Function('SpriteLayout', 'EnemyRoster', `${ASSETS_SRC}; return ASSETS;`)(SpriteLayout, EnemyRoster);
-  assert.eq(assets.torch.kind, 'atlas-alias');
+  assert.eq(assets.torch.kind, 'spritesheet');
+  assert.falsy(assets.torch.path === assets.icon_torch.path, 'world fixture must not resolve to the inventory icon');
   assert.eq(assets.torch.frameWidth, 16);
-  assert.eq(assets.torch.frameHeight, 16);
+  assert.eq(assets.torch.frameHeight, 32);
+  assert.eq(pngDims(assets.torch.path).w, 64);
   assert.truthy(pngDims(assets.torch.path), 'selected torch atlas ships');
   assert.truthy(SpriteLayout.ART_BOUNDS['torch:0'], 'and sprite_layout carries its trimmed bounds (tools/sprite_audit.js --emit-bounds)');
 });

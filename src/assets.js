@@ -73,6 +73,8 @@ const ASSETS = {
   castle_tower_shapes: { kind: 'image', path: 'assets/Objects/Castle/tower_shapes.png' },
   fdr_castle_atlas: { kind: 'image', path: 'assets/Objects/Castle/FDR/atlas.png' },
   fdr_castle_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/floor.png' },
+  fdr_castle_bastion_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/bastion-floor.png' },
+  fdr_castle_archive_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/archive-floor.png' },
   fdr_castle_wreck_floor: { kind: 'image', path: 'assets/Objects/Castle/FDR/weathered-floor.png' },
   // Potion projectiles use the same frames as inventory and shop icons.
   icon_potions: { kind: 'spritesheet', path: 'assets/Icons/Items/Potions.png', frameWidth: 16, frameHeight: 16 },
@@ -381,14 +383,9 @@ const ASSETS = {
   // and two charred logs. Seated beside the wagon when Home is placed
   // (save.homeFirepit); drawn until a fire is lit on its cell.
   firepit:     { kind: 'image', path: 'assets/Objects/Home/firepit.png' },
-  // Cave torch — 64×32 = 4 cols of 16×32 frames: a wooden stake with a wrapped
-  // head and a small flame, authored in the bonfire's palette (no torch on any
-  // shipped sheet). Planted on a cave level where a lowtier street-furniture
-  // POI stands overhead (worldgen.js caveTorchesFrom) — the one kind of chest
-  // that does NOT mirror underground, so the spot gets a light instead of a
-  // box. Decorative: no interaction. The `torch` render spec cycles the 4
-  // frames for a flicker and Lighting.KINDS.torch is its light.
-  torch: {"kind": "atlas-alias", "path": "assets/Icons/SelectedItems/items.png", "atlasKey": "selected_items", "frameWidth": 16, "frameHeight": 16, "sheetRect": {"x": 48, "y": 80, "width": 16, "height": 16}, "frameRects": {"0": {"x": 48, "y": 80, "width": 16, "height": 16}}},
+  // Placed world torches use the Rogue Ruins standing flame pillar.
+  // The handheld inventory icon remains in selected_items.
+  torch: { kind: 'spritesheet', path: 'assets/Objects/StandingTorch/torch.png', frameWidth: 16, frameHeight: 32 },
   // 7_Pickup_Items — 224×160 = 14 cols × 10 rows of 16×16 frames. Veggies,
   // fruits, fish, junk pulls (boot at row 6 col 4), sticks, logs, stars.
   // Used for the fishing-junk boot (88), rare-drop star (115), and memory (116).
@@ -610,7 +607,7 @@ window.recolorEnemyPixels = recolorEnemyPixels;
 ArtAtlas.install(ASSETS, SelectedWorldAtlas);
 // Keep world texture identities while sharing the item atlas's exact pixels.
 const selectedItemWorld = { key: 'selected_items', entries: {} };
-for (const [key, item] of Object.entries({ torch: 'torch', icon_torch: 'torch', selected_rubble: 'rubble', wood: 'wood', icon_sugar_potion: 'sugar_potion' })) {
+for (const [key, item] of Object.entries({ icon_torch: 'torch', selected_rubble: 'rubble', wood: 'wood', icon_sugar_potion: 'sugar_potion' })) {
   const frame = SelectedItemArt.icons[item].frame;
   const rect = { x: (frame % SelectedItemArt.cols) * 16,
     y: Math.floor(frame / SelectedItemArt.cols) * 16, width: 16, height: 16 };

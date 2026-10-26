@@ -161,6 +161,7 @@ const MAX_ROW_GAP = 4;
 // again and drags it lower still).
 // Returns the canopy's box in frame pixels, max EXCLUSIVE, or null.
 function crownBox(file, fw, fh, frameIdx) {
+  if (frameIdx === '__BASE') frameIdx = 0;
   const img = loadPng(file);
   const cols = Math.floor(img.w / fw);
   const fx = (frameIdx % cols) * fw, fy = Math.floor(frameIdx / cols) * fh;
@@ -309,7 +310,7 @@ const SHEETS = {
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
-  torch: { file: ASSETS.torch.path, fw: 16, fh: 16, frames: [0] },
+  torch: { file: ASSETS.torch.path, fw: 16, fh: 32, frames: [0, 1, 2, 3] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],
@@ -403,8 +404,8 @@ const SCENARIOS = [
   // The POI props (loot.js chestLook — barrel / bike_rack at render.js
   // SMALL_POI_SCALE; the notice board and the gate post at 1.6).
   ...SHEETS.barrel.frames.map(frameIdx => ({ name: `barrel ${frameIdx}`, key: 'barrel', frameIdx, scale: 1.1 * 1.1 })),
-  ...SHEETS.clay_pot.frames.map(frameIdx => ({ name: `clay pot ${frameIdx}`, key: 'clay_pot', frameIdx, scale: (4 / 3) * 0.8 * 0.9 * 0.92 * 1.5 })),
-  ...SHEETS.clay_pot_smashed.frames.map(frameIdx => ({ name: `pot shards ${frameIdx}`, key: 'clay_pot_smashed', frameIdx, scale: (4 / 3) * 0.8 * 0.9 * 0.92 })),
+  ...SHEETS.clay_pot.frames.map(frameIdx => ({ name: `clay pot ${frameIdx}`, key: 'clay_pot', frameIdx, scale: (4 / 3) * 0.8 * 0.9 * 0.92 * 0.85 * 1.5 })),
+  ...SHEETS.clay_pot_smashed.frames.map(frameIdx => ({ name: `pot shards ${frameIdx}`, key: 'clay_pot_smashed', frameIdx, scale: (4 / 3) * 0.8 * 0.9 * 0.92 * 0.85 })),
   { name: 'bike rack',       key: 'bike_rack',     frameIdx: 0, scale: 1.3 },
   { name: 'notice board',    key: 'signpost',      frameIdx: 0, scale: 1.6 },
   { name: 'gate post',       key: 'gatepost',      frameIdx: 0, scale: 1.6 },
@@ -423,6 +424,13 @@ for (const sample of rogueTreeCases) {
   const asset = ASSETS[sample.key], bounds = ART_BOUNDS[sample.key + ':__BASE'];
   SHEETS[sample.key] = {file:asset.path,fw:bounds.fw,fh:bounds.fh,frames:['__BASE']};
   SCENARIOS.push(sample);
+}
+
+// The active fruit profile supplies native RA canopies and separate blossom art.
+for (const [key, asset] of Object.entries(ASSETS).filter(([key]) => key.startsWith('rogue_fruit_'))) {
+  SHEETS[key] = {file:asset.path,fw:asset.frameWidth,fh:asset.frameHeight,
+    frames:['__BASE'],crownFrame:'__BASE'};
+  for (const scale of [.35,.85]) SCENARIOS.push({name:key+' '+scale,key,frameIdx:'__BASE',scale});
 }
 
 // ── Evaluate one scenario against the rule ─────────────────────────────────

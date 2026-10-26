@@ -798,9 +798,15 @@ the surrounding grove’s shrub scale.
   per-cell variation (`wildplantFrame`); do not use id length or transient indices.
   Legacy `PLAIN_ROCK_VARIANTS` retains rock yields independently of the neutral
   material silhouettes; loot messages report the actual quantity rolled.
-- Apple and Worldpeach trees keep their mature size after picking. Their
+- Map Apple and Worldpeach trees use recoloured RA rounded canopies from
+  `tools/build_rogue_fruit_trees.py`: apple foliage is cool green with cream
+  blossoms; Worldpeach foliage is warm olive with pink blossoms. Bark, roots
+  and alpha retain the source pixels. The active profile registers crown bounds
+  for the existing separate fruit overlay; compact sapling inventory icons keep
+  their original sheets. Planted map trees grow by scale.
+  Both species keep their mature size after picking. Their
   24-hour fruit regrowth is green for the first 12 hours, then uses the mature
-  blossom frame for the final 12 hours (apple frame 8, peach frame 4).
+  blossom artwork for the final 12 hours.
   Ripe trees return to the green frame
   with separate fruit overlays. `Crops.fruitTreeState` owns readiness and the
   blossom window; initial sapling growth still flowers during stage 3.
@@ -1467,12 +1473,36 @@ detailed rings; offscreen strips are rejected before clipping.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
-Fine staggered masonry courses with dark mortar and narrow lit upper edges,
+Family-specific slate, sandstone and pale ashlar courses with restrained mortar and lit upper edges,
 warm paving on inset military decks, coping edges, iron
 door surrounds and heraldic marks are atlas detail rather than extra meshes.
+Bastion uses taller sandstone courses. Masonry uses a fixed world-space scale
+and ground datum; a 128-unit motif repeats inside a 224-by-64-unit tile, so
+ordinary curtain fragments can retain their source-edge phase without adding
+triangles. Its 4/7 atlas repeat lands on exact texels. Very long sections on
+budget-limited giant footprints fit their horizontal span to the tile.
+Weathered masonry reserves colour headroom in the texture and compensates only
+its vertical stone-face tint; this keeps olive growth legible on dark slate.
+Military
+tower banners sample a forked cloth silhouette with a compact emblem; Bastion
+centers its banner below the arrow slit, while Citadel places it beside the slit.
+Cloth and emblem retain their existing decal triangles. The cloth tile leaves
+its bottom fifth outside banner sampling. A separate opaque coping patch in
+that tail gives raised battlement caps their bevels, with clamped gutters clear
+of the shared white patch. Canvas treats only that subregion as opaque, keeping
+banner cutouts exact. Military decks have their own tint so Citadel wrecks
+retain warm sandstone beneath grey coping.
 Courtyard paving and wreck grass repeat on the existing cached ground canvas;
-they add no ground or castle triangles. Weathering belongs to Bastion and Archive,
-while Citadel wrecks retain a distinctly dark stone and oxblood palette.
+they add no ground or castle triangles. The style's paving descriptor selects
+Citadel's existing small pavers, Bastion's quiet sandy slabs, or Archive's fine
+cream paving; family overlays are preloaded once and share the pattern cache.
+Ground vegetation uses deterministic, bounded contact masks around the courtyard,
+towers and keep. A same-winding union prevents overlapping contacts from
+darkening; its leaf pattern retains world phase. Bastion has broad visible
+overgrowth, Archive narrower edge growth, and Citadel sparse patches. The masks
+reuse the existing ground canvas without readback, additional textures or
+rotation-time repaint. Masonry weathering is strongest on Bastion and Archive;
+Citadel retains distinctly dark stone and oxblood banners.
 The existing courtyard canvas also paints short world-fixed shadows from the
 retained opaque stone and roof faces, plus narrow contact rims. A single
 same-winding fill unions overlaps and clips to the courtyard; it adds no GPU
@@ -1480,10 +1510,20 @@ geometry, per-building canvas, pixel readback or rotation-time repaint. The
 graphics fallback omits this optional ground treatment.
 Upward-facing surfaces are light, vertical walls have broad flat
 colours, and a single hard shadow band occupies the bottom four pixels. There
-is no upper shoulder shadow or projecting crown shelf. A closed double iron
-door, its seam and handles are flat keep-wall decals; keep banners are omitted.
+is no upper shoulder shadow or projecting crown shelf. Military keeps reuse
+their two entrance-decal triangles for a door and two flanking banners, with
+transparent gaps keeping the entrance clear. Four padded family/condition
+frames use palettes read from `CastleStyles` by the offline builder. Citadel
+shows a wrecked iron grille or restored open timber leaves over an opaque dark
+backing; Bastion uses timber double doors. Seams and
+hardware remain flat decals; the facade does not cut a hole in the wall or
+change collision. Canvas joins each alpha facade's internal diagonal through
+its exact quad, isolating subframes and preserving exterior transparency.
 Archive towers use two arched window levels in the same wall decal; military
-towers sample one arch from that shared tile. Archive towers and keeps have four roof triangles when restored and two surviving
+towers sample one arch from that shared tile. Archive towers and keeps use a
+broader, quieter ashlar tile than their curtains, and flush dark double doors.
+Their fully opaque tower tiles also participate in Canvas seam coverage.
+Archive towers and keeps have four roof triangles when restored and two surviving
 planes over a closed flat cap when wrecked. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
@@ -1523,6 +1563,13 @@ comma-separated continuous-camera sampling set, such as every five degrees.
 tools support matching `SOURCE_DIR` and `ASSET_DIR` snapshots and record their
 hashes. Clean architectural captures hide the gameplay lightmap and actors;
 also inspect ordinary lit captures before accepting material changes.
+`tools/castle-family-study.cjs` also supports the opt-in `concept_rectangle`
+footprint and `MAP_ZOOM=0.8` for an unobscured concept comparison. These change
+footprint proportions and zoom, not the game's projection. `ROTATION_STEP=1`
+adds a numerical full-turn sweep of retained geometry, projected coordinates
+and stable in-bounds UVs. Reports distinguish this check from visual evidence
+and record coplanar masonry phase discontinuities and material scale ranges;
+passing numerical checks alone does not establish concept fidelity.
 
 Covered castles suppress their old tower sprites while retaining gameplay turret
 records, ownership, range and collision. Flags seat on distinct geometry crowns
