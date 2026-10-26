@@ -32,8 +32,7 @@ SETUP = r'''() => {
  b.info=()=>{const st=s._lightingGPU||s._lightGPU||null;let status=null;
   try{status=typeof LightingGPU!=='undefined'?LightingGPU.status?.(s)??null:null;}catch(e){status={error:String(e)};}
   return {phaserRenderer:__game.renderer.type===Phaser.WEBGL?'WebGL':'Canvas',gpuModule:typeof LightingGPU!=='undefined',status,
-    state:st?{active:st.active,enabled:st.enabled,error:String(st.error||''),reason:st.reason,stats:st.stats}:null,
-    coverMax:Math.max(0,...(s._coverLightMask?.field||[]))};};
+    state:st?{active:st.active,enabled:st.enabled,error:String(st.error||''),reason:st.reason,stats:st.stats}:null};};
  b.frame=function(name,i,count){
   b.clock=base+i*100;
   window.__DAYLIGHT=name==='day'?1:0;
