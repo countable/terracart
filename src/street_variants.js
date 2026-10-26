@@ -651,7 +651,7 @@
   // Shared roadside ground/lamp palette; MD/LG paving is owned by
   // RoadSurfaces. This palette never enters variant selection or dressing.
   const SUPPRESSED_STYLE = {
-    id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2, ground: '#596562',
+    id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2,
     stone: { weathered: '#485553', restored: '#485553', pattern: 'rift', accent: '#66a99e' },
   };
   function pavementFor(variant) {

@@ -106,7 +106,7 @@ temple masonry use the matching colour mapping. Geometry, material detail and
 functional light colours remain intact. Growth stages retain proportional sizes
 and ore identities remain unchanged. Gameplay, source object IDs/positions and
 saves are unchanged.
-Nexus-specific ground, rift buffers, quarry rock, tilled beds, synthetic
+Nexus-specific ground, quarry rock, tilled beds, synthetic
 building floors and underground terrain retain their existing treatments.
 
 Private residential exclusion rock uses the purchased Top Down Mountain Edges
@@ -163,7 +163,7 @@ runtime. Surface atlas selection precedes fallback texture lookup. The retired
 standalone rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
 and empty border layer are removed.
 The colour-ramp blur and legacy shoreline strips are removed; structural
-floors, source road paving, mountain edges and rift ground keep their owners.
+floors, source road paving and mountain edges keep their owners.
 
 `tools/build_rogue_objects.py` exports native objects,
 source assembly provenance and measured bounds; `WorldArtProfile` selects the
@@ -1220,7 +1220,8 @@ the reach rim within the existing player-light radius.
   to selected ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
   changing ownership, props, trees or gameplay. Keep the existing transition masks.
   Stacked native masks own surface edges. Underground, structural floors, tilled
-  beds, rift ground and unmapped fog retain their dedicated fallback materials.
+  beds and unmapped fog retain their dedicated fallback materials. The MD/LG
+  roadside buffer has no ground material of its own; it shows the local biome.
   Houses keep their existing floor owner. Temple polygons use F02 weathered RA slabs
   until activation, then F03 pale restored slabs; tar sanctuaries bake a dark palette
   onto the same source tiles. Existing coping, foundations and rune illumination remain.
