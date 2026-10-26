@@ -21,8 +21,8 @@ test('smithy: the modal category is Smithy, so Forge names only the action', () 
   const counter = app.match(/\n  _presentRecipeOffer\([^\n]*\) \{[\s\S]*?\n  \}/)?.[0];
   assert.truthy(counter && /kind: 'forge',\n      costLabel: 'You give',\n      \.\.\.modal,/.test(counter),
     'the recipe counter keys forge');
-  assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe: recipeFor\(target\),\n      cancelLabel: 'Leave',\n      get: smithyPreviewHTML\(/.test(app), 'the smelt offer rides it, untitled');
-  assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe,\n      cancelLabel: 'Later',\n      get: smithyPreviewHTML\(iconHtml, name\),/.test(app), 'the forge offer rides it, untitled');
+  assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe: recipeFor\(target\),\n      cancelLabel: 'Leave',\n      get: Rewards\.tapHTML\(\{ kind: 'item', id: target \}, smithyPreviewHTML\(/.test(app), 'the smelt offer rides it, untitled');
+  assert.truthy(/this\._presentRecipeOffer\(sx, sy, \{\n      recipe,\n      cancelLabel: 'Later',\n      get: Rewards\.tapHTML\(offer, smithyPreviewHTML\(iconHtml, name\)\),/.test(app), 'the forge offer rides it, untitled');
   assert.falsy(/title: 'Forge/.test(app), 'no forge offer carries a title');
 });
 
