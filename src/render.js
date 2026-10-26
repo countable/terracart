@@ -2296,6 +2296,7 @@ Render.drawCells = function drawCells(scene) {
   let cobbleIdx = 0;
   let noiseIdx = 0;
   let letterIdx = 0;
+  const roadLabelBounds = [];
   // PIER (terrain code 23) — wooden walkway over water (OSM transportation:pier).
   // The only thing left on the cobblePool (road/path stones are gone, see T_PATH).
   // The pool keeps its name because the layer order is pinned on it
@@ -2740,6 +2741,15 @@ Render.drawCells = function drawCells(scene) {
             const variant = mark ? StreetVariants.labelName(StreetVariants.variantByCode(mark)) : '';
             lt.setText(variant ? `${info.text} ${variant}` : info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
               .setRotation(info.angle).setVisible(true);
+            // Rotated bounds include the text's halo. Leave a small gap at
+            // junctions; the next anchor along a crowded road can still label it.
+            const bounds = lt.getBounds();
+            const gap = 4;
+            const overlaps = roadLabelBounds.some(b =>
+              bounds.left < b.right + gap && bounds.right + gap > b.left &&
+              bounds.top < b.bottom + gap && bounds.bottom + gap > b.top);
+            if (overlaps) lt.setVisible(false);
+            else roadLabelBounds.push(bounds);
           } else {
             lt.setVisible(false);
           }

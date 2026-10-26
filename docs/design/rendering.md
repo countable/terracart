@@ -554,7 +554,9 @@ the surrounding grove’s shrub scale.
   “of”), only the first word appears. Full names remain available in dialogs.
 - Road labels show the first word of the street's official name, then its
   street variant's name (`StreetVariants.labelName`, read off the dressed
-  tile's `streetMarks`): "Athalmer Pottery Road". Plain streets show the word alone.
+  tile's `streetMarks`): "Athalmer Pottery". Generic suffixes such as Road and
+  Lane are omitted. Plain streets show the word alone. Labels use 10px text;
+  rotated bounds must leave a small gap, with overlapping anchors hidden.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The resting view a game opens on spans seven cells
