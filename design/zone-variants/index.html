@@ -16143,7 +16143,9 @@ document.documentElement.dataset.tilesReady='true';
     const previews = [...section.querySelectorAll(`#roads-${size} article > figure > svg`)].map(svg => {
       const box = svg.viewBox.baseVal;
       const line = svg.querySelector('path[stroke="#786955"]');
-      return { svg, x: box.x, y: box.y, width: box.width, height: box.height,
+      // Keep the road centred while removing half the surrounding ground.
+      const height = box.height / 2;
+      return { svg, x: box.x, y: box.y + (box.height - height) / 2, width: box.width, height,
         length: line.getTotalLength(), label: svg.getAttribute('aria-label') };
     });
     if (!previews.length) continue;
