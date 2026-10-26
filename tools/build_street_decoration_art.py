@@ -6,7 +6,7 @@ from PIL import Image
 ROOT=Path(__file__).resolve().parents[1]
 OUT=ROOT/'assets/StreetDecorations'
 rows=json.loads((OUT/'sources.json').read_text())
-widths={'hanging_lantern':30,'wooden_lantern':24,'street_lantern':22,'tall_lantern':25,'fire_pedestal':24,'green_orb':24,'direction_sign':30,'mossy_tree':48,'conifer_tree':44,'dead_tree':52,'lavender_tree':54,'hedge_strip':48,'grass_clump':23,'stump':27,'spotted_mushroom':40,'dark_urn':24,'pottery_stack':25,'green_slick':26}
+widths={'white_flower':10,'hanging_lantern':30,'wooden_lantern':24,'street_lantern':22,'tall_lantern':25,'fire_pedestal':24,'green_orb':24,'direction_sign':30,'mossy_tree':48,'conifer_tree':44,'dead_tree':52,'lavender_tree':54,'hedge_strip':48,'grass_clump':23,'stump':27,'spotted_mushroom':40,'dark_urn':24,'pottery_stack':25,'green_slick':26}
 flat={'green_slick','plank_fragments','bone_fragments','dark_rubble','muted_stones'}
 manifest={}
 for key,row in rows.items():

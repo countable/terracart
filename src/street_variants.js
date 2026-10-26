@@ -603,7 +603,9 @@
       return { step: trees ? 35 : 14, max: trees ? 12 : 70, side:'both',
         start: () => trees ? 3 : 1, walk: trees ? 4 : 3, groundOnly:true,
         stream:'approved-decorations-' + (trees ? 'trees' : 'ground'),
-        draw: at => { at.gap = at.rng() < (trees ? .35 : .28); }, skip:at => at.gap || !choices.length,
+        // Weight also limits absolute frequency when a rare prop is the only choice.
+        draw: at => { at.gap = at.rng() >= (trees ? .65 : .72) * Math.min(1, weight / Math.max(1, choices.length)); },
+        skip:at => at.gap || !choices.length,
         emit: (D,at,c) => {
           const id=D.WG.cellId('route_'+D.v,D.tx,D.ty,c.ix,c.iy);
           let pick=hash01(id+'|approved')*weight, choice=choices[choices.length-1];

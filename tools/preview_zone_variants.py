@@ -81,6 +81,10 @@ def material_art(material):
     """Resolve the same mature wildplant/object frames as render.js."""
     r = art_registry()
     if material.get('previewArt'): return material['previewArt']
+    if material.get('_streetArt') == 'grass_clump':
+        return r['streetGeometryArt']['grass_clump']
+    if material.get('_streetArt') == 'clipped' and material.get('crop') == 'shrub':
+        return r['streetGeometryArt']['hedge']
     if material.get('recordType') == 'surface_trap':
         return {'procedural': 'trap_hidden', 'source': 'src/textures.js · hidden trap scuff', 'alternates': ['trap_open']}
     container = material.get('barrelStyle') or ('barrel' if material.get('barrel') else None)

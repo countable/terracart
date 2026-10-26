@@ -2360,6 +2360,13 @@ test('approved decorations retain collectible identities and one shared bare-tre
     assert.truthy(byArt.mossy_tree.variants.includes(variant),'approval reaches every suggested route');
 });
 
+test('rare healing clusters stay rare even when they are the only ground decoration', () => {
+  const row=SV.approvedDecorationRows('paralysis_path')[0];
+  let placed=0;
+  for(let i=0;i<1000;i++) {const at={rng:()=>i/1000};row.draw(at);if(!row.skip(at))placed++;}
+  assert.inRange(placed,40,70,'under seven percent of available seats, not a normalized all-healing field');
+});
+
 test('approved decorations never overlap theme obstacles or signs and regenerate identically', () => {
   for(const variant of ['hedgerow','pottery','snare','toadstool','berry_trail','slime_trail','spider_path']) {
     const draw=()=>{ const f=vergeFixture(variant); return SV.dress({...f,tx:0,ty:0,tileEdgeM:f.N*7,
