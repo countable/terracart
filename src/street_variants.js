@@ -721,14 +721,12 @@
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
-  // The variant's name as a map label shows it after the street's official
-  // name ("Athalmer Pottery Road"): the row's `label` where its story title is
-  // not a name, else the title without a leading article, title-cased
-  // ("of", "the" and "and" stay lower case inside it).
+  // Compact map suffix after the official street name; story titles stay full.
   function labelName(row) {
     if (!row) return '';
-    if (row.label) return row.label;
-    return String(row.title || '').replace(/^(the|a)\s+/i, '')
+    return String(row.label || row.title || '').replace(/^(the|a)\s+/i, '')
+      .replace(/^Way of /i, '')
+      .replace(/\s+(Road|Lane|Way|Row|Street|Path|Trail)$/i, '')
       .replace(/(^|\s)(\S+)/g, (m, gap, word) => gap +
         (gap && /^(of|the|and)$/i.test(word) ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1)));
   }
