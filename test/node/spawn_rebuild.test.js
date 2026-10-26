@@ -113,4 +113,19 @@ test('starter trail: its own guard is per-entry, so a rebuild re-lays it', () =>
   assert.falsy(/(?:this|scene)\.save\.[A-Za-z]*[Tt]rail[A-Za-z]*Placed/.test(STARTER_TRAIL_SRC),
     'the trail guard moved into the save — a rebuilt tile would never re-lay the crates');
 });
+test('tile rebuild: the swap keeps the on-screen tile revealed', async () => {
+  // render.js fades a tile in from the near-black unmapped fog the first time
+  // it sees the entry's grid, stamped as entry._mappedAtMs. A rebuild under
+  // the player (an Overpass bin or Geometry revision landing mid-walk) hands
+  // over a fresh entry; without the stamp the whole view dimmed for ~0.6 s.
+  const prev = { status: 'ready', grid: [1], _mappedAtMs: 1234 };
+  const fresh = { status: 'ready', grid: [1], promise: Promise.resolve() };
+  const cache = new Map([['k', prev]]);
+  const rebuild = new Function('activeDepth', 'cacheFor', 'tileKey', 'loadTile',
+    `return async function (x, y, lat) {\n${REBUILD_WITH_BIN_SRC}\n};`)(
+    0, () => cache, () => 'k', async () => fresh);
+  assert.truthy(await rebuild(0, 0, 0), 'the rebuild should swap the fresh entry in');
+  assert.eq(cache.get('k'), fresh);
+  assert.eq(fresh._mappedAtMs, 1234, 'the rebuilt tile would fade in from fog again');
+});
 })();
