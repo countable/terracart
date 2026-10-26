@@ -2363,6 +2363,85 @@ test('Grassy Lane fills its road and both verges with unique harvestable grass',
     JSON.stringify(grass.map(p => p.id)), 'duplicate mapped pieces cannot multiply grass');
   assert.truthy(SaveState.regrows('longgrass'), 'road grass shares normal harvest regrowth');
 });
+
+test('street verge distance: exactly twenty percent overlap counts as row one', () => {
+  const halfW=2.75, cell=WorldGen.CELL_M;
+  const seat=(overlap,k=1)=>SV.vergeCellAt({halfW},10.5*cell,(25+overlap)*cell-halfW,0,1,1,k,cell);
+  const exact=seat(.2);
+  assert.eq(exact.iy,25,'inclusive twenty-percent edge is adjacent');
+  assert.inRange(exact.roadOverlap,.2-1e-12,.2+1e-12);
+  assert.eq(seat(.200001).iy,26,'just over twenty percent is still road');
+  assert.eq(seat(.199999).iy,25);
+  assert.eq(seat(0).iy,25,'an exactly aligned edge starts outside the road');
+  assert.eq(seat(.2,2).iy,26,'the following row is a distinct cell');
+  const reversed=SV.vergeCellAt({halfW},10.5*cell,25.2*cell-halfW,0,-1,-1,1,cell);
+  assert.eq(reversed.ix,exact.ix);assert.eq(reversed.iy,exact.iy);
+});
+
+test('street verge distance: diagonal clipped cells are visited once in bounded outward order', () => {
+  const nx=Math.cos(.05),ny=Math.sin(.05),halfW=2;
+  const x=.01-nx*halfW,y=.99-ny*halfW;
+  const first=SV.vergeCellAt({halfW},x,y,nx,ny,1,1,1);
+  assert.eq(first.ix,0);assert.eq(first.iy,0,'a half-cell probe used to skip this lightly clipped corner');
+  assert.inRange(first.roadOverlap,.03,.04);
+  let seed=37591;
+  const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  for(let n=0;n<500;n++) {
+    const angle=random()*Math.PI*2,nx=Math.cos(angle),ny=Math.sin(angle),side=random()<.5?-1:1;
+    const rec={halfW:random()*14+.1},x=random()*10000-5000,y=random()*10000-5000,seen=new Set();
+    let previous=-Infinity;
+    for(let k=1;k<=4;k++) {
+      const c=SV.vergeCellAt(rec,x,y,nx,ny,side,k,7),key=`${c.ix},${c.iy}`;
+      assert.falsy(seen.has(key),'later rows cannot repeat a cell');seen.add(key);
+      assert.lte(c.roadOverlap,SV.VERGE_ROAD_OVERLAP_MAX+1e-10);
+      const projection=((c.ix+.5)*7-x)*nx*side+((c.iy+.5)*7-y)*ny*side;
+      assert.gt(projection,previous,'every row advances outward');previous=projection;
+    }
+  }
+});
+
+test('street verge dressing: light road paint permits ground-only rows but keeps crossing and access gates', () => {
+  const halfW=WorldGen.roadOverlayWidthM({class:'minor'})/2;
+  const run=(overlap=.2,blocked='',terrain=T.ROAD,fragmented=false)=>{
+    const y=(25+overlap)-halfW/WorldGen.CELL_M;
+    const line=[{x:10.5*CELL_MVT,y:y*CELL_MVT},{x:42.5*CELL_MVT,y:y*CELL_MVT}];
+    const mid={x:26.5*CELL_MVT,y:y*CELL_MVT};
+    const grid=new Uint8Array(CPE*CPE).fill(T.PARK),roadMask=new Uint8Array(CPE*CPE),spawnWhy=new Uint16Array(CPE*CPE),occupied=new Set();
+    for(let x=0;x<CPE;x++){grid[25*CPE+x]=terrain;if(blocked==='occupied')occupied.add(25*CPE+x);}
+    if(blocked==='crossing')for(let y=0;y<CPE;y++){roadMask[y*CPE+26]=1;grid[y*CPE+26]=T.ROAD;}
+    if(blocked==='private')spawnWhy.fill(WorldGen.SPAWN_WHY.PRIVATE);
+    const index=indexOfLines(fragmented?[[line[1],mid],[mid,line[0]]]:[line],ROCKY,TX,TY,TILE_EDGE_M/EXTENT);
+    const d=SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,
+      spawnOpts:{roadMask,spawnWhy,occupied,roadClass:new Uint8Array(CPE*CPE)}});
+    return [...d.objects,...d.wildplants].filter(o=>o._street==='rocky_path');
+  };
+  const firstRow=items=>items.filter(o=>cellOf(o.y,TY)===25);
+  const baseline=run();
+  assert.gt(firstRow(baseline).length,20,'lightly painted Small-road terrain accepts the ground-only row');
+  assert.eq(JSON.stringify(baseline.map(o=>o.id).sort()),JSON.stringify(run(.2,'',T.ROAD,true).map(o=>o.id).sort()),
+    'reversed fragments retain seats under identical occupancy');
+  assert.eq(firstRow(run(.200001)).length,0,'more than twenty percent stays outside the first verge');
+  assert.eq(firstRow(run(.2,'occupied')).length,0,'live occupancy remains authoritative');
+  assert.eq(run(.2,'private').length,0,'access exclusions remain authoritative');
+  assert.eq(firstRow(run(.2,'',T.ROAD_MD)).length,0,'a Small-road edge cannot open major road terrain');
+  assert.falsy(run(.2,'crossing').some(o=>cellOf(o.x,TX)===26),'masked crossing road remains empty');
+});
+
+test('street verge rasterization: twenty-percent edges provide unmasked adjacent seats', () => {
+  const halfW=WorldGen.roadOverlayWidthM({class:'minor'})/2;
+  const y=25.2-halfW/WorldGen.CELL_M;
+  const a={x:10.5*CELL_MVT,y:y*CELL_MVT},b={x:42.5*CELL_MVT,y:y*CELL_MVT};
+  const run=lines=>openStreetTile([
+    {name:'landcover',features:[{type:3,tags:{class:'meadow'},geom:[wholeTile()]}]},
+    {name:'transportation',extent:EXTENT,features:[{type:2,tags:{class:'minor'},geom:lines}]},
+    {name:'transportation_name',extent:EXTENT,features:[{type:2,tags:{name:ROCKY},geom:lines}]},
+  ]);
+  const seats=r=>[...r.streetDress.objects,...r.streetDress.wildplants].filter(o=>o._street==='rocky_path');
+  const forward=run([[a,b]]),items=seats(forward);
+  assert.gt(items.filter(o=>cellOf(o.y,TY)===25).length,0,'actual rasterization places finds in the clipped edge row');
+  for(const o of items)assert.eq(forward.roadMask[cellOf(o.y,TY)*CPE+cellOf(o.x,TX)],0,'existing road mask stays authoritative');
+});
+
 })();
 
 
