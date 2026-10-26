@@ -273,9 +273,9 @@ const TERRAIN = {
 // Hedge School, a restaurant a Tavern — so the earth under it reads in the
 // same register, never 'industrial yard' or 'highway'.
 //
-// A map tap never tills (only the seed's Till & plant action prepares
-// ground), so these lines describe the cell and never phrase themselves as
-// a refused till or hoe stroke. Kept to one short sentence: this is a flash
+// Only a selected seed tills (a map tap or its Till & plant action), so
+// these lines describe the cell and never phrase themselves as a refused
+// till or hoe stroke. Kept to one short sentence: this is a flash
 // over a cell, not a paragraph.
 // (WATER is carried for completeness only: `fishing` is ordered ahead of
 // `flavor` and consumes every water tap, bare-handed included, so that line
@@ -2004,9 +2004,10 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // Only the seed's explicit action may prepare ground; map taps never till.
+  // A selected seed prepares ground: a map tap on bare soil in reach, or the
+  // seed's Till & plant action at the player's feet. Without a seed, taps
+  // never till.
   { name: 'till', try: (ctx) => {
-    if (!ctx.seedAction) return false;
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
     const seed = getSelectedSlot(save);
     if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) return false;
