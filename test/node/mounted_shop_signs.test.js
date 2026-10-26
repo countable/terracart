@@ -71,8 +71,8 @@
     assert.eq(ordinary.mountedSign,false);
     assert.falsy(ordinary.faces.some(f=>f.feature==='shop-sign'||f.feature==='shop-emblem'));
   });
-  test('mounted shop signs: only a successfully mounted board suppresses floating labels',()=>{
-    assert.truthy(RENDER_SRC.includes('if (scene._proceduralBuildings?.get(item.o.id)?.mountedSign) continue;'));
+  test('mounted shop signs: a mounted board keeps the floating roof plate',()=>{
+    assert.falsy(/mountedSign\)\s*continue/.test(RENDER_SRC),'the plate is not dropped for a mounted board');
     assert.truthy(ALL_SRC['building_overlay.js'].includes('mountedSign: !!model.mountedSign'));
   });
 })();
