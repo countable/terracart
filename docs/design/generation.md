@@ -263,8 +263,7 @@ access or tile lifecycle mechanics.
   cannot reopen Excluded ground or remove Passing restrictions. Live terrain and
   occupancy are checked on the current floor. `floorSpawnWhy` preserves the
   source evidence, and cave source snapshots carry the tier field alongside it.
-  Underground tiles retain road geometry for chase boundaries, warnings and
-  night-road hiding/drain. Farm and orchard interiors and golf grounds retain
+  Underground tiles retain road geometry for chase boundaries and warnings. Farm and orchard interiors and golf grounds retain
   their source access restrictions. Eligible field rims remain measured from
   source footprints; roads, POIs and later paint cannot create interior edges.
 
@@ -696,25 +695,15 @@ access or tile lifecycle mechanics.
   seeded ground stakes along its verges without adding guard posts.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
-  themed guards or variant flora. Both retain road suppression and nighttime
-  curse damage. Selected mapped bus stops off the MD carriageway can retain
+  themed guards or variant flora. Both retain road suppression. Selected mapped bus stops off the MD carriageway can retain
   mercenary hiring wagons; LG roads and junctions cannot. Ordinary mapped
   places keep their existing rules.
-- A mapped parallel roadside path removes the night zone on its side of an
-  MD/LG road, along the path’s length and within the existing kerb buffer.
-  `ROAD_CLASS_PATH_SIDE` preserves creature suppression while the shared
-  `nightZoneBits` check excludes the wash, hidden interactions and drain.
-  The walking-path footprint itself (`ROAD_CLASS_PATH`, at least one cell wide)
-  clears every overlapping night zone, including crossings and grade-separated
-  paths. Off-path carriageway cells and buffers without a same-level parallel
-  path on their side remain dark. Private or inaccessible paths grant neither
-  exemption. Road warnings retain their geometry; spawn eligibility uses tiers.
 - Parking footprints feed the tier classifier. Mapped polygons supply their
   exact footprint; retained tagged/inferred aisles use the lot detector's 12 m
   radius, and non-streetside parking POIs its 30 m radius. Lots are Passing,
   except coverage absorbed by Old Stones, which is Calm. A Quarry repaint keeps
-  the parking tier. `ROAD_CLASS_LOT_BUFFER` remains available to the independent
-  movement and night-road rules; a lot alone does not acquire the night zone.
+  the parking tier. `ROAD_CLASS_LOT_BUFFER` marks buffer cells a lot alone
+  contributes; the tier classifier reads it.
 - The road is never a refuge and never a lure. `roadClass` derives all safety
   geometry from the vector bands. `ROAD_CLASS_MAJOR_ROAD` marks an MD/LG cell
   only when that group covers at least half of it, which gives runtime warnings

@@ -1687,7 +1687,7 @@
     if (c.width !== W) c.width = W;
     if (c.height !== H) c.height = H;
     const item = contribution.items[0];
-    // World lights and the cover mask can move while the player-centred
+    // World lights can move while the player-centred
     // gradient stays identical. Retain its coloured mask, not just the circle.
     const key = `${W},${H},${ps.x - ox},${ps.y - oy},${r0},${item.revision}`
       + `|${prof.lit},${prof.edge},${prof.litColour}`;
@@ -1728,81 +1728,6 @@
   // Returns true when it painted, false when the still-frame gate reused the
   // last upload. Times itself for the load profile: scene._boot_lightMs is
   // what drawObjects' own tick subtracts, since this runs inside that pass.
-  // Gameplay sight stays exact. This cached visual mask uses a low-resolution
-  // one-cell pullback, then paints world-fixed dark diagonal lines.
-  // It never reads canvas pixels or changes actor/scenery visibility.
-  function coverFrame(scene, ax, ay, W, H) {
-    if (scene.save?.energy != null && Combat.playerDowned(scene.save.energy)) return null;
-    if (typeof Visibility === 'undefined' || !(scene.cellM > 0)
-        || !scene.playerM || !scene.startWorldM) return null;
-    const eye = Visibility.observer(scene, scene.cellM / 8);
-    const stepM = scene.cellM / 2, stepPx = CELL_PX / 2;
-    // One cell of padding lets the pullback read inward even during camera peeks.
-    const x0 = Math.floor((ax - (scene.viewCenterX - scene.viewLeft) * scene.cellM / CELL_PX) / stepM) - 2;
-    const y0 = Math.floor((ay - (scene.viewCenterY - scene.viewTop) * scene.cellM / CELL_PX) / stepM) - 2;
-    const D = Math.ceil(Math.max(W, H) / stepPx) + 6;
-    const key = [Visibility.revision(scene), scene.depth, eye.x, eye.y, x0, y0, D, scene.cellM].join('|');
-    let mask = scene._coverLightMask;
-    if (!mask) mask = scene._coverLightMask = {
-      canvas: document.createElement('canvas'), buffer: document.createElement('canvas'), key: null,
-    };
-    if (mask.key !== key) {
-      const canvas = mask.canvas, buffer = mask.buffer;
-      if (canvas.width !== D * stepPx) canvas.width = canvas.height = D * stepPx;
-      if (buffer.width !== D || !mask.img) {
-        buffer.width = buffer.height = D;
-        mask.ctx = buffer.getContext('2d');
-        mask.img = mask.ctx.createImageData(D, D);
-        mask.field = new Uint8Array(D * D);
-      }
-      const field = mask.field, data = mask.img.data;
-      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-        field[y * D + x] = Visibility.sightCover(scene, eye.x, eye.y,
-          (x0 + x + .5) * stepM, (y0 + y + .5) * stepM) === Visibility.CLEAR ? 0 : 1;
-      }
-      const px = eye.x / stepM - x0, py = eye.y / stepM - y0;
-      for (let y = 0; y < D; y++) for (let x = 0; x < D; x++) {
-        const i = y * D + x, dx = x + .5 - px, dy = y + .5 - py;
-        const r = Math.hypot(dx, dy);
-        let covered = field[i] && r > 2;
-        // Omit the nearest full cell of each shadow. Both inward half-cell
-        // samples must be covered, so a thin strip cannot bridge a clear gap.
-        for (let step = 1; covered && step <= 2; step++) {
-          const ix = Math.floor(x + .5 - dx / r * step);
-          const iy = Math.floor(y + .5 - dy / r * step);
-          covered = ix >= 0 && iy >= 0 && ix < D && iy < D && field[iy * D + ix];
-        }
-        data[i * 4] = data[i * 4 + 1] = data[i * 4 + 2] = 255;
-        data[i * 4 + 3] = covered ? 255 : 0;
-      }
-      mask.ctx.putImageData(mask.img, 0, 0);
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      // A: 2 px dark diagonals, 12 px apart perpendicular to each line.
-      // Anchor x+y to world pixels so the pattern does not jump on a scroll.
-      const period = 12 * Math.SQRT2;
-      const phase = ((x0 + y0) * stepPx % period + period) % period;
-      ctx.globalCompositeOperation = 'source-over';
-      ctx.globalAlpha = .32;
-      ctx.strokeStyle = 'rgb(24,29,26)';
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      for (let offset = -phase; offset < canvas.width + canvas.height; offset += period) {
-        ctx.moveTo(offset, 0); ctx.lineTo(offset - canvas.height, canvas.height);
-      }
-      ctx.stroke();
-      ctx.globalAlpha = 1;
-      ctx.imageSmoothingEnabled = false;
-      ctx.globalCompositeOperation = 'destination-in';
-      ctx.drawImage(buffer, 0, 0, D, D, 0, 0, canvas.width, canvas.height);
-      ctx.globalCompositeOperation = 'source-over';
-      mask.key = key;
-    }
-    const x = Math.round(scene.viewCenterX - scene.viewLeft + (x0 * stepM - ax) * CELL_PX / scene.cellM);
-    const y = Math.round(scene.viewCenterY - scene.viewTop + (y0 * stepM - ay) * CELL_PX / scene.cellM);
-    return { canvas: mask.canvas, revision: mask.key, x, y, key: key + '|' + x + ',' + y };
-  }
-
   function draw(scene, ax, ay, halfM) {
     // The anchor this frame's scanned lights are measured from — brightnessAt
     // reads them back against it.
@@ -1847,21 +1772,6 @@
     const ox = scene.viewLeft, oy = scene.viewTop;   // lightmap-local origin
     const plateau = reachM > 0 && prof.lit > prof.edge;
     const B = (typeof window !== 'undefined') ? window.__boot : null;
-    const rawCover = coverFrame(scene, ax, ay, tex.width, tex.height);
-    const cover = rawCover && typeof Render !== 'undefined' && Render.protectCoverScenery
-      ? Render.protectCoverScenery(scene, rawCover) : rawCover;
-    // Dark hatching uses NORMAL blending above the multiply lightmap, independently
-    // cached so moving lights cannot force mask uploads or per-object work.
-    const fog = scene.visibilityFogTex;
-    if (fog) {
-      const fogKey = (cover?.key || 'clear') + '|' + fog.width + ',' + fog.height;
-      if (fog.__coverKey !== fogKey) {
-        fog.context.clearRect(0, 0, fog.width, fog.height);
-        if (cover) fog.context.drawImage(cover.canvas, cover.x, cover.y);
-        fog.refresh();
-        fog.__coverKey = fogKey;
-      }
-    }
     // INDOORS (scene_venues.js activeInterior): the room round the player.
     // The mask is painted on the canvas path, so the GPU path stands down
     // while it is up.
@@ -2158,7 +2068,7 @@
     profile, playerCookieAlpha, playerGlow, plateauColour, sourceKind, playerKind, beginFrame, consider, offerShiny, offerPoi, collectFires, collectBolts, collectGps, GPS_LIGHT_STEPS, objectLightPadCells, wildplantLightPadCells,
     collectPlayer, playerLightMul, collectLamps, lampColour, collectMagicTraps, lampRiseCells, brightnessAt,
     blast, collectBlasts, BLAST_RADIUS_CELLS, BLAST_MS, FLASH_SCALE_FROM,
-    flickerAlpha, coverFrame, draw,
+    flickerAlpha, draw,
     LIGHT_TICK_MS, lightClock, baseFrameKey, staticFrameKey, lightCentrePx, liftPx, LIGHT_CACHE_PAD_CELLS, LIGHT_CACHE_LIMIT_CELLS, PULSE_STEPS, PULSE_TICK_MS, pulseClock, ANIM_FAST, ANIM_PULSE, animates, frameKey,
   };
 })(window);

@@ -471,18 +471,6 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
     : area === 2 ? Render.UNDERGROUND_GROUND.dwarven_city : null;
 };
 
-// The ancient rift occupies the existing MD/LG suppression buffer, including
-// the earth beside the paving. Water, structures and other depths retain their
-// material; parking-only suppression is deliberately outside this road zone.
-Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEdge) => {
-  if (depth !== 0 || (entry?.depth ?? 0) !== 0 || !n
-    || !WorldGen.nightZoneBits(entry?.roadClass?.[iy * n + ix] | 0)
-    || type === WorldGen.T.WATER || type === WorldGen.T.PIER
-    || isBuildingType(type) || type >= WorldGen.T.CAVE_FLOOR && type <= WorldGen.T.CAVE_LAVA
-    || type === 30) return false;
-  return true;
-};
-
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // House faces stay close to their footprint colour, with a shallow shadow
@@ -1709,9 +1697,7 @@ let _ringTypes  = null;
 let _ringOwners = null;
 let _ringUnclaimed = null;
 let _ringGroundColor = null;
-let _ringRiftGround = null;
 let _ringSyntheticBuilding = null;
-let _ringRoadSafety = null;
 // Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
 // encoding) and its tile + local cell on that tile's own grid — every per-cell
 // lookup below reads these rather than re-deriving a tile from cellsPerTile
@@ -2336,9 +2322,7 @@ Render.drawCells = function drawCells(scene) {
     // unclaimed, and gets the dark-green wash below.
     _ringUnclaimed = new Uint8Array(RING * RING);
     _ringGroundColor = new Int32Array(RING * RING);
-    _ringRiftGround = new Uint8Array(RING * RING);
     _ringSyntheticBuilding = new Uint8Array(RING * RING);
-    _ringRoadSafety = new Uint8Array(RING * RING);
     _ringAX = new Int32Array(RING * RING);
     _ringAY = new Int32Array(RING * RING);
     _ringTX = new Int32Array(RING * RING);
@@ -2406,15 +2390,12 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
-      _ringRiftGround[si] = Render.suppressedGround(e2, ix2, iy2, types[si], scene.depth ?? 0, N) ? 1 : 0;
-      _ringGroundColor[si] = _ringRiftGround[si] ? parseHex(StreetVariants.SUPPRESSED_STYLE.ground)
-        : Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+      _ringGroundColor[si] = Render.undergroundGroundColor(e2, ix2, iy2, types[si])
         ?? (typeof selectedZoneGroundColor === 'function'
           ? selectedZoneGroundColor(e2, iy2 * N + ix2, types[si]) : null)
         ?? (typeof zoneGroundColor === 'function'
           ? (zoneGroundColor(e2, ix2, iy2, types[si], tx2, ty2) ?? -1) : -1);
       _ringSyntheticBuilding[si] = e2?.syntheticBuildingCells?.[iy2 * N + ix2] || 0;
-      _ringRoadSafety[si] = WorldGen.nightZoneBits(e2?.roadClass?.[iy2 * N + ix2] | 0) ? 1 : 0;
       _ringVeil[r * RING + c] = mVeil;
       const ol = (e2 && e2.owners) ? (e2.owners[iy2 * N + ix2] || 0) : 0;
       owners[r * RING + c] = ol ? ((mSalt << 16) | ol) : 0;
@@ -2427,39 +2408,6 @@ Render.drawCells = function drawCells(scene) {
   const AX = (c, r) => _ringAX[(r + 2) * RING + (c + 2)];
   const AY = (c, r) => _ringAY[(r + 2) * RING + (c + 2)];
   const PHASE = (r) => _ringPhase[r + 2];
-  // Night paints the whole Major-and-Medium road suppression zone red. The
-  // Graphics command list rebuilds only when the camera crosses a cell, night
-  // begins or ends, or a newly loaded tile changes the visible road bits.
-  // Between rebuilds the layer follows the camera's sub-cell fraction.
-  if (scene.roadSafetyGfx && typeof RoadSafety !== 'undefined') {
-    const sg = scene.roadSafetyGfx;
-    const active = RoadSafety.isNight(scene, Date.now());
-    let hash = 2166136261;
-    for (let row = -1; row <= VIEW_CELLS; row++) for (let col = -1; col <= VIEW_CELLS; col++) {
-      hash ^= _ringRoadSafety[(row + 2) * RING + (col + 2)];
-      hash = Math.imul(hash, 16777619);
-    }
-    const key = `${active ? 1 : 0}|${baseCellIX}|${baseCellIY}|${_bandKey}|${hash >>> 0}`;
-    sg.setPosition(-fracX * CELL_PX, -fracY * CELL_PX);
-    if (key !== scene._roadSafetyDrawKey) {
-      scene._roadSafetyDrawKey = key;
-      sg.clear();
-      if (active) {
-        sg.fillStyle(RoadSafety.GROUND_COLOR, RoadSafety.GROUND_ALPHA);
-        for (let row = -1; row <= VIEW_CELLS; row++) {
-          let col = -1;
-          while (col <= VIEW_CELLS) {
-            while (col <= VIEW_CELLS && !_ringRoadSafety[(row + 2) * RING + (col + 2)]) col++;
-            if (col > VIEW_CELLS) break;
-            const start = col;
-            while (col <= VIEW_CELLS && _ringRoadSafety[(row + 2) * RING + (col + 2)]) col++;
-            const at = cellScreenXY(scene, start - half, row - half, 0, 0, PHASE(row));
-            sg.fillRect(at.x, at.y, (col - start) * CELL_PX, CELL_PX);
-          }
-        }
-      }
-    }
-  }
   // Atmosphere: re-sample the dominant biome on cell crossings only (borderDirty
   // is exactly that signal), then ease toward it every frame.
   const atmos = updateAtmos(scene, types, RING, borderDirty);
@@ -2510,8 +2458,8 @@ Render.drawCells = function drawCells(scene) {
       let t = types[i];
       if (t === 32 && typeof MountainEdges !== 'undefined') t = MountainEdges.groundType(types, RING, i);
       // Source ground and selected Nexus textures share one transition atlas.
-      // Keep authored accent-only fills, rift buffers and synthetic floors.
-      if (!entry?.grid || _ringRiftGround[i]) continue;
+      // Keep authored accent-only fills and synthetic floors.
+      if (!entry?.grid) continue;
       const textureKey = zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t);
       const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
       if (!textureKey && !tintedNative && _ringGroundColor[i] >= 0) continue;
@@ -2578,9 +2526,6 @@ Render.drawCells = function drawCells(scene) {
           color = baseColor(polyGround, color);
         }
       }
-      // The road backdrop lookup must not replace the buffer's earth colour.
-      const riftGround = _ringRiftGround[(row + 2) * RING + (col + 2)] && type === T(col, row);
-      if (riftGround) color = groundColor(color, col, row);
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
 
       // Resolve only the cells in view; the permanent burn ledger can grow
@@ -2689,10 +2634,7 @@ Render.drawCells = function drawCells(scene) {
             // Roads and polygonal buildings wear the same
             // biome texture as their base fill, including beneath the paving.
             if (polyGround >= 0) baseType = polyGround;
-            // Baked grit and sparse mineral glints cover the rift buffer.
-            // These static texture pixels never enter the lighting pass.
-            if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
-            const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
+            const spec = skyLevel ? null : BIOME_TEX[baseType];
             if (spec) {
               const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
               texKey = `biome${baseType}_${variantHash % spec.variants}`;
@@ -3314,7 +3256,6 @@ Render.drawCells = function drawCells(scene) {
   const pWorldY = _anchor.y;
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
   const found = setOf(scene.save.foundTreasures);
-  const hideNightRoadTreasure = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene, Date.now());
   // Dark earth on the surface; pale scratched stone underground, where the
   // floor (0x2a2622) is darker than the surface ink and would swallow it.
   const underground = (scene.depth || 0) > 0;
@@ -3331,7 +3272,6 @@ Render.drawCells = function drawCells(scene) {
     // Buried until the feet stand beside it (HiddenObjects.tick), unless a
     // treasure trail leads to it.
     if (HiddenObjects.treasureHidden(scene.save, tr) && !trailEnds.has(tr.id)) return;
-    if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr, hideNightRoadTreasure)) return;
     const { x: cx, y: cy } = deltaMToScreen(scene, dx, dy);
     // 15% smaller than the old 6px; X is symmetric so the centroid (cx,cy) is unchanged.
     // A GREAT X (loot.js GREAT_X) is thick and dark red.
@@ -3580,15 +3520,17 @@ Render.buildingTrianglesCover = function(triangles, box) {
   }
   return false;
 };
-Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
-  if (key && key === scene.save?.starterShopId) return 1;
+// Whether a standing building's visible faces hide the whole player body from
+// in front. It never changes the building: Render.syncPlayerGhost answers it.
+Render.buildingCoversPlayer = function(scene, key, footprint, triangles, anchor, offset = { x: 0, y: 0 }) {
+  if (key && key === scene.save?.starterShopId) return false;
   const feet = scene.playerScreen?.();
-  if (!feet || !scene.player?.visible) return 1;
+  if (!feet || !scene.player?.visible) return false;
   const { box, view } = Render.headingFadeView(scene, playerScreenBox(scene));
-  if (!box) return 1;
+  if (!box) return false;
   const front = view ? view.sin * (anchor.x + offset.x) + view.cos * (anchor.y + offset.y) > view.playerKey
     : anchor.y + offset.y > feet.y;
-  if (!front) return 1;
+  if (!front) return false;
   const projected = [];
   for (const triangle of triangles) {
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
@@ -3605,7 +3547,7 @@ Render.buildingFadeAlpha = function(scene, key, footprint, triangles, anchor, of
       return view ? { x: view.cos * x - view.sin * y, y: view.sin * x + view.cos * y } : { x, y };
     }));
   }
-  return Render.buildingTrianglesCover(projected, box) ? 0.5 : 1;
+  return Render.buildingTrianglesCover(projected, box);
 };
 Render.playerBuildingKey = function(scene) {
   if ((scene.depth || 0) !== 0 || !scene.playerM || !scene.startWorldM) return null;
@@ -3615,44 +3557,68 @@ Render.playerBuildingKey = function(scene) {
   return entry?.ownerKeys?.[entry.owners?.[i]] || null;
 };
 
-// Buildings and medium-or-larger trees (fadesOverPlayer) fade only while
-// their visible art covers the player's body and their shared world depth
-// places them in front; every other prop stays opaque. Read the boot-time art
-// bounds, never texture pixels; untrimmed procedural art uses its frame box.
+// Buildings and medium-or-larger trees (fadesOverPlayer) hide the player only
+// while their visible art covers the player's body and their shared world
+// depth places them in front; every other prop never counts. The occluder
+// itself keeps its opacity: Render.syncPlayerGhost draws the player over it.
+// Read the boot-time art bounds, never texture pixels; untrimmed procedural
+// art uses its frame box.
 // On a turned heading-up map (`view`, from Render.headingFadeView) each body
 // stands upright at its turned feet, and lower turned feet draw in front, so
 // both the boxes and the front test follow the turned feet instead.
-Render.fadeObjectOverPlayer = function fadeObjectOverPlayer(s, appearance, box, playerDepth, baseAlpha, view = null, onFootprint = false) {
-  let obscures = false;
+Render.objectCoversPlayer = function objectCoversPlayer(s, appearance, box, playerDepth, view = null, onFootprint = false) {
+  if (!box || s.visible === false || appearance.layer === WorldLayers.GROUND_DECAL) return false;
   const building = !!s._staticObject && isBuilding(s._staticObject.kind);
+  // Standing inside a castle's grounds, its other pieces count as occluders too.
+  if (!fadesOverPlayer(s._staticObject) && !(onFootprint && !building)) return false;
   const foot = view && (s._huAnchor || s);
   const front = view ? view.sin * foot.x + view.cos * foot.y > view.playerKey : s.depth > playerDepth;
-  const eligible = fadesOverPlayer(s._staticObject);
-  if (box && eligible && s.visible !== false && appearance.layer !== WorldLayers.GROUND_DECAL && front) {
-    const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
-    const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
-    const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
-    const fh = art?.fh ?? s.frame?.realHeight ?? s.frame?.height ?? s.height;
-    const x0 = s.x + ((art?.minX ?? 0) - s.originX * fw) * s.scaleX;
-    const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
-    const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
-    const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
-    // The art keeps its offsets from its feet; only the feet turn.
-    const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
-    const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
-    obscures = building
-      ? x0 + ox <= box.x0 && x1 + ox >= box.x1 && y0 + oy <= box.y0 && y1 + oy >= box.y1
-      : x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
-  }
-  const alpha = baseAlpha * (appearance.layer !== WorldLayers.GROUND_DECAL && ((onFootprint && !building) || obscures) ? 0.5 : 1);
-  if (s.alpha !== alpha) s.setAlpha(alpha);
-  // Pre-FX receives the faded alpha. Glow treats every translucent body pixel
-  // as an outside edge and fills it gold, defeating the player-reveal fade.
-  // Keep the sweep, but suspend the rim until the object is opaque again.
-  if (s._shinyGlowFx) s._shinyGlowFx.active = alpha >= 1;
+  if (!front) return false;
+  const frame = appearance.spec.seatFrame ?? appearance.frameVal ?? 0;
+  const art = appearance.spec.artBounds?.(s) ?? SpriteLayout.ART_BOUNDS[`${appearance.texKey}:${frame}`];
+  const fw = art?.fw ?? s.frame?.realWidth ?? s.frame?.width ?? s.width;
+  const fh = art?.fh ?? s.frame?.realHeight ?? s.frame?.height ?? s.height;
+  const x0 = s.x + ((art?.minX ?? 0) - s.originX * fw) * s.scaleX;
+  const x1 = s.x + ((art?.maxX ?? fw) - s.originX * fw) * s.scaleX;
+  const y0 = s.y + ((art?.minY ?? 0) - s.originY * fh) * s.scaleY;
+  const y1 = s.y + ((art?.maxY ?? fh) - s.originY * fh) * s.scaleY;
+  // The art keeps its offsets from its feet; only the feet turn.
+  const ox = view ? view.cos * foot.x - view.sin * foot.y - foot.x : 0;
+  const oy = view ? view.sin * foot.x + view.cos * foot.y - foot.y : 0;
+  return building
+    ? x0 + ox <= box.x0 && x1 + ox >= box.x1 && y0 + oy <= box.y0 && y1 + oy >= box.y1
+    : x0 + ox < box.x1 && x1 + ox > box.x0 && y0 + oy < box.y1 && y1 + oy > box.y0;
 };
 
-// The turned-map inputs for fadeObjectOverPlayer: the rotation, the player's
+// Opacity of the player copy drawn over everything while something hides it.
+const PLAYER_GHOST_ALPHA = 0.4;
+// The ghost mirrors the body sprite once per rendered frame (game prerender,
+// ahead of HeadingUp's upright pass, which turns it about the same feet). It
+// shows while any occlusion source last reported cover: the object pass
+// (objectCoversPlayer), retained wall groups and low-poly buildings
+// (buildingCoversPlayer). Each source keeps its flag on its own live state,
+// so a torn-down pass cannot leave a stale ghost behind.
+Render.playerCovered = function playerCovered(scene) {
+  if (scene._objectsCoverPlayer) return true;
+  if (scene._lowpoly?.coversPlayer) return true;
+  return Object.values(scene._wallPerspective || {}).some(g => g?.coversPlayer);
+};
+Render.syncPlayerGhost = function syncPlayerGhost(scene) {
+  const ghost = scene.playerGhost, p = scene.player;
+  if (!ghost) return;
+  const show = !!p && p.visible && p.alpha > 0 && scene.playerWorldContainer?.visible !== false
+    && Render.playerCovered(scene);
+  if (ghost.visible !== show) ghost.setVisible(show);
+  if (!show) return;
+  if (ghost.texture !== p.texture || ghost.frame.name !== p.frame.name) ghost.setTexture(p.texture.key, p.frame.name);
+  ghost.setPosition(p.x, p.y).setOrigin(p.originX, p.originY).setScale(p.scaleX, p.scaleY)
+    .setFlip(p.flipX, p.flipY).setRotation(p.rotation).setAlpha(PLAYER_GHOST_ALPHA * p.alpha);
+  if (p.isTinted) ghost.setTint(p.tintTopLeft, p.tintTopRight, p.tintBottomLeft, p.tintBottomRight);
+  else if (ghost.isTinted) ghost.clearTint();
+  if (scene.playerScreen) ghost._huAnchor = scene.playerScreen();
+};
+
+// The turned-map inputs for objectCoversPlayer: the rotation, the player's
 // turned feet key, and the player's body box moved to its turned feet. Null on
 // a north-up map. Rotating about the origin is enough: only differences
 // between turned feet matter, and every position turns the same way.
@@ -4266,7 +4232,7 @@ Render.lurkBush = function lurkBush(p) {
 };
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
-// cover (Visibility.hidden). The sole lighting pass darkens the shadow.
+// cover (Visibility.hidden).
 Render.coverHidden = function coverHidden(scene, o, scenery = false) {
   return typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, scenery);
 };
@@ -4274,116 +4240,6 @@ Render.cullCovered = function cullCovered(scene, list, field, scenery = false) {
   let n = 0;
   for (const item of list) if (!Render.coverHidden(scene, item[field], scenery)) list[n++] = item;
   list.length = n;
-};
-
-// The ground mask cannot decide visibility for raised art: a visible crown can
-// project into its own shadow. Subtract silhouettes whose ground anchors are
-// visible. Covered scenery leaves the pulled-back hatch unchanged; it must not
-// paint cover back into the clear band. Visible actors are already culled by
-// gameplay and remain clear wherever they project.
-Render.protectCoverScenery = function protectCoverScenery(scene, cover) {
-  if (!cover || !scene.worldContainer?.list || typeof document === 'undefined') return cover;
-  let state = scene._coverScenery;
-  if (!state) state = scene._coverScenery = {
-    canvas: document.createElement('canvas'), stamp: document.createElement('canvas'), rows: [], revision: 0,
-  };
-  const W = cover.canvas.width, H = cover.canvas.height;
-  let dirty = state.key !== cover.key || state.canvas.width !== W || state.canvas.height !== H;
-  const eye = playerWorldM(scene), heading = typeof HeadingUp !== 'undefined' ? HeadingUp.angle(scene) : 0;
-  const sightKey = [Visibility.revision(scene), eye.x, eye.y].join('|');
-  if (state.sightKey !== sightKey) { state.sightKey = sightKey; state.sight = new WeakMap(); }
-  const saved = [], feet = new Map(), roots = scene.worldContainer.list.slice();
-  // Use exactly the standing-art transform used by the renderer. Restore it
-  // before returning; game coordinates and the render hook remain untouched.
-  if (heading) {
-    const rememberFeet = sprite => {
-      feet.set(sprite, sprite._huFoot);
-      for (const child of sprite.list || []) rememberFeet(child);
-    };
-    for (const root of roots) {
-      rememberFeet(root);
-      HeadingUp._upright(root, -heading, saved);
-    }
-  }
-  let used = 0;
-  const visit = (sprite, parentAlpha = 1) => {
-    if (!sprite.visible || sprite.alpha === 0 || sprite._worldGeometry) return;
-    const alpha = parentAlpha * (sprite.alpha ?? 1);
-    if (sprite.list) { for (const child of sprite.list) visit(child, alpha); return; }
-    const frame = sprite.frame, source = frame?.source?.image;
-    if (!source || !sprite.getWorldTransformMatrix || frame.rotated || sprite.isCropped) return;
-    const o = sprite._coverObject || sprite._staticObject;
-    if (!o && (sprite._worldLayer === WorldLayers.GROUND_DECAL
-        || sprite._worldLayer === WorldLayers.GROUNDCOVER)) return;
-    let sight = Visibility.CLEAR;
-    if (o) {
-      let cached = state.sight.get(o);
-      if (!cached || cached.x !== o.x || cached.y !== o.y) {
-        cached = { x: o.x, y: o.y, cover: Visibility.coverBetween(scene, eye.x, eye.y, o.x, o.y) };
-        state.sight.set(o, cached);
-      }
-      sight = cached.cover;
-    }
-    if (sight !== Visibility.CLEAR) return;
-    const matrix = sprite.getWorldTransformMatrix();
-    const fx = sprite.flipX ? -1 : 1, fy = sprite.flipY ? -1 : 1;
-    const ox = sprite.displayOriginX ?? sprite.originX * frame.realWidth;
-    const oy = sprite.displayOriginY ?? sprite.originY * frame.realHeight;
-    const x = (frame.x || 0) - ox + (sprite.flipX ? -frame.realWidth + 2 * ox : 0);
-    const y = (frame.y || 0) - oy + (sprite.flipY ? -frame.realHeight + 2 * oy : 0);
-    const values = [source, frame.cutX, frame.cutY, frame.cutWidth, frame.cutHeight,
-      matrix.a * fx, matrix.b * fx, matrix.c * fy, matrix.d * fy,
-      matrix.e - scene.viewLeft - cover.x, matrix.f - scene.viewTop - cover.y,
-      x, y, alpha];
-    const old = state.rows[used];
-    if (!old || values.some((v, i) => v !== old[i])) { state.rows[used] = values; dirty = true; }
-    used++;
-  };
-  try { for (const root of roots) visit(root); }
-  finally {
-    for (let i = saved.length - 1; i >= 0; i--) {
-      const [sprite, x, y, rotation] = saved[i];
-      sprite.x = x; sprite.y = y; sprite.rotation = rotation;
-      sprite._huFoot = feet.get(sprite) ?? null;
-    }
-  }
-  if (state.rows.length !== used) { state.rows.length = used; dirty = true; }
-  if (dirty) {
-    for (const canvas of [state.canvas, state.stamp]) {
-      if (canvas.width !== W) canvas.width = W;
-      if (canvas.height !== H) canvas.height = H;
-    }
-    const ctx = state.canvas.getContext('2d'), stamp = state.stamp.getContext('2d');
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'copy';
-    ctx.drawImage(cover.canvas, 0, 0);
-    for (const row of state.rows) {
-      const [source, sx, sy, sw, sh, a, b, c, d, e, f, x, y, alpha] = row;
-      // Blit only this transformed frame's bounds. Hundreds of small pieces
-      // must not each clear and composite two viewport-sized canvases.
-      const xs = [a*x+c*y+e, a*(x+sw)+c*y+e, a*x+c*(y+sh)+e, a*(x+sw)+c*(y+sh)+e];
-      const ys = [b*x+d*y+f, b*(x+sw)+d*y+f, b*x+d*(y+sh)+f, b*(x+sw)+d*(y+sh)+f];
-      const x0 = Math.max(0, Math.floor(Math.min(...xs)) - 1), y0 = Math.max(0, Math.floor(Math.min(...ys)) - 1);
-      const w = Math.min(W, Math.ceil(Math.max(...xs)) + 1) - x0;
-      const h = Math.min(H, Math.ceil(Math.max(...ys)) + 1) - y0;
-      if (w <= 0 || h <= 0) continue;
-      stamp.setTransform(1, 0, 0, 1, 0, 0);
-      stamp.save(); stamp.beginPath(); stamp.rect(x0, y0, w, h); stamp.clip();
-      stamp.clearRect(x0, y0, w, h);
-      stamp.globalAlpha = alpha; stamp.globalCompositeOperation = 'source-over';
-      stamp.imageSmoothingEnabled = false;
-      stamp.setTransform(a, b, c, d, e, f);
-      stamp.drawImage(source, sx, sy, sw, sh, x, y, sw, sh);
-      stamp.setTransform(1, 0, 0, 1, 0, 0);
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.drawImage(state.stamp, x0, y0, w, h, x0, y0, w, h);
-      stamp.restore();
-    }
-    ctx.globalCompositeOperation = 'source-over';
-    state.key = cover.key; state.revision++;
-  }
-  const revision = cover.key + '|scenery:' + state.revision;
-  return { ...cover, canvas: state.canvas, key: revision, revision };
 };
 
 Render.drawObjects = function drawObjects(scene) {
@@ -4417,7 +4273,6 @@ Render.drawObjects = function drawObjects(scene) {
   const _anchor = viewAnchorWorldM(scene);
   const pWorldX = _anchor.x;
   const pWorldY = _anchor.y;
-  const hideNightRoadObjects = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene, Date.now());
   // Per-object screen projection: world-meter delta (dx, dy from the anchor)
   // → screen pixels, coords.js deltaMToScreen — the one projection every
   // sprite, label, footprint and light in this frame shares.
@@ -4558,8 +4413,7 @@ Render.drawObjects = function drawObjects(scene) {
         if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
         if (o.kind === 'pressure_plate') return; // PressureTraps owns its ground sprite.
         if (Render.coverHidden(scene, o, true)) return;
-        if (HiddenObjects.isHidden(scene.save, o)
-            || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
+        if (HiddenObjects.isHidden(scene.save, o)) return;
         const dx = o.x - pWorldX, dy = o.y - pWorldY;
         // Past the sprite box the only thing an object could still do is
         // throw a pre-cull light, and the light walk below offers exactly
@@ -4603,8 +4457,7 @@ Render.drawObjects = function drawObjects(scene) {
         WorldGen.forEachItemInBox(entry, PRE_CULL_LIGHTS, pWorldX - lM, pWorldY - lM, pWorldX + lM, pWorldY + lM, (o) => {
           _boot_scanned++;
           if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) return;
-          if (HiddenObjects.isHidden(scene.save, o)
-              || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) return;
+          if (HiddenObjects.isHidden(scene.save, o)) return;
           const dx = o.x - pWorldX, dy = o.y - pWorldY;
           if (inViewBox(dx, dy, sM)) return;   // the sprite walk's
           offerPreCullLights(o, dx, dy);
@@ -4622,8 +4475,7 @@ Render.drawObjects = function drawObjects(scene) {
         wp = Render.wildplantView(wp, spentIds);
         if (!wp) return;
         if (Render.coverHidden(scene, wp, true)) return;
-        if (HiddenObjects.isHidden(scene.save, wp)
-            || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, wp, hideNightRoadObjects))) return;
+        if (HiddenObjects.isHidden(scene.save, wp)) return;
         const dx = wp.x - pWorldX, dy = wp.y - pWorldY;
         // A mushroom is a (faint) light as well as a sprite — offered before
         // the cull like a building, with its own radius as the margin. The
@@ -4730,14 +4582,6 @@ Render.drawObjects = function drawObjects(scene) {
       plantedList.push({ p: { x, y, crop: 'rubble', _placedRock: true }, dx, dy });
     }
   }
-  if (hideNightRoadObjects) {
-    let kept = 0;
-    for (const item of plantedList) {
-      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, item.p, true)) continue;
-      plantedList[kept++] = item;
-    }
-    plantedList.length = kept;
-  }
   // Placed scarecrows render as world objects — 3-cell-tall single image,
   // anchored at the base so it appears to stand on the cell. Pool reuses
   // objectPool slots so it integrates with depth-sort and viewport clip.
@@ -4754,11 +4598,10 @@ Render.drawObjects = function drawObjects(scene) {
   // through the shared object pool so it depth-sorts and clips with
   // everything else: scarecrows, campfires (burned from a coal), lamps. The
   // id is the kind's bare name over the fixed point.
-  const placedAs = (list, kind, idWord, extra, hideAtNight = true) => {
+  const placedAs = (list, kind, idWord, extra) => {
     const out = [];
     cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => {
       const o = { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) };
-      if (hideAtNight && typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects)) return;
       out.push({ o, dx, dy });
     });
     return out;
@@ -4781,7 +4624,7 @@ Render.drawObjects = function drawObjects(scene) {
   // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
   // the art here and the light in Lighting.collectLamps.
   const lampList = placedAs(scene._streetLamps || [], '_streetlamp', 'lamp',
-    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow, suppressed: L.suppressed }), false);
+    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow, suppressed: L.suppressed }));
 
   // Hide objects that are temporarily gone — an opened chest (its pad and label
   // go with it until it refills), a chopped tree, a mined-out mineralrock, a
@@ -4798,8 +4641,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (typeof HomeVariant !== 'undefined' && !HomeVariant.allows(scene, o)) continue;
     const dx = o.x - pWorldX, dy = o.y - pWorldY;
     if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, o, true)) continue;
-    if (HiddenObjects.isHidden(scene.save, o)
-        || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o, hideNightRoadObjects))) continue;
+    if (HiddenObjects.isHidden(scene.save, o)) continue;
     objList.push({o, dx, dy});
   }
   Render.cullCovered(scene, objList, 'o', true);
@@ -4978,10 +4820,14 @@ Render.drawObjects = function drawObjects(scene) {
   const { box: bodyBox, view: fadeView } = Render.headingFadeView(scene, playerScreenBox(scene));
   const playerDepth = scene.playerWorldContainer?.depth ?? Infinity;
   const playerBuilding = Render.playerBuildingKey(scene);
-  const fadeObject = (s, appearance) => Render.fadeObjectOverPlayer(s, appearance,
-    bodyBox, playerDepth, s._objectBaseAlpha ?? 1, fadeView,
-    !!playerBuilding && playerBuilding !== scene.save?.starterShopId
-      && (s._staticObject?.id === playerBuilding || s._staticObject?.castle === playerBuilding));
+  scene._objectsCoverPlayer = false;
+  const coverCheck = (s, appearance) => {
+    if (!scene._objectsCoverPlayer && Render.objectCoversPlayer(s, appearance, bodyBox, playerDepth, fadeView,
+      !!playerBuilding && playerBuilding !== scene.save?.starterShopId
+        && (s._staticObject?.id === playerBuilding || s._staticObject?.castle === playerBuilding))) {
+      scene._objectsCoverPlayer = true;
+    }
+  };
   const configureObject = (s, item) => {
     const { o, dx, dy } = item;
     const { x: sx, y: sy } = chasmAt.get(o) || project(dx, dy);
@@ -5012,8 +4858,10 @@ Render.drawObjects = function drawObjects(scene) {
     s._huAnchor = Render.objectGroundAnchor(appearance, scene.textures, { x: sx, y: sy });
     s._staticObject = o;
     s._staticAppearance = appearance;
-    s._objectBaseAlpha = s.alpha;
-    fadeObject(s, appearance);
+    // Glow treats every translucent body pixel as an outside edge and fills
+    // it gold. Keep the sweep, but suspend the rim on translucent art.
+    if (s._shinyGlowFx) s._shinyGlowFx.active = s.alpha >= 1;
+    coverCheck(s, appearance);
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
@@ -5021,7 +4869,7 @@ Render.drawObjects = function drawObjects(scene) {
         || s._staticObject !== item.o || s._staticAppearance !== item._appearance) return false;
     setWorldDepth(s, item._z ?? 0);
     // Body animation/height can change while cached scenery stands still.
-    fadeObject(s, item._appearance);
+    coverCheck(s, item._appearance);
     return true;
   };
   // Heading-up draws connected walls and hedges as ground-attached prisms in
@@ -5055,7 +4903,6 @@ Render.drawObjects = function drawObjects(scene) {
     setWorldDepth(s, item.depth);
     s.setAlpha(item.treeSprite.alpha);
     s._huAnchor = item.treeSprite._huAnchor;
-    s._coverObject = item.treeSprite._staticObject;
   });
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
@@ -5691,7 +5538,6 @@ Render.drawObjects = function drawObjects(scene) {
       const dx = c.x - pWorldX, dy = c.y - pWorldY;
       // View box before the cover ray: Golden Path coins line whole tiles.
       if (!inViewBox(dx, dy, halfM) || Render.coverHidden(scene, c)) continue;
-      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c, hideNightRoadObjects)) continue;
       coinList.push({ c, dx, dy });
     }
     entry.coinDrops.length = w;
@@ -5719,7 +5565,6 @@ Render.drawObjects = function drawObjects(scene) {
   const spritePlants = prismDrawn.size ? plantedList.filter(it => !prismDrawn.has(it)) : plantedList;
   Render.renderPool(scene, scene.plantedPool, scene.plantedContainer, spritePlants, (s, item) => {
     const { p, dx, dy } = item;
-    s._coverObject = p;
     const { x: sx, y: sy } = project(dx, dy);
     setWorldDepth(s, item._z ?? 0);    // screen-row z-order (see the z-order pass)
     // A NEST BUSH (items.js isNestBush — the predicate the harvest pays the

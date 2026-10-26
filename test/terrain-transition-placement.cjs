@@ -11,7 +11,7 @@ assert(start>=0&&end>start);
 const block=source.slice(start,end).replace(/\n\s*}\s*$/,'');
 const wateredTint=source.match(/const WATERED_TINT = (0x[0-9a-f]+);/)[1];
 const paint=new Function('scene','transitionMaterials','RING','_si','sx','sy','isTilled','type','TerrainTransitions',
-  'let noiseIdx=0;const absCellIX=0,absCellIY=0,col=0,row=0,transitionsActive=true,skyLevel=false,isWatered=!!scene.testWatered,polyGround=-1,riftGround=false,CELL_PX=16,TILLED_VARIANTS=1,WATERED_TINT='+wateredTint+';'+
+  'let noiseIdx=0;const absCellIX=0,absCellIY=0,col=0,row=0,transitionsActive=true,skyLevel=false,isWatered=!!scene.testWatered,polyGround=-1,CELL_PX=16,TILLED_VARIANTS=1,WATERED_TINT='+wateredTint+';'+
   'const T=()=>type,MountainEdges=undefined,BIOME_TEX={12:{variants:1}},polygonBuilding=()=>true,avalanche32=x=>x>>>0;'+
   'const Render={terrainSpriteAt:()=>scene.sprite()},setTextureIfDifferent=(s,key,frame)=>{s.key=key;s.frame=frame;return true;};'+
   block);
@@ -40,7 +40,7 @@ function coverage(vertices,family){
     for(const s of sprites){
       for(let py=0;py<16;py++)for(let px=0;px<16;px++){
         const alpha=atlas.data[((Math.floor(s.frame/16)*16+py)*atlas.w+s.frame%16*16+px)*4+3];
-        if(alpha)visible.set((s.x+px)+','+(s.y+py),{family:Math.floor(s.frame/16),point:[s.x+px+.5,s.y+py+.5]});
+        if(alpha)visible.set((s.x+px)+','+(s.y+py),{family:Math.floor(s.frame/16)%art.families.length,point:[s.x+px+.5,s.y+py+.5]});
       }
     }
   }

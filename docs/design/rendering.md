@@ -106,7 +106,7 @@ temple masonry use the matching colour mapping. Geometry, material detail and
 functional light colours remain intact. Growth stages retain proportional sizes
 and ore identities remain unchanged. Gameplay, source object IDs/positions and
 saves are unchanged.
-Nexus-specific ground, rift buffers, quarry rock, tilled beds, synthetic
+Nexus-specific ground, quarry rock, tilled beds, synthetic
 building floors and underground terrain retain their existing treatments.
 
 Private residential exclusion rock uses the purchased Top Down Mountain Edges
@@ -136,23 +136,34 @@ Tilled beds overlay the continuous native ground without removing its dual tile;
 otherwise the neighbouring half-cells would lose their texture.
 Map review deliberately displays each owning material without transitions.
 Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 26 families
-(416 frames, 256 × 416 pixels), including public residential light slate, cold slate, original square commercial
+(416 native frames), including public residential light slate, cold slate, original square commercial
 concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
 Grove ground uses the green Meadow grass interior in both native masks and
 fallback tiles. Grove variants retain green ground beneath their authored props
 and accents; the game and map review share these material choices.
 `tools/build_ra_terrain_trial.py` records each interior and mask source in the
-export manifest. Both rendering backends select these frames without a
+export manifest.
+Grass meets other ground on rounded corners. Below the native rows the atlas
+repeats every family (256 × 832 pixels) with masks re-cut on the logical cell
+boundary: convex corners rounded and concave corners filleted at
+`GroundMaterials.atlas.roundedRadius` (6 of 16 px), each family's own opaque
+centre and re-derived edge ink, and a mirrored one-pixel wobble so islands stay
+centred. Water's row copies its authored bank rocks. `layersFor` offsets every
+overlay frame into that block when the cell's four materials include a `grass`
+family and a non-grass one, so the cost is one frame offset and boundaries
+between non-grass materials keep their native shape.
+`tools/round_terrain_corners.py` bakes the block as the exporter's last step;
+run it alone to refresh the rounded rows of the committed atlas. Both rendering backends select these frames without a
 permutation atlas, per-cell canvases or runtime pixel reads. Ground variants
 use stable world-cell hashes; variants within one material share a boundary
 mask, so concrete grout and rubble do not acquire internal soil cutouts.
 Collision and logical terrain remain unchanged. `GroundMaterials` owns family
 rows, selected crops, terrain mappings and variant groups for both export and
 runtime. Surface atlas selection precedes fallback texture lookup. The retired
-rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
+standalone rounded-corner atlas, per-cell corner geometry, duplicate Nexus texture bakes
 and empty border layer are removed.
 The colour-ramp blur and legacy shoreline strips are removed; structural
-floors, source road paving, mountain edges and rift ground keep their owners.
+floors, source road paving and mountain edges keep their owners.
 
 `tools/build_rogue_objects.py` exports native objects,
 source assembly provenance and measured bounds; `WorldArtProfile` selects the
@@ -295,7 +306,9 @@ boundaries keep exactly matching cap vertices. Texture coordinates follow world
 cells, so sub-cell movement and a view rebuild do not slide the material.
 `wall_surface_renderer.js` submits the textured triangles through Phaser's
 existing WebGL pipeline and uses affine texture triangles for Canvas fallback;
-there is no wall canvas bake or texture upload on heading changes. At a fixed
+the Canvas adapter replaces the context transform with Phaser’s complete camera
+matrix once, so flat and textured walls in a shared batch stay aligned. There is
+no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
@@ -348,28 +361,35 @@ geometry's pan offset also moves its sorting anchor, including at a fixed headin
 Ground floors and the legacy architectural walls remain in their background
 passes. Standalone building viewers without a world container sort buildings
 in their existing wall container.
-Standing buildings become 50% opaque only when their visible projected faces
-fully cover the player's inset body box from in front. Footprint entry or partial
-overlap alone never fades a building. The coverage test subtracts the union of
+Nothing fades over the player. A standing building hides the player only when
+its visible projected faces fully cover the player's inset body box from in
+front (`Render.buildingCoversPlayer`); footprint entry or partial overlap alone
+never counts. The coverage test subtracts the union of
 visible triangles for low-poly meshes and ramparts, retaining courtyard holes;
 legacy sprite buildings require full containment by their trimmed art bounds.
-These checks follow compass rotation and retained pan offsets, and restore full
-opacity immediately on leaving. Faded low-poly buildings skip the filled ink
-outline passes so overlapping ink cannot obscure the player through the fade.
-They update opacity without rebuilding geometry
+These checks follow compass rotation and retained pan offsets. While anything
+hides the player, `Render.syncPlayerGhost` draws a 40% copy of the body sprite
+above every standing object (`playerGhostContainer`, just above the world
+container); the occluders keep their opacity and ink. Each source keeps its
+cover flag on its own live state (`scene._objectsCoverPlayer`, a wall group's
+or `scene._lowpoly`'s `coversPlayer`), so a torn-down pass cannot leave a
+stale ghost. The checks update without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
-Individual 3D blocks centre on the old wall line, with eight-unit thickness,
-half-unit joints and one-unit clipped corners. Five bays in each nine-bay run
+Individual 3D blocks extend inward from the old wall line, with eight-unit
+thickness, half-unit joints and one-unit clipped corners. Bays are clipped to
+the complete source footprint at acute corners and concave returns. Five bays in each nine-bay run
 rise through approximately 5, 10, 14, 11 and 5 units; long sides and the street
 entrance retain broad openings. Seeded wear varies the heights slightly. Loose
 fallen blocks are 2–4 units tall; their count scales with footprint area up to
-24. No roofs or raised framing remain.
+24. Their full rotated bases must fit inside the source ring, including rubble
+beside a breach. No roofs or raised framing remain.
 `tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-A five-unit brown border follows the footprint at 72% opacity. A shared
+A five-unit brown border follows the inside of the footprint at 72% opacity;
+clipped corners retain the same affine texture coordinates. A shared
 64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
 replacing individual dash polygons without a custom shader or per-building bake.
 All profiles use the shared mask; their masonry palettes remain independent.
@@ -392,7 +412,9 @@ Each raised section sorts independently at its baseline, so the player can walk
 between near and far remains. Surface player movement already permits wrecks.
 Damage is seeded by building identity and stays stable across reloads and camera
 movement. The nearest street-facing doorway stays clear. Block end faces cut perpendicular to each wall; clipped corners separate
-the individual stones. Narrow annexes use a thinner band. Geometry and material are shared and retained across camera
+the individual stones. Each wall's thickness comes from the free depth inward from its own
+bays (up to eight units), so a short jog or chamfer never thins the whole wreck; only a
+narrow annex's walls use a thinner band. Geometry and material are shared and retained across camera
 rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
@@ -481,17 +503,21 @@ identity, including Tilly's housed face.
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
 fort's plank floor and emits the tier-11 pickets of `perspectiveEdges`:
-separate broader pointed posts with rounded octagonal bodies and continuous cel shading,
+separate pointed square posts with continuous cel shading,
 sized and spaced by `WallMaterials.WOOD`,
 along every footprint edge, as `WallPerspective` segments in the polygon group, so the rim
-follows concave rings and turns with the compass like every other wall. The
+follows concave rings and turns with the compass like every other wall. Full
+post bases are clipped to the source ring, including short edge intervals and
+acute corners. Forts, wreck bays and legacy castle walls share the prepared
+`PolygonGeometry.createFootprintClipper` and its indexed containment checks. The
 hall is the approved `house_fort` sprite (`house_fort_unclaimed` before the
 fort is unlocked), seated by the RENDER_SPEC `house` row on the footprint's
 centre of mass at the fort row of `BUILDING_ART`; the overlay never records
 the fort in `scene._proceduralBuildings`, which is what keeps that sprite
 visible. `Render.BUILDING_STYLE_ROLES` has no `fort` row. On the low-poly path
 the copper `city_storefront` hall replaces that sprite at the fixed width of
-`BuildingLowPoly.FORT_HALL` (3 cells, else 2, each with its plank deck),
+`BuildingLowPoly.FORT_HALL` (3 × 2 cells — 21 m × 14 m — else 2 cells
+across at that aspect, each with its plank deck),
 centred on the footprint's centre of mass in any orientation; a lot too small
 for the 2-cell hall and its deck gives the hall its entire footprint (the
 largest fit). With the overlay off, the tiled pass draws the
@@ -577,8 +603,8 @@ the surrounding grove’s shrub scale.
   sign boards and smoke counterrotate their drawing commands. Contact shadows
   keep their ellipse orientation. Building shadows share the building pivot,
   retain their screen-vertical inset, and size to the visible art footprint.
-  Broken lamp posts stay upright. Dropped inventory icons, shells, flint and
-  driftwood lie flat and retain the ground rotation.
+  Broken lamp posts and the flint nodule stay upright. Dropped inventory icons,
+  shells and driftwood lie flat and retain the ground rotation.
   Creature appearance directions rotate without changing simulation state.
   The player facing chevron is omitted in heading-up mode when a device
   compass reports, unless direction lock is engaged. The gold lock beside zoom
@@ -685,13 +711,15 @@ the surrounding grove’s shrub scale.
   split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Only buildings and trees of medium canopy or larger (`fadesOverPlayer`,
-  over `treeSizeClass`) fade over the player; small trees, rocks, lamps and
-  every other prop stay opaque. They fade to half their normal opacity only when their art overlaps
-  the player's inset body box and their world depth draws them in front. The
+  over `treeSizeClass`) can hide the player and show its ghost; small trees,
+  rocks, lamps and every other prop never count. Inside castle grounds, that
+  castle's other pieces count too. A prop hides the player only when its art
+  overlaps the player's inset body box and its world depth draws it in front
+  (`Render.objectCoversPlayer`). The
   overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
   `artBounds` for procedural art that declares one (the street lamp's
-  ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. Buildings instead require full
+  ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots.
+  Tool access never changes prop opacity. Buildings instead require full
   body-box coverage, as described in the low-poly section above. On a turned heading-up map
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
@@ -800,10 +828,9 @@ the surrounding grove’s shrub scale.
   sheet (`Render.vividTexture`), under every renderer. Shiny animals also
   retain their original or individual pet palette. Shiny objects use a moderate
   outer gold rim with zero inner fill and a moving glint; the body is
-  never tinted gold for rarity. When foreground overlap fades an object,
-  suspend its outer glow: Phaser interprets translucent interior pixels as
-  outside edges and otherwise fills the faded body gold. Restore the same
-  glow controller when the object becomes opaque; retain the glint. Canvas and FX-disabled WebGL retain the
+  never tinted gold for rarity. Suspend the outer glow on translucent object
+  art: Phaser interprets translucent interior pixels as outside edges and
+  otherwise fills the body gold. Keep the same glow controller; retain the glint. Canvas and FX-disabled WebGL retain the
   sparkle marker and shared light source. Its twin rune circle is two white rotation strips
   (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
@@ -876,15 +903,6 @@ the surrounding grove’s shrub scale.
   the same pass as its scene owner, so interleaved previews stay independent.
   Tilled overlays only read farm state; tile loading and crop removal reconcile
   invalid empty soil through `Crops.reconcileTilled`.
-- `RoadSafety` paints visible cells selected by `WorldGen.nightZoneBits` with its
-  muted red ground wash after dark; lot-only, walking-path and roadside-path exemptions stay
-  clear. The wash sits above road surfaces and below
-  road names, buildings and world sprites. Its key includes the camera cell,
-  row-band phase, night state and visible road bits, so a crossing, sunset or
-  newly loaded tile rebuilds it while sub-cell motion only scrolls it.
-  `drawObjects` hides generated objects, plants, placed crops, fires, scarecrows,
-  treasure marks and coin drops in that zone. The tap pass reads the same
-  `RoadSafety` predicate, so hidden interactions cannot remain active.
 - A cell-crossing rebuild never reads pixels back: no `getImageData`, no
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages
@@ -990,31 +1008,17 @@ the reach rim within the existing player-light radius.
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
-  provide partial cover, indicated by non-stacking dark diagonal hatching. Small
+  provide partial cover; nothing on screen marks the covered area. Small
   rocks and the smallest tree saplings provide no cover. The facing blocker
   stays visible. Any cover (`Visibility.hidden`) removes the actors behind
   it — creatures, peers, coins, shots — with their labels, shadows and
   target affordances. Scenery (objects, plants, crops, traps, hazards) and
   the ground stay drawn and tappable in the shadow so the player keeps their
-  bearings; full cover removes scenery as well. Both cover types use the same
-  hatching; gameplay sight and hiding are independent of its visual boundary.
-  At zero energy, cover stops hiding actors/scenery and the obstruction mask
-  clears; both return on revival. Physical cover for enemy sight is unchanged.
-  `Lighting.coverFrame` caches a hard, world-aligned half-cell mask with a
-  one-cell radial pullback: the nearest full cell of each hidden band stays clear.
-  Both inward half-cell samples must be covered. No blur, feather, noise,
-  interpolated sampling or smooth upscaling is used. The cached overlay draws
-  single-direction dark 45° lines, 2 logical pixels wide and 12 pixels apart,
-  RGB (24,29,26) at 32% opacity. Their phase stays fixed in world coordinates.
-  `Render.protectCoverScenery` subtracts visible sprite silhouettes without
-  adding cover back into the pulled-back band. Retained buffers avoid pixel
-  readback. The NORMAL-blended viewport texture uses nearest filtering above
-  the multiply lightmap, below effects and labels; mask or silhouette changes
-  refresh only this texture, not lighting. Cover queries always
-  originate at the player's body, including during camera peeks; the mask alone
-  traces from `Visibility.observer`, the body snapped to an eighth-cell lattice
-  inside its own cell, so walking and GPS glide repaint it per step rather than
-  every frame. Rays read a dense typed-array cover grid, never per-cell key
+  bearings; full cover removes scenery as well.
+  At zero energy, cover stops hiding actors/scenery; it returns on revival.
+  Physical cover for enemy sight is unchanged.
+  Cover queries always originate at the player's body, including during camera
+  peeks. Rays read a dense typed-array cover grid, never per-cell key
   strings; the object rescan is gated by a signature (night state included) and
   a one-second refresh for slow in-place edits. The per-ray cache clears
   whenever the body moves, so render passes test `Render.coverHidden` only
@@ -1214,7 +1218,8 @@ the reach rim within the existing player-light radius.
   to selected ground centers; `ZONE_SELECTED_MATERIALS` assigns every Nexus variant without
   changing ownership, props, trees or gameplay. Keep the existing transition masks.
   Stacked native masks own surface edges. Underground, structural floors, tilled
-  beds, rift ground and unmapped fog retain their dedicated fallback materials.
+  beds and unmapped fog retain their dedicated fallback materials. The MD/LG
+  roadside buffer has no ground material of its own; it shows the local biome.
   Houses keep their existing floor owner. Temple polygons use F02 weathered RA slabs
   until activation, then F03 pale restored slabs; tar sanctuaries bake a dark palette
   onto the same source tiles. Existing coping, foundations and rune illumination remain.
@@ -1430,14 +1435,40 @@ the same profile for its courtyard floor. Citadel wrecks are dark and foreboding
 conquest repairs and lightens them. Bastion and Archive damage is a condition
 of the same architecture, with interrupted crowns and missing roof planes.
 
-Towers straddle convex corners; curtains are clipped against their footprints.
+Tower bases fit fully inside convex corners of the mapped footprint, including
+Bastion's flared feet; corners too narrow for a complete tower keep their curtain
+instead. Placement checks the entire source ring so a nearby concave notch
+cannot be crossed. Curtains are clipped against the tower shafts.
 Merlons are solid geometry with open crenels and full coping support, spaced
 more sparsely than the previous masonry build. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
-and spacing are part of the bounded local-coordinate cache key. Invalid or
-excessively complex rings retain the existing fallback.
+and spacing are part of the bounded local-coordinate cache key. Source rings
+up to 512 vertices can use the generated architecture without simplifying their
+contours. Detailed rings (over 64 cleaned vertices) keep contained curtain strips
+whole and clip only the pieces that cross the source boundary; they do not split
+every strip along every triangulation edge. Exact convex fragments within a
+curtain section are reunited after neighboring walls and towers are subtracted;
+area and full-source containment checks prevent bridging gaps or notches.
+Numerical subtraction slivers below 0.0001 square game pixels are discarded;
+source vertices are not simplified to achieve this. The shared prepared footprint clipper
+also supplies indexed containment checks for towers, merlons and keep clearance.
+Wall fragments remain capped at 512, merlons at 192 and towers at 12. Source-edge
+bounds reject crossing candidates cheaply, and canonical cached layouts skip
+repeated topology validation. Cache keys alone round local coordinates to
+0.000000001 game pixels, removing camera-translation noise far below the geometry
+tolerance while computations retain full precision. Each wall reuses its nearby solids when hiding
+internal faces. Ordinary rings retain their existing layout and triangle counts.
+Invalid rings, inputs above the vertex limit, or layouts exceeding the piece
+budget retain the contained fallback. Its wall strips, battlements
+and concave joins are clipped to the full source ring too: an inward normal
+alone does not contain a strip at an acute corner or narrow notch. Contained
+strips stay intact; clipped fragments share their wall's sorting anchor, and
+an exactly convex union is retained as one prism. This preserves source-edge
+coverage without treating surrounding map ground as part of the castle. Source
+edge height buckets and segment bounds keep exact containment checks local on
+detailed rings; offscreen strips are rejected before clipping.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
@@ -1508,6 +1539,10 @@ through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
 footprint and screen-up elevation; the concepts do not define another camera.
 Canvas shares these faces and closes opaque triangle seams at surface boundaries.
+Shared-edge coverage and texture transforms are retained until geometry or atlas
+size changes. Original triangle batches and global coverage remain intact across
+camera pans. Coverage expansion uses one inverse camera transform per frame,
+not one per triangle.
 Textured roof slopes share seam coverage only with other roof slopes, so the
 pale underlying cap cannot expand beyond their eaves.
 White-patch materials fill directly with their cel colour on Canvas; only the

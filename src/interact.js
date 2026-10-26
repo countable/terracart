@@ -154,7 +154,6 @@ function findItemInTapCell(scene, layer, wm, accept) {
   let best = null, bestD2 = Infinity;
   WorldGen.forEachItem(layer, (item) => {
     if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, item)) return;
-    if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, item)) return;
     if (accept && !accept(item)) return;
     if (!itemContainsTapCell(scene, item, tapCell)) return;
     if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, item.x, item.y, true)) return;
@@ -173,7 +172,6 @@ function buildingTapTarget(scene, sx, sy) {
   WorldGen.forEachItem('objects', o => {
     if (o.id !== key || (!isBuilding(o.kind) && o.kind !== 'temple')) return;
     if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, o)) return;
-    if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)) return;
     if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) return;
     target = o;
     return true;
@@ -270,38 +268,28 @@ const TERRAIN = {
 // you'd tapped. The '·' is now only a defensive last resort for a terrain
 // code that is neither tillable nor listed here.
 // The label the `flavor` handler flashes when a tap lands on ground that
-// CANNOT BE TILLED. Two jobs in one line, and it used to do neither:
+// CANNOT BE FARMED. It is the game's only description of the ground itself:
+// every proper noun on the map goes through rusticifyName — a school is a
+// Hedge School, a restaurant a Tavern — so the earth under it reads in the
+// same register, never 'industrial yard' or 'highway'.
 //
-//   1. It is the game's only description of the ground itself. Every proper
-//      noun on the map goes through rusticifyName — a school is a Hedge
-//      School, a restaurant a Tavern, a library a Scriptorium — and then the
-//      earth under it read 'industrial yard', 'plaza', 'highway'. The one
-//      handler NAMED for flavour was the one surface written in municipal
-//      English.
-//   2. It is the answer to "why did nothing happen?". `flavor` is ordered
-//      ahead of `till` precisely so an untillable cell is claimed before the
-//      hoe can reach it, so this flash IS the refusal — and a bare noun
-//      ('road') never said it was a refusal at all. Each line now carries the
-//      REASON, and the reason is the mechanic: paved and built ground has no
-//      earth in it, and stone has to be broken before it is anything else.
-//
-// Kept to one short sentence: this is a flash over a cell, not a paragraph.
-// The three paved codes deliberately repeat the same clause — that repetition
-// is how a player learns the rule covers every paved thing, not just the one
-// they happened to tap.
+// Only a selected seed tills (a map tap or its Till & plant action), so
+// these lines describe the cell and never phrase themselves as a refused
+// till or hoe stroke. Kept to one short sentence: this is a flash
+// over a cell, not a paragraph.
 // (WATER is carried for completeness only: `fishing` is ordered ahead of
 // `flavor` and consumes every water tap, bare-handed included, so that line
 // is unreachable in play — it exists because the non-tillable sweep in
 // interact_tap.test.js covers every code and a hole would read as a bug.)
 const TERRAIN_FLAVOR = {
-  [TERRAIN.WATER]:          'Open water. Nothing to till.',
-  [TERRAIN.ROAD]:           'Hard road. No earth to turn.',
-  [TERRAIN.PATH]:           'A path. No earth to turn.',
+  [TERRAIN.WATER]:          'Open water, cold and deep.',
+  [TERRAIN.ROAD]:           'Hard road, packed and worn.',
+  [TERRAIN.PATH]:           'A footpath, trodden smooth.',
   [TERRAIN.BUILDING]:       'Someone else\'s floor.',
   [TERRAIN.ROCK]:           'Bare rock. Nothing roots here.',
   [TERRAIN.BUILDING_MED]:   'Someone else\'s floor.',
   [TERRAIN.BUILDING_LARGE]: 'A great hall\'s floor.',
-  [TERRAIN.ROAD_LG]:        'A highway. No earth to turn.',
+  [TERRAIN.ROAD_LG]:        'A highway, paved wide.',
   [TERRAIN.ROAD_MD]:        'A broad avenue, well laid.',
   [TERRAIN.COMMERCIAL]:     'Flagstoned merchants\' square.',
   [TERRAIN.INDUSTRIAL]:     'A works yard. Gravel and oil.',
@@ -310,12 +298,12 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.CAVE_WALL]:      'Solid rock. A pick opens it.',
   [TERRAIN.CAVE_LAVA]:      'Lava. It burns to stand in.',
   [TERRAIN.TAR_YARD]:       'Oily ground. Nothing roots.',
-  [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock. No tilling.',
-  [TERRAIN.ROCKY_GROUND]: 'Rocky ground. No tilling.',
+  [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock, unbroken.',
+  [TERRAIN.ROCKY_GROUND]: 'Rocky ground, loose stone.',
 };
 
-// …and the refusal on soil a street lamp stands on (cellAt's underLamp).
-const LAMP_FOOT_FLAVOR = 'A lamp post. Nothing to till.';
+// …and the label on soil a street lamp stands on (cellAt's underLamp).
+const LAMP_FOOT_FLAVOR = 'A lamp post stands here.';
 
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
@@ -674,8 +662,7 @@ const TAP_HANDLERS = [
   // The covering square is the first interaction, even when a flower, chest
   // or treasure shares its cell. Delegate to the ordinary harvest transaction.
   { name: 'grass-cover', try: (ctx) => {
-    if (ctx.building || (typeof RoadSafety !== 'undefined'
-        && RoadSafety.nightRoadZone(ctx.scene, ctx.wm.x, ctx.wm.y))) return false;
+    if (ctx.building) return false;
     const previous = ctx.grassOnly;
     ctx.grassOnly = true;
     try { return TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx); }
@@ -702,8 +689,7 @@ const TAP_HANDLERS = [
     const tryClaim = (tr) => {
       if (!treasureExposed(tr, scene, save) || found.has(tr.id)
           || (typeof HiddenObjects !== 'undefined' && HiddenObjects.treasureHidden(save, tr)
-            && !(typeof Starter !== 'undefined' && Starter.isTrailTreasure(scene, tr)))
-          || (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, tr))) return false;
+            && !(typeof Starter !== 'undefined' && Starter.isTrailTreasure(scene, tr)))) return false;
       if (!sameAbsCell(scene, wm.x, wm.y, tr.x, tr.y)) return false;
       if (tooFar(ctx, tr.x, tr.y)) return 'far';
       save.foundTreasures = [...found, tr.id];
@@ -756,7 +742,6 @@ const TAP_HANDLERS = [
           const c = entry.coinDrops[i];
           if (c.expiresAt && c.expiresAt <= now) continue;
           if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, c.x, c.y)) continue;
-          if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, c)) continue;
           if (!sameAbsCell(scene, wm.x, wm.y, c.x, c.y)) continue;
           // Distance only picks a winner among coins sharing the tapped cell.
           const d2 = distM2(c.x, c.y, wm.x, wm.y);
@@ -1093,11 +1078,6 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // Night road ground carries no object interaction. Creature taps already ran
-  // because creatures stay visible; every rooted or dropped thing stays quiet.
-  { name: 'night-road-hidden', try: ({ scene, wm }) =>
-    typeof RoadSafety !== 'undefined' && RoadSafety.nightRoadZone(scene, wm.x, wm.y) },
-
   // A selected kit dismantles one obstacle before its normal axe-work tap.
   { name: 'disarm-obstacle', try: (ctx) => {
     const { scene, save, wm } = ctx;
@@ -1278,7 +1258,6 @@ const TAP_HANDLERS = [
     // forEachItem treats any truthy return as "stop iterating".
     const addVisible = o => {
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(save, o)) return;
-      if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)) return;
       allObjs.push(o);
     };
     WorldGen.forEachItem('objects', addVisible);
@@ -1412,11 +1391,9 @@ const TAP_HANDLERS = [
     if (!BUILDING_TYPES.has(cell.type) || homeFurnitureTap(ctx)) return false;
     const entry = WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty));
     const owner = entry?.ownerKeys?.[entry.owners?.[cell.iy * entry.cellsPerEdge + cell.ix]];
-    let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner
-      && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
+    let temple = owner && entry?.objects?.find(o => o.kind === 'temple' && o.id === owner);
     if (owner && !temple) for (const neighbor of WorldGen.tileCache.values()) {
-      temple = neighbor.objects?.find(o => o.kind === 'temple' && o.id === owner
-        && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
+      temple = neighbor.objects?.find(o => o.kind === 'temple' && o.id === owner);
       if (temple) break;
     }
     if (temple) return INTERACTABLES.temple.custom(ctx, temple);
@@ -1429,7 +1406,6 @@ const TAP_HANDLERS = [
       WorldGen.forEachItem('objects', o => {
         if (o.id !== owner || !isBuilding(o.kind)) return;
         if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) return;
-        if (typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)) return;
         building = o;
         return true;
       });
@@ -1437,8 +1413,7 @@ const TAP_HANDLERS = [
     }
     const best = findClosestItem('objects', cwmx, cwmy, 30,
       (o) => isBuilding(o.kind)
-        && !(typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true))
-        && !(typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(scene, o)));
+        && !(typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)));
     if (!best) return false;
     scene.shopInteract(sx, sy, best);
     return true;
@@ -2029,9 +2004,10 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // Only the seed's explicit action may prepare ground; map taps never till.
+  // A selected seed prepares ground: a map tap on bare soil in reach, or the
+  // seed's Till & plant action at the player's feet. Without a seed, taps
+  // never till.
   { name: 'till', try: (ctx) => {
-    if (!ctx.seedAction) return false;
     const { scene, save, sx, sy, cell, cellKey, cwmx, cwmy } = ctx, at = occupantsOf(ctx);
     const seed = getSelectedSlot(save);
     if (!seed || ITEM_BY_ID[seed.id]?.kind !== 'seed' || !(seed.count > 0)) return false;

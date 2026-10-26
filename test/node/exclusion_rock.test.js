@@ -147,7 +147,7 @@
   });
   test('exclusion bedrock: tilling and planting gates refuse permanent rock with a clear label', () => {
     assert.falsy(isTillableCell({ type: T.EXCLUSION_ROCK }), 'hoe and planting share this gate');
-    assert.eq(TERRAIN_FLAVOR[T.EXCLUSION_ROCK], 'Solid bedrock. No tilling.');
+    assert.eq(TERRAIN_FLAVOR[T.EXCLUSION_ROCK], 'Solid bedrock, unbroken.');
   });
   test('exclusion bedrock: surface movement blocks bedrock but still crosses roads and water', () => {
     const start = SCENE_SRC.indexOf('\n  _cellBlocked(');

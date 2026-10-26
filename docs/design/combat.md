@@ -114,11 +114,6 @@ mechanics.
   strength. A refused meal grants neither effect.
 - `Energy.set` is the only runtime energy writer (current-save normalization is exempt).
   Accumulate fractional per-frame gains/losses before banking whole pips.
-  `RoadSafety.DRAIN_PER_SECOND` drains a surface player whose feet remain in
-  the night-time MD/LG kerb buffer, excluding walking-path footprints and its roadside-path side through
-  `WorldGen.nightZoneBits`. `RoadSafety.drainPips` drops a partial pip
-  on exit; app.js spends each whole pip through `_losePlayerEnergy` and the
-  shared drain roll-up.
 - A TIMED CONSUMABLE is a `CONSUMABLE_SPEC` row with `buff` (its `Buffs.KINDS`
   row) and `used` (its dialog): app.js `_useTimedBuff` is its one user,
   `Buffs.extend` its one writer (a second dose is banked on the first's end,
@@ -250,8 +245,9 @@ mechanics.
   the selected melee weapon, or an owned sword/bare hands while a ranged weapon
   stays selected. Ranged fire resumes when melee reach clears; paused fire spends
   no ammunition or energy, and already launched shots keep flying.
+  A player who owns no weapon at all fights bare-handed (`Gear.meleeActive`).
   Manual Unequip clears the active weapon and any unlaunched swing or staff
-  charge. Empty hands stop automatic attacks even while a sword remains owned;
+  charge. Empty hands stop automatic attacks while any weapon remains owned;
   the choice survives reloads and temporary wand expiry. Feeding and catching
   remain available. Explicit Equip or obtaining a new weapon resumes the normal
   equipment flow. Enemies still attack an unarmed player.

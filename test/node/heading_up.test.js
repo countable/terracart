@@ -190,7 +190,10 @@ test('heading up: contact shadows rotate about centre and captions keep origin',
     }
   }
   assert.eq(WorldLayers.forObject({kind:'groundstack'},spec.groundstack),WorldLayers.GROUND_DECAL);
-  for (const crop of ['shell', 'flint', 'driftwood']) assert.eq(WorldLayers.forObject({kind:'wildplant',crop}),WorldLayers.GROUND_DECAL);
+  for (const crop of ['shell', 'driftwood']) assert.eq(WorldLayers.forObject({kind:'wildplant',crop}),WorldLayers.GROUND_DECAL);
+  // The flint nodule is lit for the south camera (pale crown, dark flank):
+  // it stands like the flint rocks beside it instead of turning with the map.
+  assert.eq(WorldLayers.forObject({kind:'wildplant',crop:'flint'}),WorldLayers.STANDING_PROP,'flint nodule stays upright');
   assert.eq(WorldLayers.forObject({kind:'_firepit'},spec._firepit),WorldLayers.STEP_OVER_PROP,'cold firepit is a step-over prop');
  });
 

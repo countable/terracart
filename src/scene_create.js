@@ -462,11 +462,6 @@ class SceneCreate {
     // castle tucks behind the back wall instead of its letters poking over it.
     // (Pool populated further down, after the decoration pool.)
     this.letterContainer = this.add.container(0, 0);
-    // Night road danger is ground colour over the road and kerb buffer. It
-    // shares the letter layer so road names remain above it, while buildings,
-    // objects and the lightmap still cover it in their ordinary order.
-    this.roadSafetyGfx = this.add.graphics();
-    this.letterContainer.add(this.roadSafetyGfx);
     // POLYGONAL building footprints (building_overlay.js) — the source OSM
     // rings the rasterizer turned into building cells, filled at their true
     // shape with the tier's floor, wall and rampart. While the mode is on
@@ -542,6 +537,9 @@ class SceneCreate {
     this.creaturesContainer = this.worldContainer;
     // Interactive towers and flags participate in the world foot sort.
     this.towerContainer = this.worldContainer;
+    // A 40% copy of the player drawn over every standing object while one of
+    // them hides the body (Render.syncPlayerGhost); occluders keep their opacity.
+    this.playerGhostContainer = this.add.container(0, 0);
     // Cell gas veils standing objects, then shares their lighting and fog.
     this.gasGfx = this.add.graphics();
     // Coin-burst drops (from ATM / bicycle_parking tap). Sits above objects
@@ -588,11 +586,6 @@ class SceneCreate {
     try { this.lightTex.setFilter(Phaser.Textures.FilterMode.LINEAR); } catch (e) { /* Canvas: no texture filter */ }
     this.lightMap = this.add.image(this.viewLeft, this.viewTop, 'lightmap')
       .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.MULTIPLY);
-    // Visibility hatching is independent of the multiply lighting pass.
-    this.visibilityFogTex = Render.viewportCanvas(this, 'visibilityfog', 0).tex;
-    this.visibilityFogTex.setFilter(Phaser.Textures.FilterMode.NEAREST);
-    this.visibilityFog = this.add.image(this.viewLeft, this.viewTop, 'visibilityfog')
-      .setOrigin(0, 0).setBlendMode(Phaser.BlendModes.NORMAL);
     // PARTICLE BURSTS (src/particles.js) — the one-shot puffs: gold stars off
     // a jackpot / shiny banner, pale chips off a street coming back, leaf
     // flecks off a crop reaching its next stage. ABOVE the lightmap because a
@@ -967,6 +960,7 @@ class SceneCreate {
     this.raisedPropContainer.setMask(mask);
     this.rampartBackGfx.setMask(mask);
     this.worldContainer.setMask(mask);   // crops + objects + creatures
+    this.playerGhostContainer.setMask(mask);
     this.gasGfx.setMask(mask);
     this.coinContainer.setMask(mask);
     this.sparkContainer.setMask(mask);
@@ -1114,6 +1108,13 @@ class SceneCreate {
     this.playerWorldContainer.add(this.player);
     this._playDirected(this.player, 'idle');
     this.player.setY(this.viewCenterY + this.playerFeetNudgeY);
+    this.playerGhost = this.add.image(this.player.x, this.player.y, this.player.texture.key, this.player.frame.name)
+      .setVisible(false);
+    this.playerGhostContainer.add(this.playerGhost);
+    // Before HeadingUp.install's prerender hook, which turns the ghost upright.
+    const syncGhost = () => Render.syncPlayerGhost(this);
+    this.game.events.on('prerender', syncGhost);
+    this.events.once('shutdown', () => this.game.events.off('prerender', syncGhost));
     // Contact shadow under the player's feet. It is created at viewCentre and
     // re-seated every frame on scene.playerScreen() (update(): the feet, which
     // a peek drag slides off the viewport centre) — a pixel above them, so the

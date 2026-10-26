@@ -20,7 +20,5 @@ module.exports=function jungleLightingSource(source){
       stops.push([0, col, 0.5], [0.70, col, 0.425], [0.93, col, 0.20], [1, col, 0]);
     }
     bakeRadialCookie(canvas, R, stops);`);
-  replaceOnce('  function coverFrame(scene, ax, ay, W, H) {', `  function coverFrame(scene, ax, ay, W, H) {
-    if (typeof window !== 'undefined' && window.__JUNGLE_STUDY) return null;`);
   return source;
 };

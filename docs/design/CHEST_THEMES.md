@@ -128,6 +128,10 @@ stalls and coin pots keep their own interactions.
   that lands on a slot the player holds at exactly that tier rerolls once at
   the full quality; only a second miss, or a first roll under owned gear,
   pays the half-price coins.
+- **Armour climbs its ladder.** A chest armour roll reaches at most
+  `CHEST_GEAR.armorRungsAhead` tiers above the piece worn in that slot, or
+  the chest's floor (T3 chest: Copper) when that is higher, so a jackpot
+  never hands Gold boots to bare feet.
 - **Unique finds stay unique.** Unique relics never drop to a player who
   already carries one (`ChestThemes.eligible`).
 - **Books reach the scholar.** Every chest seated at T2 carries a Book share

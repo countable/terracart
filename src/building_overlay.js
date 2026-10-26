@@ -1042,13 +1042,17 @@
       area += a.x * b.y - b.x * a.y;
     }
     const winding = Math.sign(area);
+    // Both ramparts and wooden posts must respect the complete source ring,
+    // including acute ends and nearby concave returns.
+    const clipFootprint = rampart || d.tier === 11
+      ? PolygonGeometry.createFootprintClipper(points) : null;
     let palisadeIndex = 0;
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length];
       const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
       if (!length) continue;
       const nx = -dy / length * winding, ny = dx / length * winding;
-      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark };
+      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark, clipFootprint };
       if (rampart) {
         const count = length < rampart.toothWidth ? 0 : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
         const pitch = count > 1 ? (length - rampart.toothWidth) / (count - 1) : 0;
@@ -1076,9 +1080,12 @@
         const previous = points[(i + points.length - 1) % points.length];
         const px = a.x - previous.x, py = a.y - previous.y, plen = Math.hypot(px, py);
         if (plen && (px * dy - py * dx) * winding < 0) {
-          WallPerspective.prism(scene, 'polygon', [a,
+          const bevel = [a,
             { x: a.x - py / plen * winding * thickness, y: a.y + px / plen * winding * thickness },
-            { x: a.x + nx * thickness, y: a.y + ny * thickness }], 0, height, { face, top, dark });
+            { x: a.x + nx * thickness, y: a.y + ny * thickness }];
+          for (const part of !WallPerspective.inView(scene, bevel, 0, height) ? []
+            : clipFootprint ? clipFootprint(bevel) : [bevel])
+            WallPerspective.prism(scene, 'polygon', part, 0, height, { face, top, dark });
         }
       }
     }

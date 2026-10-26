@@ -126,8 +126,8 @@ ONBOARDING (the first session)
    selling. Reopenable from ☰ "How to play".
  - SPIRIT GUIDANCE: the floating Dragon Spirit dialogue sprite speaks the
    ONE next thing to do in a compact map speech bubble (`quests.js`
-   `STARTER_CHAIN` — pick up supplies → plant a seed → water → restore a wreck
-   → deliver one potato and hear Tilly’s thanks → road hint). Steps auto-advance on gameplay events fired from the sites
+   `STARTER_CHAIN` — pick up supplies → plant a seed → water → restore a wreck;
+   the first repaired house ends the tutorial). Steps auto-advance on gameplay events fired from the sites
    that perform them (`scene.questEvent`), with a spoken acknowledgement and
    no tutorial coin bonus. Ordinary crate contents and sale proceeds are
    unchanged. The Spirit retires when the ladder finishes or is dismissed
@@ -416,8 +416,10 @@ INTERACTION MODEL
    cell it stands in, however tall its art (CLAUDE.md "Coordinates, rendering
    and performance"). Creatures are tapped by their drawn sprite. A tap on any
    building cell routes to that building.
- - ordinary map taps never till. Preparing ground requires the selected
-   seed's explicit Till & plant action, which refuses occupied cells.
+ - only a selected seed tills: tapping bare soil in reach with a seed
+   selected (or the seed's Till & plant action at the player's feet) tills
+   and plants in one job, refusing occupied cells. Taps without a seed
+   never till.
  - routine actions flash briefly; bigger loot pops are rarity-coloured. Map
    copy and toast tiers: CLAUDE.md ("Dialogs, feedback and teaching").
 
@@ -589,8 +591,8 @@ COMBAT
    and a foe left alone heals back after a while. HP is in-memory.
  - ONLY ONE WEAPON FIGHTS AT A TIME (`save.activeWeapon`, `Gear.activeWeapon`).
    An equipped melee weapon auto-engages the nearest enemy in reach
-   (`Gear.meleeActive`). Unequip stops player attacks and leaves bare hands
-   inactive. A newly obtained or upgraded weapon becomes active;
+   (`Gear.meleeActive`); with no weapon owned at all, bare hands do. Unequip
+   stops player attacks and leaves bare hands inactive. A newly obtained or upgraded weapon becomes active;
    switching is an explicit Equip / Unequip, and the active weapon wears an
    "E" badge. Melee always follows the closest eligible foe; an auto-engaged
    fight never swallows taps, roots the character or blocks the walk home.

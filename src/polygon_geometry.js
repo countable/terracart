@@ -136,6 +136,122 @@
     return Math.min(1, Math.max(0, area));
   }
 
+  // Intersect a convex subject with a counterclockwise convex clip ring.
+  // Match castle clipping tolerance and never extrapolate near-parallel edges.
+  function intersectConvex(subject, clip) {
+    let polygon = subject;
+    for (let i = 0; polygon.length && i < clip.length; i++) {
+      const a = clip[i], b = clip[(i + 1) % clip.length], out = [];
+      for (let j = 0; j < polygon.length; j++) {
+        const p = polygon[j], q = polygon[(j + 1) % polygon.length];
+        const dp = cross(a, b, p), dq = cross(a, b, q), ip = dp >= -1e-6, iq = dq >= -1e-6;
+        if (ip) out.push(p);
+        if (ip !== iq) {
+          const t = Math.max(0, Math.min(1, dp / (dp - dq)));
+          out.push({ x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t });
+        }
+      }
+      polygon = out.filter((p, j) => Math.hypot(p.x - out[(j + out.length - 1) % out.length].x,
+        p.y - out[(j + out.length - 1) % out.length].y) > 1e-6);
+      if (polygon.length < 3 || Math.abs(polyArea(polygon)) <= 1e-6) polygon = [];
+    }
+    return polygon;
+  }
+
+  // Reuse this prepared clipper for all solid ground pieces of one building.
+  // Fully contained pieces are retained unchanged; convex unions avoid seams.
+  function createFootprintClipper(points) {
+    let sourceTriangles;
+    // A source ring can have hundreds of edges. Index its vertical spans once:
+    // ray tests only need edges at the query height, and segment crossings only
+    // need overlapping bounds. Keep the same epsilon predicates as FDR contains.
+    const epsilon = 1e-6;
+    const sourceEdges = points.map((a, i) => {
+      const b = points[(i + 1) % points.length];
+      return { a, b, left: Math.min(a.x, b.x), right: Math.max(a.x, b.x),
+        north: Math.min(a.y, b.y), south: Math.max(a.y, b.y) };
+    });
+    const sourceNorth = sourceEdges.length ? Math.min(...sourceEdges.map(e => e.north)) : 0;
+    const sourceSouth = sourceEdges.length ? Math.max(...sourceEdges.map(e => e.south)) : 0;
+    const bucketHeight = Math.max(1, (sourceSouth - sourceNorth) / 64);
+    const edgeBuckets = new Map();
+    const bucketAt = y => Math.floor((y - sourceNorth) / bucketHeight);
+    for (const edge of sourceEdges) {
+      for (let i = bucketAt(edge.north - epsilon); i <= bucketAt(edge.south + epsilon); i++) {
+        if (!edgeBuckets.has(i)) edgeBuckets.set(i, []);
+        edgeBuckets.get(i).push(edge);
+      }
+    }
+    const pointInside = p => {
+      let inside = false;
+      for (const { a, b, left, right, north, south } of edgeBuckets.get(bucketAt(p.y)) || []) {
+        if (Math.abs(cross(a, b, p)) < epsilon
+            && p.x >= left - epsilon && p.x <= right + epsilon
+            && p.y >= north - epsilon && p.y <= south + epsilon) return true;
+        if ((a.y > p.y) !== (b.y > p.y)
+            && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+      }
+      return inside;
+    };
+    const containsFootprint = ring => {
+      if (!ring.every(pointInside)) return false;
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length];
+        if (!pointInside({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })) return false;
+        const left = Math.min(a.x, b.x), right = Math.max(a.x, b.x);
+        const north = Math.min(a.y, b.y), south = Math.max(a.y, b.y);
+        for (const edge of sourceEdges) {
+          if (edge.right < left || edge.left > right || edge.south < north || edge.north > south) continue;
+          const c = edge.a, d = edge.b;
+          if (cross(a, b, c) * cross(a, b, d) < -epsilon
+              && cross(c, d, a) * cross(c, d, b) < -epsilon) return false;
+        }
+      }
+      return true;
+    };
+    const clipFootprint = ring => {
+      if (containsFootprint(ring)) return [ring];
+      if (!sourceTriangles) {
+        const source = points.filter((p, i) => {
+          const before = points[(i + points.length - 1) % points.length];
+          return Math.hypot(p.x - before.x, p.y - before.y) > 1e-6;
+        }).map(p => ({ x: p.x, y: p.y }));
+        ensureCCW(source);
+        removeCollinear(source);
+        const first = source.reduce((best, p, i) => p.x < source[best].x
+          || (p.x === source[best].x && p.y < source[best].y) ? i : best, 0);
+        source.push(...source.splice(0, first));
+        sourceTriangles = triangulate(source).map(points => ({ points,
+          left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)),
+          north: Math.min(...points.map(p => p.y)), south: Math.max(...points.map(p => p.y)) }));
+      }
+      const left = Math.min(...ring.map(p => p.x)), right = Math.max(...ring.map(p => p.x));
+      const north = Math.min(...ring.map(p => p.y)), south = Math.max(...ring.map(p => p.y));
+      const fragments = sourceTriangles.filter(t => t.right >= left && t.left <= right
+        && t.south >= north && t.north <= south)
+        .map(t => intersectConvex(ring, t.points)).filter(p => p.length >= 3);
+      if (fragments.length < 2) return fragments;
+      // Most clipped corners still form one convex strip. Recover its exact
+      // union to avoid retaining the source triangulation's internal walls.
+      const vertices = fragments.flat().sort((a, b) => a.x - b.x || a.y - b.y);
+      const chain = list => {
+        const hull = [];
+        for (const p of list) {
+          while (hull.length > 1 && cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 1e-8) hull.pop();
+          hull.push(p);
+        }
+        return hull.slice(0, -1);
+      };
+      const hull = [...chain(vertices), ...chain(vertices.slice().reverse())];
+      const covered = fragments.reduce((sum, p) => sum + Math.abs(polyArea(p)), 0);
+      if (Math.abs(Math.abs(polyArea(hull)) - covered) < 1e-5
+          && containsFootprint(hull)) return [hull];
+      return fragments;
+    };
+    clipFootprint.contains = containsFootprint;
+    return clipFootprint;
+  }
+
   root.PolygonGeometry = { cross, polyArea, ensureCCW, pointInPolygon,
-    removeCollinear, triangulate, pointInRings, unionAreaInCell };
+    removeCollinear, triangulate, pointInRings, unionAreaInCell, intersectConvex, createFootprintClipper };
 })(globalThis);

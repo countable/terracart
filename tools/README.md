@@ -161,8 +161,11 @@ refreshes or pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`,
 
 The footprint selector also exercises concave, narrow, skewed and acute outlines.
 For these cases the left panel is a placement plan, not a native sprite assembly.
-`fdr-castle-layout.js` straddles convex corners with continuously positioned towers, clips curtain geometry
-against the courtyard footprint and projecting towers, and places the keep only with 12px clearance.
+The isolated trial's `tools/fdr-castle-layout.js` retains projecting corner towers;
+it is not the production placement policy. Production `src/fdr_castle_layout.js`
+contains complete tower bases, including flared feet, inside the mapped footprint
+and clips curtains against that footprint and the seated towers. Keeps require
+12px courtyard clearance.
 Curtain merlons follow each edge direction and require full coping support.
 Run `node tools/check_fdr_irregular_castles.cjs` for independent containment,
 overlap, rotation and renderer checks; its screenshots still require visual review.
@@ -176,6 +179,52 @@ The review-only Canvas adapter overlaps internal opaque triangle clips within
 the exact face boundary; transparent source tiles keep their original clips.
 Eight-pixel atlas gutters prevent that coverage from sampling adjacent slots.
 
+## Real mapped castle audit
+
+Generate twelve selected production-tier castles directly from the checked-in
+Kelowna MVT tiles, then capture them in the real game with surrounding buildings
+and objects preserved:
+
+```sh
+node tools/castle-real-inputs.cjs
+GAME_URL=http://127.0.0.1:8000/index.html OUT_DIR=/tmp/castle-real-review node tools/castle-real-geometry.cjs
+```
+
+The extractor defaults to `/tmp/real-castles-selected.json`; `--out FILE` or
+`OUT_FILE` changes that destination, and `--all` retains every production tier-12
+shape. Generated JSON stays outside the repository. Inputs record exact source
+rings, production float32 rings, tile hashes, MVT feature/ring IDs, coordinates
+and nearby objects; MVT IDs are not asserted OSM way IDs.
+
+The capture tool accepts `FIXTURES`, `KEYS`, `ANGLES`, `STATES` and `RENDERERS`.
+Use `SOURCE_DIR` and `ASSET_DIR` for frozen before/after snapshots. Ordinary
+screenshots retain gameplay context; diagnostic companions overlay the mapped
+ground boundary and flag escaping ground bases, without mistaking projected
+wall height for footprint overhang. Inspect the FDR meshes on detailed source
+rings and the legacy fallback retained for invalid or over-budget inputs.
+
+For native CPU and mesh counts across every production castle, run:
+
+```sh
+node tools/castle-real-inputs.cjs --all --out /tmp/complex-castles-all.json
+node tools/castle-real-benchmark.cjs
+```
+
+`SOURCE_DIR` selects a frozen source checkout, `FIXTURES` selects extracted inputs,
+`OUT_FILE` sets the JSON report and `REPEATS` defaults to three. The benchmark
+separates cold builds, exact cache hits, integer cell shifts and fractional
+translations. Source hashes accompany timings; extractor `cellM` metadata supplies the actual
+`32 / WorldGen.CELL_M` overlay scale. Browser rendering and fixture decoding are
+outside the timed region. Compare reports on the same idle machine.
+
+For adjacent forts, wrecks and restored houses, run
+`node tools/building-real-inputs.cjs`. It writes selected pairs to
+`/tmp/real-adjacent-buildings.json`, all nearby pairs to
+`/tmp/real-adjacent-buildings-all.json`, and twelve capture inputs to
+`/tmp/real-adjacent-capture-inputs.json`. Override these with `OUT_FILE`,
+`ALL_FILE` and `CAPTURE_FILE`; pass the capture path as `FIXTURES` above.
+The report distinguishes shared boundaries, positive gaps and pre-existing
+mapped overlaps. Tier 9 supplies wrecks/restored houses; tier 11 supplies forts.
 
 ## Prerequisites
 
@@ -376,19 +425,6 @@ start their own HTTP server. Examples:
 mkdir -p ~/.artifacts/performance
 PW_CHROMIUM=/path/to/chromium node tools/perf_loop.js ~/.artifacts/performance/loop.json
 PW_CHROMIUM=/path/to/chromium node tools/perf_live.js ~/.artifacts/performance/live
-```
-
-`benchmark-cover.js` compares a baseline Git revision's `Lighting.coverFrame`
-with the working tree in one live sandbox Chromium page. Both versions use
-current visibility rules, alternating identical dense surface and cave
-fixtures. It measures retained-blocker movement, cold rebuilds, and stationary
-cache hits; JSON includes raw samples, median/p95, source hashes and hardware.
-The primary metric covers CPU work and canvas paint commands, without pixel
-readbacks, GPU uploads or a full-frame FPS claim. `CPU_THROTTLE=4` adds a
-synthetic slowdown, not a phone measurement.
-
-```sh
-node tools/benchmark-cover.js BASELINE_GIT_REF ~/.artifacts/performance/cover.json
 ```
 
 Read the scripts' headers for timing controls and fixture requirements.

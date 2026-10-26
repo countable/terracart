@@ -64,7 +64,7 @@
     }
   });
 
-  test('wall perspective: ramparts fade only after their faces fully cover the player', () => {
+  test('wall perspective: ramparts hide the player only once their faces fully cover it', () => {
     const s=scene();s.save={};let feet={x:25,y:25};
     s.playerScreen=()=>feet;s.player={visible:true,x:25,y:25,displayWidth:16,displayHeight:24,originX:.5,originY:1};
     const group=WallPerspective.begin(s,'polygon');
@@ -72,19 +72,36 @@
     WallPerspective.addSegment(s,'polygon',{...segment,ay:40,by:40,height:32,toothWidth:5,toothHeight:3});
     WallPerspective.finish(s,'polygon');
     assert.truthy(group.gfx.triangles.length,'walls are drawn');
-    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'footprint entry and partially covered body stay opaque');
+    assert.falsy(group.coversPlayer,'footprint entry and a partially covered body show no ghost');
     const blocks=group.blocks, coverage=group.buildings;
     feet={x:25,y:32};s.player.x=25;s.player.y=32;WallPerspective.update(s);
-    assert.truthy(group.gfx.triangles.every(t=>t.alpha===.5),'fully covering walls and teeth share half opacity');
+    assert.truthy(group.coversPlayer,'fully covering walls and teeth hide the player');
+    assert.truthy(Render.playerCovered(s),'which shows the player ghost');
+    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'the walls themselves stay opaque');
     const clears=group.gfx.clears;
     feet={x:26,y:33};s.player.x=26;s.player.y=33;WallPerspective.update(s);
     assert.eq(group.gfx.clears,clears,'movement while fully covered does not repaint');
     feet={x:25,y:23};s.player.x=25;s.player.y=23;WallPerspective.update(s);
-    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'exposing the head restores opacity while still inside footprint');
+    assert.falsy(group.coversPlayer,'exposing the head clears cover while still inside footprint');
     feet={x:100,y:100};s.player.x=100;s.player.y=100;WallPerspective.update(s);
-    assert.truthy(group.gfx.triangles.every(t=>t.alpha===1),'leaving keeps opacity at a fixed heading');
+    assert.falsy(group.coversPlayer,'leaving clears cover at a fixed heading');
+    feet={x:25,y:32};s.player.x=25;s.player.y=32;WallPerspective.update(s);
+    assert.truthy(group.coversPlayer);
+    WallPerspective.clear(s,'polygon');
+    assert.falsy(group.coversPlayer,'a cleared group leaves no stale ghost');
+  });
+
+  test('wall perspective: walking reuses projected coverage triangles', () => {
+    const s=scene();s.save={};let feet={x:25,y:25};
+    s.playerScreen=()=>feet;s.player={visible:true,x:25,y:25,displayWidth:16,displayHeight:24,originX:.5,originY:1};
+    const group=WallPerspective.begin(s,'polygon');
+    group.building={key:'castle',footprint:[{x:0,y:0},{x:60,y:0},{x:60,y:60},{x:0,y:60}],anchor:{x:30,y:40}};
+    WallPerspective.addSegment(s,'polygon',{...segment,ay:40,by:40,height:32,toothWidth:5,toothHeight:3});
+    WallPerspective.finish(s,'polygon');
+    const blocks=group.blocks, coverage=group.buildings;
+    feet={x:100,y:100};s.player.x=100;s.player.y=100;WallPerspective.update(s);
     assert.eq(group.blocks,blocks,'retained wall geometry survives');
-    assert.eq(group.buildings,coverage,'walking reuses projected coverage triangles while recomputing opacity');
+    assert.eq(group.buildings,coverage,'walking reuses projected coverage triangles while recomputing cover');
     s.mapRot=.7;WallPerspective.update(s);
     assert.truthy(group.buildings!==coverage,'a changed heading replaces the coverage geometry');
   });
@@ -398,3 +415,26 @@
     } finally { FloorWallMaterials.prepare = prepare; }
   });
 })();
+
+test('wall perspective: mapped adjoining fort posts stay within both source lots', () => {
+  const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+  const feature=MVT.decodeTile(FIXTURE_TILES['2755_5565']).find(l=>l.name==='building')
+    .features.find(f=>f.id===851036940);
+  for(const index of [238,250,257])for(const reverse of [false,true]) {
+    const meters=Float32Array.from(feature.geom[index].flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
+    const source=Array.from({length:meters.length/2},(_,i)=>({x:(meters[2*i]-meters[0])*scale,y:(meters[2*i+1]-meters[1])*scale}));
+    const ring=reverse?source.slice().reverse():source,clipFootprint=PolygonGeometry.createFootprintClipper(ring);
+    const winding=Math.sign(PolygonGeometry.polyArea(ring)),scene={_wallPerspective:{polygon:{blocks:[]}}};
+    ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+      if(!length)return;
+      const count=Math.max(1,Math.round(length/WallMaterials.WOOD.pitch));
+      for(let j=0;j<count;j++) {const lo=j/count,hi=Math.min(1,lo+WallMaterials.WOOD.width/length);
+        WallPerspective.palisade(scene,'polygon',{ax:a.x+dx*lo,ay:a.y+dy*lo,bx:a.x+dx*hi,by:a.y+dy*hi,
+          nx:-dy/length*winding,ny:dx/length*winding,clipFootprint});
+      }
+    });
+    assert.gt(scene._wallPerspective.polygon.blocks.length,0);
+    for(const block of scene._wallPerspective.polygon.blocks)for(const p of block.points)
+      assert.truthy(PolygonGeometry.pointInPolygon(source,p,1e-5),'full square-pole depth respects the mapped boundary');
+  }
+});

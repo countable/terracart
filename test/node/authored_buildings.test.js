@@ -187,7 +187,7 @@
     assert.falsy(native.mountedSign,'shared startup model stays unmodified');
     assert.falsy(BuildingLowPoly.authoredGeometry(native,lot,.65).mountedSign,'no marker unless requested');
   });
-  test('authored fort: the copper hall is three cells wide when it fits with its deck, else two', () => {
+  test('authored fort: the copper hall is three cells wide and two deep when it fits with its deck, else smaller at that aspect', () => {
     const spec=AuthoredBuildings.SPECS.city_storefront,C=Math.cos(Math.PI/6),unit=16/spec.door[3];
     const native={authoredKey:'city_storefront',faces:CityBuildings.build({},spec,'city_storefront')};
     for(const face of native.faces)for(const p of face.points){p.x*=unit;p.y*=unit;p.z*=unit;}
@@ -195,9 +195,13 @@
     const {widthsCells:[wide,narrow],clearCells}=BuildingLowPoly.FORT_HALL;
     const hall=(w,h)=>{
       const lot=[{x:0,y:0},{x:w,y:0},{x:w,y:h},{x:0,y:h}],m=BuildingLowPoly.authoredGeometry(native,lot,BuildingLowPoly.FORT_HALL);
-      const xs=m.faces.flatMap(f=>f.points.map(p=>p.x));
-      return {width:Math.max(...xs)-Math.min(...xs),height:m.height,left:Math.min(...xs),right:Math.max(...xs)};
+      const xs=m.faces.flatMap(f=>f.points.map(p=>p.x)),ys=m.faces.filter(f=>f.kind==='wall').flatMap(f=>f.points).filter(p=>p.z<1e-6).map(p=>p.y);
+      return {width:Math.max(...xs)-Math.min(...xs),depth:Math.max(...ys)-Math.min(...ys),height:m.height,left:Math.min(...xs),right:Math.max(...xs)};
     };
+    // Not a 5 m sliver: the roomy hall stands 21 m × 14 m (owner, Oct 2026).
+    assert.lt(Math.abs(hall(200,160).width*WorldGen.CELL_M/CELL_PX-21),.01,'21 m across');
+    assert.lt(Math.abs(hall(200,160).depth*WorldGen.CELL_M/CELL_PX-14),.5,'14 m deep');
+    assert.lt(Math.abs(hall(120,100).depth/hall(120,100).width-BuildingLowPoly.FORT_HALL.depthRatio),.03,'the narrow hall keeps the aspect');
     for(const [w,h] of [[200,160],[320,320],[(wide+2*clearCells)*CELL_PX+1,96]]){
       const m=hall(w,h);
       assert.lt(Math.abs(m.width-wide*CELL_PX),1e-6,`${w}×${h}: ${wide} cells wide`);

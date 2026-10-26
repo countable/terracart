@@ -39,6 +39,8 @@ keys, stable object IDs, crop growth and harvest behaviour when rebuilding art.
 - `tools/build_rogue_objects.py` exports Rogue landscape objects and their bounds.
 - `tools/build_ra_terrain_trial.py` builds the native terrain atlas and manifest;
   its historical filename does not imply an optional renderer.
+- `tools/round_terrain_corners.py` appends the rounded grass-boundary rows to
+  that atlas; it runs inside the exporter or alone on the committed atlas.
 - `tools/build_ra_containers.py`, `tools/build_ra_flora.py` and the fixture
   exporters own the inputs recorded by the prop-profile builder.
 - Retained selected world and item atlases use

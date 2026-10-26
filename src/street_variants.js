@@ -13,8 +13,8 @@
 // its landscape's look without introducing extra assignment boundaries.
 //
 // ROAD_MD is always Old Trade Road; ROAD_LG is always Ancient Highway. Neither
-// rolls a variant or receives variant dressing. Both retain their suppression,
-// kerb and nighttime curse rules. Selected mapped bus stops beside MD roads
+// rolls a variant or receives variant dressing. Both retain their suppression
+// and kerb rules. Selected mapped bus stops beside MD roads
 // may offer mercenary hiring; LG roads never get hiring wagons.
 //
 // The shared spawn gate controls every piece. Path barriers can cross their
@@ -672,7 +672,7 @@
   // Shared roadside ground/lamp palette; MD/LG paving is owned by
   // RoadSurfaces. This palette never enters variant selection or dressing.
   const SUPPRESSED_STYLE = {
-    id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2, ground: '#596562',
+    id: 'suppressed', lampGlow: '#87c6b9', lampSpacingMul: 2,
     stone: { weathered: '#485553', restored: '#485553', pattern: 'rift', accent: '#66a99e' },
   };
   function pavementFor(variant) {

@@ -8,7 +8,7 @@
     assert.eq(Quests.starterCurrent(save).event, 'water');
     assert.eq(Quests.onStarterEvent(save, 'restore'), null, 'repair cannot skip watering');
     Quests.onStarterEvent(save, 'water');
-    assert.eq(Quests.starterCurrent(save).event, 'tilly', 'the early repair is remembered after watering');
+    assert.truthy(Quests.starterAllDone(save), 'the early repair is remembered after watering');
   });
   test('tutorial guidance: existing planting progress remains actionable and completed tutorials stay complete', () => {
     const waiting = { starter: { step: 2, dismissed: false } };
@@ -16,8 +16,10 @@
     Quests.onStarterEvent(waiting, 'plant');
     assert.eq(Quests.starterCurrent(waiting).event, 'water');
     assert.truthy(Quests.starterAllDone({ starter: { step: 6 } }));
+    assert.truthy(Quests.starterAllDone({ starter: { sequence: 'first-neighbour', step: 4 } }),
+      'a save left on the retired Tilly step is finished');
     assert.eq(Quests.starterCurrent({ starter: { step: 3 } }).event, 'restore');
-    assert.eq(Quests.starterCurrent({ starter: { sequence: 'seed-water', step: 5 } }).event, 'tilly');
+    assert.truthy(Quests.starterAllDone({ starter: { sequence: 'seed-water', step: 5 } }));
   });
 
   test('tutorial guidance: completing every step preserves the purse and does not introduce coins', () => {
@@ -135,18 +137,13 @@ test('tutorial progression: early completed actions survive reload without repea
   Quests.onStarterEvent(loaded, 'pickup');
   assert.eq(Quests.starterCurrent(loaded).event, 'water');
   Quests.onStarterEvent(loaded, 'water');
-  assert.eq(Quests.starterCurrent(loaded).event, 'tilly');
-  Quests.onStarterEvent(loaded, 'tilly');
-  assert.eq(Quests.starterCurrent(loaded).event, 'roads');
-  assert.falsy(Quests.starterAllDone(loaded));
-  Quests.onStarterEvent(loaded, 'roads');
   assert.truthy(Quests.starterAllDone(loaded));
 });
 
-test('tutorial progression: hidden road sign-off and explicit skips cannot strand introductions', () => {
+test('tutorial progression: hidden guidance and explicit skips cannot strand introductions', () => {
   const hidden = {};
   Quests.starterDismiss(hidden);
-  for (const event of ['pickup', 'plant', 'water', 'restore', 'tilly']) Quests.onStarterEvent(hidden,event);
+  for (const event of ['pickup', 'plant', 'water', 'restore']) Quests.onStarterEvent(hidden,event);
   assert.truthy(Quests.starterAllDone(hidden));
   const skipped = {};
   Quests.starterSkipAll(skipped);
