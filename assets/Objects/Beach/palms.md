@@ -1,5 +1,5 @@
-The legacy `palms.png` contains six 16×16 frames from MiniWorldSprites/Nature/CoconutTrees.png in the external unused-art reserve.
+The runtime sheet is `../CelProps/palms.png`: six 24×24 frames at 4/3 display scale. Frames 2–5 are palms adapted to the Rogue Adventure tree's olive foliage, clustered highlights and warm brown trunks. Frame ordering and the existing seating bounds are preserved. The two unused stump frames retain the legacy artwork as compatibility fallbacks.
 
-The runtime sheet is `palms-24.png`: six 24×24 frames at 4/3 display scale. Mature frames 2–5 are resampled from the approved original `Approved/Sources/ArtRedo20261012Round2/palm.png`, following `Approved/world-art-imports.json`. The two unused stump frames retain the legacy artwork as compatibility fallbacks.
+The generated master is `../CelProps/Sources/palms-ra.png`, made with imagegen using the previous runtime sheet as the shape reference and `tools/ra-grass-study/assets/ra-tree.png` as the style reference. Mature sprite source crops (x, y, width, height) are `[756,185,305,321]`, `[1120,214,328,292]`, `[1448,202,321,304]`, and `[1812,193,306,313]`. Each was nearest-neighbour sampled into its existing `SpriteLayout.ART_BOUNDS` rectangle with binary alpha (threshold 127).
 
-Palms are shrub appearances in Marine Meadow, beach zones and ordinary sand. Harvest and inventory output remain wood.
+The earlier mature frames were resampled from `Approved/Sources/ArtRedo20261012Round2/palm.png`, following `Approved/world-art-imports.json`. Legacy stump artwork originated in MiniWorldSprites/Nature/CoconutTrees.png in the external unused-art reserve.
