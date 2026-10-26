@@ -78,6 +78,14 @@
     assert.eq(s.hits.length, 0);
   });
 
+  test('melee: a player with no weapon at all fights bare-handed', () => {
+    const s = scene(), target = foe('slime', 1);
+    s.save.relics = {}; s.save.activeWeapon = null;
+    tick.call(s, [target], 0, 0);
+    assert.eq(s.hits.length, 1, 'bare hands auto-engage an enemy in reach');
+    assert.truthy(s.hits[0].damage > 0, 'a fist lands real damage');
+  });
+
   test('melee: manual unequip keeps a nearby catch target alive until re-equipped', () => {
     const s = scene(), target = foe('catch-me', 1);
     Gear.unequipWeapon(s.save);

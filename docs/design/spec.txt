@@ -589,8 +589,8 @@ COMBAT
    and a foe left alone heals back after a while. HP is in-memory.
  - ONLY ONE WEAPON FIGHTS AT A TIME (`save.activeWeapon`, `Gear.activeWeapon`).
    An equipped melee weapon auto-engages the nearest enemy in reach
-   (`Gear.meleeActive`). Unequip stops player attacks and leaves bare hands
-   inactive. A newly obtained or upgraded weapon becomes active;
+   (`Gear.meleeActive`); with no weapon owned at all, bare hands do. Unequip
+   stops player attacks and leaves bare hands inactive. A newly obtained or upgraded weapon becomes active;
    switching is an explicit Equip / Unequip, and the active weapon wears an
    "E" badge. Melee always follows the closest eligible foe; an auto-engaged
    fight never swallows taps, roots the character or blocks the walk home.

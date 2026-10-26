@@ -571,8 +571,8 @@ const INV_ARMOR_ORDER = ['helmet', 'chestplate', 'leggings', 'boots'];
 // Only the active weapon auto-engages or auto-fires in _combatTick;
 // the others sit inert until switched to (the Equip button under the Relics
 // tab — syncEquipButton — or obtaining/forging a new one — see Gear.equip).
-// Gear.meleeActive permits close combat while armed; manually unequipped
-// hands stay idle.
+// Gear.meleeActive permits close combat while armed, or bare-handed while no
+// weapon is owned; manually unequipped hands stay idle.
 const WEAPON_SLOTS = Gear.WEAPON_SLOTS;
 
 // Where fauna may NEVER step (WATER / buildings / roads / cave wall) is
@@ -4398,8 +4398,9 @@ class MapScene extends Phaser.Scene {
     this._drawShots();
 
     // ── Melee: auto-engage ─────────────────────────────────────────────────
-    // An armed player engages the nearest enemy IN REACH automatically.
-    // Explicit Unequip disables this lane too (Gear.meleeActive).
+    // An armed player, or one who owns no weapon yet, engages the nearest
+    // enemy IN REACH automatically. Explicit Unequip disables this lane
+    // (Gear.meleeActive).
     if (!Combat.playerDowned(this.save.energy) && !Conditions.attacksBlocked(this.save) && Gear.meleeActive(this.save) && !this._workProgress && !this._wreckRepair) {
       let best = null, bestD2 = Infinity;
       for (const c of visibleEnemies) {
