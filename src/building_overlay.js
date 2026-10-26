@@ -1019,13 +1019,105 @@
       area += a.x * b.y - b.x * a.y;
     }
     const winding = Math.sign(area);
+    // Large source rings use this fallback rather than the bounded FDR layout.
+    // An inward normal is insufficient at acute turns or narrow notches: the
+    // far end of a wall strip can still occupy ground outside the building.
+    // Keep ordinary contained strips intact; triangulate only when clipping
+    // is needed, once per source ring, using the same pure geometry helpers.
+    let sourceTriangles;
+    // A source ring can have hundreds of edges. Index its vertical spans once:
+    // ray tests only need edges at the query height, and segment crossings only
+    // need overlapping bounds. Keep the same epsilon predicates as FDR contains.
+    const epsilon = 1e-6;
+    const sourceEdges = rampart ? points.map((a, i) => {
+      const b = points[(i + 1) % points.length];
+      return { a, b, left: Math.min(a.x, b.x), right: Math.max(a.x, b.x),
+        north: Math.min(a.y, b.y), south: Math.max(a.y, b.y) };
+    }) : [];
+    const sourceNorth = sourceEdges.length ? Math.min(...sourceEdges.map(e => e.north)) : 0;
+    const sourceSouth = sourceEdges.length ? Math.max(...sourceEdges.map(e => e.south)) : 0;
+    const bucketHeight = Math.max(1, (sourceSouth - sourceNorth) / 64);
+    const edgeBuckets = new Map();
+    const bucketAt = y => Math.floor((y - sourceNorth) / bucketHeight);
+    for (const edge of sourceEdges) {
+      for (let i = bucketAt(edge.north - epsilon); i <= bucketAt(edge.south + epsilon); i++) {
+        if (!edgeBuckets.has(i)) edgeBuckets.set(i, []);
+        edgeBuckets.get(i).push(edge);
+      }
+    }
+    const pointInside = p => {
+      let inside = false;
+      for (const { a, b, left, right, north, south } of edgeBuckets.get(bucketAt(p.y)) || []) {
+        if (Math.abs(PolygonGeometry.cross(a, b, p)) < epsilon
+            && p.x >= left - epsilon && p.x <= right + epsilon
+            && p.y >= north - epsilon && p.y <= south + epsilon) return true;
+        if ((a.y > p.y) !== (b.y > p.y)
+            && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x) inside = !inside;
+      }
+      return inside;
+    };
+    const containsFootprint = ring => {
+      if (!ring.every(pointInside)) return false;
+      for (let i = 0; i < ring.length; i++) {
+        const a = ring[i], b = ring[(i + 1) % ring.length];
+        if (!pointInside({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 })) return false;
+        const left = Math.min(a.x, b.x), right = Math.max(a.x, b.x);
+        const north = Math.min(a.y, b.y), south = Math.max(a.y, b.y);
+        for (const edge of sourceEdges) {
+          if (edge.right < left || edge.left > right || edge.south < north || edge.north > south) continue;
+          const c = edge.a, d = edge.b;
+          if (PolygonGeometry.cross(a, b, c) * PolygonGeometry.cross(a, b, d) < -epsilon
+              && PolygonGeometry.cross(c, d, a) * PolygonGeometry.cross(c, d, b) < -epsilon) return false;
+        }
+      }
+      return true;
+    };
+    const clipFootprint = rampart ? ring => {
+      if (containsFootprint(ring)) return [ring];
+      if (!sourceTriangles) {
+        const source = points.filter((p, i) => {
+          const before = points[(i + points.length - 1) % points.length];
+          return Math.hypot(p.x - before.x, p.y - before.y) > 1e-6;
+        }).map(p => ({ x: p.x, y: p.y }));
+        PolygonGeometry.ensureCCW(source);
+        PolygonGeometry.removeCollinear(source);
+        const first = source.reduce((best, p, i) => p.x < source[best].x
+          || (p.x === source[best].x && p.y < source[best].y) ? i : best, 0);
+        source.push(...source.splice(0, first));
+        sourceTriangles = PolygonGeometry.triangulate(source).map(points => ({ points,
+          left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)),
+          north: Math.min(...points.map(p => p.y)), south: Math.max(...points.map(p => p.y)) }));
+      }
+      const left = Math.min(...ring.map(p => p.x)), right = Math.max(...ring.map(p => p.x));
+      const north = Math.min(...ring.map(p => p.y)), south = Math.max(...ring.map(p => p.y));
+      const fragments = sourceTriangles.filter(t => t.right >= left && t.left <= right
+        && t.south >= north && t.north <= south)
+        .map(t => FDRCastleLayout.intersect(ring, t.points)).filter(p => p.length >= 3);
+      if (fragments.length < 2) return fragments;
+      // Most clipped corners still form one convex strip. Recover its exact
+      // union to avoid retaining the source triangulation's internal walls.
+      const vertices = fragments.flat().sort((a, b) => a.x - b.x || a.y - b.y);
+      const chain = list => {
+        const hull = [];
+        for (const p of list) {
+          while (hull.length > 1 && PolygonGeometry.cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 1e-8) hull.pop();
+          hull.push(p);
+        }
+        return hull.slice(0, -1);
+      };
+      const hull = [...chain(vertices), ...chain(vertices.slice().reverse())];
+      const covered = fragments.reduce((sum, p) => sum + Math.abs(PolygonGeometry.polyArea(p)), 0);
+      if (Math.abs(Math.abs(PolygonGeometry.polyArea(hull)) - covered) < 1e-5
+          && containsFootprint(hull)) return [hull];
+      return fragments;
+    } : null;
     let palisadeIndex = 0;
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length];
       const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
       if (!length) continue;
       const nx = -dy / length * winding, ny = dx / length * winding;
-      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark };
+      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark, clipFootprint };
       if (rampart) {
         const count = length < rampart.toothWidth ? 0 : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
         const pitch = count > 1 ? (length - rampart.toothWidth) / (count - 1) : 0;
@@ -1053,9 +1145,12 @@
         const previous = points[(i + points.length - 1) % points.length];
         const px = a.x - previous.x, py = a.y - previous.y, plen = Math.hypot(px, py);
         if (plen && (px * dy - py * dx) * winding < 0) {
-          WallPerspective.prism(scene, 'polygon', [a,
+          const bevel = [a,
             { x: a.x - py / plen * winding * thickness, y: a.y + px / plen * winding * thickness },
-            { x: a.x + nx * thickness, y: a.y + ny * thickness }], 0, height, { face, top, dark });
+            { x: a.x + nx * thickness, y: a.y + ny * thickness }];
+          for (const part of !WallPerspective.inView(scene, bevel, 0, height) ? []
+            : clipFootprint ? clipFootprint(bevel) : [bevel])
+            WallPerspective.prism(scene, 'polygon', part, 0, height, { face, top, dark });
         }
       }
     }
