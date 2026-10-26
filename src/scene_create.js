@@ -275,7 +275,7 @@ class SceneCreate {
 
     _phase('authored buildings');
     // Bake terrain patterns and the two castle restoration-state atlases once.
-    AuthoredBuildings.prepare(this);
+    AuthoredBuildings.prepare(this, { review: false });
     _phase('biome textures');
     makeBiomeTextures(this, CELL_PX);
     _phase('terrain transitions + props');

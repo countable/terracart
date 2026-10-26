@@ -1,6 +1,88 @@
 (function () {
   const L = FDRCastleLayout;
   const concave = [[-100,-80],[100,-80],[100,0],[0,0],[0,80],[-100,80]].map(([x,y])=>({x,y}));
+  function meshScene() {
+    const shutdown=[];
+    return {_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
+      add:{graphics:()=>({clear(){},fillStyle(){},fillTriangle(){}})},
+      textures:{exists:()=>true,get:()=>({})},events:{once(name,fn){if(name==='shutdown')shutdown.push(fn);}},
+      shutdown(){for(const fn of shutdown)fn();}};
+  }
+  function meshDraw(scene,points,options={}) {
+    WallPerspective.begin(scene,'castles');
+    return FDRCastleGeometry.draw(scene,'castles',points,options);
+  }
+  function meshSignature(scene) {
+    return JSON.stringify(scene._wallPerspective.castles.blocks.map(b=>({
+      points:b.points,bottom:b.bottom,top:b.top,support:b.support,
+      faces:b.materialFaces.map(f=>({points:f.points,normal:f.normal,color:f.color,material:f.material})),
+    })));
+  }
+  test('FDR castles: translated mesh reuse skips face triangulation and owns projection state', () => {
+    const scene=meshScene(),points=L.rect(0,0,240,180),triangulate=PolygonGeometry.triangulate;
+    let calls=0;PolygonGeometry.triangulate=(...args)=>{calls++;return triangulate(...args);};
+    try {
+      const original=meshDraw(scene,points,{family:'bastion',active:false});
+      const before=calls;assert.gt(before,0);
+      const expected=meshSignature(scene),blocks=scene._wallPerspective.castles.blocks.slice();
+      scene.mapRot=1.2;WallPerspective.update(scene);
+      const moved=meshDraw(scene,points.map(p=>({x:p.x+32.375,y:p.y-64.125})),{family:'bastion',active:false});
+      assert.eq(calls,before,'walking reuses material triangles, UVs and decorations');
+      assert.eq(scene._fdrCastleMeshCache.hits,1);
+      assert.falsy(scene._wallPerspective.castles.blocks.some(b=>blocks.includes(b)),
+        'the current projection cannot mutate a retained template or prior draw');
+      assert.lt(Math.abs(moved.layout.towers[0].x-original.layout.towers[0].x-32.375),1e-7);
+      original.layout.towers[0].height=-999;original.layout.points[0].x=-999;
+      meshDraw(scene,points,{family:'bastion',active:false});
+      assert.eq(meshSignature(scene),expected,'returned layouts and renderer writes cannot poison a cache hit');
+    } finally { PolygonGeometry.triangulate=triangulate; }
+  });
+  test('FDR castles: warm meshes recull exposed walls and tower crowns at the current view', () => {
+    const points=L.rect(0,0,240,180),scene=meshScene();
+    Object.assign(scene,{viewLeft:-40,viewTop:-30,viewSize:160});
+    for(const family of ['citadel','bastion','archive'])for(const active of [false,true]) {
+      meshDraw(scene,points,{family,active});
+      for(const [dx,dy] of [[32.375,-64.125],[-180,100],[250,-120],[0,0]]) {
+        const moved=points.map(p=>({x:p.x+dx,y:p.y+dy}));
+        meshDraw(scene,moved,{family,active});
+        const fresh=meshScene();Object.assign(fresh,{viewLeft:-40,viewTop:-30,viewSize:160});
+        meshDraw(fresh,moved,{family,active});
+        assert.eq(meshSignature(scene),meshSignature(fresh),'cached culling and depth supports match a cold view');
+      }
+    }
+  });
+  test('FDR castles: mesh cache separates claims, families, keep choice and footprint edits', () => {
+    const scene=meshScene(),points=L.rect(0,0,240,180);
+    const original=meshDraw(scene,points,{family:'citadel',active:false});
+    const first=meshSignature(scene);
+    const restored=meshDraw(scene,points,{family:'citadel',active:true});
+    assert.truthy(restored.active);assert.falsy(meshSignature(scene)===first);
+    const archive=meshDraw(scene,points,{family:'archive',active:false});
+    assert.eq(archive.family,'archive');assert.falsy(meshSignature(scene)===first);
+    assert.eq(meshDraw(scene,points,{family:'citadel',active:false,keep:false}).layout.keep,null);
+    const changed=points.map(p=>({...p}));changed[1].x+=1e-4;
+    assert.gt(Math.abs(L.area(meshDraw(scene,changed,{family:'citadel',active:false}).footprint)-L.area(original.footprint)),.001);
+    assert.eq(scene._fdrCastleMeshCache.misses,5);
+    meshDraw(scene,points,{family:'citadel',active:false});
+    assert.eq(meshSignature(scene),first,'restoring then wrecking returns the correct original material');
+  });
+  test('FDR castles: mesh cache bounds retained faces and releases them at scene shutdown', () => {
+    const scene=meshScene();
+    for(let i=0;i<FDRCastleGeometry.MESH_CACHE_LIMIT+3;i++) {
+      meshDraw(scene,L.rect(0,0,160+i,120),{family:'bastion'});
+      assert.lte(scene._fdrCastleMeshCache.entries.size,FDRCastleGeometry.MESH_CACHE_LIMIT);
+      assert.lte(scene._fdrCastleMeshCache.faces,FDRCastleGeometry.MESH_CACHE_FACES);
+    }
+    const cache=scene._fdrCastleMeshCache;
+    scene.shutdown();
+    assert.eq(cache.entries.size,0);assert.eq(cache.faces,0);assert.eq(scene._fdrCastleMeshCache,null);
+  });
+  test('FDR castles: city-sized first paints keep viewport culling instead of caching unseen walls', () => {
+    const scene=meshScene();Object.assign(scene,{viewLeft:-40,viewTop:-30,viewSize:160});
+    assert.truthy(meshDraw(scene,L.rect(0,0,3000,2000),{keep:false}));
+    assert.eq(scene._fdrCastleMeshCache,undefined);
+    assert.eq(scene._wallPerspective.castles.blocks.length,0,'distant boundary and keep stay unbuilt');
+  });
   test('FDR castles: irregular walls and merlons remain contained and avoid tower intersections', () => {
     for (const points of [concave, L.rect(0,0,28,180), [{x:0,y:0},{x:180,y:20},{x:120,y:140},{x:-30,y:90}]]) {
       const layout = L.build(points);
