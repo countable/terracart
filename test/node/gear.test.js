@@ -258,10 +258,13 @@ test('blacksmith offers: hourly shop lookup passes the bias only for the smith r
   }
 });
 
-test('meleeActive: only a selected owned melee weapon auto-engages', () => {
-  for (const activeWeapon of [null, undefined, 'sword']) {
-    assert.falsy(Gear.meleeActive({ relics: {}, activeWeapon }), 'empty hands never attack');
+test('meleeActive: a selected owned melee weapon, or bare hands with no weapon owned, auto-engages', () => {
+  for (const activeWeapon of [null, undefined]) {
+    assert.truthy(Gear.meleeActive({ relics: {}, activeWeapon }), 'a weaponless player fights bare-handed');
+    assert.truthy(Gear.meleeActive({ relics: { axe: { tier: 2 }, net: { tier: 1 } }, activeWeapon }), 'tools are not weapons');
+    assert.falsy(Gear.meleeActive({ relics: { bow: { tier: 1 } }, activeWeapon }), 'an owned weapon put away stays peaceful');
   }
+  assert.falsy(Gear.meleeActive({ relics: {}, activeWeapon: 'sword' }), 'an unowned selection never attacks');
   for (const slot of ['sword', 'dagger', 'lance']) {
     assert.truthy(Gear.meleeActive({ relics: { [slot]: { tier: 1 } }, activeWeapon: slot }));
   }
