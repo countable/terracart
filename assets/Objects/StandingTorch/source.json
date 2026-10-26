@@ -1,0 +1,18 @@
+{
+  "source": "extra_assets/16x16/Ruins Tileset 16x16 Pixelart [Rogue Adventure]/Ruin Tileset/RA_Ruins_Animations.png",
+  "crop": [
+    32,
+    224,
+    64,
+    32
+  ],
+  "frameWidth": 16,
+  "frameHeight": 32,
+  "frames": [
+    0,
+    1,
+    2,
+    3
+  ],
+  "frameDurationMs": 150
+}

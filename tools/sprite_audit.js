@@ -309,7 +309,7 @@ const SHEETS = {
   pillar:        { file: ASSETS.pillar.path, fw: 24, fh: 24, frames: [0] },
   scarecrow:     { file: 'assets/Objects/Approved/scarecrow.png',               fw: 48, fh: 48, frames: [0] },
   bonfire:       { file: 'assets/Objects/Wilderness/bonfire.png',            fw: 16, fh: 32, frames: [0] },
-  torch: { file: ASSETS.torch.path, fw: 16, fh: 16, frames: [0] },
+  torch: { file: ASSETS.torch.path, fw: 16, fh: 32, frames: [0, 1, 2, 3] },
   tar:           { file: 'assets/Objects/Approved/tar.png',                 fw: 16, fh: 16, frames: [0] },
   ...Object.fromEntries(GROVE_SHRINE_ART.map(({ key, frame }) => [key, {
     file: ASSETS[key].path, fw: ASSETS[key].frameWidth, fh: ASSETS[key].frameHeight, frames: [frame],

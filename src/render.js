@@ -6518,12 +6518,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       frame: '__BASE', scale: 1.25, origin: [0.5, 0.5],
       seat: true,
     },
-    // Selected native16 torch is static; the existing lighting emitter remains.
+    // Standing flame pillar; stable seating keeps its base still as the flame flickers.
     torch: { key: 'torch',
-             frame: 0,
-             origin: [0.5, 0.82], scale: 1.1, seat: true, seatFrame: 0, shadow: true,
-             // The logs' contact sits 2px above the art's bottom row.
-             shadowInsetPx: 2 },
+             frame: () => Math.floor(performance.now() / 150) % 4,
+             origin: [0.5, 1], scale: 1.1, seat: true, seatFrame: 0, shadow: true },
     // Per-polygon species — maple uses the original 32×48 sheet with the
     // variant->frame growth-stage pick. Pine uses its own sheets sliced 32×48 so
     // the WHOLE tree fits in one frame. Column 3 is a full mature green tree on
