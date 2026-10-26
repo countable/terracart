@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-b89dd1db';
+    window.__shellVersion = 'shell-3a20bc41';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d272f835" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=28895988" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -1000,6 +1000,8 @@
        placed, not performed. Skipped for a dialog that replaces another in
        the same tap, and for anyone who asks the OS for less motion. */
     .modal-content { overflow-wrap: anywhere; }
+    /* A tappable item name: the Dragon Spirit says what it is (modal_shell.js _itemDescTap). */
+    .desc-tap { cursor: pointer; text-decoration: underline dotted rgba(255,255,255,.45); text-underline-offset: 3px; }
     .modal-content button, .modal-content img, .modal-content tr,
     .modal-content details { break-inside: avoid; }
     .modal-anim { animation: modal-fade 140ms ease-out both; }
@@ -3235,7 +3237,7 @@
   <script src="src/particles.js?v=139210f6"></script>
   <script src="src/trail.js?v=ca4ab8ce"></script>
   <script src="src/streets.js?v=2b6f3303"></script>
-  <script src="src/street_variants.js?v=55385fa6"></script>
+  <script src="src/street_variants.js?v=51c738c3"></script>
   <script src="src/street_signs.js?v=70655348"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=66c6e4dc"></script>
@@ -3244,7 +3246,7 @@
   <script src="src/zone_variants.js?v=30f0e0de"></script>
   <script src="src/shrines.js?v=faed427d"></script>
   <script src="src/status_icons.js?v=229d3571"></script>
-  <script src="src/buffs.js?v=215fa480"></script>
+  <script src="src/buffs.js?v=771b71c0"></script>
   <script src="src/zone_coverage.js?v=b0afa5bb"></script>
   <script src="src/quarry_layout.js?v=82eed7d6"></script>
   <script src="src/zone_dressing.js?v=30f8b8f7"></script>
@@ -3281,31 +3283,31 @@
   <script src="src/geometry.js?v=8575e0b6"></script>
   <script src="src/gameplay_tiers.js?v=e124d893"></script>
   <script src="src/generated_tile_cache.js?v=043e889f"></script>
-  <script src="src/worldgen.js?v=2df6febc"></script>
+  <script src="src/worldgen.js?v=a4e299e0"></script>
   <script src="src/castle_styles.js?v=7567ae2a"></script>
-  <script src="src/ground_materials.js?v=88014cb9"></script>
+  <script src="src/ground_materials.js?v=dc83f28d"></script>
   <script src="src/textures.js?v=6de10054"></script>
   <script src="src/floor_wall_materials.js?v=0ba8b7cb"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=5c296dbe"></script>
+  <script src="src/items.js?v=3d113ccc"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
-  <script src="src/conditions.js?v=5ddf3439"></script>
+  <script src="src/conditions.js?v=257dc9ae"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=f044e56e"></script>
   <script src="src/crops.js?v=286067fc"></script>
   <script src="src/delivery.js?v=66bf194d"></script>
   <script src="src/save_state.js?v=9191587e"></script>
   <script src="src/gear.js?v=058d1790"></script>
-  <script src="src/rewards.js?v=497251ef"></script>
+  <script src="src/rewards.js?v=3ff8a6ee"></script>
   <script src="src/shops_math.js?v=d1009ae2"></script>
   <script src="src/shops.js?v=49946170"></script>
   <script src="src/egg_hatch.js?v=c8e90711"></script>
-  <script src="src/chest_themes.js?v=0bf954cc"></script>
+  <script src="src/chest_themes.js?v=1e812367"></script>
   <script src="src/loot_contexts.js?v=2b9057c3"></script>
-  <script src="src/rarity.js?v=2f0bc5a9"></script>
+  <script src="src/rarity.js?v=4db28f63"></script>
   <script src="src/loot.js?v=8c7f066c"></script>
   <script src="src/macros.js?v=bf577fa0"></script>
   <script src="src/quests.js?v=01b00d49"></script>
@@ -3316,7 +3318,7 @@
   <script src="src/temple_scene.js?v=a309e529"></script>
   <script src="src/temples.js?v=566836d0"></script>
   <script src="src/interactables.js?v=915b0bc1"></script>
-  <script src="src/boss_encounters.js?v=7515cc30"></script>
+  <script src="src/boss_encounters.js?v=762213d2"></script>
   <script src="src/houses.js?v=6073d351"></script>
   <script src="src/wall_smash.js?v=c7e8cf59"></script>
   <script src="src/obstacle_step.js?v=ccde0388"></script>
@@ -3390,13 +3392,13 @@
   <script src="src/testtools.js?v=5767ffd9"></script>
   <script src="src/geo.js?v=63ed1fae"></script>
   <script src="src/art_thumbs.js?v=3b7e97f0"></script>
-  <script src="src/modal_shell.js?v=3c14797f"></script>
+  <script src="src/modal_shell.js?v=1b70ad4c"></script>
   <script src="src/scene_geo.js?v=cce5eca8"></script>
   <script src="src/npc.js?v=7e2b3017"></script>
   <script src="src/npc_benefits.js?v=a52ebc14"></script>
   <script src="src/scene_creatures.js?v=6f3947dc"></script>
   <script src="src/scene_fire.js?v=4ab3475a"></script>
-  <script src="src/scene_shops.js?v=84eff841"></script>
+  <script src="src/scene_shops.js?v=060ef45f"></script>
   <script src="src/heading_up.js?v=2fee1a1d"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
@@ -3479,7 +3481,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=d272f835';
+      const APP_SRC = 'src/app.js?v=28895988';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

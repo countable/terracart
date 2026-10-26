@@ -146,7 +146,7 @@ export manifest.
 Grass meets other ground on rounded corners. Below the native rows the atlas
 repeats every family (256 × 832 pixels) with masks re-cut on the logical cell
 boundary: convex corners rounded and concave corners filleted at
-`GroundMaterials.atlas.roundedRadius` (6 of 16 px), each family's own opaque
+`GroundMaterials.atlas.roundedRadius` (8 of 16 px, the most a dual-grid quadrant allows), each family's own opaque
 centre and re-derived edge ink, and a mirrored one-pixel wobble so islands stay
 centred. Water's row copies its authored bank rocks. `layersFor` offsets every
 overlay frame into that block when the cell's four materials include a `grass`

@@ -251,6 +251,8 @@ class SceneModals {
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap && !speech) dismissShell(); });
     }
+    // A tapped item name says what the item is (_itemDescTap).
+    wrap.addEventListener('click', (e) => this._itemDescTap(e, wrap));
     // ── The kind header ────────────────────────────────────────────────
     // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
     // announces what it is before its first line of copy. `kindLabel`
@@ -691,8 +693,10 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections }) {
-    document.getElementById('offer-modal')?.closeModal?.();
+  // `keepOffer` leaves an open offer standing beneath (an item's line asked
+  // from inside a shop, _itemDescTap); every other message replaces it.
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections, keepOffer = false }) {
+    if (!keepOffer) document.getElementById('offer-modal')?.closeModal?.();
     let dismissed = false;
     const dismiss = () => {
       if (dismissed) return;
@@ -917,6 +921,30 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
+  // ITEM NAMES ANSWER A TAP: a `.desc-tap` name in any dialog
+  // (Rewards.tapHTML) has the Dragon Spirit say what the thing is, in a
+  // speech bubble pointing at the name - Rewards.desc, the same line the
+  // inventory hint and the loot card print. The dialog beneath stays open.
+  // A dialog that already prints that line (a shop shelf row, a forge's
+  // blurb) only lights it up.
+  _itemDescTap(e, wrap) {
+    const tap = e.target.closest?.('.desc-tap');
+    if (!tap || !wrap.contains(tap)) return;
+    e.stopPropagation();
+    const kind = tap.dataset.descKind, key = tap.dataset.descKey;
+    const piece = kind === 'item' ? { kind, id: key } : { kind, slot: key };
+    const text = typeof Rewards !== 'undefined' ? Rewards.desc(piece) : null;
+    if (!text) return;
+    if (wrap.textContent.includes(text)) {
+      // Already printed here: light that line up instead (the deepest node
+      // holding it comes last in document order).
+      const line = [...wrap.querySelectorAll('div,span')].reverse().find((n) => n.textContent.includes(text));
+      line?.animate?.([{ color: '#ffe066' }, {}], { duration: 900 });
+      return;
+    }
+    const title = kind === 'item' ? itemName(key) : gearName(kind, key, Number(tap.dataset.descTier) || 1);
+    this.showMessageModal({ kind: 'spirit', source: tap, title, body: text, okLabel: 'Got it', keepOffer: true });
+  }
   showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, back, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, selector, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind

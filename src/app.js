@@ -1476,8 +1476,8 @@ body.modal-open #memories { opacity: 0.25; pointer-events: none; }
 // TOTAL road restored in small type under it (Trail.totalMetres through
 // Trail.distanceLabel: 1.5km, 26km). Same shared
 // chip box as the memories chip beside it.
-// Statuses, buffs and timers occupy a fixed three-column grid at the top.
-// The wrapper has no padding or hit area; only actionable chips take taps.
+// Statuses, buffs and timers fill a grid of icon-wide columns at the top.
+// The wrapper has no padding or hit area; only the chips take taps.
 // CSS owns placement so objectives and changing chip text never move the row.
 const STATUS_ROW_CSS = `
 #status-row {
@@ -1485,14 +1485,14 @@ const STATUS_ROW_CSS = `
   top: calc(8px + env(safe-area-inset-top, 0px) + var(--hud-chip-h) + 6px);
   left: calc(var(--phone-left, 0px) + 64px);
   right: calc(var(--phone-right, 0px) + 88px);
-  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(36px, 1fr));
   align-items: start; gap: 4px; padding: 0; margin: 0;
   z-index: 10; pointer-events: none;
 }
 #status-row[hidden] { display: none; }
 #status-row .status-chip {
   min-width: 0; white-space: normal; overflow-wrap: anywhere;
-  padding: 3px 7px; border-radius: 6px; pointer-events: none;
+  padding: 3px 2px; border-radius: 6px; pointer-events: none; border: 0; color: inherit;
   font: 700 11px var(--font-ui);
   text-shadow: 0 1px 0 #000;
   box-shadow: 0 1px 2px rgba(0,0,0,0.5);
@@ -4542,15 +4542,18 @@ class MapScene extends Phaser.Scene {
       const left = this.save.conditions[id].remainingMs;
       const loss = id === 'burning' ? Conditions.burnTickLoss(left) : def.energyLoss;
       const drain = def.intervalMs ? ` · −${loss} energy / ${shortDuration(def.intervalMs)}` : '';
-      chips.push({ id, icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: shortDuration(left), text: `${def.label} · ${shortDuration(left)}${drain}` });
+      chips.push({ id, icon: def.icon, kind: 'debuff', ink: def.ink, bg: def.bg, time: shortDuration(left), text: `${def.label} · ${shortDuration(left)}${drain}`,
+        name: def.label, effect: () => Conditions.describe(id) });
     }
     for (const b of Buffs.active(this.save, this)) {
-      chips.push({ id: b.id, icon: b.icon, kind: 'buff', action: b.action, ink: b.color, bg: b.stroke + 'e8', time: shortDuration(b.remainingMs), text: `${b.name} · ${shortDuration(b.remainingMs)}` });
+      chips.push({ id: b.id, icon: b.icon, kind: 'buff', action: b.action, ink: b.color, bg: b.stroke + 'e8', time: shortDuration(b.remainingMs), text: `${b.name} · ${shortDuration(b.remainingMs)}`,
+        name: b.name, effect: () => Buffs.describe(b.id) });
     }
     // A live boss fight's clock (BossEncounters — the citadel's, the serpent's).
     for (const e of BossEncounters.list(this.save)) {
       const chip = BossEncounters.KINDS[e.kind].chip;
-      chips.push({ id: `boss_${e.key}`, icon: chip.icon, kind: 'boss', ink: chip.ink, bg: chip.bg, time: shortDuration(e.remainingMs), text: `${chip.label} · ${shortDuration(e.remainingMs)}` });
+      chips.push({ id: `boss_${e.key}`, icon: chip.icon, kind: 'boss', ink: chip.ink, bg: chip.bg, time: shortDuration(e.remainingMs), text: `${chip.label} · ${shortDuration(e.remainingMs)}`,
+        name: chip.label, effect: () => chip.effect });
     }
     const hide = chips.length === 0;
     if (row.hidden !== hide) row.hidden = hide;
@@ -4562,20 +4565,20 @@ class MapScene extends Phaser.Scene {
       for (const c of chips) {
         let el = row.querySelector(`[data-id="${c.id}"]`);
         if (!el) {
-          el = document.createElement(c.action ? 'button' : 'div');
-          if (c.action) {
-            el.type = 'button';
-            el.addEventListener('click', e => {
-              e.stopPropagation();
-              if (this._dialogOpen()) return;
-              this[c.action]?.();
-              this._syncStatusRow();
-            });
-          }
+          // Every chip is a button: an actionable one (the portal's Return)
+          // acts, the rest have the Dragon Spirit name the effect.
+          el = document.createElement('button');
+          el.type = 'button';
+          el.addEventListener('click', e => {
+            e.stopPropagation();
+            if (this._dialogOpen()) return;
+            if (c.action) this[c.action]?.();
+            else this._showStatusHelp(el);
+            this._syncStatusRow();
+          });
           el.className = 'status-chip';
           el.dataset.id = c.id;
           el.dataset.kind = c.kind;
-          if (!c.action) el.setAttribute('role', 'img');
           const icon = document.createElement('span');
           icon.className = 'status-icon';
           icon.setAttribute('aria-hidden', 'true');
@@ -4597,12 +4600,23 @@ class MapScene extends Phaser.Scene {
     for (const c of chips) {
       const el = row.querySelector(`[data-id="${c.id}"]`);
       if (!el) continue;
+      el._statusChip = c;
       if (el._statusTimer.textContent !== c.time) el._statusTimer.textContent = c.time;
       if (el.title !== c.text) {
         el.title = c.text;
         el.setAttribute('aria-label', c.text);
       }
     }
+  }
+
+  // A tapped status chip: the Dragon Spirit names the effect, says what it
+  // does (Conditions.describe, Buffs.describe, a boss chip's `effect`) and
+  // how long is left, in the speech bubble pointing at the chip.
+  _showStatusHelp(el) {
+    const c = el._statusChip;
+    if (!c) return;
+    this.showMessageModal({ kind: 'spirit', title: `${c.name} · ${c.time}`, okLabel: 'Got it',
+      source: el, body: c.effect() || c.text });
   }
 
   // The row itself, at the top centre (its CSS in

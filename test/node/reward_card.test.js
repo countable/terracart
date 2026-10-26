@@ -179,3 +179,22 @@ test('reward card: item and equipment loot use 96px portraits', () => {
   Rewards.card(scene, { kind: 'item', id: 'wood' }, 44);
   assert.eq(sizes[3], 44, 'compact choice buttons retain explicit size');
 });
+
+test('reward card: a dialog item name taps for the same desc line the card prints', () => {
+  const html = Rewards.itemTapHTML({ iconSpanHTML: () => '<i></i>' }, 'wood');
+  assert.truthy(/^<span class="desc-tap" data-desc-kind="item" data-desc-key="wood"><i><\/i> /.test(html), html);
+  assert.truthy(/data-desc-kind="relic" data-desc-key="pickaxe" data-desc-tier="2"/.test(Rewards.tapHTML({ kind: 'relic', slot: 'pickaxe', tier: 2 }, 'x')));
+  const plain = Object.keys(ITEM_BY_ID).find((id) => !Rewards.desc({ kind: 'item', id }));
+  assert.eq(Rewards.tapHTML({ kind: 'item', id: plain }, 'x'), 'x', 'nothing to say, nothing to tap');
+  // The trader's barter, both halves, and the recipe counter's ingredients.
+  assert.truthy(SCENE_SRC.includes('get: `${Rewards.itemTapHTML(this, offer.giveId, 20, giveItem?.name || offer.giveId)} ×${giveQty}`'));
+  assert.truthy(SCENE_SRC.includes('cost: `${offer.askQty}× ${Rewards.itemTapHTML(this, offer.askId, 20, askItem?.name || offer.askId)}`'));
+  assert.truthy(SCENE_SRC.includes("${Rewards.tapHTML({ kind: 'item', id: r.id }, itemName(r.id))}"));
+  // One handler on every dialog, reading Rewards.desc; a line already shown pops nothing.
+  const shell = ALL_SRC['modal_shell.js'];
+  assert.truthy(shell.includes("wrap.addEventListener('click', (e) => this._itemDescTap(e, wrap));"));
+  assert.truthy(/Rewards\.desc\(piece\)/.test(shell) && /if \(wrap\.textContent\.includes\(text\)\) \{/.test(shell));
+  // The Dragon Spirit says it, over the shop rather than in place of it.
+  assert.truthy(shell.includes("this.showMessageModal({ kind: 'spirit', source: tap, title, body: text, okLabel: 'Got it', keepOffer: true });"));
+  assert.truthy(shell.includes("if (!keepOffer) document.getElementById('offer-modal')?.closeModal?.();"));
+});

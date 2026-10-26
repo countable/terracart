@@ -8623,6 +8623,9 @@
     // their own list, carried like the coins: a trap that just bit you must
     // not blink out because the Overpass bin landed.
     if (prev.laidTraps && !fresh.laidTraps) fresh.laidTraps = prev.laidTraps;
+    // The unmapped-fog reveal stamp (render.js): the tile is already on screen,
+    // so the swap must not fade it in again from near-black.
+    if (prev._mappedAtMs && !fresh._mappedAtMs) fresh._mappedAtMs = prev._mappedAtMs;
     cache.set(key, fresh);               // atomic swap — never a missing tile
     return true;
   }
