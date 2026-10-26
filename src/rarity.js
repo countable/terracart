@@ -489,7 +489,9 @@
   // below the rolled quality; a roll landing on a piece the player already
   // holds at exactly that tier rerolls once without the penalty, and only a
   // miss on that second roll takes rollGearUpgrade's half-price coins. A roll
-  // under owned gear (a downgrade) pays the coins at once. A `withUniques`
+  // under owned gear (a downgrade) pays the coins at once. Armour never skips
+  // past the next tier of the piece worn (CHEST_GEAR.armorRungsAhead) unless
+  // the chest's floor is higher. A `withUniques`
   // group (bonusGear) draws evenly over its slots and the unique relics
   // eligible at the gear tier, as the class picker's `gear` draw does.
   function rollChestGear(group, tier, chestTier, save, rng, opts) {
@@ -512,8 +514,9 @@
       // rather than falling under the floor.
       const rungs = slot.kind === 'relic' && _RELIC_DEFS[slot.slot]?.tiers;
       const slotTier = rungs && !rungs.some(t => t >= Math.min(gearTier, floor) && t <= gearTier) ? tier : gearTier;
-      return rollGearUpgrade(rng, save?.relics, slotTier, save?.armor, [slot], luck,
-        floor, opts.theme === 'vista' ? tier : 7);
+      const ceiling = Math.min(opts.theme === 'vista' ? tier : 7, slot.kind !== 'armor' ? 7
+        : Math.max(floor, (save?.armor?.[slot.slot]?.tier || 0) + ChestThemes.CHEST_GEAR.armorRungsAhead));
+      return rollGearUpgrade(rng, save?.relics, slotTier, save?.armor, [slot], luck, floor, ceiling);
     };
     const first = roll(ChestThemes.CHEST_GEAR.tierPenalty);
     if (first.kind !== 'gold') return first;
