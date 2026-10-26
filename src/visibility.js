@@ -61,8 +61,7 @@ const Visibility = (() => {
     // objects in each loaded tile. The margin also covers off-screen enemies.
     const radius = Math.max(32, (scene.viewCells || 0) * 2) * scene.cellM;
     const pc = worldMetersToTileCell(scene, p.x, p.y);
-    const roadNight = typeof RoadSafety !== 'undefined' && RoadSafety.isNight(scene);
-    const entries = [], signature = [scene.depth, dug, roadNight, pc.tx, pc.ty,
+    const entries = [], signature = [scene.depth, dug, pc.tx, pc.ty,
       Math.floor(p.x / scene.cellM), Math.floor(p.y / scene.cellM), scene.brokenRockSet?.size];
     for (const prop of ['chopped', 'picked', 'burnedObjects', 'burnedGround']) {
       const value = scene.save?.[prop]; signature.push(value, value?.length, value?.size);
@@ -95,7 +94,6 @@ const Visibility = (() => {
       if (!cover || Math.abs(o.x - p.x) > radius || Math.abs(o.y - p.y) > radius) return;
       if (isSpent(o, sets) || (o.kind === 'wildplant' && sets.picked.has(o.id))) return;
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(scene.save, o)) return;
-      if (roadNight && RoadSafety.objectHidden(scene, o, true)) return;
       const c = worldMetersToAbsCell(scene, o.x, o.y);
       cells.push(c.cellIX, c.cellIY, cover | (objectConceals(o) ? CONCEAL : 0));
       if (c.cellIX < minX) minX = c.cellIX; if (c.cellIX > maxX) maxX = c.cellIX;

@@ -654,7 +654,6 @@ test('TAP_HANDLERS: full handler-name list matches the known snapshot', () => {
     'coindrop',
     'building-art',
     'creature',
-    'night-road-hidden',
     'disarm-obstacle',
     'wildplant',
     'staircase',

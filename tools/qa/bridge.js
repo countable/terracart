@@ -62,7 +62,6 @@
     const add = (o, layer, key) => {
       if (!Number.isFinite(o.x) || !Number.isFinite(o.y) || !inView(s, o.x, o.y) || !seen(s, o.x, o.y)) return;
       if (typeof HiddenObjects !== 'undefined' && HiddenObjects.isHidden(s.save, o)) return;
-      if (layer !== 'creatures' && typeof RoadSafety !== 'undefined' && RoadSafety.objectHidden(s, o)) return;
       if (spent && typeof isSpent === 'function' && isSpent(o, spent)) return;
       if (layer === 'creatures' && ((s.save.caught || []).includes(o.id) || o.dead || o.hp <= 0)) return;
       if (layer === 'creatures' && ((typeof Combat !== 'undefined' && Combat.isConcealed(o))

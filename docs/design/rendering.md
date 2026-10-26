@@ -593,8 +593,8 @@ the surrounding grove’s shrub scale.
   sign boards and smoke counterrotate their drawing commands. Contact shadows
   keep their ellipse orientation. Building shadows share the building pivot,
   retain their screen-vertical inset, and size to the visible art footprint.
-  Broken lamp posts stay upright. Dropped inventory icons, shells, flint and
-  driftwood lie flat and retain the ground rotation.
+  Broken lamp posts and the flint nodule stay upright. Dropped inventory icons,
+  shells and driftwood lie flat and retain the ground rotation.
   Creature appearance directions rotate without changing simulation state.
   The player facing chevron is omitted in heading-up mode when a device
   compass reports, unless direction lock is engaged. The gold lock beside zoom
@@ -887,15 +887,6 @@ the surrounding grove’s shrub scale.
   the same pass as its scene owner, so interleaved previews stay independent.
   Tilled overlays only read farm state; tile loading and crop removal reconcile
   invalid empty soil through `Crops.reconcileTilled`.
-- `RoadSafety` paints visible cells selected by `WorldGen.nightZoneBits` with its
-  muted red ground wash after dark; lot-only, walking-path and roadside-path exemptions stay
-  clear. The wash sits above road surfaces and below
-  road names, buildings and world sprites. Its key includes the camera cell,
-  row-band phase, night state and visible road bits, so a crossing, sunset or
-  newly loaded tile rebuilds it while sub-cell motion only scrolls it.
-  `drawObjects` hides generated objects, plants, placed crops, fires, scarecrows,
-  treasure marks and coin drops in that zone. The tap pass reads the same
-  `RoadSafety` predicate, so hidden interactions cannot remain active.
 - A cell-crossing rebuild never reads pixels back: no `getImageData`, no
   per-piece `textures.createCanvas` (Phaser reads the canvas back on
   creation). Bake short-lived canvas pieces into shared atlas pages

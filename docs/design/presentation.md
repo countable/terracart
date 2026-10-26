@@ -392,11 +392,10 @@ pixels and decorative details do not define additional tap cells.
   still offered alone so access to its boss cannot be declined.
 
 - Feedback is visual; there is no vibration setting or device vibration.
-- `RoadSafety` owns the two location warnings. The first night entry into the
-  MD/LG kerb buffer shows `road:night` once per save through the story ledger.
-  Standing on a majority-covered MD/LG road cell shows the dismissable road
-  safety card once per UTC day through `safety:roadstand`. Both use the shared
-  `safety_phone` painting and direct safety copy.
+- `RoadSafety` owns the location warning. Standing on a majority-covered MD/LG
+  road cell shows the dismissable road safety card once per UTC day through
+  `safety:roadstand`, with the shared `safety_phone` painting and direct
+  safety copy.
 - Developer → Item cheats searches the full item catalog by name. Each tap
   grants one through the inventory path, preserving bag limits and saving it.
   Books are read after closing the picker. Switching teleport cities enables
