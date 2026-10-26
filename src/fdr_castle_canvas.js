@@ -1,7 +1,7 @@
 // FDR Canvas coverage: close paired opaque edges, including adjacent flat roof planes.
 // Exterior silhouettes and transparent material clips remain exact.
 (function (global) {
-  const { wallTintSource, wallUVAffine } = global.WallSurfaceRenderer;
+  const { wallTintSource, wallUVAffine, canvasBounds, outsideCamera } = global.WallSurfaceRenderer;
   const whitePatch=points=>points?.every(p=>p.u>=496/512&&p.u<=504/512&&p.v>=496/512&&p.v<=504/512);
   const pointKey = p => [p.x,p.y,p.z].map(n=>Math.round(n*1e5)).join(',');
   function planeKey(points) {
@@ -61,9 +61,9 @@
     }
     return {shared,paths};
   }
-  function expanded(points,shared,transform) {
+  function expanded(points,shared,transform,inverse) {
     if(!shared.some(Boolean))return points;
-    const inverse=transform.inverse(),p=points.map(q=>transform.transformPoint(q));
+    const p=points.map(q=>transform.transformPoint(q));
     const area=(p[1].x-p[0].x)*(p[2].y-p[0].y)-(p[1].y-p[0].y)*(p[2].x-p[0].x);
     if(Math.abs(area)<1e-8)return points;
     const sign=Math.sign(area),lines=p.map((a,i)=>{
@@ -86,27 +86,36 @@
       camera.addToRenderList(src);
       const matrix=Phaser.GameObjects.GetCalcMatrix(src,camera,parentMatrix).calc,g=renderer.currentContext,image=src._wallAtlas.getSourceImage();
       const first=src._wallTriangles[0],length=src._wallTriangles.length;
-      if(src._fdrCanvasEdgeCache?.first!==first||src._fdrCanvasEdgeCache?.length!==length)src._fdrCanvasEdgeCache={first,length,...internalEdges(src._wallTriangles)};
-      const {shared,paths}=src._fdrCanvasEdgeCache;
+      let cache=src._fdrCanvasEdgeCache;
+      if(cache?.first!==first||cache?.length!==length||cache?.width!==image.width||cache?.height!==image.height){
+        // FDR paint replaces command records when geometry changes. Retain
+        // global edge coverage while camera pans only change visible draws.
+        cache=src._fdrCanvasEdgeCache={first,length,width:image.width,height:image.height,...internalEdges(src._wallTriangles)};
+        cache.flat=src._wallTriangles.map(t=>!t.uv||whitePatch(t.uv));
+        cache.affines=src._wallTriangles.map((t,i)=>cache.flat[i]?null:wallUVAffine(t.points,t.uv,image.width,image.height));
+        cache.sharedCount=cache.shared.reduce((n,edges)=>n+edges.filter(Boolean).length,0);
+      }
+      const {shared,paths,affines,flat}=cache;
       // GetCalcMatrix already includes the camera; replace the inherited Canvas transform.
       g.save();g.setTransform(matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f);g.imageSmoothingEnabled=false;const transform=g.getTransform();
-      src._fdrCanvasSharedEdges=shared.reduce((n,edges)=>n+edges.filter(Boolean).length,0);
-      const affine=t=>!t.uv||whitePatch(t.uv)?null:wallUVAffine(t.points,t.uv,image.width,image.height);
-      const affines=src._wallTriangles.map(affine);
+      src._fdrCanvasSharedEdges=cache.sharedCount;
+      const inverse=cache.sharedCount?transform.inverse():null;
+      const offscreen=t=>outsideCamera(canvasBounds(t,image),matrix,camera);
       for(let index=0;index<src._wallTriangles.length;index++){
         const t=src._wallTriangles[index],map=affines[index];
+        if(offscreen(t))continue;
         g.globalAlpha=t.alpha*src.alpha*camera.alpha;
         g.beginPath();
-        const append=i=>{let clip=expanded(src._wallTriangles[i].points,shared[i],transform);const [a,b,c]=clip;if((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0)clip=clip.slice().reverse();g.moveTo(clip[0].x,clip[0].y);g.lineTo(clip[1].x,clip[1].y);g.lineTo(clip[2].x,clip[2].y);g.closePath();};
+        const append=i=>{let clip=expanded(src._wallTriangles[i].points,shared[i],transform,inverse);const [a,b,c]=clip;if((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0)clip=clip.slice().reverse();g.moveTo(clip[0].x,clip[0].y);g.lineTo(clip[1].x,clip[1].y);g.lineTo(clip[2].x,clip[2].y);g.closePath();};
         append(index);
-        if(!t.uv||whitePatch(t.uv)){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
+        if(flat[index]){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
         if(!map)continue;
         const path=paths[index];
         // Consecutive opaque triangles with the identical texture transform
         // draw once through their union, so their shared diagonal has no AA seam.
         while(path&&index+1<src._wallTriangles.length){
           const next=src._wallTriangles[index+1],nextMap=affines[index+1];
-          if(paths[index+1]!==path||next.color!==t.color||next.alpha!==t.alpha||!nextMap||map.some((v,j)=>Math.abs(v-nextMap[j])>1e-7))break;
+          if(offscreen(next)||paths[index+1]!==path||next.color!==t.color||next.alpha!==t.alpha||!nextMap||map.some((v,j)=>Math.abs(v-nextMap[j])>1e-7))break;
           append(++index);
         }
         g.save();if(path)g.clip(path);g.clip();g.transform(...map);g.drawImage(wallTintSource(src._wallAtlas,t.color),0,0);g.restore();

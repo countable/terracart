@@ -72,6 +72,37 @@
         assert.truthy(L.contains(L.rect(t.x,t.y,36+outset*2,36+outset*2),points));
     }
   });
+  test('FDR castles: translated complex rings reuse cached triangulation without hiding real edits', () => {
+    const source=MVT.decodeTile(FIXTURE_TILES['2753_5565']).find(l=>l.name==='building')
+      .features.find(f=>f.id===179969990).geom[1061];
+    const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+    const coords=new Float32Array(source.flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
+    const points=Array.from({length:coords.length/2},(_,i)=>({x:(coords[i*2]-coords[0])*scale,y:(coords[i*2+1]-coords[1])*scale}));
+    const triangulate=PolygonGeometry.triangulate,options={sectionLength:61.23456789};
+    let calls=0;
+    PolygonGeometry.triangulate=(...args)=>{calls++;return triangulate(...args);};
+    try {
+      assert.truthy(L.build(points,options));
+      assert.eq(calls,1,'first unique complex contour triangulates once');
+      for(const [dx,dy] of [[0,0],[32,-64],[32.375,-64.125]]) {
+        assert.truthy(L.build(points.map(p=>({x:p.x+dx,y:p.y+dy})),options));
+        assert.eq(calls,1,'exact and translated rebuilds reuse the same triangulation');
+      }
+      const changed=points.map(p=>({...p}));changed[1].x+=1e-4;
+      assert.truthy(L.build(changed,options));
+      assert.eq(calls,2,'a meaningful subpixel boundary edit recomputes geometry');
+    } finally { PolygonGeometry.triangulate=triangulate; }
+  });
+  test('FDR castles: cache normalization preserves meaningful subpixel footprint changes', () => {
+    const original=L.rect(0,0,200,160),changed=original.map(p=>({...p}));
+    changed[1].x+=1e-4;changed[2].x+=1e-4;
+    const a=L.build(original),b=L.build(changed);
+    assert.truthy(a);assert.truthy(b);
+    assert.gt(Math.abs(L.area(a.points)-L.area(b.points)),.01,
+      'a real 0.0001px boundary change must not reuse the previous cached contour');
+    assert.lt(Math.abs(L.area(b.points)-L.area(changed)),1e-7);
+    for(const p of b.walls)assert.truthy(L.contains(p.points,changed));
+  });
   test('FDR castles: winding and cyclic origin do not change layout', () => {
     const expected=JSON.stringify(L.build(concave));
     assert.eq(JSON.stringify(L.build(concave.slice().reverse())),expected);
@@ -100,7 +131,9 @@
     const points=Array.from({length:64},(_,i)=>({x:10000*Math.cos(i*Math.PI/32),y:10000*Math.sin(i*Math.PI/32)}));
     const layout=L.build(points);assert.truthy(layout);
     assert.lte(layout.walls.length,L.LIMITS.pieces);assert.lte(layout.towers.length,L.LIMITS.towers);assert.lte(layout.merlons.length,L.LIMITS.merlons);
-    assert.eq(L.build([...points,points[0]]),null,'oversized vertex input declines safely');
+    assert.truthy(L.build([...points,points[0]]),'closed source rings normalize the repeated endpoint');
+    const oversized=Array.from({length:L.LIMITS.vertices+1},(_,i)=>({x:10000*Math.cos(i*2*Math.PI/(L.LIMITS.vertices+1)),y:10000*Math.sin(i*2*Math.PI/(L.LIMITS.vertices+1))}));
+    assert.eq(L.build(oversized),null,'input beyond the hard vertex budget declines safely');
   });
   test('FDR castles: translating a footprint preserves material layout and relative face geometry', () => {
     const draw=(dx,dy)=>{
@@ -466,5 +499,97 @@
     try { FDRCastleCanvas.attach(target);target.renderCanvas({currentContext:context},target,{alpha:1,addToRenderList(){}},null);
       assert.eq(JSON.stringify(calls),JSON.stringify([['set',0,2,-2,0,100,200]]));
     } finally { globalThis.Phaser=previous; }
+  });
+  test('FDR castles: all 26 formerly rejected mapped complex castles produce bounded contained meshes', () => {
+    // Exact decoded source rings for every >64-vertex ordinary tier-12 castle
+    // in the nine checked-in Kelowna tiles. No invented or simplified footprint.
+    const sites=[
+      ["2753_5565",179969990,1061,"archive","b_619616_1252140"],
+      ["2753_5566",1762765930,142,"archive","b_619601_1252449"],
+      ["2753_5567",2228921780,114,"bastion","b_619607_1252718"],
+      ["2753_5567",2228921780,144,"bastion","b_619642_1252651"],
+      ["2754_5565",29572670,139,"archive","b_619704_1252171"],
+      ["2754_5565",29572670,260,"bastion","b_619743_1252148"],
+      ["2754_5565",29572670,299,"bastion","b_619713_1252195"],
+      ["2754_5565",29572670,300,"citadel","b_619710_1252201"],
+      ["2754_5565",29572670,341,"bastion","b_619711_1252228"],
+      ["2754_5565",29572670,1265,"bastion","b_619788_1252257"],
+      ["2754_5565",29572670,1321,"archive","b_619790_1252280"],
+      ["2754_5565",29572670,2205,"archive","b_619769_1252198"],
+      ["2754_5566",1513231130,252,"archive","b_619688_1252448"],
+      ["2754_5566",1513231130,261,"bastion","b_619672_1252423"],
+      ["2754_5566",1513231130,287,"archive","b_619661_1252443"],
+      ["2754_5566",1513231130,288,"citadel","b_619674_1252448"],
+      ["2754_5566",1513231130,692,"archive","b_619764_1252555"],
+      ["2754_5566",1513231130,997,"archive","b_619763_1252570"],
+      ["2754_5566",1513231130,1038,"archive","b_619874_1252421"],
+      ["2754_5566",1513231130,1052,"archive","b_619810_1252449"],
+      ["2754_5567",2228921870,250,"bastion","b_619746_1252580"],
+      ["2754_5567",2228921870,478,"bastion","b_619661_1252669"],
+      ["2754_5567",2228921870,616,"archive","b_619703_1252701"],
+      ["2754_5567",2228921870,625,"bastion","b_619697_1252717"],
+      ["2755_5565",851036940,329,"archive","b_620075_1252150"],
+      ["2755_5566",6757291610,63,"citadel","b_619879_1252421"]
+    ];
+    assert.eq(sites.length,26);
+    const tiles=new Map(),edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+    for(const [tile,id,index,family,key] of sites) {
+      if(!tiles.has(tile))tiles.set(tile,MVT.decodeTile(FIXTURE_TILES[tile]).find(l=>l.name==='building'));
+      const source=tiles.get(tile).features.find(f=>f.id===id)?.geom[index];
+      assert.truthy(source,`${key}: original mapped ring exists`);
+      assert.gt(source.length,64);
+      const coords=new Float32Array(source.flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
+      const points=Array.from({length:coords.length/2},(_,i)=>({x:(coords[i*2]-coords[0])*scale,y:(coords[i*2+1]-coords[1])*scale}));
+      const options={...CastleStyles.renderStyle(family,true).geometry,sectionLength:64,towerBaseOutset:family==='bastion'?2:0};
+      const layout=L.build(points,options);
+      assert.truthy(layout,`${key}: complex mapped ring must use generated castle geometry`);
+      assert.lte(layout.walls.length,L.LIMITS.pieces);
+      assert.lte(layout.towers.length,L.LIMITS.towers);
+      assert.lte(layout.merlons.length,L.LIMITS.merlons);
+      for(const part of [...layout.walls,...layout.merlons,...layout.towers])
+        assert.truthy(L.contains(part.points,points),`${key}: complete part stays in original ground boundary`);
+      for(const tower of layout.towers) {
+        const outset=family==='bastion'?2:0;
+        assert.truthy(L.contains(L.rect(tower.x,tower.y,tower.width+outset*2,tower.depth+outset*2),points),`${key}: complete flared tower base contained`);
+      }
+      if(layout.keep)assert.truthy(L.contains(layout.keep.clearance,points),`${key}: keep clearance contained`);
+      const reversed=L.build(points.slice().reverse(),options);
+      assert.eq(JSON.stringify(reversed),JSON.stringify(layout),`${key}: source winding cannot alter layout`);
+      const dx=1024,dy=-2048,translated=L.build(points.map(p=>({x:p.x+dx,y:p.y+dy})),options);
+      assert.truthy(translated,`${key}: translated ring remains supported`);
+      for(const name of ['towers','merlons']) {
+        assert.eq(translated[name].length,layout[name].length,`${key}: translated ${name} count`);
+        layout[name].forEach((part,i)=>part.points.forEach((p,j)=>{
+          const q=translated[name][i].points[j];
+          assert.truthy(q,`${key}: translated polygon vertex exists`);
+          assert.lt(Math.abs(p.x+dx-q.x),1e-5);
+          assert.lt(Math.abs(p.y+dy-q.y),1e-5);
+        }));
+      }
+      assert.eq(!!translated.keep,!!layout.keep,`${key}: translation preserves keep placement`);
+      if(layout.keep) {
+        assert.lt(Math.abs(layout.keep.x+dx-translated.keep.x),1e-5);
+        assert.lt(Math.abs(layout.keep.y+dy-translated.keep.y),1e-5);
+      }
+      const wallArea=parts=>parts.reduce((sum,p)=>sum+Math.abs(L.area(p.points)),0);
+      assert.lt(Math.abs(wallArea(layout.walls)-wallArea(translated.walls)),1e-4,`${key}: translation preserves covered curtain area`);
+      const shifted=points.map(p=>({x:p.x+dx,y:p.y+dy}));
+      assert.truthy(translated.walls.every(w=>L.contains(w.points,shifted)),`${key}: translated walls stay contained`);
+      const gfx={clear(){},fillStyle(){},fillTriangle(){}};
+      const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
+      const group=WallPerspective.begin(scene,'castles');
+      const model=FDRCastleGeometry.draw(scene,'castles',points,{family,active:true});
+      assert.truthy(model,`${key}: retained mesh builds`);
+      const triangles=group.blocks.flatMap(b=>b.materialFaces);
+      assert.gt(triangles.length,0);
+      assert.lte(triangles.length,8192,`${key}: real-fixture triangle regression budget`);
+      const ground=triangles.flatMap(f=>f.points).filter(p=>p.z===0);
+      assert.truthy(ground.every(p=>PolygonGeometry.pointInPolygon(points,p,1e-5)),`${key}: emitted ground including tower feet stays contained`);
+      const retained=new Set(group.blocks);
+      for(const degrees of [0,17,73,135,211,315]) {
+        scene.mapRot=degrees*Math.PI/180;WallPerspective.update(scene);
+        assert.truthy(group.blocks.every(b=>retained.has(b)&&[...b.projected].every(Number.isFinite)),`${key}: finite retained projection at ${degrees} degrees`);
+      }
+    }
   });
 })();

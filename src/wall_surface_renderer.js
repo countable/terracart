@@ -148,5 +148,5 @@
     }
     else { target.fillStyle(face?.flatColor ?? color, alpha); target.fillTriangle(x1, y1, x2, y2, x3, y3); }
   }
-  global.WallSurfaceRenderer = { install, paint, wallTintSource, wallUVAffine };
+  global.WallSurfaceRenderer = { install, paint, wallTintSource, wallUVAffine, canvasBounds, outsideCamera };
 })(window);
