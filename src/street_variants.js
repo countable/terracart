@@ -2116,6 +2116,54 @@
     return null;
   }
 
+  // The first verge cell may retain a small strip of this road's paint.
+  // This is a placement distance, not the shared road-mask or tier policy.
+  const VERGE_ROAD_OVERLAP_MAX = 0.2;
+  function vergeCellAt(rec, x, y, nx, ny, side, k, cellM) {
+    const half = rec.halfW / cellM, dx = nx * side, dy = ny * side;
+    const bx = x / cellM + dx * half, by = y / cellM + dy * half;
+    const eps = 1e-10;
+    let ix = Math.floor(bx + dx * eps), iy = Math.floor(by + dy * eps), row = 0;
+    // Clip in cell-local units to avoid cancellation at large world positions.
+    // The strip is the sampled segment's own drawn width, not a rounded raster.
+    const coverage = () => {
+      const offset = (ix - x / cellM) * nx + (iy - y / cellM) * ny;
+      let poly = [[0,0],[1,0],[1,1],[0,1]];
+      for (const sign of [1,-1]) {
+        const out = [];
+        for (let i = 0; i < poly.length; i++) {
+          const a = poly[i], b = poly[(i + 1) % poly.length];
+          const da = sign * (offset + a[0] * nx + a[1] * ny) - half;
+          const db = sign * (offset + b[0] * nx + b[1] * ny) - half;
+          if (da <= 0) out.push(a);
+          if ((da <= 0) !== (db <= 0)) {
+            const t = da / (da - db);
+            out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+          }
+        }
+        poly = out;
+      }
+      let area = 0;
+      for (let i = 0; i < poly.length; i++) {
+        const a = poly[i], b = poly[(i + 1) % poly.length];
+        area += a[0] * b[1] - a[1] * b[0];
+      }
+      return Math.abs(area) / 2;
+    };
+    // A ray can cross at most four edge cells before leaving a unit square's
+    // projected reach; then every traversed cell is wholly outside the strip.
+    for (let visits = 0; visits < k + 4; visits++) {
+      const roadOverlap = coverage();
+      if (roadOverlap <= VERGE_ROAD_OVERLAP_MAX + eps && ++row === k)
+        return { ix, iy, roadOverlap };
+      const tx = dx ? (ix + (dx > 0 ? 1 : 0) - bx) / dx : Infinity;
+      const ty = dy ? (iy + (dy > 0 ? 1 : 0) - by) / dy : Infinity;
+      if (tx <= ty + eps) ix += Math.sign(dx);
+      if (ty <= tx + eps) iy += Math.sign(dy);
+    }
+    throw new Error('Road verge ray did not reach its bounded cell row');
+  }
+
   // ── Dressing (the end of rasterizeTileSteps; laid by spawnInTile) ─────────
   // ctx: { index, tx, ty, N, tileEdgeM, grid (the GENERATED grid), spawnOpts
   //        (roadMask + occupied + pois [+ roadClass] — occupied GROWS: each
@@ -2160,10 +2208,12 @@
     const cellOfM = (m) => Math.floor(m / CELL_M);
     // The k-th verge cell out from the band's edge at arclength point (x, y)
     // with left normal (nx, ny), on `side` (1 the left, -1 the right).
-    const vergeCell = (rec, x, y, nx, ny, side, k) => {
-      const off = side * (rec.halfW + (k - 0.5) * CELL_M);
-      return { ix: cellOfM(x + nx * off), iy: cellOfM(y + ny * off) };
-    };
+    const vergeCell = (rec, x, y, nx, ny, side, k) => vergeCellAt(rec, x, y, nx, ny, side, k, CELL_M);
+    // Only this Small road's lightly painted edge can relax a ground-only
+    // row. Masked crossings, MD/LG terrain and unrelated road cells stay out.
+    const lightlyPaintedVerge = c => c && grid[c.iy * N + c.ix] === WG.T.ROAD
+      && !spawnOpts.roadMask?.[c.iy * N + c.ix]
+      && c.roadOverlap > 0 && c.roadOverlap <= VERGE_ROAD_OVERLAP_MAX + 1e-10;
     // The first spawnable verge cell k = start..kMax out from the band.
     const verge = (rec, x, y, nx, ny, side, start = 1, kMax = VERGE_MAX_CELLS) => {
       for (let k = start; k <= kMax; k++) {
@@ -2181,13 +2231,13 @@
       const rng = row.stream ? streamFor(rec, typeof row.stream === 'string' ? row.stream : v) : null;
       const step = typeof row.step === 'function' ? row.step() : row.step;
       const spClass = row.gate || 'minor';
-      const ok = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-        && (!row.groundOnly || !WG.isRoadTerrain(grid[iy * N + ix]))
+      const ok = (ix, iy, c) => ix >= 0 && iy >= 0 && ix < N && iy < N
+        && (!row.groundOnly || !WG.isRoadTerrain(grid[iy * N + ix]) || lightlyPaintedVerge(c))
         && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, spClass);
       const seat = (x, y, nx, ny, side, k0, kMax) => {
         for (let k = k0; k <= kMax; k++) {
           const c = vergeCell(rec, x, y, nx, ny, side, k);
-          if (ok(c.ix, c.iy)) return c;
+          if (ok(c.ix, c.iy, c)) return c;
         }
         return null;
       };
@@ -2211,7 +2261,7 @@
           if (row.fill) {
             for (let k = k0; k <= kMax; k++) {
               const c = vergeCell(rec, x, y, nx, ny, side, k);
-              if (!ok(c.ix, c.iy)) continue;
+              if (!ok(c.ix, c.iy, c)) continue;
               if (row.claim !== false) claim(c.ix, c.iy);
               row.emit(D, at, c, side); placed++;
             }
@@ -2453,8 +2503,7 @@
         sampleLine(rec.line, gM, length + CELL_M, length / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const off = side * (rec.halfW + CELL_M / 2);
-            const ix = cellOfM(x + nx * off), iy = cellOfM(y + ny * off);
+            const { ix, iy } = vergeCell(rec, x, y, nx, ny, side, 1);
             if (!hoardOk(ix, iy) || !foeOk(ix, iy)) continue;
             const traps = [], seats = new Set([iy * N + ix]);
             // Sample densely along the tangent so diagonal roads also have
@@ -2989,7 +3038,7 @@
             if (isBuildingCell(t)) break;
             // This street's own band may raster a cell past halfW (a
             // diagonal); another road past the verge ends the ray.
-            if (WG.isRoadTerrain(t)) { if (ray.length) break; continue; }
+            if (WG.isRoadTerrain(t) && !lightlyPaintedVerge(c)) { if (ray.length) break; continue; }
             ray.push(c);
           }
           if (wall < 0 || !ray.length) continue;
@@ -3162,7 +3211,7 @@
   function isSlowKind(kind) { return SLOW_KINDS.has(kind); }
 
   root.StreetVariants = {
-    TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
+    VERGE_ROAD_OVERLAP_MAX, vergeCellAt, TOADSTOOL_COVER_MAX, SNARE_STRAYS, SNARE_STRAY_GAP_CELLS, BARRICADE_STRAY_MAX,
     SUPPRESSED_STYLE, pavementFor, pavementVariantFor, VERGE_ROWS, PARISH_TILES, NAME_NUDGE, NUDGED_SHARE_MAX, ROCK_STREET_SHARE, MINOR_VARIANT_SHARE, PLAIN_HERB_P, PLAIN_BUSH_P, PLAIN_BUSHES, VERGE_MAX_CELLS,
     BANDIT_STRETCH_UNITS, BANDIT_STRETCH_SHARE, BANDIT_STAMP_OUT_CELLS,
     stretchOf, isBanditStretch, stampBanditStretchesSteps,

@@ -685,6 +685,11 @@ access or tile lifecycle mechanics.
   deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
   existing interactions and shared spawn gates; Grassy Lane intentionally covers
   its road surface too.
+- Road-variant verge spawning counts a cell with at most 20% overlap with
+  the drawn road band as adjacent (verge cell 1). Cells above that threshold
+  are skipped before counting outward, including on diagonals. The boundary
+  is inclusive. Existing occupancy, access and geographic spawn gates still
+  apply; this does not change the shared road mask or road safety tiers.
 - Hedged Lane uses normal street-lamp spacing. Continuous clipped hedge rows
   stand on both sides, one cell behind the kerb so lamp foot reservations do
   not erase a row. Occupied or restricted cells still leave gaps.
