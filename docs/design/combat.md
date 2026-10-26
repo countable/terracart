@@ -245,8 +245,9 @@ mechanics.
   the selected melee weapon, or an owned sword/bare hands while a ranged weapon
   stays selected. Ranged fire resumes when melee reach clears; paused fire spends
   no ammunition or energy, and already launched shots keep flying.
+  A player who owns no weapon at all fights bare-handed (`Gear.meleeActive`).
   Manual Unequip clears the active weapon and any unlaunched swing or staff
-  charge. Empty hands stop automatic attacks even while a sword remains owned;
+  charge. Empty hands stop automatic attacks while any weapon remains owned;
   the choice survives reloads and temporary wand expiry. Feeding and catching
   remain available. Explicit Equip or obtaining a new weapon resumes the normal
   equipment flow. Enemies still attack an unarmed player.

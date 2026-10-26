@@ -57,12 +57,14 @@
     return save.boonWeapon?.until === save.boonUntil.wand ? save.boonWeapon.slot : 'staff';
   }
 
-  // Only a selected, owned melee weapon auto-engages. A deliberately empty
-  // hand stays peaceful so catching a creature never starts a bare-hand fight.
+  // A selected, owned melee weapon auto-engages; so do bare hands while no
+  // weapon is owned at all. Owning one with none active can only mean a manual
+  // Unequip, and that deliberately empty hand stays peaceful so catching a
+  // creature never starts a bare-hand fight.
   function meleeActive(save, now = Date.now()) {
-    const slot = activeWeapon(save, now);
-    return WEAPON_SLOTS.includes(slot) && !Combat.RANGED_SLOTS.includes(slot)
-      && !!effectiveRelics(save, now)[slot];
+    const slot = activeWeapon(save, now), relics = effectiveRelics(save, now);
+    if (!slot) return !WEAPON_SLOTS.some((s) => relics[s]);
+    return WEAPON_SLOTS.includes(slot) && !Combat.RANGED_SLOTS.includes(slot) && !!relics[slot];
   }
 
   function selectWeapon(save, slot, now = Date.now()) {
