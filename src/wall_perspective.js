@@ -47,7 +47,7 @@
         container.add(gfx);
         group = scene._wallPerspective[source] = { gfx, blocks: [], x: 0, y: 0, parts: [], perWall: false, mode: null };
       }
-      group.blocks.length = 0; group.runs = null; group.buildings = null;
+      group.blocks.length = 0; group.runs = null; group.buildings = null; group.coversPlayer = false;
       group.alwaysActive = false; group.renderDepth = null; group.atlas = null;
       // PER WALL (Home's interior without the low-poly path): every block
       // draws into a part of its own in the world container, sorted against
@@ -183,7 +183,7 @@
     clear(scene, source) {
       const group = scene._wallPerspective?.[source];
       if (!group) return;
-      group.blocks.length = 0; group.runs = null; group.buildings = null; group.alwaysActive = false; group.gfx.clear(); if (group.gfx._wallTriangles) group.gfx._wallTriangles.length = 0; group.angle = NaN;
+      group.blocks.length = 0; group.runs = null; group.buildings = null; group.coversPlayer = false; group.alwaysActive = false; group.gfx.clear(); if (group.gfx._wallTriangles) group.gfx._wallTriangles.length = 0; group.angle = NaN;
       group.perWall = false;
       for (const part of group.parts || []) if (part.visible) { part.visible = false; part.clear(); }
     },
@@ -195,7 +195,7 @@
           : this.active(scene) || (group.alwaysActive && (scene.depth ?? 0) === 0);
         if (!group.gfx.visible) {
           for (const part of group.parts) part.visible = false;
-          group.visibilityKey = null;
+          group.visibilityKey = null; group.coversPlayer = false;
           continue;
         }
         const player = scene.player, feet = scene.playerScreen?.();
@@ -273,9 +273,9 @@
             emit(v[2], v[3], v[j], v[j + 1], v[n], v[n + 1], colors.top);
           }
         };
-        // Evaluate all visible wall triangles together so a whole building
-        // fades consistently, including its battlements, when it hides a player.
-        // Panning changes fade coverage, not the wall-local face geometry.
+        // Evaluate all visible wall triangles together so a whole building,
+        // battlements included, counts as hiding the player (Render.syncPlayerGhost).
+        // Panning changes coverage, not the wall-local face geometry.
         // Retain the triangle sets until the heading or footprint changes.
         const buildings = !geometryChanged && group.buildings || new Map();
         if (geometryChanged) for (const block of group.blocks) if (block.building) {
@@ -284,18 +284,18 @@
           faces(block, (x1,y1,x2,y2,x3,y3) => triangles.push([{x:x1,y:y1},{x:x2,y:y2},{x:x3,y:y3}]));
         }
         group.buildings = buildings;
-        for (const [building, triangles] of buildings) building.alpha = typeof Render === 'undefined' || !Render.buildingFadeAlpha ? 1 : Render.buildingFadeAlpha(scene,
-          building.key, building.footprint, triangles, building.anchor, {x:group.x,y:group.y});
-        const alphaKey = [...buildings.keys()].map(b=>b.alpha).join(',');
+        group.coversPlayer = typeof Render !== 'undefined' && !!Render.buildingCoversPlayer
+          && [...buildings].some(([building, triangles]) => Render.buildingCoversPlayer(scene,
+            building.key, building.footprint, triangles, building.anchor, {x:group.x,y:group.y}));
         // Materials carry their own cel edges and contact bands. Re-inking every
         // texture triangle both thickens the small pickets and multiplies submission cost.
         const ink = (target, block) => { if (!inkPx || block.materialFaces) return;
           faces(block, (x1, y1, x2, y2, x3, y3) => {
             // Match buildings: only the upper outer edge receives ink.
-            WallSurfaceRenderer.paint(target, x1 - s * inkPx, y1 - c * inkPx, x2 - s * inkPx, y2 - c * inkPx, x3 - s * inkPx, y3 - c * inkPx, look.ink, block.building?.alpha ?? 1);
+            WallSurfaceRenderer.paint(target, x1 - s * inkPx, y1 - c * inkPx, x2 - s * inkPx, y2 - c * inkPx, x3 - s * inkPx, y3 - c * inkPx, look.ink, 1);
           }); };
         const fill = (target, block) => {
-          const alpha = block.building?.alpha ?? 1, outline = block.topOutline;
+          const outline = block.topOutline;
           if (outline) {
             // Only the upper outer edges receive ink. Boundary strips avoid
             // a black underpaint showing through Canvas triangle antialiasing.
@@ -305,12 +305,12 @@
               const front = edge.find(e => e.face.visible);
               const a = front.face.projected[front.a], b = front.face.projected[front.b];
               if (c*(b.x-a.x)-s*(b.y-a.y) <= 1e-6) continue;
-              WallSurfaceRenderer.paint(target, a.x, a.y, b.x, b.y, b.x-dx, b.y-dy, outline.color, alpha);
-              WallSurfaceRenderer.paint(target, a.x, a.y, b.x-dx, b.y-dy, a.x-dx, a.y-dy, outline.color, alpha);
+              WallSurfaceRenderer.paint(target, a.x, a.y, b.x, b.y, b.x-dx, b.y-dy, outline.color, 1);
+              WallSurfaceRenderer.paint(target, a.x, a.y, b.x-dx, b.y-dy, a.x-dx, a.y-dy, outline.color, 1);
             }
           }
           faces(block, (x1, y1, x2, y2, x3, y3, color, face) =>
-            WallSurfaceRenderer.paint(target, x1, y1, x2, y2, x3, y3, color, alpha, face));
+            WallSurfaceRenderer.paint(target, x1, y1, x2, y2, x3, y3, color, 1, face));
         };
         const mode = group.perWall ? 'parts' : 'gfx', modeChanged = group.mode !== mode;
         group.mode = mode;
@@ -333,15 +333,13 @@
             if (block.materialFaces) WallSurfaceRenderer.install(scene, part, group.atlas);
           });
           for (let i = group.blocks.length; i < group.parts.length; i++) { const part = group.parts[i]; if (part.visible) { part.visible = false; part.clear(); } }
-          if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
-          group.alphaKey = alphaKey;
+          if (!geometryChanged && !modeChanged) continue;
           g.clear(); if (g._wallTriangles) g._wallTriangles.length = 0;
           group.blocks.forEach((block, i) => { const part = group.parts[i]; part.clear(); if (part._wallTriangles) part._wallTriangles.length = 0; fill(part, block); });
           continue;
         }
         for (const part of group.parts) if (part.visible) { part.visible = false; part.clear(); }
-        if (!geometryChanged && !modeChanged && group.alphaKey === alphaKey) continue;
-        group.alphaKey = alphaKey;
+        if (!geometryChanged && !modeChanged) continue;
         g.clear(); if (g._wallTriangles) g._wallTriangles.length = 0;
         // The ink outline is drawn once per connected run — every block that
         // shares a ground vertex or a wall's support, so a ring of wall

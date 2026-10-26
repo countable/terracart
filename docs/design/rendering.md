@@ -359,15 +359,19 @@ geometry's pan offset also moves its sorting anchor, including at a fixed headin
 Ground floors and the legacy architectural walls remain in their background
 passes. Standalone building viewers without a world container sort buildings
 in their existing wall container.
-Standing buildings become 50% opaque only when their visible projected faces
-fully cover the player's inset body box from in front. Footprint entry or partial
-overlap alone never fades a building. The coverage test subtracts the union of
+Nothing fades over the player. A standing building hides the player only when
+its visible projected faces fully cover the player's inset body box from in
+front (`Render.buildingCoversPlayer`); footprint entry or partial overlap alone
+never counts. The coverage test subtracts the union of
 visible triangles for low-poly meshes and ramparts, retaining courtyard holes;
 legacy sprite buildings require full containment by their trimmed art bounds.
-These checks follow compass rotation and retained pan offsets, and restore full
-opacity immediately on leaving. Faded low-poly buildings skip the filled ink
-outline passes so overlapping ink cannot obscure the player through the fade.
-They update opacity without rebuilding geometry
+These checks follow compass rotation and retained pan offsets. While anything
+hides the player, `Render.syncPlayerGhost` draws a 40% copy of the body sprite
+above every standing object (`playerGhostContainer`, just above the world
+container); the occluders keep their opacity and ink. Each source keeps its
+cover flag on its own live state (`scene._objectsCoverPlayer`, a wall group's
+or `scene._lowpoly`'s `coversPlayer`), so a torn-down pass cannot leave a
+stale ghost. The checks update without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
 Individual 3D blocks centre on the old wall line, with eight-unit thickness,
@@ -697,13 +701,15 @@ the surrounding grove’s shrub scale.
   split into an exact visibility graph. Castle wall
   bodies omit mid-wall shadow stripes; the bottom silhouette and a quiet rear highlight define the edge.
 - Only buildings and trees of medium canopy or larger (`fadesOverPlayer`,
-  over `treeSizeClass`) fade over the player; small trees, rocks, lamps and
-  every other prop stay opaque. They fade to half their normal opacity only when their art overlaps
-  the player's inset body box and their world depth draws them in front. The
+  over `treeSizeClass`) can hide the player and show its ghost; small trees,
+  rocks, lamps and every other prop never count. Inside castle grounds, that
+  castle's other pieces count too. A prop hides the player only when its art
+  overlaps the player's inset body box and its world depth draws it in front
+  (`Render.objectCoversPlayer`). The
   overlap uses cached trimmed `ART_BOUNDS`, or a `RENDER_SPEC` row's
   `artBounds` for procedural art that declares one (the street lamp's
-  ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots. Moving clear restores the
-  original opacity; tool access never changes it. Buildings instead require full
+  ironwork, `RoadOverlay.LAMP_BODY_FRAC`), else the frame bounds, and updates even on reused sprite slots.
+  Tool access never changes prop opacity. Buildings instead require full
   body-box coverage, as described in the low-poly section above. On a turned heading-up map
   both boxes stand at their turned feet and lower turned feet count as in
   front (`Render.headingFadeView`), matching the heading-up draw order.
@@ -806,10 +812,9 @@ the surrounding grove’s shrub scale.
   sheet (`Render.vividTexture`), under every renderer. Shiny animals also
   retain their original or individual pet palette. Shiny objects use a moderate
   outer gold rim with zero inner fill and a moving glint; the body is
-  never tinted gold for rarity. When foreground overlap fades an object,
-  suspend its outer glow: Phaser interprets translucent interior pixels as
-  outside edges and otherwise fills the faded body gold. Restore the same
-  glow controller when the object becomes opaque; retain the glint. Canvas and FX-disabled WebGL retain the
+  never tinted gold for rarity. Suspend the outer glow on translucent object
+  art: Phaser interprets translucent interior pixels as outside edges and
+  otherwise fills the body gold. Keep the same glow controller; retain the glint. Canvas and FX-disabled WebGL retain the
   sparkle marker and shared light source. Its twin rune circle is two white rotation strips
   (`elite_ring`, `elite_ring_inner`, baked at boot) turning against each
   other and tinted the rank's `ring` colour — `Render.canvasTint` bakes the
