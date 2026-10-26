@@ -102,22 +102,22 @@
       const inverse=cache.sharedCount?transform.inverse():null;
       const offscreen=t=>outsideCamera(canvasBounds(t,image),matrix,camera);
       for(let index=0;index<src._wallTriangles.length;index++){
-        const t=src._wallTriangles[index],map=affines[index];
-        if(offscreen(t))continue;
+        const start=index,t=src._wallTriangles[index],map=affines[index],isFlat=flat[index],path=paths[index];
+        let visible=!offscreen(t);
+        // Preserve the original union run, including its first affine and
+        // offscreen members. Splitting it can change AA on a visible seam.
+        if(!isFlat&&map)while(path&&index+1<src._wallTriangles.length){
+          const next=src._wallTriangles[index+1],nextMap=affines[index+1];
+          if(paths[index+1]!==path||next.color!==t.color||next.alpha!==t.alpha||!nextMap||map.some((v,j)=>Math.abs(v-nextMap[j])>1e-7))break;
+          index++;visible=visible||!offscreen(next);
+        }
+        if(!visible)continue;
         g.globalAlpha=t.alpha*src.alpha*camera.alpha;
         g.beginPath();
         const append=i=>{let clip=expanded(src._wallTriangles[i].points,shared[i],transform,inverse);const [a,b,c]=clip;if((b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0)clip=clip.slice().reverse();g.moveTo(clip[0].x,clip[0].y);g.lineTo(clip[1].x,clip[1].y);g.lineTo(clip[2].x,clip[2].y);g.closePath();};
-        append(index);
-        if(flat[index]){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
+        for(let i=start;i<=index;i++)append(i);
+        if(isFlat){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
         if(!map)continue;
-        const path=paths[index];
-        // Consecutive opaque triangles with the identical texture transform
-        // draw once through their union, so their shared diagonal has no AA seam.
-        while(path&&index+1<src._wallTriangles.length){
-          const next=src._wallTriangles[index+1],nextMap=affines[index+1];
-          if(offscreen(next)||paths[index+1]!==path||next.color!==t.color||next.alpha!==t.alpha||!nextMap||map.some((v,j)=>Math.abs(v-nextMap[j])>1e-7))break;
-          append(++index);
-        }
         g.save();if(path)g.clip(path);g.clip();g.transform(...map);g.drawImage(wallTintSource(src._wallAtlas,t.color),0,0);g.restore();
       }g.restore();
     };
