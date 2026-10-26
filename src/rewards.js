@@ -43,6 +43,18 @@
     }
     return null;
   }
+  // A dialog's NAME that a tap explains with desc() (modal_shell.js
+  // _itemDescTap): `piece` is reward-shaped, { kind: 'item', id } or a gear
+  // { kind, slot }. A thing with no line stays plain text. itemTapHTML is an
+  // item's icon and name as one label.
+  function tapHTML(piece, html) {
+    if (!desc(piece)) return html;
+    const key = piece.kind === 'item' ? piece.id : piece.slot;
+    return `<span class="desc-tap" data-desc-kind="${piece.kind}" data-desc-key="${key}">${html}</span>`;
+  }
+  function itemTapHTML(scene, id, iconPx = 20, name = itemName(id)) {
+    return tapHTML({ kind: 'item', id }, `${scene.iconSpanHTML(id, iconPx)} ${name}`);
+  }
   function card(scene, reward, iconPx = 96) {
     if (!reward) return null;
     if (reward.kind === 'item') {
@@ -134,5 +146,5 @@
     return result;
   }
 
-  root.Rewards = { apply, reconcileUnique, card, desc, present, jackpot };
+  root.Rewards = { apply, reconcileUnique, card, desc, tapHTML, itemTapHTML, present, jackpot };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

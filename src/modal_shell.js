@@ -251,6 +251,8 @@ class SceneModals {
     if (onClose !== undefined) {
       wrap.addEventListener('click', (e) => { if (e.target === wrap && !speech) dismissShell(); });
     }
+    // A tapped item name says what the item is (_itemDescTap).
+    wrap.addEventListener('click', (e) => this._itemDescTap(e, wrap));
     // ── The kind header ────────────────────────────────────────────────
     // A hero icon plus the one-word category (MODAL_KINDS), so every dialog
     // announces what it is before its first line of copy. `kindLabel`
@@ -917,6 +919,43 @@ class SceneModals {
   //                 the start (a single card is selected on its own, so the
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
+  // ITEM NAMES ANSWER A TAP: a `.desc-tap` name in any dialog
+  // (Rewards.tapHTML) pops what the thing is beside it - Rewards.desc, the same
+  // line the inventory hint and the loot card print. A dialog that already
+  // prints that line (a shop shelf row, a forge's blurb) only lights it up.
+  // The next tap anywhere in the dialog closes the bubble.
+  _itemDescTap(e, wrap) {
+    const tap = e.target.closest?.('.desc-tap');
+    const open = wrap.querySelector('.desc-pop');
+    const same = open && tap && open.dataset.for === tap.dataset.descKey;
+    open?.remove();
+    if (!tap || !wrap.contains(tap) || same) return;
+    e.stopPropagation();
+    const kind = tap.dataset.descKind, key = tap.dataset.descKey;
+    const text = typeof Rewards !== 'undefined'
+      ? Rewards.desc(kind === 'item' ? { kind, id: key } : { kind, slot: key }) : null;
+    if (!text) return;
+    if (wrap.textContent.includes(text)) {
+      // Already printed here: light that line up instead (the deepest node
+      // holding it comes last in document order).
+      const line = [...wrap.querySelectorAll('div,span')].reverse().find((n) => n.textContent.includes(text));
+      line?.animate?.([{ color: '#ffe066' }, {}], { duration: 900 });
+      return;
+    }
+    const pop = document.createElement('div');
+    pop.className = 'desc-pop';
+    pop.dataset.for = key;
+    pop.textContent = text;
+    wrap.appendChild(pop);
+    // #game is CSS-scaled: measure in screen px, seat in the wrap's own px.
+    const wr = wrap.getBoundingClientRect(), r = tap.getBoundingClientRect();
+    const k = wr.width / (wrap.offsetWidth || wr.width || 1);
+    const w = pop.offsetWidth, h = pop.offsetHeight, W = wrap.offsetWidth, H = wrap.offsetHeight;
+    const cx = (r.left + r.width / 2 - wr.left) / k;
+    const below = (r.bottom - wr.top) / k + 4, above = (r.top - wr.top) / k - h - 4;
+    pop.style.left = `${Math.round(Math.max(8, Math.min(W - w - 8, cx - w / 2)))}px`;
+    pop.style.top = `${Math.round(below + h <= H - 8 || above < 8 ? below : above)}px`;
+  }
   showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, back, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, selector, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash
     // toasts, captured by the accept below): those draw on the map behind
