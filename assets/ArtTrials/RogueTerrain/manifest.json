@@ -1814,5 +1814,6 @@
       "source": "assets/selected-terrain/selected-terrain.png"
     }
   ],
-  "notes": "Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground."
+  "notes": "Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground.",
+  "roundedRadius": 6
 }

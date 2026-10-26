@@ -183,9 +183,8 @@ test('TERRAIN_FLAVOR: every non-tillable terrain code has a real label', () => {
 });
 
 // The labels used to be bare municipal nouns — 'plaza', 'industrial yard',
-// 'highway' — in a game that rusticifies every other proper noun on the map,
-// and they never said the tap had been REFUSED. These pin the two rules the
-// rewrite put in their place rather than fourteen literal strings, so the
+// 'highway' — in a game that rusticifies every other proper noun on the map.
+// These pin the rules the rewrite put in their place rather than fourteen literal strings, so the
 // copy can be reworded without a test edit but cannot slide back into a
 // register that reads like a debug label.
 
@@ -200,14 +199,12 @@ test('TERRAIN_FLAVOR: every label is a written line, not a database noun', () =>
   }
 });
 
-test('TERRAIN_FLAVOR: paved and built ground says WHY the hoe refused it', () => {
-  // `flavor` is ordered ahead of `till` (see the ordering test above), so this
-  // flash IS the refusal — and the commonest untillable cells a player taps
-  // are the paved ones. Each has to carry the reason, or the tap reads as the
-  // game ignoring it.
-  for (const code of [TERRAIN.ROAD, TERRAIN.PATH, TERRAIN.ROAD_LG]) {
-    assert.truthy(/no earth to turn/i.test(TERRAIN_FLAVOR[code]),
-      `paved terrain ${code} names the reason: ${TERRAIN_FLAVOR[code]}`);
+test('TERRAIN_FLAVOR: labels describe the ground, never a refused till', () => {
+  // Map taps never till (only the seed's Till & plant action does), so a
+  // label that reads as the hoe refusing the cell teaches a mechanic that
+  // is gone.
+  for (const label of [...NON_TILLABLE_CODES.map(c => TERRAIN_FLAVOR[c]), LAMP_FOOT_FLAVOR]) {
+    assert.falsy(/till|hoe|earth to turn/i.test(label), `label implies tapping tills: ${label}`);
   }
   assert.truthy(/root/i.test(TERRAIN_FLAVOR[TERRAIN.ROCK]), 'bare rock says nothing grows');
   // The one untillable cell that IS workable says so, and names the tool.
@@ -1163,7 +1160,7 @@ test('picked berry bushes on Small roads chop once instead of falling through to
       const consumed = TAP_HANDLERS.find(h => h.name === 'wildplant').try(ctx);
       if (!consumed) TAP_HANDLERS.find(h => h.name === 'flavor').try(ctx);
       assert.eq(consumed, true, 'the visible bare bush owns the tap');
-      assert.falsy(messages.some(msg => /earth to turn/i.test(msg)), 'road soil does not intercept chopping');
+      assert.falsy(messages.includes(TERRAIN_FLAVOR[TERRAIN.ROAD]), 'road soil does not intercept chopping');
       assert.eq(duration, toolDurationMs(save.relics, 'axe'));
       assert.eq(scene.invCount('wood'), 0, 'completion awards the wood');
       finish(); finish();

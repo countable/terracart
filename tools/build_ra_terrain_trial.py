@@ -5,6 +5,7 @@ import hashlib
 import json
 import subprocess
 from PIL import Image, ImageDraw
+from round_terrain_corners import add_rounded_rows
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = Path('extra_assets/16x16/Rogue Adventure World/Rogue Adventure World [Sprites]/Tilesets')
@@ -87,7 +88,8 @@ for row in registry['families']:
         if i%4==0: draw.point((x,y),fill='#919079')
     selected_family(row['id'],'ROCKY_GROUND',center,variant)
 assert [row['id'] for row in rows] == [row['id'] for row in registry['families']]
+atlas = add_rounded_rows(atlas, registry['families'], registry['atlas']['roundedRadius'])
 atlas.save(OUT/'tiles.png')
-manifest=dict(frameSize=16,columns=16,rows=len(rows),families=rows,notes='Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground.')
+manifest=dict(frameSize=16,columns=16,rows=len(rows),roundedRadius=registry['atlas']['roundedRadius'],families=rows,notes='Native full-tile corners. Diagonal contacts remain separate. Water ripple pixels use the source dominant pigment as in the approved study; no cliffs, decorative grass, rocks or flowers are baked into walkable ground.')
 (OUT/'manifest.json').write_text(json.dumps(manifest,indent=2)+'\n')
 print(f'Exported {len(rows)*16} frames to {OUT.relative_to(ROOT)}')

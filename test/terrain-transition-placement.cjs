@@ -40,7 +40,7 @@ function coverage(vertices,family){
     for(const s of sprites){
       for(let py=0;py<16;py++)for(let px=0;px<16;px++){
         const alpha=atlas.data[((Math.floor(s.frame/16)*16+py)*atlas.w+s.frame%16*16+px)*4+3];
-        if(alpha)visible.set((s.x+px)+','+(s.y+py),{family:Math.floor(s.frame/16),point:[s.x+px+.5,s.y+py+.5]});
+        if(alpha)visible.set((s.x+px)+','+(s.y+py),{family:Math.floor(s.frame/16)%art.families.length,point:[s.x+px+.5,s.y+py+.5]});
       }
     }
   }

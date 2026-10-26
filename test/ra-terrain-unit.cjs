@@ -26,23 +26,38 @@ assert.equal(manifest.rows, count);
 const {decodePng} = require('../tools/sprite_audit.js');
 const atlas = decodePng(fs.readFileSync('assets/ArtTrials/RogueTerrain/tiles.png'));
 const selected = decodePng(fs.readFileSync('assets/selected-terrain/selected-terrain.png'));
-assert.equal(atlas.w,16*16); assert.equal(atlas.h,count*16);
+assert.equal(atlas.w,16*16); assert.equal(atlas.h,count*32,'a rounded copy of every family follows the native rows');
 const pixel = (image,x,y) => image.data.subarray((y*image.w+x)*4,(y*image.w+x+1)*4);
 for (const family of manifest.families) {
   for (let y=0;y<16;y++) for (let x=0;x<16;x++) {
     assert.equal(pixel(atlas,x,family.index*16+y)[3],0,'empty masks stay transparent');
     const center=pixel(atlas,15*16+x,family.index*16+y);
     assert.equal(center[3],255,'every material supplies an opaque base');
+    assert.equal(pixel(atlas,x,(count+family.index)*16+y)[3],0,'empty rounded masks stay transparent');
+    assert.deepEqual(pixel(atlas,15*16+x,(count+family.index)*16+y),center,family.id+' rounds only its edges');
     if (family.selectedFrame != null)
       assert.deepEqual(center,pixel(selected,family.selectedFrame*16+x,y),family.id+' preserves its selected center pixels');
   }
+  // Water's authored bank rocks are copied into its rounded row unchanged.
+  if (family.calmWater) for (let y=0;y<16;y++) for (let x=0;x<256;x++)
+    assert.deepEqual(pixel(atlas,x,(count+family.index)*16+y),pixel(atlas,x,family.index*16+y),'water keeps its native banks');
   if (family.maskFamily === 'oliveSoil') for (let mask=0;mask<16;mask++)
     for (let y=0;y<16;y++) for (let x=0;x<16;x++)
       assert.equal(pixel(atlas,mask*16+x,family.index*16+y)[3],pixel(atlas,mask*16+x,2*16+y)[3],
         family.id+' retains the authored earth silhouette for mask '+mask);
 }
+// Rounded rows replace the sharp quadrant corner at the cell boundary.
+assert.equal(manifest.roundedRadius,new Function(fs.readFileSync('src/ground_materials.js','utf8')+';return GroundMaterials;')().atlas.roundedRadius);
+for (const family of [0,6,11]) {
+  const row=(count+family)*16;
+  assert.equal(pixel(atlas,1*16+7,row+7)[3],0,'a lone corner is rounded off');
+  assert.equal(pixel(atlas,1*16+1,row+1)[3],255,'the corner keeps its cell centre');
+  assert.equal(pixel(atlas,7*16+8,row+8)[3],255,'an inside corner is filleted');
+}
 assert.equal(manifest.families[11].selectedMaterial,'R01','commercial restores square concrete');
 assert.equal(manifest.families[12].selectedMaterial,'R02','commercial keeps its original concrete variant');
+const grassFamilies = new Set(['villageGrass','forestGrass','meadow','orchard','grove'].map(id => art.families.indexOf(id)));
+assert(!grassFamilies.has(-1));
 let combinations = 0;
 for (let a = 0; a < count; a++) for (let b = 0; b < count; b++)
   for (let c = 0; c < count; c++) for (let d = 0; d < count; d++) {
@@ -60,11 +75,14 @@ for (let a = 0; a < count; a++) for (let b = 0; b < count; b++)
     }
     assert.equal(coverage, 15, 'all four vertices are covered');
     for (let i = 0; i < layers.length; i++) {
-      const family = Math.floor(layers[i] / 16);
+      const family = Math.floor(layers[i] / 16) % count;
       assert(unique.has(family), 'no unrelated ground can leak below a corner');
+      const grassy = [...unique].some(f => grassFamilies.has(f)) && [...unique].some(f => !grassFamilies.has(f));
+      if (i) assert.equal(layers[i] >= count * 16, grassy, 'rounded masks exactly where grass meets other ground');
+      else assert(layers[i] < count * 16, 'the opaque base is never a rounded copy');
       if (i) assert.equal(layers[i] % 16, art.maskFor(normalized, family), 'overlay keeps the native mask');
     }
-    if (unique.has(4)) assert.equal(Math.floor(layers.at(-1) / 16), 4, 'water banks draw last');
+    if (unique.has(4)) assert.equal(Math.floor(layers.at(-1) / 16) % count, 4, 'water banks draw last');
     combinations++;
   }
 // Authored variations are one continuous terrain, not separate soil islands.
@@ -74,7 +92,7 @@ for (const [values, normalized, frames] of [
   [[14,13,13,14],[14,14,14,14],[14*16+15]],
   [[24,21,22,23],[24,24,24,24],[24*16+15]],
   [[12,11,21,22],[12,12,21,21],[12*16+15,21*16+12]],
-  [[0,14,13,4],[0,14,14,4],[15,14*16+6,4*16+8]],
+  [[0,14,13,4],[0,14,14,4],[15,(count+14)*16+6,(count+4)*16+8]],
 ]) {
   assert.deepEqual(art.transitionValues(values),normalized,'shared variants use the first local texture');
   assert.deepEqual(art.layersFor(values),frames,'variant changes do not cut soil-shaped holes');
