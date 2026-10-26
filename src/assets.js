@@ -436,18 +436,14 @@ const ASSETS = {
 // Neighbour role sheets are listed once, in SpriteLayout.NPC_SHEETS; each
 // idle sheet has a walk sheet beside it.
 // Bake once at load under the original keys: map animations and dialogue
-// portraits then share the same size, palette, and 32px ground anchor.
+// portraits then share the same palette and 32px ground anchor.
 function makeNpcSheet(source, sheet) {
   if (!sheet.render) return source;
-  const { sourceSize, size, colors } = sheet.render;
+  const { colors } = sheet.render;
   const canvas = document.createElement('canvas');
   canvas.width = source.width; canvas.height = source.height;
   const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
-  for (let y = 0; y < source.height; y += 48) for (let x = 0; x < source.width; x += 48) {
-    ctx.drawImage(source, x + (48 - sourceSize) / 2, y + 32 - sourceSize, sourceSize, sourceSize,
-      x + (48 - size) / 2, y + 32 - size, size, size);
-  }
+  ctx.drawImage(source, 0, 0);
   const image = ctx.getImageData(0, 0, canvas.width, canvas.height), pixels = image.data;
   const swaps = new Map(Object.entries(colors).map(([from, to]) => [parseInt(from.slice(1), 16), parseInt(to.slice(1), 16)]));
   for (let i = 0; i < pixels.length; i += 4) {

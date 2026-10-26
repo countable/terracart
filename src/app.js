@@ -4953,9 +4953,14 @@ class MapScene extends Phaser.Scene {
         this._boltGlow(key, Math.round(hx - s.vx * spec.lenPx * 0.5), Math.round(hy - s.vy * spec.lenPx * 0.5),
           SHINY_ARROW_GLOW_PX * 0.6, 0.45);
       }
+      const tailX = Math.round(hx - s.vx * spec.lenPx), tailY = Math.round(hy - s.vy * spec.lenPx);
+      if (spec.inkPx) {
+        g.lineStyle(spec.widthPx + 2 * spec.inkPx, spec.inkColor, 0.9);
+        g.beginPath(); g.moveTo(tailX, tailY); g.lineTo(hx, hy); g.strokePath();
+      }
       g.lineStyle(spec.widthPx, s.color != null ? s.color : spec.color, 0.9);
       g.beginPath();
-      g.moveTo(Math.round(hx - s.vx * spec.lenPx), Math.round(hy - s.vy * spec.lenPx));
+      g.moveTo(tailX, tailY);
       g.lineTo(hx, hy);
       g.strokePath();
     }
