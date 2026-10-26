@@ -471,18 +471,6 @@ Render.undergroundGroundColor = (entry, ix, iy, type) => {
     : area === 2 ? Render.UNDERGROUND_GROUND.dwarven_city : null;
 };
 
-// The ancient rift occupies the existing MD/LG suppression buffer, including
-// the earth beside the paving. Water, structures and other depths retain their
-// material; parking-only suppression is deliberately outside this road zone.
-Render.suppressedGround = (entry, ix, iy, type, depth = 0, n = entry?.cellsPerEdge) => {
-  if (depth !== 0 || (entry?.depth ?? 0) !== 0 || !n
-    || !WorldGen.nightZoneBits(entry?.roadClass?.[iy * n + ix] | 0)
-    || type === WorldGen.T.WATER || type === WorldGen.T.PIER
-    || isBuildingType(type) || type >= WorldGen.T.CAVE_FLOOR && type <= WorldGen.T.CAVE_LAVA
-    || type === 30) return false;
-  return true;
-};
-
 // Pseudo-3D extrusion: a building footprint is the "top surface", and its
 // south-facing edge gets a darker wall projected downward onto the row below.
 // House faces stay close to their footprint colour, with a shallow shadow
@@ -1709,7 +1697,6 @@ let _ringTypes  = null;
 let _ringOwners = null;
 let _ringUnclaimed = null;
 let _ringGroundColor = null;
-let _ringRiftGround = null;
 let _ringSyntheticBuilding = null;
 let _ringRoadSafety = null;
 // Each ring slot's cell, resolved ONCE per pass: its absolute key (coords.js
@@ -2336,7 +2323,6 @@ Render.drawCells = function drawCells(scene) {
     // unclaimed, and gets the dark-green wash below.
     _ringUnclaimed = new Uint8Array(RING * RING);
     _ringGroundColor = new Int32Array(RING * RING);
-    _ringRiftGround = new Uint8Array(RING * RING);
     _ringSyntheticBuilding = new Uint8Array(RING * RING);
     _ringRoadSafety = new Uint8Array(RING * RING);
     _ringAX = new Int32Array(RING * RING);
@@ -2406,9 +2392,7 @@ Render.drawCells = function drawCells(scene) {
       // A cell with no loaded tile renders as UNMAPPED fog (not fake grass —
       // that's the tile-loading indicator; see the _ringVeil comment above).
       types[r * RING + c] = (e2 && e2.grid) ? (e2.grid[iy2 * N + ix2] || 0) : UNMAPPED_T;
-      _ringRiftGround[si] = Render.suppressedGround(e2, ix2, iy2, types[si], scene.depth ?? 0, N) ? 1 : 0;
-      _ringGroundColor[si] = _ringRiftGround[si] ? parseHex(StreetVariants.SUPPRESSED_STYLE.ground)
-        : Render.undergroundGroundColor(e2, ix2, iy2, types[si])
+      _ringGroundColor[si] = Render.undergroundGroundColor(e2, ix2, iy2, types[si])
         ?? (typeof selectedZoneGroundColor === 'function'
           ? selectedZoneGroundColor(e2, iy2 * N + ix2, types[si]) : null)
         ?? (typeof zoneGroundColor === 'function'
@@ -2510,8 +2494,8 @@ Render.drawCells = function drawCells(scene) {
       let t = types[i];
       if (t === 32 && typeof MountainEdges !== 'undefined') t = MountainEdges.groundType(types, RING, i);
       // Source ground and selected Nexus textures share one transition atlas.
-      // Keep authored accent-only fills, rift buffers and synthetic floors.
-      if (!entry?.grid || _ringRiftGround[i]) continue;
+      // Keep authored accent-only fills and synthetic floors.
+      if (!entry?.grid) continue;
       const textureKey = zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t);
       const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
       if (!textureKey && !tintedNative && _ringGroundColor[i] >= 0) continue;
@@ -2578,9 +2562,6 @@ Render.drawCells = function drawCells(scene) {
           color = baseColor(polyGround, color);
         }
       }
-      // The road backdrop lookup must not replace the buffer's earth colour.
-      const riftGround = _ringRiftGround[(row + 2) * RING + (col + 2)] && type === T(col, row);
-      if (riftGround) color = groundColor(color, col, row);
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
 
       // Resolve only the cells in view; the permanent burn ledger can grow
@@ -2689,10 +2670,7 @@ Render.drawCells = function drawCells(scene) {
             // Roads and polygonal buildings wear the same
             // biome texture as their base fill, including beneath the paving.
             if (polyGround >= 0) baseType = polyGround;
-            // Baked grit and sparse mineral glints cover the rift buffer.
-            // These static texture pixels never enter the lighting pass.
-            if (riftGround) texKey = `rift_ground_${avalanche32(h) % RIFT_GROUND_VARIANTS}`;
-            const spec = skyLevel || riftGround ? null : BIOME_TEX[baseType];
+            const spec = skyLevel ? null : BIOME_TEX[baseType];
             if (spec) {
               const variantHash = baseType === 12 ? avalanche32(h) : Math.abs(h);
               texKey = `biome${baseType}_${variantHash % spec.variants}`;
