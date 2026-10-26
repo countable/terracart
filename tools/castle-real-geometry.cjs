@@ -96,6 +96,7 @@ const hashes=Object.fromEntries(sources.map(f=>[f,crypto.createHash('sha256').up
    }
    console.log(renderer,item.key,'captured');
   }
+  if(process.env.NETWORK_WAIT_MS)await page.waitForTimeout(Number(process.env.NETWORK_WAIT_MS));
   await page.close();
  }
  report.passed=report.errors.length===0&&report.cases.length>0&&report.cases.every(c=>c.finite&&c.sourceRingMatches);
