@@ -509,7 +509,7 @@
       let p = null;
       // 'home': Home's own floor, the plank material at HomeArea.HOUSE.floorTexScale.
       const home = tier === 'home';
-      const key = tier === 'fdr-wreck' ? 'fdr_castle_wreck_floor' : tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 || home ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
+      const key = tier === 'fdr-bastion' ? 'fdr_castle_bastion_floor' : tier === 'fdr-archive' ? 'fdr_castle_archive_floor' : tier === 'fdr-wreck' ? 'fdr_castle_wreck_floor' : tier === 'fdr' ? 'fdr_castle_floor' : tier === 11 || home ? 'biome11_0' : scene.textures.exists(`interior_floor_${tier}`) ? `interior_floor_${tier}`
         : tier === CASTLE && scene.textures.exists('castle_paving') ? 'castle_paving' : `biome${tier}_0`;
       if (scene.textures.exists(key)) {
         let src = scene.textures.get(key).getSourceImage();
@@ -832,6 +832,68 @@
         if (scale !== 1) ctx.scale(scale, scale);
         ctx.fillRect(-x / scale, -y / scale, size / scale, size / scale);
         ctx.restore();
+      },
+      castleGrowth(model,key) {
+        const patches=CastleStyles.growthPatches(key,model.layout);
+        if(!patches.length)return;
+        ctx.save();trace(model.footprint);ctx.clip();ctx.beginPath();
+        for(const patch of patches){
+          let area=0;
+          for(let i=0;i<patch.length;i++)area+=patch[i].x*patch[(i+1)%patch.length].y-patch[(i+1)%patch.length].x*patch[i].y;
+          const points=area<0?patch.slice().reverse():patch;
+          ctx.moveTo(points[0].x-originX,points[0].y-originY);
+          for(let i=1;i<points.length;i++)ctx.lineTo(points[i].x-originX,points[i].y-originY);
+          ctx.closePath();
+        }
+        // One union fill prevents overlapping wall/keep contacts darkening.
+        ctx.fillStyle='#829050';ctx.globalAlpha=model.family==='citadel'?.12:model.family==='bastion'?.72:.24;ctx.fill();
+        ctx.clip();
+        const p=patternFor('fdr-wreck');
+        if(p){
+          ctx.fillStyle=p.fill;ctx.globalAlpha=model.family==='bastion'?.8:.65;
+          const x=wrap(phaseX,p.width),y=wrap(phaseY,p.height);
+          ctx.translate(x,y);ctx.fillRect(-x,-y,size,size);
+        }
+        ctx.restore();
+      },
+      // Ground shadows reuse the existing cached courtyard canvas. Project
+      // retained opaque faces along a short, world-fixed southward light axis;
+      // rotation transforms the baked floor and architecture together.
+      castleShadow(model, blocks) {
+        ctx.save(); trace(model.footprint); ctx.clip(); ctx.beginPath();
+        const append = points => {
+          if (points.length < 3) return;
+          let area = 0;
+          for (let i = 0; i < points.length; i++) {
+            const a = points[i], b = points[(i + 1) % points.length];
+            area += a.x * b.y - b.x * a.y;
+          }
+          if (Math.abs(area) < 1e-6) return;
+          // Identical winding makes overlaps a union, never a darker seam or
+          // a hole where an underside face winds opposite its upper face.
+          const ordered = area < 0 ? points.slice().reverse() : points;
+          ctx.moveTo(ordered[0].x - originX, ordered[0].y - originY);
+          for (let i = 1; i < ordered.length; i++)
+            ctx.lineTo(ordered[i].x - originX, ordered[i].y - originY);
+          ctx.closePath();
+        };
+        for (const block of blocks) {
+          for (const face of block.materialFaces || []) {
+            if (face.material !== 'stone' && face.material !== 'roof') continue;
+            append(face.points.map(p => ({x: p.x, y: p.y + p.z * .20})));
+          }
+          if (block.bottom === 0) {
+            // A narrow contact rim grounds every base, including faces whose
+            // short cast shadow falls under the building itself.
+            const ring = block.points, cx = block.x, cy = block.y;
+            append(ring.map(p => {
+              const dx = p.x - cx, dy = p.y - cy, length = Math.hypot(dx, dy) || 1;
+              return {x: p.x + dx / length * 1.5, y: p.y + dy / length * 1.5};
+            }));
+          }
+        }
+        ctx.fillStyle = '#30382f'; ctx.globalAlpha = .22;
+        ctx.fill(); ctx.restore();
       },
       damagePoly(pts, key, claimed, anchorX, anchorY) {
         const texture = CastleStyles.damageTexture(scene, key, claimed);
@@ -1645,8 +1707,10 @@
           scene._fdrCastleLayouts.set(d.key, { ...model, source: 'castles' });
           g.fillPoly(d.pts, model.style.floor);
           // Reuse the ground canvas: quiet paving adds no castle triangles.
-          g.texturePoly?.(d.pts, 'fdr', [], 1.5, isMine ? .28 : .16);
-          if(!isMine&&model.family!=='citadel')g.texturePoly?.(d.pts, 'fdr-wreck', [], 1, .7);
+          const paving=model.style.paving;
+          g.texturePoly?.(d.pts, paving.key, [], paving.scale, paving.alpha);
+          if(!isMine)g.castleGrowth?.(model,d.key);
+          g.castleShadow?.(model, group.blocks.slice(-model.blocksAdded));
           continue;
         }
       }

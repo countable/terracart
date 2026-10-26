@@ -3,6 +3,7 @@
 (function (global) {
   const { wallTintSource, wallUVAffine } = global.WallSurfaceRenderer;
   const whitePatch=points=>points?.every(p=>p.u>=496/512&&p.u<=504/512&&p.v>=496/512&&p.v<=504/512);
+  const copingPatch=points=>[394,418].some(left=>points?.every(p=>p.u>=left/512&&p.u<=(left+16)/512&&p.v>=488/512&&p.v<=500/512));
   const pointKey = p => [p.x,p.y,p.z].map(n=>Math.round(n*1e5)).join(',');
   function planeKey(points) {
     const [a,b,c]=points, u={x:b.x-a.x,y:b.y-a.y,z:b.z-a.z},v={x:c.x-a.x,y:c.y-a.y,z:c.z-a.z};
@@ -17,22 +18,29 @@
       if(!t.uv||t.alpha!==1)return;
       const center=t.uv.reduce((p,q)=>({u:p.u+q.u/3,v:p.v+q.v/3}),{u:0,v:0});
       const slot=Math.floor(center.u*4)+4*Math.floor(center.v*4);
-      // Only fully opaque materials participate. Gates, windows, coping and
-      // base tiles contain transparent source pixels and retain exact clips.
-      if(![0,3,4,5,8,9,10,13,14].includes(slot)&&!whitePatch(t.uv))return;
+      const roof=slot===8;
+      // Opaque materials and the binary-alpha keep facade can union their
+      // internal triangles. Exact outer clips preserve transparent silhouettes.
+      if(![0,2,3,4,5,8,9,10,11,12,13,14].includes(slot)&&!whitePatch(t.uv)&&!copingPatch(t.uv))return;
       const plane=planeKey(t.uv);if(!plane)return;
-      const groupKey=plane+'|'+slot+'|'+t.color;let path=groups.get(groupKey);
-      if(!path){path=new Path2D();groups.set(groupKey,path);}paths[index]=path;
+      const frame=slot===2?Math.floor((center.u*512-264)/56)+2*Math.floor((center.v*512-8)/56):'';
+      const groupKey=plane+'|'+slot+'|'+frame+'|'+t.color;let path=groups.get(groupKey);
+      if(!path){path=new Path2D();groups.set(groupKey,path);}paths[index]=roof?undefined:path;
       const [a,b,c]=t.points,reverse=(b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x)<0;
       for(let i=0;i<3;i++){
         const j=(i+1)%3,ka=pointKey(t.uv[i]),kb=pointKey(t.uv[j]);
         const rawKey=[ka,kb].sort().join('|');
         // Different cel colours and roof slopes still meet at one opaque edge.
         // Flat fills can overlap that shared edge without touching silhouettes.
-        if(whitePatch(t.uv)){
-          const pair=solidEdges.get(rawKey);
+        // Opaque roof tiles also bridge their shared slope edges. Their clip
+        // expands only at paired edges; exterior eaves remain exact.
+        if(whitePatch(t.uv)||roof){
+          // The flat cap beneath a roof shares its eaves, but is not an
+          // adjacent roof slope: expanding it paints a pale fringe outside.
+          const solidKey=(roof?'roof|':'flat|')+rawKey;
+          const pair=solidEdges.get(solidKey);
           if(pair){shared[index][i]=true;shared[pair.index][pair.edge]=true;}
-          else solidEdges.set(rawKey,{index,edge:i});
+          else solidEdges.set(solidKey,{index,edge:i});
         }
         const key=groupKey+'|'+rawKey;
         const existing=edges.get(key);
@@ -96,7 +104,7 @@
         if(!t.uv||whitePatch(t.uv)){g.fillStyle='#'+t.color.toString(16).padStart(6,'0');g.fill();continue;}
         if(!map)continue;
         const path=paths[index];
-        // Consecutive opaque triangles with the identical texture transform
+        // Consecutive eligible triangles with the identical texture transform
         // draw once through their union, so their shared diagonal has no AA seam.
         while(path&&index+1<src._wallTriangles.length){
           const next=src._wallTriangles[index+1],nextMap=affines[index+1];

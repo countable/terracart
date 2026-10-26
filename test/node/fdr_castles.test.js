@@ -128,7 +128,9 @@
       for(const low of lower) {
         const lit=upper.filter(f=>Math.abs(f.normal.x-low.normal.x)<1e-7&&Math.abs(f.normal.y-low.normal.y)<1e-7);
         assert.gt(lit.length,0);
-        assert.truthy(lit.every(f=>luma(f.color)>luma(low.color)),'the wall face above the foot is lighter');
+        // Wreck masonry reserves tint headroom for green plants; bare stone
+        // is pre-darkened by the reciprocal amount in its shared atlas tile.
+        assert.truthy(lit.every(f=>luma(f.color)/(active?1:1.5)>luma(low.color)),'the wall face above the foot is lighter');
       }
       const byNormal=new Map();
       for(const face of upper) {
@@ -138,7 +140,7 @@
       for(const colors of byNormal.values())assert.eq(colors.size,1,'the upper wall has no second horizontal shadow step');
       const caps=body.materialFaces.filter(f=>f.material==='stone'&&!f.normal&&f.points.every(p=>p.z===body.top));
       assert.gt(caps.length,0,'coping exposes a real upward-facing plane');
-      assert.truthy(caps.every(f=>luma(f.color)>Math.max(...upper.map(q=>luma(q.color)))),'upward-facing surfaces are lit');
+      assert.truthy(caps.every(f=>luma(f.color)>Math.max(...upper.map(q=>luma(q.color)/(active?1:1.5)))),'upward-facing surfaces are lit');
       const colors=group.blocks.flatMap(b=>b.materialFaces.map(f=>f.color)).sort((a,b)=>a-b).join(',');
       for(const angle of [0,.7,Math.PI/2,Math.PI,Math.PI*1.5]) {
         scene.mapRot=angle;WallPerspective.update(scene);
@@ -147,7 +149,7 @@
       }
     }
   });
-  test('FDR castles: each keep has closed double doors without a banner across the entrance', () => {
+  test('FDR castles: each keep has backed entrance art without a banner across the entrance', () => {
     for(const family of ['citadel','bastion','archive'])for(const active of [true,false]) {
       const gfx={clear(){},fillStyle(){},fillTriangle(){}};
       const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
@@ -157,11 +159,23 @@
       const keep=layout.keep;assert.truthy(keep);
       const faces=group.blocks.filter(b=>Math.abs(b.x-keep.x)<1e-7&&Math.abs(b.y-keep.y)<1e-7).flatMap(b=>b.materialFaces);
       for(const material of ['door','door-seam','door-handle'])
-        assert.gt(faces.filter(f=>f.material===material).length,0,`${family}: closed doors retain ${material}`);
+        assert.gt(faces.filter(f=>f.material===material).length,0,`${family}: backed entrance retains ${material}`);
+      if(family==='citadel'&&active)for(const face of faces.filter(f=>f.material==='door-seam'))
+        for(const point of face.points){
+          assert.gte(point.z,2.5,'the painted leaf edge begins above the threshold');
+          assert.lte(point.z,16.25,'the seam cannot extend above the painted open leaf');
+        }
       for(const face of faces.filter(f=>f.material==='door')) {
         const center=face.points.reduce((sum,p)=>({u:sum.u+p.u/3,v:sum.v+p.v/3}),{u:0,v:0});
-        assert.eq(Math.floor(center.u*4)+4*Math.floor(center.v*4),5,
-          'closed door artwork uses the shared gate atlas rather than an open entrance');
+        assert.eq(Math.floor(center.u*4)+4*Math.floor(center.v*4),family==='archive'?5:2,
+          'backed entrance artwork uses its family atlas frame');
+        if(family!=='archive')for(const p of face.points){
+          const x=268+(active?56:0),y=12+(family==='bastion'?56:0);
+          assert.gte(p.u*512,x);assert.lte(p.u*512,x+48);
+          assert.gte(p.v*512,y);assert.lte(p.v*512,y+48);
+          assert.lte(Math.abs(p.x-keep.x),keep.width/2,'facade art stays inside the keep wall');
+          assert.lte(p.z,keep.height,'facade art cannot float above its wall');
+        }
       }
       assert.eq(faces.filter(f=>f.material==='banner').length,0,'no keep banner covers its entrance');
     }
@@ -287,13 +301,25 @@
       const scene={_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
         add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
       const group=WallPerspective.begin(scene,'castles');
-      FDRCastleGeometry.draw(scene,'castles',L.rect(0,0,240,180),{family,active});
+      const {layout}=FDRCastleGeometry.draw(scene,'castles',L.rect(0,0,240,180),{family,active});
       const faces=group.blocks.flatMap(b=>b.materialFaces);
       const upperStone=faces.filter(f=>f.material==='stone'&&f.normal&&f.points.every(p=>p.z>=4));
       assert.gt(upperStone.length,0);
-      const slots=new Set(upperStone.map(atlasSlot));
-      assert.eq([...slots].join(','),!active&&family!=='citadel'?'14':'13',
-        'Bastion/Archive wrecks use shared moss marks; Citadel and intact walls use quiet stone');
+      const style=CastleStyles.renderStyle(family,active);
+      const parts=[...layout.towers,...(layout.keep?[layout.keep]:[])];
+      for(const block of group.blocks){
+        const shaft=block.bottom===0&&parts.some(p=>Math.abs(block.x-p.x)<1e-7&&Math.abs(block.y-p.y)<1e-7);
+        const slot=shaft?style.towerMasonrySlot:style.masonrySlot;
+        for(const face of block.materialFaces.filter(f=>f.material==='stone'&&f.normal&&f.points.every(p=>p.z>=4))){
+          assert.eq(atlasSlot(face),slot,'shaft and curtain materials follow their family and condition');
+          for(const p of face.points){
+            assert.gte(p.u*512,slot%4*128+8-1e-7);
+            assert.lte(p.u*512,slot%4*128+120+1e-7);
+            assert.gte(p.v*512,Math.floor(slot/4)*128+8-1e-7);
+            assert.lte(p.v*512,Math.floor(slot/4)*128+120+1e-7);
+          }
+        }
+      }
       assert.falsy(faces.some(f=>/moss|ivy|vegetation/.test(f.material||'')),
         'surface weathering does not introduce modeled vegetation');
     }
@@ -376,6 +402,64 @@
       assert.eq(images,0);assert.eq(affines,0,'flat colors skip affine texture mapping');
       assert.eq(allocations,0,'new solid palette colors do not allocate 512px tinted copies');
       assert.falsy(texture._wallTintSources,'white-patch materials never enter the tint cache');
+    } finally {
+      for(const [key,value] of Object.entries(previous)) {
+        if(value===undefined)delete globalThis[key];else globalThis[key]=value;
+      }
+    }
+  });
+  test('FDR castles: Canvas closes coping triangles without treating banner cloth as opaque', () => {
+    const previous={Phaser:globalThis.Phaser,Path2D:globalThis.Path2D};
+    const matrix={a:1,b:0,c:0,d:1,e:0,f:0};
+    const identity={transformPoint:p=>({...p}),inverse(){return this;}};
+    globalThis.Phaser={GameObjects:{GetCalcMatrix:()=>({calc:matrix})}};
+    globalThis.Path2D=class {moveTo(){} lineTo(){} closePath(){}};
+    const context={save(){},restore(){},setTransform(){},getTransform:()=>identity,
+      beginPath(){},moveTo(){},lineTo(){},closePath(){},clip(){},transform(){},drawImage(){},fill(){}};
+    const triangles=[];
+    for(const [offset,rect] of [[0,[394,488,410,500]],[20,[392,392,504,481.6]],[40,[418,488,434,500]],[60,[268,12,316,60]]]){
+      const points=[{x:offset,y:0,z:0},{x:offset+8,y:0,z:0},{x:offset+8,y:6,z:0},{x:offset,y:6,z:0}];
+      const [left,top,right,bottom]=rect,uv=[[left,top],[right,top],[right,bottom],[left,bottom]];
+      for(const indices of [[0,1,2],[0,2,3]])triangles.push({points:indices.map(i=>points[i]),
+        uv:indices.map(i=>({...points[i],u:uv[i][0]/512,v:uv[i][1]/512})),color:0xffffff,alpha:1});
+    }
+    const target={alpha:1,_wallAtlas:{getSourceImage:()=>({width:512,height:512})},_wallTriangles:triangles};
+    try {
+      FDRCastleCanvas.attach(target);
+      target.renderCanvas({currentContext:context},target,{alpha:1,addToRenderList(){}},null);
+      const shared=target._fdrCanvasEdgeCache.shared;
+      assert.truthy(shared[0][2]&&shared[1][0],'opaque coping covers its internal diagonal');
+      assert.truthy(shared[4][2]&&shared[5][0],'opaque worn coping covers its internal diagonal');
+      assert.truthy(shared[6][2]&&shared[7][0],'binary-alpha keep facade covers only its internal diagonal');
+      assert.falsy(shared[6][0]||shared[6][1]||shared[7][1]||shared[7][2],'keep facade exterior edges retain exact clips');
+      assert.falsy(shared[2].some(Boolean)||shared[3].some(Boolean),'transparent banner retains exact clips');
+    } finally {
+      for(const [key,value] of Object.entries(previous)) {
+        if(value===undefined)delete globalThis[key];else globalThis[key]=value;
+      }
+    }
+  });
+  test('FDR castles: textured roof seams close without expanding the pale cap past the eaves', () => {
+    const previous={Phaser:globalThis.Phaser,Path2D:globalThis.Path2D};
+    const matrix={a:1,b:0,c:0,d:1,e:0,f:0};
+    const identity={transformPoint:p=>({...p}),inverse(){return this;}};
+    globalThis.Phaser={GameObjects:{GetCalcMatrix:()=>({calc:matrix})}};
+    globalThis.Path2D=class {moveTo(){} lineTo(){} closePath(){}};
+    const context={save(){},restore(){},setTransform(){},getTransform:()=>identity,
+      beginPath(){},moveTo(){},lineTo(){},closePath(){},clip(){},transform(){},drawImage(){},fill(){}};
+    const a={x:0,y:0,z:0},b={x:10,y:0,z:0},c={x:10,y:10,z:0},peak={x:5,y:5,z:6};
+    const roofUV=[[8,376],[120,376],[64,264]],flatUV=[[498,498],[502,498],[502,502]];
+    const face=(points,uv)=>({points:points.map(p=>({x:p.x,y:p.y-p.z})),
+      uv:points.map((p,i)=>({...p,u:uv[i][0]/512,v:uv[i][1]/512})),color:0xffffff,alpha:1});
+    const target={alpha:1,_wallAtlas:{getSourceImage:()=>({width:512,height:512})},
+      _wallTriangles:[face([a,b,peak],roofUV),face([b,c,peak],roofUV),face([a,b,c],flatUV)]};
+    try {
+      FDRCastleCanvas.attach(target);
+      target.renderCanvas({currentContext:context},target,{alpha:1,addToRenderList(){}},null);
+      const shared=target._fdrCanvasEdgeCache.shared;
+      assert.truthy(shared[0][1]&&shared[1][2],'adjacent roof slopes cover their common ridge');
+      assert.falsy(shared[0][0]||shared[1][0],'roof eaves remain exact exterior edges');
+      assert.falsy(shared[2].some(Boolean),'the pale underlying cap cannot bleed past the roof');
     } finally {
       for(const [key,value] of Object.entries(previous)) {
         if(value===undefined)delete globalThis[key];else globalThis[key]=value;

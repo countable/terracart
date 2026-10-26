@@ -1,13 +1,17 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-84f47d4e';
+const SHELL_VERSION = 'shell-ba446338';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
 /* ASSET_HASHES_START */
 const ASSET_HASHES = {
   "assets/ArtTrials/RogueObjects/bushes-olive.png": "120fc538",
+  "assets/ArtTrials/RogueObjects/fruit-apple-blossom.png": "ec906e4f",
+  "assets/ArtTrials/RogueObjects/fruit-apple.png": "2c084dbb",
+  "assets/ArtTrials/RogueObjects/fruit-worldpeach-blossom.png": "78c23a02",
+  "assets/ArtTrials/RogueObjects/fruit-worldpeach.png": "8fe83508",
   "assets/ArtTrials/RogueObjects/lamp.png": "531900a1",
   "assets/ArtTrials/RogueObjects/rain.png": "f67d59ca",
   "assets/ArtTrials/RogueObjects/rock-mid.png": "05ddc979",
@@ -377,14 +381,17 @@ const ASSET_HASHES = {
   "assets/Objects/BuildingMaterials/reference-materials-v3.png": "38fc2ff3",
   "assets/Objects/BuildingMaterials/wreck-floor-cel.png": "8a303ad2",
   "assets/Objects/BuildingMaterials/wreck-plinth.png": "b25d5594",
-  "assets/Objects/Castle/FDR/atlas.png": "ec8172cf",
+  "assets/Objects/Castle/FDR/archive-floor.png": "93820d3d",
+  "assets/Objects/Castle/FDR/atlas.png": "1a494f7e",
+  "assets/Objects/Castle/FDR/bastion-floor.png": "c4383555",
   "assets/Objects/Castle/FDR/floor.png": "3c5de081",
-  "assets/Objects/Castle/FDR/weathered-floor.png": "fa7f3ae7",
+  "assets/Objects/Castle/FDR/weathered-floor.png": "258f6fee",
   "assets/Objects/Castle/tower_shapes.png": "0b7d9e6d",
   "assets/Objects/Cave/floor-wall-sources.png": "d3fa1eb3",
   "assets/Objects/Cave/poison_vent_inactive.png": "b42d2b64",
   "assets/Objects/Cave/props.png": "6b6f2cc3",
-  "assets/Objects/CelProps/palms.png": "09ce414d",
+  "assets/Objects/CelProps/Sources/palms-ra.png": "4dc3586f",
+  "assets/Objects/CelProps/palms.png": "e012f0c7",
   "assets/Objects/CelProps/pots-smashed.png": "169ab8d2",
   "assets/Objects/DailyVisits/potofgold.png": "68ee01c6",
   "assets/Objects/DailyVisits/wagon.png": "ab9c7c68",
@@ -440,6 +447,7 @@ const ASSET_HASHES = {
   "assets/Objects/SelectedProps/selected_grave_pillar.png": "2a1f2e6f",
   "assets/Objects/SelectedProps/signpost.png": "84aadac3",
   "assets/Objects/SelectedWorld/world.png": "18fb3b28",
+  "assets/Objects/StandingTorch/torch.png": "33b71d48",
   "assets/Objects/Stronghold/walls-24.png": "42926d98",
   "assets/Objects/Wilderness/Azure Butterfly.png": "0c965543",
   "assets/Objects/Wilderness/Beehive.png": "d89820ed",

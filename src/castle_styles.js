@@ -186,14 +186,14 @@
   // Visual families are independent of the historical four hash/quest slots.
   // Old ruin sites keep their hunt jobs and IDs, but use Bastion architecture.
   const renderFamilies = Object.freeze({
-    citadel: { wall: 0x858994, side: 0x6f7581, top: 0xc2c1b8, base: 0x535b66,
-      floor: 0xb1a78d, roof: 0x73818b, roofSide: 0x56616b, roofBack: 0x73818b, roofLight: 0x85919b, door: 0x303941,
-      accent: 0xd6c18d, towerWidth: 32, towerHeight: 40, keepHeight: 48, roofHeight: 0 },
-    bastion: { wall: 0xc8ac7d, side: 0xa88b61, top: 0xf0d2a0, base: 0x827354,
-      floor: 0xc8b38b, roof: 0xbba57a, roofSide: 0xa58d66, roofBack: 0xbba57a, roofLight: 0xceba93, door: 0x554737,
+    citadel: { wall: 0x747985, side: 0x59616f, top: 0xe2d2b4, base: 0x454e5b,
+      floor: 0xc5b18a, roof: 0x73818b, roofSide: 0x56616b, roofBack: 0x73818b, roofLight: 0x85919b, door: 0x303941,
+      accent: 0xffd575, towerWidth: 32, towerHeight: 40, keepHeight: 48, roofHeight: 0 },
+    bastion: { wall: 0xc4a374, side: 0x96754e, top: 0xf7d9a7, base: 0x786447,
+      floor: 0xd3b081, roof: 0xbba57a, roofSide: 0xa58d66, roofBack: 0xbba57a, roofLight: 0xceba93, door: 0x554737,
       accent: 0xb84731, towerWidth: 36, towerHeight: 32, keepHeight: 42, roofHeight: 0 },
-    archive: { wall: 0xcabea3, side: 0xa79b82, top: 0xeee0bf, base: 0x80765f,
-      floor: 0xc3b08a, roof: 0x286e83, roofSide: 0x1f5267, roofBack: 0x377d91, roofLight: 0x5594a4, door: 0x3e4748,
+    archive: { wall: 0xd0bfa0, side: 0xa28e70, top: 0xf6e5c4, base: 0x7c6c55,
+      floor: 0xd0bc94, roof: 0x2a7186, roofSide: 0x28677b, roofBack: 0x347e92, roofLight: 0x4b8ea0, door: 0x3e4748,
       accent: 0xb7a06c, towerWidth: 32, towerHeight: 30, keepHeight: 40, roofHeight: 12 },
   });
   const renderCache = new Map();
@@ -202,16 +202,119 @@
     const cacheKey = `${id}:${active ? 1 : 0}`;
     if (renderCache.has(cacheKey)) return renderCache.get(cacheKey);
     const source = renderFamilies[id], value = { id, active: !!active };
+    value.masonrySlot = { citadel: [9, 3], bastion: [4, 10], archive: [14, 13] }[id][active ? 1 : 0];
+    value.towerMasonrySlot = id === 'archive' ? (active ? 11 : 12) : value.masonrySlot;
+    // A 128-unit motif occupies exactly 64 of the tile's 112 atlas texels.
+    value.masonryRepeatFraction = 4 / 7;
+    value.paving = Object.freeze(id === 'citadel'
+      ? { key: 'fdr', scale: 1.5, alpha: active ? .28 : .16 }
+      : { key: `fdr-${id}`, scale: 1, alpha: active ? 1 : .55 });
     for (const field of ['wall', 'side', 'top', 'base', 'floor', 'roof', 'roofSide', 'roofBack', 'roofLight', 'door', 'accent'])
       value[field] = active ? source[field] : weathered(source[field], field === 'floor');
     if (!active) {
       value.base = id === 'citadel' ? 0x262f3b : 0x666e50;
       if(id==='citadel'){value.wall=0x434956;value.side=0x343c47;value.top=0x92969b;value.door=0x242c36;}
-      value.accent = id === 'citadel' ? 0x7c3237 : 0x827657;
+      value.accent = id === 'citadel' ? 0xa52e34 : id === 'bastion' ? weathered(source.accent) : 0x827657;
     }
+    value.heraldry = id === 'citadel' ? (active ? 0xa66b20 : 0xf4ead6)
+      : active ? source.top : weathered(source.top,true);
+    // Citadel wreck coping turns slate-grey, but its inset paving remains
+    // sandstone. Preserve that material separately from the crown's tint.
+    value.deck = id === 'citadel' && !active ? weathered(source.top, true) : value.top;
     value.geometry = Object.freeze({ towerWidth: source.towerWidth, towerHeight: source.towerHeight,
       keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 24, roofHeight: source.roofHeight });
     const style = Object.freeze(value); renderCache.set(cacheKey, style); return style;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
+  // Ground-only contact growth. The canvas clips these bounded masks to the
+  // courtyard; they never become retained castle meshes or world objects.
+  function growthPatches(key, layout) {
+    const family=renderStyle(key,false).id;
+    const spread={citadel:12,bastion:48,archive:15}[family];
+    const coverage={citadel:.28,bastion:.85,archive:.64}[family];
+    let seed=0x811c9dc5;
+    for(const ch of String(key))seed=Math.imul(seed^ch.charCodeAt(0),0x01000193);
+    const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
+    const patches=[];
+    const ring=(points,width,inward)=>{
+      if(!points||points.length<3)return;
+      let area=0,perimeter=0;
+      for(let i=0;i<points.length;i++){
+        const a=points[i],b=points[(i+1)%points.length];
+        area+=a.x*b.y-b.x*a.y;perimeter+=Math.hypot(b.x-a.x,b.y-a.y);
+      }
+      const sign=(area<0?-1:1)*(inward?1:-1),step=Math.max(inward?48:32,perimeter/96);
+      for(let edge=0;edge<points.length&&patches.length<256;edge++){
+        const a=points[edge],b=points[(edge+1)%points.length],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+        if(length<1e-6)continue;
+        const nx=-dy/length*sign,ny=dx/length*sign,count=Math.ceil(length/step);
+        for(let i=0;i<count&&patches.length<256;i++){
+          const selected=random()<coverage;
+          const depth=width*(.25+random()*.75)*(family==='bastion'?1.12:1);
+          const start=Math.max(0,(i-random()*.18)/count),end=Math.min(1,(i+1+random()*.18)/count);
+          let trend=random();
+          const contour=Array.from({length:7},(_,j)=>{
+            trend=trend*.6+random()*.4;
+            // Coarse correlated variation makes one broad unequal lobe,
+            // rather than independently alternating narrow comb teeth.
+            const shoulder=j===0||j===6?.38:j===1||j===5?.78:1;
+            const reach=depth*(.65+trend*.55)*shoulder;
+            return family==='bastion'?reach:Math.min(width,reach);
+          });
+          if(!selected)continue;
+          const at=(fraction,depth)=>({x:a.x+dx*fraction+nx*depth,y:a.y+dy*fraction+ny*depth});
+          patches.push([at(start,0),at(end,0),...contour.map((d,j)=>at(end-(end-start)*j/6,d))]);
+        }
+      }
+    };
+    ring(layout.points,spread,true);
+    for(const part of [...layout.towers,...(layout.keep?[layout.keep]:[])])
+      ring(part.points,spread*.45,false);
+    // Coarse leaf clusters break the smooth mask perimeter. Missing cells
+    // are paving gaps before compositing, never erasures of the floor below.
+    const left=Math.min(...layout.points.map(p=>p.x)),top=Math.min(...layout.points.map(p=>p.y));
+    const width=Math.max(...layout.points.map(p=>p.x))-left,height=Math.max(...layout.points.map(p=>p.y))-top;
+    let cell=4;
+    while(Math.ceil(width/cell)*Math.ceil(height/cell)>2048)cell*=1.25;
+    const cols=Math.ceil(width/cell),rows=Math.ceil(height/cell),filled=new Set();
+    const inside=(x,y,points)=>{
+      let yes=false;
+      for(let i=0,j=points.length-1;i<points.length;j=i++){
+        const a=points[i],b=points[j];
+        if((a.y>y)!==(b.y>y)&&x<(b.x-a.x)*(y-a.y)/(b.y-a.y)+a.x)yes=!yes;
+      }
+      return yes;
+    };
+    for(const patch of patches){
+      const x0=Math.max(0,Math.floor((Math.min(...patch.map(p=>p.x))-left)/cell));
+      const x1=Math.min(cols-1,Math.floor((Math.max(...patch.map(p=>p.x))-left)/cell));
+      const y0=Math.max(0,Math.floor((Math.min(...patch.map(p=>p.y))-top)/cell));
+      const y1=Math.min(rows-1,Math.floor((Math.max(...patch.map(p=>p.y))-top)/cell));
+      for(let y=y0;y<=y1;y++)for(let x=x0;x<=x1;x++)
+        if(inside(left+(x+.5)*cell,top+(y+.5)*cell,patch))filled.add(y*cols+x);
+    }
+    const noise=(x,y)=>((Math.imul(x+29,374761393)^Math.imul(y+71,668265263)^seed)>>>0);
+    const clusters=[],selectedCells=new Set();
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;x++){
+      const has=(cx,cy)=>cx>=0&&cx<cols&&cy>=0&&cy<rows&&filled.has(cy*cols+cx);
+      const neighbors=Number(has(x-1,y))+Number(has(x+1,y))+Number(has(x,y-1))+Number(has(x,y+1));
+      const occupied=has(x,y),n=noise(x,y);
+      if(occupied){
+        if(neighbors<4&&n%7===0)continue;
+        // A few grouped 8-unit gaps expose paving inside broad vegetation.
+        if(neighbors===4&&noise(Math.floor(x/2)+213,Math.floor(y/2)+91)%43===0)continue;
+      }else if(neighbors<2||n%5!==0)continue;
+      selectedCells.add(y*cols+x);
+    }
+    // Merge contiguous cells into row runs. This preserves the leafy outline
+    // and paving gaps while reducing the cached canvas path substantially.
+    for(let y=0;y<rows;y++)for(let x=0;x<cols;){
+      if(!selectedCells.has(y*cols+x)){x++;continue;}
+      const start=x;
+      while(x<cols&&selectedCells.has(y*cols+x))x++;
+      const x0=left+start*cell,y0=top+y*cell,x1=Math.min(left+width,left+x*cell),y1=Math.min(top+height,y0+cell);
+      clusters.push([{x:x0,y:y0},{x:x1,y:y0},{x:x1,y:y1},{x:x0,y:y1}]);
+    }
+    return clusters;
+  }
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, growthPatches, variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

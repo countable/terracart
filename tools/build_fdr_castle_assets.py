@@ -3,6 +3,7 @@
 import argparse
 import hashlib
 import json
+import subprocess
 from pathlib import Path
 
 from PIL import Image, ImageDraw
@@ -79,6 +80,9 @@ def treatment(tile, slot):
 
 def build(out):
     out.mkdir(parents=True, exist_ok=True)
+    profiles = json.loads(subprocess.check_output(['node', '-e',
+        "global.window=global;require('./src/castle_styles.js');console.log(JSON.stringify(Object.fromEntries(['citadel','bastion'].flatMap(id=>[false,true].map(active=>[id+':'+Number(active),{...CastleStyles.renderStyle(id,active),wood:CastleStyles.get(id,active).wood}])))));"],
+        cwd=ROOT, text=True))
     source = Image.open(SOURCE).convert('RGBA')
     floor_source = Image.open(FLOOR_SOURCE).convert('RGBA')
     atlas = Image.new('RGBA', (SIZE, SIZE))
@@ -100,31 +104,87 @@ def build(out):
                          alphaRange=list(native.getchannel('A').getextrema()), treatment=paint))
     # Shared authored cel materials. Their stone courses, coping and heraldry
     # replace facade detail geometry; every tile is built once offline.
-    stone = Image.new('RGBA', (32, 32), (246, 246, 246, 255))
-    ink = ImageDraw.Draw(stone)
-    for row in range(4):
-        y = row * 8
-        ink.line((0, y + 7, 31, y + 7), fill=(201, 201, 201, 255))
-        ink.line((0, y, 31, y), fill=(255, 255, 255, 255))
-        for x in range(-8 if row % 2 else 0, 32, 16):
-            ink.line((x, y, x, y + 6), fill=(214, 214, 214, 255))
-            if (row + x // 16) % 3 == 0:
-                ink.rectangle((x + 2, y + 2, x + 13, y + 5), fill=(235, 235, 235, 255))
-    wreck = stone.copy(); moss = ImageDraw.Draw(wreck)
-    for poly in [[(0, 22), (6, 22), (6, 18), (9, 18), (9, 28), (13, 28), (13, 31), (0, 31)],
-                 [(20, 31), (20, 26), (23, 26), (23, 23), (29, 23), (29, 29), (31, 29), (31, 31)],
-                 [(27, 0), (31, 0), (31, 10), (29, 10), (29, 6), (25, 6), (25, 3), (27, 3)]]:
-        moss.polygon(poly, fill=(157, 174, 114, 255))
-    moss.rectangle((2, 25, 6, 28), fill=(181, 191, 138, 255))
-    for x,y in [(0,22),(6,19),(8,27),(12,30),(20,26),(28,24),(30,29),(25,4)]:
-        moss.point((x,y), fill=stone.getpixel((x,y)))
-    for x,y in [(10,30),(17,29),(22,21),(28,12)]:
-        moss.rectangle((x,y,x+1,y+1), fill=(173,184,129,255))
-    deck = Image.new('RGBA', (32, 32), (224, 224, 224, 255)); rim = ImageDraw.Draw(deck)
+    def masonry(family, damaged=False, tower=False):
+        # Stone repeats every32 units; vegetation spans128 independent units.
+        # The224-unit tile packs that128-unit repeat into exactly64 atlas
+        # texels, so phases still agree after nearest-neighbour reduction.
+        tile = Image.new('RGBA', (32, 64), (238, 238, 238, 255))
+        draw = ImageDraw.Draw(tile)
+        height = 8 if family == 'bastion' or tower else 4
+        mortar = 220 if family == 'archive' else 218 if family == 'citadel' else 197
+        draw.rectangle((0, 0, 31, 63), fill=(mortar, mortar, mortar, 255))
+        for row in range(64 // height):
+            y = row * height
+            widths = [16, 16] if family == 'bastion' or tower else [8, 12, 12] if family == 'citadel' else [8, 8, 8, 8]
+            x = -widths[0] // 2 if row % 2 else 0
+            index = 0
+            while x < 32:
+                width = widths[index % len(widths)]
+                shades = [246, 243, 250, 245, 240] if tower else [245, 235, 250, 240, 230]
+                shade = shades[(row * 3 + (index % len(widths)) * 7) % 5]
+                draw.rectangle((x + 1, y, x + width - 1, y + height - 2),
+                               fill=(shade, shade, shade, 255))
+                if family != 'citadel':
+                    draw.line((x + 2, y, x + width - 2, y),
+                              fill=(min(255, shade + 10),) * 3 + (255,))
+                x += width; index += 1
+        motif = Image.new('RGBA', (128, 64))
+        for x in range(0, 128, 32):
+            motif.paste(tile, (x, 0))
+        if damaged:
+            # Reserve material headroom for foliage while keeping bare stone
+            # at its original value under the reciprocal renderer tint.
+            motif = motif.point(lambda value: round(value / 1.5))
+            motif.putalpha(255)
+            foliage = ImageDraw.Draw(motif)
+            # Uneven connected growth from the foot, with long quiet gaps.
+            # No circular blobs, diagonal ribbons, or per-brick repetition.
+            patches = [
+                [(2,63),(2,59),(7,59),(7,54),(10,54),(10,46),(14,46),
+                 (14,51),(18,51),(18,57),(25,57),(25,60),(30,60),(30,63)],
+                [(85,63),(85,60),(92,60),(92,55),(97,55),(97,48),(101,48),
+                 (101,54),(107,54),(107,58),(116,58),(116,63)],
+                [(45,19),(57,19),(57,23),(62,23),(62,29),(58,29),(58,39),
+                 (61,39),(61,44),(57,44),(57,52),(53,52),(53,56),(49,56),
+                 (49,46),(46,46),(46,37),(50,37),(50,31),(46,31),(46,26),(42,26),(42,22)],
+                [(96,29),(108,29),(108,34),(113,34),(113,39),(107,39),
+                 (107,45),(111,45),(111,49),(105,49),(105,54),(101,54),
+                 (101,43),(97,43),(97,37),(93,37),(93,32)],
+            ]
+            if family == 'citadel':
+                patches = [
+                    [(4,63),(4,60),(9,60),(9,57),(13,57),(13,61),(20,61),(20,63)],
+                    [(49,27),(55,27),(55,31),(59,31),(59,34),(54,34),(54,45),
+                     (57,45),(57,49),(51,49),(51,43),(49,43)],
+                ]
+            for polygon in patches:
+                foliage.polygon(polygon, fill=(119,153,83,255))
+            # Small angular leaf groups soften selected junctions without
+            # uniformly stippling the complete vegetation silhouette.
+            marks = [(8,55,4,3),(12,48,3,4),(20,59,5,2),(95,57,4,3),
+                     (100,51,2,5),(109,60,5,2),(47,22,4,3),(54,30,3,5)]
+            if family == 'citadel':
+                marks = [(8,60,4,2),(51,29,3,3),(54,33,2,3)]
+            for x,y,w,h in marks:
+                foliage.rectangle((x,y,x+w-1,y+h-1),fill=(139,166,99,255))
+        repeated = Image.new('RGBA', (224, 64))
+        repeated.paste(motif, (0, 0))
+        repeated.paste(motif.crop((0, 0, 96, 64)), (128, 0))
+        return repeated
+
+    stone = masonry('archive'); wreck = masonry('archive', True)
+    citadel_stone = masonry('citadel'); citadel_wreck = masonry('citadel', True)
+    bastion_stone = masonry('bastion'); bastion_wreck = masonry('bastion', True)
+    archive_tower = masonry('archive', tower=True)
+    archive_tower_wreck = masonry('archive', True, tower=True)
+    deck = Image.new('RGBA', (32, 32), (216, 206, 179, 255)); rim = ImageDraw.Draw(deck)
     rim.rectangle((0, 0, 31, 31), outline=(185, 185, 185, 255), width=1)
     rim.rectangle((1, 1, 30, 30), outline=(255, 255, 255, 255), width=2)
-    rim.rectangle((3, 3, 28, 28), outline=(209, 209, 209, 255), width=1)
-    for y in [11, 20]: rim.line((5, y, 26, y), fill=(215, 215, 215, 255))
+    rim.rectangle((3, 3, 28, 28), outline=(177, 168, 145, 255), width=1)
+    for row, y in enumerate([8, 14, 20, 26]):
+        rim.line((4, y, 27, y), fill=(191, 180, 153, 255))
+        for x in range(8 if row % 2 else 14, 28, 12):
+            rim.line((x, y - 5, x, y - 1), fill=(198, 187, 160, 255))
     # Transparent pale heraldry: one pixel-art sun/trident mark is sampled by
     # existing flat banner faces, never modeled as separate spikes or strokes.
     heraldry = Image.new('RGBA', (16, 16)); sigil = ImageDraw.Draw(heraldry)
@@ -135,20 +195,62 @@ def build(out):
     rays.rectangle((5, 5, 10, 10), fill='white')
     for x, y, w, h in [(7, 1, 2, 3), (7, 12, 2, 3), (1, 7, 3, 2), (12, 7, 3, 2), (3, 3, 2, 2), (11, 3, 2, 2), (3, 11, 2, 2), (11, 11, 2, 2)]:
         rays.rectangle((x, y, x+w-1, y+h-1), fill='white')
-    door = Image.new('RGBA', (24, 28), (236, 236, 236, 255)); frame = ImageDraw.Draw(door)
-    frame.rectangle((0, 0, 23, 27), outline=(185, 185, 185, 255), width=1)
-    frame.rectangle((3, 4, 20, 27), fill=(74, 74, 74, 255))
-    frame.line((1, 1, 22, 1), fill=(255, 255, 255, 255))
-    frame.line((3, 4, 20, 4), fill=(49, 49, 49, 255))
-    for x in [5, 18]:
-        for y in [8, 22]: frame.rectangle((x, y, x + 1, y + 1), fill=(108, 108, 108, 255))
+    # Leave the bottom fifth clear of the atlas's shared white patch.
+    cloth = Image.new('RGBA', (16, 50)); hem = ImageDraw.Draw(cloth)
+    hem.polygon([(0, 0), (15, 0), (15, 39), (8, 33), (7, 33), (0, 39)],
+                fill=(174, 174, 174, 255))
+    hem.polygon([(1, 2), (14, 2), (14, 36), (8, 31), (7, 31), (1, 36)],
+                fill=(255, 255, 255, 255))
+    hem.line((2, 3, 2, 33), fill=(226, 226, 226, 255))
+    # Archive doors sit flush in the wall: no pale pictureframe surround.
+    door = Image.new('RGBA', (24, 28), (65, 69, 67, 255)); frame = ImageDraw.Draw(door)
+    frame.rectangle((0, 0, 23, 27), outline=(42, 46, 44, 255), width=1)
+    frame.rectangle((2, 2, 10, 26), fill=(76, 80, 76, 255))
+    frame.rectangle((13, 2, 21, 26), fill=(68, 73, 70, 255))
+    frame.line((1, 1, 22, 1), fill=(100, 103, 95, 255))
+    frame.line((11, 1, 11, 27), fill=(35, 39, 38, 255))
+    military_door = Image.new('RGBA', (32, 40)); gate = ImageDraw.Draw(military_door)
+    arch_outline = [(1, 39), (1, 13), (5, 6), (11, 2), (20, 2), (26, 6), (30, 13), (30, 39)]
+    gate.polygon(arch_outline, fill=(139, 139, 139, 255))
+    gate.line(arch_outline[1:-1], fill=(226, 226, 226, 255), width=2)
+    gate.polygon([(5, 39), (5, 14), (8, 9), (13, 6), (18, 6), (23, 9), (26, 14), (26, 39)],
+                 fill=(62, 60, 54, 255))
+    for x in [8, 12, 19, 23]:
+        gate.line((x, 14, x, 39), fill=(87, 83, 71, 255))
+    for y in [19, 31]:
+        gate.line((6, y, 25, y), fill=(37, 39, 38, 255), width=2)
+    gate.line((15, 7, 15, 39), fill=(28, 31, 31, 255))
+    # Existing roof triangles sample an opaque slope tile. The single lit
+    # ridge and darker eave stay attached to world-space faces while rotating.
+    roof = Image.new('RGBA', (64, 64), (238, 238, 238, 255))
+    roof_ink = ImageDraw.Draw(roof)
+    roof_ink.line((0, 63, 32, 0), fill=(255, 255, 255, 255), width=2)
+    roof_ink.line((0, 63, 63, 63), fill=(220, 220, 220, 255), width=2)
+    # Alpha cuts only the upper corners of each existing window quad.
+    # Archive towers reuse one quad for two storeys; military towers sample
+    # only the first arch (the top 40 percent of this same atlas content).
+    window = Image.new('RGBA', (8, 40)); arch = ImageDraw.Draw(window)
+    for y in [0, 24]:
+        arch.rectangle((0, y+4, 7, y+15), fill='white')
+        arch.rectangle((1, y+2, 6, y+4), fill='white')
+        arch.rectangle((2, y+1, 5, y+2), fill='white')
+        arch.rectangle((3, y, 4, y+1), fill='white')
     for slot, name, tile, wrap_x, wrap_y in [
         (0, 'lit-coping-and-inset-deck', deck, False, False),
         (1, 'pale-heraldry', heraldry, False, False),
+        (3, 'citadel-slate', citadel_stone, True, True),
+        (9, 'citadel-weathered-slate', citadel_wreck, True, True),
+        (10, 'bastion-sandstone', bastion_stone, True, True),
+        (4, 'bastion-weathered-sandstone', bastion_wreck, True, True),
+        (11, 'archive-tower-ashlar', archive_tower, True, True),
+        (12, 'archive-weathered-tower-ashlar', archive_tower_wreck, True, True),
         (5, 'closed-iron-door', door, False, False),
         (6, 'bastion-sun', sun, False, False),
+        (7, 'arched-window', window, False, False),
+        (8, 'roof-ridge-and-eave', roof, False, False),
         (13, 'quiet-stone', stone, True, True),
-        (14, 'weathered-stone', wreck, True, True)]:
+        (14, 'weathered-stone', wreck, True, True),
+        (15, 'forked-banner-cloth', cloth, False, False)]:
         rows = [row for row in rows if row['slot'] != slot]
         atlas.paste(padded(tile, wrap_x, wrap_y), (slot % 4 * SLOT, slot // 4 * SLOT))
         rows.append(dict(slot=slot, name=name, source='authored cel pixel material',
@@ -156,6 +258,89 @@ def build(out):
                          atlasContentRect=[slot % 4 * SLOT + PAD, slot // 4 * SLOT + PAD, CONTENT, CONTENT],
                          gutterX='wrap' if wrap_x else 'clamp', gutterY='wrap' if wrap_y else 'clamp',
                          alphaRange=list(tile.getchannel('A').getextrema())))
+    # Four padded transparent facades share the existing military door slot.
+    # The backed doorway stays centered; the banners occupy only its flanks.
+    atlas.paste((0,0,0,0),(256,0,384,128));rows=[row for row in rows if row['slot']!=2]
+    facade_frames=[]
+    def tint(image,color):
+        channels=(color>>16,(color>>8)&255,color&255)
+        result=image.copy()
+        result.putdata([tuple(round(pixel[c]*channels[c]/255) for c in range(3))+(pixel[3],)
+                        for pixel in image.getdata()])
+        return result
+    def rgb(color):
+        return (color>>16,(color>>8)&255,color&255,255)
+    def entrance(family,active,style):
+        result=tint(military_door,style['wall'])
+        shape=[(5,39),(5,14),(8,9),(13,6),(18,6),(23,9),(26,14),(26,39)]
+        mask=Image.new('L',(32,40));ImageDraw.Draw(mask).polygon(shape,fill=255)
+        layer=Image.new('RGBA',(32,40),rgb(style['door']));paint=ImageDraw.Draw(layer)
+        if family=='citadel':
+            paint.rectangle((0,0,31,39),fill=rgb(style['door']//2&0x7f7f7f))
+            if not active:
+                # Opaque dark backing behind an iron portcullis.
+                for x in [8,13,18,23]:
+                    paint.rectangle((x,7,x+1,39),fill=rgb(style['side']))
+                    paint.line((x,10,x,39),fill=rgb(style['wall']))
+                for y in [17,28]:paint.rectangle((5,y,26,y+1),fill=rgb(style['side']))
+            else:
+                # Painted open side leaves retain the opaque wall behind them.
+                paint.polygon([(4,16),(10,13),(10,36),(4,39)],fill=rgb(style['wood']['FACE']))
+                paint.polygon([(22,13),(28,16),(28,39),(22,36)],fill=rgb(style['wood']['BODY']))
+                paint.line((10,14,10,36),fill=rgb(style['wood']['DARK']))
+                paint.line((22,14,22,36),fill=rgb(style['wood']['DARK']))
+        else:
+            paint.rectangle((0,0,15,39),fill=rgb(style['wood']['FACE']))
+            paint.rectangle((16,0,31,39),fill=rgb(style['wood']['SHADOW']))
+            for x in [9,14,19,24]:paint.line((x,7,x,39),fill=rgb(style['wood']['DARK']))
+            for y in [20,33]:paint.line((5,y,26,y),fill=rgb(style['wood']['DARK']),width=2)
+            paint.line((15,6,15,39),fill=rgb(style['door']))
+        layer.putalpha(mask);result.alpha_composite(layer)
+        return result
+    keep_trident=Image.new('RGBA',(8,12));prongs=ImageDraw.Draw(keep_trident)
+    prongs.rectangle((3,0,4,11),fill='white')
+    prongs.rectangle((0,2,1,5),fill='white');prongs.rectangle((6,2,7,5),fill='white')
+    prongs.line((1,5,1,6,3,8,4,8,6,6,6,5),fill='white',width=1)
+    for family_index,family in enumerate(['citadel','bastion']):
+        for active in [False,True]:
+            style=profiles[family+':'+str(int(active))]
+            height=style['geometry']['keepHeight']-4
+            facade=Image.new('RGBA',(56,height))
+            facade.alpha_composite(entrance(family,active,style).resize((22,25),Image.Resampling.NEAREST),(17,height-25))
+            banner_height=28 if family=='citadel' else 22
+            flag=tint(cloth.crop((0,0,16,40)),style['accent']).resize((10,banner_height),Image.Resampling.NEAREST)
+            emblem=tint(keep_trident if family=='citadel' else sun,style['heraldry'])
+            if family!='citadel':emblem=emblem.resize((6,6),Image.Resampling.NEAREST)
+            for x in [2,44]:
+                facade.alpha_composite(flag,(x,3));facade.alpha_composite(emblem,(x+(1 if family=='citadel' else 2),8))
+            frame=facade.resize((48,48),Image.Resampling.NEAREST)
+            ox,oy=268+int(active)*56,12+family_index*56
+            for y in range(-2,50):
+                for x in range(-2,50):
+                    atlas.putpixel((ox+x,oy+y),frame.getpixel((max(0,min(47,x)),max(0,min(47,y)))))
+            appearance='portcullis' if family=='citadel' and not active else 'open-timber-leaves' if family=='citadel' else 'closed-timber-leaves'
+            facade_frames.append(dict(family=family,active=active,appearance=appearance,rect=[ox,oy,48,48]))
+    rows.append(dict(slot=2,name='military-keep-facades',source='authored cel pixel material',
+                     normalizedSize=[112,112],atlasContentRect=[264,8,112,112],
+                     gutterX='clamp',gutterY='clamp',alphaRange=[0,255],frames=facade_frames))
+    # Family paving is a transparent shared repeat over the condition-aware
+    # courtyard color. Large Bastion slabs stay quiet; Archive has fine joints.
+    bastion_floor = Image.new('RGBA', (64, 64)); sand = ImageDraw.Draw(bastion_floor)
+    for x,y,w,h in [(0,0,16,16),(32,16,16,16),(16,48,16,16),(48,40,16,8)]:
+        sand.rectangle((x,y,x+w-1,y+h-1),fill=(148,107,57,26))
+    for x,y,w,h in [(16,0,16,8),(0,32,16,16),(48,0,16,16),(32,48,16,16)]:
+        sand.rectangle((x,y,x+w-1,y+h-1),fill=(255,233,186,24))
+    for x,y,w in [(2,16,12),(34,32,12),(18,48,10)]:
+        sand.line((x,y,x+w,y),fill=(138,105,61,18))
+    bastion_floor.save(out / 'bastion-floor.png')
+    archive_floor = Image.new('RGBA', (64,64),(255,242,209,18)); paving = ImageDraw.Draw(archive_floor)
+    for row in range(8):
+        y=row*8
+        for col,x in enumerate(range(-4 if row%2 else 0,64,8)):
+            paving.rectangle((x+1,y+1,x+7,y+7),fill=(255,241,204,22+(row*3+col)%4*7))
+            paving.line((x,y+7,x+7,y+7),fill=(116,102,75,45))
+            paving.line((x,y,x,y+6),fill=(116,102,75,35))
+    archive_floor.save(out / 'archive-floor.png')
     # Ground weathering is a transparent shared repeat painted onto the
     # existing courtyard canvas, so grass does not become individual geometry.
     grass = Image.new('RGBA', (64, 64)); patches = ImageDraw.Draw(grass)
@@ -165,7 +350,36 @@ def build(out):
         patches.polygon(poly, fill=(100, 121, 66, 175))
     for x, y in [(7, 13), (15, 9), (45, 38), (49, 46), (12, 50)]:
         patches.rectangle((x, y, x+4, y+3), fill=(134, 148, 83, 160))
+    # Break rectangular patch edges into small anchored leaf clusters. These
+    # are baked into the existing ground decal, never additional geometry.
+    original = grass.copy()
+    for y in range(0, 64, 2):
+        for x in range(0, 64, 2):
+            if not original.getpixel((x, y))[3]:
+                continue
+            edge = any(not original.getpixel(((x+dx) % 64, (y+dy) % 64))[3]
+                       for dx, dy in [(3, 0), (-3, 0), (0, 3), (0, -3)])
+            noise = (x * 17 + y * 29 + x * y * 3) % 23
+            if (edge and noise < 12) or noise == 0:
+                patches.rectangle((x, y, x+1, y+1), fill=(0, 0, 0, 0))
     grass.save(out / 'weathered-floor.png')
+    # The banner samples only y392..481.6 of slot15. Its unused lower-left
+    # tail holds one opaque coping patch, with two-pixel clamped gutters.
+    coping = Image.new('RGBA',(16,12),(235,235,235,255)); bevel=ImageDraw.Draw(coping)
+    bevel.rectangle((0,0,15,11),outline=(143,143,143,255),width=1)
+    bevel.line((1,1,14,1),fill='white',width=2)
+    bevel.line((1,1,1,10),fill=(252,252,252,255),width=1)
+    bevel.line((2,10,14,10),fill=(195,195,195,255),width=1)
+    for y in range(16):
+        for x in range(20):
+            atlas.putpixel((392+x,486+y),coping.getpixel((max(0,min(15,x-2)),max(0,min(11,y-2)))))
+    worn_coping=coping.copy();leaves=ImageDraw.Draw(worn_coping)
+    leaves.polygon([(0,2),(4,2),(4,0),(7,0),(7,4),(5,4),(5,7),(2,7),(2,5),(0,5)],
+                   fill=(157,180,96,255))
+    leaves.rectangle((1,2,3,4),fill=(178,196,119,255))
+    for y in range(16):
+        for x in range(20):
+            atlas.putpixel((416+x,486+y),worn_coping.getpixel((max(0,min(15,x-2)),max(0,min(11,y-2)))))
     # Shared retained renderer samples its untextured triangles at (500, 500).
     atlas.paste((255, 255, 255, 255), (496, 496, 504, 504))
     atlas.save(out / 'atlas.png')
@@ -179,10 +393,10 @@ def build(out):
         processing='Legacy source crops plus authored restrained pixel materials for stone, moss, paving overlays, coping, doors and heraldry. Nearest-neighbour scaling and padded atlas packing; no generated imagery.',
         palette='Quiet cel stone, moss, inset decks, closed iron doors and heraldry share one preloaded atlas; basal shadows stay in geometry.',
         atlas=dict(size=[SIZE, SIZE], slotSize=SLOT, padding=PAD, contentSize=CONTENT,
-                   whitePatch=[496, 496, 8, 8], unusedSlots='Transparent'),
+                   whitePatch=[496, 496, 8, 8], copingPatch=[394,488,16,12], wornCopingPatch=[418,488,16,12], unusedSlots='Transparent'),
         materials=rows,
         outputs={name: dict(sha256=digest(out / name), size=list(Image.open(out / name).size))
-                 for name in ('atlas.png', 'floor.png', 'weathered-floor.png')},
+                 for name in ('atlas.png', 'floor.png', 'weathered-floor.png', 'bastion-floor.png', 'archive-floor.png')},
         regenerate='python3 tools/build_fdr_castle_assets.py',
     )
     (out / 'sources.json').write_text(json.dumps(manifest, indent=2) + '\n')

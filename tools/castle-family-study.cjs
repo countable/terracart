@@ -1,16 +1,23 @@
 // Capture actual MapScene castles; fixture changes stay in an isolated browser save.
 // GAME_URL=http://localhost:8765/index.html?sandbox=true&sandboxZone=castle&skipStory=true&skipTutorial=true \
 // OUT_DIR=/tmp/castle-family-study node tools/castle-family-study.cjs
+// SOURCE_DIR=/saved/src ASSET_DIR=/saved/assets freezes a review round during edits.
+// MAP_ZOOM=0.8 fits wider fixtures; ROTATION_STEP=1 adds a numeric renderer
+// sweep at each degree plus 360, independently of the screenshot ANGLES list.
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 
 const OUT = process.env.OUT_DIR || '/tmp/castle-family-study';
 const URL = process.env.GAME_URL || 'http://localhost:8765/index.html?sandbox=true&sandboxZone=castle&skipStory=true&skipTutorial=true';
 const shapes = {
   rectangle: [[-100,-80],[100,-80],[100,80],[-100,80]],
+  // A wider, shallower site approximates the concept sheet's ground footprint.
+  // This changes the fixture only, never the square-map camera or height scale.
+  concept_rectangle: [[-140,-55],[140,-55],[140,55],[-140,55]],
   narrow: [[-100,-26],[100,-26],[100,26],[-100,26]],
   concave: [[-100,-80],[100,-80],[100,-20],[20,-20],[20,80],[-100,80]],
   skewed: [[-100,-64],[70,-80],[104,62],[-66,80]],
@@ -21,11 +28,30 @@ const families = selected('FAMILIES', 'citadel,bastion,archive');
 const angles = selected('ANGLES', '0,45,135,225').map(Number);
 const states = selected('STATES', 'wrecked,restored');
 const renderers = selected('RENDERERS', 'webgl');
-const selectedShapes = selected('SHAPES', Object.keys(shapes).join(','));
+const selectedShapes = selected('SHAPES', 'rectangle,narrow,concave,skewed,acute');
 const clean = process.env.CLEAN === '1';
+const mapZoom = Number(process.env.MAP_ZOOM || 1);
+if (!(mapZoom > 0 && mapZoom <= 2)) throw Error('MAP_ZOOM must be greater than zero and at most two');
+const rotationStep = process.env.ROTATION_STEP === undefined ? null : Number(process.env.ROTATION_STEP);
+if (rotationStep !== null && !(rotationStep >= .1 && rotationStep <= 360)) throw Error('ROTATION_STEP must be between 0.1 and 360 degrees');
+const sourceDir = process.env.SOURCE_DIR;
+const assetDir = process.env.ASSET_DIR;
+const sourceHashes = {};
+const assetHashes = {};
+const castleAssetDir = path.join(assetDir || path.join(__dirname, '../assets'), 'Objects/Castle/FDR');
+for (const file of fs.readdirSync(castleAssetDir).filter(file => file.endsWith('.png')).sort()) {
+  const relative = path.join('Objects/Castle/FDR', file);
+  const location = assetDir && fs.existsSync(path.join(assetDir, relative)) ? path.join(assetDir, relative) : path.join(__dirname, '../assets', relative);
+  assetHashes[relative] = createHash('sha256').update(fs.readFileSync(location)).digest('hex');
+}
+const sourceFiles = ['assets.js', 'building_overlay.js', 'castle_styles.js', 'fdr_castle_geometry.js', 'fdr_castle_layout.js', 'fdr_castle_canvas.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'polygon_geometry.js'];
+for (const file of sourceFiles) {
+  const location = sourceDir && fs.existsSync(path.join(sourceDir, file)) ? path.join(sourceDir, file) : path.join(__dirname, '../src', file);
+  sourceHashes[file] = createHash('sha256').update(fs.readFileSync(location)).digest('hex');
+}
 
 async function installFixture(page) {
-  await page.evaluate(clean => {
+  await page.evaluate(({clean,mapZoom}) => {
     const s = __scene;
     __game.loop.stop(); s.scene.pause();
     document.querySelectorAll('[id$="-modal"],#story,#howto').forEach(el => el.remove());
@@ -51,7 +77,7 @@ async function installFixture(page) {
     };
     probe.place = function(points, family, active) {
       probe.family = family; probe.active = active;
-      s.peekM = { x: 0, y: 0 }; s.mapZoom = 1; s.mapRot = 0; s._huManualAngle = 0;
+      s.peekM = { x: 0, y: 0 }; s.mapZoom = mapZoom; s.mapRot = 0; s._huManualAngle = 0;
       const anchor = viewAnchorWorldM(s), entry = row.entry;
       const cx = anchor.x - row.tx * entry.tileEdgeM, cy = anchor.y - row.ty * entry.tileEdgeM;
       entry.buildingShapes = [{ key: family, tier: 12,
@@ -64,11 +90,92 @@ async function installFixture(page) {
       s.mapRot = degrees * Math.PI / 180; s._huManualAngle = s.mapRot;
       s._applyMapZoom(); probe.clean(); WallPerspective.update(s); __game.step(performance.now(), 16);
     };
+    probe.sweep = function(step) {
+      const group=s._wallPerspective.castles,blocks=new Set(group.blocks);
+      const originals=new Map(group.blocks.flatMap(b=>(b.materialFaces||[]).map(face=>
+        [face,face.points.map(p=>({u:p.u,v:p.v}))])));
+      const headings=Array.from({length:Math.ceil(360/step)},(_,i)=>i*step).concat(360);
+      const errors=[],started=performance.now();
+      for(const heading of headings) {
+        // Runs the real geometry update and renderer, without a screenshot or
+        // expensive hit-test/crop/UV-seam measurement at every numeric sample.
+        probe.turn(heading);
+        const failed=new Set();let faceCount=0;
+        if(group.blocks.length!==blocks.size||group.blocks.some(b=>!blocks.has(b)))failed.add('retained-block-identity');
+        for(const block of group.blocks) {
+          if(!Array.from(block.projected).every(Number.isFinite))failed.add('finite-prism-projection');
+          for(const face of block.materialFaces||[]) {
+            faceCount++;
+            const original=originals.get(face);
+            if(!original||original.length!==face.points.length)failed.add('retained-face-identity');
+            if(face.visible&&(!face.projected||face.projected.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y))))failed.add('finite-face-projection');
+            const slots=new Set();
+            face.points.forEach((p,i)=>{
+              if(!Number.isFinite(p.u)||!Number.isFinite(p.v))failed.add('finite-uv');
+              if(p.u<0||p.u>1||p.v<0||p.v>1)failed.add('uv-atlas-bounds');
+              if(original&&(p.u!==original[i]?.u||p.v!==original[i]?.v))failed.add('source-uv-invariance');
+              slots.add(Math.floor(p.u*4)+4*Math.floor(p.v*4));
+            });
+            if(slots.size!==1)failed.add('single-atlas-slot');
+          }
+        }
+        if(faceCount!==originals.size)failed.add('retained-face-count');
+        for(const target of [group.gfx,...group.parts||[]])if(target.visible) {
+          const matrix=Phaser.GameObjects.GetCalcMatrix(target,s.cameras.main).calc;
+          if(![matrix.a,matrix.b,matrix.c,matrix.d,matrix.e,matrix.f].every(Number.isFinite))failed.add('finite-render-transform');
+          for(const triangle of target._wallTriangles||[])if(triangle.points.some(p=>!Number.isFinite(p.x)||!Number.isFinite(p.y)))failed.add('finite-submitted-triangle');
+        }
+        for(const check of failed)errors.push({heading,check});
+      }
+      return {step,headings,samples:headings.length,elapsedMs:performance.now()-started,errors,
+        checks:['finite projected coordinates','finite render transforms and submitted triangles','UV atlas bounds and single-slot sampling','retained block and face identities','unchanged source UV coordinates'],
+        limitation:'Numeric renderer sweep only; finite geometry and stable UVs do not prove visual seam absence or concept fidelity.'};
+    };
     probe.measure = function() {
       const group = s._wallPerspective.castles, model = s._fdrCastleLayouts.get(probe.family);
       if (!model) throw Error('Castle fixture was not emitted: ' + probe.family);
       const blocks = group.blocks.filter(block => block.building?.key === probe.family);
       const faces = blocks.flatMap(block => block.materialFaces || []);
+      // Inspect source UVs, not screenshots. Bounds catch atlas escapes;
+      // scale ranges expose stretched masonry while allowing intentional decals.
+      const uvAudit = { nonFinite: 0, outsideAtlas: 0, crossingSlots: 0, masonrySharedEdges: 0, masonryDiscontinuities: 0, materials: {} };
+      const horizontalRepeat = model.style?.masonryRepeatFraction || 1;
+      uvAudit.masonryRepeatFraction = horizontalRepeat;
+      const masonryEdges = new Map();
+      for (const face of faces) {
+        const points = face.points;
+        if (points.some(p => !Number.isFinite(p.u) || !Number.isFinite(p.v))) { uvAudit.nonFinite++; continue; }
+        if (points.some(p => p.u < 0 || p.u > 1 || p.v < 0 || p.v > 1)) uvAudit.outsideAtlas++;
+        if (new Set(points.map(p => Math.floor(p.u * 4) + 4 * Math.floor(p.v * 4))).size > 1) uvAudit.crossingSlots++;
+        if (points.every(p => p.u >= 496/512 && p.v >= 496/512)) continue;
+        if (face.material==='stone' && face.normal) for(let i=0;i<3;i++) {
+          const keyPoint=p=>[p.x,p.y,p.z].map(v=>Math.round(v*1e5)).join(',');
+          const ordered=[points[i],points[(i+1)%3]].sort((a,b)=>keyPoint(a).localeCompare(keyPoint(b)));
+          const edgeKey=[face.normal.x,face.normal.y].map(v=>Math.round(v*1e5)).join(',')+'|'+ordered.map(keyPoint).join('|');
+          const existing=masonryEdges.get(edgeKey);
+          if(existing) {
+            uvAudit.masonrySharedEdges++;
+            // Whole repeats can meet seamlessly. Fractional jumps across the
+            // same stone plane expose independently reset fragment UVs.
+            const discontinuous=ordered.some((p,j)=>['u','v'].some(axis=>{
+              const delta=(p[axis]-existing[j][axis])*512/112/(axis==='u'?horizontalRepeat:1);
+              return Math.abs(delta-Math.round(delta))>1e-5;
+            }));
+            if(discontinuous)uvAudit.masonryDiscontinuities++;
+          } else masonryEdges.set(edgeKey,ordered);
+        }
+        const material = uvAudit.materials[face.material] ||= { triangles: 0, horizontal: [], vertical: [] };
+        material.triangles++;
+        for (let i=0;i<3;i++) {
+          const a=points[i],b=points[(i+1)%3],xy=Math.hypot(b.x-a.x,b.y-a.y),z=Math.abs(b.z-a.z);
+          const texels=Math.hypot(b.u-a.u,b.v-a.v)*512;
+          if (xy>1e-6 && z<1e-6) material.horizontal.push(texels/xy);
+          if (z>1e-6 && xy<1e-6) material.vertical.push(texels/z);
+        }
+      }
+      for (const material of Object.values(uvAudit.materials)) for (const axis of ['horizontal','vertical']) {
+        const values=material[axis];material[axis]=values.length ? { min: Math.min(...values), max: Math.max(...values), samples: values.length } : null;
+      }
       // Include the actual camera viewport/zoom, not just container transforms.
       const matrix = Phaser.GameObjects.GetCalcMatrix(group.gfx, s.cameras.main).calc;
       const vertices = blocks.flatMap(block => Array.from({ length: block.projected.length / 2 }, (_, i) =>
@@ -107,11 +214,11 @@ async function installFixture(page) {
         finite: blocks.every(b => [...b.projected].every(Number.isFinite)) && faces.every(f => f.points.every(p => [p.x, p.y, p.z].every(Number.isFinite))),
         retained: group.blocks.length === probe.retained.size && group.blocks.every(b => probe.retained.has(b)),
         legacyTowers: (s.towerPool || []).filter(sprite => sprite.visible && sprite._staticObject?.castle === probe.family).length,
-        towerHits, projection: { heading: s.mapRot, heightScale: BuildingLowPoly.LOOK.heightScale, mapZoom: s.mapZoom },
+        towerHits, uvAudit, projection: { heading: s.mapRot, heightScale: BuildingLowPoly.LOOK.heightScale, mapZoom: s.mapZoom },
         crop: { x: left, y: top, width: right - left, height: bottom - top },
       };
     };
-  }, clean);
+  }, {clean,mapZoom});
 }
 
 function boards(report) {
@@ -121,6 +228,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import json,sys
 root=Path(sys.argv[1]); report=json.loads((root/'report.json').read_text())
+# Derive each crop from its exact full frame; never advance the game for a second screenshot.
+for case in report['cases']:
+ crop=case['crop']; image=Image.open(root/case['fullFile'])
+ image.crop((crop['x'],crop['y'],crop['x']+crop['width'],crop['y']+crop['height'])).save(root/case['cropFile'])
 font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',18)
 for renderer in report['renderers']:
  for family in report['families']:
@@ -146,7 +257,7 @@ for renderer in report['renderers']:
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const report = { families, renderers, clean, cases: [], errors: [], failedRequests: [], externalFailures: [], limitations: ['Desktop Chromium; fixtures change browser-local shape and claim state only.', ...(clean ? ['Clean art review hides actors, labels, legacy flag sprites and the composited lightmap in the browser fixture only.'] : []), 'Visual matching requires inspection of the captured images.'] };
+  const report = { families, renderers, clean, sourceDir, assetDir, sourceHashes, assetHashes, fixtureShapes: Object.fromEntries(selectedShapes.map(name=>[name,shapes[name]])), rotationStep, numericSweeps: [], cases: [], errors: [], failedRequests: [], externalFailures: [], limitations: ['Desktop Chromium; fixtures change browser-local shape and claim state only.', 'concept_rectangle changes footprint proportions only; the square-map camera and screen-up elevation remain the game projection.', 'UV scale ranges are diagnostics, not a proof of visual parity or artifact-free rendering.', 'Optional numeric rotation sweeps execute the renderer without per-degree screenshots; they complement visual checks rather than proving seam absence.', ...(clean ? ['Clean art review hides actors, labels, legacy flag sprites and the composited lightmap in the browser fixture only.'] : []), 'Visual matching requires inspection of the captured images.'] };
   const env = { ...process.env }; delete env.DISPLAY;
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/usr/lib/chromium/chromium', env,
     args: ['--no-sandbox', '--ozone-platform=headless', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -161,6 +272,18 @@ for renderer in report['renderers']:
         failures.push({ renderer, status: response.status(), url: response.url() });
       });
       await page.addInitScript(() => { sessionStorage.setItem('terracart.safetySeen', '1'); localStorage.setItem('terracart.introSeen', '1'); localStorage.setItem('terracart.howtoSeen', '1'); });
+      if (assetDir) await page.route('**/assets/**', async route => {
+        const relative = new globalThis.URL(route.request().url()).pathname.split('/assets/')[1];
+        const location = path.join(assetDir, relative);
+        if (fs.existsSync(location) && fs.statSync(location).isFile()) await route.fulfill({ path: location });
+        else await route.continue();
+      });
+      if (sourceDir) await page.route('**/src/*.js*', async route => {
+        const file = path.basename(new globalThis.URL(route.request().url()).pathname);
+        const location = path.join(sourceDir, file);
+        if (fs.existsSync(location)) await route.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(location, 'utf8') });
+        else await route.continue();
+      });
       await page.route('**/src/app.js*', async route => {
         const response = await route.fetch();
         await route.fulfill({ response, body: (await response.text()).replace('type: Phaser.AUTO,', `type: Phaser.${renderer === 'canvas' ? 'CANVAS' : 'WEBGL'},`) });
@@ -172,11 +295,19 @@ for renderer in report['renderers']:
       for (const family of families) for (const shape of selectedShapes) for (const state of states) {
         assert.ok(shapes[shape], `Unknown footprint: ${shape}`);
         await page.evaluate(({ points, family, active }) => castleFamilyProbe.place(points, family, active), { points: shapes[shape], family, active: state === 'restored' });
+        if(rotationStep!==null) {
+          const sweep=await page.evaluate(step=>castleFamilyProbe.sweep(step),rotationStep);
+          report.numericSweeps.push({renderer,family,shape,state,...sweep});
+          assert.deepEqual(sweep.errors,[], 'numeric rotation sweep preserves valid geometry and immutable UVs');
+        }
         for (const angle of angles) {
           await page.evaluate(degrees => castleFamilyProbe.turn(degrees), angle);
           const result = await page.evaluate(() => castleFamilyProbe.measure());
           assert.ok(result.blocks > 0 && result.towers > 0);
           assert.ok(result.finite && result.retained);
+          assert.equal(result.uvAudit.nonFinite, 0, 'all UV coordinates are finite');
+          assert.equal(result.uvAudit.outsideAtlas, 0, 'all UV coordinates remain inside the atlas');
+          assert.equal(result.uvAudit.crossingSlots, 0, 'each triangle samples one atlas slot');
           assert.equal(result.family, family, 'fixture routes the requested family through the actual map renderer');
           assert.ok(result.towerHits.every(key => key === family), 'visible tower faces hit their castle');
           assert.equal(result.legacyTowers, 0);
@@ -192,7 +323,6 @@ for renderer in report['renderers']:
           assert.ok(result.crop.width > 0 && result.crop.height > 0);
           const name = `${renderer}-${family}-${shape}-${state}-${angle}`;
           await page.screenshot({ path: path.join(OUT, name + '.png') });
-          await page.screenshot({ path: path.join(OUT, name + '-crop.png'), clip: result.crop });
           report.cases.push({ renderer, requestedFamily: family, shape, state, angle, ...result,
             fullFile: name + '.png', cropFile: name + '-crop.png' });
         }

@@ -1,5 +1,6 @@
 """Material transforms are independent of source pack availability."""
 import sys
+import json
 import unittest
 from pathlib import Path
 from PIL import Image
@@ -30,6 +31,34 @@ class CastleMaterials(unittest.TestCase):
 
     def test_decals_are_unchanged(self):
         self.assertEqual(treatment(self.tile, 5)[0].tobytes(), self.tile.tobytes())
+
+    def test_archive_tower_tiles_are_opaque_for_canvas_seam_coverage(self):
+        atlas = Image.open(Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR/atlas.png')
+        for slot in [11, 12]:
+            x, y = slot % 4 * 128, slot // 4 * 128
+            self.assertEqual(atlas.crop((x, y, x + 128, y + 128)).getchannel('A').getextrema(),
+                             (255, 255))
+
+    def test_coping_patch_does_not_touch_banner_or_white_patch(self):
+        atlas = Image.open(Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR/atlas.png')
+        self.assertEqual(atlas.crop((392, 486, 412, 502)).getchannel('A').getextrema(), (255, 255))
+        self.assertEqual(atlas.crop((416, 486, 436, 502)).getchannel('A').getextrema(), (255, 255))
+        self.assertEqual(atlas.getpixel((448, 480))[3], 0, 'the forked banner hem stays transparent')
+        self.assertEqual(atlas.crop((496, 496, 504, 504)).getextrema(), ((255,255),)*4)
+
+    def test_keep_facades_keep_clear_gaps_between_banners_and_door(self):
+        folder=Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR'
+        atlas=Image.open(folder/'atlas.png')
+        material=next(row for row in json.loads((folder/'sources.json').read_text())['materials'] if row['slot']==2)
+        self.assertEqual(len(material['frames']),4)
+        for record in material['frames']:
+            x,y,w,h=record['rect'];frame=atlas.crop((x,y,x+w,y+h))
+            self.assertTrue(set(frame.getchannel('A').getdata()).issubset({0,255}))
+            self.assertEqual(frame.getpixel((24,46))[3],255,'the central entrance retains opaque backing')
+            for p in [(13,20),(35,20),(24,2)]:
+                self.assertEqual(frame.getpixel(p)[3],0,'banner art cannot cover the entrance or bridge its flanks')
+            for p in [(5,13),(43,13)]:
+                self.assertEqual(frame.getpixel(p)[3],255,'both flanking banners are present')
 
 
 if __name__ == '__main__':
