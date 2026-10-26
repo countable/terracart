@@ -1690,8 +1690,7 @@
   }
   // Parking joins the MD/LG kerb buffer's suppression at every hour, without
   // becoming a road surface. A cell only a lot puts in the buffer also carries
-  // ROAD_CLASS_LOT_BUFFER, which keeps the night zone (blood aura, interaction
-  // hiding, energy drain) off it (nightZoneBits). Keep mapped footprints
+  // ROAD_CLASS_LOT_BUFFER, which the tier classifier reads. Keep mapped footprints
   // exact; where MVT supplies only points/aisles, use the existing
   // lot-inference distances.
   function* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM) {
@@ -1734,7 +1733,7 @@
       if (cover[i]) stampParkingBuffer(roadClass, i);
     }
   }
-  // Stamped after the road buffers, so a lot never removes a road's night zone.
+  // Stamped after the road buffers, so a lot never marks a road's own buffer.
   function stampParkingBuffer(roadClass, i) {
     if (!(roadClass[i] & ROAD_CLASS_MAJOR_BUFFER)) roadClass[i] |= ROAD_CLASS_MAJOR_BUFFER | ROAD_CLASS_LOT_BUFFER;
   }
@@ -2195,80 +2194,11 @@
   // The runtime road warning reads the same half-covered definition as
   // roadMask, but only for the Major-and-Medium group.
   const ROAD_CLASS_MAJOR_ROAD = 64;
-  // A MAJOR_BUFFER cell put there by a parking lot alone: suppression at every
-  // hour, but never the night zone. Read the night zone through nightZoneBits.
+  // A MAJOR_BUFFER cell put there by a parking lot alone.
   const ROAD_CLASS_LOT_BUFFER = 128;
-  const ROAD_CLASS_PATH_SIDE = 256;
-  // Mapped walking-path footprint, even where it crosses a carriageway.
-  const ROAD_CLASS_PATH = 512;
-  function nightZoneBits(bits) {
-    return !!(bits & ROAD_CLASS_MAJOR_BUFFER) && !(bits & (ROAD_CLASS_LOT_BUFFER | ROAD_CLASS_PATH_SIDE | ROAD_CLASS_PATH));
-  }
   // About one base reach radius (coords.js reachCells: 2.5 cells) past the
   // band's edge - the ring a player standing on the kerb can act inside.
   const MAJOR_BUFFER_CELLS = 2.5;
-  // Every walking-path footprint clears the night zone. Parallel paths also
-  // exempt the off-carriageway side they serve.
-  // Check every contributing road: a path cannot clear another road's buffer.
-  function* stampPathSideSafetySteps(features, out, w, h, scale) {
-    const roads = _bucketGrid(8), paths = _bucketGrid(8);
-    const pathCover = new Uint16Array(w * h);
-    let hasPaths = false;
-    for (const f of features || []) {
-      if (f.type !== 2 || !f.geom) continue;
-      const tags = f.tags || {}, tier = classifyLine('transportation', tags);
-      if (![T.PATH, T.ROAD_MD, T.ROAD_LG].includes(tier)) continue;
-      const path = tier === T.PATH;
-      if (path && (tags.access === 'private' || tags.access === 'no'
-          || tags.foot === 'no' || tags.foot === 'private')) continue;
-      if (path) for (const line of f.geom) {
-        yield* stampCoverLineSteps(pathCover, w, h, line, Math.max(1, roadOverlayWidthM(tags) / CELL_M), scale);
-        hasPaths = true;
-      }
-      const radius = roadOverlayWidthM(tags) / CELL_M / 2 + MAJOR_BUFFER_CELLS;
-      const grade = `${tags.layer || 0}:${tags.brunnel || (tags.bridge === 'yes' ? 'bridge' : tags.tunnel === 'yes' ? 'tunnel' : '')}`;
-      for (const line of f.geom) for (let j = 1; j < line.length; j++) {
-        const ax = line[j - 1].x * scale, ay = line[j - 1].y * scale;
-        const bx = line[j].x * scale, by = line[j].y * scale;
-        const dx = bx - ax, dy = by - ay, len = Math.hypot(dx, dy);
-        if (!len) continue;
-        const seg = { ax, ay, bx, by, dx: dx / len, dy: dy / len, len, radius, grade };
-        const pad = path ? 0 : radius + 1;
-        (path ? paths : roads).addBox(seg, Math.min(ax, bx) - pad, Math.min(ay, by) - pad,
-          Math.max(ax, bx) + pad, Math.max(ay, by) + pad);
-        if (path) hasPaths = true;
-      }
-    }
-    if (!hasPaths) return;
-    for (let cy = 0; cy < h; cy++) {
-      if ((cy & 15) === 15) yield 'roadside path safety';
-      for (let cx = 0; cx < w; cx++) {
-        const i = cy * w + cx, bits = out[i];
-        if (!(bits & ROAD_CLASS_MAJOR_BUFFER)) continue;
-        if (pathCover[i]) { out[i] |= ROAD_CLASS_PATH; continue; }
-        if (bits & ROAD_CLASS_MAJOR_BAND) continue;
-        const x = cx + 0.5, y = cy + 0.5;
-        let served = false;
-        const dangerous = roads.near(x, y, 0, r => {
-          if (!bandCoversCell(r.ax, r.ay, r.bx, r.by, r.radius, cx, cy)) return false;
-          const along = Math.max(0, Math.min(r.len, (x - r.ax) * r.dx + (y - r.ay) * r.dy));
-          const qx = r.ax + along * r.dx, qy = r.ay + along * r.dy;
-          const side = r.dx * (y - qy) - r.dy * (x - qx);
-          const hasPath = paths.near(qx, qy, r.radius, p => {
-            if (p.grade !== r.grade || Math.abs(p.dx * r.dx + p.dy * r.dy) < 0.8) return false;
-            const t = (qx - p.ax) * p.dx + (qy - p.ay) * p.dy;
-            if (t < 0 || t > p.len) return false;
-            const px = p.ax + t * p.dx, py = p.ay + t * p.dy;
-            const pathSide = r.dx * (py - qy) - r.dy * (px - qx);
-            return side * pathSide > 0 && Math.hypot(px - qx, py - qy) <= r.radius;
-          });
-          served ||= hasPath;
-          return !hasPath;
-        });
-        if (served && !dangerous) out[i] |= ROAD_CLASS_PATH_SIDE;
-      }
-    }
-  }
   function* resolveRoadClassSteps(majorCover, mask, out, w, h, bufCover) {
     for (let cy = 0; cy < h; cy++) {
       if ((cy & 63) === 63) yield 'road class bands';
@@ -6066,7 +5996,6 @@
     // (ROAD_MASK_MIN_COVER). Nothing above reads roadMask; everything below does.
     yield* resolveRoadMaskSteps(roadCover, roadMask, w, h);
     yield* resolveRoadClassSteps(majorCover, roadMask, roadClass, w, h, majorBufCover);
-    yield* stampPathSideSafetySteps(layersByName.transportation?.features, roadClass, w, h, mvtToCell);
     yield* stampRoadJunctionsSteps(junctionSegments, roadClass, w, h);
     yield* stampParkingSafetySteps(layers, roadClass, w, h, mvtToCell, mvtToM);
     // QUIET LAND (QUIET_LAND): military, railway, reserve and cemetery cells
@@ -10151,7 +10080,7 @@
     // "drawn as road" and "no spawns here" are the same number.
     roadJunctionPoint, roadOverlayWidthM, ROAD_MASK_MIN_COVER, ROAD_CLASS_MAJOR_BAND, ROAD_CLASS_MAJOR_VERGE, ROAD_CLASS_BANDIT_VERGE,
     ROAD_CLASS_MAJOR_BUFFER, ROAD_CLASS_JUNCTION_EXCLUDE, ROAD_CLASS_JUNCTION_SOFT, ROAD_CLASS_MAJOR_ROAD,
-    ROAD_CLASS_LOT_BUFFER, ROAD_CLASS_PATH_SIDE, ROAD_CLASS_PATH, nightZoneBits,
+    ROAD_CLASS_LOT_BUFFER,
     MAJOR_BUFFER_CELLS, inMajorBuffer, onMajorBand,
     // The path-class Set classifyLine keys off — exported so road_overlay.js
     // colours exactly the classes the terrain classifier treats as PATH,
