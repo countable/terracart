@@ -1440,7 +1440,9 @@ and concave joins are clipped to the full source ring too: an inward normal
 alone does not contain a strip at an acute corner or narrow notch. Contained
 strips stay intact; clipped fragments share their wall's sorting anchor, and
 an exactly convex union is retained as one prism. This preserves source-edge
-coverage without treating surrounding map ground as part of the castle.
+coverage without treating surrounding map ground as part of the castle. Source
+edge height buckets and segment bounds keep exact containment checks local on
+detailed rings; offscreen strips are rejected before clipping.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.

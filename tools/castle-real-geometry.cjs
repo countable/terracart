@@ -15,12 +15,14 @@ const sources=['building_overlay.js','castle_styles.js','fdr_castle_geometry.js'
 const hashes=Object.fromEntries(sources.map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(path.join(sourceDir||path.join(ROOT,'src'),f))).digest('hex')]));
 (async()=>{
  fs.mkdirSync(OUT,{recursive:true});
- const report={sourceHashes:hashes,gameShellHashes:Object.fromEntries(['index.html','src/app.js'].map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT,f))).digest('hex')])),fixtureProvenance:fixture.provenance,tiles:fixture.tiles,cases:[],errors:[],limitations:['Production tier12 selection and original MVT rings, not synthetic replacements. Offline original tile fixtures preserve nearby mapped features and generated objects.','Camera uses normal widest game zoom (11 cells). Large castles require multiple camera positions; screenshots may deliberately show only part of a castle.','Claim state is overridden only for the selected castle in this isolated browser. Player moves to camera position for review. External Overpass enrichment is disabled; MVT and production procedural context remain.','Daylight is fixed for reproducible visibility. Browser renderer is explicitly selected; ordinary geometry and object generation remain unchanged.','Cyan diagnostic line is mapped ground boundary. Orange polygons show ground bases with vertices outside that boundary; green polygons are contained bases. Height projection is intentionally excluded from this containment test.']};
+ const report={sourceHashes:hashes,gameShellHashes:Object.fromEntries(['index.html','src/app.js'].map(f=>[f,crypto.createHash('sha256').update(fs.readFileSync(path.join(ROOT,f))).digest('hex')])),fixtureProvenance:fixture.provenance,tiles:fixture.tiles,cases:[],errors:[],requestFailures:[],httpFailures:[],limitations:['Production tier12 selection and original MVT rings, not synthetic replacements. Offline original tile fixtures preserve nearby mapped features and generated objects.','Camera uses normal widest game zoom (11 cells). Large castles require multiple camera positions; screenshots may deliberately show only part of a castle.','Claim state is overridden only for the selected castle in this isolated browser. Player moves to camera position for review. External Overpass enrichment is disabled; MVT and production procedural context remain.','Daylight is fixed for reproducible visibility. Browser renderer is explicitly selected; ordinary geometry and object generation remain unchanged.','Cyan diagnostic line is mapped ground boundary. Orange polygons show ground bases with vertices outside that boundary; green polygons are contained bases. Height projection is intentionally excluded from this containment test.']};
  const env={...process.env};delete env.DISPLAY;
  const browser=await chromium.launch({executablePath:'/usr/lib/chromium/chromium',env,args:['--no-sandbox','--ozone-platform=headless','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
  try{for(const renderer of renderers){
   const page=await browser.newPage({viewport:{width:700,height:1000},deviceScaleFactor:1,serviceWorkers:'block'});
-  page.on('console',m=>{if(['warning','error'].includes(m.type()))console.log(m.type(),m.text().slice(0,350));});
+  page.on('console',m=>{if(['warning','error'].includes(m.type()))console.log(m.type(),m.text().slice(0,350),m.location().url);});
+  page.on('requestfailed',request=>{const failure={renderer,url:request.url(),error:request.failure()?.errorText};report.requestFailures.push(failure);console.log('REQUESTFAILED',JSON.stringify(failure));});
+  page.on('response',response=>{if(response.status()>=400)report.httpFailures.push({renderer,url:response.url(),status:response.status()});});
   page.on('pageerror',e=>{report.errors.push({renderer,error:e.message});console.log('PAGEERROR',e.message)});
   await page.addInitScript(frameLat=>{window.__DAYLIGHT=1;localStorage.setItem('terracart.teleport',JSON.stringify({lat:frameLat,lon:-119.49,name:'Castle audit'}));sessionStorage.setItem('terracart.safetySeen','1');localStorage.setItem('terracart.introSeen','1');localStorage.setItem('terracart.howtoSeen','1');},fixture.frameLat);
   await page.route('**/*',async route=>{
@@ -42,7 +44,7 @@ const hashes=Object.fromEntries(sources.map(f=>[f,crypto.createHash('sha256').up
    const found=await page.evaluate(item=>{const e=WorldGen.tileCache.get(WorldGen.tileKey(item.tx,item.ty));return {found:!!e?.buildingShapes?.find(b=>b.key===item.key&&b.tier===12),count:e?.buildingShapes?.length,cellM:__scene.cellM,tileEdgeM:e?.tileEdgeM};},item);
    if(!found.found)throw Error('Real castle not generated '+item.key+' '+JSON.stringify(found));
    for(const state of states){
-    const positions=['center',...(Math.max(item.metrics.widthM,item.metrics.depthM)>75?['northwest','southeast']:[])];
+    const positions=process.env.POSITIONS?process.env.POSITIONS.split(','):['center',...(Math.max(item.metrics.widthM,item.metrics.depthM)>75?['northwest','southeast']:[])];
     for(const position of positions){
      const placed=await page.evaluate(({item,state,position})=>{
       const s=__scene,e=WorldGen.tileCache.get(WorldGen.tileKey(item.tx,item.ty)),shape=e.buildingShapes.find(b=>b.key===item.key&&b.tier===12);
@@ -54,8 +56,8 @@ const hashes=Object.fromEntries(sources.map(f=>[f,crypto.createHash('sha256').up
       if(!window.realCastleOriginalClaim)window.realCastleOriginalClaim=s.isClaimedKey.bind(s);
       s.isClaimedKey=k=>k===item.key?state==='restored':window.realCastleOriginalClaim(k);
       s._lastBorderIX=NaN;s._lastBorderIY=NaN;s._buildingGeomKey=null;s._roadGeomKey=null;s._overlayFrameSeq++;
-      const rebuildStart=performance.now();s.drawCells();s.drawRoadGeometry();s._overlayFrameSeq++;s._buildingGeomKey=null;s.drawBuildingGeometry();s.drawObjects();s._applyMapZoom();WallPerspective.update(s);__game.step(performance.now(),16);
-      return {rebuildMs:performance.now()-rebuildStart,actualRing:raw,sourceRingMatches:raw.length===item.ring.length&&raw.every((n,i)=>Math.abs(n-item.ring[i])<.01),position,playerWorld:playerWorldM(s)};
+      const rebuildStart=performance.now();s.drawCells();s.drawRoadGeometry();s._overlayFrameSeq++;s._buildingGeomKey=null;const buildingStart=performance.now();s.drawBuildingGeometry();const buildingRebuildMs=performance.now()-buildingStart;s.drawObjects();s._applyMapZoom();WallPerspective.update(s);__game.step(performance.now(),16);
+      return {buildingRebuildMs,rebuildMs:performance.now()-rebuildStart,actualRing:raw,sourceRingMatches:raw.length===item.ring.length&&raw.every((n,i)=>Math.abs(n-item.ring[i])<.01),position,playerWorld:playerWorldM(s)};
      },{item,state,position});
      for(const angle of angles){
       await page.evaluate(angle=>{document.getElementById('castle-audit-svg')?.remove();const s=__scene;s.mapRot=angle*Math.PI/180;s._huManualAngle=s.mapRot;s._applyMapZoom();WallPerspective.update(s);__game.step(performance.now(),16);},angle);
