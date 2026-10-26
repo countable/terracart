@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-1abf4fb7';
+const SHELL_VERSION = 'shell-b89dd1db';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -467,6 +467,43 @@ const ASSET_HASHES = {
   "assets/Objects/Wilderness/wood.png": "034e40b6",
   "assets/Objects/ZoneVariants/approved-24.png": "679c3d66",
   "assets/Objects/ZoneVariants/tall_pillar.png": "19238fcb",
+  "assets/StreetDecorations/bone_fragments.png": "073bb18d",
+  "assets/StreetDecorations/conifer_tree.png": "f802886b",
+  "assets/StreetDecorations/dark_rubble.png": "42d8a060",
+  "assets/StreetDecorations/dark_urn.png": "aa7aabe3",
+  "assets/StreetDecorations/dead_tree.png": "785521a4",
+  "assets/StreetDecorations/direction_sign.png": "4bbf6b46",
+  "assets/StreetDecorations/dusty_stones.png": "a5bccccc",
+  "assets/StreetDecorations/fire_pedestal.png": "7a554b3f",
+  "assets/StreetDecorations/fire_rock.png": "93139151",
+  "assets/StreetDecorations/flame_pillar.png": "df21416b",
+  "assets/StreetDecorations/golden_bowl.png": "a39151cb",
+  "assets/StreetDecorations/golden_flowers.png": "e19a8630",
+  "assets/StreetDecorations/grass_clump.png": "20e2173a",
+  "assets/StreetDecorations/green_orb.png": "54bbf3ef",
+  "assets/StreetDecorations/green_slick.png": "dd6aef9e",
+  "assets/StreetDecorations/hanging_lantern.png": "72ec6204",
+  "assets/StreetDecorations/healing_mushrooms.png": "60df51bc",
+  "assets/StreetDecorations/hedge_strip.png": "1c0934a6",
+  "assets/StreetDecorations/lavender_tree.png": "1941dafd",
+  "assets/StreetDecorations/luminous_bulbs.png": "788859ac",
+  "assets/StreetDecorations/mossy_rock.png": "f744fbdc",
+  "assets/StreetDecorations/mossy_tree.png": "11834715",
+  "assets/StreetDecorations/muted_stones.png": "60c49320",
+  "assets/StreetDecorations/paired_candles.png": "6deeef61",
+  "assets/StreetDecorations/plank_fragments.png": "e201d681",
+  "assets/StreetDecorations/pottery_stack.png": "2ee11b04",
+  "assets/StreetDecorations/red_mushroom.png": "f863eb94",
+  "assets/StreetDecorations/spotted_mushroom.png": "cf9178d6",
+  "assets/StreetDecorations/street_lantern.png": "bea85b18",
+  "assets/StreetDecorations/stump.png": "2a79aedc",
+  "assets/StreetDecorations/tall_lantern.png": "f8689e85",
+  "assets/StreetDecorations/toadstool_cluster.png": "9f5b6fe9",
+  "assets/StreetDecorations/upright_flame.png": "3152dbb2",
+  "assets/StreetDecorations/white_flower.png": "f8c3ac37",
+  "assets/StreetDecorations/wooden_lantern.png": "6a3fe5f7",
+  "assets/StreetDecorations/yellow_flowers.png": "dae0fd64",
+  "assets/StreetDecorations/young_fern.png": "e47d63ae",
   "assets/art/barehand_tree.webp": "297fd49b",
   "assets/art/barehand_work.webp": "8d6efa0a",
   "assets/art/book_page.webp": "7d3a2759",

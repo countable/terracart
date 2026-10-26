@@ -610,10 +610,11 @@ access or tile lifecycle mechanics.
   or on park edges, never near a road (`Traps.isTrapGround`).
 - Path variant assignment joins connected mapped fragments and balances natural
   endpoints, nearby terrain/Nexus affinity and a soft 300 m length target.
-  Ordinary sections are at least 180 m and at most 550 m. Junction-created
-  approaches shorter than 60 m merge into the connected through-path rather
+  Ordinary path sections target at least 180 m and are capped at 500 m. Junction-created
+  approaches shorter than 75 m merge into the connected through-path rather
   than starting their own theme; well-spaced forks remain boundaries. True
-  short dead-end branches retain their own geometry and assignment. Every 20 m, sample beside the path using source ground
+  short dead-end branches retain their geometry but inherit the nearest full
+  same-level path section’s theme. Every 20 m, sample beside the path using source ground
   and Nexus traits. A dominant affinity change must persist 40 m on both sides
   to attract a cut. Source endpoints and pronounced bends are also preferred;
   interpolated cuts keep long uniform spans bounded. Choose cuts together to
@@ -623,7 +624,13 @@ access or tile lifecycle mechanics.
   reasons and lengths are exposed in the map review viewer.
   `streetIndex.pathSections` owns their geometry, stable
   keys, source feature IDs and themes;
-  isolated short paths and tile-edge remnants stay short. Exact T-junctions are joined even when a source line omits the junction
+  isolated short paths and tile-edge remnants stay physically short. Small-road
+  and path themes have a 75 m minimum independent assignment and a 500 m
+  section cap, including ordinary road themes; authored 250 m caps still apply.
+  Short sections inherit the nearest eligible same-size, same-level theme in
+  the tile when one exists, retaining a `subsumedBy` link. An isolated short
+  road with no eligible neighbour keeps its ordinary theme. Dressing and all
+  paving, terrain and lamp consumers use the same section intervals. Exact T-junctions are joined even when a source line omits the junction
   vertex. Nearby disconnected endpoints are not snapped together. At forks, the
   straightest continuation is preferred deterministically. Different mapped
   levels and bridge/tunnel classes never join, and disconnected geometry
@@ -688,6 +695,32 @@ access or tile lifecycle mechanics.
 - Hedged Lane uses normal street-lamp spacing. Continuous clipped hedge rows
   stand on both sides, one cell behind the kerb so lamp foot reservations do
   not erase a row. Occupied or restricted cells still leave gaps.
+- Approved street decorations use `StreetVariants.APPROVED_DECORATIONS` for all
+  routes suggested by each approved scout crop. Cell-derived IDs and shared
+  occupancy gates keep repeated generation stable. Decorations fill a sparse
+  inner-verge layer and a separate outer tree row around the main theme rows.
+  Golden-route decorations reserve cells before coin seats to avoid overlaps.
+  White, yellow and golden flowers, young fern, bone fragments, loose flint,
+  driftwood and golden bowls use ordinary pickup rules. The bowl is a valuable
+  sale item with no active effect. Rare magenta mushrooms emit healing gas;
+  green slicks on Slime Trail and Poison Path apply three seconds of poison
+  when entered. Dark urns on their approved routes always contain one T3 magic
+  item and inflict ten poison damage when opened. Pot stacks use ordinary pot
+  loot. These effects are owned by the shared interaction and hazard tables.
+- Roadside lights use `StreetLights.VARIANTS`: hanging lanterns for Hedged Lane
+  and Trade Row, a wooden lantern for Lantern Row, a tall lantern on Promenade,
+  street lamps on Park Path, fire pedestals for Pilgrim/Burned/Fire routes, and
+  green orbs on Poison and Confusion paths. Restoration still owns their light.
+  A sign reserves a free verge cell near each section's canonical endpoint.
+  Its directions come from actual nearby same-level road geometry and theme
+  names; the sign never invents a destination across an unrelated crossing.
+- Hedged Lane mixes existing connected 3D hedge walls with occasional approved
+  hedge-strip sprites, plus mossy trees and flowers. Mossy, conifer and bare
+  trees share the normal three growth sizes; all bare-tree routes use one art
+  family. Paralysis and Confusion paths use the large lavender tree. Gone to
+  Seed's grass clumps use the long-grass 3D material with fewer, smaller blades.
+  Chopped trees leave non-blocking visual stumps, including saved planted-tree
+  stumps. Underdark ground cover intersperses pale luminous fungus clusters.
 - Toadstool Lane fills both two-cell verges with small mushrooms around its
   existing giant-cap groups, up to 200 extra small caps per line piece.
   Snare Lane keeps its trapped chest and adds up to 12 seeded scattered

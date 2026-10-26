@@ -24,6 +24,13 @@
     const negative=roots(square(-32,-32),{cellIX:-1,cellIY:-1});
     assert.truthy(negative.every(p=>p.x>=-32 && p.x<0 && p.y>=-32 && p.y<0),'negative cells retain ownership');
   });
+  test('sparse roadside grass: smaller blades reuse a deterministic subset of longgrass roots', () => {
+    const full=WallMaterials.geometry('grass',square(),0), sparse=WallMaterials.geometry('grass',square(),0,{sparseClump:true});
+    assert.gt(sparse.length,0); assert.truthy(sparse.length<full.length/2);
+    const roots=new Set(full.map(f=>f.billboard.x+','+f.billboard.y));
+    assert.truthy(sparse.every(f=>roots.has(f.billboard.x+','+f.billboard.y)));
+    assert.truthy(sparse.every(f=>f.points.some(p=>p.z===0) && f.points.some(p=>p.z===11.9*.65)));
+  });
   test('grass volume: native gaps do not suppress co-located object or plant rendering', () => {
     assert.falsy(typeof Render.grassHiddenObjects === 'function','no hard concealment predicate');
     assert.falsy(RENDER_SRC.includes('_grassHidden'), 'no hidden-prop metadata or sprite culling');

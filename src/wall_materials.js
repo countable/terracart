@@ -202,7 +202,7 @@
     return faces;
   }
   // Approved dense field: global blade seats avoid seams when cells rebuild.
-  const GRASS = Object.freeze({ texture: 'grass-blades-v1', width: 5.6, height: 11.9, spacing: 4.2, stagger: 1, rootShade: .45 });
+  const GRASS = Object.freeze({ texture: 'grass-blades-v1', width: 5.6, height: 11.9, spacing: 4.2, stagger: 1, rootShade: .45, sparseScale: .65, sparseModulo: 3 });
   function prepareGrass(scene) {
     if (!scene.textures?.createCanvas) return null;
     if (scene.textures.exists(GRASS.texture)) return scene.textures.get(GRASS.texture);
@@ -236,6 +236,7 @@
   }
   function grassGeometry(points, options = {}) {
     const faces = [], size = options.cellSize || 32, spacing = GRASS.spacing;
+    const bladeScale = options.sparseClump ? GRASS.sparseScale : 1;
     const cellX = options.cellIX || 0, cellY = options.cellIY || 0;
     const minX = cellX * size, minY = cellY * size;
     const ox = points.reduce((n,p) => n+p.x,0)/points.length-size/2;
@@ -245,11 +246,12 @@
       for (let col = Math.ceil((minX-GRASS.stagger)/spacing-.5); col < Math.ceil((minX+size+GRASS.stagger)/spacing-.5); col++) {
         let h = Math.imul(col,374761393)^Math.imul(row,668265263);
         h = Math.imul(h^(h>>>13),1274126177); h = (h^(h>>>16))>>>0;
+        if (options.sparseClump && (h >>> 8) % GRASS.sparseModulo !== 0) continue;
         const wx = (col+.5)*spacing+(h%3-1)*GRASS.stagger;
         if (wx < minX || wx >= minX+size) continue;
-        const x = ox+wx-minX, y = oy+(row+.5)*spacing-minY, half = GRASS.width/2;
+        const x = ox+wx-minX, y = oy+(row+.5)*spacing-minY, half = GRASS.width*bladeScale/2;
         const quad = [{x:x-half,y,z:0,u:u0,v:.999},{x:x+half,y,z:0,u:u1,v:.999},
-          {x:x+half,y,z:GRASS.height,u:u1,v:.001},{x:x-half,y,z:GRASS.height,u:u0,v:.001}];
+          {x:x+half,y,z:GRASS.height*bladeScale,u:u1,v:.001},{x:x-half,y,z:GRASS.height*bladeScale,u:u0,v:.001}];
         const billboard = { x, y };
         for (const ids of [[0,1,2],[0,2,3]]) faces.push({points:ids.map(i=>quad[i]), billboard,
           normal:null,twoSided:true,color:0xffffff,flatColor:options.underdark?0xb36f91:0x87963d});

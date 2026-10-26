@@ -758,14 +758,17 @@
     }
   }
   function hedgeGroup(p) {
-    return p.crop === 'shrub' && ['formal_garden', 'hedge_garden'].includes(p.zoneVariant) ? p.zoneVariant : null;
+    if (p.crop !== 'shrub') return null;
+    if (p._street === 'hedgerow' && p._streetArt === 'clipped') return 'street_hedgerow';
+    return ['formal_garden', 'hedge_garden'].includes(p.zoneVariant) ? p.zoneVariant : null;
   }
   function stampHedges(plants, N) {
     const groups = new Map();
     for (const p of plants) {
       if (!hedgeGroup(p)) continue;
-      if (!groups.has(p.zoneVariant)) groups.set(p.zoneVariant, []);
-      groups.get(p.zoneVariant).push(p);
+      const key = hedgeGroup(p);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(p);
     }
     for (const group of groups.values()) {
       const cells = new Set(group.map(p => p._iy * N + p._ix));

@@ -36,7 +36,7 @@ def sprite_png(sheet, frame, preserve_frame=False, tint=0xffffff, palette_key=No
     path = io.BytesIO(base64.b64decode(row['dataUrl'].split(',', 1)[1])) if row.get('dataUrl') else pathlib.Path(__file__).resolve().parents[1] / row['path'].split('?')[0]
     with Image.open(path) as source:
         image = source.convert('RGBA')
-    if row['kind'] in ('spritesheet', 'atlas-alias'):
+    if row['kind'] in ('spritesheet', 'atlas-alias') and frame != '__BASE':
         w, h = row['frameWidth'], row['frameHeight']
         cols = image.width // w
         x, y = frame % cols * w, frame // cols * h
@@ -86,7 +86,7 @@ def material_art(material):
     container = material.get('barrelStyle') or ('barrel' if material.get('barrel') else None)
     if not container and material['kind'] in ('barrel', 'clay_pot', 'box'):
         container = material['kind']
-    if container:
+    if container and not material.get('_streetArt'):
         art = r['containerArt'][container]
         frames = art.get('byFrame', {})
         frame = material.get('previewContainerFrame', material.get('_chestLook', {}).get('frame'))
@@ -94,7 +94,7 @@ def material_art(material):
             art = frames[str(frame)]
         return {**art, 'source': r['assets'][art['sheet']].get('path', 'runtime texture bake').split('?')[0] + ' · frame ' + str(art['frames'][0])}
     kind = material['kind']
-    if kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase'):
+    if kind in ('mineralrock', 'headstone', 'waystone', 'tree', 'fruittree', 'staircase', 'roadsign') or (kind != 'wildplant' and material.get('_streetArt')):
         fields = r['materialArtFields']
         key = json.dumps([material.get(field) for field in fields], separators=(',', ':'))
         if key not in r['materialArt']:
@@ -178,7 +178,7 @@ def sprite_cell(prefix, material, x, y, size, definition=None):
             fw, fh = fruit['width'] * unit, fruit['height'] * unit
             picture += art_image(fruit, f'class="sprite-cell" data-fruit-overlay="{fruit["sheet"]}" x="{x+size/2+fruit["dxPx"]*unit-fw/2}" y="{y+size/2+fruit["dyPx"]*unit-fh/2}" width="{fw}" height="{fh}"')
         return picture
-    if definition and (definition.get('_objectArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'barrel', 'clay_pot', 'box') or definition.get('barrelStyle') or definition.get('barrel')):
+    if definition and (definition.get('_objectArt') or definition.get('_streetArt') or definition.get('kind') in ('mineralrock', 'headstone', 'waystone', 'barrel', 'clay_pot', 'box') or definition.get('barrelStyle') or definition.get('barrel')):
         art = material_art(definition)
         if 'width' in art:
             unit = size / .8 / art_registry()['cellPx']
@@ -753,9 +753,10 @@ def street_svg(v, cell_m, detail=False):
         parts.append(creature_at(kind, mid_x, mid_y + cell_m, cell_m,
             f'Illustrative {kind.replace("_", " ")}: one per {rule["perPathM"]} m of path, up to {rule["max"]} per tile; not a guaranteed spawn in this short sample'))
     for lamp in v['lamps']:
-        parts.append(light_guide(lamp['x'],lamp['y'],cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
-        parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{v["lampGlow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {v["lampGlow"]}</title></circle>')
-        art = art_registry()['lampArt']
+        emitter = art_registry().get('lampEmitterByStyle', {}).get(lamp.get('_streetArt'), {})
+        parts.append(light_guide(lamp['x'] + cell_m * emitter.get('offset', .45),lamp['y'] - cell_m * emitter.get('rise', .6),cell_m*art_registry()['lighting']['cobble']['radiusCells'],lamp['glow']))
+        parts.append(f'<circle class="geometry-cell" cx="{lamp["x"]}" cy="{lamp["y"]}" r="2.5" fill="{lamp["glow"]}" stroke="#182019" stroke-width=".6"><title>Street lamp: {lamp["glow"]}</title></circle>')
+        art = art_registry().get('lampArtByStyle', {}).get(lamp.get('_streetArt'), art_registry()['lampArt'])
         factor = cell_m / art_registry()['cellPx']
         width, height = art['width'] * factor, art['height'] * factor
         parts.append(art_image(art, f'class="sprite-cell" data-game-art="{art["sheet"]}" x="{lamp['x']+art['dxPx']*factor-art['origin'][0]*width}" y="{lamp['y']+art['dyPx']*factor-art['origin'][1]*height}" width="{width}" height="{height}"'))

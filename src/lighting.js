@@ -157,6 +157,7 @@
     building: { radiusCells: 3.0, colour: 0xffc46a, peak: 0.95, flicker: 0 },
     temple:   { radiusCells: 4, colour: 0x65dfff, peak: 0.95, flicker: 0.035 },
     // A placed campfire (burned from a coal). Breathes.
+    fire_rock: { radiusCells: 1.25, colour: 0xff7d36, peak: 0.65, flicker: 0.035 },
     ground_fire: { radiusCells: 1.5, colour: 0xff852b, peak: 0.75, flicker: 0.12 },
     fire:     { radiusCells: () => (typeof FIRE_REST_R !== 'undefined' ? FIRE_REST_R : 3),
                 colour: 0xff9a3c, peak: 1.00, flicker: 0.18 },
@@ -769,6 +770,7 @@
     if (o.kind === '_fire') return 'fire';
     if (o.kind === '_magic_trap') return 'magic_trap';
     if (o.kind === 'torch') return 'torch';
+    if (o.kind === 'mineralrock' && o._streetArt === 'fire_rock') return 'fire_rock';
     if (o.kind === 'waystone') return window.Waystones?.isLit(o, scene.save) ? 'waystone' : null;
     const visit = window.Macros?.visitKindForObject(o);
     if (visit && VISIT_LIGHT_KINDS.has(visit)) return VISIT_LIGHT_KINDS.get(visit);
@@ -1034,7 +1036,7 @@
     const list = scene && scene._streetLamps;
     if (!list || !list.length) return 0;
     if (!scene._lights) scene._lights = [];
-    const dyPx = -lampRiseCells() * ((typeof CELL_PX !== 'undefined') ? CELL_PX : 32);
+    const cellPx = (typeof CELL_PX !== 'undefined') ? CELL_PX : 32;
     let n = 0;
     for (const L of list) {
       if (!L.lit) continue;                        // a dark stone is not a light
@@ -1044,13 +1046,15 @@
       // per light, so a lamp changing colour repaints. The default glow is
       // left off (undefined), so a plain street's lamp keeps the row's own
       // `cobble` cookie exactly as before. A hue, never a brightness factor.
+      const lampArt = typeof StreetLights !== 'undefined' ? StreetLights.art(L) : null;
+      const dyPx = -(lampArt?.rise ?? lampRiseCells()) * cellPx;
       const colour = lampColour(L.glow);
       const e = colour == null
         ? { kind: 'cobble', dx, dy, dyPx, id: L.id }
         : { kind: 'cobble', dx, dy, dyPx, id: L.id, colour };
       if (typeof RoadOverlay !== 'undefined') {
         const cellPx = typeof CELL_PX !== 'undefined' ? CELL_PX : 32;
-        e.dxPx = RoadOverlay.LAMP_LIGHT_OFFSET_CELLS * cellPx;
+        e.dxPx = (lampArt?.offset ?? RoadOverlay.LAMP_LIGHT_OFFSET_CELLS) * cellPx;
       }
       // THE LIVING LAMP's brightness (app.js, Streets.lampBrightness —
       // already quantised to LAMP_BRIGHT_STEPS) as the entry's GAIN `g`: a

@@ -9338,9 +9338,13 @@
         return candidates;
       },
       pick: (rng, px, py, L, candidates) => candidates[py * L.N + px] ? { lix: px, liy: py } : null,
-      emit: (L, c, p) => L.wildplants.push(makeWildplant('longgrass', p.x, p.y,
-        cellId(`cgrass_${L.depth}`, L.tx, L.ty, c.lix, c.liy),
-        { _ix: c.lix, _iy: c.liy, _cave: true, depth: L.depth })) },
+      emit: (L, c, p) => {
+        const bulbs = floorProfile(L.depth).biome === 'underdark' && cellHash(L.tx,L.ty,c.lix,c.liy)%5===0;
+        L.wildplants.push(makeWildplant(bulbs ? 'mushroom' : 'longgrass', p.x, p.y,
+          cellId(`cgrass_${L.depth}`, L.tx, L.ty, c.lix, c.liy),
+          { _ix: c.lix, _iy: c.liy, _cave: true, depth: L.depth,
+            ...(bulbs ? { _streetArt:'luminous_bulbs' } : {}) }));
+      } },
   ];
   // One pass over a level — see CAVE_PASSES for the two walks. `L` is the
   // level: { grid, N, tx, ty, tileEdgeM, depth, occupied (flat cell indices,

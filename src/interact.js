@@ -1114,6 +1114,7 @@ const TAP_HANDLERS = [
       const wp = wildplantRemnant(bestWp, tideSets) || bestWp;
       if (tooFar(ctx, wp.x, wp.y)) return 'far';
       const rule = wildplantRule(wp.crop);
+      if (rule?.unpickable) { scene.flash('Cannot pick this up.', sx, sy); return true; }
       const reqRelic = wildplantWorkRelic(wp.crop);
       // What this wild plant DOES — what it drops, whether it hides a bonus,
       // which relic times its wheel and what that wheel costs — is one table

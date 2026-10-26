@@ -231,4 +231,18 @@
       assert.eq(scene.invCount('potato'), 3);
     } finally { globalThis.pickReward = original; }
   });
+  test('dark urn: opening inflicts its poison sting once, then awards its magic item once', () => {
+    const save = { opened: [] }, stings = [];
+    const o = chest({ id: 'poison-urn', barrel: true, barrelStyle: 'street_decor_dark_urn' });
+    const scene = makeScene({ _sting: sting => stings.push(sting.energy),
+      showChestRewardModal() {}, flashLoot() {}, flash() {} });
+    const ctx = makeCtx(scene, save);
+    INTERACTABLES.chest.custom(ctx, o);
+    const total = Object.values(scene._inv).reduce((n, count) => n + count, 0);
+    INTERACTABLES.chest.custom(ctx, o);
+    assert.eq(stings.join(), '10');
+    assert.eq(total, 1);
+    assert.eq(Object.values(scene._inv).reduce((n, count) => n + count, 0), 1);
+  });
+
 })();

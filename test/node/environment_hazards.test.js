@@ -576,4 +576,24 @@
     assert.eq(EnvironmentHazards.exposure(s, 12, 28, 44, 28), 0);
   }));
 
+  test('poison slicks: only feet contact applies three seconds; flight and spent surfaces do not', () => fixture((s, entries) => {
+    const e = entries[0]; e.status = 'ready'; e.depth = 1;
+    e.wildplants = [{ id: 'slick', kind: 'wildplant', crop: 'slime_slick', x: 28, y: 28 }];
+    const state = EnvironmentHazards.state(s);
+    EnvironmentHazards.wildplantContact(s, state);
+    assert.eq(s.save.conditions.poison.remainingMs, 3000);
+    s.save.conditions.poison.remainingMs = 60000;
+    state.elapsedMs += 1000; EnvironmentHazards.wildplantContact(s, state);
+    assert.eq(s.save.conditions.poison.remainingMs, 60000, 'short dose never truncates longer poison');
+    s.save.conditions = {}; s.playerM.x = 36;
+    state.elapsedMs += 1000; EnvironmentHazards.wildplantContact(s, state);
+    assert.falsy(s.save.conditions.poison, 'adjacent cell is safe');
+    s.playerM.x = 28; s.save.picked = ['slick'];
+    state.elapsedMs += 1000; EnvironmentHazards.wildplantContact(s, state);
+    assert.falsy(s.save.conditions.poison, 'removed surface cannot apply a condition');
+    s.save.picked = []; s.save.flightPotionUntil = Date.now() + 100000;
+    state.elapsedMs += 1000; EnvironmentHazards.wildplantContact(s, state);
+    assert.falsy(s.save.conditions.poison, 'flight avoids a ground surface');
+  }));
+
 })();
