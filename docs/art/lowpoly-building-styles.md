@@ -58,9 +58,11 @@ and interior triangle centres to avoid shrinking unnecessarily on diagonal
 wings; an explicit entrance direction remains fixed. Only models assigned
 to existing game roles ship.
 
-The fort uses the full `city_storefront` shell at a fixed size, its proportions
-kept (`BuildingLowPoly.FORT_HALL`): three cells wide when that fits with half a
-cell of plank deck all round, else two cells, else the largest that fits.
+The fort uses the full `city_storefront` shell at a fixed size
+(`BuildingLowPoly.FORT_HALL`): stretched front-to-back from the native 5 m to
+two thirds of its width, it stands three cells wide and two deep (21 m × 14 m)
+when that fits with half a cell of plank deck all round, else two cells wide at
+the same aspect, else the largest that fits. Its height scales with its width.
 It stands on the lot's centre of mass in whichever orientation fits (the
 roomiest first); only a lot whose centre of mass falls outside it seats the
 hall elsewhere. One solid dice board is centered above its entrance. It keeps the
