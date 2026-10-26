@@ -240,17 +240,6 @@ const Visibility = (() => {
     s.rays.set(k, result);
     return result;
   }
-  // The player's body snapped to a lattice of `quantumM`, kept inside the
-  // body's own cell so the facing cell never changes. Purely visual consumers
-  // (the lighting cover mask) trace from it so sub-step movement and GPS glide
-  // reuse their field; gameplay queries keep the exact body.
-  function observer(scene, quantumM) {
-    const p = playerWorldM(scene);
-    if (!ready(scene) || !(quantumM > 0)) return p;
-    const q = { x: (Math.floor(p.x / quantumM) + .5) * quantumM, y: (Math.floor(p.y / quantumM) + .5) * quantumM };
-    const a = worldMetersToAbsCell(scene, p.x, p.y), b = worldMetersToAbsCell(scene, q.x, q.y);
-    return a.cellIX === b.cellIX && a.cellIY === b.cellIY ? q : p;
-  }
   // Any cover hides the ACTORS behind it from the player — creatures, peers,
   // coins, shots — with their labels, shadows and tap targets. SCENERY
   // (objects, plants, crops, traps, hazards) stays drawn and tappable in the
@@ -292,7 +281,7 @@ const Visibility = (() => {
     if (s) { s.frame = undefined; s.signature = null; s.rays.clear(); s.revision++; }
   }
   const api = { CLEAR, PARTIAL, FULL, HEAR_CELLS, PARTIAL_DARKNESS, FULL_DARKNESS,
-    objectCover, objectConceals, coverBetween, sightCover, playerCover, hidden, concealingCellNear, observer,
+    objectCover, objectConceals, coverBetween, sightCover, playerCover, hidden, concealingCellNear,
     revision: scene => ready(scene) ? state(scene).revision : 0, invalidate };
   return api;
 })();

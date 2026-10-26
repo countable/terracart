@@ -2,7 +2,6 @@
   // Exercise the actual orchestration function while replacing expensive light
   // collectors and canvas painters. This verifies immediate fallback, not pixels.
   function lightingDrawFixture(success) {
-    let coverKey = 'cover';
     const calls = { gpu: 0, refresh: 0, base: 0, reach: 0, copies: 0 };
     const context = () => ({ clearRect() {}, fillRect() {}, drawImage() { calls.copies++; } });
     const canvas = () => ({ width: 16, height: 16, getContext: context });
@@ -15,7 +14,6 @@
       critPaintProfile: (scene, p) => p, weatherPaintProfile: (scene, p) => p, profile: () => ({ lit: 1, edge: 0, litColour: 0xffffff }),
       daylight: () => 1, radiusCells: () => 5, playerLightMul: () => 1,
       reachRadiusM: () => 0, ensurePlayerCookie: () => ({}),
-      coverFrame: () => coverKey && ({ canvas: canvas(), revision: coverKey, key: coverKey, x: 0, y: 0 }),
       frameKey: () => 'frame',
       playerCircleContribution: () => ({ items: [], rebuilt: false, deferred: false }),
       worldCookieFrames: () => ({ items: [], excluded: [], cached: 0 }),
@@ -30,29 +28,8 @@
     const draw = new Function(...Object.keys(deps), LIGHTING_SRC.slice(begin, end) + '; return draw;')(...Object.values(deps));
     const scene = { cellM: 5, viewLeft: 0, viewTop: 0, viewCenterX: 8, viewCenterY: 8,
       lightTex: { width: 16, height: 16, context: context(), refresh() { calls.refresh++; } } };
-    return { scene, calls, draw: () => draw(scene, 0, 0, 20), setCover(key) { coverKey = key; } };
+    return { scene, calls, draw: () => draw(scene, 0, 0, 20) };
   }
-
-  test('visibility fog refreshes independently of either lighting backend', () => {
-    for (const gpu of [true, false]) {
-      const f = lightingDrawFixture(gpu);
-      let clears = 0, copies = 0, uploads = 0;
-      f.scene.visibilityFogTex = { width: 16, height: 16,
-        context: { clearRect() { clears++; }, drawImage() { copies++; } },
-        refresh() { uploads++; } };
-      f.draw(); f.draw();
-      assert.eq(uploads, 1, 'stationary fog reuses its texture');
-      const lightFrames = f.calls.gpu;
-      f.setCover('moved'); f.draw();
-      assert.eq(uploads, 2, 'observer movement refreshes the fog');
-      if (gpu) assert.eq(f.calls.gpu, lightFrames, 'cover changes do not repaint cached lighting');
-      f.setCover(null); f.draw();
-      assert.eq(clears, 3, 'removing cover clears the overlay');
-      assert.eq(copies, 2, 'clear view does not draw an old mask');
-      f.setCover('moved'); f.draw();
-      assert.eq(uploads, 4, 'revival restores the overlay');
-    }
-  });
 
   test('GPU lighting: successful composition avoids final Canvas upload and reuses a still frame', () => {
     const f = lightingDrawFixture(true);
