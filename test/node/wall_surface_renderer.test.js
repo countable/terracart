@@ -1,21 +1,36 @@
 (function () {
   function fixture() {
-    const previous = window.Phaser, draws = [], transforms = [];
+    const previous = window.Phaser, draws = [], transforms = [], matrixSets = [];
     const image = { width: 64, height: 32 };
     const matrix = { a: 1, b: 0, c: 0, d: 1, e: 0, f: 0 };
     const camera = { x: 0, y: 0, width: 100, height: 100, alpha: .5, addToRenderList() {} };
     const ctx = { save() {}, restore() {}, beginPath() {}, moveTo() {}, lineTo() {}, closePath() {},
       clip() {}, fill() {}, transform(...args) { transforms.push(args); },
+      setTransform(...args) { matrixSets.push(args); },
       drawImage(source) { draws.push({ source, alpha: this.globalAlpha }); } };
     window.Phaser = { GameObjects: { GetCalcMatrix() { return { calc: matrix }; } } };
     const target = { renderWebGL() {}, alpha: .5 };
     WallSurfaceRenderer.install({}, target, { getSourceImage: () => image });
     const face = { points: [{ u: 0, v: 0 }, { u: 1, v: 0 }, { u: 0, v: 1 }] };
-    return { target, image, face, camera, matrix, draws, transforms,
+    return { target, image, face, camera, matrix, draws, transforms, matrixSets,
       paint(x = 0) { WallSurfaceRenderer.paint(target, x, 0, x + 32, 0, x, 16, 0xffffff, .5, face); },
       render() { target.renderCanvas({ currentContext: ctx }, target, camera); },
       close() { window.Phaser = previous; } };
   }
+  test('wall surfaces: mixed flat and textured walls apply the complete camera matrix only once', () => {
+    const f=fixture();
+    try {
+      Object.assign(f.matrix,{a:0,b:2,c:-2,d:0,e:80,f:10});
+      f.paint();
+      WallSurfaceRenderer.paint(f.target,0,0,16,0,0,8,0x888888,1);
+      f.render();
+      assert.eq(f.matrixSets.length,1,'replace the inherited camera transform for the batch');
+      assert.eq(f.matrixSets[0].join(','),'0,2,-2,0,80,10');
+      assert.eq(f.transforms.length,1,'only the textured triangle composes its UV transform');
+      assert.eq(f.transforms[0].join(','),'0.5,0,0,0.5,0,0');
+      assert.eq(f.draws.length,1);
+    } finally { f.close(); }
+  });
   test('wall surfaces: retained UV transforms survive pans and refresh for atlas dimensions', () => {
     const f = fixture();
     try {

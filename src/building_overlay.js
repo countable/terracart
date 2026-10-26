@@ -1019,13 +1019,58 @@
       area += a.x * b.y - b.x * a.y;
     }
     const winding = Math.sign(area);
+    // Large source rings use this fallback rather than the bounded FDR layout.
+    // An inward normal is insufficient at acute turns or narrow notches: the
+    // far end of a wall strip can still occupy ground outside the building.
+    // Keep ordinary contained strips intact; triangulate only when clipping
+    // is needed, once per source ring, using the same pure geometry helpers.
+    let sourceTriangles;
+    const clipFootprint = rampart ? ring => {
+      if (FDRCastleLayout.contains(ring, points)) return [ring];
+      if (!sourceTriangles) {
+        const source = points.filter((p, i) => {
+          const before = points[(i + points.length - 1) % points.length];
+          return Math.hypot(p.x - before.x, p.y - before.y) > 1e-6;
+        }).map(p => ({ x: p.x, y: p.y }));
+        PolygonGeometry.ensureCCW(source);
+        PolygonGeometry.removeCollinear(source);
+        const first = source.reduce((best, p, i) => p.x < source[best].x
+          || (p.x === source[best].x && p.y < source[best].y) ? i : best, 0);
+        source.push(...source.splice(0, first));
+        sourceTriangles = PolygonGeometry.triangulate(source).map(points => ({ points,
+          left: Math.min(...points.map(p => p.x)), right: Math.max(...points.map(p => p.x)),
+          north: Math.min(...points.map(p => p.y)), south: Math.max(...points.map(p => p.y)) }));
+      }
+      const left = Math.min(...ring.map(p => p.x)), right = Math.max(...ring.map(p => p.x));
+      const north = Math.min(...ring.map(p => p.y)), south = Math.max(...ring.map(p => p.y));
+      const fragments = sourceTriangles.filter(t => t.right >= left && t.left <= right
+        && t.south >= north && t.north <= south)
+        .map(t => FDRCastleLayout.intersect(ring, t.points)).filter(p => p.length >= 3);
+      if (fragments.length < 2) return fragments;
+      // Most clipped corners still form one convex strip. Recover its exact
+      // union to avoid retaining the source triangulation's internal walls.
+      const vertices = fragments.flat().sort((a, b) => a.x - b.x || a.y - b.y);
+      const chain = list => {
+        const hull = [];
+        for (const p of list) {
+          while (hull.length > 1 && PolygonGeometry.cross(hull[hull.length - 2], hull[hull.length - 1], p) <= 1e-8) hull.pop();
+          hull.push(p);
+        }
+        return hull.slice(0, -1);
+      };
+      const hull = [...chain(vertices), ...chain(vertices.slice().reverse())];
+      const covered = fragments.reduce((sum, p) => sum + Math.abs(PolygonGeometry.polyArea(p)), 0);
+      if (Math.abs(Math.abs(PolygonGeometry.polyArea(hull)) - covered) < 1e-5
+          && FDRCastleLayout.contains(hull, points)) return [hull];
+      return fragments;
+    } : null;
     let palisadeIndex = 0;
     for (let i = 0; i < points.length; i++) {
       const a = points[i], b = points[(i + 1) % points.length];
       const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
       if (!length) continue;
       const nx = -dy / length * winding, ny = dx / length * winding;
-      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark };
+      const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark, clipFootprint };
       if (rampart) {
         const count = length < rampart.toothWidth ? 0 : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
         const pitch = count > 1 ? (length - rampart.toothWidth) / (count - 1) : 0;
@@ -1053,9 +1098,12 @@
         const previous = points[(i + points.length - 1) % points.length];
         const px = a.x - previous.x, py = a.y - previous.y, plen = Math.hypot(px, py);
         if (plen && (px * dy - py * dx) * winding < 0) {
-          WallPerspective.prism(scene, 'polygon', [a,
+          const bevel = [a,
             { x: a.x - py / plen * winding * thickness, y: a.y + px / plen * winding * thickness },
-            { x: a.x + nx * thickness, y: a.y + ny * thickness }], 0, height, { face, top, dark });
+            { x: a.x + nx * thickness, y: a.y + ny * thickness }];
+          for (const part of !WallPerspective.inView(scene, bevel, 0, height) ? []
+            : clipFootprint ? clipFootprint(bevel) : [bevel])
+            WallPerspective.prism(scene, 'polygon', part, 0, height, { face, top, dark });
         }
       }
     }

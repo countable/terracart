@@ -161,8 +161,11 @@ refreshes or pixel readback. Captures go to `/tmp/fdr-castle-checks`; `OUT_DIR`,
 
 The footprint selector also exercises concave, narrow, skewed and acute outlines.
 For these cases the left panel is a placement plan, not a native sprite assembly.
-`fdr-castle-layout.js` straddles convex corners with continuously positioned towers, clips curtain geometry
-against the courtyard footprint and projecting towers, and places the keep only with 12px clearance.
+The isolated trial's `tools/fdr-castle-layout.js` retains projecting corner towers;
+it is not the production placement policy. Production `src/fdr_castle_layout.js`
+contains complete tower bases, including flared feet, inside the mapped footprint
+and clips curtains against that footprint and the seated towers. Keeps require
+12px courtyard clearance.
 Curtain merlons follow each edge direction and require full coping support.
 Run `node tools/check_fdr_irregular_castles.cjs` for independent containment,
 overlap, rotation and renderer checks; its screenshots still require visual review.
@@ -175,6 +178,30 @@ masonry merely because a polygon's vertex winding runs right to left.
 The review-only Canvas adapter overlaps internal opaque triangle clips within
 the exact face boundary; transparent source tiles keep their original clips.
 Eight-pixel atlas gutters prevent that coverage from sampling adjacent slots.
+
+## Real mapped castle audit
+
+Generate twelve selected production-tier castles directly from the checked-in
+Kelowna MVT tiles, then capture them in the real game with surrounding buildings
+and objects preserved:
+
+```sh
+node tools/castle-real-inputs.cjs
+GAME_URL=http://127.0.0.1:8000/index.html OUT_DIR=/tmp/castle-real-review node tools/castle-real-geometry.cjs
+```
+
+The extractor defaults to `/tmp/real-castles-selected.json`; `--out FILE` or
+`OUT_FILE` changes that destination, and `--all` retains every production tier-12
+shape. Generated JSON stays outside the repository. Inputs record exact source
+rings, production float32 rings, tile hashes, MVT feature/ring IDs, coordinates
+and nearby objects; MVT IDs are not asserted OSM way IDs.
+
+The capture tool accepts `FIXTURES`, `KEYS`, `ANGLES`, `STATES` and `RENDERERS`.
+Use `SOURCE_DIR` and `ASSET_DIR` for frozen before/after snapshots. Ordinary
+screenshots retain gameplay context; diagnostic companions overlay the mapped
+ground boundary and flag escaping ground bases, without mistaking projected
+wall height for footprint overhang. Inspect both the FDR meshes and the legacy
+fallback used by complex source rings.
 
 
 ## Prerequisites

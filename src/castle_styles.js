@@ -205,7 +205,7 @@
     for (const field of ['wall', 'side', 'top', 'base', 'floor', 'roof', 'roofSide', 'roofBack', 'roofLight', 'door', 'accent'])
       value[field] = active ? source[field] : weathered(source[field], field === 'floor');
     if (!active) {
-      value.base = id === 'citadel' ? 0x262f3b : 0x666e50;
+      value.base = id === 'citadel' ? 0x262f3b : 0x555d42;
       if(id==='citadel'){value.wall=0x434956;value.side=0x343c47;value.top=0x92969b;value.door=0x242c36;}
       value.accent = id === 'citadel' ? 0xa52e34 : 0x827657;
     }

@@ -152,11 +152,18 @@
       const support = { x: (ax + bx + nx * thickness) / 2,
         y: (ay + by + ny * thickness) / 2,
         order: scene._wallPerspective[source].blocks.length };
+      // Polygon owners can trim a strip at acute corners and narrow notches.
+      // Clipped bodies and crowns retain this edge's shared sorting anchor.
+      const emit = (ring, bottom, roof, palette, geometry = {}) => {
+        if (!this.inView(scene, ring, bottom, roof)) return;
+        for (const part of spec.clipFootprint ? spec.clipFootprint(ring) : [ring])
+          this.prism(scene, source, part, bottom, roof, palette, support, true, geometry);
+      };
       // Short sections keep painter ordering local on angled/concave rings.
       const sections = Math.max(1, Math.ceil(length / CELL_PX));
       for (let i = 0; i < sections; i++) {
         const lo = i / sections, hi = (i + 1) / sections;
-        this.prism(scene, source, points(lo, hi), 0, height, colors, support, true,
+        emit(points(lo, hi), 0, height, colors,
           { segment: { ax: ax + dx * lo, ay: ay + dy * lo, bx: ax + dx * hi, by: ay + dy * hi } });
       }
       const width = spec.toothWidth;
@@ -165,8 +172,8 @@
       const pitch = count > 1 ? (length - width) / (count - 1) : 0;
       for (let i = 0; i < count; i++) {
         if (spec.missing?.includes(i)) continue;
-        this.prism(scene, source, points(i * pitch / length, Math.min(1, (i * pitch + width) / length)),
-          height, height + spec.toothHeight, { ...colors, top: spec.crownTop ?? top }, support);
+        emit(points(i * pitch / length, Math.min(1, (i * pitch + width) / length)),
+          height, height + spec.toothHeight, { ...colors, top: spec.crownTop ?? top });
       }
     },
     finish(scene, source) {
