@@ -13,7 +13,8 @@
     const group=scene._wallPerspective?.[source];
     if(!group||!scene.textures?.exists(ATLAS_KEY))return null;
     const style=CastleStyles.renderStyle(options.family||'citadel',options.active!==false),geometry=style.geometry;
-    const layout=FDRCastleLayout.build(points,{...options,...geometry,sectionLength:64});if(!layout)return null;
+    const towerBaseOutset=style.id==='bastion'?2:0;
+    const layout=FDRCastleLayout.build(points,{...options,...geometry,sectionLength:64,towerBaseOutset});if(!layout)return null;
     const atlas=scene.textures.get(ATLAS_KEY);atlas.setFilter?.(global.Phaser?.Textures?.FilterMode?.NEAREST ?? 1);group.atlas=atlas;
     const start=group.blocks.length,rect=FDRCastleLayout.rect;
     const colors={face:style.wall,top:style.top,dark:style.base};
@@ -109,7 +110,7 @@
       part.crownHeight=height+(roofRise||8);
       // The shaft fills the same square used to clip adjoining curtains.
       // Insetting it above a wider plinth leaves vertical slots at those joins.
-      const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.floor,baseOutset:style.id==='bastion'&&!isKeep?2:0});if(!shaft)return;
+      const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.floor,baseOutset:isKeep?0:towerBaseOutset});if(!shaft)return;
       if(geometry.roofHeight){
         const peak={x,y,z:height+roofRise};
         // Four roof triangles restored, two large surviving planes in a wreck.

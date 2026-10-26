@@ -1354,6 +1354,50 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   clearTiles();
 });
 
+test('building overlay: complex mapped castle fallback walls and teeth stay inside the source boundary', () => {
+  const sites = [['2755_5566', 6757291610, 63, 'citadel'],
+    ['2754_5565', 29572670, 341, 'bastion'], ['2754_5566', 1513231130, 252, 'archive']];
+  const edge = WorldGen.tileEdgeMeters(49.8801), cellM = edge / 225;
+  try {
+    for (const [tile, id, index, family] of sites) {
+      const source = MVT.decodeTile(FIXTURE_TILES[tile]).find(l => l.name === 'building')
+        .features.find(f => f.id === id).geom[index];
+      assert.gt(source.length, FDRCastleLayout.LIMITS.vertices, 'authentic detailed ring exercises the fallback');
+      const meters = Float32Array.from(source.flatMap(p => [p.x / 4096 * edge, p.y / 4096 * edge]));
+      // Translate into this test's tile and preserve the production pixel
+      // scale despite its five-metre scene cells. No contour is simplified.
+      const points = Array.from({length: meters.length / 2}, (_, i) => [
+        (meters[i * 2] - meters[0]) * 5 / cellM,
+        (meters[i * 2 + 1] - meters[1]) * 5 / cellM]);
+      for (const reverse of [false, true]) for (const claimed of [false, true]) {
+        clearTiles();
+        putShapes(0, 0, [{ring: Float32Array.from((reverse ? points.slice().reverse() : points).flat()),
+          tier: T.BUILDING_LARGE, key: family}]);
+        const {scene, log} = makePerspectiveScene();
+        scene.viewLeft = scene.viewTop = -2048; scene.viewSize = 4096;
+        scene.isClaimedKey = () => claimed;
+        BuildingOverlay.draw(scene);
+        const group = scene._wallPerspective.polygon;
+        assert.gt(group.blocks.length, 0, 'fallback still emits visible architecture');
+        const footprint = group.blocks[0].building.footprint;
+        for (const block of group.blocks) for (let i = 0; i < block.points.length; i++) {
+          const a = block.points[i], b = block.points[(i + 1) % block.points.length];
+          for (const t of [0, .25, .5, .75]) assert.truthy(PolygonGeometry.pointInPolygon(footprint,
+            {x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t}, 1e-5),
+            `${family}: a ground wall edge cannot enter neighbouring map space`);
+        }
+        const retained = new Set(group.blocks), commits = scene.buildingGeomGfx.commits;
+        for (const angle of [0, .31, 1.27, 2.36, 3.68]) {
+          scene.mapRot = angle; WallPerspective.update(scene);
+          assert.truthy(group.blocks.every(b => retained.has(b) && [...b.projected].every(Number.isFinite)));
+        }
+        assert.eq(scene.buildingGeomGfx.commits, commits, 'rotation never rebakes the clipped floor');
+        assert.eq(log.refreshes, 0, 'fallback keeps its retained geometry without texture uploads');
+      }
+    }
+  } finally { clearTiles(); }
+});
+
 test('building overlay: heading-up house foundations follow the camera without repainting textured floors', () => {
   const previousStyle = Render.buildingArtStyle;
   Render.buildingArtStyle = 'rounded';
@@ -1556,21 +1600,25 @@ test('building overlay: irregular castle rings retain closed edges and bounded j
       BuildingOverlay.draw(scene);
       const group = scene._wallPerspective.polygon;
       const bodies = group.blocks.filter(b => b.bottom === 0);
-      const caps = bodies.filter(b => b.points.length === 4);
-      const bevels = bodies.filter(b => b.points.length === 3);
-      assert.eq(bevels.length, name === 'L' ? 1 : name === 'U' ? 2 : name === 'star' ? 5 : 0,
-        `${name}: concave turns get one bounded join each`);
+      const footprint = ordered.map(p => ({x: px(p[0]), y: px(p[1])}));
+      assert.truthy(bodies.every(b => FDRCastleLayout.contains(b.points, footprint)),
+        `${name}: wall strips and corner joins occupy only mapped ground`);
       for (let i = 0; i < ordered.length; i++) {
         const a = { x: px(ordered[i][0]), y: px(ordered[i][1]) };
         const next = ordered[(i + 1) % ordered.length];
         const b = { x: px(next[0]), y: px(next[1]) };
         const dx = b.x - a.x, dy = b.y - a.y, length = Math.hypot(dx, dy);
-        const sections = caps.filter(block => block.points.slice(0, 2).every(p =>
-          Math.abs((p.x - a.x) * dy - (p.y - a.y) * dx) < 1e-6
-          && (p.x - a.x) * dx + (p.y - a.y) * dy >= -1e-6
-          && (p.x - a.x) * dx + (p.y - a.y) * dy <= length * length + 1e-6));
-        const covered = sections.reduce((sum, block) => sum + Math.hypot(
-          block.points[1].x - block.points[0].x, block.points[1].y - block.points[0].y), 0);
+        const intervals = bodies.flatMap(block => block.points.map((p, j) => {
+          const q = block.points[(j + 1) % block.points.length];
+          if ([p, q].some(v => Math.abs((v.x - a.x) * dy - (v.y - a.y) * dx) > 1e-6)) return null;
+          const t = [p, q].map(v => ((v.x - a.x) * dx + (v.y - a.y) * dy) / length).sort((x, y) => x - y);
+          return [Math.max(0, t[0]), Math.min(length, t[1])];
+        }).filter(v => v && v[1] > v[0])).sort((x, y) => x[0] - y[0]);
+        let covered = 0;
+        for (const [lo, hi] of intervals) {
+          assert.lt(lo - covered, 1e-6, `${name}: no gap along the mapped outer wall`);
+          covered = Math.max(covered, hi);
+        }
         assert.lt(Math.abs(covered - length), 1e-6, `${name}: complete source edge coverage`);
       }
       const signature = bodies.map(b => b.points.map(p =>
