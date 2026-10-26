@@ -129,6 +129,12 @@ pixels and decorative details do not define additional tap cells.
   caller's `onDismiss` at once in toast mode: a deferred Book read is released
   by whichever presentation runs. Bag-full take/leave choices still appear.
   Empty pots and barrels retain their brief smash feedback; their coins use a toast.
+- An item or gear name in a shop, trader or smithy dialog is tappable
+  (`Rewards.tapHTML` / `Rewards.itemTapHTML`, dotted underline). A tap pops the
+  same `Rewards.desc` line in a bubble beside the name (`_itemDescTap` in
+  `modal_shell.js`, installed on every dialog); the next tap closes it. When the
+  dialog already prints that line, as a shop shelf row or forge blurb does, the
+  tap lights that line up instead of repeating it.
 
 - The compass header aligns menu, a memories/books window and compact distance meter
   capped at 84 pixels wide beside a 72-pixel energy dial at the top right. The menu is
