@@ -21,3 +21,14 @@ test('arrow colour: the bow and staff shots are stamped with their tier colour, 
   assert.truthy(/this\._boltGlowKey\(shotTierColour\('staff', tier\)\)/.test(SCENE_SRC),
     'the charging orb is the colour of the bolt it becomes');
 });
+
+test('arrow colour: every arrow streak sits on a dark outline, so a ground-coloured tier still reads', () => {
+  const bow = Combat.SHOT.bow;
+  assert.truthy(bow.inkPx >= 1 && Number.isInteger(bow.inkColor), 'the bow spec carries an outline');
+  for (const t of MATERIAL_TIERS) {
+    const lum = (c) => 0.299 * (c >> 16 & 255) + 0.587 * (c >> 8 & 255) + 0.114 * (c & 255);
+    assert.truthy(lum(t.color) - lum(bow.inkColor) > 60, `${t.name} stands clear of the outline`);
+  }
+  assert.truthy(/if \(spec\.inkPx\) \{\s*g\.lineStyle\(spec\.widthPx \+ 2 \* spec\.inkPx, spec\.inkColor/.test(SCENE_SRC),
+    '_drawShots strokes the outline under the streak');
+});

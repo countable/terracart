@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-ea73d1f7';
+    window.__shellVersion = 'shell-66b64e67';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=bd2c7bf1" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=a3e96ee0" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3302,7 +3302,7 @@
   <script src="src/spawn_ownership.js?v=cb498972"></script>
   <script src="src/starter.js?v=3561a432"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
-  <script src="src/combat.js?v=8d58779b"></script>
+  <script src="src/combat.js?v=bfa1b749"></script>
   <script src="src/pirates.js?v=362fddf3"></script>
   <script src="src/pets.js?v=bebd467d"></script>
   <script src="src/character_portraits.js?v=e7b062b6"></script>
@@ -3455,7 +3455,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=bd2c7bf1';
+      const APP_SRC = 'src/app.js?v=a3e96ee0';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

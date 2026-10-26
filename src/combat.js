@@ -1193,7 +1193,10 @@
     return false;
   }
   const BOW_SHOT = { speedCps: 4.5, rangeCells: 8, rangeFromReach: RANGED_TRIGGER_PAST_REACH,
-    color: 0xffe6a8, lenPx: 9, widthPx: 2, aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
+    // `inkPx`/`inkColor`: a dark outline under the streak, so an arrow in a
+    // ground-like tier colour (Wood's brown) still reads on grass and dirt.
+    color: 0xffe6a8, lenPx: 11, widthPx: 2, inkPx: 1, inkColor: 0x2a1c12,
+    aim: 'compass', fireIntervalMs: FIRE_INTERVAL_MS,
     ammo: { id: 'wood', shots: 20 } };
   const SHOT = {
     // `ammo`: the bow burns one WOOD per `shots` arrows, and will not fire
