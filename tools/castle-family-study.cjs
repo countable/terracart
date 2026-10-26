@@ -1,11 +1,13 @@
 // Capture actual MapScene castles; fixture changes stay in an isolated browser save.
 // GAME_URL=http://localhost:8765/index.html?sandbox=true&sandboxZone=castle&skipStory=true&skipTutorial=true \
 // OUT_DIR=/tmp/castle-family-study node tools/castle-family-study.cjs
+// SOURCE_DIR=/saved/src ASSET_DIR=/saved/assets freezes a review round during edits.
 const { chromium } = require('playwright-core');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
+const { createHash } = require('node:crypto');
 
 const OUT = process.env.OUT_DIR || '/tmp/castle-family-study';
 const URL = process.env.GAME_URL || 'http://localhost:8765/index.html?sandbox=true&sandboxZone=castle&skipStory=true&skipTutorial=true';
@@ -23,6 +25,20 @@ const states = selected('STATES', 'wrecked,restored');
 const renderers = selected('RENDERERS', 'webgl');
 const selectedShapes = selected('SHAPES', Object.keys(shapes).join(','));
 const clean = process.env.CLEAN === '1';
+const sourceDir = process.env.SOURCE_DIR;
+const assetDir = process.env.ASSET_DIR;
+const sourceHashes = {};
+const assetHashes = {};
+for (const file of ['atlas.png', 'floor.png', 'weathered-floor.png']) {
+  const relative = path.join('Objects/Castle/FDR', file);
+  const location = assetDir && fs.existsSync(path.join(assetDir, relative)) ? path.join(assetDir, relative) : path.join(__dirname, '../assets', relative);
+  assetHashes[relative] = createHash('sha256').update(fs.readFileSync(location)).digest('hex');
+}
+const sourceFiles = ['building_overlay.js', 'castle_styles.js', 'fdr_castle_geometry.js', 'fdr_castle_layout.js', 'fdr_castle_canvas.js', 'wall_surface_renderer.js', 'wall_perspective.js', 'polygon_geometry.js'];
+for (const file of sourceFiles) {
+  const location = sourceDir && fs.existsSync(path.join(sourceDir, file)) ? path.join(sourceDir, file) : path.join(__dirname, '../src', file);
+  sourceHashes[file] = createHash('sha256').update(fs.readFileSync(location)).digest('hex');
+}
 
 async function installFixture(page) {
   await page.evaluate(clean => {
@@ -121,6 +137,10 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont
 import json,sys
 root=Path(sys.argv[1]); report=json.loads((root/'report.json').read_text())
+# Derive each crop from its exact full frame; never advance the game for a second screenshot.
+for case in report['cases']:
+ crop=case['crop']; image=Image.open(root/case['fullFile'])
+ image.crop((crop['x'],crop['y'],crop['x']+crop['width'],crop['y']+crop['height'])).save(root/case['cropFile'])
 font=ImageFont.truetype('/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',18)
 for renderer in report['renderers']:
  for family in report['families']:
@@ -146,7 +166,7 @@ for renderer in report['renderers']:
 
 (async () => {
   fs.mkdirSync(OUT, { recursive: true });
-  const report = { families, renderers, clean, cases: [], errors: [], failedRequests: [], externalFailures: [], limitations: ['Desktop Chromium; fixtures change browser-local shape and claim state only.', ...(clean ? ['Clean art review hides actors, labels, legacy flag sprites and the composited lightmap in the browser fixture only.'] : []), 'Visual matching requires inspection of the captured images.'] };
+  const report = { families, renderers, clean, sourceDir, assetDir, sourceHashes, assetHashes, cases: [], errors: [], failedRequests: [], externalFailures: [], limitations: ['Desktop Chromium; fixtures change browser-local shape and claim state only.', ...(clean ? ['Clean art review hides actors, labels, legacy flag sprites and the composited lightmap in the browser fixture only.'] : []), 'Visual matching requires inspection of the captured images.'] };
   const env = { ...process.env }; delete env.DISPLAY;
   const browser = await chromium.launch({ executablePath: process.env.CHROMIUM || '/usr/lib/chromium/chromium', env,
     args: ['--no-sandbox', '--ozone-platform=headless', '--use-angle=swiftshader', '--enable-unsafe-swiftshader'] });
@@ -161,6 +181,18 @@ for renderer in report['renderers']:
         failures.push({ renderer, status: response.status(), url: response.url() });
       });
       await page.addInitScript(() => { sessionStorage.setItem('terracart.safetySeen', '1'); localStorage.setItem('terracart.introSeen', '1'); localStorage.setItem('terracart.howtoSeen', '1'); });
+      if (assetDir) await page.route('**/assets/**', async route => {
+        const relative = new globalThis.URL(route.request().url()).pathname.split('/assets/')[1];
+        const location = path.join(assetDir, relative);
+        if (fs.existsSync(location) && fs.statSync(location).isFile()) await route.fulfill({ path: location });
+        else await route.continue();
+      });
+      if (sourceDir) await page.route('**/src/*.js*', async route => {
+        const file = path.basename(new globalThis.URL(route.request().url()).pathname);
+        const location = path.join(sourceDir, file);
+        if (fs.existsSync(location)) await route.fulfill({ contentType: 'application/javascript', body: fs.readFileSync(location, 'utf8') });
+        else await route.continue();
+      });
       await page.route('**/src/app.js*', async route => {
         const response = await route.fetch();
         await route.fulfill({ response, body: (await response.text()).replace('type: Phaser.AUTO,', `type: Phaser.${renderer === 'canvas' ? 'CANVAS' : 'WEBGL'},`) });
@@ -192,7 +224,6 @@ for renderer in report['renderers']:
           assert.ok(result.crop.width > 0 && result.crop.height > 0);
           const name = `${renderer}-${family}-${shape}-${state}-${angle}`;
           await page.screenshot({ path: path.join(OUT, name + '.png') });
-          await page.screenshot({ path: path.join(OUT, name + '-crop.png'), clip: result.crop });
           report.cases.push({ renderer, requestedFamily: family, shape, state, angle, ...result,
             fullFile: name + '.png', cropFile: name + '-crop.png' });
         }

@@ -1,6 +1,8 @@
 // Compare the retained castle mesh with the pre-fidelity baseline. Counts both
 // every material triangle and actual visible submissions through WallPerspective.
 // Usage: node tools/castle-poly-budget.cjs [--out /tmp/castle-fidelity-budget.json]
+// Strict round audit: --baseline-dir /path/to/saved/src --max-ratio 1
+// Optional --current-dir freezes the candidate; --headings accepts comma-separated degrees.
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
@@ -15,9 +17,12 @@ const value = (name, fallback) => {
 };
 const baselineRef = value('--baseline-ref', '0645a596');
 const baselineDir = value('--baseline-dir', null);
+const currentDir = value('--current-dir', path.join(ROOT, 'src'));
 const out = path.resolve(value('--out', '/tmp/castle-fidelity-budget.json'));
-const maxRatio = 1.5;
-const headings = [0, 30, 45, 90, 135, 180, 225, 270, 315];
+const maxRatio = Number(value('--max-ratio', '1.5'));
+if (!Number.isFinite(maxRatio) || maxRatio <= 0) throw Error('--max-ratio must be positive');
+const headings = value('--headings', '0,30,45,90,135,180,225,270,315').split(',').map(Number);
+if (!headings.length || headings.some(angle => !Number.isFinite(angle))) throw Error('--headings requires comma-separated numeric degrees');
 const modules = ['polygon_geometry.js', 'castle_styles.js', 'wall_surface_renderer.js',
   'wall_perspective.js', 'fdr_castle_layout.js', 'fdr_castle_geometry.js'];
 const baselineFiles = new Set(['castle_styles.js', 'fdr_castle_layout.js', 'fdr_castle_geometry.js']);
@@ -31,8 +36,8 @@ const fixtures = {
   large: Array.from({length:64}, (_, i) => [10000*Math.cos(i*Math.PI/32), 10000*Math.sin(i*Math.PI/32)]),
 };
 function source(file, baseline) {
-  if (!baseline) return fs.readFileSync(path.join(ROOT, 'src', file), 'utf8');
-  if (baselineDir && baselineFiles.has(file)) return fs.readFileSync(path.join(baselineDir, file), 'utf8');
+  if (!baseline) return fs.readFileSync(path.join(currentDir, file), 'utf8');
+  if (baselineDir && (baselineFiles.has(file) || fs.existsSync(path.join(baselineDir, file)))) return fs.readFileSync(path.join(baselineDir, file), 'utf8');
   return execFileSync('git', ['show', `${baselineRef}:src/${file}`], {cwd:ROOT, encoding:'utf8'});
 }
 function runtime(baseline) {
@@ -78,7 +83,7 @@ function draw(ctx, points, family, active) {
   return result;
 }
 const before = runtime(true), after = runtime(false);
-const report = { baselineRef, baselineDir, currentRef:execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim(),
+const report = { baselineRef, baselineDir, currentDir, currentRef:execFileSync('git',['rev-parse','HEAD'],{cwd:ROOT,encoding:'utf8'}).trim(),
   limitRatio:maxRatio, headings, sourceHashes:{baseline:before.sourceHashes,current:after.sourceHashes}, countScope:'All retained castle material triangles; actual submitted triangles at each heading also include outline triangles. Courtyard ground and unrelated gameplay sprites are excluded in both versions.',
   cases:[], failures:[], maxMaterialRatio:0, maxSubmittedRatio:0 };
 for (const [shape, points] of Object.entries(fixtures)) for (const family of ['citadel','bastion','archive']) for (const active of [false,true]) {
@@ -88,13 +93,13 @@ for (const [shape, points] of Object.entries(fixtures)) for (const family of ['c
   const submitted = baseline.visible.map((base,i)=>{
     const next = current.visible[i];
     const ratio = base.submittedTriangles ? next.submittedTriangles/base.submittedTriangles : next.submittedTriangles ? Infinity : 1;
-    if (ratio>maxRatio) report.failures.push(`${name} ${base.degrees}deg: submitted ${next.submittedTriangles} > 1.5 x ${base.submittedTriangles}`);
+    if (ratio>maxRatio) report.failures.push(`${name} ${base.degrees}deg: submitted ${next.submittedTriangles} > ${maxRatio} x ${base.submittedTriangles}`);
     report.maxSubmittedRatio=Math.max(report.maxSubmittedRatio,ratio);
     return {degrees:base.degrees,baseline:base.submittedTriangles,current:next.submittedTriangles,ratio};
   });
   report.cases.push({family,shape,active,baseline,current,materialRatio,submitted});
   report.maxMaterialRatio=Math.max(report.maxMaterialRatio,materialRatio);
-  if(materialRatio>maxRatio) report.failures.push(`${name}: material ${current.materialTriangles} > 1.5 x ${baseline.materialTriangles}`);
+  if(materialRatio>maxRatio) report.failures.push(`${name}: material ${current.materialTriangles} > ${maxRatio} x ${baseline.materialTriangles}`);
   if(!current.finite||!current.retained) report.failures.push(`${name}: geometry must remain finite and retained through rotation`);
 }
 report.passed=report.failures.length===0;

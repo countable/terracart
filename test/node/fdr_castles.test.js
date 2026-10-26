@@ -382,6 +382,33 @@
       }
     }
   });
+  test('FDR castles: textured roof seams close without expanding the pale cap past the eaves', () => {
+    const previous={Phaser:globalThis.Phaser,Path2D:globalThis.Path2D};
+    const matrix={a:1,b:0,c:0,d:1,e:0,f:0};
+    const identity={transformPoint:p=>({...p}),inverse(){return this;}};
+    globalThis.Phaser={GameObjects:{GetCalcMatrix:()=>({calc:matrix})}};
+    globalThis.Path2D=class {moveTo(){} lineTo(){} closePath(){}};
+    const context={save(){},restore(){},setTransform(){},getTransform:()=>identity,
+      beginPath(){},moveTo(){},lineTo(){},closePath(){},clip(){},transform(){},drawImage(){},fill(){}};
+    const a={x:0,y:0,z:0},b={x:10,y:0,z:0},c={x:10,y:10,z:0},peak={x:5,y:5,z:6};
+    const roofUV=[[8,376],[120,376],[64,264]],flatUV=[[498,498],[502,498],[502,502]];
+    const face=(points,uv)=>({points:points.map(p=>({x:p.x,y:p.y-p.z})),
+      uv:points.map((p,i)=>({...p,u:uv[i][0]/512,v:uv[i][1]/512})),color:0xffffff,alpha:1});
+    const target={alpha:1,_wallAtlas:{getSourceImage:()=>({width:512,height:512})},
+      _wallTriangles:[face([a,b,peak],roofUV),face([b,c,peak],roofUV),face([a,b,c],flatUV)]};
+    try {
+      FDRCastleCanvas.attach(target);
+      target.renderCanvas({currentContext:context},target,{alpha:1,addToRenderList(){}},null);
+      const shared=target._fdrCanvasEdgeCache.shared;
+      assert.truthy(shared[0][1]&&shared[1][2],'adjacent roof slopes cover their common ridge');
+      assert.falsy(shared[0][0]||shared[1][0],'roof eaves remain exact exterior edges');
+      assert.falsy(shared[2].some(Boolean),'the pale underlying cap cannot bleed past the roof');
+    } finally {
+      for(const [key,value] of Object.entries(previous)) {
+        if(value===undefined)delete globalThis[key];else globalThis[key]=value;
+      }
+    }
+  });
   test('FDR castles: Canvas installs the complete camera matrix without composing it twice', () => {
     const previous=globalThis.Phaser,calls=[];
     const matrix={a:0,b:2,c:-2,d:0,e:100,f:200};

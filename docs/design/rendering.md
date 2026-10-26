@@ -1447,21 +1447,30 @@ excessively complex rings retain the existing fallback.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
-Staggered masonry courses with dark mortar and narrow lit upper edges,
+Fine staggered masonry courses with dark mortar and narrow lit upper edges,
 warm paving on inset military decks, coping edges, iron
 door surrounds and heraldic marks are atlas detail rather than extra meshes.
 Courtyard paving and wreck grass repeat on the existing cached ground canvas;
 they add no ground or castle triangles. Weathering belongs to Bastion and Archive,
 while Citadel wrecks retain a distinctly dark stone and oxblood palette.
+The existing courtyard canvas also paints short world-fixed shadows from the
+retained opaque stone and roof faces, plus narrow contact rims. A single
+same-winding fill unions overlaps and clips to the courtyard; it adds no GPU
+geometry, per-building canvas, pixel readback or rotation-time repaint. The
+graphics fallback omits this optional ground treatment.
 Upward-facing surfaces are light, vertical walls have broad flat
 colours, and a single hard shadow band occupies the bottom four pixels. There
 is no upper shoulder shadow or projecting crown shelf. A closed double iron
 door, its seam and handles are flat keep-wall decals; keep banners are omitted.
-Archive towers and keeps have four roof triangles when restored and two surviving
+Archive towers use two arched window levels in the same wall decal; military
+towers sample one arch from that shared tile. Archive towers and keeps have four roof triangles when restored and two surviving
 planes over a closed flat cap when wrecked. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
-each Archive pyramid peak without increasing its four-triangle roof. Military
-tower crowns include teeth on all four sides. Bastion's broader tower shafts
+each Archive pyramid peak without increasing its four-triangle roof. A shared
+opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with
+its span to preserve tower roof pitch. Military tower crowns include eight-unit
+teeth on all four sides, with outer teeth aligned to shaft corners. Surviving
+wreck teeth vary in height using the same prism faces. Bastion's broader tower shafts
 fill their square cutouts above the bottom band; the same eight basal triangles
 flare two pixels outward at ground level, without adding a plinth mesh or opening
 vertical gaps at curtain joins. Wreck crests lose a few broad sections; teeth
@@ -1471,6 +1480,8 @@ through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
 footprint and screen-up elevation; the concepts do not define another camera.
 Canvas shares these faces and closes opaque triangle seams at surface boundaries.
+Textured roof slopes share seam coverage only with other roof slopes, so the
+pale underlying cap cannot expand beyond their eaves.
 White-patch materials fill directly with their cel colour on Canvas; only the
 textured cel materials need the shared tinted-atlas cache.
 
@@ -1481,6 +1492,13 @@ all three families in both states on five ordinary footprints, a tiny site and
 a 64-corner stadium. The ground canvas and unrelated actors are excluded from
 both mesh counts; ground geometry is unchanged. Keep this budget gate alongside
 actual-camera WebGL/Canvas captures when refining castle appearance.
+For subsequent fixed-budget refinement, freeze the current source modules and
+run `--baseline-dir <snapshot>/src --max-ratio 1`; `--headings` accepts a
+comma-separated continuous-camera sampling set, such as every five degrees.
+`--current-dir` audits a frozen candidate while other work continues. Capture
+tools support matching `SOURCE_DIR` and `ASSET_DIR` snapshots and record their
+hashes. Clean architectural captures hide the gameplay lightmap and actors;
+also inspect ordinary lit captures before accepting material changes.
 
 Covered castles suppress their old tower sprites while retaining gameplay turret
 records, ownership, range and collision. Flags seat on distinct geometry crowns

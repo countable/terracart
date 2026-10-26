@@ -100,31 +100,35 @@ def build(out):
                          alphaRange=list(native.getchannel('A').getextrema()), treatment=paint))
     # Shared authored cel materials. Their stone courses, coping and heraldry
     # replace facade detail geometry; every tile is built once offline.
-    stone = Image.new('RGBA', (32, 32), (246, 246, 246, 255))
+    stone = Image.new('RGBA', (64, 64), (246, 246, 246, 255))
     ink = ImageDraw.Draw(stone)
-    for row in range(4):
+    for row in range(8):
         y = row * 8
-        ink.line((0, y + 7, 31, y + 7), fill=(201, 201, 201, 255))
-        ink.line((0, y, 31, y), fill=(255, 255, 255, 255))
-        for x in range(-8 if row % 2 else 0, 32, 16):
-            ink.line((x, y, x, y + 6), fill=(214, 214, 214, 255))
+        ink.line((0, y + 7, 63, y + 7), fill=(208, 208, 208, 255))
+        ink.line((0, y, 63, y), fill=(255, 255, 255, 255))
+        for x in range(-8 if row % 2 else 0, 64, 16):
+            ink.line((x, y, x, y + 6), fill=(220, 220, 220, 255))
             if (row + x // 16) % 3 == 0:
                 ink.rectangle((x + 2, y + 2, x + 13, y + 5), fill=(235, 235, 235, 255))
-    wreck = stone.copy(); moss = ImageDraw.Draw(wreck)
+    wreck = stone.copy(); moss_layer = Image.new('RGBA', (32, 32)); moss = ImageDraw.Draw(moss_layer)
     for poly in [[(0, 22), (6, 22), (6, 18), (9, 18), (9, 28), (13, 28), (13, 31), (0, 31)],
                  [(20, 31), (20, 26), (23, 26), (23, 23), (29, 23), (29, 29), (31, 29), (31, 31)],
                  [(27, 0), (31, 0), (31, 10), (29, 10), (29, 6), (25, 6), (25, 3), (27, 3)]]:
         moss.polygon(poly, fill=(157, 174, 114, 255))
     moss.rectangle((2, 25, 6, 28), fill=(181, 191, 138, 255))
     for x,y in [(0,22),(6,19),(8,27),(12,30),(20,26),(28,24),(30,29),(25,4)]:
-        moss.point((x,y), fill=stone.getpixel((x,y)))
+        moss.point((x,y), fill=(0,0,0,0))
     for x,y in [(10,30),(17,29),(22,21),(28,12)]:
         moss.rectangle((x,y,x+1,y+1), fill=(173,184,129,255))
-    deck = Image.new('RGBA', (32, 32), (224, 224, 224, 255)); rim = ImageDraw.Draw(deck)
+    wreck.alpha_composite(moss_layer.resize((64, 64), Image.Resampling.NEAREST))
+    deck = Image.new('RGBA', (32, 32), (247, 243, 232, 255)); rim = ImageDraw.Draw(deck)
     rim.rectangle((0, 0, 31, 31), outline=(185, 185, 185, 255), width=1)
     rim.rectangle((1, 1, 30, 30), outline=(255, 255, 255, 255), width=2)
     rim.rectangle((3, 3, 28, 28), outline=(209, 209, 209, 255), width=1)
-    for y in [11, 20]: rim.line((5, y, 26, y), fill=(215, 215, 215, 255))
+    for row, y in enumerate([8, 14, 20, 26]):
+        rim.line((4, y, 27, y), fill=(218, 211, 193, 255))
+        for x in range(8 if row % 2 else 14, 28, 12):
+            rim.line((x, y - 5, x, y - 1), fill=(226, 218, 200, 255))
     # Transparent pale heraldry: one pixel-art sun/trident mark is sampled by
     # existing flat banner faces, never modeled as separate spikes or strokes.
     heraldry = Image.new('RGBA', (16, 16)); sigil = ImageDraw.Draw(heraldry)
@@ -142,11 +146,28 @@ def build(out):
     frame.line((3, 4, 20, 4), fill=(49, 49, 49, 255))
     for x in [5, 18]:
         for y in [8, 22]: frame.rectangle((x, y, x + 1, y + 1), fill=(108, 108, 108, 255))
+    # Existing roof triangles sample an opaque slope tile. The single lit
+    # ridge and darker eave stay attached to world-space faces while rotating.
+    roof = Image.new('RGBA', (64, 64), (238, 238, 238, 255))
+    roof_ink = ImageDraw.Draw(roof)
+    roof_ink.line((0, 63, 32, 0), fill=(255, 255, 255, 255), width=2)
+    roof_ink.line((0, 63, 63, 63), fill=(220, 220, 220, 255), width=2)
+    # Alpha cuts only the upper corners of each existing window quad.
+    # Archive towers reuse one quad for two storeys; military towers sample
+    # only the first arch (the top 40 percent of this same atlas content).
+    window = Image.new('RGBA', (8, 40)); arch = ImageDraw.Draw(window)
+    for y in [0, 24]:
+        arch.rectangle((0, y+4, 7, y+15), fill='white')
+        arch.rectangle((1, y+2, 6, y+4), fill='white')
+        arch.rectangle((2, y+1, 5, y+2), fill='white')
+        arch.rectangle((3, y, 4, y+1), fill='white')
     for slot, name, tile, wrap_x, wrap_y in [
         (0, 'lit-coping-and-inset-deck', deck, False, False),
         (1, 'pale-heraldry', heraldry, False, False),
         (5, 'closed-iron-door', door, False, False),
         (6, 'bastion-sun', sun, False, False),
+        (7, 'arched-window', window, False, False),
+        (8, 'roof-ridge-and-eave', roof, False, False),
         (13, 'quiet-stone', stone, True, True),
         (14, 'weathered-stone', wreck, True, True)]:
         rows = [row for row in rows if row['slot'] != slot]
@@ -165,6 +186,18 @@ def build(out):
         patches.polygon(poly, fill=(100, 121, 66, 175))
     for x, y in [(7, 13), (15, 9), (45, 38), (49, 46), (12, 50)]:
         patches.rectangle((x, y, x+4, y+3), fill=(134, 148, 83, 160))
+    # Break rectangular patch edges into small anchored leaf clusters. These
+    # are baked into the existing ground decal, never additional geometry.
+    original = grass.copy()
+    for y in range(0, 64, 2):
+        for x in range(0, 64, 2):
+            if not original.getpixel((x, y))[3]:
+                continue
+            edge = any(not original.getpixel(((x+dx) % 64, (y+dy) % 64))[3]
+                       for dx, dy in [(3, 0), (-3, 0), (0, 3), (0, -3)])
+            noise = (x * 17 + y * 29 + x * y * 3) % 23
+            if (edge and noise < 12) or noise == 0:
+                patches.rectangle((x, y, x+1, y+1), fill=(0, 0, 0, 0))
     grass.save(out / 'weathered-floor.png')
     # Shared retained renderer samples its untextured triangles at (500, 500).
     atlas.paste((255, 255, 255, 255), (496, 496, 504, 504))
