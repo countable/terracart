@@ -541,9 +541,16 @@
       const random=(n,salt)=>hash(seed+n,salt);
       const H=14,SECTION=11,base=geometry(points,'ridge',H,0),faces=[],W=wreckLook(recipe);
       const xs2=points.map(p=>p.x),ys=points.map(p=>p.y),[xlo,xhi,ylo,yhi]=[Math.min(...xs2),Math.max(...xs2),Math.min(...ys),Math.max(...ys)];
-      // Narrow annexes may reject a thick inset. Keep damage and doorway cuts
-      // even when only a thin (or zero-thickness) wall strip can fit.
-      const ring=base.ring,inner=(typeof BuildingStyles!=='undefined'&&(BuildingStyles.inset(ring,8)||BuildingStyles.inset(ring,1)||BuildingStyles.inset(ring,.5)))||ring;
+      // Thickness is per edge: the free depth straight inward from its bays.
+      // A whole-ring inset fails on any short jog or chamfer, which once
+      // thinned every wall of an otherwise broad wreck; only a narrow annex's
+      // own walls thin, so facing blocks keep floor between them.
+      const ring=base.ring,inward=PolygonGeometry.polyArea(ring)<0?-1:1;
+      const depth=(o,n,skip)=>ring.reduce((best,c,j)=>{if(j===skip)return best;
+        const d=ring[(j+1)%ring.length],ex=d.x-c.x,ey=d.y-c.y,den=n.x*ey-n.y*ex;
+        if(Math.abs(den)<1e-9)return best;
+        const t=((c.x-o.x)*ey-(c.y-o.y)*ex)/den,s=((c.x-o.x)*n.y-(c.y-o.y)*n.x)/den;
+        return t>1e-6&&s>=0&&s<=1?Math.min(best,t):best;},Infinity);
       let piece=null;const pieces=[];
       const tri=(pts,kind,extra)=>{faces.push({points:pts,kind,light:1,layer:0,piece,...extra});return faces.at(-1);};
       const quad=(a,b,c,d,kind,extra)=>{tri([a,b,c],kind,extra);tri([a,c,d],kind,extra);};
@@ -553,16 +560,19 @@
       }));
       const streetEntrance=streetDoor(ring,streets);
       let gap=null,doorway=null;
-      if(inner&&inner.length===ring.length){
+      if(ring.length>=3){
         // Wall sections around the ring, each with its own broken height.
         let parts=[];
-        ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],ai=inner[i],bi=inner[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y);
+        ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],len=Math.hypot(b.x-a.x,b.y-a.y);
           const count=Math.max(1,Math.floor(len/SECTION)),dir={x:b.x-a.x,y:b.y-a.y};
           // The study centres each block on the old wall line. Independent
           // rectangular bays avoid long mitred wedges at concave corners.
-          const width=Math.max(.5,Math.abs(dir.x*(ai.y-a.y)-dir.y*(ai.x-a.x))/len);
-          const band=(t,side)=>({x:a.x+dir.x*t-dir.y/len*width/2*side,
-            y:a.y+dir.y*t+dir.x/len*width/2*side});
+          const normal={x:-dir.y/len*inward,y:dir.x/len*inward};
+          let free=Infinity;
+          for(let k=0;k<count;k++)free=Math.min(free,depth({x:a.x+dir.x*(k+.5)/count,y:a.y+dir.y*(k+.5)/count},normal,i));
+          const width=Math.max(.5,Math.min(8,free*.4));
+          const band=(t,side)=>({x:a.x+dir.x*t+normal.x*width/2*side,
+            y:a.y+dir.y*t+normal.y*width/2*side});
           for(let k=0;k<count;k++){const t0=k/count,t1=(k+1)/count;
             // Study B: five stepped bays out of nine, with open centres on long sides.
             parts.push({edge:i,len,dir,t0,t1,h:len>75&&Math.abs(k-(count-1)/2)<1.25?0:([5,10,14,11,5,0,0,0,0][k%9]*(.94+.06*random(i*97+k,19))),o0:band(t0,-1),o1:band(t1,-1),i0:band(t0,1),i1:band(t1,1)});}});

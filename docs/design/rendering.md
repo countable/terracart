@@ -403,7 +403,9 @@ Each raised section sorts independently at its baseline, so the player can walk
 between near and far remains. Surface player movement already permits wrecks.
 Damage is seeded by building identity and stays stable across reloads and camera
 movement. The nearest street-facing doorway stays clear. Block end faces cut perpendicular to each wall; clipped corners separate
-the individual stones. Narrow annexes use a thinner band. Geometry and material are shared and retained across camera
+the individual stones. Each wall's thickness comes from the free depth inward from its own
+bays (up to eight units), so a short jog or chamfer never thins the whole wreck; only a
+narrow annex's walls use a thinner band. Geometry and material are shared and retained across camera
 rotation; rebuilding does not bake textures or read pixels.
 Canvas procedural wrecks keep their low broken perimeter walls through
 `BuildingStyles.emit`; their cached floor must not suppress that geometry.
