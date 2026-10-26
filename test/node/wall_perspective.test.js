@@ -415,3 +415,26 @@
     } finally { FloorWallMaterials.prepare = prepare; }
   });
 })();
+
+test('wall perspective: mapped adjoining fort posts stay within both source lots', () => {
+  const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+  const feature=MVT.decodeTile(FIXTURE_TILES['2755_5565']).find(l=>l.name==='building')
+    .features.find(f=>f.id===851036940);
+  for(const index of [238,250,257])for(const reverse of [false,true]) {
+    const meters=Float32Array.from(feature.geom[index].flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
+    const source=Array.from({length:meters.length/2},(_,i)=>({x:(meters[2*i]-meters[0])*scale,y:(meters[2*i+1]-meters[1])*scale}));
+    const ring=reverse?source.slice().reverse():source,clipFootprint=PolygonGeometry.createFootprintClipper(ring);
+    const winding=Math.sign(PolygonGeometry.polyArea(ring)),scene={_wallPerspective:{polygon:{blocks:[]}}};
+    ring.forEach((a,i)=>{const b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy);
+      if(!length)return;
+      const count=Math.max(1,Math.round(length/WallMaterials.WOOD.pitch));
+      for(let j=0;j<count;j++) {const lo=j/count,hi=Math.min(1,lo+WallMaterials.WOOD.width/length);
+        WallPerspective.palisade(scene,'polygon',{ax:a.x+dx*lo,ay:a.y+dy*lo,bx:a.x+dx*hi,by:a.y+dy*hi,
+          nx:-dy/length*winding,ny:dx/length*winding,clipFootprint});
+      }
+    });
+    assert.gt(scene._wallPerspective.polygon.blocks.length,0);
+    for(const block of scene._wallPerspective.polygon.blocks)for(const p of block.points)
+      assert.truthy(PolygonGeometry.pointInPolygon(source,p,1e-5),'full square-pole depth respects the mapped boundary');
+  }
+});

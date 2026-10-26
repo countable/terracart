@@ -130,10 +130,13 @@
       const height = WallMaterials.postHeight(postIndex);
       const a = { x: cx - dx / length * half, y: cy - dy / length * half };
       const b = { x: cx + dx / length * half, y: cy + dy / length * half };
-      this.material(scene, source, 'wood', [a, b,
+      const footprint = [a, b,
         { x: b.x + nx * wood.thickness, y: b.y + ny * wood.thickness },
-        { x: a.x + nx * wood.thickness, y: a.y + ny * wood.thickness },
-      ], height, { segment: { ax, ay, bx, by }, tint: spec.tint ?? 0xffffff });
+        { x: a.x + nx * wood.thickness, y: a.y + ny * wood.thickness }];
+      if (!this.inView(scene, footprint, 0, height + wood.tipHeight)) return;
+      for (const part of spec.clipFootprint ? spec.clipFootprint(footprint) : [footprint])
+        this.material(scene, source, 'wood', part, height,
+          { segment: { ax, ay, bx, by }, tint: spec.tint ?? 0xffffff });
     },
     addSegment(scene, source, spec) {
       const { ax, ay, bx, by, height, thickness, face, top, dark } = spec;

@@ -307,6 +307,27 @@
     const houses=Array.from({length:8},(_,i)=>signatures('wreck-diverse:'+i,i*300));
     assert.gte(new Set(houses.map(s=>s.wall)).size,4,'same-size houses lose different wall areas');
   }));
+  test('low-poly wrecks: a short jog keeps full walls; only a narrow annex thins its own', () => {
+    const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
+    // Cap width across each surviving block, measured along its wall normal.
+    const widths=ring=>{const mesh=BuildingLowPoly.specialGeometry(ring,recipe,[],'wreck-width');
+      return mesh.pieces.map((p,i)=>{const dx=p.b.x-p.a.x,dy=p.b.y-p.a.y,l=Math.hypot(dx,dy);
+        const pts=mesh.faces.filter(f=>f.piece===i&&f.chippedCap&&!f.rubble).flatMap(f=>f.points);
+        if(!pts.length)return null;const s=pts.map(q=>(-(q.x-p.a.x)*dy+(q.y-p.a.y)*dx)/l);
+        return {width:Math.max(...s)-Math.min(...s),mid:{x:(p.a.x+p.b.x)/2,y:(p.a.y+p.b.y)/2}};}).filter(Boolean);};
+    // A bay window or a clipped corner once failed the whole-ring inset and
+    // thinned every wall of the wreck to one unit.
+    for(const ring of [
+      [{x:0,y:0},{x:120,y:0},{x:120,y:40},{x:126,y:40},{x:126,y:50},{x:120,y:50},{x:120,y:90},{x:0,y:90}],
+      [{x:0,y:0},{x:116,y:0},{x:120,y:4},{x:120,y:90},{x:0,y:90}]]){
+      const main=widths(ring).filter(w=>w.mid.x<=120);
+      assert.gt(main.length,4,'the fixture keeps standing wall blocks');
+      assert.truthy(main.every(w=>Math.abs(w.width-8)<1e-6),'walls of the broad body keep their eight-unit thickness');
+    }
+    const annex=widths([{x:0,y:0},{x:120,y:0},{x:120,y:12},{x:20,y:12},{x:20,y:90},{x:0,y:90}]);
+    assert.truthy(annex.some(w=>w.mid.x>30&&w.width<8),'the twelve-unit annex thins its walls');
+    assert.truthy(annex.filter(w=>w.mid.y>30).every(w=>Math.abs(w.width-8)<1e-6),'the broader leg keeps full walls');
+  });
   test('low-poly wrecks: small, narrow and large footprints have only low walls and rubble', () => withPhaser(() => {
     const recipe=BuildingLowPoly.recipeFor('wreck',{wall:0x777777,roof:0x555555,trim:0x333333});
     // The same low silhouette applies to annexes, small ruins and wide halls.
@@ -408,3 +429,23 @@
     assert.truthy(faces.every(f=>f.support===decorated.support),'door shares the building depth and fade');
   }));
 })();
+
+test('low-poly wrecks: mapped adjoining lots contain complete walls, border and fallen stones', () => {
+  const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+  const feature=MVT.decodeTile(FIXTURE_TILES['2755_5565']).find(l=>l.name==='building')
+    .features.find(f=>f.id===851036940);
+  // Exact production tier-9 ring beside the fort at ring 257 (shared boundary).
+  const meters=Float32Array.from(feature.geom[256].flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
+  const source=Array.from({length:meters.length/2},(_,i)=>({x:(meters[2*i]-meters[0])*scale,y:(meters[2*i+1]-meters[1])*scale}));
+  for(const reverse of [false,true]) {
+    const ring=reverse?source.slice().reverse():source;
+    const mesh=BuildingLowPoly.specialGeometry(ring,BuildingLowPoly.recipeFor('wreck'),[],'h_2755_5565_135_26');
+    assert.gt(mesh.faces.filter(f=>f.rubble).length,0,'contained fallen masonry remains visible');
+    for(const face of mesh.faces)for(let i=0;i<face.points.length;i++) {
+      const a=face.points[i],b=face.points[(i+1)%face.points.length];
+      for(const t of [0,.25,.5,.75])assert.truthy(PolygonGeometry.pointInPolygon(source,
+        {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t},1e-5),'solid wreck pieces and ground border stay within the original lot');
+      assert.truthy(Number.isFinite(a.u)&&Number.isFinite(a.v),'clipped border keeps finite texture coordinates');
+    }
+  }
+});
