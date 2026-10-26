@@ -162,7 +162,7 @@
     const saved = {
       each: WorldGen.forEachItem, entries: [...WorldGen.tileCache],
       hidden: Visibility.hidden, cover: Visibility.playerCover,
-      road: RoadSafety.objectHidden, retired: HiddenObjects.isHidden,
+      retired: HiddenObjects.isHidden,
       buildingTypes: globalThis.BUILDING_TYPES,
     };
     WorldGen.tileCache.clear();
@@ -172,12 +172,12 @@
       if (layer === 'objects') for (const object of objects) if (visit(object)) break;
     };
     Visibility.hidden = () => false; Visibility.playerCover = () => 0;
-    RoadSafety.objectHidden = () => false; HiddenObjects.isHidden = () => false;
+    HiddenObjects.isHidden = () => false;
     try { fn(); } finally {
       WorldGen.forEachItem = saved.each; WorldGen.tileCache.clear();
       for (const [key, value] of saved.entries) WorldGen.tileCache.set(key, value);
       Visibility.hidden = saved.hidden; Visibility.playerCover = saved.cover;
-      RoadSafety.objectHidden = saved.road; HiddenObjects.isHidden = saved.retired;
+      HiddenObjects.isHidden = saved.retired;
       if (saved.buildingTypes === undefined) delete globalThis.BUILDING_TYPES;
       else globalThis.BUILDING_TYPES = saved.buildingTypes;
     }

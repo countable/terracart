@@ -114,8 +114,8 @@ One line each; the linked purpose doc owns the detail.
   and map review share the same tier field
   ([generation](docs/design/generation.md)).
 - Passing suppresses fast movers and hazards; paths interrupt road and
-  junction Passing buffers. MD/LG street surfaces are Excluded. Movement,
-  chase and night-road rules retain their separate road geometry
+  junction Passing buffers. MD/LG street surfaces are Excluded. Movement
+  and chase rules retain their separate road geometry
   ([generation](docs/design/generation.md)).
 - `Energy.set` is the only runtime energy writer; all incoming damage routes
   through `Combat.playerDamage` and armour ([combat](docs/design/combat.md)).

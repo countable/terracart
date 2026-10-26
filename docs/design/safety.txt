@@ -3,9 +3,7 @@
 This file owns the research behind the game's road-safety mechanics, so every
 safety rule in the code can name its evidence. The mechanics live where they
 always do: [generation.md](generation.md) for zones and the spawn gate,
-[combat.md](combat.md) for the energy drain, [rendering.md](rendering.md) for
-the night ground cover, [presentation.md](presentation.md) for the safety
-copy. The exact player-facing strings are mirrored in the code's safety
+[presentation.md](presentation.md) for the safety copy. The exact player-facing strings are mirrored in the code's safety
 tables; if this file and the code disagree on copy, fix the code.
 
 The stakes: this game is played while walking in the real world. A mechanic
@@ -32,18 +30,12 @@ below found over three quarters of top pedestrian fatality corridors posted
 
 Game rules this feeds (owner decisions, logged here):
 
-1. At night (the sun below the horizon, the same `SAFETY_DUSK_DAYLIGHT`
-   threshold the dusk safety card reads), the Major-and-Medium road
-   suppression zone (band + kerb buffer) becomes a no-play area:
-   interactive objects there are hidden and cannot be tapped, the whole zone
-   takes the red danger ground cover, and standing in it drains energy
-   slowly. The player should read the street, not the screen, there.
-2. The first time a player enters that zone at night, a story panel tells
-   them to stop playing there:
-   "Major roads at night are dangerous. It's best you ascend (turn off
-   device) to avoid energy drain and accidents."
-   "Ascend" is in-world for putting the phone away; the game's own metaphor
-   for ending a session.
+1. When the sun crosses the horizon (`SAFETY_DUSK_DAYLIGHT`), the dusk
+   safety card asks the player to stay on lit pavements and paths.
+2. The Major-and-Medium road suppression zone (band + kerb buffer) keeps
+   fast movers and hazards away at every hour. There is no separate night
+   rule for it: the former night no-play zone (hidden objects, red ground
+   cover, energy drain and its story panel) was removed by owner decision.
 
 ## 2. Wide crossings and junctions
 
@@ -93,8 +85,8 @@ Short answer: partially, and not from our current tile feed.
 - Why it matters: research going back to Knoblauch et al. (1987), cited in
   FHWA's pedestrian synthesis, found sites without sidewalks were more
   than twice as likely to have pedestrian crashes. Where we cannot see a
-  sidewalk, we must not assume one; the kerb buffer and the night zone are
-  the conservative substitute. If a future tile source exposes
+  sidewalk, we must not assume one; the kerb buffer is the conservative
+  substitute. If a future tile source exposes
   `footway=sidewalk` subclassing, the kerb buffer could shrink onto the
   sidewalk itself - a separate decision, not taken here.
 
