@@ -1692,18 +1692,28 @@
     return {mountedSign,ring:g.ring,faces,chimneyMouths:skin.chimneys?g.chimneyMouths:[],height:Math.max(...faces.flatMap(f=>f.points.map(p=>p.z))),eaveHeight:H,noInk:true,authored:true,authoredKey:skin.key,entranceEdge:g.entranceEdge};
   }
   // THE FORT HALL'S SIZE (owner, Oct 2026): the copper hall stands at a fixed
-  // width whatever the fort's lot, its proportions kept — three cells across
-  // when it fits with `clearCells` of plank deck all round, else two, else
-  // the whole footprint (authoredGeometry's fixed-size fit).
-  const FORT_HALL=Object.freeze({widthsCells:Object.freeze([3,2]),clearCells:.5});
+  // size whatever the fort's lot — three cells across (21 m) and `depthRatio`
+  // of that deep (14 m), its native storefront being only 5 m deep — when it
+  // fits with `clearCells` of plank deck all round, else two cells across at
+  // the same aspect, else the whole footprint (authoredGeometry's fixed-size
+  // fit). Height scales with the width.
+  const FORT_HALL=Object.freeze({widthsCells:Object.freeze([3,2]),depthRatio:2/3,clearCells:.5});
   // `inset` scales the largest fit (a number) or names a fixed-size fit
-  // ({widthsCells, clearCells}: FORT_HALL).
+  // ({widthsCells, depthRatio, clearCells}: FORT_HALL).
   function authoredGeometry(model,ring,inset=1,door=null,emblem=null){
+    // A depthRatio stretches the shell front-to-back before any fit, so
+    // every fit (the whole-footprint one included) keeps that aspect.
+    let depthAt=y=>y;
+    if(inset?.depthRatio){const ys=model.faces.flatMap(f=>f.points.map(p=>p.y)),xs=model.faces.flatMap(f=>f.points.map(p=>p.x));
+      const y0=Math.min(...ys),k=inset.depthRatio*(Math.max(...xs)-Math.min(...xs))/((Math.max(...ys)-y0)*.5);
+      depthAt=y=>y0+(y-y0)*k;
+      model={...model,faces:model.faces.map(f=>({...f,points:f.points.map(p=>({...p,y:depthAt(p.y)}))}))};
+    }
     if(emblem?.sign&&model.authoredKey==='city_storefront'){
       // Fit the solid dice board with the hall, above the entrance and centered
       // on its native front facade. Source coordinates retain the city's scale.
       const spec=AuthoredBuildings.SPECS[model.authoredKey],C=Math.cos(Math.PI/6),unit=16/spec.door[3];
-      const x=(spec.right-spec.left)/2*unit,y=(spec.depth*2+.4)*unit,z=((spec.base-spec.eave)/C-34)*unit;
+      const x=(spec.right-spec.left)/2*unit,y=depthAt((spec.depth*2+.4)*unit),z=((spec.base-spec.eave)/C-34)*unit;
       const W=34*unit,H=32*unit,T=3*unit,faces=[],template=model.faces[0];
       const emit=(ps,front=false,shade=1)=>{
         const [u0,v0,u1,v1]=emblem.signUV,uv=front?[[u0,v1],[u1,v1],[u1,v0],[u0,v0]]:Array(4).fill(emblem.signSideUV);
