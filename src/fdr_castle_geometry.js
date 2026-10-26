@@ -213,11 +213,10 @@
     // A city-sized perimeter only exposes a small part of its mesh. Keep the
     // existing culled builder for spans wider than two viewports rather than
     // making first paint construct a mostly invisible cache entry.
-    if(scene.viewSize>0&&Number.isFinite(scene.viewSize)){
-      const width=Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x));
-      const height=Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y));
-      if(Math.max(width,height)>scene.viewSize*2)return build(scene,source,points,options);
-    }
+    const cacheSpan=scene.viewSize>0&&Number.isFinite(scene.viewSize)?scene.viewSize*2:1024;
+    const width=Math.max(...points.map(p=>p.x))-Math.min(...points.map(p=>p.x));
+    const height=Math.max(...points.map(p=>p.y))-Math.min(...points.map(p=>p.y));
+    if(Math.max(width,height)>cacheSpan)return build(scene,source,points,options);
     const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y}));
     const style=CastleStyles.renderStyle(options.family||'citadel',options.active!==false);
     // Include the complete style so palette, dimensions, material slots and
