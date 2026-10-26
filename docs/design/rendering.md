@@ -372,17 +372,20 @@ outline passes so overlapping ink cannot obscure the player through the fade.
 They update opacity without rebuilding geometry
 or reading pixels. Home keeps its separate indoor roof-cutaway behavior.
 Wrecks follow option B of the October 23 “Broken walls. Open ground” study.
-Individual 3D blocks centre on the old wall line, with eight-unit thickness,
-half-unit joints and one-unit clipped corners. Five bays in each nine-bay run
+Individual 3D blocks extend inward from the old wall line, with eight-unit
+thickness, half-unit joints and one-unit clipped corners. Bays are clipped to
+the complete source footprint at acute corners and concave returns. Five bays in each nine-bay run
 rise through approximately 5, 10, 14, 11 and 5 units; long sides and the street
 entrance retain broad openings. Seeded wear varies the heights slightly. Loose
 fallen blocks are 2–4 units tall; their count scales with footprint area up to
-24. No roofs or raised framing remain.
+24. Their full rotated bases must fit inside the source ring, including rubble
+beside a breach. No roofs or raised framing remain.
 `tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
 speckled caps, and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
-A five-unit brown border follows the footprint at 72% opacity. A shared
+A five-unit brown border follows the inside of the footprint at 72% opacity;
+clipped corners retain the same affine texture coordinates. A shared
 64-unit alpha-mask strip supplies broken dashes with a building-seeded phase,
 replacing individual dash polygons without a custom shader or per-building bake.
 All profiles use the shared mask; their masonry palettes remain independent.
@@ -494,10 +497,13 @@ identity, including Tilly's housed face.
 A fort (tier 11; `Houses.displayRole` answers `fort`) is a palisade outer rim
 plus a central gambling hall, never a generated body. The overlay paints the
 fort's plank floor and emits the tier-11 pickets of `perspectiveEdges`:
-separate broader pointed posts with rounded octagonal bodies and continuous cel shading,
+separate pointed square posts with continuous cel shading,
 sized and spaced by `WallMaterials.WOOD`,
 along every footprint edge, as `WallPerspective` segments in the polygon group, so the rim
-follows concave rings and turns with the compass like every other wall. The
+follows concave rings and turns with the compass like every other wall. Full
+post bases are clipped to the source ring, including short edge intervals and
+acute corners. Forts, wreck bays and legacy castle walls share the prepared
+`PolygonGeometry.createFootprintClipper` and its indexed containment checks. The
 hall is the approved `house_fort` sprite (`house_fort_unclaimed` before the
 fort is unlocked), seated by the RENDER_SPEC `house` row on the footprint's
 centre of mass at the fort row of `BUILDING_ART`; the overlay never records

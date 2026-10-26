@@ -203,6 +203,14 @@ ground boundary and flag escaping ground bases, without mistaking projected
 wall height for footprint overhang. Inspect both the FDR meshes and the legacy
 fallback used by complex source rings.
 
+For adjacent forts, wrecks and restored houses, run
+`node tools/building-real-inputs.cjs`. It writes selected pairs to
+`/tmp/real-adjacent-buildings.json`, all nearby pairs to
+`/tmp/real-adjacent-buildings-all.json`, and twelve capture inputs to
+`/tmp/real-adjacent-capture-inputs.json`. Override these with `OUT_FILE`,
+`ALL_FILE` and `CAPTURE_FILE`; pass the capture path as `FIXTURES` above.
+The report distinguishes shared boundaries, positive gaps and pre-existing
+mapped overlaps. Tier 9 supplies wrecks/restored houses; tier 11 supplies forts.
 
 ## Prerequisites
 

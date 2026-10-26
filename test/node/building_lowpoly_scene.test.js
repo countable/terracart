@@ -408,3 +408,23 @@
     assert.truthy(faces.every(f=>f.support===decorated.support),'door shares the building depth and fade');
   }));
 })();
+
+test('low-poly wrecks: mapped adjoining lots contain complete walls, border and fallen stones', () => {
+  const edge=WorldGen.tileEdgeMeters(49.8801),scale=32/(edge/225);
+  const feature=MVT.decodeTile(FIXTURE_TILES['2755_5565']).find(l=>l.name==='building')
+    .features.find(f=>f.id===851036940);
+  // Exact production tier-9 ring beside the fort at ring 257 (shared boundary).
+  const meters=Float32Array.from(feature.geom[256].flatMap(p=>[p.x/4096*edge,p.y/4096*edge]));
+  const source=Array.from({length:meters.length/2},(_,i)=>({x:(meters[2*i]-meters[0])*scale,y:(meters[2*i+1]-meters[1])*scale}));
+  for(const reverse of [false,true]) {
+    const ring=reverse?source.slice().reverse():source;
+    const mesh=BuildingLowPoly.specialGeometry(ring,BuildingLowPoly.recipeFor('wreck'),[],'h_2755_5565_135_26');
+    assert.gt(mesh.faces.filter(f=>f.rubble).length,0,'contained fallen masonry remains visible');
+    for(const face of mesh.faces)for(let i=0;i<face.points.length;i++) {
+      const a=face.points[i],b=face.points[(i+1)%face.points.length];
+      for(const t of [0,.25,.5,.75])assert.truthy(PolygonGeometry.pointInPolygon(source,
+        {x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t},1e-5),'solid wreck pieces and ground border stay within the original lot');
+      assert.truthy(Number.isFinite(a.u)&&Number.isFinite(a.v),'clipped border keeps finite texture coordinates');
+    }
+  }
+});
