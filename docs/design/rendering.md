@@ -306,7 +306,9 @@ boundaries keep exactly matching cap vertices. Texture coordinates follow world
 cells, so sub-cell movement and a view rebuild do not slide the material.
 `wall_surface_renderer.js` submits the textured triangles through Phaser's
 existing WebGL pipeline and uses affine texture triangles for Canvas fallback;
-there is no wall canvas bake or texture upload on heading changes. At a fixed
+the Canvas adapter replaces the context transform with Phaser’s complete camera
+matrix once, so flat and textured walls in a shared batch stay aligned. There is
+no wall canvas bake or texture upload on heading changes. At a fixed
 heading the command buffers are reused. House footprint foundations use the same
 retained perimeter faces, descending below the floor instead of rising as a wall.
 Only camera-facing sides draw; uncapped perimeters also support concave footprints
@@ -1419,14 +1421,24 @@ the same profile for its courtyard floor. Citadel wrecks are dark and foreboding
 conquest repairs and lightens them. Bastion and Archive damage is a condition
 of the same architecture, with interrupted crowns and missing roof planes.
 
-Towers straddle convex corners; curtains are clipped against their footprints.
+Tower bases fit fully inside convex corners of the mapped footprint, including
+Bastion's flared feet; corners too narrow for a complete tower keep their curtain
+instead. Placement checks the entire source ring so a nearby concave notch
+cannot be crossed. Curtains are clipped against the tower shafts.
 Merlons are solid geometry with open crenels and full coping support, spaced
 more sparsely than the previous masonry build. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
 and spacing are part of the bounded local-coordinate cache key. Invalid or
-excessively complex rings retain the existing fallback.
+excessively complex rings retain the fallback. Its wall strips, battlements
+and concave joins are clipped to the full source ring too: an inward normal
+alone does not contain a strip at an acute corner or narrow notch. Contained
+strips stay intact; clipped fragments share their wall's sorting anchor, and
+an exactly convex union is retained as one prism. This preserves source-edge
+coverage without treating surrounding map ground as part of the castle. Source
+edge height buckets and segment bounds keep exact containment checks local on
+detailed rings; offscreen strips are rejected before clipping.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.

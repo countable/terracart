@@ -100,7 +100,10 @@
       const matrix = Phaser.GameObjects.GetCalcMatrix(src, camera, parentMatrix).calc;
       const g = renderer.currentContext, image = src._wallAtlas.getSourceImage();
       g.save();
-      g.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
+      // GetCalcMatrix already includes the camera and parent transforms.
+      // Canvas inherits a camera transform, so composing here moves ordinary
+      // flat walls offscreen when they share a batch with textured walls.
+      g.setTransform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f);
       g.imageSmoothingEnabled = false;
       for (const t of src._wallTriangles) {
         const cached = canvasBounds(t, image);

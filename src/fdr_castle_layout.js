@@ -6,7 +6,9 @@
   const {cross,polyArea:area,ensureCCW}=PolygonGeometry;
   const rect=(x,y,w,h)=>[{x:x-w/2,y:y-h/2},{x:x+w/2,y:y-h/2},{x:x+w/2,y:y+h/2},{x:x-w/2,y:y+h/2}];
   function clean(p){const q=p.filter((a,i)=>Math.hypot(a.x-p[(i+p.length-1)%p.length].x,a.y-p[(i+p.length-1)%p.length].y)>EPS);return q.length>=3&&Math.abs(area(q))>EPS?q:[];}
-  function half(poly,a,b,positive=true){const out=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],dp=cross(a,b,p)*(positive?1:-1),dq=cross(a,b,q)*(positive?1:-1),ip=dp>=-EPS,iq=dq>=-EPS;if(ip)out.push(p);if(ip!==iq){const t=dp/(dp-dq);out.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t});}}return clean(out);}
+  // Epsilon may classify a point just outside as inside. Clamp intersections
+  // to their source segment so those nearly parallel clips never extrapolate.
+  function half(poly,a,b,positive=true){const out=[];for(let i=0;i<poly.length;i++){const p=poly[i],q=poly[(i+1)%poly.length],dp=cross(a,b,p)*(positive?1:-1),dq=cross(a,b,q)*(positive?1:-1),ip=dp>=-EPS,iq=dq>=-EPS;if(ip)out.push(p);if(ip!==iq){const t=Math.max(0,Math.min(1,dp/(dp-dq)));out.push({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t});}}return clean(out);}
   function intersect(a,b){let p=a;for(let i=0;p.length&&i<b.length;i++)p=half(p,b[i],b[(i+1)%b.length]);return p;}
   function subtract(a,b){let inside=a;const outside=[];for(let i=0;inside.length&&i<b.length;i++){const p=b[i],q=b[(i+1)%b.length],part=half(inside,p,q,false);if(part.length)outside.push(part);inside=half(inside,p,q,true);}return outside;}
   const pointIn=(p,ring)=>PolygonGeometry.pointInPolygon(ring,p,EPS);
@@ -21,18 +23,27 @@
     const perimeter=points.reduce((sum,p,i)=>sum+Math.hypot(points[(i+1)%points.length].x-p.x,points[(i+1)%points.length].y-p.y),0);
     const sectionLength=Math.max(options.sectionLength || 16,perimeter/LIMITS.sections),pitch=Math.max(options.merlonPitch || 16,perimeter/LIMITS.merlons);
     const towerWidth=options.towerWidth || 32,wallHeight=options.wallHeight || 24;
+    const towerBaseOutset=Math.max(0,options.towerBaseOutset||0);
     const triangles=PolygonGeometry.triangulate(points).map(t=>area(t)<0?t.slice().reverse():t),edges=points.map((a,i)=>({a,b:points[(i+1)%points.length],strip:edgeStrip(a,points[(i+1)%points.length])}));
     if(!triangles.length)return null;
     const towers=[];
     for(let i=0;i<points.length&&towers.length<LIMITS.towers;i++){
       const p=points[i],previous=points[(i+points.length-1)%points.length],next=points[(i+1)%points.length];if(cross(previous,p,next)<=EPS)continue;
-      // Seat the corner inside the tower, with a small inward bias. Continuous
-      // bisector placement lets the tower project beyond both curtain lines.
+      // Offset both incident edges by the axis-aligned square's support
+      // distance. Their intersection seats the entire base inside the corner,
+      // including a flared foot, rather than straddling the mapped footprint.
       const before=Math.hypot(p.x-previous.x,p.y-previous.y),after=Math.hypot(next.x-p.x,next.y-p.y);
       if(Math.min(before,after)<24)continue;
-      const nx=-(p.y-previous.y)/before-(next.y-p.y)/after,ny=(p.x-previous.x)/before+(next.x-p.x)/after,length=Math.hypot(nx,ny);
-      const x=p.x+4*nx/length,y=p.y+4*ny/length,box=rect(x,y,towerWidth,towerWidth);
-      if(overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)&&!towers.some(t=>overlap(rect(x,y,towerWidth+8,towerWidth+8),t.points))){
+      const n1={x:-(p.y-previous.y)/before,y:(p.x-previous.x)/before};
+      const n2={x:-(next.y-p.y)/after,y:(next.x-p.x)/after};
+      const halfWidth=towerWidth/2+towerBaseOutset,det=n1.x*n2.y-n1.y*n2.x;
+      if(Math.abs(det)<EPS)continue;
+      const d1=halfWidth*(Math.abs(n1.x)+Math.abs(n1.y)),d2=halfWidth*(Math.abs(n2.x)+Math.abs(n2.y));
+      const x=p.x+(d1*n2.y-n1.y*d2)/det,y=p.y+(n1.x*d2-d1*n2.x)/det,box=rect(x,y,towerWidth,towerWidth);
+      const base=rect(x,y,towerWidth+2*towerBaseOutset,towerWidth+2*towerBaseOutset);
+      // Adjacent half-planes alone cannot rule out a nearby concave notch or
+      // thin wing. If this fixed-size tower cannot fit, keep its curtain intact.
+      if(contains(base,points)&&overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)&&!towers.some(t=>overlap(rect(x,y,towerWidth+8,towerWidth+8),t.points))){
         towers.push({x,y,width:towerWidth,depth:towerWidth,height:options.towerHeight || 32,points:box,corner:i});
       }
     }
@@ -92,7 +103,7 @@
       if(cross(a,b,c)*cross(a,b,d)<-EPS&&cross(c,d,a)*cross(c,d,b)<-EPS)return null;
     }
     ensureCCW(points);const start=points.reduce((best,p,i)=>p.x<points[best].x||(p.x===points[best].x&&p.y<points[best].y)?i:best,0);points=points.slice(start).concat(points.slice(0,start));
-    const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y})),key=JSON.stringify([local,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.sectionLength]);
+    const origin=points[0],local=points.map(p=>({x:p.x-origin.x,y:p.y-origin.y})),key=JSON.stringify([local,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.sectionLength,options.towerBaseOutset]);
     let layout=cache.get(key);
     if(layout===undefined){layout=compute(local,options);if(cache.size>=LIMITS.cache)cache.delete(cache.keys().next().value);cache.set(key,layout);}
     if(!layout)return null;
