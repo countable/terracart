@@ -126,8 +126,8 @@ ONBOARDING (the first session)
    selling. Reopenable from ☰ "How to play".
  - SPIRIT GUIDANCE: the floating Dragon Spirit dialogue sprite speaks the
    ONE next thing to do in a compact map speech bubble (`quests.js`
-   `STARTER_CHAIN` — pick up supplies → plant a seed → water → restore a wreck
-   → deliver one potato and hear Tilly’s thanks → road hint). Steps auto-advance on gameplay events fired from the sites
+   `STARTER_CHAIN` — pick up supplies → plant a seed → water → restore a wreck;
+   the first repaired house ends the tutorial). Steps auto-advance on gameplay events fired from the sites
    that perform them (`scene.questEvent`), with a spoken acknowledgement and
    no tutorial coin bonus. Ordinary crate contents and sale proceeds are
    unchanged. The Spirit retires when the ladder finishes or is dismissed

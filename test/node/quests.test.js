@@ -31,8 +31,7 @@ test('starter chain: teaches the loop in a playable order', () => {
   assert.falsy(order.includes('till'), 'tilling and planting are one seed action');
   assert.lt(order.indexOf('plant'), order.indexOf('water'), 'plant before watering');
   assert.lt(order.indexOf('water'), order.indexOf('restore'), 'water before repair errand');
-  assert.lt(order.indexOf('restore'), order.indexOf('tilly'), 'rebuilding precedes move-in thanks');
-  assert.lt(order.indexOf('tilly'), order.indexOf('roads'), 'road hint closes the introduction');
+  assert.eq(order[order.length - 1], 'restore', 'the first repaired house ends the tutorial');
   assert.falsy(order.includes('sell'), 'selling is not required');
 });
 

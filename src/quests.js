@@ -184,8 +184,8 @@ const Quests = {
 // change castle ownership. This answers "what do I do now?" for a player
 // who just watched the intro, and it retires itself once the loop is learned.
 //
-// The first crop grows while the player restores a home. One potato feeds
-// that home; Tilly's thanks finish the guided work, followed by a road hint.
+// The first crop grows while the player restores a home; that first repair
+// ends the guided work.
 // Completed actions are saved even when performed ahead of their lesson.
 // Guidance adds no coins and never changes castle quests or ownership.
 const STARTER_CHAIN = [
@@ -211,19 +211,7 @@ const STARTER_CHAIN = [
     id: 's4_restore', event: 'restore',
     title: 'Rebuild a neighbour',
     body: 'Open the nearby rock crate, then use the rocks to repair a ruined house.',
-    completion: 'A little more of the neighbourhood is home again.',
-  },
-  {
-    id: 's5_tilly', event: 'tilly',
-    title: 'Help Tilly settle in',
-    body: 'Meet Tilly, then bring one potato to the restored house. Talk to her after she moves in.',
-    completion: 'A roof, a meal and a neighbour. This is how a place becomes home.',
-  },
-  {
-    id: 's6_roads', event: 'roads',
-    title: 'Keep mending',
-    body: 'You can repair the roads as you explore. Keep growing and mending.',
-    completion: 'You know the way now. Keep growing, exploring and mending.',
+    completion: 'A little more of the neighbourhood is home again. Keep growing, exploring and mending.',
   },
 ];
 
@@ -262,7 +250,6 @@ Object.assign(Quests, {
     if (recover && Object.values(save.restoredHouses || {}).includes('plain')) ss.done.restore = true;
     while (ss.step < STARTER_CHAIN.length) {
       const event = STARTER_CHAIN[ss.step].event;
-      if (event === 'roads' && ss.dismissed) ss.done.roads = true;
       if (!ss.done[event]) break;
       ss.step++;
     }

@@ -58,7 +58,7 @@
       s.questEvent('plant'); assert.eq(Quests.starterCurrent(s.save).event, 'water');
       s.questEvent('water'); assert.eq(Quests.starterCurrent(s.save).event, 'restore');
       s.save.restoredHouses[house.id] = 'plain'; s.questEvent('restore');
-      assert.eq(Quests.starterCurrent(s.save).event, 'tilly');
+      assert.truthy(Quests.starterAllDone(s.save), 'the first repaired house ends the tutorial');
       assert.eq(Delivery.wantedProduce(s.save, house).join(','), 'potato');
       NPC.interact(s, tilly, 0, 0); message.onDismiss();
       assert.truthy(s.save.npcMet[tilly.id]);
@@ -73,13 +73,7 @@
       assert.eq(NPC.residentOf(s.save, house).id, tilly.id);
       NPC.interact(s, tilly, 0, 0);
       assert.truthy(message.body.includes('Thank you, Hood'));
-      assert.eq(Quests.starterCurrent(s.save).event, 'tilly', 'gratitude must be read before advancing');
       message.onDismiss();
-      assert.eq(Quests.starterCurrent(s.save).event, 'roads');
-      Starter.placeHomeGreeter(s, entry, 0, 0);
-      assert.falsy(entry.creatures.some(c => c.kind === 'chicken'), 'the road sign-off still belongs to guidance');
-      s.acknowledgeObjective();
-      assert.truthy(Quests.starterAllDone(s.save));
       Starter.placeHomeGreeter(s, entry, 0, 0);
       const chicken = entry.creatures.find(c => c.kind === 'chicken');
       assert.truthy(chicken);

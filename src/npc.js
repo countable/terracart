@@ -843,7 +843,6 @@ const NPC = (() => {
     c._moving = false;
     c._npcRestUntil = performance.now() + 12000;
     const benefit = !isDormant(c) && typeof NPCBenefits !== 'undefined' ? NPCBenefits.visit(scene, c) : null;
-    const housedTilly = c.role === 'wanderer' && !isDormant(c) && MemoryStory.wandererHoused(scene.save, c);
     const talk = dialogue(scene, c);
     if (benefit?.message && !talk.body.includes(benefit.message)) { talk.pages.push(benefit.message); talk.body = talk.pages.join('\n\n'); }
     // All sections share one scrolling conversation and its painting or portrait.
@@ -857,10 +856,7 @@ const NPC = (() => {
         persistSave(scene.save);
       }
       MemoryStory.showPages(scene, talk.pages, { ...speech(c),
-        ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c),
-        onDone: () => {
-          if (housedTilly && MemoryStory.wandererHoused(scene.save, c)) scene.questEvent?.('tilly');
-        } });
+        ...(talk.art ? { art: talk.art } : { portrait: portrait(scene, c) }), source: dialogSource(scene, c) });
     };
     if (isDormant(c)) { say(); return; }
     if (c.role === 'archaeologist' && typeof MemoryStory !== 'undefined') {

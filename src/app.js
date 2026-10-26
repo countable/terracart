@@ -1031,13 +1031,8 @@ const STARTER_MARK = { key: 'starterGuide', color: 0xa7ffb0, source: 'Tutorial' 
 // to walk to, it is where you are.
 const EDGE_DOT_R = 3;
 const GPS_RIM_DOT = { color: 0xffe066, r: 2 };
-const STARTER_GOAL_LABELS = { plant: 'Plot', water: 'Crop', restore: 'Wreck', tilly: 'Tilly', harvest: 'Crop', sell: 'Home' };
+const STARTER_GOAL_LABELS = { plant: 'Plot', water: 'Crop', restore: 'Wreck', harvest: 'Crop', sell: 'Home' };
 function starterGoalLabel(step, goal) {
-  if (step?.event === 'tilly') {
-    if (goal?.kind === 'npc') return goal.name || 'Tilly';
-    if (goal?.kind === 'house') return 'House';
-    if (goal?.crop) return 'Crop';
-  }
   if (goal?.kind === 'groundstack') return ITEM_BY_ID[goal.itemId]?.name || 'Supplies';
   if (goal && String(goal.id || '').startsWith('chest_start_')) return goal.crate ? 'Supply crate' : 'Relic chest';
   return STARTER_GOAL_LABELS[step && step.event] || 'Supply crate';
@@ -3307,10 +3302,6 @@ class MapScene extends Phaser.Scene {
       case 'water':
         return nearest((sv.planted || []).filter(p => !p.watered_t && (p.stage ?? 0) < Crops.maxStage()))
           || nearest(sv.planted || []) || plotMiddle() || this._nearestStarterCrate('potato_seed');
-      case 'tilly':
-        return this._starterTillyLesson().goal;
-      case 'roads':
-        return null;
       case 'harvest':
         return nearest(sv.planted || []) || this._nearestStarterCrate();
       case 'sell': {
@@ -3323,31 +3314,6 @@ class MapScene extends Phaser.Scene {
       default:
         return this._nearestStarterCrate();
     }
-  }
-
-  _starterTillyLesson() {
-    const save = this.save, people = [], houses = [];
-    for (const entry of WorldGen.tileCacheFor(0).values()) {
-      for (const c of entry.creatures || []) if (c.kind === 'npc' && c.role === 'wanderer') people.push(c);
-      for (const h of entry.objects || []) if (save.restoredHouses?.[h.id] === 'plain') houses.push(h);
-    }
-    const tilly = this._nearestObject(null, { list: people });
-    const firstId = Object.keys(save.restoredHouses || {}).find(id => save.restoredHouses[id] === 'plain');
-    const house = houses.find(h => h.id === firstId);
-    const housed = Object.entries(save.npcHomes || {}).find(([, row]) => row.role === 'wanderer' && row.houseId);
-    if (housed) return { body: 'Tilly has moved in. Talk to her and see how she likes her new home.',
-      goal: tilly || (housed[1].houseX !== undefined ? { x: housed[1].houseX, y: housed[1].houseY } : house) };
-    if (tilly && !save.npcMet?.[tilly.id]) return {
-      body: 'Talk to Tilly. The first restored home needs just one potato before a neighbour can move in.', goal: tilly };
-    if (house && Delivery.isSatisfied(save, house)) return {
-      body: 'The home is ready. Tilly will move in shortly; then talk to her.', goal: tilly || house };
-    if (Inventory.count(save, 'potato') > 0) return {
-      body: 'Bring one potato to the restored house for its first delivery. Tilly is first in line for a home.', goal: house || tilly };
-    const crops = (save.planted || []).filter(p => p.crop === 'potato');
-    const crop = this._nearestObject(null, { list: crops.filter(p => !p.watered_t || p.stage >= Crops.maxStage()) })
-      || this._nearestObject(null, { list: crops });
-    return { body: 'Water your potato as it grows, then harvest one and deliver it to the restored house.',
-      goal: crop || this._nearestStarterCrate('potato_seed') || tilly || house };
   }
 
   // === Tick ===
@@ -9532,10 +9498,7 @@ class MapScene extends Phaser.Scene {
     el.querySelector('.title').textContent = step.title;
     el.querySelector('.body').textContent = step.event === 'restore'
       && Inventory.count(this.save, 'rubble') >= this._wreckRestoreCost(null).qty
-      ? 'You have the rocks. Tap a ruined house to repair it while your crop grows.'
-      : step.event === 'tilly' ? (this._starterTillyLesson?.().body || step.body)
-      : step.event === 'roads' && Trail.restoredMetres(this.save.trail || {}) > 0
-        ? 'You have already begun repairing roads. Keep growing, exploring and mending.' : step.body;
+      ? 'You have the rocks. Tap a ruined house to repair it while your crop grows.' : step.body;
     this._objectiveStep = step.id;
     el.style.display = this._objectiveAcknowledged === step.id ? 'none' : 'block';
   }
@@ -9543,7 +9506,6 @@ class MapScene extends Phaser.Scene {
   acknowledgeObjective() {
     if (Date.now() < (this._objectiveCheeringUntil || 0)) return;
     if (this._starterIntroLine != null) this._objectiveAcknowledgedIntro = this._starterIntroLine;
-    else if (Quests.starterCurrent(this.save)?.event === 'roads') this.questEvent('roads');
     else this._objectiveAcknowledged = this._objectiveStep;
     this.updateObjectiveDOM();
   }

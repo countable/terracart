@@ -50,30 +50,6 @@
     assert.eq(NPC.residentOf(s.save, h).id, c.id);
   }));
 
-  test('NPC housing: only finishing a housed Tilly conversation acknowledges the tutorial', () => withWorld((s, origin, destination) => {
-    const c = person(), h = house('gratitude'); origin.creatures.push(c); restore(s, destination, h);
-    const show = MemoryStory.showPages, visit = NPCBenefits.visit;
-    let conversation;
-    const events = []; s.questEvent = event => events.push(event);
-    MemoryStory.showPages = (scene, pages, opts) => { conversation = { pages, opts }; };
-    NPCBenefits.visit = () => null;
-    try {
-      NPC.interact(s, c, 0, 0);
-      assert.truthy(s.save.npcMet[c.id]);
-      conversation.opts.onDone();
-      assert.eq(events.length, 0, 'an unhoused conversation cannot finish the introduction');
-      deliver(s, h); settle(s);
-      conversation.opts.onDone();
-      assert.eq(events.length, 0, 'moving in while an older homeless conversation is open cannot acknowledge gratitude');
-      NPC.interact(s, c, 0, 0);
-      assert.eq(events.length, 0, 'opening the grateful conversation does not acknowledge it');
-      assert.truthy(conversation.pages.join(' ').includes('Thank you, Hood'));
-      assert.falsy(conversation.pages.join(' ').includes('last night'));
-      conversation.opts.onDone();
-      assert.eq(events.join(','), 'tilly');
-    } finally { MemoryStory.showPages = show; NPCBenefits.visit = visit; }
-  }));
-
   test('NPC housing: Tilly outranks closer met neighbours and ordinary roles use stable ids', () => withWorld((s, origin, destination) => {
     const tilly = person('z_tilly'), warden = person('a_warden', 'warden');
     const ordinaryB = person('ordinary_b', 'farmer'), ordinaryA = person('ordinary_a', 'farmer');
