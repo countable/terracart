@@ -231,8 +231,8 @@ and plain-rock examples remain in the surrounding grid.
 | haunted_forest_path | Haunted Forest Path | haunted woodland |
 | way_of_variety | Way of Variety | dense mix of common interactables |
 | plain minor | Maple Street | legacy ordinary street comparison |
-| plain MD | Old Trade Road | suppression zone, night curse and wagon stop |
-| plain LG | Ancient Highway | suppression zone and night curse |
+| plain MD | Old Trade Road | suppression zone and wagon stop |
+| plain LG | Ancient Highway | suppression zone |
 | parkpath | Common Walk | scenic path colour, lamps and reward multiplier |
 
 This table covers every minor row and the lantern/barricade path rows in
