@@ -1438,8 +1438,24 @@ more sparsely than the previous masonry build. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
-and spacing are part of the bounded local-coordinate cache key. Invalid or
-excessively complex rings retain the fallback. Its wall strips, battlements
+and spacing are part of the bounded local-coordinate cache key. Source rings
+up to 512 vertices can use the generated architecture without simplifying their
+contours. Detailed rings (over 64 cleaned vertices) keep contained curtain strips
+whole and clip only the pieces that cross the source boundary; they do not split
+every strip along every triangulation edge. Exact convex fragments within a
+curtain section are reunited after neighboring walls and towers are subtracted;
+area and full-source containment checks prevent bridging gaps or notches.
+Numerical subtraction slivers below 0.0001 square game pixels are discarded;
+source vertices are not simplified to achieve this. The shared prepared footprint clipper
+also supplies indexed containment checks for towers, merlons and keep clearance.
+Wall fragments remain capped at 512, merlons at 192 and towers at 12. Source-edge
+bounds reject crossing candidates cheaply, and canonical cached layouts skip
+repeated topology validation. Cache keys alone round local coordinates to
+0.000000001 game pixels, removing camera-translation noise far below the geometry
+tolerance while computations retain full precision. Each wall reuses its nearby solids when hiding
+internal faces. Ordinary rings retain their existing layout and triangle counts.
+Invalid rings, inputs above the vertex limit, or layouts exceeding the piece
+budget retain the contained fallback. Its wall strips, battlements
 and concave joins are clipped to the full source ring too: an inward normal
 alone does not contain a strip at an acute corner or narrow notch. Contained
 strips stay intact; clipped fragments share their wall's sorting anchor, and
@@ -1483,6 +1499,10 @@ through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
 footprint and screen-up elevation; the concepts do not define another camera.
 Canvas shares these faces and closes opaque triangle seams at surface boundaries.
+Shared-edge coverage and texture transforms are retained until geometry or atlas
+size changes. Original triangle batches and global coverage remain intact across
+camera pans. Coverage expansion uses one inverse camera transform per frame,
+not one per triangle.
 Textured roof slopes share seam coverage only with other roof slopes, so the
 pale underlying cap cannot expand beyond their eaves.
 White-patch materials fill directly with their cel colour on Canvas; only the

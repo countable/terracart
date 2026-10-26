@@ -200,8 +200,22 @@ The capture tool accepts `FIXTURES`, `KEYS`, `ANGLES`, `STATES` and `RENDERERS`.
 Use `SOURCE_DIR` and `ASSET_DIR` for frozen before/after snapshots. Ordinary
 screenshots retain gameplay context; diagnostic companions overlay the mapped
 ground boundary and flag escaping ground bases, without mistaking projected
-wall height for footprint overhang. Inspect both the FDR meshes and the legacy
-fallback used by complex source rings.
+wall height for footprint overhang. Inspect the FDR meshes on detailed source
+rings and the legacy fallback retained for invalid or over-budget inputs.
+
+For native CPU and mesh counts across every production castle, run:
+
+```sh
+node tools/castle-real-inputs.cjs --all --out /tmp/complex-castles-all.json
+node tools/castle-real-benchmark.cjs
+```
+
+`SOURCE_DIR` selects a frozen source checkout, `FIXTURES` selects extracted inputs,
+`OUT_FILE` sets the JSON report and `REPEATS` defaults to three. The benchmark
+separates cold builds, exact cache hits, integer cell shifts and fractional
+translations. Source hashes accompany timings; extractor `cellM` metadata supplies the actual
+`32 / WorldGen.CELL_M` overlay scale. Browser rendering and fixture decoding are
+outside the timed region. Compare reports on the same idle machine.
 
 For adjacent forts, wrecks and restored houses, run
 `node tools/building-real-inputs.cjs`. It writes selected pairs to

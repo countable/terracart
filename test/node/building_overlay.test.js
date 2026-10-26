@@ -1354,7 +1354,7 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   clearTiles();
 });
 
-test('building overlay: complex mapped castle fallback walls and teeth stay inside the source boundary', () => {
+test('building overlay: mapped castle fallback stays contained when the FDR atlas is unavailable', () => {
   const sites = [['2755_5566', 6757291610, 63, 'citadel'],
     ['2754_5565', 29572670, 341, 'bastion'], ['2754_5566', 1513231130, 252, 'archive']];
   const edge = WorldGen.tileEdgeMeters(49.8801), cellM = edge / 225;
@@ -1362,7 +1362,6 @@ test('building overlay: complex mapped castle fallback walls and teeth stay insi
     for (const [tile, id, index, family] of sites) {
       const source = MVT.decodeTile(FIXTURE_TILES[tile]).find(l => l.name === 'building')
         .features.find(f => f.id === id).geom[index];
-      assert.gt(source.length, FDRCastleLayout.LIMITS.vertices, 'authentic detailed ring exercises the fallback');
       const meters = Float32Array.from(source.flatMap(p => [p.x / 4096 * edge, p.y / 4096 * edge]));
       // Translate into this test's tile and preserve the production pixel
       // scale despite its five-metre scene cells. No contour is simplified.
@@ -1374,6 +1373,9 @@ test('building overlay: complex mapped castle fallback walls and teeth stay insi
         putShapes(0, 0, [{ring: Float32Array.from((reverse ? points.slice().reverse() : points).flat()),
           tier: T.BUILDING_LARGE, key: family}]);
         const {scene, log} = makePerspectiveScene();
+        // This fixture has no FDR atlas. These detailed rings now support the
+        // new renderer, but the missing-asset fallback must remain contained.
+        assert.falsy(scene.textures.exists('fdr_castle_atlas'));
         scene.viewLeft = scene.viewTop = -2048; scene.viewSize = 4096;
         scene.isClaimedKey = () => claimed;
         BuildingOverlay.draw(scene);
