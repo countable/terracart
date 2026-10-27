@@ -18,6 +18,37 @@
       faces:b.materialFaces.map(f=>({points:f.points,normal:f.normal,color:f.color,material:f.material})),
     })));
   }
+  test('FDR castles: giant curtain masonry repeats at a constant world scale', () => {
+    // The perimeter budget makes these curtain sections longer than one atlas
+    // tile. Their source-edge phases must not stretch or escape that tile.
+    for(const family of ['citadel','bastion','archive'])for(const active of [true,false]) {
+      const scene=meshScene(),style=CastleStyles.renderStyle(family,active);
+      const model=meshDraw(scene,L.rect(0,0,12000,120),{family,active});
+      assert.truthy(model,`${family}: giant footprint retains generated geometry`);
+      let horizontalEdges=0;
+      for(const block of scene._wallPerspective.castles.blocks)for(const face of block.materialFaces) {
+        if(face.material!=='stone'||!face.normal||!face.points.every(p=>p.z>=4))continue;
+        const center=face.points.reduce((sum,p)=>({u:sum.u+p.u/3,v:sum.v+p.v/3}),{u:0,v:0});
+        const slot=Math.floor(center.u*4)+4*Math.floor(center.v*4);
+        if(![style.masonrySlot,style.towerMasonrySlot].includes(slot))continue;
+        for(const p of face.points) {
+          assert.gte(p.u*512,slot%4*128+8-1e-7,'masonry stays inside its atlas gutter');
+          assert.lte(p.u*512,slot%4*128+120+1e-7,'masonry never samples the neighboring tile');
+          assert.gte(p.v*512,Math.floor(slot/4)*128+8-1e-7);
+          assert.lte(p.v*512,Math.floor(slot/4)*128+120+1e-7);
+        }
+        for(let i=0;i<3;i++) {
+          const a=face.points[i],b=face.points[(i+1)%3];
+          const length=Math.hypot(b.x-a.x,b.y-a.y);
+          if(Math.abs(a.z-b.z)>1e-7||length<1e-7)continue;
+          horizontalEdges++;
+          assert.lt(Math.abs(Math.abs(b.u-a.u)*512/length-.5),1e-7,
+            `${family}/${active}: horizontal masonry uses 112 texels per 224 world pixels`);
+        }
+      }
+      assert.gt(horizontalEdges,100,'long curtain faces are checked across multiple source phases');
+    }
+  });
   test('FDR castles: translated mesh reuse skips face triangulation and owns projection state', () => {
     const scene=meshScene(),points=L.rect(0,0,240,180),triangulate=PolygonGeometry.triangulate;
     let calls=0;PolygonGeometry.triangulate=(...args)=>{calls++;return triangulate(...args);};

@@ -46,20 +46,28 @@
             color=(boost(color>>16)<<16)|(boost((color>>8)&255)<<8)|boost(color&255);
           }
           const quad=[at(a,aa,lo),at(b,bb,lo),at(b,bb,hi),at(a,aa,hi)];
-          if(lo>=BASE_HEIGHT&&material==='stone')for(const p of quad){
-            const along=((p.x-a.x)*dx+(p.y-a.y)*dy)/length;
-            const slot=stoneSlot;
-            // Ground-anchored courses keep their physical size on every
-            // shaft and wall. Repeated tile copies preserve source-edge phase
-            // through clipped wall fragments without splitting triangles.
-            const origin=layout.points[0];
+          if(lo>=BASE_HEIGHT&&material==='stone'){
+            // Preserve world-space scale and source-edge phase. The atlas
+            // contains 224 units of a 128-unit repeat; only long faces need
+            // splitting, at a repeat boundary, before their UVs leave it.
+            const origin=layout.points[0],slot=stoneSlot;
             const growthShift=growthSeed===null?0:((growthSeed+i)%4)*32;
             const phase=((((a.x-origin.x)*dx+(a.y-origin.y)*dy)/length+growthShift)%128+128)%128;
-            const span=Math.max(224,phase+length);
-            p.u=(slot%4*128+8+Math.min(1,Math.max(0,(phase+along)/span))*112)/512;
-            p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-(p.z-BASE_HEIGHT)/64))*112)/512;
-          }
-          polygon(faces,quad,color,normal,material);
+            const lerp=(p,q,t)=>({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,z:p.z+(q.z-p.z)*t});
+            for(let start=0;start<length;){
+              const offset=start===0?phase:0;
+              const end=length-start<=224-offset?length:start+128-offset;
+              const strip=[lerp(quad[0],quad[1],start/length),lerp(quad[0],quad[1],end/length),
+                lerp(quad[3],quad[2],end/length),lerp(quad[3],quad[2],start/length)];
+              for(let k=0;k<strip.length;k++){
+                const p=strip[k],along=k===1||k===2?end-start:0;
+                p.u=(slot%4*128+8+(offset+along)/224*112)/512;
+                p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-(p.z-BASE_HEIGHT)/64))*112)/512;
+              }
+              polygon(faces,strip,color,normal,material);
+              start=end;
+            }
+          }else polygon(faces,quad,color,normal,material);
         }
       }
       if(capped){

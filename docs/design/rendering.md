@@ -1509,7 +1509,8 @@ Bastion uses taller sandstone courses. Masonry uses a fixed world-space scale
 and ground datum; a 128-unit motif repeats inside a 224-by-64-unit tile, so
 ordinary curtain fragments can retain their source-edge phase without adding
 triangles. Its 4/7 atlas repeat lands on exact texels. Very long sections on
-budget-limited giant footprints fit their horizontal span to the tile.
+budget-limited giant footprints split at motif boundaries and repeat the tile
+at the same scale; they never stretch masonry to fit a section.
 Weathered masonry reserves colour headroom in the texture and compensates only
 its vertical stone-face tint; this keeps olive growth legible on dark slate.
 Military
