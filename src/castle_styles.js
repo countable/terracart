@@ -222,7 +222,7 @@
     // sandstone. Preserve that material separately from the crown's tint.
     value.deck = id === 'citadel' && !active ? weathered(source.top, true) : value.top;
     value.geometry = Object.freeze({ towerWidth: source.towerWidth, towerHeight: source.towerHeight,
-      keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 24, roofHeight: source.roofHeight });
+      keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 16, roofHeight: source.roofHeight });
     const style = Object.freeze(value); renderCache.set(cacheKey, style); return style;
   }
   // Ground-only contact growth. The canvas clips these bounded masks to the

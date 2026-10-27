@@ -36,17 +36,17 @@
         const cx=ring.reduce((sum,p)=>sum+p.x/ring.length,0),cy=ring.reduce((sum,p)=>sum+p.y/ring.length,0);
         const at=(p,q,z)=>{
           const t=(z-bottom)/(top-bottom),outset=bottom===0?baseOutset*Math.max(0,1-z/BASE_HEIGHT):0;
-          return {x:p.x+(q.x-p.x)*t+Math.sign(p.x-cx)*outset,y:p.y+(q.y-p.y)*t+Math.sign(p.y-cy)*outset,z};
+          return {x:p.x+(q.x-p.x)*t+(p.x-cx)*2*outset/length,y:p.y+(q.y-p.y)*t+(p.y-cy)*2*outset/length,z};
         };
         for(let j=0;j<levels.length-1;j++){
           const lo=levels[j],hi=levels[j+1];
-          let color=hi<=BASE_HEIGHT?style.base:sideColor(normal);
-          if(!style.active&&lo>=BASE_HEIGHT&&material==='stone'){
+          let color=sideColor(normal);
+          if(!style.active&&material==='stone'){
             const boost=c=>Math.min(255,Math.round(c*1.5));
             color=(boost(color>>16)<<16)|(boost((color>>8)&255)<<8)|boost(color&255);
           }
           const quad=[at(a,aa,lo),at(b,bb,lo),at(b,bb,hi),at(a,aa,hi)];
-          if(lo>=BASE_HEIGHT&&material==='stone'){
+          if(material==='stone'){
             // Preserve world-space scale and source-edge phase. The atlas
             // contains 224 units of a 128-unit repeat; only long faces need
             // splitting, at a repeat boundary, before their UVs leave it.
@@ -62,7 +62,7 @@
               for(let k=0;k<strip.length;k++){
                 const p=strip[k],along=k===1||k===2?end-start:0;
                 p.u=(slot%4*128+8+(offset+along)/224*112)/512;
-                p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-(p.z-BASE_HEIGHT)/64))*112)/512;
+                p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-p.z/64))*112)/512;
               }
               polygon(faces,strip,color,normal,material);
               start=end;
@@ -72,19 +72,18 @@
       }
       if(capped){
         const minX=Math.min(...topPoints.map(p=>p.x)),minY=Math.min(...topPoints.map(p=>p.y));
-        const width=Math.max(...topPoints.map(p=>p.x))-minX,depth=Math.max(...topPoints.map(p=>p.y))-minY;
         const coping=bottom>0&&material==='stone';
         const crownSeed=Math.abs(Math.round((minX-layout.points[0].x)*17+(minY-layout.points[0].y)*31))%7;
         const copingLeft=!style.active&&crownSeed<(style.id==='citadel'?1:2)?418:394;
         const a=topPoints[0],b=topPoints[1],length=Math.hypot(b.x-a.x,b.y-a.y);
         const ux=(b.x-a.x)/length,uy=(b.y-a.y)/length;
         const local=p=>({u:(p.x-a.x)*ux+(p.y-a.y)*uy,v:-(p.x-a.x)*uy+(p.y-a.y)*ux});
-        const coords=coping?topPoints.map(local):[];
+        const coords=coping||deck?topPoints.map(local):[];
         const u0=Math.min(...coords.map(p=>p.u)),u1=Math.max(...coords.map(p=>p.u));
         const v0=Math.min(...coords.map(p=>p.v)),v1=Math.max(...coords.map(p=>p.v));
         const uv=p=>{const q=local(p);return {u:(copingLeft+(q.u-u0)/(u1-u0)*16)/512,v:(488+(q.v-v0)/(v1-v0)*12)/512};};
         for(const tri of PolygonGeometry.triangulate(topPoints))
-          triangle(faces,tri.map(p=>({...p,z:top,...(coping?uv(p):deck?{u:(8+(p.x-minX)/width*112)/512,v:(8+(p.y-minY)/depth*112)/512}:{})})),capColor,null,material);
+          triangle(faces,tri.map(p=>({...p,z:top,...(coping?uv(p):deck?{u:(8+(local(p).u-u0)/(u1-u0)*112)/512,v:(8+(local(p).v-v0)/(v1-v0)*112)/512}:{})})),capColor,null,material);
       }
       const index=group.blocks.length;
       WallPerspective.prism(scene,source,ring,bottom,top,colors,support,capped,{topPoints,materialFaces:faces});
@@ -143,7 +142,10 @@
       const {x,y,width:w,depth:h}=part;
       if(!style.active&&index%3===1)part.height-=4;
       const height=part.height,support={x,y,order:group.blocks.length};
-      const body=rect(x,y,w,h);
+      const angle=part.angle||0,c=Math.cos(angle),s=Math.sin(angle);
+      const rotate=p=>({x:x+(p.x-x)*c-(p.y-y)*s,y:y+(p.x-x)*s+(p.y-y)*c});
+      const body=part.points;
+      const crownRect=(cx,cy,width,depth)=>rect(cx,cy,width,depth).map(rotate);
       massGate={points:body,bottom:0,top:height};
       // Keep the roof pitch proportional to its span, using the same four
       // planes as the tower roofs. A fixed rise made the wide keep look flat.
@@ -163,17 +165,21 @@
             {...b,z:height,u:120/512,v:376/512},{...peak,u:64/512,v:264/512}],color,null,'roof');
         }
       }else{
-        for(const side of [-1,1])for(let j=0;j<3;j++){
-          if(!style.active&&(j+index)%3===1)continue;
-          const toothHeight=style.active?8:[5,7,8][(index*2+j+(side>0?2:0))%3];
-          prism(rect(x+(j-1)*(w/2-4),y+side*(h/2-3),8,6),height,height+toothHeight,support);
-        }
-        // One centre tooth on the remaining sides completes a square crown;
-        // corner teeth already belong to the front/back rows.
+        // Fixed native 8px teeth / 8px gaps, centered on each crown side.
+        // Side rows stop short of the front/back rows, preventing overlaps.
+        const pitch=geometry.merlonPitch,tooth=8;
+        const row=(span,place,sideIndex)=>{
+          const count=Math.max(0,Math.floor((span-tooth)/pitch)+1);
+          for(let j=0;j<count;j++){
+            if(!style.active&&(j+index+sideIndex)%3===1)continue;
+            const at=(j-(count-1)/2)*pitch;
+            const toothHeight=style.active?8:[5,7,8][(index*2+j+sideIndex)%3];
+            prism(place(at),height,height+toothHeight,support);
+          }
+        };
         for(const side of [-1,1]){
-          if(!style.active&&(index+(side>0?1:0))%3===1)continue;
-          const toothHeight=style.active?8:[5,7,8][(index+(side>0?1:0))%3];
-          prism(rect(x+side*(w/2-3),y,6,8),height,height+toothHeight,support);
+          row(w,at=>crownRect(x+at,y+side*(h/2-tooth/2),tooth,tooth),side>0?1:0);
+          row(h-tooth*2,at=>crownRect(x+side*(w/2-tooth/2),y+at,tooth,tooth),side>0?3:2);
         }
       }
       if(isKeep){
@@ -203,7 +209,7 @@
       massGate=null;
     }
     layout.towers.forEach((t,i)=>mass(t,false,i));if(layout.keep)mass(layout.keep,true,0);
-    const footprints=[layout.points,...layout.towers.map(t=>style.id==='bastion'?rect(t.x,t.y,t.width+4,t.depth+4):t.points)].flat(),bounds={left:Math.min(...footprints.map(p=>p.x)),right:Math.max(...footprints.map(p=>p.x)),top:Math.min(...footprints.map(p=>p.y)),bottom:Math.max(...footprints.map(p=>p.y))};
+    const footprints=[layout.points,...layout.towers.map(t=>t.basePoints||t.points)].flat(),bounds={left:Math.min(...footprints.map(p=>p.x)),right:Math.max(...footprints.map(p=>p.x)),top:Math.min(...footprints.map(p=>p.y)),bottom:Math.max(...footprints.map(p=>p.y))};
     const height=Math.max(geometry.wallHeight+8,...layout.towers.map(t=>t.crownHeight||t.height+geometry.roofHeight),layout.keep?(layout.keep.crownHeight||layout.keep.height+geometry.roofHeight):0);
     return {layout,footprint:layout.points,bounds,height,blocksAdded:group.blocks.length-start,source,family:style.id,active:style.active,style};
   }

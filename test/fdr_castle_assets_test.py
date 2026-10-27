@@ -6,7 +6,7 @@ from pathlib import Path
 from PIL import Image
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'tools'))
-from build_fdr_castle_assets import treatment
+from build_fdr_castle_assets import treatment, baked_top_light
 
 
 class CastleMaterials(unittest.TestCase):
@@ -31,6 +31,42 @@ class CastleMaterials(unittest.TestCase):
 
     def test_decals_are_unchanged(self):
         self.assertEqual(treatment(self.tile, 5)[0].tobytes(), self.tile.tobytes())
+
+    def test_baked_light_keeps_alpha_and_softens_the_full_wall_height(self):
+        stone = Image.new('RGBA', (2, 64), (240, 200, 160, 137))
+        lit = baked_top_light(stone)
+        self.assertEqual(lit.getchannel('A').getextrema(), (137, 137))
+        self.assertEqual(lit.getpixel((0, 63)), (144, 120, 96, 137))
+        self.assertEqual(lit.getpixel((0, 0)), (240, 200, 160, 137))
+        values = [lit.getpixel((0, y))[0] for y in range(64)]
+        self.assertTrue(all(a >= b for a, b in zip(values, values[1:])))
+        self.assertGreater(len(set(values[-24:])), 18, 'lighting is a ramp, not a top/side colour step')
+
+    def test_exported_masonry_bakes_light_at_runtime_heights_and_repeats_exactly(self):
+        folder = Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR'
+        atlas = Image.open(folder / 'atlas.png')
+        materials = {m['slot']: m for m in json.loads((folder / 'sources.json').read_text())['materials']}
+        for slot in [3, 9, 10, 4, 11, 12, 13, 14]:
+            with self.subTest(slot=slot):
+                x, y = slot % 4 * 128, slot // 4 * 128
+                content = atlas.crop((x + 8, y + 8, x + 120, y + 120))
+                self.assertEqual(content.getchannel('A').getextrema(), (255, 255))
+                self.assertEqual(content.crop((0, 0, 48, 112)).tobytes(),
+                                 content.crop((64, 0, 112, 112)).tobytes(),
+                                 'the 128-world-unit motif repeats in exactly 64 atlas texels')
+                # UV samples use z=0..64 with v=1-z/64. Average short
+                # height bands so individual mortar courses cannot dominate.
+                def brightness(z):
+                    cy = min(111, round((1 - z / 64) * 112))
+                    pixels = list(content.crop((0, max(0, cy-2), 112, min(112, cy+3))).getdata())
+                    return sum(sum(p[:3]) / 3 for p in pixels) / len(pixels)
+                foot, middle, top = [brightness(z) for z in [0, 12, 24]]
+                self.assertGreater(middle, foot + 10)
+                self.assertGreater(top, middle + 5)
+                self.assertEqual(materials[slot]['gutterY'], 'clamp')
+                self.assertEqual(atlas.crop((x+8,y+119,x+120,y+120)).tobytes(),
+                                 atlas.crop((x+8,y+120,x+120,y+121)).tobytes(),
+                                 'the ground sample must not wrap into bright upper stone')
 
     def test_archive_tower_tiles_are_opaque_for_canvas_seam_coverage(self):
         atlas = Image.open(Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR/atlas.png')

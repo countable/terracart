@@ -172,10 +172,11 @@
       const width = spec.toothWidth;
       if (!width || !spec.toothHeight || length < width) return;
       const count = spec.merlons ?? Math.max(1, Math.round((length - width) / 8) + 1);
-      const pitch = count > 1 ? (length - width) / (count - 1) : 0;
+      const pitch = spec.toothPitch ?? (count > 1 ? (length - width) / (count - 1) : 0);
+      const offset = spec.toothOffset ?? 0;
       for (let i = 0; i < count; i++) {
         if (spec.missing?.includes(i)) continue;
-        emit(points(i * pitch / length, Math.min(1, (i * pitch + width) / length)),
+        emit(points((offset + i * pitch) / length, Math.min(1, (offset + i * pitch + width) / length)),
           height, height + spec.toothHeight, { ...colors, top: spec.crownTop ?? top });
       }
     },

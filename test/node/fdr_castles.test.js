@@ -1,6 +1,18 @@
 (function () {
   const L = FDRCastleLayout;
   const concave = [[-100,-80],[100,-80],[100,0],[0,0],[0,80],[-100,80]].map(([x,y])=>({x,y}));
+  function assertTowerOverhang(tower,points) {
+    assert.truthy(L.contains(tower.seatPoints,points),'unshifted flared tower base fits its source corner');
+    assert.lt(Math.abs(Math.hypot(tower.outward.x,tower.outward.y)-8),1e-6,'tower overhang is a quarter-cell displacement');
+    for(let i=0;i<4;i++) {
+      assert.lt(Math.abs(tower.basePoints[i].x-tower.seatPoints[i].x-tower.outward.x),1e-6);
+      assert.lt(Math.abs(tower.basePoints[i].y-tower.seatPoints[i].y-tower.outward.y),1e-6);
+    }
+  }
+  function allowedGround(points,towers,p) {
+    return PolygonGeometry.pointInPolygon(points,p,1e-5)
+      ||towers.some(t=>PolygonGeometry.pointInPolygon(t.basePoints,p,1e-5));
+  }
   function meshScene() {
     const shutdown=[];
     return {_headingUp:true,depth:0,mapRot:0,buildingWallContainer:{add(){}},
@@ -138,7 +150,7 @@
     assert.eq(L.build([{x:0,y:0},{x:5,y:0},{x:10,y:0}]),null);
     assert.eq(L.build([{x:0,y:0},{x:100,y:100},{x:0,y:100},{x:80,y:0}]),null);
   });
-  test('FDR castles: mapped Kelowna towers, flared feet and clipped walls stay inside their source footprints', () => {
+  test('FDR castles: mapped Kelowna towers have only deliberate corner overhang and contained walls', () => {
     // Production MVT rings behind real tier-12 castles, including narrow wings
     // and two subpixel notches that previously extrapolated during clipping.
     const sites=[['2753_5565',6767333750,0,'citadel'],['2753_5565',179969990,329,'citadel'],
@@ -159,19 +171,17 @@
         const model=FDRCastleGeometry.draw(scene,'castles',points,{family,active});
         assert.truthy(model,`mapped ${family} ring keeps its generated castle`);
         for(const tower of model.layout.towers) {
-          const outset=family==='bastion'?2:0;
-          assert.truthy(L.contains(L.rect(tower.x,tower.y,tower.width+outset*2,tower.depth+outset*2),points),
-            'the complete tower ground base cannot enter neighbouring map space');
+          assertTowerOverhang(tower,points);
         }
         const ground=group.blocks.flatMap(b=>b.materialFaces.flatMap(f=>f.points)).filter(p=>p.z===0);
         assert.gt(ground.length,0);
-        assert.truthy(ground.every(p=>PolygonGeometry.pointInPolygon(points,p,1e-5)),
-          `${tile}/${id}/${index}: every rendered ground vertex stays inside the mapped ring`);
+        assert.truthy(ground.every(p=>allowedGround(points,model.layout.towers,p)),
+          `${tile}/${id}/${index}: ground stays in the ring or an intentional tower base`);
         const retained=new Set(group.blocks);
         for(const heading of [0,17,73,135,211,315]) {
           scene.mapRot=heading*Math.PI/180;WallPerspective.update(scene);
           assert.truthy(group.blocks.every(b=>retained.has(b)&&[...b.projected].every(Number.isFinite)),
-            'valid camera rotations retain finite, footprint-contained geometry');
+            'valid camera rotations retain finite geometry');
         }
       }
     }
@@ -181,8 +191,10 @@
     for(const outset of [0,2,0]) {
       const layout=L.build(points,{towerWidth:36,towerBaseOutset:outset});
       assert.eq(layout.towers.length,4);
-      for(const t of layout.towers)
-        assert.truthy(L.contains(L.rect(t.x,t.y,36+outset*2,36+outset*2),points));
+      for(const t of layout.towers) {
+        assertTowerOverhang(t,points);
+        assert.lt(Math.abs(Math.hypot(t.basePoints[1].x-t.basePoints[0].x,t.basePoints[1].y-t.basePoints[0].y)-(36+outset*2)),1e-6);
+      }
     }
   });
   test('FDR castles: translated complex rings reuse cached triangulation without hiding real edits', () => {
@@ -299,7 +311,7 @@
       }
     }
   });
-  test('FDR castles: stone walls have a hard basal shadow and lit tops, without an upper shade band', () => {
+  test('FDR castles: stone walls sample baked lighting from ground to crown without a tint step', () => {
     const luma=c=>(c>>16)*.299+((c>>8)&255)*.587+(c&255)*.114;
     for(const family of ['citadel','bastion','archive'])for(const active of [true,false]) {
       const gfx={clear(){},fillStyle(){},fillTriangle(){}};
@@ -313,17 +325,22 @@
       const lower=[],upper=[];
       for(const face of sides) {
         const zs=face.points.map(p=>p.z),lo=Math.min(...zs),hi=Math.max(...zs);
-        assert.falsy(lo<4-1e-7&&hi>4+1e-7,'no triangle interpolates across the basal shade step');
+        assert.falsy(lo<4-1e-7&&hi>4+1e-7,'the existing flared base keeps its geometric height boundary');
         (hi<=4+1e-7?lower:upper).push(face);
       }
-      assert.gt(lower.length,0,'the wall foot has a shadow band');
+      assert.gt(lower.length,0,'the wall foot retains textured faces');
       assert.gt(upper.length,0,'the main wall remains visible above the basal band');
       for(const low of lower) {
         const lit=upper.filter(f=>Math.abs(f.normal.x-low.normal.x)<1e-7&&Math.abs(f.normal.y-low.normal.y)<1e-7);
         assert.gt(lit.length,0);
         // Wreck masonry reserves tint headroom for green plants; bare stone
         // is pre-darkened by the reciprocal amount in its shared atlas tile.
-        assert.truthy(lit.every(f=>luma(f.color)/(active?1:1.5)>luma(low.color)),'the wall face above the foot is lighter');
+        assert.truthy(lit.every(f=>f.color===low.color),'lighting is baked into the texture, with no hard basal tint step');
+      }
+      for(const face of sides)for(const p of face.points){
+        const slot=Math.floor(p.u*4)+4*Math.floor(p.v*4);
+        assert.eq(slot,CastleStyles.renderStyle(family,active).masonrySlot,'stone remains textured down to the ground');
+        assert.lt(Math.abs(p.v*512-(Math.floor(slot/4)*128+8+(1-p.z/64)*112)),1e-7,'baked lighting follows world height');
       }
       const byNormal=new Map();
       for(const face of upper) {
@@ -413,13 +430,24 @@
         const teeth=group.blocks.filter(b=>b.support===shaft.support&&b.bottom===part.height&&b.top>part.height);
         const sides=new Set();
         for(const tooth of teeth) {
-          const dx=tooth.x-part.x,dy=tooth.y-part.y;
-          if(Math.abs(dx)<part.width/4&&dy<-part.depth/3)sides.add('back');
-          if(Math.abs(dx)<part.width/4&&dy>part.depth/3)sides.add('front');
-          if(Math.abs(dy)<part.depth/4&&dx<-part.width/3)sides.add('left');
-          if(Math.abs(dy)<part.depth/4&&dx>part.width/3)sides.add('right');
+          const c=Math.cos(part.angle||0),s=Math.sin(part.angle||0),wx=tooth.x-part.x,wy=tooth.y-part.y;
+          const dx=wx*c+wy*s,dy=-wx*s+wy*c;
+          if(Math.abs(dx)<=part.width/4&&dy<-part.depth/3)sides.add('back');
+          if(Math.abs(dx)<=part.width/4&&dy>part.depth/3)sides.add('front');
+          if(Math.abs(dy)<=part.depth/4&&dx<-part.width/3)sides.add('left');
+          if(Math.abs(dy)<=part.depth/4&&dx>part.width/3)sides.add('right');
           assert.truthy(tooth.materialFaces.some(f=>!f.normal&&f.points.every(p=>p.z===tooth.top)),
             'each tooth has a real lit top plane');
+        }
+        for(const tooth of teeth){
+          assert.lt(Math.abs(Math.sqrt(Math.abs(L.area(tooth.points)))-8),1e-6,'crown teeth keep the native eight-pixel width');
+          assert.falsy(teeth.some(other=>other!==tooth&&L.overlap(tooth.points,other.points)),'corner rows cannot overlap');
+        }
+        const c=Math.cos(part.angle||0),s=Math.sin(part.angle||0);
+        const centers=teeth.map(t=>({x:(t.x-part.x)*c+(t.y-part.y)*s,y:-(t.x-part.x)*s+(t.y-part.y)*c}));
+        for(const side of [-1,1]){
+          const row=centers.filter(p=>Math.abs(p.y-side*(part.depth/2-4))<1e-6).sort((a,b)=>a.x-b.x);
+          for(let i=1;i<row.length;i++)assert.lt(Math.abs(row[i].x-row[i-1].x-16),1e-6,'tower and wide keep rows repeat at the same pitch');
         }
         assert.eq([...sides].sort().join(','),'back,front,left,right',
           `${family}: tower and keep crowns remain complete from every camera heading`);
@@ -716,11 +744,10 @@
       assert.lte(layout.walls.length,L.LIMITS.pieces);
       assert.lte(layout.towers.length,L.LIMITS.towers);
       assert.lte(layout.merlons.length,L.LIMITS.merlons);
-      for(const part of [...layout.walls,...layout.merlons,...layout.towers])
+      for(const part of [...layout.walls,...layout.merlons])
         assert.truthy(L.contains(part.points,points),`${key}: complete part stays in original ground boundary`);
       for(const tower of layout.towers) {
-        const outset=family==='bastion'?2:0;
-        assert.truthy(L.contains(L.rect(tower.x,tower.y,tower.width+outset*2,tower.depth+outset*2),points),`${key}: complete flared tower base contained`);
+        assertTowerOverhang(tower,points);
       }
       if(layout.keep)assert.truthy(L.contains(layout.keep.clearance,points),`${key}: keep clearance contained`);
       const reversed=L.build(points.slice().reverse(),options);
@@ -754,7 +781,7 @@
       assert.gt(triangles.length,0);
       assert.lte(triangles.length,8192,`${key}: real-fixture triangle regression budget`);
       const ground=triangles.flatMap(f=>f.points).filter(p=>p.z===0);
-      assert.truthy(ground.every(p=>PolygonGeometry.pointInPolygon(points,p,1e-5)),`${key}: emitted ground including tower feet stays contained`);
+      assert.truthy(ground.every(p=>allowedGround(points,model.layout.towers,p)),`${key}: ground stays in the ring or an intentional tower base`);
       const retained=new Set(group.blocks);
       for(const degrees of [0,17,73,135,211,315]) {
         scene.mapRot=degrees*Math.PI/180;WallPerspective.update(scene);

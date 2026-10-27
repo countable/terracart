@@ -271,7 +271,7 @@ test('building overlay: a castle gets a rampart band, a house gets an outline', 
   const insets = scene.buildingGeomGfx.only('inset');
   assert.eq(insets.length, 2, 'stone band + the merlon dashes over it');
   assert.falsy(insets[0].dash, 'the band itself is solid');
-  assert.truthy(insets[1].dash && insets[1].dash.length === 2, 'the merlons are dashed');
+  assert.eq(insets[1].dash.join(','), '8,8', 'flat fallback uses the artwork tooth and gap widths');
   assert.gt(insets[0].width, 1, 'the band has real thickness');
 
   clearTiles();
@@ -976,7 +976,8 @@ test('building overlay: both horizontal castle boundaries expose thinner caps ov
   const material = buildingBackgroundMaterial(CastleStyles.get('citadel', true));
   const css = c => '#' + c.toString(16).padStart(6, '0');
   const faces = log.polygons.filter(p => p.color === css(material.stone.FACE)
-    && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > Math.max(material.rampart.topDepth, material.rampart.toothWidth));
+    && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > material.rampart.topDepth
+    && Math.max(...p.points.map(v => v.y)) - Math.min(...p.points.map(v => v.y)) > material.rampart.toothHeight);
   assert.eq(faces.length, 4, 'two sections on each horizontal boundary, including the back wall');
   const floorYs = scene.buildingGeomGfx.only('fill')[0].pts.map(p => p.y);
   for (const face of faces) {
@@ -1079,29 +1080,13 @@ test('building overlay: rectangular merlon bases follow their caps at every wall
     const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
     const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
     assert.gt(roofs.length, 0, 'merlons have visible roofs');
-    assert.eq(material.rampart.toothWidth, 6, 'along-wall tooth length is unchanged');
+    const toothWidth = 8;
     assert.eq(material.rampart.topDepth, 3.6, 'cap is 40 percent thinner');
-    const vertices = scene.buildingGeomGfx.only('fill')[0].pts;
-    const winding = reversed ? -1 : 1;
-    for (let i = 0; i < vertices.length; i++) {
-      const a = vertices[i], b = vertices[(i + 1) % vertices.length];
-      const length = Math.hypot(b.x - a.x, b.y - a.y);
-      const nx = -(b.y - a.y) / length * winding, ny = (b.x - a.x) / length * winding;
-      for (const v of [a, b]) {
-        const lift = material.rampart.topDepth
-          + (material.rampart.wallHeight - material.rampart.topDepth) * Math.max(0, ny);
-        const crest = ny < 0 ? { x: v.x + nx * material.rampart.topDepth, y: v.y - lift }
-          : { x: v.x, y: v.y - lift - material.rampart.topDepth * ny };
-        assert.truthy(roofs.some(roof => roof.points.some(p =>
-          Math.hypot(p.x - crest.x, p.y + material.rampart.toothHeight - crest.y) < 1e-7)),
-        'full rectangular crowns reach both edge endpoints without inset corner gaps');
-      }
-    }
     for (const roof of roofs) {
       const [a, b, c] = roof.points;
       const along = { x: b.x - a.x, y: b.y - a.y };
       const across = { x: c.x - b.x, y: c.y - b.y };
-      assert.lt(Math.abs(Math.hypot(along.x, along.y) - material.rampart.toothWidth), 1e-7,
+      assert.lt(Math.abs(Math.hypot(along.x, along.y) - toothWidth), 1e-7,
         'the tooth retains its full width, even at an edge end');
       assert.lt(Math.abs(Math.hypot(across.x, across.y) - material.rampart.topDepth), 1e-7,
         'the top reaches both edges of the thinner cap');
@@ -1351,6 +1336,41 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   WallPerspective.update(scene);
   assert.eq(scene.buildingGeomGfx.commits, commits, 'rotation does not upload the ground canvas');
   assert.eq(log.refreshes, 0, 'rotation never uploads a wall texture');
+  clearTiles();
+});
+
+test('building overlay: castle fallback crowns keep artwork spacing for every wall length', () => {
+  for (const meters of [13, 27, 41]) for (const perspective of [false, true]) {
+    clearTiles();
+    putShapes(0, 0, [{ring: Float32Array.from([1,1,1+meters,1,1+meters,21,1,21]),
+      tier: T.BUILDING_LARGE, key: 'citadel'}]);
+    const {scene, log} = perspective ? makePerspectiveScene() : makeWallScene();
+    scene.isClaimedKey = () => true;
+    scene.viewLeft = scene.viewTop = -2048; scene.viewSize = 4096;
+    BuildingOverlay.draw(scene);
+    const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
+    const teeth = perspective ? scene._wallPerspective.polygon.blocks.filter(b=>b.bottom>0).map(b=>b.points)
+      : log.polygons.filter(p=>p.color==='#'+material.stone.LITE.toString(16).padStart(6,'0')).map(p=>p.points);
+    const rows = new Map();
+    for(const tooth of teeth) {
+      const [a,b] = tooth;
+      if(Math.abs(a.y-b.y)>1e-6)continue;
+      assert.lt(Math.abs(Math.abs(b.x-a.x)-8),1e-6,'fallback tooth width matches the source artwork');
+      const key=a.y.toFixed(5),row=rows.get(key)||[];
+      row.push(Math.min(a.x,b.x));rows.set(key,row);
+    }
+    assert.gt(rows.size,0,'horizontal fallback crowns are present');
+    let neighbours=0;
+    for(const row of rows.values()) {
+      row.sort((a,b)=>a-b);
+      for(let i=1;i<row.length;i++) {
+        const steps=(row[i]-row[i-1])/16;
+        assert.lt(Math.abs(steps-Math.round(steps)),1e-6,'damage can remove teeth but cannot fit gaps to wall length');
+        if(Math.abs(steps-1)<1e-6)neighbours++;
+      }
+    }
+    assert.gt(neighbours,0,'at least one intact 16px repeat survives the damage pattern');
+  }
   clearTiles();
 });
 
