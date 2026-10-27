@@ -4,7 +4,7 @@
 // atlas.roundedRadius; `grass` rows select it where they meet other ground.
 // No browser dependencies: the atlas exporter evaluates this same data file.
 const GroundMaterials = {
-  atlas: {"key":"ra_terrain_source","path":"assets/ArtTrials/RogueTerrain/tiles.png","frameSize":16,"waterFamily":"water","roundedRadius":6},
+  atlas: {"key":"ra_terrain_source","path":"assets/ArtTrials/RogueTerrain/tiles.png","frameSize":16,"waterFamily":"water","roundedRadius":8},
   families: [
     {"id":"villageGrass","grass":true,"source":"RA_Ground_Tiles.png","options":{"x":80,"y":64,"tileSize":16,"inner":{"nw":[112,48],"ne":[80,48],"sw":[112,16],"se":[80,16]}}},
     {"id":"forestGrass","grass":true,"source":"RA_Jungle.png","options":{"x":0,"y":528,"tileSize":16,"inner":{"nw":[64,544],"ne":[48,544],"sw":[64,528],"se":[48,528]}}},

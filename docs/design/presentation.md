@@ -130,9 +130,10 @@ pixels and decorative details do not define additional tap cells.
   by whichever presentation runs. Bag-full take/leave choices still appear.
   Empty pots and barrels retain their brief smash feedback; their coins use a toast.
 - An item or gear name in a shop, trader or smithy dialog is tappable
-  (`Rewards.tapHTML` / `Rewards.itemTapHTML`, dotted underline). A tap pops the
-  same `Rewards.desc` line in a bubble beside the name (`_itemDescTap` in
-  `modal_shell.js`, installed on every dialog); the next tap closes it. When the
+  (`Rewards.tapHTML` / `Rewards.itemTapHTML`, dotted underline). A tap has the
+  Dragon Spirit say the same `Rewards.desc` line in a speech bubble pointing at
+  the name (`_itemDescTap` in `modal_shell.js`, installed on every dialog;
+  `showMessageModal({ keepOffer })` leaves the shop open beneath). When the
   dialog already prints that line, as a shop shelf row or forge blurb does, the
   tap lights that line up instead of repeating it.
 
@@ -588,9 +589,12 @@ pixels and decorative details do not define additional tap cells.
   interpolations. Cut copy or use a modal; do not interpolate unbounded POI names.
 - Statuses, buffs and timers on the player live in ONE place: the status
   row (`_syncStatusRow`, `STATUS_ROW_CSS`), fixed at the top centre between
-  the direction lock and money widgets. Three equal columns wrap additional
-  chips into new rows. The unpadded container and passive chips pass taps
-  through; only action buttons accept taps. The row floats above HUD controls
+  the direction lock and money widgets. Icon-wide columns (at least 36px)
+  wrap additional chips into new rows. The unpadded container passes taps
+  through; every chip is a button. An action chip (the portal's Return) acts;
+  any other opens a Dragon Spirit speech bubble at the chip naming the effect,
+  its time left and what it does (`Conditions.describe`, `Buffs.describe`, a
+  boss chip's `effect`), with numbers read from the owning rows. The row floats above HUD controls
   and below dialogs, with no objective-dependent repositioning. Chips show pixel icons and
   countdowns; names and drains stay in accessible labels and hover text. One chip per
   row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin) and of `Buffs.KINDS`

@@ -146,7 +146,7 @@ export manifest.
 Grass meets other ground on rounded corners. Below the native rows the atlas
 repeats every family (256 × 832 pixels) with masks re-cut on the logical cell
 boundary: convex corners rounded and concave corners filleted at
-`GroundMaterials.atlas.roundedRadius` (6 of 16 px), each family's own opaque
+`GroundMaterials.atlas.roundedRadius` (8 of 16 px, the most a dual-grid quadrant allows), each family's own opaque
 centre and re-derived edge ink, and a mirrored one-pixel wobble so islands stay
 centred. Water's row copies its authored bank rocks. `layersFor` offsets every
 overlay frame into that block when the cell's four materials include a `grass`
@@ -1287,14 +1287,17 @@ the reach rim within the existing player-light radius.
   line length, independent of restoration ladder goals), with sparse lamps on Medium/Large
   roads. Street variants tint emitted light; an enclosing nexus takes precedence.
   Suppressed roads retain their own turquoise emission even inside a nexus.
-  Standing lamps use the native Rogue lit/unlit assets selected by
-  `RENDER_SPEC._streetlamp`. Their source pixels and contact seating stay in
+  Standing lamps use `StreetLights` to select hanging lanterns, street lanterns,
+  fire pedestals, green orbs, paired candles and standing flames by route theme, with native Rogue lit/unlit
+  assets as the fallback. Source art without a dark frame is dimmed until
+  restoration; only restored lamps emit light. `RENDER_SPEC._streetlamp`
+  and `Lighting.collectLamps` share this table's scale and emitter offsets. Their source pixels and contact seating stay in
   the normal object renderer; there is no alternate foundation painter,
   per-colour lamp bake or selected-streetlamp derivative. Road restoration
   and brightness retain their existing site data and gameplay rules.
   Variant and Nexus colours tint emitted light through `Lighting`, not the
-  lamp image. Screen-space emission anchors use the shared
-  `RoadOverlay.LAMP_LIGHT_OFFSET_CELLS` and `LAMP_LIGHT_RISE_CELLS` fractions.
+  lamp image. Screen-space emission anchors use `StreetLights.ART` per silhouette,
+  falling back to `RoadOverlay.LAMP_LIGHT_OFFSET_CELLS` and `LAMP_LIGHT_RISE_CELLS`.
   `Lighting.liftPx` rotates the offsets into the map frame, keeping radiance
   aligned through camera rotation without depending on a retired canvas size.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
@@ -1665,3 +1668,17 @@ Underground floor transitions remain separate from the surface stack.
 (ground, route, accent, pad or sewer channel). Role changes do not sample four
 neighbouring materials. Cave wall crowns and faces use their own neighbour-mask
 atlas and retained geometry.
+
+
+### Approved roadside art
+
+`assets/StreetDecorations/sources.json` records reviewed tileset crops and every
+suggested route. `tools/build_street_decoration_art.py` exports exact pixels and
+`STREET_DECORATION_ART` bounds. `_streetArt` changes presentation without changing
+pickup, container, mining or hazard behavior. Ground slicks, loose planks and
+fragments remain ground decals. Broken pottery falls back to its shared shards.
+Mossy, conifer, bare and lavender tree families use the same silhouette at three
+growth sizes; bare trees share one family across burned, thorny and haunted routes.
+The small grass-clump variant retains the longgrass 3D blade material and root
+placement, with one third of blades and 65% blade dimensions. It stays harvestable
+longgrass. Mushroom imports use a muted warm tint to fit the existing caps.

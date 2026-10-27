@@ -53,6 +53,14 @@ const SPRING_CROPS_COLS = 14;
 // Fruiting and ordinary bushes share every foliage pixel and the same geometry.
 const BUSH_SPRITE = { sheet: 'bushes', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 1 };
 const CROP_SPRITE = {
+  white_flower: { sheet: 'street_decor_white_flower', custom: true, frame: 0, scale: 1.4 },
+  yellow_flower: { sheet: 'street_decor_yellow_flowers', custom: true, frame: 0, scale: 1.4 },
+  golden_flower: { sheet: 'street_decor_golden_flowers', custom: true, frame: 0, scale: 1.4 },
+  young_fern: { sheet: 'street_decor_young_fern', custom: true, frame: 0, scale: 1.4 },
+  golden_bowl: { sheet: 'street_decor_golden_bowl', custom: true, frame: 0, scale: 1.4 },
+  bone_fragments: { sheet: 'street_decor_bone_fragments', custom: true, frame: 0, scale: 1.4 },
+  slime_slick: { sheet: 'street_decor_green_slick', custom: true, frame: 0, scale: 1.4 },
+
   potato: { sheet: 'springcrops', row: 5 },
   // Preserve seed, produce and growing-stage art; every mature berry bush
   // uses the ordinary bush with berries overlaid, including farmed bushes.
@@ -69,7 +77,7 @@ const CROP_SPRITE = {
   onion:  { sheet: 'springcrops', row: 7 },   // brown bulb with green tops
   // Approved long grass shares its inventory sprite. Petnip retains its authored art.
   longgrass: { sheet: 'selected_longgrass', custom: true, frame: 0, scale: 1.16 * 0.9 },
-  petnip: { sheet: 'petnip', custom: true, frame: 0, scale: 1.16 },
+  petnip: { sheet: 'petnip', custom: true, frame: 0, scale: 1.16 * 0.85 },
   nettle: { sheet: 'props', custom: true, frame: 33, scale: 1.13 },
   // Shrub looks share harvesting; brambles mark thorny groves and roads.
   shrub: { sheet: 'selected_shrub', custom: true, frames: [0], scale: 1.5,
@@ -181,6 +189,11 @@ const WILDPLANT_CONTEXT_ART = {
   reeds: { crop: 'longgrass', sheet: 'approved_wetland_reeds', custom: true, frame: 0, scale: 1.16 },
 };
 function wildplantSprite(p) {
+  const streetArt = typeof STREET_DECORATION_ART !== 'undefined' && STREET_DECORATION_ART[p?._streetArt];
+  if (streetArt) return { crop: p.crop, sheet: 'street_decor_' + p._streetArt, custom: true,
+    frame: 0, scale: streetArt.scale, shadow: !streetArt.ground,
+    tint: ['spotted_mushroom', 'red_mushroom'].includes(p._streetArt) ? 0xb0a27c : undefined };
+
   // Authored mineral seams and cover-sized boulders keep their specific silhouettes.
   if (p?.crop === 'rubble' && (p.kind === 'wildplant' || p.wildId)
       && (mineralRockUsesZoneArt(p) || p.sightBlocking || mineralRockMaterial(p) !== 'plain'))
@@ -265,6 +278,8 @@ const WILDPLANT_RULES = {
   // day's; that it was TAKEN today is the day ledger's (interact.js
   // 'wildplant' — never save.picked).
   driftwood: { output: 'wood' },
+  bone_fragments: { output: 'bone' },
+  slime_slick: { name: 'Poison slick', unpickable: true, contactCondition: { id: 'poison', durationMs: 3000 } },
   longgrass: { treasure: { chance: 0.01, coins: 1 }, hiddenItem: { chance: 0.01, item: 'egg' } },
   // Stone debris. The pick relic's ladder times the wheel the same way a rock
   // does — but gathering loose rubble off the ground costs no energy, so no
@@ -729,6 +744,13 @@ const MINERAL_ICON_SHEET = {
   // Frame 12 (col 12, row 0) is the pink blossom. Like egg/milk it has no
   // crop/grows key, so it needs this entry to resolve an icon.
   flowers:      { sheet: 'props',       frame: 12 },
+  white_flower: { sheet: 'street_decor_white_flower', frame: 0 },
+  yellow_flower: { sheet: 'street_decor_yellow_flowers', frame: 0 },
+  golden_flower: { sheet: 'street_decor_golden_flowers', frame: 0 },
+  young_fern: { sheet: 'street_decor_young_fern', frame: 0 },
+  golden_bowl: { sheet: 'street_decor_golden_bowl', frame: 0 },
+  bone: { sheet: 'street_decor_bone_fragments', frame: 0 },
+
   // Fruit-tree saplings — the young-tree frame off the species sheet (32px
   // frames; frame 2 = the small young green tree) reads as a sapling.
   apple_sapling: { sheet: 'apple_tree', frame: 2 },
@@ -1060,6 +1082,13 @@ const ITEMS = [
   { id: 'nettle', name: 'Nettle', kind: 'produce', crop: 'nettle' },
   // Wild flower pickups (per-polygon color but stacks as a single item).
   { id: 'flowers', name: 'Flowers', kind: 'produce' },
+  { id: 'white_flower', name: 'White flower', kind: 'produce', baseTier: 1 },
+  { id: 'yellow_flower', name: 'Yellow meadow flowers', kind: 'produce', baseTier: 1 },
+  { id: 'golden_flower', name: 'Golden flowers', kind: 'produce', baseTier: 3 },
+  { id: 'young_fern', name: 'Young fern', kind: 'produce', baseTier: 1 },
+  { id: 'golden_bowl', name: 'Golden bowl', kind: 'supply', baseTier: 3 },
+  { id: 'bone', name: 'Bone', kind: 'supply', baseTier: 1 },
+
   // Rare wild flora — prized foraged flowers picked from sparse blooms in
   // grasslands (forget-me-not, marigold) and forests (wild rose, starflower).
   // Wild-only: not plantable, no seed. `crop` points at the CROP_SPRITE frame
@@ -1831,6 +1860,7 @@ function isRiding(save) {
   return !!save?.riding && !!horse && !Pets.isDown(horse);
 }
 const PRICES = {
+  white_flower: 1, yellow_flower: 1, golden_flower: 10, young_fern: 1, golden_bowl: 75, bone: 1,
   pet_collar: 35, pet_guard_collar: 60, pet_fang_charm: 60, pet_rest_charm: 50,
   field_scope: 80, compass: 0, orb: 180, goblet: 180, lucky_key: 100,
   wood_shield: 40, metal_shield: 160, gold_shield: 500,

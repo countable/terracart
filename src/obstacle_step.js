@@ -6,9 +6,10 @@ const WorldLayers = Object.freeze({
   GROUND_DECAL: 'groundDecal',
   STEP_OVER_PROP: 'stepOverProp',
   STANDING_PROP: 'standingProp',
-  FLAT_CROPS: Object.freeze(['shell', 'driftwood']),
+  FLAT_CROPS: Object.freeze(['shell', 'driftwood', 'slime_slick', 'bone_fragments']),
   forObject(object, spec = {}) {
     const layer = typeof spec.layer === 'function' ? spec.layer(object) : spec.layer;
+    if (!layer && typeof STREET_DECORATION_ART !== 'undefined' && STREET_DECORATION_ART[object?._streetArt]?.ground) return this.GROUND_DECAL;
     return layer || (object?.kind === 'wildplant' && this.FLAT_CROPS.includes(object.crop)
       ? this.GROUND_DECAL : (ObstacleStep.profile(object)?.liftPx > 0) ? this.STEP_OVER_PROP : this.STANDING_PROP);
   },

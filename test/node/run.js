@@ -102,6 +102,8 @@ const FILES = [
   'streets.js',
   // Street variants. Pure (reads WorldGen / Streets at CALL time), before worldgen.js like the page.
   'street_variants.js',
+  'street_lights.js',
+  'street_signs.js',
   // Scenic paths, beaches and viewpoints. Pure, after street_variants.js like the page.
   'scenic.js',
   // Influence zones. Pure (reads WorldGen at CALL time), before worldgen.js like the page.
@@ -1179,6 +1181,7 @@ for (const f of fs.readdirSync(path.join(ROOT, 'test', 'fixtures')).filter((n) =
 }
 ctx.RENDER_SRC = readSrc('render.js');
 ctx.ROGUE_OBJECT_BOUNDS = new Function(readSrc('rogue_object_bounds.js') + ';return ROGUE_OBJECT_BOUNDS;')();
+ctx.STREET_DECORATION_ART = new Function(readSrc('street_decoration_art.js') + ';return STREET_DECORATION_ART;')();
 // textures.js loads headlessly in its OWN context (its constants share names
 // with the stubs above); tilled_bed.test.js runs drawTilledTex against a recording 2D context.
 ctx.TILLED_TEX = (() => {

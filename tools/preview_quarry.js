@@ -5,7 +5,7 @@ const fs = require('fs'), path = require('path'), vm = require('vm');
 const root = path.resolve(__dirname, '..'), ctx = { console, performance, addEventListener() {} };
 ctx.window = ctx;
 vm.createContext(ctx);
-for (const name of ['enemy_roster', 'sprite_layout', 'util', 'polygon_geometry', 'coords', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'assets', 'items', 'loot', 'macros', 'obstacle_step', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'gameplay_tiers', 'worldgen', 'scenic', 'road_overlay', 'rogue_object_bounds', 'rogue_prop_profile', 'rogue_objects']) {
+for (const name of ['enemy_roster', 'sprite_layout', 'util', 'polygon_geometry', 'coords', 'zone_variant_data', 'terrain', 'zone_variants', 'shrines', 'streets', 'street_variants', 'biome_profiles', 'art_atlas', 'selected_world_atlas', 'selected_item_art', 'assets', 'items', 'loot', 'macros', 'obstacle_step', 'interactables', 'zones', 'zone_coverage', 'quarry_layout', 'zone_dressing', 'gameplay_tiers', 'worldgen', 'scenic', 'road_overlay', 'rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects']) {
   vm.runInContext(fs.readFileSync(path.join(root, 'src', name + '.js'), 'utf8'), ctx, { filename: name + '.js' });
 }
 // Select a runtime row for comparison while retaining the real generator,

@@ -693,8 +693,10 @@ class SceneModals {
   // `art` (optional) — the story's own SCENE painting (assets/art/ stem); a
   // dialog with one is a STORY unless the caller names another kind.
   // `kind` (optional) — the MODAL_KINDS category; a plain message is a 'note'.
-  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections }) {
-    document.getElementById('offer-modal')?.closeModal?.();
+  // `keepOffer` leaves an open offer standing beneath (an item's line asked
+  // from inside a shop, _itemDescTap); every other message replaces it.
+  showMessageModal({ title, body, okLabel, onDismiss, art, portrait, kind = art ? 'story' : 'note', kindLabel, mustAcknowledge = false, source, bookPage = false, sections, keepOffer = false }) {
+    if (!keepOffer) document.getElementById('offer-modal')?.closeModal?.();
     let dismissed = false;
     const dismiss = () => {
       if (dismissed) return;
@@ -920,20 +922,18 @@ class SceneModals {
   //                 dialog reads as the plain price tag it is). A `suggested`
   //                 card wears a soft outline until something is picked.
   // ITEM NAMES ANSWER A TAP: a `.desc-tap` name in any dialog
-  // (Rewards.tapHTML) pops what the thing is beside it - Rewards.desc, the same
-  // line the inventory hint and the loot card print. A dialog that already
-  // prints that line (a shop shelf row, a forge's blurb) only lights it up.
-  // The next tap anywhere in the dialog closes the bubble.
+  // (Rewards.tapHTML) has the Dragon Spirit say what the thing is, in a
+  // speech bubble pointing at the name - Rewards.desc, the same line the
+  // inventory hint and the loot card print. The dialog beneath stays open.
+  // A dialog that already prints that line (a shop shelf row, a forge's
+  // blurb) only lights it up.
   _itemDescTap(e, wrap) {
     const tap = e.target.closest?.('.desc-tap');
-    const open = wrap.querySelector('.desc-pop');
-    const same = open && tap && open.dataset.for === tap.dataset.descKey;
-    open?.remove();
-    if (!tap || !wrap.contains(tap) || same) return;
+    if (!tap || !wrap.contains(tap)) return;
     e.stopPropagation();
     const kind = tap.dataset.descKind, key = tap.dataset.descKey;
-    const text = typeof Rewards !== 'undefined'
-      ? Rewards.desc(kind === 'item' ? { kind, id: key } : { kind, slot: key }) : null;
+    const piece = kind === 'item' ? { kind, id: key } : { kind, slot: key };
+    const text = typeof Rewards !== 'undefined' ? Rewards.desc(piece) : null;
     if (!text) return;
     if (wrap.textContent.includes(text)) {
       // Already printed here: light that line up instead (the deepest node
@@ -942,19 +942,8 @@ class SceneModals {
       line?.animate?.([{ color: '#ffe066' }, {}], { duration: 900 });
       return;
     }
-    const pop = document.createElement('div');
-    pop.className = 'desc-pop';
-    pop.dataset.for = key;
-    pop.textContent = text;
-    wrap.appendChild(pop);
-    // #game is CSS-scaled: measure in screen px, seat in the wrap's own px.
-    const wr = wrap.getBoundingClientRect(), r = tap.getBoundingClientRect();
-    const k = wr.width / (wrap.offsetWidth || wr.width || 1);
-    const w = pop.offsetWidth, h = pop.offsetHeight, W = wrap.offsetWidth, H = wrap.offsetHeight;
-    const cx = (r.left + r.width / 2 - wr.left) / k;
-    const below = (r.bottom - wr.top) / k + 4, above = (r.top - wr.top) / k - h - 4;
-    pop.style.left = `${Math.round(Math.max(8, Math.min(W - w - 8, cx - w / 2)))}px`;
-    pop.style.top = `${Math.round(below + h <= H - 8 || above < 8 ? below : above)}px`;
+    const title = kind === 'item' ? itemName(key) : gearName(kind, key, Number(tap.dataset.descTier) || 1);
+    this.showMessageModal({ kind: 'spirit', source: tap, title, body: text, okLabel: 'Got it', keepOffer: true });
   }
   showOfferModal({ headline, title, get, blurb, cost, canAfford, disabledReason, onAccept, repeat, receipt, onCancel, back, acceptLabel = 'Buy', cancelLabel = 'Cancel', secondary, topAction, selector, tabs, forLabel = 'for', getLabel, costLabel, kind, kindLabel, kindIcon, art, portrait, fullscreen = false, source, choices, choice = null, pickHint = 'Tap one to see what it does' }) {
     // What the last accept of a REPEAT offer said (its flashLoot / flash

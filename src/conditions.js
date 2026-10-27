@@ -242,6 +242,24 @@
     }
     return cleared;
   }
+  // The plain rule a status-row chip's Dragon Spirit bubble states (app.js
+  // _showStatusHelp), read off the row's own numbers.
+  function describe(id) {
+    const d = DEFINITIONS[id];
+    if (!d) return '';
+    const half = (mul) => mul === 0.5 ? 'half' : `${Math.round(mul * 100)}%`;
+    const rules = {
+      burning: `You lose ${d.energyLoss} energy every ${shortDuration(d.intervalMs)}, and more the longer you stay in the fire. Get out of the flames.`,
+      poison: `You lose ${d.energyLoss} energy every ${shortDuration(d.intervalMs)}.`,
+      confused: 'Your steps wander off course.',
+      jellyfish_stun: `You can't move, and you attack at ${half(d.attackSpeedMul)} speed.`,
+      frozen: `You move and attack at ${half(d.moveSpeedMul)} speed.`,
+      paralysis: "You can't move or attack.",
+      pinned: "A trap's jaws hold you in place.",
+      blinded: `Your light and sight reach ${half(d.lightMul)} as far.`,
+    };
+    return `${rules[id] || ''} An Antidote or an Elixir cures it.`.trim();
+  }
   function useAntidote(save) { return clearDebuffs(save); }
   function useElixir(save) {
     const max = Energy.maxEnergy(save);
@@ -250,5 +268,5 @@
     clearDebuffs(save);
     return true;
   }
-  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, useAntidote, useElixir };
+  root.Conditions = { DEFINITIONS, FLICKER_MS, conditionTintOn, normalize, active, confusionSteering, movementBlocked, attacksBlocked, attackIntervalMul, movementMul, lightMul, apply, cure, advanceBurn, burnTickLoss, damageImmune, setDialogShield, flying, fireImmune, fireDamage, tick, hasDebuffs, clearDebuffs, describe, useAntidote, useElixir };
 })(typeof globalThis !== 'undefined' ? globalThis : this);
