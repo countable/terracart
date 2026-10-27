@@ -3914,7 +3914,8 @@ Render.drawGrassPrisms = function (scene, plantItems) {
   for (const item of plantItems) {
     if (!WorldGen.isGrassCover({ ...item.p, kind: 'wildplant' }) || !item.p.wildId || item.p._pickedRemnant) continue;
     const cell = worldMetersToAbsCell(scene, item.p.x, item.p.y);
-    pieces.push(cell); drawn.add(item); key += `|${cell.cellIX}:${cell.cellIY}`;
+    const sparseClump = item.p._streetArt === 'grass_clump';
+    pieces.push({...cell, sparseClump}); drawn.add(item); key += `|${cell.cellIX}:${cell.cellIY}:${sparseClump}`;
   }
   if (!pieces.length) { WallPerspective.clear(scene, 'grass'); scene._grassPrismKey = null; return drawn; }
   Render.prismGroupPass(scene, 'grass', '_grassPrismKey', key, -fx, -fy, (group) => {
@@ -3928,9 +3929,10 @@ Render.drawGrassPrisms = function (scene, plantItems) {
         { ...cell, cellSize: CELL_PX, underdark: WorldGen.floorProfile(scene.depth || 0)?.biome === 'underdark' });
       for (let blade = 0; blade < faces.length; blade += 2) {
         const { x: cx, y: cy } = faces[blade].billboard;
-        const half = WallMaterials.GRASS.width / 2;
+        const bladeScale = cell.sparseClump ? WallMaterials.GRASS.sparseScale : 1;
+        const half = WallMaterials.GRASS.width * bladeScale / 2;
         WallPerspective.prism(scene, 'grass', [{ x: cx - half, y: cy - half }, { x: cx + half, y: cy - half },
-          { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height,
+          { x: cx + half, y: cy + half }, { x: cx - half, y: cy + half }], 0, WallMaterials.GRASS.height * bladeScale,
           { face: 0x7f7f46, top: 0x7f7f46, dark: 0x7f7f46 }, null, false,
           { materialFaces: faces.slice(blade, blade + 2) });
       }
@@ -4637,7 +4639,7 @@ Render.drawObjects = function drawObjects(scene) {
   // drawRoadGeometry a moment before this pass) and the same `lit` flag decides
   // the art here and the light in Lighting.collectLamps.
   const lampList = placedAs(scene._streetLamps || [], '_streetlamp', 'lamp',
-    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow, suppressed: L.suppressed }));
+    (L) => ({ lit: L.lit, tier: L.tier, glow: L.glow, suppressed: L.suppressed, _streetArt: L._streetArt }));
 
   // Hide objects that are temporarily gone — an opened chest (its pad and label
   // go with it until it refills), a chopped tree, a mined-out mineralrock, a
@@ -4660,6 +4662,23 @@ Render.drawObjects = function drawObjects(scene) {
   Render.cullCovered(scene, objList, 'o', true);
   Render.cullCovered(scene, plantedList, 'p', true);
   Render.cullCovered(scene, trapList, 'tr', true);
+  // A stump is visual only: the original tree remains spent for tapping,
+  // collision and planting. New crops or furniture hide the old cut base.
+  const stumpAt = ({ o, dx, dy }) => {
+    if (o.kind !== 'tree' || !(o.chopped || spentIds.chopped.has(o.id))
+        || spentIds.burned?.has(o.id) || spentIds.burnedGround?.(o)) return null;
+    if (objList.some(it => it.o.id !== o.id && !isSpent(it.o, spentIds) && sameAbsCell(scene, it.o.x, it.o.y, o.x, o.y))
+        || plantedList.some(({ p }) => sameAbsCell(scene, p.x, p.y, o.x, o.y))
+        || (scene.save.furniture || []).some(p => sameAbsCell(scene, p.x, p.y, o.x, o.y))) return null;
+    return { o: { ...o, kind: 'tree_stump', _streetArt: 'stump' }, dx, dy };
+  };
+  const stumpSources = [...objList];
+  for (const o of scene.save.treeStumps || []) {
+    if ((o.depth || 0) !== _curDepth || objList.some(it => it.o.id === o.id)) continue;
+    const dx = o.x - pWorldX, dy = o.y - pWorldY;
+    if (inViewBox(dx, dy, halfM)) stumpSources.push({ o: { ...o, kind: 'tree', chopped: true }, dx, dy });
+  }
+  const stumps = stumpSources.map(stumpAt).filter(Boolean);
   const filteredObj = objList.filter(({ o }) => {
     const spent = isSpent(o, spentIds);
     if (o.kind === 'chest' && isBarrel(o) && chestLook(o).smashedKey) { o._smashed = spent; return true; }
@@ -4668,6 +4687,7 @@ Render.drawObjects = function drawObjects(scene) {
   // Merge in placed scarecrows so they go through the same sprite pool +
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
+  filteredObj.push(...stumps);
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const fp of firepitList) filteredObj.push(fp);
@@ -6289,6 +6309,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
   };
 
   const RENDER_SPEC = {
+    tree_stump: { key: 'street_decor_stump', frame: '__BASE', origin: [0.5, 0.5], scale: 1.0, seat: true, layer: WorldLayers.GROUND_DECAL },
     // Temples use their entire source polygon; no house sprite covers the runes.
     temple: { key: null, layer: WorldLayers.GROUND_DECAL },
     shrine_spirit: {
@@ -6371,9 +6392,9 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // Native Rogue lamps share the gameplay list and restoration flag with
     // Lighting. Art is preloaded once; glow colour belongs to the emitter.
     _streetlamp: {
-      key: (o) => o.lit ? 'rogue_lamp' : 'rogue_lamp_unlit',
-      frame: '__BASE', scale: 1.25, origin: [0.5, 0.5],
-      seat: true,
+      key: (o) => typeof StreetLights !== 'undefined' ? StreetLights.key(o) : o.lit ? 'rogue_lamp' : 'rogue_lamp_unlit',
+      frame: '__BASE', scale: (o) => typeof StreetLights !== 'undefined' ? StreetLights.scale(o) : 1.25, origin: [0.5, 0.5],
+      seat: true, after: (sprite, o) => { if (typeof StreetLights !== 'undefined') StreetLights.after(sprite, o); },
     },
     // Standing flame pillar; stable seating keeps its base still as the flame flickers.
     torch: { key: 'torch',
@@ -6540,6 +6561,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
+    roadsign: { key: 'street_decor_direction_sign', frame: '__BASE', origin: [0.5, 0.5], scale: .65, seat: true, shadow: true },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.
@@ -6678,7 +6700,7 @@ Render.objectAppearance = function (scene, houseRoles) {
 // its scene token prevents a review scene from reusing another scene's tuple.
 const CACHED_APPEARANCE_KINDS = new Set([
   'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar', 'stalagmites', 'inactive_poison_vent',
-  'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
+  'roadsign', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
   'groundstack',
 ]);
 Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {

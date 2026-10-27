@@ -373,10 +373,33 @@
       scene._igniteGroundCell({ ...cell, depth: h.depth }, now, { durationMs: row.groundFireMs, relight: true });
     }
   }
+  // Authored ground pickups can be a contact surface rather than a harvest.
+  // Reuse the plant rule and canonical feet cell; a slick never poisons from a neighbouring cell.
+  function wildplantContact(scene, s) {
+    if (root.Conditions.flying(scene.save) || root.Combat.playerDowned(scene.save.energy)) return;
+    const p = playerWorldM(scene), c = worldMetersToTileCell(scene, p.x, p.y + (scene.feetOffsetM || 0));
+    const e = root.WorldGen.tileCache.get(root.WorldGen.tileKey(c.tx, c.ty));
+    if (!e || e.status !== 'ready' || (e.depth || 0) !== (scene.depth || 0)) return;
+    const key = `${c.tx}:${c.ty}:${c.ix}:${c.iy}`;
+    if (s.contactPlantCell === key && s.elapsedMs < (s.nextPlantContactMs || 0)) return;
+    s.contactPlantCell = key; s.nextPlantContactMs = s.elapsedMs + CONFIG.contactMs;
+    const spent = typeof spentSets === 'function' ? spentSets(scene, scene.save) : null;
+    for (const plant of e.wildplants || []) {
+      const rule = wildplantRule(plant.crop)?.contactCondition;
+      if (!rule || (spent && isSpent(plant, spent))) continue;
+      const at = worldMetersToTileCell(scene, plant.x, plant.y);
+      if (at.ix !== c.ix || at.iy !== c.iy || at.tx !== c.tx || at.ty !== c.ty) continue;
+      if (root.HomeVariant && !root.HomeVariant.allows(scene, plant)) continue;
+      if (scene._applyCondition) scene._applyCondition(rule.id, { durationMs: rule.durationMs });
+      else root.Conditions.apply(scene.save, rule.id, Date.now(), { durationMs: rule.durationMs });
+    }
+  }
+
   function tick(scene, dt) {
     if (!scene.startWorldM || !scene.playerM || !Number.isFinite(dt) || dt <= 0) return;
     const s = state(scene), ms = Math.min(CONFIG.maxStepMs, dt * 1000);
     s.elapsedMs += ms; observe(scene);
+    wildplantContact(scene, s);
     const hazards = [...s.vents, ...s.sinkholes, ...s.caveins], previous = new Map();
     let persistCaveIns = false;
     // Advance every cluster cell before a fall can switch floors.
@@ -435,5 +458,5 @@
     s.vents = s.vents.filter(h => !h.blocked);
     s.sinkholes = s.sinkholes.filter(h => h.phase !== 'closed');
   }
-  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, caveInVariant, touch, exposure, observe, tick };
+  root.EnvironmentHazards = { CONFIG, VENTS, ventKinds, state, lists, footprint, suitable, eligible, create, update, erupt, overlaps, quarryVariant, caveInVariant, touch, exposure, observe, wildplantContact, tick };
 })(typeof globalThis !== 'undefined' ? globalThis : this);

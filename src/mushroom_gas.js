@@ -11,6 +11,7 @@
   // of paralysis cannot hold the player still until it clears: the gap
   // between doses is the window to walk out.
   const KINDS = Object.freeze({
+    healing: Object.freeze({ heal: 1, colour: 0xf08cd1, highlight: 0xffdcf3 }),
     confusion: Object.freeze({ condition: 'confused', durationMs: 5000, densityScaled: true, colour: 0xffde1a, highlight: 0xffffc4 }),
     poison: Object.freeze({ condition: 'poison', durationMs: 30000, colour: 0xa4f02c, highlight: 0xf0ffc8 }),
     paralysis: Object.freeze({ condition: 'paralysis', durationMs: 5000, rearmMs: 8000,
@@ -29,7 +30,7 @@
     // not mistake the source's own existing occupancy for a new collision.
     const opts = W.spawnOptsOf(entry, { occupied: null });
     for (const plant of entry.wildplants || []) {
-      if (!SOURCE_CROPS.has(plant.crop)) continue;
+      if (!SOURCE_CROPS.has(plant.crop) || plant.gasKind) continue;
       const ix = Math.floor((plant.x - tx * entry.tileEdgeM) / cellM);
       const iy = Math.floor((plant.y - ty * entry.tileEdgeM) / cellM);
       if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
@@ -81,7 +82,7 @@
         root.HiddenObjects.reveal(scene, plant);
         if ((s.cooldowns.get(plant.id) || 0) > s.elapsedMs) return;
         const c = worldMetersToAbsCell(scene, plant.x, plant.y);
-        if (emit(scene, c.cellIX, c.cellIY)) s.cooldowns.set(plant.id, s.elapsedMs + CONFIG.cooldownMs);
+        if (emit(scene, c.cellIX, c.cellIY, undefined, KINDS[plant.gasKind] ? plant.gasKind : 'confusion')) s.cooldowns.set(plant.id, s.elapsedMs + CONFIG.cooldownMs);
       });
     }
     // Expired timers need not accumulate as the player explores new groves.
@@ -127,6 +128,11 @@
       c.cell = key;
       c.nextMs = s.elapsedMs + CONFIG.contactMs;
       if (row.rearmMs) c.rearmAtMs = s.elapsedMs + row.rearmMs;
+      if (row.heal) {
+        if (scene._restoreEnergy) scene._restoreEnergy(row.heal);
+        else root.Energy.set(scene.save, (scene.save.energy || 0) + row.heal, root.Energy.maxEnergy(scene.save));
+        continue;
+      }
       // Each gas shares its condition's own behaviour (confusion's compass,
       // poison's ticks, paralysis's hold). A brief exposure must not shorten
       // an existing longer effect.

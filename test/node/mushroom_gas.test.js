@@ -172,4 +172,16 @@
     MushroomGas.tick(s, 3600);
     assert.eq(st.elapsedMs, MushroomGas.CONFIG.maxFrameMs, 'no hour of offline diffusion or emission');
   }));
+  test('healing mushrooms: authored emitter restores energy, respects the cap and stops after harvest', () => fixture((s, e) => {
+    const p = { ...plant(8, 8), gasEmitter: true, gasKind: 'healing' };
+    e.wildplants = [p]; e._gasPreparedPlants = e.wildplants; e._gasPreparedCount = 1;
+    s.save.energy = 98;
+    advance(s, 100); assert.eq(s.save.energy, 99);
+    assert.falsy(s.save.conditions?.confused, 'healing emitter does not emit confusion');
+    advance(s, 1000); assert.eq(s.save.energy, 100);
+    advance(s, 1000); assert.eq(s.save.energy, 100, 'healing respects maximum energy');
+    s.save.picked = [p.id]; advance(s, 30000);
+    assert.eq(MushroomGas.cells(s).length, 0, 'harvested mushroom produces no more gas');
+  }));
+
 })();

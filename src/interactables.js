@@ -341,6 +341,8 @@ const INTERACTABLES = {
       // record, or spawnInTile keeps rebuilding a tree that only the chopped
       // list hides — and the list grows a dead entry per fell, forever.
       if (o.planted && save.fruittrees) {
+        save.treeStumps ||= [];
+        if (!save.treeStumps.some(p => p.id === o.id)) save.treeStumps.push({ id: o.id, x: o.x, y: o.y, depth: o.depth || 0 });
         save.fruittrees = save.fruittrees.filter(f => f.id !== o.id);
       }
       scene.addToInv('wood', wood);
@@ -539,6 +541,15 @@ const INTERACTABLES = {
     },
   },
 
+  roadsign: {
+    custom: (ctx, o) => {
+      const lines = (o.directions || []).map(d => `${d.direction}: ${d.title}`);
+      ctx.scene.showMessageModal({ title: 'Roadside directions',
+        body: lines.join('\n') || 'No connecting routes are mapped nearby.' });
+      return true;
+    },
+  },
+
   // ---- Chest: the full open-and-loot ceremony ------------------------------
   // Handles the recurring sites on a chest's rails (a bike
   // rack, a wagon, the chapel's blessing, a crate — Macros.DAILY_VISIT_KINDS),
@@ -569,6 +580,8 @@ const INTERACTABLES = {
         }
         save.opened.push(o.id);
         ctx.dirty = true;
+        const sting = barrelProfile(o).openingSting;
+        if (sting) scene._sting?.(sting, o.x, o.y);
         const got = rollBarrel(o);
         if (got.kind === 'empty') { scene.flash(barrelFlash(got), sx, sy); return true; }
         // A small container (isSmallContainer): a new item opens the card, an

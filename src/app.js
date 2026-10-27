@@ -1576,6 +1576,13 @@ const ROAD_CHIP_SVG =
   + '</g></svg>';
 
 const ICON_SHEETS = {
+  street_decor_white_flower: { url: 'assets/StreetDecorations/white_flower.png', cols: 1, srcW: 16, srcH: 16 },
+  street_decor_yellow_flowers: { url: 'assets/StreetDecorations/yellow_flowers.png', cols: 1, srcW: 16, srcH: 16 },
+  street_decor_golden_flowers: { url: 'assets/StreetDecorations/golden_flowers.png', cols: 1, srcW: 16, srcH: 16 },
+  street_decor_young_fern: { url: 'assets/StreetDecorations/young_fern.png', cols: 1, srcW: 16, srcH: 16 },
+  street_decor_golden_bowl: { url: 'assets/StreetDecorations/golden_bowl.png', cols: 1, srcW: 16, srcH: 16 },
+  street_decor_bone_fragments: { url: 'assets/StreetDecorations/bone_fragments.png', cols: 1, srcW: 16, srcH: 16 },
+
   flint: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.flint.frameRects },
   selected_items: { url: SelectedItemArt.url, cols: SelectedItemArt.cols, srcW: SelectedItemArt.width, srcH: SelectedItemArt.height },
   selected_mushroom: { url: SelectedWorldAtlas.path, cols: 16, srcW: SelectedWorldAtlas.width, srcH: SelectedWorldAtlas.height, frames: SelectedWorldAtlas.entries.selected_mushroom.frameRects },

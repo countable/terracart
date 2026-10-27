@@ -227,7 +227,7 @@ test('the literal spellings are gone from the readers', () => {
     // The scarecrow's PNG bakes its own contact shadow, so its row carries none.
     const expected = ['tree', 'fruittree', 'chest', 'mineralrock', 'well',
                       '_fire', 'torch', 'waystone', 'stakes',
-                      'headstone', 'grove_shrine', 'hive', 'infoboard', 'gatepost', 'vista_scope',
+                      'headstone', 'grove_shrine', 'hive', 'roadsign', 'infoboard', 'gatepost', 'vista_scope',
                       'stalagmites', 'sandboxprop'];
     for (const k of expected) assert.truthy(flagged.has(k), `${k} casts a contact shadow`);
     for (const k of ['house', 'tower', 'groundstack', 'staircase', '_scarecrow']) {

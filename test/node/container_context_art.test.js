@@ -71,3 +71,28 @@ test('pots: both selected colours keep matching shards across reloads and locati
   }
   assert.eq(seen.size, 2);
 });
+
+test('approved roadside urn: every opening yields exactly one tier-three magic item', () => {
+  const urn = { kind: 'chest', id: 'dark-urn', barrel: true, barrelStyle: 'street_decor_dark_urn' };
+  for (let i = 0; i < 100; i++) {
+    const got = rollBarrel(urn, () => (i + .5) / 100);
+    assert.eq(got.kind, 'item'); assert.eq(got.qty, 1);
+    assert.eq(ITEM_BY_ID[got.id].kind, 'magic'); assert.eq(ITEM_BY_ID[got.id].baseTier, 3);
+  }
+  assert.eq(barrelProfile(urn).openingSting.energy, 10);
+  assert.eq(chestLook(urn).texKey, 'street_decor_dark_urn');
+  assert.eq(barrelProfile({ ...urn, barrelStyle: 'street_decor_pottery_stack' }).loot, CLAY_POT_LOOT);
+});
+
+test('approved roadside pickups: bones and rubble yield useful materials; golden bowl has value without a use', () => {
+  assert.eq(wildplantOutput('bone_fragments'), 'bone');
+  assert.eq(wildplantOutput('flint'), 'flint_shard');
+  assert.eq(wildplantOutput('driftwood'), 'wood');
+  assert.eq(itemValue('golden_bowl'), 75);
+  assert.falsy(CONSUMABLE_SPEC.golden_bowl);
+  for (const id of ['white_flower','yellow_flower','golden_flower','young_fern','golden_bowl']) {
+    assert.eq(wildplantOutput(id), id);
+    assert.truthy(inventoryIconSource(id).sheet.startsWith('street_decor_'));
+  }
+  assert.truthy(wildplantRule('slime_slick').unpickable);
+});

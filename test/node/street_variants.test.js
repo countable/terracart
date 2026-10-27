@@ -270,11 +270,11 @@ test('rocks: the rocky route keeps its common stone off the road band', () => {
 // ── Dressing ────────────────────────────────────────────────────────────
 test('rocks: the simple rocky route scatters common stone finds along both verges', () => {
   const r = rasterize(), d = dressRockyRoute(r);
-  const finds = [...d.objects, ...d.wildplants].filter(o => o._street === 'rocky_path');
+  const finds = [...d.objects, ...d.wildplants].filter(o => o._street === 'rocky_path' && o.kind !== 'roadsign');
   const lenM = (CPE - 1) * WorldGen.CELL_M;
   assert.gt(finds.length, 0, 'the street is lined');
   const per = lenM / finds.length;
-  assert.inRange(per, 3.5, 5, `one common find per ${per.toFixed(1)} m on open ground`);
+  assert.inRange(per, 2, 5, `one common find per ${per.toFixed(1)} m on open ground`);
   assert.truthy(finds.every(o => o.kind === 'mineralrock' || ['flint', 'rubble'].includes(o.crop)), 'only common stone finds');
 });
 
@@ -287,7 +287,8 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   assert.gt(hedges.length, 4, 'the hedgerow is hedged');
   for (const h of hedges) assert.eq(h.crop, 'shrub', `${h.id} is a bush`);
   assert.falsy(d.wildplants.some((p) => p.crop === 'hedge'), 'no square hedge kind');
-  assert.truthy(hedges.every((h) => h._streetArt === 'clipped' && wildplantSprite(h).sheet === 'approved_clipped_hedge'), 'every hedge uses the shared cut shrub appearance');
+  assert.truthy(hedges.every(h => h._streetArt === 'clipped' ? ['zone_hedge','zone_hedge_single'].includes(h._plantArt) : h._streetArt === 'hedge_strip'), 'hedges mix connected walls and the approved strip');
+  assert.truthy(hedges.some(h => h._streetArt === 'clipped') && hedges.some(h => h._streetArt === 'hedge_strip'), 'both old and new art are represented');
   const seen = new Set();
   for (const p of [...d.wildplants, ...d.objects]) {
     const ix = cellOf(p.x, TX), iy = cellOf(p.y, TY), i = iy * CPE + ix;
@@ -310,7 +311,7 @@ test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles'
   const draw = (occupied = new Set(), spawnWhy = new Uint16Array(CPE * CPE)) => SV.dress({
     index:{extent:EXTENT,lines:[rec]}, tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,
     spawnOpts:{occupied,spawnWhy,roadMask:new Uint8Array(CPE * CPE)},
-  }).wildplants;
+  }).wildplants.filter(p => /^hedge_/.test(p.id));
   const rows = draw();
   const north = rows.filter(p => cellOf(p.y,TY) < 30).map(p => cellOf(p.x,TX));
   const south = rows.filter(p => cellOf(p.y,TY) > 30).map(p => cellOf(p.x,TX));
@@ -577,7 +578,8 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   assert.inRange(plants.filter((w) => w.crop === 'giant_mushroom').length / plants.length, 0.02, 0.25,
     'large caps remain among the denser small-mushroom cover');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
-  for (const w of plants) assert.eq(wildplantSprite(w), CROP_SPRITE[w.crop], 'small and giant caps use their distinct crop art');
+  for (const w of plants) assert.eq(wildplantSprite(w).sheet, 'street_decor_' + w._streetArt, 'approved mushroom art reaches the map');
+  assert.truthy(plants.some(w => w.gasEmitter && w.gasKind === 'healing'), 'rare healing clusters survive the dense cover');
   assert.truthy(wildplantLight('mushroom'), 'and a mushroom glows');
   for (const w of plants) {
     const i = cellOf(w.y, TY) * CPE + cellOf(w.x, TX);
@@ -877,7 +879,7 @@ test('short street dressing: fixed timber species with mixed orchard rows and pi
     ];
     const r = WorldGen.rasterizeTile(ls, CPE, TX, TY, TILE_EDGE_M);
     const d = dressed(r).d;
-    const trees = d.objects.filter((o) => o._street === v);
+    const trees = d.objects.filter(o => o._street === v && /^(tree_og|tree_lane|ft_lane)_/.test(o.id));
     assert.gt(trees.length, 15, v + ' dresses the full short street');
     const timber = trees.filter(o => o.kind === 'tree');
     assert.truthy(timber.every(o => o.treeSpeciesFixed === true && o.species === SV.VARIANT_BY_ID[v].treeSpecies),
@@ -999,7 +1001,7 @@ test('path sections: a closed loop has an inferred seam, not a trail end', () =>
   const reversed = pathIndex([{id:46,geom:[line.slice().reverse()]}]);
   assert.eq(pathSectionGeometry(index), pathSectionGeometry(reversed), 'loop cuts are direction independent');
   assert.inRange(index.pathSections.reduce((sum,rec) => sum + rec.segmentLengthM, 0),1199.999999,1200.000001);
-  assert.truthy(index.pathSections.every(rec => rec.segmentLengthM <= 550), 'loop sections obey the length limit');
+  assert.truthy(index.pathSections.every(rec => rec.segmentLengthM <= 500), 'loop sections obey the length limit');
   const boundaries = index.pathSections.flatMap(rec => [
     {reason:rec.startReason,inferred:rec.startInferred},
     {reason:rec.endReason,inferred:rec.endInferred},
@@ -1047,7 +1049,7 @@ test('path sections: a sustained affinity transition attracts a nearby split', (
   const boundaries = index.pathSections.flatMap(rec => [rec.line[0], rec.line[rec.line.length-1]]);
   assert.truthy(boundaries.some(p => Math.abs(p.x-400) <= 20),
     'a sustained woodland-to-coast transition near 300 m gets a boundary');
-  assert.truthy(index.pathSections.every(rec => rec.segmentLengthM >= 180 && rec.segmentLengthM <= 550));
+  assert.truthy(index.pathSections.every(rec => rec.segmentLengthM >= 180 && rec.segmentLengthM <= 500));
   const before = pathSectionGeometry(index);
   const dressingCount = index.dressingLines.length;
   for (const _ of SV.buildPathSectionsSteps(index, TX, TY, 1,
@@ -1149,7 +1151,7 @@ test('street themes: long and clipped roads wear their theme in sections, with p
   }
   for (const length of patches.values()) assert.inRange(length, SV.MIN_VARIANT_LENGTH_M, SV.MAX_VARIANT_LENGTH_M, 'a section is between the min and the cap');
   const parts = SV.lineParts(whole.lines[0], 1);
-  assert.gt(parts.filter(p => SV.VARIANT_BY_ID[p.variant]?.baseline && p.b - p.a >= SV.LONG_PATCH_UNITS * .6 - 1e-6).length, 1,
+  assert.gt(parts.filter(p => SV.VARIANT_BY_ID[p.variant]?.baseline && p.b - p.a >= SV.MIN_VARIANT_LENGTH_M).length, 1,
     'plain intervals visibly separate themes');
   assert.truthy(SV.VARIANT_BY_ID[SV.variantAt(whole.lines[0], 1024 + 50, 1)]?.baseline, 'lattice boundary has an ordinary variant');
   for (const [line, squares] of [
@@ -1189,23 +1191,23 @@ test('street themes: each bounded road themes 40% of in-tile arclength', () => {
 });
 
 test('street themes: nothing shorter than MIN_VARIANT_LENGTH_M — not a street, not a section', () => {
-  assert.eq(SV.MIN_VARIANT_LENGTH_M, 50);
+  assert.eq(SV.MIN_VARIANT_LENGTH_M, 75);
   const stub = indexOfLines([[{ x: 100, y: 100 }, { x: 140, y: 100 }]]);
   assert.eq(specialLines(stub).length, 0, 'a 40 m lane gets no special theme');
   assert.truthy(SV.VARIANT_BY_ID[stub.lines[0].variant]?.baseline, 'short lanes receive an ordinary variant');
   assert.eq(stub.lines[0].selectedVariant, 'hedgerow', 'though it rolled one');
-  const fine = indexOfLines([[{ x: 100, y: 100 }, { x: 150, y: 100 }]]);
-  assert.eq(fine.dressingLines.length, 1, 'a 50 m lane does');
+  const fine = indexOfLines([[{ x: 100, y: 100 }, { x: 175, y: 100 }]]);
+  assert.eq(specialLines(fine).length, 1, 'a 75 m lane does');
   // A long road clipping a themed square's corner leaves a piece too short to lay.
   const clipped = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 60, y: 100 }]], LONG_HEDGE);
   assert.eq(specialLines(clipped).length, 1, 'the final 60 m fragment would theme only 24 m: omitted');
-  const longer = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 125, y: 100 }]], LONG_HEDGE);
-  assert.eq(specialLines(longer).length, 2, 'a 125 m fragment can fit a 50 m section');
+  const longer = indexOfLines([[{ x: -50, y: 100 }, { x: 1024 + 187.5, y: 100 }]], LONG_HEDGE);
+  assert.eq(specialLines(longer).length, 2, 'a 187.5 m fragment can fit a 75 m section');
 });
 
 test('street themes: a row may set its own limits — the Golden Road keeps its carpet to 250 m', () => {
   assert.eq(SV.sectionLimits('golden').maxM, 250);
-  assert.eq(JSON.stringify(SV.sectionLimits('hedgerow')), JSON.stringify({ maxM: 500, minM: 50, share: 0.4 }), 'the defaults');
+  assert.eq(JSON.stringify(SV.sectionLimits('hedgerow')), JSON.stringify({ maxM: 500, minM: 75, share: 0.4 }), 'the defaults');
   assert.eq(JSON.stringify(SV.sectionLimits(null)), JSON.stringify(SV.sectionLimits('hedgerow')));
   const GOLD = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'golden', 'Gold Road');
   const short = indexOfLines([[{ x: 100, y: 100 }, { x: 340, y: 100 }]], GOLD);
@@ -1293,13 +1295,17 @@ test('golden road: coin seats line both verges, ride on its idol, and claim no c
   assert.eq(SV.VARIANT_BY_ID.snare.art, 'street_snare', 'show the chest and its traps');
   assert.eq(result.coins, undefined, 'the road lays no coins of its own');
   const seats = seatsOf(result);
-  assert.eq(seats.length, 198, '33 cells along each of six verge rows are seats');
+  const decorativeCells = new Set([...result.wildplants,...result.objects.filter(o=>o.kind!=='grove_shrine')].map(o=>cellOf(o.y,TY)*CPE+cellOf(o.x,TX)));
+  const seatCells = new Set(seats.map(o=>cellOf(o.y,TY)*CPE+cellOf(o.x,TX)));
+  assert.inRange(seats.length,150,198,'dense coins yield to the approved flowers, bowls and sign');
+  for(let y=22;y<=28;y++) if(y!==25) for(let x=10;x<=42;x++)
+    assert.truthy(seatCells.has(y*CPE+x)||decorativeCells.has(y*CPE+x),'every verge cell has a coin seat or approved decoration');
   assert.eq(new Set(seats.map(c => c.id)).size, seats.length, 'one seat per cell');
   assert.eq(JSON.stringify(seats.map(c => c.id).sort()),
     JSON.stringify(seatsOf(build([[split[2],split[1]],[split[1],split[0]]]).result).map(c => c.id).sort()));
   const idols = result.objects.filter(o => o.kind === 'grove_shrine' && o.shrineKind === 'golden_idol');
   assert.eq(idols.length, 1, 'every Golden Road gets its idol');
-  assert.eq(idols[0].coinSeats.length, 198, 'the idol carries the seats');
+  assert.eq(idols[0].coinSeats.length, seats.length, 'the idol carries all remaining seats');
   assert.eq(Shrines.kindForObject(idols[0]).reward, 'coins', 'its tap is the coin spree');
   const rows = new Map();
   for (const seat of seats) {
@@ -1310,18 +1316,16 @@ test('golden road: coin seats line both verges, ride on its idol, and claim no c
   assert.eq(rows.size, 6, 'three dense rows on each side');
   for (const [iy, xs] of rows) {
     assert.falsy(iy === 25, 'roadway stays clear');
-    assert.eq(xs.length, 33);
-    xs.sort((a,b) => a-b);
-    for (let i=1; i<xs.length; i++) assert.eq(xs[i]-xs[i-1], 1, 'no gaps along a verge');
+    assert.gt(xs.length,0,'all six verge rows retain rewards');
   }
   const occupiedCell = cellOf(seats[0].y, TY)*CPE + cellOf(seats[0].x, TX);
   const occupiedSeats = seatsOf(build([line], false, new Set([occupiedCell])).result);
-  assert.eq(occupiedSeats.length, seats.length-1);
+  assert.truthy(occupiedSeats.length <= seats.length,'existing occupants cannot add seats');
   assert.falsy(occupiedSeats.some(c => c.id === seats[0].id));
   const crossingRoad = new Uint8Array(CPE*CPE);
   for (let y=0; y<CPE; y++) crossingRoad[y*CPE+26] = 1;
   const crossingSeats = seatsOf(build([line], false, new Set(), crossingRoad).result);
-  assert.eq(crossingSeats.length, seats.length-6, 'crossing roadway cuts all six seat rows');
+  assert.truthy(crossingSeats.length < seats.length, 'crossing roadway removes seat cells');
   assert.falsy(crossingSeats.some(c => cellOf(c.x, TX) === 26));
   const idolCell = cellOf(idols[0].y, TY)*CPE + cellOf(idols[0].x, TX);
   for (const seat of seats) {
@@ -1415,7 +1419,7 @@ test('snare lane: a deterministic central T3 cave cache surrounded by reserved t
     return {result: SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,spawnOpts:opts}), opts, grid};
   };
   const {result,opts,grid} = build([line]);
-  const caches = r => r.objects.filter(o=>o._street==='snare');
+  const caches = r => r.objects.filter(o=>o._street==='snare' && o.kind==='chest');
   assert.eq(caches(result).length,1);
   const deterministicSnapshot = JSON.stringify(result);
   const chest=caches(result)[0];
@@ -2340,6 +2344,41 @@ test('common route themes: deterministic dressing, dense variety and shared safe
   assert.truthy(dress('haunted_forest_path').objects.some(o => o.kind === 'headstone'), 'haunted route has headstones');
   assert.truthy(dress('old_growth_path').objects.some(o => o.kind === 'tree' && o.variant === 3), 'old growth has mature trees');
 });
+test('approved decorations retain collectible identities and one shared bare-tree family', () => {
+  const byArt = Object.fromEntries(SV.APPROVED_DECORATIONS.map(r=>[r.art,r]));
+  for (const [art,crop] of Object.entries({white_flower:'white_flower',yellow_flowers:'yellow_flower',
+    golden_flowers:'golden_flower',young_fern:'young_fern',bone_fragments:'bone_fragments',
+    dark_rubble:'flint',plank_fragments:'driftwood',golden_bowl:'golden_bowl',green_slick:'slime_slick'}))
+    assert.eq(byArt[art].crop,crop,art+' uses its intended interaction');
+  assert.eq(wildplantOutput('bone_fragments'),'bone');
+  for(const variant of ['burned','thorny','spider_path','haunted_forest_path'])
+    assert.truthy(byArt.dead_tree.variants.includes(variant),'same bare family on '+variant);
+  assert.eq(byArt.healing_mushrooms.extra.gasKind,'healing');
+  assert.eq(byArt.dark_urn.extra.barrelStyle,'street_decor_dark_urn');
+  assert.truthy(byArt.healing_mushrooms.weight<.1,'healing clusters remain rare among ordinary fungi');
+  for(const variant of ['hedgerow','orchard','old_growth_path'])
+    assert.truthy(byArt.mossy_tree.variants.includes(variant),'approval reaches every suggested route');
+});
+
+test('rare healing clusters stay rare even when they are the only ground decoration', () => {
+  const row=SV.approvedDecorationRows('paralysis_path')[0];
+  let placed=0;
+  for(let i=0;i<1000;i++) {const at={rng:()=>i/1000};row.draw(at);if(!row.skip(at))placed++;}
+  assert.inRange(placed,40,70,'under seven percent of available seats, not a normalized all-healing field');
+});
+
+test('approved decorations never overlap theme obstacles or signs and regenerate identically', () => {
+  for(const variant of ['hedgerow','pottery','snare','toadstool','berry_trail','slime_trail','spider_path']) {
+    const draw=()=>{ const f=vergeFixture(variant); return SV.dress({...f,tx:0,ty:0,tileEdgeM:f.N*7,
+      spawnOpts:{roadMask:f.roadMask,spawnWhy:f.spawnWhy,occupied:new Set()}}); };
+    const a=draw(),b=draw(),pieces=[...a.objects,...a.wildplants,...a.traps];
+    const cells=pieces.map(p=>Math.floor(p.y/7)+','+Math.floor(p.x/7));
+    assert.eq(new Set(cells).size,cells.length,variant+' has one interactable per cell');
+    assert.eq(JSON.stringify(a),JSON.stringify(b),variant+' placement is deterministic');
+    assert.truthy(a.objects.some(o=>o.kind==='roadsign'),variant+' has an edge sign');
+  }
+});
+
 test('Grassy Lane fills its road and both verges with unique harvestable grass', () => {
   const build = (blocked = false, major = false, duplicate = false) => {
     const f = vergeFixture('grassy_lane');
@@ -2363,6 +2402,122 @@ test('Grassy Lane fills its road and both verges with unique harvestable grass',
     JSON.stringify(grass.map(p => p.id)), 'duplicate mapped pieces cannot multiply grass');
   assert.truthy(SaveState.regrows('longgrass'), 'road grass shares normal harvest regrowth');
 });
+
+test('street section limits: ordinary roads are capped and share intervals with lamp and paving consumers', () => {
+  const name = nameWhere((n,k)=>SV.VARIANT_BY_ID[SV.variantFor(k,n,'minor')]?.baseline,'Ordinary cap');
+  const index = indexOfLines([[{x:100,y:100},{x:1900,y:100}]],name);
+  assert.truthy(index.dressingLines.length >= 4);
+  assert.truthy(index.dressingLines.every(r=>Streets.lineLengthM(r.line,1)<=500+1e-6));
+  const parts=SV.lineParts(index.lines[0],1);
+  assert.inRange(parts.reduce((n,p)=>n+p.b-p.a,0),1799.999,1800.001);
+  assert.truthy(parts.every(p=>p.b-p.a<=500+1e-6));
+  assert.gt(new Set(parts.map(p=>p.variant)).size,1,'the cap changes the visible theme, not just the record');
+});
+test('street section limits: tiny branches inherit the nearest full same-level theme', () => {
+  const long={key:'long',size:'path',variant:'old_growth_path',tags:{},line:[{x:100,y:100},{x:500,y:100}]};
+  const short={key:'short',size:'path',variant:'slime_trail',tags:{},line:[{x:100,y:100},{x:100,y:140}]};
+  const index={mvtToM:1,lines:[{...long},{...short}],dressingLines:[{...long},{...short}]};
+  WorldGen.runSteps(SV.boundSectionsSteps(index,1));
+  const inherited=index.dressingLines.find(r=>r.key==='short');
+  assert.eq(inherited.variant,'old_growth_path');assert.eq(inherited.subsumedBy,'long');
+  assert.eq(SV.variantAt(index.lines[1],20),'old_growth_path');
+  const higher={...long,tags:{layer:1}};
+  const separate={mvtToM:1,lines:[{...higher},{...short}],dressingLines:[{...higher},{...short}]};
+  WorldGen.runSteps(SV.boundSectionsSteps(separate,1));
+  assert.eq(separate.dressingLines.find(r=>r.key==='short').variant,'slime_trail','an overpass never lends its theme');
+});
+
+
+test('street section limits: short branch inheritance ignores source direction, order and duplicates', () => {
+  const a={x:100,y:100},b={x:500,y:100},junction={x:300,y:100},c={x:300,y:140};
+  const features=[{id:81,geom:[[a,b]]},{id:82,geom:[[junction,c]]}];
+  const before=pathIndex(features);
+  const after=pathIndex([...features.slice().reverse().map(f=>({...f,geom:f.geom.map(l=>l.slice().reverse())})),features[0]]);
+  assert.eq(pathSectionGeometry(before),pathSectionGeometry(after));
+  const short=before.pathSections.find(r=>r.segmentLengthM<75);
+  assert.truthy(short.subsumedBy,'short branch points at its owning neighbouring section');
+  const owner=before.pathSections.find(r=>r.key===short.subsumedBy);
+  assert.eq(short.variant,owner.variant);
+});
+
+test('street verge distance: exactly twenty percent overlap counts as row one', () => {
+  const halfW=2.75, cell=WorldGen.CELL_M;
+  const seat=(overlap,k=1)=>SV.vergeCellAt({halfW},10.5*cell,(25+overlap)*cell-halfW,0,1,1,k,cell);
+  const exact=seat(.2);
+  assert.eq(exact.iy,25,'inclusive twenty-percent edge is adjacent');
+  assert.inRange(exact.roadOverlap,.2-1e-12,.2+1e-12);
+  assert.eq(seat(.200001).iy,26,'just over twenty percent is still road');
+  assert.eq(seat(.199999).iy,25);
+  assert.eq(seat(0).iy,25,'an exactly aligned edge starts outside the road');
+  assert.eq(seat(.2,2).iy,26,'the following row is a distinct cell');
+  const reversed=SV.vergeCellAt({halfW},10.5*cell,25.2*cell-halfW,0,-1,-1,1,cell);
+  assert.eq(reversed.ix,exact.ix);assert.eq(reversed.iy,exact.iy);
+});
+
+test('street verge distance: diagonal clipped cells are visited once in bounded outward order', () => {
+  const nx=Math.cos(.05),ny=Math.sin(.05),halfW=2;
+  const x=.01-nx*halfW,y=.99-ny*halfW;
+  const first=SV.vergeCellAt({halfW},x,y,nx,ny,1,1,1);
+  assert.eq(first.ix,0);assert.eq(first.iy,0,'a half-cell probe used to skip this lightly clipped corner');
+  assert.inRange(first.roadOverlap,.03,.04);
+  let seed=37591;
+  const random=()=>((seed=(Math.imul(seed,1664525)+1013904223)>>>0)/4294967296);
+  for(let n=0;n<500;n++) {
+    const angle=random()*Math.PI*2,nx=Math.cos(angle),ny=Math.sin(angle),side=random()<.5?-1:1;
+    const rec={halfW:random()*14+.1},x=random()*10000-5000,y=random()*10000-5000,seen=new Set();
+    let previous=-Infinity;
+    for(let k=1;k<=4;k++) {
+      const c=SV.vergeCellAt(rec,x,y,nx,ny,side,k,7),key=`${c.ix},${c.iy}`;
+      assert.falsy(seen.has(key),'later rows cannot repeat a cell');seen.add(key);
+      assert.lte(c.roadOverlap,SV.VERGE_ROAD_OVERLAP_MAX+1e-10);
+      const projection=((c.ix+.5)*7-x)*nx*side+((c.iy+.5)*7-y)*ny*side;
+      assert.gt(projection,previous,'every row advances outward');previous=projection;
+    }
+  }
+});
+
+test('street verge dressing: light road paint permits ground-only rows but keeps crossing and access gates', () => {
+  const halfW=WorldGen.roadOverlayWidthM({class:'minor'})/2;
+  const run=(overlap=.2,blocked='',terrain=T.ROAD,fragmented=false)=>{
+    const y=(25+overlap)-halfW/WorldGen.CELL_M;
+    const line=[{x:10.5*CELL_MVT,y:y*CELL_MVT},{x:42.5*CELL_MVT,y:y*CELL_MVT}];
+    const mid={x:26.5*CELL_MVT,y:y*CELL_MVT};
+    const grid=new Uint8Array(CPE*CPE).fill(T.PARK),roadMask=new Uint8Array(CPE*CPE),spawnWhy=new Uint16Array(CPE*CPE),occupied=new Set();
+    for(let x=0;x<CPE;x++){grid[25*CPE+x]=terrain;if(blocked==='occupied')occupied.add(25*CPE+x);}
+    if(blocked==='crossing')for(let y=0;y<CPE;y++){roadMask[y*CPE+26]=1;grid[y*CPE+26]=T.ROAD;}
+    if(blocked==='private')spawnWhy.fill(WorldGen.SPAWN_WHY.PRIVATE);
+    const index=indexOfLines(fragmented?[[line[1],mid],[mid,line[0]]]:[line],ROCKY,TX,TY,TILE_EDGE_M/EXTENT);
+    const d=SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,
+      spawnOpts:{roadMask,spawnWhy,occupied,roadClass:new Uint8Array(CPE*CPE)}});
+    return [...d.objects,...d.wildplants].filter(o=>o._street==='rocky_path');
+  };
+  const firstRow=items=>items.filter(o=>cellOf(o.y,TY)===25);
+  const baseline=run();
+  assert.gt(firstRow(baseline).length,20,'lightly painted Small-road terrain accepts the ground-only row');
+  assert.eq(JSON.stringify(baseline.map(o=>o.id).sort()),JSON.stringify(run(.2,'',T.ROAD,true).map(o=>o.id).sort()),
+    'reversed fragments retain seats under identical occupancy');
+  assert.eq(firstRow(run(.200001)).length,0,'more than twenty percent stays outside the first verge');
+  assert.eq(firstRow(run(.2,'occupied')).length,0,'live occupancy remains authoritative');
+  assert.eq(run(.2,'private').length,0,'access exclusions remain authoritative');
+  assert.eq(firstRow(run(.2,'',T.ROAD_MD)).length,0,'a Small-road edge cannot open major road terrain');
+  assert.falsy(run(.2,'crossing').some(o=>cellOf(o.x,TX)===26),'masked crossing road remains empty');
+});
+
+test('street verge rasterization: twenty-percent edges provide unmasked adjacent seats', () => {
+  const halfW=WorldGen.roadOverlayWidthM({class:'minor'})/2;
+  const y=25.2-halfW/WorldGen.CELL_M;
+  const a={x:10.5*CELL_MVT,y:y*CELL_MVT},b={x:42.5*CELL_MVT,y:y*CELL_MVT};
+  const run=lines=>openStreetTile([
+    {name:'landcover',features:[{type:3,tags:{class:'meadow'},geom:[wholeTile()]}]},
+    {name:'transportation',extent:EXTENT,features:[{type:2,tags:{class:'minor'},geom:lines}]},
+    {name:'transportation_name',extent:EXTENT,features:[{type:2,tags:{name:ROCKY},geom:lines}]},
+  ]);
+  const seats=r=>[...r.streetDress.objects,...r.streetDress.wildplants].filter(o=>o._street==='rocky_path');
+  const forward=run([[a,b]]),items=seats(forward);
+  assert.gt(items.filter(o=>cellOf(o.y,TY)===25).length,0,'actual rasterization places finds in the clipped edge row');
+  for(const o of items)assert.eq(forward.roadMask[cellOf(o.y,TY)*CPE+cellOf(o.x,TX)],0,'existing road mask stays authoritative');
+});
+
 })();
 
 

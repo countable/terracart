@@ -108,3 +108,19 @@ test('acorn: the fell rolls it, says so, and retires a felled planted tree', () 
   assert.truthy(/save\.fruittrees = save\.fruittrees\.filter\(f => f\.id !== o\.id\)/.test(src),
     'felling a PLANTED tree retires its record so spawnInTile stops rebuilding it');
 });
+
+test('acorn: chopping retires a planted tree but saves a visual stump at its own position', () => {
+  const o = { id: 'planted_stump_test', kind: 'tree', planted: true, x: 21, y: 35, depth: 2, variant: 3, size: 'large' };
+  const save = { fruittrees: [{ ...o }], chopped: [], relics: {} };
+  const scene = makeScene();
+  INTERACTABLES.tree.complete(makeCtx(scene, save), o);
+  assert.eq(save.fruittrees.length, 0);
+  assert.eq(save.treeStumps.length, 1);
+  assert.eq(save.treeStumps[0].x, 21);
+  assert.eq(save.treeStumps[0].y, 35);
+  assert.eq(save.treeStumps[0].depth, 2);
+  assert.eq(INTERACTABLES.tree.spentAction, 'skip', 'stump never consumes the tap for planting');
+  const reload = JSON.parse(JSON.stringify(save));
+  SaveState.normalize(reload);
+  assert.eq(reload.treeStumps[0].id, o.id);
+});

@@ -137,7 +137,7 @@ test('street lamps: restored and unlit states use only the native Rogue sprites'
     assert.eq(spec.key({lit:false,glow}), 'rogue_lamp_unlit');
     assert.eq(spec.key({lit:false,suppressed:true,glow}), 'rogue_lamp_unlit');
   }
-  assert.eq(spec.frame, '__BASE'); assert.eq(spec.scale, 1.25);
+  assert.eq(spec.frame, '__BASE'); assert.eq(spec.scale({}), 1.25);
   assert.eq(spec.origin.join(','), '0.5,0.5');
   assert.truthy(spec.seat, 'native bounds seat both restoration states');
   assert.falsy(/selected_streetlamp|_ensureStreetLampTex|_ensureBrokenLampTex/.test(app), 'no obsolete lamp canvas allocation');

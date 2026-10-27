@@ -251,7 +251,7 @@ vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', 'assets.js'), 'utf8'),
   assetsCtx, { filename: 'assets.js' });
 // Apply the same active profile as the browser. It supplies both replacement
 // PNGs and their measured bounds; the base table describes legacy sources.
-for (const file of ['rogue_object_bounds.js', 'rogue_prop_profile.js', 'rogue_objects.js']) {
+for (const file of ['rogue_object_bounds.js', 'rogue_prop_profile.js', 'street_decoration_art.js', 'rogue_objects.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'src', file), 'utf8'), assetsCtx, { filename: file });
 }
 const ROGUE_PROP_PROFILE = vm.runInContext('ROGUE_PROP_PROFILE', assetsCtx);

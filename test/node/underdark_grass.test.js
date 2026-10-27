@@ -18,11 +18,14 @@
     const before = run(), after = run(5, true), plants = after.wildplants;
     assert.gt(plants.length, 100);
     assert.eq(JSON.stringify(plants), JSON.stringify(run(5, true).wildplants));
+    assert.gt(plants.filter(p=>p._streetArt==='luminous_bulbs').length,10,'pale bulbs intersperse the fungal ground cover');
+    assert.gt(plants.filter(p=>p.crop==='longgrass').length,50,'most ground cover remains grass');
     const byId = new Map(before.wildplants.map(p => [p.id, p]));
     const ids = new Set();
     for (const plant of plants) {
-      assert.eq(plant.crop, 'longgrass'); assert.eq(plant.depth, 5);
-      assert.truthy(WorldGen.isGrassCover(plant));
+      assert.truthy(['longgrass','mushroom'].includes(plant.crop)); assert.eq(plant.depth, 5);
+      if (plant.crop === 'longgrass') assert.truthy(WorldGen.isGrassCover(plant));
+      else { assert.eq(plant._streetArt,'luminous_bulbs'); assert.falsy(WorldGen.isGrassCover(plant),'bulbs use their approved sprite, not the grass prism'); }
       assert.truthy(plant.id.startsWith('cgrass_5_'));
       assert.inRange(plant._ix, 8, 31);
       assert.eq(after.grid[plant._iy * N + plant._ix], WorldGen.T.CAVE_FLOOR);

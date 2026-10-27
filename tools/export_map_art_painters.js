@@ -61,7 +61,7 @@ function bundle() {
   if (!lampKey) throw new Error('Cannot find native street-lamp selector');
   const lampContext = { ASSETS:{bushes:{}}, SpriteLayout:{ART_BOUNDS:{}} };
   vm.createContext(lampContext);
-  for (const name of ['rogue_object_bounds','rogue_prop_profile','rogue_objects'])
+  for (const name of ['rogue_object_bounds','rogue_prop_profile','street_decoration_art','rogue_objects'])
     vm.runInContext(read('src/' + name + '.js'),lampContext);
   const lampSelector = vm.runInContext('(' + lampKey[1] + ')',lampContext);
   const lampPixels = Object.fromEntries([false,true].map(lit => {
