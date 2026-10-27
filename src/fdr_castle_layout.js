@@ -64,8 +64,9 @@
       // corner the other curtain meets its side instead of rotating the whole
       // tower to bisect the angle. Canonical quarter-turns keep equivalent
       // square orientations and translated/reversed inputs identical.
-      const tangent=after>=before?{x:next.x-p.x,y:next.y-p.y}:{x:p.x-previous.x,y:p.y-previous.y};
-      let angle=Math.atan2(tangent.y,tangent.x);angle-=Math.round(angle/(Math.PI/2))*(Math.PI/2);
+      // Treat floating-point length ties consistently after cache eviction.
+      const tangent=after>=before-EPS?{x:next.x-p.x,y:next.y-p.y}:{x:p.x-previous.x,y:p.y-previous.y};
+      let angle=Math.atan2(tangent.y,tangent.x);angle-=Math.floor(angle/(Math.PI/2)+.5+1e-10)*(Math.PI/2);
       const ux=Math.cos(angle),uy=Math.sin(angle);
       const square=(x,y,width)=>rect(0,0,width,width).map(q=>({x:x+q.x*ux-q.y*uy,y:y+q.x*uy+q.y*ux}));
       const halfWidth=towerWidth/2+towerBaseOutset,det=n1.x*n2.y-n1.y*n2.x;

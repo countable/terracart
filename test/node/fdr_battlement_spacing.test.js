@@ -96,4 +96,38 @@
       }
     }
   });
+  test('FDR towers: equal adjoining wall lengths choose the same alignment after cache eviction', () => {
+    const shape=[{x:0,y:0},{x:200,y:0},{x:300,y:Math.sqrt(3)*100},{x:100,y:Math.sqrt(3)*100}];
+    const layout=L.build(shape);
+    // A warm cache can hide a length-comparison tie that flips when camera
+    // origin subtraction introduces tiny floating-point differences.
+    for(let i=0;i<=L.LIMITS.cache;i++)L.build(L.rect(0,0,80+i,90));
+    const translated=L.build(shape.map(p=>({x:p.x+1024,y:p.y+1024})));
+    assert.eq(translated.towers.length,layout.towers.length);
+    for(let i=0;i<layout.towers.length;i++) {
+      const a=layout.towers[i],b=translated.towers[i];
+      assert.lt(Math.abs(a.angle-b.angle),1e-10,'an equal-length corner consistently follows its outgoing curtain');
+      assert.lt(Math.abs(b.x-a.x-1024),1e-7);
+      assert.lt(Math.abs(b.y-a.y-1024),1e-7);
+      for(let j=0;j<4;j++) {
+        assert.lt(Math.abs(b.points[j].x-a.points[j].x-1024),1e-7);
+        assert.lt(Math.abs(b.points[j].y-a.points[j].y-1024),1e-7);
+      }
+    }
+  });
+  test('FDR towers: exact diagonal square orientation survives a cold large-coordinate translation', () => {
+    const points=L.rect(0,0,240,180).map(p=>({x:(p.x-p.y)*Math.SQRT1_2,y:(p.x+p.y)*Math.SQRT1_2}));
+    const layout=L.build(points),offset=1048576;
+    for(let i=0;i<=L.LIMITS.cache;i++)L.build(L.rect(0,0,150+i,90));
+    const shifted=L.build(points.map(p=>({x:p.x+offset,y:p.y+offset})));
+    assert.eq(layout.towers.length,4);assert.eq(shifted.towers.length,4);
+    for(let i=0;i<layout.towers.length;i++) {
+      const a=layout.towers[i],b=shifted.towers[i];
+      assert.lt(Math.abs(a.angle-b.angle),1e-10,'quarter-turn canonicalization cannot rotate the local deck or heraldry');
+      for(let j=0;j<4;j++) {
+        assert.lt(Math.abs(b.points[j].x-a.points[j].x-offset),1e-6);
+        assert.lt(Math.abs(b.points[j].y-a.points[j].y-offset),1e-6);
+      }
+    }
+  });
 })();
