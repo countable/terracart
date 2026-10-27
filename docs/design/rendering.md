@@ -294,7 +294,8 @@ step-over lift (walls) or separate `heightPx` (walk-through hedges) in
 `Render.CONNECTED_WALL_ART` and surfaces from `WallMaterials`. Those pieces leave the sprite pools for the frame;
 they still interact from their data cells. Walls support steps; hedges are walked
 through without a hop, balancing slowdown or body crop. An isolated
-wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
+wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
+the bare core block, so it turns with the ground like the runs beside it.
 `wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
 and bevels without a pale coping band. Hedges have their own profile there
 (`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot

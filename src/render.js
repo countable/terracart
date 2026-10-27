@@ -3787,8 +3787,9 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // player stands on is the top the camera sees. Hedges keep their visual height
 // while the player walks through their cover. Thickness and colours follow
 // the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
-// north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
-// garden bush its rounded sprite: neither is a wall.
+// north-up mode keeps. An isolated wall cell stays its rubble sprite. A lone
+// clipped hedge cell is the bare core block (mask 0): its square sprite would
+// stand screen-aligned while the ground turns.
 const CONNECTED_WALL_ART = Object.freeze({
   stronghold_wall: Object.freeze({ profile: 'wall', thickness: 8,
     face: 0x6b645f, top: 0xc4b6a8, dark: 0x3d3c3c }),
@@ -3805,7 +3806,9 @@ Render.connectedWallPiece = function (o, art) {
     if (frame == null) return null;
     return { art: CONNECTED_WALL_ART.stronghold_wall, mask: QuarryLayout.wallMaskForFrame(frame) };
   }
-  if ((art?._plantArt ?? o._plantArt) !== 'zone_hedge') return null;
+  const look = art?._plantArt ?? o._plantArt;
+  if (look === 'zone_hedge_single') return { art: CONNECTED_WALL_ART.hedge, mask: 0 };
+  if (look !== 'zone_hedge') return null;
   const frame = art?._hedgeFrame ?? o._hedgeFrame;
   if (frame == null) return null;
   return { art: CONNECTED_WALL_ART.hedge, mask: QuarryLayout.wallMaskForFrame(frame) };

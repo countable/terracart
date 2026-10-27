@@ -49,7 +49,9 @@
     const hedge = Render.connectedWallPiece(hedgeAt(0, 0, 1), null);
     assert.eq(hedge.art, Render.CONNECTED_WALL_ART.hedge);
     assert.eq(hedge.mask, 5, 'straight north-south hedge');
-    assert.eq(Render.connectedWallPiece({ ...hedgeAt(0, 0, 0), _plantArt: 'zone_hedge_single', _hedgeFrame: undefined }, null), null, 'a lone bush is not a wall');
+    const lone = Render.connectedWallPiece({ ...hedgeAt(0, 0, 0), _plantArt: 'zone_hedge_single', _hedgeFrame: undefined }, null);
+    assert.eq(lone.art, Render.CONNECTED_WALL_ART.hedge, 'a lone clipped hedge turns with the ground');
+    assert.eq(lone.mask, 0, 'a lone clipped hedge is the bare core block');
     assert.eq(Render.connectedWallPiece({ crop: 'shrub', _plantArt: 'ordinary' }, null), null);
     assert.eq(Render.connectedWallPiece({ kind: 'mineralrock', variant: 0 }, { variant: 0 }), null);
   });
@@ -60,18 +62,18 @@
     const art = new Map([[items[0].o, { variant: 0 }], [items[1].o, { variant: 0 }]]);
     const plants = [plant(hedgeAt(0, 2, 0)), plant({ crop: 'shrub', wildId: 'b', _plantArt: 'zone_hedge_single', x: 7.5, y: 17.5 })];
     const drawn = Render.drawConnectedWallPrisms(s, items, plants, art);
-    assert.eq(drawn.size, 3);
+    assert.eq(drawn.size, 4);
     assert.truthy(drawn.has(items[0]) && drawn.has(items[1]) && drawn.has(plants[0]));
     assert.falsy(drawn.has(items[2]), 'a tree stays a sprite');
-    assert.falsy(drawn.has(plants[1]), 'a lone bush stays a sprite');
+    assert.truthy(drawn.has(plants[1]), 'a lone clipped hedge leaves the sprite pool');
     const group = s._wallPerspective.props;
     assert.truthy(s.raisedPropContainer.list.includes(group.gfx),
       '3D props cover ground shadows instead of receiving them on their caps');
     assert.eq(s.buildingWallContainer.list.length, 0, 'props do not enter the background architecture layer');
-    assert.eq(group.blocks.length, 3, 'one joined material mesh per cell');
+    assert.eq(group.blocks.length, 4, 'one joined material mesh per cell');
     const wallHeight = ObstacleStep.PROFILES.wall.liftPx, hedgeHeight = ObstacleStep.PROFILES.hedge.heightPx;
     assert.eq(group.blocks.filter(b => b.top === wallHeight).length, 2, 'walls rise by their step-over lift');
-    assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 1, 'hedges retain their visual height without player lift');
+    assert.eq(group.blocks.filter(b => b.top === hedgeHeight).length, 2, 'hedges retain their visual height without player lift');
     assert.truthy(group.gfx.triangles.length > 0, 'the batch painted');
   });
 
