@@ -266,7 +266,10 @@ The render camera anchor snaps once to the logical pixel grid before ground,
 sprites and inverse taps project their positions. Physical player/GPS positions
 remain continuous; player art projects against that same snapped anchor.
 
-Contact shadows are presentation attached to props, not ground decals. The
+Contact shadows are presentation attached to props, not ground decals. A
+prop's ellipse spans its trimmed art width unless its `RENDER_SPEC` row names
+a narrower ground span (`shadowSpanSrcPx`, e.g. the bare snag's root mound);
+then the ellipse ends at the art's bottom so the prop never floats over it. The
 flat ground marks beside them (the elite's rune circle, the GPS ring) are
 squashed top-down bakes: heading-up counter-rotates them like the shadows, and
 the map's turn reaches their runes or ticks as a frame of their rotation strip
