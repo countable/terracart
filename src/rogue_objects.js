@@ -34,7 +34,36 @@ const RogueObjects = (() => {
     });
     texture.refresh();
   }
+  // Approved road props remain exact source crops. Small mushroom palette
+  // adjustments use the shared per-sprite tint, preserving alpha and source pixels.
+  function installStreetArt(assets) {
+    if (typeof STREET_DECORATION_ART === 'undefined') return;
+    for (const [name, row] of Object.entries(STREET_DECORATION_ART)) {
+      const key = 'street_decor_' + name;
+      assets[key] = {kind:'spritesheet', path:row.path,
+        frameWidth:row.bounds.fw, frameHeight:row.bounds.fh};
+      SpriteLayout.ART_BOUNDS[key + ':0'] = {...row.bounds};
+      SpriteLayout.ART_BOUNDS[key + ':__BASE'] = {...row.bounds};
+    }
+  }
+  function streetSpec(o, original) {
+    if (typeof STREET_DECORATION_ART === 'undefined' || ['_streetlamp','roadsign'].includes(o.kind)) return null;
+    const name = o._streetArt || (o.kind === 'tree' ? o._objectArt : null);
+    const row = STREET_DECORATION_ART[name];
+    if (!row || o._smashed) return null;
+    const tree = o.kind === 'tree';
+    const stage = tree ? treeArtFrame(o) : 3;
+    const scale = row.scale * (tree ? (stage === 1 ? .42 : stage === 2 ? .7 : 1) : 1);
+    return {...original, key:'street_decor_' + name, frame:0, scale,
+      origin:[.5,.5], seat:true, groundAtOrigin:!!row.ground,
+      dxPx:0, dyPx:0, scaleYMul:1, artBounds:undefined,
+      layer:row.ground && typeof WorldLayers !== 'undefined' ? WorldLayers.GROUND_DECAL : original.layer,
+      shadow:!row.ground,
+      after: ['spotted_mushroom','red_mushroom'].includes(name)
+        ? sprite => sprite.setTint(0xb0a27c) : undefined};
+  }
   function install(assets) {
+    installStreetArt(assets);
     // Source-preserving palette adaptation; the existing berry baker derives
     // fruiting/picked states from this same canopy, with unchanged 24px frames.
     if (assets.bushes) assets.bushes = {...assets.bushes,
@@ -99,6 +128,8 @@ const RogueObjects = (() => {
     }
   }
   function spec(o,scene,original) {
+    const street = streetSpec(o, original);
+    if (street) return street;
     if (o.kind === 'mineralrock' && mineralRockMaterial(o) !== 'plain') {
       return {...original, key:'rogue_minerals', frame:Object.keys(mineralColors).indexOf(mineralRockMaterial(o)),
         scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,

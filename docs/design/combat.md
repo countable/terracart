@@ -39,6 +39,15 @@ mechanics.
   cells still block diffusion; denser trapped gas remains until it can thin.
   Fields and emitter cooldowns are session-local, separated by depth and paused while that depth is inactive.
 
+- Magenta roadside mushrooms emit healing gas on approach: the shared gas
+  field restores one energy per second of contact, capped by maximum energy.
+  Harvesting the source stops future bursts. Flat green slicks are ground
+  contact surfaces, not pickups: touching their cell applies three seconds of
+  poison without shortening a longer dose; flight avoids contact.
+  Dark urns always contain one tier-three magic item. Opening one inflicts
+  a ten-energy poison sting once, using the same damage and immunity path as
+  stinging plants. It does not add the ordinary minute-long poison condition.
+
 - Poison, Fire, Paralysis and Confusion Paths place seeded geysers on safe
   verges. They use `EnvironmentHazards`' existing warning and eruption cycles:
   poison, paralysis and confusion release their matching gas; fire ignites its

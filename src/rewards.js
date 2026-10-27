@@ -50,7 +50,8 @@
   function tapHTML(piece, html) {
     if (!desc(piece)) return html;
     const key = piece.kind === 'item' ? piece.id : piece.slot;
-    return `<span class="desc-tap" data-desc-kind="${piece.kind}" data-desc-key="${key}">${html}</span>`;
+    const tier = piece.kind === 'item' || !piece.tier ? '' : ` data-desc-tier="${piece.tier}"`;
+    return `<span class="desc-tap" data-desc-kind="${piece.kind}" data-desc-key="${key}"${tier}>${html}</span>`;
   }
   function itemTapHTML(scene, id, iconPx = 20, name = itemName(id)) {
     return tapHTML({ kind: 'item', id }, `${scene.iconSpanHTML(id, iconPx)} ${name}`);

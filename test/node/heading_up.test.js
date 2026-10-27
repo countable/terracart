@@ -350,6 +350,19 @@ test('heading up: no captured GPS forces the map lock even with a compass sensor
   assert.truthy(HeadingUp.directionLocked(scene), 'manual locking still works with GPS');
 });
 
+test('heading up: an enabled GPS stick releases the forced lock before its first push', () => {
+  const scene = { ...huScene(-Math.PI / 3), gpsM: null, _debugGpsEnabled: true,
+    compassDeg: 180, _deviceCompass: true, _compassDirectionLocked: false,
+    _compassHUD: {}, _huNoCompass: { setVisible() {} }, _huNorth: { clear() {} } };
+  const held = scene.mapRot;
+  assert.falsy(HeadingUp.directionLocked(scene), 'the stick is a position source');
+  HeadingUp.tick(scene, 1 / 60);
+  assert.truthy(scene.mapRot !== held, 'the map follows the compass');
+  HeadingUp.toggleLock(scene);
+  assert.truthy(HeadingUp.directionLocked(scene), 'the lock toggles instead of waiting on device GPS');
+  assert.eq(scene._compassGpsRequest, undefined);
+});
+
 // Padded frames and different compass headings must pin the same drawn point.
 test('heading up: upright contacts stay at the cell centre at every heading', () => {
   for (const hoppable of [false, true]) for (const height of [18, 46]) {

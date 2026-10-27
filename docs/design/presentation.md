@@ -130,9 +130,10 @@ pixels and decorative details do not define additional tap cells.
   by whichever presentation runs. Bag-full take/leave choices still appear.
   Empty pots and barrels retain their brief smash feedback; their coins use a toast.
 - An item or gear name in a shop, trader or smithy dialog is tappable
-  (`Rewards.tapHTML` / `Rewards.itemTapHTML`, dotted underline). A tap pops the
-  same `Rewards.desc` line in a bubble beside the name (`_itemDescTap` in
-  `modal_shell.js`, installed on every dialog); the next tap closes it. When the
+  (`Rewards.tapHTML` / `Rewards.itemTapHTML`, dotted underline). A tap has the
+  Dragon Spirit say the same `Rewards.desc` line in a speech bubble pointing at
+  the name (`_itemDescTap` in `modal_shell.js`, installed on every dialog;
+  `showMessageModal({ keepOffer })` leaves the shop open beneath). When the
   dialog already prints that line, as a shop shelf row or forge blurb does, the
   tap lights that line up instead of repeating it.
 

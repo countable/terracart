@@ -439,6 +439,7 @@ test('lighting: what lights is what is yours', () => {
   assert.eq(Lighting.sourceKind(s, { kind: 'wildplant', crop: 'mushroom', id: 'wp_0_0_3_3' }), 'mushroom',
     'and so does a surface one: the crop is the light, not the depth');
   assert.eq(Lighting.sourceKind(s, { kind: 'wildplant', crop: 'longgrass', id: 'wp_0_0_4_4' }), null, 'grass is not a lamp');
+  assert.eq(Lighting.sourceKind(s, { kind: 'mineralrock', _streetArt:'fire_rock', id: 'ember' }), 'fire_rock', 'fire rocks emit through the shared light collector');
   assert.eq(Lighting.sourceKind(s, { kind: 'mineralrock', crop: 'mushroom', id: 'r' }), null,
     'a kind that is not a light stays dark whatever else is on it');
 });

@@ -983,7 +983,9 @@
               if (!q) continue;
               const zoneGlow = !suppressed && typeof ZoneVariants !== 'undefined'
                 ? ZoneVariants.lampGlowAt(entry, Math.floor(q.x / cellM), Math.floor(q.y / cellM)) : null;
-              const lamp = { tileKey, lineKey, tier, suppressed, glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
+              const lamp = { tileKey, lineKey, tier, suppressed,
+                _streetArt: !suppressed && typeof StreetLights !== 'undefined' ? StreetLights.forVariant(style.variant) : null,
+                glow: zoneGlow || glow, s: sM, x: ox + q.x, y: oy + q.y, spacingM, path, creditM,
                          id:`lamp_${tileKey}|${lineKey}@${Math.round(sM)}` };
               out.push({ lamp, width: WorldGen.roadOverlayWidthM(f.tags || {}),
                 centre: Streets.pointAtM(line, mvtToM, sM, 0) });

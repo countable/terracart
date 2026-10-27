@@ -434,6 +434,12 @@ const CLAY_POT_LOOT = [
   { kind: 'produce', w: 0.05, minTier: 2, maxTier: 2 },
   { kind: 'seed', w: 0.1, minTier: 1, maxTier: 1 },
 ];
+const AUTHORED_CONTAINER_ART = Object.freeze({
+  street_decor_dark_urn: { texKey: 'street_decor_dark_urn', smashedKey: 'clay_pot_smashed', name: 'dark urn',
+    openingSting: { energy: 10, line: 'Poison! −10 energy' },
+    loot: [{ kind: 'magic', w: 1, minTier: 3, maxTier: 3, qty: 1 }] },
+  street_decor_pottery_stack: { texKey: 'street_decor_pottery_stack', smashedKey: 'clay_pot_smashed', name: 'pottery stack', loot: CLAY_POT_LOOT },
+});
 const BARREL_ART = [
   { texKey: 'barrel', smashedKey: null, name: 'barrel', loot: BARREL_LOOT },
   { texKey: 'clay_pot', smashedKey: 'clay_pot_smashed', name: 'clay pot', loot: CLAY_POT_LOOT },
@@ -477,7 +483,7 @@ function isPoiBarrel(o) {
 }
 function barrelRewardProfile(o) {
   const d = BARREL_DENSITY_REWARDS;
-  if (!isPoiBarrel(o)) {
+  if (AUTHORED_CONTAINER_ART[o?.barrelStyle] || !isPoiBarrel(o)) {
     const rows = barrelProfile(o).loot;
     return { fullChance: rows.filter(row => row.kind !== 'empty').reduce((sum, row) => sum + row.w, 0)
       / rows.reduce((sum, row) => sum + row.w, 0), budget: d.baseBudget };
@@ -488,6 +494,8 @@ function barrelRewardProfile(o) {
     budget: d.baseBudget * (d.sparseBudgetMultiplier + t * (1 - d.sparseBudgetMultiplier)) };
 }
 function barrelProfile(o) {
+  const special = AUTHORED_CONTAINER_ART[o?.barrelStyle];
+  if (special) return special;
   const authored = BARREL_ART.find(row => row.texKey === o?.barrelStyle);
   if (authored) return authored;
   return BARREL_ART[o?.id == null ? 0 : fnv1a(String(o.id) + '#barrel-art') % BARREL_ART.length];
@@ -509,7 +517,7 @@ function rollBarrel(o, rng) {
   if (row.kind === 'empty') return { kind: 'empty' };
   if (row.kind === 'coin') return { kind: 'gold', amount: Math.max(1, Math.round(profile.budget / (row.budgetDiv || 1))) };
   const item = weightedPickBy(barrelLootPool(row), item => item.dropWeight ?? 1, r);
-  return item ? { kind: 'item', id: item.id, qty: ChestThemes.quantityForBudget(item.id, profile.budget) } : { kind: 'empty' };
+  return item ? { kind: 'item', id: item.id, qty: row.qty || ChestThemes.quantityForBudget(item.id, profile.budget) } : { kind: 'empty' };
 }
 // The one map line a smash prints (≤ MAP_MSG_MAX): what came out, or that
 // nothing did — the real quantity, never a guess.
@@ -973,7 +981,7 @@ function chestLook(o) {
   return (o._chestLook = { stand, bike, barrel, macro, smashedKey: barrelArt?.smashedKey, barrelName: barrelArt?.name,
     box: box && !wagon && !macro && !special, wagon, texKey,
     smashedFrame: texKey === 'clay_pot' ? POT_SMASHED_FRAMES[frame] : barrel ? containerArtFrame(o, barrelArt) : 0,
-    frame });
+    frame: texKey.startsWith('street_decor_') ? '__BASE' : frame });
 }
 
 

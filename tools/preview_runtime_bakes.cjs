@@ -11,7 +11,7 @@ async function bakeRuntimeTextures(root, registry) {
   const from = textureSource.indexOf('function bakeCanvas(');
   const to = textureSource.indexOf('function drawGrassTex(', from);
   if (from < 0 || to < 0) throw new Error('Cannot find runtime berry texture baker');
-  const sources = ['rogue_object_bounds', 'rogue_prop_profile', 'rogue_objects'].map(read);
+  const sources = ['rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects'].map(read);
   if (!registry) {
     // Let the active profile declare both source paths. The empty base entry
     // merely enables its normal replacement of the existing bush texture.
