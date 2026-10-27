@@ -41,8 +41,10 @@ const HeadingUp = {
 
   hasGps(scene) {
     // gpsAvailable means a watch was started, not that a position arrived.
-    // The debug GPS stick also supplies real scene fixes through gpsM.
-    return !!scene.gpsM || (typeof Geo !== 'undefined' && Geo.hasFix);
+    // An enabled debug GPS stick is a position source even before its first
+    // push writes gpsM; without it, stick play indoors stayed locked until a
+    // real fix happened to land.
+    return !!scene.gpsM || !!scene._debugGpsEnabled || (typeof Geo !== 'undefined' && Geo.hasFix);
   },
 
   directionLocked(scene) {

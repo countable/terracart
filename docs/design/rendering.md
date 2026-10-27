@@ -615,7 +615,8 @@ the surrounding grove’s shrub scale.
   Confusion's fixed-rate heading bypasses sensor easing and its dead zone, so
   the map turns steadily; without a sensor, expiry restores the prior map angle. This
   scene-local choice resets on scene creation. Until a GPS fix is captured,
-  direction is forced locked even if the heading sensor reports. Tapping the
+  direction is forced locked even if the heading sensor reports; an enabled
+  debug GPS stick counts as a fix source from the start. Tapping the
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
   it locked. Repeated taps share one pending request, released on shutdown.
   Q/E sets a retained view-heading target in 15-degree steps, including without
