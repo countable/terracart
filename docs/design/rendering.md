@@ -266,7 +266,10 @@ The render camera anchor snaps once to the logical pixel grid before ground,
 sprites and inverse taps project their positions. Physical player/GPS positions
 remain continuous; player art projects against that same snapped anchor.
 
-Contact shadows are presentation attached to props, not ground decals. The
+Contact shadows are presentation attached to props, not ground decals. A
+prop's ellipse spans its trimmed art width unless its `RENDER_SPEC` row names
+a narrower ground span (`shadowSpanSrcPx`, e.g. the bare snag's root mound);
+then the ellipse ends at the art's bottom so the prop never floats over it. The
 flat ground marks beside them (the elite's rune circle, the GPS ring) are
 squashed top-down bakes: heading-up counter-rotates them like the shadows, and
 the map's turn reaches their runes or ticks as a frame of their rotation strip
@@ -294,11 +297,13 @@ step-over lift (walls) or separate `heightPx` (walk-through hedges) in
 `Render.CONNECTED_WALL_ART` and surfaces from `WallMaterials`. Those pieces leave the sprite pools for the frame;
 they still interact from their data cells. Walls support steps; hedges are walked
 through without a hop, balancing slowdown or body crop. An isolated
-wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
+wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
+its core block, so it turns with the ground like the runs beside it.
 `wall_materials.js` owns the shared cel-pixel atlas: connected hedges use the
 RA-recolored bushy hedge strip across tops and bevels without a pale coping band.
 Creeping vines reuse the former procedural green leaf material, with a broad
-24px footprint and a low 4px crown; cardinal masks join neighboring vine cells. Hedges have their own profile there
+24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
+Hedges have their own profile there
 (`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot
 undercuts the clipped face, and a quarter-round shoulder rolls into a flat crown
 at the step-over height, its rings dipping at hashed world points so runs read
@@ -617,7 +622,8 @@ the surrounding grove’s shrub scale.
   Confusion's fixed-rate heading bypasses sensor easing and its dead zone, so
   the map turns steadily; without a sensor, expiry restores the prior map angle. This
   scene-local choice resets on scene creation. Until a GPS fix is captured,
-  direction is forced locked even if the heading sensor reports. Tapping the
+  direction is forced locked even if the heading sensor reports; an enabled
+  debug GPS stick counts as a fix source from the start. Tapping the
   lock subscribes to the shared GPS watch and unlocks on success; failure keeps
   it locked. Repeated taps share one pending request, released on shutdown.
   Q/E sets a retained view-heading target in 15-degree steps, including without

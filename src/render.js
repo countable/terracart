@@ -3790,8 +3790,9 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // player stands on is the top the camera sees. Hedges keep their visual height
 // while the player walks through their cover. Thickness and colours follow
 // the north-up sheets (assets/Objects/Stronghold, assets/Objects/Hedges), which
-// north-up mode keeps. An isolated wall cell stays its rubble sprite and a lone
-// garden bush its rounded sprite: neither is a wall.
+// north-up mode keeps. An isolated wall cell stays its rubble sprite. A lone
+// clipped hedge cell is the bare core block (mask 0): its square sprite would
+// stand screen-aligned while the ground turns.
 const CONNECTED_WALL_ART = Object.freeze({
   vine: Object.freeze({profile:'vine',thickness:24,face:0x3a6e2e,top:0xb4cb44,dark:0x0a3d31}),
   stronghold_wall: Object.freeze({ profile: 'wall', thickness: 8,
@@ -3809,8 +3810,10 @@ Render.connectedWallPiece = function (o, art) {
     if (frame == null) return null;
     return { art: CONNECTED_WALL_ART.stronghold_wall, mask: QuarryLayout.wallMaskForFrame(frame) };
   }
-  if ((art?._plantArt ?? o._plantArt) === 'creeping_vine') return {art:CONNECTED_WALL_ART.vine,mask:art?._vineMask ?? o._vineMask ?? 0};
-  if ((art?._plantArt ?? o._plantArt) !== 'zone_hedge') return null;
+  const look = art?._plantArt ?? o._plantArt;
+  if (look === 'creeping_vine') return {art:CONNECTED_WALL_ART.vine,mask:art?._vineMask ?? o._vineMask ?? 0};
+  if (look === 'zone_hedge_single') return { art: CONNECTED_WALL_ART.hedge, mask: 0 };
+  if (look !== 'zone_hedge') return null;
   const frame = art?._hedgeFrame ?? o._hedgeFrame;
   if (frame == null) return null;
   return { art: CONNECTED_WALL_ART.hedge, mask: QuarryLayout.wallMaskForFrame(frame) };
@@ -6428,6 +6431,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // when it fits) and the canopy rises into the tiles above, across species
               // sheets and size classes.
               seat: true, shadow: true,
+              // The snag's crown spans 52px but its root mound only ~30, so a
+              // crown-wide ellipse spilled past the roots and the tree floated.
+              // Size the shadow to the mound (source px) and end it at the roots.
+              shadowSpanSrcPx: o => o._objectArt === 'dead_tree' ? 40 : null,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o, scene) => {
                 if (o.crown_color) s.setTint(_crownTint(o.crown_color));
@@ -6666,6 +6673,14 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         if (o.kind === 'mineralrock' || o.kind === 'waystone') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
         // A row may lift its contact shadow a few px (spec.shadowInsetPx).
         else if (spec.shadowInsetPx) foot.shadowInsetPx = spec.shadowInsetPx;
+        // A row whose ground contact is narrower than its art names that span;
+        // the ellipse then ends at the art's bottom instead of spilling below.
+        const span = typeof spec.shadowSpanSrcPx === 'function' ? spec.shadowSpanSrcPx(o, scene, pass) : spec.shadowSpanSrcPx;
+        if (span) {
+          foot.w = span * scl;
+          const artBottom = dyPx + (bb.maxY - origin[1] * bb.fh) * scl * scaleYMul;
+          foot.shadowInsetPx = foot.footFromCentre + Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2 - artBottom;
+        }
       }
     }
     if (foot && Render.hasShrineFooting(o)) {

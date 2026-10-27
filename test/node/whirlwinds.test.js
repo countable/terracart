@@ -50,42 +50,46 @@
     assert.eq(s._whirlwindNextEncounter, G.cooldownMs);
   }));
   test('whirlwind: weather wind raises larger groups across surface biomes with a shorter cooldown', () => fixture((s, e) => {
-    const W = Whirlwinds.CONFIG.wind;
-    assert.eq(W.maxActiveFor(10), 1); assert.eq(W.maxActiveFor(20), 2); assert.eq(W.maxActiveFor(30), 3);
-    assert.eq(W.maxActiveFor(80), 3, 'phone-sized fields cap the group');
-    assert.eq(W.cooldownFor(10), 45000); assert.eq(W.cooldownFor(20), 35000); assert.eq(W.cooldownFor(30), 25000);
+    const W = Whirlwinds.CONFIG.wind, K = Weather.EFFECTS.windyKph;
+    assert.eq(W.maxActiveFor(K), 1); assert.eq(W.maxActiveFor(K + 10), 2); assert.eq(W.maxActiveFor(K + 20), 3);
+    assert.eq(W.maxActiveFor(K + 70), 3, 'phone-sized fields cap the group');
+    assert.eq(W.cooldownFor(K), 45000); assert.eq(W.cooldownFor(K + 10), 35000); assert.eq(W.cooldownFor(K + 20), 25000);
     for (const type of [WorldGen.T.SAND, WorldGen.T.PARK, WorldGen.T.FOREST, WorldGen.T.WASTELAND]) {
       e.grid.fill(type);
       assert.truthy(Whirlwinds.ground(s, 24, 24, null, Whirlwinds.WEATHER_GROUND), `biome ${type}`);
     }
     e.grid.fill(WorldGen.T.SAND);
-    Weather.accept({ kind: 'none', precip: false, windKph: 31 });
+    Weather.accept({ kind: 'none', precip: false, windKph: K + 21 });
     const seats = [{ x: 40, y: 24 }, { x: 40, y: 32 }, { x: 48, y: 24 }];
     s.findWalkableDestination = (d, opts) => {
       assert.eq(opts.cls, 'hazard');
       return seats.find(p => opts.accept(p.x, p.y)) || null;
     };
     Whirlwinds.observe(s, 0, CALM);
-    assert.eq(s._whirlwinds.length, 3, '31 km/h fixes a three-tornado group at the encounter roll');
-    assert.eq(s._whirlwindNextEncounter, W.cooldownFor(31));
+    assert.eq(s._whirlwinds.length, 3, '21 km/h past windy fixes a three-tornado group at the encounter roll');
+    assert.eq(s._whirlwindNextEncounter, W.cooldownFor(K + 21));
   }));
-  test('whirlwind: weather tornadoes require wind strictly above ten kilometres per hour', () => fixture((s, e) => {
+  test('whirlwind: weather tornadoes rise exactly when the readout says windy', () => fixture((s, e) => {
+    const K = Weather.EFFECTS.windyKph;
     e.grid.fill(WorldGen.T.SAND);
-    Weather.accept({ kind: 'none', precip: false, windKph: 10 });
+    Weather.accept({ kind: 'none', precip: false, windKph: K });
     Whirlwinds.observe(s, 0, CALM);
-    assert.eq(s._whirlwinds.length, 0, 'ten stays below the weather-tornado gate');
+    assert.falsy(Weather.windy());
+    assert.eq(s._whirlwinds.length, 0, 'the windy threshold itself stays below the weather-tornado gate');
     s.playerM = { x: 32, y: 24 };
-    Weather.accept({ kind: 'none', precip: false, windKph: 10.1 });
+    Weather.accept({ kind: 'none', precip: false, windKph: K + 0.1 });
     Whirlwinds.observe(s, 0, CALM);
-    assert.eq(s._whirlwinds.length, 1, 'the first reading above ten enables weather tornadoes');
+    assert.truthy(Weather.windy());
+    assert.eq(s._whirlwinds.length, 1, 'the first windy reading enables weather tornadoes');
   }));
   test('whirlwind: rising wind never rerolls a cell whose calm visit already missed', () => fixture((s, e) => {
     WorldGen.makeRng = () => () => Whirlwinds.CONFIG.chance * 2;
-    Weather.accept({ kind: 'none', precip: false, windKph: 9 });
+    const K = Weather.EFFECTS.windyKph;
+    Weather.accept({ kind: 'none', precip: false, windKph: K - 1 });
     Whirlwinds.observe(s, 0, CALM); assert.eq(s._whirlwinds.length, 0);
-    Weather.accept({ kind: 'none', precip: false, windKph: 10 });
-    Whirlwinds.observe(s, 50000, CALM); assert.eq(s._whirlwinds.length, 0, 'exactly ten kilometres per hour is still calm');
-    Weather.accept({ kind: 'none', precip: false, windKph: 40 });
+    Weather.accept({ kind: 'none', precip: false, windKph: K });
+    Whirlwinds.observe(s, 50000, CALM); assert.eq(s._whirlwinds.length, 0, 'exactly the windy threshold is still calm');
+    Weather.accept({ kind: 'none', precip: false, windKph: K + 30 });
     Whirlwinds.observe(s, 100000, CALM);
     assert.eq(s._whirlwinds.length, 0, 'the cell/day visit stays decided after the wind rises');
   }));

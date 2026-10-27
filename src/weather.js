@@ -11,7 +11,9 @@ const Weather = (() => {
     // Between hourly measurements the readout follows a daily curve through the
     // forecast low (at dawn) and high (mid-afternoon), local solar-clock hours.
     diurnal: Object.freeze({ lowHour: 6, highHour: 15 }),
-    windyKph: 10,
+    // The readout says windy from a fresh breeze up (Beaufort 5, about 29 km/h):
+    // below that, players outdoors do not notice the wind.
+    windyKph: 28,
     maxForegroundStepMs: 1000,
     precipitation: Object.freeze({
       none: null,
