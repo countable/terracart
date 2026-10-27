@@ -271,7 +271,7 @@ test('building overlay: a castle gets a rampart band, a house gets an outline', 
   const insets = scene.buildingGeomGfx.only('inset');
   assert.eq(insets.length, 2, 'stone band + the merlon dashes over it');
   assert.falsy(insets[0].dash, 'the band itself is solid');
-  assert.eq(insets[1].dash.join(','), '8,8', 'flat fallback uses the artwork tooth and gap widths');
+  assert.eq(insets[1].dash.join(','), '9.6,6.4', 'flat fallback shares the wider teeth and reduced gaps');
   assert.gt(insets[0].width, 1, 'the band has real thickness');
 
   clearTiles();
@@ -977,7 +977,7 @@ test('building overlay: both horizontal castle boundaries expose thinner caps ov
   const css = c => '#' + c.toString(16).padStart(6, '0');
   const faces = log.polygons.filter(p => p.color === css(material.stone.FACE)
     && Math.max(...p.points.map(v => v.x)) - Math.min(...p.points.map(v => v.x)) > material.rampart.topDepth
-    && Math.max(...p.points.map(v => v.y)) - Math.min(...p.points.map(v => v.y)) > material.rampart.toothHeight);
+    && Math.max(...p.points.map(v => v.y)) - Math.min(...p.points.map(v => v.y)) > CastleStyles.renderStyle('citadel').geometry.merlonHeight + 1e-7);
   assert.eq(faces.length, 4, 'two sections on each horizontal boundary, including the back wall');
   const floorYs = scene.buildingGeomGfx.only('fill')[0].pts.map(p => p.y);
   for (const face of faces) {
@@ -1080,7 +1080,7 @@ test('building overlay: rectangular merlon bases follow their caps at every wall
     const caps = log.polygons.filter(p => p.color === css(material.stone.BODY)).map(p => p.points);
     const roofs = log.polygons.filter(p => p.color === css(material.stone.LITE));
     assert.gt(roofs.length, 0, 'merlons have visible roofs');
-    const toothWidth = 8;
+    const crown = CastleStyles.renderStyle('citadel').geometry, toothWidth = crown.merlonWidth;
     assert.eq(material.rampart.topDepth, 3.6, 'cap is 40 percent thinner');
     for (const roof of roofs) {
       const [a, b, c] = roof.points;
@@ -1093,7 +1093,7 @@ test('building overlay: rectangular merlon bases follow their caps at every wall
       assert.lt(Math.abs(along.x * across.x + along.y * across.y), 1e-7,
         'adjacent sides of the rectangular roof are perpendicular');
       for (const v of roof.points) {
-        const base = { x: v.x, y: v.y + material.rampart.toothHeight };
+        const base = { x: v.x, y: v.y + crown.merlonHeight };
         assert.truthy(caps.some(cap => inside(base, cap)),
           `every tooth corner is seated on stone at ${angle} degrees, reversed=${reversed}`);
       }
@@ -1229,9 +1229,10 @@ test('building overlay: atlas slots fit the largest piece, and an emptied page i
   BuildingOverlay.draw(scene);
   const A = scene._buildingWallAtlas;
   assert.truthy(A && A.slotW > 0 && A.slotH > 0, 'the atlas geometry is on the scene');
-  const styles = CastleStyles.ids.map(id => CastleStyles.get(id).rampart);
-  const pad = 2 * Math.ceil(Math.max(...styles.map(r =>
-    r.topDepth + Math.max(r.topDepth, r.wallHeight) + r.toothHeight)) + 2) + 2;
+  const pad = 2 * Math.ceil(Math.max(...CastleStyles.ids.map(id => {
+    const r=CastleStyles.get(id).rampart;
+    return r.topDepth + Math.max(r.topDepth, r.wallHeight) + Math.max(r.toothHeight,CastleStyles.renderStyle(id).geometry.merlonHeight);
+  })) + 2) + 2;
   assert.truthy(Number.isInteger(A.slotW) && Number.isInteger(A.slotH), 'fractional caps retain integer atlas slots');
   assert.eq(A.slotW, CELL_PX + pad, 'a slot is a cell plus the bake padding wide');
   assert.eq(A.slotH, CELL_PX + Render.BUILDING_FACE_PX[T.BUILDING_LARGE] + pad, 'and the deepest face taller');
@@ -1351,11 +1352,13 @@ test('building overlay: castle fallback crowns keep artwork spacing for every wa
     const material = buildingBackgroundMaterial(CastleStyles.get('citadel'));
     const teeth = perspective ? scene._wallPerspective.polygon.blocks.filter(b=>b.bottom>0).map(b=>b.points)
       : log.polygons.filter(p=>p.color==='#'+material.stone.LITE.toString(16).padStart(6,'0')).map(p=>p.points);
+    if(perspective)for(const tooth of scene._wallPerspective.polygon.blocks.filter(b=>b.bottom>0))
+      assert.lt(Math.abs(tooth.top-tooth.bottom-5.6),1e-6,'fallback crown shares the shorter tooth height');
     const rows = new Map();
     for(const tooth of teeth) {
       const [a,b] = tooth;
       if(Math.abs(a.y-b.y)>1e-6)continue;
-      assert.lt(Math.abs(Math.abs(b.x-a.x)-8),1e-6,'fallback tooth width matches the source artwork');
+      assert.lt(Math.abs(Math.abs(b.x-a.x)-9.6),1e-6,'fallback tooth width matches the generated crown');
       const key=a.y.toFixed(5),row=rows.get(key)||[];
       row.push(Math.min(a.x,b.x));rows.set(key,row);
     }

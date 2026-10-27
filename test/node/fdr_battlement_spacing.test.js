@@ -1,10 +1,11 @@
 (function () {
   const L=FDRCastleLayout;
   const center=points=>points.reduce((p,q)=>({x:p.x+q.x/points.length,y:p.y+q.y/points.length}),{x:0,y:0});
-  test('FDR battlements: native eight-pixel teeth and gaps keep their size on long walls', () => {
+  test('FDR battlements: shorter wider teeth keep their dimensions and rhythm on long walls', () => {
     for(const family of ['citadel','bastion','archive']) {
       const options={...CastleStyles.renderStyle(family,true).geometry,sectionLength:64};
-      assert.eq(options.merlonPitch,16,'native curtain art repeats every sixteen game pixels');
+      assert.eq(options.merlonPitch,16,'curtain rhythm remains sixteen game pixels');
+      assert.eq(options.merlonWidth,9.6);assert.eq(options.merlonHeight,5.6);
       for(const width of [240,241,1024,12000]) {
         const layout=L.build(L.rect(0,0,width,120),options);
         assert.truthy(layout,`${family}: ${width}px curtain remains supported`);
@@ -13,9 +14,12 @@
         assert.gt(teeth.length,5);
         for(let i=0;i<teeth.length;i++) {
           const p=teeth[i].points;
-          assert.lt(Math.abs(Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y)-8),1e-6,'tooth width matches source artwork');
+          assert.lt(Math.abs(Math.hypot(p[1].x-p[0].x,p[1].y-p[0].y)-9.6),1e-6,'tooth width grows twenty percent along the wall');
+          assert.lt(Math.abs(Math.hypot(p[2].x-p[1].x,p[2].y-p[1].y)-8),1e-6,'depth remains eight pixels');
+          assert.lt(Math.abs(teeth[i].top-teeth[i].base-5.6),1e-6,'tooth height shrinks thirty percent');
+          assert.lt(Math.abs(teeth[i].coveredArea-76.8),1e-3,'entire wider tooth remains supported');
           if(i)assert.lt(Math.abs(Math.hypot(centers[i].x-centers[i-1].x,centers[i].y-centers[i-1].y)-16),1e-6,
-            'successive supported teeth retain an eight-pixel open gap');
+            'successive supported teeth retain a 6.4px open gap');
         }
         if(width===12000)assert.gt(layout.merlons.length,1000,'giant curtains add teeth instead of enlarging gaps');
       }
@@ -127,6 +131,20 @@
       for(let j=0;j<4;j++) {
         assert.lt(Math.abs(b.points[j].x-a.points[j].x-offset),1e-6);
         assert.lt(Math.abs(b.points[j].y-a.points[j].y-offset),1e-6);
+      }
+    }
+  });
+  test('FDR battlements: width and height overrides have independent cached layouts', () => {
+    const points=L.rect(0,0,240,180);
+    for(const [width,height] of [[9.6,5.6],[8,8],[12,4],[9.6,5.6]]) {
+      const layout=L.build(points,{merlonWidth:width,merlonHeight:height});
+      assert.gt(layout.merlons.length,0);
+      for(const tooth of layout.merlons) {
+        const [a,b,c]=tooth.points;
+        assert.lt(Math.abs(Math.hypot(b.x-a.x,b.y-a.y)-width),1e-6);
+        assert.lt(Math.abs(Math.hypot(c.x-b.x,c.y-b.y)-8),1e-6);
+        assert.lt(Math.abs(tooth.top-tooth.base-height),1e-6);
+        assert.lt(Math.abs(tooth.coveredArea-width*8),1e-3);
       }
     }
   });

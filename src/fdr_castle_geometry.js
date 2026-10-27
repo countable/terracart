@@ -41,8 +41,9 @@
         for(let j=0;j<levels.length-1;j++){
           const lo=levels[j],hi=levels[j+1];
           let color=sideColor(normal);
-          if(!style.active&&material==='stone'){
-            const boost=c=>Math.min(255,Math.round(c*1.5));
+          if(material==='stone'){
+            const gain=style.masonryLightGain*(style.active?1:style.masonryWeatheredCompensation);
+            const boost=c=>Math.min(255,Math.round(c*gain));
             color=(boost(color>>16)<<16)|(boost((color>>8)&255)<<8)|boost(color&255);
           }
           const quad=[at(a,aa,lo),at(b,bb,lo),at(b,bb,hi),at(a,aa,hi)];
@@ -52,7 +53,10 @@
             // splitting, at a repeat boundary, before their UVs leave it.
             const origin=layout.points[0],slot=stoneSlot;
             const growthShift=growthSeed===null?0:((growthSeed+i)%4)*32;
-            const phase=((((a.x-origin.x)*dx+(a.y-origin.y)*dy)/length+growthShift)%128+128)%128;
+            let phase=((((a.x-origin.x)*dx+(a.y-origin.y)*dy)/length+growthShift)%128+128)%128;
+            // A flared foot extends beyond the shaft edge. Keep those pixels
+            // on the same world-space grid, with a full repeat to its left.
+            if(baseOutset&&phase<baseOutset)phase+=128;
             const lerp=(p,q,t)=>({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,z:p.z+(q.z-p.z)*t});
             for(let start=0;start<length;){
               const offset=start===0?phase:0;
@@ -60,7 +64,7 @@
               const strip=[lerp(quad[0],quad[1],start/length),lerp(quad[0],quad[1],end/length),
                 lerp(quad[3],quad[2],end/length),lerp(quad[3],quad[2],start/length)];
               for(let k=0;k<strip.length;k++){
-                const p=strip[k],along=k===1||k===2?end-start:0;
+                const p=strip[k],along=((p.x-a.x)*dx+(p.y-a.y)*dy)/length-start;
                 p.u=(slot%4*128+8+(offset+along)/224*112)/512;
                 p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-p.z/64))*112)/512;
               }
@@ -116,7 +120,7 @@
     for(let i=0;i<layout.merlons.length;i++){
       const m=layout.merlons[i];
       if(!style.active&&(i%3===1||lowered.some(w=>w.edge===m.edge&&FDRCastleLayout.overlap(m.points,w.points))))continue;
-      const top=style.active?m.top:m.base+[5,7,8][(Math.floor(i/3)+m.edge)%3];
+      const top=style.active?m.top:m.base+[5,7,8][(Math.floor(i/3)+m.edge)%3]*geometry.merlonHeight/8;
       prism(m.points,m.base,top,supports[m.edge]);
     }
     function decal(block,a,b,z0,z1,color,material,slot=null,vRange=[0,1],atlasRect=null){
@@ -150,7 +154,7 @@
       // Keep the roof pitch proportional to its span, using the same four
       // planes as the tower roofs. A fixed rise made the wide keep look flat.
       const roofRise=geometry.roofHeight?geometry.roofHeight*Math.min(w,h)/geometry.towerWidth:0;
-      part.crownHeight=height+(roofRise||8);
+      part.crownHeight=height+(roofRise||geometry.merlonHeight);
       // The shaft fills the same square used to clip adjoining curtains.
       // Insetting it above a wider plinth leaves vertical slots at those joins.
       const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.deck,baseOutset:isKeep?0:towerBaseOutset,stoneSlot:style.towerMasonrySlot,growthSeed:style.active?null:index});if(!shaft){massGate=null;return;}
@@ -165,34 +169,33 @@
             {...b,z:height,u:120/512,v:376/512},{...peak,u:64/512,v:264/512}],color,null,'roof');
         }
       }else{
-        // Fixed native 8px teeth / 8px gaps, centered on each crown side.
+        // Fixed-width teeth repeat at the shared pitch on every crown side.
         // Side rows stop short of the front/back rows, preventing overlaps.
-        const pitch=geometry.merlonPitch,tooth=8;
+        const pitch=geometry.merlonPitch,tooth=geometry.merlonWidth,depth=8;
         const row=(span,place,sideIndex)=>{
           const count=Math.max(0,Math.floor((span-tooth)/pitch)+1);
           for(let j=0;j<count;j++){
             if(!style.active&&(j+index+sideIndex)%3===1)continue;
             const at=(j-(count-1)/2)*pitch;
-            const toothHeight=style.active?8:[5,7,8][(index*2+j+sideIndex)%3];
+            const toothHeight=geometry.merlonHeight*(style.active?1:[5,7,8][(index*2+j+sideIndex)%3]/8);
             prism(place(at),height,height+toothHeight,support);
           }
         };
         for(const side of [-1,1]){
-          row(w,at=>crownRect(x+at,y+side*(h/2-tooth/2),tooth,tooth),side>0?1:0);
-          row(h-tooth*2,at=>crownRect(x+side*(w/2-tooth/2),y+at,tooth,tooth),side>0?3:2);
+          row(w,at=>crownRect(x+at,y+side*(h/2-depth/2),tooth,depth),side>0?1:0);
+          row(h-depth*2,at=>crownRect(x+side*(w/2-depth/2),y+at,depth,tooth),side>0?3:2);
         }
       }
       if(isKeep){
         // Backed entrance art and flanking heraldry share the existing facade
-        // quad; painted open leaves do not change its wall or collision.
+        // quad; the closed painted door does not change wall collision.
         const width=Math.min(22,w-12),doorHeight=Math.min(25,height-8);
         if(style.id==='archive')feature(shaft,body,2,width,0,doorHeight,style.top,'door',0,5);
         else feature(shaft,body,2,w-8,0,height-4,0xffffff,'door',0,null,[0,1],
           [268+(style.active?56:0),12+(style.id==='bastion'?56:0),48,48]);
-        const openLeaves=style.id==='citadel'&&style.active;
-        feature(shaft,body,2,1,openLeaves?doorHeight*.1:0,openLeaves?doorHeight*.65:doorHeight-3,
-          (style.door&0xfefefe)>>1,'door-seam',openLeaves?-4:0);
-        for(const shift of openLeaves?[-6,6]:[-3,3])feature(shaft,body,2,2,doorHeight*.43,doorHeight*.43+2,style.top,'door-handle',shift);
+        feature(shaft,body,2,1,0,doorHeight-3,
+          (style.door&0xfefefe)>>1,'door-seam');
+        for(const shift of [-3,3])feature(shaft,body,2,2,doorHeight*.43,doorHeight*.43+2,style.top,'door-handle',shift);
       }else for(let side=0;side<4;side++){
         const archive=style.id==='archive';
         const bastion=style.id==='bastion';
@@ -210,7 +213,7 @@
     }
     layout.towers.forEach((t,i)=>mass(t,false,i));if(layout.keep)mass(layout.keep,true,0);
     const footprints=[layout.points,...layout.towers.map(t=>t.basePoints||t.points)].flat(),bounds={left:Math.min(...footprints.map(p=>p.x)),right:Math.max(...footprints.map(p=>p.x)),top:Math.min(...footprints.map(p=>p.y)),bottom:Math.max(...footprints.map(p=>p.y))};
-    const height=Math.max(geometry.wallHeight+8,...layout.towers.map(t=>t.crownHeight||t.height+geometry.roofHeight),layout.keep?(layout.keep.crownHeight||layout.keep.height+geometry.roofHeight):0);
+    const height=Math.max(geometry.wallHeight+geometry.merlonHeight,...layout.towers.map(t=>t.crownHeight||t.height+geometry.roofHeight),layout.keep?(layout.keep.crownHeight||layout.keep.height+geometry.roofHeight):0);
     return {layout,footprint:layout.points,bounds,height,blocksAdded:group.blocks.length-start,source,family:style.id,active:style.active,style};
   }
   function cacheFor(scene){

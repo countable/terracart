@@ -136,8 +136,8 @@
       }
       for (const m of layout.merlons) {
         assert.truthy(L.contains(m.points,layout.points));
-        assert.lt(Math.abs(m.coveredArea-64),1e-3,'merlon supported by wall');
-        assert.eq(m.top-m.base,8,'physical crenellation height');
+        assert.lt(Math.abs(m.coveredArea-9.6*8),1e-3,'merlon supported by wall');
+        assert.lt(Math.abs(m.top-m.base-5.6),1e-7,'physical crenellation height');
       }
       for (let i=0;i<layout.walls.length;i++) for(let j=i+1;j<layout.walls.length;j++)
         assert.falsy(L.overlap(layout.walls[i].points,layout.walls[j].points),'wall fragments do not interpenetrate');
@@ -350,7 +350,7 @@
       for(const colors of byNormal.values())assert.eq(colors.size,1,'the upper wall has no second horizontal shadow step');
       const caps=body.materialFaces.filter(f=>f.material==='stone'&&!f.normal&&f.points.every(p=>p.z===body.top));
       assert.gt(caps.length,0,'coping exposes a real upward-facing plane');
-      assert.truthy(caps.every(f=>luma(f.color)>Math.max(...upper.map(q=>luma(q.color)/(active?1:1.5)))),'upward-facing surfaces are lit');
+      assert.truthy(caps.every(f=>luma(f.color)>Math.max(...upper.map(q=>luma(q.color)/(CastleStyles.renderStyle(family,active).masonryLightGain*(active?1:CastleStyles.renderStyle(family,active).masonryWeatheredCompensation))))),'upward-facing surfaces are lit');
       const colors=group.blocks.flatMap(b=>b.materialFaces.map(f=>f.color)).sort((a,b)=>a-b).join(',');
       for(const angle of [0,.7,Math.PI/2,Math.PI,Math.PI*1.5]) {
         scene.mapRot=angle;WallPerspective.update(scene);
@@ -370,11 +370,9 @@
       const faces=group.blocks.filter(b=>Math.abs(b.x-keep.x)<1e-7&&Math.abs(b.y-keep.y)<1e-7).flatMap(b=>b.materialFaces);
       for(const material of ['door','door-seam','door-handle'])
         assert.gt(faces.filter(f=>f.material===material).length,0,`${family}: backed entrance retains ${material}`);
-      if(family==='citadel'&&active)for(const face of faces.filter(f=>f.material==='door-seam'))
-        for(const point of face.points){
-          assert.gte(point.z,2.5,'the painted leaf edge begins above the threshold');
-          assert.lte(point.z,16.25,'the seam cannot extend above the painted open leaf');
-        }
+      const seam=faces.filter(f=>f.material==='door-seam').flatMap(f=>f.points);
+      assert.eq(Math.min(...seam.map(p=>p.z)),0,'closed door seam reaches its threshold');
+      assert.truthy(seam.every(p=>Math.abs(p.x-keep.x)<=.5),'closed door seam stays centered');
       for(const face of faces.filter(f=>f.material==='door')) {
         const center=face.points.reduce((sum,p)=>({u:sum.u+p.u/3,v:sum.v+p.v/3}),{u:0,v:0});
         assert.eq(Math.floor(center.u*4)+4*Math.floor(center.v*4),family==='archive'?5:2,
@@ -440,7 +438,8 @@
             'each tooth has a real lit top plane');
         }
         for(const tooth of teeth){
-          assert.lt(Math.abs(Math.sqrt(Math.abs(L.area(tooth.points)))-8),1e-6,'crown teeth keep the native eight-pixel width');
+          assert.lt(Math.abs(Math.abs(L.area(tooth.points))-9.6*8),1e-6,'crown teeth are twenty percent wider along the row');
+          assert.lt(Math.abs(tooth.top-tooth.bottom-5.6),1e-6,'restored crown teeth are thirty percent shorter');
           assert.falsy(teeth.some(other=>other!==tooth&&L.overlap(tooth.points,other.points)),'corner rows cannot overlap');
         }
         const c=Math.cos(part.angle||0),s=Math.sin(part.angle||0);
@@ -467,6 +466,12 @@
         const sides=shaft.materialFaces.filter(f=>f.material==='stone'&&f.normal);
         const foot=sides.flatMap(f=>f.points).filter(p=>p.z===0);
         const above=sides.flatMap(f=>f.points).filter(p=>p.z>=4);
+        for(const face of sides)for(let j=0;j<3;j++){
+          const a=face.points[j],b=face.points[(j+1)%3];
+          if(Math.abs(a.z-b.z)>1e-7)continue;
+          const span=Math.hypot(b.x-a.x,b.y-a.y);
+          if(span>1e-7)assert.lt(Math.abs(Math.abs(b.u-a.u)*512/span-.5),1e-7,'flared ground courses keep the same brick width as the shaft');
+        }
         assert.eq(sides.filter(f=>f.points.every(p=>p.z<=4)).length,8,
           'four tapered basal quads reuse eight triangles rather than adding a plinth mesh');
         for(const p of above) {

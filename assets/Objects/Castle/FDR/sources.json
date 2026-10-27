@@ -392,7 +392,7 @@
         {
           "family": "citadel",
           "active": true,
-          "appearance": "open-timber-leaves",
+          "appearance": "closed-timber-leaves",
           "rect": [
             324,
             12,
@@ -427,7 +427,7 @@
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "53f32ded306a5f083db2b9225c7aa3d1c1d92e15397fd5b11a473f79fb80de51",
+      "sha256": "e3d48db878f92c28892ccd0239a7780a31a789eecaf853b21bdf343959b83068",
       "size": [
         512,
         512

@@ -43,8 +43,9 @@
     const clipFootprint=points.length>64?PolygonGeometry.createFootprintClipper(points):null;
     const inside=clipFootprint?clipFootprint.contains:poly=>contains(poly,points);
     const perimeter=points.reduce((sum,p,i)=>sum+Math.hypot(points[(i+1)%points.length].x-p.x,points[(i+1)%points.length].y-p.y),0);
-    const sectionLength=Math.max(options.sectionLength || 16,perimeter/LIMITS.sections),pitch=Math.max(8,options.merlonPitch || 16);
-    // The source art has eight-pixel teeth and eight-pixel open gaps. A
+    const merlonWidth=options.merlonWidth??9.6,merlonHeight=options.merlonHeight??5.6;
+    const sectionLength=Math.max(options.sectionLength || 16,perimeter/LIMITS.sections),pitch=Math.max(merlonWidth,options.merlonPitch || 16);
+    // Wider, shorter teeth retain the artwork's sixteen-pixel rhythm. A
     // geometry budget must never dilate that rhythm on longer curtains.
     // Beyond the bounded candidate count, use the contained tiled fallback.
     const candidateCount=points.reduce((sum,p,i)=>sum+Math.floor(Math.hypot(points[(i+1)%points.length].x-p.x,points[(i+1)%points.length].y-p.y)/pitch),0);
@@ -123,24 +124,24 @@
       }}
       intervals.sort((a,b)=>a[0]-b[0]);let end=0;for(const [lo,hi] of intervals){if(lo>end+EPS)break;end=Math.max(end,hi);}if(end>=1-EPS)wall.omitEdges.push(i);
     }}
-    const merlons=[],merlonBuckets=new Map();
+    const merlons=[],merlonBuckets=new Map(),bucketSize=Math.max(16,merlonWidth);
     const bucketKeys=box=>{
       const result=[];
-      for(let x=Math.floor(box.left/16);x<=Math.floor(box.right/16);x++)
-        for(let y=Math.floor(box.top/16);y<=Math.floor(box.bottom/16);y++)result.push(x+','+y);
+      for(let x=Math.floor(box.left/bucketSize);x<=Math.floor(box.right/bucketSize);x++)
+        for(let y=Math.floor(box.top/bucketSize);y<=Math.floor(box.bottom/bucketSize);y++)result.push(x+','+y);
       return result;
     };
     for(let edge=0;edge<edges.length;edge++){
       const {a,b}=edges[edge],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy),ux=dx/l,uy=dy/l,nx=-uy,ny=ux,count=Math.floor(l/pitch),first=(l-(count-1)*pitch)/2;
       for(let j=0;j<count;j++){
         const at=first+j*pitch,cx=a.x+ux*at+nx*4,cy=a.y+uy*at+ny*4;
-        const box=[[-4,-4],[4,-4],[4,4],[-4,4]].map(([u,v])=>({x:cx+ux*u+nx*v,y:cy+uy*u+ny*v}));
+        const half=merlonWidth/2,box=[[-half,-4],[half,-4],[half,4],[-half,4]].map(([u,v])=>({x:cx+ux*u+nx*v,y:cy+uy*u+ny*v}));
         // Spatial buckets keep thousands of fixed-pitch candidates local;
         // teeth from distant source edges never enter exact overlap checks.
         const keys=bucketKeys(bounds(box)),neighbours=new Set(keys.flatMap(key=>merlonBuckets.get(key)||[]));
         if(!inside(box)||towers.some(t=>overlap(box,t.points))||[...neighbours].some(m=>overlap(box,m.points)))continue;
-        const covered=nearby(walls,box).reduce((sum,w)=>sum+Math.abs(area(intersect(box,w.points))),0);if(Math.abs(covered-64)>1e-3)continue;
-        const merlon={edge,points:box,base:wallHeight,top:wallHeight+8,rimTop:wallHeight,rim:edges[edge].strip,coveredArea:covered};
+        const covered=nearby(walls,box).reduce((sum,w)=>sum+Math.abs(area(intersect(box,w.points))),0);if(Math.abs(covered-merlonWidth*8)>1e-3)continue;
+        const merlon={edge,points:box,base:wallHeight,top:wallHeight+merlonHeight,rimTop:wallHeight,rim:edges[edge].strip,coveredArea:covered};
         merlons.push(merlon);
         for(const key of keys){if(!merlonBuckets.has(key))merlonBuckets.set(key,[]);merlonBuckets.get(key).push(merlon);}
       }
@@ -169,7 +170,7 @@
     // contours. Normalize only the key, far below geometry tolerance; compute
     // and returned vertices retain their full precision.
     const keyPoints=local.map(p=>[+p.x.toFixed(9),+p.y.toFixed(9)]);
-    const key=JSON.stringify([keyPoints,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.sectionLength,options.towerBaseOutset]);
+    const key=JSON.stringify([keyPoints,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.merlonWidth,options.merlonHeight,options.sectionLength,options.towerBaseOutset]);
     let layout=cache.get(key);
     if(layout===undefined){
       // Canonical cached contours have already passed validation. On a miss,

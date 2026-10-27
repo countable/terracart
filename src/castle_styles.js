@@ -206,6 +206,8 @@
     value.towerMasonrySlot = id === 'archive' ? (active ? 11 : 12) : value.masonrySlot;
     // A 128-unit motif occupies exactly 64 of the tile's 112 atlas texels.
     value.masonryRepeatFraction = 4 / 7;
+    value.masonryLightGain = 1.25;
+    value.masonryWeatheredCompensation = 1.2;
     value.paving = Object.freeze(id === 'citadel'
       ? { key: 'fdr', scale: 1.5, alpha: active ? .28 : .16 }
       : { key: `fdr-${id}`, scale: 1, alpha: active ? 1 : .55 });
@@ -222,7 +224,7 @@
     // sandstone. Preserve that material separately from the crown's tint.
     value.deck = id === 'citadel' && !active ? weathered(source.top, true) : value.top;
     value.geometry = Object.freeze({ towerWidth: source.towerWidth, towerHeight: source.towerHeight,
-      keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 16, roofHeight: source.roofHeight });
+      keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 16, merlonWidth: 9.6, merlonHeight: 5.6, roofHeight: source.roofHeight });
     const style = Object.freeze(value); renderCache.set(cacheKey, style); return style;
   }
   // Ground-only contact growth. The canvas clips these bounded masks to the

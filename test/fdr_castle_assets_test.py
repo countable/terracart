@@ -54,19 +54,35 @@ class CastleMaterials(unittest.TestCase):
                 self.assertEqual(content.crop((0, 0, 48, 112)).tobytes(),
                                  content.crop((64, 0, 112, 112)).tobytes(),
                                  'the 128-world-unit motif repeats in exactly 64 atlas texels')
-                # UV samples use z=0..64 with v=1-z/64. Average short
-                # height bands so individual mortar courses cannot dominate.
-                def brightness(z):
-                    cy = min(111, round((1 - z / 64) * 112))
-                    pixels = list(content.crop((0, max(0, cy-2), 112, min(112, cy+3))).getdata())
+                # Each 8-world-unit band includes enough stone and mortar
+                # to assess illumination independently of individual joints.
+                # All three bands lie within the actual 24-unit curtain.
+                def brightness(lo, hi):
+                    top = round((1 - hi / 64) * 112)
+                    bottom = round((1 - lo / 64) * 112)
+                    pixels = list(content.crop((0, top, 112, bottom)).getdata())
                     return sum(sum(p[:3]) / 3 for p in pixels) / len(pixels)
-                foot, middle, top = [brightness(z) for z in [0, 12, 24]]
+                foot, middle, top = [brightness(z, z+8) for z in [0, 8, 16]]
                 self.assertGreater(middle, foot + 10)
                 self.assertGreater(top, middle + 5)
                 self.assertEqual(materials[slot]['gutterY'], 'clamp')
                 self.assertEqual(atlas.crop((x+8,y+119,x+120,y+120)).tobytes(),
                                  atlas.crop((x+8,y+120,x+120,y+121)).tobytes(),
                                  'the ground sample must not wrap into bright upper stone')
+
+    def test_ground_course_has_a_lit_upper_bevel_and_dark_lower_edge(self):
+        atlas = Image.open(Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR/atlas.png')
+        for slot, height in [(3, 6), (10, 10), (11, 10), (13, 6)]:
+            with self.subTest(slot=slot):
+                x, y = slot % 4 * 128 + 8, slot // 4 * 128 + 8
+                # Source x=4 lies inside the first brick; padded nearest
+                # scaling maps two world x units to one atlas texel.
+                def value(source_y):
+                    atlas_y = round((source_y + .5) * 112 / 64 - .5)
+                    return atlas.getpixel((x + 2, y + atlas_y))[0]
+                upper, face, lower = [value(row) for row in [64-height, 66-height, 62]]
+                self.assertGreater(upper, face, 'whole bottom brick begins with its upper bevel')
+                self.assertGreater(face, lower + 10, 'brick body stays distinct from the dark lower edge')
 
     def test_archive_tower_tiles_are_opaque_for_canvas_seam_coverage(self):
         atlas = Image.open(Path(__file__).resolve().parents[1] / 'assets/Objects/Castle/FDR/atlas.png')
@@ -88,6 +104,7 @@ class CastleMaterials(unittest.TestCase):
         material=next(row for row in json.loads((folder/'sources.json').read_text())['materials'] if row['slot']==2)
         self.assertEqual(len(material['frames']),4)
         for record in material['frames']:
+            self.assertEqual(record['appearance'], 'portcullis' if record['family']=='citadel' and not record['active'] else 'closed-timber-leaves')
             x,y,w,h=record['rect'];frame=atlas.crop((x,y,x+w,y+h))
             self.assertTrue(set(frame.getchannel('A').getdata()).issubset({0,255}))
             self.assertEqual(frame.getpixel((24,46))[3],255,'the central entrance retains opaque backing')

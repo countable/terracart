@@ -295,8 +295,10 @@ step-over lift (walls) or separate `heightPx` (walk-through hedges) in
 they still interact from their data cells. Walls support steps; hedges are walked
 through without a hop, balancing slowdown or body crop. An isolated
 wall cell keeps its rubble sprite and a lone garden bush its rounded sprite.
-`wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
-and bevels without a pale coping band. Hedges have their own profile there
+`wall_materials.js` owns the shared cel-pixel atlas: connected hedges use the
+RA-recolored bushy hedge strip across tops and bevels without a pale coping band.
+Creeping vines reuse the former procedural green leaf material, with a broad
+24px footprint and a low 4px crown; cardinal masks join neighboring vine cells. Hedges have their own profile there
 (`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot
 undercuts the clipped face, and a quarter-round shoulder rolls into a flat crown
 at the step-over height, its rings dipping at hashed world points so runs read
@@ -1431,7 +1433,8 @@ Stable plant IDs select canopy frames. Berry textures bake red, teal or gold
 fruit onto all eight olive canopies once at startup; picking retains the same
 foliage frame and transparency. Both clipped-shrub aliases use
 `assets/ArtTrials/RogueProps/flora-zone_hedge_single.png`. Connected hedges retain
-their fifteen cardinal masks and matched edge pixels from `assets/Objects/Hedges/`.
+their fifteen cardinal masks; their 3D material uses the approved bushy strip.
+The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
 by map and popup art. Barrels use only the cylindrical frame 3; the square
@@ -1473,7 +1476,8 @@ obtuse corner one tower side follows its curtain while the other curtain joins
 at its own angle. Tower crowns, decals, roofs and flared feet share this local
 orientation. Curtains are clipped against the shifted tower shafts.
 Merlons are solid geometry with open crenels and full coping support. Their
-eight-pixel teeth repeat every sixteen game pixels, matching the artwork,
+9.6-pixel-wide, 5.6-pixel-high teeth repeat every sixteen game pixels, leaving
+6.4-pixel gaps. They retain the artwork rhythm with a broader, lower silhouette
 regardless of curtain length; longer walls add teeth instead of widening gaps. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
@@ -1510,9 +1514,13 @@ detailed rings; offscreen strips are rejected before clipping.
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
 Family-specific slate, sandstone and pale ashlar courses use small chamfered
-brick corners, broken upper highlights and lower bevels. Faux top lighting is
-baked into the atlas: stone and foliage rise smoothly from 60% brightness at
-ground level to about 91% at height 24, reaching full light at height 40.
+brick corners, lighter upper edges and darker lower bevels/mortar. Curtain
+courses are six game pixels tall, with ten-pixel Bastion and tower courses.
+Courses start at ground level so the lowest row remains complete. Flared tower
+feet use the same world-space brick width as their shafts. Faux top lighting is
+baked into the atlas, with extra upper-wall highlight headroom from a constant
+material tint. Reciprocal baked attenuation preserves the dark stone foot while
+the upper courses gain about 25% brightness, remaining darker than the coping.
 Walls sample that vertical field from world Z without a separate dark base tint
 or a runtime gradient; their brick dimensions stay constant. Vertical gutters
 clamp the ground and sky values rather than wrapping a bright row into the foot.
@@ -1554,8 +1562,8 @@ is no upper shoulder shadow or projecting crown shelf. Military keeps reuse
 their two entrance-decal triangles for a door and two flanking banners, with
 transparent gaps keeping the entrance clear. Four padded family/condition
 frames use palettes read from `CastleStyles` by the offline builder. Citadel
-shows a wrecked iron grille or restored open timber leaves over an opaque dark
-backing; Bastion uses timber double doors. Seams and
+shows a closed wrecked iron grille or restored timber double doors; Bastion
+also uses closed timber double doors. Seams and
 hardware remain flat decals; the facade does not cut a hole in the wall or
 change collision. Canvas joins each alpha facade's internal diagonal through
 its exact quad, isolating subframes and preserving exterior transparency.
@@ -1568,7 +1576,7 @@ planes over a closed flat cap when wrecked. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with
-its span to preserve tower roof pitch. Military tower crowns include eight-unit
+its span to preserve tower roof pitch. Military tower crowns include the same shorter, wider
 teeth on all four sides at the same sixteen-unit pitch. End margins absorb
 remaining length, and side rows stop before the front/back rows to avoid
 overlapping corner teeth. Surviving
