@@ -10,13 +10,16 @@
     // hours an encounter roll is chanceMul times likelier, raises up to
     // maxActive whirlwinds at once, and the next can come after cooldownMs.
     gust: Object.freeze({ fromHour: 14, toHour: 17, chanceMul: 4, maxActive: 3, cooldownMs: 30000 }),
-    // Weather wind starts above 10 km/h because a gentle breeze should stay calm.
-    // Six times the base chance makes a windy cell visit noticeable, not certain.
-    // Each extra 10 km/h raises one tornado and removes ten seconds of cooldown;
-    // the caps keep a storm readable on a phone-sized field.
-    wind: Object.freeze({ minKph: 10, chanceMul: 6, cooldownMs: 45000, minCooldownMs: 25000,
-      maxActiveFor: kph => 1 + Math.min(2, Math.floor(Math.max(0, kph - 10) / 10)),
-      cooldownFor: kph => Math.max(25000, 45000 - Math.floor(Math.max(0, kph - 10) / 10) * 10000) }) });
+    // Weather wind starts where the readout says windy (Weather.windy, read at
+    // call time because weather.js loads later), so tornadoes never rise on a
+    // day the readout calls calm. Six times the base chance makes a windy cell
+    // visit noticeable, not certain. Each extra 10 km/h past that threshold
+    // raises one tornado and removes ten seconds of cooldown; the caps keep a
+    // storm readable on a phone-sized field.
+    wind: Object.freeze({ chanceMul: 6, cooldownMs: 45000, minCooldownMs: 25000,
+      overKph: kph => Math.max(0, kph - Weather.EFFECTS.windyKph),
+      maxActiveFor: kph => 1 + Math.min(2, Math.floor(CONFIG.wind.overKph(kph) / 10)),
+      cooldownFor: kph => Math.max(25000, 45000 - Math.floor(CONFIG.wind.overKph(kph) / 10) * 10000) }) });
   const WEATHER_GROUND = 'weather';
   function gusty(wall = Date.now()) {
     const h = new Date(wall).getHours();
@@ -79,7 +82,7 @@
     if (seen.has(key)) return;
     seen.add(key);
     const windKph = typeof Weather !== 'undefined' ? Number(Weather.state()?.windKph) : NaN;
-    const windy = Number.isFinite(windKph) && windKph > CONFIG.wind.minKph;
+    const windy = typeof Weather !== 'undefined' && Weather.windy();
     const gust = gusty(wall), max = windy ? CONFIG.wind.maxActiveFor(windKph) : gust ? CONFIG.gust.maxActive : 1;
     const groundMode = windy ? WEATHER_GROUND : false;
     if (scene._whirlwinds.length >= max || now < (scene._whirlwindNextEncounter || 0)
