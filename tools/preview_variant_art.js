@@ -234,7 +234,7 @@ for (const material of Object.values(ctx.ZoneVariantData.materials).filter(o=>o.
 for (const tile of data.basicTiles) for (const object of tile.examples) if(object.kind==='wildplant') addPlant(object);
 Object.assign(data.assets, await require('./preview_runtime_bakes.cjs')(root));
 Object.assign(data.assets, await require('./preview_street_decor_bakes.cjs')(root));
-data.streetGeometryArt = Object.fromEntries(['hedge','grass_clump'].map(kind => [kind, {sheet:'preview_3d_'+kind,frames:['__BASE'],preserveFrame:true,width:64,height:64,origin:[.5,.5],dxPx:0,dyPx:0,source:'Production WallMaterials / WallPerspective geometry'}]));
+data.streetGeometryArt = Object.fromEntries(['hedge','grass_clump','creeping_vine'].map(kind => [kind, {sheet:'preview_3d_'+kind,frames:['__BASE'],preserveFrame:true,width:64,height:64,origin:[.5,.5],dxPx:0,dyPx:0,source:'Production WallMaterials / WallPerspective geometry'}]));
 data.activeProfile = 'rogue';
 data.biomePainter = data.groundMaterialSource + '\n' + vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.

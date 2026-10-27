@@ -34,6 +34,61 @@ const RogueObjects = (() => {
     });
     texture.refresh();
   }
+  // Palette roles follow the installed RA trees: five warm bark shades and
+  // restrained foliage highlights. Species retain different hues; lavender
+  // keeps its plum canopy and conifers remain cooler than the olive hedge.
+  // Explicit source colours leave transparency, shadows and shape untouched.
+  const streetPalettes = Object.freeze({
+    mossy_tree: Object.freeze({
+      0x314a14:0x4c4d2b, 0x42631b:0x66663d, 0x42631a:0x66663d,
+      0x557827:0x7f7f46, 0x527b20:0x7f7f46, 0x719828:0x99994c,
+      0x98b21a:0xb2b247, 0xc8ce57:0xcccc47,
+      0x4b4c31:0x332f23, 0x646641:0x3f3a29, 0x7e7f53:0x4c452d,
+      0x8f9657:0x665b38, 0xaeb177:0x7f713f, 0x664531:0x4c452d,
+    }),
+    conifer_tree: Object.freeze({
+      0x1f4d37:0x253526, 0x265c42:0x35482e, 0x2e6635:0x4a5f35,
+      0x3e8948:0x637b3f, 0x53a641:0x85974c, 0x63c74d:0xaeb764,
+      0x9ac77f:0xc1c681,
+      0x3e2731:0x332f23, 0x733e39:0x4c452d, 0xb86f50:0x7f713f,
+    }),
+    lavender_tree: Object.freeze({
+      0x3d4299:0x413b4d, 0x595eb2:0x5b516b, 0x7a7fcc:0x7b6e89,
+      0xa0a4e5:0x9a8aa3, 0xc1c3f2:0xbcacbf,
+    }),
+    dead_tree: Object.freeze({
+      0x19100f:0x332f23, 0x2d1d1b:0x3f3a29, 0x2d2216:0x45402b,
+      0x3d2724:0x4c452d, 0x472e2a:0x665b38, 0x513d30:0x7f713f,
+    }),
+    hedge_strip: Object.freeze({
+      0x2a594f:0x4c5132, 0x3b7d4f:0x727b40,
+      0x63ab3f:0x999e4b, 0xa4c443:0xbfc35f,
+    }),
+  });
+  function streetPalette(name) { return streetPalettes[name] || null; }
+  function recolorStreetPixels(data, name) {
+    const palette = streetPalette(name);
+    if (!palette) return data;
+    for (let i=0; i<data.length; i+=4) {
+      // Soft source shadows are not foliage or bark, and retain their ink.
+      if (data[i+3] !== 255) continue;
+      const value=palette[(data[i]<<16)|(data[i+1]<<8)|data[i+2]];
+      if (value == null) continue;
+      data[i]=value>>>16; data[i+1]=(value>>>8)&255; data[i+2]=value&255;
+    }
+    return data;
+  }
+  function bakeStreetPalette(scene, name) {
+    if (!streetPalette(name)) return;
+    const key='street_decor_'+name, source=scene.textures.get(key).getSourceImage();
+    const canvas=document.createElement('canvas');
+    canvas.width=source.width; canvas.height=source.height;
+    const ctx=canvas.getContext('2d'); ctx.drawImage(source,0,0);
+    const image=ctx.getImageData(0,0,canvas.width,canvas.height);
+    recolorStreetPixels(image.data,name); ctx.putImageData(image,0,0);
+    scene.textures.remove(key);
+    scene.textures.addSpriteSheet(key,canvas,{frameWidth:canvas.width,frameHeight:canvas.height});
+  }
   // Approved road props remain exact source crops. Small mushroom palette
   // adjustments use the shared per-sprite tint, preserving alpha and source pixels.
   function installStreetArt(assets) {
@@ -41,7 +96,8 @@ const RogueObjects = (() => {
     for (const [name, row] of Object.entries(STREET_DECORATION_ART)) {
       const key = 'street_decor_' + name;
       assets[key] = {kind:'spritesheet', path:row.path,
-        frameWidth:row.bounds.fw, frameHeight:row.bounds.fh};
+        frameWidth:row.bounds.fw, frameHeight:row.bounds.fh,
+        ...(streetPalette(name) ? {onLoad:scene => bakeStreetPalette(scene,name)} : {})};
       SpriteLayout.ART_BOUNDS[key + ':0'] = {...row.bounds};
       SpriteLayout.ART_BOUNDS[key + ':__BASE'] = {...row.bounds};
     }
@@ -182,7 +238,7 @@ const RogueObjects = (() => {
     }
     return {enabled,textures};
   }
-  return {enabled,install,installIcons,spec,status};
+  return {enabled,install,installIcons,spec,status,streetPalette,recolorStreetPixels,bakeStreetPalette};
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;

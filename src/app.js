@@ -4024,6 +4024,7 @@ class MapScene extends Phaser.Scene {
     Waystones.tick(this);
     EnvironmentHazards.tick(this, dt);
     MushroomGas.tick(this, dt);
+    CreepingVines.tick(this, dt);
     Whirlwinds.tick(this, dt);
     this._tickTraps(dt);
     // …and is a guildhall bounty's pack still about (its leash)?

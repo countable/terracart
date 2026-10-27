@@ -758,8 +758,9 @@
     }
   }
   function hedgeGroup(p) {
+    if (p._creepingVine || p.crop === 'creeping_vine') return 'creeping_vine';
     if (p.crop !== 'shrub') return null;
-    if (p._street === 'hedgerow' && p._streetArt === 'clipped') return 'street_hedgerow';
+    if (p._street === 'hedgerow' && ['clipped','hedge_strip'].includes(p._streetArt)) return 'street_hedgerow';
     return ['formal_garden', 'hedge_garden'].includes(p.zoneVariant) ? p.zoneVariant : null;
   }
   function stampHedges(plants, N) {
@@ -774,6 +775,10 @@
       const cells = new Set(group.map(p => p._iy * N + p._ix));
       for (const p of group) {
         const frame = root.QuarryLayout.wallFrameAt(cells, p._iy * N + p._ix, N);
+        if (p._creepingVine) {
+          p._plantArt = 'creeping_vine';
+          continue;
+        }
         p._plantArt = frame == null ? 'zone_hedge_single' : 'zone_hedge';
         if (frame != null) p._hedgeFrame = frame;
         else delete p._hedgeFrame;

@@ -10,7 +10,7 @@
   // stamps). A field already holding the right shape is left alone.
   const SAVE_DEFAULTS = Object.freeze({
     caught: [], released: [], wildAnimals: [], picked: [], opened: [], chopped: [], treeStumps: [], fires: [], scarecrows: [], fruittrees: [],
-    magicTraps: [], barricades: [], furniture: [], houseFurniture: {}, houseLuxury: {}, donated: [],
+    creepingVines: [], vineGrowth: {}, magicTraps: [], barricades: [], furniture: [], houseFurniture: {}, houseLuxury: {}, donated: [],
     npcHomes: {}, npcVillagePins: {}, npcMoveInAfter: {}, npcBenefits: {},
     waystoneUntil: {}, waystoneSets: {},
     lastProduce: {}, fruitPicked: {}, chestHold: {}, coinBurstClaimed: {},

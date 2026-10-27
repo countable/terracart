@@ -53,6 +53,7 @@ const SPRING_CROPS_COLS = 14;
 // Fruiting and ordinary bushes share every foliage pixel and the same geometry.
 const BUSH_SPRITE = { sheet: 'bushes', custom: true, frames: [0, 1, 2, 3, 4, 5, 6, 7], scale: 1 };
 const CROP_SPRITE = {
+  creeping_vine: { sheet: 'zone_hedge', custom: true, frame: 0, scale: 1 },
   white_flower: { sheet: 'street_decor_white_flower', custom: true, frame: 0, scale: 1.4 },
   yellow_flower: { sheet: 'street_decor_yellow_flowers', custom: true, frame: 0, scale: 1.4 },
   golden_flower: { sheet: 'street_decor_golden_flowers', custom: true, frame: 0, scale: 1.4 },
@@ -248,6 +249,7 @@ function wildplantFrame(p) {
 // the vast majority — it drops itself, is picked instantly for nothing, hides
 // no treasure and casts no light.
 const WILDPLANT_RULES = {
+  creeping_vine: { name: 'Creeping vine', output: 'wood', workRelic: 'axe', barehandMs: 5000, workCharged: true },
   // `pickedCrop`: picking the fruit leaves the plant standing as this crop
   // (render.js wildplantView — a plain bush; the id stays spent). Every
   // berry bush, the poisonberry's included (owner, Oct 2026).
@@ -3326,6 +3328,7 @@ function walkHazardDamageRate(o) {
   if (o.kind === 'stakes') return o._street === 'burned' ? CHARRED_SPIKE_DAMAGE_PER_S : 0;
   if (o.kind && o.kind !== 'wildplant' && o.kind !== 'shrub') return 0;
   if (o.crop === 'barricade') return CHARRED_SPIKE_DAMAGE_PER_S;
+  if (o.crop === 'creeping_vine') return WALK_HAZARD_ENERGY_PER_S;
   return (o.crop === 'shrub' || o.kind === 'shrub')
     && (o._plantArt === 'bramble' || o._streetArt === 'bramble') ? WALK_HAZARD_ENERGY_PER_S : 0;
 }

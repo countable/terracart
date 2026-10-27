@@ -1,14 +1,14 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v6', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v7', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
   // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
   const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
-  const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7 };
-  const colors = { hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
+  const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7, vineTop: 8, vineSide: 9 };
+  const colors = { vineTop: 0x4f813b, vineSide: 0x35633a, hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xb59969, woodSide: 0x9e7e50 };
-  // Approved shared RA olive ramp, continuously interpolated by source luminance
+  // The former hedge ramp, retained for creeping vines, interpolated by source luminance
   // (+12), then given the review's 20% saturation lift. Bake the eight painted
   // shades instead of reading back or recoloring a canvas during scene rebuilds.
   const rogueHedge = {
@@ -18,8 +18,13 @@
     '#4f813b': '#818143', '#629347': '#949445'
   };
   const rogueEnabled = () => typeof RogueObjects !== 'undefined' && RogueObjects.enabled;
-  const materialColor = material => rogueEnabled() && material.startsWith('hedge')
-    ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
+  const materialColor = material => {
+    if (!rogueEnabled()) return colors[material];
+    if (material === 'hedgeTop') return 0x999e4b;
+    if (material === 'hedgeSide') return 0x727b40;
+    return material.startsWith('vine')
+      ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
+  };
   const hash = (x, y) => hash2U01(x, y, 173, 97);
   function postHeight(index = 0) {
     const total = WOOD.height + WOOD.tipHeight;
@@ -31,19 +36,36 @@
   }
   function prepare(scene) {
     if (!scene.textures?.createCanvas || !scene.textures?.exists) return null;
-    const rogue = rogueEnabled(), key = KEY + (rogue ? '-rogue' : '');
+    const rogue = rogueEnabled();
+    const hedge = scene.textures.exists('street_decor_hedge_strip')
+      ? scene.textures.get('street_decor_hedge_strip').getSourceImage() : null;
+    const key = KEY + (rogue ? '-rogue' : '') + (hedge ? '-bushy' : '-pending');
     if (scene.textures.exists(key)) return scene.textures.get(key);
     const texture = scene.textures.createCanvas(key, SIZE, SIZE), g = texture.getContext();
     for (const name of Object.keys(slots)) {
       const slot = slots[name], ox = slot % 4 * TILE + PAD, oy = Math.floor(slot / 4) * TILE + PAD, n = TILE - PAD * 2;
       g.save(); g.translate(ox, oy); g.beginPath(); g.rect(0, 0, n, n); g.clip();
       const fill = (color, x, y, w, h) => {
-        g.fillStyle = rogue && name.startsWith('hedge') ? (rogueHedge[color] || color) : color;
+        g.fillStyle = rogue && name.startsWith('vine') ? (rogueHedge[color] || color) : color;
         g.fillRect(x, y, w, h);
       };
       fill('#' + colors[name].toString(16).padStart(6, '0'), 0, 0, n, n);
       if (name.startsWith('hedge')) {
-        const side = name === 'hedgeSide';
+        // The approved bushy strip supplies leaf clusters to the existing
+        // connected mesh. Crop its opaque interior so repeated crowns have
+        // neither a black outline nor a grass fringe at every texture seam.
+        g.fillStyle = '#' + materialColor(name).toString(16).padStart(6,'0');
+        g.fillRect(0,0,n,n);
+        if (hedge) {
+          g.imageSmoothingEnabled = false;
+          const sourceY = name === 'hedgeTop' ? 2 : 5;
+          const sourceH = name === 'hedgeTop' ? 7 : 9;
+          for (let y=0; y<n; y+=sourceH*2) for (let x=0; x<n; x+=124)
+            g.drawImage(hedge,1,sourceY,62,sourceH,x,y,124,sourceH*2);
+        }
+      } else if (name.startsWith('vine')) {
+        // The former hedge's procedural leaves now belong to creeping vines.
+        const side = name === 'vineSide';
         fill(side ? '#2f5934' : '#477735', 0, 0, n, n);
         for (let y = -8; y < n; y += 10) for (let x = -8; x < n; x += 12) {
           const v = hash(x, y), xx = x + Math.floor(hash(y, x) * 7), yy = y + Math.floor(v * 5);
@@ -191,10 +213,10 @@
         if (open[i]) continue;
         const j = (i + 1) % n, alongX = Math.abs(points[j].x - points[i].x) >= Math.abs(points[j].y - points[i].y);
         const quad = outward([lo[i], lo[j], hi[j], hi[i]], normals[i]).map(p => crown ? top(p) : side(p, alongX));
-        surface(faces, quad, crown ? 'hedgeTop' : 'hedgeSide', null, k === 0 ? 0xc4cfc0 : 0xffffff);
+        surface(faces, quad, options.vine ? (crown ? 'vineTop' : 'vineSide') : (crown ? 'hedgeTop' : 'hedgeSide'), null, k === 0 ? 0xc4cfc0 : 0xffffff);
       }
     }
-    for (const tri of global.PolygonGeometry.triangulate(rings[rings.length - 1].ring)) surface(faces, tri.map(top), 'hedgeTop', null);
+    for (const tri of global.PolygonGeometry.triangulate(rings[rings.length - 1].ring)) surface(faces, tri.map(top), options.vine ? 'vineTop' : 'hedgeTop', null);
     if (options.tint != null) for (const face of faces) {
       face.color = multiplyColors(face.color, options.tint);
       face.flatColor = multiplyColors(face.flatColor, options.tint);
@@ -261,6 +283,7 @@
   }
   function geometry(kind, points, height, options = {}) {
     if (kind === 'grass') return grassGeometry(points, options);
+    if (kind === 'vine' && points.length >= 3 && height > 0) return hedgeGeometry(points,height,{...options,vine:true});
     const wood = kind === 'wood' || kind === 'fort', hedge = kind === 'hedge';
     if (hedge && points.length >= 3 && height > 0) return hedgeGeometry(points, height, options);
     const prefix = wood ? 'wood' : hedge ? 'hedge' : 'stone', faces = [], n = points.length;

@@ -287,8 +287,8 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
   assert.gt(hedges.length, 4, 'the hedgerow is hedged');
   for (const h of hedges) assert.eq(h.crop, 'shrub', `${h.id} is a bush`);
   assert.falsy(d.wildplants.some((p) => p.crop === 'hedge'), 'no square hedge kind');
-  assert.truthy(hedges.every(h => h._streetArt === 'clipped' ? ['zone_hedge','zone_hedge_single'].includes(h._plantArt) : h._streetArt === 'hedge_strip'), 'hedges mix connected walls and the approved strip');
-  assert.truthy(hedges.some(h => h._streetArt === 'clipped') && hedges.some(h => h._streetArt === 'hedge_strip'), 'both old and new art are represented');
+  assert.truthy(hedges.every(h => h._streetArt === 'clipped' && ['zone_hedge','zone_hedge_single'].includes(h._plantArt)), 'all roadside hedges share connected geometry and the bushy material');
+  assert.falsy(hedges.some(h => h._streetArt === 'hedge_strip'), 'no standalone strip decoration');
   const seen = new Set();
   for (const p of [...d.wildplants, ...d.objects]) {
     const ix = cellOf(p.x, TX), iy = cellOf(p.y, TY), i = iy * CPE + ix;
@@ -563,7 +563,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
   // Appended after the seven older rows (code 8), and only the never-rolled
   // scenic 'path' rows (src/scenic.js) after it: no older row's code moves.
   assert.eq(row.code, 8, 'appended: no older row\'s code moves');
-  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.baseline || r.size === 'path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang' || r.id === 'berry' || r.id === 'pottery' || r.id === 'trade'), 'new rows append without changing existing codes');
+  assert.truthy(SV.STREET_VARIANTS.slice(row.code).every((r) => r.baseline || r.size === 'path' || r.id === 'paralysis_path' || r.id === 'golden' || r.id === 'snare' || r.id === 'thorny' || r.id === 'goblin_gang' || r.id === 'berry' || r.id === 'pottery' || r.id === 'trade'), 'new rows append without changing existing codes');
   let plain = 0, named = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'toadstool') plain++;
@@ -2358,6 +2358,18 @@ test('approved decorations retain collectible identities and one shared bare-tre
   assert.truthy(byArt.healing_mushrooms.weight<.1,'healing clusters remain rare among ordinary fungi');
   for(const variant of ['hedgerow','orchard','old_growth_path'])
     assert.truthy(byArt.mossy_tree.variants.includes(variant),'approval reaches every suggested route');
+});
+
+test('paralytic routes seed one creeping-vine colony and remain eligible for Small roads and paths', () => {
+  const row=SV.VARIANT_BY_ID.paralysis_path;
+  assert.eq(row.size,'minor'); assert.gt(row.share,0); assert.gt(row.pathWeight,0);
+  const f=vergeFixture('paralysis_path');
+  const result=SV.dress({...f,tx:0,ty:0,tileEdgeM:f.N*7,
+    spawnOpts:{roadMask:f.roadMask,spawnWhy:f.spawnWhy,occupied:new Set()}});
+  const vines=result.wildplants.filter(p=>p.crop==='creeping_vine');
+  assert.eq(vines.length,1,'one live source, not a row of independent colonies');
+  assert.eq(vines[0]._vineColony,vines[0].id);
+  assert.truthy(vines[0]._creepingVine);
 });
 
 test('rare healing clusters stay rare even when they are the only ground decoration', () => {

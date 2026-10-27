@@ -116,10 +116,10 @@
     const scene = { textures: { exists: () => creates > 0, get: () => texture, createCanvas() { creates++; return texture; } } };
     assert.eq(WallMaterials.prepare(scene), texture);
     assert.eq(WallMaterials.prepare(scene), texture);
-    assert.eq(creates, 1); assert.eq(refreshes, 1); assert.eq(slots, 8, 'architecture slots painted once; grass reuses its native sprite texture');
+    assert.eq(creates, 1); assert.eq(refreshes, 1); assert.eq(slots, 10, 'architecture slots painted once; grass reuses its native sprite texture');
     assert.truthy(WallMaterials.WHITE.u > .9 && WallMaterials.WHITE.v > .9, 'solid texel is outside material slots');
   });
-  test('wall materials: RA hedge palette matches approved shades and keeps profile caches separate', () => {
+  test('wall materials: RA hedge and vine palettes match approved shades and keeps profile caches separate', () => {
     const previous = Object.getOwnPropertyDescriptor(globalThis, 'RogueObjects');
     const textures = new Map(), painted = new Map();
     let creates = 0;
@@ -128,7 +128,7 @@
       createCanvas(key) {
         creates++;
         const slots = []; let slot;
-        const context = { save() { slot = []; slots.push(slot); }, restore() {}, translate() {},
+        const context = { save() { slot = []; slots.push(slot); }, restore() { slot = null; }, translate() {},
           beginPath() {}, rect() {}, clip() {}, fillRect() { slot?.push(this.fillStyle); }, drawImage() {} };
         const texture = { key, getContext: () => context, getSourceImage: () => ({}), refresh() {}, setFilter() {} };
         painted.set(key, slots); textures.set(key, texture); return texture;
@@ -143,12 +143,13 @@
       assert.eq(WallMaterials.prepare(scene), rogue, 'RA atlas reused without canvas rebuild');
       const baselineSlots = painted.get(baseline.key), rogueSlots = painted.get(rogue.key);
       for (let i = 2; i < 8; i++) assert.eq(JSON.stringify(rogueSlots[i]), JSON.stringify(baselineSlots[i]), 'stone and wood paint unchanged');
-      assert.eq([...new Set(rogueSlots[0])].sort().join(','), '#70703e,#777740,#818143,#949445', 'approved top shades retain leaf highlights');
-      assert.eq([...new Set(rogueSlots[1])].sort().join(','), '#525130,#5c5c36,#656539,#787840', 'approved side shades retain depth');
+      assert.eq([...new Set(rogueSlots[8])].sort().join(','), '#70703e,#777740,#818143,#949445', 'approved top shades retain leaf highlights');
+      assert.eq([...new Set(rogueSlots[9])].sort().join(','), '#525130,#5c5c36,#656539,#787840', 'approved side shades retain depth');
       const points = [{ x: 0, y: 0 }, { x: 8, y: 0 }, { x: 8, y: 8 }, { x: 0, y: 8 }];
       const faces = WallMaterials.geometry('hedge', points, 5);
       const crown = list => list.find(f => f.normal === null && f.points.every(p => p.z === 5));
-      assert.eq(crown(faces).flatColor, 0x818143, 'flat fallback shares the RA crown palette');
+      assert.eq(crown(faces).flatColor, 0x999e4b, 'flat fallback shares the new hedge crown palette');
+      assert.eq(crown(WallMaterials.geometry('vine', points, 5)).flatColor, 0x818143, 'vine preserves former hedge crown palette');
       globalThis.RogueObjects = { enabled: false };
       assert.eq(WallMaterials.prepare(scene), baseline, 'baseline/Dreamland reuse the original atlas');
       assert.eq(creates, 2, 'one atlas per distinct palette');

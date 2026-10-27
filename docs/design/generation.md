@@ -661,6 +661,12 @@ access or tile lifecycle mechanics.
   length for safe public ground. Poison lends Mending, Fire lends Ember,
   Paralysis lends Shield, and Confusion lends Light; these are ordinary daily
   boons, not immunity to the matching gas. Geysers yield to Nexus coverage.
+- Paralysis Small roads seed creeping vines. A colony adds one adjacent land cell
+  per 20 seconds of visible screen time, up to 128 cells including cleared ones.
+  The circular viewport (including camera peek) gates both sources and new cells;
+  unloaded tiles and offline time never advance growth. Saved cells and the
+  visible-time ledger survive reloads; cut cells stay cleared. Growth uses the
+  hazard spawn gate and avoids roads, water, buildings, Home and occupied cells.
 - Spider Path retains its authored path selection weight. A seeded 35% of cell-spaced
   path samples receive permanent webs, with a small seeded lateral offset.
   Webs use the hazard spawn gate and reserve their cells; restricted land,
@@ -719,8 +725,9 @@ access or tile lifecycle mechanics.
   A sign reserves a free verge cell near each section's canonical endpoint.
   Its directions come from actual nearby same-level road geometry and theme
   names; the sign never invents a destination across an unrelated crossing.
-- Hedged Lane mixes existing connected 3D hedge walls with occasional approved
-  hedge-strip sprites, plus mossy trees and flowers. Mossy, conifer and bare
+- Hedged Lane uses connected 3D hedge walls textured with the approved bushy
+  strip in Rogue Adventure colours, plus mossy trees and flowers. There is no
+  separate hedge-strip prop. Mossy, conifer and bare
   trees share the normal three growth sizes; all bare-tree routes use one art
   family. Paralysis and Confusion paths use the large lavender tree. Gone to
   Seed's grass clumps use the long-grass 3D material with fewer, smaller blades.

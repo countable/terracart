@@ -6,8 +6,8 @@
 let rotating=false;document.getElementById('rotate').onclick=()=>{rotating=!rotating;document.getElementById('rotate').textContent=rotating?'Pause':'Rotate'};
 const layouts=[[[0,0],[1,0],[2,0],[2,1],[2,2],[1,2],[0,2],[0,1]],[[0,1],[1,1],[2,1],[1,0],[1,2]]];
 window.wallReviewGame=new Phaser.Game({type:new URLSearchParams(location.search).has('canvas')?Phaser.CANVAS:Phaser.WEBGL,width:1080,height:730,parent:'game',backgroundColor:'#17211e',pixelArt:true,scene:{
-preload(){this.load.image('review-fort','../assets/Objects/Approved/house_fort.png')},
-create(){window.wallReviewScene=this;this.panels=[];
+preload(){this.load.image('street_decor_hedge_strip','../assets/StreetDecorations/hedge_strip.png');this.load.image('review-fort','../assets/Objects/Approved/house_fort.png')},
+create(){RogueObjects.bakeStreetPalette(this,'hedge_strip');window.wallReviewScene=this;this.panels=[];
 for(let row=0;row<2;row++)for(let col=0;col<3;col++){
 const cx=180+col*360,cy=190+row*350,kind=['hedge','stone','wood'][col],root=this.add.container(cx,cy),floor=this.add.graphics();root.add(floor);const clip=this.make.graphics({x:0,y:0,add:false});clip.fillStyle(0xffffff);clip.fillRect(cx-175,cy-150,350,310);root.setMask(clip.createGeometryMask());floor.fillStyle(0x62784d);floor.fillRect(-84,-72,168,144);floor.lineStyle(.5,0xa4ba88,.4);for(let i=-80;i<=80;i+=32){floor.lineBetween(i,-72,i,72);floor.lineBetween(-84,i,84,i)}
 const scene={_headingUp:true,depth:0,mapRot:0,events:this.events,add:this.add,textures:this.textures,buildingWallContainer:root};

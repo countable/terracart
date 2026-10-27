@@ -21,4 +21,21 @@ assert.equal(shards.key,'street_decor_pottery_stack_broken');
 assert.equal(shards.frame,0);
 assert.ok(rows.young_fern.scale*(rows.young_fern.bounds.maxX-rows.young_fern.bounds.minX)<15);
 
+// Palette changes must not alter soft shadows, alpha, or already-RA bark.
+for(const family of ['mossy_tree','conifer_tree','lavender_tree','dead_tree','hedge_strip']){
+ assert.equal(typeof assets['street_decor_'+family].onLoad,'function');
+ const source=Number(Object.keys(profile.streetPalette(family))[0]);
+ const rgb=[source>>>16,(source>>>8)&255,source&255];
+ const pixels=new Uint8ClampedArray([...rgb,255,...rgb,135,...rgb,0,51,47,35,255]);
+ const before=Array.from(pixels);
+ profile.recolorStreetPixels(pixels,family);
+ assert.notDeepEqual(Array.from(pixels.slice(0,3)),before.slice(0,3));
+ assert.deepEqual(Array.from(pixels.slice(3)),before.slice(3),'preserve alpha, shadows and RA bark');
+}
+const plum=profile.streetPalette('lavender_tree')[0x7a7fcc];
+assert.ok((plum&255)>((plum>>>8)&255),'lavender stays plum');
+const green=profile.streetPalette('conifer_tree')[0x53a641];
+assert.ok(((green>>>8)&255)>(green>>>16),'conifer stays green');
+assert.notEqual(green,profile.streetPalette('mossy_tree')[0x719828]);
+
 console.log('PASS: '+Object.keys(rows).length+' source crops, native bounds, shared tree growth, rock override, broken-pot fallback, flat slick');
