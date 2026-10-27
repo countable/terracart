@@ -63,12 +63,15 @@ async function installFixture(page) {
     const probe = window.castleFamilyProbe = { row, family: 'citadel', active: true };
     probe.clean = function() {
       if (!clean) return;
-      // Review-only visibility switches leave geometry, terrain and camera intact.
+      // Review-only visibility switches leave castle geometry, terrain and camera intact.
       s._sandboxLabels?.removeAll(true); s._sandboxLabelData = [];
       for (const name of ['worldContainer', 'shadowContainer', 'player', 'playerWorldContainer', 'creaturesContainer', 'labelContainer', '_sandboxLabels', 'towerContainer', 'lightMap'])
         s[name]?.setVisible(false);
-      for (const name of ['castleFlagPool', 'creatureShadowPool', 'enemyAuraPool', 'playerAuraPool'])
+      for (const name of ['objectPool', 'towerPool', 'castleFlagPool', 'creatureShadowPool', 'enemyAuraPool', 'playerAuraPool'])
         for (const object of s[name] || []) object.setVisible?.(false);
+      // Hit testing reads child visibility, not just its hidden parent. Old
+      // sandbox foreground meshes must not intercept the isolated castle.
+      for (const mesh of s._lowpoly?.buildings || []) mesh.obj?.setVisible(false);
       for (const slot of s._produceSignPool || []) if (slot.el) slot.el.style.display = 'none';
     };
     const oldClaim = s.isClaimedKey;
@@ -89,6 +92,9 @@ async function installFixture(page) {
     probe.turn = function(degrees) {
       s.mapRot = degrees * Math.PI / 180; s._huManualAngle = s.mapRot;
       s._applyMapZoom(); probe.clean(); WallPerspective.update(s); __game.step(performance.now(), 16);
+      // Rendering refreshes low-poly child visibility; restore the isolated
+      // fixture state before hit checks, matching the hidden parent on screen.
+      probe.clean();
     };
     probe.sweep = function(step) {
       const group=s._wallPerspective.castles,blocks=new Set(group.blocks);
