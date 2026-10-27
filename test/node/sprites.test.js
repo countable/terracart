@@ -910,3 +910,16 @@ test('furniture art: every frame seats in its cell, including mirrored asymmetri
   assert.falsy(before===after, 'mutable orientation re-resolves');
   assert.eq(before.dxPx, -after.dxPx, 'asymmetric washtub keeps its centre after flipping');
 });
+
+test('dead tree: its contact shadow spans the root mound and ends at the roots', () => {
+  const art = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
+  const p = art.resolveAppearance({kind:'tree',id:'snag',species:'maple',variant:3,_objectArt:'dead_tree'});
+  const b = SpriteLayout.ART_BOUNDS['selected_dead_tree:0'];
+  const shadowW = Math.max(8,p.foot.w*0.9);
+  assert.truthy(shadowW < (b.maxX-b.minX)*p.scl*0.75, 'narrower than the bare crown');
+  const shadowBottom = p.foot.footFromCentre-p.foot.shadowInsetPx+shadowW*0.42/2;
+  const artBottom = p.dyPx+(b.maxY-p.origin[1]*b.fh)*p.scl;
+  assert.truthy(Math.abs(shadowBottom-artBottom)<1e-9, 'shadow ends at the art bottom');
+  const maple = art.resolveAppearance({kind:'tree',id:'m',species:'maple',variant:3});
+  assert.eq(maple.foot.shadowInsetPx, undefined, 'living trees keep the crown shadow');
+});

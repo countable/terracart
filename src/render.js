@@ -6402,6 +6402,10 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
               // when it fits) and the canopy rises into the tiles above, across species
               // sheets and size classes.
               seat: true, shadow: true,
+              // The snag's crown spans 52px but its root mound only ~30, so a
+              // crown-wide ellipse spilled past the roots and the tree floated.
+              // Size the shadow to the mound (source px) and end it at the roots.
+              shadowSpanSrcPx: o => o._objectArt === 'dead_tree' ? 40 : null,
               // Sampled crown colour → a subtle hue tint (DeepForest trees only).
               after: (s, o, scene) => {
                 if (o.crown_color) s.setTint(_crownTint(o.crown_color));
@@ -6639,6 +6643,14 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         if (o.kind === 'mineralrock' || o.kind === 'waystone') foot.shadowInsetPx = Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2;
         // A row may lift its contact shadow a few px (spec.shadowInsetPx).
         else if (spec.shadowInsetPx) foot.shadowInsetPx = spec.shadowInsetPx;
+        // A row whose ground contact is narrower than its art names that span;
+        // the ellipse then ends at the art's bottom instead of spilling below.
+        const span = typeof spec.shadowSpanSrcPx === 'function' ? spec.shadowSpanSrcPx(o, scene, pass) : spec.shadowSpanSrcPx;
+        if (span) {
+          foot.w = span * scl;
+          const artBottom = dyPx + (bb.maxY - origin[1] * bb.fh) * scl * scaleYMul;
+          foot.shadowInsetPx = foot.footFromCentre + Math.max(8, foot.w * 0.9) * SHADOW_LOOK.prop.aspect / 2 - artBottom;
+        }
       }
     }
     if (foot && Render.hasShrineFooting(o)) {
