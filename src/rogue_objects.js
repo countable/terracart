@@ -48,9 +48,10 @@ const RogueObjects = (() => {
   }
   function streetSpec(o, original) {
     if (typeof STREET_DECORATION_ART === 'undefined' || ['_streetlamp','roadsign'].includes(o.kind)) return null;
-    const name = o._streetArt || (o.kind === 'tree' ? o._objectArt : null);
+    const brokenStack = o._smashed && o.barrelStyle === 'street_decor_pottery_stack';
+    const name = brokenStack ? 'pottery_stack_broken' : o._streetArt || (o.kind === 'tree' ? o._objectArt : null);
     const row = STREET_DECORATION_ART[name];
-    if (!row || o._smashed) return null;
+    if (!row || (o._smashed && !brokenStack)) return null;
     const tree = o.kind === 'tree';
     const stage = tree ? treeArtFrame(o) : 3;
     const scale = row.scale * (tree ? (stage === 1 ? .42 : stage === 2 ? .7 : 1) : 1);

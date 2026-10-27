@@ -1675,7 +1675,9 @@ atlas and retained geometry.
 suggested route. `tools/build_street_decoration_art.py` exports exact pixels and
 `STREET_DECORATION_ART` bounds. `_streetArt` changes presentation without changing
 pickup, container, mining or hazard behavior. Ground slicks, loose planks and
-fragments remain ground decals. Broken pottery falls back to its shared shards.
+fragments remain ground decals. Pottery stacks use the matching broken pot from
+the same source tileset; ordinary pots retain their colour-matched shared shards.
+Young fern uses a 14-pixel visible width on the map.
 Mossy, conifer, bare and lavender tree families use the same silhouette at three
 growth sizes; bare trees share one family across burned, thorny and haunted routes.
 The small grass-clump variant retains the longgrass 3D blade material and root

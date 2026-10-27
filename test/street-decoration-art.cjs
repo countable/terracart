@@ -16,4 +16,9 @@ for(const family of ['mossy_tree','conifer_tree','dead_tree','lavender_tree']){
 assert.equal(profile.spec({kind:'mineralrock',_streetArt:'fire_rock'},{},{}).key,'street_decor_fire_rock');
 assert.equal(profile.spec({kind:'chest',_streetArt:'pottery_stack',_smashed:true},{},{key:'shards'}).key,'shards');
 assert.equal(profile.spec({kind:'wildplant',_streetArt:'green_slick'},{},{}).layer,'ground');
+const shards=profile.spec({kind:'chest',barrelStyle:'street_decor_pottery_stack',_streetArt:'pottery_stack',_smashed:true},{},{});
+assert.equal(shards.key,'street_decor_pottery_stack_broken');
+assert.equal(shards.frame,0);
+assert.ok(rows.young_fern.scale*(rows.young_fern.bounds.maxX-rows.young_fern.bounds.minX)<15);
+
 console.log('PASS: '+Object.keys(rows).length+' source crops, native bounds, shared tree growth, rock override, broken-pot fallback, flat slick');

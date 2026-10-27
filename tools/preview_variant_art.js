@@ -46,7 +46,7 @@ vm.runInContext(shrineFooting[0] + ';globalThis.CELL_PX=SpriteLayout.CELL_PX;', 
 // Representative inputs omit placement metadata and IDs. Actual quarry
 // records export their art directly, retaining their seeded rock shape.
 const materialArtFields = ['kind', 'yieldTier', 'requiredTier', 'rockMaterial', 'deposit', 'caveVariant',
-  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', 'barrelStyle', 'barrel', 'tier', 'sightBlocking', 'species', 'size', 'variant'];
+  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', '_smashed', 'barrelStyle', 'barrel', 'tier', 'sightBlocking', 'species', 'size', 'variant'];
 const materialArtKey = object => JSON.stringify(materialArtFields.map(field => object[field] ?? null));
 vm.runInContext(`globalThis.previewMaterialArt = object => {
   const scene = {save:{}, depth:0, textures:{exists:key => !!ASSETS[key],
