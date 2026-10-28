@@ -526,6 +526,9 @@
     'apple_tree:4': { fw: 32, fh: 48, minX: 0, minY: 1, maxX: 32, maxY: 34 },
     'worldpeach_tree:3': { fw: 32, fh: 48, minX: 0, minY: 2, maxX: 32, maxY: 35 },
   };
+  // Hand-tuned drop (source px, below the crown's centre) for a fruit that
+  // reads too high on the canopy's midline. Scales with the tree like the box.
+  const FRUIT_CROWN_DROP = { 'apple_tree:4': 4, 'worldpeach_tree:3': 4 };
 
   // Offset in screen px from a fruit tree sprite's ANCHOR (its x/y — wherever
   // the seat pass put it) to the centre of its crown, which is where the fruit
@@ -535,9 +538,10 @@
   function fruitCrownOffset(texKey, frame, originX, originY, scaleX, scaleY) {
     const c = CROWN_BOUNDS[`${texKey}:${frame}`];
     if (!c) return null;
+    const drop = FRUIT_CROWN_DROP[`${texKey}:${frame}`] || 0;
     return {
       dxPx: ((c.minX + c.maxX) / 2 - originX * c.fw) * scaleX,
-      dyPx: ((c.minY + c.maxY) / 2 - originY * c.fh) * scaleY,
+      dyPx: ((c.minY + c.maxY) / 2 + drop - originY * c.fh) * scaleY,
     };
   }
 
