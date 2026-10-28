@@ -227,6 +227,78 @@
       keepHeight: source.keepHeight, wallHeight: 24, merlonPitch: 16, merlonWidth: 9.6, merlonHeight: 5.6, roofHeight: source.roofHeight });
     const style = Object.freeze(value); renderCache.set(cacheKey, style); return style;
   }
+  const interiorCarpets = Object.freeze({
+    citadel: { field: 0x783d46, edge: 0xc5a76a, ink: 0xa76b65, dark: 0x492d38, motif: 'diamond' },
+    bastion: { field: 0x985c41, edge: 0xd1ae79, ink: 0xb98558, dark: 0x603d35, motif: 'band' },
+    archive: { field: 0x315e64, edge: 0xb8aa79, ink: 0x578080, dark: 0x293f47, motif: 'check' },
+  });
+  // Ground-canvas decoration only. The clip follows the real room (including
+  // courtyards), while the rectangular border leaves a strip of stone visible.
+  // Motifs retain world phase and visit only the current canvas, even when a
+  // mapped building is much larger than the viewport.
+  function paintInteriorCarpet(ctx, points, holes = [], key, active = true, phaseX = 0, phaseY = 0) {
+    if (!ctx || !points || points.length < 3 || !points.every(p => Number.isFinite(p.x) && Number.isFinite(p.y))) return false;
+    const left = Math.min(...points.map(p => p.x)), right = Math.max(...points.map(p => p.x));
+    const top = Math.min(...points.map(p => p.y)), bottom = Math.max(...points.map(p => p.y));
+    const width = right - left, height = bottom - top;
+    if (Math.min(width, height) < 24) return false;
+    const margin = Math.min(14, Math.min(width, height) * .14);
+    const x = left + margin, y = top + margin, w = width - margin * 2, h = height - margin * 2;
+    const border = Math.min(4, Math.min(w, h) / 8);
+    const family = renderStyle(key, active).id, source = interiorCarpets[family];
+    const color = name => '#' + (active ? source[name] : weathered(source[name])).toString(16).padStart(6, '0');
+    const trace = ring => {
+      ctx.moveTo(ring[0].x, ring[0].y);
+      for (let i = 1; i < ring.length; i++) ctx.lineTo(ring[i].x, ring[i].y);
+      ctx.closePath();
+    };
+    const fill = (name, rx, ry, rw, rh) => { ctx.fillStyle = color(name); ctx.fillRect(rx, ry, rw, rh); };
+    ctx.save();
+    ctx.beginPath();
+    trace(points);
+    for (const hole of holes || []) if (hole.length >= 3) trace(hole);
+    ctx.clip('evenodd');
+    // A valid inset also keeps stone beside concave returns. Exact clipping
+    // remains authoritative if a very thin wing cannot support an inset.
+    if (typeof BuildingStyles !== 'undefined') {
+      const area = points.reduce((sum, p, i) => { const q = points[(i + 1) % points.length]; return sum + p.x * q.y - q.x * p.y; }, 0);
+      const inset = BuildingStyles.inset(area >= 0 ? points : points.slice().reverse(), margin);
+      if (inset) { ctx.beginPath(); trace(inset); ctx.clip(); }
+    }
+    fill('dark', x, y, w, h);
+    fill('edge', x + 1, y + 1, w - 2, h - 2);
+    fill('dark', x + border, y + border, w - border * 2, h - border * 2);
+    fill('field', x + border + 1, y + border + 1, w - (border + 1) * 2, h - (border + 1) * 2);
+    ctx.beginPath();ctx.rect(x + border + 2, y + border + 2, w - (border + 2) * 2, h - (border + 2) * 2);ctx.clip();
+    const minX = Math.max(x, 0), minY = Math.max(y, 0);
+    const maxX = Math.min(x + w, ctx.canvas?.width ?? x + w), maxY = Math.min(y + h, ctx.canvas?.height ?? y + h);
+    // A fixed pitch at ordinary view sizes; the ceiling only affects unusually
+    // large offscreen/export canvases, never a castle's physical dimensions.
+    const paintWidth = ctx.canvas?.width ?? width, paintHeight = ctx.canvas?.height ?? height;
+    const pitch = Math.max(24, Math.ceil(Math.sqrt(paintWidth * paintHeight / 1024) / 4) * 4);
+    const startX = Math.floor((minX - phaseX) / pitch) * pitch + phaseX;
+    const startY = Math.floor((minY - phaseY) / pitch) * pitch + phaseY;
+    for (let py = startY; py < maxY; py += pitch) for (let px = startX; px < maxX; px += pitch) {
+      const cx = px + pitch / 2, cy = py + pitch / 2;
+      if (source.motif === 'diamond') {
+        fill('ink', cx - 6, cy - 2, 12, 4);
+        fill('ink', cx - 4, cy - 4, 8, 8);
+        fill('ink', cx - 2, cy - 6, 4, 12);
+        fill('edge', cx - 1, cy - 1, 2, 2);
+      } else if (source.motif === 'band') {
+        fill('ink', px, cy - 3, pitch, 6);
+        fill('dark', px, cy - 1, pitch, 2);
+        fill('edge', cx - 2, cy - 2, 4, 4);
+      } else {
+        fill('ink', cx - 5, cy - 5, 10, 10);
+        fill('field', cx - 3, cy - 3, 6, 6);
+        fill('edge', cx - 1, cy - 1, 2, 2);
+        fill('ink', px - 1, py - 1, 2, 2);
+      }
+    }
+    ctx.restore();
+    return true;
+  }
   // Ground-only contact growth. The canvas clips these bounded masks to the
   // courtyard; they never become retained castle meshes or world objects.
   function growthPatches(key, layout) {
@@ -318,5 +390,5 @@
     }
     return clusters;
   }
-  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, growthPatches, variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
+  global.CastleStyles = Object.freeze({ TOWER_WIDTH: 32, TOWER_HEIGHT: 48, TURRET_STYLE: 'bastion', ids: Object.freeze(ids), renderStyle, paintInteriorCarpet, growthPatches, variantFor, questTypeFor, get, columnSites, columnTexture, damagePattern, damageCellIndex, damageCell, damageTexture });
 })(window);

@@ -14,7 +14,7 @@ const shapes={narrow:[[-100,-26],[100,-26],[100,26],[-100,26]],rectangle:[[-100,
   await page.addInitScript(()=>{sessionStorage.setItem('terracart.safetySeen','1');localStorage.setItem('terracart.introSeen','1');localStorage.setItem('terracart.howtoSeen','1');});
   await page.route('**/src/app.js*',async route=>{const response=await route.fetch();await route.fulfill({response,body:(await response.text()).replace('type: Phaser.AUTO,',`type: Phaser.${renderer==='canvas'?'CANVAS':'WEBGL'},`)});});
   await page.goto(URL,{waitUntil:'domcontentloaded'});await page.waitForFunction(()=>window.__scene?._bootOverlayGone,null,{timeout:90000});
-  await page.waitForFunction(()=>window.__scene?._fdrCastleLayouts?.size>0,null,{timeout:90000});
+  await page.waitForFunction(()=>window.__scene?._fdrCastleLayouts?.size>0||window.__scene?.activeInterior?.()?.kind==='castle',null,{timeout:90000});
   await page.screenshot({path:`${OUT}/${renderer}-live-sandbox.png`});
   const live=await page.evaluate(()=>({renderer:__game.renderer.type,castles:__scene._fdrCastleLayouts?.size||0,blocks:__scene._wallPerspective?.castles?.blocks.length||0,atlas:__scene.textures.exists('fdr_castle_atlas'),legacyModelTowers:(__scene.towerPool||[]).filter(sprite=>sprite.visible&&__scene._fdrCastleLayouts?.has(sprite._staticObject?.castle)).length}));
   assert.equal(live.renderer,renderer==='canvas'?1:2);assert.equal(live.atlas,true);assert.equal(live.legacyModelTowers,0);report.cases.push({...live,renderer,stage:'live'});
@@ -25,12 +25,13 @@ const shapes={narrow:[[-100,-26],[100,-26],[100,26],[-100,26]],rectangle:[[-100,
    if(!row)throw Error('No ready building overlay tile');
    for(const tile of frame.tiles)tile.entry.buildingShapes=[];
    const key='fdr-ingame-fixture',oldClaim=s.isClaimedKey;
-   const probe=window.fdrIngameProbe={key,row,anchor,active:true};
+   const probe=window.fdrIngameProbe={key,row,anchor,base:{...s.playerM},active:true};
    s.isClaimedKey=function(k){return k===key?probe.active:oldClaim.call(this,k);};
-   probe.place=function(points,active){probe.active=active;s.peekM={x:0,y:0};s.mapZoom=1;s.mapRot=0;s._huManualAngle=0;
+   probe.place=function(points,active,inside=false){probe.active=active;s.playerM={...probe.base};s.peekM={x:0,y:0};s.mapZoom=1;s.mapRot=0;s._huManualAngle=0;
     const anchor=viewAnchorWorldM(s),e=row.entry,cx=anchor.x-row.tx*e.tileEdgeM,cy=anchor.y-row.ty*e.tileEdgeM;probe.anchor=anchor;
     e.buildingShapes=[{key,tier:12,ring:points.flatMap(([x,y])=>[cx+x/CELL_PX*s.cellM,cy+y/CELL_PX*s.cellM])}];
-    s._buildingGeomKey=null;s.drawCells();s.drawRoadGeometry();s._overlayFrameSeq++;s._buildingGeomKey=null;s.drawBuildingGeometry();s._applyMapZoom();WallPerspective.update(s);
+    if(!inside){const dy=(Math.max(...points.map(p=>p[1]))+64)/CELL_PX*s.cellM;s.playerM.y+=dy;s.peekM={x:0,y:-dy};}
+    s._buildingGeomKey=null;s.drawCells();s.drawRoadGeometry();s._overlayFrameSeq++;s._buildingGeomKey=null;s.drawBuildingGeometry();s.drawObjects();s._applyMapZoom();WallPerspective.update(s);
     const group=s._wallPerspective.castles;probe.retained=new Set(group.blocks);probe.tint=group.blocks.flatMap(b=>b.materialFaces||[])[0]?.color;
    };
    probe.turn=function(degrees){s.mapRot=degrees*Math.PI/180;s._huManualAngle=s.mapRot;s._applyMapZoom();WallPerspective.update(s);__game.step(performance.now(),16);};
@@ -57,6 +58,15 @@ const shapes={narrow:[[-100,-26],[100,-26],[100,26],[-100,26]],rectangle:[[-100,
    const pan=await page.evaluate(()=>{const s=__scene,before={...fdrIngameProbe.measure().offset};s.peekM={x:s.cellM*.3,y:-s.cellM*.2};s.drawCells();s.drawRoadGeometry();s._overlayFrameSeq++;s._buildingGeomKey=null;s.drawBuildingGeometry();s._applyMapZoom();fdrIngameProbe.turn(45);return {before,...fdrIngameProbe.measure(false)};});
    assert.ok(pan.finite);assert.ok(pan.towerHits.every(h=>h.actual===h.expected));assert.ok(Math.abs(pan.offset.x-pan.before.x)+Math.abs(pan.offset.y-pan.before.y)>.01);report.cases.push({renderer,shape,state:'pan',...pan});
    await page.screenshot({path:`${OUT}/${renderer}-${shape}-pan.png`});
+   for(const active of [true,false]){
+    const indoor=await page.evaluate(({points,active})=>{fdrIngameProbe.place(points,active,true);fdrIngameProbe.turn(45);const s=__scene;
+     return {room:s.activeInterior()?.kind,blocks:s._wallPerspective.castles?.blocks.length||0,walls:s._wallPerspective.home?.blocks.length||0,
+      model:s._fdrCastleLayouts.has(fdrIngameProbe.key),legacy:(s.towerPool||[]).filter(o=>o.visible).length,
+      flags:(s.castleFlagPool||[]).filter(o=>o.visible&&o._staticObject?.castle===fdrIngameProbe.key).length};},{points,active});
+    assert.equal(indoor.room,'castle');assert.equal(indoor.blocks,0);assert.equal(indoor.model,false);assert.equal(indoor.legacy,0);assert.equal(indoor.flags,0);assert.ok(indoor.walls>0);
+    report.cases.push({renderer,shape,state:active?'claimed-interior':'wreck-interior',...indoor});
+    await page.screenshot({path:`${OUT}/${renderer}-${shape}-${active?'claimed':'wreck'}-interior.png`});
+   }
    console.log(renderer,shape,'passed');
   }
   await page.close();
