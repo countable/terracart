@@ -226,6 +226,9 @@ const RogueObjects = (() => {
       // Keep growth legible. Full trees use the reference's broad canopy;
       // smaller living stages retain their data and scale the native artwork.
       const stage=treeArtFrame(o); scale=stage===1 ? .35 : stage===2 ? .6 : .85;
+      // A bare snag has no canopy to fill the cell, so at the full-tree scale
+      // it read oversized beside living trees.
+      if (o._objectArt==='dead_tree') scale*=.75;
     }
     if (!key) return original;
     return {...original,key:'rogue_'+key,frame:'__BASE',scale,origin:[.5,.5],seat:true,
