@@ -3771,6 +3771,9 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
       const frame = QuarryLayout.wallFrameAt(cells, i, N);
       if (group === 'wall') {
         if (o.kind === 'stronghold_wall') result.set(o, frame == null ? { kind: 'mineralrock' } : { variant: frame });
+      } else if (group === 'creeping_vine') {
+        const mask = (i >= N && cells.has(i-N) ? 1 : 0) | (i%N < N-1 && cells.has(i+1) ? 2 : 0) | (cells.has(i+N) ? 4 : 0) | (i%N > 0 && cells.has(i-1) ? 8 : 0);
+        result.set(o, {_plantArt:'creeping_vine',_vineMask:mask});
       } else result.set(o, { _plantArt: frame == null ? 'zone_hedge_single' : 'zone_hedge', _hedgeFrame: frame ?? undefined });
     }
   }
@@ -3791,6 +3794,7 @@ Render.connectedArtForTile = function connectedArtForTile(entry, tx, ty, edge, s
 // clipped hedge cell is the bare core block (mask 0): its square sprite would
 // stand screen-aligned while the ground turns.
 const CONNECTED_WALL_ART = Object.freeze({
+  vine: Object.freeze({profile:'vine',thickness:24,face:0x3a6e2e,top:0xb4cb44,dark:0x0a3d31}),
   stronghold_wall: Object.freeze({ profile: 'wall', thickness: 8,
     face: 0x6b645f, top: 0xc4b6a8, dark: 0x3d3c3c }),
   hedge: Object.freeze({ profile: 'hedge', thickness: 16,
@@ -3807,6 +3811,7 @@ Render.connectedWallPiece = function (o, art) {
     return { art: CONNECTED_WALL_ART.stronghold_wall, mask: QuarryLayout.wallMaskForFrame(frame) };
   }
   const look = art?._plantArt ?? o._plantArt;
+  if (look === 'creeping_vine') return {art:CONNECTED_WALL_ART.vine,mask:art?._vineMask ?? o._vineMask ?? 0};
   if (look === 'zone_hedge_single') return { art: CONNECTED_WALL_ART.hedge, mask: 0 };
   if (look !== 'zone_hedge') return null;
   const frame = art?._hedgeFrame ?? o._hedgeFrame;
@@ -3892,7 +3897,7 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
         const profile = ObstacleStep.PROFILES[piece.art.profile];
         const height = profile.heightPx ?? profile.liftPx;
         const outline = Render.connectedWallOutline(piece.mask, piece.art.thickness);
-        WallPerspective.material(scene, 'props', piece.art.profile === 'hedge' ? 'hedge' : 'stone',
+        WallPerspective.material(scene, 'props', piece.art.profile === 'vine' ? 'vine' : piece.art.profile === 'hedge' ? 'hedge' : 'stone',
           outline.points.map(p => ({ x: x0 + p.x, y: y0 + p.y })), height,
           { openEdges: outline.openEdges,
             capRegions: Render.connectedWallFootprints(piece.mask, piece.art.thickness).map(([ax, ay, bx, by], i) =>

@@ -86,6 +86,7 @@ function preview(row) {
   return { ...row, ...groundPreview(tile), words: row.words ? row.words.source : null, sampleName: name,
     roadWidthM: WG.roadOverlayWidthM(tags), lengthM,
     lampSpacingM: SV.lampSpacingFor(row.id), objects, lamps, lairs,
+    vents: (dress.vents || []).map(local), webs: (dress.webs || []).map(local),
     line: line.map((p) => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })),
     slowKinds: [...new Set(objects.filter((o) => SV.isSlowKind(o.kind)).map((o) => o.kind))] };
 }

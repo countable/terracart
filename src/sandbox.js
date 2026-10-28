@@ -390,6 +390,7 @@
     { name: 'Grassy Lane', class: 'minor', type: T.ROAD, y: 10, thick: 1, x0: 27, x1: 47, variant: 'grassy_lane' },
     { name: 'Old Growth Path', class: 'path', type: T.PATH, y: 18, thick: 1, x0: 27, x1: 47, variant: 'old_growth_path' },
     { name: 'Haunted Forest Path', class: 'path', type: T.PATH, y: 26, thick: 1, x0: 27, x1: 47, variant: 'haunted_forest_path' },
+    { name: 'Paralysis Path', class: 'minor', type: T.ROAD, y: 32, thick: 1, x0: 27, x1: 47, variant: 'paralysis_path' },
     { name: 'Way of Variety', class: 'path', type: T.PATH, y: 38, thick: 1, x0: 27, x1: 47, variant: 'way_of_variety' },
     { name: 'Fern Way', class: 'minor', type: T.ROAD, y: 1, thick: 1, x0: 0, x1: 23, variant: 'overgrown' },
     { name: 'Cherry Lane', class: 'minor', type: T.ROAD, y: 4, thick: 1, x0: 0, x1: 23, variant: 'orchard' },

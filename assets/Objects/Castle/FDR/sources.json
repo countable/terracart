@@ -12,7 +12,7 @@
     }
   },
   "processing": "Legacy source crops plus authored restrained pixel materials for stone, moss, paving overlays, coping, doors and heraldry. Nearest-neighbour scaling and padded atlas packing; no generated imagery.",
-  "palette": "Quiet cel stone, moss, inset decks, closed iron doors and heraldry share one preloaded atlas; basal shadows stay in geometry.",
+  "palette": "Quiet cel stone, moss, inset decks, closed iron doors and heraldry share one preloaded atlas. Soft faux overhead light is baked into stone and moss from dark foot to light upper courses; brick and coping bevels soften corners.",
   "atlas": {
     "size": [
       512,
@@ -99,7 +99,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -120,7 +120,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -141,7 +141,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -162,7 +162,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -183,7 +183,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -204,7 +204,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -309,7 +309,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -330,7 +330,7 @@
         112
       ],
       "gutterX": "wrap",
-      "gutterY": "wrap",
+      "gutterY": "clamp",
       "alphaRange": [
         255,
         255
@@ -392,7 +392,7 @@
         {
           "family": "citadel",
           "active": true,
-          "appearance": "open-timber-leaves",
+          "appearance": "closed-timber-leaves",
           "rect": [
             324,
             12,
@@ -427,7 +427,7 @@
   ],
   "outputs": {
     "atlas.png": {
-      "sha256": "1a494f7ea82ee1b11c7024383d22fa7bf5b55f784f1f4497b36a25efca653ec6",
+      "sha256": "e3d48db878f92c28892ccd0239a7780a31a789eecaf853b21bdf343959b83068",
       "size": [
         512,
         512

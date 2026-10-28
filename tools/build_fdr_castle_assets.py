@@ -78,10 +78,26 @@ def treatment(tile, slot):
     return result, dict(contrast=contrast, skyLift=lift)
 
 
+def baked_top_light(tile, light_gain=1):
+    """Paint soft overhead light into the 64-world-unit stone/foliage motif."""
+    result = tile.copy()
+    pixels = result.load()
+    for y in range(tile.height):
+        z = (tile.height - 1 - y) * 64 / (tile.height - 1)
+        shade = .60 + .40 * min(1, z / 40) ** .5
+        # A brighter constant material tint provides highlight headroom. Fade
+        # its reciprocal out by the curtain crest, preserving the dark foot.
+        shade *= 1 / light_gain + (1 - 1 / light_gain) * min(1, z / 24)
+        for x in range(tile.width):
+            r, g, b, alpha = pixels[x, y]
+            pixels[x, y] = (round(r * shade), round(g * shade), round(b * shade), alpha)
+    return result
+
+
 def build(out):
     out.mkdir(parents=True, exist_ok=True)
     profiles = json.loads(subprocess.check_output(['node', '-e',
-        "global.window=global;require('./src/castle_styles.js');console.log(JSON.stringify(Object.fromEntries(['citadel','bastion'].flatMap(id=>[false,true].map(active=>[id+':'+Number(active),{...CastleStyles.renderStyle(id,active),wood:CastleStyles.get(id,active).wood}])))));"],
+        "global.window=global;require('./src/castle_styles.js');console.log(JSON.stringify(Object.fromEntries(['citadel','bastion','archive'].flatMap(id=>[false,true].map(active=>[id+':'+Number(active),{...CastleStyles.renderStyle(id,active),wood:CastleStyles.get(id,active).wood}])))));"],
         cwd=ROOT, text=True))
     source = Image.open(SOURCE).convert('RGBA')
     floor_source = Image.open(FLOOR_SOURCE).convert('RGBA')
@@ -110,11 +126,13 @@ def build(out):
         # texels, so phases still agree after nearest-neighbour reduction.
         tile = Image.new('RGBA', (32, 64), (238, 238, 238, 255))
         draw = ImageDraw.Draw(tile)
-        height = 8 if family == 'bastion' or tower else 4
+        height = 10 if family == 'bastion' or tower else 6
         mortar = 220 if family == 'archive' else 218 if family == 'citadel' else 197
         draw.rectangle((0, 0, 31, 63), fill=(mortar, mortar, mortar, 255))
-        for row in range(64 // height):
-            y = row * height
+        for row in range((64 + height - 1) // height):
+            # Keep the ground course whole; only the unused high end of
+            # this 64-unit material may contain a partial course.
+            y = 64 - (row + 1) * height
             widths = [16, 16] if family == 'bastion' or tower else [8, 12, 12] if family == 'citadel' else [8, 8, 8, 8]
             x = -widths[0] // 2 if row % 2 else 0
             index = 0
@@ -122,11 +140,23 @@ def build(out):
                 width = widths[index % len(widths)]
                 shades = [246, 243, 250, 245, 240] if tower else [245, 235, 250, 240, 230]
                 shade = shades[(row * 3 + (index % len(widths)) * 7) % 5]
-                draw.rectangle((x + 1, y, x + width - 1, y + height - 2),
-                               fill=(shade, shade, shade, 255))
-                if family != 'citadel':
-                    draw.line((x + 2, y, x + width - 2, y),
-                              fill=(min(255, shade + 10),) * 3 + (255,))
+                # One-pixel chamfers and short bevels keep the masonry from
+                # reading as a grid of flat rectangles, like the wreck stone.
+                left, right, bottom = x + 1, x + width - 1, y + height - 2
+                draw.polygon([(left + 1, y), (right - 1, y), (right, y + 1),
+                              (right, bottom - 1), (right - 1, bottom),
+                              (left + 1, bottom), (left, bottom - 1), (left, y + 1)],
+                             fill=(shade,) * 3 + (255,))
+                draw.line((left + 2, y, right - 1, y),
+                          fill=(min(255, shade + 18),) * 3 + (255,))
+                draw.line((left + 1, bottom, right - 2, bottom),
+                          fill=(max(0, mortar - 24),) * 3 + (255,))
+                # Recessed mortar below the dark lower bevel; the next
+                # course begins with its own narrow upward-facing highlight.
+                draw.line((left, bottom + 1, right, bottom + 1),
+                          fill=(max(0, mortar - 10),) * 3 + (255,))
+                if (row * 3 + index) % 5 == 0:
+                    draw.point((right - 1, y + 1), fill=(max(mortar, shade - 18),) * 3 + (255,))
                 x += width; index += 1
         motif = Image.new('RGBA', (128, 64))
         for x in range(0, 128, 32):
@@ -134,7 +164,8 @@ def build(out):
         if damaged:
             # Reserve material headroom for foliage while keeping bare stone
             # at its original value under the reciprocal renderer tint.
-            motif = motif.point(lambda value: round(value / 1.5))
+            headroom = profiles[family + ':0']['masonryWeatheredCompensation']
+            motif = motif.point(lambda value: round(value / headroom))
             motif.putalpha(255)
             foliage = ImageDraw.Draw(motif)
             # Uneven connected growth from the foot, with long quiet gaps.
@@ -167,6 +198,9 @@ def build(out):
                 marks = [(8,60,4,2),(51,29,3,3),(54,33,2,3)]
             for x,y,w,h in marks:
                 foliage.rectangle((x,y,x+w-1,y+h-1),fill=(139,166,99,255))
+        # Shade growth and stone together; the renderer only supplies the
+        # fixed family tint. No runtime gradient or per-building bake.
+        motif = baked_top_light(motif, profiles[family + ':' + str(int(not damaged))]['masonryLightGain'])
         repeated = Image.new('RGBA', (224, 64))
         repeated.paste(motif, (0, 0))
         repeated.paste(motif.crop((0, 0, 96, 64)), (128, 0))
@@ -238,18 +272,18 @@ def build(out):
     for slot, name, tile, wrap_x, wrap_y in [
         (0, 'lit-coping-and-inset-deck', deck, False, False),
         (1, 'pale-heraldry', heraldry, False, False),
-        (3, 'citadel-slate', citadel_stone, True, True),
-        (9, 'citadel-weathered-slate', citadel_wreck, True, True),
-        (10, 'bastion-sandstone', bastion_stone, True, True),
-        (4, 'bastion-weathered-sandstone', bastion_wreck, True, True),
-        (11, 'archive-tower-ashlar', archive_tower, True, True),
-        (12, 'archive-weathered-tower-ashlar', archive_tower_wreck, True, True),
+        (3, 'citadel-slate', citadel_stone, True, False),
+        (9, 'citadel-weathered-slate', citadel_wreck, True, False),
+        (10, 'bastion-sandstone', bastion_stone, True, False),
+        (4, 'bastion-weathered-sandstone', bastion_wreck, True, False),
+        (11, 'archive-tower-ashlar', archive_tower, True, False),
+        (12, 'archive-weathered-tower-ashlar', archive_tower_wreck, True, False),
         (5, 'closed-iron-door', door, False, False),
         (6, 'bastion-sun', sun, False, False),
         (7, 'arched-window', window, False, False),
         (8, 'roof-ridge-and-eave', roof, False, False),
-        (13, 'quiet-stone', stone, True, True),
-        (14, 'weathered-stone', wreck, True, True),
+        (13, 'quiet-stone', stone, True, False),
+        (14, 'weathered-stone', wreck, True, False),
         (15, 'forked-banner-cloth', cloth, False, False)]:
         rows = [row for row in rows if row['slot'] != slot]
         atlas.paste(padded(tile, wrap_x, wrap_y), (slot % 4 * SLOT, slot // 4 * SLOT))
@@ -275,20 +309,13 @@ def build(out):
         shape=[(5,39),(5,14),(8,9),(13,6),(18,6),(23,9),(26,14),(26,39)]
         mask=Image.new('L',(32,40));ImageDraw.Draw(mask).polygon(shape,fill=255)
         layer=Image.new('RGBA',(32,40),rgb(style['door']));paint=ImageDraw.Draw(layer)
-        if family=='citadel':
+        if family=='citadel' and not active:
+            # Closed iron portcullis over an opaque dark backing.
             paint.rectangle((0,0,31,39),fill=rgb(style['door']//2&0x7f7f7f))
-            if not active:
-                # Opaque dark backing behind an iron portcullis.
-                for x in [8,13,18,23]:
-                    paint.rectangle((x,7,x+1,39),fill=rgb(style['side']))
-                    paint.line((x,10,x,39),fill=rgb(style['wall']))
-                for y in [17,28]:paint.rectangle((5,y,26,y+1),fill=rgb(style['side']))
-            else:
-                # Painted open side leaves retain the opaque wall behind them.
-                paint.polygon([(4,16),(10,13),(10,36),(4,39)],fill=rgb(style['wood']['FACE']))
-                paint.polygon([(22,13),(28,16),(28,39),(22,36)],fill=rgb(style['wood']['BODY']))
-                paint.line((10,14,10,36),fill=rgb(style['wood']['DARK']))
-                paint.line((22,14,22,36),fill=rgb(style['wood']['DARK']))
+            for x in [8,13,18,23]:
+                paint.rectangle((x,7,x+1,39),fill=rgb(style['side']))
+                paint.line((x,10,x,39),fill=rgb(style['wall']))
+            for y in [17,28]:paint.rectangle((5,y,26,y+1),fill=rgb(style['side']))
         else:
             paint.rectangle((0,0,15,39),fill=rgb(style['wood']['FACE']))
             paint.rectangle((16,0,31,39),fill=rgb(style['wood']['SHADOW']))
@@ -318,7 +345,7 @@ def build(out):
             for y in range(-2,50):
                 for x in range(-2,50):
                     atlas.putpixel((ox+x,oy+y),frame.getpixel((max(0,min(47,x)),max(0,min(47,y)))))
-            appearance='portcullis' if family=='citadel' and not active else 'open-timber-leaves' if family=='citadel' else 'closed-timber-leaves'
+            appearance='portcullis' if family=='citadel' and not active else 'closed-timber-leaves'
             facade_frames.append(dict(family=family,active=active,appearance=appearance,rect=[ox,oy,48,48]))
     rows.append(dict(slot=2,name='military-keep-facades',source='authored cel pixel material',
                      normalizedSize=[112,112],atlasContentRect=[264,8,112,112],
@@ -366,10 +393,15 @@ def build(out):
     # The banner samples only y392..481.6 of slot15. Its unused lower-left
     # tail holds one opaque coping patch, with two-pixel clamped gutters.
     coping = Image.new('RGBA',(16,12),(235,235,235,255)); bevel=ImageDraw.Draw(coping)
-    bevel.rectangle((0,0,15,11),outline=(143,143,143,255),width=1)
+    bevel.rectangle((0,0,15,11),outline=(172,172,172,255),width=1)
     bevel.line((1,1,14,1),fill='white',width=2)
     bevel.line((1,1,1,10),fill=(252,252,252,255),width=1)
     bevel.line((2,10,14,10),fill=(195,195,195,255),width=1)
+    # Broken corner highlights round the visual edge without alpha holes.
+    for x,y in [(1,1),(14,1),(1,10),(14,10)]:
+        bevel.point((x,y), fill=(193,193,193,255))
+    bevel.line((3,2,6,2),fill=(244,244,244,255))
+    bevel.point((12,8),fill=(217,217,217,255))
     for y in range(16):
         for x in range(20):
             atlas.putpixel((392+x,486+y),coping.getpixel((max(0,min(15,x-2)),max(0,min(11,y-2)))))
@@ -391,7 +423,7 @@ def build(out):
             'floor': dict(path=str(FLOOR_SOURCE.relative_to(ROOT)), sha256=digest(FLOOR_SOURCE)),
         },
         processing='Legacy source crops plus authored restrained pixel materials for stone, moss, paving overlays, coping, doors and heraldry. Nearest-neighbour scaling and padded atlas packing; no generated imagery.',
-        palette='Quiet cel stone, moss, inset decks, closed iron doors and heraldry share one preloaded atlas; basal shadows stay in geometry.',
+        palette='Quiet cel stone, moss, inset decks, closed iron doors and heraldry share one preloaded atlas. Soft faux overhead light is baked into stone and moss from dark foot to light upper courses; brick and coping bevels soften corners.',
         atlas=dict(size=[SIZE, SIZE], slotSize=SLOT, padding=PAD, contentSize=CONTENT,
                    whitePatch=[496, 496, 8, 8], copingPatch=[394,488,16,12], wornCopingPatch=[418,488,16,12], unusedSlots='Transparent'),
         materials=rows,

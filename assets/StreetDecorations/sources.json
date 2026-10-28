@@ -624,5 +624,22 @@
       "lantern"
     ],
     "license": "extra_assets/16x16/Farming Game World/License.txt"
+  },
+  "pottery_stack_broken": {
+    "scoutId": "T4-14",
+    "source": "extra_assets/16x16/Farm Game Dungeon Cellar Tileset/Tilesets/FG_Cellar.png",
+    "crop": [
+      400,
+      128,
+      16,
+      16
+    ],
+    "title": "Broken pottery stack",
+    "suggestedVariants": [
+      "pottery",
+      "trade",
+      "way_of_variety"
+    ],
+    "license": null
   }
 }

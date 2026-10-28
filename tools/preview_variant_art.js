@@ -46,7 +46,7 @@ vm.runInContext(shrineFooting[0] + ';globalThis.CELL_PX=SpriteLayout.CELL_PX;', 
 // Representative inputs omit placement metadata and IDs. Actual quarry
 // records export their art directly, retaining their seeded rock shape.
 const materialArtFields = ['kind', 'yieldTier', 'requiredTier', 'rockMaterial', 'deposit', 'caveVariant',
-  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', 'barrelStyle', 'barrel', 'tier', 'sightBlocking', 'species', 'size', 'variant'];
+  'rockStyle', 'rockTheme', 'zoneVariant', '_zoneObjectFrame', '_plantArt', '_objectArt', '_streetArt', '_smashed', 'barrelStyle', 'barrel', 'tier', 'sightBlocking', 'species', 'size', 'variant'];
 const materialArtKey = object => JSON.stringify(materialArtFields.map(field => object[field] ?? null));
 vm.runInContext(`globalThis.previewMaterialArt = object => {
   const scene = {save:{}, depth:0, textures:{exists:key => !!ASSETS[key],
@@ -234,7 +234,7 @@ for (const material of Object.values(ctx.ZoneVariantData.materials).filter(o=>o.
 for (const tile of data.basicTiles) for (const object of tile.examples) if(object.kind==='wildplant') addPlant(object);
 Object.assign(data.assets, await require('./preview_runtime_bakes.cjs')(root));
 Object.assign(data.assets, await require('./preview_street_decor_bakes.cjs')(root));
-data.streetGeometryArt = Object.fromEntries(['hedge','grass_clump'].map(kind => [kind, {sheet:'preview_3d_'+kind,frames:['__BASE'],preserveFrame:true,width:64,height:64,origin:[.5,.5],dxPx:0,dyPx:0,source:'Production WallMaterials / WallPerspective geometry'}]));
+data.streetGeometryArt = Object.fromEntries(['hedge','grass_clump','creeping_vine'].map(kind => [kind, {sheet:'preview_3d_'+kind,frames:['__BASE'],preserveFrame:true,width:64,height:64,origin:[.5,.5],dxPx:0,dyPx:0,source:'Production WallMaterials / WallPerspective geometry'}]));
 data.activeProfile = 'rogue';
 data.biomePainter = data.groundMaterialSource + '\n' + vm.runInContext('lerp.toString()', ctx) + '\n' + read('textures').slice(0, read('textures').indexOf('const ZONE_GROUND_ACCENTS ='));
 // Embed the shipping pavement/lamp painters, preserving their shared helpers.

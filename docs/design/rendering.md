@@ -298,9 +298,12 @@ step-over lift (walls) or separate `heightPx` (walk-through hedges) in
 they still interact from their data cells. Walls support steps; hedges are walked
 through without a hop, balancing slowdown or body crop. An isolated
 wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
-the bare core block, so it turns with the ground like the runs beside it.
-`wall_materials.js` owns the shared cel-pixel atlas: irregular green leaf clusters across hedge tops
-and bevels without a pale coping band. Hedges have their own profile there
+its core block, so it turns with the ground like the runs beside it.
+`wall_materials.js` owns the shared cel-pixel atlas: connected hedges use the
+RA-recolored bushy hedge strip across tops and bevels without a pale coping band.
+Creeping vines reuse the former procedural green leaf material, with a broad
+24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
+Hedges have their own profile there
 (`hedgeGeometry`): exposed convex corners round off in plan, a tucked-in foot
 undercuts the clipped face, and a quarter-round shoulder rolls into a flat crown
 at the step-over height, its rings dipping at hashed world points so runs read
@@ -1436,7 +1439,8 @@ Stable plant IDs select canopy frames. Berry textures bake red, teal or gold
 fruit onto all eight olive canopies once at startup; picking retains the same
 foliage frame and transparency. Both clipped-shrub aliases use
 `assets/ArtTrials/RogueProps/flora-zone_hedge_single.png`. Connected hedges retain
-their fifteen cardinal masks and matched edge pixels from `assets/Objects/Hedges/`.
+their fifteen cardinal masks; their 3D material uses the approved bushy strip.
+The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
 by map and popup art. Barrels use only the cylindrical frame 3; the square
@@ -1470,12 +1474,17 @@ the same profile for its courtyard floor. Citadel wrecks are dark and foreboding
 conquest repairs and lightens them. Bastion and Archive damage is a condition
 of the same architecture, with interrupted crowns and missing roof planes.
 
-Tower bases fit fully inside convex corners of the mapped footprint, including
-Bastion's flared feet; corners too narrow for a complete tower keep their curtain
-instead. Placement checks the entire source ring so a nearby concave notch
-cannot be crossed. Curtains are clipped against the tower shafts.
-Merlons are solid geometry with open crenels and full coping support, spaced
-more sparsely than the previous masonry build. All clipped bodies and crowns
+Square towers align with the longer adjoining curtain, then shift eight game
+pixels outward along the corner bisector. Their original seated base must fit
+inside the footprint; only the two adjoining edges allow the small deliberate
+overhang. Other boundaries and nearby towers still block placement. At an
+obtuse corner one tower side follows its curtain while the other curtain joins
+at its own angle. Tower crowns, decals, roofs and flared feet share this local
+orientation. Curtains are clipped against the shifted tower shafts.
+Merlons are solid geometry with open crenels and full coping support. Their
+9.6-pixel-wide, 5.6-pixel-high teeth repeat every sixteen game pixels, leaving
+6.4-pixel gaps. They retain the artwork rhythm with a broader, lower silhouette
+regardless of curtain length; longer walls add teeth instead of widening gaps. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
@@ -1489,12 +1498,15 @@ area and full-source containment checks prevent bridging gaps or notches.
 Numerical subtraction slivers below 0.0001 square game pixels are discarded;
 source vertices are not simplified to achieve this. The shared prepared footprint clipper
 also supplies indexed containment checks for towers, merlons and keep clearance.
-Wall fragments remain capped at 512, merlons at 192 and towers at 12. Source-edge
+Wall fragments remain capped at 512, merlon candidates at 4096 and towers at 12.
+A spatial hash keeps merlon overlap checks local. Inputs above the merlon
+candidate budget use the contained tiled fallback without changing tooth size
+or pitch. Source-edge
 bounds reject crossing candidates cheaply, and canonical cached layouts skip
 repeated topology validation. Cache keys alone round local coordinates to
 0.000000001 game pixels, removing camera-translation noise far below the geometry
 tolerance while computations retain full precision. Each wall reuses its nearby solids when hiding
-internal faces. Ordinary rings retain their existing layout and triangle counts.
+internal faces. Curtain coalescing preserves the original footprint coverage.
 Invalid rings, inputs above the vertex limit, or layouts exceeding the piece
 budget retain the contained fallback. Its wall strips, battlements
 and concave joins are clipped to the full source ring too: an inward normal
@@ -1507,16 +1519,24 @@ detailed rings; offscreen strips are rejected before clipping.
 
 Materials use a restrained cel palette, the preloaded FDR atlas's white patch,
 and shared cel pixel materials from `tools/build_fdr_castle_assets.py`.
-Family-specific slate, sandstone and pale ashlar courses with restrained mortar and lit upper edges,
-warm paving on inset military decks, coping edges, iron
-door surrounds and heraldic marks are atlas detail rather than extra meshes.
-Bastion uses taller sandstone courses. Masonry uses a fixed world-space scale
-and ground datum; a 128-unit motif repeats inside a 224-by-64-unit tile, so
-ordinary curtain fragments can retain their source-edge phase without adding
-triangles. Its 4/7 atlas repeat lands on exact texels. Very long sections on
-budget-limited giant footprints fit their horizontal span to the tile.
-Weathered masonry reserves colour headroom in the texture and compensates only
-its vertical stone-face tint; this keeps olive growth legible on dark slate.
+Family-specific slate, sandstone and pale ashlar courses use small chamfered
+brick corners, lighter upper edges and darker lower bevels/mortar. Curtain
+courses are six game pixels tall, with ten-pixel Bastion and tower courses.
+Courses start at ground level so the lowest row remains complete. Flared tower
+feet use the same world-space brick width as their shafts. Faux top lighting is
+baked into the atlas, with extra upper-wall highlight headroom from a constant
+material tint. Reciprocal baked attenuation preserves the dark stone foot while
+the upper courses gain about 25% brightness, remaining darker than the coping.
+Walls sample that vertical field from world Z without a separate dark base tint
+or a runtime gradient; their brick dimensions stay constant. Vertical gutters
+clamp the ground and sky values rather than wrapping a bright row into the foot.
+Bastion uses taller sandstone courses. A 128-unit motif repeats inside a
+224-by-64-unit tile, so ordinary curtain fragments can retain their source-edge
+phase without adding triangles. Its 4/7 atlas repeat lands on exact texels.
+Long sections split at motif boundaries rather than stretching their masonry.
+Weathered masonry reserves colour headroom in the texture and compensates its
+stone-face tint; olive growth retains the same baked lighting. Coping uses
+softer edge bevels and small corner chips while remaining fully opaque.
 Military
 tower banners sample a forked cloth silhouette with a compact emblem; Bastion
 centers its banner below the arrow slit, while Citadel places it beside the slit.
@@ -1548,8 +1568,8 @@ is no upper shoulder shadow or projecting crown shelf. Military keeps reuse
 their two entrance-decal triangles for a door and two flanking banners, with
 transparent gaps keeping the entrance clear. Four padded family/condition
 frames use palettes read from `CastleStyles` by the offline builder. Citadel
-shows a wrecked iron grille or restored open timber leaves over an opaque dark
-backing; Bastion uses timber double doors. Seams and
+shows a closed wrecked iron grille or restored timber double doors; Bastion
+also uses closed timber double doors. Seams and
 hardware remain flat decals; the facade does not cut a hole in the wall or
 change collision. Canvas joins each alpha facade's internal diagonal through
 its exact quad, isolating subframes and preserving exterior transparency.
@@ -1562,10 +1582,12 @@ planes over a closed flat cap when wrecked. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with
-its span to preserve tower roof pitch. Military tower crowns include eight-unit
-teeth on all four sides, with outer teeth aligned to shaft corners. Surviving
+its span to preserve tower roof pitch. Military tower crowns include the same shorter, wider
+teeth on all four sides at the same sixteen-unit pitch. End margins absorb
+remaining length, and side rows stop before the front/back rows to avoid
+overlapping corner teeth. Surviving
 wreck teeth vary in height using the same prism faces. Bastion's broader tower shafts
-fill their square cutouts above the bottom band; the same eight basal triangles
+fill their square cutouts above height four; the same eight basal triangles
 flare two pixels outward at ground level, without adding a plinth mesh or opening
 vertical gaps at curtain joins. Wreck crests lose a few broad sections; teeth
 over those pieces are omitted and adjoining tall pieces expose their step faces.
@@ -1680,7 +1702,9 @@ atlas and retained geometry.
 suggested route. `tools/build_street_decoration_art.py` exports exact pixels and
 `STREET_DECORATION_ART` bounds. `_streetArt` changes presentation without changing
 pickup, container, mining or hazard behavior. Ground slicks, loose planks and
-fragments remain ground decals. Broken pottery falls back to its shared shards.
+fragments remain ground decals. Pottery stacks use the matching broken pot from
+the same source tileset; ordinary pots retain their colour-matched shared shards.
+Young fern uses a 14-pixel visible width on the map.
 Mossy, conifer, bare and lavender tree families use the same silhouette at three
 growth sizes; bare trees share one family across burned, thorny and haunted routes.
 The small grass-clump variant retains the longgrass 3D blade material and root

@@ -16,14 +16,16 @@ module.exports=async function(root){
   for(const child of [...real.children.list])child.destroy();real.panels=[];game.scale.resize(64,64);
   real.cameras.main.setBackgroundColor('rgba(0,0,0,0)');
   const results={};
-  for(const kind of ['hedge','grass_clump']){
+  for(const kind of ['hedge','grass_clump','creeping_vine']){
    for(const child of [...real.children.list])child.destroy();
    const root=real.add.container(32,32);
    const scene={_headingUp:true,depth:0,mapRot:0,events:real.events,add:real.add,textures:real.textures,buildingWallContainer:root};
    const group=WallPerspective.begin(scene,'review');
-   if(kind==='hedge'){
-    const shape=Render.connectedWallOutline(10,16),height=ObstacleStep.PROFILES.hedge.heightPx;
-    WallPerspective.material(scene,'review','hedge',shape.points.map(p=>({x:p.x-16,y:p.y-16})),height,{openEdges:shape.openEdges,capRegions:Render.connectedWallFootprints(10,16).map(([a,b,c,d],i)=>({x0:a-16,y0:b-16,x1:c-16,y1:d-16,horizontal:c-a>d-b,joints:i!==0}))});
+   if(kind==='hedge'||kind==='creeping_vine'){
+    const profile=kind==='hedge'?'hedge':'vine',mask=kind==='hedge'?10:0;
+    const thickness=Render.CONNECTED_WALL_ART[profile].thickness;
+    const shape=Render.connectedWallOutline(mask,thickness),height=ObstacleStep.PROFILES[profile].heightPx;
+    WallPerspective.material(scene,'review',profile,shape.points.map(p=>({x:p.x-16,y:p.y-16})),height,{openEdges:shape.openEdges,capRegions:Render.connectedWallFootprints(mask,thickness).map(([a,b,c,d],i)=>({x0:a-16,y0:b-16,x1:c-16,y1:d-16,horizontal:c-a>d-b,joints:i!==0}))});
    }else{
     WallMaterials.prepareGrass(scene);group.atlas=real.textures.get(WallMaterials.GRASS.texture);
     const square=[{x:-16,y:-16},{x:16,y:-16},{x:16,y:16},{x:-16,y:16}],faces=WallMaterials.geometry('grass',square,0,{sparseClump:true});

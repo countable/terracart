@@ -10,7 +10,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.1245901639344262
+          "probability": 0.12063492063492061
         },
         {
           "id": "overgrown",
@@ -18,7 +18,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.0622950819672131
+          "probability": 0.060317460317460304
         },
         {
           "id": "orchard",
@@ -26,7 +26,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.1245901639344262
+          "probability": 0.12063492063492061
         },
         {
           "id": "pilgrim",
@@ -34,7 +34,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.06,
-          "probability": 0.09344262295081965
+          "probability": 0.09047619047619045
         },
         {
           "id": "burned",
@@ -42,7 +42,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07786885245901638
+          "probability": 0.07539682539682538
         },
         {
           "id": "toadstool",
@@ -50,7 +50,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07786885245901638
+          "probability": 0.07539682539682538
         },
         {
           "id": "golden",
@@ -66,7 +66,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.03,
-          "probability": 0.046721311475409824
+          "probability": 0.04523809523809522
         },
         {
           "id": "thorny",
@@ -74,7 +74,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.0622950819672131
+          "probability": 0.060317460317460304
         },
         {
           "id": "goblin_gang",
@@ -82,7 +82,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.0622950819672131
+          "probability": 0.060317460317460304
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.030158730158730152
         },
         {
           "id": "berry",
@@ -90,7 +98,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07786885245901638
+          "probability": 0.07539682539682538
         },
         {
           "id": "pottery",
@@ -98,7 +106,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07786885245901638
+          "probability": 0.07539682539682538
         },
         {
           "id": "trade",
@@ -106,7 +114,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.0622950819672131
+          "probability": 0.060317460317460304
         }
       ]
     },
@@ -118,7 +126,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.16,
-          "probability": 0.17988165680473372
+          "probability": 0.17572254335260115
         },
         {
           "id": "overgrown",
@@ -126,7 +134,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.052000000000000005,
-          "probability": 0.05846153846153846
+          "probability": 0.057109826589595375
         },
         {
           "id": "orchard",
@@ -134,7 +142,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.16,
-          "probability": 0.17988165680473372
+          "probability": 0.17572254335260115
         },
         {
           "id": "pilgrim",
@@ -142,7 +150,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.06,
-          "probability": 0.06745562130177514
+          "probability": 0.06589595375722543
         },
         {
           "id": "burned",
@@ -150,7 +158,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.03,
-          "probability": 0.03372781065088757
+          "probability": 0.032947976878612714
         },
         {
           "id": "toadstool",
@@ -158,7 +166,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.07307692307692308
+          "probability": 0.07138728323699423
         },
         {
           "id": "golden",
@@ -174,7 +182,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.018,
-          "probability": 0.02023668639053254
+          "probability": 0.019768786127167627
         },
         {
           "id": "thorny",
@@ -182,7 +190,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.052000000000000005,
-          "probability": 0.05846153846153846
+          "probability": 0.057109826589595375
         },
         {
           "id": "goblin_gang",
@@ -190,7 +198,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.024,
-          "probability": 0.026982248520710062
+          "probability": 0.026358381502890174
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.021965317919075144
         },
         {
           "id": "berry",
@@ -198,7 +214,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.11242603550295859
+          "probability": 0.10982658959537572
         },
         {
           "id": "pottery",
@@ -206,7 +222,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.11242603550295859
+          "probability": 0.10982658959537572
         },
         {
           "id": "trade",
@@ -214,7 +230,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.024,
-          "probability": 0.026982248520710062
+          "probability": 0.026358381502890174
         }
       ]
     },
@@ -226,7 +242,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.10400000000000001,
-          "probability": 0.11343283582089553
+          "probability": 0.11088664421997756
         },
         {
           "id": "overgrown",
@@ -234,7 +250,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.08,
-          "probability": 0.08725602755453502
+          "probability": 0.08529741863075196
         },
         {
           "id": "orchard",
@@ -242,7 +258,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.10400000000000001,
-          "probability": 0.11343283582089553
+          "probability": 0.11088664421997756
         },
         {
           "id": "pilgrim",
@@ -250,7 +266,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.078,
-          "probability": 0.08507462686567165
+          "probability": 0.08316498316498316
         },
         {
           "id": "burned",
@@ -258,7 +274,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.05453501722158439
+          "probability": 0.05331088664421998
         },
         {
           "id": "toadstool",
@@ -266,7 +282,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.10907003444316878
+          "probability": 0.10662177328843996
         },
         {
           "id": "golden",
@@ -282,7 +298,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.03,
-          "probability": 0.03272101033295063
+          "probability": 0.03198653198653199
         },
         {
           "id": "thorny",
@@ -290,7 +306,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.08,
-          "probability": 0.08725602755453502
+          "probability": 0.08529741863075196
         },
         {
           "id": "goblin_gang",
@@ -298,7 +314,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.04362801377726751
+          "probability": 0.04264870931537598
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.02132435465768799
         },
         {
           "id": "berry",
@@ -306,7 +330,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.10907003444316878
+          "probability": 0.10662177328843996
         },
         {
           "id": "pottery",
@@ -314,7 +338,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.0708955223880597
+          "probability": 0.06930415263748597
         },
         {
           "id": "trade",
@@ -322,7 +346,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.04362801377726751
+          "probability": 0.04264870931537598
         }
       ]
     },
@@ -334,7 +358,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.1087267525035765
+          "probability": 0.105702364394993
         },
         {
           "id": "overgrown",
@@ -342,7 +366,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.052000000000000005,
-          "probability": 0.07067238912732472
+          "probability": 0.06870653685674545
         },
         {
           "id": "orchard",
@@ -350,7 +374,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.1087267525035765
+          "probability": 0.105702364394993
         },
         {
           "id": "pilgrim",
@@ -358,7 +382,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.06,
-          "probability": 0.08154506437768236
+          "probability": 0.07927677329624475
         },
         {
           "id": "burned",
@@ -366,7 +390,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.0679542203147353
+          "probability": 0.06606397774687063
         },
         {
           "id": "toadstool",
@@ -374,7 +398,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.1359084406294706
+          "probability": 0.13212795549374126
         },
         {
           "id": "golden",
@@ -390,7 +414,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.03,
-          "probability": 0.04077253218884118
+          "probability": 0.03963838664812237
         },
         {
           "id": "thorny",
@@ -398,7 +422,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.052000000000000005,
-          "probability": 0.07067238912732472
+          "probability": 0.06870653685674545
         },
         {
           "id": "goblin_gang",
@@ -406,7 +430,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.05436337625178825
+          "probability": 0.0528511821974965
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.02642559109874825
         },
         {
           "id": "berry",
@@ -414,7 +446,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.0883404864091559
+          "probability": 0.08588317107093181
         },
         {
           "id": "pottery",
@@ -422,7 +454,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.0679542203147353
+          "probability": 0.06606397774687063
         },
         {
           "id": "trade",
@@ -430,7 +462,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.05436337625178825
+          "probability": 0.0528511821974965
         }
       ]
     },
@@ -442,7 +474,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.16,
-          "probability": 0.2073669849931787
+          "probability": 0.20185922974767595
         },
         {
           "id": "overgrown",
@@ -450,7 +482,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.05184174624829468
+          "probability": 0.05046480743691899
         },
         {
           "id": "orchard",
@@ -458,7 +490,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.10400000000000001,
-          "probability": 0.13478854024556616
+          "probability": 0.13120849933598938
         },
         {
           "id": "pilgrim",
@@ -466,7 +498,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.078,
-          "probability": 0.10109140518417463
+          "probability": 0.09840637450199204
         },
         {
           "id": "burned",
@@ -474,7 +506,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.03,
-          "probability": 0.038881309686221006
+          "probability": 0.03784860557768924
         },
         {
           "id": "toadstool",
@@ -482,7 +514,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.06480218281036836
+          "probability": 0.06308100929614874
         },
         {
           "id": "golden",
@@ -498,7 +530,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.018,
-          "probability": 0.023328785811732602
+          "probability": 0.02270916334661354
         },
         {
           "id": "thorny",
@@ -506,7 +538,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.05184174624829468
+          "probability": 0.05046480743691899
         },
         {
           "id": "goblin_gang",
@@ -514,7 +546,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.024,
-          "probability": 0.031105047748976808
+          "probability": 0.030278884462151396
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.025232403718459494
         },
         {
           "id": "berry",
@@ -522,7 +562,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.08424283765347886
+          "probability": 0.08200531208499336
         },
         {
           "id": "pottery",
@@ -530,7 +570,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.1296043656207367
+          "probability": 0.12616201859229748
         },
         {
           "id": "trade",
@@ -538,7 +578,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.024,
-          "probability": 0.031105047748976808
+          "probability": 0.030278884462151396
         }
       ]
     },
@@ -550,7 +590,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.10400000000000001,
-          "probability": 0.1294888597640891
+          "probability": 0.12618135376756065
         },
         {
           "id": "overgrown",
@@ -558,7 +598,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.052000000000000005,
-          "probability": 0.06474442988204455
+          "probability": 0.06309067688378033
         },
         {
           "id": "orchard",
@@ -566,7 +606,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.09960681520314546
+          "probability": 0.09706257982120049
         },
         {
           "id": "pilgrim",
@@ -574,7 +614,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.12,
-          "probability": 0.1494102228047182
+          "probability": 0.14559386973180072
         },
         {
           "id": "burned",
@@ -582,7 +622,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.06225425950196591
+          "probability": 0.060664112388250306
         },
         {
           "id": "toadstool",
@@ -590,7 +630,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.08093053735255569
+          "probability": 0.0788633461047254
         },
         {
           "id": "golden",
@@ -606,7 +646,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.03,
-          "probability": 0.03735255570117955
+          "probability": 0.03639846743295018
         },
         {
           "id": "thorny",
@@ -614,7 +654,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.052000000000000005,
-          "probability": 0.06474442988204455
+          "probability": 0.06309067688378033
         },
         {
           "id": "goblin_gang",
@@ -622,7 +662,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.04980340760157273
+          "probability": 0.048531289910600246
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.024265644955300123
         },
         {
           "id": "berry",
@@ -630,7 +678,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.08093053735255569
+          "probability": 0.0788633461047254
         },
         {
           "id": "pottery",
@@ -638,7 +686,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.08093053735255569
+          "probability": 0.0788633461047254
         },
         {
           "id": "trade",
@@ -646,7 +694,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.04980340760157273
+          "probability": 0.048531289910600246
         }
       ]
     },
@@ -658,7 +706,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.048,
-          "probability": 0.06846846846846846
+          "probability": 0.06647230320699708
         },
         {
           "id": "overgrown",
@@ -666,7 +714,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.057057057057057055
+          "probability": 0.0553935860058309
         },
         {
           "id": "orchard",
@@ -674,7 +722,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.048,
-          "probability": 0.06846846846846846
+          "probability": 0.06647230320699708
         },
         {
           "id": "pilgrim",
@@ -682,7 +730,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.06,
-          "probability": 0.08558558558558557
+          "probability": 0.08309037900874634
         },
         {
           "id": "burned",
@@ -690,7 +738,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.1,
-          "probability": 0.14264264264264265
+          "probability": 0.13848396501457724
         },
         {
           "id": "toadstool",
@@ -698,7 +746,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07132132132132132
+          "probability": 0.06924198250728862
         },
         {
           "id": "golden",
@@ -714,7 +762,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.06,
-          "probability": 0.08558558558558557
+          "probability": 0.08309037900874634
         },
         {
           "id": "thorny",
@@ -722,7 +770,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.057057057057057055
+          "probability": 0.0553935860058309
         },
         {
           "id": "goblin_gang",
@@ -730,7 +778,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.08,
-          "probability": 0.11411411411411411
+          "probability": 0.1107871720116618
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.02769679300291545
         },
         {
           "id": "berry",
@@ -738,7 +794,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.03,
-          "probability": 0.042792792792792786
+          "probability": 0.04154518950437317
         },
         {
           "id": "pottery",
@@ -746,7 +802,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 0.6,
           "weight": 0.03,
-          "probability": 0.042792792792792786
+          "probability": 0.04154518950437317
         },
         {
           "id": "trade",
@@ -754,7 +810,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 2,
           "weight": 0.08,
-          "probability": 0.11411411411411411
+          "probability": 0.1107871720116618
         }
       ]
     },
@@ -766,7 +822,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.12159999999999997
+          "probability": 0.11782945736434106
         },
         {
           "id": "overgrown",
@@ -774,7 +830,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.060799999999999986
+          "probability": 0.05891472868217053
         },
         {
           "id": "orchard",
@@ -782,7 +838,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.08,
-          "probability": 0.12159999999999997
+          "probability": 0.11782945736434106
         },
         {
           "id": "pilgrim",
@@ -790,7 +846,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.06,
-          "probability": 0.09119999999999998
+          "probability": 0.08837209302325578
         },
         {
           "id": "burned",
@@ -798,7 +854,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07599999999999998
+          "probability": 0.07364341085271317
         },
         {
           "id": "toadstool",
@@ -806,7 +862,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1.3,
           "weight": 0.065,
-          "probability": 0.09879999999999999
+          "probability": 0.09573643410852711
         },
         {
           "id": "golden",
@@ -822,7 +878,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.03,
-          "probability": 0.04559999999999999
+          "probability": 0.04418604651162789
         },
         {
           "id": "thorny",
@@ -830,7 +886,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.060799999999999986
+          "probability": 0.05891472868217053
         },
         {
           "id": "goblin_gang",
@@ -838,7 +894,15 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.060799999999999986
+          "probability": 0.05891472868217053
+        },
+        {
+          "id": "paralysis_path",
+          "baseWeight": 0.02,
+          "nameMultiplier": 1,
+          "contextMultiplier": 1,
+          "weight": 0.02,
+          "probability": 0.029457364341085264
         },
         {
           "id": "berry",
@@ -846,7 +910,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07599999999999998
+          "probability": 0.07364341085271317
         },
         {
           "id": "pottery",
@@ -854,7 +918,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.05,
-          "probability": 0.07599999999999998
+          "probability": 0.07364341085271317
         },
         {
           "id": "trade",
@@ -862,7 +926,7 @@
           "nameMultiplier": 1,
           "contextMultiplier": 1,
           "weight": 0.04,
-          "probability": 0.060799999999999986
+          "probability": 0.05891472868217053
         }
       ]
     }
@@ -1055,7 +1119,7 @@
           "_street": "hedgerow",
           "_ix": 99,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1066,7 +1130,7 @@
           "_street": "hedgerow",
           "_ix": 99,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1077,7 +1141,7 @@
           "_street": "hedgerow",
           "_ix": 100,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1088,7 +1152,7 @@
           "_street": "hedgerow",
           "_ix": 100,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1099,7 +1163,7 @@
           "_street": "hedgerow",
           "_ix": 101,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1110,7 +1174,7 @@
           "_street": "hedgerow",
           "_ix": 101,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1121,7 +1185,7 @@
           "_street": "hedgerow",
           "_ix": 102,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1132,7 +1196,7 @@
           "_street": "hedgerow",
           "_ix": 102,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1143,7 +1207,7 @@
           "_street": "hedgerow",
           "_ix": 103,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1154,7 +1218,7 @@
           "_street": "hedgerow",
           "_ix": 103,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1605,7 +1669,7 @@
           "_street": "hedgerow",
           "_ix": 124,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1616,7 +1680,7 @@
           "_street": "hedgerow",
           "_ix": 124,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1627,7 +1691,7 @@
           "_street": "hedgerow",
           "_ix": 125,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1638,7 +1702,7 @@
           "_street": "hedgerow",
           "_ix": 125,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1649,7 +1713,7 @@
           "_street": "hedgerow",
           "_ix": 126,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1660,7 +1724,7 @@
           "_street": "hedgerow",
           "_ix": 126,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1671,7 +1735,7 @@
           "_street": "hedgerow",
           "_ix": 127,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1682,7 +1746,7 @@
           "_street": "hedgerow",
           "_ix": 127,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1693,7 +1757,7 @@
           "_street": "hedgerow",
           "_ix": 128,
           "_iy": 112,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -1704,7 +1768,7 @@
           "_street": "hedgerow",
           "_ix": 128,
           "_iy": 116,
-          "_streetArt": "hedge_strip"
+          "_streetArt": "clipped"
         },
         {
           "kind": "wildplant",
@@ -9116,7 +9180,7 @@
           "type": 20
         }
       ],
-      "sampleName": "Preview 18",
+      "sampleName": "Preview 23",
       "roadWidthM": 5.5,
       "lengthM": 215.60000000000014,
       "lampSpacingM": 33.333333333333336,
@@ -9135,6 +9199,14 @@
               "variant": "toadstool"
             }
           ]
+        },
+        {
+          "kind": "grove_shrine",
+          "x": 801.5,
+          "y": 801.5,
+          "id": "street_shrine_2622_5615_114_114",
+          "_shrineStreet": "toadstool",
+          "shrineKind": "toad_idol"
         },
         {
           "kind": "chest",
@@ -10189,6 +10261,24 @@
         {
           "kind": "wildplant",
           "crop": "mushroom",
+          "x": 717.5,
+          "y": 780.5,
+          "id": "route_toadstool_2622_5615_102_111",
+          "_street": "toadstool",
+          "_streetArt": "toadstool_cluster"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom",
+          "x": 717.5,
+          "y": 822.5,
+          "id": "route_toadstool_2622_5615_102_117",
+          "_street": "toadstool",
+          "_streetArt": "red_mushroom"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom",
           "x": 731.5,
           "y": 780.5,
           "id": "route_toadstool_2622_5615_104_111",
@@ -10201,24 +10291,6 @@
           "x": 731.5,
           "y": 822.5,
           "id": "route_toadstool_2622_5615_104_117",
-          "_street": "toadstool",
-          "_streetArt": "spotted_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 745.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_106_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "giant_mushroom",
-          "x": 745.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_106_117",
           "_street": "toadstool",
           "_streetArt": "spotted_mushroom"
         },
@@ -10239,42 +10311,6 @@
           "id": "route_toadstool_2622_5615_108_117",
           "_street": "toadstool",
           "_streetArt": "red_mushroom"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 773.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_110_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 773.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_110_117",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 787.5,
-          "y": 780.5,
-          "id": "route_toadstool_2622_5615_112_111",
-          "_street": "toadstool",
-          "_streetArt": "toadstool_cluster"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "mushroom",
-          "x": 787.5,
-          "y": 822.5,
-          "id": "route_toadstool_2622_5615_112_117",
-          "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
         },
         {
           "kind": "wildplant",
@@ -10315,22 +10351,20 @@
         {
           "kind": "wildplant",
           "crop": "mushroom",
-          "x": 829.5,
+          "x": 843.5,
           "y": 780.5,
-          "id": "route_toadstool_2622_5615_118_111",
+          "id": "route_toadstool_2622_5615_120_111",
           "_street": "toadstool",
-          "_streetArt": "healing_mushrooms",
-          "gasEmitter": true,
-          "gasKind": "healing"
+          "_streetArt": "red_mushroom"
         },
         {
           "kind": "wildplant",
           "crop": "mushroom",
-          "x": 829.5,
+          "x": 843.5,
           "y": 822.5,
-          "id": "route_toadstool_2622_5615_118_117",
+          "id": "route_toadstool_2622_5615_120_117",
           "_street": "toadstool",
-          "_streetArt": "luminous_bulbs"
+          "_streetArt": "toadstool_cluster"
         },
         {
           "kind": "wildplant",
@@ -10385,6 +10419,24 @@
           "id": "route_toadstool_2622_5615_126_117",
           "_street": "toadstool",
           "_streetArt": "red_mushroom"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "giant_mushroom",
+          "x": 899.5,
+          "y": 780.5,
+          "id": "route_toadstool_2622_5615_128_111",
+          "_street": "toadstool",
+          "_streetArt": "spotted_mushroom"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom",
+          "x": 899.5,
+          "y": 822.5,
+          "id": "route_toadstool_2622_5615_128_117",
+          "_street": "toadstool",
+          "_streetArt": "luminous_bulbs"
         }
       ],
       "lamps": [
@@ -16747,7 +16799,7 @@
         }
       ],
       "words": null,
-      "sampleName": "Preview 2",
+      "sampleName": "Preview 18",
       "roadWidthM": 5.5,
       "lengthM": 215.60000000000014,
       "lampSpacingM": 33.333333333333336,
@@ -16778,6 +16830,16 @@
         },
         {
           "kind": "mineralrock",
+          "x": 787.5,
+          "y": 787.5,
+          "id": "route_snare_2622_5615_112_112",
+          "_street": "snare",
+          "_streetArt": "dusty_stones",
+          "requiredTier": 1,
+          "yieldTier": 1
+        },
+        {
+          "kind": "mineralrock",
           "x": 829.5,
           "y": 794.5,
           "id": "route_snare_2622_5615_118_113",
@@ -16788,29 +16850,19 @@
         },
         {
           "kind": "mineralrock",
+          "x": 871.5,
+          "y": 808.5,
+          "id": "route_snare_2622_5615_124_115",
+          "_street": "snare",
+          "_streetArt": "dusty_stones",
+          "requiredTier": 1,
+          "yieldTier": 1
+        },
+        {
+          "kind": "mineralrock",
           "x": 885.5,
           "y": 794.5,
           "id": "route_snare_2622_5615_126_113",
-          "_street": "snare",
-          "_streetArt": "dusty_stones",
-          "requiredTier": 1,
-          "yieldTier": 1
-        },
-        {
-          "kind": "mineralrock",
-          "x": 899.5,
-          "y": 794.5,
-          "id": "route_snare_2622_5615_128_113",
-          "_street": "snare",
-          "_streetArt": "dusty_stones",
-          "requiredTier": 1,
-          "yieldTier": 1
-        },
-        {
-          "kind": "mineralrock",
-          "x": 899.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_128_115",
           "_street": "snare",
           "_streetArt": "dusty_stones",
           "requiredTier": 1,
@@ -16837,18 +16889,18 @@
         {
           "kind": "wildplant",
           "crop": "bone_fragments",
-          "x": 717.5,
+          "x": 703.5,
           "y": 794.5,
-          "id": "route_snare_2622_5615_102_113",
+          "id": "route_snare_2622_5615_100_113",
           "_street": "snare",
           "_streetArt": "bone_fragments"
         },
         {
           "kind": "wildplant",
           "crop": "driftwood",
-          "x": 717.5,
-          "y": 808.5,
-          "id": "route_snare_2622_5615_102_115",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "route_snare_2622_5615_100_116",
           "_street": "snare",
           "_streetArt": "plank_fragments"
         },
@@ -16867,6 +16919,24 @@
           "x": 731.5,
           "y": 808.5,
           "id": "route_snare_2622_5615_104_115",
+          "_street": "snare",
+          "_streetArt": "plank_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "bone_fragments",
+          "x": 745.5,
+          "y": 787.5,
+          "id": "route_snare_2622_5615_106_112",
+          "_street": "snare",
+          "_streetArt": "bone_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 745.5,
+          "y": 808.5,
+          "id": "route_snare_2622_5615_106_115",
           "_street": "snare",
           "_streetArt": "plank_fragments"
         },
@@ -16909,6 +16979,15 @@
         {
           "kind": "wildplant",
           "crop": "driftwood",
+          "x": 787.5,
+          "y": 808.5,
+          "id": "route_snare_2622_5615_112_115",
+          "_street": "snare",
+          "_streetArt": "plank_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
           "x": 801.5,
           "y": 780.5,
           "id": "route_snare_2622_5615_114_111",
@@ -16939,6 +17018,33 @@
           "x": 829.5,
           "y": 808.5,
           "id": "route_snare_2622_5615_118_115",
+          "_street": "snare",
+          "_streetArt": "plank_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "bone_fragments",
+          "x": 857.5,
+          "y": 787.5,
+          "id": "route_snare_2622_5615_122_112",
+          "_street": "snare",
+          "_streetArt": "bone_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 857.5,
+          "y": 808.5,
+          "id": "route_snare_2622_5615_122_115",
+          "_street": "snare",
+          "_streetArt": "plank_fragments"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "driftwood",
+          "x": 871.5,
+          "y": 794.5,
+          "id": "route_snare_2622_5615_124_113",
           "_street": "snare",
           "_streetArt": "plank_fragments"
         },
@@ -17122,101 +17228,11 @@
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_98_114",
-          "x": 689.5,
-          "y": 801.5,
-          "_ix": 98,
-          "_iy": 114,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_103_114",
-          "x": 724.5,
-          "y": 801.5,
-          "_ix": 103,
-          "_iy": 114,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_109_115",
-          "x": 766.5,
+          "id": "trap_snare_2622_5615_127_115",
+          "x": 892.5,
           "y": 808.5,
-          "_ix": 109,
+          "_ix": 127,
           "_iy": 115,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_130_115",
-          "x": 913.5,
-          "y": 808.5,
-          "_ix": 130,
-          "_iy": 115,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_126_114",
-          "x": 885.5,
-          "y": 801.5,
-          "_ix": 126,
-          "_iy": 114,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_121_115",
-          "x": 850.5,
-          "y": 808.5,
-          "_ix": 121,
-          "_iy": 115,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_123_113",
-          "x": 864.5,
-          "y": 794.5,
-          "_ix": 123,
-          "_iy": 113,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_107_115",
-          "x": 752.5,
-          "y": 808.5,
-          "_ix": 107,
-          "_iy": 115,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_100_114",
-          "x": 703.5,
-          "y": 801.5,
-          "_ix": 100,
-          "_iy": 114,
-          "_street": "snare",
-          "kind": "trap",
-          "recordType": "surface_trap"
-        },
-        {
-          "id": "trap_snare_2622_5615_131_113",
-          "x": 920.5,
-          "y": 794.5,
-          "_ix": 131,
-          "_iy": 113,
           "_street": "snare",
           "kind": "trap",
           "recordType": "surface_trap"
@@ -17232,10 +17248,100 @@
           "recordType": "surface_trap"
         },
         {
-          "id": "trap_snare_2622_5615_111_115",
-          "x": 780.5,
+          "id": "trap_snare_2622_5615_99_113",
+          "x": 696.5,
+          "y": 794.5,
+          "_ix": 99,
+          "_iy": 113,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_130_113",
+          "x": 913.5,
+          "y": 794.5,
+          "_ix": 130,
+          "_iy": 113,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_102_113",
+          "x": 717.5,
+          "y": 794.5,
+          "_ix": 102,
+          "_iy": 113,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_109_115",
+          "x": 766.5,
           "y": 808.5,
-          "_ix": 111,
+          "_ix": 109,
+          "_iy": 115,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_102_115",
+          "x": 717.5,
+          "y": 808.5,
+          "_ix": 102,
+          "_iy": 115,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_123_114",
+          "x": 864.5,
+          "y": 801.5,
+          "_ix": 123,
+          "_iy": 114,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_98_115",
+          "x": 689.5,
+          "y": 808.5,
+          "_ix": 98,
+          "_iy": 115,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_117_115",
+          "x": 822.5,
+          "y": 808.5,
+          "_ix": 117,
+          "_iy": 115,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_104_114",
+          "x": 731.5,
+          "y": 801.5,
+          "_ix": 104,
+          "_iy": 114,
+          "_street": "snare",
+          "kind": "trap",
+          "recordType": "surface_trap"
+        },
+        {
+          "id": "trap_snare_2622_5615_130_115",
+          "x": 913.5,
+          "y": 808.5,
+          "_ix": 130,
           "_iy": 115,
           "_street": "snare",
           "kind": "trap",
@@ -24587,8 +24693,8 @@
       "affinities": [
         "hostile"
       ],
-      "size": "path",
-      "share": 0,
+      "size": "minor",
+      "share": 0.02,
       "rung": "rare",
       "stone": {
         "weathered": "#827947",
@@ -24600,21 +24706,878 @@
       "story": "street_paralysis_path",
       "art": "street_paralysis_path",
       "title": "Paralysis Path",
-      "body": "Paralysis geysers erupt beside the path. A shrine offers a daily boon along the way.",
+      "body": "Creeping vines spread beneath the paralysis geysers. Their tendrils sting on contact. A shrine offers a daily boon along the way.",
       "flash": "Paralysis geysers hiss.",
       "code": 21,
       "baseTerrain": 6,
-      "groundCells": [],
-      "sampleName": "Preview Footpath",
-      "roadWidthM": 2,
-      "lengthM": 107.80000000000003,
-      "lampSpacingM": 16.666666666666668,
+      "groundCells": [
+        {
+          "x": 686,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 693,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 700,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 707,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 714,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 721,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 728,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 735,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 742,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 749,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 756,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 763,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 770,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 777,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 784,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 791,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 798,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 805,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 812,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 819,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 826,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 833,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 840,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 847,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 854,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 861,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 868,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 875,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 882,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 889,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 896,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 903,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 910,
+          "y": 784,
+          "type": 10
+        },
+        {
+          "x": 679,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 686,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 693,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 700,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 707,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 714,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 721,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 728,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 735,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 742,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 749,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 756,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 763,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 770,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 777,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 784,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 791,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 798,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 805,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 812,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 819,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 826,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 833,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 840,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 847,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 854,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 861,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 868,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 875,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 882,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 889,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 896,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 903,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 910,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 917,
+          "y": 791,
+          "type": 10
+        },
+        {
+          "x": 679,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 686,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 693,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 700,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 707,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 714,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 721,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 728,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 735,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 742,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 749,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 756,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 763,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 770,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 777,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 784,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 791,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 798,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 805,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 812,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 819,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 826,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 833,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 840,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 847,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 854,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 861,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 868,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 875,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 882,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 889,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 896,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 903,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 910,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 917,
+          "y": 798,
+          "type": 10
+        },
+        {
+          "x": 679,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 686,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 693,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 700,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 707,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 714,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 721,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 728,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 735,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 742,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 749,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 756,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 763,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 770,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 777,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 784,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 791,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 798,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 805,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 812,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 819,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 826,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 833,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 840,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 847,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 854,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 861,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 868,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 875,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 882,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 889,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 896,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 903,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 910,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 917,
+          "y": 805,
+          "type": 10
+        },
+        {
+          "x": 686,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 693,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 700,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 707,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 714,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 721,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 728,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 735,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 742,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 749,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 756,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 763,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 770,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 777,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 784,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 791,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 798,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 805,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 812,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 819,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 826,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 833,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 840,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 847,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 854,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 861,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 868,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 875,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 882,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 889,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 896,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 903,
+          "y": 812,
+          "type": 10
+        },
+        {
+          "x": 910,
+          "y": 812,
+          "type": 10
+        }
+      ],
+      "words": null,
+      "sampleName": "Preview 343",
+      "roadWidthM": 5.5,
+      "lengthM": 215.60000000000014,
+      "lampSpacingM": 33.333333333333336,
       "objects": [
         {
           "kind": "roadsign",
-          "x": 759.5,
+          "x": 703.5,
           "y": 808.5,
-          "id": "street_sign_2622_5615_108_115",
+          "id": "street_sign_2622_5615_100_115",
           "_street": "paralysis_path",
           "_streetArt": "direction_sign",
           "directions": [
@@ -24627,9 +25590,9 @@
         },
         {
           "kind": "tree",
-          "x": 766.5,
+          "x": 745.5,
           "y": 780.5,
-          "id": "route_paralysis_path_2622_5615_109_111",
+          "id": "route_paralysis_path_2622_5615_106_111",
           "_street": "paralysis_path",
           "_streetArt": "lavender_tree",
           "species": "maple",
@@ -24639,9 +25602,9 @@
         },
         {
           "kind": "tree",
-          "x": 766.5,
+          "x": 745.5,
           "y": 822.5,
-          "id": "route_paralysis_path_2622_5615_109_117",
+          "id": "route_paralysis_path_2622_5615_106_117",
           "_street": "paralysis_path",
           "_streetArt": "lavender_tree",
           "species": "maple",
@@ -24651,9 +25614,9 @@
         },
         {
           "kind": "tree",
-          "x": 836.5,
+          "x": 780.5,
           "y": 780.5,
-          "id": "route_paralysis_path_2622_5615_119_111",
+          "id": "route_paralysis_path_2622_5615_111_111",
           "_street": "paralysis_path",
           "_streetArt": "lavender_tree",
           "species": "maple",
@@ -24663,9 +25626,57 @@
         },
         {
           "kind": "tree",
-          "x": 836.5,
+          "x": 780.5,
           "y": 822.5,
-          "id": "route_paralysis_path_2622_5615_119_117",
+          "id": "route_paralysis_path_2622_5615_111_117",
+          "_street": "paralysis_path",
+          "_streetArt": "lavender_tree",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "_objectArt": "lavender_tree",
+          "variant": 3
+        },
+        {
+          "kind": "tree",
+          "x": 850.5,
+          "y": 780.5,
+          "id": "route_paralysis_path_2622_5615_121_111",
+          "_street": "paralysis_path",
+          "_streetArt": "lavender_tree",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "_objectArt": "lavender_tree",
+          "variant": 3
+        },
+        {
+          "kind": "tree",
+          "x": 850.5,
+          "y": 822.5,
+          "id": "route_paralysis_path_2622_5615_121_117",
+          "_street": "paralysis_path",
+          "_streetArt": "lavender_tree",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "_objectArt": "lavender_tree",
+          "variant": 3
+        },
+        {
+          "kind": "tree",
+          "x": 885.5,
+          "y": 780.5,
+          "id": "route_paralysis_path_2622_5615_126_111",
+          "_street": "paralysis_path",
+          "_streetArt": "lavender_tree",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "_objectArt": "lavender_tree",
+          "variant": 3
+        },
+        {
+          "kind": "tree",
+          "x": 885.5,
+          "y": 822.5,
+          "id": "route_paralysis_path_2622_5615_126_117",
           "_street": "paralysis_path",
           "_streetArt": "lavender_tree",
           "species": "maple",
@@ -24675,143 +25686,209 @@
         },
         {
           "kind": "grove_shrine",
-          "x": 752.5,
-          "y": 787.5,
-          "id": "street_shrine_2622_5615_107_112",
+          "x": 696.5,
+          "y": 794.5,
+          "id": "street_shrine_2622_5615_99_113",
           "_shrineStreet": "paralysis_path",
           "shrineKind": "paralysis_path_shrine"
+        },
+        {
+          "kind": "chest",
+          "x": 906.5,
+          "y": 801.5,
+          "id": "crate_end_2622_5615_129_114",
+          "crate": true,
+          "tierSeed": 1,
+          "previewContainerFrame": 2
+        },
+        {
+          "kind": "chest",
+          "x": 696.5,
+          "y": 801.5,
+          "id": "crate_end_2622_5615_99_114",
+          "crate": true,
+          "tierSeed": 1,
+          "previewContainerFrame": 0
+        },
+        {
+          "kind": "wildplant",
+          "crop": "creeping_vine",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "vine_seed_2622_5615_100_116",
+          "_street": "paralysis_path",
+          "_creepingVine": true,
+          "_vineColony": "vine_seed_2622_5615_100_116",
+          "_plantArt": "creeping_vine",
+          "_ix": 100,
+          "_iy": 116
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom",
+          "x": 759.5,
+          "y": 794.5,
+          "id": "route_paralysis_path_2622_5615_108_113",
+          "_street": "paralysis_path",
+          "_streetArt": "healing_mushrooms",
+          "gasEmitter": true,
+          "gasKind": "healing"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom",
+          "x": 759.5,
+          "y": 808.5,
+          "id": "route_paralysis_path_2622_5615_108_115",
+          "_street": "paralysis_path",
+          "_streetArt": "healing_mushrooms",
+          "gasEmitter": true,
+          "gasKind": "healing"
         }
       ],
       "lamps": [
         {
           "tileKey": "14/2622/5615",
-          "lineKey": "0:3733e01c",
-          "tier": 8,
+          "lineKey": "0:fb8f2bae",
+          "tier": 7,
           "suppressed": false,
           "_streetArt": null,
           "glow": "#e5cc62",
-          "s": 8.98333333333334,
-          "x": 756.5833333330229,
-          "y": 798.2599999997765,
-          "spacingM": 17.966666666666672,
-          "path": true,
-          "creditM": 35.933333333333344,
-          "id": "lamp_14/2622/5615|0:3733e01c@9"
+          "s": 17.96666666666668,
+          "x": 711.6666666669771,
+          "y": 796.5099999997765,
+          "spacingM": 35.93333333333336,
+          "path": false,
+          "creditM": 35.93333333333336,
+          "id": "lamp_14/2622/5615|0:fb8f2bae@18"
         },
         {
           "tileKey": "14/2622/5615",
-          "lineKey": "0:3733e01c",
-          "tier": 8,
+          "lineKey": "0:fb8f2bae",
+          "tier": 7,
           "suppressed": false,
           "_streetArt": null,
           "glow": "#e5cc62",
-          "s": 26.950000000000017,
-          "x": 774.5499999998137,
-          "y": 798.2599999997765,
-          "spacingM": 17.966666666666672,
-          "path": true,
-          "creditM": 35.933333333333344,
-          "id": "lamp_14/2622/5615|0:3733e01c@27"
+          "s": 53.900000000000034,
+          "x": 747.5999999996275,
+          "y": 796.5099999997765,
+          "spacingM": 35.93333333333336,
+          "path": false,
+          "creditM": 35.93333333333336,
+          "id": "lamp_14/2622/5615|0:fb8f2bae@54"
         },
         {
           "tileKey": "14/2622/5615",
-          "lineKey": "0:3733e01c",
-          "tier": 8,
+          "lineKey": "0:fb8f2bae",
+          "tier": 7,
           "suppressed": false,
           "_streetArt": null,
           "glow": "#e5cc62",
-          "s": 44.9166666666667,
-          "x": 792.5166666666046,
-          "y": 798.2599999997765,
-          "spacingM": 17.966666666666672,
-          "path": true,
-          "creditM": 35.933333333333344,
-          "id": "lamp_14/2622/5615|0:3733e01c@45"
+          "s": 89.8333333333334,
+          "x": 783.5333333332092,
+          "y": 796.5099999997765,
+          "spacingM": 35.93333333333336,
+          "path": false,
+          "creditM": 35.93333333333336,
+          "id": "lamp_14/2622/5615|0:fb8f2bae@90"
         },
         {
           "tileKey": "14/2622/5615",
-          "lineKey": "0:3733e01c",
-          "tier": 8,
+          "lineKey": "0:fb8f2bae",
+          "tier": 7,
           "suppressed": false,
           "_streetArt": null,
           "glow": "#e5cc62",
-          "s": 62.883333333333375,
-          "x": 810.4833333333954,
-          "y": 798.2599999997765,
-          "spacingM": 17.966666666666672,
-          "path": true,
-          "creditM": 35.933333333333344,
-          "id": "lamp_14/2622/5615|0:3733e01c@63"
+          "s": 125.76666666666675,
+          "x": 819.4666666667908,
+          "y": 796.5099999997765,
+          "spacingM": 35.93333333333336,
+          "path": false,
+          "creditM": 35.93333333333336,
+          "id": "lamp_14/2622/5615|0:fb8f2bae@126"
         },
         {
           "tileKey": "14/2622/5615",
-          "lineKey": "0:3733e01c",
-          "tier": 8,
+          "lineKey": "0:fb8f2bae",
+          "tier": 7,
           "suppressed": false,
           "_streetArt": null,
           "glow": "#e5cc62",
-          "s": 80.85000000000005,
-          "x": 828.4500000001863,
-          "y": 798.2599999997765,
-          "spacingM": 17.966666666666672,
-          "path": true,
-          "creditM": 35.933333333333344,
-          "id": "lamp_14/2622/5615|0:3733e01c@81"
+          "s": 161.7000000000001,
+          "x": 855.4000000003725,
+          "y": 796.5099999997765,
+          "spacingM": 35.93333333333336,
+          "path": false,
+          "creditM": 35.93333333333336,
+          "id": "lamp_14/2622/5615|0:fb8f2bae@162"
         },
         {
           "tileKey": "14/2622/5615",
-          "lineKey": "0:3733e01c",
-          "tier": 8,
+          "lineKey": "0:fb8f2bae",
+          "tier": 7,
           "suppressed": false,
           "_streetArt": null,
           "glow": "#e5cc62",
-          "s": 98.81666666666673,
-          "x": 846.4166666669771,
-          "y": 798.2599999997765,
-          "spacingM": 17.966666666666672,
-          "path": true,
-          "creditM": 35.933333333333344,
-          "id": "lamp_14/2622/5615|0:3733e01c@99"
+          "s": 197.63333333333347,
+          "x": 891.3333333330229,
+          "y": 796.5099999997765,
+          "spacingM": 35.93333333333336,
+          "path": false,
+          "creditM": 35.93333333333336,
+          "id": "lamp_14/2622/5615|0:fb8f2bae@198"
         }
       ],
+      "lairs": [],
       "vents": [
         {
-          "id": "path_vent_paralysis_2622_5615_110_112",
-          "x": 773.5,
+          "id": "path_vent_paralysis_2622_5615_102_113",
+          "x": 717.5,
+          "y": 794.5,
+          "kind": "paralysis",
+          "_street": "paralysis_path"
+        },
+        {
+          "id": "path_vent_paralysis_2622_5615_108_112",
+          "x": 759.5,
           "y": 787.5,
           "kind": "paralysis",
           "_street": "paralysis_path"
         },
         {
-          "id": "path_vent_paralysis_2622_5615_116_112",
-          "x": 815.5,
-          "y": 787.5,
+          "id": "path_vent_paralysis_2622_5615_114_113",
+          "x": 801.5,
+          "y": 794.5,
           "kind": "paralysis",
           "_street": "paralysis_path"
         },
         {
-          "id": "path_vent_paralysis_2622_5615_122_113",
-          "x": 857.5,
+          "id": "path_vent_paralysis_2622_5615_120_113",
+          "x": 843.5,
+          "y": 794.5,
+          "kind": "paralysis",
+          "_street": "paralysis_path"
+        },
+        {
+          "id": "path_vent_paralysis_2622_5615_126_113",
+          "x": 885.5,
           "y": 794.5,
           "kind": "paralysis",
           "_street": "paralysis_path"
         }
       ],
       "webs": [],
-      "lairs": [],
-      "slowKinds": [],
-      "geography": [],
-      "placement": "Seeded paralysis geysers alongside the path, where hazard placement is safe. A matching daily shrine stands on each eligible section.",
       "line": [
         {
-          "x": 747.5999999999999,
+          "x": 693.6999999999999,
           "y": 801.5
         },
         {
-          "x": 855.4,
+          "x": 909.3000000000001,
           "y": 801.5
         }
-      ]
+      ],
+      "slowKinds": [],
+      "placement": "Seeded paralysis geysers alongside the path, where hazard placement is safe. A matching daily shrine stands on each eligible section."
     },
     {
       "id": "confusion_path",
@@ -25956,7 +27033,7 @@
           "type": 0
         }
       ],
-      "sampleName": "Preview 49",
+      "sampleName": "Preview 48",
       "roadWidthM": 5.5,
       "lengthM": 215.60000000000014,
       "lampSpacingM": 33.333333333333336,
@@ -25975,14 +27052,6 @@
               "variant": "berry"
             }
           ]
-        },
-        {
-          "kind": "grove_shrine",
-          "x": 801.5,
-          "y": 794.5,
-          "id": "street_shrine_2622_5615_114_113",
-          "_shrineStreet": "berry",
-          "shrineKind": "harvest_idol"
         },
         {
           "kind": "chest",
@@ -26053,23 +27122,6 @@
         },
         {
           "kind": "wildplant",
-          "crop": "shrub",
-          "x": 717.5,
-          "y": 794.5,
-          "id": "wp_berrylane_2622_5615_102_113",
-          "_street": "berry",
-          "_streetArt": "bramble"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 717.5,
-          "y": 808.5,
-          "id": "wp_berrylane_2622_5615_102_115",
-          "_street": "berry"
-        },
-        {
-          "kind": "wildplant",
           "crop": "berry",
           "x": 724.5,
           "y": 794.5,
@@ -26136,6 +27188,22 @@
         },
         {
           "kind": "wildplant",
+          "crop": "shrub",
+          "x": 752.5,
+          "y": 787.5,
+          "id": "wp_berrylane_2622_5615_107_112",
+          "_street": "berry"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 752.5,
+          "y": 808.5,
+          "id": "wp_berrylane_2622_5615_107_115",
+          "_street": "berry"
+        },
+        {
+          "kind": "wildplant",
           "crop": "berry",
           "x": 759.5,
           "y": 794.5,
@@ -26165,23 +27233,6 @@
           "y": 808.5,
           "id": "wp_berrylane_2622_5615_110_115",
           "_street": "berry"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 780.5,
-          "y": 787.5,
-          "id": "wp_berrylane_2622_5615_111_112",
-          "_street": "berry"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 780.5,
-          "y": 808.5,
-          "id": "wp_berrylane_2622_5615_111_115",
-          "_street": "berry",
-          "_streetArt": "bramble"
         },
         {
           "kind": "wildplant",
@@ -26219,6 +27270,23 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
+          "x": 801.5,
+          "y": 794.5,
+          "id": "wp_berrylane_2622_5615_114_113",
+          "_street": "berry",
+          "_streetArt": "bramble"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "berry",
+          "x": 801.5,
+          "y": 808.5,
+          "id": "wp_berrylane_2622_5615_114_115",
+          "_street": "berry"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
           "x": 808.5,
           "y": 794.5,
           "id": "wp_berrylane_2622_5615_115_113",
@@ -26247,40 +27315,6 @@
           "x": 815.5,
           "y": 808.5,
           "id": "wp_berrylane_2622_5615_116_115",
-          "_street": "berry",
-          "_streetArt": "bramble"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 822.5,
-          "y": 787.5,
-          "id": "wp_berrylane_2622_5615_117_112",
-          "_street": "berry",
-          "_streetArt": "bramble"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 822.5,
-          "y": 808.5,
-          "id": "wp_berrylane_2622_5615_117_115",
-          "_street": "berry"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "berry",
-          "x": 829.5,
-          "y": 794.5,
-          "id": "wp_berrylane_2622_5615_118_113",
-          "_street": "berry"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 829.5,
-          "y": 808.5,
-          "id": "wp_berrylane_2622_5615_118_115",
           "_street": "berry",
           "_streetArt": "bramble"
         },
@@ -26338,41 +27372,6 @@
         {
           "kind": "wildplant",
           "crop": "shrub",
-          "x": 857.5,
-          "y": 787.5,
-          "id": "wp_berrylane_2622_5615_122_112",
-          "_street": "berry",
-          "_streetArt": "bramble"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 857.5,
-          "y": 808.5,
-          "id": "wp_berrylane_2622_5615_122_115",
-          "_street": "berry",
-          "_streetArt": "bramble"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 864.5,
-          "y": 794.5,
-          "id": "wp_berrylane_2622_5615_123_113",
-          "_street": "berry",
-          "_streetArt": "bramble"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
-          "x": 864.5,
-          "y": 808.5,
-          "id": "wp_berrylane_2622_5615_123_115",
-          "_street": "berry"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "shrub",
           "x": 871.5,
           "y": 794.5,
           "id": "wp_berrylane_2622_5615_124_113",
@@ -26390,19 +27389,20 @@
         },
         {
           "kind": "wildplant",
-          "crop": "poisonberry",
-          "x": 878.5,
+          "crop": "berry",
+          "x": 885.5,
           "y": 794.5,
-          "id": "wp_berrylane_2622_5615_125_113",
+          "id": "wp_berrylane_2622_5615_126_113",
           "_street": "berry"
         },
         {
           "kind": "wildplant",
-          "crop": "berry",
-          "x": 878.5,
+          "crop": "shrub",
+          "x": 885.5,
           "y": 808.5,
-          "id": "wp_berrylane_2622_5615_125_115",
-          "_street": "berry"
+          "id": "wp_berrylane_2622_5615_126_115",
+          "_street": "berry",
+          "_streetArt": "bramble"
         },
         {
           "kind": "wildplant",
@@ -26457,24 +27457,6 @@
         {
           "kind": "wildplant",
           "crop": "yellow_flower",
-          "x": 731.5,
-          "y": 787.5,
-          "id": "route_berry_2622_5615_104_112",
-          "_street": "berry",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 731.5,
-          "y": 815.5,
-          "id": "route_berry_2622_5615_104_116",
-          "_street": "berry",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
           "x": 745.5,
           "y": 780.5,
           "id": "route_berry_2622_5615_106_111",
@@ -26487,6 +27469,78 @@
           "x": 745.5,
           "y": 815.5,
           "id": "route_berry_2622_5615_106_116",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 759.5,
+          "y": 787.5,
+          "id": "route_berry_2622_5615_108_112",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 759.5,
+          "y": 815.5,
+          "id": "route_berry_2622_5615_108_116",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 773.5,
+          "y": 787.5,
+          "id": "route_berry_2622_5615_110_112",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 773.5,
+          "y": 815.5,
+          "id": "route_berry_2622_5615_110_116",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 787.5,
+          "y": 780.5,
+          "id": "route_berry_2622_5615_112_111",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 787.5,
+          "y": 815.5,
+          "id": "route_berry_2622_5615_112_116",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 801.5,
+          "y": 787.5,
+          "id": "route_berry_2622_5615_114_112",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 801.5,
+          "y": 815.5,
+          "id": "route_berry_2622_5615_114_116",
           "_street": "berry",
           "_streetArt": "yellow_flowers"
         },
@@ -26512,8 +27566,8 @@
           "kind": "wildplant",
           "crop": "yellow_flower",
           "x": 829.5,
-          "y": 787.5,
-          "id": "route_berry_2622_5615_118_112",
+          "y": 794.5,
+          "id": "route_berry_2622_5615_118_113",
           "_street": "berry",
           "_streetArt": "yellow_flowers"
         },
@@ -26521,62 +27575,62 @@
           "kind": "wildplant",
           "crop": "yellow_flower",
           "x": 829.5,
-          "y": 815.5,
-          "id": "route_berry_2622_5615_118_116",
-          "_street": "berry",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 857.5,
-          "y": 780.5,
-          "id": "route_berry_2622_5615_122_111",
-          "_street": "berry",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 857.5,
-          "y": 815.5,
-          "id": "route_berry_2622_5615_122_116",
-          "_street": "berry",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 885.5,
-          "y": 794.5,
-          "id": "route_berry_2622_5615_126_113",
-          "_street": "berry",
-          "_streetArt": "yellow_flowers"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "yellow_flower",
-          "x": 885.5,
           "y": 808.5,
-          "id": "route_berry_2622_5615_126_115",
+          "id": "route_berry_2622_5615_118_115",
           "_street": "berry",
           "_streetArt": "yellow_flowers"
         },
         {
           "kind": "wildplant",
           "crop": "yellow_flower",
-          "x": 899.5,
+          "x": 843.5,
           "y": 787.5,
-          "id": "route_berry_2622_5615_128_112",
+          "id": "route_berry_2622_5615_120_112",
           "_street": "berry",
           "_streetArt": "yellow_flowers"
         },
         {
           "kind": "wildplant",
           "crop": "yellow_flower",
-          "x": 899.5,
+          "x": 843.5,
           "y": 815.5,
-          "id": "route_berry_2622_5615_128_116",
+          "id": "route_berry_2622_5615_120_116",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 857.5,
+          "y": 787.5,
+          "id": "route_berry_2622_5615_122_112",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 857.5,
+          "y": 808.5,
+          "id": "route_berry_2622_5615_122_115",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 871.5,
+          "y": 787.5,
+          "id": "route_berry_2622_5615_124_112",
+          "_street": "berry",
+          "_streetArt": "yellow_flowers"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "yellow_flower",
+          "x": 871.5,
+          "y": 815.5,
+          "id": "route_berry_2622_5615_124_116",
           "_street": "berry",
           "_streetArt": "yellow_flowers"
         }
@@ -26673,38 +27727,7 @@
           "id": "lamp_14/2622/5615|0:fb8f2bae@198"
         }
       ],
-      "lairs": [
-        {
-          "tier": "street_berry",
-          "kind": "street_berry guard site",
-          "x": 710.5,
-          "y": 815.5
-        },
-        {
-          "tier": "street_berry",
-          "kind": "street_berry guard site",
-          "x": 752.5,
-          "y": 815.5
-        },
-        {
-          "tier": "street_berry",
-          "kind": "street_berry guard site",
-          "x": 794.5,
-          "y": 815.5
-        },
-        {
-          "tier": "street_berry",
-          "kind": "street_berry guard site",
-          "x": 836.5,
-          "y": 815.5
-        },
-        {
-          "tier": "street_berry",
-          "kind": "street_berry guard site",
-          "x": 871.5,
-          "y": 815.5
-        }
-      ],
+      "lairs": [],
       "line": [
         {
           "x": 693.6999999999999,

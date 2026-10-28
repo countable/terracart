@@ -1,7 +1,7 @@
 /* Bounded, deterministic castle layout. No renderer or texture allocation. */
 (function(global){
   const EPS=1e-6;
-  const LIMITS={vertices:512,sections:128,pieces:512,merlons:192,towers:12,cache:48};
+  const LIMITS={vertices:512,sections:128,pieces:512,merlons:4096,towers:12,cache:48};
   const cache=new Map();
   const {cross,polyArea:area,ensureCCW}=PolygonGeometry;
   const rect=(x,y,w,h)=>[{x:x-w/2,y:y-h/2},{x:x+w/2,y:y-h/2},{x:x+w/2,y:y+h/2},{x:x-w/2,y:y+h/2}];
@@ -43,7 +43,13 @@
     const clipFootprint=points.length>64?PolygonGeometry.createFootprintClipper(points):null;
     const inside=clipFootprint?clipFootprint.contains:poly=>contains(poly,points);
     const perimeter=points.reduce((sum,p,i)=>sum+Math.hypot(points[(i+1)%points.length].x-p.x,points[(i+1)%points.length].y-p.y),0);
-    const sectionLength=Math.max(options.sectionLength || 16,perimeter/LIMITS.sections),pitch=Math.max(options.merlonPitch || 16,perimeter/LIMITS.merlons);
+    const merlonWidth=options.merlonWidth??9.6,merlonHeight=options.merlonHeight??5.6;
+    const sectionLength=Math.max(options.sectionLength || 16,perimeter/LIMITS.sections),pitch=Math.max(merlonWidth,options.merlonPitch || 16);
+    // Wider, shorter teeth retain the artwork's sixteen-pixel rhythm. A
+    // geometry budget must never dilate that rhythm on longer curtains.
+    // Beyond the bounded candidate count, use the contained tiled fallback.
+    const candidateCount=points.reduce((sum,p,i)=>sum+Math.floor(Math.hypot(points[(i+1)%points.length].x-p.x,points[(i+1)%points.length].y-p.y)/pitch),0);
+    if(candidateCount>LIMITS.merlons)return null;
     const towerWidth=options.towerWidth || 32,wallHeight=options.wallHeight || 24;
     const towerBaseOutset=Math.max(0,options.towerBaseOutset||0);
     const triangles=PolygonGeometry.triangulate(points).map(t=>area(t)<0?t.slice().reverse():t),edges=points.map((a,i)=>({a,b:points[(i+1)%points.length],strip:edgeStrip(a,points[(i+1)%points.length])}));
@@ -51,22 +57,42 @@
     const towers=[];
     for(let i=0;i<points.length&&towers.length<LIMITS.towers;i++){
       const p=points[i],previous=points[(i+points.length-1)%points.length],next=points[(i+1)%points.length];if(cross(previous,p,next)<=EPS)continue;
-      // Offset both incident edges by the axis-aligned square's support
-      // distance. Their intersection seats the entire base inside the corner,
-      // including a flared foot, rather than straddling the mapped footprint.
       const before=Math.hypot(p.x-previous.x,p.y-previous.y),after=Math.hypot(next.x-p.x,next.y-p.y);
       if(Math.min(before,after)<24)continue;
       const n1={x:-(p.y-previous.y)/before,y:(p.x-previous.x)/before};
       const n2={x:-(next.y-p.y)/after,y:(next.x-p.x)/after};
+      // Align a square side to the longer adjoining curtain. At an obtuse
+      // corner the other curtain meets its side instead of rotating the whole
+      // tower to bisect the angle. Canonical quarter-turns keep equivalent
+      // square orientations and translated/reversed inputs identical.
+      // Treat floating-point length ties consistently after cache eviction.
+      const tangent=after>=before-EPS?{x:next.x-p.x,y:next.y-p.y}:{x:p.x-previous.x,y:p.y-previous.y};
+      let angle=Math.atan2(tangent.y,tangent.x);angle-=Math.floor(angle/(Math.PI/2)+.5+1e-10)*(Math.PI/2);
+      const ux=Math.cos(angle),uy=Math.sin(angle);
+      const square=(x,y,width)=>rect(0,0,width,width).map(q=>({x:x+q.x*ux-q.y*uy,y:y+q.x*uy+q.y*ux}));
       const halfWidth=towerWidth/2+towerBaseOutset,det=n1.x*n2.y-n1.y*n2.x;
       if(Math.abs(det)<EPS)continue;
-      const d1=halfWidth*(Math.abs(n1.x)+Math.abs(n1.y)),d2=halfWidth*(Math.abs(n2.x)+Math.abs(n2.y));
-      const x=p.x+(d1*n2.y-n1.y*d2)/det,y=p.y+(n1.x*d2-d1*n2.x)/det,box=rect(x,y,towerWidth,towerWidth);
-      const base=rect(x,y,towerWidth+2*towerBaseOutset,towerWidth+2*towerBaseOutset);
-      // Adjacent half-planes alone cannot rule out a nearby concave notch or
-      // thin wing. If this fixed-size tower cannot fit, keep its curtain intact.
-      if(inside(base)&&overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)&&!towers.some(t=>overlap(rect(x,y,towerWidth+8,towerWidth+8),t.points))){
-        towers.push({x,y,width:towerWidth,depth:towerWidth,height:options.towerHeight || 32,points:box,corner:i});
+      const support=n=>halfWidth*(Math.abs(n.x*ux+n.y*uy)+Math.abs(-n.x*uy+n.y*ux));
+      const d1=support(n1),d2=support(n2);
+      const seatX=p.x+(d1*n2.y-n1.y*d2)/det,seatY=p.y+(n1.x*d2-d1*n2.x)/det;
+      const seatPoints=square(seatX,seatY,halfWidth*2);
+      // Only a tower that fits the original corner may receive the deliberate
+      // quarter-cell overhang; narrow wings still retain their curtain.
+      if(!inside(seatPoints))continue;
+      const bisector=Math.hypot(n1.x+n2.x,n1.y+n2.y);
+      const outward={x:-(n1.x+n2.x)/bisector*8,y:-(n1.y+n2.y)/bisector*8};
+      const x=seatX+outward.x,y=seatY+outward.y,box=square(x,y,towerWidth),basePoints=square(x,y,halfWidth*2);
+      // Overhang belongs only to this corner's two curtains. Reject a shift
+      // across an unrelated boundary (for example the far side of a notch).
+      const crossesBase=(a,b)=>{
+        const strictInside=q=>basePoints.every((v,j)=>cross(v,basePoints[(j+1)%4],q)>EPS);
+        if(strictInside(a)||strictInside(b))return true;
+        return basePoints.some((c,j)=>{const d=basePoints[(j+1)%4];return cross(a,b,c)*cross(a,b,d)<-EPS&&cross(c,d,a)*cross(c,d,b)<-EPS;});
+      };
+      if(edges.some((edge,j)=>j!==i&&j!==(i+edges.length-1)%edges.length&&crossesBase(edge.a,edge.b)))continue;
+      if(overlap(box,edges[i].strip)&&overlap(box,edges[(i+edges.length-1)%edges.length].strip)
+          &&!towers.some(t=>overlap(square(x,y,halfWidth*2+8),t.basePoints))){
+        towers.push({x,y,width:towerWidth,depth:towerWidth,height:options.towerHeight || 32,points:box,basePoints,seatPoints,angle,outward,corner:i});
       }
     }
     const walls=[];
@@ -98,15 +124,26 @@
       }}
       intervals.sort((a,b)=>a[0]-b[0]);let end=0;for(const [lo,hi] of intervals){if(lo>end+EPS)break;end=Math.max(end,hi);}if(end>=1-EPS)wall.omitEdges.push(i);
     }}
-    const merlons=[];
+    const merlons=[],merlonBuckets=new Map(),bucketSize=Math.max(16,merlonWidth);
+    const bucketKeys=box=>{
+      const result=[];
+      for(let x=Math.floor(box.left/bucketSize);x<=Math.floor(box.right/bucketSize);x++)
+        for(let y=Math.floor(box.top/bucketSize);y<=Math.floor(box.bottom/bucketSize);y++)result.push(x+','+y);
+      return result;
+    };
     for(let edge=0;edge<edges.length;edge++){
       const {a,b}=edges[edge],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy),ux=dx/l,uy=dy/l,nx=-uy,ny=ux,count=Math.floor(l/pitch),first=(l-(count-1)*pitch)/2;
       for(let j=0;j<count;j++){
         const at=first+j*pitch,cx=a.x+ux*at+nx*4,cy=a.y+uy*at+ny*4;
-        const box=[[-4,-4],[4,-4],[4,4],[-4,4]].map(([u,v])=>({x:cx+ux*u+nx*v,y:cy+uy*u+ny*v}));
-        if(!inside(box)||towers.some(t=>overlap(box,t.points))||merlons.some(m=>overlap(box,m.points)))continue;
-        const covered=nearby(walls,box).reduce((sum,w)=>sum+Math.abs(area(intersect(box,w.points))),0);if(Math.abs(covered-64)>1e-3)continue;
-        merlons.push({edge,points:box,base:wallHeight,top:wallHeight+8,rimTop:wallHeight,rim:edges[edge].strip,coveredArea:covered});
+        const half=merlonWidth/2,box=[[-half,-4],[half,-4],[half,4],[-half,4]].map(([u,v])=>({x:cx+ux*u+nx*v,y:cy+uy*u+ny*v}));
+        // Spatial buckets keep thousands of fixed-pitch candidates local;
+        // teeth from distant source edges never enter exact overlap checks.
+        const keys=bucketKeys(bounds(box)),neighbours=new Set(keys.flatMap(key=>merlonBuckets.get(key)||[]));
+        if(!inside(box)||towers.some(t=>overlap(box,t.points))||[...neighbours].some(m=>overlap(box,m.points)))continue;
+        const covered=nearby(walls,box).reduce((sum,w)=>sum+Math.abs(area(intersect(box,w.points))),0);if(Math.abs(covered-merlonWidth*8)>1e-3)continue;
+        const merlon={edge,points:box,base:wallHeight,top:wallHeight+merlonHeight,rimTop:wallHeight,rim:edges[edge].strip,coveredArea:covered};
+        merlons.push(merlon);
+        for(const key of keys){if(!merlonBuckets.has(key))merlonBuckets.set(key,[]);merlonBuckets.get(key).push(merlon);}
       }
     }
     const box=bounds(points),cx=(box.left+box.right)/2,cy=(box.top+box.bottom)/2,choices=[];
@@ -133,7 +170,7 @@
     // contours. Normalize only the key, far below geometry tolerance; compute
     // and returned vertices retain their full precision.
     const keyPoints=local.map(p=>[+p.x.toFixed(9),+p.y.toFixed(9)]);
-    const key=JSON.stringify([keyPoints,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.sectionLength,options.towerBaseOutset]);
+    const key=JSON.stringify([keyPoints,options.keep!==false,options.towerWidth,options.towerHeight,options.keepHeight,options.wallHeight,options.merlonPitch,options.merlonWidth,options.merlonHeight,options.sectionLength,options.towerBaseOutset]);
     let layout=cache.get(key);
     if(layout===undefined){
       // Canonical cached contours have already passed validation. On a miss,
@@ -154,7 +191,7 @@
   // Layout consumers may mutate tower heights and crown metadata. Translated
   // copies own their rings and parts, leaving the cached source untouched.
   function translate(layout,dx,dy){
-    const move=p=>({x:p.x+dx,y:p.y+dy}),ring=p=>p.map(move),part=p=>({...p,...(Number.isFinite(p.x)?{x:p.x+dx,y:p.y+dy}:{}),points:ring(p.points),...(p.bounds?{bounds:{left:p.bounds.left+dx,right:p.bounds.right+dx,top:p.bounds.top+dy,bottom:p.bounds.bottom+dy}}:{}),...(p.rim?{rim:ring(p.rim)}:{}),...(p.clearance?{clearance:ring(p.clearance)}:{})});
+    const move=p=>({x:p.x+dx,y:p.y+dy}),ring=p=>p.map(move),part=p=>({...p,...(Number.isFinite(p.x)?{x:p.x+dx,y:p.y+dy}:{}),points:ring(p.points),...(p.bounds?{bounds:{left:p.bounds.left+dx,right:p.bounds.right+dx,top:p.bounds.top+dy,bottom:p.bounds.bottom+dy}}:{}),...(p.basePoints?{basePoints:ring(p.basePoints),seatPoints:ring(p.seatPoints),outward:{...p.outward}}:{}),...(p.rim?{rim:ring(p.rim)}:{}),...(p.clearance?{clearance:ring(p.clearance)}:{})});
     return {...layout,points:ring(layout.points),towers:layout.towers.map(part),walls:layout.walls.map(part),merlons:layout.merlons.map(part),keep:layout.keep?part(layout.keep):null};
   }
   const api={build,translate,area,rect,contains,overlap,intersect,LIMITS};global.FDRCastleLayout=api;if(typeof module!=='undefined')module.exports=api;

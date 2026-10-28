@@ -6,6 +6,10 @@ mechanics.
 
 ## Combat, energy and Home
 
+- Creeping vines use the shared thorn contact rule: five energy on entry and
+  one per second while touching, with flight immunity. They can be chopped
+  with the normal axe/wood harvest interaction; clearing a cell is permanent.
+
 - A Residential Thief uses the roster's `hitAndRun` contract: after a landed
   player blow, take up to the configured coin amount through the normal purse
   writer, toast the amount actually taken, and record the generated enemy ID

@@ -12,17 +12,17 @@ async function bakeRuntimeTextures(root, registry) {
   const to = textureSource.indexOf('function drawGrassTex(', from);
   if (from < 0 || to < 0) throw new Error('Cannot find runtime berry texture baker');
   const sources = ['rogue_object_bounds', 'rogue_prop_profile', 'street_decoration_art', 'rogue_objects'].map(read);
-  if (!registry) {
-    // Let the active profile declare both source paths. The empty base entry
-    // merely enables its normal replacement of the existing bush texture.
-    const context = { ASSETS: { bushes: {} }, SpriteLayout: { ART_BOUNDS: {}, CROWN_BOUNDS: {} } };
-    vm.createContext(context);
-    for (const source of sources) vm.runInContext(source, context);
-    registry = { assets: context.ASSETS };
-  }
+  // The active profile owns palette families and texture callbacks. Load its
+  // declarations even when a caller supplies an asset registry.
+  const context = { ASSETS: { bushes: {} }, SpriteLayout: { ART_BOUNDS: {}, CROWN_BOUNDS: {} } };
+  vm.createContext(context);
+  for (const source of sources) vm.runInContext(source, context);
+  registry ||= { assets: context.ASSETS };
+  const paletteNames = vm.runInContext('Object.keys(STREET_DECORATION_ART).filter(name => RogueObjects.streetPalette(name))', context);
+  const paletteKeys = paletteNames.map(name => 'street_decor_' + name);
   sources.push(textureSource.slice(from, to));
   const images = {};
-  for (const key of ['rogue_stone', 'bushes']) {
+  for (const key of ['rogue_stone', 'bushes', ...paletteKeys]) {
     const asset = registry.assets[key];
     if (!asset?.path) throw new Error('Missing active-profile source: ' + key);
     images[key] = {
@@ -36,7 +36,7 @@ async function bakeRuntimeTextures(root, registry) {
     const page = await browser.newPage();
     await page.addScriptTag({ content: 'const ASSETS = {bushes:{}}; const SpriteLayout = {ART_BOUNDS:{},CROWN_BOUNDS:{}};' });
     for (const source of sources) await page.addScriptTag({ content: source });
-    return await page.evaluate(async images => {
+    return await page.evaluate(async ({images, paletteNames, paletteKeys}) => {
       const entries = new Map();
       function add(key, source) {
         const frames = {};
@@ -53,6 +53,12 @@ async function bakeRuntimeTextures(root, registry) {
       const scene = { textures: {
         exists: key => entries.has(key),
         get: key => entries.get(key),
+        remove: key => entries.delete(key),
+        addSpriteSheet(key, canvas, dimensions) {
+          const texture = add(key, canvas);
+          texture.add(0, 0, 0, 0, dimensions.frameWidth, dimensions.frameHeight);
+          return texture;
+        },
         createCanvas(key, width, height) {
           const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
           return add(key, canvas);
@@ -64,13 +70,14 @@ async function bakeRuntimeTextures(root, registry) {
       // Both are the owning runtime functions, not copied painting recipes.
       ASSETS.rogue_stone.onLoad(scene);
       makeBerryBushTexture(scene);
-      return Object.fromEntries(['rogue_minerals', 'bushes_fruiting', 'bushes_poisonberry', 'bushes_goldenberry'].map(key => {
+      for (const name of paletteNames) ASSETS['street_decor_' + name].onLoad(scene);
+      return Object.fromEntries(['rogue_minerals', 'bushes_fruiting', 'bushes_poisonberry', 'bushes_goldenberry', ...paletteKeys].map(key => {
         const texture = entries.get(key), canvas = texture.getSourceImage(), frame = texture.frames[0];
         return [key, { kind: 'spritesheet', path: 'runtime:' + key, dataUrl: canvas.toDataURL('image/png'),
           width: canvas.width, height: canvas.height, frameWidth: frame.width, frameHeight: frame.height,
           frameRects: texture.frames, whiteKey: false }];
       }));
-    }, images);
+    }, {images, paletteNames, paletteKeys});
   } finally { await browser.close(); }
 }
 

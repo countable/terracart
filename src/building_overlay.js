@@ -256,6 +256,20 @@
       top: top.BODY, style };
   };
 
+  // Full castles share the generated crown's dimensions and fixed repeat with
+  // generated meshes. Turret conversions retain their smaller legacy crown.
+  function castleCrown(d, claimed, rampart, length) {
+    if (!d.castleStyle) {
+      const geometry = CastleStyles.renderStyle(d.key, claimed).geometry;
+      const width = geometry.merlonWidth, height = geometry.merlonHeight, pitch = geometry.merlonPitch;
+      const count = Math.floor(length / pitch);
+      return { width, height, pitch, count, offset: (length - (count - 1) * pitch - width) / 2 };
+    }
+    const width = rampart.toothWidth;
+    const count = length < width ? 0 : Math.max(1, Math.round((length - width) / 8) + 1);
+    return { width, height: rampart.toothHeight, count, pitch: count > 1 ? (length - width) / (count - 1) : length, offset: 0 };
+  }
+
   // The dashed cell grid, from render.js, so the lattice over a footprint is
   // the SAME lattice as the ground's and continues across the building.
   const GRID_FALLBACK = { width: 1, color: 0x000000, alpha: 0.08, dash: 4, gap: 4 };
@@ -960,7 +974,7 @@
   // BAND_PX can't overflow a slot.
   const SLOT_PAD = Math.ceil(Math.max(...CastleStyles.ids.map(id => {
     const r = CastleStyles.get(id).rampart;
-    return r.topDepth + Math.max(r.topDepth, r.wallHeight) + r.toothHeight;
+    return r.topDepth + Math.max(r.topDepth, r.wallHeight) + Math.max(r.toothHeight, CastleStyles.renderStyle(id).geometry.merlonHeight);
   })) + 2);
   const slotSize = () => {
     const tbl = (typeof Render !== 'undefined' && Render.BUILDING_FACE_PX) || null;
@@ -1054,17 +1068,17 @@
       const nx = -dy / length * winding, ny = dx / length * winding;
       const spec = { ax: a.x, ay: a.y, bx: b.x, by: b.y, nx, ny, height, thickness, face, top, dark, clipFootprint };
       if (rampart) {
-        const count = length < rampart.toothWidth ? 0 : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
-        const pitch = count > 1 ? (length - rampart.toothWidth) / (count - 1) : 0;
+        const { width, height: toothHeight, count, pitch, offset } = castleCrown(d, isMine, rampart, length);
         const missing = [];
         for (let tooth = 0; tooth < count; tooth++) {
-          const t = tooth * pitch / length;
+          const t = (offset + tooth * pitch) / length;
           const damage = CastleStyles.damageCell(d.castleStyle || d.key,
             Math.floor((a.x + dx * t + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor((a.y + dy * t + ny * 0.01 - d.damageOriginY) / CELL_PX));
           if ((rampart.broken && tooth % 4 === 2) || damage?.missing === tooth % 4) missing.push(tooth);
         }
-        Object.assign(spec, { crownTop: stone.lite, toothWidth: rampart.toothWidth, toothHeight: rampart.toothHeight, missing });
+        Object.assign(spec, { crownTop: stone.lite, toothWidth: width, toothHeight,
+          merlons: count, toothPitch: pitch, toothOffset: offset, missing });
       }
       if (d.tier === 11 && !temple) {
         const count = Math.max(1, Math.round(length / WallMaterials.WOOD.pitch));
@@ -1223,8 +1237,8 @@
           const toward = ny < 0 ? -1 : 1;
           const lip = v => ({ x: v.x + nx * toward * 0.5, y: v.y + ny * toward * 0.5 });
           line(lip(ny < 0 ? ip : op), lip(ny < 0 ? iq : oq), stone.lite);
-          // Seat full teeth at both endpoints; distribute the gaps near the
-          // 8px rhythm, with the same phase across every atlas section.
+          // Keep the same fixed crown phase across every atlas section;
+          // leftover length belongs in the end margins, never the gaps.
           const damage = CastleStyles.damageCell(d.castleStyle || d.key,
             Math.floor(((p.x + q.x) / 2 + nx * 0.01 - d.damageOriginX) / CELL_PX),
             Math.floor(((p.y + q.y) / 2 + ny * 0.01 - d.damageOriginY) / CELL_PX));
@@ -1236,14 +1250,12 @@
             ctx.fillRect(Math.round(x), Math.round(y), 2, 2);
           }
           drawingCrown = true;
-          const teeth = length < rampart.toothWidth ? 0
-            : Math.max(1, Math.round((length - rampart.toothWidth) / 8) + 1);
-          const pitch = teeth > 1 ? (length - rampart.toothWidth) / (teeth - 1) : length;
-          const first = Math.ceil(length * j / count / pitch - 1e-9);
-          const last = Math.min(teeth, Math.ceil(length * (j + 1) / count / pitch - 1e-9));
+          const { width, height: toothHeight, count: teeth, pitch, offset } = castleCrown(d, isMine, rampart, length);
+          const first = Math.max(0, Math.ceil((length * j / count - offset) / pitch - 1e-9));
+          const last = Math.min(teeth, Math.ceil((length * (j + 1) / count - offset) / pitch - 1e-9));
           for (let tooth = first; tooth < last; tooth++) {
             if (rampart.broken && tooth % 4 === 2) continue;
-            const t = tooth * pitch / length;
+            const t = (offset + tooth * pitch) / length;
             if (t >= 1) continue;
             // Crown the rear edge, leaving the top plane visible in front
             // of the teeth, as in the tiled rampart's overhead profile.
@@ -1253,12 +1265,12 @@
             // A tooth follows the crest, rather than touching an angled
             // wall at the corner of an axis-aligned rectangle. The top is
             // rectangular in plan, spanning the full depth of the thinner cap.
-            const endT = Math.min(1, t + rampart.toothWidth / length);
+            const endT = Math.min(1, t + width / length);
             const end = crest({ x: a.x + (b.x - a.x) * endT, y: a.y + (b.y - a.y) * endT });
             const front = v => ({ x: v.x + nx * toward * cap,
               y: v.y + ny * toward * cap });
             const base = [v, end, front(end), front(v)];
-            const roof = base.map(v => down(v, -rampart.toothHeight));
+            const roof = base.map(v => down(v, -toothHeight));
             const toothWinding = winding * toward;
             for (let edge = 0; edge < 4; edge++) {
               const next = (edge + 1) % 4;
@@ -1905,8 +1917,9 @@
         const stone = castleStone(isMine, d.castleStyle || d.key);
         g.insetStroke(d.pts, BAND_PX, stone.body);
         if (style.rampart.woodTop) g.insetStroke(d.pts, 3, stone.top);
-        const tooth = style.rampart.toothWidth;
-        const dash = style.rampart.broken ? [tooth, 4, tooth - 1, 7] : [tooth, 8 - tooth];
+        const tooth = d.castleStyle ? style.rampart.toothWidth : CastleStyles.renderStyle(d.key, isMine).geometry.merlonWidth;
+        const pitch = d.castleStyle ? 8 : CastleStyles.renderStyle(d.key, isMine).geometry.merlonPitch;
+        const dash = style.rampart.broken ? [tooth, pitch - tooth, tooth, 2 * pitch - tooth] : [tooth, pitch - tooth];
         g.insetStroke(d.pts, MERLON_PX, stone.lite, dash);
         g.strokePoly(d.pts, OUTLINE_PX, stone.dark);
       } else {

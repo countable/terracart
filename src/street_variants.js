@@ -413,11 +413,11 @@
       story: 'street_fire_path', art: 'street_fire_path', title: 'Fire Path',
       body: 'Fire geysers erupt beside the path. A shrine offers a daily boon along the way.',
       flash: 'Fire geysers line the path.' },
-    { id: 'paralysis_path', pathWeight: .03, terrain: 'ROCK', affinities: ['hostile'], size: 'path', share: 0, rung: 'rare',
+    { id: 'paralysis_path', pathWeight: .03, terrain: 'ROCK', affinities: ['hostile'], size: 'minor', share: .02, rung: 'rare',
       stone: { weathered: '#827947', restored: '#b2a362' }, lampGlow: '#e5cc62',
       ventKind: 'paralysis', ventStepM: 42,
       story: 'street_paralysis_path', art: 'street_paralysis_path', title: 'Paralysis Path',
-      body: 'Paralysis geysers erupt beside the path. A shrine offers a daily boon along the way.',
+      body: 'Creeping vines spread beneath the paralysis geysers. Their tendrils sting on contact. A shrine offers a daily boon along the way.',
       flash: 'Paralysis geysers hiss.' },
     { id: 'confusion_path', pathWeight: .03, terrain: 'FOREST', affinities: ['woodland', 'hostile'], size: 'path', share: 0, rung: 'rare',
       stone: { weathered: '#716278', restored: '#9a85a2' }, lampGlow: '#c49ddd',
@@ -485,6 +485,10 @@
       story: 'street_way_of_variety', art: 'street_way_of_variety', title: 'Way of Variety',
       body: 'Common finds crowd both sides: herbs, berries, mushrooms, rocks, trees and pots.', flash: 'Way of Variety.' },
   ];
+  // Cave occupancy predates Paralysis Path becoming a small-road theme.
+  // Its rock-length gate must use that selection table, independently of
+  // the surface theme's current weights and bounds.
+  const SUBSTRATE_SECTION_ROWS = STREET_VARIANTS.filter(row => row.id !== 'paralysis_path');
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
   // The extra-encounter tiers of every row (the bear's, the boars'): a post
@@ -627,6 +631,16 @@
       { _street: D.v, _streetScenery: true, _streetScatter: true, _spawnClass: 'streetObstacle' })),
   };
   const VERGE_ROWS = {
+    // One colony seed per section. Its subsequent growth is saved local state,
+    // advanced only by CreepingVines while a living patch is on screen.
+    paralysis_path: [{ step:21, max:1, side:at => at.side, retry:true, walk:2,
+      gate:'hazard', groundOnly:true, stream:'creeping-vine-seed',
+      draw:at => {at.side=at.rng()<.5 ? -1 : 1;},
+      emit:(D,at,c) => {
+        const id=D.WG.cellId('vine_seed',D.tx,D.ty,c.ix,c.iy);
+        D.res.wildplants.push(D.WG.makeWildplant('creeping_vine',D.cx(c.ix),D.cy(c.iy),id,
+          {_street:D.v,_creepingVine:true,_vineColony:id,_plantArt:'creeping_vine',_ix:c.ix,_iy:c.iy}));
+      } }],
     rocky_path: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2, groundOnly: true,
       emit: commonFind([COMMON_ROCK, { crop: 'flint' }, { crop: 'rubble' }]) }],
     grassy_lane: [{ step: () => root.WorldGen.CELL_M / 2, crossRoad: true, walk: 2,
@@ -651,7 +665,7 @@
     // sit one cell behind the kerb to clear street-lamp foot reservations.
     hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', start: () => 2, walk: 2,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('shrub', D.cx(c.ix), D.cy(c.iy),
-        D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _ix:c.ix, _iy:c.iy, _streetArt: Math.floor(at.s / 35) % 5 === 0 ? 'hedge_strip' : 'clipped' })) }],
+        D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _ix:c.ix, _iy:c.iy, _streetArt: 'clipped' })) }],
     overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
       emit: (D, at, c) => D.res.objects.push(D.WG.makeObject('tree', D.cx(c.ix), D.cy(c.iy),
         D.WG.cellId('tree_og', D.tx, D.ty, c.ix, c.iy),
@@ -822,9 +836,9 @@
 
   // Rarity and choice have independent hash lanes. Names and surroundings
   // redistribute the special roads; they never increase their total share.
-  function selectionWeights(name, size, context, baseline = false) {
+  function selectionWeights(name, size, context, baseline = false, rows = STREET_VARIANTS) {
     const baseWeightFor = row => size === 'path' ? row.pathWeight || 0 : row.share;
-    const weights = STREET_VARIANTS.filter(row => (size === 'path' ? row.pathWeight > 0 : row.size === size && !!row.baseline === baseline) && baseWeightFor(row) > 0).map(row => {
+    const weights = rows.filter(row => (size === 'path' ? row.pathWeight > 0 : row.size === size && !!row.baseline === baseline) && baseWeightFor(row) > 0).map(row => {
       const baseWeight = baseWeightFor(row);
       const named = !!(name && row.words && row.words.test(name));
       const nameMultiplier = named ? Math.max(1, Math.min(NUDGED_SHARE_MAX, baseWeight * (row.nudge || NAME_NUDGE)) / baseWeight) : 1;
@@ -838,10 +852,10 @@
     for (const row of weights) row.probability = row === golden ? goldenShare : (1 - goldenShare) * row.weight / total;
     return weights;
   }
-  function variantFor(key, name, size, context) {
+  function variantFor(key, name, size, context, rows = STREET_VARIANTS) {
     if (!key || !size || size === 'major') return null;
     const baseline = size === 'minor' && hash01('street|' + key) >= MINOR_VARIANT_SHARE;
-    const weights = selectionWeights(name, size, context, baseline);
+    const weights = selectionWeights(name, size, context, baseline, rows);
     if (!weights.length) return null;
     let ticket = hash01(size === 'minor' ? 'street-kind|' + key : 'street-choice|' + key);
     const golden = size === 'minor' && weights.find(row => row.id === 'golden');
@@ -1867,6 +1881,8 @@
         const selected = source.size === 'major' ? null : root.StreetVariants.variantFor(key, source.name, source.size);
         const prototype = { ...source, key, variant: selected, halfW: Math.max(...records.map(r => r.halfW)) };
         const limits = sectionLimits(selected);
+        const substrateTheme = variantFor(key, source.name, source.size, undefined, SUBSTRATE_SECTION_ROWS);
+        const substrateBounded = group.clipped || group.metres > sectionLimits(substrateTheme).maxM;
         const bounded = group.clipped || group.metres > limits.maxM;
         const long = group.clipped || group.metres > LONG_ROAD_M;
         const paths = [];
@@ -1936,7 +1952,7 @@
           rec.variant = rec.variantRanges.length ? selected : fallbackVariant;
           // Keep the independent rock treatment compact too; it is not one
           // of the themed dressing rows and has no interval consumer.
-          if (bounded) rec.rocks = false;
+          if (substrateBounded) rec.rocks = false;
         }
       }
       yield* buildPathSectionsSteps(out, tx, ty, mvtToM);

@@ -36,47 +36,58 @@
         const cx=ring.reduce((sum,p)=>sum+p.x/ring.length,0),cy=ring.reduce((sum,p)=>sum+p.y/ring.length,0);
         const at=(p,q,z)=>{
           const t=(z-bottom)/(top-bottom),outset=bottom===0?baseOutset*Math.max(0,1-z/BASE_HEIGHT):0;
-          return {x:p.x+(q.x-p.x)*t+Math.sign(p.x-cx)*outset,y:p.y+(q.y-p.y)*t+Math.sign(p.y-cy)*outset,z};
+          return {x:p.x+(q.x-p.x)*t+(p.x-cx)*2*outset/length,y:p.y+(q.y-p.y)*t+(p.y-cy)*2*outset/length,z};
         };
         for(let j=0;j<levels.length-1;j++){
           const lo=levels[j],hi=levels[j+1];
-          let color=hi<=BASE_HEIGHT?style.base:sideColor(normal);
-          if(!style.active&&lo>=BASE_HEIGHT&&material==='stone'){
-            const boost=c=>Math.min(255,Math.round(c*1.5));
+          let color=sideColor(normal);
+          if(material==='stone'){
+            const gain=style.masonryLightGain*(style.active?1:style.masonryWeatheredCompensation);
+            const boost=c=>Math.min(255,Math.round(c*gain));
             color=(boost(color>>16)<<16)|(boost((color>>8)&255)<<8)|boost(color&255);
           }
           const quad=[at(a,aa,lo),at(b,bb,lo),at(b,bb,hi),at(a,aa,hi)];
-          if(lo>=BASE_HEIGHT&&material==='stone')for(const p of quad){
-            const along=((p.x-a.x)*dx+(p.y-a.y)*dy)/length;
-            const slot=stoneSlot;
-            // Ground-anchored courses keep their physical size on every
-            // shaft and wall. Repeated tile copies preserve source-edge phase
-            // through clipped wall fragments without splitting triangles.
-            const origin=layout.points[0];
+          if(material==='stone'){
+            // Preserve world-space scale and source-edge phase. The atlas
+            // contains 224 units of a 128-unit repeat; only long faces need
+            // splitting, at a repeat boundary, before their UVs leave it.
+            const origin=layout.points[0],slot=stoneSlot;
             const growthShift=growthSeed===null?0:((growthSeed+i)%4)*32;
-            const phase=((((a.x-origin.x)*dx+(a.y-origin.y)*dy)/length+growthShift)%128+128)%128;
-            const span=Math.max(224,phase+length);
-            p.u=(slot%4*128+8+Math.min(1,Math.max(0,(phase+along)/span))*112)/512;
-            p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-(p.z-BASE_HEIGHT)/64))*112)/512;
-          }
-          polygon(faces,quad,color,normal,material);
+            let phase=((((a.x-origin.x)*dx+(a.y-origin.y)*dy)/length+growthShift)%128+128)%128;
+            // A flared foot extends beyond the shaft edge. Keep those pixels
+            // on the same world-space grid, with a full repeat to its left.
+            if(baseOutset&&phase<baseOutset)phase+=128;
+            const lerp=(p,q,t)=>({x:p.x+(q.x-p.x)*t,y:p.y+(q.y-p.y)*t,z:p.z+(q.z-p.z)*t});
+            for(let start=0;start<length;){
+              const offset=start===0?phase:0;
+              const end=length-start<=224-offset?length:start+128-offset;
+              const strip=[lerp(quad[0],quad[1],start/length),lerp(quad[0],quad[1],end/length),
+                lerp(quad[3],quad[2],end/length),lerp(quad[3],quad[2],start/length)];
+              for(let k=0;k<strip.length;k++){
+                const p=strip[k],along=((p.x-a.x)*dx+(p.y-a.y)*dy)/length-start;
+                p.u=(slot%4*128+8+(offset+along)/224*112)/512;
+                p.v=(Math.floor(slot/4)*128+8+Math.min(1,Math.max(0,1-p.z/64))*112)/512;
+              }
+              polygon(faces,strip,color,normal,material);
+              start=end;
+            }
+          }else polygon(faces,quad,color,normal,material);
         }
       }
       if(capped){
         const minX=Math.min(...topPoints.map(p=>p.x)),minY=Math.min(...topPoints.map(p=>p.y));
-        const width=Math.max(...topPoints.map(p=>p.x))-minX,depth=Math.max(...topPoints.map(p=>p.y))-minY;
         const coping=bottom>0&&material==='stone';
         const crownSeed=Math.abs(Math.round((minX-layout.points[0].x)*17+(minY-layout.points[0].y)*31))%7;
         const copingLeft=!style.active&&crownSeed<(style.id==='citadel'?1:2)?418:394;
         const a=topPoints[0],b=topPoints[1],length=Math.hypot(b.x-a.x,b.y-a.y);
         const ux=(b.x-a.x)/length,uy=(b.y-a.y)/length;
         const local=p=>({u:(p.x-a.x)*ux+(p.y-a.y)*uy,v:-(p.x-a.x)*uy+(p.y-a.y)*ux});
-        const coords=coping?topPoints.map(local):[];
+        const coords=coping||deck?topPoints.map(local):[];
         const u0=Math.min(...coords.map(p=>p.u)),u1=Math.max(...coords.map(p=>p.u));
         const v0=Math.min(...coords.map(p=>p.v)),v1=Math.max(...coords.map(p=>p.v));
         const uv=p=>{const q=local(p);return {u:(copingLeft+(q.u-u0)/(u1-u0)*16)/512,v:(488+(q.v-v0)/(v1-v0)*12)/512};};
         for(const tri of PolygonGeometry.triangulate(topPoints))
-          triangle(faces,tri.map(p=>({...p,z:top,...(coping?uv(p):deck?{u:(8+(p.x-minX)/width*112)/512,v:(8+(p.y-minY)/depth*112)/512}:{})})),capColor,null,material);
+          triangle(faces,tri.map(p=>({...p,z:top,...(coping?uv(p):deck?{u:(8+(local(p).u-u0)/(u1-u0)*112)/512,v:(8+(local(p).v-v0)/(v1-v0)*112)/512}:{})})),capColor,null,material);
       }
       const index=group.blocks.length;
       WallPerspective.prism(scene,source,ring,bottom,top,colors,support,capped,{topPoints,materialFaces:faces});
@@ -109,7 +120,7 @@
     for(let i=0;i<layout.merlons.length;i++){
       const m=layout.merlons[i];
       if(!style.active&&(i%3===1||lowered.some(w=>w.edge===m.edge&&FDRCastleLayout.overlap(m.points,w.points))))continue;
-      const top=style.active?m.top:m.base+[5,7,8][(Math.floor(i/3)+m.edge)%3];
+      const top=style.active?m.top:m.base+[5,7,8][(Math.floor(i/3)+m.edge)%3]*geometry.merlonHeight/8;
       prism(m.points,m.base,top,supports[m.edge]);
     }
     function decal(block,a,b,z0,z1,color,material,slot=null,vRange=[0,1],atlasRect=null){
@@ -135,12 +146,15 @@
       const {x,y,width:w,depth:h}=part;
       if(!style.active&&index%3===1)part.height-=4;
       const height=part.height,support={x,y,order:group.blocks.length};
-      const body=rect(x,y,w,h);
+      const angle=part.angle||0,c=Math.cos(angle),s=Math.sin(angle);
+      const rotate=p=>({x:x+(p.x-x)*c-(p.y-y)*s,y:y+(p.x-x)*s+(p.y-y)*c});
+      const body=part.points;
+      const crownRect=(cx,cy,width,depth)=>rect(cx,cy,width,depth).map(rotate);
       massGate={points:body,bottom:0,top:height};
       // Keep the roof pitch proportional to its span, using the same four
       // planes as the tower roofs. A fixed rise made the wide keep look flat.
       const roofRise=geometry.roofHeight?geometry.roofHeight*Math.min(w,h)/geometry.towerWidth:0;
-      part.crownHeight=height+(roofRise||8);
+      part.crownHeight=height+(roofRise||geometry.merlonHeight);
       // The shaft fills the same square used to clip adjoining curtains.
       // Insetting it above a wider plinth leaves vertical slots at those joins.
       const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.deck,baseOutset:isKeep?0:towerBaseOutset,stoneSlot:style.towerMasonrySlot,growthSeed:style.active?null:index});if(!shaft){massGate=null;return;}
@@ -155,30 +169,33 @@
             {...b,z:height,u:120/512,v:376/512},{...peak,u:64/512,v:264/512}],color,null,'roof');
         }
       }else{
-        for(const side of [-1,1])for(let j=0;j<3;j++){
-          if(!style.active&&(j+index)%3===1)continue;
-          const toothHeight=style.active?8:[5,7,8][(index*2+j+(side>0?2:0))%3];
-          prism(rect(x+(j-1)*(w/2-4),y+side*(h/2-3),8,6),height,height+toothHeight,support);
-        }
-        // One centre tooth on the remaining sides completes a square crown;
-        // corner teeth already belong to the front/back rows.
+        // Fixed-width teeth repeat at the shared pitch on every crown side.
+        // Side rows stop short of the front/back rows, preventing overlaps.
+        const pitch=geometry.merlonPitch,tooth=geometry.merlonWidth,depth=8;
+        const row=(span,place,sideIndex)=>{
+          const count=Math.max(0,Math.floor((span-tooth)/pitch)+1);
+          for(let j=0;j<count;j++){
+            if(!style.active&&(j+index+sideIndex)%3===1)continue;
+            const at=(j-(count-1)/2)*pitch;
+            const toothHeight=geometry.merlonHeight*(style.active?1:[5,7,8][(index*2+j+sideIndex)%3]/8);
+            prism(place(at),height,height+toothHeight,support);
+          }
+        };
         for(const side of [-1,1]){
-          if(!style.active&&(index+(side>0?1:0))%3===1)continue;
-          const toothHeight=style.active?8:[5,7,8][(index+(side>0?1:0))%3];
-          prism(rect(x+side*(w/2-3),y,6,8),height,height+toothHeight,support);
+          row(w,at=>crownRect(x+at,y+side*(h/2-depth/2),tooth,depth),side>0?1:0);
+          row(h-depth*2,at=>crownRect(x+side*(w/2-depth/2),y+at,depth,tooth),side>0?3:2);
         }
       }
       if(isKeep){
         // Backed entrance art and flanking heraldry share the existing facade
-        // quad; painted open leaves do not change its wall or collision.
+        // quad; the closed painted door does not change wall collision.
         const width=Math.min(22,w-12),doorHeight=Math.min(25,height-8);
         if(style.id==='archive')feature(shaft,body,2,width,0,doorHeight,style.top,'door',0,5);
         else feature(shaft,body,2,w-8,0,height-4,0xffffff,'door',0,null,[0,1],
           [268+(style.active?56:0),12+(style.id==='bastion'?56:0),48,48]);
-        const openLeaves=style.id==='citadel'&&style.active;
-        feature(shaft,body,2,1,openLeaves?doorHeight*.1:0,openLeaves?doorHeight*.65:doorHeight-3,
-          (style.door&0xfefefe)>>1,'door-seam',openLeaves?-4:0);
-        for(const shift of openLeaves?[-6,6]:[-3,3])feature(shaft,body,2,2,doorHeight*.43,doorHeight*.43+2,style.top,'door-handle',shift);
+        feature(shaft,body,2,1,0,doorHeight-3,
+          (style.door&0xfefefe)>>1,'door-seam');
+        for(const shift of [-3,3])feature(shaft,body,2,2,doorHeight*.43,doorHeight*.43+2,style.top,'door-handle',shift);
       }else for(let side=0;side<4;side++){
         const archive=style.id==='archive';
         const bastion=style.id==='bastion';
@@ -195,8 +212,8 @@
       massGate=null;
     }
     layout.towers.forEach((t,i)=>mass(t,false,i));if(layout.keep)mass(layout.keep,true,0);
-    const footprints=[layout.points,...layout.towers.map(t=>style.id==='bastion'?rect(t.x,t.y,t.width+4,t.depth+4):t.points)].flat(),bounds={left:Math.min(...footprints.map(p=>p.x)),right:Math.max(...footprints.map(p=>p.x)),top:Math.min(...footprints.map(p=>p.y)),bottom:Math.max(...footprints.map(p=>p.y))};
-    const height=Math.max(geometry.wallHeight+8,...layout.towers.map(t=>t.crownHeight||t.height+geometry.roofHeight),layout.keep?(layout.keep.crownHeight||layout.keep.height+geometry.roofHeight):0);
+    const footprints=[layout.points,...layout.towers.map(t=>t.basePoints||t.points)].flat(),bounds={left:Math.min(...footprints.map(p=>p.x)),right:Math.max(...footprints.map(p=>p.x)),top:Math.min(...footprints.map(p=>p.y)),bottom:Math.max(...footprints.map(p=>p.y))};
+    const height=Math.max(geometry.wallHeight+geometry.merlonHeight,...layout.towers.map(t=>t.crownHeight||t.height+geometry.roofHeight),layout.keep?(layout.keep.crownHeight||layout.keep.height+geometry.roofHeight):0);
     return {layout,footprint:layout.points,bounds,height,blocksAdded:group.blocks.length-start,source,family:style.id,active:style.active,style};
   }
   function cacheFor(scene){
