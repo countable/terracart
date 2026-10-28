@@ -12,6 +12,15 @@
     assert.eq(make({ zoneCoverage: coverage }).length, 0);
     const roadMask = new Uint8Array(N * N).fill(1);
     assert.eq(make({ roadMask }).length, 0);
+    // Calm woodland (tier 2) refuses the fast bees, so it hosts no hive: a
+    // hive there could never seat its swarm ("No room around the hive").
+    assert.eq(make({ gameplayTiers: new Uint8Array(N * N).fill(2) }).length, 0);
+    const core = make({ gameplayTiers: new Uint8Array(N * N).fill(1) });
+    assert.gt(core.length, 10);
+    // Room for the swarm: a hive ringed by occupied cells is not placed.
+    const ring = new Set();
+    for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) if (dx || dy) ring.add((iy + dy) * N + ix + dx);
+    assert.falsy(make({ occupied: ring }).some(o => o.id === first.id));
     grid.fill(WorldGen.T.PARK);
     assert.eq(make({}).length, 0);
     grid.fill(WorldGen.T.ORCHARD);

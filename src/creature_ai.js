@@ -583,7 +583,7 @@ const CreatureSpawnEvents = {
   headstone: { id: 'headstone_ghost', source: 'event', kind: 'ghost', frequency: { unit: 'event', count: 1 } },
   fishedSlime: { id: 'fished_slime', source: 'event', kind: 'slime', frequency: { unit: 'event', count: 1 } },
   nest: { id: 'nest_bush', source: 'event', frequency: { unit: 'event', count: 1 } },
-  hive() { return { id: 'hive_bees', source: 'event', kind: 'bee', frequency: { unit: 'event', count: WorldGen.HIVE_SPEC.bees } }; },
+  hive() { return { id: 'hive_bees', source: 'event', kind: WorldGen.HIVE_SPEC.beeKind, frequency: { unit: 'event', count: WorldGen.HIVE_SPEC.bees } }; },
   summon(ability) { return { id: 'enemy_summon_slots', source: 'event', kind: ability.kind,
     frequency: { unit: 'event', count: ability.maxMinions } }; },
 };
@@ -838,21 +838,23 @@ function spawnNestBushCreature(scene, bush, type) {
 
 // A hive's daily defenders use ordinary enemy seating and combat. Plan the
 // entire swarm first so a refused placement cannot partially spend a visit.
+// Distance 1 searches rings 1..2 — HIVE_SPEC.beeReachCells, the room
+// spawnForestHives demands before it places a hive.
 function planHiveBees(scene, hive) {
   const out = [], seats = new Set();
-  const day = utcDayKey();
+  const day = utcDayKey(), kind = WorldGen.HIVE_SPEC.beeKind;
   const count = CreatureSpawns.frequencyCount(CreatureSpawnEvents.hive().frequency, Math.random);
   for (let i = 0; i < count; i++) {
     const id = `hivebee_${hive.id}_${day}_${i}`;
     const point = walkableDestination(scene, hive.x, hive.y, 1, {
-      seed: id, kind: 'bee', cls: creatureSpawnClass('bee'),
+      seed: id, kind, cls: creatureSpawnClass(kind),
       accept(x, y) {
         return !seats.has(`${x},${y}`) && !(x === hive.x && y === hive.y);
       },
     });
     if (!point) return [];
     seats.add(`${point.x},${point.y}`);
-    out.push({ entry: point.entry, creature: EnemySpawns.markShared(WorldGen.makeCreature('bee', point.x, point.y, id,
+    out.push({ entry: point.entry, creature: EnemySpawns.markShared(WorldGen.makeCreature(kind, point.x, point.y, id,
       { shiny: false, homeX: hive.x, homeY: hive.y })) });
   }
   return out;
