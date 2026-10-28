@@ -690,8 +690,10 @@ the surrounding grove’s shrub scale.
   and hedge meshes instead live in `raisedPropContainer`, above ground shadows
   and below world sprites, so the player's ground shadow cannot paint their
   raised tops. Both layers share the world viewport mask. Wall geometry
-  never adjusts an actor's feet or enters the world depth sort. Legacy tower sprites and
-  flags retain ordinary world ordering; generated castle towers share the castle batch. Legacy tower textures fade fully to transparent
+  never adjusts an actor's feet. Generated castle walls, towers and keeps instead
+  join the world depth sort at their shared ground supports, so props behind
+  them cannot paint over their raised faces. Legacy tower sprites and
+  flags retain ordinary world ordering. Legacy tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct. Unclaimed house and fort floors
@@ -1472,7 +1474,7 @@ the legacy ruin slot uses Bastion architecture instead of a separate ruin family
 `BuildingOverlay` passes the castle key and claim state to the renderer and uses
 the same profile for its courtyard floor. Citadel wrecks are dark and foreboding;
 conquest repairs and lightens them. Bastion and Archive damage is a condition
-of the same architecture, with interrupted crowns and missing roof planes.
+of the same complete architecture, expressed through weathered materials.
 
 Square towers align with the longer adjoining curtain, then shift eight game
 pixels outward along the corner bisector. Their original seated base must fit
@@ -1487,6 +1489,9 @@ Merlons are solid geometry with open crenels and full coping support. Their
 regardless of curtain length; longer walls add teeth instead of widening gaps. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
+These retained parts join the same world container and ground-depth sort as
+props and actors in both north-up and heading-up modes. Courtyard floors stay
+in the background; objects one cell north of a wall draw behind its raised faces.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
 and spacing are part of the bounded local-coordinate cache key. Source rings
 up to 512 vertices can use the generated architecture without simplifying their

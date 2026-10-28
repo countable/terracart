@@ -1340,6 +1340,49 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   clearTiles();
 });
 
+test('building overlay: generated castles sort between props one cell behind and in front', () => {
+  const previousStyle=Render.buildingArtStyle;
+  Render.buildingArtStyle='procedural';
+  try {
+    for(const headingUp of [false,true])for(const claimed of [false,true]) {
+      clearTiles();
+      putShapes(0,0,[rectShape(0,0,30,25,T.BUILDING_LARGE,'citadel')]);
+      const {scene,log}=makePerspectiveScene();
+      scene._headingUp=headingUp;
+      scene.isClaimedKey=()=>claimed;
+      scene.textures.exists=key=>key==='fdr_castle_atlas';
+      scene.textures.get=()=>({});
+      const graphics=scene.add.graphics;
+      scene.add.graphics=()=>Object.assign(graphics(),{setDepth(v){this.depth=v;return this;}});
+      BuildingOverlay.draw(scene);
+      const group=scene._wallPerspective.castles;
+      const pieces=WallPerspective.worldPieces(scene);
+      assert.gt(pieces.length,0,'generated castle architecture joins the object depth sort');
+      assert.truthy(pieces.every(p=>log.worldParts.includes(p.sprite)),'castle parts live beside world objects');
+      const prop=groundY=>({groundY,rank:2,sprite:{setDepth(v){this.depth=v;}}});
+      const north=prop(Math.min(...pieces.map(p=>p.groundY))-scene.cellM);
+      const south=prop(Math.max(...pieces.map(p=>p.groundY))+scene.cellM);
+      Render.sortWorldDepth([south,...pieces,north]);
+      for(const piece of pieces) {
+        assert.gt(piece.sprite.depth,north.sprite.depth,'a prop one cell north cannot paint over the castle');
+        assert.lt(piece.sprite.depth,south.sprite.depth,'a prop one cell south stays in front');
+      }
+      const retained=group.parts.slice();
+      for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI]) {
+        scene.mapRot=angle;WallPerspective.update(scene);
+        group.blocks.forEach((block,i)=>{
+          assert.eq(group.parts[i],retained[i],'compass turns reuse draw targets');
+          assert.eq(group.parts[i]._huAnchor.x,block.support.x+group.x);
+          assert.eq(group.parts[i]._huAnchor.y,block.support.y+group.y,
+            'wall bodies and crowns retain their shared anchor at every heading');
+        });
+      }
+      scene.depth=1;WallPerspective.update(scene);
+      assert.truthy(group.parts.every(p=>!p.visible),'surface castles hide underground');
+    }
+  } finally {Render.buildingArtStyle=previousStyle;clearTiles();}
+});
+
 test('building overlay: castle fallback crowns keep artwork spacing for every wall length', () => {
   for (const meters of [13, 27, 41]) for (const perspective of [false, true]) {
     clearTiles();

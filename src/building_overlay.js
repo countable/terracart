@@ -1681,7 +1681,12 @@
     // must not depend on a nearby temple or restored house enabling the group.
     if (perspective) WallPerspective.begin(scene, 'polygon').alwaysActive = true;
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
-    if (fdrCastles) WallPerspective.begin(scene, 'castles').alwaysActive = true;
+    if (fdrCastles) {
+      const castles = WallPerspective.begin(scene, 'castles');
+      castles.alwaysActive = true;
+      // Raised architecture must occlude props behind its ground anchors.
+      castles.perWall = true;
+    }
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'castles');
     if (lowpoly) BuildingLowPoly.begin(scene);
     else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
