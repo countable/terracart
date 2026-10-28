@@ -36,9 +36,9 @@
     blocked.spawnOpts.gameplayTiers.fill(GameplayTiers.EXCLUDED);
     assert.falsy(shrine(ZoneDressing.dress(blocked)), 'no layout may reopen Excluded ground');
   });
-  test('stronghold rewards: three tier-two chests, some foundation pots and no shrine', () => {
+  test('stronghold rewards: one tier-two chest, some foundation pots and no shrine', () => {
     const out=ZoneDressing.dress(context()), finds=out.objects.filter(o=>o.zoneLayer==='find');
-    assert.eq(finds.length,3);assert.eq(out.treasures.length,0);assert.falsy(shrine(out));
+    assert.eq(finds.length,1);assert.eq(out.treasures.length,0);assert.falsy(shrine(out));
     assert.falsy(Shrines.kindForZoneVariant('quarry-stronghold'));
     for(const o of finds){assert.eq(o.kind,'chest');assert.eq(o.tierSeed,2);assert.eq(chestTier(o),2);assert.falsy(o.zoneNexus);assert.falsy(o.fixedLoot);assert.falsy(o.daily);assert.falsy(o.crate);}
     assert.gt(out.objects.filter(o=>o.barrelStyle==='clay_pot').length,0);
