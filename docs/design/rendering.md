@@ -436,7 +436,7 @@ support) before that run's first fill, so a ring of sections and the merlons
 standing on it carry one upper outer outline with no bottom edge or internal seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
 
 `scene.activeInterior()` shares Home's interior renderer and outside-darkness
-mask with detected malls and strip malls. Retail footprints come from the same
+mask with castles, detected malls and strip malls. Retail footprints come from the same
 POI census as indoor-mall placement (`entry.retailInteriors`); two contained
 public commercial booths qualify, including small strip centres. The player's
 exact ground position opens the room, and stepping out restores its normal
@@ -445,6 +445,16 @@ repeat scaled to 60% of the original size while its footprint stays unchanged.
 The overlay replaces the host shell with Home's open-roof, per-wall geometry;
 courtyards are excluded from both the floor and the lit interior. This changes
 rendering only: shop rewards retain their existing interior/frontage positions.
+
+Every surface castle opens an interior when the player's feet enter its source
+footprint, before or after claim. The keep, exterior towers and their flags
+are absent indoors; low perimeter walls use the castle family's stone palette.
+The floor keeps its paving beneath a clipped patterned carpet: burgundy/gold
+diamonds for Citadel, terracotta bands for Bastion, and teal checks for Archive.
+Carpets paint on the retained ground canvas with a world-stable phase and stone
+margins, without new textures or world geometry. Leaving restores the exterior;
+peeking never changes occupancy. Temple zones and standalone house turrets do
+not become castle interiors.
 
 Home uses the original nearby building footprint, or a 2×2 footprint stamped
 by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
@@ -1631,10 +1641,12 @@ and stable in-bounds UVs. Reports distinguish this check from visual evidence
 and record coplanar masonry phase discontinuities and material scale ranges;
 passing numerical checks alone does not establish concept fidelity.
 
-Covered castles suppress their old tower sprites while retaining gameplay turret
-records, ownership, range and collision. Flags seat on distinct geometry crowns
-with the existing claim-state rules. Temple zones and house-role turrets keep
-their own renderers. Geometry hit testing includes projecting tower faces.
+Castle tower records retain gameplay, ownership, range and collision, but never
+draw legacy tower sprites, even when generated art is unavailable. Outdoor flags
+require a generated crown and retain the claim-state rules; indoor castles hide
+them. The shared tower sprite source remains only for standalone house turrets
+and UI artwork. Temple zones and house-role turrets keep their own renderers.
+Geometry hit testing includes projecting outdoor tower faces.
 
 ## Building sprite artwork
 

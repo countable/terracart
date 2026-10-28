@@ -198,6 +198,8 @@ Render.sortWorldDepth = function (pieces) {
 // Restoration clears the skulls from every tower and keeps the player's
 // existing single banner at the footprint's designated flag post.
 Render.castleFlagTexture = function (scene, tower) {
+  const room = scene.activeInterior?.();
+  if (room?.kind === 'castle' && room.buildingKey === tower.castle) return null;
   const claimed = scene.isCastleClaimed ? scene.isCastleClaimed(tower)
     : scene.isClaimedKey ? scene.isClaimedKey(tower.castle) : null;
   if (claimed === null) return null;
@@ -208,8 +210,8 @@ Render.towerCrownHeight = function (textures, castle) {
   const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
   return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
 };
-// Only an emitted surface castle replaces its legacy tower artwork. Gameplay
-// tower records remain available to targeting, ownership and interaction.
+// Castle artwork comes only from generated architecture. Gameplay tower
+// records remain available to targeting, ownership and interaction.
 Render.fdrCastleLayout = function (scene, object) {
   if (!scene || (scene.depth ?? 0) !== 0 || object.kind !== 'tower') return null;
   return scene._fdrCastleLayouts?.get(object.castle) || null;
@@ -222,7 +224,7 @@ Render.castleFlagItems = function (scene, items, project) {
     .sort((a, b) => Number(!!b.o.flagPost) - Number(!!a.o.flagPost));
   for (const item of candidates) {
     const castle = Render.fdrCastleLayout(scene, item.o);
-    if (!castle) { flags.push(item); continue; }
+    if (!castle || castle.interior) continue;
     const group = scene._wallPerspective?.[castle.source || 'castles'];
     if (!group) continue;
     const used = occupied.get(castle) || new Set();
@@ -4921,9 +4923,8 @@ Render.drawObjects = function drawObjects(scene) {
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
     configureObject, undefined, objectReuse);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer,
-    towerList.filter(({ o }) => !Render.fdrCastleLayout(scene, o)),
-    configureObject, undefined, objectReuse);
+  // Clear any retained legacy sprites; castle towers are generated geometry.
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, [], configureObject);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
@@ -4945,19 +4946,12 @@ Render.drawObjects = function drawObjects(scene) {
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
   //
-  // Seated on that turret's crown — the tower art is bottom-anchored at
-  // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
-  // bottom-anchored pole lands on the battlements. Read from the frame rather
-  // than a copied number, so a retall of the turret can't leave the flag
-  // floating. Retained castles seat flags on their model crowns instead.
-  // The flag inherits its turret's ground depth.
+  // Flags seat only on generated crowns and inherit their turret's ground depth.
   const flagList = Render.castleFlagItems(scene, towerList, project);
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
-    const { dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
     const seat = item._castleFlagSeat;
-    const towerH = seat ? seat.height : Render.towerCrownHeight(scene.textures, item.o.castle);
-    const x = seat ? seat.x : Math.round(sx), y = seat ? seat.y : Math.round(sy) + CELL_PX / 2;
+    const towerH = seat.height;
+    const x = seat.x, y = seat.y;
     s._huAnchor = { x, y };
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     setWorldDepth(s, (item._z ?? 0) + 0.1);
@@ -6352,13 +6346,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       dyPx: (o) => _houseFootPx(o).y,
       scale: _houseScale,
     },
-    // Bottom-seat each sprite at its data cell. A castle's identity selects
-    // one material family; restoring it changes only the condition palette.
-    tower: { key: (o, sc) => Render.fdrCastleLayout(sc, o) ? null : (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
-                               && sc.textures.exists('tower_unclaimed'))
-                              ? 'tower_unclaimed' : 'tower',
-             frame: o => CastleStyles.get(o.castle).towerFrame,
-             origin: [0.5, 1], scale: 1, dyPx: () => CELL_PX * 0.5 },
+    // Castle turret records drive gameplay only; there is no legacy sprite fallback.
+    tower: { key: () => null },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // under the feet), so scale 0.6 puts it at ~26×23px, inside its single cell.

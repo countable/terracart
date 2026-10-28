@@ -405,6 +405,13 @@ access or tile lifecycle mechanics.
   placement or the enclosed-mall classification. Entering a footprint uses
   the shared Home interior floor and outside-darkening engine; courtyard
   holes remain outside.
+- Every surface castle footprint also supplies an indoor view, regardless of
+  claim state. Occupancy reads `buildingShapes` at the player's exact world
+  position, including footprints owned by another loaded tile. Home takes
+  precedence; temple zones and fort footprints do not count. Camera peeking
+  does not enter or leave a room, and evicted shapes cannot leave stale
+  occupancy. This is rendering state; castle ownership and encounters are
+  unchanged.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),

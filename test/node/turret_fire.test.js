@@ -90,13 +90,12 @@ test('turret art: atlas variants bake shared stone and wood in both restoration 
   assert.eq(JSON.stringify(CastleStyles.ids.map(id => [CastleStyles.get(id), CastleStyles.get(id, false)])), before,
     'baking must not recolour walls or floors');
   const spec = Render.objectAppearance({ textures: scene.textures, save: {} }, new Map()).RENDER_SPEC.tower;
-  assert.eq(spec.scale, 1); assert.eq(spec.dyPx(), CELL_PX / 2, "the nudge reads CELL_PX lazily (app.js loads after the table)");
   for (const id of CastleStyles.ids) {
-    assert.eq(spec.frame({ castle: id }), CastleStyles.get(id).towerFrame);
     assert.eq(Render.towerCrownHeight(scene.textures, id), H - CastleStyles.get(id).towerFrame - 2);
   }
-  assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => false }), 'tower_unclaimed');
-  assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => true }), 'tower');
+  assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => false }), null);
+  assert.eq(spec.key({}, { textures: scene.textures, isClaimedKey: () => true }), null);
+  assert.eq(Render.houseTextureKey('turret', {}, {}), 'tower', 'standalone house turrets retain their separate sprite');
 });
 
 test('turret art: missing frame uses the shared tower height for its crown', () => {
