@@ -6749,13 +6749,6 @@
       ? yield* ZoneDressing.reserveWrecksSteps({ field: zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: dressOpts() })
       : null;
-    // Future lamp feet stay clear through both scenic and street dressing,
-    // then leave no phantom occupancy behind for unrelated zone spawns.
-    const lampReservations = typeof RoadOverlay !== 'undefined'
-      ? RoadOverlay.lampReservedCells(tx, ty, { layers, tileEdgeM, cellsPerEdge: w, streetIndex, scenic, zone })
-      : new Set();
-    const temporaryLampCells = [...lampReservations].filter(cell => !dressOcc.has(cell));
-    for (const cell of temporaryLampCells) dressOcc.add(cell);
     if (scenic) {
       scenicDress = yield* Scenic.dressSteps({ scenic, zone, tx, ty, N: w, tileEdgeM, grid, chests: deduped,
         spawnOpts: dressOpts() });
@@ -6769,7 +6762,6 @@
         grid: caveSource.grid,
         spawnOpts: dressOpts({ spawnWhy: caveSource.spawnWhy }) });
     }
-    for (const cell of temporaryLampCells) dressOcc.delete(cell);
     if (zone) {
       zone.legacyRemoved += yield* clearZoneAmbientSteps({ field: zone, objects: deduped,
         wildplants: filtered, occupied: dressOcc, streetDress, scenicDress, tx, ty, N: w, tileEdgeM });
@@ -6831,7 +6823,7 @@
     // Tier seeds last: zones and scenic have stamped their nexus/vista
     // chests, so the quota pyramid knows exactly which chests are budgeted.
     seedChestTiers(deduped);
-    const topUpOpts = dressOpts({ occupied: new Set([...dressOcc, ...lampReservations]) });
+    const topUpOpts = dressOpts({ occupied: new Set(dressOcc) });
     const chestTopUp = yield* topUpChestsSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],
       zone, streetDress, grid, N: w, tx, ty, tileEdgeM, spawnOpts: topUpOpts });
     chestTopUp.ambient = yield* topUpAmbientCratesSteps({ objects: deduped, dressings: [zoneDress, streetDress, scenicDress],

@@ -49,19 +49,18 @@
     { crop: 'poisonberry', below: PLAIN_BUSH_P }];
   // ── Pottery Road ─────────────────────────────────────────────────────────
   // Clay pots line both verges (VERGE_ROWS.pottery): a sample every cell,
-  // POTTERY_GAP of them left empty (the row's stream), each pot the first
-  // free cell from the SECOND verge cell out (a cell back from the kerb, as
-  // the house barrels stand) on the reward gate, so none stands on a
-  // Major-and-Medium kerb. Every pot is a generated clay pot (loot.js
+  // POTTERY_GAP of them left empty (the row's stream), each front pot in the
+  // adjacent verge cell on the reward gate. Existing occupancy and the
+  // shared road safety rules still apply. Every pot is a generated clay pot (loot.js
   // CLAY_POT_LOOT: a coin a quarter of the time) — no guards, no POI. The
   // only street that stands pots: plain Small streets stand barrels alone.
-  // A second full rank stands one cell behind it (k = 3). Neither row
-  // leaves random gaps; existing obstacles and lamp reservations still win.
+  // A second full rank stands one cell behind it (k = 2). Neither row
+  // leaves random gaps; existing obstacles still win.
   const POTTERY_GAP = 0;
   const POTTERY_BACK_GAP = 0;
   // ── Trade Row ────────────────────────────────────────────────────────────
   // Barrels of goods line both verges (VERGE_ROWS.trade: a sample every cell,
-  // TRADE_BARREL_GAP left empty, a cell back from the kerb on the reward
+  // TRADE_BARREL_GAP left empty, directly beside the road on the reward
   // gate — wooden barrels, loot.js BARREL_LOOT) and goblin grunts pick
   // through them: a post every TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE of
   // them held off the street key and the post's index, each the
@@ -258,7 +257,7 @@
       words: /\b(lane|ln|close|court|ct|place|pl|mews|circle|cir|crescent|cres|cove|row|gasse|hecke|weg)\b/i,
       lampGlow: '#ffffff', fauna: { rabbit: [2, 5] },
       story: 'street_hedgerow', title: 'The hedged lane',
-      body: 'Clipped hedges line both sides of the road, behind the white lamps. You look through as you pass.',
+      body: 'Clipped hedges hug both sides of the road, with white lamps along the edge. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
     { id: 'overgrown', terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       // EXTRA ENCOUNTERS beside the plant guard, each its own finite post
@@ -506,15 +505,15 @@
   //   max      pieces per line piece (none: no cap);
   //   side     1 (the left verge), -1, 'both', or a function of the sample
   //            ({ s: arclength, n: sample index, rng: the row's stream });
-  //   walk     verge cells out the first free one is taken from (default
-  //            VERGE_MAX_CELLS); 1 is the kerb cell alone — the hedgerow's
+  //   walk     verge cells out the first free one is taken from (default 1;
+  //            fill rows default to VERGE_MAX_CELLS); 1 is the hedgerow's
   //            tidy row, where an obstacle leaves a GAP rather than pushing a
   //            hedge out of line;
   //   fill     EVERY free verge cell within walk, not the first (the golden
   //            road's ribbon of coins);
   //   retry    the other side when the chosen one has no free cell (the
   //            burned row's torches: a torch every so often, whichever side);
-  //   start    the first k to try (the toadstool giant's set-back seat);
+  //   start    an additional row behind the primary roadside row;
   //   gate     the spawn class a seat must pass (default 'minor' — scenery;
   //            the pottery row's pots are 'reward', off the Major-and-Medium
   //            kerb like every loot container);
@@ -539,7 +538,7 @@
     const art = crop === pick.crop && pick.art ? { _streetArt: pick.art } : {};
     D.res.wildplants.push(D.WG.makeWildplant(crop, D.cx(c.ix), D.cy(c.iy), id, { _street: D.v, ...art }));
   };
-  const BERRY_LANE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2, stream: true,
+  const BERRY_LANE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, stream: true,
     draw: (at) => { at.gap = at.rng() < BERRY_LANE_GAP; }, skip: (at) => at.gap,
     emit: berryLaneBush }];
   const BERRY_TRAIL_ROWS = [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
@@ -548,16 +547,16 @@
   // barrelStyle fixes the look and the CLAY_POT_LOOT table).
   const potteryPot = (D, at, c) => D.res.objects.push(D.WG.makeObject('chest', D.cx(c.ix), D.cy(c.iy),
     D.WG.cellId('pot', D.tx, D.ty, c.ix, c.iy), { barrel: true, barrelStyle: 'clay_pot', _street: D.v }));
-  const POTTERY_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
+  const POTTERY_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < POTTERY_GAP; }, skip: (at) => at.gap,
     emit: potteryPot },
-  { step: () => root.WorldGen.CELL_M, side: 'both', start: () => 3, walk: 3, gate: 'reward',
+  { step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 2, gate: 'reward',
     stream: 'pottery_back', draw: (at) => { at.gap = at.rng() < POTTERY_BACK_GAP; }, skip: (at) => at.gap,
     emit: potteryPot }];
   // One Trade Row barrel at cell c: a generated wooden barrel.
   const tradeBarrel = (D, at, c) => D.res.objects.push(D.WG.makeObject('chest', D.cx(c.ix), D.cy(c.iy),
     D.WG.cellId('trade_barrel', D.tx, D.ty, c.ix, c.iy), { barrel: true, barrelStyle: 'barrel', _street: D.v }));
-  const TRADE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', start: () => 2, walk: 3, gate: 'reward',
+  const TRADE_ROWS = [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, gate: 'reward',
     stream: true, draw: (at) => { at.gap = at.rng() < TRADE_BARREL_GAP; }, skip: (at) => at.gap,
     emit: tradeBarrel }];
   // Common route finds share the normal factories and cell-derived identity.
@@ -633,7 +632,7 @@
   const VERGE_ROWS = {
     // One colony seed per section. Its subsequent growth is saved local state,
     // advanced only by CreepingVines while a living patch is on screen.
-    paralysis_path: [{ step:21, max:1, side:at => at.side, retry:true, walk:2,
+    paralysis_path: [{ step:21, max:1, side:at => at.side, retry:true, walk:1,
       gate:'hazard', groundOnly:true, stream:'creeping-vine-seed',
       draw:at => {at.side=at.rng()<.5 ? -1 : 1;},
       emit:(D,at,c) => {
@@ -641,15 +640,15 @@
         D.res.wildplants.push(D.WG.makeWildplant('creeping_vine',D.cx(c.ix),D.cy(c.iy),id,
           {_street:D.v,_creepingVine:true,_vineColony:id,_plantArt:'creeping_vine',_ix:c.ix,_iy:c.iy}));
       } }],
-    rocky_path: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2, groundOnly: true,
+    rocky_path: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 1, groundOnly: true,
       emit: commonFind([COMMON_ROCK, { crop: 'flint' }, { crop: 'rubble' }]) }],
     grassy_lane: [{ step: () => root.WorldGen.CELL_M / 2, crossRoad: true, walk: 2,
       emit: commonFind([{ crop: 'longgrass' }]) },
       { step: 14, side: 'both', start: () => 3, walk: 4,
         emit: commonFind([{ crop: 'petnip' }, { crop: 'shrub' }, { crop: 'berry' }]) }],
-    old_growth_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([OLD_TREE]) },
+    old_growth_path: [{ step: 21, side: 'both', walk: 1, emit: commonFind([OLD_TREE]) },
       { step: 14, side: 'both', walk: 1, emit: commonFind([{ crop: 'shrub' }, { crop: 'mushroom' }]) }],
-    haunted_forest_path: [{ step: 21, side: 'both', start: () => 2, walk: 3, emit: commonFind([DARK_TREE]) },
+    haunted_forest_path: [{ step: 21, side: 'both', walk: 1, emit: commonFind([DARK_TREE]) },
       { step: 49, side: 'both', walk: 2, gate: 'headstone', emit: commonFind([{ kind: 'headstone' }]) },
       { step: 21, side: 'both', walk: 1, emit: commonFind([{ crop: 'mushroom' }]) }],
     way_of_variety: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2,
@@ -662,8 +661,8 @@
     berry: BERRY_LANE_ROWS, berry_trail: BERRY_TRAIL_ROWS, pottery: POTTERY_ROWS, trade: TRADE_ROWS,
     // FULLY HEDGED: half-cell samples so a diagonal lane's kerb cells are all
     // reached (a claimed cell is simply skipped), no gate stations. Both rows
-    // sit one cell behind the kerb to clear street-lamp foot reservations.
-    hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', start: () => 2, walk: 2,
+    // adjoin the road; occupied cells leave gaps instead of displacing hedges.
+    hedgerow: [{ step: () => root.WorldGen.CELL_M / 2, side: 'both', walk: 1,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant('shrub', D.cx(c.ix), D.cy(c.iy),
         D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _ix:c.ix, _iy:c.iy, _streetArt: 'clipped' })) }],
     overgrown: [{ step: OVERGROWN_STEP_M, max: OVERGROWN_MAX, side: () => 1,
@@ -672,11 +671,11 @@
         { species: VARIANT_BY_ID[D.v].treeSpecies, treeSpeciesFixed: true,
           variant: 1 + Math.min(2, Math.floor(3 * at.s / Math.max(1, D.lengthM()))), _objectArt:'conifer_tree', _street: D.v })) }],
     // Repeating loose scallops: three caps, a breathing gap, then the opposite
-    // verge. Two of every three groups have a giant at its set-back centre.
+    // verge. Two of every three groups have a giant in their centre.
     toadstool: [{ step: TOADSTOOL_STEP_M, max: TOADSTOOL_MAX,
       skip: (at) => at.n % 4 === 3,
       side: (at) => Math.floor(at.n / 4) % 2 ? -1 : 1,
-      start: (at) => at.n % 4 === 1 ? 2 : 1,
+      walk: 1,
       emit: (D, at, c) => D.res.wildplants.push(D.WG.makeWildplant(
         at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS ? 'giant_mushroom' : 'mushroom',
         D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _streetArt: at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS ? 'spotted_mushroom' : 'red_mushroom' })) },
@@ -2481,7 +2480,7 @@
           return;
         }
         const sides = row.side === 'both' ? [1, -1] : [row.side(at)];
-        const k0 = row.start ? row.start(at) : 1, kMax = row.walk || VERGE_MAX_CELLS;
+        const k0 = row.start ? row.start(at) : 1, kMax = row.walk || (row.fill ? VERGE_MAX_CELLS : 1);
         for (const side of sides) {
           if (row.fill) {
             for (let k = k0; k <= kMax; k++) {
@@ -2625,7 +2624,7 @@
       for (const tier of encounters) {
         const sid = tier === `street_${v}` ? `street_habitat_${tx}_${ty}_${v}_${rec.key}`
           : `street_habitat_${tx}_${ty}_${tier}_${rec.key}`;
-        // A hedge encounter sits one cell BEHIND the hedge row (verge k = 3),
+        // A hedge encounter sits one cell BEHIND the hedge row (verge k = 2),
         // so the clipped rows stay unbroken; its samples pace by the old gate
         // spacing.
         const step = v === 'hedgerow' ? CELL_M * HEDGE_GATE_EVERY_CELLS : BURNED_GUARD_STEP_M;
@@ -2634,7 +2633,7 @@
           if (habitatSeats.has(sid)) return false;
           if (!S.covers(spans, s)) return;
           for (const side of [1, -1]) {
-            const candidate = verge(rec, x, y, nx, ny, side, v === 'hedgerow' ? 3 : (row.encounterVergeCell || 1));
+            const candidate = verge(rec, x, y, nx, ny, side, v === 'hedgerow' ? 2 : (row.encounterVergeCell || 1));
             const c = candidate && foeSeat(candidate.ix, candidate.iy);
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
@@ -2669,14 +2668,14 @@
         // THE GRUNTS AMONG THE BARRELS: a post every TRADE_GRUNT_STEP_M, held
         // at TRADE_GRUNT_CHANCE off the street key and the post's index (the
         // same for every player), seated a cell behind the barrel row (verge
-        // k = 3, the barrels stand at k = 2) on the fast-foe gate — the
+        // k = 2, the barrels stand at k = 1) on the fast-foe gate — the
         // street_trade garrison's pair of runts.
         sampleLine(rec.line, gM, TRADE_GRUNT_STEP_M, TRADE_GRUNT_STEP_M / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           const post = Math.floor(s / TRADE_GRUNT_STEP_M);
           if (hash01(`trade-grunt|${rec.key}|${post}`) >= TRADE_GRUNT_CHANCE) return;
           const side = hash01(`trade-grunt-side|${rec.key}|${post}`) < 0.5 ? 1 : -1;
-          const candidate = verge(rec, x, y, nx, ny, side, 3) || verge(rec, x, y, nx, ny, -side, 3);
+          const candidate = verge(rec, x, y, nx, ny, side, 2) || verge(rec, x, y, nx, ny, -side, 2);
           const c = candidate && foeSeat(candidate.ix, candidate.iy);
           if (!c) return;
           const sid = WG.cellId('trade_grunt', tx, ty, c.ix, c.iy);

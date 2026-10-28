@@ -154,25 +154,6 @@ const STREET_SHINE_ALPHA = 0;
 const GATHER_SPREAD_POINTS = 6;
 // Restored streets use native Rogue lamp sprites. Site geometry and light
 // anchors live in RoadOverlay; restoration and visit brightness stay in Streets.
-// THE SITE'S FOOTPRINT. RoadOverlay.LAMP_DARK_CELLS is the width the old
-// cobble stone drew at, and it is still what RoadOverlay.LAMP_SITE_R_CELLS
-// (the verge offset every lamp is placed by, and the cells rasterization
-// reserves) is derived from — so every lamp stands exactly where it always
-// has. It sizes no art any more; it is kept as a placement constant only.
-const STREET_LAMP_DARK_CELLS = RoadOverlay.LAMP_DARK_CELLS;
-// THE LAMP STANDS ON THE VERGE, and this is the art's own footprint radius in
-// cells — what _streetLampsForTile adds to half the carriageway
-// (Streets.lampOffsetM) so the art just touches the band's edge instead of
-// standing in the traffic. It is the WIDEST of the two arts one lamp can
-// wear, because either of them may be the one showing: the baked lamp's
-// plinth (RoadOverlay.LAMP_FOOT_R_CELLS) and the dark cobble a lamp draws
-// before it lights (STREET_LAMP_DARK_CELLS, a full width, so half it).
-// Deriving it from the sizes the draw pass actually uses is what keeps a lamp
-// touching the kerb when either art is resized.
-const STREET_LAMP_R_CELLS = Math.max(
-  ((typeof RoadOverlay !== 'undefined' && RoadOverlay.LAMP_FOOT_R_CELLS) || 0.204),
-  STREET_LAMP_DARK_CELLS.road / 2,
-  STREET_LAMP_DARK_CELLS.path / 2);
 // How faint the DWELL PREVIEW gets at its fullest — the ghost of the clean
 // carriageway creeping in under the player while the dwell runs. It was well
 // under half (0.55), because the preview is a promise, not the thing: at the
@@ -7885,13 +7866,10 @@ class MapScene extends Phaser.Scene {
     // fix.
     const underRoad = !!(loaded && entry.roadMask
       && entry.roadMask[iy * N + ix]);
-    // A street lamp's footing (surface only — caves have no streets).
-    const underLamp = !!(loaded && (this.depth ?? 0) === 0 && typeof RoadOverlay !== 'undefined'
-      && RoadOverlay.lampCellsFor(tx, ty, entry).has(iy * N + ix));
     // cellIX / cellIY: the same cell as an ABSOLUTE key (coords.js encoding) —
     // what dug-wall keys and _popEnergy take. Never tx * N + ix by hand.
     const abs = tileCellToAbs(this, tx, ty, ix, iy);
-    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad, underLamp,
+    return { tx, ty, ix, iy, cellIX: abs.cellIX, cellIY: abs.cellIY, loaded, underRoad,
       type: loaded ? entry.grid[iy * N + ix] : 0 };
   }
 

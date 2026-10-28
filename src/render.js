@@ -2206,6 +2206,34 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
   }, true);
 };
 
+// Normal ground colour follows the generated influence footprint, not the
+// unbounded nearest-road debug view. Its recorded variant codes already settle
+// overlapping roads, so drawing never repeats spatial ownership searches.
+Render.ROAD_INFLUENCE_TINT_ALPHA = 0.20;
+Render.roadInfluenceTintColor = function roadInfluenceTintColor(entry, ix, iy) {
+  const N = entry?.cellsPerEdge, i = iy * N + ix;
+  if (!entry?.grid || entry.depth > 0 || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N
+      || WorldGen.variantOwnerAt(entry, i) !== 'road') return null;
+  const terrain = entry.grid[i];
+  if (!WorldGen.isWalkable(terrain) || WorldGen.isBuildingTerrain(terrain)
+      || terrain === WorldGen.T.PIER || terrain === WorldGen.T.ROAD_MD || terrain === WorldGen.T.ROAD_LG) return null;
+  const code = (entry.streetAreaVariants || entry.streetArea?.variants)?.[i];
+  const variant = typeof StreetVariants !== 'undefined' && StreetVariants.variantByCode(code);
+  return variant && typeof RoadOverlay !== 'undefined' ? RoadOverlay.primaryColor(variant.id) : null;
+};
+Render.beginRoadInfluenceTint = function beginRoadInfluenceTint(scene) {
+  scene._roadInfluenceTintGfx?.clear();
+  if ((scene.depth ?? 0) !== 0) {
+    scene._roadInfluenceTintGfx?.setVisible(false); return null;
+  }
+  if (!scene._roadInfluenceTintGfx) {
+    scene._roadInfluenceTintGfx = scene.add.graphics();
+    scene.noiseContainer.add(scene._roadInfluenceTintGfx);
+  }
+  scene._roadInfluenceTintGfx.setVisible(true);
+  return scene._roadInfluenceTintGfx;
+};
+
 // Field-testing overlay: cached nearest-road ownership, sampled only for the
 // visible cell ring. This never changes generated ground, claims or spawns.
 const _variantTintOwners = new WeakMap();
@@ -2258,6 +2286,7 @@ Render.beginVariantTint = function beginVariantTint(scene) {
 
 Render.drawCells = function drawCells(scene) {
   const variantTint=Render.beginVariantTint(scene);
+  const roadInfluenceTint = Render.beginRoadInfluenceTint(scene);
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
@@ -2581,13 +2610,22 @@ Render.drawCells = function drawCells(scene) {
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
-      if (variantTint) {
+      if (variantTint || roadInfluenceTint) {
         const slot=(row+2)*RING+col+2;
         const entry=WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[slot],_ringTY[slot]));
-        const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
-        if (tint!=null) {
-          variantTint.fillStyle(tint,.42);
-          variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
+        if (roadInfluenceTint) {
+          const tint = Render.roadInfluenceTintColor(entry, _ringIX[slot], _ringIY[slot]);
+          if (tint != null) {
+            roadInfluenceTint.fillStyle(tint, Render.ROAD_INFLUENCE_TINT_ALPHA);
+            roadInfluenceTint.fillRect(sx, sy, CELL_PX, CELL_PX);
+          }
+        }
+        if (variantTint) {
+          const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
+          if (tint!=null) {
+            variantTint.fillStyle(tint,.42);
+            variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
+          }
         }
       }
 
@@ -2847,6 +2885,9 @@ Render.drawCells = function drawCells(scene) {
   }
   for (let i = noiseIdx; i < scene.noisePool.length; i++) scene.noisePool[i].setVisible(false);
   scene.terrainCache?.flush();
+  // Terrain pools can grow during this pass. Keep the wash over every ground
+  // texture, below the separate vector-road and standing-object containers.
+  if (roadInfluenceTint) scene.noiseContainer.bringToTop(roadInfluenceTint);
   // Mining and arriving tiles change the exposed-face mask, including seams.
   // Geometry stays retained while the compass or fractional camera position moves.
   const caveCells = [];

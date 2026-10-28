@@ -818,8 +818,8 @@
     return cleanCanvas[k];
   }
 
-  // Lamp sites retain their established spacing and footprint independently
-  // from sprite art. The Rogue renderer supplies the only standing lamp art.
+  // Lamp spacing and other-road clearance remain independent of sprite art.
+  // Their feet sit on the road boundary and never reserve a ground cell.
   const LAMP_DRAW_CELLS = 2.4;
   const LAMP_FOOT_R_CELLS = LAMP_DRAW_CELLS * 0.085;
   const LAMP_DARK_CELLS = { road: 0.64, path: 0.584 };
@@ -950,9 +950,8 @@
         // Suppressed roads carry sparse rift posts, including their broken feet.
         const suppressed = tier === WorldGen.T.ROAD_MD || tier === WorldGen.T.ROAD_LG;
         if (!suppressed && tier !== WorldGen.T.PATH && tier !== WorldGen.T.ROAD) continue;
-        // How far off the centreline this way's lamps stand: its band's
-        // half-width plus the stone (per feature: it depends on class only).
-        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}), footRM);
+        // The post sits on the exact vector boundary, independent of the grid.
+        const offM = Streets.lampOffsetM(WorldGen.roadOverlayWidthM(f.tags || {}));
         for (let i = 0; i < f.geom.length; i++) {
           const line = f.geom[i];
           if (!line || line.length < 2) continue;
@@ -999,41 +998,6 @@
       }
     }
     return thinLampSites(out, entry, ox, oy, cellM, footRM);
-  }
-
-  // Reserve every grid cell touched by the larger of a dark stone and lit
-  // lamp foot. These cells belong only to the street dressing pass, not the
-  // general spawn gate: no phantom object or persistent occupancy is added.
-  function lampReservedCells(tx, ty, entry) {
-    const cells = new Set(), N = entry.cellsPerEdge;
-    if (!(N > 0) || !(entry.tileEdgeM > 0)) return cells;
-    const cellM = entry.tileEdgeM / N, r = LAMP_SITE_R_CELLS;
-    for (const lamp of lampSitesForTile(tx, ty, entry)) {
-      const x = (lamp.x - tx * entry.tileEdgeM) / cellM;
-      const y = (lamp.y - ty * entry.tileEdgeM) / cellM;
-      for (let iy = Math.max(0, Math.floor(y - r)); iy <= Math.min(N - 1, Math.floor(y + r)); iy++) {
-        for (let ix = Math.max(0, Math.floor(x - r)); ix <= Math.min(N - 1, Math.floor(x + r)); ix++) {
-          const dx = Math.max(ix - x, 0, x - ix - 1);
-          const dy = Math.max(iy - y, 0, y - iy - 1);
-          if (dx * dx + dy * dy <= r * r) cells.add(iy * N + ix);
-        }
-      }
-    }
-    return cells;
-  }
-
-  // The same reserved cells for a LOADED tile entry, cached on the entry (a
-  // rebuilt tile is a new entry with no cache; a loading one is never cached).
-  // What "under a street lamp" means at runtime: app.js cellAt's `underLamp`
-  // (items.js isTillableCell — nothing is farmed under a lamp) and render.js's
-  // tilled-cell self-heal both read it.
-  const NO_LAMP_CELLS = new Set();
-  function lampCellsFor(tx, ty, entry) {
-    if (!entry) return NO_LAMP_CELLS;
-    if (entry._lampCells) return entry._lampCells;
-    if (!entry.layers || !(entry.tileEdgeM > 0) || !(entry.cellsPerEdge > 0)) return NO_LAMP_CELLS;
-    entry._lampCells = lampReservedCells(tx, ty, entry);
-    return entry._lampCells;
   }
 
   // The kerb: a hairline pale line along the outer edge of a restored band.
@@ -2309,7 +2273,7 @@
     }
   }
 
-  global.RoadOverlay = { primaryColor, ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { primaryColor, ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge, paintSurfaceDecorSteps,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

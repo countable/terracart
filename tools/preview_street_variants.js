@@ -77,8 +77,7 @@ function preview(row) {
   // rasterized terrain, road band and all spawn reasons / kerb buffers.
   const dress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid,
     spawnOpts: { roadMask: tile.roadMask, roadClass: tile.roadClass,
-      spawnWhy: tile.spawnWhy, occupied: ctx.RoadOverlay.lampReservedCells(tx, ty,
-        { ...tile, layers, tileEdgeM, cellsPerEdge: N }), pois: [] } });
+      spawnWhy: tile.spawnWhy, occupied: new Set(), pois: [] } });
   const lamps = ctx.RoadOverlay.lampSitesForTile(tx, ty,
     { ...tile, layers, tileEdgeM, cellsPerEdge: N }).map(local);
   const objects = [...dress.objects, ...dress.wildplants, ...(dress.traps || []).map(t => ({ ...t, kind: 'trap', recordType: 'surface_trap' }))].map(local);
@@ -130,7 +129,7 @@ function previewPath(row) {
     throw new Error(`Wrong assigned path theme for ${row.id}`);
   if (kind && (!scenic || scenic.census[kind] < lengthM - SC.SAMPLE_M)) throw new Error(`Wrong scenic classification for ${row.id}`);
   const spawnOpts = { roadMask: tile.roadMask, roadClass: tile.roadClass, spawnWhy: tile.spawnWhy,
-    occupied: ctx.RoadOverlay.lampReservedCells(tx, ty, entry), pois: [] };
+    occupied: new Set(), pois: [] };
   const scenicDress = SC.dress({ scenic, tx, ty, N, tileEdgeM, grid: tile.grid, chests: [], spawnOpts });
   const streetDress = SV.dress({ index: tile.streetIndex, tx, ty, N, tileEdgeM, grid: tile.grid, spawnOpts });
   const objects = [scenicDress, streetDress].flatMap(dress => [...dress.objects, ...dress.wildplants,

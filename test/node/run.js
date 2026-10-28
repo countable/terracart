@@ -209,7 +209,7 @@ const BRIDGE = `;Object.assign(globalThis, {
   WILDPLANT_CONTEXT_ART, WILDPLANT_RULES, wildplantRule, wildplantOutput, wildplantWorkRelic,
   wildplantWorkCost, wildplantTreasure, wildplantHiddenItem, wildplantLight,
   CROPS_SHEET_COLS, SPRING_CROPS_COLS, SEEDBOX_COL,
-  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, LAMP_FOOT_FLAVOR, isTillableCell,
+  TAP_HANDLERS, TERRAIN, TERRAIN_FLAVOR, isTillableCell,
   Quests, questEnemies, questAnimals, STARTER_CHAIN, STARTER_INTRO,
 });`;
 try {
@@ -1039,17 +1039,6 @@ ctx.BUILDING_LOWPOLY_SRC = readSrc('building_lowpoly.js');
   if (a < 0 || b < 0 || c < 0 || d < 0 || b < a || d < c) {
     console.error('Could not lift the street-lamp passes from src/app.js — update run.js');
     process.exit(2);
-  }
-  // The verge seat's constants, lifted rather than retyped: each stone stands
-  // off the centreline by STREET_LAMP_R_CELLS x the tile's cell, derived from
-  // the two arts a lamp can wear.
-  for (const name of ['STREET_LAMP_DARK_CELLS', 'STREET_LAMP_R_CELLS']) {
-    const m = appSrc.match(new RegExp(`\nconst ${name} = [\\s\\S]*?;\n`));
-    if (!m) {
-      console.error(`Could not lift ${name} from src/app.js — update run.js`);
-      process.exit(2);
-    }
-    vm.runInContext(m[0], ctx, { filename: `app.js#${name}` });
   }
   vm.runInContext('globalThis.__streetLampPasses = {\n'
     + appSrc.slice(a, b).trimEnd() + ',\n'

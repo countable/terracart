@@ -202,7 +202,7 @@ test('TERRAIN_FLAVOR: every label is a written line, not a database noun', () =>
 test('TERRAIN_FLAVOR: labels describe the ground, never a refused till', () => {
   // Only a selected seed tills, so a label that reads as the hoe refusing
   // the cell teaches a mechanic that does not exist.
-  for (const label of [...NON_TILLABLE_CODES.map(c => TERRAIN_FLAVOR[c]), LAMP_FOOT_FLAVOR]) {
+  for (const label of NON_TILLABLE_CODES.map(c => TERRAIN_FLAVOR[c])) {
     assert.falsy(/till|hoe|earth to turn/i.test(label), `label implies tapping tills: ${label}`);
   }
   assert.truthy(/root/i.test(TERRAIN_FLAVOR[TERRAIN.ROCK]), 'bare rock says nothing grows');
@@ -261,18 +261,14 @@ test('flavor handler: the same grass cell without the road band still tills', ()
   assert.falsy(flavor.try(ctx), 'missing underRoad field = tillable as before');
 });
 
-// A street lamp's footing (cellAt's underLamp — RoadOverlay.lampCellsFor) is
-// not farmland either: flavor claims the tap before till can reach it.
-test('flavor handler: grass under a street lamp is NOT tillable — tap names the lamp', () => {
+test('flavor handler: boundary lamps leave neighbouring grass tillable', () => {
   const flavor = TAP_HANDLERS.find(h => h.name === 'flavor');
-  const seen = [];
-  const scene = makeScene({ flash: (msg) => seen.push(msg) });
+  const scene = makeScene({});
   const ctx = makeCtx(scene, {});
+  // Ignore an old cached flag as well: lamps no longer own a cell.
   ctx.cell = { type: TERRAIN.GRASS, underRoad: false, underLamp: true };
-  assert.truthy(flavor.try(ctx), 'flavor consumes the tap — till never runs');
-  assert.eq(seen[0], LAMP_FOOT_FLAVOR);
-  assert.falsy(isTillableCell(ctx.cell), 'placements that share the tillable gate refuse it too');
-  assert.lte([...LAMP_FOOT_FLAVOR].length, MAP_MSG_MAX);
+  assert.falsy(flavor.try(ctx), 'tapping grass still falls through to tilling');
+  assert.truthy(isTillableCell(ctx.cell));
 });
 
 test('pet placement: animal inventory stacks have no release tap handler', () => {

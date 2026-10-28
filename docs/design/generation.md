@@ -372,7 +372,7 @@ access or tile lifecycle mechanics.
   Placement occupancy uses `PlacedFloor.indexAt` for crops and placed objects;
   surface-only tilled cells must not block placements on other floors.
   `Crops.reconcileTilled` checks saved surface plots after tile loading and
-  crop raids, using `isTillableCell` for terrain, roads and lamp footings.
+  crop raids, using `isTillableCell` for terrain and roads.
   Unloaded plots and plots with a live surface crop retain their soil. Invalid
   empty plots lose both their tilled marker and bed quality through the saved
   set binding; rendering never repairs farming state.
@@ -705,14 +705,18 @@ access or tile lifecycle mechanics.
   deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
   existing interactions and shared spawn gates; Grassy Lane intentionally covers
   its road surface too.
+- Road-variant scenery starts in the first adjacent verge cell. Additional
+  authored rows sit behind that first row, without a blanket empty lamp strip.
+  Single-row placement skips blocked seats instead of shifting outward.
 - Road-variant verge spawning counts a cell with at most 20% overlap with
   the drawn road band as adjacent (verge cell 1). Cells above that threshold
   are skipped before counting outward, including on diagonals. The boundary
   is inclusive. Existing occupancy, access and geographic spawn gates still
   apply; this does not change the shared road mask or road safety tiers.
 - Hedged Lane uses normal street-lamp spacing. Continuous clipped hedge rows
-  stand on both sides, one cell behind the kerb so lamp foot reservations do
-  not erase a row. Occupied or restricted cells still leave gaps.
+  stand in the first adjacent verge cell on both sides. Lamps occupy continuous
+  road-boundary points and reserve no cells. Occupied or restricted cells still
+  leave gaps; they do not displace hedges away from the road.
 - Approved street decorations use `StreetVariants.APPROVED_DECORATIONS` for all
   routes suggested by each approved scout crop. Cell-derived IDs and shared
   occupancy gates keep repeated generation stable. Decorations fill a sparse
@@ -1158,15 +1162,15 @@ Higher-priority placements and their access space take precedence in this order:
    golden roll. One existing giant-bear encounter is seated behind the bushes.
    Pottery Road (a Small-road row, sections up to 250 m) lines both verges
    with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
-   a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero), each pot the first free cell
-   from the second verge cell out, and a back rank on the third verge cell
-   alone, both on the reward
-   gate, so none stands on the kerb cell or a Major-and-Medium kerb. No guards and no POI: a pot is a smashable
+   a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero).
+   The front rank uses the first verge cell; the back rank uses the second.
+   Both use the shared reward gate and road safety rules. No guards and no
+   POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with
    generated wooden barrels the same way (`VERGE_ROWS.trade`,
-   `TRADE_BARREL_GAP` 30% left empty, a cell back from the kerb on the reward
+   `TRADE_BARREL_GAP` 30% left empty, directly beside the road on the reward
    gate) and seats a two-runt `street_trade` garrison post every 25 m
    (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
    a cell behind the barrel row on the fast-foe gate.

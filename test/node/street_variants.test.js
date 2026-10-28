@@ -308,14 +308,23 @@ test('dressing: clipped bushes line the hedgerow, off the band and off anything 
 test('hedgerow: fully hedged on both verges, no gaps, and tidy around obstacles', () => {
   const rec = {variant:'hedgerow', key:'manicured', halfW:4, line:pts([[5,30],[47,30]])};
   const grid = new Uint8Array(CPE * CPE).fill(T.GRASS);
-  const draw = (occupied = new Set(), spawnWhy = new Uint16Array(CPE * CPE)) => SV.dress({
+  const build = (occupied = new Set(), spawnWhy = new Uint16Array(CPE * CPE)) => SV.dress({
     index:{extent:EXTENT,lines:[rec]}, tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,
     spawnOpts:{occupied,spawnWhy,roadMask:new Uint8Array(CPE * CPE)},
-  }).wildplants.filter(p => /^hedge_/.test(p.id));
+  });
+  const draw = (...args) => build(...args).wildplants.filter(p => /^hedge_/.test(p.id));
   const rows = draw();
+  const signs = build().objects.filter(o => o.kind === 'roadsign');
   const north = rows.filter(p => cellOf(p.y,TY) < 30).map(p => cellOf(p.x,TX));
   const south = rows.filter(p => cellOf(p.y,TY) > 30).map(p => cellOf(p.x,TX));
-  assert.eq(north.join(','),south.join(','),'the two rows match across the road');
+  for (const sign of signs) (cellOf(sign.y,TY) < 30 ? north : south).push(cellOf(sign.x,TX));
+  north.sort((a,b)=>a-b); south.sort((a,b)=>a-b);
+  assert.eq(north.join(','),south.join(','),'the two edge rows match except for sign seats');
+  for (const hedge of rows) {
+    const side = cellOf(hedge.y,TY) < 30 ? -1 : 1;
+    const edge = SV.vergeCellAt(rec, 10.5 * WorldGen.CELL_M, 30.5 * WorldGen.CELL_M, 0, 1, side, 1, WorldGen.CELL_M);
+    assert.eq(cellOf(hedge.y,TY), edge.iy, 'hedge occupies the first adjacent verge cell');
+  }
   assert.eq(new Set(rows.map(p => cellOf(p.y,TY))).size,2,'one fixed row on each side');
   const sorted = north.slice().sort((a,b)=>a-b);
   assert.eq(new Set(sorted).size, sorted.length, 'one hedge per row cell');
@@ -888,7 +897,8 @@ test('short street dressing: fixed timber species with mixed orchard rows and pi
       const apples = trees.filter(o => o.kind === 'fruittree');
       assert.truthy(apples.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(TX, TY, cellOf(o.x, TX), cellOf(o.y, TY)))));
       const maples = trees.filter(o => o.kind === 'tree' && o.species === 'maple');
-      assert.eq(apples.length, maples.length, 'half fruit trees, half deciduous on open ground');
+      assert.lte(Math.abs(apples.length - maples.length), d.objects.filter(o => o.kind === 'roadsign').length,
+        'alternating species stay balanced except for occupied sign seats');
       assert.eq(apples.length + maples.length, trees.length, 'only fruit trees and maples');
       assert.truthy(maples.every(o => treeGrowthStage(o) === 3), 'deciduous trees are mature');
       assert.eq(new Set(trees.map(o => o.id)).size, trees.length, 'tree identities remain distinct');
@@ -2202,13 +2212,12 @@ test('berry lane: goblin runts hide behind the bushes — one-runt ambush posts,
 
 // ── Pottery Road ─────────────────────────────────────────────────────────
 // The road on row 6 of vergeFixture (halfW half a cell): its front rank
-// stands on rows 4 and 8 (k = 2) or, where a seat is taken, rows 3 and 9
-// (k = 3); the back rank on rows 3 and 9 — never on the kerb cells (rows 5
-// and 7).
+// stands on rows 5 and 7 (k = 1), with its back rank on rows 4 and 8
+// (k = 2). An occupied seat leaves a gap in its row.
 function potteryRoad(tx, key = `pottery-${tx}`, over = {}) {
   const f = vergeFixture('pottery');
   f.index.dressingLines[0].key = key;
-  if (over.kerb) for (let x = 0; x < f.N; x++) for (const y of [3, 4, 8, 9]) f.spawnWhy[y * f.N + x] |= WorldGen.SPAWN_WHY.KERB;
+  if (over.kerb) for (let x = 0; x < f.N; x++) for (const y of [4, 5, 7, 8]) f.spawnWhy[y * f.N + x] |= WorldGen.SPAWN_WHY.KERB;
   const occupied = new Set(over.occupied || []);
   const d = SV.dress({ ...f, tx, ty: 0, tileEdgeM: f.N * 7,
     spawnOpts: { roadMask: f.roadMask, spawnWhy: f.spawnWhy, occupied } });
@@ -2237,7 +2246,7 @@ test('Berry Trail: dense berry-led edge rows with few thorns and one large bear'
   assert.eq(Lairs.KIND_ORDER.street_forest_bear.join(','), 'giant_bear');
 });
 
-test('pottery road: a Small-road row, appended last, two ranks of clay pots a cell back from the kerb on both verges', () => {
+test('pottery road: a Small-road row, appended last, two ranks of clay pots starting directly beside the road', () => {
   const row = SV.VARIANT_BY_ID.pottery;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.05); assert.eq(row.code, SV.VARIANT_BY_ID.trade.code - 1, 'older row codes stay stable');
   assert.eq(row.art, 'street_pottery', 'dedicated pottery painting'); assert.eq(row.sectionMaxM, 250);
@@ -2249,32 +2258,33 @@ test('pottery road: a Small-road row, appended last, two ranks of clay pots a ce
     if (SV.variantFor(`s${i}|0,0`, `Kiln ${i}`, 'minor') === 'pottery') named++;
   }
   assert.gt(named, plain * 2, `a kiln street is likelier a Pottery Road (${named} vs ${plain})`);
-  let front = 0, back = 0, samples = 0, north = 0, south = 0;
+  let front = 0, back = 0, samples = 0, signSeats = 0, north = 0, south = 0;
   for (let tx = 0; tx < 200; tx++) {
-    const { pots } = potteryRoad(tx);
+    const { pots, d } = potteryRoad(tx);
+    signSeats += d.objects.filter(o => o.kind === 'roadsign').length;
     samples += 9 * 2;   // the line spans nine cells (x 1.5 to 10.5): a sample each, two sides
     for (const p of pots) {
       assert.truthy(p.kind === 'chest' && p.barrel === true && p.barrelStyle === 'clay_pot' && p._street === 'pottery', 'a generated clay pot');
-      assert.truthy([3, 4, 8, 9].includes(p.iy), `a cell or two back from the kerb: ${p.ix},${p.iy}`);
+      assert.truthy([4, 5, 7, 8].includes(p.iy), `adjacent front and back rows: ${p.ix},${p.iy}`);
       if (p.iy < 6) north++; else south++;
-      if (p.iy === 4 || p.iy === 8) front++; else back++;
+      if (p.iy === 5 || p.iy === 7) front++; else back++;
     }
   }
-  assert.inRange(front / samples, 1 - SV.POTTERY_GAP - 0.05, 1 - SV.POTTERY_GAP + 0.05, 'POTTERY_GAP of the front seats are left empty');
+  assert.eq(front + signSeats, samples, 'every front seat holds a pot or the roadside sign');
   assert.inRange(back / samples, 1 - SV.POTTERY_BACK_GAP - 0.05, 1 - SV.POTTERY_BACK_GAP + 0.05, 'POTTERY_BACK_GAP of the back seats are left empty');
   assert.inRange(north / south, 0.8, 1.25, 'both verges');
   const a = potteryRoad(7), b = potteryRoad(7);
   assert.eq(JSON.stringify(a.pots), JSON.stringify(b.pots), 'a reload lays the same pots');
-  // A taken k = 2 seat pushes the pot a cell further out, never onto the kerb.
-  const g = potteryRoad(7, 'pottery-7', { occupied: Array.from({ length: 12 }, (_, x) => 4 * 12 + x) });
-  assert.truthy(g.pots.length > 0 && g.pots.filter(p => p.iy < 6).every(p => p.iy === 3), 'the next cell out');
+  // A taken front seat leaves a gap; it cannot displace the row outward.
+  const g = potteryRoad(7, 'pottery-7', { occupied: Array.from({ length: 12 }, (_, x) => 5 * 12 + x) });
+  assert.truthy(g.pots.length > 0 && g.pots.filter(p => p.iy < 6).every(p => p.iy === 4), 'only the existing back rank remains');
   // Passing keeps static pots eligible while suppressing hazards and fast movers.
   assert.gt(potteryRoad(7, 'pottery-7', { kerb: true }).pots.length, 0, 'Passing permits static pottery rewards');
 });
 
 // ── Trade Row ─────────────────────────────────────────────────────────────
-// The road on row 6 of vergeFixture: its barrels stand on rows 4 and 8
-// (k = 2), its grunt posts a cell behind them (rows 3 and 9, k = 3).
+// The road on row 6 of vergeFixture: its barrels stand on rows 5 and 7
+// (k = 1), its grunt posts a cell behind them (rows 4 and 8, k = 2).
 function tradeRow(tx, key = `trade-${tx}`) {
   const f = vergeFixture('trade');
   f.index.dressingLines[0].key = key;
@@ -2286,7 +2296,7 @@ function tradeRow(tx, key = `trade-${tx}`) {
   const grunts = d.lairs.filter(l => l.tier === 'street_trade').map(l => ({ ...l, iy: cellOfM(l.ly) }));
   return { d, barrels, grunts };
 }
-test('trade row: a Small-road row, appended last, barrels a cell back from the kerb and grunt pairs behind them', () => {
+test('trade row: a Small-road row, appended last, barrels directly beside the road and grunt pairs behind them', () => {
   const row = SV.VARIANT_BY_ID.trade;
   assert.eq(row.size, 'minor'); assert.eq(row.share, 0.04); assert.eq(row.code, SV.VARIANT_BY_ID.rocky_path.code - 1, 'older row codes stay stable');
   assert.eq(row.art, 'street_trade', 'dedicated trade row painting'); assert.eq(row.sectionMaxM, 250);
@@ -2307,10 +2317,10 @@ test('trade row: a Small-road row, appended last, barrels a cell back from the k
     samples += 10 * 2; roads++;
     for (const b of barrels) {
       assert.truthy(b.kind === 'chest' && b.barrel === true && b.barrelStyle === 'barrel' && b._street === 'trade', 'a generated wooden barrel');
-      assert.eq(b.iy, b.iy < 6 ? 4 : 8, `a cell back from the kerb: ${b.ix},${b.iy}`);
+      assert.eq(b.iy, b.iy < 6 ? 5 : 7, `adjacent to the road: ${b.ix},${b.iy}`);
       total++;
     }
-    for (const g of grunts) { assert.truthy(g.iy === 3 || g.iy === 9, `behind the barrel row: ${g.iy}`); posts++; }
+    for (const g of grunts) { assert.truthy(g.iy === 4 || g.iy === 8, `behind the barrel row: ${g.iy}`); posts++; }
   }
   // The grunt posts take a few seats first, so a little under the gap's share.
   assert.inRange(total / samples, 1 - SV.TRADE_BARREL_GAP - 0.12, 1 - SV.TRADE_BARREL_GAP + 0.05, 'about TRADE_BARREL_GAP of the seats are left empty');

@@ -1219,7 +1219,7 @@ the reach rim within the existing player-light radius.
   It is off in normal play. Seams share road-width occlusion and water/building
   keep-outs, and restored seams appear only within restored intervals.
 - Lamp sites use source-road geometry to remove nearby-road clutter before
-  generation reserves their cells or the renderer creates sprites/lights. A
+  the renderer creates sprites/lights; generation reserves no lamp cells. A
   two-cell spatial hash of road segments rejects a foot within another road
   band plus 0.5m clearance. A one-cell lamp hash removes other-road posts closer
   than one cell, preferring the wider road then stable lamp identity. Equal-width
@@ -1227,6 +1227,10 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
+- Road-variant influence areas carry a 20% ground wash in their variant's
+  primary colour during normal surface play. Recorded influence cells bound
+  the wash; Home, Nexus, caves, discarded areas, water and buildings retain
+  their appearance. It sits beneath vector pavement and standing objects.
 - The debug menu's **Variant ground tint** toggle persists across reloads. Its
   translucent ground overlay shows the nearest road variant's primary cobble
   color, including extended dressing outside the reserved corridor. Nexus cells
@@ -1240,7 +1244,7 @@ the reach rim within the existing player-light radius.
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
   occlusion and water/building keep-outs. The cached tint changes vector art,
-  while grid terrain and roadside ground retain their existing rules.
+  while the surrounding influence area uses the ground wash above.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 55% colour
@@ -1332,9 +1336,10 @@ the reach rim within the existing player-light radius.
   `Lighting.liftPx` rotates the offsets into the map frame, keeping radiance
   aligned through camera rotation without depending on a retired canvas size.
   Collect/cache lamps about the camera anchor, only after tiles finish loading.
-  A lamp's footing (`RoadOverlay.lampCellsFor`, the same reserved cells
-  dressing keeps clear) is never tillable: `cellAt` flags it `underLamp` and
-  `isTillableCell` refuses it.
+  Lamp anchors sit exactly on the vector road boundary, half its width from
+  the centreline. Their continuous coordinates and arclength identities are
+  independent of the grid: lamps reserve no cells and add no planting or
+  scenery exclusions. Existing terrain and access rules still apply.
 - Restoration ladder rewards use `Trail.PRIZE_CONTEXT`; the first reward offers the fixed
   `Trail.firstWeaponChoices()` row. Its earned choice remains in
   `save.trail.firstWeaponPending` until selected, so reloads preserve it while onboarding
