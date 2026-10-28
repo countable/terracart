@@ -405,6 +405,13 @@ access or tile lifecycle mechanics.
   placement or the enclosed-mall classification. Entering a footprint uses
   the shared Home interior floor and outside-darkening engine; courtyard
   holes remain outside.
+- Every surface castle footprint also supplies an indoor view, regardless of
+  claim state. Occupancy reads `buildingShapes` at the player's exact world
+  position, including footprints owned by another loaded tile. Home takes
+  precedence; temple zones and fort footprints do not count. Camera peeking
+  does not enter or leave a room, and evicted shapes cannot leave stale
+  occupancy. This is rendering state; castle ownership and encounters are
+  unchanged.
 - A POI chest's tier is its tile's QUOTA SEAT (`WorldGen.seedChestTiers`):
   each tile seeds ~1 T5, 5 T4, 11 T3, 36 T2 (x1..x2 over 100..1000
   budgeted POIs) onto its best-ranked POIs (the MVT `rank` tag),
@@ -1036,6 +1043,13 @@ retained because its full extent is unknown; do not discard a cross-tile variant
 from one tile's partial count. Spawn-class-specific suppression is still an
 eligibility gate, not a universal subtraction from variant area.
 
+A prop whose interaction births creatures is placed only where those births can
+succeed: the prop's cell must pass the creatures' own spawn class, with enough
+free seats in the reach its runtime planner searches. Forest hives
+(`WorldGen.HIVE_SPEC`) therefore stand only on tier-1 forest, because their bees
+are `fastEnemy` and calm woodland refuses them. A hive placed on calm woodland
+could never seat its swarm, so every tap would answer "No room around the hive."
+
 Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
@@ -1096,6 +1110,13 @@ Higher-priority placements and their access space take precedence in this order:
 5. Road variants, across their defined corridor and verge, including
    deliberately empty gaps. The claim reaches two cells past the road band
    (`StreetVariants.TERRAIN_VERGE_CELLS`) for ownership and placement priority.
+   Overlapping roads partition cells by the nearest centerline, with stable
+   road-key/variant ties. Plain intervals compete as well. Terrain, reserved
+   variant codes, story marks, props, hazards, rewards and relocated encounter
+   seeds all respect that same partition, including dressing beyond the reserved
+   corridor. Initial lair members remain in their source road's variant; ordinary
+   movement afterwards is unchanged. A bounding-volume tree and memoized cell
+   queries avoid scanning every road for each spawn candidate.
    Small-road themes also paint ground beneath the road and within their
    configured verge: two cells by default, Orchard one cell of grass,
    Pilgrim Old Stones churchyard ground, and Thorny its existing four-cell

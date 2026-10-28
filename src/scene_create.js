@@ -274,7 +274,7 @@ class SceneCreate {
     // time against the fix and could silently skip the capture.)
 
     _phase('authored buildings');
-    // Bake terrain patterns and the two castle restoration-state atlases once.
+    // Bake terrain patterns and building textures once.
     AuthoredBuildings.prepare(this, { review: false });
     _phase('biome textures');
     makeBiomeTextures(this, CELL_PX);
@@ -282,9 +282,8 @@ class SceneCreate {
     if (typeof TerrainTransitions !== 'undefined') TerrainTransitions.prepare(this);
     if(typeof RogueObjects!=='undefined'&&RogueObjects.enabled&&typeof BuildingLowPoly!=='undefined')BuildingLowPoly.prepareRogueWreck(this);
     makeBerryBushTexture(this);
+    // Standalone house-role turrets still use this sprite; castles use geometry.
     makeTowerTexture(this);
-    // Both tower atlases share their colours with the walls and courtyard.
-    makeTowerTexture(this, CASTLE_STONE_UNCLAIMED, 'tower_unclaimed');
     // Pot of gold — procedural art (the ATM's look before it became a bank booth).
     makePotOfGoldTexture(this);
     // Traps: the barely-there scuff of a hidden one and the sprung iron jaw of
@@ -1509,6 +1508,10 @@ class SceneCreate {
     this._steerDistAccrue = 0;
     this._steerCostAccrue = 0;
 
+
+    let debugVariantTint = false;
+    try { debugVariantTint = localStorage.getItem('terracart.debugVariantTint') === '1'; } catch (_) {}
+    Render.setVariantTint(this, debugVariantTint);
 
     let debugGpsStick = false;
     try { debugGpsStick = localStorage.getItem('terracart.debugGpsStick') === '1'; } catch (_) {}

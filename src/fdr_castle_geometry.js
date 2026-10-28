@@ -24,15 +24,14 @@
     const colors={face:style.wall,top:style.top,dark:style.base};
     const sideColor=normal=>Math.abs(normal.x)>.5?style.side:style.wall;
     let massGate=null;
-    function prism(ring,bottom,top,support=null,{capped=true,omitEdges=[],topPoints=ring,material='stone',deck=false,capColor=style.top,baseOutset=0,exposedEdges=new Set(),stoneSlot=style.masonrySlot,growthSeed=null}={}){
+    function prism(ring,bottom,top,support=null,{capped=true,omitEdges=[],topPoints=ring,material='stone',deck=false,capColor=style.top,baseOutset=0,stoneSlot=style.masonrySlot,growthSeed=null}={}){
       if(!WallPerspective.inView(scene,ring,bottom,top))return null;
       const faces=[],winding=Math.sign(FDRCastleLayout.area(ring));
       if(top>bottom)for(let i=0;i<ring.length;i++){
-        if(omitEdges.includes(i)&&!exposedEdges.has(i))continue;
+        if(omitEdges.includes(i))continue;
         const a=ring[i],b=ring[(i+1)%ring.length],aa=topPoints[i],bb=topPoints[(i+1)%ring.length];
         const dx=b.x-a.x,dy=b.y-a.y,length=Math.hypot(dx,dy),normal={x:dy/length*winding,y:-dx/length*winding};
-        const faceBottom=exposedEdges.has(i)?geometry.wallHeight-8:bottom;
-        const levels=faceBottom<BASE_HEIGHT&&top>BASE_HEIGHT?[faceBottom,BASE_HEIGHT,top]:[faceBottom,top];
+        const levels=bottom<BASE_HEIGHT&&top>BASE_HEIGHT?[bottom,BASE_HEIGHT,top]:[bottom,top];
         const cx=ring.reduce((sum,p)=>sum+p.x/ring.length,0),cy=ring.reduce((sum,p)=>sum+p.y/ring.length,0);
         const at=(p,q,z)=>{
           const t=(z-bottom)/(top-bottom),outset=bottom===0?baseOutset*Math.max(0,1-z/BASE_HEIGHT):0;
@@ -100,29 +99,11 @@
       const b=layout.points[(i+1)%layout.points.length],dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy);
       return {x:(a.x+b.x)/2-dy/l*4,y:(a.y+b.y)/2+dx/l*4,order:start+i,castleEdge:i};
     });
-    // Track lowered pieces before drawing so adjoining tall pieces expose a
-    // small end face above the broken crest rather than a see-through hole.
-    const lowered=style.active?[]:layout.walls.filter((wall,i)=>(i+wall.edge*3)%5===1);
-    const onBoundary=(p,ring)=>ring.some((a,i)=>{
-      const b=ring[(i+1)%ring.length],dx=b.x-a.x,dy=b.y-a.y;
-      return Math.abs(dx*(p.y-a.y)-dy*(p.x-a.x))<1e-6
-        &&p.x>=Math.min(a.x,b.x)-1e-6&&p.x<=Math.max(a.x,b.x)+1e-6
-        &&p.y>=Math.min(a.y,b.y)-1e-6&&p.y<=Math.max(a.y,b.y)+1e-6;
-    });
-    layout.walls.forEach(wall=>{
-      const loss=lowered.includes(wall)?8:0,exposedEdges=new Set();
-      if(!loss)for(const edge of wall.omitEdges){
-        const a=wall.points[edge],b=wall.points[(edge+1)%wall.points.length],mid={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
-        if(lowered.some(other=>onBoundary(mid,other.points)))exposedEdges.add(edge);
-      }
-      prism(wall.points,0,geometry.wallHeight-loss,supports[wall.edge],{omitEdges:wall.omitEdges,exposedEdges});
-    });
-    for(let i=0;i<layout.merlons.length;i++){
-      const m=layout.merlons[i];
-      if(!style.active&&(i%3===1||lowered.some(w=>w.edge===m.edge&&FDRCastleLayout.overlap(m.points,w.points))))continue;
-      const top=style.active?m.top:m.base+[5,7,8][(Math.floor(i/3)+m.edge)%3]*geometry.merlonHeight/8;
-      prism(m.points,m.base,top,supports[m.edge]);
-    }
+    // Condition changes materials only; both states retain the complete castle.
+    for(const wall of layout.walls)
+      prism(wall.points,0,geometry.wallHeight,supports[wall.edge],{omitEdges:wall.omitEdges});
+    for(const m of layout.merlons)
+      prism(m.points,m.base,m.top,supports[m.edge]);
     function decal(block,a,b,z0,z1,color,material,slot=null,vRange=[0,1],atlasRect=null){
       const dx=b.x-a.x,dy=b.y-a.y,l=Math.hypot(dx,dy),normal={x:dy/l,y:-dx/l};
       const offset=p=>({x:p.x+normal.x*.08,y:p.y+normal.y*.08});
@@ -144,7 +125,6 @@
     }
     function mass(part,isKeep,index){
       const {x,y,width:w,depth:h}=part;
-      if(!style.active&&index%3===1)part.height-=4;
       const height=part.height,support={x,y,order:group.blocks.length};
       const angle=part.angle||0,c=Math.cos(angle),s=Math.sin(angle);
       const rotate=p=>({x:x+(p.x-x)*c-(p.y-y)*s,y:y+(p.x-x)*s+(p.y-y)*c});
@@ -160,10 +140,8 @@
       const shaft=prism(body,0,height,support,{deck:!geometry.roofHeight,capColor:geometry.roofHeight?(style.active?style.roofSide:style.door):style.deck,baseOutset:isKeep?0:towerBaseOutset,stoneSlot:style.towerMasonrySlot,growthSeed:style.active?null:index});if(!shaft){massGate=null;return;}
       if(geometry.roofHeight){
         const peak={x,y,z:height+roofRise};
-        // Four roof triangles restored, two large surviving planes in a wreck.
-        // The flat cap below closes the missing portion; there are no rafters.
+        // Both conditions retain all four roof planes.
         for(let i=0;i<4;i++){
-          if(!style.active&&(i+index)%4<2)continue;
           const a=body[i],b=body[(i+1)%4],color=[style.roofBack,style.roof,style.roofSide,style.roofLight][i];
           triangle(shaft.materialFaces,[{...a,z:height,u:8/512,v:376/512},
             {...b,z:height,u:120/512,v:376/512},{...peak,u:64/512,v:264/512}],color,null,'roof');
@@ -172,18 +150,17 @@
         // Fixed-width teeth repeat at the shared pitch on every crown side.
         // Side rows stop short of the front/back rows, preventing overlaps.
         const pitch=geometry.merlonPitch,tooth=geometry.merlonWidth,depth=8;
-        const row=(span,place,sideIndex)=>{
+        const row=(span,place)=>{
           const count=Math.max(0,Math.floor((span-tooth)/pitch)+1);
           for(let j=0;j<count;j++){
-            if(!style.active&&(j+index+sideIndex)%3===1)continue;
             const at=(j-(count-1)/2)*pitch;
-            const toothHeight=geometry.merlonHeight*(style.active?1:[5,7,8][(index*2+j+sideIndex)%3]/8);
+            const toothHeight=geometry.merlonHeight;
             prism(place(at),height,height+toothHeight,support);
           }
         };
         for(const side of [-1,1]){
-          row(w,at=>crownRect(x+at,y+side*(h/2-depth/2),tooth,depth),side>0?1:0);
-          row(h-depth*2,at=>crownRect(x+side*(w/2-depth/2),y+at,depth,tooth),side>0?3:2);
+          row(w,at=>crownRect(x+at,y+side*(h/2-depth/2),tooth,depth));
+          row(h-depth*2,at=>crownRect(x+side*(w/2-depth/2),y+at,depth,tooth));
         }
       }
       if(isKeep){

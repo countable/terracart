@@ -329,7 +329,8 @@
           // ONE PART PER BLOCK, each anchored at its wall's sort point against
           // the player (wallSortPoint, in the group's space), every frame the
           // player or the heading moves; the shared world sort then seats the
-          // player between the walls behind and the walls in front. The
+          // player between the walls behind and the walls in front. Castle
+          // bodies and crowns use their shared support to stay together. The
           // group's own graphics stays empty meanwhile. NO INK inside (owner,
           // Oct 2026): a part inking its own edge over its neighbour's fill
           // left black seams between the walls, and the dark mask outside the
@@ -338,7 +339,7 @@
           group.blocks.forEach((block, i) => {
             const part = group.parts[i] || (group.parts[i] = this._part(scene));
             const seg = block.segment;
-            const p = seg ? this.wallSortPoint({ x: seg.ax, y: seg.ay }, { x: seg.bx, y: seg.by }, angle, local) : { x: block.x, y: block.y };
+            const p = seg ? this.wallSortPoint({ x: seg.ax, y: seg.ay }, { x: seg.bx, y: seg.by }, angle, local) : (block.support || block);
             part._huAnchor.x = p.x + group.x; part._huAnchor.y = p.y + group.y;
             part.visible = true; part.setPosition(group.x, group.y);
             if (block.materialFaces) WallSurfaceRenderer.install(scene, part, group.atlas);

@@ -198,6 +198,8 @@ Render.sortWorldDepth = function (pieces) {
 // Restoration clears the skulls from every tower and keeps the player's
 // existing single banner at the footprint's designated flag post.
 Render.castleFlagTexture = function (scene, tower) {
+  const room = scene.activeInterior?.();
+  if (room?.kind === 'castle' && room.buildingKey === tower.castle) return null;
   const claimed = scene.isCastleClaimed ? scene.isCastleClaimed(tower)
     : scene.isClaimedKey ? scene.isClaimedKey(tower.castle) : null;
   if (claimed === null) return null;
@@ -208,8 +210,8 @@ Render.towerCrownHeight = function (textures, castle) {
   const frame = textures.getFrame('tower', CastleStyles.get(castle).towerFrame);
   return (frame?.height || CastleStyles.TOWER_HEIGHT) - (frame?.castleCrownY || 0);
 };
-// Only an emitted surface castle replaces its legacy tower artwork. Gameplay
-// tower records remain available to targeting, ownership and interaction.
+// Castle artwork comes only from generated architecture. Gameplay tower
+// records remain available to targeting, ownership and interaction.
 Render.fdrCastleLayout = function (scene, object) {
   if (!scene || (scene.depth ?? 0) !== 0 || object.kind !== 'tower') return null;
   return scene._fdrCastleLayouts?.get(object.castle) || null;
@@ -222,7 +224,7 @@ Render.castleFlagItems = function (scene, items, project) {
     .sort((a, b) => Number(!!b.o.flagPost) - Number(!!a.o.flagPost));
   for (const item of candidates) {
     const castle = Render.fdrCastleLayout(scene, item.o);
-    if (!castle) { flags.push(item); continue; }
+    if (!castle || castle.interior) continue;
     const group = scene._wallPerspective?.[castle.source || 'castles'];
     if (!group) continue;
     const used = occupied.get(castle) || new Set();
@@ -2204,7 +2206,58 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
   }, true);
 };
 
+// Field-testing overlay: cached nearest-road ownership, sampled only for the
+// visible cell ring. This never changes generated ground, claims or spawns.
+const _variantTintOwners = new WeakMap();
+Render.variantTintColor = function variantTintColor(entry, ix, iy) {
+  const N=entry?.cellsPerEdge, i=iy*N+ix;
+  if (!entry?.grid || entry.depth > 0 || !(N>0) || ix<0 || iy<0 || ix>=N || iy>=N) return null;
+  if (entry.variantDiscarded?.[i]) return null;
+  const winner=WorldGen.variantOwnerAt(entry,i);
+  if (winner==='home' || winner==='cave') return null;
+  if (winner==='zone') {
+    const anchor=WorldGen.zoneAnchorAt(entry,i);
+    const row=anchor && typeof ZoneVariants!=='undefined' && ZoneVariants.pick(anchor);
+    if (!row) return null;
+    const materials=Object.entries(row.background?.materialDensity || {}).sort((a,b)=>b[1]-a[1]);
+    const color=ZoneVariants.materials[materials[0]?.[0]]?.color || row.lampGlow;
+    return /^#[0-9a-f]{6}$/i.test(color || '') ? parseInt(color.slice(1),16) : null;
+  }
+  const index=entry.streetIndex;
+  if (!index || typeof StreetVariants==='undefined') return null;
+  let cached=_variantTintOwners.get(index);
+  if (!cached || cached.N!==N || cached.lines!==index.lines || cached.dressingLines!==index.dressingLines) {
+    cached={N,lines:index.lines,dressingLines:index.dressingLines,owner:StreetVariants.variantOwner(index,N)};
+    _variantTintOwners.set(index,cached);
+  }
+  const variant=cached.owner(ix,iy);
+  return typeof RoadOverlay!=='undefined' ? RoadOverlay.primaryColor(variant) : null;
+};
+Render.setVariantTint = function setVariantTint(scene, enabled) {
+  scene.debugVariantTint=!!enabled;
+  try { localStorage.setItem('terracart.debugVariantTint',enabled?'1':'0'); } catch (_) {}
+  const button=typeof document!=='undefined' && document.getElementById?.('debug-variant-tint');
+  if (button) {
+    button.textContent=`Variant ground tint: ${enabled?'on':'off'}`;
+    button.setAttribute('aria-pressed',String(!!enabled));
+  }
+  if (!enabled) scene._variantTintGfx?.clear().setVisible(false);
+};
+Render.beginVariantTint = function beginVariantTint(scene) {
+  scene._variantTintGfx?.clear();
+  if (!scene.debugVariantTint || scene.depth!==0) {
+    scene._variantTintGfx?.setVisible(false);return null;
+  }
+  if (!scene._variantTintGfx) {
+    scene._variantTintGfx=scene.add.graphics();
+    scene.cobbleContainer.add(scene._variantTintGfx);
+  }
+  scene._variantTintGfx.setVisible(true);
+  return scene._variantTintGfx;
+};
+
 Render.drawCells = function drawCells(scene) {
+  const variantTint=Render.beginVariantTint(scene);
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
@@ -2528,6 +2581,16 @@ Render.drawCells = function drawCells(scene) {
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
+      if (variantTint) {
+        const slot=(row+2)*RING+col+2;
+        const entry=WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[slot],_ringTY[slot]));
+        const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
+        if (tint!=null) {
+          variantTint.fillStyle(tint,.42);
+          variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
+        }
+      }
+
 
       // Resolve only the cells in view; the permanent burn ledger can grow
       // indefinitely without increasing the cost of a frame.
@@ -4921,9 +4984,8 @@ Render.drawObjects = function drawObjects(scene) {
   const objectReuse = scene._boot_still ? reuseStaticObject : undefined;
   Render.renderPool(scene, scene.objectPool, scene.objectsContainer, nonTowerObj,
     configureObject, undefined, objectReuse);
-  Render.renderPool(scene, scene.towerPool, scene.towerContainer,
-    towerList.filter(({ o }) => !Render.fdrCastleLayout(scene, o)),
-    configureObject, undefined, objectReuse);
+  // Clear any retained legacy sprites; castle towers are generated geometry.
+  Render.renderPool(scene, scene.towerPool, scene.towerContainer, [], configureObject);
   // ── Ripe fruit ────────────────────────────────────────────────────────────
   // A bearing fruit tree wears its fruit: the same icon the fruit carries in
   // the inventory, drawn as its own small sprite on the tree's canopy. The
@@ -4945,19 +5007,12 @@ Render.drawObjects = function drawObjects(scene) {
   // Every unrestored turret flies the square skull flag. Restoring the
   // castle replaces them with the player's existing single flagPost banner.
   //
-  // Seated on that turret's crown — the tower art is bottom-anchored at
-  // sy + CELL_PX/2 and runs its full frame height upward, so the flag's own
-  // bottom-anchored pole lands on the battlements. Read from the frame rather
-  // than a copied number, so a retall of the turret can't leave the flag
-  // floating. Retained castles seat flags on their model crowns instead.
-  // The flag inherits its turret's ground depth.
+  // Flags seat only on generated crowns and inherit their turret's ground depth.
   const flagList = Render.castleFlagItems(scene, towerList, project);
   Render.renderPool(scene, scene.castleFlagPool, scene.towerContainer, flagList, (s, item) => {
-    const { dx, dy } = item;
-    const { x: sx, y: sy } = project(dx, dy);
     const seat = item._castleFlagSeat;
-    const towerH = seat ? seat.height : Render.towerCrownHeight(scene.textures, item.o.castle);
-    const x = seat ? seat.x : Math.round(sx), y = seat ? seat.y : Math.round(sy) + CELL_PX / 2;
+    const towerH = seat.height;
+    const x = seat.x, y = seat.y;
     s._huAnchor = { x, y };
     setTextureIfDifferent(s, Render.castleFlagTexture(scene, item.o));
     setWorldDepth(s, (item._z ?? 0) + 0.1);
@@ -6352,13 +6407,8 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
       dyPx: (o) => _houseFootPx(o).y,
       scale: _houseScale,
     },
-    // Bottom-seat each sprite at its data cell. A castle's identity selects
-    // one material family; restoring it changes only the condition palette.
-    tower: { key: (o, sc) => Render.fdrCastleLayout(sc, o) ? null : (sc && sc.isClaimedKey && !sc.isClaimedKey(o.castle)
-                               && sc.textures.exists('tower_unclaimed'))
-                              ? 'tower_unclaimed' : 'tower',
-             frame: o => CastleStyles.get(o.castle).towerFrame,
-             origin: [0.5, 1], scale: 1, dyPx: () => CELL_PX * 0.5 },
+    // Castle turret records drive gameplay only; there is no legacy sprite fallback.
+    tower: { key: () => null },
     // Placed scarecrow — 48×48 image, centred in its cell (origin 0.5,0.5, no
     // foot nudge). The trimmed art is 43×39 (the PNG bakes a 39%-alpha shadow
     // under the feet), so scale 0.6 puts it at ~26×23px, inside its single cell.
@@ -6570,7 +6620,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
-    roadsign: { key: 'street_decor_direction_sign', frame: '__BASE', origin: [0.5, 0.5], scale: .65, seat: true, shadow: true },
+    roadsign: { key: 'street_direction_marker', frame: o => StreetSigns.frame(o), origin: [0.5, 0.5], scale: 1, seat: true, shadow: true },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.

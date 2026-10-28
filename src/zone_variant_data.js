@@ -7963,7 +7963,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "Ruined foundations shelter chests and scattered clay pots. Whoever held these walls is long gone.",
+      "atmosphere": "Ruined foundations shelter a chest, clay pots and the odd barrel. Whoever held these walls is long gone.",
       "quarryLayout": "stronghold",
       "affinities": [
         "ruined"
@@ -8454,7 +8454,8 @@
       "barrel": 0.004
     },
     "craterPoolSizeCells": 5,
-    "foundationPotChance": 0.5
+    "foundationPotChance": 0.5,
+    "foundationBarrelChance": 0.3
   }
 };
 })(typeof window !== "undefined" ? window : globalThis);

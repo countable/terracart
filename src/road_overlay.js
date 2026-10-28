@@ -701,6 +701,10 @@
     "haunted_forest_path": "#807d91",
     "way_of_variety": "#a89d86"
 };
+  function primaryColor(variant) {
+    const color = ROAD_THEME_COLORS[variant];
+    return color ? parseInt(color.slice(1), 16) : null;
+  }
   function stoneLuminance(data) {
     let count=0,total=0,squared=0;
     for(let i=0;i<data.length;i+=4) {
@@ -715,9 +719,9 @@
   function themeColor(id,restored) {
     const color=ROAD_THEME_COLORS[id] || ROAD_THEME_COLORS.plain;
     const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
-    if(restored||id==='burned')return rgb;
+    if(id==='burned')return rgb;
     const light=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
-    return rgb.map(channel=>light+(channel-light)*.35);
+    return rgb.map(channel=>light+(channel-light)*(restored ? 1.15 : .55));
   }
   function recolorRoadTile(variant,restored) {
     const base=baseRoadTile(variant,restored);
@@ -2305,7 +2309,7 @@
     }
   }
 
-  global.RoadOverlay = { ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { primaryColor, ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, lampReservedCells, lampCellsFor, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge, paintSurfaceDecorSteps,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

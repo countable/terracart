@@ -1,4 +1,10 @@
 (function () {
+test('street signs: compass frames preserve every connected heading', () => {
+  const headings=['East','Southeast','South','Southwest','West','Northwest','North','Northeast'];
+  headings.forEach((direction,i)=>assert.eq(StreetSigns.frame({directions:[{direction}]}),1<<i));
+  assert.eq(StreetSigns.frame({directions:[{direction:'North'},{direction:'East'},{direction:'East'}]}),65);
+  assert.eq(StreetSigns.frame({}),0);
+});
 test('street signs: directions describe only actual junction geometry', () => {
   const index = {mvtToM:1, lines:[
     {key:'a',variant:'hedgerow',line:[{x:100,y:100},{x:300,y:100}]},

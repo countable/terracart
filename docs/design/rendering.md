@@ -436,7 +436,7 @@ support) before that run's first fill, so a ring of sections and the merlons
 standing on it carry one upper outer outline with no bottom edge or internal seams. Legacy castle and Home prisms retain their flat colors; connected walls and fort pickets use the shared wall atlas.
 
 `scene.activeInterior()` shares Home's interior renderer and outside-darkness
-mask with detected malls and strip malls. Retail footprints come from the same
+mask with castles, detected malls and strip malls. Retail footprints come from the same
 POI census as indoor-mall placement (`entry.retailInteriors`); two contained
 public commercial booths qualify, including small strip centres. The player's
 exact ground position opens the room, and stepping out restores its normal
@@ -445,6 +445,16 @@ repeat scaled to 60% of the original size while its footprint stays unchanged.
 The overlay replaces the host shell with Home's open-roof, per-wall geometry;
 courtyards are excluded from both the floor and the lit interior. This changes
 rendering only: shop rewards retain their existing interior/frontage positions.
+
+Every surface castle opens an interior when the player's feet enter its source
+footprint, before or after claim. The keep, exterior towers and their flags
+are absent indoors; low perimeter walls use the castle family's stone palette.
+The floor keeps its paving beneath a clipped patterned carpet: burgundy/gold
+diamonds for Citadel, terracotta bands for Bastion, and teal checks for Archive.
+Carpets paint on the retained ground canvas with a world-stable phase and stone
+margins, without new textures or world geometry. Leaving restores the exterior;
+peeking never changes occupancy. Temple zones and standalone house turrets do
+not become castle interiors.
 
 Home uses the original nearby building footprint, or a 2×2 footprint stamped
 by `scene_venues.js` when no building is within two cells. It draws no sprite: `Render.houseTextureKey` hands its role
@@ -593,8 +603,10 @@ the surrounding grove’s shrub scale.
   existing resize path, which explicitly restores the logical CSS size before
   refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
-- iPhone compass samples with negative headings or negative/non-finite accuracy
-  are ignored, retaining the last usable bearing while the sensor recalibrates.
+- iPhone compass samples with a negative or non-finite heading are ignored,
+  retaining the last usable bearing. `webkitCompassAccuracy` never gates a
+  valid heading: iOS reports -1 for long stretches indoors or while it wants
+  calibration, and rejecting those froze the map.
   The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E manually rotate on
@@ -690,8 +702,10 @@ the surrounding grove’s shrub scale.
   and hedge meshes instead live in `raisedPropContainer`, above ground shadows
   and below world sprites, so the player's ground shadow cannot paint their
   raised tops. Both layers share the world viewport mask. Wall geometry
-  never adjusts an actor's feet or enters the world depth sort. Legacy tower sprites and
-  flags retain ordinary world ordering; generated castle towers share the castle batch. Legacy tower textures fade fully to transparent
+  never adjusts an actor's feet. Generated castle walls, towers and keeps instead
+  join the world depth sort at their shared ground supports, so props behind
+  them cannot paint over their raised faces. Legacy tower sprites and
+  flags retain ordinary world ordering. Legacy tower textures fade fully to transparent
   across their bottom ten pixels so cell-seated bases blend into angled walls;
   this is baked once for both restoration states. Walls and footprints use a muted
   palette so interactables remain distinct. Unclaimed house and fort floors
@@ -1212,6 +1226,15 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
+- The debug menu's **Variant ground tint** toggle persists across reloads. Its
+  translucent ground overlay shows the nearest road variant's primary cobble
+  color, including extended dressing outside the reserved corridor. Nexus cells
+  use their dominant material color; Home, cave and discarded cells receive no
+  road tint. It samples only visible cells, caches nearest-road queries, and is
+  hidden underground without changing generated terrain or spawn ownership.
+- Roadside direction markers are low stone compasses with brass arrows for the
+  actual local road headings. Startup bakes `StreetSigns` artwork into one shared
+  256-frame atlas; each sign selects its eight-direction mask without runtime drawing.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
@@ -1219,9 +1242,9 @@ the reach rim within the existing player-light radius.
   while grid terrain and roadside ground retain their existing rules.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
-  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
-  saturation, while restored stones regain colour and add missing cobbles at the
-  same positions. Both states keep the approved Promenade light–dark contrast.
+  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 55% colour
+  saturation, while restored stones use 115% of the theme saturation and add
+  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
   its solid charcoal surface and ember warning. Rail ballast stays solid.
@@ -1472,7 +1495,7 @@ the legacy ruin slot uses Bastion architecture instead of a separate ruin family
 `BuildingOverlay` passes the castle key and claim state to the renderer and uses
 the same profile for its courtyard floor. Citadel wrecks are dark and foreboding;
 conquest repairs and lightens them. Bastion and Archive damage is a condition
-of the same architecture, with interrupted crowns and missing roof planes.
+of the same complete architecture, expressed through weathered materials.
 
 Square towers align with the longer adjoining curtain, then shift eight game
 pixels outward along the corner bisector. Their original seated base must fit
@@ -1487,6 +1510,9 @@ Merlons are solid geometry with open crenels and full coping support. Their
 regardless of curtain length; longer walls add teeth instead of widening gaps. All clipped bodies and crowns
 of a source curtain share one sorting anchor, so a later fragment cannot erase
 its own teeth at rotated headings. Towers and keeps have their own anchors.
+These retained parts join the same world container and ground-depth sort as
+props and actors in both north-up and heading-up modes. Courtyard floors stay
+in the background; objects one cell north of a wall draw behind its raised faces.
 A keep is placed only where its full courtyard clearance fits. Layout dimensions
 and spacing are part of the bounded local-coordinate cache key. Source rings
 up to 512 vertices can use the generated architecture without simplifying their
@@ -1577,20 +1603,19 @@ Archive towers use two arched window levels in the same wall decal; military
 towers sample one arch from that shared tile. Archive towers and keeps use a
 broader, quieter ashlar tile than their curtains, and flush dark double doors.
 Their fully opaque tower tiles also participate in Canvas seam coverage.
-Archive towers and keeps have four roof triangles when restored and two surviving
-planes over a closed flat cap when wrecked. Archive has no wood, galleries,
+Archive towers and keeps have four roof triangles over a closed flat cap in both
+restored and wrecked states. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with
 its span to preserve tower roof pitch. Military tower crowns include the same shorter, wider
 teeth on all four sides at the same sixteen-unit pitch. End margins absorb
 remaining length, and side rows stop before the front/back rows to avoid
-overlapping corner teeth. Surviving
-wreck teeth vary in height using the same prism faces. Bastion's broader tower shafts
+overlapping corner teeth. Wrecks retain the restored geometry: full-height walls,
+towers and teeth, and complete roofs. Condition changes textures and colours only. Bastion's broader tower shafts
 fill their square cutouts above height four; the same eight basal triangles
 flare two pixels outward at ground level, without adding a plinth mesh or opening
-vertical gaps at curtain joins. Wreck crests lose a few broad sections; teeth
-over those pieces are omitted and adjoining tall pieces expose their step faces.
+vertical gaps at curtain joins.
 Geometry and material faces are retained
 through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
@@ -1627,10 +1652,12 @@ and stable in-bounds UVs. Reports distinguish this check from visual evidence
 and record coplanar masonry phase discontinuities and material scale ranges;
 passing numerical checks alone does not establish concept fidelity.
 
-Covered castles suppress their old tower sprites while retaining gameplay turret
-records, ownership, range and collision. Flags seat on distinct geometry crowns
-with the existing claim-state rules. Temple zones and house-role turrets keep
-their own renderers. Geometry hit testing includes projecting tower faces.
+Castle tower records retain gameplay, ownership, range and collision, but never
+draw legacy tower sprites, even when generated art is unavailable. Outdoor flags
+require a generated crown and retain the claim-state rules; indoor castles hide
+them. The shared tower sprite source remains only for standalone house turrets
+and UI artwork. Temple zones and house-role turrets keep their own renderers.
+Geometry hit testing includes projecting outdoor tower faces.
 
 ## Building sprite artwork
 
@@ -1656,7 +1683,10 @@ Spooky Woods shrine snags use `selected_dead_tree.png`, an unmodified 64×64
 crop at (384,16) from Rogue Adventure `RA_Jungle.png`. The source manifest sits
 beside the image. `_objectArt: "dead_tree"` selects frame 0 before optional
 ArtTrials routing; trimmed bounds seat the roots and the scale matches the
-existing mature tree width. Ordinary grove trees keep their existing art.
+existing mature tree width. On the surface the Rogue object module draws
+snags as `rogue_tree_dead` at three quarters of the living-tree stage scale,
+since a bare crown at full scale read oversized. Ordinary grove trees keep
+their existing art.
 
 Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary rock:
 `RA_Ground_Tiles.png`, crop `(352,208,16,16)`, selected-terrain frame 35

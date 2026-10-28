@@ -2008,6 +2008,73 @@
     return best;
   }
 
+  // One cell, one road theme. Query only cells used by terrain/dressing and
+  // memoize their exact nearest centerline; a bounding-volume tree prunes
+  // distant segments. Plain road intervals compete too, so a theme cannot cross them.
+  function variantOwner(index, N) {
+    const scale = N / (index.extent || 4096), segments = [], cache = new Map();
+    const records = [...(index.dressingLines || index.lines || [])];
+    if (index.dressingLines) {
+      for (const rec of index.lines || []) for (const part of lineParts(rec, 1)) {
+        if (part.variant) continue;
+        records.push({ ...rec, variant: 'plain', line: root.Streets.subLineM(rec.line, 1, part.a, part.b) });
+      }
+    }
+    for (const rec of records) {
+      const variant = rec.variant || 'plain', identity = `${rec.key || ''}|${variant}`;
+      for (let j = 1; j < rec.line.length; j++) {
+        const a = rec.line[j - 1], b = rec.line[j];
+        const ax=a.x*scale, ay=a.y*scale, bx=b.x*scale, by=b.y*scale;
+        const dx=bx-ax, dy=by-ay;
+        segments.push({ax,ay,dx,dy,len2:dx*dx+dy*dy,
+          left:Math.min(ax,bx),right:Math.max(ax,bx),top:Math.min(ay,by),bottom:Math.max(ay,by),variant,identity});
+      }
+    }
+    const tree = parts => {
+      if (!parts.length) return null;
+      const node={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};
+      for (const p of parts) {
+        node.left=Math.min(node.left,p.left);node.right=Math.max(node.right,p.right);
+        node.top=Math.min(node.top,p.top);node.bottom=Math.max(node.bottom,p.bottom);
+      }
+      if (parts.length <= 8) { node.parts=parts; return node; }
+      const wide=node.right-node.left >= node.bottom-node.top;
+      parts.sort((a,b)=>wide ? a.left+a.right-b.left-b.right : a.top+a.bottom-b.top-b.bottom);
+      const middle=parts.length>>1;
+      node.a=tree(parts.slice(0,middle));node.b=tree(parts.slice(middle));
+      return node;
+    };
+    const rootNode=tree(segments);
+    return (ix, iy) => {
+      if (ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+      const i=iy*N+ix;
+      if (cache.has(i)) return cache.get(i);
+      const x=ix+.5,y=iy+.5;
+      let distance=Infinity, identity='', variant=null;
+      const boxDistance = p => {
+        const ex=Math.max(p.left-x,0,x-p.right),ey=Math.max(p.top-y,0,y-p.bottom);
+        return ex*ex+ey*ey;
+      };
+      const visit = node => {
+        if (!node || boxDistance(node)>distance+1e-10) return;
+        if (!node.parts) {
+          const near=boxDistance(node.a)<=boxDistance(node.b) ? node.a : node.b;
+          visit(near);visit(near===node.a ? node.b : node.a);return;
+        }
+        for (const p of node.parts) {
+          if (boxDistance(p)>distance+1e-10) continue;
+          const t=p.len2 ? Math.max(0,Math.min(1,((x-p.ax)*p.dx+(y-p.ay)*p.dy)/p.len2)) : 0;
+          const d=(x-p.ax-t*p.dx)**2+(y-p.ay-t*p.dy)**2;
+          if (d < distance-1e-10 || Math.abs(d-distance)<=1e-10 && p.identity<identity) {
+            distance=d;identity=p.identity;variant=p.variant;
+          }
+        }
+      };
+      visit(rootNode);cache.set(i,variant);
+      return variant;
+    };
+  }
+
   // Reserve the full band and themed verge of each themed street,
   // including deliberate gaps between furniture. Test cell squares against
   // the geometry; sample spacing or a missed loop endpoint cannot make holes.
@@ -2015,12 +2082,12 @@
     const area = new Uint8Array(N * N);
     const variants = new Uint8Array(N * N);
     Object.defineProperty(area, 'variants', { value: variants });
-    const distances = new Float64Array(N * N).fill(Infinity), identities = [];
+
     const WG = root.WorldGen;
     if (!index || !WG || !(N > 0)) return area;
     const ext = index.extent || 4096;
     const cellM = WG.CELL_M;
-    const toCell = N / ext;
+    const toCell = N / ext, owner = variantOwner(index, N);
     let segments = 0;
     let candidates = 0;
     for (const rec of (index.dressingLines || index.lines)) {
@@ -2041,13 +2108,9 @@
           if ((++candidates & 511) === 0) yield 'street area cells';
           const distance = segmentCellD2(ax, ay, bx, by, ix, iy), i = iy * N + ix;
           if (rec.size === 'minor' && index.nexusCoverage?.[i]) continue;
-          if (distance > r2) continue;
+          if (distance > r2 || owner(ix, iy) !== rec.variant) continue;
           area[i] = 1;
-          const identity = String(rec.key || rec.variant);
-          if (distance < distances[i] || (distance === distances[i] && identity < identities[i])) {
-            distances[i] = distance; identities[i] = identity;
-            variants[i] = VARIANT_BY_ID[rec.variant]?.code || 0;
-          }
+          variants[i] = VARIANT_BY_ID[rec.variant]?.code || 0;
         }
       }
     }
@@ -2076,6 +2139,7 @@
     records.sort((a, b) => ordinal(String(a.key), String(b.key)) || ordinal(a.variant, b.variant));
     const ext = index.extent || 4096, toCell = N / ext;
     const nearest = new Float64Array(N * N).fill(Infinity), original = grid.slice();
+    const owner = variantOwner(index, N);
     const classes = roadClass || index.roadClass;
     let candidates = 0;
     for (const rec of records) {
@@ -2092,6 +2156,7 @@
           for (let x = Math.max(0, Math.floor(Math.min(ax, bx) - radius)); x <= Math.min(N - 1, Math.floor(Math.max(ax, bx) + radius)); x++) {
             if ((++candidates & 511) === 0) yield 'street terrain cells';
             const i = y * N + x, here = original[i];
+            if (owner(x, y) !== rec.variant) continue;
             if (zone?.coverage?.[i] || zone?.under?.present?.[i] || zone?.under?.[i]
                 || index.nexusCoverage?.[i]) continue;
             if ((!WG.isWalkable(here) && !WG.isCobbleTerrain(here))
@@ -2342,18 +2407,25 @@
     // The dressing frame (WorldGen.dressFrame): the tile's cells in frame
     // metres and the occupancy this pass claims into.
     const { cellM: frameCellM, cx, cy, claim } = WG.dressFrame(ctx);
+    const owner = variantOwner(idx, N);
+    // Each phase sets its source theme before searching. Relocation predicates
+    // apply ownership while searching, so blocked seats cannot escape a zone.
+    let activeVariant = null;
+    const owns = (ix, iy) => activeVariant == null || owner(ix, iy) === activeVariant;
+    const spawnCell = (grid, w, h, ix, iy, opts, spClass) => owns(ix, iy)
+      && WG.isSpawnCell(grid, w, h, ix, iy, opts, spClass);
     // The verge dressing is scenery — a MINOR spawn (the spawn gate).
     const cellOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'minor');
+      && spawnCell(grid, N, N, ix, iy, spawnOpts, 'minor');
     // A hoard is an ATTRACTOR: OPEN ground only.
     const hoardOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
+      && spawnCell(grid, N, N, ix, iy, spawnOpts, 'attractor');
     // Reserve a possible encounter point using the ordinary enemy profile.
     // Lairs gates each actual member with its roster-derived profile, so a
     // slow guard can inhabit Calm without granting access to a fast guard.
     const rc = spawnOpts.roadClass || idx.roadClass || null;
     const foeOpts = rc && !spawnOpts.roadClass ? Object.assign({}, spawnOpts, { roadClass: rc }) : spawnOpts;
-    const foeOk = (ix, iy) => WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
+    const foeOk = (ix, iy) => spawnCell(grid, N, N, ix, iy, foeOpts, 'enemy');
     // Seat a foe BACK: its natural cell if it is a foe cell, else the nearest
     // within FOE_SEAT_BACK_CELLS on the same side of any Major-and-Medium road band — or null
     // (the foe is dropped).
@@ -2386,7 +2458,7 @@
       const spClass = row.gate || 'minor';
       const ok = (ix, iy, c) => ix >= 0 && iy >= 0 && ix < N && iy < N
         && (!row.groundOnly || !WG.isRoadTerrain(grid[iy * N + ix]) || lightlyPaintedVerge(c))
-        && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, spClass);
+        && spawnCell(grid, N, N, ix, iy, spawnOpts, spClass);
       const seat = (x, y, nx, ny, side, k0, kMax) => {
         for (let k = k0; k <= kMax; k++) {
           const c = vergeCell(rec, x, y, nx, ny, side, k);
@@ -2444,7 +2516,7 @@
           const cellReach = (rec.variant === 'barricade' || spClass === 'minor') && WG.isRoadTerrain(grid[i])
             ? CELL_M / 2 * (Math.abs(nx) + Math.abs(ny)) : 0;
           const road = normalDistance <= rec.halfW + cellReach;
-          if (!WG.isSpawnCell(grid,N,N,ix,iy,foeOpts,spClass)
+          if (!spawnCell(grid,N,N,ix,iy,foeOpts,spClass)
             || !road && !groundOk(ix,iy)) break;
           owned.add(i); emit(ix,iy);
         }
@@ -2454,7 +2526,7 @@
       const ix = cellOfM(px * gM), iy = cellOfM(py * gM);
       if (ix < -END_SEAT_CELLS || iy < -END_SEAT_CELLS
           || ix >= N + END_SEAT_CELLS || iy >= N + END_SEAT_CELLS) return null;
-      return WG.relocateToSpawnCell(grid, N, N, ix, iy, spawnOpts, END_SEAT_CELLS, 'minor');
+      return WG.nearestRingCell(ix, iy, 0, END_SEAT_CELLS, cellOk);
     };
     const marks = new Uint8Array(N * N);
     let marked = false;
@@ -2469,7 +2541,7 @@
         for (let o = -r; o <= r; o += CELL_M * 0.7) {
           const ix = cellOfM(x + nx * o), iy = cellOfM(y + ny * o);
           if (ix < 0 || iy < 0 || ix >= N || iy >= N) continue;
-          marks[iy * N + ix] = code;
+          if (owner(ix, iy) === rec.variant) marks[iy * N + ix] = code;
         }
       });
       marked = true;
@@ -2487,6 +2559,7 @@
 
     if (root.StreetSigns) for (const sign of root.StreetSigns.candidates({ ...idx, mvtToM:gM }, CELL_M)) {
       const rec=sign.rec;
+      activeVariant=rec.variant;
       let c=null;
       for (const side of [1,-1]) {
         c=verge(rec,sign.x,sign.y,sign.nx,sign.ny,side,rec.variant === 'grassy_lane' ? 3 : 1,3);
@@ -2509,6 +2582,7 @@
     const shrineStreets = new Map(), thornyShrines = new Set();
     for (const rec of (idx.dressingLines || idx.lines)) {
       const v = rec.variant;
+      activeVariant=v;
       if (!v) continue;
       yield 'street dressing';
       const row = VARIANT_BY_ID[v];
@@ -2566,7 +2640,7 @@
             const c = candidate && foeSeat(candidate.ix, candidate.iy);
             if (!c) continue;
             claim(c.ix, c.iy); habitatSeats.add(sid);
-            res.lairs.push({ tier, sid,
+            res.lairs.push({ tier, sid, _street: v,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
             break;
           }
@@ -2639,7 +2713,7 @@
           const ix = cellOfM(x + nx * offset), iy = cellOfM(y + ny * offset);
           const id = WG.cellId('path_web', tx, ty, ix, iy);
           if (webSeats.has(id) || hash01(`web-density|${rec.key}|${ix},${iy}`) >= row.webDensity
-            || !WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) return;
+            || !spawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) return;
           webSeats.add(id); claim(ix, iy);
           res.webs.push({ id, x: cx(ix), y: cy(iy), _street: v, permanent: true });
         });
@@ -2718,7 +2792,7 @@
             }
             if (!c) return;
             burnedSeen.add(sk);
-            res.lairs.push({ tier: 'burned', sid: sk,
+            res.lairs.push({ tier: 'burned', sid: sk, _street: v,
               lx: (c.ix + 0.5) * frameCellM, ly: (c.iy + 0.5) * frameCellM });
           });
         }
@@ -2745,7 +2819,7 @@
               for (let dy = -radius; dy <= radius; dy++) for (let dx = -radius; dx <= radius; dx++) {
                 if (dx || dy) ring.push({ ix: ix + dx, iy: iy + dy });
               }
-              if (!ring.every(c => WG.isSpawnCell(grid,N,N,c.ix,c.iy,spawnOpts,'streetObstacle'))) continue;
+              if (!ring.every(c => spawnCell(grid,N,N,c.ix,c.iy,spawnOpts,'streetObstacle'))) continue;
               claim(ix, iy);
               res.objects.push(WG.makeObject('grove_shrine', cx(ix), cy(iy),
                 WG.cellId('street_shrine', tx, ty, ix, iy),
@@ -2822,6 +2896,7 @@
     // Pool a street's fragments before distributing six paired clusters;
     // splitting mapped geometry must not multiply its encounter budget.
     for (const parts of gangStreets.values()) {
+      activeVariant='goblin_gang';
       yield 'goblin gang clusters';
       const row = VARIANT_BY_ID.goblin_gang;
       const length = parts.reduce((sum, p) => sum + p.b - p.a, 0);
@@ -2840,7 +2915,7 @@
           const guard = foeSeat(origin.ix, origin.iy);
           if (guard) {
             claim(guard.ix, guard.iy);
-            res.lairs.push({ tier: 'street_goblin_gang',
+            res.lairs.push({ tier: 'street_goblin_gang', _street: rec.variant,
               sid: WG.cellId('gang', tx, ty, guard.ix, guard.iy),
               lx: (guard.ix + 0.5) * frameCellM, ly: (guard.iy + 0.5) * frameCellM });
           }
@@ -2864,6 +2939,7 @@
     // cells of it, never across an arterial. Commit only complete sets so
     // blocked ground cannot leave an impossible one- or two-stone puzzle.
     for (const key of [...pilgrimSeats.keys()].sort()) {
+      activeVariant='pilgrim';
       yield 'pilgrim waystones';
       const waystoneSet = `pilgrim:${tx},${ty}:${key}`;
       const target = 3 + Math.floor(hash01(waystoneSet) * 4);
@@ -2898,6 +2974,7 @@
     // Barricades retain one owned endpoint per street and tile, selected by
     // the stable global endpoint hash, with one guard seated off the kerb.
     for (const grp of streetEnds.values()) {
+      activeVariant=grp.v;
       yield 'street end pieces';
       const seen = new Set();
       const cands = [];
@@ -2935,6 +3012,7 @@
       if (!streetShrineChosen(key, shrineStreets.get(key).v)) continue;
       yield 'street shrines';
       const { v, recs } = shrineStreets.get(key);
+      activeVariant=v;
       if (VARIANT_BY_ID[v].shrinePlacement === 'ends') {
         const rec = idx.pathSections?.find(section => section.key === key) || recs[0].rec;
         const length = S.lineLengthM(rec.line, gM);
@@ -2993,6 +3071,7 @@
     // daily activation. Cell claims and the shared hazard gate own every gap.
     for (const rec of (idx.dressingLines || idx.lines)) {
       const row = VARIANT_BY_ID[rec.variant];
+      activeVariant=rec.variant;
       if (!row?.ventKind) continue;
       const spans = S.tileSpans(rec.line, gM, ext);
       const length = S.lineLengthM(rec.line, gM);
@@ -3005,7 +3084,7 @@
           let placed = false;
           for (let k = 1; k <= VERGE_MAX_CELLS; k++) {
             const { ix, iy } = vergeCell(rec, x, y, nx, ny, direction, k);
-            if (!WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) continue;
+            if (!spawnCell(grid, N, N, ix, iy, foeOpts, 'hazard')) continue;
             claim(ix, iy);
             res.vents.push({ id: WG.cellId(`path_vent_${row.ventKind}`, tx, ty, ix, iy),
               x: cx(ix), y: cy(iy), kind: row.ventKind, _street: rec.variant });
@@ -3028,6 +3107,7 @@
     // guarded; the unguarded fallback remains for an entry built without
     // one (the legacy parts). Else nothing, and the next café may take it.
     // Keyed on the POI's GLOBAL point; the id from the hoard's cell.
+    activeVariant=null;
     let hoards = 0;
     for (const hp of idx.hoardPois || []) {
       if (hoards >= HOARDS_PER_TILE) break;
@@ -3104,6 +3184,7 @@
     // Band cells pass the street-obstacle gate, verge cells the cluster's
     // fast-foe gate; then lowest cell hash first, spaced from the cluster.
     for (const [key, { recs, cluster }] of snareStreets) {
+      activeVariant='snare';
       yield 'snare strays';
       const near = new Map();
       for (const rec of recs) {
@@ -3130,8 +3211,8 @@
         const ix = i % N, iy = (i - ix) / N;
         // The shared hazard policy excludes Passing and Excluded cells.
         const ok = road
-          ? WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'streetObstacle')
-          : WG.isSpawnCell(grid, N, N, ix, iy, foeOpts, 'hazard');
+          ? spawnCell(grid, N, N, ix, iy, foeOpts, 'streetObstacle')
+          : spawnCell(grid, N, N, ix, iy, foeOpts, 'hazard');
         if (ok) cands.push({ ix, iy, u: hash01(WG.cellId('snare_stray', tx, ty, ix, iy) + '|' + key) });
       }
       cands.sort((a, b) => a.u - b.u);
@@ -3167,9 +3248,10 @@
     // HOUSE_CRATE_SHARE of the seats stand a tier-1 crate instead of a
     // barrel; the rest are WOODEN barrels (barrelStyle — the clay pot is
     // Pottery Road's). Before the herbs, which fill what is left.
+    activeVariant='plain';
     const T = WG.T;
     const barrelOk = (ix, iy) => ix >= 0 && iy >= 0 && ix < N && iy < N
-      && WG.isSpawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
+      && spawnCell(grid, N, N, ix, iy, spawnOpts, 'reward');
     const isBuildingCell = (t) => t === T.BUILDING || t === T.BUILDING_MED || t === T.BUILDING_LARGE;
     // A building cell's house: the lowest cell index of its 4-connected run
     // of T.BUILDING cells (a flood per house, memoised).
@@ -3389,7 +3471,7 @@
     stretchOf, isBanditStretch, stampBanditStretchesSteps,
     BUS_STOP_MAJOR_CELLS, WAGON_STOP_SHARE, isWagonStop, END_SEAT_CELLS,
     FOE_SEAT_BACK_CELLS, HOARD_POI_CLASSES, HOARD_POI_FALLBACK, HOARDS_PER_TILE, HOARD_SEAT_CELLS,
-    hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat,
+    hoardPick, hoardPoisOf, crossesMajorBand, nearestSeat, variantOwner,
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
