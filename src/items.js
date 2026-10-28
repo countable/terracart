@@ -2095,6 +2095,8 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
+  psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
+  sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
   barricade: 'I lashed the spare timber into a barricade at the workshop, then carried it down to the cave. The narrow passage needed less wood than I feared.',
   crow_feather: 'My legs failed on the long road. I pressed the black feather to my lips. Just enough strength to rise. Sometimes that is all a mercy needs to be.',
   scarecrow: 'The deer have kept to the tree line since I dressed the scarecrow in your father’s coat. Even empty, it can still look cross.',
@@ -2179,6 +2181,10 @@ const ITEM_EFFECTS = {
   longgrass: 'Its tough fibres hold fast when twisted together.',
   petnip: 'A fragrant sprig that cheers a pet and strengthens its heart.',
   nettle: 'A stinging herb ground into Growth Powder to wake sleeping crops. Pick it with care.',
+  white_flower: 'A small pale bloom. Its scent makes your eyelids heavy.',
+  yellow_flower: 'Bright pollen dusts your fingers, and the road seems to sway.',
+  golden_flower: 'Golden petals that glitter like the dust of a long dream.',
+  young_fern: 'Old wives hang fern over the door to keep harm outside.',
   rubble: 'Beneath its pale skin lies a stone hard enough for a ruined wall.',
   quartz: 'Soft pink light catches in the stone’s cloudy heart.',
   topaz: 'A honey-gold gleam rests between its sharp edges.',
@@ -3084,6 +3090,9 @@ const HOME_RECIPES = [
   { id: 'trap_disarm_kit', station: 'workshop', cost: [{ id: 'rubble', qty: 4 }] },
   { id: 'sugar_potion', station: 'workshop', cost: [{ id: 'berry', qty: 2 }] },
   { id: 'growth_powder', station: 'workshop', cost: [{ id: 'nettle', qty: 3 }, { id: 'longgrass', qty: 5 }] },
+  // Roadside flora: same-tier inputs, like Growth Powder's nettles and grass.
+  { id: 'psychosis_powder', station: 'workshop', cost: [{ id: 'yellow_flower', qty: 5 }, { id: 'young_fern', qty: 2 }] },
+  { id: 'sleep_powder', station: 'workshop', cost: [{ id: 'golden_flower', qty: 3 }, { id: 'white_flower', qty: 3 }] },
   ...ITEMS.filter(item => item.scroll).map(item => ({
     id: item.id, station: 'workshop', cost: [{ id: 'blank_scroll', qty: 1 }],
   })),
@@ -3100,6 +3109,7 @@ const BREW_RECIPES = [
   { id: 'blight_potion', cost: [{ id: 'marigold', qty: 2 }, { id: 'meat', qty: 1 }], coins: 5 },
   { id: 'shielding_potion', cost: [{ id: 'starflower', qty: 2 }, { id: 'milk', qty: 1 }], coins: 20 },
   { id: 'shrinking_potion', cost: [{ id: 'mango', qty: 2 }], coins: 4 },
+  { id: 'protection_potion', cost: [{ id: 'young_fern', qty: 4 }, { id: 'white_flower', qty: 2 }], coins: 25 },
 ];
 // Spears are known from the start in every difficulty. Other recipes
 // are learned by first finding their output in the wild, never by buying,

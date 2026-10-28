@@ -918,7 +918,7 @@ const TAP_HANDLERS = [
     // THE CATCH (owner, Oct 2026): GIVING a wild animal or an enemy its
     // favourite starts the attempt — nothing is prepared beforehand. The
     // favourite is given (spent) as the wheel starts; the difficulty is the
-    // creature's current HP times two (Pets.catchMs); it bolts for the edge
+    // creature's current HP (Pets.catchMs); it bolts for the edge
     // of your reach the whole time (startCatchProgress' flee) and the
     // attempt fails if it gets out. While it runs you do not fight
     // (app.js: no auto-fire, no throw) and it is nobody's enemy
