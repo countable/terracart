@@ -3437,6 +3437,9 @@ Render.drawCells = function drawCells(scene) {
 // other side. Rather than reordering the layers (a label still needs to read
 // over a building), any label whose box overlaps the player's fades back.
 const LABEL_OVER_PLAYER_ALPHA = 0.3;
+// POI names sit a step back from the rest of the map text so they label the
+// map without shouting over it.
+const POI_LABEL_ALPHA = 0.88;
 // The player's screen box, inset a little so a label merely touching the
 // sprite's transparent margin doesn't trip it. Null when there's no player
 // sprite yet (boot, or a stub scene in tests) — then nothing fades.
@@ -3450,9 +3453,9 @@ function playerScreenBox(scene) {
     y0: p.y - h * p.originY + inset, y1: p.y + h * (1 - p.originY) - inset,
   };
 }
-// Dim `tx` when it overlaps `box`; restore it to full alpha when it doesn't.
-function fadeLabelOverPlayer(tx, box) {
-  if (!box) { tx.setAlpha(1); return; }
+// Dim `tx` when it overlaps `box`; restore it to `base` alpha when it doesn't.
+function fadeLabelOverPlayer(tx, box, base = 1) {
+  if (!box) { tx.setAlpha(base); return; }
   let w = tx.width, h = tx.height;
   let x0 = tx.x - w * tx.originX, y0 = tx.y - h * tx.originY;
   // Quarter-turned labels (the vertical POI names) occupy the transpose of the
@@ -3464,7 +3467,7 @@ function fadeLabelOverPlayer(tx, box) {
     const t = w; w = h; h = t;
   }
   const hit = x0 < box.x1 && x0 + w > box.x0 && y0 < box.y1 && y0 + h > box.y0;
-  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA : 1);
+  tx.setAlpha(hit ? LABEL_OVER_PLAYER_ALPHA * base : base);
 }
 
 // Shared building visibility geometry. These tests use retained vertices and
@@ -5143,7 +5146,7 @@ Render.drawObjects = function drawObjects(scene) {
     // Switch font size + padding live: fallback labels are smaller. Done
     // BEFORE the layout below, which measures the rendered text.
     tx.setText(label);
-    tx.setFontSize(isFallback ? 9 : 11);
+    tx.setFontSize(isFallback ? 8 : 10);
     setPaddingOnce(tx, isFallback ? 'f' : 'n', isFallback ? 2 : 3, isFallback ? 1 : 2);
     // No space between a stall's two lines: Phaser counts the stroke into
     // each line's height, so the spacing takes it back out.
@@ -5179,9 +5182,9 @@ Render.drawObjects = function drawObjects(scene) {
     // orientation branch above). The pool is shared and a pooled slot may have
     // just drawn the other kind, so set it every frame.
     setColorOnce(tx, o.crate ? CRATE_LABEL_INK : LABEL_INK);
-    // Full opacity EXCEPT where the label would cover the player; opened chests
+    // POI_LABEL_ALPHA EXCEPT where the label would cover the player; opened chests
     // keep their label legible (the chest sprite carries the opened state).
-    fadeLabelOverPlayer(tx, _playerBox);
+    fadeLabelOverPlayer(tx, _playerBox, POI_LABEL_ALPHA);
   }, labelFactory('poi'));
 
   // House signs under the doorstep. A ranked or themed building hangs a

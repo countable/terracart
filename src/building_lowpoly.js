@@ -29,7 +29,7 @@
   // restoredRoles lists the RESTORED_ROLES whose look is live; null makes all of them live.
   const LOOK={heightScale:1,inkPx:1,wallThickness:2.8,ink:0x2a2229,textured:true,facade:'cel',facadeVariant:'A',restoredRoles:['relic'],eaveBand:4.5,eaveShade:.5,flatRim:1.75,flatShade:4.5,sheet:768,
     chimney:{radius:4.4,cap:5.8,mouth:3.4,above:6.5,rise:3.5,capHeight:1.1,sides:0xd9c9b8,capColor:0x9c8f84,mouthColor:0x2a2229},
-    wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,cap:0xe6e6e6,ink:0x000000}};
+    wreck:{tint:0xb3a89e,roofTint:0xc5c2bc,debris:0x8f857a,beam:0x7d8b95,top:0xaa9b88,highlight:0xc2b29a,shadow:0x8c7d6b,mortar:0xaa9b88,cap:0xd6d6d6,ink:0x000000}};
   // wreck.cap tints the pale speckled caps of walls and fallen blocks a touch
   // below the lit wall faces; study-sheet wrecks keep their native caps.
   // The light of a wreck's inner wall faces and rubble floor: the middle cel step.

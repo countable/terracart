@@ -392,7 +392,7 @@ fallen blocks are 2–4 units tall; their count scales with footprint area up to
 24. Their full rotated bases must fit inside the source ring, including rubble
 beside a breach. No roofs or raised framing remain.
 `tools/build_wreck_plinth.py` uses the study’s FDR masonry crop, warm pale
-speckled caps (tinted about 10% down by `LOOK.wreck.cap` so they never
+speckled caps (tinted about 16% down by `LOOK.wreck.cap` so they never
 glare above the lit walls), and a restrained ground scatter using the same warm stone
 palette. Broad tarnish patches replace the study’s fine tiled grain and red
 brick flecks. The generator also supports buried-rubble and worn-ground previews.
