@@ -2206,7 +2206,58 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
   }, true);
 };
 
+// Field-testing overlay: cached nearest-road ownership, sampled only for the
+// visible cell ring. This never changes generated ground, claims or spawns.
+const _variantTintOwners = new WeakMap();
+Render.variantTintColor = function variantTintColor(entry, ix, iy) {
+  const N=entry?.cellsPerEdge, i=iy*N+ix;
+  if (!entry?.grid || entry.depth > 0 || !(N>0) || ix<0 || iy<0 || ix>=N || iy>=N) return null;
+  if (entry.variantDiscarded?.[i]) return null;
+  const winner=WorldGen.variantOwnerAt(entry,i);
+  if (winner==='home' || winner==='cave') return null;
+  if (winner==='zone') {
+    const anchor=WorldGen.zoneAnchorAt(entry,i);
+    const row=anchor && typeof ZoneVariants!=='undefined' && ZoneVariants.pick(anchor);
+    if (!row) return null;
+    const materials=Object.entries(row.background?.materialDensity || {}).sort((a,b)=>b[1]-a[1]);
+    const color=ZoneVariants.materials[materials[0]?.[0]]?.color || row.lampGlow;
+    return /^#[0-9a-f]{6}$/i.test(color || '') ? parseInt(color.slice(1),16) : null;
+  }
+  const index=entry.streetIndex;
+  if (!index || typeof StreetVariants==='undefined') return null;
+  let cached=_variantTintOwners.get(index);
+  if (!cached || cached.N!==N || cached.lines!==index.lines || cached.dressingLines!==index.dressingLines) {
+    cached={N,lines:index.lines,dressingLines:index.dressingLines,owner:StreetVariants.variantOwner(index,N)};
+    _variantTintOwners.set(index,cached);
+  }
+  const variant=cached.owner(ix,iy);
+  return typeof RoadOverlay!=='undefined' ? RoadOverlay.primaryColor(variant) : null;
+};
+Render.setVariantTint = function setVariantTint(scene, enabled) {
+  scene.debugVariantTint=!!enabled;
+  try { localStorage.setItem('terracart.debugVariantTint',enabled?'1':'0'); } catch (_) {}
+  const button=typeof document!=='undefined' && document.getElementById?.('debug-variant-tint');
+  if (button) {
+    button.textContent=`Variant ground tint: ${enabled?'on':'off'}`;
+    button.setAttribute('aria-pressed',String(!!enabled));
+  }
+  if (!enabled) scene._variantTintGfx?.clear().setVisible(false);
+};
+Render.beginVariantTint = function beginVariantTint(scene) {
+  scene._variantTintGfx?.clear();
+  if (!scene.debugVariantTint || scene.depth!==0) {
+    scene._variantTintGfx?.setVisible(false);return null;
+  }
+  if (!scene._variantTintGfx) {
+    scene._variantTintGfx=scene.add.graphics();
+    scene.cobbleContainer.add(scene._variantTintGfx);
+  }
+  scene._variantTintGfx.setVisible(true);
+  return scene._variantTintGfx;
+};
+
 Render.drawCells = function drawCells(scene) {
+  const variantTint=Render.beginVariantTint(scene);
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
@@ -2530,6 +2581,16 @@ Render.drawCells = function drawCells(scene) {
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
+      if (variantTint) {
+        const slot=(row+2)*RING+col+2;
+        const entry=WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[slot],_ringTY[slot]));
+        const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
+        if (tint!=null) {
+          variantTint.fillStyle(tint,.42);
+          variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
+        }
+      }
+
 
       // Resolve only the cells in view; the permanent burn ledger can grow
       // indefinitely without increasing the cost of a frame.
@@ -6559,7 +6620,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
-    roadsign: { key: 'street_decor_direction_sign', frame: '__BASE', origin: [0.5, 0.5], scale: .65, seat: true, shadow: true },
+    roadsign: { key: 'street_direction_marker', frame: o => StreetSigns.frame(o), origin: [0.5, 0.5], scale: 1, seat: true, shadow: true },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.

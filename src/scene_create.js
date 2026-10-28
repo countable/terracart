@@ -1509,6 +1509,10 @@ class SceneCreate {
     this._steerCostAccrue = 0;
 
 
+    let debugVariantTint = false;
+    try { debugVariantTint = localStorage.getItem('terracart.debugVariantTint') === '1'; } catch (_) {}
+    Render.setVariantTint(this, debugVariantTint);
+
     let debugGpsStick = false;
     try { debugGpsStick = localStorage.getItem('terracart.debugGpsStick') === '1'; } catch (_) {}
     this.setDebugGpsStick(debugGpsStick || !!_reviewLocation);

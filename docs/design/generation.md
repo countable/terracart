@@ -1103,6 +1103,13 @@ Higher-priority placements and their access space take precedence in this order:
 5. Road variants, across their defined corridor and verge, including
    deliberately empty gaps. The claim reaches two cells past the road band
    (`StreetVariants.TERRAIN_VERGE_CELLS`) for ownership and placement priority.
+   Overlapping roads partition cells by the nearest centerline, with stable
+   road-key/variant ties. Plain intervals compete as well. Terrain, reserved
+   variant codes, story marks, props, hazards, rewards and relocated encounter
+   seeds all respect that same partition, including dressing beyond the reserved
+   corridor. Initial lair members remain in their source road's variant; ordinary
+   movement afterwards is unchanged. A bounding-volume tree and memoized cell
+   queries avoid scanning every road for each spawn candidate.
    Small-road themes also paint ground beneath the road and within their
    configured verge: two cells by default, Orchard one cell of grass,
    Pilgrim Old Stones churchyard ground, and Thorny its existing four-cell
