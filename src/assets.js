@@ -33,7 +33,6 @@ const ASSETS = {
       RoadOverlay.invalidate(scene);
     } },
   selected_shrub: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/shrub-olive.png', frameWidth: 16, frameHeight: 16 },
-  weather_rain: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/rain.png', frameWidth: 16, frameHeight: 16 },
   // One native 24px top-down steel snare frame, cropped with provenance in
   // ArtTrials/RogueObjects/manifest.json. textures.js seats it in the 32px cell.
   snare_open: { kind: 'spritesheet', path: 'assets/ArtTrials/RogueObjects/snare_open.png', frameWidth: 24, frameHeight: 24 },
