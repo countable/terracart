@@ -328,14 +328,17 @@ mechanics.
 - Magic Shop brewing uses `BREW_RECIPES` in items.js. Each batch consumes the
   recipe's ingredients and fixed coin fee for one potion. Finding its output in
   the wild unlocks a recipe through `homeRecipeLocked`; buying or brewing never
-  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding
-  and Shrinking are brewable; Revival and Resurrection remain unbrewable.
+  unlocks one. Antidote, Hardworking, Grip, Healing, Stoneskin, Blight, Shielding,
+  Shrinking and Protection are brewable; Revival and Resurrection remain unbrewable.
   Healing uses berries and onions; Blight uses Marigolds and Meat;
-  Shielding uses Starflowers and Milk. Shrinking
+  Shielding uses Starflowers and Milk; Protection uses Young Ferns and White
+  Flowers. Shrinking
   uses two Mango and four coins, an intentional exception to same-tier inputs
   and the otherwise conservative recipe economics. Sugar Potion retains its
   workshop recipe. Growth Powder is crafted at a workshop from three Nettles
-  and five Long Grass after finding the powder in the wild. Brewing does not change potion effects.
+  and five Long Grass after finding the powder in the wild. The roadside flora
+  make two more workshop powders the same way: Psychosis from Yellow Meadow
+  Flowers and Young Ferns, Sleep from Golden and White Flowers. Brewing does not change potion effects.
 - Home light and ward retain `HOME_R` and surface-only `homeWorldPos()`.
   Home rest uses `isRestingAtHome`: the player's owned Home building cells
   and their four edge-sharing neighbours, never corner-only contact. Ownership
