@@ -1577,20 +1577,19 @@ Archive towers use two arched window levels in the same wall decal; military
 towers sample one arch from that shared tile. Archive towers and keeps use a
 broader, quieter ashlar tile than their curtains, and flush dark double doors.
 Their fully opaque tower tiles also participate in Canvas seam coverage.
-Archive towers and keeps have four roof triangles when restored and two surviving
-planes over a closed flat cap when wrecked. Archive has no wood, galleries,
+Archive towers and keeps have four roof triangles over a closed flat cap in both
+restored and wrecked states. Archive has no wood, galleries,
 modeled roof framing or book banner. Four restrained teal face values reveal
 each Archive pyramid peak without increasing its four-triangle roof. A shared
 opaque ridge/eave tile adds restrained edge detail; keep roof rise scales with
 its span to preserve tower roof pitch. Military tower crowns include the same shorter, wider
 teeth on all four sides at the same sixteen-unit pitch. End margins absorb
 remaining length, and side rows stop before the front/back rows to avoid
-overlapping corner teeth. Surviving
-wreck teeth vary in height using the same prism faces. Bastion's broader tower shafts
+overlapping corner teeth. Wrecks retain the restored geometry: full-height walls,
+towers and teeth, and complete roofs. Condition changes textures and colours only. Bastion's broader tower shafts
 fill their square cutouts above height four; the same eight basal triangles
 flare two pixels outward at ground level, without adding a plinth mesh or opening
-vertical gaps at curtain joins. Wreck crests lose a few broad sections; teeth
-over those pieces are omitted and adjoining tall pieces expose their step faces.
+vertical gaps at curtain joins.
 Geometry and material faces are retained
 through compass rotation, without per-brick tessellation, pixel readback or
 per-building texture creation. The scene's normal map camera projects the
