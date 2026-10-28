@@ -274,6 +274,14 @@ pixels and decorative details do not define additional tap cells.
   loaded, so it installs no reflection layers, animation loop, or tilt listeners.
   The baked emission assets and `CompassShine` implementation remain available
   for the development prototype.
+- Two short notes sit low in the round map. "no compass — tap the map"
+  shows until a heading arrives. "compass unsure: wave in a figure 8"
+  shows at most once per session, only after iPhone compass accuracy has been
+  unknown or worse than 30° for 10 s while GPS has a fix; Safari never shows
+  the iPhone's own calibration screen to a page. Unknown accuracy is routine
+  indoors, where waving does not help, so no fix means no note. It clears on
+  good accuracy or after 15 s (`HeadingUp.calibrateHint` owns the numbers),
+  and replaces the no-compass note while it shows.
 
 - Starter guidance is a floating Dragon Spirit portrait with a compact, pale
   speech bubble at the top of the screen. It stays hidden until the opening story,

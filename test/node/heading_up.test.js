@@ -523,3 +523,33 @@ test('heading up: keyboard preserves typing and lock restores sensor policy', ()
   HeadingUp.keyTurn(scene,{key:'E'});assert.truthy(scene._huManualAngle!=null);
   HeadingUp.toggleLock(scene);assert.eq(scene._huManualAngle,null);
 });
+
+test('heading up: figure-8 hint waits for sustained poor accuracy with a GPS fix, once per session', () => {
+  const scene = { gpsM: { x: 0, y: 0 } }, after = HeadingUp.CALIBRATE_AFTER_MS;
+  assert.falsy(HeadingUp.calibrateHint(scene, 0), 'no iPhone accuracy reading, no hint');
+  scene._compassRaw = { heading: 90, accuracy: 10 };
+  assert.falsy(HeadingUp.calibrateHint(scene, 0));
+  scene._compassRaw.accuracy = 45;
+  assert.falsy(HeadingUp.calibrateHint(scene, 1000));
+  scene._compassRaw.accuracy = 5;
+  assert.falsy(HeadingUp.calibrateHint(scene, 1000 + after), 'a good reading restarts the wait');
+  scene._compassRaw.accuracy = -1;
+  assert.falsy(HeadingUp.calibrateHint(scene, 2000 + after));
+  assert.truthy(HeadingUp.calibrateHint(scene, 2000 + 2 * after), 'unknown accuracy counts as poor');
+  scene._compassRaw.accuracy = 12;
+  assert.falsy(HeadingUp.calibrateHint(scene, 3000 + 2 * after), 'good accuracy clears it');
+  scene._compassRaw.accuracy = -1;
+  assert.falsy(HeadingUp.calibrateHint(scene, 10 * after), 'never twice in a session');
+});
+
+test('heading up: figure-8 hint stays away indoors and stops on its own', () => {
+  const indoors = { gpsM: null, _compassRaw: { heading: 90, accuracy: -1 } };
+  for (const now of [0, 60000, 600000]) assert.falsy(HeadingUp.calibrateHint(indoors, now), 'no fix, no hint');
+  const outside = { gpsM: { x: 0, y: 0 }, _compassRaw: { heading: 90, accuracy: 80 } };
+  HeadingUp.calibrateHint(outside, 0);
+  const shownAt = HeadingUp.CALIBRATE_AFTER_MS;
+  assert.truthy(HeadingUp.calibrateHint(outside, shownAt));
+  assert.truthy(HeadingUp.calibrateHint(outside, shownAt + HeadingUp.CALIBRATE_SHOW_MS - 1));
+  assert.falsy(HeadingUp.calibrateHint(outside, shownAt + HeadingUp.CALIBRATE_SHOW_MS), 'times out while still poor');
+  assert.falsy(HeadingUp.calibrateHint(outside, shownAt + 10 * HeadingUp.CALIBRATE_SHOW_MS));
+});

@@ -27,6 +27,15 @@ const HeadingUp = {
   MAX_DEG_S: 240,
   DEAD_DEG: 3,
   KEY_STEP_DEG: 15,
+  // Figure-8 hint: Safari never shows the iPhone's own calibration screen to
+  // a page, so the map asks once per session when accuracy (webkitCompassAccuracy,
+  // degrees; negative = unknown) stays worse than CALIBRATE_DEG for
+  // CALIBRATE_AFTER_MS with a GPS fix. Unknown accuracy is routine indoors,
+  // where waving the phone doesn't help, so no fix means no hint. It clears
+  // on good accuracy or after CALIBRATE_SHOW_MS.
+  CALIBRATE_DEG: 30,
+  CALIBRATE_AFTER_MS: 10000,
+  CALIBRATE_SHOW_MS: 15000,
 
   enabled: (() => {
     try {
@@ -75,6 +84,23 @@ const HeadingUp = {
   cancelGpsRequest(scene) {
     if (scene._compassGpsRequest) Geo.unsubscribe(scene._compassGpsRequest);
     scene._compassGpsRequest = null;
+  },
+
+  // Whether the figure-8 hint shows this frame. `now` in ms.
+  calibrateHint(scene, now) {
+    const raw = scene._compassRaw, accuracy = raw?.accuracy;
+    if (scene._huCalibrateDone || accuracy == null) return false;
+    const poor = !Number.isFinite(accuracy) || accuracy < 0 || accuracy > HeadingUp.CALIBRATE_DEG;
+    if (scene._huCalibrateShownAt != null) {
+      if (poor && now - scene._huCalibrateShownAt < HeadingUp.CALIBRATE_SHOW_MS) return true;
+      scene._huCalibrateDone = true;
+      return false;
+    }
+    if (!poor || !HeadingUp.hasGps(scene)) { scene._huPoorSince = null; return false; }
+    scene._huPoorSince ??= now;
+    if (now - scene._huPoorSince < HeadingUp.CALIBRATE_AFTER_MS) return false;
+    scene._huCalibrateShownAt = now;
+    return true;
   },
 
   // Map rotation in radians (the camera's): the world turns by -heading.
@@ -174,6 +200,13 @@ const HeadingUp = {
       padding: { x: 4, y: 2 },
     }).setOrigin(0.5).setDepth(91);
     scene._huNoCompass._huUI = true;
+    // Longer than the no-compass note, so it sits higher, where the round
+    // window is wide enough to show all of it.
+    scene._huCalibrate = scene.add.text(cx, cy + r * 0.6, 'compass unsure: wave in a figure 8', {
+      ...phaserFontUI('11px'), color: '#ffffff', backgroundColor: 'rgba(0,0,0,0.6)',
+      padding: { x: 4, y: 2 },
+    }).setOrigin(0.5).setDepth(91).setVisible(false);
+    scene._huCalibrate._huUI = true;
 
     // Explicit camera input works even when GPS automatically locks heading.
     scene.input.keyboard?.on('keydown', e => HeadingUp.keyTurn(scene, e));
@@ -230,7 +263,11 @@ const HeadingUp = {
         scene.mapRot = Math.atan2(Math.sin(scene.mapRot + step), Math.cos(scene.mapRot + step));
       }
     }
-    scene._huNoCompass.setVisible(manual == null && !scene._deviceCompass && deg == null);
+    // A sensor that sends only unusable iPhone headings still gets the
+    // figure-8 note, which then replaces the no-compass one.
+    const calibrate = HeadingUp.calibrateHint(scene, performance.now());
+    scene._huCalibrate?.setVisible(calibrate);
+    scene._huNoCompass.setVisible(!calibrate && manual == null && !scene._deviceCompass && deg == null);
     const g = scene._huNorth;
     g.clear();
     // The silver chassis supplies the same true-north needle above the map.
