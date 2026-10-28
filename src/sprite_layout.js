@@ -931,7 +931,7 @@
     // meat, as the deer does.
     chicken:       { wanders: true, stepMs: 6000, drop: 'meat', produce: { item: 'egg', shinyItem: 'shiny_egg', verb: 'laid' } },
     // A cow takes twice the netting — through its HP (combat.js FAUNA_HP: a
-    // catch's difficulty is current HP × 2, Pets.catchMs).
+    // catch's difficulty is current HP, Pets.catchMs).
     cow:           { wanders: true, drop: 'meat', produce: { item: 'milk', verb: 'milked' } },
     // The shore crab is the chicken's row on the beach: tamed with its
     // favourite (items.js ANIMAL_FOOD.crab) or netted; a fed one gives a SHELL.

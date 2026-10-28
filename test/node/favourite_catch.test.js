@@ -3,7 +3,7 @@
 // enemy's roster-tier gem (gemForTier over GEM_DEPOSITS), an ANIMAL_FOOD row on
 // an enemy kind overriding (the slimes' sapphire). Giving a wild one its
 // favourite starts the catch at once — one favourite spent, the net wheel run
-// for Pets.catchMs (2 × current HP at the net's tool rate) — and during the
+// for Pets.catchMs (current HP at the net's tool rate) — and during the
 // attempt it is nobody's enemy (Combat.isEnemy: _beingCaught). Anything else
 // is refused and kept. The hunt (deer/crow, empty hand, weapon active) is not
 // a catch.
@@ -67,12 +67,12 @@ test('favourite: every live roster enemy has one — its tier gem, unless an ANI
   assert.truthy(Pets.likes({ kind: 'goblin' }, 'amethyst')); assert.falsy(Pets.likes({ kind: 'goblin' }, 'quartz'));
 });
 
-test('favourite: a catch takes 2 × current HP at the net\'s rate', () => {
+test('favourite: a catch takes current HP at the net\'s rate', () => {
   const save = newSave();
   const g = foe('goblin');
   const full = Pets.catchMs(save, g);
   const netRate = Combat.dpsForDurationMs(toolDurationMs(save.relics, 'net'));
-  assert.inRange(full, 2 * Combat.maxHp(g) / netRate * 1000 - 1e-6, 2 * Combat.maxHp(g) / netRate * 1000 + 1e-6, 'HP × 2 at the net rate');
+  assert.inRange(full, Combat.maxHp(g) / netRate * 1000 - 1e-6, Combat.maxHp(g) / netRate * 1000 + 1e-6, 'HP at the net rate');
   const hurt = { ...g, _hp: Combat.maxHp(g) / 2 };
   assert.inRange(Pets.catchMs(save, hurt), full / 2 - 1e-6, full / 2 + 1e-6, 'half the HP: half the time');
   const better = Pets.catchMs(newSave({ relics: { net: { tier: 5 } } }), foe('goblin'));
