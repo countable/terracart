@@ -277,16 +277,20 @@
       for (const entry of plan.finds) { plan.background.delete(entry.i); plan.clear.add(entry.i); }
     }
     if (id === 'quarry-stronghold') {
-      // Pot seats are interior, outside doors and finite reward seats.
-      for (const m of plan.landmarks) {
-        const [x,y,r,b]=m.bounds;
-        if (hash(x,y,197) >= settings.foundationPotChance) continue;
+      // Pot seats are interior, outside doors and finite reward seats. A room
+      // without a pot may hold a wooden barrel instead, unless it is a chest room.
+      const chestRooms = s.a.owned ? s.variant.finds.count : 0;
+      for (const [n, m] of plan.landmarks.entries()) {
+        const [x,y,r,b]=m.bounds, roll=hash(x,y,197);
+        const material = roll < settings.foundationPotChance ? 'clay_pot'
+          : n >= chestRooms && roll < settings.foundationPotChance + settings.foundationBarrelChance ? 'quarry_barrel' : null;
+        if (!material) continue;
         for (let yy=y+1;yy<b;yy++) {
           let placed=false;
           for (let xx=x+1;xx<r;xx++) {
             const i=yy*N+xx;
             if (!covered.has(i) || plan.clear.has(i) || plan.background.has(i)) continue;
-            put(xx,yy,'clay_pot'); placed=true; break;
+            put(xx,yy,material); placed=true; break;
           }
           if (placed) break;
         }
