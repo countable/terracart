@@ -1,9 +1,15 @@
 (function () {
-test('street signs: compass frames preserve every connected heading', () => {
-  const headings=['East','Southeast','South','Southwest','West','Northwest','North','Northeast'];
-  headings.forEach((direction,i)=>assert.eq(StreetSigns.frame({directions:[{direction}]}),1<<i));
-  assert.eq(StreetSigns.frame({directions:[{direction:'North'},{direction:'East'},{direction:'East'}]}),65);
-  assert.eq(StreetSigns.frame({}),0);
+test('street signs: posts follow vector edges without snapping their feet to cell centres', () => {
+  for (const angle of [0, Math.PI / 4, Math.PI / 2]) {
+    const sign = {rec:{halfW:4},x:103,y:107,nx:Math.cos(angle),ny:Math.sin(angle)};
+    const seats = StreetSigns.edgeSeats(sign, 7);
+    seats.forEach((seat, i) => {
+      const distance = (seat.x-sign.x)*sign.nx + (seat.y-sign.y)*sign.ny;
+      assert.truthy(Math.abs(distance - (i ? -5.4 : 5.4)) < 1e-9);
+      assert.eq(seat.ix, Math.floor(seat.x/7));
+      assert.eq(seat.iy, Math.floor(seat.y/7));
+    });
+  }
 });
 test('street signs: directions describe only actual junction geometry', () => {
   const index = {mvtToM:1, lines:[

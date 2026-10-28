@@ -6620,7 +6620,7 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
-    roadsign: { key: 'street_direction_marker', frame: o => StreetSigns.frame(o), origin: [0.5, 0.5], scale: 1, seat: true, shadow: true },
+    roadsign: { key: 'street_decor_direction_sign', frame: 0, origin: [0.5, 0.5], scale: () => STREET_DECORATION_ART.direction_sign.scale, seat: true, shadow: true },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.

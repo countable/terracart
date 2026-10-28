@@ -1535,23 +1535,7 @@ function drawInteriorFloorTexture(ctx, size, source, tier) {
   }
 }
 
-function makeStreetSignTextures(scene) {
-  const KEY = 'street_direction_marker';
-  if (scene.textures.exists(KEY)) return;
-  const texture = scene.textures.createCanvas(KEY, 512, 512), ctx = texture.getContext();
-  for (let mask = 0; mask < 256; mask++) {
-    const x = (mask % 16) * 32, y = Math.floor(mask / 16) * 32;
-    ctx.save();
-    ctx.translate(x, y);
-    StreetSigns.paint(ctx, mask);
-    ctx.restore();
-    texture.add(mask, 0, x, y, 32, 32);
-  }
-  texture.refresh();
-}
-
 function makeBiomeTextures(scene, size) {
-  makeStreetSignTextures(scene);
   selectedWaterTrialSource = typeof ArtTrials !== 'undefined' && ArtTrials.water
     && scene.textures.exists(ArtTrials.waterKey)
     ? scene.textures.get(ArtTrials.waterKey).getSourceImage() : null;

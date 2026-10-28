@@ -2400,10 +2400,14 @@ test('Grassy Lane fills its road and both verges with unique harvestable grass',
     return SV.dress({ ...f, tx: 0, ty: 0, tileEdgeM: f.N * 7,
       spawnOpts: { roadMask: f.roadMask, spawnWhy: f.spawnWhy, occupied: new Set([6 * f.N + 5]) } });
   };
-  const plants = build().wildplants, grass = plants.filter(p => p.crop === 'longgrass');
+  const dressed = build(), plants = dressed.wildplants, grass = plants.filter(p => p.crop === 'longgrass');
+  const signs = dressed.objects.filter(o => o.kind === 'roadsign');
   const cells = new Set(grass.map(p => Math.floor(p.x / 7) + ',' + Math.floor(p.y / 7)));
   for (let x = 1; x < 10; x++) for (let y = 4; y <= 8; y++) {
     if (x === 5) continue; // an occupied centre stops this cross-section
+    if (signs.some(o => Math.floor(o.x / 7) === x
+      && (y >= 6 ? Math.floor(o.y / 7) >= 6 && Math.floor(o.y / 7) <= y
+        : Math.floor(o.y / 7) <= 6 && Math.floor(o.y / 7) >= y))) continue;
     assert.truthy(cells.has(x + ',' + y), `thick grass at ${x},${y}`);
   }
   assert.falsy(cells.has('5,6'), 'existing occupants keep their seat');
@@ -2501,7 +2505,7 @@ test('street verge dressing: light road paint permits ground-only rows but keeps
     const index=indexOfLines(fragmented?[[line[1],mid],[mid,line[0]]]:[line],ROCKY,TX,TY,TILE_EDGE_M/EXTENT);
     const d=SV.dress({index,tx:TX,ty:TY,N:CPE,tileEdgeM:TILE_EDGE_M,grid,
       spawnOpts:{roadMask,spawnWhy,occupied,roadClass:new Uint8Array(CPE*CPE)}});
-    return [...d.objects,...d.wildplants].filter(o=>o._street==='rocky_path');
+    return [...d.objects,...d.wildplants].filter(o=>o._street==='rocky_path' && o.kind !== 'roadsign');
   };
   const firstRow=items=>items.filter(o=>cellOf(o.y,TY)===25);
   const baseline=run();

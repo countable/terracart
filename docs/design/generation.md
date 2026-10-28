@@ -1117,6 +1117,9 @@ Higher-priority placements and their access space take precedence in this order:
    corridor. Initial lair members remain in their source road's variant; ordinary
    movement afterwards is unchanged. A bounding-volume tree and memoized cell
    queries avoid scanning every road for each spawn candidate.
+   Direction signs sit 0.2 cells outside the vector road half-width, trying
+   either side and claiming the cell containing the post. Blocked seats are
+   skipped rather than moving the sign farther from its road.
    Small-road themes also paint ground beneath the road and within their
    configured verge: two cells by default, Orchard one cell of grass,
    Pilgrim Old Stones churchyard ground, and Thorny its existing four-cell

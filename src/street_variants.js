@@ -2549,14 +2549,12 @@
     if (root.StreetSigns) for (const sign of root.StreetSigns.candidates({ ...idx, mvtToM:gM }, CELL_M)) {
       const rec=sign.rec;
       activeVariant=rec.variant;
-      let c=null;
-      for (const side of [1,-1]) {
-        c=verge(rec,sign.x,sign.y,sign.nx,sign.ny,side,rec.variant === 'grassy_lane' ? 3 : 1,3);
-        if(c)break;
-      }
+      const c = root.StreetSigns.edgeSeats(sign, CELL_M).find(c => cellOk(c.ix, c.iy));
       if(!c)continue;
       claim(c.ix,c.iy);
-      res.objects.push(WG.makeObject('roadsign',cx(c.ix),cy(c.iy),
+      res.objects.push(WG.makeObject('roadsign',
+        cx(c.ix) + (c.x / CELL_M - c.ix - .5) * frameCellM,
+        cy(c.iy) + (c.y / CELL_M - c.iy - .5) * frameCellM,
         WG.cellId('street_sign',tx,ty,c.ix,c.iy),
         { _street:rec.variant,_streetArt:'direction_sign',directions:sign.directions }));
     }
