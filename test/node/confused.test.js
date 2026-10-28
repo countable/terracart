@@ -24,6 +24,8 @@
       assert.eq(s._targetM.x,1000);assert.eq(s.gpsM.x,2000,'the real fix is never overwritten');
       const busy=body();busy._busyWheel=()=>true;
       step.call(busy,1,null,2);assert.eq(busy.playerM.x,0,'active work keeps its body hold');
+      const catching=body();catching._busyWheel=()=>({flee:{}});
+      step.call(catching,1,null,2);assert.gt(Math.hypot(catching.playerM.x,catching.playerM.y),0,'a catch wheel does not root the body');
       const blocked=body();blocked._cellBlocked=()=>true;
       step.call(blocked,1,null,2);assert.eq(blocked.playerM.x,0);assert.eq(blocked.playerM.y,0);
       const slow=body();step.call(slow,.1,.2,2);

@@ -12,17 +12,15 @@
   }
   const near = (actual, expected) => assert.lt(Math.abs(actual - expected), 1e-6);
 
-  test('compass sensor: iPhone rejects invalid and uncalibrated samples without changing the bearing', () => {
+  test('compass sensor: iPhone rejects invalid headings without changing the bearing', () => {
     const { scene, send } = sensor();
     send({ webkitCompassHeading: 90, webkitCompassAccuracy: 10 });
     near(scene.compassDeg, 90);
     const reading = scene._deviceCompass;
     for (const event of [
       { webkitCompassHeading: -1, webkitCompassAccuracy: 10 },
-      { webkitCompassHeading: 0, webkitCompassAccuracy: -1 },
       { webkitCompassHeading: NaN, webkitCompassAccuracy: 10 },
       { webkitCompassHeading: Infinity, webkitCompassAccuracy: 10 },
-      { webkitCompassHeading: 0, webkitCompassAccuracy: NaN },
     ]) {
       send({ alpha: 180, absolute: true, ...event });
       assert.eq(scene._deviceCompass, reading, 'unusable samples cannot replace a valid reading');
@@ -30,6 +28,17 @@
     }
     send({ webkitCompassHeading: 180, webkitCompassAccuracy: 10 });
     assert.gt(scene.compassDeg, 90, 'valid readings resume after calibration');
+  });
+
+  // iOS reports -1 accuracy for long stretches indoors; a map that ignored
+  // those headings stopped turning altogether.
+  test('compass sensor: iPhone headings with unknown accuracy still turn the map', () => {
+    const { scene, send } = sensor();
+    send({ webkitCompassHeading: 90, webkitCompassAccuracy: 10 });
+    for (let i = 0; i < 40; i++) send({ webkitCompassHeading: 180, webkitCompassAccuracy: -1 });
+    assert.lt(Math.abs(scene.compassDeg - 180), 0.5);
+    for (let i = 0; i < 40; i++) send({ webkitCompassHeading: 270, webkitCompassAccuracy: NaN });
+    assert.lt(Math.abs(scene.compassDeg - 270), 0.5);
   });
 
   test('compass sensor: invalid iPhone startup does not adopt relative alpha as north', () => {
