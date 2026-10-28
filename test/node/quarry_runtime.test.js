@@ -47,7 +47,7 @@
     }
   });
   test('quarry runtime: all four compositions ship their finite site budgets and stable identities', () => {
-    for (const [id, finds] of [['quarry-crater', 2], ['quarry-abandoned', 0], ['quarry-strip-mine', 0], ['quarry-stronghold', 3]]) {
+    for (const [id, finds] of [['quarry-crater', 2], ['quarry-abandoned', 0], ['quarry-strip-mine', 0], ['quarry-stronghold', 1]]) {
       const a = ZoneDressing.dress(context(id)), b = ZoneDressing.dress(context(id));
       assert.eq(records(a).filter(o => o.zoneLayer === 'find').length, finds, id);
       assert.eq(a.guards.length, 0, id);
@@ -95,9 +95,9 @@
         _provisionStarterHome() {}, _carveStarterPond() {} });
       scene.spawnInTile(entry, 0, 0);
       const actual = entry.objects.filter(o => o.zoneVariant === 'quarry-stronghold' && o.zoneLayer === 'find');
-      assert.eq(actual.length, 3);
+      assert.eq(actual.length, 1);
       for (const o of actual) assert.eq(chestTier(o), 2);
-      assert.eq(new Set(actual.map(o => o.id)).size, 3);
+      assert.eq(new Set(actual.map(o => o.id)).size, 1);
       assert.eq(actual.map(o => o.id).join(','), dress.objects.filter(o=>o.zoneLayer==='find').map(o => o.id).join(','));
     } finally { window.__TEST_MODE = was; }
   });

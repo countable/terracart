@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-6f0f6009';
+    window.__shellVersion = 'shell-5416b655';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=33268099" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=57d3f8c4" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -2503,7 +2503,7 @@
         const out = [
           `renderer ${r ? (r.type === Phaser.WEBGL ? 'WebGL' : 'Canvas') : '?'}, contextLost ${!!r?.contextLost}, canvas ${window.__game?.canvas?.width}x${window.__game?.canvas?.height}, RENDER_SCALE ${f(RENDER_SCALE)}, dpr ${f(window.devicePixelRatio)}`,
           `view centre ${scene.viewCenterX},${scene.viewCenterY} left/top ${scene.viewLeft},${scene.viewTop} size ${scene.viewSize}`,
-          `zoom ${f(scene.mapZoom)} (rest ${f(scene._mapZoomRest)}), heading-up ${typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)}, mapRot ${f((scene.mapRot || 0) * 180 / Math.PI, 1)}°, compass ${f(scene.compassDeg, 1)}, locked ${!!scene._compassDirectionLocked}`,
+          `zoom ${f(scene.mapZoom)} (rest ${f(scene._mapZoomRest)}), heading-up ${typeof HeadingUp !== 'undefined' && HeadingUp.active(scene)}, mapRot ${f((scene.mapRot || 0) * 180 / Math.PI, 1)}°, compass ${f(scene.compassDeg, 1)}, locked ${!!scene._compassDirectionLocked}, gps ${typeof HeadingUp !== 'undefined' && HeadingUp.hasGps(scene)}, perm ${window.__compassPerm ?? '-'}, raw ${f(scene._compassRaw?.heading, 1)}±${f(scene._compassRaw?.accuracy, 1)}`,
           `camera ${cam ? `${cam.x},${cam.y} ${cam.width}x${cam.height} zoom ${f(cam.zoom)} rot ${f(cam.rotation, 3)} scroll ${f(cam.scrollX)},${f(cam.scrollY)} origin ${cam.originX},${cam.originY} round ${cam.roundPixels}` : '-'}`,
           `peek ${cells(peek.x * CELL_PX / scene.cellM)},${cells(peek.y * CELL_PX / scene.cellM)} cells, dragging ${!!scene._peekDragging}, returning ${!!scene._peekReturning}, pinch ${!!scene._pinch}, homeIntro ${scene._homeIntro?.phase || '-'}, wreckRepair ${!!scene._wreckRepair}`,
           `depth ${scene.depth || 0}, energy ${scene.save?.energy}/${scene.save?.maxEnergy}, lightMul ${f(typeof Conditions !== 'undefined' ? Conditions.lightMul(scene.save) : 1)}, reach ${reachM == null ? '?' : f(reachM / scene.cellM) + ' cells'}, fullView ${!!(typeof Energy !== 'undefined' && Energy.fullViewReachActive(scene.save))}`,
@@ -3241,7 +3241,7 @@
   <script src="src/street_signs.js?v=70655348"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=66c6e4dc"></script>
-  <script src="src/zone_variant_data.js?v=407ce7bf"></script>
+  <script src="src/zone_variant_data.js?v=751a61d2"></script>
   <script src="src/terrain.js?v=c89a463c"></script>
   <script src="src/zone_variants.js?v=30f0e0de"></script>
   <script src="src/shrines.js?v=faed427d"></script>
@@ -3251,7 +3251,7 @@
   <script src="src/quarry_layout.js?v=82eed7d6"></script>
   <script src="src/zone_dressing.js?v=692a68e3"></script>
   <script src="src/reef_layout.js?v=5ac55392"></script>
-  <script src="src/sprite_layout.js?v=57781ffb"></script>
+  <script src="src/sprite_layout.js?v=e32128b7"></script>
   <script src="src/placed_floor.js?v=1230ad57"></script>
   <script src="src/campfires.js?v=de1dbe54"></script>
   <script src="src/home.js?v=b09d80f3"></script>
@@ -3292,7 +3292,7 @@
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=b2ff13ce"></script>
+  <script src="src/items.js?v=2fb78508"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
   <script src="src/energy.js?v=10dc51a3"></script>
   <script src="src/conditions.js?v=257dc9ae"></script>
@@ -3327,9 +3327,9 @@
   <script src="src/spawn_ownership.js?v=cb498972"></script>
   <script src="src/starter.js?v=3561a432"></script>
   <script src="src/ground_fire.js?v=ed5509fb"></script>
-  <script src="src/combat.js?v=bfa1b749"></script>
+  <script src="src/combat.js?v=2866ff97"></script>
   <script src="src/pirates.js?v=362fddf3"></script>
-  <script src="src/pets.js?v=bebd467d"></script>
+  <script src="src/pets.js?v=441af278"></script>
   <script src="src/character_portraits.js?v=e7b062b6"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
   <script src="src/creature_ai.js?v=ef4eb0b8"></script>
@@ -3340,8 +3340,8 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=8f3611fc"></script>
-  <script src="src/play_tips.js?v=4d1075a6"></script>
+  <script src="src/interact.js?v=1db32bd4"></script>
+  <script src="src/play_tips.js?v=9720f8af"></script>
   <script src="src/lighting_gpu.js?v=ad54fc09"></script>
   <script src="src/lighting.js?v=00b002ea"></script>
   <script src="src/safety.js?v=7972cffc"></script>
@@ -3394,7 +3394,7 @@
   <script src="src/geo.js?v=63ed1fae"></script>
   <script src="src/art_thumbs.js?v=3b7e97f0"></script>
   <script src="src/modal_shell.js?v=1b70ad4c"></script>
-  <script src="src/scene_geo.js?v=cce5eca8"></script>
+  <script src="src/scene_geo.js?v=607b56c1"></script>
   <script src="src/npc.js?v=7e2b3017"></script>
   <script src="src/npc_benefits.js?v=a52ebc14"></script>
   <script src="src/scene_creatures.js?v=6f3947dc"></script>
@@ -3482,7 +3482,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=33268099';
+      const APP_SRC = 'src/app.js?v=57d3f8c4';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

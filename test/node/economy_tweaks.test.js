@@ -1,5 +1,5 @@
 // Economy audit follow-ups (2026-09-27): the first harvest of each crop banks a memory; a cow
-// takes twice the netting (its HP: a catch's difficulty is HP × 2); and no gear
+// takes twice the netting (its HP: a catch's difficulty is HP); and no gear
 // roll hands out unique jewelry.
 (function () {
 test('economy: the first harvest of each crop is a memory, keyed by crop', () => {

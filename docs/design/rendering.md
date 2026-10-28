@@ -603,8 +603,10 @@ the surrounding grove’s shrub scale.
   existing resize path, which explicitly restores the logical CSS size before
   refreshing input bounds when returning to scale 1. Explicit `?rscale=N` remains a diagnostic override,
   bounded to 1–2×; game cadence is unchanged.
-- iPhone compass samples with negative headings or negative/non-finite accuracy
-  are ignored, retaining the last usable bearing while the sensor recalibrates.
+- iPhone compass samples with a negative or non-finite heading are ignored,
+  retaining the last usable bearing. `webkitCompassAccuracy` never gates a
+  valid heading: iOS reports -1 for long stretches indoors or while it wants
+  calibration, and rejecting those froze the map.
   The first absolute bearing replaces any relative startup smoothing history.
 - Heading-up is the default (`?headingUp=false` keeps north up). The main
   camera turns about the view centre by `-compassDeg` (Q / E manually rotate on
