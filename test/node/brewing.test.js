@@ -42,7 +42,7 @@ function scene(inv = [], money = 100, found = []) {
 }
 function open(s, id) { s.presentBrewOffer(12, 34, house, () => s.deals++, id); }
 
-test('brewing: the agreed eight recipes include coin fees and exclude revival', () => {
+test('brewing: the agreed nine recipes include coin fees and exclude revival', () => {
   const expected = {
     antidote: [[['cress', 3]], 2],
     hardworking_potion: [[['potato', 3]], 3],
@@ -52,6 +52,7 @@ test('brewing: the agreed eight recipes include coin fees and exclude revival', 
     blight_potion: [[['marigold', 2], ['meat', 1]], 5],
     shielding_potion: [[['starflower', 2], ['milk', 1]], 20],
     shrinking_potion: [[['mango', 2]], 4],
+    protection_potion: [[['young_fern', 4], ['white_flower', 2]], 25],
   };
   assert.eq(BREW_RECIPES.length, Object.keys(expected).length);
   for (const [id, [cost, coins]] of Object.entries(expected)) {
