@@ -939,7 +939,7 @@ class SceneCreate {
     const maskG = this.make.graphics({ x: 0, y: 0, add: false });
     maskG.fillStyle(0xffffff);
     maskG.fillRect(this.viewLeft, this.viewTop, this.viewSize, this.viewSize);
-    const mask = maskG.createGeometryMask();
+    const mask = this._viewMask = maskG.createGeometryMask();
     this.cellGfx.setMask(mask);
     this.gridContainer.setMask(mask);
     this.noiseContainer.setMask(mask);

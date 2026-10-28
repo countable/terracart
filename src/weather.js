@@ -15,12 +15,15 @@ const Weather = (() => {
     // below that, players outdoors do not notice the wind.
     windyKph: 28,
     maxForegroundStepMs: 1000,
+    // Screen-space fall. Each kind bakes its own art (`shape` + colours) so the
+    // overlay never depends on a tinted sheet; streaks lean along their mean
+    // drift and live long enough to cross the whole map view.
     precipitation: Object.freeze({
       none: null,
-      drizzle: Object.freeze({ frequency: 260, speedX: [15, 28], speedY: [150, 210], lifespan: 2600, scale: 1.45, alpha: 0.58 }),
-      rain: Object.freeze({ frequency: 72, speedX: [28, 46], speedY: [250, 340], lifespan: 1800, scale: 1.6, alpha: 0.82 }),
-      sleet: Object.freeze({ frequency: 130, speedX: [5, 18], speedY: [210, 280], lifespan: 2100, scale: 1.45, alpha: 0.72 }),
-      snow: Object.freeze({ frequency: 240, speedX: [-8, 8], speedY: [50, 78], lifespan: 6200, scale: 1.3, alpha: 0.68 }),
+      drizzle: Object.freeze({ shape: 'streak', lengthPx: 6, color: 0xc8dcf0, frequency: 90, speedX: [18, 26], speedY: [170, 210], scale: 1, alpha: 0.42 }),
+      rain: Object.freeze({ shape: 'streak', lengthPx: 11, color: 0xd6e6f7, frequency: 22, speedX: [40, 52], speedY: [330, 400], scale: 1, alpha: 0.7 }),
+      sleet: Object.freeze({ shape: 'streak', lengthPx: 5, color: 0xeef4fb, frequency: 45, speedX: [10, 18], speedY: [220, 270], scale: 1, alpha: 0.7 }),
+      snow: Object.freeze({ shape: 'flake', lengthPx: 3, color: 0xffffff, frequency: 70, speedX: [-10, 14], speedY: [38, 62], scale: 1, alpha: 0.85 }),
     }),
     rain: Object.freeze({ cropCadenceMs: 20 * 1000 }),
     cold: Object.freeze({
@@ -205,6 +208,34 @@ const Weather = (() => {
     S.drawnKind = 'none'; S.drawnLayout = '';
   }
 
+  // Bake each kind's drop once. A streak fades in from its tail so the leading
+  // end is brightest; a flake is a soft plus. Baked, not tinted: setTint() is a
+  // no-op under the Canvas renderer (see particles.js).
+  function ensureTexture(scene, kind) {
+    const key = `weather_${kind}`, row = KINDS[kind];
+    if (scene.textures.exists(key)) return key;
+    const g = scene.make.graphics({ x: 0, y: 0, add: false });
+    const n = row.lengthPx;
+    if (row.shape === 'flake') {
+      g.fillStyle(row.color, 0.55); g.fillRect(0, 1, 3, 1); g.fillRect(1, 0, 1, 3);
+      g.fillStyle(row.color, 1); g.fillRect(1, 1, 1, 1);
+      g.generateTexture(key, 3, 3);
+    } else {
+      for (let i = 0; i < n; i++) { g.fillStyle(row.color, (i + 1) / n); g.fillRect(0, i, 1, 1); }
+      g.generateTexture(key, 1, n);
+    }
+    g.destroy();
+    return key;
+  }
+
+  // Degrees that turn a vertical streak to match the row's mean drift
+  // (Phaser rotates clockwise; rightward drift leans the head right).
+  function leanDeg(row) {
+    if (row.shape !== 'streak') return 0;
+    const vx = (row.speedX[0] + row.speedX[1]) / 2, vy = (row.speedY[0] + row.speedY[1]) / 2;
+    return -Math.atan2(vx, vy) * 180 / Math.PI;
+  }
+
   function syncOverlay(scene) {
     const kind = effectiveKind(S.kind, scene?.depth);
     const left = scene?.viewLeft || 0, top = scene?.viewTop || 0;
@@ -212,19 +243,26 @@ const Weather = (() => {
     const layout = `${left}:${top}:${size}`;
     if (kind === S.drawnKind && layout === S.drawnLayout && (kind === 'none' || S.emitter)) return;
     destroyEmitter();
-    if (kind === 'none' || !scene?.add?.particles || !scene.textures?.exists?.('weather_rain')) return;
+    if (kind === 'none' || !scene?.add?.particles || !scene.textures || !scene.make?.graphics) return;
     const row = KINDS[kind];
     try {
-      S.emitter = scene.add.particles(0, 0, 'weather_rain', {
-        frame: [0, 1, 2, 3],
-        x: { min: left - 24, max: left + size + 24 }, y: top - 24,
+      const key = ensureTexture(scene, kind);
+      // Live until the slowest drop has crossed the view; spawn upwind far
+      // enough that drift still covers the downwind edge.
+      const margin = 12, lifespan = Math.ceil((size + 2 * margin) / row.speedY[0] * 1000);
+      const drift = Math.max(0, row.speedX[1]) * lifespan / 1000, back = Math.min(0, row.speedX[0]) * lifespan / 1000;
+      S.emitter = scene.add.particles(0, 0, key, {
+        x: { min: left - margin - drift, max: left + size + margin - back }, y: top - margin,
         speedX: { min: row.speedX[0], max: row.speedX[1] },
         speedY: { min: row.speedY[0], max: row.speedY[1] },
-        lifespan: row.lifespan, frequency: row.frequency,
-        scale: { start: row.scale, end: row.scale * 0.75 },
-        alpha: { start: row.alpha, end: 0.12 }, quantity: 1,
+        rotate: leanDeg(row), scale: row.scale,
+        lifespan, frequency: row.frequency, quantity: 1,
+        alpha: { start: row.alpha, end: row.alpha * 0.6 },
+        // Arrive mid-shower instead of rolling in from the top edge.
+        advance: lifespan,
       });
       S.emitter.setDepth?.(90); S.emitter.setScrollFactor?.(0);
+      if (scene._viewMask) S.emitter.setMask?.(scene._viewMask);
       S.drawnKind = kind; S.drawnLayout = layout;
     } catch (_) { destroyEmitter(); }
   }

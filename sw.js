@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-ab40d651';
+const SHELL_VERSION = 'shell-7cf37219';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -13,7 +13,6 @@ const ASSET_HASHES = {
   "assets/ArtTrials/RogueObjects/fruit-worldpeach-blossom.png": "78c23a02",
   "assets/ArtTrials/RogueObjects/fruit-worldpeach.png": "8fe83508",
   "assets/ArtTrials/RogueObjects/lamp.png": "531900a1",
-  "assets/ArtTrials/RogueObjects/rain.png": "f67d59ca",
   "assets/ArtTrials/RogueObjects/rock-mid.png": "05ddc979",
   "assets/ArtTrials/RogueObjects/shrub-olive.png": "b1fdfd56",
   "assets/ArtTrials/RogueObjects/snare_open.png": "7fd994c9",
