@@ -1900,7 +1900,7 @@
   }
 
   // ── Indoors ───────────────────────────────────────────────────────────────
-  // While the player stands inside Home or retail (scene_venues.js
+  // While the player stands inside Home, retail or a castle (scene_venues.js
   // activeInterior hands over its ring), everything OUTSIDE the walls goes dark: the lightmap
   // multiplies the world, so a near-black fill over the outside, with the
   // house cut out, is the room's four walls shutting the street out. The cut

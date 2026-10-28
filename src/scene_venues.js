@@ -1534,7 +1534,32 @@ class SceneVenues {
     const { x, y } = playerWorldM(this);
     const { tx, ty } = worldMetersToTile(this, x, y);
     const bounds = this._retailInteriorBounds || (this._retailInteriorBounds = new WeakMap());
-    const inspect = entry => {
+    const castleShapes = this._castleInteriorShapes || (this._castleInteriorShapes = new WeakMap());
+    const inspect = (entry, entryTx, entryTy) => {
+      // Castle occupancy follows the real footprint, independently of claim
+      // state, renderer, camera position or the availability of tower art.
+      for (const shape of entry?.buildingShapes || []) {
+        if (shape.tier !== WorldGen.T.BUILDING_LARGE || shape.templeZone || shape.cleared
+          || !shape.key || !shape.ring || shape.ring.length < 6) continue;
+        const edge = entry.tileEdgeM || this.tileEdgeM;
+        const ox = entryTx * edge, oy = entryTy * edge;
+        if (!Number.isFinite(ox) || !Number.isFinite(oy)) continue;
+        let cached = castleShapes.get(shape.ring);
+        if (!cached || cached.ox !== ox || cached.oy !== oy) {
+          const ring = [], box = { minX: Infinity, minY: Infinity, maxX: -Infinity, maxY: -Infinity };
+          for (let i = 0; i < shape.ring.length; i += 2) {
+            const p = { x: ox + shape.ring[i], y: oy + shape.ring[i + 1] };
+            ring.push(p);
+            box.minX = Math.min(box.minX, p.x); box.maxX = Math.max(box.maxX, p.x);
+            box.minY = Math.min(box.minY, p.y); box.maxY = Math.max(box.maxY, p.y);
+          }
+          cached = { ox, oy, ring, box }; castleShapes.set(shape.ring, cached);
+        }
+        const { ring, box } = cached;
+        if (x < box.minX || x > box.maxX || y < box.minY || y > box.maxY) continue;
+        if (PolygonGeometry.pointInPolygon(ring, { x, y }))
+          return { kind: 'castle', key: shape.key, buildingKey: shape.key, ring, holes: [] };
+      }
       for (const interior of entry?.retailInteriors || []) {
         const rings = interior.rings;
         if (!rings?.[0]?.length) continue;
@@ -1560,14 +1585,15 @@ class SceneVenues {
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(tx + dx, ty + dy));
       if (!entry) continue;
       nearby.add(entry);
-      const interior = inspect(entry);
+      const interior = inspect(entry, tx + dx, ty + dy);
       if (interior) return interior;
     }
     // A large footprint may be owned by a distant loaded tile. Bounds reject
     // it cheaply; inspecting fresh entries also handles tiles loaded at rest.
-    for (const entry of WorldGen.tileCache.values()) {
+    for (const [tileKey, entry] of WorldGen.tileCache) {
       if (nearby.has(entry)) continue;
-      const interior = inspect(entry);
+      const [entryTx, entryTy] = tileKey.split('/').slice(-2).map(Number);
+      const interior = inspect(entry, entryTx, entryTy);
       if (interior) return interior;
     }
     return null;

@@ -1340,6 +1340,49 @@ test('building overlay: heading-up castle uses retained prisms without an atlas 
   clearTiles();
 });
 
+test('building overlay: generated castles sort between props one cell behind and in front', () => {
+  const previousStyle=Render.buildingArtStyle;
+  Render.buildingArtStyle='procedural';
+  try {
+    for(const headingUp of [false,true])for(const claimed of [false,true]) {
+      clearTiles();
+      putShapes(0,0,[rectShape(0,0,30,25,T.BUILDING_LARGE,'citadel')]);
+      const {scene,log}=makePerspectiveScene();
+      scene._headingUp=headingUp;
+      scene.isClaimedKey=()=>claimed;
+      scene.textures.exists=key=>key==='fdr_castle_atlas';
+      scene.textures.get=()=>({});
+      const graphics=scene.add.graphics;
+      scene.add.graphics=()=>Object.assign(graphics(),{setDepth(v){this.depth=v;return this;}});
+      BuildingOverlay.draw(scene);
+      const group=scene._wallPerspective.castles;
+      const pieces=WallPerspective.worldPieces(scene);
+      assert.gt(pieces.length,0,'generated castle architecture joins the object depth sort');
+      assert.truthy(pieces.every(p=>log.worldParts.includes(p.sprite)),'castle parts live beside world objects');
+      const prop=groundY=>({groundY,rank:2,sprite:{setDepth(v){this.depth=v;}}});
+      const north=prop(Math.min(...pieces.map(p=>p.groundY))-scene.cellM);
+      const south=prop(Math.max(...pieces.map(p=>p.groundY))+scene.cellM);
+      Render.sortWorldDepth([south,...pieces,north]);
+      for(const piece of pieces) {
+        assert.gt(piece.sprite.depth,north.sprite.depth,'a prop one cell north cannot paint over the castle');
+        assert.lt(piece.sprite.depth,south.sprite.depth,'a prop one cell south stays in front');
+      }
+      const retained=group.parts.slice();
+      for(const angle of [0,Math.PI/4,Math.PI/2,Math.PI]) {
+        scene.mapRot=angle;WallPerspective.update(scene);
+        group.blocks.forEach((block,i)=>{
+          assert.eq(group.parts[i],retained[i],'compass turns reuse draw targets');
+          assert.eq(group.parts[i]._huAnchor.x,block.support.x+group.x);
+          assert.eq(group.parts[i]._huAnchor.y,block.support.y+group.y,
+            'wall bodies and crowns retain their shared anchor at every heading');
+        });
+      }
+      scene.depth=1;WallPerspective.update(scene);
+      assert.truthy(group.parts.every(p=>!p.visible),'surface castles hide underground');
+    }
+  } finally {Render.buildingArtStyle=previousStyle;clearTiles();}
+});
+
 test('building overlay: castle fallback crowns keep artwork spacing for every wall length', () => {
   for (const meters of [13, 27, 41]) for (const perspective of [false, true]) {
     clearTiles();
@@ -1796,6 +1839,55 @@ test('building overlay: Home without a prism group falls back to a flat roof', (
   BuildingOverlay.draw(scene);
   const inside = scene.buildingGeomGfx.only('fill');
   assert.falsy(inside.some(f => f.color === HomeArea.HOUSE.roof.top), 'inside, no roof');
+  clearTiles();
+});
+
+test('building overlay: castle entry replaces towers and keep with carpeted interior walls', () => {
+  const previousStyle=Render.buildingArtStyle;Render.buildingArtStyle='procedural';
+  try {
+    for(const atlas of [false,true])for(const claimed of [false,true]) {
+      clearTiles();
+      const shape=rectShape(0,0,30,25,T.BUILDING_LARGE,'citadel');
+      putShapes(0,0,[shape]);
+      const {scene}=makePerspectiveScene();scene._headingUp=false;
+      scene.isClaimedKey=()=>claimed;
+      scene.textures.exists=key=>atlas&&key==='fdr_castle_atlas';scene.textures.get=()=>({});
+      const carpets=[];
+      scene.buildingGeomGfx.castleCarpet=(...args)=>carpets.push(args);
+      let room={kind:'castle',key:shape.key,buildingKey:shape.key,
+        ring:[{x:0,y:0},{x:30,y:0},{x:30,y:25},{x:0,y:25}],holes:[]};
+      scene.activeInterior=()=>room;
+      BuildingOverlay.draw(scene);
+      assert.eq(scene._fdrCastleLayouts.size,0,'no exterior keep or tower model indoors');
+      assert.eq(scene._wallPerspective.castles?.blocks.length||0,0,'exterior geometry is absent');
+      const walls=scene._wallPerspective.home;
+      assert.truthy(walls.perWall,'interior walls sort against actors');
+      assert.gt(walls.blocks.length,0);
+      assert.truthy(walls.blocks.every(b=>b.top<=HomeArea.HOUSE.wallPx),'only open interior walls, no towers or roofs');
+      assert.eq(scene._proceduralBuildings.get(shape.key).height,HomeArea.HOUSE.wallPx,'lighting uses the actual interior wall height');
+      assert.eq(carpets.length,1);assert.eq(carpets[0][2],shape.key);assert.eq(carpets[0][3],claimed);
+      room=null;BuildingOverlay.draw(scene);
+      assert.eq(scene._wallPerspective.home.blocks.length,0,'exit removes the interior');
+      assert.eq(carpets.length,1,'carpets stay indoors');
+      assert.gt(atlas?scene._wallPerspective.castles.blocks.length:scene._wallPerspective.polygon.blocks.length,0,
+        'exit restores exterior architecture with either renderer');
+    }
+  } finally {Render.buildingArtStyle=previousStyle;clearTiles();}
+});
+
+test('building overlay: an exterior Home cannot disable occupied castle wall sorting', () => {
+  clearTiles();
+  putShapes(0,0,[rectShape(0,0,10,10,T.BUILDING_LARGE,'citadel'),
+    rectShape(12,12,22,22,T.BUILDING,'starter_trailer')]);
+  const {scene}=makePerspectiveScene();scene._headingUp=false;
+  scene.save={starterShopId:'starter_trailer'};scene.homeInside=()=>false;
+  scene.activeInterior=()=>({kind:'castle',key:'citadel',buildingKey:'citadel',
+    ring:[{x:0,y:0},{x:10,y:0},{x:10,y:10},{x:0,y:10}],holes:[]});
+  BuildingOverlay.draw(scene);
+  const group=scene._wallPerspective.home;
+  assert.truthy(group.blocks.some(b=>b.building?.key==='citadel'));
+  assert.truthy(group.blocks.some(b=>b.building?.key==='starter_trailer'),'Home draws into the same group after the castle');
+  assert.truthy(group.perWall,'castle interior keeps actor sorting when another Home is outside');
   clearTiles();
 });
 

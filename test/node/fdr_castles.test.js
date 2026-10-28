@@ -399,7 +399,7 @@
       for(const part of [...layout.towers,layout.keep]) {
         const faces=group.blocks.filter(b=>Math.abs(b.x-part.x)<1e-7&&Math.abs(b.y-part.y)<1e-7).flatMap(b=>b.materialFaces);
         const roof=faces.filter(f=>f.material==='roof');
-        assert.eq(roof.length,active?4:2,'a roof is four planar triangles, or two surviving planes on a wreck');
+        assert.eq(roof.length,4,'both conditions retain four roof planes');
         assert.eq(new Set(roof.map(f=>f.color)).size,roof.length,
           'each retained roof plane has its own flat cel value without adding triangles');
         for(const face of roof) {
@@ -497,13 +497,19 @@
         add:{graphics:()=>gfx},textures:{exists:()=>true,get:()=>({})}};
       const group=WallPerspective.begin(scene,'castles');
       const {layout}=FDRCastleGeometry.draw(scene,'castles',points,{family,active:false});
+      const restored=meshScene();
+      const restoredModel=meshDraw(restored,points,{family,active:true});
+      const geometry=blocks=>JSON.stringify(blocks.map(b=>({points:b.points,bottom:b.bottom,top:b.top})));
+      assert.eq(geometry(group.blocks),geometry(restored._wallPerspective.castles.blocks),
+        'wreck and restored castles retain identical walls, towers and battlements');
+      assert.eq(layout.keep?.height,restoredModel.layout.keep?.height,'keep height is condition independent');
       const wallKeys=new Set(layout.walls.map(w=>key(w.points)));
       const walls=group.blocks.filter(b=>b.bottom===0&&wallKeys.has(key(b.points)));
-      assert.gt(walls.filter(b=>b.top<24).length,0,'the fixture contains genuinely lowered broken crests');
+      assert.truthy(walls.every(b=>b.top===24),'wreck curtains retain their full height');
       let raised=0;
       for(const merlon of layout.merlons) {
         const tooth=group.blocks.find(b=>b.bottom===merlon.base&&b.top===merlon.top&&key(b.points)===key(merlon.points));
-        if(!tooth)continue;
+        assert.truthy(tooth,'wrecks retain every full-height curtain tooth');
         raised++;
         const footprintArea=Math.abs(L.area(tooth.points));let supported=0;
         for(const wall of walls) {
@@ -514,7 +520,7 @@
         }
         assert.lt(Math.abs(supported-footprintArea),1e-3,'the entire raised tooth remains supported');
       }
-      assert.gt(raised,0,'damage leaves some supported battlements standing');
+      assert.gt(raised,0,'the fixture contains supported battlements');
     }
   });
   test('FDR castles: ruin weathering stays in shared textures rather than extra moss geometry', () => {

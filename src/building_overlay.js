@@ -847,6 +847,11 @@
         ctx.fillRect(-x / scale, -y / scale, size / scale, size / scale);
         ctx.restore();
       },
+      castleCarpet(pts, holes, key, active) {
+        const local = ring => ring.map(p => ({ x: p.x - originX, y: p.y - originY }));
+        CastleStyles.paintInteriorCarpet(ctx, local(pts), (holes || []).map(local),
+          key, active, phaseX, phaseY);
+      },
       castleGrowth(model,key) {
         const patches=CastleStyles.growthPatches(key,model.layout);
         if(!patches.length)return;
@@ -1626,11 +1631,11 @@
       }
     }
 
-    // A retail room uses the same open-roof house renderer and floor canvas.
+    // Occupied retail and castle rooms replace their exterior shells.
     // Its source footprint survives POI frontage placement and civic dissolves.
-    const retailCovered = [];
+    const interiorCovered = [];
     const room = scene.activeInterior?.();
-    if (room?.kind === 'retail') {
+    if (room?.kind === 'retail' || room?.kind === 'castle') {
       const project = ring => ring.map(p => ({ x: projX(p.x), y: projY(p.y) }));
       const pts = project(room.ring), holes = (room.holes || []).map(project);
       const left = Math.min(...pts.map(p => p.x)), right = Math.max(...pts.map(p => p.x));
@@ -1644,12 +1649,13 @@
         // Ring start, winding and a duplicated closing point do not matter.
         const verticesMatch = (a, b) => a.every(p => b.some(q => Math.hypot(p.x - q.x, p.y - q.y) < epsilon));
         if (!d.templeZone && sameBounds && verticesMatch(d.pts, pts) && verticesMatch(pts, d.pts)) {
-          if (d.object?.id) retailCovered.push(d.object.id);
+          if (d.object?.id) interiorCovered.push(d.object.id);
           draws.splice(i, 1);
         }
       }
       draws.push({ pts, holes, left, right, north, south, key: room.key,
-        tier: 9, retail: true, columns: [], seed: 0 });
+        tier: room.kind === 'castle' ? CASTLE : 9, retail: room.kind === 'retail',
+        castleInterior: room.kind === 'castle', columns: [], seed: 0 });
     }
 
     // Painter rule: the LOWER building draws in front. Ties break on the
@@ -1675,13 +1681,18 @@
       });
     }
     scene._proceduralBuildings = new Map();
-    for (const id of retailCovered) scene._proceduralBuildings.set(id, { height: 0 });
+    for (const id of interiorCovered) scene._proceduralBuildings.set(id, { height: 0 });
     scene._fdrCastleLayouts = new Map();
     // This path also owns procedural walls in north-up mode. Their visibility
     // must not depend on a nearby temple or restored house enabling the group.
     if (perspective) WallPerspective.begin(scene, 'polygon').alwaysActive = true;
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'polygon');
-    if (fdrCastles) WallPerspective.begin(scene, 'castles').alwaysActive = true;
+    if (fdrCastles) {
+      const castles = WallPerspective.begin(scene, 'castles');
+      castles.alwaysActive = true;
+      // Raised architecture must occlude props behind its ground anchors.
+      castles.perWall = true;
+    }
     else if (typeof WallPerspective !== 'undefined') WallPerspective.clear(scene, 'castles');
     if (lowpoly) BuildingLowPoly.begin(scene);
     else if (typeof BuildingLowPoly !== 'undefined') BuildingLowPoly.clear(scene);
@@ -1717,6 +1728,26 @@
         continue;
       }
       const isMine = claimed(d.object?.id || d.key);
+      if (d.castleInterior) {
+        const style = CastleStyles.renderStyle(d.key, isMine);
+        g.fillPoly(d.pts, style.floor, undefined, d.holes);
+        g.texturePoly?.(d.pts, style.paving.key, d.holes, style.paving.scale, style.paving.alpha);
+        g.castleCarpet?.(d.pts, d.holes, d.key, isMine);
+        if (homePrisms) {
+          if (!homeBegun) {
+            const group = WallPerspective.begin(scene, 'home');
+            group.alwaysActive = true; homeBegun = true;
+          }
+          const group = scene._wallPerspective.home;
+          group.perWall = true;
+          group.building = { key: d.key, footprint: d.pts,
+            anchor: { x: (d.left + d.right) / 2, y: (d.north + d.south) / 2 } };
+          const walls = { ...HomeArea.HOUSE, wall: { face: style.wall, top: style.top, dark: style.base } };
+          homeWalls(scene, d, walls, true);
+          scene._proceduralBuildings.set(d.key, { height: walls.wallPx, interiorHeight: walls.wallPx });
+        }
+        continue;
+      }
       if (fdrCastles && d.tier === CASTLE && d.key !== scene.save?.starterShopId) {
         const group = scene._wallPerspective.castles;
         group.building = { key: d.key, footprint: d.pts,
@@ -1784,7 +1815,7 @@
             // (WallPerspective perWall / worldPieces) — one graphics object
             // under the player's container would draw the player over the
             // walls in front of them.
-            scene._wallPerspective.home.perWall = inside || room?.kind === 'retail';
+            scene._wallPerspective.home.perWall = inside || room?.kind === 'retail' || room?.kind === 'castle';
             const homeStyle = d.retail ? HomeArea.HOUSE : {
               ...HomeArea.HOUSE, wallPx: HomeArea.HOUSE.wallPx * HomeArea.storeys(scene.save) };
             homeWalls(scene, d, homeStyle, inside);
