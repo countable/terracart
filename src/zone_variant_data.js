@@ -7953,17 +7953,9 @@
           {
             "id": "0",
             "material": "treasure_chest_t2"
-          },
-          {
-            "id": "1",
-            "material": "treasure_chest_t2"
-          },
-          {
-            "id": "2",
-            "material": "treasure_chest_t2"
           }
         ],
-        "count": 3
+        "count": 1
       },
       "connection": {
         "shape": "none"
