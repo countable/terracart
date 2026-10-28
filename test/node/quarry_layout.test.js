@@ -214,7 +214,7 @@
     const strip = plan('quarry-strip-mine', cells);
     assert.eq(strip.finds.length, 0, 'strip mine treasure is per rock, not a finite site budget');
     const stronghold = plan('quarry-stronghold', cells);
-    assert.eq(stronghold.finds.length, 3);
+    assert.eq(stronghold.finds.length, 1, 'one T2 chest per ruined stronghold, however many rooms');
     for (const id of ['quarry-abandoned', 'quarry-stronghold', 'quarry-crater', 'quarry-strip-mine']) {
       const observer = plan(id, cells, false);
       assert.eq(observer.finds.length, 0);
