@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-c5fa28ec';
+    window.__shellVersion = 'shell-2c27bfbe';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=d205bb0a" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=9d9ddf88" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3237,7 +3237,7 @@
   <script src="src/particles.js?v=139210f6"></script>
   <script src="src/trail.js?v=ca4ab8ce"></script>
   <script src="src/streets.js?v=2b6f3303"></script>
-  <script src="src/street_variants.js?v=2551c2ea"></script>
+  <script src="src/street_variants.js?v=9d37e9fd"></script>
   <script src="src/street_signs.js?v=70655348"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=66c6e4dc"></script>
@@ -3340,7 +3340,7 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=1db32bd4"></script>
+  <script src="src/interact.js?v=178736aa"></script>
   <script src="src/play_tips.js?v=9720f8af"></script>
   <script src="src/lighting_gpu.js?v=ad54fc09"></script>
   <script src="src/lighting.js?v=842ead33"></script>
@@ -3482,7 +3482,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=d205bb0a';
+      const APP_SRC = 'src/app.js?v=9d9ddf88';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a

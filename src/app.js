@@ -2205,10 +2205,7 @@ class MapScene extends Phaser.Scene {
       this._zoneStoryHere = null;
     }
     // THE STORY: which street is this?
-    const code = entry.streetMarks ? entry.streetMarks[i] : 0;
-    const onMajorRoad = entry.roadClass && (entry.roadClass[i] & WorldGen.ROAD_CLASS_MAJOR_BAND);
-    const row = onMajorRoad ? StreetVariants.roadStoryAt(entry, lix, liy)
-      : code ? StreetVariants.variantByCode(code) : null;
+    const row = StreetVariants.streetStoryAt(entry, lix, liy);
     if (!row) { this._streetStoryHere = null; return; }
     if (row.story === this._streetStoryHere) return;
     this._streetStoryHere = row.story;

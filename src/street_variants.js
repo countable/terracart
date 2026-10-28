@@ -783,6 +783,17 @@
     const terrain = entry.grid?.[iy * N + ix];
     return best || (terrain === WG.T.ROAD_LG ? HIGHWAY_STORY : terrain === WG.T.ROAD_MD ? BANDIT_STORY : null);
   }
+  // The story row of the street at a tile cell: a Major/Medium band's own
+  // road story, else the cell's variant mark. The feet's story (app.js
+  // _tickStreetStory) and a road tap's name (interact.js flavor) share it.
+  function streetStoryAt(entry, ix, iy) {
+    const N = entry?.cellsPerEdge;
+    if (!(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N) return null;
+    const i = iy * N + ix;
+    if (entry.roadClass && (entry.roadClass[i] & root.WorldGen.ROAD_CLASS_MAJOR_BAND)) return roadStoryAt(entry, ix, iy);
+    const code = entry.streetMarks ? entry.streetMarks[i] : 0;
+    return code ? variantByCode(code) : null;
+  }
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
@@ -3382,7 +3393,7 @@
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, variantByCode, labelName,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, streetStoryAt, variantByCode, labelName,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     boundSectionsSteps, PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,
