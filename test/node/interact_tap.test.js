@@ -1177,3 +1177,26 @@ test('picked berry bushes on Small roads chop once instead of falling through to
     }
   } finally { globalThis.WorldGen = original; }
 });
+
+test('flavor: a tapped road cell names its street variant, as the feet story reads it', () => {
+  const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const row = StreetVariants.VARIANT_BY_ID.paralysis_path;
+  const N = 4, entry = { cellsPerEdge: N, grid: new Uint8Array(N * N).fill(TERRAIN.ROAD),
+    roadClass: new Uint8Array(N * N), streetMarks: new Uint8Array(N * N) };
+  entry.streetMarks[1 * N + 2] = StreetVariants.STREET_VARIANTS.indexOf(row) + 1;
+  const key = WorldGen.tileKey(7, 9), prev = WorldGen.tileCache.get(key);
+  WorldGen.tileCache.set(key, entry);
+  try {
+    const said = [];
+    const scene = { depth: 0, flash: text => said.push(text) };
+    const tap = (ix, iy) => handler.try({ scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 },
+      cell: { tx: 7, ty: 9, ix, iy, type: TERRAIN.ROAD, loaded: true } });
+    assert.truthy(tap(2, 1));
+    assert.eq(said.pop(), `${row.title}. ${row.flash}`);
+    assert.eq(StreetVariants.streetStoryAt(entry, 2, 1), row, 'the feet story shares the row');
+    assert.truthy(tap(0, 0));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.ROAD], 'an unthemed road keeps its ground line');
+  } finally {
+    if (prev) WorldGen.tileCache.set(key, prev); else WorldGen.tileCache.delete(key);
+  }
+});

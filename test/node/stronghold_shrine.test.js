@@ -42,6 +42,9 @@
     assert.falsy(Shrines.kindForZoneVariant('quarry-stronghold'));
     for(const o of finds){assert.eq(o.kind,'chest');assert.eq(o.tierSeed,2);assert.eq(chestTier(o),2);assert.falsy(o.zoneNexus);assert.falsy(o.fixedLoot);assert.falsy(o.daily);assert.falsy(o.crate);}
     assert.gt(out.objects.filter(o=>o.barrelStyle==='clay_pot').length,0);
+    const barrels=out.objects.filter(o=>o.zoneVariant==='quarry-stronghold'&&o.barrelStyle==='barrel');
+    assert.gt(barrels.length,0,'some potless rooms hold a wooden barrel');
+    for(const o of barrels) assert.eq(o.kind,'chest');
     assert.eq(new Set(records(out).map(o=>o._ix+','+o._iy)).size,records(out).length);
   });
 })();

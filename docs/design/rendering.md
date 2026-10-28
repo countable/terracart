@@ -1683,7 +1683,10 @@ Spooky Woods shrine snags use `selected_dead_tree.png`, an unmodified 64×64
 crop at (384,16) from Rogue Adventure `RA_Jungle.png`. The source manifest sits
 beside the image. `_objectArt: "dead_tree"` selects frame 0 before optional
 ArtTrials routing; trimmed bounds seat the roots and the scale matches the
-existing mature tree width. Ordinary grove trees keep their existing art.
+existing mature tree width. On the surface the Rogue object module draws
+snags as `rogue_tree_dead` at three quarters of the living-tree stage scale,
+since a bare crown at full scale read oversized. Ordinary grove trees keep
+their existing art.
 
 Permanent rear-lot bedrock uses the same flat cold-slate surface as ordinary rock:
 `RA_Ground_Tiles.png`, crop `(352,208,16,16)`, selected-terrain frame 35
