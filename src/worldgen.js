@@ -125,14 +125,25 @@
           ^ Math.imul(ix | 0, 83492791) ^ Math.imul(iy | 0, 0x27D4EB2F));
   }
 
-  const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3 };
+  const HIVE_SPEC = { cellChance: 1 / 192, syrup: 3, bees: 3, beeKind: 'bee', beeReachCells: 2 };
+  // A hive stands only where its tap can succeed: on ground that admits its
+  // defenders' own spawn class (bees are fast, so tier 1 — not calm woodland),
+  // with seats for the whole swarm within the reach planHiveBees searches.
   function spawnForestHives(grid, w, h, tx, ty, tileEdgeM, opts = {}) {
-    const out = [];
+    const out = [], cls = creatureSpawnClass(HIVE_SPEC.beeKind), R = HIVE_SPEC.beeReachCells;
+    const beeSeats = (cx, cy) => {
+      let n = 0;
+      for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) {
+        if ((dx || dy) && dx * dx + dy * dy <= R * R
+          && isSpawnCell(grid, w, h, cx + dx, cy + dy, opts, cls)) n++;
+      }
+      return n;
+    };
     for (let cy = 0; cy < h; cy++) for (let cx = 0; cx < w; cx++) {
       const i = cy * w + cx;
       if (grid[i] !== T.FOREST || opts.zoneCoverage?.[i]) continue;
       if (makeRng(cellHash(tx, ty, cx, cy) ^ 0xbee517)() >= HIVE_SPEC.cellChance) continue;
-      if (!isSpawnCell(grid, w, h, cx, cy, opts, 'minor')) continue;
+      if (!isSpawnCell(grid, w, h, cx, cy, opts, cls) || beeSeats(cx, cy) < HIVE_SPEC.bees) continue;
       out.push(makeObject('hive', tx * tileEdgeM + (cx + 0.5) * tileEdgeM / w,
         ty * tileEdgeM + (cy + 0.5) * tileEdgeM / h, cellId('hive', tx, ty, cx, cy)));
       opts.occupied?.add(i);

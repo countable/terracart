@@ -1043,6 +1043,13 @@ retained because its full extent is unknown; do not discard a cross-tile variant
 from one tile's partial count. Spawn-class-specific suppression is still an
 eligibility gate, not a universal subtraction from variant area.
 
+A prop whose interaction births creatures is placed only where those births can
+succeed: the prop's cell must pass the creatures' own spawn class, with enough
+free seats in the reach its runtime planner searches. Forest hives
+(`WorldGen.HIVE_SPEC`) therefore stand only on tier-1 forest, because their bees
+are `fastEnemy` and calm woodland refuses them. A hive placed on calm woodland
+could never seat its swarm, so every tap would answer "No room around the hive."
+
 Higher-priority placements and their access space take precedence in this order:
 
 1. Saved player-owned objects, Home and story placements. Preserve saved ids and
