@@ -528,7 +528,7 @@
   };
   // Hand-tuned drop (source px, below the crown's centre) for a fruit that
   // reads too high on the canopy's midline. Scales with the tree like the box.
-  const FRUIT_CROWN_DROP = { 'apple_tree:4': 4 };
+  const FRUIT_CROWN_DROP = { 'apple_tree:4': 4, 'worldpeach_tree:3': 4 };
 
   // Offset in screen px from a fruit tree sprite's ANCHOR (its x/y — wherever
   // the seat pass put it) to the centre of its crown, which is where the fruit
