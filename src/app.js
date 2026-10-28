@@ -7414,7 +7414,8 @@ class MapScene extends Phaser.Scene {
   // share walking pace, so distant GPS targets cannot overpower the effect.
   _confusedStep(dt, capMS, intent = null) {
     if (!(dt > 0) || Combat.playerDowned(this.save.energy)) return;
-    if (this._busyWheel?.()) { this._playDirected(this.player, 'idle'); return; }
+    const wheel = this._busyWheel?.();   // a catch does not root you (_followStep)
+    if (wheel && !wheel.flee) { this._playDirected(this.player, 'idle'); return; }
     if (!this._confusedLoop) this._confusedLoop = {
       angle: Math.random() * Math.PI * 2,
       turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
@@ -7485,8 +7486,10 @@ class MapScene extends Phaser.Scene {
     // A wheel is running (auto-mine, or a manual chop/mine the player tapped):
     // hold position until it resolves so the body doesn't wander off its work.
     // An AUTO-engaged sword fight is exempt — you didn't ask for it, so it must
-    // not root you to the spot (see _busyWheel).
-    if (this._busyWheel()) { this._playDirected(this.player, 'idle'); return; }
+    // not root you to the spot (see _busyWheel). So is a CATCH (`flee`): its
+    // creature bolts for the edge of your reach, and you may walk after it.
+    const wheel = this._busyWheel();
+    if (wheel && !wheel.flee) { this._playDirected(this.player, 'idle'); return; }
     // Paused after a tap-interrupt — wait for the next steer (GPS/keyboard).
     if (this._followPaused) { this._playDirected(this.player, 'idle'); return; }
     // Steering? Then the walk animation follows the STICK, not the step vector
