@@ -1230,9 +1230,9 @@ the reach rim within the existing player-light radius.
   use their dominant material color; Home, cave and discarded cells receive no
   road tint. It samples only visible cells, caches nearest-road queries, and is
   hidden underground without changing generated terrain or spawn ownership.
-- Roadside direction markers are low stone compasses with brass arrows for the
-  actual local road headings. Startup bakes `StreetSigns` artwork into one shared
-  256-frame atlas; each sign selects its eight-direction mask without runtime drawing.
+- Roadside directions use the approved weathered signpost crop, with its feet
+  beside the vector road edge. Tapping it lists the actual local road headings
+  and route names; the decorative boards do not encode the junction geometry.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
@@ -1727,8 +1727,8 @@ atlas and retained geometry.
 suggested route. `tools/build_street_decoration_art.py` exports exact pixels and
 `STREET_DECORATION_ART` bounds. `_streetArt` changes presentation without changing
 pickup, container, mining or hazard behavior. Ground slicks, loose planks and
-fragments remain ground decals. Pottery stacks use the matching broken pot from
-the same source tileset; ordinary pots retain their colour-matched shared shards.
+fragments remain ground decals. Pottery stacks use the shared terracotta ground
+shards; ordinary pots retain their colour-matched shared shards.
 Young fern uses a 14-pixel visible width on the map.
 Mossy, conifer, bare and lavender tree families use the same silhouette at three
 growth sizes; bare trees share one family across burned, thorny and haunted routes.

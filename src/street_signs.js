@@ -55,37 +55,16 @@ const StreetSigns = (() => {
     }
     return result;
   }
-  // A shared atlas covers all eight-way junction combinations. Bake once at
-  // scene startup; rebuilding visible cells only selects a frame.
-  function frame(object) {
-    return (object.directions || []).reduce((mask, row) => {
-      const bit = COMPASS.indexOf(row.direction);
-      return bit < 0 ? mask : mask | (1 << bit);
-    }, 0);
+  // Keep the post just outside the actual vector band, not at a snapped
+  // cell centre. The caller checks and claims the cell containing its feet.
+  function edgeSeats(sign, cellM = 7) {
+    const offset = sign.rec.halfW + cellM * .2;
+    return [1, -1].map(side => {
+      const x = sign.x + sign.nx * side * offset;
+      const y = sign.y + sign.ny * side * offset;
+      return { x, y, ix: Math.floor(x / cellM), iy: Math.floor(y / cellM) };
+    });
   }
-  function paint(ctx, mask) {
-    // Low octagonal stone compass: its arms use screen/world north, not
-    // the conventional left/right boards of an upright signpost.
-    const polygon = (points, fill) => {
-      ctx.fillStyle = fill; ctx.beginPath();
-      points.forEach(([x,y], i) => i ? ctx.lineTo(x,y) : ctx.moveTo(x,y));
-      ctx.closePath(); ctx.fill();
-    };
-    polygon([[7,5],[25,5],[29,9],[29,25],[25,29],[7,29],[3,25],[3,9]], '#252d2e');
-    polygon([[7,3],[25,3],[29,7],[29,23],[25,27],[7,27],[3,23],[3,7]], '#96876a');
-    polygon([[8,5],[24,5],[27,8],[27,22],[24,25],[8,25],[5,22],[5,8]], '#344747');
-    for (let i=0;i<8;i++) {
-      if (!(mask & (1 << i))) continue;
-      const angle=i*Math.PI/4, dx=Math.cos(angle), dy=Math.sin(angle);
-      const points=[[3,-2],[7,-2],[7,-4],[12,0],[7,4],[7,2],[3,2]]
-        .map(([along,across]) => [Math.round(16+dx*along-dy*across),Math.round(15+dy*along+dx*across)]);
-      polygon(points, '#e7c47d');
-      ctx.strokeStyle='#f5dfaa'; ctx.lineWidth=1;
-      ctx.beginPath();ctx.moveTo(16+dx*4,15+dy*4);ctx.lineTo(16+dx*9,15+dy*9);ctx.stroke();
-    }
-    ctx.fillStyle='#1e3033';ctx.fillRect(13,12,6,6);
-    ctx.fillStyle='#8cb7aa';ctx.fillRect(14,13,4,4);
-  }
-  return {direction,candidates,frame,paint};
+  return {direction,candidates,edgeSeats};
 })();
 if (typeof window !== 'undefined') window.StreetSigns = StreetSigns;
