@@ -1226,6 +1226,15 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
+- The debug menu's **Variant ground tint** toggle persists across reloads. Its
+  translucent ground overlay shows the nearest road variant's primary cobble
+  color, including extended dressing outside the reserved corridor. Nexus cells
+  use their dominant material color; Home, cave and discarded cells receive no
+  road tint. It samples only visible cells, caches nearest-road queries, and is
+  hidden underground without changing generated terrain or spawn ownership.
+- Roadside direction markers are low stone compasses with brass arrows for the
+  actual local road headings. Startup bakes `StreetSigns` artwork into one shared
+  256-frame atlas; each sign selects its eight-direction mask without runtime drawing.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
@@ -1233,9 +1242,9 @@ the reach rim within the existing player-light radius.
   while grid terrain and roadside ground retain their existing rules.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
-  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 35% colour
-  saturation, while restored stones regain colour and add missing cobbles at the
-  same positions. Both states keep the approved Promenade light–dark contrast.
+  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 55% colour
+  saturation, while restored stones use 115% of the theme saturation and add
+  missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
   its solid charcoal surface and ember warning. Rail ballast stays solid.

@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-5416b655';
+    window.__shellVersion = 'shell-0c827ccf';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -1445,6 +1445,7 @@
           <button id="debug-road-ids">Road IDs (debug)</button>
           <button id="debug-gps-stick" aria-pressed="false">GPS stick: off</button>
           <button id="debug-variant-labels" aria-pressed="false">Variant labels: off</button>
+          <button id="debug-variant-tint" aria-pressed="false">Variant ground tint: off</button>
           <button id="debug-load-profile">Load profile</button>
           <div id="teleport-section" style="border-top:1px solid #333;margin-top:2px;padding-top:4px;">
             <div style="font:700 10px var(--font-ui);color:#888;padding:2px 8px 4px;">Teleport</div>
@@ -2309,6 +2310,13 @@
       scene.debugVariantLabels = !scene.debugVariantLabels;
       e.currentTarget.textContent = `Variant labels: ${scene.debugVariantLabels ? 'on' : 'off'}`;
       e.currentTarget.setAttribute('aria-pressed', String(scene.debugVariantLabels));
+      const m = document.getElementById('menu'); if (m) m.open = false;
+    });
+    document.getElementById('debug-variant-tint').addEventListener('click', (e) => {
+      e.stopPropagation();
+      const scene = window.__scene;
+      if (!scene) return;
+      Render.setVariantTint(scene, !scene.debugVariantTint);
       const m = document.getElementById('menu'); if (m) m.open = false;
     });
     document.getElementById('debug-wood-relics').addEventListener('click', (e) => {
@@ -3237,8 +3245,8 @@
   <script src="src/particles.js?v=139210f6"></script>
   <script src="src/trail.js?v=ca4ab8ce"></script>
   <script src="src/streets.js?v=2b6f3303"></script>
-  <script src="src/street_variants.js?v=2551c2ea"></script>
-  <script src="src/street_signs.js?v=70655348"></script>
+  <script src="src/street_variants.js?v=0761b5b6"></script>
+  <script src="src/street_signs.js?v=19da54f8"></script>
   <script src="src/scenic.js?v=76288367"></script>
   <script src="src/zones.js?v=66c6e4dc"></script>
   <script src="src/zone_variant_data.js?v=751a61d2"></script>
@@ -3270,7 +3278,7 @@
   <script src="src/gas.js?v=c1623ebe"></script>
   <script src="src/creeping_vines.js?v=6dd80b07"></script>
   <script src="src/mushroom_gas.js?v=3d903960"></script>
-  <script src="src/lairs.js?v=ec917330"></script>
+  <script src="src/lairs.js?v=ab355a32"></script>
   <script src="src/dungeon_progression.js?v=3a8af653"></script>
   <script src="src/elevators.js?v=e02a2b01"></script>
   <script src="src/arena.js?v=e1e49ed1"></script>
@@ -3284,10 +3292,10 @@
   <script src="src/geometry.js?v=8575e0b6"></script>
   <script src="src/gameplay_tiers.js?v=e124d893"></script>
   <script src="src/generated_tile_cache.js?v=043e889f"></script>
-  <script src="src/worldgen.js?v=a4e299e0"></script>
+  <script src="src/worldgen.js?v=40eed9a0"></script>
   <script src="src/castle_styles.js?v=759cb38f"></script>
   <script src="src/ground_materials.js?v=dc83f28d"></script>
-  <script src="src/textures.js?v=6de10054"></script>
+  <script src="src/textures.js?v=36f82a0c"></script>
   <script src="src/floor_wall_materials.js?v=0ba8b7cb"></script>
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
@@ -3332,7 +3340,7 @@
   <script src="src/pets.js?v=441af278"></script>
   <script src="src/character_portraits.js?v=e7b062b6"></script>
   <script src="src/companions.js?v=a9ca22bf"></script>
-  <script src="src/creature_ai.js?v=ef4eb0b8"></script>
+  <script src="src/creature_ai.js?v=23aaa9e2"></script>
 
   <script src="src/wizard.js?v=649e72fb"></script>
   <script src="src/dragon_story.js?v=0ebfab03"></script>
@@ -3345,7 +3353,7 @@
   <script src="src/lighting_gpu.js?v=ad54fc09"></script>
   <script src="src/lighting.js?v=00b002ea"></script>
   <script src="src/safety.js?v=7972cffc"></script>
-  <script src="src/render.js?v=ca84c374"></script>
+  <script src="src/render.js?v=f75f63fe"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=d29f48ce"></script>
@@ -3353,7 +3361,7 @@
   <script src="src/weather.js?v=d63591ea"></script>
   <script src="src/road_surfaces.js?v=d0f7dd96"></script>
   <script src="src/street_lights.js?v=f4dab2ff"></script>
-  <script src="src/road_overlay.js?v=52974e9b"></script>
+  <script src="src/road_overlay.js?v=4431ea3f"></script>
   <script src="src/temple_art.js?v=8e47066c"></script>
   <script src="src/wall_materials.js?v=9d64ac96"></script>
   <script src="src/wall_surface_renderer.js?v=dce428ad"></script>
@@ -3403,7 +3411,7 @@
   <script src="src/heading_up.js?v=e9c1bba2"></script>
   <script src="src/compass_modules.js?v=e8e1834b"></script>
   <script src="src/compass_hud.js?v=73bc6d2d"></script>
-  <script src="src/scene_create.js?v=58950699"></script>
+  <script src="src/scene_create.js?v=22777679"></script>
   <script src="src/scene_elevators.js?v=38e0b3e9"></script>
   <script src="src/scene_arena.js?v=f444910f"></script>
   <script src="src/scene_sky.js?v=4d74ca34"></script>

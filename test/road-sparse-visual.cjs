@@ -35,7 +35,10 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
         (restored?api.commitRestored:api.commitBase)(p);return canvas;
       };
       const pixels=c=>c.getContext('2d').getImageData(0,160,384,64).data;
-      const open=c=>{const p=pixels(c);let n=0;for(let i=3;i<p.length;i+=4)if(p[i]===0)n++;return n/(p.length/4);};
+      // Weathered joints carry the shared faint theme tint. They still expose
+      // ground; measuring alpha===0 would mistake that tint for solid stone.
+      const jointAlpha=Math.ceil(255*api.VARIANT_SHADE_ALPHA/api.ALPHA);
+      const open=c=>{const p=pixels(c);let n=0;for(let i=3;i<p.length;i+=4)if(p[i]<=jointAlpha)n++;return n/(p.length/4);};
       const ordinary=pass('plain'), repaired=pass('plain',true), burned=pass('burned'), fire=pass('fire_path');
       const combined=document.createElement('canvas');combined.width=combined.height=384;
       const cx=combined.getContext('2d');cx.drawImage(ordinary,0,0);cx.drawImage(repaired,0,0);
