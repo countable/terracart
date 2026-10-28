@@ -298,7 +298,7 @@ mechanics.
   the kind's tier squared in seconds (a runt 59 s, a T3 goblin 51 s, never
   below zero); a wild animal takes the calm of the same length. A charmed body
   reads as calm (`Combat.isCalm`), so it does not flee the net either. Giving a wild one its favourite starts
-  a catch attempt (`Pets.catchMs`: current HP × 2 at the net's tool rate)
+  a catch attempt (`Pets.catchMs`: current HP at the net's tool rate)
   while it flees for the edge of reach; no attack runs and it is no one's
   enemy until the attempt ends. A refused item is never consumed. Story foes
   and `untameable` kinds (the crow: hunted for its feather, never a pet; old
