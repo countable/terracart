@@ -1894,13 +1894,14 @@ const TAP_HANDLERS = [
   // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in
   // the grid, asphalt on screen — see isTillableCell) lands here too and
   // reads as road, matching what the player is looking at. A road or path
-  // cell of a street variant names it (StreetVariants.streetStoryAt, the
-  // same row the feet's story reads) by title only; the feet tell the story.
+  // cell of a street variant names it (StreetVariants.streetNameAt: the
+  // feet story's row, or a themed path's own inside a Nexus) by title only;
+  // the feet tell the story.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell) || planterAt(ctx)) return false;
     const street = (scene.depth ?? 0) === 0 && (cell.underRoad || WorldGen.isRoadTerrain(cell.type) || cell.type === TERRAIN.PATH)
-      ? StreetVariants.streetStoryAt(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), cell.ix, cell.iy) : null;
+      ? StreetVariants.streetNameAt(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), cell.ix, cell.iy) : null;
     if (street) {
       scene.flash(street.title, sx, sy);
       return true;

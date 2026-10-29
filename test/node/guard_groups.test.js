@@ -19,8 +19,8 @@
 //     synthetic tile — a horde of runts round the walls, the decoy out front
 //     with its orcs opposite and told different notice rings, the elite shiny
 //     in the knot, the ghosts over the roof, and bats in the rafters.
-//   · THE SPLIT: enemySplit on a stub scene — half the pool each side, a cell
-//     away, the twin's id and lair fields, the bounty share, the cooldown and
+//   · THE SPLIT: enemySplit on a stub scene — half the pool each side, the foe
+//     spacing apart, the twin's id and lair fields, the bounty share, the cooldown and
 //     the floor; and the two damage lanes that call it.
 (function () {
   const CELL_M = 7, N = 40, TILE_M = N * CELL_M;
@@ -392,7 +392,7 @@
     WorldGen.tileCache.set(key, entry);
     try { return fn(); } finally { if (had) WorldGen.tileCache.set(key, had); else WorldGen.tileCache.delete(key); }
   }
-  test('split slime: a blow divides it — half the pool each side, a cell away, the twin a guard of the same ruin', () => {
+  test('split slime: a blow divides it — half the pool each side, the foe spacing apart, the twin a guard of the same ruin', () => {
     const entry = { cellsPerEdge: N, tileEdgeM: TILE_M, grid: new Uint8Array(N * N), creatures: [] };
     const c = { kind: 'split_slime', id: 'lair_0_0_20_20_0', x: CENTRE.x, y: CENTRE.y, _hp: 32,
       immobile: true, lair: '0_0_20_20', lairX: CENTRE.x, lairY: CENTRE.y, lairR: 10, seatX: CENTRE.x, seatY: CENTRE.y };
@@ -405,9 +405,10 @@
       assert.eq(c._hp, 16); assert.eq(twin._hp, 16);
       assert.eq(twin.kind, 'split_slime'); assert.eq(twin.id, 'lair_0_0_20_20_0_s1');
       assert.lt(Math.abs(c.x - CENTRE.x), 1e-6); assert.lt(Math.abs(twin.x - CENTRE.x), 1e-6);
-      assert.lt(Math.abs(Math.abs(c.y - CENTRE.y) - CELL_M), 1e-6, 'one half a cell to one side');
-      assert.lt(Math.abs(Math.abs(twin.y - CENTRE.y) - CELL_M), 1e-6, 'the other a cell to the other');
-      assert.lt(Math.abs(c.y - twin.y) - 2 * CELL_M, 1e-6, 'on opposite sides');
+      const gap = FOE_SPACING_CELLS * CELL_M;
+      assert.lt(Math.abs(Math.abs(c.y - CENTRE.y) - gap / 2), 1e-6, 'one half to one side');
+      assert.lt(Math.abs(Math.abs(twin.y - CENTRE.y) - gap / 2), 1e-6, 'the other to the other');
+      assert.lt(Math.abs(Math.abs(c.y - twin.y) - gap), 1e-6, 'opposite sides, just the foe spacing apart');
       assert.eq(twin.lair, c.lair); assert.eq(twin.lairX, c.lairX); assert.truthy(twin.immobile, 'a guard of the same ruin');
       assert.eq(twin.seatX, twin.x); assert.eq(c.seatX, c.x, 'each half walks home to where it now stands');
       assert.eq(c._splitShare, 0.5); assert.eq(twin._splitShare, 0.5, 'the bounty is shared');
@@ -442,11 +443,11 @@
     const scene = splitScene(entry);
     withTile(entry, () => {
       // North and south blocked: the halves step along the line of the blow.
-      scene._cellBlocked = (x, y) => Math.abs(y - CENTRE.y) > CELL_M / 2;
+      scene._cellBlocked = (x, y) => Math.abs(y - CENTRE.y) > 1e-6;
       const twin = enemySplit(scene, c, 0, CENTRE.y, 1000);
       assert.truthy(twin, 'divided along the blow');
       assert.lt(Math.abs(c.y - CENTRE.y), 1e-6); assert.lt(Math.abs(twin.y - CENTRE.y), 1e-6);
-      assert.lt(Math.abs(Math.abs(c.x - twin.x) - 2 * CELL_M), 1e-6);
+      assert.lt(Math.abs(Math.abs(c.x - twin.x) - FOE_SPACING_CELLS * CELL_M), 1e-6);
       // Everything blocked: the slime just takes the blow.
       scene._cellBlocked = () => true;
       assert.eq(enemySplit(scene, c, 0, c.y, 5000), null);

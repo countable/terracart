@@ -86,7 +86,8 @@ mechanics.
   movement/targeting in `SpriteLayout.CREATURE_BEHAVIOUR` and reuse the pet
   combat lane. Persist contract expiry and any durable health state, not live
   map instances. Test reload, tile replacement and expiry when adding a kind.
-- Splitting slimes divide reactively on a blow. Only healing and summoning
+- Splitting slimes divide reactively on a blow; the two halves land
+  `FOE_SPACING_CELLS` apart, flanking the striker. Only healing and summoning
   abilities use the support cadence; splitting never replaces their normal
   melee attack.
 - An elite has a rank, a row of `Combat.ELITE_RANKS`: a plain elite (2×

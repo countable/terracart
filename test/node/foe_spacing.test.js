@@ -94,7 +94,7 @@
       originPx: { x: 0, y: 0 }, mPerPx: 7, cellsPerTile: WorldGen.TILE_PX,
       startWorldM: { x: 0, y: 0 }, viewCenterX: 0, viewCenterY: 0 });
     const slime = { kind: 'split_slime', id: 'split', x: 140, y: 140, _hp: 32 };
-    const neighbour = { kind: 'zombie', id: 'neighbour', x: 140, y: 148 };
+    const neighbour = { kind: 'zombie', id: 'neighbour', x: 140, y: 145 };
     s._foeBodies = [slime, neighbour];
     s._characterSpacingIndex = buildCharacterSpacingIndex(s);
     const key = WorldGen.tileKey(0, 0), previous = WorldGen.tileCache.get(key);
