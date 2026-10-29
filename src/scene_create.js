@@ -883,6 +883,7 @@ class SceneCreate {
       this._ensureCanvasTex(key, 128, (ctx, S) => paintAuraDisc(ctx, S, color));
     }
     makeCastleSkullFlagTexture(this);
+    makeRoadSignTextures(this);
     // The banner a CLAIMED castle flies — a cream pennant on a short pole with
     // a green heart on it. Green because that is already this game's word for
     // energy (UI_GREEN, "success / ready / energy gain"), and the heart is
