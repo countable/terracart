@@ -482,7 +482,7 @@
       terrain: 'GRASS', affinities: ["cultivated", "woodland"],
       stone: { weathered: '#9a9278', restored: '#9a9278' }, lampGlow: '#d8cf9c',
       story: 'street_way_of_variety', art: 'street_way_of_variety', title: 'Way of Variety',
-      body: 'Common finds crowd both sides: herbs, berries, mushrooms, rocks, trees and pots.', flash: 'Way of Variety.' },
+      body: 'Common finds crowd the way and both sides: herbs, berries, mushrooms, rocks, trees and pots.', flash: 'Way of Variety.' },
   ];
   // Cave occupancy predates Paralysis Path becoming a small-road theme.
   // Its rock-length gate must use that selection table, independently of
@@ -651,8 +651,10 @@
     haunted_forest_path: [{ step: 21, side: 'both', walk: 1, emit: commonFind([DARK_TREE]) },
       { step: 49, side: 'both', walk: 2, gate: 'headstone', emit: commonFind([{ kind: 'headstone' }]) },
       { step: 21, side: 'both', walk: 1, emit: commonFind([{ crop: 'mushroom' }]) }],
-    way_of_variety: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2,
-      fill: true, gate: 'reward', emit: commonFind([
+    // Finds stand on the road or path itself and two verge cells either side
+    // (Grassy Lane's cross-section); none blocks movement.
+    way_of_variety: [{ step: () => root.WorldGen.CELL_M / 2, crossRoad: true, walk: 2,
+      gate: 'reward', emit: commonFind([
         { crop: 'petnip' }, { crop: 'berry' }, { crop: 'shrub' }, { crop: 'mushroom' },
         { crop: 'flint' }, { crop: 'rubble' }, COMMON_ROCK, OLD_TREE,
         { kind: 'chest', extra: { barrel: true, barrelStyle: 'clay_pot' } },
