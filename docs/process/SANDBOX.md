@@ -228,7 +228,7 @@ and plain-rock examples remain in the surrounding grid.
 | rocky_path | Rocky Road | simple stone-lined road |
 | grassy_lane | Grassy Lane | herbs and low greenery |
 | old_growth_path | Old Growth Path | mature forest trees |
-| haunted_forest_path | Haunted Forest Path | haunted woodland |
+| haunted_forest_path | Haunt | haunted woodland |
 | way_of_variety | Way of Variety | dense mix of common interactables |
 | plain minor | Maple Street | legacy ordinary street comparison |
 | plain MD | Old Trade Road | suppression zone and wagon stop |

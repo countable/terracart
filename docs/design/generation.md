@@ -700,7 +700,7 @@ access or tile lifecycle mechanics.
   cells on each side with harvestable long grass, with herbs and bushes farther
   out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
   the shared land/occupancy gates. Old Growth Path has
-  mature trees, shrubs and mushrooms; Haunted Forest Path uses the shared dead-tree art,
+  mature trees, shrubs and mushrooms; Haunt uses the shared dead-tree art,
   headstones and mushrooms. Way of Variety densely fills both verges with
   deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
   existing interactions and shared spawn gates; Grassy Lane intentionally covers
