@@ -2595,7 +2595,7 @@
         cx(c.ix) + (c.x / CELL_M - c.ix - .5) * frameCellM,
         cy(c.iy) + (c.y / CELL_M - c.iy - .5) * frameCellM,
         WG.cellId('street_sign',tx,ty,c.ix,c.iy),
-        { _street:rec.variant,_streetArt:'direction_sign',directions:sign.directions }));
+        { _street:rec.variant,directions:sign.directions }));
     }
     const burnedSeen = new Set();
     // Barricade street key → every owned piece end in the
