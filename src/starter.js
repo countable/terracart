@@ -2291,10 +2291,10 @@
   // land), never changes terrain, reach, fog, or where the player can walk.
   // A treasure trail is a dark ink hint that begins startCells walking cells
   // out from its chest or X — [nearest, farthest], seeded per target. The
-  // drawn line ends behindCells beyond the feet: 0 keeps it from running
-  // under them (Render.drawChestTrails clips it per frame).
-  const TRAIL_STYLE = Object.freeze({ colour: 0x000000, alpha: 0.375, width: 2, dash: 6, gap: 5, bendCells: 0.28,
-    behindCells: 0, startCells: Object.freeze([8, 12]) });
+  // drawn line ends behindCells beyond the feet: -1 stops it a cell ahead of
+  // them (Render.drawChestTrails clips it per frame).
+  const TRAIL_STYLE = Object.freeze({ colour: 0x000000, alpha: 0.3375, width: 2, dash: 6, gap: 5, bendCells: 0.28,
+    behindCells: -1, startCells: Object.freeze([8, 12]) });
   const trailCellKey = c => `${c.cellIX},${c.cellIY}`;
   const TRAIL_STEPS = [[1, 0], [0, 1], [-1, 0], [0, -1]];
 

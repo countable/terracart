@@ -2107,8 +2107,8 @@ Render.drawChestTrails = function drawChestTrails(scene) {
   const style = Starter.TRAIL_STYLE, player = playerWorldM(scene);
   g.lineStyle(style.width, style.colour, style.alpha);
   for (const path of paths) {
-    const radius = Math.hypot(player.x - path.target.x, player.y - path.target.y)
-      + scene.cellM * style.behindCells;
+    const radius = Math.max(0, Math.hypot(player.x - path.target.x, player.y - path.target.y)
+      + scene.cellM * style.behindCells);
     const radiusSquared = radius * radius;
     let along = 0;
     g.beginPath();
