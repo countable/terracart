@@ -16,6 +16,22 @@
     assert.eq(Render.roadInfluenceTintColor(e, 10, 8), RoadOverlay.primaryColor('golden'), 'recorded winner supplies the colour');
     assert.eq(Render.roadInfluenceTintColor(e, -1, 8), null);
   });
+  test('road influence ground: a groundFamily row redraws its footprint and minor-road cobble gaps', () => {
+    const e = entry(), i = 8 * N + 10;
+    e.streetArea = StreetVariants.area(e.streetIndex, N);
+    e.streetAreaVariants = e.streetArea.variants;
+    const brown = GroundMaterials.families.findIndex(row => row.id === 'brownSoil');
+    assert.gt(brown, -1);
+    assert.eq(Render.roadInfluenceGroundFamily(e, 10, 8), -1, 'a row without groundFamily keeps the source ground');
+    e.streetAreaVariants[i] = StreetVariants.VARIANT_BY_ID.haunted_forest_path.code;
+    assert.eq(Render.roadInfluenceGroundFamily(e, 10, 8), brown, 'Haunt draws RA brown soil');
+    assert.eq(e.grid[i], WorldGen.T.GRASS, 'and leaves the terrain alone');
+    e.grid[i] = WorldGen.T.ROAD;
+    assert.eq(Render.roadInfluenceGroundFamily(e, 10, 8), brown, 'minor-road cobble gaps show it too');
+    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, 'while the wash stays off the carriageway');
+    e.grid[i] = WorldGen.T.ROAD_MD;
+    assert.eq(Render.roadInfluenceGroundFamily(e, 10, 8), -1, 'MD/LG paving is never restyled');
+  });
   test('road influence tint: Home, Nexus, cave, discarded and non-ground cells keep their own appearance', () => {
     const e = entry(), i = 8 * N + 10;
     e.streetArea = StreetVariants.area(e.streetIndex, N);

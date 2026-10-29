@@ -2233,16 +2233,29 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
 // unbounded nearest-road debug view. Its recorded variant codes already settle
 // overlapping roads, so drawing never repeats spatial ownership searches.
 Render.ROAD_INFLUENCE_TINT_ALPHA = 0.20;
-Render.roadInfluenceTintColor = function roadInfluenceTintColor(entry, ix, iy) {
+// The street-variant row whose influence footprint holds this cell, or null.
+// The wash skips the carriageway; the ground material also reaches minor road
+// cells so their cobble gaps show the variant's ground.
+Render.roadInfluenceVariant = function roadInfluenceVariant(entry, ix, iy, includeRoad = false) {
   const N = entry?.cellsPerEdge, i = iy * N + ix;
   if (!entry?.grid || entry.depth > 0 || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N
       || WorldGen.variantOwnerAt(entry, i) !== 'road') return null;
   const terrain = entry.grid[i];
-  if (!WorldGen.isWalkable(terrain) || WorldGen.isBuildingTerrain(terrain)
+  if (!(WorldGen.isWalkable(terrain) || includeRoad && terrain === WorldGen.T.ROAD) || WorldGen.isBuildingTerrain(terrain)
       || terrain === WorldGen.T.PIER || terrain === WorldGen.T.ROAD_MD || terrain === WorldGen.T.ROAD_LG) return null;
   const code = (entry.streetAreaVariants || entry.streetArea?.variants)?.[i];
-  const variant = typeof StreetVariants !== 'undefined' && StreetVariants.variantByCode(code);
+  return (typeof StreetVariants !== 'undefined' && StreetVariants.variantByCode(code)) || null;
+};
+Render.roadInfluenceTintColor = function roadInfluenceTintColor(entry, ix, iy) {
+  const variant = Render.roadInfluenceVariant(entry, ix, iy);
   return variant && typeof RoadOverlay !== 'undefined' ? RoadOverlay.primaryColor(variant.id) : null;
+};
+// A variant row's `groundFamily` redraws its influence ground with that
+// GroundMaterials family (and its transitions). Render-only, like
+// zoneGroundTexture: terrain, flora, spawns and tilling keep the source cell.
+Render.roadInfluenceGroundFamily = function roadInfluenceGroundFamily(entry, ix, iy) {
+  const family = Render.roadInfluenceVariant(entry, ix, iy, true)?.groundFamily;
+  return family ? GroundMaterials.families.findIndex(row => row.id === family) : -1;
 };
 Render.beginRoadInfluenceTint = function beginRoadInfluenceTint(scene) {
   scene._roadInfluenceTintGfx?.clear();
@@ -2567,6 +2580,8 @@ Render.drawCells = function drawCells(scene) {
       // Keep authored accent-only fills and synthetic floors.
       if (!entry?.grid) continue;
       const textureKey = zoneGroundTexture(entry, _ringIY[i] * entry.cellsPerEdge + _ringIX[i], t);
+      const roadGround = textureKey ? -1 : Render.roadInfluenceGroundFamily(entry, _ringIX[i], _ringIY[i]);
+      if (roadGround >= 0) { transitionMaterials[i] = roadGround; continue; }
       const tintedNative = t === WorldGen.T.CHURCHYARD || t === WorldGen.T.TAR_YARD;
       if (!textureKey && !tintedNative && _ringGroundColor[i] >= 0) continue;
       if (isRoadType(t) || t === T_PATH) t = Render.roadBackdropType(scene, t, AX(c,r), AY(c,r));
