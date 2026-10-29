@@ -487,7 +487,7 @@ access or tile lifecycle mechanics.
   surface, plus the unopened starter relic chest (from Home's door); supply
   crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
-  (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
+  (`behindCells`, -1: the line stops a cell short of the feet): it recedes ahead of
   approaching feet and returns when walking away. Segment clipping preserves dash positions and
   separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
@@ -1076,6 +1076,9 @@ Higher-priority placements and their access space take precedence in this order:
    A live street-index copy uses the same boundary intervals as Nexus road
    suppression, including paths; pavement, labels, stories and hot-road effects
    read it through `StreetVariants.indexFor`. Shared generation reads the original.
+   Ground inside the circle reverts from variant terrain to `variantBaseGrid`
+   once per cell (`_homeGroundRestored`): the starter pass paints between the
+   prepare and final passes, and its paint can equal the variant's own ground.
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.

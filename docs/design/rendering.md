@@ -580,7 +580,7 @@ the surrounding grove’s shrub scale.
 - Named booth signs show the booth kind above at most two words of the rusticified
   place name. If the second word is an article or connector (such as “the” or
   “of”), only the first word appears. Full names remain available in dialogs.
-- Road labels show the first word of the street's official name, then its
+- Road and path labels show the first word of the street's official name, then its
   street variant's name (`StreetVariants.labelName`, read off the dressed
   tile's `streetMarks`): "Athalmer Pottery". Generic suffixes such as Road and
   Lane are omitted. Plain streets show the word alone. Labels use 10px text;

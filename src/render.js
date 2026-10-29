@@ -2084,8 +2084,8 @@ Render.drawChestTrails = function drawChestTrails(scene) {
   const style = Starter.TRAIL_STYLE, player = playerWorldM(scene);
   g.lineStyle(style.width, style.colour, style.alpha);
   for (const path of paths) {
-    const radius = Math.hypot(player.x - path.target.x, player.y - path.target.y)
-      + scene.cellM * style.behindCells;
+    const radius = Math.max(0, Math.hypot(player.x - path.target.x, player.y - path.target.y)
+      + scene.cellM * style.behindCells);
     const radiusSquared = radius * radius;
     let along = 0;
     g.beginPath();
@@ -2837,9 +2837,9 @@ Render.drawCells = function drawCells(scene) {
       // drops an anchor every ~12 road cells), laid along the road direction.
       {
         const lt = scene.letterPool[letterIdx++];
-        // Anchors exist only on vehicle road tiers (a footpath is too narrow
-        // to carry a label), so the isRoad gate also keeps lookups cheap.
-        if (!isTilled && isRoadType(type)) {
+        // Anchors exist only on road and path tiers, so this gate also keeps
+        // lookups cheap.
+        if (!isTilled && (isRoadType(type) || type === T_PATH)) {
           // Look up this cell's label anchor from its owning tile.
           const ix2 = _ringIX[_si], iy2 = _ringIY[_si];
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));

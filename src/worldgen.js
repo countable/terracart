@@ -6505,14 +6505,14 @@
     // LABEL_PERIOD road cells, rotated to the local road direction. This
     // Angles are normalized to (-90°, 90°] so a label never renders upside
     // down regardless of the way's digitized direction.
-    // Stored as { "ix_iy": { text, angle } } — anchor cells only, vehicle road
-    // tiers only (PATH pebbles are too small to carry a label).
+    // Stored as { "ix_iy": { text, angle } } — anchor cells only, on vehicle
+    // road and PATH tiers alike (a named footpath is labelled like a street).
     //
     const roadLabels = {};
     const LABEL_PERIOD = 12;   // cells between label repeats (~84 m)
     const LABEL_OFFSET = 2;    // first label a couple of cells in from the line start
     const tnLayer = layersByName['transportation_name'];
-    const LABEL_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG]);
+    const LABEL_TYPES = new Set([T.ROAD, T.ROAD_MD, T.ROAD_LG, T.PATH]);
     if (tnLayer) {
       for (const f of tnLayer.features) {
         if (f.type !== 2) continue;
