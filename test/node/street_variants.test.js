@@ -1823,7 +1823,7 @@ test('street terrain: only opted-in path themes paint their floor and verge', ()
     f.grid.fill(T.SAND); for (let x=1;x<11;x++) f.grid[6*N+x]=T.PATH;
     f.streetGround=new Uint8Array(N*N);
     const painted=paintVerge(f);
-    const enabled=['grassy_lane','old_growth_path','haunted_forest_path','spider_path','poison_path'].includes(row.id);
+    const enabled=['grassy_lane','old_growth_path','spider_path','poison_path'].includes(row.id);
     assert.eq(f.grid[6*N+5],T.PATH,'path remains a physical path');
     assert.eq(f.grid[5*N+5],enabled ? SV.terrainFor(row.id) : T.SAND,row.id+' verge policy');
     assert.eq(f.streetGround[6*N+5],enabled ? SV.terrainFor(row.id)+1 : 0,row.id+' floor policy');

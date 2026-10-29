@@ -474,7 +474,7 @@
       story: 'street_old_growth_path', art: 'street_old_growth_path', title: 'Old Growth Path',
       body: 'Mature trees shade a path edged with shrubs and mushrooms.', flash: 'Old Growth Path.' },
     { id: 'haunted_forest_path', haunting: true, baseline: true, size: 'minor', share: 0.12, pathWeight: 0.12, rung: 'common',
-      terrain: 'WASTELAND', pathTerrainInfluence: true, affinities: ["woodland", "ruined"],
+      terrain: 'FOREST', groundFamily: 'brownSoil', affinities: ["woodland", "ruined"],
       stone: { weathered: '#524f5c', restored: '#524f5c' }, lampGlow: '#d8cf9c',
       story: 'street_haunted_forest_path', art: 'street_haunted_forest_path', title: 'Haunt',
       body: 'Dead trees crowd the way. Old headstones stand among the mushrooms.', flash: 'Haunt.' },

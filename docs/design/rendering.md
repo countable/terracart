@@ -1246,6 +1246,9 @@ the reach rim within the existing player-light radius.
   primary colour during normal surface play. Recorded influence cells bound
   the wash; Home, Nexus, caves, discarded areas, water and buildings retain
   their appearance. It sits beneath vector pavement and standing objects.
+  A row's `groundFamily` also redraws those cells, and its minor-road cobble
+  gaps, with that `GroundMaterials` family and its native transitions (Haunt:
+  RA `brownSoil`). It is render-only, like zone ground textures.
 - The debug menu's **Variant ground tint** toggle persists across reloads. Its
   translucent ground overlay shows the nearest road variant's primary cobble
   color, including extended dressing outside the reserved corridor. Nexus cells
