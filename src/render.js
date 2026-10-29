@@ -1886,6 +1886,29 @@ const UNMAPPED_T = 30;
 // lives on the tile entry (first frame the renderer SEES it loaded), so the
 // reveal happens exactly once per cache entry, at the loading frontier.
 const UNMAPPED_REVEAL_MS = 600;
+// AN ARRIVAL FADES IN (owner, Oct 2026: "trees sometimes suddenly appear").
+// An object first drawn WELL INSIDE the view — nearer the anchor than
+// `innerM`, a cell short of the visible rim — cannot have walked in from the
+// edge: it was put there while the view was on it (a late Overpass bin
+// swapping the tile for one with its detected trees, a spawn pass adding to
+// a tile already on screen, a rebuild). It rises from clear to whole over
+// the tile reveal's own time, UNMAPPED_REVEAL_MS, the sprite and its shadow
+// together; an object first seen at the rim, or seen before, draws whole at
+// once. The first-seen stamp is kept PER RECORD in a WeakMap — never on the
+// record, which may be a save record (a planted tree) that JSON.stringify
+// would carry into the save — so the one fade is per object, not per sprite
+// slot, and a tile rebuild (new records) earns one.
+const _arrivals = new WeakMap();
+Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
+  let seen = _arrivals.get(o);
+  if (!seen) _arrivals.set(o, seen = { ms: now, arriving: Math.hypot(dx, dy) <= innerM });
+  if (!seen.arriving) return 1;
+  const a = (now - seen.ms) / UNMAPPED_REVEAL_MS;
+  if (a >= 1) { seen.arriving = false; return 1; }
+  return Math.max(0, a);
+};
+// Is this record mid-fade (a still frame must keep reconfiguring it)?
+Render.arriving = function arriving(o) { return !!_arrivals.get(o)?.arriving; };
 // Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
 // triples for the veil pass on the lighting layer.
 const _fadeRects = [];
@@ -4392,6 +4415,11 @@ Render.drawObjects = function drawObjects(scene) {
   // worldgen never emits it, so it must be re-added after reloads / eviction.
   if (scene.ensureStarterTrailerObject) scene.ensureStarterTrailerObject();
   const halfM = (VIEW_CELLS / 2 + 1) * scene.cellM;
+  // The arrival fade's inner view (Render.arrivalAlpha): a cell short of the
+  // visible rim at the live zoom (VIEW_CELLS / mapZoom cells across; the
+  // heading-up circle is inscribed in that square), and this frame's clock.
+  const arrivalInnerM = Math.max(scene.cellM, (VIEW_CELLS / (2 * (scene.mapZoom || 1)) - 1) * scene.cellM);
+  const nowMs = performance.now();
   // Extra cull reach for house sprites — the art stands bottom-middle on its
   // footprint's centre of mass, so it reaches half its width sideways and its
   // full height north (BUILDING_ART.fort.max: a fort tops out at 3.48 cells
@@ -4959,12 +4987,15 @@ Render.drawObjects = function drawObjects(scene) {
         // Turn with the prop about its own ground anchor, so the tuck-up
         // inset stays screen-up instead of swinging below the art.
         s._huAnchor = Render.objectGroundAnchor(item._appearance, scene.textures, { x: sx, y: sy });
+        // The shadow of an arriving prop fades in with it.
+        s.setAlpha(s.alpha * Render.arrivalAlpha(o, dx, dy, nowMs, arrivalInnerM));
         return;
       }
       const shadow = Render.buildingShadow(item._appearance, scene.textures, { x: sx, y: sy });
       seatShadow(s, 'building', shadow.width, shadow.x, shadow.y, shadow.height);
       // Keep the tucked-up offset in screen space as the building turns.
       s._huAnchor = shadow.anchor;
+      s.setAlpha(s.alpha * Render.arrivalAlpha(o, dx, dy, nowMs, arrivalInnerM));
     });
   }
   // Turrets keep a separate reusable pool inside the shared world layer.
@@ -5001,6 +5032,8 @@ Render.drawObjects = function drawObjects(scene) {
      .setScale(scl, scl * scaleYMul)
      .setPosition(Math.round(sx) + dxPx, Math.round(sy) + dyPx)
      .setTint(tint);
+    // An object put down inside the view fades in (Render.arrivalAlpha).
+    s.setAlpha(Render.arrivalAlpha(o, dx, dy, nowMs, arrivalInnerM));
     // Per-kind post-config hook — runs AFTER the pool's identity reset and
     // the tint, so hooks can override the ordinary appearance.
     if (typeof spec.after === 'function') spec.after(s, o, scene, appearancePass);
@@ -5016,8 +5049,9 @@ Render.drawObjects = function drawObjects(scene) {
     s._staticHadWork = !!scene._workProgress;
   };
   const reuseStaticObject = (s, item) => {
+    // A fading arrival is reconfigured every frame until it is whole.
     if (!scene._boot_still || !item._appearanceStable || scene._workProgress || s._staticHadWork
-        || s._staticObject !== item.o || s._staticAppearance !== item._appearance) return false;
+        || s._staticObject !== item.o || s._staticAppearance !== item._appearance || Render.arriving(item.o)) return false;
     setWorldDepth(s, item._z ?? 0);
     // Body animation/height can change while cached scenery stands still.
     coverCheck(s, item._appearance);
