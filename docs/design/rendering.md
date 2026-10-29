@@ -1060,6 +1060,16 @@ light; the smooth player glow carries the other half, preserving nearby
 brightness on the surface and underground. This compensation fades beyond
 the reach rim within the existing player-light radius.
 
+- An object put down inside the view fades in (`Render.arrivalAlpha`): one
+  whose first drawn frame finds it nearer the anchor than the inner view, a
+  cell short of the visible rim at the live zoom, rises from clear to whole
+  over `UNMAPPED_REVEAL_MS`, sprite and contact shadow together, and a still
+  frame keeps reconfiguring it until it is whole. That is what a late Overpass
+  bin's detected trees, a spawn pass on a tile already on screen and a rebuilt
+  tile's new records do; an object first seen at the rim walked in and draws
+  whole at once. The first-seen stamp is kept per record in a WeakMap, never
+  written to the record (which may be a save record), so a record fades once
+  in its life.
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
