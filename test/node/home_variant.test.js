@@ -108,6 +108,17 @@
     HomeVariant.apply(s, e, 0, 0);
     assert.eq(e.grid[index], 1); assert.eq(e.grid[index + 1], 9);
   });
+  test('Home variant: ground painted after prepare survives the final pass, even when it matches the variant', () => {
+    // The starter plot paints GRASS between the two passes; where the street
+    // variant had already made that cell GRASS the paint equals baseGrid.
+    const s = scene(), e = entry(), index = 10 * 20 + 10;
+    HomeVariant.apply(s, e, 0, 0, { phase: 'prepare' });
+    assert.eq(e.grid[index], 1);
+    e.grid[index] = e.baseGrid[index];
+    HomeVariant.apply(s, e, 0, 0);
+    assert.eq(e.grid[index], 2, 'starter paint kept');
+    assert.eq(e.grid[index + 1], 1, 'untouched variant ground still restored');
+  });
   test('Home variant: prepare leaves shared creature draws intact, final keeps later starter placements', () => {
     const s = scene(), e = entry();
     e.creatures = [object('wild')]; e.objects = [object('wild')];

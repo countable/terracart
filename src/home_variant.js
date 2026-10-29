@@ -103,9 +103,17 @@
       entry.slowCells = new Map(entry.slowCells);
       for (let i = 0; i < cleared.length; i++) if (cleared[i]) entry.slowCells.delete(i);
     }
+    // Swap each cell's variant ground back once. The 'prepare' pass runs
+    // before the starter pass paints Home's own ground, and a later pass must
+    // not mistake that paint for variant ground: a starter plot carved on a
+    // cell the variant had already made GRASS matched baseGrid and was turned
+    // back into the lot under it, leaving the tutorial dot on bare ground.
     if (entry.variantBaseGrid && entry.baseGrid) {
+      const restored = entry._homeGroundRestored || (entry._homeGroundRestored = new Uint8Array(N * N));
       for (let i = 0; i < cleared.length; i++) {
-        if (cleared[i] && entry.grid[i] === entry.baseGrid[i]) entry.grid[i] = entry.variantBaseGrid[i];
+        if (!cleared[i] || restored[i] || entry.grid[i] !== entry.baseGrid[i]) continue;
+        entry.grid[i] = entry.variantBaseGrid[i];
+        restored[i] = 1;
       }
     }
     const saved = root.SpawnOwnership?.savedIds(scene.save);
