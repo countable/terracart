@@ -29,3 +29,11 @@ test('terrain transitions: neighbouring concrete and rubble variants do not crea
     assert.eq(frames[0],values[0]*16+15,'the first local variation remains the opaque base');
   }
 });
+
+// A player's stone fence once swapped its cell to a square rock texture
+// beside transitioning ground. The ring itself now carries the rock.
+test('terrain transitions: placed rocks join the material ring instead of a square fallback', () => {
+  const ring=RENDER_SRC.slice(RENDER_SRC.indexOf('transitionMaterials.fill(-1);'),RENDER_SRC.indexOf('const VEIL = (c, r)'));
+  assert.truthy(/placedRockSet\?\.has\(cellKeyFromAbsCell\(AX\(c,r\), AY\(c,r\)\)\)\) t = 10;/.test(ring),'placed rock is ring material');
+  assert.falsy(/transitionsActive && type === T\(col, row\)/.test(RENDER_SRC),'drawing never bypasses the ring for an overridden type');
+});
