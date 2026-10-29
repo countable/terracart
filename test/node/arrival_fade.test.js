@@ -36,6 +36,25 @@
     assert.eq(Render.arrivalAlpha(corner, 8, 8, 1000, INNER), 0, 'inside it on the diagonal still fades');
   });
 
+  test('arrival fade: a record re-minted every frame (a lamp, a scarecrow, a stump) fades once, then stays whole', () => {
+    // placedAs builds a fresh record per pass; keyed by identity each frame's
+    // copy was a new arrival and a lit lamp inside the view never rose from clear.
+    const frame = (ms, dist) => {
+      Render.mintedArrivalFrame();
+      const o = Render.mintedArrival({ kind: '_streetlamp', id: 'lamp_1.00_2.00' });
+      return Render.arrivalAlpha(o, 0, dist, ms, INNER);
+    };
+    assert.eq(frame(1000, INNER + 1), 1, 'walked in at the rim: whole');
+    assert.eq(frame(1016, 2), 1, 'and still whole on later frames as a fresh copy nearer the player');
+    assert.eq(frame(5000, 2), 1, 'long after');
+    Render.mintedArrivalFrame();
+    Render.mintedArrivalFrame();   // two passes without it: it left the view
+    assert.eq(frame(6000, 2), 0, 'one put down inside the view fades in');
+    assert.eq(frame(6000 + FADE, 2), 1, 'over the reveal time, across fresh copies');
+    const scarecrow = Render.mintedArrival({ kind: '_scarecrow', id: 'lamp_1.00_2.00' });
+    assert.eq(Render.arrivalAlpha(scarecrow, 0, 2, 6000 + FADE, INNER), 0, 'keys are per kind as well as id');
+  });
+
   test('arrival fade: the sprite pass fades the body and its shadow, sizes the inner view by the live zoom, and never reuses a fading sprite', () => {
     assert.truthy(/s\.setAlpha\(Render\.arrivalAlpha\(o, dx, dy, nowMs, arrivalInnerM\)\);/.test(RENDER_SRC), 'the body');
     assert.eq((RENDER_SRC.match(/s\.setAlpha\(s\.alpha \* Render\.arrivalAlpha\(o, dx, dy, nowMs, arrivalInnerM\)\);/g) || []).length, 2,
@@ -43,5 +62,7 @@
     assert.truthy(/const arrivalInnerM = Math\.max\(scene\.cellM, \(VIEW_CELLS \/ \(2 \* \(scene\.mapZoom \|\| 1\)\) - 1\) \* scene\.cellM\);/.test(RENDER_SRC),
       'a cell short of the visible rim at the live zoom');
     assert.truthy(/\|\| Render\.arriving\(item\.o\)\) return false;/.test(RENDER_SRC), 'a still frame reconfigures a fading sprite');
+    assert.truthy(/const o = Render\.mintedArrival\(\{ kind, x: p\.x/.test(RENDER_SRC), 'placedAs records take a stable arrival key');
+    assert.truthy(/o: Render\.mintedArrival\(\{ \.\.\.o, kind: 'tree_stump'/.test(RENDER_SRC), 'and so does a stump view');
   });
 })();

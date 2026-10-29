@@ -1069,7 +1069,10 @@ the reach rim within the existing player-light radius.
   tile's new records do; an object first seen at the rim walked in and draws
   whole at once. The first-seen stamp is kept per record in a WeakMap, never
   written to the record (which may be a save record), so a record fades once
-  in its life.
+  in its life. A record the pass builds afresh every frame (`placedAs`'s
+  street lamps, scarecrows and fires; a stump's view) is keyed through
+  `Render.mintedArrival` by kind and id instead, kept only while it is drawn
+  frame to frame; keyed by identity it was new every frame and never drawn.
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
