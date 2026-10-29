@@ -698,7 +698,7 @@
     "rocky_path": "#9b9b91",
     "grassy_lane": "#92a087",
     "old_growth_path": "#777c68",
-    "haunted_forest_path": "#807d91",
+    "haunted_forest_path": "#5a5766",
     "way_of_variety": "#a89d86"
 };
   // Mixed-stone themes: each cobble of the sparse layout takes one of these
