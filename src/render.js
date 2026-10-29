@@ -827,6 +827,29 @@ const POI_PAD_MINI_SCALE = 0.55;
 const T_PATH = 8;
 const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 
+// What a street-name anchor prints and in which ink. The word is the
+// street's official first word, then its variant's name: off the dressed
+// tile's per-cell marks, or (a themed path inside a Nexus, whose marks the
+// Nexus cleared) StreetVariants.streetNameAt, as a tap reads it. The ink is
+// the surface's own (RoadOverlay.labelInk): MD/LG art, the variant's stone,
+// a Nexus-suppressed minor road's, else plain. Cached on the anchor until
+// the tile's marks change (none until it is dressed).
+Render.roadLabelView = (entry, ix, iy, type, info) => {
+  if (info._view && info._viewMarks === entry.streetMarks) return info._view;
+  const i = iy * entry.cellsPerEdge + ix;
+  const mark = entry.streetMarks ? entry.streetMarks[i] : 0;
+  let row = mark ? StreetVariants.variantByCode(mark) : null;
+  if (!row && type === T_PATH && entry.streetMarks) {
+    const named = StreetVariants.streetNameAt(entry, ix, iy);
+    if (named && StreetVariants.VARIANT_BY_ID[named.id] === named) row = named;
+  }
+  const suffix = row ? StreetVariants.labelName(row) : '';
+  const ink = type === 14 ? 'surface:md' : type === 13 ? 'surface:lg'
+    : row ? row.id : entry.streetIndex?.nexusCoverage?.[i] && type !== T_PATH ? 'suppressed' : 'plain';
+  info._viewMarks = entry.streetMarks;
+  return (info._view = { text: suffix ? `${info.text} ${suffix}` : info.text, ink });
+};
+
 // Raster road codes carry gameplay, not a second paved surface. Both the
 // game and map review paint the surrounding ground under the source band.
 Render.groundBaseColor = (type, fallback) =>
@@ -2874,11 +2897,15 @@ Render.drawCells = function drawCells(scene) {
             // cells along its rotation, which is fine — map labels do too.
             // worldgen pre-normalizes angle into (-90°, 90°] so the text is
             // never upside down.
-            // The street's variant name follows its official one, read off
-            // the dressed tile's per-cell marks (none until it is dressed).
-            const mark = entry.streetMarks ? entry.streetMarks[iy2 * entry.cellsPerEdge + ix2] : 0;
-            const variant = mark ? StreetVariants.labelName(StreetVariants.variantByCode(mark)) : '';
-            lt.setText(variant ? `${info.text} ${variant}` : info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+            // Text and ink: Render.roadLabelView. A pooled Text re-bakes its
+            // texture on every style call, so restyle only on a change.
+            const view = Render.roadLabelView(entry, ix2, iy2, type, info);
+            if (lt._inkKey !== view.ink) {
+              const ink = RoadOverlay.labelInk(view.ink);
+              lt.setColor(ink.fill).setStroke(ink.halo, 3).setShadow(0, 1, ink.lip, 0, false, true);
+              lt._inkKey = view.ink;
+            }
+            lt.setText(view.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
               .setRotation(info.angle).setVisible(true);
             // Rotated bounds include the text's halo. Leave a small gap at
             // junctions; the next anchor along a crowded road can still label it.
