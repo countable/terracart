@@ -703,9 +703,11 @@ the surrounding grove’s shrub scale.
   Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Step-over wall
-  and hedge meshes instead live in `raisedPropContainer`, above ground shadows
-  and below world sprites, so the player's ground shadow cannot paint their
-  raised tops. Both layers share the world viewport mask. Wall geometry
+  and hedge pieces instead join the shared world depth sort, one part per cell
+  piece seated at its cell (`WallPerspective` per-wall parts, as grass, loose
+  props and castle walls), so a hedge or wall hides the props and the player
+  behind it and draws under those in front; ground shadows are ground decals
+  and still sort below them. Both layers share the world viewport mask. Wall geometry
   never adjusts an actor's feet. Generated castle walls, towers and keeps instead
   join the world depth sort at their shared ground supports, so props behind
   them cannot paint over their raised faces. Legacy tower sprites and
