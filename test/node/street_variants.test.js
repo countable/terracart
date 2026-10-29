@@ -2350,22 +2350,6 @@ test('common route themes: deterministic dressing, dense variety and shared safe
   assert.gt(finds.length, 30, 'variety thickly fills two verge rows per side');
   assert.gt(new Set(finds.map(o => o.crop || o.kind)).size, 4, 'variety mixes common interactables');
   assert.truthy(finds.some(o => Math.floor(o.y / 7) === 5) && finds.some(o => Math.floor(o.y / 7) === 7), 'variety adjoins both sides of the road');
-  // A path's band is far narrower than its cell: the finds stand at the
-  // band's edge, not a cell centre away, yet keep their cell and its id.
-  const path = vergeFixture('way_of_variety');
-  path.index.dressingLines[0].halfW = 1;
-  const edged = SV.dress({ ...path, tx: 0, ty: 0, tileEdgeM: path.N * 7,
-    spawnOpts: { roadMask: path.roadMask, spawnWhy: path.spawnWhy, occupied: new Set() } });
-  const edgedFinds = [...edged.objects, ...edged.wildplants].filter(o => String(o.id).startsWith('route_'));
-  for (const o of edgedFinds) {
-    const iy = Math.floor(o.y / 7), ix = Math.floor(o.x / 7);
-    assert.eq(o.id, WorldGen.cellId('route_way_of_variety', 0, 0, ix, iy), 'an edge seat keeps its cell id');
-    assert.truthy(Math.abs(o.x / 7 - ix - .5) < 1e-9, 'the pull runs across the road only');
-    if (iy === 5) assert.truthy(o.y / 7 - iy > .85, 'the north row stands at the band edge');
-    if (iy === 7) assert.truthy(o.y / 7 - iy < .15, 'the south row stands at the band edge');
-    if (iy === 4 || iy === 8) assert.truthy(Math.abs(o.y / 7 - iy - .5) > .3, 'the back rank keeps its spacing');
-  }
-  assert.truthy(edgedFinds.some(o => Math.floor(o.y / 7) === 5) && edgedFinds.some(o => Math.floor(o.y / 7) === 7), 'both edge rows are dressed');
   assert.truthy(dress('haunted_forest_path').objects.filter(o => o.kind === 'tree').every(o => o._objectArt === 'dead_tree'), 'haunted trees use the shared dead-tree art');
   assert.truthy(dress('haunted_forest_path').objects.some(o => o.kind === 'headstone'), 'haunted route has headstones');
   assert.truthy(dress('old_growth_path').objects.some(o => o.kind === 'tree' && o.variant === 3), 'old growth has mature trees');

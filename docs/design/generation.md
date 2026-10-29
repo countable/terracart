@@ -702,7 +702,7 @@ access or tile lifecycle mechanics.
   the shared land/occupancy gates. Old Growth Path has
   mature trees, shrubs and mushrooms; Haunt uses the shared dead-tree art,
   headstones and mushrooms. Way of Variety densely fills both verges with
-  deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road; its finds stand pulled toward the drawn band within their own cells (the signpost's edge seat), so a narrow path's first row reads as beside it rather than a cell away. All use
+  deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
   existing interactions and shared spawn gates; Grassy Lane intentionally covers
   its road surface too.
 - Road-variant scenery starts in the first adjacent verge cell. Additional
