@@ -728,6 +728,31 @@
     const light=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
     return rgb.map(channel=>light+(channel-light)*(restored ? 1.15 : .55));
   }
+  // Street-name label ink, read off the surface the word is printed on (a
+  // variant id, or 'surface:md' / 'surface:lg'): engraved lettering, not a
+  // sticker. The halo is that stone's own weathered tone, so the word's
+  // outline melts into the paving; the glyphs are the stone cut deeper (toward
+  // black, or toward white on a dark surface such as Burned Row or the
+  // highway); the lip is a lighter tone one pixel below, light catching the
+  // lower edge of each groove.
+  const LABEL_INK_DEPTH = 0.62, LABEL_LIP_LIFT = 0.3, LABEL_DARK_LIGHT = 72;
+  const labelInks = {};
+  function labelInk(key) {
+    if (labelInks[key]) return labelInks[key];
+    const family = String(key || '').startsWith('surface:') ? key.slice(8) : null;
+    const meanColor = family && global.RoadSurfaces?.MEAN_COLOR?.[family];
+    const variant = Object.prototype.hasOwnProperty.call(ROAD_THEME_COLORS, key) ? key : 'plain';
+    const stone = meanColor ? [1, 3, 5].map(i => parseInt(meanColor.slice(i, i + 2), 16)) : themeColor(variant, false);
+    const light = .2126 * stone[0] + .7152 * stone[1] + .0722 * stone[2];
+    const toward = (rgb, target, t) => rgb.map(c => c + (target - c) * t);
+    const css = rgb => '#' + rgb.map(c => Math.round(Math.max(0, Math.min(255, c))).toString(16).padStart(2, '0')).join('');
+    const dark = light < LABEL_DARK_LIGHT;
+    return (labelInks[key] = {
+      fill: css(toward(stone, dark ? 255 : 0, LABEL_INK_DEPTH)),
+      halo: css(stone),
+      lip: css(toward(stone, dark ? 0 : 255, LABEL_LIP_LIFT)),
+    });
+  }
   function recolorRoadTile(variant,restored) {
     const base=baseRoadTile(variant,restored);
     if(variant==='burned')return base;
@@ -2288,7 +2313,7 @@
     }
   }
 
-  global.RoadOverlay = { primaryColor, ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
+  global.RoadOverlay = { primaryColor, labelInk, ALPHA, RESTORED_ALPHA, VARIANT_SHADE_ALPHA, variantSeams, homeRoadRuns, transportLines, lampSitesForTile, LAMP_DARK_CELLS, LAMP_SITE_R_CELLS, draw, invalidate, drawLive, colorFor, paintWeatherTile, paintCleanTile, paintPavementTile, paintRiftBorder, paintSurfaceDecor, cleanTile, CLEAN_TILE_PX, CLEAN_PATH_MORTAR_MUL,
                          roadMaterialFor, selectedRoadTile, prepareMaterials, LAMP_DRAW_CELLS, LAMP_FOOT_R_CELLS, LAMP_LIGHT_RISE_CELLS, LAMP_LIGHT_OFFSET_CELLS,
                          RESTORED_BLUR_PX, RESTORED_BLUR_FRAC, blurForWidth, softenEdge, paintSurfaceDecorSteps,
                          CLEAN_MORTAR_ALPHA, CLEAN_BEVEL_ALPHA, roundJoinFans,

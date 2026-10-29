@@ -827,6 +827,29 @@ const POI_PAD_MINI_SCALE = 0.55;
 const T_PATH = 8;
 const isRoadType = (t) => t === 7 || t === 13 || t === 14;
 
+// What a street-name anchor prints and in which ink. The word is the
+// street's official first word, then its variant's name: off the dressed
+// tile's per-cell marks, or (a themed path inside a Nexus, whose marks the
+// Nexus cleared) StreetVariants.streetNameAt, as a tap reads it. The ink is
+// the surface's own (RoadOverlay.labelInk): MD/LG art, the variant's stone,
+// a Nexus-suppressed minor road's, else plain. Cached on the anchor until
+// the tile's marks change (none until it is dressed).
+Render.roadLabelView = (entry, ix, iy, type, info) => {
+  if (info._view && info._viewMarks === entry.streetMarks) return info._view;
+  const i = iy * entry.cellsPerEdge + ix;
+  const mark = entry.streetMarks ? entry.streetMarks[i] : 0;
+  let row = mark ? StreetVariants.variantByCode(mark) : null;
+  if (!row && type === T_PATH && entry.streetMarks) {
+    const named = StreetVariants.streetNameAt(entry, ix, iy);
+    if (named && StreetVariants.VARIANT_BY_ID[named.id] === named) row = named;
+  }
+  const suffix = row ? StreetVariants.labelName(row) : '';
+  const ink = type === 14 ? 'surface:md' : type === 13 ? 'surface:lg'
+    : row ? row.id : entry.streetIndex?.nexusCoverage?.[i] && type !== T_PATH ? 'suppressed' : 'plain';
+  info._viewMarks = entry.streetMarks;
+  return (info._view = { text: suffix ? `${info.text} ${suffix}` : info.text, ink });
+};
+
 // Raster road codes carry gameplay, not a second paved surface. Both the
 // game and map review paint the surrounding ground under the source band.
 Render.groundBaseColor = (type, fallback) =>
@@ -1899,7 +1922,29 @@ const UNMAPPED_REVEAL_MS = 600;
 // would carry into the save — so the one fade is per object, not per sprite
 // slot, and a tile rebuild (new records) earns one.
 const _arrivals = new WeakMap();
+// A record the pass MINTS afresh every frame (placedAs's lamps, scarecrows
+// and fires; a stump's view of its tree) is a new object each pass, so keyed
+// by identity it was "first seen" every frame and, inside the inner view,
+// stayed clear for good: lit roadside lamps vanished as they neared the
+// player. Render.mintedArrival gives such a record a stable stand-in key by
+// kind and id, carried from frame to frame only while it is still drawn —
+// one culled out and back walks in at the rim again.
+const _mintedKey = new WeakMap();
+let _mintedLive = new Map(), _mintedPrev = new Map();
+Render.mintedArrival = function mintedArrival(o) {
+  const id = `${o.kind}:${o.id}`;
+  const key = _mintedLive.get(id) || _mintedPrev.get(id) || {};
+  _mintedLive.set(id, key);
+  _mintedKey.set(o, key);
+  return o;
+};
+// drawObjects opens each pass with this: last pass's keys stay claimable.
+Render.mintedArrivalFrame = function mintedArrivalFrame() {
+  _mintedPrev = _mintedLive;
+  _mintedLive = new Map();
+};
 Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
+  o = _mintedKey.get(o) || o;
   let seen = _arrivals.get(o);
   if (!seen) _arrivals.set(o, seen = { ms: now, arriving: Math.hypot(dx, dy) <= innerM });
   if (!seen.arriving) return 1;
@@ -1908,7 +1953,7 @@ Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
   return Math.max(0, a);
 };
 // Is this record mid-fade (a still frame must keep reconfiguring it)?
-Render.arriving = function arriving(o) { return !!_arrivals.get(o)?.arriving; };
+Render.arriving = function arriving(o) { return !!_arrivals.get(_mintedKey.get(o) || o)?.arriving; };
 // Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
 // triples for the veil pass on the lighting layer.
 const _fadeRects = [];
@@ -2849,11 +2894,15 @@ Render.drawCells = function drawCells(scene) {
             // cells along its rotation, which is fine — map labels do too.
             // worldgen pre-normalizes angle into (-90°, 90°] so the text is
             // never upside down.
-            // The street's variant name follows its official one, read off
-            // the dressed tile's per-cell marks (none until it is dressed).
-            const mark = entry.streetMarks ? entry.streetMarks[iy2 * entry.cellsPerEdge + ix2] : 0;
-            const variant = mark ? StreetVariants.labelName(StreetVariants.variantByCode(mark)) : '';
-            lt.setText(variant ? `${info.text} ${variant}` : info.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
+            // Text and ink: Render.roadLabelView. A pooled Text re-bakes its
+            // texture on every style call, so restyle only on a change.
+            const view = Render.roadLabelView(entry, ix2, iy2, type, info);
+            if (lt._inkKey !== view.ink) {
+              const ink = RoadOverlay.labelInk(view.ink);
+              lt.setColor(ink.fill).setStroke(ink.halo, 3).setShadow(0, 1, ink.lip, 0, false, true);
+              lt._inkKey = view.ink;
+            }
+            lt.setText(view.text).setPosition(sx + CELL_PX / 2, sy + CELL_PX / 2)
               .setRotation(info.angle).setVisible(true);
             // Rotated bounds include the text's halo. Leave a small gap at
             // junctions; the next anchor along a crowded road can still label it.
@@ -4407,6 +4456,7 @@ Render.drawObjects = function drawObjects(scene) {
   // heading-up circle is inscribed in that square), and this frame's clock.
   const arrivalInnerM = Math.max(scene.cellM, (VIEW_CELLS / (2 * (scene.mapZoom || 1)) - 1) * scene.cellM);
   const nowMs = performance.now();
+  Render.mintedArrivalFrame();
   // Extra cull reach for house sprites — the art stands bottom-middle on its
   // footprint's centre of mass, so it reaches half its width sideways and its
   // full height north (BUILDING_ART.fort.max: a fort tops out at 3.48 cells
@@ -4749,7 +4799,7 @@ Render.drawObjects = function drawObjects(scene) {
   const placedAs = (list, kind, idWord, extra) => {
     const out = [];
     cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => {
-      const o = { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) };
+      const o = Render.mintedArrival({ kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) });
       out.push({ o, dx, dy });
     });
     return out;
@@ -4803,7 +4853,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (objList.some(it => it.o.id !== o.id && !isSpent(it.o, spentIds) && sameAbsCell(scene, it.o.x, it.o.y, o.x, o.y))
         || plantedList.some(({ p }) => sameAbsCell(scene, p.x, p.y, o.x, o.y))
         || (scene.save.furniture || []).some(p => sameAbsCell(scene, p.x, p.y, o.x, o.y))) return null;
-    return { o: { ...o, kind: 'tree_stump', _streetArt: 'stump' }, dx, dy };
+    return { o: Render.mintedArrival({ ...o, kind: 'tree_stump', _streetArt: 'stump' }), dx, dy };
   };
   const stumpSources = [...objList];
   for (const o of scene.save.treeStumps || []) {
