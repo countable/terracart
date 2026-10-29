@@ -1899,7 +1899,29 @@ const UNMAPPED_REVEAL_MS = 600;
 // would carry into the save — so the one fade is per object, not per sprite
 // slot, and a tile rebuild (new records) earns one.
 const _arrivals = new WeakMap();
+// A record the pass MINTS afresh every frame (placedAs's lamps, scarecrows
+// and fires; a stump's view of its tree) is a new object each pass, so keyed
+// by identity it was "first seen" every frame and, inside the inner view,
+// stayed clear for good: lit roadside lamps vanished as they neared the
+// player. Render.mintedArrival gives such a record a stable stand-in key by
+// kind and id, carried from frame to frame only while it is still drawn —
+// one culled out and back walks in at the rim again.
+const _mintedKey = new WeakMap();
+let _mintedLive = new Map(), _mintedPrev = new Map();
+Render.mintedArrival = function mintedArrival(o) {
+  const id = `${o.kind}:${o.id}`;
+  const key = _mintedLive.get(id) || _mintedPrev.get(id) || {};
+  _mintedLive.set(id, key);
+  _mintedKey.set(o, key);
+  return o;
+};
+// drawObjects opens each pass with this: last pass's keys stay claimable.
+Render.mintedArrivalFrame = function mintedArrivalFrame() {
+  _mintedPrev = _mintedLive;
+  _mintedLive = new Map();
+};
 Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
+  o = _mintedKey.get(o) || o;
   let seen = _arrivals.get(o);
   if (!seen) _arrivals.set(o, seen = { ms: now, arriving: Math.hypot(dx, dy) <= innerM });
   if (!seen.arriving) return 1;
@@ -1908,7 +1930,7 @@ Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
   return Math.max(0, a);
 };
 // Is this record mid-fade (a still frame must keep reconfiguring it)?
-Render.arriving = function arriving(o) { return !!_arrivals.get(o)?.arriving; };
+Render.arriving = function arriving(o) { return !!_arrivals.get(_mintedKey.get(o) || o)?.arriving; };
 // Reused across frames — cells currently mid-reveal, as (sx, sy, alpha)
 // triples for the veil pass on the lighting layer.
 const _fadeRects = [];
@@ -4435,6 +4457,7 @@ Render.drawObjects = function drawObjects(scene) {
   // heading-up circle is inscribed in that square), and this frame's clock.
   const arrivalInnerM = Math.max(scene.cellM, (VIEW_CELLS / (2 * (scene.mapZoom || 1)) - 1) * scene.cellM);
   const nowMs = performance.now();
+  Render.mintedArrivalFrame();
   // Extra cull reach for house sprites — the art stands bottom-middle on its
   // footprint's centre of mass, so it reaches half its width sideways and its
   // full height north (BUILDING_ART.fort.max: a fort tops out at 3.48 cells
@@ -4777,7 +4800,7 @@ Render.drawObjects = function drawObjects(scene) {
   const placedAs = (list, kind, idWord, extra) => {
     const out = [];
     cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => {
-      const o = { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) };
+      const o = Render.mintedArrival({ kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) });
       out.push({ o, dx, dy });
     });
     return out;
@@ -4831,7 +4854,7 @@ Render.drawObjects = function drawObjects(scene) {
     if (objList.some(it => it.o.id !== o.id && !isSpent(it.o, spentIds) && sameAbsCell(scene, it.o.x, it.o.y, o.x, o.y))
         || plantedList.some(({ p }) => sameAbsCell(scene, p.x, p.y, o.x, o.y))
         || (scene.save.furniture || []).some(p => sameAbsCell(scene, p.x, p.y, o.x, o.y))) return null;
-    return { o: { ...o, kind: 'tree_stump', _streetArt: 'stump' }, dx, dy };
+    return { o: Render.mintedArrival({ ...o, kind: 'tree_stump', _streetArt: 'stump' }), dx, dy };
   };
   const stumpSources = [...objList];
   for (const o of scene.save.treeStumps || []) {
