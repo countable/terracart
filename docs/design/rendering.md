@@ -1250,7 +1250,7 @@ the reach rim within the existing player-light radius.
   while the surrounding influence area uses the ground wash above.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
-  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 55% colour
+  grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
   saturation, while restored stones use 115% of the theme saturation and add
   missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.

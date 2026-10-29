@@ -701,6 +701,12 @@
     "haunted_forest_path": "#807d91",
     "way_of_variety": "#a89d86"
 };
+  // Mixed-stone themes: each cobble of the sparse layout takes one of these
+  // approved theme colours (its primary colour above still tints the joints).
+  const ROAD_THEME_MIXES = {
+    way_of_variety: ['rocky_path', 'pottery', 'grassy_lane', 'toadstool', 'haunted_forest_path', 'golden', 'berry']
+      .map(id => ROAD_THEME_COLORS[id]),
+  };
   function primaryColor(variant) {
     const color = ROAD_THEME_COLORS[variant];
     return color ? parseInt(color.slice(1), 16) : null;
@@ -716,8 +722,7 @@
     const mean=total/count;
     return {mean,spread:Math.sqrt(Math.max(0,squared/count-mean*mean))};
   }
-  function themeColor(id,restored) {
-    const color=ROAD_THEME_COLORS[id] || ROAD_THEME_COLORS.plain;
+  function themeColor(id,restored,color=ROAD_THEME_COLORS[id] || ROAD_THEME_COLORS.plain) {
     const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
     if(id==='burned')return rgb;
     const light=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
@@ -734,6 +739,16 @@
     const reference=baseRoadTile('promenade',restored);
     const contrast=stoneLuminance(reference.getContext('2d').getImageData(0,0,reference.width,reference.height).data);
     const target=themeColor(variant,restored);
+    // A mixed theme picks each stone's colour off its sparse-layout slot
+    // (the nearest stone centre, sparseRoadTile's 16-row staggered grid).
+    const mix=ROAD_THEME_MIXES[variant]?.map(color=>themeColor(variant,restored,color));
+    const spacing=12*SPARSE_SCALE;
+    const stoneTarget=i=>{
+      const px=(i>>2)%c.width, py=Math.floor((i>>2)/c.width);
+      const row=Math.round(py/spacing), col=Math.round((px-(row%2)*spacing/2)/spacing);
+      const slot=((row%16+16)%16)*16+((col%16+16)%16);
+      return mix[(Math.imul(slot+1,2654435761)>>>0)%mix.length];
+    };
     // Keep the existing light/dark stone distribution and texture. Match its
     // tonal spread to the approved applied Promenade, rather than flattening
     // both stone tones with a translucent solid-colour wash.
@@ -741,8 +756,8 @@
     for(let i=0;i<data.length;i+=4) {
       if(!data[i+3])continue;
       const light=.2126*data[i]+.7152*data[i+1]+.0722*data[i+2];
-      const delta=(light-source.mean)*scale+(restored?8:0);
-      for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,target[channel]+delta));
+      const delta=(light-source.mean)*scale+(restored?8:0), stone=mix?stoneTarget(i):target;
+      for(let channel=0;channel<3;channel++)data[i+channel]=Math.max(0,Math.min(255,stone[channel]+delta));
     }
     // Bake the variant tint once into the base surface. Compensate for the
     // road image's overall alpha so empty joints show a 20% tint on the map.

@@ -701,10 +701,11 @@ access or tile lifecycle mechanics.
   out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
   the shared land/occupancy gates. Old Growth Path has
   mature trees, shrubs and mushrooms; Haunt uses the shared dead-tree art,
-  headstones and mushrooms. Way of Variety densely fills both verges with
-  deterministic common plants, rocks, mature trees, pots and barrels, with its first row directly beside the road. All use
-  existing interactions and shared spawn gates; Grassy Lane intentionally covers
-  its road surface too.
+  headstones and mushrooms. Way of Variety densely fills its road or path
+  surface and two verge cells on each side (Grassy Lane's cross-section) with
+  deterministic common plants, rocks, mature trees, pots and barrels; none
+  blocks movement. All use existing interactions and shared spawn gates; Grassy
+  Lane and Way of Variety intentionally cover their road surfaces.
 - Road-variant scenery starts in the first adjacent verge cell. Additional
   authored rows sit behind that first row, without a blanket empty lamp strip.
   Single-row placement skips blocked seats instead of shifting outward.

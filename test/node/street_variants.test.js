@@ -2343,13 +2343,14 @@ test('common route themes: deterministic dressing, dense variety and shared safe
     assert.gt(finds.length, 0, id + ' dresses its verges');
     assert.eq(JSON.stringify(finds), JSON.stringify([...b.objects, ...b.wildplants]), id + ' is stable');
     assert.eq(blocked.objects.length + blocked.wildplants.length, 0, id + ' respects restricted ground');
-    if (id !== 'grassy_lane') assert.truthy(finds.every(o => Math.floor(o.y / 7) !== 6), id + ' leaves the route clear');
+    if (id !== 'grassy_lane' && id !== 'way_of_variety') assert.truthy(finds.every(o => Math.floor(o.y / 7) !== 6), id + ' leaves the route clear');
   }
   const variety = dress('way_of_variety');
   const finds = [...variety.objects, ...variety.wildplants];
   assert.gt(finds.length, 30, 'variety thickly fills two verge rows per side');
   assert.gt(new Set(finds.map(o => o.crop || o.kind)).size, 4, 'variety mixes common interactables');
   assert.truthy(finds.some(o => Math.floor(o.y / 7) === 5) && finds.some(o => Math.floor(o.y / 7) === 7), 'variety adjoins both sides of the road');
+  assert.truthy(finds.some(o => Math.floor(o.y / 7) === 6), 'variety stands on the road itself');
   assert.truthy(dress('haunted_forest_path').objects.filter(o => o.kind === 'tree').every(o => o._objectArt === 'dead_tree'), 'haunted trees use the shared dead-tree art');
   assert.truthy(dress('haunted_forest_path').objects.some(o => o.kind === 'headstone'), 'haunted route has headstones');
   assert.truthy(dress('old_growth_path').objects.some(o => o.kind === 'tree' && o.variant === 3), 'old growth has mature trees');
