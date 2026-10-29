@@ -578,6 +578,11 @@ the surrounding grove’s shrub scale.
   tile's `streetMarks`): "Athalmer Pottery". Generic suffixes such as Road and
   Lane are omitted. Plain streets show the word alone. Labels use 10px text;
   rotated bounds must leave a small gap, with overlapping anchors hidden.
+  A label is inked from the surface under it (`RoadOverlay.labelInk`: the
+  variant's `ROAD_THEME_COLORS` stone, plain or Nexus-suppressed paving, or
+  `RoadSurfaces.MEAN_COLOR` for MD/LG) so it reads as engraved: a halo in the
+  stone's own tone, glyphs cut darker (lighter on a dark surface), and a light
+  lip one pixel below. `Render.roadLabelView` picks the text and ink once per anchor.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The resting view a game opens on spans seven cells
