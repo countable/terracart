@@ -1263,9 +1263,19 @@ the reach rim within the existing player-light radius.
   use their dominant material color; Home, cave and discarded cells receive no
   road tint. It samples only visible cells, caches nearest-road queries, and is
   hidden underground without changing generated terrain or spawn ownership.
-- Roadside directions use the approved weathered signpost crop, with its feet
-  beside the vector road edge. Tapping it lists the actual local road headings
-  and route names; the decorative boards do not encode the junction geometry.
+- Roadside directions are a fingerpost drawn from `StreetSigns.ART`: a baked
+  post (`roadsign_post`) with its feet beside the vector road edge, and one
+  baked board (`roadsign_board`) per listed heading, hung from the top of the
+  post (`StreetSigns.boardRow`) and turned to point along its road
+  (`Render.poseRoadSignBoard`). A board is a horizontal plank, so it takes the
+  flat ground marks' projection (`StreetSigns.boardPose`, `GROUND_MARK.tilt`):
+  full length east/west, foreshortened north/south, the heading turned for
+  heading-up before projecting. Only the centre line is exact; a sprite cannot
+  skew the plank's width. Boards are drawn pieces derived once per sign
+  (`Render.roadSignBoards`), never world objects: the sign record alone owns
+  the tap, the cell and the shadow, and the boards name its contact
+  (`RENDER_SPEC.footFromCentre`) so they sort with it and stay stacked on it
+  as the map turns. Tapping still lists the headings and route names.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road

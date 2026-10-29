@@ -65,6 +65,48 @@ const StreetSigns = (() => {
       return { x, y, ix: Math.floor(x / cellM), iy: Math.floor(y / cellM) };
     });
   }
-  return {direction,candidates,edgeSeats};
+  // FINGERBOARDS. A sign is drawn as a post plus one board per listed
+  // direction (render.js RENDER_SPEC.roadsign / roadsign_board). Both textures
+  // are baked at scene start (textures.js makeRoadSignTextures) from this one
+  // table, which the seat maths and the tests read too. Source pixels, drawn
+  // at `scale` like the other 16px roadside props.
+  //   post:  a frame-filling pole on a plinth — its opaque bottom is the frame
+  //          bottom, so the renderer's full-frame contact seat is the real one.
+  //   board: a plank pointing EAST, its pivot the post end (origin [0, .5]);
+  //          `tipX` is the arrowhead's column, which the bake test pins.
+  //   Boards hang from `topRow` down at `pitch(n)` rows, so a two-road
+  //   junction wears its boards near the top like a real fingerpost while a
+  //   crowded one still shows every heading above the plinth (`lastRow`).
+  const ART = Object.freeze({
+    scale: 1.6,
+    post: Object.freeze({ fw: 16, fh: 40, poleX: 6, poleW: 4, topRow: 4, lastRow: 32 }),
+    board: Object.freeze({ fw: 22, fh: 9, tipX: 21, shaftTo: 15 }),
+    maxPitch: 5, minPitch: 2,
+  });
+  function vector(direction) {
+    const i = COMPASS.indexOf(direction);
+    return i < 0 ? null : { x: Math.cos(i * Math.PI / 4), y: Math.sin(i * Math.PI / 4) };
+  }
+  // A board is a horizontal plank, so it lies in the same plane as the flat
+  // ground marks and takes their projection (render.js GROUND_MARK.tilt): a
+  // board pointing east or west keeps its full length, one pointing north or
+  // south shows `tilt` of it, and the screen angle is the projected vector's.
+  // The caller hands in the vector already turned for heading-up, since the
+  // camera stays south of the screen however the map turns. A sprite can only
+  // rotate and stretch, so the plank's width is not projected; its centre line
+  // — the direction it points — is exact, which is what a wayfinding board is for.
+  function boardPose(vec, tilt) {
+    const x = vec.x, y = vec.y * tilt;
+    return { angle: Math.atan2(y, x), length: Math.hypot(x, y) };
+  }
+  function boardPitch(count) {
+    const span = ART.post.lastRow - ART.post.topRow;
+    return Math.max(ART.minPitch, Math.min(ART.maxPitch, Math.floor(span / Math.max(1, count - 1))));
+  }
+  // Source row (post frame) of board `slot` of `count`, from the top down.
+  function boardRow(slot, count) {
+    return ART.post.topRow + slot * boardPitch(count);
+  }
+  return {direction,candidates,edgeSeats,ART,vector,boardPose,boardPitch,boardRow};
 })();
 if (typeof window !== 'undefined') window.StreetSigns = StreetSigns;

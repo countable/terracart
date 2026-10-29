@@ -929,6 +929,51 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
 Render.setWaystoneMaterial = function setWaystoneMaterial(sprite, object, scene) {
   setTextureIfDifferent(sprite, 'waystone', window.Waystones?.isLit(object, scene.save) ? 1 : 0);
 };
+// ROADSIDE FINGERPOST BOARDS. One board record per heading the sign lists,
+// derived once per sign and kept by identity, so the appearance cache holds
+// (CACHED_APPEARANCE_KINDS) and a board never enters saves or the tap path:
+// it is a drawn piece, not a world object. `_board` is the heading's north-up
+// unit vector (StreetSigns.vector), `_slot` its row from the top of the post.
+const ROAD_SIGN_BOARDS = new WeakMap();
+Render.roadSignBoards = function roadSignBoards(item) {
+  const { o, dx, dy } = item;
+  let boards = ROAD_SIGN_BOARDS.get(o);
+  if (!boards) {
+    const listed = (o.directions || []).map(d => StreetSigns.vector(d.direction)).filter(Boolean);
+    boards = listed.map((vec, i) => ({ kind: 'roadsign_board', id: `${o.id}:board${i}`, x: o.x, y: o.y,
+      _board: vec, _slot: i, _slots: listed.length, _street: o._street }));
+    ROAD_SIGN_BOARDS.set(o, boards);
+  }
+  return boards.map(b => ({ o: b, dx, dy }));
+};
+// The post's own seat (SpriteLayout.contactSeat over its frame-filling art):
+// where its frame sits about the cell centre, and the contact its boards share.
+let _roadSignPostSeat = null;
+Render.roadSignPostSeat = function roadSignPostSeat() {
+  if (_roadSignPostSeat) return _roadSignPostSeat;
+  const { post, scale } = StreetSigns.ART;
+  const box = { fw: post.fw, fh: post.fh, minX: 0, minY: 0, maxX: post.fw, maxY: post.fh };
+  const seat = SpriteLayout.contactSeat(box, 0.5, 0.5, scale, scale, false);
+  // The pivot is the pole's centre column, which the plinth is centred on too.
+  seat.dxPx += (post.poleX + post.poleW / 2 - post.fw / 2) * scale;
+  return _roadSignPostSeat = seat;
+};
+// A board's pivot: its source row on the post frame, in screen px from the cell centre.
+Render.roadSignBoardDy = function roadSignBoardDy(o) {
+  const { post, scale } = StreetSigns.ART;
+  return Render.roadSignPostSeat().dyPx + (StreetSigns.boardRow(o._slot, o._slots) - post.fh / 2) * scale;
+};
+// Point the board along its road. The heading is turned for heading-up first
+// (the pool reconfigures every piece while the map turns), then projected
+// like a flat ground mark (StreetSigns.boardPose, GROUND_MARK.tilt). The
+// sprite's own rotation is the final screen angle: the camera's turn and the
+// upright counter-turn (heading_up.js _upright) cancel for every pooled
+// sprite, and the pivot keeps its place up the post through that counter-turn.
+Render.poseRoadSignBoard = function poseRoadSignBoard(sprite, o, scene) {
+  const v = typeof HeadingUp !== 'undefined' ? HeadingUp.toScreenVec(scene, o._board.x, o._board.y) : o._board;
+  const pose = StreetSigns.boardPose(v, GROUND_MARK.tilt);
+  sprite.setRotation(pose.angle).setScale(sprite.scaleX * pose.length, sprite.scaleY);
+};
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
   if (scene.textures.exists(key)) return Render.canvasTint(scene, key, tint);
@@ -4899,6 +4944,9 @@ Render.drawObjects = function drawObjects(scene) {
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
   filteredObj.push(...stumps);
+  // A fingerpost's boards are drawn pieces of the one generated sign: the
+  // sign record alone owns the tap, the cell and the shadow.
+  for (const it of filteredObj.filter(({ o }) => o.kind === 'roadsign')) filteredObj.push(...Render.roadSignBoards(it));
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const fp of firepitList) filteredObj.push(fp);
@@ -6769,7 +6817,18 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
-    roadsign: { key: 'street_decor_direction_sign', frame: 0, origin: [0.5, 0.5], scale: () => STREET_DECORATION_ART.direction_sign.scale, seat: true, shadow: true },
+    // A ROADSIDE FINGERPOST (street_variants.js, StreetSigns): the post row
+    // seats and casts the shadow; each listed heading is a `roadsign_board`
+    // piece (Render.roadSignBoards) hung on it, pivoting at the pole and
+    // turned to point along its road (Render.poseRoadSignBoard). The boards
+    // name the post's ground contact for depth and the heading-up turn, so
+    // they stay stacked on it however the map turns, and draw just in front.
+    roadsign: { key: 'roadsign_post', frame: 0, origin: [0.5, 0.5], scale: () => StreetSigns.ART.scale, seat: true, shadow: true },
+    roadsign_board: { key: 'roadsign_board', frame: 0, origin: [0, 0.5], scale: () => StreetSigns.ART.scale, seat: false,
+      dxPx: () => Render.roadSignPostSeat().dxPx,
+      dyPx: (o) => Render.roadSignBoardDy(o),
+      footFromCentre: (o) => Render.roadSignPostSeat().footFromCentre + 0.01 * (o._slot + 1),
+      after: (sprite, o, scene) => Render.poseRoadSignBoard(sprite, o, scene) },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.
@@ -6882,6 +6941,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
         }
       }
     }
+    // A piece hung on another prop (a fingerpost's board) sorts and turns by
+    // the contact its row names, never by its own art, which never touches
+    // the ground; it casts no shadow, so the ellipse width is moot.
+    const hung = typeof spec.footFromCentre === 'function' ? spec.footFromCentre(o, scene, pass) : spec.footFromCentre;
+    if (hung != null) foot = { w: 0, footFromCentre: hung };
     if (foot && Render.hasShrineFooting(o)) {
       const lift = SHRINE_PAD.seatLiftPx * CELL_PX / SHRINE_PAD.sizePx;
       dyPx -= lift;
@@ -6916,7 +6980,7 @@ Render.objectAppearance = function (scene, houseRoles) {
 // its scene token prevents a review scene from reusing another scene's tuple.
 const CACHED_APPEARANCE_KINDS = new Set([
   'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar', 'stalagmites', 'inactive_poison_vent',
-  'roadsign', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
+  'roadsign', 'roadsign_board', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
   'groundstack',
 ]);
 Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {
