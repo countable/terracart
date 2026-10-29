@@ -135,6 +135,13 @@ covers the offset, and the terrain cache records the actual sprite bounds.
 Tilled beds overlay the continuous native ground without removing its dual tile;
 otherwise the neighbouring half-cells would lose their texture.
 Map review deliberately displays each owning material without transitions.
+Every surface ground display is one of these families, so every boundary has a
+transition. Do not add a ground look as a per-cell colour wash, a square
+fallback texture or an untransitioned overlay; add or reuse a family row
+instead, and prefer reusing a similar family to adding one. Player-placed
+stone fences enter the material ring as rock. Exceptions are decals (tilled
+beds, burn soot, webs, grates), roads over the ground, and structural floors,
+whose walls are their boundary.
 Native 16px masks preserve outer/inner corners and disconnected diagonals. The atlas contains 26 families
 (416 native frames), including public residential light slate, cold slate, original square commercial
 concrete, scrub, Grove, selected Nexus grounds and four rocky-ground variants.
@@ -1242,13 +1249,13 @@ the reach rim within the existing player-light radius.
   are unchanged. Buffered source geometry handles road clearance at tile edges;
   post-to-post deduplication applies within each owning tile. Existing ready-entry
   caches avoid per-frame scans; no global density reduction is applied.
-- Road-variant influence areas carry a 20% ground wash in their variant's
-  primary colour during normal surface play. Recorded influence cells bound
-  the wash; Home, Nexus, caves, discarded areas, water and buildings retain
-  their appearance. It sits beneath vector pavement and standing objects.
-  A row's `groundFamily` also redraws those cells, and its minor-road cobble
-  gaps, with that `GroundMaterials` family and its native transitions (Haunt:
-  RA `brownSoil`). It is render-only, like zone ground textures.
+- Road-variant influence ground has no colour wash: a per-cell overlay has no
+  transition and read as a second grass on square cell edges. The variant's
+  terrain carries its ground; a row's `groundFamily` redraws its recorded
+  influence cells, and its minor-road cobble gaps, with that `GroundMaterials`
+  family and its native transitions (Haunt: RA `brownSoil`). Home, Nexus, caves,
+  discarded areas, water and buildings retain their appearance. It is
+  render-only, like zone ground textures.
 - The debug menu's **Variant ground tint** toggle persists across reloads. Its
   translucent ground overlay shows the nearest road variant's primary cobble
   color, including extended dressing outside the reserved corridor. Nexus cells
@@ -1261,8 +1268,8 @@ the reach rim within the existing player-light radius.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
-  occlusion and water/building keep-outs. The cached tint changes vector art,
-  while the surrounding influence area uses the ground wash above.
+  occlusion and water/building keep-outs. The cached tint changes vector art
+  only; the surrounding influence ground is untinted.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
   grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour

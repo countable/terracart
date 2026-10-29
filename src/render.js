@@ -2229,12 +2229,9 @@ Render.drawCaveWalls = function (scene, cells, offsetX = 0, offsetY = 0) {
   }, true);
 };
 
-// Normal ground colour follows the generated influence footprint, not the
-// unbounded nearest-road debug view. Its recorded variant codes already settle
-// overlapping roads, so drawing never repeats spatial ownership searches.
-Render.ROAD_INFLUENCE_TINT_ALPHA = 0.20;
 // The street-variant row whose influence footprint holds this cell, or null.
-// The wash skips the carriageway; the ground material also reaches minor road
+// Its recorded variant codes already settle overlapping roads, so drawing never
+// repeats spatial ownership searches. `includeRoad` also admits minor road
 // cells so their cobble gaps show the variant's ground.
 Render.roadInfluenceVariant = function roadInfluenceVariant(entry, ix, iy, includeRoad = false) {
   const N = entry?.cellsPerEdge, i = iy * N + ix;
@@ -2246,28 +2243,14 @@ Render.roadInfluenceVariant = function roadInfluenceVariant(entry, ix, iy, inclu
   const code = (entry.streetAreaVariants || entry.streetArea?.variants)?.[i];
   return (typeof StreetVariants !== 'undefined' && StreetVariants.variantByCode(code)) || null;
 };
-Render.roadInfluenceTintColor = function roadInfluenceTintColor(entry, ix, iy) {
-  const variant = Render.roadInfluenceVariant(entry, ix, iy);
-  return variant && typeof RoadOverlay !== 'undefined' ? RoadOverlay.primaryColor(variant.id) : null;
-};
 // A variant row's `groundFamily` redraws its influence ground with that
 // GroundMaterials family (and its transitions). Render-only, like
 // zoneGroundTexture: terrain, flora, spawns and tilling keep the source cell.
+// There is no per-cell colour wash: a square overlay has no transition, so
+// a variant's ground identity is its terrain or this family, never a tint.
 Render.roadInfluenceGroundFamily = function roadInfluenceGroundFamily(entry, ix, iy) {
   const family = Render.roadInfluenceVariant(entry, ix, iy, true)?.groundFamily;
   return family ? GroundMaterials.families.findIndex(row => row.id === family) : -1;
-};
-Render.beginRoadInfluenceTint = function beginRoadInfluenceTint(scene) {
-  scene._roadInfluenceTintGfx?.clear();
-  if ((scene.depth ?? 0) !== 0) {
-    scene._roadInfluenceTintGfx?.setVisible(false); return null;
-  }
-  if (!scene._roadInfluenceTintGfx) {
-    scene._roadInfluenceTintGfx = scene.add.graphics();
-    scene.noiseContainer.add(scene._roadInfluenceTintGfx);
-  }
-  scene._roadInfluenceTintGfx.setVisible(true);
-  return scene._roadInfluenceTintGfx;
 };
 
 // Field-testing overlay: cached nearest-road ownership, sampled only for the
@@ -2322,7 +2305,6 @@ Render.beginVariantTint = function beginVariantTint(scene) {
 
 Render.drawCells = function drawCells(scene) {
   const variantTint=Render.beginVariantTint(scene);
-  const roadInfluenceTint = Render.beginRoadInfluenceTint(scene);
   Render.drawChestTrails(scene);
   Render.drawSpiderWebs(scene);
   const g = scene.cellGfx;
@@ -2575,6 +2557,8 @@ Render.drawCells = function drawCells(scene) {
       const i = (r + 2) * RING + c + 2;
       const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[i], _ringTY[i]));
       let t = types[i];
+      // A player's stone fence wears rock ground, with transitions like any rock.
+      if (scene.placedRockSet?.has(cellKeyFromAbsCell(AX(c,r), AY(c,r)))) t = 10;
       if (t === 32 && typeof MountainEdges !== 'undefined') t = MountainEdges.groundType(types, RING, i);
       // Source ground and selected Nexus textures share one transition atlas.
       // Keep authored accent-only fills and synthetic floors.
@@ -2648,22 +2632,13 @@ Render.drawCells = function drawCells(scene) {
         }
       }
       const { x: sx, y: sy } = cellScreenXY(scene, ox, oy, fracX, fracY, PHASE(row));
-      if (variantTint || roadInfluenceTint) {
+      if (variantTint) {
         const slot=(row+2)*RING+col+2;
         const entry=WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[slot],_ringTY[slot]));
-        if (roadInfluenceTint) {
-          const tint = Render.roadInfluenceTintColor(entry, _ringIX[slot], _ringIY[slot]);
-          if (tint != null) {
-            roadInfluenceTint.fillStyle(tint, Render.ROAD_INFLUENCE_TINT_ALPHA);
-            roadInfluenceTint.fillRect(sx, sy, CELL_PX, CELL_PX);
-          }
-        }
-        if (variantTint) {
-          const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
-          if (tint!=null) {
-            variantTint.fillStyle(tint,.42);
-            variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
-          }
+        const tint=Render.variantTintColor(entry,_ringIX[slot],_ringIY[slot]);
+        if (tint!=null) {
+          variantTint.fillStyle(tint,.42);
+          variantTint.fillRect(sx,sy,CELL_PX,CELL_PX);
         }
       }
 
@@ -2759,7 +2734,7 @@ Render.drawCells = function drawCells(scene) {
       {
         const ns = Render.terrainSpriteAt(scene, noiseIdx++);
         const h = (absCellIX * 2246822519) ^ (absCellIY * 3266489917);
-        const selected = transitionsActive && type === T(col, row)
+        const selected = transitionsActive
           ? TerrainTransitions.select(scene, transitionMaterials, RING, _si) : null;
         let texKey = selected?.key || null;
         let damageFrame = selected?.frame, terrainLayers = selected?.layers, rockOverlay;
@@ -2923,9 +2898,6 @@ Render.drawCells = function drawCells(scene) {
   }
   for (let i = noiseIdx; i < scene.noisePool.length; i++) scene.noisePool[i].setVisible(false);
   scene.terrainCache?.flush();
-  // Terrain pools can grow during this pass. Keep the wash over every ground
-  // texture, below the separate vector-road and standing-object containers.
-  if (roadInfluenceTint) scene.noiseContainer.bringToTop(roadInfluenceTint);
   // Mining and arriving tiles change the exposed-face mask, including seams.
   // Geometry stays retained while the compass or fractional camera position moves.
   const caveCells = [];
