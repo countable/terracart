@@ -3997,7 +3997,13 @@ Render.drawConnectedWallPrisms = function (scene, objectItems, plantItems, conne
   for (const item of objectItems) collect(item, item.o, connectedArt?.get(item.o));
   for (const item of plantItems) collect(item, item.p, null);
   Render.prismGroupPass(scene, 'props', '_connectedWallKey', key,
-    -fracX * CELL_PX, -fracY * CELL_PX, () => {
+    -fracX * CELL_PX, -fracY * CELL_PX, (group) => {
+      // ONE PART PER CELL PIECE in the shared world sort (WallPerspective
+      // perWall / worldPieces, as grass, loose props and castle walls): a
+      // hedge or wall hides the props and the player behind it and draws
+      // under those in front. One flat batch under every sprite let a
+      // creature behind a hedge paint over its crown (owner, Oct 2026).
+      group.perWall = true;
       for (const { piece, cell } of pieces) {
         const centre = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
         const x0 = centre.x + fracX * CELL_PX - CELL_PX / 2, y0 = centre.y + fracY * CELL_PX - CELL_PX / 2;

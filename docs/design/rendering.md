@@ -299,8 +299,11 @@ they still interact from their data cells. Walls support steps; hedges are walke
 through without a hop, balancing slowdown or body crop. An isolated
 wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
 its core block, so it turns with the ground like the runs beside it.
-`wall_materials.js` owns the shared cel-pixel atlas: connected hedges use the
-RA-recolored bushy hedge strip across tops and bevels without a pale coping band.
+`wall_materials.js` owns the shared cel-pixel atlas: connected hedges paint a
+leaf-clump mottle (`paintLeafClumps`, 2px texels on a jittered lattice that
+wraps at the slot edges) in the approved clipped-hedge ramp, the side faces one
+step darker, across tops and bevels without a pale coping band. Tiling a
+cropped strip carried its sawtooth divider into every repeat and read as stripes.
 Creeping vines reuse the former procedural green leaf material, with a broad
 24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
 Hedges have their own profile there
@@ -700,9 +703,11 @@ the surrounding grove’s shrub scale.
   Polygon fort walls and tiled castle
   ramparts live in `buildingWallContainer`, immediately above the footprint
   layer and below pads, traps, shadows and every interactable. Step-over wall
-  and hedge meshes instead live in `raisedPropContainer`, above ground shadows
-  and below world sprites, so the player's ground shadow cannot paint their
-  raised tops. Both layers share the world viewport mask. Wall geometry
+  and hedge pieces instead join the shared world depth sort, one part per cell
+  piece seated at its cell (`WallPerspective` per-wall parts, as grass, loose
+  props and castle walls), so a hedge or wall hides the props and the player
+  behind it and draws under those in front; ground shadows are ground decals
+  and still sort below them. Both layers share the world viewport mask. Wall geometry
   never adjusts an actor's feet. Generated castle walls, towers and keeps instead
   join the world depth sort at their shared ground supports, so props behind
   them cannot paint over their raised faces. Legacy tower sprites and
@@ -1247,7 +1252,7 @@ the reach rim within the existing player-light radius.
   while the surrounding influence area uses the ground wash above.
 - Small-road and path surfaces use sparse, individually shaded cobbles with ground-revealing
   joints, the approved study's layout at two-thirds scale (`SPARSE_SCALE`: 8px
-  grid, 128px repeat). Each theme has its approved colour; unrestored stones retain 55% colour
+  grid, 128px repeat). Each theme has its approved colour (a `ROAD_THEME_MIXES` theme, Way of Variety, gives each cobble one of several theme colours off its layout slot); unrestored stones retain 55% colour
   saturation, while restored stones use 115% of the theme saturation and add
   missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast.
   Palette pixels are calculated once per cached theme/state, never per frame.
@@ -1468,7 +1473,8 @@ Stable plant IDs select canopy frames. Berry textures bake red, teal or gold
 fruit onto all eight olive canopies once at startup; picking retains the same
 foliage frame and transparency. Both clipped-shrub aliases use
 `assets/ArtTrials/RogueProps/flora-zone_hedge_single.png`. Connected hedges retain
-their fifteen cardinal masks; their 3D material uses the approved bushy strip.
+their fifteen cardinal masks; their 3D material is a procedural leaf-clump
+mottle in that sprite's olive ramp.
 The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
