@@ -2847,9 +2847,9 @@ Render.drawCells = function drawCells(scene) {
       // drops an anchor every ~12 road cells), laid along the road direction.
       {
         const lt = scene.letterPool[letterIdx++];
-        // Anchors exist only on vehicle road tiers (a footpath is too narrow
-        // to carry a label), so the isRoad gate also keeps lookups cheap.
-        if (!isTilled && isRoadType(type)) {
+        // Anchors exist only on road and path tiers, so this gate also keeps
+        // lookups cheap.
+        if (!isTilled && (isRoadType(type) || type === T_PATH)) {
           // Look up this cell's label anchor from its owning tile.
           const ix2 = _ringIX[_si], iy2 = _ringIY[_si];
           const entry = WorldGen.tileCache.get(WorldGen.tileKey(_ringTX[_si], _ringTY[_si]));
