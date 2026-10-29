@@ -299,8 +299,11 @@ they still interact from their data cells. Walls support steps; hedges are walke
 through without a hop, balancing slowdown or body crop. An isolated
 wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
 its core block, so it turns with the ground like the runs beside it.
-`wall_materials.js` owns the shared cel-pixel atlas: connected hedges use the
-RA-recolored bushy hedge strip across tops and bevels without a pale coping band.
+`wall_materials.js` owns the shared cel-pixel atlas: connected hedges paint a
+leaf-clump mottle (`paintLeafClumps`, 2px texels on a jittered lattice that
+wraps at the slot edges) in the approved clipped-hedge ramp, the side faces one
+step darker, across tops and bevels without a pale coping band. Tiling a
+cropped strip carried its sawtooth divider into every repeat and read as stripes.
 Creeping vines reuse the former procedural green leaf material, with a broad
 24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
 Hedges have their own profile there
@@ -1468,7 +1471,8 @@ Stable plant IDs select canopy frames. Berry textures bake red, teal or gold
 fruit onto all eight olive canopies once at startup; picking retains the same
 foliage frame and transparency. Both clipped-shrub aliases use
 `assets/ArtTrials/RogueProps/flora-zone_hedge_single.png`. Connected hedges retain
-their fifteen cardinal masks; their 3D material uses the approved bushy strip.
+their fifteen cardinal masks; their 3D material is a procedural leaf-clump
+mottle in that sprite's olive ramp.
 The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 
 `SELECTED_CONTAINER_FRAMES` in `loot.js` lists the active atlas frames shared
