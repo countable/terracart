@@ -487,7 +487,7 @@ access or tile lifecycle mechanics.
   surface, plus the unopened starter relic chest (from Home's door); supply
   crates never get one. The line is faint dashed black ink (`Starter.TRAIL_STYLE`).
   Each frame clips the cached route to the player's distance from its treasure
-  (`behindCells`, 0: no slack beyond the feet): the line recedes ahead of
+  (`behindCells`, -1: the line stops a cell short of the feet): it recedes ahead of
   approaching feet and returns when walking away. Segment clipping preserves dash positions and
   separate visible stretches, without adding pathfinding as the player moves.
   The chest at a trail's end rolls `CHEST_TRAIL_TIER_BONUS` tier higher, within
