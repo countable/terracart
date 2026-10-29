@@ -514,6 +514,8 @@
   //   retry    the other side when the chosen one has no free cell (the
   //            burned row's torches: a torch every so often, whichever side);
   //   start    an additional row behind the primary roadside row;
+  //   edge     (fill rows) feet pulled toward the drawn band within their
+  //            cells, so a narrow path's first row reads as beside it;
   //   gate     the spawn class a seat must pass (default 'minor' — scenery;
   //            the pottery row's pots are 'reward', off the Major-and-Medium
   //            kerb like every loot container);
@@ -565,8 +567,8 @@
     const choice = choices[Math.floor(hash01(id + '|find') * choices.length)];
     const extra = { _street: D.v, ...choice.extra };
     if (choice.kind === 'tree' && extra.variant == null) extra.variant = 1 + Math.floor(hash01(id + '|size') * 3);
-    if (choice.crop) D.res.wildplants.push(D.WG.makeWildplant(choice.crop, D.cx(c.ix), D.cy(c.iy), id, extra));
-    else D.res.objects.push(D.WG.makeObject(choice.kind, D.cx(c.ix), D.cy(c.iy), id, extra));
+    if (choice.crop) D.res.wildplants.push(D.WG.makeWildplant(choice.crop, D.px(c), D.py(c), id, extra));
+    else D.res.objects.push(D.WG.makeObject(choice.kind, D.px(c), D.py(c), id, extra));
   };
   // Approved scout sprites share gameplay identities across every suggested route.
   // Source/crop attribution lives in StreetDecorationArt; these rows own placement.
@@ -652,7 +654,7 @@
       { step: 49, side: 'both', walk: 2, gate: 'headstone', emit: commonFind([{ kind: 'headstone' }]) },
       { step: 21, side: 'both', walk: 1, emit: commonFind([{ crop: 'mushroom' }]) }],
     way_of_variety: [{ step: () => root.WorldGen.CELL_M, side: 'both', walk: 2,
-      fill: true, gate: 'reward', emit: commonFind([
+      fill: true, edge: true, gate: 'reward', emit: commonFind([
         { crop: 'petnip' }, { crop: 'berry' }, { crop: 'shrub' }, { crop: 'mushroom' },
         { crop: 'flint' }, { crop: 'rubble' }, COMMON_ROCK, OLD_TREE,
         { kind: 'chest', extra: { barrel: true, barrelStyle: 'clay_pot' } },
@@ -2336,6 +2338,19 @@
   // The first verge cell may retain a small strip of this road's paint.
   // This is a placement distance, not the shared road-mask or tier policy.
   const VERGE_ROAD_OVERLAP_MAX = 0.2;
+  // An `edge` row's feet: pulled from the cell centre toward the drawn band,
+  // as a signpost's (StreetSigns.edgeSeats: halfW + 0.2 cell), but never out
+  // of the claimed cell, so its id, taps and occupancy stay that cell's.
+  const EDGE_SEAT_GAP = 0.2, EDGE_SEAT_INSET = 0.1;
+  function edgeSeatAt(c, nx, ny, side, pull, cellM) {
+    const clamp = (v, i) => Math.min(i + 1 - EDGE_SEAT_INSET, Math.max(i + EDGE_SEAT_INSET, v / cellM)) * cellM;
+    return { ...c, x: clamp((c.ix + .5) * cellM - nx * side * pull, c.ix), y: clamp((c.iy + .5) * cellM - ny * side * pull, c.iy) };
+  }
+  // How far the first verge cell's centre stands beyond the edge seat.
+  function edgePull(rec, x, y, nx, ny, side, first, cellM) {
+    const d = (((first.ix + .5) * cellM - x) * nx + ((first.iy + .5) * cellM - y) * ny) * side;
+    return Math.max(0, d - rec.halfW - EDGE_SEAT_GAP * cellM);
+  }
   function vergeCellAt(rec, x, y, nx, ny, side, k, cellM) {
     const half = rec.halfW / cellM, dx = nx * side, dy = ny * side;
     const bx = x / cellM + dx * half, by = y / cellM + dy * half;
@@ -2451,6 +2466,8 @@
       const v = rec.variant;
       let lengthM = null;
       const D = { WG, res, tx, ty, cx, cy, rec, v, N,
+        px: c => c.x == null ? cx(c.ix) : cx(c.ix) + (c.x / CELL_M - c.ix - .5) * frameCellM,
+        py: c => c.y == null ? cy(c.iy) : cy(c.iy) + (c.y / CELL_M - c.iy - .5) * frameCellM,
         lengthM: () => (lengthM ??= rec.line.slice(1).reduce((m, p, i) => m + Math.hypot(p.x - rec.line[i].x, p.y - rec.line[i].y) * gM, 0)) };
       const rng = row.stream ? streamFor(rec, typeof row.stream === 'string' ? row.stream : v) : null;
       const step = typeof row.step === 'function' ? row.step() : row.step;
@@ -2483,9 +2500,12 @@
         const k0 = row.start ? row.start(at) : 1, kMax = row.walk || (row.fill ? VERGE_MAX_CELLS : 1);
         for (const side of sides) {
           if (row.fill) {
+            // One pull per side keeps an edge row's ranks evenly spaced.
+            const pull = row.edge ? edgePull(rec, x, y, nx, ny, side, vergeCell(rec, x, y, nx, ny, side, 1), CELL_M) : 0;
             for (let k = k0; k <= kMax; k++) {
-              const c = vergeCell(rec, x, y, nx, ny, side, k);
+              let c = vergeCell(rec, x, y, nx, ny, side, k);
               if (!ok(c.ix, c.iy, c)) continue;
+              if (row.edge) c = edgeSeatAt(c, nx, ny, side, pull, CELL_M);
               if (row.claim !== false) claim(c.ix, c.iy);
               row.emit(D, at, c, side); placed++;
             }
