@@ -679,14 +679,13 @@ class SceneCreate {
     // They join the standing-object pass and need no per-colour canvas bake.
 
     // Road-label pool: compact whole-word street names (one anchor every ~12
-    // road cells, rotated along the road by render.js), drawn low-alpha in
-    // dark ink — the road band is a light warm stone, so black reads like
-    // worn paint markings on them (white washed out over pale stone).
+    // road cells, rotated along the road by render.js). Each label is inked
+    // from the surface it is printed on (RoadOverlay.labelInk, applied by
+    // render.js): glyphs cut deeper than the stone, a halo in the stone's own
+    // tone, and a light lip below, so the word reads as engraved in the road.
     // A road cell is only PART stone, though: the ground the road was painted
-    // over shows around the band, so on a road crossing grass or forest
-    // dark glyphs disappear into the dark background. A pale
-    // stone-coloured halo around each glyph carries the word over both — the
-    // lettering stays dark on the stones and stays readable off them.
+    // over shows around the band, and the stone-toned halo carries the word
+    // over that ground too.
     // Pool is sized one slot per visible cell because render walks cells — at
     // most one anchor can occupy a cell, and most slots simply stay invisible.
     // (letterContainer itself is created earlier, next to cobbleContainer, so it

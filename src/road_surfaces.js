@@ -5,6 +5,10 @@
   'use strict';
   const TILE_PX = 128;
   const MATERIAL_FRAME = { md: [0, 1], lg: [2, 3] };
+  // Each weathered frame's mean opaque colour, measured offline from
+  // surfaces.png (rebuilds never read pixels). Street-name labels take
+  // their ink from it (RoadOverlay.labelInk); re-measure when the atlas changes.
+  const MEAN_COLOR = { md: '#776f60', lg: '#1f2e2e' };
   const materials = new Map();
   /* RUNE_ROWS_START */
   const RUNE_ROWS = [[6,9,2],[10,11,2],[5,6,3],[6,8,4],[9,10,4],[5,11,6],[6,7,7],[8,9,7],[6,10,8],[5,7,10],[9,11,10],[5,6,11],[7,9,11],[10,11,11],[5,6,12],[10,11,12]];
@@ -265,5 +269,5 @@
     if (family === 'md') medium(g, m, spans, widthPx, !!restored, phase);
     else large(g, m, spans, widthPx, !!restored, phase);
   }
-  global.RoadSurfaces = { TILE_PX, familyFor, setSource, tile, decorate };
+  global.RoadSurfaces = { TILE_PX, MEAN_COLOR, familyFor, setSource, tile, decorate };
 })(window);

@@ -578,6 +578,11 @@ the surrounding grove’s shrub scale.
   tile's `streetMarks`): "Athalmer Pottery". Generic suffixes such as Road and
   Lane are omitted. Plain streets show the word alone. Labels use 10px text;
   rotated bounds must leave a small gap, with overlapping anchors hidden.
+  A label is inked from the surface under it (`RoadOverlay.labelInk`: the
+  variant's `ROAD_THEME_COLORS` stone, plain or Nexus-suppressed paving, or
+  `RoadSurfaces.MEAN_COLOR` for MD/LG) so it reads as engraved: a halo in the
+  stone's own tone, glyphs cut darker (lighter on a dark surface), and a light
+  lip one pixel below. `Render.roadLabelView` picks the text and ink once per anchor.
 - The circular map and compass rim sit 55 CSS pixels above the layout baseline;
   the published aperture position follows the canvas so touch targets stay aligned.
 - Zoom is camera-only. The resting view a game opens on spans seven cells
@@ -1069,7 +1074,10 @@ the reach rim within the existing player-light radius.
   tile's new records do; an object first seen at the rim walked in and draws
   whole at once. The first-seen stamp is kept per record in a WeakMap, never
   written to the record (which may be a save record), so a record fades once
-  in its life.
+  in its life. A record the pass builds afresh every frame (`placedAs`'s
+  street lamps, scarecrows and fires; a stump's view) is keyed through
+  `Render.mintedArrival` by kind and id instead, kept only while it is drawn
+  frame to frame; keyed by identity it was new every frame and never drawn.
 - `Visibility` owns current cover, separately from `Fog`'s saved exploration.
   Only cave terrain walls fully block sight beyond their cell. Bushes, hedges,
   short walls, larger standing trees and rocks marked `sightBlocking: true`
