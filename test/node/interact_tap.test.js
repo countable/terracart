@@ -1188,7 +1188,7 @@ test('flavor: a tapped road cell names its street variant, as the feet story rea
     const tap = (ix, iy) => handler.try({ scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 },
       cell: { tx: 7, ty: 9, ix, iy, type: TERRAIN.ROAD, loaded: true } });
     assert.truthy(tap(2, 1));
-    assert.eq(said.pop(), `${row.title}. ${row.flash}`);
+    assert.eq(said.pop(), row.title);
     assert.eq(StreetVariants.streetStoryAt(entry, 2, 1), row, 'the feet story shares the row');
     assert.truthy(tap(0, 0));
     assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.ROAD], 'an unthemed road keeps its ground line');

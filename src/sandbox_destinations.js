@@ -60,7 +60,7 @@
       ['thorny', 'Thorny Way'], ['snare', 'Snare lane'], ['goblin_gang', 'Goblin Gang Street'], ['barricade', 'Barricade road'],
       ['berry', 'Berry Lane'], ['pottery', 'Pottery Road'],
       ['rocky_path', 'Rocky Road'], ['grassy_lane', 'Grassy Lane'],
-      ['old_growth_path', 'Old Growth Path'], ['haunted_forest_path', 'Haunted Forest Path'],
+      ['old_growth_path', 'Old Growth Path'], ['haunted_forest_path', 'Haunt'],
       ['way_of_variety', 'Way of Variety'],
     ].map(([variant, label]) => ({ id: `${variant}-road`, label, road: variant,
       aliases: [`road:${variant}`, ...(variant === 'orchard' ? [] : [variant])] })),
