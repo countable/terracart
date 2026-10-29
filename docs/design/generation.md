@@ -1099,7 +1099,18 @@ Higher-priority placements and their access space take precedence in this order:
    legal ground is available, so Tori can point out repair supplies onscreen.
    A farther route seat moves to the closest eligible nearby cell without
    changing its id or remaining contents. All seats
-   use the spawn gate and avoid Home's footing. Supply ids retain suffixes 1, 3
+   use the spawn gate and avoid Home's footing. The soil plot
+   (`Starter.carveStarterPlot`, frozen in `save.starterPlotAt`) is a 2x2 of
+   tillable grass chosen nearest the anchor through the same gate, off Home's
+   footing, the saved wagon's house and the firepit (read from the save: a
+   fresh tile build runs the carve before either is stamped back into the
+   grid), and repainted at the same cells on every rebuild. Only a plot the
+   player has worked (a bed, crop, tree, rock or fire on one of its cells) is
+   repainted unconditionally; an untouched plot whose cells would no longer be
+   chosen (a prop now standing there, a widened road band) is chosen again
+   while the ladder still guides and dropped after, so the starter arrow never
+   points at soil nobody can till. The firepit keeps off the plot in turn
+   (`Starter.onStarterPlot`). Supply ids retain suffixes 1, 3
    and 4 so old opened crates stay spent. Picked former satellite piles deduct
    their known three items each from the replacement crate. A picked main pile
    retires that material group: old saves recorded no quantity and that pile
