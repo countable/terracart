@@ -7394,11 +7394,29 @@ class MapScene extends Phaser.Scene {
     if (!(dt > 0) || Combat.playerDowned(this.save.energy)) return;
     const wheel = this._busyWheel?.();   // a catch does not root you (_followStep)
     if (wheel && !wheel.flee) { this._playDirected(this.player, 'idle'); return; }
-    if (!this._confusedLoop) this._confusedLoop = {
-      angle: Math.random() * Math.PI * 2,
-      turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
-      compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing }, mapRot: this.mapRot },
-    };
+    // The compass heading a facing angle reads as: atan2(fx, -fy) of (cos a, sin a).
+    const shownDeg = (a) => (Math.atan2(Math.cos(a), -Math.sin(a)) * 180 / Math.PI + 360) % 360;
+    if (!this._confusedLoop) {
+      // NO JUMP AT ONSET (owner, Oct 2026): the spin starts from the TRUE
+      // direction — the way the body faces, else the device heading, else
+      // the way to the follow target — and the shown compass starts at its
+      // real reading, each drifting from there at turnRadS. A random start
+      // swung the body and the heading-up map round in a single frame.
+      const f = this.facing, deg = this.compassDeg;
+      const toward = !this._followPaused && this._targetM
+        ? { x: this._targetM.x - this.playerM.x, y: this._targetM.y - this.playerM.y } : null;
+      const angle = f && (f.x || f.y) ? Math.atan2(f.y, f.x)
+        : Number.isFinite(deg) ? Math.atan2(-Math.cos(deg * Math.PI / 180), Math.sin(deg * Math.PI / 180))
+        : toward && (toward.x || toward.y) ? Math.atan2(toward.y, toward.x) : 0;
+      this._confusedLoop = {
+        angle,
+        turn: (Math.random() < 0.5 ? -1 : 1) * Conditions.DEFINITIONS.confused.turnRadS,
+        // The real reading's lead over the facing's own heading, kept for the
+        // whole spin so the compass drifts from where it truly pointed.
+        compassOffset: Number.isFinite(deg) ? ((deg - shownDeg(angle)) % 360 + 540) % 360 - 180 : 0,
+        compassBefore: { deg: this.compassDeg ?? null, facing: { ...this.facing }, mapRot: this.mapRot },
+      };
+    }
     const loop = this._confusedLoop;
     const takeover = Conditions.confusionSteering(this.save);
     const manual = intent && (intent.x || intent.y);
@@ -7432,7 +7450,7 @@ class MapScene extends Phaser.Scene {
       }
     }
     this.facing = { x: Math.cos(loop.angle), y: Math.sin(loop.angle) };
-    this.compassDeg = (Math.atan2(this.facing.x, -this.facing.y) * 180 / Math.PI + 360) % 360;
+    this.compassDeg = ((shownDeg(loop.angle) + (loop.compassOffset || 0)) % 360 + 360) % 360;
     this._playDirected(this.player, 'walk', this.facing.x, this.facing.y);
   }
 

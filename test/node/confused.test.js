@@ -49,10 +49,41 @@
         assert.eq(walking.compassDeg,idle.compassDeg);
         assert.eq(blocked.compassDeg,idle.compassDeg);
       }
-      assert.inRange(idle._confusedLoop.angle-(Math.PI+0.3*25),-1e-9,1e-9);
+      // No facing or compass on this body: the spin starts toward the follow target (north-east) and turns at 0.3 rad/s.
+      assert.inRange(idle._confusedLoop.angle-(Math.PI/4+0.3*25),-1e-9,1e-9);
       assert.truthy(Math.hypot(walking.playerM.x-idle.playerM.x,walking.playerM.y-idle.playerM.y)>1,
         'walking input still affects translation');
       assert.eq(blocked.playerM.x,0);assert.eq(blocked.playerM.y,0);
+    } finally {Math.random=random;}
+  });
+  // Onset never jumps (owner, Oct 2026): the spin starts from the TRUE
+  // direction — the way the body faces — and the shown compass from its real
+  // reading, and both drift from there at turnRadS. A random start swung the
+  // body and the heading-up map round in a single frame.
+  test('confused: the spin starts from the true direction and the real compass reading, no jump', () => {
+    const random=Math.random;
+    try {
+      Math.random=()=>0.5;
+      // Walking north while the device reads east: the first step keeps walking north,
+      // the compass keeps reading east, and each drifts by the same small turn.
+      const s=body();s.facing={x:0,y:-1};s.compassDeg=90;s._targetM={x:1000,y:0};
+      step.call(s,.01,null,2);
+      assert.inRange(s._confusedLoop.angle-(-Math.PI/2+0.003),-1e-9,1e-9,'starts at the facing, turned one step');
+      assert.lt(s.playerM.y,0,'still heading north');
+      assert.lt(Math.abs(s.playerM.x),Math.abs(s.playerM.y)*0.01,'no sideways jump toward the target or a random heading');
+      assert.inRange(s.compassDeg-(90+0.003*180/Math.PI),-1e-6,1e-6,'the compass drifts from its real reading');
+      for(let i=0;i<100;i++)step.call(s,.05,null,2);
+      assert.inRange(s.compassDeg-((90+(0.003+5*0.3)*180/Math.PI)%360),-1e-6,1e-6,'and keeps the same turn as the body');
+      // No sensor: the compass is the facing's own heading, as before.
+      const bare=body();bare.facing={x:1,y:0};bare.compassDeg=null;
+      step.call(bare,.01,null,2);
+      assert.inRange(bare.compassDeg-(90+0.003*180/Math.PI),-1e-6,1e-6);
+      // No facing either: the way to the follow target, else the device heading.
+      const gps=body();gps._targetM={x:0,y:-500};step.call(gps,.01,null,2);
+      assert.inRange(gps._confusedLoop.angle-(-Math.PI/2+0.003),-1e-9,1e-9);
+      const device=body();device._targetM=null;device.compassDeg=180;step.call(device,.01,null,2);
+      assert.inRange(device._confusedLoop.angle-(Math.PI/2+0.003),-1e-9,1e-9,'south, from a south reading');
+      assert.inRange(device.compassDeg-(180+0.003*180/Math.PI),-1e-6,1e-6);
     } finally {Math.random=random;}
   });
   test('confused: remaining duration blends manual and GPS steering continuously into the compass', () => {

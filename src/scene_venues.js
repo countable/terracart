@@ -1260,11 +1260,15 @@ class SceneVenues {
     // building has no saved door and keeps the heading layout.
     const me = this.playerM && this.startWorldM ? worldMetersToAbsCell(this,
       this.startWorldM.x + this.playerM.x, this.startWorldM.y + this.playerM.y) : null;
+    // Never on the starter plot (Starter.onStarterPlot): the plot is frozen
+    // before the pit is seated, and a pit on it left the tutorial's arrow
+    // pointing at a plot with no soil to till.
     const firstOK = (cells) => {
       for (const c of cells) {
         const cell = absCellOffset(this, at.cellIX, at.cellIY, c.dx, c.dy);
         if (me && cell.cellIX === me.cellIX && cell.cellIY === me.cellIY) continue;
         const m = absCellCenterMeters(this, cell.cellIX, cell.cellIY);
+        if (typeof Starter !== 'undefined' && Starter.onStarterPlot?.(this, m.x, m.y)) continue;
         if (this._firepitGroundOK(m.x, m.y)) return m;
       }
       return null;

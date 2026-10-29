@@ -233,8 +233,11 @@ mechanics.
 - Tapping a well within reach clears every harmful condition through
   `Conditions.clearDebuffs`, including burning and a trap's pin. Positive
   buffs survive; the well costs no item or energy and remains reusable.
-- Confusion chooses a random compass heading and turn direction, then rotates
-  at the condition row's constant `turnRadS` for the whole effect. Walking input
+- Confusion starts from the player's true direction (the way the body faces,
+  else the device heading, else the way to the follow target) and a random
+  turn direction, then rotates at the condition row's constant `turnRadS` for
+  the whole effect, so its onset never jumps; the shown compass starts at its
+  real reading and drifts by the same turn. Walking input
   and collisions affect movement only, never this heading. The heading-up map
   follows this spin without sensor smoothing or a dead zone. Its share
   of movement increases linearly with the remaining duration: five seconds

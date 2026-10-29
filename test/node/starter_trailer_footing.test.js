@@ -125,6 +125,22 @@
     });
   });
 
+  test('home footing: the firepit keeps off the starter plot', () => {
+    // The plot's top-left cell is where the pit would otherwise go (30, 32):
+    // the pit takes the nearest other dry cell, and the plot stays whole.
+    const plot = at(30, 32);
+    const s = scene({ starterPlotAt: { x: plot.x, y: plot.y } });
+    withTile(tile([]), () => {
+      const p = at(30, 30);
+      s._placeHome(p.x, p.y);
+      const pit = s.save.homeFirepit;
+      assert.truthy(pit, 'a firepit is placed');
+      assert.falsy(Starter.onStarterPlot(s, pit.x, pit.y), 'not on any of the plot\'s four cells');
+      assert.truthy(s._firepitGroundOK(pit.x, pit.y), 'on open ground');
+      assert.lte(Math.hypot(pit.x - plot.x, pit.y - plot.y), 3 * CELL_M, 'still beside the house');
+    });
+  });
+
   test('home footing: a new live Home waits for compass, then freezes its entrance-side layout', () => {
     withTile(tile([]), () => {
       const s = scene({ homeCompassDetected: false });
