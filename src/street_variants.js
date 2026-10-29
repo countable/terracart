@@ -793,6 +793,33 @@
     const code = entry.streetMarks ? entry.streetMarks[i] : 0;
     return code ? variantByCode(code) : null;
   }
+  // The street a tapped cell names. A Nexus clears the dressing marks it
+  // covers (WorldGen clearZoneAmbientSteps) yet a path keeps its theme there
+  // (only minor roads are cut, suppressNexusRoadThemesSteps), so an unmarked
+  // cell falls back to mark()'s own test: the cell's owner is a dressing
+  // line whose band and verge reach it.
+  const _ownerByIndex = new WeakMap();
+  function streetNameAt(entry, ix, iy) {
+    const row = streetStoryAt(entry, ix, iy);
+    const idx = entry?.streetIndex, N = entry?.cellsPerEdge;
+    if (row || !idx?.dressingLines || !(N > 0) || ix < 0 || iy < 0 || ix >= N || iy >= N) return row;
+    let cached = _ownerByIndex.get(idx);
+    if (!cached || cached.N !== N) _ownerByIndex.set(idx, cached = { N, at: variantOwner(idx, N) });
+    const v = cached.at(ix, iy), owned = v && VARIANT_BY_ID[v];
+    if (!owned) return null;
+    const CELL_M = root.WorldGen.CELL_M, scale = N / (idx.extent || 4096), x = ix + .5, y = iy + .5;
+    for (const rec of idx.dressingLines) {
+      if (rec.variant !== v) continue;
+      const reach = (rec.halfW + CELL_M) / CELL_M;
+      for (let i = 1; i < rec.line.length; i++) {
+        const a = rec.line[i - 1], b = rec.line[i];
+        const ax = a.x * scale, ay = a.y * scale, dx = (b.x - a.x) * scale, dy = (b.y - a.y) * scale;
+        const len2 = dx * dx + dy * dy, u = len2 ? Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / len2)) : 0;
+        if (Math.hypot(x - ax - u * dx, y - ay - u * dy) <= reach) return owned;
+      }
+    }
+    return null;
+  }
   // Per-cell marks (dress().marks): a variant's code 1..n, BANDIT_CODE for a
   // plain Major-and-Medium road cell (resolved from roadClass by the caller).
   function variantByCode(code) { return STREET_VARIANTS[code - 1] || null; }
@@ -3472,7 +3499,7 @@
     BERRY_LANE_BUSHES, BERRY_LANE_THORN_MAX, BERRY_LANE_GAP, BERRY_RUNT_STEP_M, BERRY_RUNT_CHANCE, BERRY_VARIANTS, POTTERY_GAP, POTTERY_BACK_GAP, TRADE_BARREL_GAP, TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE, HOUSE_BARREL_ODDS,
     HEDGE_GATE_EVERY_CELLS, HOUSE_BARRELS_MAX, HOUSE_FRONT_REACH_CELLS, HOUSE_FRONT_SPAN_CELLS, HOUSE_CRATE_SHARE, TERRAIN_VERGE_CELLS, OVERGROWN_STEP_M, OVERGROWN_MAX, ORCHARD_STEP_M,
     ORCHARD_MAX, TOADSTOOL_STEP_M, TOADSTOOL_MAX, MAX_VARIANT_LENGTH_M, MIN_VARIANT_LENGTH_M, LONG_ROAD_M, LONG_ROAD_SECTION_SHARE, LONG_PATCH_UNITS, sectionLimits, VARIANT_PATCH_UNITS, GOLDEN_STEP_M, BARRICADE_STEP_M, BARRICADE_MAX, BARRICADE_VERGE_MAX_CELLS, BURNED_STEP_M, BURNED_MAX, BURNED_TORCH_STEP_M, BURNED_GUARD_STEP_M, LANTERN_SPACING_DIV, HEDGE_LAMP_DENSITY, SLOW_KINDS,
-    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, streetStoryAt, variantByCode, labelName,
+    THORNY_SHRINE_RADIUS_CELLS, THORNY_VERGE_MAX_CELLS, THORNY_CLUSTER_DENSITY, THORNY_SCATTER_CELLS, THORNY_SCATTER_DENSITY, SNARE_CHEST_TIER, DEAD_END_CRATE_TIER, DEAD_END_CRATES_PER_TILE, SNARE_TRAP_RADIUS_CELLS, SNARE_MIN_TRAPS, STREET_VARIANTS, VARIANT_BY_ID, EXTRA_ENCOUNTER_TIERS, BANDIT_STORY, HIGHWAY_STORY, roadStoryFor, roadStoryAt, streetStoryAt, streetNameAt, variantByCode, labelName,
     normName, streetKey, anonKey, parishOf, sizeOfTags, isVehicleTags, variantFor, rocksFor,
     boundSectionsSteps, PATH_SECTION_MIN_M, PATH_SECTION_TARGET_M, PATH_SECTION_MAX_M, PATH_FRAGMENT_MIN_M, buildPathSectionsSteps, applyPathScenicSteps, syncPathVariants, selectionWeights, applyAffinitiesSteps, nexusExitAffinitySteps, NEXUS_EXIT_AFFINITY_M, AFFINITY_SAMPLE_M, terrainFor, paintTerrainSteps,
     homeIndexSteps, indexFor, nameVote, lineName, sampleLine, canonicalPaths, variantAt, lineParts, displayLines, buildIndexSteps, buildIndex, areaSteps, area, suppressNexusRoadThemesSteps,

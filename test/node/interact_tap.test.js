@@ -1174,6 +1174,35 @@ test('picked berry bushes on Small roads chop once instead of falling through to
   } finally { globalThis.WorldGen = original; }
 });
 
+test('flavor: a themed path inside a Nexus still names itself when its mark was cleared', () => {
+  const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
+  const row = StreetVariants.VARIANT_BY_ID.parkpath;
+  const N = 8, unit = 4096 / N, mid = 4.5 * unit;
+  // A path down column 4 of the tile; the Nexus has zeroed every mark.
+  const rec = { size: 'path', key: 'p', variant: row.id, halfW: 1,
+    line: [{ x: mid, y: 0 }, { x: mid, y: 4096 }] };
+  const entry = { cellsPerEdge: N, grid: new Uint8Array(N * N).fill(TERRAIN.GRASS),
+    roadClass: new Uint8Array(N * N), streetMarks: new Uint8Array(N * N),
+    streetIndex: { extent: 4096, lines: [], dressingLines: [rec] } };
+  for (let iy = 0; iy < N; iy++) entry.grid[iy * N + 4] = TERRAIN.PATH;
+  entry.grid[0] = TERRAIN.PATH;   // a stray path cell no themed line reaches
+  const key = WorldGen.tileKey(7, 9), prev = WorldGen.tileCache.get(key);
+  WorldGen.tileCache.set(key, entry);
+  try {
+    const said = [];
+    const scene = { depth: 0, flash: text => said.push(text) };
+    const tap = (ix, iy) => handler.try({ scene, sx: 0, sy: 0, save: {}, at: { furnitureIdx: -1 },
+      cell: { tx: 7, ty: 9, ix, iy, type: entry.grid[iy * N + ix], loaded: true } });
+    assert.truthy(tap(4, 3));
+    assert.eq(said.pop(), row.title, 'the path keeps its name under the Nexus');
+    assert.eq(StreetVariants.streetStoryAt(entry, 4, 3), null, 'the feet story stays with the Nexus');
+    assert.truthy(tap(0, 0));
+    assert.eq(said.pop(), TERRAIN_FLAVOR[TERRAIN.PATH], 'a path beyond the line\'s reach keeps its ground line');
+  } finally {
+    if (prev) WorldGen.tileCache.set(key, prev); else WorldGen.tileCache.delete(key);
+  }
+});
+
 test('flavor: a tapped road cell names its street variant, as the feet story reads it', () => {
   const handler = TAP_HANDLERS.find(h => h.name === 'flavor');
   const row = StreetVariants.VARIANT_BY_ID.paralysis_path;

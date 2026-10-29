@@ -700,6 +700,10 @@ pixels and decorative details do not define additional tap cells.
   Highway story. Their identities come from the mapped road class and have
   separate first-visit records, without assigning a street variant. The
   existing Old Trade Road record remains valid for returning players.
+- Tapping a road or path flashes its street's title only
+  (`StreetVariants.streetNameAt`). That is the feet story's row, except
+  inside a Nexus: the Nexus clears the dressing marks, but a path keeps its
+  theme, so the tap still names it while the feet story stays with the Nexus.
 - Story panels use a direct second-person narrator focused on the current
   experience: what happens, what the Hood notices, and how people respond.
   Keep them to one or two short sentences with occasional sensory detail.
