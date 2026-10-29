@@ -1076,6 +1076,9 @@ Higher-priority placements and their access space take precedence in this order:
    A live street-index copy uses the same boundary intervals as Nexus road
    suppression, including paths; pavement, labels, stories and hot-road effects
    read it through `StreetVariants.indexFor`. Shared generation reads the original.
+   Ground inside the circle reverts from variant terrain to `variantBaseGrid`
+   once per cell (`_homeGroundRestored`): the starter pass paints between the
+   prepare and final passes, and its paint can equal the variant's own ground.
    Apply this per-player overlay after shared generation, retaining the
    original grids, dressing and zone metadata for cave generation and stable
    spawn identities. The floor viewer uses the same overlay and starter placers.
