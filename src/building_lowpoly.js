@@ -361,19 +361,31 @@
     // original edge parameter and UVs on both sides, including entrance bays.
     const outer=typeof BuildingStyles!=='undefined'?BuildingStyles.inset(ring,-thickness):null;
     const shell=outer||ring;
+    // Outward is the ring's right-hand side when its signed area is positive
+    // (clockwise on screen, y down), else its left.
+    const winding=Math.sign(ring.reduce((s,p,i)=>{const q=ring[(i+1)%ring.length];return s+p.x*q.y-q.x*p.y;},0))||1;
     for(const f of base.faces){
       if(f.kind!=='wall'||f.chimney)continue;
       const poly=cutZ(f.points,H),edge=edgeOf(f.points),a=ring[edge],b=ring[(edge+1)%ring.length];
-      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1;
-      const move=p=>{const t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2;
-        return {...p,x:shell[edge].x+(shell[(edge+1)%ring.length].x-shell[edge].x)*t,
-          y:shell[edge].y+(shell[(edge+1)%ring.length].y-shell[edge].y)*t};};
+      const dx=b.x-a.x,dy=b.y-a.y,len2=dx*dx+dy*dy||1,len=Math.sqrt(len2);
+      // A face standing clear of its wall — the skin's door overlay, 0.2 out
+      // so it never z-fights the facade (authoredOutline) — keeps that
+      // clearance on both copies: the outer stands as far beyond the thick
+      // wall's outer line, the inner as far into the room. Flattened onto
+      // the wall line, the door flickered in place whenever the player saw
+      // it from inside (owner, Oct 2026).
+      const nx=dy/len*winding,ny=-dx/len*winding;
+      const clear=p=>(p.x-a.x)*nx+(p.y-a.y)*ny;
+      const move=p=>{const t=((p.x-a.x)*dx+(p.y-a.y)*dy)/len2,c=clear(p);
+        return {...p,x:shell[edge].x+(shell[(edge+1)%ring.length].x-shell[edge].x)*t+nx*c,
+          y:shell[edge].y+(shell[(edge+1)%ring.length].y-shell[edge].y)*t+ny*c};};
+      const mirror=p=>{const c=clear(p);return c?{...p,x:p.x-2*nx*c,y:p.y-2*ny*c}:p;};
       for(let i=1;i<poly.length-1;i++){
         const tri=[poly[0],poly[i],poly[i+1]];
-        const along=p=>((p.x-a.x)*dx+(p.y-a.y)*dy)/Math.sqrt(len2);
+        const along=p=>((p.x-a.x)*dx+(p.y-a.y)*dy)/len;
         if(Math.abs((along(tri[1])-along(tri[0]))*(tri[2].z-tri[0].z)-(along(tri[2])-along(tri[0]))*(tri[1].z-tri[0].z))<1e-8)continue;
         faces.push({...f,points:tri.map(move),edge});
-        faces.push({...f,points:[...tri].reverse(),interior:true,edge,wallDirection:{x:-dx,y:-dy}});
+        faces.push({...f,points:[...tri].reverse().map(mirror),interior:true,edge,wallDirection:{x:-dx,y:-dy}});
       }
     }
     const skinWall=base.authored?base.faces.find(f=>f.kind==='wall'&&f.fallbackUV):null;
