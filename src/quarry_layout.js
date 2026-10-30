@@ -27,6 +27,11 @@
     return Math.min(Math.max(x - left, y - top), Math.max(right - x, y - top),
       Math.max(x - left, bottom - y), Math.max(right - x, bottom - y));
   }
+  // Round-ring distance from a cell to the centre of the site's bounding box:
+  // 0 at the centre, one ring per cell outward.
+  function centreRing(x, y, left, top, right, bottom) {
+    return Math.round(Math.hypot(x - (left + right) / 2, y - (top + bottom) / 2));
+  }
   // Fractional budgets round deterministically per site: retain the same
   // leading shafts while reducing the population average by the table scale.
   function entranceCount(s) {
@@ -220,18 +225,23 @@
       return { seats, partial: usable.length !== size*size, available };
     };
     const foundationSeats = [];
-    // A sliver narrower than one patch cannot read as cut rings either.
-    if (id === 'quarry-strip-mine' && Math.min(right - left, bottom - top) + 1 >= minPatch) {
-      // Cut squares step inward from every corner of the site: a cell is
-      // stone when its square-ring distance to the nearest bounding corner is
-      // even, so every second ring is cut and about half the ground is stone.
-      plan.landmarks.push({ kind: 'corner_rings', bounds: [left, top, right, bottom] });
+    // Ring fills: a cell is stone when its ring index is even, so every second
+    // ring is cut and about half the ground is stone. Abandoned quarries step
+    // square rings in from each bounding corner; strip mines cut round rings
+    // about the bounding centre. A sliver narrower than one patch reads as
+    // neither. Abandoned patches seat their finds first; rings fill around them.
+    const ringOf = id === 'quarry-abandoned' ? (x, y) => cornerRing(x, y, left, top, right, bottom)
+      : id === 'quarry-strip-mine' ? (x, y) => centreRing(x, y, left, top, right, bottom) : null;
+    const rings = ringOf && Math.min(right - left, bottom - top) + 1 >= minPatch;
+    const fillRings = function* () {
+      plan.landmarks.push({ kind: id === 'quarry-abandoned' ? 'corner_rings' : 'centre_rings', bounds: [left, top, right, bottom] });
       for (let n = 0; n < cells.length; n++) {
-        if ((n & 255) === 0) yield 'quarry corner rings';
+        if ((n & 255) === 0) yield 'quarry rings';
         const i = cells[n], x = i % N, y = Math.floor(i / N);
-        if (cornerRing(x, y, left, top, right, bottom) % 2 === 0) put(x, y, 'stone');
+        if (ringOf(x, y) % 2 === 0) put(x, y, 'stone');
       }
-    }
+    };
+    if (rings && id === 'quarry-strip-mine') yield* fillRings();
     for (let y = top; id !== 'quarry-strip-mine' && y <= bottom; y++) {
       yield 'quarry patches';
       for (let x = left; x <= right; x++) {
@@ -261,12 +271,9 @@
             if (xx === x || xx === r || yy === y || yy === b) put(xx, yy, 'stone');
           }
         } else if (id === 'quarry-abandoned') {
-          for (let yy = y; yy <= b; yy++) for (let xx = x; xx <= r; xx++) {
-            if (xx !== cx && (yy === y || xx === x) && hash(xx, yy, 71) < .65) put(xx, yy, 'stone');
-          }
           if (hash(x, y, 41) < .5) put(cx, cy, 'copper_rock');
           // Keep the existing patch roll and double each old barrel into a
-          // corner pair, clear of the central find and the rubble edges.
+          // corner pair, clear of the central find.
           if (hash(x, y, 47) < .5) {
             put(r, b, 'quarry_barrel');
             put(r, b - 1, 'quarry_barrel');
@@ -274,6 +281,7 @@
         }
       }
     }
+    if (rings && id === 'quarry-abandoned') yield* fillRings();
     if (id === 'quarry-strip-mine') {
       const candidates = [...plan.background.keys()].filter(i => {
         const x = i % N, y = Math.floor(i / N); return (x + y) % 7 === 0 || (y % 7 === 2 && x - left > 23);
@@ -367,5 +375,5 @@
   function siteHash(tx, ty, first) {
     return (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
   }
-  root.QuarryLayout = { cornerRing, entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
+  root.QuarryLayout = { cornerRing, centreRing, entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
 })(typeof window !== 'undefined' ? window : globalThis);

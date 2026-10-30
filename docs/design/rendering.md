@@ -1024,8 +1024,9 @@ Tests: `peek_drag`, `feet_anchor`, `shell_variants`, `rock_yield`, `health_bar`,
   and inventory icons retain their existing art. A stable id hash selects plain
   stone shape independently of biome, mining quantity and small/large size.
   Mining quantities retain their existing variant tables.
-  Thirteen stone contexts use one environmental design each from
-  `rock_variants` frames 52–64: Stone Garden, Broken Masonry, Flint Field, Broken Depot,
+  Thirteen stone contexts use an environmental design from
+  `rock_variants` frames 52–64 (Strip Mine and Abandoned Quarry share the
+  frame 60 cut cube, which `RogueObjects.ZONE_ROCK_ART` keeps on the map): Stone Garden, Broken Masonry, Flint Field, Broken Depot,
   Seep, Work Yard, Black Ring, Pirate Cove, Strip Mine, Stronghold Quarry,
   Crater Quarry, Abandoned Quarry and Mystic Reef. Color, moss and weathering carry
   the place; Work Yard uses a cut stone slab and Crater Quarry has a glowing lava
