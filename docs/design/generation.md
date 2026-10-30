@@ -1222,9 +1222,10 @@ Higher-priority placements and their access space take precedence in this order:
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with
    generated wooden barrels the same way (`VERGE_ROWS.trade`,
    `TRADE_BARREL_GAP` 30% left empty, directly beside the road on the reward
-   gate) and seats a two-runt `street_trade` garrison post every 25 m
-   (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
-   a cell behind the barrel row on the fast-foe gate.
+   gate) and seats a `street_trade` garrison post — a thief and two runts
+   (`Lairs.GROUPS`) — every 25 m (`TRADE_GRUNT_STEP_M`), two thirds of them
+   held (`TRADE_GRUNT_CHANCE`), a cell behind the barrel row on the fast-foe
+   gate.
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant

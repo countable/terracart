@@ -226,13 +226,19 @@
     const replaced = new Set(eligible.filter(row => row.variantType === 'Tint' && row.surface.replaceBase !== false).map(row => row.variantOf));
     return eligible.filter(row => !replaced.has(row.id));
   }
+  // A land row's draw weight on this biome: its surface `weightByBiome`
+  // entry for the biome when it has one (the thief, heavier on RESIDENTIAL
+  // ground than on COMMERCIAL), else its plain `weight`.
+  function surfaceWeight(row, type) {
+    return row.surface.weightByBiome?.[nameOf(type)] ?? row.surface.weight;
+  }
   function enemyKind(profile, id, type, context) {
     const rows = enemyRows(profile, type, context), weights = profile?.enemyTierWeights || root.EnemyRoster.SURFACE_TIERS.at(-1).tierWeights;
     const tiers = [...new Set(rows.map(row => row.tier))];
     const tier = pick(tiers, unit(id + ':tier'), value => weights[value] || 0);
     const family = profile?.owner === 'zone';
     return pick(rows.filter(row => row.tier === tier), unit(id + ':enemy'),
-      row => family ? row.surface.weight || 1 : row.surface.weight)?.id || null;
+      row => family ? row.surface.weight || 1 : surfaceWeight(row, type))?.id || null;
   }
   // Allocate counts from the raw habitat footprint. A restricted hole changes
   // the available seats, never this apportionment; rounding preserves the cap.
@@ -463,7 +469,7 @@
     return out;
   }
   const api = { FAUNA_DENSITY, faunaCount, FAUNA_PER_TILE, FAUNA_SPACING_CELLS, faunaSpacing, ENEMIES_PER_TILE, reserveBudget, reserveVisible, LAND_FAUNA, VARIANT_FAUNA, landProfile, shoreProfile, variantProfile, roadProfile, resolve,
-    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, populationSteps };
+    faunaRows, pickFauna, faunaBudget, allows, enemyRows, enemyKind, surfaceWeight, populationSteps };
   root.HabitatSpawns = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

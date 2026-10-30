@@ -64,8 +64,8 @@
   // gate — wooden barrels, loot.js BARREL_LOOT) and goblin grunts pick
   // through them: a post every TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE of
   // them held off the street key and the post's index, each the
-  // street_trade garrison (lairs.js GROUPS: two runts), seated a cell
-  // behind the barrel row on the fast-foe gate.
+  // street_trade garrison (lairs.js GROUPS: a thief and two runts), seated
+  // a cell behind the barrel row on the fast-foe gate.
   const TRADE_BARREL_GAP = 0.3;
   const TRADE_GRUNT_STEP_M = 25, TRADE_GRUNT_CHANCE = 2 / 3;
   // ── Berry Lane / Berry Trail ─────────────────────────────────────────────
@@ -2888,7 +2888,7 @@
         // at TRADE_GRUNT_CHANCE off the street key and the post's index (the
         // same for every player), seated a cell behind the barrel row (verge
         // k = 2, the barrels stand at k = 1) on the fast-foe gate — the
-        // street_trade garrison's pair of runts.
+        // street_trade garrison's thief and pair of runts.
         sampleLine(rec.line, gM, TRADE_GRUNT_STEP_M, TRADE_GRUNT_STEP_M / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           const post = Math.floor(s / TRADE_GRUNT_STEP_M);
