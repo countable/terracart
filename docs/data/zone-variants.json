@@ -7889,7 +7889,7 @@
       "guards": {
         "mode": "none"
       },
-      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Straight cuts march across the bare ground. Most of the wealth went away in carts; a few Sapphire seams still catch the light between the stripped benches. Calm ground along the very outer rim commonly gives way underfoot; the benches and enclosed interior gaps remain stable.",
+      "atmosphere": "The rulers wanted blue stone for their halls, and the hillside paid for it. Square cuts step inward from every corner, block after block of squared stone. Most of the wealth went away in carts; a few Sapphire seams still catch the light among the cut blocks. Calm ground along the very outer rim commonly gives way underfoot; the cuts and enclosed interior gaps remain stable.",
       "hazardsDescription": "Hidden cave-ins on the one-cell outer rim wherever actual Tier 2 calm ground is present: 60% per visited eligible seed, forming 1–3 connected rim cells. Five seconds of warning before permanent holes open. No cave-ins in Tier 3 quarry interiors or enclosed holes; normal transport, access and occupancy exclusions apply.",
       "quarryLayout": "strip_mine",
       "affinities": [

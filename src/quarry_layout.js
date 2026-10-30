@@ -21,6 +21,12 @@
       | (x > 0 && cells.has(i - 1) ? 8 : 0);
     return WALL_FRAME_BY_MASK[mask] ?? null;
   }
+  // Square-ring (Chebyshev) distance from a cell to the nearest corner of
+  // the site's bounding box: 0 at a corner, growing one ring per cell inward.
+  function cornerRing(x, y, left, top, right, bottom) {
+    return Math.min(Math.max(x - left, y - top), Math.max(right - x, y - top),
+      Math.max(x - left, bottom - y), Math.max(right - x, bottom - y));
+  }
   // Fractional budgets round deterministically per site: retain the same
   // leading shafts while reducing the population average by the table scale.
   function entranceCount(s) {
@@ -213,13 +219,24 @@
       if (walls.filter(i => !seats.includes(i)).length < 7) return null;
       return { seats, partial: usable.length !== size*size, available };
     };
-    const foundationSeats = [], verticalBenches = bottom - top > right - left;
-    for (let y = top; y <= bottom; y++) {
+    const foundationSeats = [];
+    // A sliver narrower than one patch cannot read as cut rings either.
+    if (id === 'quarry-strip-mine' && Math.min(right - left, bottom - top) + 1 >= minPatch) {
+      // Cut squares step inward from every corner of the site: a cell is
+      // stone when its square-ring distance to the nearest bounding corner is
+      // even, so every second ring is cut and about half the ground is stone.
+      plan.landmarks.push({ kind: 'corner_rings', bounds: [left, top, right, bottom] });
+      for (let n = 0; n < cells.length; n++) {
+        if ((n & 255) === 0) yield 'quarry corner rings';
+        const i = cells[n], x = i % N, y = Math.floor(i / N);
+        if (cornerRing(x, y, left, top, right, bottom) % 2 === 0) put(x, y, 'stone');
+      }
+    }
+    for (let y = top; id !== 'quarry-strip-mine' && y <= bottom; y++) {
       yield 'quarry patches';
       for (let x = left; x <= right; x++) {
         let size = id === 'quarry-stronghold' ? settings.foundationSizeCells : minPatch + Math.floor(hash(x, y, 97) * (maxPatch - minPatch + 1));
-        const strip = id === 'quarry-strip-mine';
-        const dimensions = size => strip ? (verticalBenches ? [minPatch, size] : [size, minPatch]) : [size, size];
+        const dimensions = size => [size, size];
         const foundation = id === 'quarry-stronghold' ? foundationAt(x, y, size) : null;
         if (id === 'quarry-stronghold') { if (!foundation) continue; }
         else while (size >= minPatch && !fits(x, y, ...dimensions(size))) size--;
@@ -230,7 +247,6 @@
         }
         const r = x + width - 1, b = y + height - 1, cx = x + Math.floor(width / 2), cy = y + Math.floor(height / 2);
         const module = { kind: id === 'quarry-stronghold' ? 'foundation' : 'patch', bounds: [x, y, r, b], size };
-        if (strip) module.axis = verticalBenches ? 'y' : 'x';
         plan.landmarks.push(module);
         if (id === 'quarry-stronghold') {
           module.partial = foundation.partial; foundationSeats.push(foundation.seats);
@@ -254,12 +270,6 @@
           if (hash(x, y, 47) < .5) {
             put(r, b, 'quarry_barrel');
             put(r, b - 1, 'quarry_barrel');
-          }
-        } else if (id === 'quarry-strip-mine') {
-          if (verticalBenches) {
-            for (let xx = x; xx <= r; xx += 2) for (let yy = y; yy <= b; yy++) if (yy !== cy) put(xx, yy, 'stone');
-          } else {
-            for (let yy = y; yy <= b; yy += 2) for (let xx = x; xx <= r; xx++) if (xx !== cx) put(xx, yy, 'stone');
           }
         }
       }
@@ -357,5 +367,5 @@
   function siteHash(tx, ty, first) {
     return (Math.imul(tx, 73856093) ^ Math.imul(ty, 19349663) ^ Math.imul(first, 83492791)) >>> 0;
   }
-  root.QuarryLayout = { entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
+  root.QuarryLayout = { cornerRing, entranceCount, entrancesSteps, planSteps, variantForSteps, wallFrameAt, wallMaskForFrame, weightedIndexForHash, siteHash };
 })(typeof window !== 'undefined' ? window : globalThis);

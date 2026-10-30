@@ -158,6 +158,12 @@ cell-addressed strip-mine scatter with no finite finds, guards or partial
 crater, labelled as an edge site. Mined, opened and dug things use the
 existing progress ledgers and never refill.
 
+A complete strip mine fills every second square ring stepping inward from
+the corners of its bounding box (`QuarryLayout.cornerRing` even), so about
+half its cells are stone, a few of them Sapphire seams. Its plain stone keeps
+the squared cube block (`ZONE_ROCK_THEMES`, `rock_variants` frame 60) through
+`RogueObjects.ZONE_ROCK_ART`, rather than the shared Rogue stone.
+
 Quarries are peaceful resource-gathering ground. No quarry row has guards or
 inhabiting enemies (the Ruined Stronghold's foundations are empty, the strip
 mine has no wurms), no layout places lava, spikes or other hazards (the
