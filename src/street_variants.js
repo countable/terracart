@@ -654,12 +654,13 @@
     { kind: 'tree_stump', _streetArt: 'stump' },
   ];
   function overgrownLayout(length) {
-    const step = root.WorldGen.CELL_M;
-    const perStage = Math.floor(length / (step * OVERGROWN_STAGES.length));
+    const cell = root.WorldGen.CELL_M, step = cell * 2;
+    const perStage = Math.floor((length + cell) / (step * OVERGROWN_STAGES.length));
     const count = perStage * OVERGROWN_STAGES.length;
-    // Equal groups fill adjacent seats; the next seat holds the end shrine.
-    const offset = (length - count * step) / 2;
-    return { step, perStage, count, offset, shrineM: offset + count * step };
+    // Leave one empty cell between seats; the shrine follows the last stump.
+    const span = count ? count * step - cell : 0;
+    const offset = (length - span) / 2;
+    return { step, perStage, count, offset, shrineM: offset + span };
   }
   const VERGE_ROWS = {
     // One colony seed per section. Its subsequent growth is saved local state,
@@ -708,7 +709,7 @@
         D.WG.cellId('hedge', D.tx, D.ty, c.ix, c.iy), { _street: D.v, _ix:c.ix, _iy:c.iy, _streetArt: 'clipped' })) }],
     // One aligned life-cycle row. Blocked cells leave gaps without moving
     // later stages or pushing trees out into an extra row.
-    overgrown: [{ step: () => root.WorldGen.CELL_M,
+    overgrown: [{ step: () => overgrownLayout(0).step,
       offset: D => overgrownLayout(D.lengthM()).offset,
       samples: D => overgrownLayout(D.lengthM()).count, side: () => 1, walk: 1,
       emit: (D, at, c) => {

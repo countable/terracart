@@ -163,7 +163,7 @@ const rules = {
   golden_path: 'Either end shrine starts the same daily coin run along the path.',
   hedgerow: `Hedge rows at ${cellM} m spacing in the first verge row. White flowers fill the verges. Detected trees within 3 cells of the road edge use rounded crowns; no extra trees. One ambush where space permits.`,
   thorny: `Bramble clusters cross the road and extend up to ${SV.THORNY_VERGE_MAX_CELLS} cells beyond it. Some streets enclose a moss cairn. Brambles burn and drain energy on contact.`,
-  overgrown: `One continuous verge row, one cell apart. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps.`,
+  overgrown: `One verge row with one empty cell between trees. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps.`,
   orchard: `Fruit trees and mature maples alternate on both sides every ${SV.ORCHARD_STEP_M} m, up to ${SV.ORCHARD_MAX} per line piece. Fruit trees are mostly apples, with occasional oranges and Worldpeaches. Flowers and stumps use the first verge row only; blocked seats are omitted.`,
   snare: `Dirt extends ${SV.VARIANT_BY_ID.snare.terrainVergeCells} cells, with scattered rocks and bones. One T${SV.SNARE_CHEST_TIER} chest surrounded by ${SV.SNARE_MIN_TRAPS}-${(2 * SV.SNARE_TRAP_RADIUS_CELLS + 1) ** 2 - 1} traps. Up to ${SV.SNARE_STRAYS} extra snares lie along the road and verges.`,
   golden: 'Visit the golden idol to start a daily coin spree along both verges.',

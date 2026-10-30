@@ -2946,31 +2946,9 @@
         },
         {
           "kind": "tree",
-          "x": 696.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_99_113",
-          "variant": 1,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 703.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_100_113",
-          "variant": 1,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
-          "x": 710.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_101_113",
           "variant": 1,
           "_objectArt": "conifer_tree",
           "_street": "overgrown",
@@ -2990,17 +2968,6 @@
         },
         {
           "kind": "tree",
-          "x": 724.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_103_113",
-          "variant": 1,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 731.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_104_113",
@@ -3012,31 +2979,9 @@
         },
         {
           "kind": "tree",
-          "x": 738.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_105_113",
-          "variant": 2,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 745.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_106_113",
-          "variant": 2,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
-          "x": 752.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_107_113",
           "variant": 2,
           "_objectArt": "conifer_tree",
           "_street": "overgrown",
@@ -3056,17 +3001,6 @@
         },
         {
           "kind": "tree",
-          "x": 766.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_109_113",
-          "variant": 2,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 773.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_110_113",
@@ -3078,31 +3012,9 @@
         },
         {
           "kind": "tree",
-          "x": 780.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_111_113",
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 787.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_112_113",
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
-          "x": 794.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_113_113",
           "variant": 3,
           "_objectArt": "conifer_tree",
           "_street": "overgrown",
@@ -3122,17 +3034,6 @@
         },
         {
           "kind": "tree",
-          "x": 808.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_115_113",
-          "variant": 3,
-          "_objectArt": "conifer_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 815.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_116_113",
@@ -3144,31 +3045,9 @@
         },
         {
           "kind": "tree",
-          "x": 822.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_117_113",
-          "variant": 3,
-          "_objectArt": "dead_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 829.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_118_113",
-          "variant": 3,
-          "_objectArt": "dead_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
-          "x": 836.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_119_113",
           "variant": 3,
           "_objectArt": "dead_tree",
           "_street": "overgrown",
@@ -3188,17 +3067,6 @@
         },
         {
           "kind": "tree",
-          "x": 850.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_121_113",
-          "variant": 3,
-          "_objectArt": "dead_tree",
-          "_street": "overgrown",
-          "species": "pine",
-          "treeSpeciesFixed": true
-        },
-        {
-          "kind": "tree",
           "x": 857.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_122_113",
@@ -3210,14 +3078,6 @@
         },
         {
           "kind": "tree_stump",
-          "x": 864.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_123_113",
-          "_streetArt": "stump",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree_stump",
           "x": 871.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_124_113",
@@ -3226,25 +3086,9 @@
         },
         {
           "kind": "tree_stump",
-          "x": 878.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_125_113",
-          "_streetArt": "stump",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree_stump",
           "x": 885.5,
           "y": 794.5,
           "id": "tree_og_2622_5615_126_113",
-          "_streetArt": "stump",
-          "_street": "overgrown"
-        },
-        {
-          "kind": "tree_stump",
-          "x": 892.5,
-          "y": 794.5,
-          "id": "tree_og_2622_5615_127_113",
           "_streetArt": "stump",
           "_street": "overgrown"
         },
@@ -3402,7 +3246,7 @@
         }
       ],
       "slowKinds": [],
-      "placement": "One continuous verge row, one cell apart. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps."
+      "placement": "One verge row with one empty cell between trees. Equal groups of seedlings, young pines, large pines, dead trees, then stumps; group size follows road length. The shrine sits after the stumps."
     },
     {
       "id": "orchard",

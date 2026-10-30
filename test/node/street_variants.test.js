@@ -1768,7 +1768,7 @@ function vergeFixture(variant = 'overgrown') {
     key:'road', variant, halfW:3.5, line:[{x:1.5,y:6.5},{x:10.5,y:6.5}]
   }]}};
 }
-test('Gone to seed fills equal adjacent stage groups and puts its shrine after the stumps', () => {
+test('Gone to seed leaves one empty cell between equal stage groups and puts its shrine after the stumps', () => {
   const stage = o => o.kind === 'tree_stump' ? 4 : o._objectArt === 'dead_tree' ? 3 : o.variant - 1;
   const build = cells => {
     const N = 64, grid = new Uint8Array(N * N).fill(T.GRASS), roadMask = new Uint8Array(N * N);
@@ -1780,14 +1780,14 @@ test('Gone to seed fills equal adjacent stage groups and puts its shrine after t
     return SV.dress({N,grid,tx:0,ty:0,tileEdgeM:N*7,index:{extent:N,dressingLines:[rec]},
       spawnOpts:{roadMask,spawnWhy:new Uint16Array(N*N),occupied:new Set()}});
   };
-  for (const cells of [15, 30, 33]) {
+  for (const cells of [9, 15, 30, 33]) {
     const result = build(cells), trees = result.objects.filter(o => o.id.startsWith('tree_og_'));
-    const perStage = Math.floor(cells / 5);
+    const perStage = Math.floor((cells + 1) / 10);
     assert.eq(trees.length, perStage * 5, 'road length sets the number in each group');
     assert.eq(new Set(trees.map(o => o.y)).size, 1, 'one straight row');
     for (let i = 0; i < trees.length; i++) {
       assert.eq(stage(trees[i]), Math.floor(i / perStage), 'equal ordered groups');
-      if (i) assert.eq(trees[i].x - trees[i - 1].x, WorldGen.CELL_M, 'adjacent equally spaced cells');
+      if (i) assert.eq(trees[i].x - trees[i - 1].x, WorldGen.CELL_M * 2, 'exactly one empty cell between trees');
     }
     assert.eq(result.wildplants.length, 0, 'no grass, ferns or other scattered plants');
     const shrine = result.objects.find(o => o._shrineStreet === 'overgrown');

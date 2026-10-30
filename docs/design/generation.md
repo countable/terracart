@@ -759,7 +759,7 @@ access or tile lifecycle mechanics.
   family. Paralysis and Confusion paths use the large lavender tree. Gone to
   Seed fills one verge with equally sized groups of seedlings, young trees,
   mature pines, dead trees and stumps, in that order. Each group’s count scales
-  with road length; seats are one cell apart with no intentional gaps. Its
+  with road length; seats are two cells apart, leaving one empty cell between trees. Its
   selected shrine occupies the next seat after the stumps. Occupancy and
   safety gates can leave gaps. It adds no rocks, grass, ferns or scattered trees.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
