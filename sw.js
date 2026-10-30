@@ -1,7 +1,7 @@
 // Content-addressed resources survive deployments. HTML stays network-first;
 // tiles retain their independent offline cache. Keep two shell generations so
 // old tabs can still request their exact script URLs after a worker update.
-const SHELL_VERSION = 'shell-29272aeb';
+const SHELL_VERSION = 'shell-047e0b2b';
 
 const RESOURCE_CACHE = 'terracart-resources-v1';
 const RESOURCE_MANIFEST = './__terracart_resource_manifest__';
@@ -92,6 +92,7 @@ const ASSET_HASHES = {
   "assets/Enemy/Plant/1Fullsheet_Plant.png": "6350265e",
   "assets/Enemy/Plant/Reskin/1Fullsheet_BonePlant.png": "fc72b100",
   "assets/Enemy/Purple Slime.png": "0b22864f",
+  "assets/Enemy/Rat.png": "c0e24c18",
   "assets/Enemy/SegmentedSerpent/parts.png": "4c7e813e",
   "assets/Enemy/Skeleton/1Fullsheet_Skeleton.png": "b10d4d1f",
   "assets/Enemy/Skeleton/Reskin/1Fullsheet_DrySkeleton.png": "4e842f47",
@@ -130,6 +131,8 @@ const ASSET_HASHES = {
   "assets/Icons/Fish/Sea/Creatures/Shell-24.png": "ec01492f",
   "assets/Icons/Fish/Sea/Salmon.png": "ba03e58d",
   "assets/Icons/Fish/Sea/Smallmouth Bass.png": "2e7a8556",
+  "assets/Icons/Fish/Sewer/Blind Cavefish.png": "cf8b9fa4",
+  "assets/Icons/Fish/Sewer/Sewer Eel.png": "c2016f84",
   "assets/Icons/Food Icons/Apple.png": "b7571b90",
   "assets/Icons/Food Icons/Apricot.png": "a7fec9c6",
   "assets/Icons/Food Icons/Banana.png": "d3044335",
@@ -138,7 +141,7 @@ const ASSET_HASHES = {
   "assets/Icons/Food Icons/Cherry.png": "83f12eba",
   "assets/Icons/Food Icons/Chicken Egg.png": "066fcf2e",
   "assets/Icons/Food Icons/Coconut.png": "c2f608ce",
-  "assets/Icons/Food Icons/Cooked.png": "ffcbee45",
+  "assets/Icons/Food Icons/Cooked.png": "fda5e47d",
   "assets/Icons/Food Icons/Mango.png": "0bb10a89",
   "assets/Icons/Food Icons/Orange.png": "4ed00d45",
   "assets/Icons/Food Icons/Peach.png": "5c7a1774",

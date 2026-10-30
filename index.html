@@ -10,7 +10,7 @@
   <meta name="theme-color" content="#111" />
   <script>
     // Derived with sw.js SHELL_VERSION by tools/cachebust.js.
-    window.__shellVersion = 'shell-29272aeb';
+    window.__shellVersion = 'shell-047e0b2b';
     // Sandbox local reset must run before any saved setting or slot is read.
     (function () {
       const params = new URLSearchParams(location.search);
@@ -105,7 +105,7 @@
        the preload only removes its later network wait. cachebust.js owns both
        versions, just as it owns the matching script and APP_SRC URLs. -->
   <link rel="preload" as="script" fetchpriority="high" href="vendor/phaser.js?v=3fa1b12c" />
-  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=9cceb141" />
+  <link rel="preload" as="script" fetchpriority="high" href="src/app.js?v=e4325b08" />
   <script>
     // ── Boot profiler ────────────────────────────────────────────────────
     // FIRST thing on the page, so it is recording before a single byte of the
@@ -3234,7 +3234,7 @@
   <script>window.__boot?.mark('scripts start');</script>
   <script src="vendor/phaser.js?v=3fa1b12c"></script>
   <script src="src/mvt.js?v=d6d1990a"></script>
-  <script src="src/enemy_roster.js?v=2a292768"></script>
+  <script src="src/enemy_roster.js?v=1f10a49e"></script>
 
   <script src="src/enemy_spawns.js?v=3305df09"></script>
   <script src="src/creature_spawns.js?v=eca089d3"></script>
@@ -3292,7 +3292,7 @@
   <script src="src/geometry.js?v=8575e0b6"></script>
   <script src="src/gameplay_tiers.js?v=e124d893"></script>
   <script src="src/generated_tile_cache.js?v=043e889f"></script>
-  <script src="src/worldgen.js?v=b531962c"></script>
+  <script src="src/worldgen.js?v=55387cc2"></script>
   <script src="src/castle_styles.js?v=759cb38f"></script>
   <script src="src/ground_materials.js?v=dc83f28d"></script>
   <script src="src/textures.js?v=f29b248a"></script>
@@ -3300,9 +3300,9 @@
   <script src="src/save.js?v=5d02b05e"></script>
   <script src="src/dialog_item_art.js?v=4a38a3c5"></script>
   <script src="src/selected_item_art.js?v=dfb32a93"></script>
-  <script src="src/items.js?v=e23d1227"></script>
+  <script src="src/items.js?v=560951ef"></script>
   <script src="src/inventory.js?v=f8d057a5"></script>
-  <script src="src/energy.js?v=10dc51a3"></script>
+  <script src="src/energy.js?v=174f4a68"></script>
   <script src="src/conditions.js?v=09f79301"></script>
   <script src="src/player_time.js?v=bcfa05e1"></script>
   <script src="src/potion_effects.js?v=f044e56e"></script>
@@ -3348,12 +3348,12 @@
   <script src="src/pet_story_art.js?v=2a963a9e"></script>
   <script src="src/pet_stories.js?v=5ccaeef4"></script>
   <script src="src/story_encounters.js?v=8fcc4b0c"></script>
-  <script src="src/interact.js?v=57877cfa"></script>
+  <script src="src/interact.js?v=0e7c8abe"></script>
   <script src="src/play_tips.js?v=9720f8af"></script>
   <script src="src/lighting_gpu.js?v=ad54fc09"></script>
   <script src="src/lighting.js?v=91946ad4"></script>
   <script src="src/safety.js?v=7972cffc"></script>
-  <script src="src/render.js?v=90ffbce9"></script>
+  <script src="src/render.js?v=80670c7e"></script>
   <script src="src/gas_render.js?v=968b9603"></script>
   <script src="src/enemy_protocol.js?v=d431fb24"></script>
   <script src="src/weather_codes.js?v=d29f48ce"></script>
@@ -3490,7 +3490,7 @@
     // tracking joins that same watch — one watchPosition per page, one prompt.
     (function () {
       if (window.__bootRecovery.failed) return;
-      const APP_SRC = 'src/app.js?v=9cceb141';
+      const APP_SRC = 'src/app.js?v=e4325b08';
       // How long the gate waits for that first fix before giving up and
       // booting at the default origin. A cold GPS start can take far longer
       // than this indoors, so app.js keeps its capture-then-reload path as a
