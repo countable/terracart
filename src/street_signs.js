@@ -9,18 +9,22 @@ const StreetSigns = (() => {
     const row = typeof StreetVariants !== 'undefined' && StreetVariants.VARIANT_BY_ID?.[rec.variant];
     return row?.title || rec.title || rec.name || rec.variant?.replaceAll('_', ' ');
   }
+  // ONE SIGN PER JUNCTION. Every end of every road is a candidate, so a road
+  // whose far end meets another road earns a sign there too, and the junction
+  // point itself is the dedupe key (not the road), so two roads ending at the
+  // same corner share one sign that lists them both. A road end that meets no
+  // OTHER street (its own next section does not count) — a dead end, or the
+  // clip at a tile edge — gets no sign.
   function candidates(index, cellM = 7) {
     const scale = index.mvtToM || 1;
     const rows = (index.dressingLines || index.lines || []).filter(r => r.variant && r.line?.length > 1);
     const result = [], seen = new Set();
-    for (const rec of rows) {
-      // Canonical endpoint ownership prevents duplicate signs for reversed
-      // geometry and gives each road section one stable roadside landmark.
-      const ends = [rec.line[0], rec.line.at(-1)].sort((a,b) => a.x-b.x || a.y-b.y);
-      const p = ends[0], key = `${rec.key}|${rec.variant}|${p.x},${p.y}`;
+    for (const rec of rows) for (const end of [0, rec.line.length - 1]) {
+      const p = rec.line[end];
+      const key = `${rec.tags?.layer || 0}|${rec.tags?.brunnel || ''}|${Math.round(p.x * 100)},${Math.round(p.y * 100)}`;
       if (seen.has(key)) continue;
-      seen.add(key);
       const directions = [], listed = new Set();
+      let meeting = null;   // the nearest OTHER road at this end
       for (const other of rows) {
         if ((other.tags?.layer || 0) !== (rec.tags?.layer || 0) || (other.tags?.brunnel || '') !== (rec.tags?.brunnel || '')) continue;
         let closest = null, d2 = Infinity, tangent = null;
@@ -33,6 +37,9 @@ const StreetSigns = (() => {
           if (distance < d2) { d2=distance; closest=q; tangent={a,b,t}; }
         }
         if (!closest || Math.sqrt(d2)*scale > cellM*2) continue;
+        // Another STREET: a duplicate mapped piece or the next section of the
+        // same street shares its key and makes no junction.
+        if (other.key !== rec.key && (!meeting || d2 < meeting.d2)) meeting = { rec: other, d2, tangent };
         // At a junction a line can lead both ways. At its endpoint it only
         // points into the line, never beyond the supplied map geometry.
         const targets = [];
@@ -46,24 +53,42 @@ const StreetSigns = (() => {
           listed.add(id);directions.push({direction:heading,title:title(other),variant:other.variant});
         }
       }
-      if (!directions.length) continue;
-      const adjacent = rec.line[0] === p ? rec.line[1] : rec.line.at(-2);
+      if (!meeting || !directions.length) continue;
+      seen.add(key);
+      const adjacent = rec.line[end ? end - 1 : 1];
       const dx=adjacent.x-p.x,dy=adjacent.y-p.y,len=Math.hypot(dx,dy);
-      const ahead=Math.min(cellM*1.5,len*scale*.5);
-      result.push({rec,x:p.x*scale+dx/len*ahead,y:p.y*scale+dy/len*ahead,
-        nx:-dy/len,ny:dx/len,directions:directions.sort((a,b)=>a.direction.localeCompare(b.direction)||a.title.localeCompare(b.title))});
+      if (!len) continue;
+      // `inside`: the seat side (about the direction into this road) that the
+      // meeting road's body runs to — the angle between the two roads.
+      // `lineSign` maps a seat side to this road's own left (+1) or right.
+      const nx=-dy/len, ny=dx/len, { a, b } = meeting.tangent;
+      const toward = nx*(a.x+b.x-2*p.x) + ny*(a.y+b.y-2*p.y);
+      result.push({rec,x:p.x*scale,y:p.y*scale,dx:dx/len,dy:dy/len,nx,ny,
+        inside: toward < 0 ? -1 : 1, lineSign: end ? -1 : 1, meetsHalfW: meeting.rec.halfW || 0,
+        directions:directions.sort((a,b)=>a.direction.localeCompare(b.direction)||a.title.localeCompare(b.title))});
     }
     return result;
   }
-  // Keep the post just outside the actual vector band, not at a snapped
-  // cell centre. The caller checks and claims the cell containing its feet.
-  function edgeSeats(sign, cellM = 7) {
-    const offset = sign.rec.halfW + cellM * .2;
-    return [1, -1].map(side => {
-      const x = sign.x + sign.nx * side * offset;
-      const y = sign.y + sign.ny * side * offset;
-      return { x, y, ix: Math.floor(x / cellM), iy: Math.floor(y / cellM) };
-    });
+  // THE CORNER WHERE THE ROADS MEET. The post stands in the angle between the
+  // sign's road and the road it meets: off the meeting road by its half width
+  // along this road, off this road by its half width across it, each plus a
+  // step into the verge — the verge cell diagonally off the junction point,
+  // never on either band and never out along one road alone. The inside
+  // corner comes first (the side the meeting road runs to), then the outside
+  // one, then each a cell further out for when the nearer seats are taken.
+  // `lineSide` keeps every seat to one side of the road in its own terms (+1
+  // its left), for a variant whose verge row must stay continuous. The caller
+  // checks and claims the cell containing the post's feet.
+  function cornerSeats(sign, cellM = 7, { lineSide = null } = {}) {
+    const out = [];
+    for (let k = 0; k < 3; k++) for (const side of [sign.inside, -sign.inside]) {
+      if (lineSide != null && side * sign.lineSign !== lineSide) continue;
+      const along = sign.meetsHalfW + cellM * (.4 + k), across = sign.rec.halfW + cellM * (.4 + k);
+      const x = sign.x + sign.dx * along + sign.nx * side * across;
+      const y = sign.y + sign.dy * along + sign.ny * side * across;
+      out.push({ x, y, side, ix: Math.floor(x / cellM), iy: Math.floor(y / cellM) });
+    }
+    return out;
   }
   // FINGERPOST. A sign is a set of small closed solids for the retained mesh
   // path the crates take (render.js Render.drawRoadSignMeshes →
@@ -180,6 +205,6 @@ const StreetSigns = (() => {
     }
     return out;
   }
-  return {direction,candidates,edgeSeats,ART,vector,rows,rowTop,faceColour,mesh};
+  return {direction,candidates,cornerSeats,ART,vector,rows,rowTop,faceColour,mesh};
 })();
 if (typeof window !== 'undefined') window.StreetSigns = StreetSigns;

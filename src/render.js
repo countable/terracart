@@ -4216,7 +4216,7 @@ Render.drawLowPolyProps = function (scene, items) {
 // draws over the post and one pointing away draws behind it, while every part
 // shares the post's foot as its support, so the sign sorts against the player
 // as one. The foot keeps its sub-cell seat beside the road edge
-// (StreetSigns.edgeSeats); only the anchor cell's scroll offsets the group.
+// (StreetSigns.cornerSeats); only the anchor cell's scroll offsets the group.
 // The retained pieces stay on the scene for the tap (Render.tallPropHit).
 Render.drawRoadSignMeshes = function (scene, items) {
   const drawn = new Set();

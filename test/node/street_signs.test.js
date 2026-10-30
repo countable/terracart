@@ -1,28 +1,53 @@
 (function () {
-test('street signs: posts follow vector edges without snapping their feet to cell centres', () => {
-  for (const angle of [0, Math.PI / 4, Math.PI / 2]) {
-    const sign = {rec:{halfW:4},x:103,y:107,nx:Math.cos(angle),ny:Math.sin(angle)};
-    const seats = StreetSigns.edgeSeats(sign, 7);
-    seats.forEach((seat, i) => {
-      const distance = (seat.x-sign.x)*sign.nx + (seat.y-sign.y)*sign.ny;
-      assert.truthy(Math.abs(distance - (i ? -5.4 : 5.4)) < 1e-9);
-      assert.eq(seat.ix, Math.floor(seat.x/7));
-      assert.eq(seat.iy, Math.floor(seat.y/7));
-    });
-  }
-});
-test('street signs: directions describe only actual junction geometry', () => {
+test('street signs: one sign per junction, at either end of a road, and none at a lone road end', () => {
   const index = {mvtToM:1, lines:[
-    {key:'a',variant:'hedgerow',line:[{x:100,y:100},{x:300,y:100}]},
-    {key:'b',variant:'thorny',line:[{x:100,y:100},{x:100,y:300}]},
-    {key:'far',variant:'pilgrim',line:[{x:900,y:900},{x:900,y:1200}]},
+    {key:'a',variant:'hedgerow',halfW:3.5,line:[{x:100,y:100},{x:300,y:100}]},
+    {key:'b',variant:'thorny',halfW:3.5,line:[{x:100,y:100},{x:100,y:300}]},
+    {key:'c',variant:'pilgrim',halfW:3.5,line:[{x:300,y:300},{x:300,y:100}]},
+    {key:'far',variant:'pilgrim',halfW:3.5,line:[{x:900,y:900},{x:900,y:1200}]},
   ]};
-  const sign = StreetSigns.candidates(index).find(s=>s.rec.key==='a');
-  assert.truthy(sign.directions.some(d=>d.direction==='East'&&d.variant==='hedgerow'));
-  assert.truthy(sign.directions.some(d=>d.direction==='South'&&d.variant==='thorny'));
-  assert.falsy(sign.directions.some(d=>d.variant==='pilgrim'));
+  const signs = StreetSigns.candidates(index);
+  assert.eq(signs.map(s => `${s.x},${s.y}`).sort().join('|'), '100,100|300,100', 'the two corners where roads meet, each once');
+  const corner = signs.find(s => s.x === 100 && s.y === 100), far = signs.find(s => s.x === 300);
+  assert.eq(corner.directions.map(d => d.direction + ':' + d.variant).join(), 'East:hedgerow,South:thorny', 'a corner lists every road that meets there');
+  assert.eq(far.rec.key, 'a', 'the far end of a road is a junction too');
+  assert.eq(far.directions.map(d => d.direction).join(), 'South,West', 'c arrives from the south; a leads back west');
+  assert.falsy(signs.some(s => s.rec.key === 'far' || s.directions.some(d => d.title === undefined)), 'a road meeting nothing has no sign');
   const reversed = {...index,lines:index.lines.map(r=>({...r,line:r.line.slice().reverse()}))};
-  assert.eq(JSON.stringify(StreetSigns.candidates(reversed).find(s=>s.rec.key==='a').directions),JSON.stringify(sign.directions));
+  const again = StreetSigns.candidates(reversed);
+  assert.eq(again.map(s => `${s.x},${s.y}`).sort().join('|'), '100,100|300,100', 'reversed geometry: the same junctions');
+  assert.eq(JSON.stringify(again.find(s => s.x === 100).directions), JSON.stringify(corner.directions), 'and the same listing');
+  // The corner: into road a (east), the meeting road b runs south, so the
+  // inside corner is the south-east angle between them.
+  assert.eq(corner.dx + ',' + corner.dy + ',' + corner.inside + ',' + corner.lineSign, '1,0,1,1');
+  assert.eq(far.dx + ',' + far.dy + ',' + far.inside + ',' + far.lineSign, '-1,0,-1,-1', 'from a\'s far end the road runs back west, whose left normal is north; c lies south; that end is a\'s last point');
+  const sections = {mvtToM:1, lines:[
+    {key:'s',variant:'hedgerow',halfW:3.5,line:[{x:0,y:100},{x:200,y:100}]},
+    {key:'s',variant:'hedgerow',halfW:3.5,line:[{x:200,y:100},{x:400,y:100}]},
+    {key:'s',variant:'hedgerow',halfW:3.5,line:[{x:0,y:100},{x:200,y:100}]},
+  ]};
+  assert.eq(StreetSigns.candidates(sections).length, 0, 'the next section of the same street, or a duplicate piece, is no junction');
+  assert.eq(far.meetsHalfW, 3.5);
+});
+test('street signs: the post stands in the corner between the two roads, stepping out when seats are taken', () => {
+  const near = (a, b, msg) => assert.truthy(Math.abs(a - b) < 1e-9, `${msg}: ${a} ≠ ${b}`);
+  // Junction at (100, 100): this road runs east from it, 7 m wide; the
+  // meeting road is 14 m wide and runs south (inside = +1, the left normal
+  // of east being screen-south).
+  const sign = {rec:{halfW:3.5},x:100,y:100,dx:1,dy:0,nx:0,ny:1,inside:1,lineSign:1,meetsHalfW:7};
+  const seats = StreetSigns.cornerSeats(sign, 7);
+  assert.eq(seats.length, 6, 'two corners, three steps out');
+  near(seats[0].x, 100 + 7 + 2.8, 'off the meeting road\'s band by a step into the verge');
+  near(seats[0].y, 100 + 3.5 + 2.8, 'off this road\'s band by the same step: the verge cell at the corner');
+  near(seats[1].y, 100 - 3.5 - 2.8, 'then the outside corner');
+  near(seats[2].x, seats[0].x + 7, 'then a cell further out'); near(seats[2].y, seats[0].y + 7);
+  for (const seat of seats) {
+    assert.truthy(seat.x > 100 + 7, 'never on the meeting road');
+    assert.truthy(Math.abs(seat.y - 100) > 3.5, 'never on this road');
+    assert.eq(seat.ix, Math.floor(seat.x / 7)); assert.eq(seat.iy, Math.floor(seat.y / 7));
+  }
+  assert.eq(StreetSigns.cornerSeats(sign, 7, { lineSide: -1 }).map(s => s.side).join(), '-1,-1,-1', 'a kept verge leaves only the other side');
+  assert.eq(StreetSigns.cornerSeats({ ...sign, lineSign: -1 }, 7, { lineSide: -1 }).map(s => s.side).join(), '1,1,1', 'in the road\'s own terms, whichever end the junction is');
 });
 test('street signs: headings share a row only when their boards cannot meet', () => {
   const { post, board } = StreetSigns.ART;

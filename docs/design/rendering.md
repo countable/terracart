@@ -1291,8 +1291,12 @@ the reach rim within the existing player-light radius.
   use their dominant material color; Home, cave and discarded cells receive no
   road tint. It samples only visible cells, caches nearest-road queries, and is
   hidden underground without changing generated terrain or spawn ownership.
-- Roadside directions are a fingerpost drawn as retained solids from
-  `StreetSigns.ART`, on the mesh path the crates take
+- Roadside directions are a fingerpost at every junction where two streets
+  meet (`StreetSigns.candidates`: either end of a road, one sign per junction
+  point, none at a dead end or where a street only meets its own next
+  section), its post planted in the verge cell at the corner between the two
+  roads (`StreetSigns.cornerSeats`, stepping outward when that cell is taken).
+  It is drawn as retained solids from `StreetSigns.ART`, on the mesh path the crates take
   (`Render.drawRoadSignMeshes`, `WallPerspective.prism`, one group of its own
   on the wall sheet's white texel so flat cel colours tint it): a square post
   standing straight on the ground with no footing, about a cell tall, and one
@@ -1309,7 +1313,7 @@ the reach rim within the existing player-light radius.
   is a cel step by outward normal (`StreetSigns.faceColour`, a west light);
   heights project straight up like every low-poly solid, and a compass turn
   reveals a board's other faces instead of turning a flat picture. The foot
-  keeps its sub-cell seat beside the road edge (`StreetSigns.edgeSeats`). The
+  keeps its sub-cell seat in the junction corner (`StreetSigns.cornerSeats`). The
   sign record alone owns the tap, the cell and the shadow; a tap on its drawn
   triangles from a neighbouring cell names it (`Render.tallPropHit`) and still
   lists the headings and route names. `RENDER_SPEC.roadsign` keeps the
