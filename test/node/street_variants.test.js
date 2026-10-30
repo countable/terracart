@@ -590,7 +590,7 @@ test('toadstool lane: a minor row at 5%, its verge holds glowing mushrooms with 
     'large caps remain among the denser small-mushroom cover');
   assert.gt(mush, plants.length / 2, `mostly mushrooms (${mush} of ${plants.length})`);
   for (const w of plants) assert.eq(wildplantSprite(w).sheet,
-    w._plantArt === 'ordinary' ? 'selected_mushroom' : 'street_decor_' + w._streetArt, 'selected mushroom art reaches the map');
+    w._plantArt === 'ordinary' ? 'selected_mushroom' : w._streetArt === 'red_mushroom' ? 'zone_objects' : 'street_decor_' + w._streetArt, 'selected mushroom art reaches the map');
   const roadside = plants.filter(w => Math.abs(cellOf(w.y, TY) - 20) === 1 && !w.gasEmitter && ['mushroom', 'mushroom_bush'].includes(w.crop));
   const small = roadside.filter(w => w._plantArt === 'ordinary'), medium = roadside.filter(w => w._streetArt === 'red_mushroom' || w._streetArt === 'toadstool_cluster');
   assert.gt(small.length, 0, 'small mushrooms reach the immediate roadside');

@@ -1800,10 +1800,10 @@ placement, with one third of blades and 65% blade dimensions. It stays harvestab
 longgrass. The hedged lane adds white flowers but no grass clumps or trees. Detected trees
 in its three-cell roadside influence use the rounded mossy-tree look. Mushroom imports use a muted warm tint to fit the existing caps.
 
-Individual environment concept art lives in `design/road-environment-concepts/`.
-`tools/preview_road_environment_concepts.py` indexes the images against the
-shipping road-variant list. Group manifests preserve generation prompts and
-source paths. Each card also shows its shipped story painting and a 20 × 7
-current-layout capture from `tools/capture_road_variant_views.cjs`. Regenerate
-the variant dashboard before capturing; then rebuild the gallery. The new
-concept art explores environment mood and is not a game render.
+Road experience briefs live in `design/road-experiences/`.
+`tools/preview_road_experiences.py` pairs the briefs in
+`tools/road-experience-*.json` with shipped story paintings and current 20 × 7
+captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
+dashboard before capturing, then rebuild the gallery. Each brief describes the
+intended feeling, art cues and player actions; proposed mechanics are labelled
+separately from existing behavior. These briefs do not change runtime behavior.

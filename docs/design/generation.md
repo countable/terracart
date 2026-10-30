@@ -765,7 +765,9 @@ access or tile lifecycle mechanics.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
   stumps. Underdark ground cover intersperses pale luminous fungus clusters.
 - Toadstool Lane mixes small pickups and medium mushroom bushes on the road
-  and along both two-cell verges, with occasional giants. Medium clumps use bush chopping
+  and along both two-cell verges, with occasional giants. Ordinary surface caps use one art
+  frame; cave caps retain their two frames. Red mushroom bushes use the grove
+  giant artwork, including saved placements. Medium clumps use bush chopping
   and cover, yielding one wood and one mushroom; small caps remain pickups.
   Snare Lane paints three cells of dirt on each side, with rocks and bones
   scattered across the strip. It keeps its trapped chest and adds up to 12 seeded scattered

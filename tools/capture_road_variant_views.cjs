@@ -4,7 +4,7 @@ const fs=require('node:fs');
 const path=require('node:path');
 const root=path.resolve(__dirname,'..');
 (async()=>{
- const out=path.join(root,'design/road-environment-concepts/current-views');fs.mkdirSync(out,{recursive:true});
+ const out=path.join(root,'design/road-experiences/current-views');fs.mkdirSync(out,{recursive:true});
  const rows=JSON.parse(fs.readFileSync(path.join(root,'design/zone-variants/street-variants.json'),'utf8')).rows;
  const browser=await chromium.launch({executablePath:process.env.CHROMIUM||'/usr/bin/chromium',args:['--no-sandbox']});
  try{
