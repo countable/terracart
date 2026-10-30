@@ -183,9 +183,14 @@ const RogueObjects = (() => {
       if (sheets[key]) sheets[key] = {...sheet};
     }
   }
+  // Zones whose plain stone keeps its themed rock_variants block
+  // (ZONE_ROCK_THEMES) instead of the shared Rogue stone: the strip mine's
+  // cut cubes.
+  const ZONE_ROCK_ART = new Set(['quarry-strip-mine']);
   function spec(o,scene,original) {
     const street = streetSpec(o, original);
     if (street) return street;
+    if (o.kind === 'mineralrock' && ZONE_ROCK_ART.has(o.zoneVariant) && mineralRockUsesZoneArt(o)) return original;
     if (o.kind === 'mineralrock' && mineralRockMaterial(o) !== 'plain') {
       return {...original, key:'rogue_minerals', frame:Object.keys(mineralColors).indexOf(mineralRockMaterial(o)),
         scale:o.sightBlocking ? 2.4 : 1.6, origin:[.5,.5], seat:true,
@@ -240,7 +245,7 @@ const RogueObjects = (() => {
     }
     return {enabled,textures};
   }
-  return {enabled,install,installIcons,spec,status,streetPalette,recolorStreetPixels,bakeStreetPalette};
+  return {enabled,ZONE_ROCK_ART,install,installIcons,spec,status,streetPalette,recolorStreetPixels,bakeStreetPalette};
 })();
 if(typeof ASSETS!=='undefined') RogueObjects.install(ASSETS);
 if(typeof window!=='undefined') window.RogueObjects=RogueObjects;

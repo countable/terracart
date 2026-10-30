@@ -53,7 +53,7 @@
     "regen": 44,
     "wand": 45
   },
-  "method": "Unscaled native source pixels, alpha-trimmed and centered; static frames only.",
+  "method": "Unscaled native source pixels, alpha-trimmed and centered; static frames only; RECOLOR rows hue-rotated.",
   "credits": [
     "ElvGames: Buff and Debuff Pixel VFX, elemental Spell VFX, Rogue Adventure item icons.",
     "16x16 RPG Pack v3.0: original supplemental packed source.",
@@ -1071,7 +1071,8 @@
         7,
         9
       ],
-      "meaning": "Magic wand with increase arrow"
+      "meaning": "Red magic wand with increase arrow",
+      "recolor": "ember_red"
     }
   ]
 }
