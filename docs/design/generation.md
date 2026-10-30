@@ -347,8 +347,12 @@ access or tile lifecycle mechanics.
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
-  the vent kinds a floor erupts,
-  arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
+  the vent kinds a floor erupts, the generated barrel allocation (`barrels`
+  `{ min, span }`, read by `caveBarrelBudget` and the shared container budget;
+  the sewer's heap, the natural cave's dozen-odd, none elsewhere), whether the
+  projected route lanes are channel water that seats nothing (`channelWater`,
+  the sewer: the lanes join `occupied` before any pass and reach the runtime
+  draws as `undergroundReserved`), arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
   L1 mask read directly from the surface), goblin city 3, deep-stone clearings and road tunnels
   4, open fungal 5, lava 6, and dragon masonry 7–8. Lava and dragon strata
   read surface geometry directly; an open fungal floor must not erase lava

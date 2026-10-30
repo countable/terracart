@@ -336,7 +336,8 @@ beneath pier decking, and existing underground route centre lanes through
 that selection and its prebuilt texture, replacing the ordinary animated water
 texture in the same ground slot. Terrain and collision stay unchanged: actual
 water remains water, piers retain their decking, and decorative channels remain
-walkable cave-floor cells. Both actual water and L1 route channels use the normal
+walkable cave-floor cells (which worldgen nevertheless reserves, so nothing is
+seated in them; the profile's `channelWater` row names the floor). Both actual water and L1 route channels use the normal
 waist-up player crop; pier decking stays dry. Flight, dragon riding and raised prop
 support clear the crop as on surface water. Dry L1 cells use one cool-grey 16px stone slab enlarged to a 32px cell, with stable world-cell
 selection of 14/16 plain slabs, 1/16 cracked slabs and 1/16 grates. Planning
