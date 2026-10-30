@@ -6333,8 +6333,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Shiny fish glint on their water cell until landed (items.js
   // shinyFishSpots — a per-tile derived list, so no grid scan per frame; its
   // first derivation is spread over frames, SHINY_FISH_SCAN_MS a frame).
-  // Surface only: a cave's water is not the surface's fishing spots.
-  if ((scene.depth || 0) === 0 && typeof shinyFishSpots === 'function') {
+  // The surface, and a floor with a catch pool of its own (the sewer's
+  // channels): a plain cave's water is not the surface's fishing spots.
+  if (((scene.depth || 0) === 0 || WorldGen.floorProfile(scene.depth).fishPool) && typeof shinyFishSpots === 'function') {
     const fished = scene.fishedSpotSet;
     const fishUntil = performance.now() + SHINY_FISH_SCAN_MS;
     const tpc = scene.playerToWorldCell();

@@ -352,7 +352,10 @@ access or tile lifecycle mechanics.
   the sewer's heap, the natural cave's dozen-odd, none elsewhere), whether the
   projected route lanes are channel water that seats nothing (`channelWater`,
   the sewer: the lanes join `occupied` before any pass and reach the runtime
-  draws as `undergroundReserved`), arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
+  draws as `undergroundReserved`), which catch pool its water is fished from
+  (`fishPool`, an items.js `FISH_POOLS` table; a sewer spot's id carries its
+  depth, so the pond above is never emptied by it), arrival story IDs and
+  entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
   L1 mask read directly from the surface), goblin city 3, deep-stone clearings and road tunnels
   4, open fungal 5, lava 6, and dragon masonry 7–8. Lava and dragon strata
   read surface geometry directly; an open fungal floor must not erase lava

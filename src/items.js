@@ -384,6 +384,8 @@ const COOKED_FOODS = {
   trout:      { id: 'grilled_trout',     name: 'Grilled Trout' },
   salmon:     { id: 'grilled_salmon',    name: 'Grilled Salmon' },
   goldenfish: { id: 'grilled_goldenfish', name: 'Grilled Goldenfish' },
+  blind_cavefish: { id: 'grilled_blind_cavefish', name: 'Grilled Blind Cavefish' },
+  sewer_eel:  { id: 'grilled_sewer_eel',  name: 'Grilled Sewer Eel' },
 };
 
 // Resolve the same icon source the inventory uses for an item id.
@@ -605,6 +607,9 @@ const MINERAL_ICON_SHEET = {
   trout:      { sheet: 'icon_trout',      frame: 0 },
   salmon:     { sheet: 'icon_salmon',     frame: 0 },
   goldenfish: { sheet: 'icon_goldenfish', frame: 0 },
+  // The sewer's own catch — Icons/Fish/Sewer/<*>.png, one 16×16 frame each.
+  blind_cavefish: { sheet: 'icon_blind_cavefish', frame: 0 },
+  sewer_eel:      { sheet: 'icon_sewer_eel',      frame: 0 },
   // Junk pull from fishing — brown leather boot at row 6 col 4 of
   // 7_Pickup_Items_16x16 (renamed Pickup_Items.png in Objects/). Frame =
   // 6 * 14 + 4 = 88.
@@ -893,6 +898,8 @@ const BASE_TIER = {
   egg: 2, milk: 3,
   // Fish span the loot ladder, with gaps of at most two tiers.
   minnow: 1, bass: 2, trout: 4, salmon: 5, goldenfish: 7,
+  // The sewer's own two (FISH_POOLS.sewer): a pale cave fish and the eel.
+  blind_cavefish: 3, sewer_eel: 5,
   // Ordinary orchard fruit share T2; mango keeps its rarity premium.
   // Mango is no longer an orchard tree — it is a rare fruit
   // (see interact.js) — but still carries a rarity tier for loot/pricing.
@@ -1282,6 +1289,9 @@ const ITEMS = [
   { id: 'trout',      name: 'Trout',      kind: 'produce', crop: 'trout',      dropWeight: 0.4 },
   { id: 'salmon',     name: 'Salmon',     kind: 'produce', crop: 'salmon',     dropWeight: 0.4 },
   { id: 'goldenfish', name: 'Goldenfish', kind: 'produce', crop: 'goldenfish', dropWeight: 0.4 },
+  // Caught only in the sewer's channels (FISH_POOLS.sewer); never a drop.
+  { id: 'blind_cavefish', name: 'Blind Cavefish', kind: 'produce', dropWeight: 0 },
+  { id: 'sewer_eel',      name: 'Sewer Eel',      kind: 'produce', dropWeight: 0 },
   // Fruit from fruit trees in orchard tiles
   { id: 'syrup', name: 'Syrup', kind: 'produce', dropWeight: 0 },
   { id: 'apple',   name: 'Apple',   kind: 'produce', crop: 'apple' },
@@ -2022,6 +2032,7 @@ const PRICES = {
   goldenberry: 60,
   // ── Fish ─────────────────────────────────────────────────
   minnow: 3,    bass: 18,   trout: 60,   salmon: 150, goldenfish: 450,
+  blind_cavefish: 35, sewer_eel: 140,
   // ── Orchard fruit ────────────────────────────────────────
   apple: 8, cherry: 12, worldpeach: 250, banana: 14, orange: 10, mango: 18, coconut: 16, apricot: 10,
 };
@@ -2341,6 +2352,7 @@ const FOOD_ENERGY = {
   goldenberry: 4,   // a mouthful; its charm is for a foe's mouth
   apple:      16, cherry: 18, worldpeach: 16, banana: 23, orange: 16, mango: 26, coconut: 23, apricot: 13,
   minnow:      7, bass: 20, trout: 60, salmon: 100, goldenfish: 180,
+  blind_cavefish: 45, sewer_eel: 110,
   meat:       59,   // hunted from deer; dog favourite
 };
 FOOD_ENERGY.grilled_meat = Math.round(FOOD_ENERGY.meat * GRILL_ENERGY_MUL);
@@ -2379,7 +2391,7 @@ const ANIMAL_FOOD = {
   cow:     ['pairy'],      // pears to munch
   horse:   ['pairy'],      // the cow's favourite
   // Cats love milk AND any kind of fish.
-  cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish'],
+  cat:     ['milk', 'minnow', 'bass', 'trout', 'salmon', 'goldenfish', 'blind_cavefish', 'sewer_eel'],
   dog:     ['meat'],       // raw meat — hunt a deer with the bug net
   // A shore crab favours a shell (owner, Oct 2026). (Fed plant produce once
   // tame, it sheds a shell — its CREATURE_BEHAVIOUR `produce` row.)
@@ -2818,7 +2830,23 @@ const FISH_SPECIES = [
   { id: 'salmon',     w: 1 },
   { id: 'goldenfish', w: 1 },
 ];
-for (const { id } of FISH_SPECIES) {
+// OTHER WATERS, OTHER FISH (Oct 2026): a floor whose profile names a
+// `fishPool` (WorldGen.FLOOR_PROFILES — the sewer's channel water and pools)
+// draws its spots from that pool instead of the surface table, through the
+// same stock policy (`stock.pool`, spotFish). The sewer's is deliberately
+// narrow: two surface fish that would wash down a drain and two of its own,
+// found nowhere else.
+const FISH_POOLS = {
+  sewer: [
+    { id: 'minnow',         w: 3 },
+    { id: 'blind_cavefish', w: 3 },
+    { id: 'bass',           w: 1 },
+    { id: 'sewer_eel',      w: 1 },
+  ],
+};
+// Every fish there is, whatever water it swims in (the regen rule, the eat copy).
+const FISH_KINDS = [...new Set([...FISH_SPECIES, ...Object.values(FISH_POOLS).flat()].map(f => f.id))];
+for (const id of FISH_KINDS) {
   ITEM_EFFECTS[id] = 'Its nourishment returns your strength little by little.';
   ITEM_EFFECTS[COOKED_FOODS[id].id] = 'Warm from the fire, it restores your strength little by little.';
 }
@@ -2849,8 +2877,10 @@ function fishCatchChance(id, rodTier, shiny) {
 // guaranteed initial fish, with a minimum species tier. Caught spot IDs still
 // use the ordinary permanent depletion ledger.
 const FISH_STOCK_CHANCE = 1 / 3;
-function fishSpotId(tx, ty, ix, iy) {
-  return `fish_${tx}_${ty}_${ix}_${iy}`;
+// A spot below ground carries its depth: the sewer channel under a pond is
+// not the pond's spot, and fishing one out never empties the other.
+function fishSpotId(tx, ty, ix, iy, depth = 0) {
+  return depth ? `fish_d${depth}_${tx}_${ty}_${ix}_${iy}` : `fish_${tx}_${ty}_${ix}_${iy}`;
 }
 function fishSpotStocked(id, stock) {
   return !!stock?.guaranteed || fnv1a(id + '#stock') / 4294967296 < FISH_STOCK_CHANCE;
@@ -2880,12 +2910,15 @@ function shinyFishSpots(entry, tx, ty, untilMs) {
   let job = entry._shinyFishScan;
   if (!job || job.grid !== entry.grid) job = entry._shinyFishScan = { grid: entry.grid, row: 0, out: [] };
   const until = untilMs > 0 ? untilMs : Infinity;
-  const grid = entry.grid, W = WorldGen.T.WATER, out = job.out;
+  const grid = entry.grid, W = WorldGen.T.WATER, out = job.out, depth = entry.depth || 0;
+  // A floor with its own catch pool fishes its channel water too.
+  const channels = depth > 0 && WorldGen.floorProfile(depth).fishPool && typeof FloorWallMaterials !== 'undefined';
   while (job.row < N) {
     const iy = job.row++;
     for (let ix = 0; ix < N; ix++) {
-      if (grid[iy * N + ix] !== W) continue;
-      const id = fishSpotId(tx, ty, ix, iy);
+      const i = iy * N + ix;
+      if (grid[i] !== W && !(channels && FloorWallMaterials.isSewerChannel(entry, i))) continue;
+      const id = fishSpotId(tx, ty, ix, iy, depth);
       if (fishSpotShiny(id, entry.zoneDress?.fishStock?.[iy * N + ix])) out.push({ ix, iy, id });
     }
     if ((iy & 7) === 7 && until !== Infinity && performance.now() >= until) break;
@@ -2894,14 +2927,16 @@ function shinyFishSpots(entry, tx, ty, untilMs) {
   entry._shinyFishScan = null;
   return (entry._shinyFish = out);
 }
-// The species living in a stocked spot — same for every player. Restrict the
-// weighted species pool before drawing when the spot declares a minimum tier.
+// The species living in a stocked spot — same for every player. The spot's
+// water names its pool (`stock.pool`, else the surface table); restrict the
+// weighted pool before drawing when the spot declares a minimum tier.
 function spotFish(id, stock) {
-  const species = stock?.minTier > 1 ? FISH_SPECIES.filter(f => fishTier(f.id) >= stock.minTier) : FISH_SPECIES;
+  const pool = (stock?.pool && FISH_POOLS[stock.pool]) || FISH_SPECIES;
+  const species = stock?.minTier > 1 ? pool.filter(f => fishTier(f.id) >= stock.minTier) : pool;
   const total = species.reduce((a, f) => a + f.w, 0);
   let r = fnv1a(id + '#species') / 4294967296 * total;
   for (const f of species) { r -= f.w; if (r < 0) return f.id; }
-  return species[species.length - 1]?.id || FISH_SPECIES[FISH_SPECIES.length - 1].id;
+  return species[species.length - 1]?.id || pool[pool.length - 1].id;
 }
 // Fishing Rod: the shared 9/3/1 tool curve × FISH_COST_MULT, so a bare-handed
 // cast expects 18, a Wood rod 6 and a Frost rod 2. The multiplier is fishing's
