@@ -1,12 +1,12 @@
 // Shared cel-pixel wall sheet and retained world-space triangles.
 (function (global) {
   'use strict';
-  const KEY = 'wall-materials-cel-v8', SIZE = 512, TILE = 128, PAD = 2;
+  const KEY = 'wall-materials-cel-v9', SIZE = 512, TILE = 128, PAD = 2;
   const WHITE = { u: 500 / SIZE, v: 500 / SIZE };
   // Square sixth-cell posts; alternate logs are 10% taller with equal carved tips.
   const WOOD = Object.freeze({ height: 14, tipHeight: 8.5, thickness: 32 / 6, width: 32 / 6, pitch: 32 / 6, shadeHeight: 11.25, staggerScale: 1.1, lowerTint: 0xe4e4e4 });
   const slots = { hedgeTop: 0, hedgeSide: 1, stoneTop: 2, stoneSide: 3, woodTop: 4, woodSide: 5, stoneEnd: 6, stonePlain: 7, vineTop: 8, vineSide: 9 };
-  const colors = { vineTop: 0x4f813b, vineSide: 0x35633a, hedgeTop: 0x4f813b, hedgeSide: 0x35633a, stoneTop: 0xc6baa4,
+  const colors = { vineTop: 0x4f813b, vineSide: 0x35633a, hedgeTop: 0x418161, hedgeSide: 0x36634d, stoneTop: 0xc6baa4,
     stonePlain: 0xc6baa4, stoneSide: 0x968a76, stoneEnd: 0x968a76, woodTop: 0xb59969, woodSide: 0x9e7e50 };
   // The former hedge ramp, retained for creeping vines, interpolated by source luminance
   // (+12), then given the review's 20% saturation lift. Bake the eight painted
@@ -26,16 +26,16 @@
       ? parseInt(rogueHedge['#' + colors[material].toString(16)].slice(1), 16) : colors[material];
   };
   const hash = (x, y) => hash2U01(x, y, 173, 97);
-  // Clipped hedge faces are a leaf-clump mottle in the approved clipped-hedge
-  // ramp (flora-zone_hedge_single), the side one step darker; the Dreamland
-  // ramp keeps the former greens. The approved strip the slots used to tile
+  // Clipped hedge faces are a leaf-clump mottle in a juniper ramp (the approved
+  // clipped-hedge greens pulled toward blue-green, hue ~150), the side one step
+  // darker; creeping vines keep the former warmer greens. The approved strip the slots used to tile
   // carried its sawtooth divider into every repeat and read as stripes.
   const LEAF = Object.freeze({
     texel: 2, pitch: 4,
     // One clump on the texel grid: 1 body, 2 lit cap (upper left), 3 shaded underside.
     clump: ['.222.', '21113', '11133', '.333.'],
     ramps: {
-      hedgeTop: ['#35633a', '#3f7035', '#4f813b', '#629347'], hedgeSide: ['#294d30', '#35633a', '#3f7035', '#4f813b'],
+      hedgeTop: ['#36634d', '#387054', '#418161', '#4c9470'], hedgeSide: ['#294c3b', '#36634d', '#387054', '#418161'],
       rogueTop: ['#66663a', '#7f7f42', '#999946', '#b2b23f'], rogueSide: ['#4c5132', '#66663a', '#7f7f42', '#999946']
     }
   });

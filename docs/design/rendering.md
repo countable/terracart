@@ -308,8 +308,8 @@ wall cell keeps its rubble sprite; a lone clipped hedge cell joins the batch as
 its core block, so it turns with the ground like the runs beside it.
 `wall_materials.js` owns the shared cel-pixel atlas: connected hedges paint a
 leaf-clump mottle (`paintLeafClumps`, 2px texels on a jittered lattice that
-wraps at the slot edges) in the approved clipped-hedge ramp, the side faces one
-step darker, across tops and bevels without a pale coping band. Tiling a
+wraps at the slot edges) in a juniper ramp (the approved clipped-hedge greens
+shifted toward blue-green), the side faces one step darker, across tops and bevels without a pale coping band. Tiling a
 cropped strip carried its sawtooth divider into every repeat and read as stripes.
 Creeping vines reuse the former procedural green leaf material, with a broad
 24px footprint and a low 4px crown; cardinal masks join neighboring vine cells.
