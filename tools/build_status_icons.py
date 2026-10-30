@@ -3,10 +3,12 @@
 
 Run with --source-root /path/to/checkout containing extra_assets. Git worktrees
 also discover that directory through the common git directory automatically.
-Only complete, visually reviewed still frames are used; there is no recoloring,
-resampling, animation, or generated replacement artwork.
+Only complete, visually reviewed still frames are used; there is no resampling,
+animation, or generated replacement artwork. The one recolouring is RECOLOR:
+a hue rotation of a source frame's blue ink, so a boon chip matches its shrine.
 """
 import argparse
+import colorsys
 import hashlib
 import json
 import subprocess
@@ -87,8 +89,33 @@ ICONS = {
     'fortune': (*tile(RPG, 41, 17), 'Golden lucky clover'),
     'work': (*tile(RA, 22, 25), 'Golden working tool'),
     'regen': (*effect('Health_Up'), 'Mending heart with increase arrow'),
-    'wand': (*effect('Magic_Up'), 'Magic wand with increase arrow'),
+    'wand': (*effect('Magic_Up'), 'Red magic wand with increase arrow'),
 }
+
+
+# Hue rotations by semantic id: cyan-to-blue ink (hue 0.45-0.7) is compressed
+# onto red, keeping each pixel's saturation and value, so shading survives and
+# neutral metal stays neutral. The Ember altar's boon (src/shrines.js) is red.
+RECOLOR = {'wand': 'ember_red'}
+
+
+def ember_red(image):
+    out = image.copy()
+    px = out.load()
+    for y in range(out.height):
+        for x in range(out.width):
+            r, g, b, a = px[x, y]
+            if not a:
+                continue
+            h, s, v = colorsys.rgb_to_hsv(r / 255, g / 255, b / 255)
+            if s < 0.2 or not 0.45 <= h <= 0.7:
+                continue
+            r, g, b = colorsys.hsv_to_rgb((h - 0.5) * 0.5 % 1, s, v)
+            px[x, y] = (round(r * 255), round(g * 255), round(b * 255), a)
+    return out
+
+
+RECOLORS = {'ember_red': ember_red}
 
 
 def source_root(explicit):
@@ -108,7 +135,8 @@ def main():
     sources = source_root(args.source_root)
     frames, unique, entries = {}, {}, []
     for semantic, (source, rect, meaning) in ICONS.items():
-        key = (source, tuple(rect))
+        recolor = RECOLOR.get(semantic)
+        key = (source, tuple(rect), recolor)
         if key in unique:
             frames[semantic] = unique[key]
             continue
@@ -122,12 +150,15 @@ def main():
         bounds = crop.getchannel('A').getbbox()
         assert bounds is not None, semantic + ': empty source frame'
         ink = crop.crop(bounds)
+        if recolor:
+            ink = RECOLORS[recolor](ink)
         assert max(ink.size) <= CELL, semantic + ': source frame exceeds cell'
         entries.append({'frame': frame, 'source': source,
                         'sourceSha256': hashlib.sha256(path.read_bytes()).hexdigest(),
                         'crop': rect, 'inkBounds': list(bounds),
                         'destination': [(CELL - ink.width) // 2, (CELL - ink.height) // 2],
-                        'meaning': meaning, '_ink': ink})
+                        'meaning': meaning, '_ink': ink,
+                        **({'recolor': recolor} if recolor else {})})
     width, height = COLS * CELL, ((len(entries) + COLS - 1) // COLS) * CELL
     atlas = Image.new('RGBA', (width, height))
     for entry in entries:
@@ -138,7 +169,7 @@ def main():
     atlas.save(OUT / 'status-icons.png')
     metadata = {'src': 'assets/Icons/StatusEffects/status-icons.png', 'cellSize': CELL,
                 'cols': COLS, 'width': width, 'height': height, 'frames': frames}
-    manifest = {**metadata, 'method': 'Unscaled native source pixels, alpha-trimmed and centered; static frames only.',
+    manifest = {**metadata, 'method': 'Unscaled native source pixels, alpha-trimmed and centered; static frames only; RECOLOR rows hue-rotated.',
                 'credits': ['ElvGames: Buff and Debuff Pixel VFX, elemental Spell VFX, Rogue Adventure item icons.',
                             '16x16 RPG Pack v3.0: original supplemental packed source.',
                             'Dungeon Gathering Full Ver. 1.1: enduring blue flame torch.',

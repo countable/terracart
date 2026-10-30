@@ -161,27 +161,37 @@
       assert.eq(p.finds.length, 2, 'compact bowl retains the same finite ore budget');
     }
   });
-  test('quarry layout: strip benches align with the usable footprint and leave cross-cuts', () => {
-    for (const [w, h, axis] of [[32, 9, 'x'], [9, 32, 'y']]) {
-      const p = plan('quarry-strip-mine', rect(w, h));
-      assert.gt(p.landmarks.length, 1);
-      for (const m of p.landmarks) {
-        const [left, top, right, bottom] = m.bounds;
-        assert.eq(m.axis, axis);
-        assert.eq(axis === 'x' ? bottom - top + 1 : right - left + 1, 3, 'bench is a narrow intact module');
-        const middle = axis === 'x' ? left + Math.floor((right - left + 1) / 2) : top + Math.floor((bottom - top + 1) / 2);
-        for (let y = top; y <= bottom; y++) for (let x = left; x <= right; x++) {
-          if ((axis === 'x' ? x : y) === middle) assert.falsy(p.background.has(y * N + x), 'cross-cut stays open');
-        }
+  test('strip mine: stone fills every second square ring stepping in from the site corners', () => {
+    for (const [w, h] of [[32, 9], [9, 32], [20, 20], [21, 13]]) {
+      const cells = rect(w, h), p = plan('quarry-strip-mine', cells);
+      const [m] = p.landmarks;
+      assert.eq(p.landmarks.length, 1);
+      assert.eq(m.kind, 'corner_rings');
+      assert.eq(m.bounds.join(), [4, 4, 4 + w - 1, 4 + h - 1].join());
+      for (const i of cells) {
+        const x = i % N, y = Math.floor(i / N);
+        const ring = Math.min(Math.max(x - 4, y - 4), Math.max(w + 3 - x, y - 4),
+          Math.max(x - 4, h + 3 - y), Math.max(w + 3 - x, h + 3 - y));
+        assert.eq(p.background.has(i), ring % 2 === 0, `${w}x${h} cell ${x},${y} ring ${ring}`);
       }
+      for (const c of [[4, 4], [w + 3, 4], [4, h + 3], [w + 3, h + 3]]) assert.truthy(p.background.has(c[1] * N + c[0]), 'every corner is cut stone');
+      assert.inRange(p.background.size / cells.length, .4, .6, 'about half the site is stone');
       assert.eq(p.finds.length, 0, 'buried finds roll beneath actual stones after layout placement');
     }
+  });
+  test('strip mine: stone keeps the cube block over the shared Rogue stone', () => {
+    const o = { kind: 'mineralrock', id: 'cube', yieldTier: 1, requiredTier: 1, zoneVariant: 'quarry-strip-mine' };
+    assert.truthy(mineralRockUsesZoneArt(o));
+    assert.eq(mineralRockArtFrame(o), 60, 'the squared grey block in rock_variants');
+    assert.eq(mineralRockArtFrame({ ...o, sightBlocking: true }), 60);
   });
   test('quarry layout: intact patches and surviving foundation walls respect irregular footprints', () => {
     const cells = rect(35, 27).filter(i => i % N < 23 || Math.floor(i / N) > 15), covered = new Set(cells);
     for (const id of ['quarry-abandoned', 'quarry-strip-mine', 'quarry-stronghold']) {
       const p = plan(id, cells);
       assert.truthy(p.landmarks.length > 0);
+      for (const i of p.background.keys()) assert.truthy(covered.has(i));
+      if (id === 'quarry-strip-mine') continue;
       for (const m of p.landmarks) {
         assert.truthy(m.size >= 3 && m.size <= 8);
         if (id === 'quarry-stronghold') assert.eq(m.size, 5);
