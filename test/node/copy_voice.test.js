@@ -231,7 +231,7 @@ test('map copy: nothing else reaches flash() through a variable unmeasured', () 
   // as a failure rather than as unchecked copy.
   const known = new Set([
     'TOO_TIRED_MSG', 'BAG_FULL_MSG',  // the shared constants test
-    'flavor',                          // TERRAIN_FLAVOR, measured above
+    'flavor',                          // TERRAIN_FLAVOR and ROADSIDE_FLAVOR, measured below
     'blocker',                         // tillBlockerLine, measured above
     'blockMsg',                        // the gate() test above
     'msg', 'text', 'line',             // locally built, measured at their source
@@ -293,6 +293,8 @@ test('map copy: the terrain table fits at every code', () => {
     const label = TERRAIN_FLAVOR[code];
     assert.lte([...label].length, MAP_MSG_MAX, `terrain ${code}: ${label}`);
   }
+  // The verge line a road cell answers with when the tap misses every band.
+  assert.lte([...ROADSIDE_FLAVOR].length, MAP_MSG_MAX, `roadside: ${ROADSIDE_FLAVOR}`);
 });
 
 test('map copy: a till refusal fits for every kind it can name', () => {

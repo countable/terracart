@@ -1932,7 +1932,8 @@ const TAP_HANDLERS = [
     if (under === null) {
       const ground = cell.underRoad ? cell.type
         : (scene.neighborNonRoadType?.(ctx.cellIX, ctx.cellIY) ?? TERRAIN.GRASS);
-      scene.flash(TERRAIN_FLAVOR[ground] || ROADSIDE_FLAVOR, sx, sy);
+      const flavor = TERRAIN_FLAVOR[ground] || ROADSIDE_FLAVOR;
+      scene.flash(flavor, sx, sy);
       return true;
     }
     const street = under ? under.row : roadCell
