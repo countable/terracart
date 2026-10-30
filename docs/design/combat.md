@@ -29,12 +29,14 @@ mechanics.
   temple gift only once, even after re-entry or reload.
 
 - Confusing gas scales each `confused` dose with local density: a full
-  0.3-density puff applies five seconds; thinner gas applies proportionally less,
+  0.3-density puff applies five seconds; thinner gas applies proportionally less
+  but never under the row's three-second floor (`MushroomGas.KINDS.confusion.minDurationMs`),
   denser gas applies longer doses up to the shared 60-second condition cap,
   preserving any longer active confusion.
   A single outdoor puff carries 0.3 mass: natural diffusion and the thin-gas threshold
   limit it to the source and four neighbours, dissipating in about ten seconds
-  (at most about ten seconds of confusion from that puff). Overlapping or repeated
+  (at most about twelve seconds of confusion from that puff, since its last thin
+  breath still grants the three-second floor). Overlapping or repeated
   puffs can extend exposure; sources can puff again after sixteen seconds. Gas
   spreads to cardinal neighbours and removes thin cells once every two foreground
   seconds. Contact still refreshes conditions each second; rock, masonry and
