@@ -2772,10 +2772,12 @@
 
     if (root.StreetSigns) for (const sign of root.StreetSigns.candidates({ ...idx, mvtToM:gM }, CELL_M)) {
       const rec=sign.rec;
-      activeVariant=rec.variant;
-      const signSeats = root.StreetSigns.edgeSeats(sign, CELL_M);
-      // Keep the life-cycle row continuous; its sign uses the opposite verge.
-      const c = (rec.variant === 'overgrown' ? signSeats.slice(0, 1) : signSeats).find(c => cellOk(c.ix, c.iy));
+      // The sign belongs to the junction, not to one road's corridor: either
+      // road's verge will seat it. Gone to seed keeps its life-cycle row
+      // continuous, so its sign keeps to the opposite verge.
+      activeVariant=null;
+      const c = root.StreetSigns.cornerSeats(sign, CELL_M, rec.variant === 'overgrown' ? { lineSide: -1 } : {})
+        .find(c => cellOk(c.ix, c.iy));
       if(!c)continue;
       claim(c.ix,c.iy);
       res.objects.push(WG.makeObject('roadsign',
