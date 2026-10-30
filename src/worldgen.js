@@ -2606,7 +2606,7 @@
     }
     return 7;
   }
-  // How many looks a plain rock has — SpriteLayout.PLAIN_ROCK_VARIANTS.length,
+  // How many slots a plain rock rolls — SpriteLayout.PLAIN_ROCK_SLOTS.length,
   // kept as a literal so this file has no load-order dependency on it.
   const PLAIN_ROCK_VARIANT_N = 4;
   // VEINS: a cluster that rolls under `veinChance` has ONE randomly chosen
