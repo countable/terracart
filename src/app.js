@@ -1612,6 +1612,9 @@ const ICON_SHEETS = {
   icon_trout:      { url: 'assets/Icons/Fish/River/Tiger Trout.png',      cols: 4, srcW: 64, srcH: 16 },
   icon_salmon:     { url: 'assets/Icons/Fish/Sea/Salmon.png',             cols: 4, srcW: 64, srcH: 16 },
   icon_goldenfish: { url: 'assets/Icons/Fish/River/Golden Fish.png',      cols: 4, srcW: 64, srcH: 16 },
+  // The sewer's own catch — generated 16×16 single frames.
+  icon_blind_cavefish: { url: 'assets/Icons/Fish/Sewer/Blind Cavefish.png', cols: 1, srcW: 16, srcH: 16 },
+  icon_sewer_eel:      { url: 'assets/Icons/Fish/Sewer/Sewer Eel.png',      cols: 1, srcW: 16, srcH: 16 },
   // Consumables + wilderness drops.
   icon_thunder_scroll: { url: 'assets/Icons/Items/ThunderScroll.png', cols: 1, srcW: 16, srcH: 16 },
   icon_raven_scroll: { url: 'assets/Icons/Items/RavenScroll.png', cols: 1, srcW: 16, srcH: 16 },

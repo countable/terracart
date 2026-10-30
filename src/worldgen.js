@@ -9506,6 +9506,8 @@
   //                absent, the floor strews none
   //   channelWater the projected route lanes are drawn as channel water
   //                (FloorWallMaterials.isSewerChannel) and seat nothing
+  //   fishPool     the items.js FISH_POOLS table this floor's water (channels
+  //                and pools) is fished from; absent, the surface table
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
@@ -9524,7 +9526,7 @@
     // heap up here (the sewer is the town's bin cellar).
     Object.freeze({ depth: 1, trapDensityMul: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
-      channelWater: true, barrels: Object.freeze({ min: 30, span: 12 }),
+      channelWater: true, fishPool: 'sewer', barrels: Object.freeze({ min: 30, span: 12 }),
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     // The original natural cave geology reads the surface directly, so adding
     // the sewer above cannot change its Small-road/building/water wall mask.
