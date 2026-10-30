@@ -95,7 +95,7 @@
       const o = pot('snake_pot_' + i);
       const hides = potHidesSnake(o);
       assert.eq(hides, potHidesSnake({ ...o }), 'reloading keeps the snake');
-      assert.eq(barrelProfile(o).texKey, 'clay_pot', 'the look and the loot table are the pot\'s own');
+      assert.eq(barrelProfile(o).name, 'clay pot', 'the look and the loot table are the pot\'s own');
       if (hides) n++;
     }
     assert.inRange(n, 1800, 2200);

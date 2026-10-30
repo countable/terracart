@@ -30,13 +30,22 @@
     assert.eq(Render.tallPropHit({ ...geometry }, 100, 80, centre(10, 10)), null, 'no pool, no hit');
   });
 
-  test('tall prop tap: a drawn piece answers for its owner and the frontmost crown wins', () => {
-    const board = { kind: 'roadsign_board', id: 'sign:board0', x: sign.x, y: sign.y, _owner: sign };
-    assert.eq(Render.tallPropHit({ ...geometry, objectPool: [sprite(board)] }, 100, 80, centre(10, 10)), sign);
+  test('tall prop tap: a retained fingerpost answers for its drawn triangles and the frontmost crown wins', () => {
+    // A mesh sign's triangles live in its group's space; the group scrolls by (10, 0).
+    const tri = (x, y) => [{ x: x - 5, y: y + 10 }, { x: x + 5, y: y + 10 }, { x, y: y - 10 }];
+    const mesh = (o, x, y, visible = true) => ({ o, blocks: [{ support: { x, y }, materialFaces: [{ visible, projected: tri(x, y) }] }] });
+    const meshScene = (meshes, over = {}) => ({ ...geometry, _wallPerspective: { roadSigns: { gfx: { visible: true }, x: 10, y: 0 } }, _roadSignMeshes: meshes, ...over });
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 100)]), 100, 95, centre(10, 10)), sign, 'inside a visible triangle, offset by the group scroll');
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 100)]), 100, 95, centre(10, 11)), null, 'its own cell is the ordinary cell hit');
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 100)]), 120, 95, centre(10, 10)), null, 'outside the triangles');
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 100, false)]), 100, 95, centre(10, 10)), null, 'a culled face is not drawn');
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 100)], { _wallPerspective: { roadSigns: { gfx: { visible: false }, x: 10, y: 0 } } }), 100, 95, centre(10, 10)), null, 'nor a hidden group');
     const back = { kind: 'tree', id: 'back', ...centre(10, 11) }, front = { kind: 'tree', id: 'front', ...centre(11, 11) };
     const pool = [sprite(front, { y: 101 }), sprite(back)];
     assert.eq(Render.tallPropHit({ ...geometry, objectPool: pool }, 100, 80, centre(10, 10)), front);
     assert.eq(Render.tallPropHit({ ...geometry, objectPool: pool.slice().reverse() }, 100, 80, centre(10, 10)), front, 'regardless of pool order');
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 100)], { objectPool: pool }), 100, 95, centre(10, 10)), front, 'a sprite standing lower on screen is in front of the sign');
+    assert.eq(Render.tallPropHit(meshScene([mesh(sign, 90, 102)], { objectPool: pool }), 100, 95, centre(10, 10)), sign, 'and the sign in front when its foot is');
   });
 
   test('tall prop tap: heading-up turns the point back about the ground anchor', () => {

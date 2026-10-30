@@ -57,7 +57,7 @@ trials still run in the paused overlay scene (`temple_scene.js`).
 
 | Floor | Theme | Terrain and look | Unique to this floor | Signature foes |
 | --- | --- | --- | --- | --- |
-| 1 | Sewer | Brick walls under surface buildings; open route/channel surfaces | Sewer geometry does not create new water hazards; ordinary shallow-floor features retain their existing rules | Existing depth-1 roster |
+| 1 | Sewer | Brick walls under surface buildings; open route/channel surfaces | Channel water seats nothing (`channelWater`: the lanes are reserved before every pass and runtime draw); the largest generated barrel heap (`barrels` row); ordinary shallow-floor features retain their existing rules | Sewer rats (the heaviest natural draw), slimes and bats |
 | 2 | Natural caves | Prior L1 wall mask: buildings, water and Small roads form rock; Medium/Large roads and paths stay open | Original natural authored areas and selection seed, quarry provenance, floor torches and barrels; lighter Abandoned Mines walls | Existing depth-2 roster |
 | 3 | Goblin warrens | Building-only base walls, connected warren rooms across eligible ground | Open doors and protected route/landmark approaches; existing authored stores and pressure traps move with the warren profile | Existing depth-3 roster |
 | 4 | Deep stone + dwarves | Stone surrounding buffered road/path tunnels and eligible park, grove, playground, pitch and commercial clearings | Clearings carry Deep groves and Dwarven cities; approved blue masonry | Existing depth-4 roster |

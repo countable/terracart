@@ -140,6 +140,9 @@ mechanics.
 - Lantern (saved item id `evertorch`) is a T6 timed supply: two hours of blue light, with expiry
   saved through `Buffs.evertorch`. Another extends that expiry. Ordinary
   Torches keep their short, scene-local timer; either flame ignites melee foes.
+  A Starflower held up (`CONSUMABLE_SPEC.starflower`, the `starlight` buff) is a
+  torch with the torch's duration and reach derived off its row, in a softer,
+  colder light; it has no flame and ignites nothing.
 - KNOCKBACK has one owner, `Whirlwinds.impulse` / `pushStep`: a whirlwind's
   contact (GRASS, PITCH and SCHOOL cells only, surface only) and the T1 Scroll of Wind
   (`CAST_ROWS.wind_scroll`: every foe in reach takes 5 and is blown

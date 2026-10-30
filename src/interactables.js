@@ -84,13 +84,13 @@ function chestHidesMimic(o) {
 }
 
 // A CLAY POT may hold a SNAKE (the roster's grass lurker): one surface clay
-// pot in five (loot.js barrelProfile's clay_pot look — never a barrel, an
+// pot in five (loot.js barrelProfile's clay-pot row — never a barrel, an
 // urn or a pottery stack, and never a cave store), on a stream of its own so
 // the pot's loot and the world's placement are untouched. The smash still
 // rolls the pot's take; the snake comes out on top of it (scene_creatures.js
 // _revealMimic with the snake kind — the chest mimic's ledger).
 function potHidesSnake(o) {
-  return isBarrel(o) && !!o.id && !(o.depth > 0) && barrelProfile(o).texKey === 'clay_pot'
+  return isBarrel(o) && !!o.id && !(o.depth > 0) && barrelProfile(o).name === 'clay pot'
     && makeRng32(fnv1a(o.id + '#snake'))() < 0.2;
 }
 
