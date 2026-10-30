@@ -44,4 +44,14 @@
       'a cell short of the visible rim at the live zoom');
     assert.truthy(/\|\| Render\.arriving\(item\.o\)\) return false;/.test(RENDER_SRC), 'a still frame reconfigures a fading sprite');
   });
+  test('arrival fade: synthetic placed records (lamps, fires, scarecrows) keep one record per id across frames', () => {
+    // A fresh record every frame is first seen every frame: anything near the
+    // player stayed at alpha 0 (street lamps beside the feet vanished).
+    const body = RENDER_SRC.slice(RENDER_SRC.indexOf('const placedAs = '), RENDER_SRC.indexOf('const scarecrowList'));
+    assert.truthy(/prev\?\.get\(id\) \|\|/.test(body) && /_placedRecords\.set\(kind, next\)/.test(body),
+      'placedAs reuses last frame\'s record for the same id');
+    const o = { id: 'lamp' };
+    assert.eq(Render.arrivalAlpha(o, 1, 1, 5000, INNER), 0);
+    assert.eq(Render.arrivalAlpha(o, 1, 1, 5000 + FADE, INNER), 1, 'the reused record finishes its fade');
+  });
 })();

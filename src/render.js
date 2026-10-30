@@ -1922,6 +1922,8 @@ const UNMAPPED_REVEAL_MS = 600;
 // would carry into the save — so the one fade is per object, not per sprite
 // slot, and a tile rebuild (new records) earns one.
 const _arrivals = new WeakMap();
+// drawObjects' placedAs records by kind, then id: last frame's only.
+const _placedRecords = new Map();
 Render.arrivalAlpha = function arrivalAlpha(o, dx, dy, now, innerM) {
   let seen = _arrivals.get(o);
   if (!seen) _arrivals.set(o, seen = { ms: now, arriving: Math.hypot(dx, dy) <= innerM });
@@ -4800,13 +4802,19 @@ Render.drawObjects = function drawObjects(scene) {
   // A placed floor thing drawn as a world object of its own synthetic kind,
   // through the shared object pool so it depth-sorts and clips with
   // everything else: scarecrows, campfires (burned from a coal), lamps. The
-  // id is the kind's bare name over the fixed point.
+  // id is the kind's bare name over the fixed point. The record is kept per
+  // id across frames (the sources are rebuilt: the lamp list on every cell
+  // step), so Render.arrivalAlpha fades a thing in once rather than holding
+  // anything near the player at zero by meeting it anew every frame.
   const placedAs = (list, kind, idWord, extra) => {
-    const out = [];
+    const out = [], prev = _placedRecords.get(kind), next = new Map();
     cullToView(list, pWorldX, pWorldY, halfM, (p, dx, dy) => {
-      const o = { kind, x: p.x, y: p.y, id: `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`, ...(extra ? extra(p) : null) };
+      const id = `${idWord}_${p.x.toFixed(2)}_${p.y.toFixed(2)}`;
+      const o = Object.assign(prev?.get(id) || { kind, x: p.x, y: p.y, id }, extra ? extra(p) : null);
+      next.set(id, o);
       out.push({ o, dx, dy });
     });
+    _placedRecords.set(kind, next);
     return out;
   };
   const scarecrowList = placedAs(PlacedFloor.forDepth(scene.save.scarecrows, _curDepth), '_scarecrow', 'scarecrow');
