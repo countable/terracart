@@ -2449,9 +2449,10 @@ test('trade row: a Small-road row, appended last, barrels directly beside the ro
   assert.eq(row.art, 'street_trade', 'dedicated trade row painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('trade'), 'its shrine kind');
   assert.eq(SV.TRADE_BARREL_GAP, 0.3); assert.eq(SV.TRADE_GRUNT_STEP_M, 25); assert.eq(SV.TRADE_GRUNT_CHANCE, 2 / 3);
-  assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 2, 'a pair of grunts a post');
-  assert.eq(Lairs.KIND_ORDER.street_trade.join(','), 'goblin_runt');
-  assert.eq(Lairs.GROUPS.street_trade.members[0].n, 2);
+  assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 3, 'a thief and a pair of grunts a post');
+  assert.eq(Lairs.KIND_ORDER.street_trade.join(','), 'thief,goblin_runt');
+  assert.eq(Lairs.GROUPS.street_trade.members.map(m => `${m.kind}:${m.n}`).join(','), 'thief:1,goblin_runt:2', 'the thief leads');
+  assert.truthy(EnemyRoster.get('thief').hitAndRun, 'the Trade Row thief cuts purses like any thief');
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'trade') plain++;
