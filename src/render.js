@@ -3691,13 +3691,14 @@ Render.spriteArtContains = function spriteArtContains(sprite, appearance, sx, sy
 // whether the tapped cell was bare; this only names what was drawn there.
 Render.tallPropHit = function tallPropHit(scene, sx, sy, wm) {
   const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
-  const tap = worldMetersToAbsCell(scene, wm.x, wm.y);
-  let owner = null, depth = -Infinity;
+  // The tap's cell is resolved only once a drawn candidate asks for it.
+  let tap = null, owner = null, depth = -Infinity;
   for (const sprite of scene.objectPool || []) {
     const piece = sprite._staticObject, appearance = sprite._staticAppearance;
     if (!sprite.visible || sprite.alpha === 0 || !piece || !appearance || appearance.visible === false) continue;
     const o = piece._owner || piece;
     if (isBuilding(o.kind)) continue;
+    tap = tap || worldMetersToAbsCell(scene, wm.x, wm.y);
     const foot = worldMetersToAbsCell(scene, o.x, o.y);
     const d = absCellDelta(scene, foot.cellIX, foot.cellIY, tap.cellIX, tap.cellIY);
     if ((!d.dx && !d.dy) || Math.max(Math.abs(d.dx), Math.abs(d.dy)) > 1) continue;
