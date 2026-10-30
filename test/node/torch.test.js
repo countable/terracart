@@ -241,6 +241,61 @@ test('torch: the collector stamps the dimmed strength as the entry alpha', () =>
 });
 
 
+test('starflower: held up, it is a torch with a softer, colder light for the torch\'s own minutes', () => {
+  const row = CONSUMABLE_SPEC.starflower, T = Lighting.KINDS.handtorch, S = Lighting.KINDS.starlight;
+  assert.eq(ITEM_BY_ID.starflower.kind, 'produce', 'still the flower it was: sold and crafted, now also held');
+  assert.eq(row.durationMs, CONSUMABLE_SPEC.torch.durationMs, 'the torch\'s minutes, read off the torch row');
+  assert.eq(row.radiusMul, CONSUMABLE_SPEC.torch.radiusMul, 'and the torch\'s reach');
+  assert.truthy(/get durationMs\(\) \{ return CONSUMABLE_SPEC\.torch\.durationMs; \}/.test(ITEMS_JS_SRC), 'derived, never retyped');
+  assert.eq(row.buff, 'starlight', 'a timed buff row: _useTimedBuff holds it up');
+  assert.eq(row.verb, 'Hold', 'the button reads Hold');
+  assert.eq(Buffs.KINDS.starlight.scene, '_starlightUntil', 'in memory, like the torch');
+  assert.truthy(S, 'a KINDS row of its own');
+  assert.eq(Lighting.radiusCells('starlight'), Lighting.radiusCells('handtorch'), 'as far as the torch');
+  assert.lt(S.peak, T.peak, 'softer');
+  assert.gt(S.peak, 0, 'a real cookie');
+  assert.lt(S.flicker, T.flicker, 'no flame to breathe like one');
+  assert.gt(S.colour & 255, (S.colour >> 16) & 255, 'colder: more blue than red');
+  assert.truthy(Number.isInteger(StatusIcons.frames.starlight), 'a chip icon');
+  // The collector emits it for the player while held; a flame outshines it.
+  const s = scene({ isStarlightActive: () => true });
+  assert.eq(Lighting.playerKind(s), 'starlight');
+  Lighting.beginFrame(s);
+  assert.eq(Lighting.collectPlayer(s, 103, 196, HALF_M), 'starlight');
+  assert.eq(s._lights.length, 1);
+  assert.eq(s._lights[0].kind, 'starlight');
+  s.isTorchActive = () => true;
+  assert.eq(Lighting.playerKind(s), 'handtorch', 'a burning torch outshines it');
+  s.isEvertorchActive = () => true;
+  assert.eq(Lighting.playerKind(s), 'evertorch');
+  assert.eq(Lighting.playerKind(scene({ isStarlightActive: () => false })), 'player');
+  assert.truthy(/\n  isStarlightActive\(\) \{\n    return \(this\._starlightUntil \?\? 0\) > Date\.now\(\);\n  \}/.test(app),
+    'isStarlightActive is the timer test');
+  assert.falsy(/save\.(_)?starlightUntil|starlightUntil: /.test(app), 'never on the save');
+  assert.truthy(/if \(this\.isTorchActive\(\) \|\| this\.isEvertorchActive\(\)\) Combat\.ignite/.test(app),
+    'no flame: only the torch and the lantern ignite a foe');
+  // Holding one runs the row's length and extends from the current end.
+  const lift = (name) => {
+    const start = app.indexOf('\n  ' + name + '('), end = app.indexOf('\n  }\n', start);
+    const tables = ['SUMMON_HOOK', 'TIMED_BUFF_HOOKS'].map(t => app.match(new RegExp('\\nconst ' + t + ' = \\{[\\s\\S]*?\\n\\};'))[0]).join('\n');
+    return new Function(tables + '\nreturn ({' + app.slice(start, end + 4) + '})[' + JSON.stringify(name) + ']')();
+  };
+  const titles = [];
+  const h = { save: { inv: [{ id: 'starflower', count: 2 }], selSlot: 0 }, _starlightUntil: 0,
+    showMessageModal: ({ title }) => titles.push(title), buildInventoryDOM() {} };
+  for (const name of ['_useTimedBuff', '_selectedConsumable', '_spendScroll', '_consumeSelected', '_finishInventoryChange', 'isStarlightActive']) h[name] = lift(name);
+  const T0 = 1_700_000_000_000, old = Date.now; let now = T0; Date.now = () => now;
+  try {
+    assert.truthy(h._useTimedBuff('starflower'), 'held');
+    assert.eq(h._starlightUntil, T0 + CONSUMABLE_SPEC.torch.durationMs, 'the torch\'s three minutes');
+    now = T0 + 1000;
+    assert.truthy(h._useTimedBuff('starflower'), 'held again');
+    assert.eq(h._starlightUntil, T0 + 2 * CONSUMABLE_SPEC.torch.durationMs, 'extends from the current end');
+    assert.eq(h.save.inv.length === 0 || h.save.inv[0].count === 0 || h.save.inv[0].id !== 'starflower', true, 'two spent');
+    assert.eq(titles.join('|'), '✨ You hold up the Starflower|✨ You hold up another Starflower', 'the title knows one was held');
+  } finally { Date.now = old; }
+});
+
 test('evertorch: Light spends a T6 supply, banks two hours and survives scene replacement', () => {
   const lift = name => {
     const start = app.indexOf('\n  ' + name + '('), end = app.indexOf('\n  }\n', start);

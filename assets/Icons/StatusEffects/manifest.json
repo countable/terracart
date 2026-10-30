@@ -51,14 +51,16 @@
     "fortune": 42,
     "work": 43,
     "regen": 44,
-    "wand": 45
+    "wand": 45,
+    "starlight": 46
   },
   "method": "Unscaled native source pixels, alpha-trimmed and centered; static frames only; RECOLOR rows hue-rotated.",
   "credits": [
     "ElvGames: Buff and Debuff Pixel VFX, elemental Spell VFX, Rogue Adventure item icons.",
     "16x16 RPG Pack v3.0: original supplemental packed source.",
     "Dungeon Gathering Full Ver. 1.1: enduring blue flame torch.",
-    "Pixel Plains PP Interiors Pack: lit flame torch."
+    "Pixel Plains PP Interiors Pack: lit flame torch.",
+    "Rogue Adventure flora props (in-repo): glowing starflower."
   ],
   "entries": [
     {
@@ -1073,6 +1075,28 @@
       ],
       "meaning": "Red magic wand with increase arrow",
       "recolor": "ember_red"
+    },
+    {
+      "frame": 46,
+      "source": "assets/ArtTrials/RogueProps/flora-props.png",
+      "sourceSha256": "64dd87c7ed62a48d2ddfa151ff8696d3f81c1e7c7d67445aaa746d1842346677",
+      "crop": [
+        224,
+        64,
+        16,
+        16
+      ],
+      "inkBounds": [
+        0,
+        1,
+        16,
+        16
+      ],
+      "destination": [
+        8,
+        8
+      ],
+      "meaning": "Glowing starflower"
     }
   ]
 }

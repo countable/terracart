@@ -337,7 +337,9 @@ that selection and its prebuilt texture, replacing the ordinary animated water
 texture in the same ground slot. Terrain and collision stay unchanged: actual
 water remains water, piers retain their decking, and decorative channels remain
 walkable cave-floor cells (which worldgen nevertheless reserves, so nothing is
-seated in them; the profile's `channelWater` row names the floor). Both actual water and L1 route channels use the normal
+seated in them; the profile's `channelWater` row names the floor). A tap on one
+casts a line like a tap on water, and the shiny glints list channel spots on a
+floor with a `fishPool`. Both actual water and L1 route channels use the normal
 waist-up player crop; pier decking stays dry. Flight, dragon riding and raised prop
 support clear the crop as on surface water. Dry L1 cells use one cool-grey 16px stone slab enlarged to a 32px cell, with stable world-cell
 selection of 14/16 plain slabs, 1/16 cracked slabs and 1/16 grates. Planning
@@ -1124,6 +1126,9 @@ the reach rim within the existing player-light radius.
   `Lighting.KINDS` row. It takes visual precedence while both lights burn;
   neither expands interaction reach. Its stock carryable-lantern icon comes from
   Medieval Furniture and uses the shared inventory/offer/toast renderer.
+- A held Starflower (`starlight`) is the same collector at the torch's radius
+  with a paler, colder, lower-peak row that barely shimmers; a burning Torch
+  or Lantern takes precedence over it.
 
 - The GPS ring is ground paint under the lightmap, so the fix carries a small
   paint-only `gps` row of `Lighting.KINDS` (`collectGps`): a warm-white pool at

@@ -1947,13 +1947,22 @@ function characterMove(scene, c, x, y, now, { pace = Math.hypot(x - c.x, y - c.y
 // from the player unless they stand next to it) and notices the player only
 // within hearing (Visibility.HEAR_CELLS). It springs out with a burst of
 // leaves (ambushSprings), hunts like any foe, and once it gives up it walks
-// back to the same hide. A charmed or tame one is no ambusher.
+// back to the same hide. A charmed or tame one is no ambusher. The row's
+// `ambush` may name its hide: `{ hide: 'grass' }` (the snake) waits in LONG
+// GRASS (Visibility's GRASS_HIDE cells — a hide that conceals nobody, so the
+// snake shows, and the grass shivers over it) instead of a concealing cell.
 const LAST_SEEN_MS = 8000;           // a lost sighting: the walk there and the search
 const AMBUSH_ROAM_LURK_CELLS = 4;    // how far from home a roaming ambusher looks for its hide
 const AMBUSH_GUARD_LURK_CELLS = 2;   // …and a garrison ambusher from its seat
 const LURK_RETRY_MS = 2000;          // no hide in view yet: ask again after this
 function isAmbusher(c) {
   return !!(c && (c.ambush || EnemyRoster.get(c.kind)?.ambush)) && !Combat.isCharmed(c) && !Combat.isTame(c);
+}
+// Which cell an ambusher hides in (Visibility.concealingCellNear's `hide`):
+// 'grass' when its `ambush` row says so, else 'cover'.
+function ambushHide(c) {
+  const ambush = c?.ambush || EnemyRoster.get(c?.kind)?.ambush;
+  return ambush && typeof ambush === 'object' && ambush.hide ? ambush.hide : 'cover';
 }
 // The hides already chosen, so two lurkers spread along a hedge.
 function lurkTaken(scene, c) {
@@ -1965,7 +1974,7 @@ function lurkSpot(scene, c, now = performance.now()) {
   if (c._lurk) return c._lurk;
   if (now < (c._lurkAskT || 0)) return null;
   const taken = lurkTaken(scene, c);
-  const spot = Visibility.concealingCellNear(scene, c.homeX ?? c.x, c.homeY ?? c.y, AMBUSH_ROAM_LURK_CELLS, c.id, taken);
+  const spot = Visibility.concealingCellNear(scene, c.homeX ?? c.x, c.homeY ?? c.y, AMBUSH_ROAM_LURK_CELLS, c.id, taken, ambushHide(c));
   if (!spot) { c._lurkAskT = now + LURK_RETRY_MS; return null; }
   taken.claim(spot.key);
   return (c._lurk = spot);
@@ -1975,7 +1984,7 @@ function lurkSpot(scene, c, now = performance.now()) {
 function lurkSeat(scene, c, now = performance.now()) {
   if (c._lurk || now < (c._lurkAskT || 0) || !Number.isFinite(c.seatX)) return;
   const taken = lurkTaken(scene, c);
-  const spot = Visibility.concealingCellNear(scene, c.seatX, c.seatY, AMBUSH_GUARD_LURK_CELLS, c.id, taken);
+  const spot = Visibility.concealingCellNear(scene, c.seatX, c.seatY, AMBUSH_GUARD_LURK_CELLS, c.id, taken, ambushHide(c));
   if (!spot) { c._lurkAskT = now + LURK_RETRY_MS; return; }
   taken.claim(spot.key);
   c._lurk = spot; c.seatX = spot.x; c.seatY = spot.y;

@@ -83,6 +83,17 @@ function chestHidesMimic(o) {
     && chestTier(o) === 2 && makeRng32(fnv1a(o.id + '#mimic'))() < 0.15;
 }
 
+// A CLAY POT may hold a SNAKE (the roster's grass lurker): one surface clay
+// pot in five (loot.js barrelProfile's clay-pot row — never a barrel, an
+// urn or a pottery stack, and never a cave store), on a stream of its own so
+// the pot's loot and the world's placement are untouched. The smash still
+// rolls the pot's take; the snake comes out on top of it (scene_creatures.js
+// _revealMimic with the snake kind — the chest mimic's ledger).
+function potHidesSnake(o) {
+  return isBarrel(o) && !!o.id && !(o.depth > 0) && barrelProfile(o).name === 'clay pot'
+    && makeRng32(fnv1a(o.id + '#snake'))() < 0.2;
+}
+
 // Bone-cache loot and disturbance use independent stable streams. Retrying
 // with a full bag cannot reroll either outcome.
 function boneCacheReward(o) {
@@ -582,6 +593,7 @@ const INTERACTABLES = {
         ctx.dirty = true;
         const sting = barrelProfile(o).openingSting;
         if (sting) scene._sting?.(sting, o.x, o.y);
+        if (potHidesSnake(o) && scene._revealMimic?.(o, 'snake')) scene.flash('A snake slips out of the pot!', sx, sy);
         const got = rollBarrel(o);
         if (got.kind === 'empty') { scene.flash(barrelFlash(got), sx, sy); return true; }
         // A small container (isSmallContainer): a new item opens the card, an

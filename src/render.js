@@ -4518,10 +4518,12 @@ Render.foeCells = function foeCells(scene) {
   return cells;
 };
 // A plant that shivers when a foe stands in it: a bush or a hedge
-// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
+// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes), and
+// long grass (Visibility.grassHide — the snake's hide, the one tell it has).
 Render.lurkBush = function lurkBush(p) {
-  const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
-  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover;
+  const plant = p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt };
+  const prof = ObstacleStep.profile(plant);
+  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover || Visibility.grassHide(plant);
 };
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
@@ -6351,8 +6353,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Shiny fish glint on their water cell until landed (items.js
   // shinyFishSpots — a per-tile derived list, so no grid scan per frame; its
   // first derivation is spread over frames, SHINY_FISH_SCAN_MS a frame).
-  // Surface only: a cave's water is not the surface's fishing spots.
-  if ((scene.depth || 0) === 0 && typeof shinyFishSpots === 'function') {
+  // The surface, and a floor with a catch pool of its own (the sewer's
+  // channels): a plain cave's water is not the surface's fishing spots.
+  if (((scene.depth || 0) === 0 || WorldGen.floorProfile(scene.depth).fishPool) && typeof shinyFishSpots === 'function') {
     const fished = scene.fishedSpotSet;
     const fishUntil = performance.now() + SHINY_FISH_SCAN_MS;
     const tpc = scene.playerToWorldCell();
