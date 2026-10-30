@@ -36,13 +36,15 @@ class SceneVenues {
     });
   }
 
-  // INN: rest to full for coin, once a UTC day per inn (Macros.innRest — the
-  // Potion of Healing's coins per energy × INN_RATE). A purchase, not a passive
-  // rest: it is not gated on `working`, and it is not Home's (HOME_R). Hard
-  // mode's empty-tank lockout refuses it like food and the fire.
+  // INN: a night's rest for coin (Macros.innRest — Rest.sleep, the Quilted
+  // Cot's own routine, at the Potion of Healing's coins per energy ×
+  // INN_RATE). The gate is the player's four-hour bed gate (Rest.waitMs),
+  // shared with the cot, not a ledger of this inn's. A purchase, not a
+  // passive rest: it is not gated on `working`, and it is not Home's
+  // (HOME_R). Hard mode's empty-tank lockout refuses it like food and the fire.
   _presentInn(sx, sy, o, dress) {
-    const wait = shortDuration(msToNextUtcDay());
-    if (Macros.serviceUsedToday(this.save, o.id)) { this.flash(`Rested. Back in ${wait}.`, sx, sy); return; }
+    const wait = Rest.waitMs(this.save);
+    if (wait > 0) { this.flash(`Rested. Back in ${shortDuration(wait)}.`, sx, sy); return; }
     if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
     const maxE = this.getMaxEnergy();
     const missing = Math.max(0, maxE - (this.save.energy ?? 0));
@@ -52,7 +54,7 @@ class SceneVenues {
       ...dress, kind: dress.kind,
       title: 'The innkeeper offers a bed:',
       get: 'Wake with your strength restored',
-      blurb: `One night a day at this inn. The next is in ${wait}.`,
+      blurb: `Sleep ${Rest.HOURS} hours through: your crops grow on while you rest. No bed will take you again for ${Rest.HOURS} hours after.`,
       cost: this.moneyHTML(price),
       canAfford: (this.save.money ?? 0) >= price,
       acceptLabel: 'Rest',
@@ -60,16 +62,14 @@ class SceneVenues {
       onAccept: () => {
         this._presentSleep({ art: Macros.stallArt('inn', o), commit: () => {
           if (this._zeroEnergyLocked()) { this.flash('Too far gone for a bed.', sx, sy); return; }
-          const cur = this.save.energy ?? 0;
-          const r = Macros.innRest(this.save, o, this.getMaxEnergy());
+          const moved = [];
+          const r = Macros.innRest(this.save, o, this.getMaxEnergy(), Date.now(), moved);
           if (!r.ok) {
             if (r.why === 'money') this.flash(`need ${r.price}`, sx, sy);
             return;
           }
           this._finishInventoryChange();
-          if (this.updateEnergyDOM) this.updateEnergyDOM();
-          // A gain to the BODY: it lands on the player's own cell.
-          this._popEnergy(Math.max(0, (this.save.energy ?? 0) - cur));
+          this._afterRest(r.gain, moved);
           persistSave(this.save);
           this._macroTransaction('inn', `You paid ${this.moneyHTML(r.price)} and restored ${r.gain} HP. You are fully rested.`);
         } });

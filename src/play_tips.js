@@ -166,6 +166,9 @@ const PLAY_TIPS = [
   ITEM_GUIDE_TIPS.workshop,
   ITEM_GUIDE_TIPS.psychosis_powder,
   ITEM_GUIDE_TIPS.sleep_powder,
+  // Appended (Oct 2026): the cot, seven wood at a workshop (items.js
+  // HOME_RECIPES) — a night's rest, the inn's routine (src/rest.js).
+  ITEM_GUIDE_TIPS.bed_quilted,
 ];
 
 // Volume voices are editorial guidance as well as the attribution shown in the reader.
@@ -419,6 +422,7 @@ const PLAY_TIP_VOLUMES = [
   "builder",
   "garden",
   "garden",
+  "builder",   // the cot
 ];
 
 // Narrator observations sit outside the quoted excerpt.

@@ -411,12 +411,23 @@ mechanics.
   Gifts reset by UTC day without accumulating missed days. A partly full bag
   retains today's uncollected portion; successful collection fixes today's
   allowance so furniture changes cannot repeat a gift.
-- The Quilted Cot restores all missing energy through `_restoreEnergy` and
-  `Energy.set`, with no coin or daily-use cost. It works only on an owned Home
-  building cell and refuses full energy or `_zeroEnergyLocked()`, both before
-  sleeping and when the shared sleep fade commits. The Inn uses that same fade
-  with its existing paid, once-per-day transaction. Washing Tub clears only
-  `Conditions` debuffs; buffs, energy, food cooldown and terrain remain unchanged.
+- A night's rest is `Rest.sleep` (`src/rest.js`), the one routine behind the
+  Quilted Cot and the Inn: all missing energy at once through `Energy.set`,
+  then `Rest.PASS_MS` (four hours) of the world's clocks passed, then no bed
+  anywhere until `Rest.COOLDOWN_MS` (four hours) has run, on `save.restedAt`;
+  `Rest.waitMs` is the one gate and both refuse on it. The hours move a watered
+  crop's stamp and advance it one stage if its hold has run (as the growth tick
+  would; a slower crop only comes closer), age planted trees, fruit picks and
+  cleared grass, and bring the bite and tome gates closer; nothing else, so a
+  potion drunk before bed keeps its clock. The scene's half (`_afterRest`) pops
+  the gain and re-seats live planted trees. The cot is a workshop recipe
+  (seven wood, `known` from the start) that works only on an owned Home
+  building cell and refuses the gate, `_zeroEnergyLocked()` and full energy,
+  both before sleeping and when the shared sleep fade commits. The Inn is the
+  same night for coin (`Macros.innRest`, the Healing potion's coins per energy
+  × `INN_RATE`) with no ledger of its own. The Potion of Time clears the gate
+  with the other action gates. Washing Tub clears only `Conditions` debuffs;
+  buffs, energy, food cooldown and terrain remain unchanged.
 - Home is `save.starterShopId`: the player's house, placed by `_placeHome`
   centred one cell north of the player (`HomeArea.WAGON_OFFSET` — the anchor
   keeps the save's old name) so they start in its doorway row, with an empty

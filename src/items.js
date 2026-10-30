@@ -2126,6 +2126,7 @@ const TRAP_KIT_KEEP_CHANCE = 0.8;
 
 const ITEM_GUIDE_TIPS = {
   workshop: 'I restored a ruined building as a Workshop. Tools, supplies and remembered scrolls take shape here.',
+  bed_quilted: 'Seven lengths of timber became a cot at the workshop. I slept the afternoon through at home and woke whole, the seedlings a little taller. No bed would have me again before evening.',
   growth_powder: 'At the workshop I ground nettles with long grass into a green powder. The seedlings stirred before I had finished sprinkling it.',
   psychosis_powder: 'At the workshop I crushed yellow meadow flowers with young fern. The dust made the room tilt. I opened every window.',
   sleep_powder: 'I ground golden flowers with white ones into a fine dust. One breath of it and I woke at the bench at dusk.',
@@ -2163,7 +2164,7 @@ const EGG_HATCH_SPEC = Object.freeze({
 });
 
 const ITEM_EFFECTS = {
-  bed_quilted: "A soft quilt and a wooden cot promise a quiet night.",
+  bed_quilted: "A soft quilt and a wooden cot promise a quiet night. Sleep in it inside your Home to wake with your strength restored, four hours on. No bed or inn will take you again until four more have passed.",
   washtub: "A round wooden washing tub offers a quiet place to freshen up.",
   mirror_brass: "A brass-framed looking glass waits on its own little stand.",
   table_oak: "A compact oak table makes a useful corner feel like home.",
@@ -3139,7 +3140,12 @@ function trailerSellPrice(baseValue) {
 const HOME_RECIPES = [
   // The starter-known spear is the first cave trip's throw. Torches are found
   // on cave floors and sold at the first Supply Shop, never crafted.
-  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }] },
+  // `known: true`: offered without ever having found one (the starter spear;
+  // the cot, which no field drops — homeRecipeLocked).
+  { id: 'throwing_spear', station: 'workshop', cost: [{ id: 'rubble', qty: 1 }, { id: 'wood', qty: 1 }], known: true },
+  // The Quilted Cot (T1 furniture): seven wood. Placed inside Home it is a
+  // night's rest — Rest.sleep, the Inn's own routine (src/rest.js).
+  { id: 'bed_quilted', station: 'workshop', cost: [{ id: 'wood', qty: 7 }], known: true },
   { id: 'scarecrow', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
   { id: 'barricade', station: 'workshop', cost: [{ id: 'wood', qty: 3 }] },
   { id: 'rope', station: 'workshop', cost: [{ id: 'longgrass', qty: 5 }] },
@@ -3171,9 +3177,10 @@ const BREW_RECIPES = [
 // are learned by first finding their output in the wild, never by buying,
 // bartering, forging or crafting it. addToInv owns the foundWild ledger.
 // Scrolls require previous use instead: their words must be remembered.
+const HOME_RECIPE_BY_ID = Object.fromEntries(HOME_RECIPES.map(r => [r.id, r]));
 function homeRecipeLocked(save, id) {
   if (ITEM_BY_ID[id]?.scroll) return !Array.isArray(save?.usedScrolls) || !save.usedScrolls.includes(id);
-  return id !== 'throwing_spear' && !save?.foundWild?.[id];
+  return !HOME_RECIPE_BY_ID[id]?.known && !save?.foundWild?.[id];
 }
 // How many times a recipe can be made from what is held: the fewest times
 // any one ingredient covers its share. `count(id)` reads the bag. An empty
