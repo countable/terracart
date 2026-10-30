@@ -311,6 +311,9 @@ const TERRAIN_FLAVOR = {
   [TERRAIN.EXCLUSION_ROCK]: 'Solid bedrock, unbroken.',
   [TERRAIN.ROCKY_GROUND]: 'Rocky ground, loose stone.',
 };
+// A road cell tapped beside its band (roadUnderTap null) whose ground has no
+// line of its own: the grass verge a cell of road only clips.
+const ROADSIDE_FLAVOR = 'The verge, just off the road.';
 
 // ── Naming things the player can see ────────────────────────────────────────
 // Two helpers behind the till refusal and the plant flash, both here for the
@@ -645,6 +648,25 @@ function inStarterPond(scene, cell) {
   if (tl.tx !== cell.tx || tl.ty !== cell.ty) return false;
   const dx = cell.ix - tl.ix, dy = cell.iy - tl.iy;
   return dx >= 0 && dx <= 1 && dy >= 0 && dy <= 1;
+}
+
+// The road a tap actually lands on (StreetVariants.roadAtPoint), read at the
+// tap's own point inside its cell rather than for the whole cell: a cell a
+// band only clips, or that two ways cross, answers by where the finger fell.
+// { tier, row } on a band, null on the ground beside every band, undefined
+// when the tap or the tile has no geometry to test (the cell then decides).
+// Cached on the ctx: the road-repair offer and the flavor line share it.
+function roadUnderTap(ctx) {
+  if ('_roadUnderTap' in ctx) return ctx._roadUnderTap;
+  const { scene, wm, cell } = ctx;
+  let under;
+  if (wm && cell && scene.startWorldM && typeof worldMetersToTilePx === 'function') {
+    const p = worldMetersToTilePx(scene, wm.x, wm.y), f = tilePxToTileCellF(scene, p.x, p.y);
+    if (f.tx === cell.tx && f.ty === cell.ty && Math.floor(f.cx) === cell.ix && Math.floor(f.cy) === cell.iy) {
+      under = StreetVariants.roadAtPoint(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), f.cx, f.cy);
+    }
+  }
+  return (ctx._roadUnderTap = under);
 }
 
 const TAP_HANDLERS = [
@@ -1895,23 +1917,43 @@ const TAP_HANDLERS = [
   }},
 
   // Object actions keep priority; only a bare road offers the initial repair.
-  { name: 'road-repair', try: ({ scene, cell }) => {
+  { name: 'road-repair', try: (ctx) => {
+    const { scene, cell } = ctx;
     if ((scene.depth ?? 0) !== 0 || Trail.repairEnabled(scene.save)) return false;
     if (!cell.underRoad && !WorldGen.isRoadTerrain(cell.type) && cell.type !== TERRAIN.PATH) return false;
+    if (roadUnderTap(ctx) === null) return false;   // the ground beside the band
     return scene._offerRoadRepair?.() || false;
   }},
 
   // 2b) Tap non-tillable terrain → flavor label. A road-BAND cell (grass in
   // the grid, asphalt on screen — see isTillableCell) lands here too and
-  // reads as road, matching what the player is looking at. A road or path
-  // cell of a street variant names it (StreetVariants.streetNameAt: the
-  // feet story's row, or a themed path's own inside a Nexus) by title only;
-  // the feet tell the story. Other ground inside a Nexus names its zone
-  // variant (zoneVariantNameAt) instead of the generic terrain line.
+  // reads as road, matching what the player is looking at. Which road is
+  // read at the tap's own point (roadUnderTap): the band it lands on names
+  // itself by its variant's title (the feet tell the story) or its tier's
+  // ground line, and a tap on the cell's grass beside every band reads as
+  // that ground. Without line geometry the cell decides, as the feet do
+  // (StreetVariants.streetNameAt: the feet story's row, or a themed path's
+  // own inside a Nexus). Other ground inside a Nexus, the verge beside a
+  // band included, names its zone variant (zoneVariantNameAt) instead of
+  // the generic terrain line.
   { name: 'flavor', try: (ctx) => {
     const { scene, sx, sy, cell } = ctx;
     if (isTillableCell(cell) || planterAt(ctx)) return false;
-    const street = (scene.depth ?? 0) === 0 && (cell.underRoad || WorldGen.isRoadTerrain(cell.type) || cell.type === TERRAIN.PATH)
+    const roadCell = (scene.depth ?? 0) === 0 && (cell.underRoad || WorldGen.isRoadTerrain(cell.type) || cell.type === TERRAIN.PATH);
+    const under = roadCell ? roadUnderTap(ctx) : undefined;
+    if (under === null) {
+      const zone = zoneVariantNameAt(scene, cell);
+      if (zone) {
+        scene.flash(zone, sx, sy);
+        return true;
+      }
+      const ground = cell.underRoad ? cell.type
+        : (scene.neighborNonRoadType?.(ctx.cellIX, ctx.cellIY) ?? TERRAIN.GRASS);
+      const flavor = TERRAIN_FLAVOR[ground] || ROADSIDE_FLAVOR;
+      scene.flash(flavor, sx, sy);
+      return true;
+    }
+    const street = under ? under.row : roadCell
       ? StreetVariants.streetNameAt(WorldGen.tileCache.get(WorldGen.tileKey(cell.tx, cell.ty)), cell.ix, cell.iy) : null;
     if (street) {
       scene.flash(street.title, sx, sy);
@@ -1922,7 +1964,8 @@ const TAP_HANDLERS = [
       scene.flash(zone, sx, sy);
       return true;
     }
-    const flavor = cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
+    const flavor = under ? TERRAIN_FLAVOR[under.tier] || TERRAIN_FLAVOR[TERRAIN.ROAD]
+      : cell.underRoad ? TERRAIN_FLAVOR[TERRAIN.ROAD]
       : TERRAIN_FLAVOR[cell.type] || '·';
     scene.flash(flavor, sx, sy);
     return true;
