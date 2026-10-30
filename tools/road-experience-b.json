@@ -1,30 +1,5 @@
 [
   {
-    "id": "golden",
-    "feeling": "A lucky discovery becomes a small daily ritual.",
-    "arrival": "The gilded shrine draws you off the ordinary road before the reward appears.",
-    "art": [
-      "Use the original Golden Road story art to introduce the shrine.",
-      "Keep the gilded shrine brighter than the muted stone and ordinary lamps.",
-      "Leave both coin rows visually clear of decorative clutter."
-    ],
-    "mechanics": [
-      {
-        "text": "Touching the shrine starts a daily green-coin run along both road verges.",
-        "status": "existing"
-      },
-      {
-        "text": "The themed section is capped at 250 m.",
-        "status": "existing"
-      },
-      {
-        "text": "Briefly pulse the first available coins after activation so the collection route reads immediately.",
-        "status": "proposed"
-      }
-    ],
-    "loop": "Notice shrine \u2192 activate \u2192 sweep both verges \u2192 return another day."
-  },
-  {
     "id": "snare",
     "feeling": "Temptation makes every next step a deliberate choice.",
     "arrival": "A visible chest promises a reward while open iron jaws interrupt the approach.",
@@ -41,13 +16,13 @@
       {
         "text": "Scattered bones, rocks and planks occupy the three-cell dusty verge.",
         "status": "existing"
-      },
-      {
-        "text": "Highlight the nearest armed trap on approach without revealing traps elsewhere.",
-        "status": "proposed"
       }
     ],
-    "loop": "Spot cache \u2192 inspect approach \u2192 avoid or handle traps \u2192 claim chest."
+    "adjectives": [
+      "Tempting",
+      "Tense",
+      "Treacherous"
+    ]
   },
   {
     "id": "thorny",
@@ -66,13 +41,13 @@
       {
         "text": "Brambles drain energy on contact and can burn; some streets enclose a moss cairn.",
         "status": "existing"
-      },
-      {
-        "text": "Give brambles a brief contact shake to distinguish their damage from nearby enemies.",
-        "status": "proposed"
       }
     ],
-    "loop": "Read thorn gaps \u2192 choose passage or clearance \u2192 reach cairn \u2192 continue."
+    "adjectives": [
+      "Neglected",
+      "Prickly",
+      "Resistant"
+    ]
   },
   {
     "id": "goblin_gang",
@@ -91,13 +66,13 @@
       {
         "text": "Each cluster combines goblin guards with up to five barrels.",
         "status": "existing"
-      },
-      {
-        "text": "Add a short shared alert gesture when one gang notices the player.",
-        "status": "proposed"
       }
     ],
-    "loop": "Spot gang \u2192 choose engagement or bypass \u2192 inspect barrels \u2192 assess next group."
+    "adjectives": [
+      "Territorial",
+      "Confrontational",
+      "Dangerous"
+    ]
   },
   {
     "id": "golden_path",
@@ -116,13 +91,13 @@
       {
         "text": "Coins appear along the path centreline.",
         "status": "existing"
-      },
-      {
-        "text": "Show a brief directional glint down the coin line after activation.",
-        "status": "proposed"
       }
     ],
-    "loop": "Touch either shrine \u2192 follow centreline coins \u2192 leave at the far end."
+    "adjectives": [
+      "Inviting",
+      "Effortless",
+      "Satisfying"
+    ]
   },
   {
     "id": "slime_trail",
@@ -141,13 +116,13 @@
       {
         "text": "Eligible posts hold two guards about 70 m apart; short sections use a midpoint post.",
         "status": "existing"
-      },
-      {
-        "text": "Let cleared posts briefly lose their strongest slime shimmer so progress feels visible.",
-        "status": "proposed"
       }
     ],
-    "loop": "Recognize species \u2192 approach pair \u2192 fight or bypass \u2192 read next colony post."
+    "adjectives": [
+      "Sticky",
+      "Infested",
+      "Persistent"
+    ]
   },
   {
     "id": "spider_path",
@@ -166,13 +141,13 @@
       {
         "text": "A section has one two-spider garrison.",
         "status": "existing"
-      },
-      {
-        "text": "Add a short silk-tension animation when a web catches an actor.",
-        "status": "proposed"
       }
     ],
-    "loop": "Identify webs \u2192 choose clear footing \u2192 manage spiders \u2192 cross the section."
+    "adjectives": [
+      "Fragile",
+      "Exposed",
+      "Claustrophobic"
+    ]
   },
   {
     "id": "poison_path",
@@ -191,13 +166,13 @@
       {
         "text": "The daily shrine grants eight minutes of Mending regeneration, not poison immunity.",
         "status": "existing"
-      },
-      {
-        "text": "Strengthen the vent warning pulse at the edge of the visible screen.",
-        "status": "proposed"
       }
     ],
-    "loop": "Watch vent cycle \u2192 avoid gas \u2192 visit shrine if useful \u2192 move onward."
+    "adjectives": [
+      "Noxious",
+      "Oppressive",
+      "Urgent"
+    ]
   },
   {
     "id": "fire_path",
@@ -216,13 +191,13 @@
       {
         "text": "The daily ember shrine strengthens magic for five minutes; it does not grant fire immunity.",
         "status": "existing"
-      },
-      {
-        "text": "Make the last warning beat visually sharper before eruption.",
-        "status": "proposed"
       }
     ],
-    "loop": "Observe warning \u2192 cross a safe interval \u2192 avoid lingering fire \u2192 consider altar."
+    "adjectives": [
+      "Volatile",
+      "Perilous",
+      "Demanding"
+    ]
   },
   {
     "id": "paralysis_path",
@@ -241,13 +216,13 @@
       {
         "text": "A creeping-vine colony grows from a roadside seed; tendrils sting on contact.",
         "status": "existing"
-      },
-      {
-        "text": "Make safe gaps between vines and vent footprints easier to read with restrained edge contrast.",
-        "status": "proposed"
       }
     ],
-    "loop": "Read vents and vines \u2192 choose a clear crossing \u2192 avoid becoming trapped \u2192 reach watcher if useful."
+    "adjectives": [
+      "Constraining",
+      "Tense",
+      "Unforgiving"
+    ]
   },
   {
     "id": "confusion_path",
@@ -266,12 +241,12 @@
       {
         "text": "The daily lantern shrine boosts light for five minutes; it does not cure confusion.",
         "status": "existing"
-      },
-      {
-        "text": "Keep a subtle stable path-edge cue visible through the effect to aid reorientation.",
-        "status": "proposed"
       }
     ],
-    "loop": "Read vapour \u2192 avoid exposure \u2192 regain bearings if affected \u2192 follow the route out."
+    "adjectives": [
+      "Uncanny",
+      "Disorienting",
+      "Uncertain"
+    ]
   }
 ]

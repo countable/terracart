@@ -148,7 +148,7 @@ function previewPath(row) {
     line: line.map(p => ({ x: p.x * tileEdgeM / extent, y: p.y * tileEdgeM / extent })) };
 }
 
-const rows = SV.STREET_VARIANTS.filter(row => ['minor', 'path'].includes(row.size)).map(preview);
+const rows = SV.STREET_VARIANTS.filter(row => !row.retired && ['minor', 'path'].includes(row.size)).map(preview);
 // Use the runtime weighting helper, with no name match, to make soft affinities
 // inspectable without changing the generated art fixture or rarity roll.
 const affinityContexts = Object.fromEntries(['neutral', 'cultivated', 'woodland', 'damp', 'formal', 'sacred', 'ruined', 'coastal'].map(trait =>
@@ -171,7 +171,7 @@ const rules = {
   lantern: `Lamps spaced about ${SV.lampSpacingFor('lantern', ctx.Streets.lampLayFor({class: 'path'}).spacingM)} m apart.`,
   burned: `Hot ember paving, tar, stakes and torches. Up to ${SV.BURNED_MAX} debris pieces per line piece; one fire-slime guard site per stretch.`,
   barricade: `Barriers cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond it. A Trap Kit removes each piece. Rocks, planks and stray stakes scatter across the three-cell verge. Goblins guard the route.`,
-  toadstool: `Small and medium mushrooms grow on the road and both two-cell verges, with occasional giants. Groups every ${SV.TOADSTOOL_STEP_M} m; up to ${SV.TOADSTOOL_COVER_MAX} extra caps.`,
+  toadstool: `Small and medium mushrooms grow on the road and both two-cell verges, with occasional giants; 30% of candidate caps are omitted. Groups every ${SV.TOADSTOOL_STEP_M} m; up to ${SV.TOADSTOOL_COVER_MAX} extra caps.`,
   trade: `Barrels line both verges with ${SV.TRADE_BARREL_GAP * 100}% gaps. Two-grunt posts are sampled every ${SV.TRADE_GRUNT_STEP_M} m; ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% are occupied.`,
   pottery: 'Clay pots sit on the road and in two verge rows where space permits.',
   berry_trail: 'Dense berry bushes line both edges, with occasional brambles and golden berries. One large bear encounter per section.',

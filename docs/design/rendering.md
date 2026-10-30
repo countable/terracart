@@ -1816,5 +1816,6 @@ Road experience briefs live in `design/road-experiences/`.
 `tools/road-experience-*.json` with shipped story paintings and current 20 × 7
 captures from `tools/capture_road_variant_views.cjs`. Regenerate the variant
 dashboard before capturing, then rebuild the gallery. Each brief describes the
-intended feeling, art cues and player actions; proposed mechanics are labelled
-separately from existing behavior. These briefs do not change runtime behavior.
+intended feeling with three adjectives, art cues and existing player actions.
+Review comments supply requested changes; the briefs contain no unsolicited
+mechanic proposals. These briefs do not change runtime behavior.

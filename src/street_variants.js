@@ -259,7 +259,7 @@
       story: 'street_hedgerow', title: 'The hedged lane',
       body: 'Clipped hedges hug both sides of the road, with white lamps along the edge. You look through as you pass.',
       flash: 'A hedged lane, still kept.' },
-    { id: 'overgrown', materialLooks: { tree: 'conifer_tree' }, terrain: 'FOREST', treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
+    { id: 'overgrown', materialLooks: { tree: 'conifer_tree' }, terrain: 'FOREST', terrainPuddles: true, treeSpecies: 'pine', affinities: ['woodland'], size: 'minor', share: 0.04, rung: 'common',
       // EXTRA ENCOUNTERS beside the plant guard, each its own finite post
       // (lairs.js STREET_TIER_GUARDS / KIND_ORDER rows), rolled off the
       // street key: a sounder of wild boars on every overgrown street, a
@@ -354,7 +354,8 @@
       story: 'street_scenic', art: 'street_parkpath', title: 'The park path',
       body: "Weeds crowd the old park path, and dry leaves cover its edges. You follow it through the overgrowth.",
       flash: 'The park path winds on.' },
-    { id: 'golden', materialLooks: { tree: 'mossy_tree' }, terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0.02, rung: 'rare',
+    // Retain the row/code and reward handlers for saved roads; new gold routes are paths only.
+    { id: 'golden', retired: true, materialLooks: { tree: 'mossy_tree' }, terrain: 'ROCK', affinities: ['formal'], size: 'minor', share: 0, rung: 'rare',
       stone: { weathered: '#96866b', restored: '#af9c75' }, lampDensity: 1,
       // A coin spree half the usual section long (sectionLimits): a whole
       // 500 m of coins on every long road would be a purse, not a find.
@@ -495,7 +496,8 @@
   // Cave occupancy predates Paralysis Path becoming a small-road theme.
   // Its rock-length gate must use that selection table, independently of
   // the surface theme's current weights and bounds.
-  const SUBSTRATE_SECTION_ROWS = STREET_VARIANTS.filter(row => !['paralysis_path', 'causeway'].includes(row.id));
+  const SUBSTRATE_SECTION_ROWS = STREET_VARIANTS.filter(row => !['paralysis_path', 'causeway'].includes(row.id))
+    .map(row => row.id === 'golden' ? { ...row, share: 0.02 } : row);
   const VARIANT_BY_ID = {};
   STREET_VARIANTS.forEach((r, i) => { VARIANT_BY_ID[r.id] = r; r.code = i + 1; });
   // The extra-encounter tiers of every row (the bear's, the boars'): a post
@@ -725,6 +727,7 @@
     // verge. Two of every three groups have a giant in their centre.
     toadstool: [{ step: () => root.WorldGen.CELL_M * 2, onRoad: true,
       emit: (D, at, c) => {
+        if (hash01(D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy) + '|density') < .30) return;
         const medium = at.n % 2 === 1;
         D.res.wildplants.push(D.WG.makeWildplant(medium ? 'mushroom_bush' : 'mushroom',
           D.cx(c.ix), D.cy(c.iy), D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy),
@@ -734,6 +737,7 @@
       side: (at) => Math.floor(at.n / 4) % 2 ? -1 : 1,
       walk: 1,
       emit: (D, at, c) => {
+        if (hash01(D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy) + '|density') < .30) return;
         const giant = at.n % 4 === 1 && Math.floor(at.n / 4) % TOADSTOOL_GIANT_EVERY_GROUPS < TOADSTOOL_GIANT_GROUPS;
         const look = giant ? { _streetArt: 'spotted_mushroom' }
           : at.n % 4 === 0 ? { _plantArt: 'ordinary' } : { _streetArt: 'red_mushroom' };
@@ -745,6 +749,7 @@
       { step: () => root.WorldGen.CELL_M / 2, max: TOADSTOOL_COVER_MAX,
         side: 'both', walk: 2, fill: true, groundOnly: true,
         emit: (D, at, c) => {
+        if (hash01(D.WG.cellId('wp_ts', D.tx, D.ty, c.ix, c.iy) + '|density') < .30) return;
           const look = at.n % 31 === 17 ? { _streetArt:'healing_mushrooms', gasEmitter:true, gasKind:'healing' }
             : (c.ix + c.iy) % 2 === 0 ? { _plantArt: 'ordinary' }
             : { _streetArt: at.n % 2 ? 'toadstool_cluster' : 'red_mushroom' };
@@ -2320,7 +2325,7 @@
     // A water cell must clear the whole painted road band, including diagonal
     // corners and other roads crossing the themed section.
     const dryRoad = new Uint8Array(N * N);
-    if (records.some(rec => VARIANT_BY_ID[rec.variant].terrainPools)) {
+    if (records.some(rec => VARIANT_BY_ID[rec.variant].terrainPools || VARIANT_BY_ID[rec.variant].terrainPuddles)) {
       for (const rec of [...(index.lines || []), ...(index.dressingLines || [])]) {
         const half = (rec.halfW || 0) / WG.CELL_M;
         for (let j = 1; j < rec.line.length; j++) {
@@ -2370,11 +2375,24 @@
               const inset = .5 + hash01(rec.key + '|pool|' + block);
               if (phase < inset || phase > 6 - inset) continue;
             }
+            // Life-cycle trees use the right-hand normal (dy, -dx).
+            // Small separated puddles occupy the opposite verge, leaving the
+            // road, crossings, claimed cells and the tree row dry.
+            let cellTerrain = terrain;
+            if (VARIANT_BY_ID[rec.variant].terrainPuddles
+                && dx * (y + .5 - ay) - dy * (x + .5 - ax) > 0
+                && distance > 0 && distance <= Math.min(2, reach)
+                && !dryRoad[i] && !roadMask?.[i] && !WG.isRoadTerrain(here) && !occupied?.has(i)) {
+              const along = Math.abs(dx) >= Math.abs(dy) ? x + .5 : y + .5;
+              const block = Math.floor(along / 6), phase = along - block * 6;
+              const inset = 1.5 + hash01(rec.key + '|pool|' + block);
+              if (phase >= inset && phase <= 6 - inset) cellTerrain = WG.T.WATER;
+            }
             nearest[i] = distance;
             if (WG.isCobbleTerrain(here)) {
-              if (streetGround) streetGround[i] = terrain + 1;
+              if (streetGround) streetGround[i] = cellTerrain + 1;
             } else {
-              grid[i] = terrain;
+              grid[i] = cellTerrain;
               painted[i] = 1;
             }
           }

@@ -74,10 +74,11 @@ const RogueObjects = (() => {
       // Soft source shadows are not foliage or bark, and retain their ink.
       if (data[i+3] !== 255) continue;
       // Let the wooden post meet the ground without a dark contact underline.
-      // The lantern and side outlines keep their source ink.
+      // Include the two corner pixels above the rounded foot.
+      // The lantern and the rest of the side outlines keep their source ink.
       if (name === 'hanging_lantern') {
         const { fw, maxY } = STREET_DECORATION_ART[name].bounds;
-        if (Math.floor(i / 4 / fw) !== maxY - 1) continue;
+        if (Math.floor(i / 4 / fw) < maxY - 2) continue;
       }
       const value=palette[(data[i]<<16)|(data[i+1]<<8)|data[i+2]];
       if (value == null) continue;

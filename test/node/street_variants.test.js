@@ -38,6 +38,11 @@ function nameWhere(pred, stem) {
   }
   throw new Error('no name found for ' + stem);
 }
+// Build legacy saved-road fixtures with their original selection weight.
+function withLegacyGoldenSelection(fn) {
+  const row = SV.VARIANT_BY_ID.golden, share = row.share;
+  try { row.share = .02; return fn(); } finally { row.share = share; }
+}
 const HEDGE = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'hedgerow', 'Hedge Road');
 const ROCKY = nameWhere((n, k) => SV.variantFor(k, n, 'minor') === 'rocky_path', 'Rock Road');
 
@@ -1181,7 +1186,7 @@ test('street themes: 40% of all minor keys, with name bias only selecting identi
   }
   assert.inRange(plain / n, .39, .41, '40% overall');
   assert.eq(named, plain);
-  assert.inRange(golden / n, .015, .025, 'Golden Road is 2% of all minor roads');
+  assert.eq(golden, 0, 'Golden Road no longer rolls on minor roads');
   assert.eq(golden, namedGolden, 'name nudges cannot inflate the rare coin-road share');
 });
 
@@ -1270,7 +1275,7 @@ test('street themes: nothing shorter than MIN_VARIANT_LENGTH_M — not a street,
   assert.eq(specialLines(longer).length, 2, 'a 187.5 m fragment can fit a 75 m section');
 });
 
-test('street themes: a row may set its own limits — the Golden Road keeps its carpet to 250 m', () => {
+test('street themes: a row may set its own limits — the Golden Road keeps its carpet to 250 m', () => withLegacyGoldenSelection(() => {
   assert.eq(SV.sectionLimits('golden').maxM, 250);
   assert.eq(JSON.stringify(SV.sectionLimits('hedgerow')), JSON.stringify({ maxM: 500, minM: 75, share: 0.4 }), 'the defaults');
   assert.eq(JSON.stringify(SV.sectionLimits(null)), JSON.stringify(SV.sectionLimits('hedgerow')));
@@ -1283,7 +1288,7 @@ test('street themes: a row may set its own limits — the Golden Road keeps its 
   assert.truthy(specialLines(over).every(r => r.patch !== null), 'a 400 m one is bounded by its own cap');
   assert.lte(themed, 250 + 1e-6, 'and no square carpets more than the row allows');
   assert.gt(themed, 0);
-});
+}));
 
 test('street themes: a winding patch caps total arclength and yields during interval matching', () => {
   const points=[];
@@ -1339,7 +1344,7 @@ test('golden path: exact diagonal centreline seats, no verge coins, and blocked 
   assert.eq(build(true).coinSeats.get(rec.key).size, 0, 'restricted ground stays clear');
 });
 
-test('golden road: coin seats line both verges, ride on its idol, and claim no cell', () => {
+test('golden road: coin seats line both verges, ride on its idol, and claim no cell', () => withLegacyGoldenSelection(() => {
   const name = nameWhere((n,k) => SV.variantFor(k,n,'minor') === 'golden', 'Golden Street');
   // Cells 10–42: a 224 m lane, inside the Golden Road's own 250 m section
   // cap (sectionLimits), so the seats run end to end.
@@ -1402,7 +1407,7 @@ test('golden road: coin seats line both verges, ride on its idol, and claim no c
     if (iy*CPE+ix !== idolCell) assert.falsy(opts.occupied.has(iy*CPE+ix), 'a seat claims no cell');
   }
   assert.eq(seatsOf(build([line],true).result).length,0,'hard restrictions prevent seats');
-});
+}));
 
 
 
@@ -1654,14 +1659,16 @@ test('street affinity: duplicates, reversed geometry and feature order keep one 
   for (const _ of SV.applyAffinitiesSteps({extent:100,lines:[excluded]},zone,10,1)) {}
   assert.eq(excluded.variant,null,'length/seam exclusions cannot be revived');
 });
-test('street affinity: Golden Road retains its fixed share under every context', () => {
+test('street affinity: gold routes are paths only and saved Golden Road codes remain readable', () => {
+  const legacy = SV.VARIANT_BY_ID.golden;
+  assert.truthy(legacy.retired);
+  assert.eq(SV.variantByCode(legacy.code), legacy);
+  assert.eq(Shrines.kindForStreet('golden'), 'golden_idol', 'saved shrines retain their reward');
+  assert.truthy(SV.selectionWeights(null, 'path').some(row => row.id === 'golden_path'));
   for (const context of [{ cultivated: 1 }, { woodland: 1 }, { formal: 1 }]) {
-    const golden = SV.selectionWeights('Cherry Lane', 'minor', context).find(r => r.id === 'golden');
-    assert.inRange(golden.probability, .049999, .050001);
+    assert.falsy(SV.selectionWeights('Golden Lane', 'minor', context).some(row => row.id === 'golden'));
     for (let i = 0; i < 1000; i++) {
-      const key = 'golden-affinity-' + i;
-      assert.eq(SV.variantFor(key, null, 'minor') === 'golden',
-        SV.variantFor(key, 'Cherry Lane', 'minor', context) === 'golden');
+      assert.falsy(['golden', 'golden_path'].includes(SV.variantFor('golden-affinity-' + i, 'Golden Lane', 'minor', context)));
     }
   }
 });

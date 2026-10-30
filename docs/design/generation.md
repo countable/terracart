@@ -653,7 +653,10 @@ access or tile lifecycle mechanics.
   from green, purple, fire and splitting slimes. Seeded posts every 70 m hold
   two of that species, with a midpoint post on short sections where placement
   allows. These are finite path-authored enemies using the ordinary defeated
-  guard ledger, with no daily reset or extra shrine. Golden Path uses Golden Road’s
+  guard ledger, with no daily reset or extra shrine. Gold coin routes generate only
+  as Golden Path, never on small roads. The retired Golden Road row and shrine
+  handlers remain readable for saved records; its old weight remains only in
+  underground substrate selection to preserve cave layouts. Golden Path uses the
   daily shrine reward. A shrine is seated at each end where safe ground permits;
   both use the section key for one shared daily activation and the same coin
   seats, so either direction works without a second payout. At most one coin
@@ -761,11 +764,14 @@ access or tile lifecycle mechanics.
   mature pines, dead trees and stumps, in that order. Each group’s count scales
   with road length; seats are two cells apart, leaving one empty cell between trees. Its
   selected shrine occupies the next seat after the stumps. Occupancy and
-  safety gates can leave gaps. It adds no rocks, grass, ferns or scattered trees.
+  safety gates can leave gaps. Small water puddles occupy the opposite verge,
+  within two cells; road footprints, crossings and protected cells stay dry.
+  It adds no rocks, grass, ferns or scattered trees.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
   stumps. Underdark ground cover intersperses pale luminous fungus clusters.
 - Toadstool Lane mixes small pickups and medium mushroom bushes on the road
-  and along both two-cell verges, with occasional giants. Ordinary surface caps use one art
+  and along both two-cell verges, with occasional giants. A stable per-cell roll
+  omits 30% of candidate caps. Ordinary surface caps use one art
   frame; cave caps retain their two frames. Red mushroom bushes use the grove
   giant artwork, including saved placements. Medium clumps use bush chopping
   and cover, yielding one wood and one mushroom; small caps remain pickups.
