@@ -34,14 +34,22 @@ test('generated containers retain the table\'s 55% empty odds and the base budge
   }
 });
 
-test('level 1: a dozen-odd barrels on free floor cells, off their own stream, positional ids; no other level', () => {
+test('level 1: the sewer\'s heap of barrels on free floor cells, off their own stream, positional ids; no other level', () => {
   const N = 40, grid = new Uint8Array(N * N).fill(WorldGen.T.CAVE_FLOOR);
   grid[5 * N + 5] = WorldGen.T.CAVE_WALL;
   const occupied = new Set([7 * N + 7]);
   const objects = [];
   WorldGen.caveBarrels(objects, grid, N, 3, 4, N * WorldGen.CELL_M, 1, occupied);
   assert.eq(WorldGen.CAVE_BARREL_DEPTH, 1);
-  assert.inRange(objects.length, WorldGen.CAVE_BARREL_MIN, WorldGen.CAVE_BARREL_MIN + WorldGen.CAVE_BARREL_SPAN - 1);
+  // The budget is the floor's own `barrels` profile row (caveBarrelBudget):
+  // the sewer heaps up far more than the natural cave's dozen-odd.
+  const sewer = WorldGen.caveBarrelBudget(1), natural = WorldGen.caveBarrelBudget(2);
+  assert.eq(JSON.stringify(sewer), JSON.stringify(WorldGen.floorProfile(1).barrels), 'the sewer row owns its budget');
+  assert.gte(sewer.min, 2 * natural.min, 'the sewer holds at least twice the natural cave\'s barrels');
+  assert.eq(natural.min, WorldGen.CAVE_BARREL_MIN); assert.eq(natural.span, WorldGen.CAVE_BARREL_SPAN);
+  assert.eq(JSON.stringify(WorldGen.caveBarrelBudget(3)), JSON.stringify(natural), 'no row: the natural allocation');
+  assert.inRange(objects.length, sewer.min, sewer.min + sewer.span - 1);
+  assert.inRange(WorldGen.caveContainerBudget(3, 4, 1), sewer.min, sewer.min + sewer.span - 1, 'the shared container allocation reads the same row');
   const cells = new Set();
   for (const b of objects) {
     assert.eq(b.kind, 'chest'); assert.truthy(b.barrel && isBarrel(b)); assert.eq(b.depth, 1);

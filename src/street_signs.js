@@ -65,48 +65,121 @@ const StreetSigns = (() => {
       return { x, y, ix: Math.floor(x / cellM), iy: Math.floor(y / cellM) };
     });
   }
-  // FINGERBOARDS. A sign is drawn as a post plus one board per listed
-  // direction (render.js RENDER_SPEC.roadsign / roadsign_board). Both textures
-  // are baked at scene start (textures.js makeRoadSignTextures) from this one
-  // table, which the seat maths and the tests read too. Source pixels, drawn
-  // at `scale` like the other 16px roadside props.
-  //   post:  a frame-filling pole on a plinth — its opaque bottom is the frame
-  //          bottom, so the renderer's full-frame contact seat is the real one.
-  //   board: a plank pointing EAST, its pivot the post end (origin [0, .5]);
-  //          `tipX` is the arrowhead's column, which the bake test pins.
-  //   Boards hang from `topRow` down at `pitch(n)` rows, so a two-road
-  //   junction wears its boards near the top like a real fingerpost while a
-  //   crowded one still shows every heading above the plinth (`lastRow`).
+  // FINGERPOST. A sign is a set of small closed solids for the retained mesh
+  // path the crates take (render.js Render.drawRoadSignMeshes →
+  // WallPerspective.prism): a square post standing straight on the ground with
+  // no footing, and one thin vertical board per listed heading hung on it, a
+  // plank with a pointed end — an elongated pentagon, never an arrowhead —
+  // that points along its road in WORLD space, so a compass turn shows its
+  // other faces instead of turning a flat picture. Dimensions are mesh px:
+  // screen px at 1× on the north-up map (CELL_PX a cell); heights project
+  // straight up like every low-poly solid. Colours are flat cel steps by face
+  // orientation (`faceColour`): the light sits west and a little south, so a
+  // post always shows one lit and one shaded face when two are visible. The
+  // sprite fallback (textures.js makeRoadSignTextures, RENDER_SPEC.roadsign)
+  // bakes the post alone from these same rows.
+  //   post:  side of the square section, height from the ground.
+  //   board: length from the post axis, height, thickness; `tip` is the
+  //          pointed length from the shoulders to the tip. Rows hang from
+  //          `topInset` under the post top at `height + gap`, compressed so
+  //          the lowest board stays `minBottom` above the ground.
   const ART = Object.freeze({
-    scale: 1.6,
-    post: Object.freeze({ fw: 16, fh: 40, poleX: 6, poleW: 4, topRow: 4, lastRow: 32 }),
-    board: Object.freeze({ fw: 22, fh: 9, tipX: 21, shaftTo: 15 }),
-    maxPitch: 5, minPitch: 2,
+    post: Object.freeze({ side: 5, height: 30 }),
+    board: Object.freeze({ length: 24, height: 7, thickness: 2, tip: 6, gap: 1, topInset: 2, minBottom: 3 }),
+    colours: Object.freeze({
+      post: Object.freeze({ top: 0xa88a5c, lit: 0x8a6d45, mid: 0x7a5f3c, shade: 0x5c4630 }),
+      board: Object.freeze({ top: 0xe0cc98, lit: 0xd2b87e, mid: 0xc9b07a, shade: 0x9a7f52 }),
+      ink: 0x14110c,
+    }),
+    // The plan light, unit length: west with a touch of south.
+    light: Object.freeze({ x: -0.9578, y: 0.2873 }),
   });
   function vector(direction) {
     const i = COMPASS.indexOf(direction);
     return i < 0 ? null : { x: Math.cos(i * Math.PI / 4), y: Math.sin(i * Math.PI / 4) };
   }
-  // A board is a horizontal plank, so it lies in the same plane as the flat
-  // ground marks and takes their projection (render.js GROUND_MARK.tilt): a
-  // board pointing east or west keeps its full length, one pointing north or
-  // south shows `tilt` of it, and the screen angle is the projected vector's.
-  // The caller hands in the vector already turned for heading-up, since the
-  // camera stays south of the screen however the map turns. A sprite can only
-  // rotate and stretch, so the plank's width is not projected; its centre line
-  // — the direction it points — is exact, which is what a wayfinding board is for.
-  function boardPose(vec, tilt) {
-    const x = vec.x, y = vec.y * tilt;
-    return { angle: Math.atan2(y, x), length: Math.hypot(x, y) };
+  // ROWS. Like a real fingerpost, boards for different headings share a row
+  // when they cannot meet — their headings at least a right angle apart, so
+  // each hangs off its own face of the post — and only boards that would
+  // cross (two roads leaving to the same quarter) stack. Eight compass
+  // headings fill two rows. Greedy in the listed order, which candidates()
+  // already sorts, so the same junction always wears the same sign.
+  function rows(directions) {
+    const out = [], members = [];
+    for (const d of directions || []) {
+      const v = vector(d.direction);
+      if (!v) continue;
+      let row = members.findIndex(list => list.every(u => u.x * v.x + u.y * v.y <= 1e-9));
+      if (row < 0) { row = members.length; members.push([]); }
+      members[row].push(v);
+      out.push({ vector: v, row });
+    }
+    return out;
   }
-  function boardPitch(count) {
-    const span = ART.post.lastRow - ART.post.topRow;
-    return Math.max(ART.minPitch, Math.min(ART.maxPitch, Math.floor(span / Math.max(1, count - 1))));
+  // The top of row `row` of `count` rows, in mesh px above the ground.
+  function rowTop(row, count) {
+    const { post, board } = ART, start = post.height - board.topInset;
+    const pitch = count > 1 ? Math.min(board.height + board.gap, (start - board.height - board.minBottom) / (count - 1)) : 0;
+    return start - row * pitch;
   }
-  // Source row (post frame) of board `slot` of `count`, from the top down.
-  function boardRow(slot, count) {
-    return ART.post.topRow + slot * boardPitch(count);
+  // Cel step for a face by its outward normal: the top, or the plan light.
+  function faceColour(palette, normal) {
+    if (normal.z > 0.5) return palette.top;
+    const len = Math.hypot(normal.x, normal.y) || 1;
+    const d = (normal.x * ART.light.x + normal.y * ART.light.y) / len;
+    return d > 0.3 ? palette.lit : d < -0.3 ? palette.shade : palette.mid;
   }
-  return {direction,candidates,edgeSeats,ART,vector,boardPose,boardPitch,boardRow};
+  // One convex solid from its polygons, each wound outward (flipped when its
+  // normal points at the solid's centre) and fanned into the triangles the
+  // mesh renderer draws. Every vertex carries the caller's texel (`uv`), the
+  // wall sheet's white one in the game, so flat colours tint it.
+  function solid(polygons, palette, uv) {
+    const all = polygons.flat();
+    const centre = { x: 0, y: 0, z: 0 };
+    for (const p of all) { centre.x += p.x / all.length; centre.y += p.y / all.length; centre.z += p.z / all.length; }
+    const faces = [];
+    for (let ring of polygons) {
+      const [a, b, c] = ring;
+      let n = { x: (b.y-a.y)*(c.z-a.z)-(b.z-a.z)*(c.y-a.y), y: (b.z-a.z)*(c.x-a.x)-(b.x-a.x)*(c.z-a.z), z: (b.x-a.x)*(c.y-a.y)-(b.y-a.y)*(c.x-a.x) };
+      const mid = ring.reduce((m, p) => ({ x: m.x + p.x / ring.length, y: m.y + p.y / ring.length, z: m.z + p.z / ring.length }), { x: 0, y: 0, z: 0 });
+      if (n.x * (mid.x - centre.x) + n.y * (mid.y - centre.y) + n.z * (mid.z - centre.z) < 0) {
+        ring = ring.slice().reverse(); n = { x: -n.x, y: -n.y, z: -n.z };
+      }
+      const color = faceColour(palette, n);
+      for (let i = 1; i < ring.length - 1; i++) faces.push({ points: [ring[0], ring[i], ring[i + 1]], color, flatColor: color });
+    }
+    return faces;
+  }
+  // The sign's solids about its foot (x, y): the post first, then a board per
+  // listed heading. Each is { points (plan footprint), faces, colors }, ready
+  // for WallPerspective.prism with the faces as its materialFaces.
+  function mesh(sign, { x = 0, y = 0, uv = null } = {}) {
+    const { post, board, colours } = ART, h = post.side / 2;
+    const v = (px, py, z) => ({ x: px, y: py, z, ...(uv || {}) });
+    const square = z => [v(x - h, y - h, z), v(x + h, y - h, z), v(x + h, y + h, z), v(x - h, y + h, z)];
+    const base = square(0), cap = square(post.height);
+    const sides = base.map((a, i) => [a, base[(i + 1) % 4], cap[(i + 1) % 4], cap[i]]);
+    const out = [{ points: base.map(({ x, y }) => ({ x, y })), colors: { face: colours.post.mid, top: colours.post.top },
+      faces: solid([base, cap, ...sides], colours.post, uv) }];
+    const listed = rows(sign.directions), count = listed.reduce((m, b) => Math.max(m, b.row + 1), 0);
+    for (const { vector: dir, row } of listed) {
+      // The root sits on the post's own face (its corner for a diagonal), so
+      // no board reaches inside the post and draw order never shows a root.
+      const root = h / Math.max(Math.abs(dir.x), Math.abs(dir.y));
+      const shoulder = root + board.length - board.tip, tip = root + board.length;
+      const zt = rowTop(row, count), zb = zt - board.height, zm = (zt + zb) / 2;
+      const n = { x: -dir.y, y: dir.x }, t = board.thickness / 2;
+      const at = (u, s, z) => v(x + dir.x * u + n.x * s, y + dir.y * u + n.y * s, z);
+      const side = s => ({ a: at(root, s, zb), b: at(shoulder, s, zb), tip: at(tip, s, zm), c: at(shoulder, s, zt), d: at(root, s, zt) });
+      const L = side(t), R = side(-t);
+      const polygons = [[L.a, L.b, L.tip, L.c, L.d], [R.a, R.b, R.tip, R.c, R.d],
+        [L.a, L.d, R.d, R.a], [L.a, L.b, R.b, R.a], [L.d, L.c, R.c, R.d],
+        [L.b, L.tip, R.tip, R.b], [L.c, L.tip, R.tip, R.c]];
+      out.push({ points: [L.a, L.tip, R.tip, R.a].map(({ x, y }) => ({ x, y })), colors: { face: colours.board.mid, top: colours.board.top },
+        faces: solid(polygons, colours.board, uv) });
+    }
+    return out;
+  }
+  return {direction,candidates,edgeSeats,ART,vector,rows,rowTop,faceColour,mesh};
 })();
 if (typeof window !== 'undefined') window.StreetSigns = StreetSigns;
