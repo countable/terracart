@@ -1276,8 +1276,16 @@ const TAP_HANDLERS = [
     // sprites) had to be at least the cell half-diagonal to cover their own
     // cell, which necessarily spilled into the four neighbours — that is what
     // made a tall tree / turret / market stall tappable from the empty cell
-    // above it.
+    // above it from anywhere in that cell.
+    // The one deliberate exception is the DRAWN CROWN: when the tapped cell
+    // holds no object of its own, a tap that lands on the art a tall prop in
+    // a neighbouring cell draws over it (ctx.spill, Render.tallPropHit) goes
+    // to that prop — the top of a tree, a fingerpost's boards — instead of
+    // the bare ground or road behind them. An occupied cell keeps its own
+    // occupant, so the crown never steals a tap from what stands under it.
     const tapCell = worldMetersToAbsCell(scene, wm.x, wm.y);
+    const spill = ctx.spill && !allObjs.some(o => itemContainsTapCell(scene, o, tapCell)) ? ctx.spill : null;
+    const hits = o => itemContainsTapCell(scene, o, tapCell) || (spill != null && (o === spill || o.id === spill.id));
     // interactables.js › chestCellDedup — literally the predicate render.js
     // builds, so the tap-target set and the draw set can't disagree. One
     // instance per tap: it is stateful (first-seen-wins in this iteration).
@@ -1293,7 +1301,7 @@ const TAP_HANDLERS = [
       if (o.kind === 'chest' && isDupTapChest(o)) continue;
       // Ground-cell fallback. Buildings also accept their visible raised art
       // above, and the building-zone handler accepts the rest of the footprint.
-      if (!itemContainsTapCell(scene, o, tapCell)) continue;
+      if (!hits(o)) continue;
       if (typeof Visibility !== 'undefined' && Visibility.hidden(scene, o.x, o.y, true)) continue;
       if (tooFar(ctx, o.x, o.y)) return 'far';
       if (typeof PushBlocks !== 'undefined' && PushBlocks.isBlock(o)) return PushBlocks.interact(ctx, o);
@@ -2128,7 +2136,11 @@ function interactTap(scene, sx, sy) {
   // tooFar → cellInReach (coords.js), which reads the player's feet cell off
   // the scene itself, so the handlers only need the tap.
   const building = buildingTapTarget(scene, sx, sy);
-  const ctx = { scene, save: scene.save, wm, sx, sy, building, dirty: false };
+  // The prop whose drawn crown the tap landed on from a neighbouring cell
+  // (Render.tallPropHit). The 'object' handler honours it only once the
+  // tapped cell itself has turned out to hold nothing.
+  const spill = typeof Render !== 'undefined' && Render.tallPropHit ? Render.tallPropHit(scene, sx, sy, wm) : null;
+  const ctx = { scene, save: scene.save, wm, sx, sy, building, spill, dirty: false };
   // Ground behind partial cover is still drawn (only what stands on it is
   // hidden, per-handler), so only FULL cover's darkness gates a ground tap.
   const coverPoint = building || wm;
