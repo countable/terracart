@@ -1281,19 +1281,30 @@ the reach rim within the existing player-light radius.
   use their dominant material color; Home, cave and discarded cells receive no
   road tint. It samples only visible cells, caches nearest-road queries, and is
   hidden underground without changing generated terrain or spawn ownership.
-- Roadside directions are a fingerpost drawn from `StreetSigns.ART`: a baked
-  post (`roadsign_post`) with its feet beside the vector road edge, and one
-  baked board (`roadsign_board`) per listed heading, hung from the top of the
-  post (`StreetSigns.boardRow`) and turned to point along its road
-  (`Render.poseRoadSignBoard`). A board is a horizontal plank, so it takes the
-  flat ground marks' projection (`StreetSigns.boardPose`, `GROUND_MARK.tilt`):
-  full length east/west, foreshortened north/south, the heading turned for
-  heading-up before projecting. Only the centre line is exact; a sprite cannot
-  skew the plank's width. Boards are drawn pieces derived once per sign
-  (`Render.roadSignBoards`), never world objects: the sign record alone owns
-  the tap, the cell and the shadow, and the boards name its contact
-  (`RENDER_SPEC.footFromCentre`) so they sort with it and stay stacked on it
-  as the map turns. Tapping still lists the headings and route names.
+- Roadside directions are a fingerpost drawn as retained solids from
+  `StreetSigns.ART`, on the mesh path the crates take
+  (`Render.drawRoadSignMeshes`, `WallPerspective.prism`, one group of its own
+  on the wall sheet's white texel so flat cel colours tint it): a square post
+  standing straight on the ground with no footing, about a cell tall, and one
+  thin vertical board per listed heading, an elongated pentagon with a pointed
+  end, never an arrowhead, that points along its road in world space. Boards
+  hang from the post top a row at a time (`StreetSigns.rows`): headings at
+  least a right angle apart share a row off their own post faces, boards that
+  would cross stack, and rows compress so the lowest stays above the ground
+  (`StreetSigns.rowTop`). Each board roots on the post's own face (its corner
+  for a diagonal), so no solid reaches inside another and draw order never
+  shows a root. One part per solid, every part supported at the post's foot,
+  so a board pointing at the camera draws over the post, one pointing away
+  draws behind it, and the sign sorts against the player as one. Face colour
+  is a cel step by outward normal (`StreetSigns.faceColour`, a west light);
+  heights project straight up like every low-poly solid, and a compass turn
+  reveals a board's other faces instead of turning a flat picture. The foot
+  keeps its sub-cell seat beside the road edge (`StreetSigns.edgeSeats`). The
+  sign record alone owns the tap, the cell and the shadow; a tap on its drawn
+  triangles from a neighbouring cell names it (`Render.tallPropHit`) and still
+  lists the headings and route names. `RENDER_SPEC.roadsign` keeps the
+  contact-shadow flag and the sprite fallback: the post alone, baked from the
+  same rows (`makeRoadSignTextures`) where the mesh path is unavailable.
 - Small-road and path vector bands carry a variant-coloured 20% tint beneath
   their cobbles. The base pavement tile compensates for the road image alpha;
   restored tiles add no second tint. It follows exact road widths, larger-road
@@ -1530,7 +1541,8 @@ The legacy `assets/Objects/Hedges/` sheet remains the flat-renderer fallback.
 by map and popup art. Barrels use only the cylindrical frame 3; the square
 variants are excluded. Crate popup icons and intact pots retain their stable ID-selected
 variants. On the map, box containers use closed low-poly meshes from
-`prop_lowpoly.js`, retained by `Render.drawLowPolyProps`. Mineral rocks always
+`prop_lowpoly.js`, retained by `Render.drawLowPolyProps`; roadside fingerposts
+(`StreetSigns.mesh`) take the same path in their own group. Mineral rocks always
 use 2D sprites, above and below ground; the Rogue profile uses its reference
 stone with colored ore veins and gem crystals. Rocks never enter the loose-prop
 mesh batch. Crates retain all four frame variants in the active
