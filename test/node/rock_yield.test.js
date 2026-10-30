@@ -1,6 +1,6 @@
 // Headless tests for the plain-rock promise: WHAT THE ART SHOWS IS WHAT IT
-// DROPS. The mineralrock sheet's four plain-rock looks are not interchangeable
-// — the complete boulder pair draws two stones; every single draws one.
+// DROPS. The mineralrock sheet's two plain-rock looks are not interchangeable
+// — the complete boulder pair draws two stones; the single draws one.
 //
 // One table (SpriteLayout.PLAIN_ROCK_VARIANTS): render.js picks the frame from
 // `frame` and `scale`, interactables.js rolls the yield off `stones`. These tests pin BOTH
@@ -61,16 +61,23 @@ PRV.forEach((variant, v) => {
 });
 
 test('shared rock art preserves all four legacy drop slots', () => {
-  assert.eq(PRV.map(v => v.stones).join(','),'2,1,1,1');
+  assert.eq(PRV.map(v => v.stones).join(','),'2,1');
+  const slots = SpriteLayout.PLAIN_ROCK_SLOTS;
+  assert.eq(slots.map(i => PRV[i].stones).join(','),'2,1,1,1','saved slots keep their payouts');
   const appearance = Render.objectAppearance({textures:{exists:()=>true},save:{}},new Map());
-  for (let v = 0; v < PRV.length; v++) {
+  for (let v = 0; v < slots.length; v++) {
     const o = {kind:'mineralrock',rockVariant:v,yieldTier:1};
     const resolved = appearance.resolveAppearance(o);
     assert.eq(resolved.texKey,'rock_variants');
     assert.eq(resolved.frameVal,mineralRockArtFrame(o));
     assert.eq(resolved.scl,ROCK_VARIANT_ART.smallScale);
-    assert.eq(SpriteLayout.plainRockStones(o),PRV[v].stones);
+    assert.eq(SpriteLayout.plainRockStones(o),PRV[slots[v]].stones);
   }
+});
+
+test('plain rock: no variant is a mere resize of another', () => {
+  const frames = PRV.map(v => v.frame);
+  assert.eq(new Set(frames).size, frames.length, 'each plain look is its own frame');
 });
 
 // --- The variant is the world's, not the save frame's ----------------------

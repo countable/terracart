@@ -213,7 +213,7 @@
           extra.yieldTier = gem.yieldTier;
           extra.requiredTier = gem.requiredTier;
         }
-        if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 3;
+        if (m.rockVariant) extra.rockVariant = root.SpriteLayout ? root.SpriteLayout[m.rockVariant] : 1;
         record = WG.makeObject(m.kind, x, y, id, extra); out.objects.push(record);
         if (m.kind === 'tar' || m.kind === 'stakes') out.slowCells.set(i, m.kind);
       }

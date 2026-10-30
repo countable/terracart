@@ -597,7 +597,7 @@
       const y = row * spacing + (rand() - .5) * 3 * S;
       const w = (6 + rand() * 3) * S, h = (5 + rand() * 3) * S;
       const cut = (1 + rand()) * S, bright = rand();
-      if (keep > (restored ? .94 : .72)) continue;
+      if (keep > (restored ? .97 : .72)) continue;
       const points = [
         [-w/2+cut,-h/2], [w/2-1,-h/2], [w/2,-h/2+cut], [w/2,h/2-1],
         [w/2-cut,h/2], [-w/2+1,h/2], [-w/2,h/2-cut], [-w/2,-h/2+1],
