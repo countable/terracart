@@ -34,7 +34,7 @@
     Conditions.apply(save, 'burning', 0, { durationMs: 6000 });
     assert.eq(save.conditions.burning.remainingMs, 6000);
     Conditions.apply(save, 'burning', 0);
-    assert.eq(save.conditions.burning.remainingMs, 6000, 'default burn does not refresh');
+    assert.eq(save.conditions.burning.remainingMs, 6000, 'a default burn never shortens a longer one');
     assert.falsy(Conditions.apply({ fireResistancePotionUntil: 100 }, 'burning', 0, { durationMs: 6000 }));
     assert.falsy(Conditions.apply(save, 'poison', 0, { durationMs: NaN }));
   });

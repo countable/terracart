@@ -223,9 +223,10 @@ mechanics.
 - A status effect is a row of `Conditions.DEFINITIONS` (poison, burning, a trap's pin): the
   player's condition, a foe's (`Combat.ignite` / `burnTick` read the same row),
   the HUD chip and the body tint all derive from it. Conditions count foreground
-  play and follow each row's contact rule (reset, preserve or exposure growth);
-  they do not bank like a repeated timed consumable, whose epoch writer is
-  `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
+  play; an additional hit leaves the greater of the time remaining and the time
+  it inflicts (a `refresh: false` row such as frozen keeps its first clock, and
+  burning also grows with exposure). They do not bank like a repeated timed
+  consumable, whose epoch writer is `Buffs.extend` / `extendField`. A new status is a row there, never a timer,
   colour or label of its own. BLINDED (a ghost's touch,
   its roster row's `condition`) carries `lightMul`: `Conditions.lightMul`
   halves the base reach before Inner Light upgrade steps (`reachRadiusM`,
