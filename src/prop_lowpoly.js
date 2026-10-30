@@ -85,17 +85,22 @@
         return { x: p.x, y: p.y, z: p.z, ...uv(slot, Math.max(0,Math.min(1,u)), Math.max(0,Math.min(1,v))) };
       });
     }
-    // Retain adjacency once. At each heading only an edge separating a
-    // visible face from a hidden face can belong to the outer silhouette.
+    mesh.topOutline = outline(mesh.materialFaces);
+    return mesh;
+  }
+  // The ink of a closed solid (WallPerspective's topOutline): retain the
+  // triangle adjacency once. At each heading only an edge separating a
+  // visible face from a hidden face can belong to the outer silhouette.
+  // Shared by the crates here and the fingerposts (StreetSigns.mesh).
+  function outline(faces, color = 0x000000, width = 1) {
     const edges = new Map(), key = p => `${p.x},${p.y},${p.z}`;
-    for (const face of mesh.materialFaces) for (let i = 0; i < 3; i++) {
+    for (const face of faces) for (let i = 0; i < 3; i++) {
       const a = key(face.points[i]), b = key(face.points[(i+1)%3]);
       const id = [a,b].sort().join('|');
       if (!edges.has(id)) edges.set(id, []);
       edges.get(id).push({ face, a: i, b: (i+1)%3 });
     }
-    mesh.topOutline = { width: 1, color: 0x000000, edges: [...edges.values()] };
-    return mesh;
+    return { width, color, edges: [...edges.values()] };
   }
-  global.PropLowPoly = { MATERIALS, ATLAS, geometry };
+  global.PropLowPoly = { MATERIALS, ATLAS, geometry, outline };
 })(window);

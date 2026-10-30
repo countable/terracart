@@ -47,7 +47,7 @@
         ? { ...original(2), generationDepth: undefined } : original(depth);
       assert.eq(anchors.map(anchor => CaveAreas.select(anchor, 1)).join(), moved.join(), 'same source anchors keep their old area kind');
     } finally { WorldGen.floorProfile = original; }
-    assert.truthy(original(2).floorTorches && original(2).ambientBarrels);
+    assert.truthy(original(2).floorTorches && original(2).barrels);
   });
 
   test('floor profiles: depths past the table inherit the default mirror', () => {

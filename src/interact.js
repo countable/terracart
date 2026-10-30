@@ -1852,13 +1852,20 @@ const TAP_HANDLERS = [
     return true;
   }},
 
-  // 2a-fish) Fishing: tap a water cell (type 3). Triggers a cast
+  // 2a-fish) Fishing: tap a water cell (type 3) — or, on a floor whose
+  // profile names a catch pool (the sewer), its channel water: the route
+  // lanes FloorWallMaterials draws as water. Triggers a cast
   // work-progress, then rolls the whiff, the junk and the catch — every one of
   // those numbers is the ROD's (items.js › the FISHING block). Placed BEFORE
   // flavor so the water-tap doesn't get eaten by the 'water' label.
   { name: 'fishing', try: (ctx) => {
     const { scene, save, sx, sy, cell } = ctx;
-    if (cell.type !== TERRAIN.WATER) return false;
+    const depth = scene.depth || 0;
+    const entry = WorldGen.tileCacheFor(depth).get(WorldGen.tileKey(cell.tx, cell.ty));
+    const cellIdx = cell.iy * (entry?.cellsPerEdge || 0) + cell.ix;
+    const pool = depth > 0 ? WorldGen.floorProfile(depth).fishPool : null;
+    const channel = !!pool && FloorWallMaterials.isSewerChannel(entry, cellIdx, cell.type);
+    if (cell.type !== TERRAIN.WATER && !channel) return false;
     // No rod? You can still fish BARE-HANDED — it just takes 3× as long. A rod
     // cheapens the cast and lets fewer big fish get away (spec §FISHING).
     const fishCost = effectiveFishCost(save.relics);
@@ -1870,9 +1877,11 @@ const TAP_HANDLERS = [
     // Which spot this is, and whether a fish is secretly in it (items.js
     // FISH_STOCK_CHANCE / fishSpotStocked; the starter pond always is). A
     // spot already fished out is in save.fishedSpots for good.
-    const spotId = fishSpotId(cell.tx, cell.ty, cell.ix, cell.iy);
-    const entry = WorldGen.tileCacheFor(scene.depth || 0).get(WorldGen.tileKey(cell.tx, cell.ty));
-    const stock = entry?.zoneDress?.fishStock?.[cell.iy * entry.cellsPerEdge + cell.ix];
+    // Below ground the spot carries its depth, and the floor's pool is the
+    // whole stock policy (items.js FISH_POOLS); the surface reads its zone
+    // dressing's authored stock (the tidepools).
+    const spotId = fishSpotId(cell.tx, cell.ty, cell.ix, cell.iy, depth);
+    const stock = pool ? { pool } : entry?.zoneDress?.fishStock?.[cellIdx];
     const stocked = inStarterPond(scene, cell) || fishSpotStocked(spotId, stock);
     // The shared job (startToolJob) with a FIXED cancel refund of 5, whatever
     // the rod's cast cost.

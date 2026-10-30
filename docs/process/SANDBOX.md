@@ -311,9 +311,10 @@ ledgers. The two marked wrecks remain unrestored until the tester chooses.
 The eastern service row has all ten macro types: inn, chapel, scholar,
 training, guildhall, curio, sundries, scriptorium, apothecary and bank (an ATM
 by the start chest is a second bank). A repeatable
-crate, permanent barrel and clay pot, and a chest whose stable ID passes the
-real mimic roll compare container behavior. The southern encounter area adds
-mushroom monster, disguised treant, fire elemental, mimic, wurm and zombie
+crate, permanent barrel and clay pot, a chest whose stable ID passes the
+real mimic roll, and a clay pot whose stable ID passes the real snake roll
+compare container behavior. The southern encounter area adds mushroom
+monster, disguised treant, fire elemental, mimic, wurm, zombie and snake
 recipients for weapons, thrown potions, tomes and conditions.
 
 `meadow` visits the real ordinary-bush dressing at its current 31.5% density;

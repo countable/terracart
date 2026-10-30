@@ -929,52 +929,6 @@ Render.neutralPetPixels = function neutralPetPixels(data) {
 Render.setWaystoneMaterial = function setWaystoneMaterial(sprite, object, scene) {
   setTextureIfDifferent(sprite, 'waystone', window.Waystones?.isLit(object, scene.save) ? 1 : 0);
 };
-// ROADSIDE FINGERPOST BOARDS. One board record per heading the sign lists,
-// derived once per sign and kept by identity, so the appearance cache holds
-// (CACHED_APPEARANCE_KINDS) and a board never enters saves or the tap path:
-// it is a drawn piece, not a world object. `_board` is the heading's north-up
-// unit vector (StreetSigns.vector), `_slot` its row from the top of the post.
-const ROAD_SIGN_BOARDS = new WeakMap();
-Render.roadSignBoards = function roadSignBoards(item) {
-  const { o, dx, dy } = item;
-  let boards = ROAD_SIGN_BOARDS.get(o);
-  if (!boards) {
-    const listed = (o.directions || []).map(d => StreetSigns.vector(d.direction)).filter(Boolean);
-    // `_owner`: a tap on a board (Render.tallPropHit) is a tap on the sign.
-    boards = listed.map((vec, i) => ({ kind: 'roadsign_board', id: `${o.id}:board${i}`, x: o.x, y: o.y,
-      _board: vec, _slot: i, _slots: listed.length, _street: o._street, _owner: o }));
-    ROAD_SIGN_BOARDS.set(o, boards);
-  }
-  return boards.map(b => ({ o: b, dx, dy }));
-};
-// The post's own seat (SpriteLayout.contactSeat over its frame-filling art):
-// where its frame sits about the cell centre, and the contact its boards share.
-let _roadSignPostSeat = null;
-Render.roadSignPostSeat = function roadSignPostSeat() {
-  if (_roadSignPostSeat) return _roadSignPostSeat;
-  const { post, scale } = StreetSigns.ART;
-  const box = { fw: post.fw, fh: post.fh, minX: 0, minY: 0, maxX: post.fw, maxY: post.fh };
-  const seat = SpriteLayout.contactSeat(box, 0.5, 0.5, scale, scale, false);
-  // The pivot is the pole's centre column, which the plinth is centred on too.
-  seat.dxPx += (post.poleX + post.poleW / 2 - post.fw / 2) * scale;
-  return _roadSignPostSeat = seat;
-};
-// A board's pivot: its source row on the post frame, in screen px from the cell centre.
-Render.roadSignBoardDy = function roadSignBoardDy(o) {
-  const { post, scale } = StreetSigns.ART;
-  return Render.roadSignPostSeat().dyPx + (StreetSigns.boardRow(o._slot, o._slots) - post.fh / 2) * scale;
-};
-// Point the board along its road. The heading is turned for heading-up first
-// (the pool reconfigures every piece while the map turns), then projected
-// like a flat ground mark (StreetSigns.boardPose, GROUND_MARK.tilt). The
-// sprite's own rotation is the final screen angle: the camera's turn and the
-// upright counter-turn (heading_up.js _upright) cancel for every pooled
-// sprite, and the pivot keeps its place up the post through that counter-turn.
-Render.poseRoadSignBoard = function poseRoadSignBoard(sprite, o, scene) {
-  const v = typeof HeadingUp !== 'undefined' ? HeadingUp.toScreenVec(scene, o._board.x, o._board.y) : o._board;
-  const pose = StreetSigns.boardPose(v, GROUND_MARK.tilt);
-  sprite.setRotation(pose.angle).setScale(sprite.scaleX * pose.length, sprite.scaleY);
-};
 Render.petTexture = function petTexture(scene, kind, sheet, tint = 0xffffff) {
   const key = 'pet-neutral-' + sheet;
   if (scene.textures.exists(key)) return Render.canvasTint(scene, key, tint);
@@ -3686,27 +3640,46 @@ Render.spriteArtContains = function spriteArtContains(sprite, appearance, sx, sy
 // sprite whose art contains the point and whose owner stands in a
 // NEIGHBOURING cell — never its own cell (that is the ordinary cell hit) and
 // never further (a wide canopy does not reach across the map). Buildings
-// keep their own path (Render.buildingHit); a drawn piece of a prop (a
-// fingerpost's board, `_owner`) answers for the prop. The caller decides
+// keep their own path (Render.buildingHit); a fingerpost, drawn as retained
+// solids rather than a sprite (Render.drawRoadSignMeshes), answers for the
+// visible projected triangles of its post and boards. The caller decides
 // whether the tapped cell was bare; this only names what was drawn there.
 Render.tallPropHit = function tallPropHit(scene, sx, sy, wm) {
   const angle = scene.mapRot || 0, sin = Math.sin(angle), cos = Math.cos(angle);
   // The tap's cell is resolved only once a drawn candidate asks for it.
   let tap = null, owner = null, depth = -Infinity;
-  for (const sprite of scene.objectPool || []) {
-    const piece = sprite._staticObject, appearance = sprite._staticAppearance;
-    if (!sprite.visible || sprite.alpha === 0 || !piece || !appearance || appearance.visible === false) continue;
-    const o = piece._owner || piece;
-    if (isBuilding(o.kind)) continue;
+  const neighbour = (o) => {
     tap = tap || worldMetersToAbsCell(scene, wm.x, wm.y);
     const foot = worldMetersToAbsCell(scene, o.x, o.y);
     const d = absCellDelta(scene, foot.cellIX, foot.cellIY, tap.cellIX, tap.cellIY);
-    if ((!d.dx && !d.dy) || Math.max(Math.abs(d.dx), Math.abs(d.dy)) > 1) continue;
+    return (d.dx || d.dy) && Math.max(Math.abs(d.dx), Math.abs(d.dy)) <= 1;
+  };
+  for (const sprite of scene.objectPool || []) {
+    const o = sprite._staticObject, appearance = sprite._staticAppearance;
+    if (!sprite.visible || sprite.alpha === 0 || !o || !appearance || appearance.visible === false) continue;
+    if (isBuilding(o.kind) || !neighbour(o)) continue;
     const anchor = sprite._huAnchor || sprite;
     const z = sin * anchor.x + cos * anchor.y;
     if (z >= depth && Render.spriteArtContains(sprite, appearance, sx, sy, sin, cos)) { owner = o; depth = z; }
   }
+  // The retained solids are never counter-rotated: their projected triangles,
+  // offset by the group's scroll, lie in the same 1x view space as the tap.
+  const group = scene._wallPerspective?.roadSigns;
+  if (group?.gfx?.visible) for (const { o, blocks } of scene._roadSignMeshes || []) {
+    const support = blocks[0]?.support;
+    if (!support || !neighbour(o)) continue;
+    const z = sin * (support.x + group.x) + cos * (support.y + group.y);
+    if (z < depth) continue;
+    const lx = sx - group.x, ly = sy - group.y;
+    if (blocks.some(b => b.materialFaces.some(f => f.visible && Render.triangleContains(f.projected, lx, ly)))) { owner = o; depth = z; }
+  }
   return owner;
+};
+Render.triangleContains = function triangleContains([a, b, c], x, y) {
+  const s1 = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+  const s2 = (c.x - b.x) * (y - b.y) - (c.y - b.y) * (x - b.x);
+  const s3 = (a.x - c.x) * (y - c.y) - (a.y - c.y) * (x - c.x);
+  return (s1 >= 0 && s2 >= 0 && s3 >= 0) || (s1 <= 0 && s2 <= 0 && s3 <= 0);
 };
 // Separating-axis test: unlike triangle bounds, this does not fade empty
 // corners beside a pitched roof or the empty middle of a concave footprint.
@@ -4237,6 +4210,52 @@ Render.drawLowPolyProps = function (scene, items) {
   return drawn;
 };
 
+// Fingerposts are small closed solids (StreetSigns.mesh) on the same retained
+// mesh path, in a group of their own on the cel wall sheet, whose wood slots
+// they sample (roadSignTexel) under their cel tints. One part per solid: a board pointing at the camera
+// draws over the post and one pointing away draws behind it, while every part
+// shares the post's foot as its support, so the sign sorts against the player
+// as one. The foot keeps its sub-cell seat beside the road edge
+// (StreetSigns.cornerSeats); only the anchor cell's scroll offsets the group.
+// The retained pieces stay on the scene for the tap (Render.tallPropHit).
+const roadSignTexel = (material, s, t) => WallMaterials.texel(material === 'top' ? 'woodTop' : 'woodSide', s, t);
+Render.drawRoadSignMeshes = function (scene, items) {
+  const drawn = new Set();
+  if (typeof StreetSigns === 'undefined' || typeof WallPerspective === 'undefined'
+      || typeof WallMaterials === 'undefined' || typeof PropLowPoly === 'undefined') return drawn;
+  const pc = viewAnchorCell(scene), base = viewAnchorAbsCell(scene, pc);
+  const fx = (pc.cx - Math.floor(pc.cx)) * CELL_PX, fy = (pc.cy - Math.floor(pc.cy)) * CELL_PX;
+  const pieces = [];
+  let key = `${scene.depth}|${base.cellIX}|${base.cellIY}|${viewBandKey(scene, pc, base.cellIY, (VIEW_CELLS - 1) / 2)}|${scene.viewCenterX}|${scene.viewCenterY}|${scene.viewSize}`;
+  for (const item of items) {
+    const o = item.o;
+    if (o.kind !== 'roadsign') continue;
+    const cell = worldMetersToAbsCell(scene, o.x, o.y);
+    drawn.add(item); pieces.push({ o, cell });
+    key += `|${o.id}:${cell.cellIX}:${cell.cellIY}`;
+  }
+  if (!pieces.length) {
+    WallPerspective.clear(scene, 'roadSigns'); scene._roadSignKey = null; scene._roadSignMeshes = null; return drawn;
+  }
+  const pxPerM = CELL_PX / scene.cellM;
+  Render.prismGroupPass(scene, 'roadSigns', '_roadSignKey', key, -fx, -fy, (group) => {
+    group.perWall = true; group.renderDepth = scene.depth ?? 0;
+    const meshes = scene._roadSignMeshes = [];
+    for (const { o, cell } of pieces) {
+      const at = absCellScreenCentre(scene, pc, cell.cellIX, cell.cellIY);
+      const centre = absCellCenterMeters(scene, cell.cellIX, cell.cellIY);
+      const x = at.x + fx + (o.x - centre.x) * pxPerM, y = at.y + fy + (o.y - centre.y) * pxPerM;
+      const support = { x, y, order: group.blocks.length }, first = group.blocks.length;
+      for (const part of StreetSigns.mesh(o, { x, y, texel: roadSignTexel })) {
+        WallPerspective.prism(scene, 'roadSigns', part.points, 0, StreetSigns.ART.post.height, part.colors, support, true,
+          { materialFaces: part.faces, topOutline: PropLowPoly.outline(part.faces, StreetSigns.ART.ink) });
+      }
+      meshes.push({ o, blocks: group.blocks.slice(first) });
+    }
+  });
+  return drawn;
+};
+
 // The resident board replaces the delivery bubble. Portraits use the same
 // identity as conversation, including Tilly's housed face after moving in.
 Render.residentPlaque = function residentPlaque(scene, house) {
@@ -4500,10 +4519,12 @@ Render.foeCells = function foeCells(scene) {
   return cells;
 };
 // A plant that shivers when a foe stands in it: a bush or a hedge
-// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes).
+// (ObstacleStep's bush / hedge profiles — the shrubs and berry bushes), and
+// long grass (Visibility.grassHide — the snake's hide, the one tell it has).
 Render.lurkBush = function lurkBush(p) {
-  const prof = ObstacleStep.profile(p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt });
-  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover;
+  const plant = p.kind ? p : { kind: 'wildplant', crop: p.crop, _plantArt: p._plantArt };
+  const prof = ObstacleStep.profile(plant);
+  return prof === ObstacleStep.PROFILES.bush || !!prof?.cover || Visibility.grassHide(plant);
 };
 // Cull before building sprite, label, shadow and effect lists. Any cover
 // removes an actor behind it; scenery (`scenery` true) goes only behind full
@@ -4954,9 +4975,6 @@ Render.drawObjects = function drawObjects(scene) {
   // depth sort as other world objects. Their RENDER_SPEC entry (kind
   // '_scarecrow') anchors the pole base on the placement cell.
   filteredObj.push(...stumps);
-  // A fingerpost's boards are drawn pieces of the one generated sign: the
-  // sign record alone owns the tap, the cell and the shadow.
-  for (const it of filteredObj.filter(({ o }) => o.kind === 'roadsign')) filteredObj.push(...Render.roadSignBoards(it));
   for (const sc of scarecrowList) filteredObj.push(sc);
   for (const fr of fireList) filteredObj.push(fr);
   for (const fp of firepitList) filteredObj.push(fp);
@@ -5015,6 +5033,7 @@ Render.drawObjects = function drawObjects(scene) {
   // The buildings that sort with the world: the low-poly meshes, and the
   // prism path's per-wall parts (Home's interior without low-poly).
   const lowPolyProps = Render.drawLowPolyProps(scene, filteredObj);
+  const roadSignMeshes = Render.drawRoadSignMeshes(scene, filteredObj);
   const grassPrisms = Render.drawGrassPrisms(scene, plantedList);
   const zList = typeof BuildingLowPoly !== 'undefined' ? BuildingLowPoly.worldPieces(scene) : [];
   if (typeof WallPerspective !== 'undefined' && WallPerspective.worldPieces) zList.push(...WallPerspective.worldPieces(scene));
@@ -5076,6 +5095,7 @@ Render.drawObjects = function drawObjects(scene) {
       if (!RENDER_SPEC[k]?.shadow) continue;
       const foot = lowPolyProps.has(item)
         ? { w: item.o.sightBlocking ? 27 : item.o.kind === 'chest' ? 14 : 17, footFromCentre: 0 }
+        : roadSignMeshes.has(item) ? { w: StreetSigns.ART.post.side + 4, footFromCentre: 0 }
         : item._appearance?.foot;
       if (foot) shadowList.push({ ...item, _foot: foot });
     }
@@ -5190,6 +5210,7 @@ Render.drawObjects = function drawObjects(scene) {
   const prismDrawn = Render.drawConnectedWallPrisms(scene, filteredObj, plantedList, connectedArt);
   for (const item of grassPrisms) prismDrawn.add(item);
   for (const item of lowPolyProps) prismDrawn.add(item);
+  for (const item of roadSignMeshes) prismDrawn.add(item);
   const towerList = filteredObj.filter(({ o }) => o.kind === 'tower' && o.castle !== scene.save?.starterShopId);
   const nonTowerObj = (filteredObj.some(({ o }) => o.kind === 'tower') || prismDrawn.size)
     ? filteredObj.filter(it => it.o.kind !== 'tower' && !prismDrawn.has(it)) : filteredObj;
@@ -6347,8 +6368,9 @@ Render.drawObjects = function drawObjects(scene) {
   // Shiny fish glint on their water cell until landed (items.js
   // shinyFishSpots — a per-tile derived list, so no grid scan per frame; its
   // first derivation is spread over frames, SHINY_FISH_SCAN_MS a frame).
-  // Surface only: a cave's water is not the surface's fishing spots.
-  if ((scene.depth || 0) === 0 && typeof shinyFishSpots === 'function') {
+  // The surface, and a floor with a catch pool of its own (the sewer's
+  // channels): a plain cave's water is not the surface's fishing spots.
+  if (((scene.depth || 0) === 0 || WorldGen.floorProfile(scene.depth).fishPool) && typeof shinyFishSpots === 'function') {
     const fished = scene.fishedSpotSet;
     const fishUntil = performance.now() + SHINY_FISH_SCAN_MS;
     const tpc = scene.playerToWorldCell();
@@ -6841,18 +6863,11 @@ const { RENDER_SPEC, resolveAppearance, _houseRole, _houseKey, _houseScale, _hou
     // a GATE POST is one of the pair either side of a gate — scenery marking
     // the spawn point a foe rises from each day (lairs.js 'gate' tier). Not
     // tappable: no interactable row matches 'gatepost'.
-    // A ROADSIDE FINGERPOST (street_variants.js, StreetSigns): the post row
-    // seats and casts the shadow; each listed heading is a `roadsign_board`
-    // piece (Render.roadSignBoards) hung on it, pivoting at the pole and
-    // turned to point along its road (Render.poseRoadSignBoard). The boards
-    // name the post's ground contact for depth and the heading-up turn, so
-    // they stay stacked on it however the map turns, and draw just in front.
-    roadsign: { key: 'roadsign_post', frame: 0, origin: [0.5, 0.5], scale: () => StreetSigns.ART.scale, seat: true, shadow: true },
-    roadsign_board: { key: 'roadsign_board', frame: 0, origin: [0, 0.5], scale: () => StreetSigns.ART.scale, seat: false,
-      dxPx: () => Render.roadSignPostSeat().dxPx,
-      dyPx: (o) => Render.roadSignBoardDy(o),
-      footFromCentre: (o) => Render.roadSignPostSeat().footFromCentre + 0.01 * (o._slot + 1),
-      after: (sprite, o, scene) => Render.poseRoadSignBoard(sprite, o, scene) },
+    // A ROADSIDE FINGERPOST (street_variants.js, StreetSigns) is drawn as
+    // retained solids (Render.drawRoadSignMeshes, like the crates), so this
+    // row supplies only its contact shadow and the sprite fallback: the post
+    // alone, baked from StreetSigns.ART (textures.js makeRoadSignTextures).
+    roadsign: { key: 'roadsign_post', frame: 0, origin: [0.5, 0.5], scale: 1, seat: true, shadow: true },
     infoboard: { key: 'signpost', frame: 0, origin: [0.5, 0.5], scale: 1.6, seat: true, shadow: true },
     // A message bottle on the waterline (src/scenic.js) lies on the sand:
     // the old tide crop's 16px art, no contact shadow.
@@ -7004,7 +7019,7 @@ Render.objectAppearance = function (scene, houseRoles) {
 // its scene token prevents a review scene from reusing another scene's tuple.
 const CACHED_APPEARANCE_KINDS = new Set([
   'zone_prop', 'reef_coral', 'tree', 'mineralrock', 'waystone', 'stakes', 'tar', 'stalagmites', 'inactive_poison_vent',
-  'roadsign', 'roadsign_board', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
+  'roadsign', 'infoboard', 'bottle', 'gatepost', 'hive', 'headstone', 'vista_scope', 'well',
   'groundstack',
 ]);
 Render.objectAppearanceIsStable = function objectAppearanceIsStable(object, art) {

@@ -1058,40 +1058,23 @@ function makeCastleSkullFlagTexture(scene) {
   }
 }
 
-// ROADSIDE FINGERPOST (StreetSigns.ART; render.js RENDER_SPEC.roadsign and
-// roadsign_board). Two pixel bakes at source scale: the post, and one board
-// pointing east that the renderer turns and stretches to every heading.
-// Baked rather than drawn from an atlas crop: the board must be a lone
-// plank with its pivot at the post end, and no approved sheet has one.
+// ROADSIDE FINGERPOST, THE SPRITE FALLBACK (RENDER_SPEC.roadsign). The signs
+// are retained solids (StreetSigns.mesh, render.js Render.drawRoadSignMeshes);
+// this post alone stands in where that path is unavailable, baked at 1 px per
+// mesh px from the same StreetSigns.ART rows: a square-section pole straight
+// into the ground with no footing, in the sheet's flat wood, a step darker
+// for each lower band like the mesh.
 function makeRoadSignTextures(scene) {
-  const { post, board } = StreetSigns.ART;
-  const INK = '#14110c';
-  bakeCanvas(scene, 'roadsign_post', post.fw, post.fh, (ctx) => {
-    const x = post.poleX, w = post.poleW, bottom = post.fh - 1;
-    // Pole: ink keyline round a lit left edge and a shaded right edge.
-    ctx.fillStyle = INK; ctx.fillRect(x - 1, 0, w + 2, bottom - 3);
-    ctx.fillStyle = '#8a6d45'; ctx.fillRect(x, 1, w, bottom - 5);
-    ctx.fillStyle = '#6b5334'; ctx.fillRect(x + 1, 1, w - 1, bottom - 5);
-    ctx.fillStyle = '#4a3722'; ctx.fillRect(x + w - 1, 1, 1, bottom - 5);
-    // Plinth: the frame-filling foot the contact seat measures from.
-    ctx.fillStyle = INK; ctx.fillRect(x - 3, bottom - 4, w + 6, 5);
-    ctx.fillStyle = '#6b5334'; ctx.fillRect(x - 2, bottom - 3, w + 4, 3);
-    ctx.fillStyle = '#4a3722'; ctx.fillRect(x - 2, bottom - 1, w + 4, 1);
-  });
-  bakeCanvas(scene, 'roadsign_board', board.fw, board.fh, (ctx) => {
-    const mid = (board.fh - 1) / 2;
-    // Shaft two rows either side of the centre line, then a head that
-    // narrows one row per column to the tip. Sunlit top rows, a shaded
-    // underside: a plank with thickness, not a painted arrow.
-    for (let x = 0; x < board.fw; x++) {
-      const half = x < board.shaftTo ? 2
-        : Math.max(0, Math.round(4 - (x - board.shaftTo) * 4 / (board.tipX - board.shaftTo)));
-      for (let y = mid - half; y <= mid + half; y++) {
-        const edge = x === 0 || x === board.tipX || Math.abs(y - mid) === half;
-        ctx.fillStyle = edge ? INK : y < mid ? '#c9b07a' : y === mid ? '#a88f5c' : '#6b5334';
-        ctx.fillRect(x, y, 1, 1);
-      }
-    }
+  const { post, bands, wood, ink } = StreetSigns.ART;
+  const shade = (c, f) => '#' + [16, 8, 0].map(sh => Math.round(((c >>> sh) & 255) * f).toString(16).padStart(2, '0')).join('');
+  const w = post.side + 2, h = post.height;
+  bakeCanvas(scene, 'roadsign_post', w, h, (ctx) => {
+    ctx.fillStyle = shade(ink, 1); ctx.fillRect(0, 0, w, h);
+    bands.forEach((f, i) => {
+      const y0 = 1 + Math.round((h - 1) * i / bands.length), y1 = 1 + Math.round((h - 1) * (i + 1) / bands.length);
+      ctx.fillStyle = shade(wood.side, f); ctx.fillRect(1, y0, post.side, y1 - y0);
+      ctx.fillStyle = shade(wood.side, f * .8); ctx.fillRect(post.side, y0, 1, y1 - y0);
+    });
   });
 }
 

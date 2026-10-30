@@ -950,8 +950,8 @@ test('short street dressing: fixed timber species with mixed orchard rows and an
       const apples = trees.filter(o => o.kind === 'fruittree');
       assert.truthy(apples.every(o => o.species === WorldGen.fruitTreeSpecies(WorldGen.cellHash(TX, TY, cellOf(o.x, TX), cellOf(o.y, TY)), undefined, SV.VARIANT_BY_ID.orchard.rareFruitSpecies)));
       const maples = trees.filter(o => o.kind === 'tree' && o.species === 'maple');
-      assert.lte(Math.abs(apples.length - maples.length), d.objects.filter(o => o.kind === 'roadsign').length,
-        'alternating species stay balanced except for occupied sign seats');
+      assert.lte(Math.abs(apples.length - maples.length), trees.length % 2 + d.objects.filter(o => o.kind === 'roadsign').length,
+        'alternating species stay balanced but for an odd row and occupied sign seats');
       assert.eq(apples.length + maples.length, trees.length, 'only fruit trees and maples');
       assert.truthy(maples.every(o => treeGrowthStage(o) === 3), 'deciduous trees are mature');
       assert.eq(new Set(trees.map(o => o.id)).size, trees.length, 'tree identities remain distinct');
@@ -2491,9 +2491,10 @@ test('trade row: a Small-road row, appended last, barrels directly beside the ro
   assert.eq(row.art, 'street_trade', 'dedicated trade row painting'); assert.eq(row.sectionMaxM, 250);
   assert.truthy(Shrines.kindForStreet('trade'), 'its shrine kind');
   assert.eq(SV.TRADE_BARREL_GAP, 0.3); assert.eq(SV.TRADE_GRUNT_STEP_M, 25); assert.eq(SV.TRADE_GRUNT_CHANCE, 2 / 3);
-  assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 2, 'a pair of grunts a post');
-  assert.eq(Lairs.KIND_ORDER.street_trade.join(','), 'goblin_runt');
-  assert.eq(Lairs.GROUPS.street_trade.members[0].n, 2);
+  assert.eq(Lairs.STREET_TIER_GUARDS.street_trade, 3, 'a thief and a pair of grunts a post');
+  assert.eq(Lairs.KIND_ORDER.street_trade.join(','), 'thief,goblin_runt');
+  assert.eq(Lairs.GROUPS.street_trade.members.map(m => `${m.kind}:${m.n}`).join(','), 'thief:1,goblin_runt:2', 'the thief leads');
+  assert.truthy(EnemyRoster.get('thief').hitAndRun, 'the Trade Row thief cuts purses like any thief');
   let named = 0, plain = 0;
   for (let i = 0; i < 20000; i++) {
     if (SV.variantFor(`s${i}|0,0`, `Maple ${i}`, 'minor') === 'trade') plain++;
@@ -2642,13 +2643,16 @@ test('rare healing clusters stay rare even when they are the only ground decorat
 
 test('approved decorations never overlap theme obstacles or signs and regenerate identically', () => {
   for(const variant of ['hedgerow','pottery','snare','toadstool','berry_trail','slime_trail','spider_path']) {
-    const draw=()=>{ const f=vergeFixture(variant); return SV.dress({...f,tx:0,ty:0,tileEdgeM:f.N*7,
+    // A second road meets the first at its east end: the junction earns the sign.
+    const draw=()=>{ const f=vergeFixture(variant);
+      f.index.dressingLines.push({ key:'cross', variant, halfW:3.5, line:[{x:10.5,y:6.5},{x:10.5,y:2.5}] });
+      return SV.dress({...f,tx:0,ty:0,tileEdgeM:f.N*7,
       spawnOpts:{roadMask:f.roadMask,spawnWhy:f.spawnWhy,occupied:new Set()}}); };
     const a=draw(),b=draw(),pieces=[...a.objects,...a.wildplants,...a.traps];
     const cells=pieces.map(p=>Math.floor(p.y/7)+','+Math.floor(p.x/7));
     assert.eq(new Set(cells).size,cells.length,variant+' has one interactable per cell');
     assert.eq(JSON.stringify(a),JSON.stringify(b),variant+' placement is deterministic');
-    assert.truthy(a.objects.some(o=>o.kind==='roadsign'),variant+' has an edge sign');
+    assert.truthy(a.objects.some(o=>o.kind==='roadsign'),variant+' has a junction sign');
   }
 });
 

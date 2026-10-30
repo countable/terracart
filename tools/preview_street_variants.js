@@ -173,8 +173,8 @@ const rules = {
   burned: `Hot ember paving, tar, stakes and torches. Up to ${SV.BURNED_MAX} debris pieces per line piece; one fire-slime guard site per stretch.`,
   barricade: `Barriers cross the road every ${SV.BARRICADE_STEP_M} m and extend up to ${SV.BARRICADE_VERGE_MAX_CELLS} cells beyond it. A Trap Kit removes each piece. Rocks, planks and stray stakes scatter across the three-cell verge. Goblins guard the route.`,
   toadstool: `Small and medium mushrooms grow on the road and both two-cell verges, with occasional giants; 30% of candidate caps are omitted. Groups every ${SV.TOADSTOOL_STEP_M} m; up to ${SV.TOADSTOOL_COVER_MAX} extra caps.`,
-  trade: `Barrels line both verges with ${SV.TRADE_BARREL_GAP * 100}% gaps. Two-grunt posts are sampled every ${SV.TRADE_GRUNT_STEP_M} m; ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% are occupied.`,
-  pottery: 'Clay pots sit on the road and in two verge rows where space permits.',
+  trade: `Barrels line both verges with ${SV.TRADE_BARREL_GAP * 100}% gaps. Thief-and-two-grunt posts are sampled every ${SV.TRADE_GRUNT_STEP_M} m; ${Math.round(SV.TRADE_GRUNT_CHANCE * 100)}% are occupied.`,
+  pottery: 'Clay pots sit on the road and in two verge rows where space permits. Eligible surface pots have a 20% snake chance.',
   berry_trail: 'Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden. One large bear encounter per section.',
   goblin_gang: `Up to ${SV.VARIANT_BY_ID.goblin_gang.clusters} gangs beside stacks of ${SV.VARIANT_BY_ID.goblin_gang.barrelsPerCluster} barrels, where space permits.`,
 };

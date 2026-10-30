@@ -347,8 +347,15 @@ access or tile lifecycle mechanics.
   one owning table keyed by floor, never a depth literal at a call site.
   `WorldGen.floorProfile(depth)` owns cave terrain, street projection and gem
   probabilities, flint-bearing rock frequency, authored cave-area weights/carving/garrisons, pressure traps,
-  the vent kinds a floor erupts,
-  arrival story IDs and entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
+  the vent kinds a floor erupts, the generated barrel allocation (`barrels`
+  `{ min, span }`, read by `caveBarrelBudget` and the shared container budget;
+  the sewer's heap, the natural cave's dozen-odd, none elsewhere), whether the
+  projected route lanes are channel water that seats nothing (`channelWater`,
+  the sewer: the lanes join `occupied` before any pass and reach the runtime
+  draws as `undergroundReserved`), which catch pool its water is fished from
+  (`fishPool`, an items.js `FISH_POOLS` table; a sewer spot's id carries its
+  depth, so the pond above is never emptied by it), arrival story IDs and
+  entry keys. The terrain ladder is sewer 1 (building walls), natural caves 2 (the old
   L1 mask read directly from the surface), goblin city 3, deep-stone clearings and road tunnels
   4, open fungal 5, lava 6, and dragon masonry 7–8. Lava and dragon strata
   read surface geometry directly; an open fungal floor must not erase lava
@@ -1260,9 +1267,10 @@ Higher-priority placements and their access space take precedence in this order:
    Trade Row (a Small-road row, sections up to 250 m) lines both verges with
    generated wooden barrels the same way (`VERGE_ROWS.trade`,
    `TRADE_BARREL_GAP` 30% left empty, directly beside the road on the reward
-   gate) and seats a two-runt `street_trade` garrison post every 25 m
-   (`TRADE_GRUNT_STEP_M`), two thirds of them held (`TRADE_GRUNT_CHANCE`),
-   a cell behind the barrel row on the fast-foe gate.
+   gate) and seats a `street_trade` garrison post — a thief and two runts
+   (`Lairs.GROUPS`) — every 25 m (`TRADE_GRUNT_STEP_M`), two thirds of them
+   held (`TRADE_GRUNT_CHANCE`), a cell behind the barrel row on the fast-foe
+   gate.
    Overgrown forest roads add extra encounters beside the usual plant guard,
    each a row of the variant's `extraEncounters` rolled from the stable street
    key: a sounder of two wild boars on every overgrown street, and a Giant

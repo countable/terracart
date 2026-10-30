@@ -116,7 +116,9 @@ test('chest themes: every authored path terminates and conserves probability', (
 
 test('chest themes: cooked meals, spears and minerals are reachable at their quality tier', () => {
   const expected = [
-    ...ITEMS.filter(item => item.cooked).map(item => ['food', 'food', item.id]),
+    // A dish inherits its ingredient's drop weight (items.js): one cooked from
+    // a catch that never drops (the sewer's fish) is no chest member either.
+    ...ITEMS.filter(item => item.cooked && item.dropWeight !== 0).map(item => ['food', 'food', item.id]),
     ['roadside', 'supplies', 'throwing_spear'], ['authority', 'supplies', 'throwing_spear'],
     ['roadside', 'materials', 'flint_shard'],
     ...Object.values(MINERAL_TIERS).map(row => ['roadside', 'materials', row.barId]),

@@ -824,7 +824,7 @@ def street_section(streets):
             'pottery': 'Yes · clay pots', 'rocky_path': 'Yes · rocks, flint and rubble',
             'grassy_lane': 'Yes · grass', 'way_of_variety': 'Yes · mixed finds',
             'thorny': 'Yes · brambles', 'barricade': 'Yes · barriers',
-            'snare': 'Yes · snares', 'spider_path': 'Yes · webs',
+            'haunted_forest_path': 'Yes · maws', 'snare': 'Yes · snares', 'spider_path': 'Yes · webs',
             'slime_trail': 'Yes · slimes',
         }.get(v['id'], 'No · themed scenery stays beside the road')
         on_road_details = f'<dt>On the road</dt><dd data-on-road="{v["id"]}">{road_spawns}</dd>'

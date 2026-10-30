@@ -24,6 +24,8 @@ VFX = 'extra_assets/16x16/Buff and Debuff Pixel VFX/Buffs & Debuffs/'
 SPELL = 'extra_assets/16x16/{0} Spells Pixel VFX/{0} Spells/'
 RA = 'extra_assets/16x16/Item Icons [Rogue Adventure]/Item Icons/RA_Item_Icons_New.png'
 RPG = 'extra_assets/16x16_RPG_Pack_v3.0_packed_no_background.png'
+# In-repo: the Rogue Adventure flora props the world and inventory draw from.
+FLORA = 'assets/ArtTrials/RogueProps/flora-props.png'
 
 
 def effect(name):
@@ -90,6 +92,7 @@ ICONS = {
     'work': (*tile(RA, 22, 25), 'Golden working tool'),
     'regen': (*effect('Health_Up'), 'Mending heart with increase arrow'),
     'wand': (*effect('Magic_Up'), 'Red magic wand with increase arrow'),
+    'starlight': (FLORA, [14 * 16, 4 * 16, 16, 16], 'Glowing starflower'),
 }
 
 
@@ -173,7 +176,8 @@ def main():
                 'credits': ['ElvGames: Buff and Debuff Pixel VFX, elemental Spell VFX, Rogue Adventure item icons.',
                             '16x16 RPG Pack v3.0: original supplemental packed source.',
                             'Dungeon Gathering Full Ver. 1.1: enduring blue flame torch.',
-                            'Pixel Plains PP Interiors Pack: lit flame torch.'],
+                            'Pixel Plains PP Interiors Pack: lit flame torch.',
+                            'Rogue Adventure flora props (in-repo): glowing starflower.'],
                 'entries': entries}
     (OUT / 'manifest.json').write_text(json.dumps(manifest, indent=2) + '\n')
     (ROOT / 'src/status_icons.js').write_text(

@@ -9152,23 +9152,32 @@
   //     one at the foot of every up-ladder (where a descent lands, the first
   //     thing the dark hands a new player is the way to push it back) plus a
   //     few dozen more. NOT the wall `torch` object, a fixed light.
-  //   barrels — level 1's generated barrels, smashed like a surface bin
-  //     (loot.js isBarrel — `barrel: true`, no POI behind it; the stable
-  //     appearance selects the loot table, barrelProfile; back daily on the
-  //     one day ledger).
+  //   barrels — the shallow floors' generated barrels (a `barrels` profile
+  //     row: the sewer's heap, the natural cave's dozen-odd), smashed like a
+  //     surface bin (loot.js isBarrel — `barrel: true`, no POI behind it; the
+  //     stable appearance selects the loot table, barrelProfile; back daily
+  //     on the one day ledger).
   const CAVE_SCONCE_PIVOT = 18, CAVE_SCONCE_P = 0.45, CAVE_SCONCE_TRIES = 10;
   const CAVE_COIN_PIVOT = 12, CAVE_COIN_P = 0.35;
   const CAVE_X_MIN = 4, CAVE_X_SPAN = 7, CAVE_X_TRIES = 8;
   const FLOOR_TORCH_DEPTH = 1;
   const FLOOR_TORCH_MIN = 24, FLOOR_TORCH_SPAN = 13, FLOOR_TORCH_TRIES = 8;
   const CAVE_BARREL_DEPTH = 1;
+  // The natural-cave allocation: a floor's own `barrels` profile row (the
+  // sewer's is larger) overrides it; floors with neither a row nor authored
+  // areas hold no containers at all (caveContainerBudget).
   const CAVE_BARREL_MIN = 12, CAVE_BARREL_SPAN = 8, CAVE_BARREL_TRIES = 8;
+  function caveBarrelBudget(depth) {
+    return floorProfile(depth).barrels || { min: CAVE_BARREL_MIN, span: CAVE_BARREL_SPAN };
+  }
   // Shallow floors share one finite container allocation. Sewer and natural
   // caves fill the remainder ordinarily; the warren spends it on authored stores.
   function caveContainerBudget(tx, ty, depth) {
-    if (depth < 1 || (!floorProfile(depth).caveAreas && depth !== CAVE_BARREL_DEPTH)) return 0;
+    const profile = floorProfile(depth);
+    if (depth < 1 || (!profile.caveAreas && !profile.barrels)) return 0;
+    const { min, span } = caveBarrelBudget(depth);
     const rng = makeRng(tileStreamSeed(tx, ty, 0x7FEB352D, depth));
-    return CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN);
+    return min + Math.floor(rng() * span);
   }
   // A uniformly random cell of the level (the TRIES rows' pick).
   const anyCell = (rng, px, py, L) => ({ lix: Math.floor(rng() * L.N), liy: Math.floor(rng() * L.N) });
@@ -9285,9 +9294,12 @@
       count: (rng) => FLOOR_TORCH_MIN + Math.floor(rng() * FLOOR_TORCH_SPAN), tries: FLOOR_TORCH_TRIES, pick: anyCell,
       emit: (L, c, p) => L.wildplants.push(makeWildplant('torch', p.x, p.y,
         cellId(`ctorch_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { _ix: c.lix, _iy: c.liy })) },
-    { id: 'barrels', spawnClass: 'reward', salt: 0x7FEB352D, when: (L) => L.depth === CAVE_BARREL_DEPTH || floorProfile(L.depth).ambientBarrels,
-      count: (rng, L) => Math.max(0, CAVE_BARREL_MIN + Math.floor(rng() * CAVE_BARREL_SPAN)
-        - L.objects.filter(o => o.caveArea && o.barrel).length), tries: CAVE_BARREL_TRIES, pick: anyCell,
+    { id: 'barrels', spawnClass: 'reward', salt: 0x7FEB352D, when: (L) => !!floorProfile(L.depth).barrels,
+      // The same first draw as caveContainerBudget: the floor's allocation,
+      // less what its authored areas already spent.
+      count: (rng, L) => { const { min, span } = caveBarrelBudget(L.depth);
+        return Math.max(0, min + Math.floor(rng() * span) - L.objects.filter(o => o.caveArea && o.barrel).length); },
+      tries: CAVE_BARREL_TRIES, pick: anyCell,
       emit: (L, c, p) => L.objects.push(makeObject('chest', p.x, p.y,
         cellId(`cbarrel_${L.depth}`, L.tx, L.ty, c.lix, c.liy), { barrel: true, depth: L.depth })) },
     // Sample free floor without replacement so every tile has its full quota
@@ -9489,7 +9501,13 @@
   //   chestSource  whose POI chests mirror down: 'above' | 'surface'
   //   quarryProvenance surface quarry gem seams and rock stamps on this floor
   //   generationDepth source seed for relocated authored-area selection/ordering
-  //   floorTorches / ambientBarrels retain natural-cave dressing after relocation
+  //   floorTorches retains natural-cave torch dressing after relocation
+  //   barrels      { min, span } generated barrels per tile (caveBarrelBudget);
+  //                absent, the floor strews none
+  //   channelWater the projected route lanes are drawn as channel water
+  //                (FloorWallMaterials.isSewerChannel) and seat nothing
+  //   fishPool     the items.js FISH_POOLS table this floor's water (channels
+  //                and pools) is fished from; absent, the surface table
   //   arrivalStory story ID for the one-time floor arrival splash
   //   entryKey     save key required to enter (null for ungated floors)
   //   pressureTraps runtime pressure-plate encounters
@@ -9503,13 +9521,16 @@
     carveWalls, goblins, spearGoblins
   });
   const FLOOR_PROFILES = Object.freeze([
-    // Sewer channels are a visual treatment of open routes, not new hazards.
+    // Sewer channels are a visual treatment of open routes, not new hazards:
+    // still walkable, but nothing is born or strewn in the water. Barrels
+    // heap up here (the sewer is the town's bin cellar).
     Object.freeze({ depth: 1, trapDensityMul: 1, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: null, streetGems: null, biome: 'sewer', terrain: 'city', streetMirror: true,
+      channelWater: true, fishPool: 'sewer', barrels: Object.freeze({ min: 30, span: 12 }),
       fallLandings: false, chestSource: 'above', quarryProvenance: false, lava: false }),
     // The original natural cave geology reads the surface directly, so adding
     // the sewer above cannot change its Small-road/building/water wall mask.
-    Object.freeze({ depth: 2, generationDepth: 1, floorTorches: true, ambientBarrels: true, flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
+    Object.freeze({ depth: 2, generationDepth: 1, floorTorches: true, barrels: Object.freeze({ min: CAVE_BARREL_MIN, span: CAVE_BARREL_SPAN }), flintRockP: .25, arrivalStory: 'cave', entryKey: null, vents: Object.freeze(['confusion']),
       pressureTraps: false, caveAreas: caveAreaProfile([50, 0, 30, 5, 15, 10], false, 0, false),
       streetGems: Object.freeze({ region: .05, ordinary: 0 }), biome: 'cave', terrain: 'surfacePaint', roadWalls: 'small', streetMirror: true,
       fallLandings: false, chestSource: 'surface', quarryProvenance: true, lava: false }),
@@ -9780,6 +9801,10 @@
     // The POI chests overhead, mirrored down to this level (they claim their
     // cells in `occupied` before the rocks are rolled).
     for (const i of landingCells) occupied.add(i);
+    // A floor whose route lanes are channel water seats nothing in them: the
+    // reservation rides `occupied` into every pass, the mirrors, the route
+    // dressing and (as undergroundReserved) the runtime creature draws.
+    if (profile.channelWater && underground) for (const i of underground.lane) occupied.add(i);
     // Every cave placement pass shares these reservations, including mirrors,
     // torches, gem seams and rewards. Keep the actual terrain walkable.
     for (let i = 0; i < spawnWhy.length; i++) if (!global.GameplayTiers.allowed(spawnTierAt(grid, i, { spawnWhy }), 'minor')) occupied.add(i);
@@ -10047,7 +10072,7 @@
     ARENA_DEPTH, SKY_DEPTH, FLOOR_PROFILES, DEFAULT_FLOOR_PROFILE, floorProfile, undergroundTerrain, undergroundClearings, caveQuarryGemsFrom, stampCaveQuarryRocks, caveChestsFrom, CAVE_CHEST_SEEK_CELLS, capCaveChests, CAVE_LOWEST_TIER_CHEST_LIMIT,
     caveTorchSites, caveTorchesFrom, CAVE_TORCH_P, spawnCaveMushrooms, CAVE_PASSES, runCavePass, cavePassLevel, spawnCaveRocks,
     caveFloorTorches, FLOOR_TORCH_DEPTH, FLOOR_TORCH_MIN, FLOOR_TORCH_SPAN,
-    caveBarrels, caveContainerBudget, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
+    caveBarrels, caveBarrelBudget, caveContainerBudget, CAVE_BARREL_DEPTH, CAVE_BARREL_MIN, CAVE_BARREL_SPAN,
     caveWallTorches, caveChestRings, CAVE_RING_CELLS, caveCoins, caveTreasureMarks,
     // Full-tile rasterization — exported for the headless spawn tests, which
     // build synthetic MVT layers and pin the "nothing spawns on a road" rule

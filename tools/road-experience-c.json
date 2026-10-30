@@ -68,6 +68,10 @@
       {
         "text": "Road pots and two verge rows create repeated optional stops; occupied seats leave gaps.",
         "status": "existing"
+      },
+      {
+        "text": "Eligible surface pots have a stable 20% chance of releasing a snake when smashed.",
+        "status": "existing"
       }
     ],
     "adjectives": [
@@ -79,11 +83,11 @@
   {
     "id": "trade",
     "feeling": "Useful supplies are close at hand, but someone is already scavenging them.",
-    "arrival": "Rows of barrels make the rewards obvious; pairs of goblin grunts turn browsing into a tactical choice.",
+    "arrival": "Rows of barrels offer supplies; a thief and two goblin grunts contest each occupied post.",
     "art": [
       "Use existing wooden barrels and their broken states as the route's main visual rhythm.",
       "Keep hanging lantern posts and warm light around the barrel rows.",
-      "Leave readable gaps between barrels so both members of a grunt pair can be spotted."
+      "Leave readable gaps around the thief and goblin pair."
     ],
     "mechanics": [
       {
@@ -91,7 +95,7 @@
         "status": "existing"
       },
       {
-        "text": "Eligible roadside posts can hold two goblin grunts, with gaps between encounters.",
+        "text": "Each occupied roadside post holds a thief and two goblin grunts.",
         "status": "existing"
       }
     ],

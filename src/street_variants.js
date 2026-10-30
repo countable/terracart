@@ -64,8 +64,8 @@
   // gate — wooden barrels, loot.js BARREL_LOOT) and goblin grunts pick
   // through them: a post every TRADE_GRUNT_STEP_M, TRADE_GRUNT_CHANCE of
   // them held off the street key and the post's index, each the
-  // street_trade garrison (lairs.js GROUPS: two runts), seated a cell
-  // behind the barrel row on the fast-foe gate.
+  // street_trade garrison (lairs.js GROUPS: a thief and two runts), seated
+  // a cell behind the barrel row on the fast-foe gate.
   const TRADE_BARREL_GAP = 0.3;
   const TRADE_GRUNT_STEP_M = 25, TRADE_GRUNT_CHANCE = 2 / 3;
   // ── Berry Lane / Berry Trail ─────────────────────────────────────────────
@@ -2796,10 +2796,12 @@
 
     if (root.StreetSigns) for (const sign of root.StreetSigns.candidates({ ...idx, mvtToM:gM }, CELL_M)) {
       const rec=sign.rec;
-      activeVariant=rec.variant;
-      const signSeats = root.StreetSigns.edgeSeats(sign, CELL_M);
-      // Keep the life-cycle row continuous; its sign uses the opposite verge.
-      const c = (rec.variant === 'overgrown' ? signSeats.slice(0, 1) : signSeats).find(c => cellOk(c.ix, c.iy));
+      // The sign belongs to the junction, not to one road's corridor: either
+      // road's verge will seat it. Gone to seed keeps its life-cycle row
+      // continuous, so its sign keeps to the opposite verge.
+      activeVariant=null;
+      const c = root.StreetSigns.cornerSeats(sign, CELL_M, rec.variant === 'overgrown' ? { lineSide: -1 } : {})
+        .find(c => cellOk(c.ix, c.iy));
       if(!c)continue;
       claim(c.ix,c.iy);
       res.objects.push(WG.makeObject('roadsign',
@@ -2910,7 +2912,7 @@
         // at TRADE_GRUNT_CHANCE off the street key and the post's index (the
         // same for every player), seated a cell behind the barrel row (verge
         // k = 2, the barrels stand at k = 1) on the fast-foe gate — the
-        // street_trade garrison's pair of runts.
+        // street_trade garrison's thief and pair of runts.
         sampleLine(rec.line, gM, TRADE_GRUNT_STEP_M, TRADE_GRUNT_STEP_M / 2, (s, x, y, nx, ny) => {
           if (!S.covers(spans, s)) return;
           const post = Math.floor(s / TRADE_GRUNT_STEP_M);
