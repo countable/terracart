@@ -4,17 +4,24 @@
     {key:'north',variant:'thorny',halfW:3.5,line:[{x:0,y:8.5},{x:24,y:8.5}]},
     {key:'south',variant:'orchard',halfW:3.5,line:[{x:0,y:14.5},{x:24,y:14.5}]},
   ]}});
-  test('road influence tint: normal play uses only the recorded influence footprint and variant colour', () => {
+  const influence = (e, ix, iy) => Render.roadInfluenceVariant(e, ix, iy)?.id ?? null;
+  test('road influence: normal play uses only the recorded influence footprint', () => {
     const e = entry();
     e.streetArea = StreetVariants.area(e.streetIndex, N);
     e.streetAreaVariants = e.streetArea.variants;
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), RoadOverlay.primaryColor('thorny'));
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 14), RoadOverlay.primaryColor('orchard'));
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 0), null, 'distant nearest-road ownership is debug-only');
+    assert.eq(influence(e, 10, 8), 'thorny');
+    assert.eq(influence(e, 10, 14), 'orchard');
+    assert.eq(influence(e, 10, 0), null, 'distant nearest-road ownership is debug-only');
     const i = 8 * N + 10;
     e.streetAreaVariants[i] = StreetVariants.VARIANT_BY_ID.golden.code;
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), RoadOverlay.primaryColor('golden'), 'recorded winner supplies the colour');
-    assert.eq(Render.roadInfluenceTintColor(e, -1, 8), null);
+    assert.eq(influence(e, 10, 8), 'golden', 'recorded winner owns the cell');
+    assert.eq(influence(e, -1, 8), null);
+  });
+  // A square per-cell wash has no transition: inside a Grassy Lane it read as
+  // a second grass meeting the first on hard cell edges.
+  test('road influence: no per-cell colour wash over the ground', () => {
+    for (const symbol of ['roadInfluenceTintColor', 'beginRoadInfluenceTint', 'ROAD_INFLUENCE_TINT_ALPHA'])
+      assert.eq(Render[symbol], undefined, symbol);
   });
   test('road influence ground: a groundFamily row redraws its footprint and minor-road cobble gaps', () => {
     const e = entry(), i = 8 * N + 10;
@@ -28,44 +35,30 @@
     assert.eq(e.grid[i], WorldGen.T.GRASS, 'and leaves the terrain alone');
     e.grid[i] = WorldGen.T.ROAD;
     assert.eq(Render.roadInfluenceGroundFamily(e, 10, 8), brown, 'minor-road cobble gaps show it too');
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, 'while the wash stays off the carriageway');
+    assert.eq(influence(e, 10, 8), null, 'the carriageway itself is not influence ground');
     e.grid[i] = WorldGen.T.ROAD_MD;
     assert.eq(Render.roadInfluenceGroundFamily(e, 10, 8), -1, 'MD/LG paving is never restyled');
   });
-  test('road influence tint: Home, Nexus, cave, discarded and non-ground cells keep their own appearance', () => {
+  test('road influence: Home, Nexus, cave, discarded and non-ground cells keep their own appearance', () => {
     const e = entry(), i = 8 * N + 10;
     e.streetArea = StreetVariants.area(e.streetIndex, N);
     for (const field of ['homeVariant', 'variantDiscarded']) {
       e[field] = new Uint8Array(N*N); e[field][i] = 1;
-      assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, field);
+      assert.eq(influence(e, 10, 8), null, field);
       delete e[field];
     }
     e.zone = {coverage:new Uint8Array(N*N)}; e.zone.coverage[i] = 1;
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, 'Nexus priority');
+    assert.eq(influence(e, 10, 8), null, 'Nexus priority');
     delete e.zone;
     e.caveAreas = {reserved:new Set([i])};
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, 'cave entrance priority');
+    assert.eq(influence(e, 10, 8), null, 'cave entrance priority');
     delete e.caveAreas;
     for (const terrain of [WorldGen.T.WATER, WorldGen.T.PIER, WorldGen.T.ROAD_MD, WorldGen.T.ROAD_LG]) {
       e.grid[i] = terrain;
-      assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, 'not road-variant ground');
+      assert.eq(influence(e, 10, 8), null, 'not road-variant ground');
     }
     e.grid[i] = WorldGen.T.GRASS; e.depth = 1;
-    assert.eq(Render.roadInfluenceTintColor(e, 10, 8), null, 'underground');
-  });
-  test('road influence tint: always on at the surface, independent of the debug toggle', () => {
-    let made = 0, clears = 0;
-    const graphic = {visible:false, clear(){clears++;return this;},setVisible(v){this.visible=v;return this;}};
-    const scene = {depth:0,debugVariantTint:false,add:{graphics(){made++;return graphic;}},noiseContainer:{add(){}}};
-    assert.eq(Render.beginRoadInfluenceTint(scene), graphic);
-    assert.truthy(graphic.visible);
-    Render.setVariantTint(scene, false);
-    assert.eq(Render.beginRoadInfluenceTint(scene), graphic);
-    assert.eq(made, 1); assert.gt(clears, 0);
-    scene.depth = 1;
-    assert.eq(Render.beginRoadInfluenceTint(scene), null); assert.falsy(graphic.visible);
-    scene.depth = 0;
-    assert.eq(Render.beginRoadInfluenceTint(scene), graphic); assert.truthy(graphic.visible);
+    assert.eq(influence(e, 10, 8), null, 'underground');
   });
   test('variant tint: nearest owner includes extended dressing outside the reserved corridor',()=>{
     const e=entry();

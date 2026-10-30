@@ -427,18 +427,20 @@
     return GROVE_SHRINE_ART[root.fnv1a(String(o?.id ?? '') + '#shrine') % GROVE_SHRINE_ART.length];
   }
 
-  // Plain boulders reuse the complete 32×16 artwork in the existing sheet.
-  // Four stable variant slots preserve saved/worldgen choices and their drops:
-  // the pair pays two stones; the three single sizes each pay one.
+  // Plain boulders reuse the complete 32×16 artwork in the existing sheet:
+  // the pair pays two stones; the single pays one.
   const PLAIN_ROCK_VARIANTS = [
     { frame: 60, scale: 1.6, stones: 2 },
     { frame: 45, scale: 1.6, stones: 1 },
-    { frame: 45, scale: 1.7, stones: 1 },
-    { frame: 45, scale: 1.8, stones: 1 },
   ];
-  // The one look every churchyard rock wears (src/zones.js): the chunky
-  // single stone — one stone drawn, one stone paid.
-  const CHURCHYARD_ROCK_VARIANT = 3;
+  // The four stable slots worldgen rolls (caveVariant), ids hash to and saves
+  // keep (rockVariant), each naming its PLAIN_ROCK_VARIANTS row. Slots 2 and 3
+  // once drew the single merely scaled up; they now wear the single itself,
+  // so every saved choice and the one-in-four pair odds stay put.
+  const PLAIN_ROCK_SLOTS = [0, 1, 1, 1];
+  // The one look every churchyard rock wears (src/zones.js): the single
+  // stone — one stone drawn, one stone paid.
+  const CHURCHYARD_ROCK_VARIANT = 1;
 
   // Which variant a given plain rock wears. Stable per rock: a cave rock keys
   // off its caveVariant, a surface rock off a hash of its ID (util.js fnv1a,
@@ -447,17 +449,16 @@
   // mines — the same variant (metres are in each save's own frame, so never
   // key off them). BOTH callers go through here — the frame in render.js and
   // the yield in interactables.js.
-  // An explicit `rockVariant` (an index into the table) wins over both: a
+  // An explicit `rockVariant` (a slot, like caveVariant) wins over both: a
   // generator that wants ONE look for a whole place — the churchyard's rocks
   // (src/zones.js, CHURCHYARD_ROCK_VARIANT) — says so on the rock, and the
   // frame and the drop both follow it through here.
   function plainRockVariant(o) {
-    const n = PLAIN_ROCK_VARIANTS.length;
-    if (o && o.rockVariant != null) return PLAIN_ROCK_VARIANTS[((o.rockVariant % n) + n) % n];
-    const v = (o && o.caveVariant != null)
-      ? (((o.caveVariant % n) + n) % n)
-      : (root.fnv1a(String((o && o.id) ?? '') + '#rock') % n);
-    return PLAIN_ROCK_VARIANTS[v];
+    const n = PLAIN_ROCK_SLOTS.length;
+    const slot = (o && o.rockVariant != null) ? o.rockVariant
+      : (o && o.caveVariant != null) ? o.caveVariant
+      : root.fnv1a(String((o && o.id) ?? '') + '#rock');
+    return PLAIN_ROCK_VARIANTS[PLAIN_ROCK_SLOTS[((slot % n) + n) % n]];
   }
   // Sheet frame index for a plain rock — what render.js draws.
   function plainRockFrame(o) {
@@ -1357,7 +1358,7 @@
   const api = {
     CELL_PX, ART_BOUNDS, seatInCell, contactSeat, PLAYER_ART, playerArt, CHEST_SCALE,
     GROVE_SHRINE_ART, SHIPWRECK_SHRINE_ART, SHRINE_KIND_ART, SHRINE_SPIRIT_ART, groveShrineArt,
-    PLAIN_ROCK_VARIANTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones, mineralRockArt,
+    PLAIN_ROCK_VARIANTS, PLAIN_ROCK_SLOTS, CHURCHYARD_ROCK_VARIANT, plainRockVariant, plainRockFrame, plainRockStones, mineralRockArt,
     CROWN_BOUNDS, fruitCrownOffset,
     NPC_FRAME, NPC_SHEETS, npcSheet, npcAppearance,
     CREATURE_ART, CREATURE_GROUND_DY, CREATURE_WHEEL_R,
