@@ -7,12 +7,14 @@
   // One row per gas kind: the condition a breath applies and for how long,
   // and the cloud's colours (GasRender paints every kind from these rows).
   // Contact renews the condition each second, never shortening a longer one.
+  // A `densityScaled` dose grows with the local cloud, but never below
+  // `minDurationMs`: even a wisp of confusion gas is felt, not a flicker.
   // `rearmMs` holds off the next dose after one lands, so a lingering cloud
   // of paralysis cannot hold the player still until it clears: the gap
   // between doses is the window to walk out.
   const KINDS = Object.freeze({
     healing: Object.freeze({ heal: 1, colour: 0xf08cd1, highlight: 0xffdcf3 }),
-    confusion: Object.freeze({ condition: 'confused', durationMs: 5000, densityScaled: true, colour: 0xffde1a, highlight: 0xffffc4 }),
+    confusion: Object.freeze({ condition: 'confused', durationMs: 5000, minDurationMs: 3000, densityScaled: true, colour: 0xffde1a, highlight: 0xffffc4 }),
     poison: Object.freeze({ condition: 'poison', durationMs: 30000, colour: 0xa4f02c, highlight: 0xf0ffc8 }),
     paralysis: Object.freeze({ condition: 'paralysis', durationMs: 5000, rearmMs: 8000,
       colour: 0x3f9dff, highlight: 0xd2ecff }),
@@ -137,7 +139,7 @@
       // poison's ticks, paralysis's hold). A brief exposure must not shorten
       // an existing longer effect.
       const durationMs = row.densityScaled
-        ? Math.max(1, Math.min(root.Conditions.DEFINITIONS[row.condition].maxDurationMs || row.durationMs,
+        ? Math.max(row.minDurationMs || 1, Math.min(root.Conditions.DEFINITIONS[row.condition].maxDurationMs || row.durationMs,
           Math.round(row.durationMs * density / CONFIG.burstMass))) : row.durationMs;
       if (scene._applyCondition) scene._applyCondition(row.condition, { durationMs });
       else root.Conditions.apply(scene.save, row.condition, Date.now(), { durationMs });
