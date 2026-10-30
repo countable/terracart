@@ -110,7 +110,7 @@
     for (const [v, list] of Object.entries(rows)) {
       for (const row of list) {
         assert.truthy(row.step && typeof row.emit === 'function', `${v}: a step and a piece`);
-        assert.truthy(row.crossRoad === true || row.side === 'both' || typeof row.side === 'function', `${v}: sides or a road cross-section`);
+        assert.truthy(row.onRoad === true || row.crossRoad === true || row.side === 'both' || typeof row.side === 'function', `${v}: road seats, sides or a road cross-section`);
       }
     }
     assert.truthy(rows.golden[0].fill, 'the golden road fills every free verge cell (a column, not an accident)');

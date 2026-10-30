@@ -1299,6 +1299,8 @@ the reach rim within the existing player-light radius.
   missing cobbles at the same positions. Both states keep the approved Promenade light–dark contrast, except Hedged Lane,
   whose formal setts use a narrower tonal range. Its equal stones follow staggered
   courses with tight transparent joints; repairs fill the missing setts.
+  Pottery Road mixes the two shipping clay-pot body colours, terracotta and
+  sandy ochre, retaining source texture and shading in both repair states.
   Palette pixels are calculated once per cached theme/state, never per frame.
   Orchard Lane's shared warm source uses solid sandstone faces. Burned Row keeps
   its solid charcoal surface and ember warning. Rail ballast stays solid.
@@ -1797,3 +1799,9 @@ The small grass-clump variant retains the longgrass 3D blade material and root
 placement, with one third of blades and 65% blade dimensions. It stays harvestable
 longgrass. The hedged lane adds white flowers but no grass clumps or trees. Detected trees
 in its three-cell roadside influence use the rounded mossy-tree look. Mushroom imports use a muted warm tint to fit the existing caps.
+
+Road surface and lamp studies live in `design/road-style-concepts/`.
+`tools/preview_road_concepts.py` pairs shipping fixtures with preview-only
+`road-style-concepts.json` palettes and `road-concept-painter.js` patterns.
+Both sides retain the same placements and 20 × 7 crop. These concepts do not
+change runtime tables; the comparison labels each side and reuses game lamp art.

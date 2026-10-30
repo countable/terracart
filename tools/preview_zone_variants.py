@@ -694,7 +694,9 @@ def street_svg(v, cell_m, detail=False):
         left, top, width, height = mid_x - cell_m * 8 * framing, mid_y - cell_m * 5 * framing, cell_m * 16 * framing, cell_m * 10 * framing
     suffix = '-detail' if detail else ''
     pattern_id = f'street-grid-{v["id"]}{suffix}'
-    parts = [f'<svg role="img" aria-label="{html.escape(v["title"])} generated street arrangement" viewBox="{left} {top} {width} {height}">',
+    vine = next((o for o in v['objects'] if o.get('crop') == 'creeping_vine'), None)
+    focus = f' data-focus-x="{vine["x"]}"' if vine else ''
+    parts = [f'<svg role="img" aria-label="{html.escape(v["title"])} generated street arrangement" viewBox="{left} {top} {width} {height}"{focus}>',
              f'<defs><pattern id="{pattern_id}" width="{cell_m}" height="{cell_m}" patternUnits="userSpaceOnUse"><path d="M {cell_m} 0 H 0 V {cell_m}" fill="none" stroke="#bfd0b3" stroke-opacity=".08" stroke-width=".35"/></pattern></defs>',
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="#172820"/>',
              f'<rect x="{left}" y="{top}" width="{width}" height="{height}" fill="url(#{pattern_id})"/>',
@@ -733,6 +735,8 @@ def street_svg(v, cell_m, detail=False):
         label = html.escape(kind + (f' ({o["species"]})' if o.get('species') else '') + (f' · growth stage {o["variant"]}' if kind == 'tree' and 'variant' in o else ''))
         parts.append(f'<rect class="geometry-cell" x="{o["x"]-size/2}" y="{o["y"]-size/2}" width="{size}" height="{size}" rx=".8" fill="{color}"><title>{label}</title></rect>')
         parts.append(sprite_cell(art_prefix, street_material_key(o), o['x']-size/2, o['y']-size/2, size, o))
+        if o.get('crop') == 'creeping_vine':
+            parts.append(f'<g data-vine-marker><title>Creeping vine seed · grows during gameplay</title><path d="M {o["x"]} {o["y"]-cell_m*.4} v {-cell_m*.8}" stroke="#f4edbb" stroke-width=".3"/><text x="{o["x"]}" y="{o["y"]-cell_m*1.4}" text-anchor="middle" font-size="2.6" fill="#f4edbb">Creeping vine</text></g>')
     for vent in v.get('vents', []):
         cfg = art_registry()['ventConfig']
         frame = art_registry()['vents'][vent['kind']]['row'] * 5 + 3
@@ -800,6 +804,15 @@ def street_section(streets):
         if tiers: monsters += '; stays defeated; subject to placement and Home safety'
         affinity = ', '.join(v.get('affinities', [])) or 'Neutral'
         affinity_details = f'<dt>Affinities</dt><dd>{html.escape(affinity)}</dd>' + (f'<dt>Selection</dt><dd data-affinity-row="{v["id"]}" data-road-size="{v["size"]}"></dd>' if v['size'] != 'path' else '')
+        road_spawns = {
+            'toadstool': 'Yes · small and medium mushrooms',
+            'pottery': 'Yes · clay pots', 'rocky_path': 'Yes · rocks, flint and rubble',
+            'grassy_lane': 'Yes · grass', 'way_of_variety': 'Yes · mixed finds',
+            'thorny': 'Yes · brambles', 'barricade': 'Yes · barriers',
+            'snare': 'Yes · snares', 'spider_path': 'Yes · webs',
+            'slime_trail': 'Yes · slimes',
+        }.get(v['id'], 'No · themed scenery stays beside the road')
+        on_road_details = f'<dt>On the road</dt><dd data-on-road="{v["id"]}">{road_spawns}</dd>'
         terrain_details = '<dt>Road surface and ground</dt><dd>Cobbles over a 20% theme tint. Nearby terrain follows the variant’s ground rules.</dd>'
         if v['size'] == 'minor' or v.get('pathTerrainInfluence'):
             reach = v.get('terrainVergeCells', 2)
@@ -830,7 +843,7 @@ def street_section(streets):
             minutes = shrine.get('durationMs', 0) / 60000
             shrine_details = f'<dt>Daily shrine</dt><dd>{html.escape(shrine["name"])} · {html.escape(boon)} for {minutes:g} minutes. One per section where safe ground permits; once per UTC day.</dd>'
         scenic_details = (f'<dt>Geography</dt><dd>{html.escape(v["selection"])}</dd><dt>Rewards</dt><dd>{html.escape(v["rewards"])}</dd>' if v.get('scenicKind') else '')
-        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox-variant="{v['id']}" data-sandbox-type="road"></p><header>{tree_sample}<small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Straight sample · {v['roadWidthM']:g} m wide · ⊕ midpoint</figcaption></figure><p>{html.escape(v['body'])}</p><dl>{affinity_details}{terrain_details}{tree_details}{scenic_details}{shrine_details}{placement_details}<dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} candidate sites · diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
+        cards.append(f'''<article id="street-{v['id']}"><p data-sandbox-variant="{v['id']}" data-sandbox-type="road"></p><header>{tree_sample}<small>{selection} · {v['rung']}</small><h2>{html.escape(v['title'])}</h2></header><p class="mix"><b>{props} props over {v['lengthM']:g} m · {props/v['lengthM']*100:.1f} per 100 m in this sample</b><br>{inventory}</p><figure>{street_svg(v, streets['cellM'])}<figcaption>Straight sample · {v['roadWidthM']:g} m wide · ⊕ midpoint</figcaption></figure><p>{html.escape(v['body'])}</p><dl>{affinity_details}{on_road_details}{terrain_details}{tree_details}{scenic_details}{shrine_details}{placement_details}<dt>Lamps</dt><dd>{len(v['lamps'])} shown · {v['lampSpacingM']:g} m target spacing · <span class="swatch" style="background:{v['lampGlow']}"></span>{v['lampGlow']}</dd><dt>Monsters</dt><dd>{monsters}</dd><dt>Guard sites</dt><dd>{len(v['lairs'])} candidate sites · diamonds</dd><dt>Slows</dt><dd>{', '.join(v['slowKinds']) or 'None'}</dd><dt>Fauna</dt><dd>{fauna}</dd><dt>Sample key</dt><dd>{v['sampleName']} · tile ({streets['fixture']['tx']}, {streets['fixture']['ty']})</dd></dl></article>''')
     legend = ''
     contexts = html.escape(json.dumps(streets['affinityContexts']), quote=True)
     affinity_controls = f'<div class="affinity-controls" data-affinity-contexts="{contexts}"><label>Surroundings <select id="affinity-context">' + ''.join(f'<option value="{key}">{key.title()}</option>' for key in streets['affinityContexts']) + '</select></label><p>Compare theme chances for special roads without a name match. Surroundings change the probabilities, not the previews.</p></div>'
@@ -846,7 +859,7 @@ target.textContent=row.id==='golden' ? `Fixed rarity · ${(row.probability*100).
 select.addEventListener('change',update);update();
 })();</script>"""
     grouped = ''.join(f'<section id="roads-{size}"><h2>{label}</h2><div class="cards">' + ''.join(card for row, card in zip(streets['rows'], cards) if row['size'] == size) + '</div></section>' for size, label in [('minor', 'Small roads'), ('path', 'Paths')] if any(row['size'] == size for row in streets['rows']))
-    return f'''<section id="streets"><h1>{len(streets['rows'])} Small-road and path variants</h1><p>Small roads and paths have variants. Medium roads use Old Trade Road; large roads use dimensional rifts.</p><details><summary>How road samples are generated</summary><p>Generated from game road definitions, placement rules and art on straight test roads. The SVG previews simplify rendering: guard positions and fauna are illustrative, and lamp dimming is omitted. Use the sandbox to check the full game renderer. Satellite-tree overrides use the final tree position; Nexus and Home rules take precedence.</p><p>{streets['plainShare']['minor']*100:g}% of small-road keys remain plain. Names and surroundings influence special themes; paths also use geography. Theme sections span up to {streets['maxVariantLengthM']:g} m. Counts cover the full fixture; terrain and occupied cells affect placement.</p><p>Dots: line ends. Diamonds: guard sites. ⊕: midpoint. With art off, squares show props and circles show lamps.</p></details><p><a href="street-variants.json">Generated Small-road and path geometry</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
+    return f'''<section id="streets"><h1>{len(streets['rows'])} Small-road and path variants</h1><p><a href="../road-style-concepts/">Surface and lamp concepts · before / after</a></p><p>Small roads and paths have variants. Medium roads use Old Trade Road; large roads use dimensional rifts.</p><details><summary>How road samples are generated</summary><p>Generated from game road definitions, placement rules and art on straight test roads. The SVG previews simplify rendering: guard positions and fauna are illustrative, and lamp dimming is omitted. Use the sandbox to check the full game renderer. Satellite-tree overrides use the final tree position; Nexus and Home rules take precedence.</p><p>{streets['plainShare']['minor']*100:g}% of small-road keys remain plain. Names and surroundings influence special themes; paths also use geography. Theme sections span up to {streets['maxVariantLengthM']:g} m. Counts cover the full fixture; terrain and occupied cells affect placement.</p><p>Dots: line ends. Diamonds: guard sites. ⊕: midpoint. With art off, squares show props and circles show lamps.</p></details><p><a href="street-variants.json">Generated Small-road and path geometry</a> · <a href="#zones">Back to zone variants</a></p>{legend}<label class="art-switch"><input id="restored-pavement" type="checkbox" checked> Restored pavement (off = worn)</label>{affinity_controls}{grouped}{affinity_script}</section>'''
 
 
 

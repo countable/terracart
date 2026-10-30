@@ -498,9 +498,9 @@ access or tile lifecycle mechanics.
   its depth cap; an X at a trail's end (`Starter.isTrailTreasure`) shows and
   digs without waiting for the feet to stand beside it.
 - Each Pilgrim's Way street key owns one tile-local set of 3–6 waystones.
-  Waystones form one straight first-verge row, spaced two cells apart.
-  Geometry fragments share the set; blocked seats split runs, and fewer than
-  three consecutive legal seats produces no puzzle.
+  Waystones scatter deterministically within the two-cell painted verge, at least
+  two cells apart. Geometry fragments share the set; fewer than three spaced
+  legal seats produces no puzzle.
   Each stone carries `waystoneSet` and the actual `waystoneCount`; all seats
   are claimed together before later ambient dressing. Grounded feet light a stone
   for `Waystones.LIGHT_MS` and toasts the set's progress (“2/5 waystones
@@ -701,14 +701,16 @@ access or tile lifecycle mechanics.
   between special sections. The existing special-theme roll retains its rarity;
   its remaining stretches select a common route theme. Paths also select these
   common themes alongside their existing choices. Rocky Road / Path has simple
-  rocks and loose stone at cell-spaced attempts on both verges (three times the former attempt density); Grassy Lane fills eligible road cells and two verge
-  cells on each side with harvestable long grass, with herbs and bushes farther
-  out. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
+  common rocks, flint and rubble on the road and first verge row; no outer rock
+  decorations. Grassy Lane fills eligible road cells and two verge
+  cells on each side with harvestable long grass only. Grass uses ordinary clearing and regrowth, deterministic cell IDs, and
   the shared land/occupancy gates. Old Growth Path has
-  mature trees, shrubs and mushrooms; Haunt lays dark cobbles with the shared dead-tree art,
+  mature trees and mushrooms, with no generated stumps or bushes; Haunt lays dark cobbles with the shared dead-tree art,
   headstones and mushrooms. Way of Variety densely fills its road or path
   surface and two verge cells on each side (Grassy Lane's cross-section) with
-  deterministic common plants, rocks, mature trees, pots and barrels; none
+  deterministic common plants, rocks, pots and barrels, with occasional T1–T2 crop
+  plants, copper and rose quartz. It adds no trees; detected trees retain their
+  themed appearance. None
   blocks movement. All use existing interactions and shared spawn gates; Grassy
   Lane and Way of Variety intentionally cover their road surfaces.
 - Road-variant scenery starts in the first adjacent verge cell. Additional
@@ -755,18 +757,23 @@ access or tile lifecycle mechanics.
   Nexus and Home take precedence. There is no separate hedge-strip prop. Mossy, conifer and bare
   trees share the normal three growth sizes; all bare-tree routes use one art
   family. Paralysis and Confusion paths use the large lavender tree. Gone to
-  Seed repeats a single ordered row of seedlings, young trees, mature pines,
-  dead trees and stumps, with no rocks or extra scattered trees. Its grass
-  clumps use the long-grass 3D material with fewer, smaller blades.
+  Seed fills one verge with equally sized groups of seedlings, young trees,
+  mature pines, dead trees and stumps, in that order. Each group’s count scales
+  with road length; seats are one cell apart with no intentional gaps. Its
+  selected shrine occupies the next seat after the stumps. Occupancy and
+  safety gates can leave gaps. It adds no rocks, grass, ferns or scattered trees.
   Chopped trees leave non-blocking visual stumps, including saved planted-tree
   stumps. Underdark ground cover intersperses pale luminous fungus clusters.
-- Toadstool Lane mixes small pickups and medium mushroom bushes along both
-  two-cell verges, with occasional giants. Medium clumps use bush chopping
+- Toadstool Lane mixes small pickups and medium mushroom bushes on the road
+  and along both two-cell verges, with occasional giants. Medium clumps use bush chopping
   and cover, yielding one wood and one mushroom; small caps remain pickups.
   Snare Lane paints three cells of dirt on each side, with rocks and bones
   scattered across the strip. It keeps its trapped chest and adds up to 12 seeded scattered
   snares, spaced at least two cells apart. Barricade Road adds up to six
   seeded ground stakes along its verges without adding guard posts.
+- Causeway places water pools within three cells of both verges, with dry gaps.
+  Whole road cells, diagonal road corners, crossings and protected occupied
+  cells stay dry. Pools use ordinary water movement and submersion.
 - Medium roads are always **Old Trade Road**, and large roads are always
   **Ancient Highway**. Neither receives road variants, themed obstacles,
   themed guards or variant flora. Both retain road suppression. Selected mapped bus stops off the MD carriageway can retain
@@ -1158,7 +1165,7 @@ Higher-priority placements and their access space take precedence in this order:
    skipped rather than moving the sign farther from its road.
    Small-road themes also paint ground beneath the road and within their
    configured verge: two cells by default, Orchard one cell of grass,
-   Pilgrim two cells of Old Stones churchyard ground, and Snare and Thorny
+   Pilgrim two cells of Old Stones churchyard ground, and Snare, Barricade and Thorny
    three cells. Old Growth, Grassy, Spider and Poison path themes opt into forest,
    grass, cave floor and wetland buffers respectively. Other paths retain
    source ground. Water, buildings, Nexus coverage, access exclusions and
@@ -1178,7 +1185,7 @@ Higher-priority placements and their access space take precedence in this order:
    and their guards retain the fast-enemy spawn gate.
    Berry Lane (a Small-road row) and Berry Trail (a path row) line both
    verges with bushes of every kind (`BERRY_LANE_BUSHES`: shrubs, berry and
-   poisonberry bushes, and brambles never more than a third), one sample a
+   poisonberry bushes, and occasional brambles), one sample a
    cell with a quarter left empty; `GOLDEN_BUSH_SHARE.street` (one in
    fifty) of those bushes is the golden berry bush, and every other ambient
    bush the world seats (the biome scatter, yards, park pads, mapped tree
@@ -1189,6 +1196,8 @@ Higher-priority placements and their access space take precedence in this order:
    third of them held (`BERRY_RUNT_CHANCE`), seats the `street_berry`
    garrison one cell behind the bush row: one ambusher that hides in the
    nearest bush.
+   Berry Lane uses 50% ordinary shrubs, 25% berry bushes, 15% poisonberry
+   and 10% brambles before the golden roll, with no yellow flowers.
    Berry Trail uses a denser, gap-free first-verge row: 80% berry bushes,
    10% poisonberry, 5% ordinary shrubs and 5% brambles before the shared
    golden roll. One existing giant-bear encounter is seated behind the bushes.
@@ -1196,7 +1205,8 @@ Higher-priority placements and their access space take precedence in this order:
    with two ranks of generated clay pots (`VERGE_ROWS.pottery`): one sample
    a cell without random gaps (`POTTERY_GAP` and `POTTERY_BACK_GAP` are zero).
    The front rank uses the first verge cell; the back rank uses the second.
-   Both use the shared reward gate and road safety rules. No guards and no
+   A third row places pots directly on the road every two cells. All use
+   the shared reward gate and road safety rules. No guards and no
    POI: a pot is a smashable
    prop (`CLAY_POT_LOOT`, a coin a quarter of the time). It is the only
    street that stands clay pots.

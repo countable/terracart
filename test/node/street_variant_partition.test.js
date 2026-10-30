@@ -134,6 +134,34 @@
       for(const type of ['objects','wildplants','traps','webs','vents','lairs'])assert.eq(blocked[type].length,0,type+' drops instead of using outer rows');
     }
   });
+  test('Rocky Road: common finds use the road and first verge only, including diagonal roads',()=>{
+    assert.eq(StreetVariants.VARIANT_BY_ID.rocky_path.placementVergeCells,1);
+    for(const diagonal of [false,true]) {
+      const rec=road('rocky-first-row','rocky_path',12.5);
+      if(diagonal)rec.line=[{x:2.5,y:2.5},{x:29.5,y:29.5}];
+      const index={extent:N,dressingLines:[rec]},grid=new Uint8Array(N*N).fill(WorldGen.T.GRASS);
+      const roadMask=new Uint8Array(N*N),occupied=new Set();
+      for(let y=0;y<N;y++)for(let x=0;x<N;x++) {
+        const distance=edgeDistance(rec,x+.5,y+.5);
+        if(distance<=0){grid[y*N+x]=WorldGen.T.ROAD;roadMask[y*N+x]=1;}
+        if(distance<=1+1e-9)occupied.add(y*N+x);
+      }
+      const run=occupied=>StreetVariants.dress({index,N,grid,tx:0,ty:0,tileEdgeM:N*cellM,
+        spawnOpts:{roadMask,spawnWhy:new Uint16Array(N*N),occupied}});
+      const result=run(new Set()),finds=[...result.objects,...result.wildplants].filter(p=>p._street==='rocky_path'&&p.kind!=='roadsign');
+      assert.gt(finds.length,10,'common finds remain plentiful');
+      assert.truthy(finds.some(p=>roadMask[Math.floor(p.y/cellM)*N+Math.floor(p.x/cellM)]),'finds spawn directly on the road');
+      assert.truthy(finds.some(p=>edgeDistance(rec,p.x/cellM,p.y/cellM)>0),'adjacent finds remain');
+      for(const p of finds) {
+        assert.lte(edgeDistance(rec,p.x/cellM,p.y/cellM),1+1e-9,'no outer-row finds');
+        assert.falsy(p._streetArt,'outer mossy, muted, dusty and dark rocks are absent');
+        assert.truthy(p.kind==='mineralrock'||['flint','rubble'].includes(p.crop),'only the original adjacent types');
+      }
+      const blocked=run(occupied);
+      assert.eq([...blocked.objects,...blocked.wildplants].filter(p=>p._street==='rocky_path'&&p.kind!=='roadsign').length,0,
+        'blocked inner seats do not relocate outside the first row');
+    }
+  });
   test('road influence: themed additions occupy their painted terrain on straight and diagonal routes',()=>{
     const counts=new Map();
     for(const row of StreetVariants.STREET_VARIANTS)for(const diagonal of [false,true]) {
@@ -146,7 +174,8 @@
       const result=StreetVariants.dress({index,N,grid,tx:0,ty:0,tileEdgeM:N*cellM,spawnOpts:{roadMask,spawnWhy,occupied:new Set()}});
       for(const type of ['objects','wildplants','traps','webs','vents','lairs'])for(const p of result[type]) {
         const x=Math.floor((p.x ?? p.lx)/cellM),y=Math.floor((p.y ?? p.ly)/cellM);
-        assert.truthy(painted[y*N+x],row.id+' '+type+' must stand on its terrain influence');
+        if(row.terrainPools)assert.truthy(grid[y*N+x]!==WorldGen.T.WATER,row.id+' '+type+' stays on dry ground');
+        else assert.truthy(painted[y*N+x],row.id+' '+type+' must stand on its terrain influence');
         counts.set(row.id,(counts.get(row.id)||0)+1);
       }
     }

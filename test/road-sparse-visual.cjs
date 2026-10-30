@@ -76,6 +76,14 @@ const read = name => fs.readFileSync(path.join(root, name), 'utf8');
     assert(result.swatch > .55, 'shared preview painter must preserve gaps');
     assert(result.formalRegular && result.formalSeparate, 'formal setts repeat evenly without replacing other moss-family roads');
     assert(result.formalGaps > 0 && result.formalAdded > 0, 'formal repairs fill missing stones and retain transparent joints');
+    const potteryHues=await page.evaluate(()=>[false,true].map(restored=>{
+      const c=RoadOverlay.selectedRoadTile('pottery',restored);
+      const d=c.getContext('2d').getImageData(0,0,c.width,c.height).data,hues=new Set();
+      for(let i=0;i<d.length;i+=4)if(d[i+3]===255)hues.add((d[i]-d[i+1])+','+(d[i+1]-d[i+2]));
+      return [...hues].sort();
+    }));
+    assert.deepEqual(potteryHues,[['38,53','80,37'],['38,53','80,37']],
+      'both repair states use only the two clay-pot hues, with neutral texture shading');
     const expected=JSON.parse(read('test/road-theme-pixels.json'));
     const actual=await page.evaluate(rows=>rows.map(({id,restored})=>{
       const tile=RoadOverlay.selectedRoadTile(id,restored);

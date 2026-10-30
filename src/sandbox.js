@@ -1285,7 +1285,7 @@
     entry.streetGround = new Uint8Array(c.cellsPerEdge * c.cellsPerEdge);
     driveSteps(StreetVariants.paintTerrainSteps({ index, grid: entry.grid, N: c.cellsPerEdge,
       roadMask: spawnOpts.roadMask, spawnWhy: spawnOpts.spawnWhy, zone: entry.zone,
-      streetGround: entry.streetGround }));
+      streetGround: entry.streetGround, occupied: spawnOpts.occupied }));
     driveSteps(StreetVariants.stampBanditStretchesSteps(index, entry.roadClass, c.cellsPerEdge, c.tx, c.ty));
     const dressing = StreetVariants.dress({ index, tx: c.tx, ty: c.ty, N: c.cellsPerEdge,
       tileEdgeM: c.tileEdgeM, grid: entry.grid, spawnOpts });

@@ -8,10 +8,13 @@
   const previews = [...document.querySelectorAll('svg[data-zone-preview]')];
   const streets = [...document.querySelectorAll('#streets article > figure > svg')].map(svg => {
     const box = svg.viewBox.baseVal;
+    const road = svg.querySelector('path[stroke="#786955"]');
+    const roadStart = road.getPointAtLength(0), roadEnd = road.getPointAtLength(road.getTotalLength());
     const caption = document.createElement('span');
     svg.closest('figure').querySelector('figcaption')?.append(caption);
     return { svg, caption, x: box.x, y: box.y, width: box.width, height: box.height,
-      length: svg.querySelector('path[stroke="#786955"]').getTotalLength(),
+      road: { x: Math.min(roadStart.x, roadEnd.x), width: Math.abs(roadEnd.x - roadStart.x) },
+      focusX: svg.hasAttribute('data-focus-x') ? Number(svg.dataset.focusX) : box.x + box.width / 2,
       label: svg.getAttribute('aria-label') };
   });
   const status = document.getElementById('zone-size-status');
@@ -50,8 +53,9 @@
     for (const p of streets) {
       const metresWide = Math.min(width * 7, p.width);
       const metresHigh = Math.min(height * 7, p.height);
-      const visibleLength = Math.round(Math.min(metresWide, p.length) * 10) / 10;
-      p.svg.setAttribute('viewBox', `${p.x + (p.width - metresWide) / 2} ${p.y + (p.height - metresHigh) / 2} ${metresWide} ${metresHigh}`);
+      const left = Math.max(p.x, Math.min(p.x + p.width - metresWide, p.focusX - metresWide / 2));
+      const visibleLength = Math.round(Math.max(0, Math.min(left + metresWide, p.road.x + p.road.width) - Math.max(left, p.road.x)) * 10) / 10;
+      p.svg.setAttribute('viewBox', `${left} ${p.y + (p.height - metresHigh) / 2} ${metresWide} ${metresHigh}`);
       p.svg.setAttribute('preserveAspectRatio', 'xMidYMid meet');
       p.svg.style.aspectRatio = `${metresWide} / ${metresHigh}`;
       const dimensions = `${Math.round(metresWide * 10) / 10} × ${Math.round(metresHigh * 10) / 10} m`;

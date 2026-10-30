@@ -262,12 +262,12 @@
   {
     "id": "pottery",
     "restored": false,
-    "hash": "46010dcb"
+    "hash": "1678764b"
   },
   {
     "id": "pottery",
     "restored": true,
-    "hash": "a073adbc"
+    "hash": "fa8dfc9c"
   },
   {
     "id": "trade",
@@ -328,5 +328,15 @@
     "id": "way_of_variety",
     "restored": true,
     "hash": "d94675f3"
+  },
+  {
+    "id": "causeway",
+    "restored": false,
+    "hash": "568c2374"
+  },
+  {
+    "id": "causeway",
+    "restored": true,
+    "hash": "66167f71"
   }
 ]

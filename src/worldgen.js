@@ -6722,7 +6722,9 @@
     const streetGround = new Uint8Array(w * h);
     const streetTerrain = typeof StreetVariants !== 'undefined'
       ? yield* StreetVariants.paintTerrainSteps({ index: streetIndex, scenic,
-        transportation: layersByName.transportation, grid, N: w, roadMask, roadClass, spawnWhy, zone, streetGround }) : null;
+        transportation: layersByName.transportation, grid, N: w, roadMask, roadClass, spawnWhy, zone, streetGround,
+        occupied: occupiedIndexSet(tileFrame({ cellsPerEdge: w }, tx, ty, tileEdgeM),
+          deduped.filter(o => !isGeneralAmbientRecord(o))) }) : null;
     const hasStreetTerrain = streetTerrain && streetTerrain.some(Boolean);
     if (hasStreetTerrain) yield* clearStreetAmbientSteps({ area: streetTerrain,
       objects: deduped, wildplants: filtered, tx, ty, N: w, tileEdgeM });

@@ -706,11 +706,14 @@
     "grassy_lane": "#92a087",
     "old_growth_path": "#777c68",
     "haunted_forest_path": "#5a5766",
-    "way_of_variety": "#a89d86"
+    "way_of_variety": "#a89d86",
+    "causeway": "#8c9c96"
 };
   // Mixed-stone themes: each cobble of the sparse layout takes one of these
   // approved theme colours (its primary colour above still tints the joints).
   const ROAD_THEME_MIXES = {
+    // Main clay colours sampled from the two shipping clay_pot frames.
+    pottery: ['#bf6f4a', '#c29c67'],
     way_of_variety: ['rocky_path', 'pottery', 'grassy_lane', 'toadstool', 'haunted_forest_path', 'golden', 'berry']
       .map(id => ROAD_THEME_COLORS[id]),
   };
@@ -731,7 +734,7 @@
   }
   function themeColor(id,restored,color=ROAD_THEME_COLORS[id] || ROAD_THEME_COLORS.plain) {
     const rgb=[1,3,5].map(i=>parseInt(color.slice(i,i+2),16));
-    if(id==='burned')return rgb;
+    if(id==='burned'||id==='pottery')return rgb;
     const light=.2126*rgb[0]+.7152*rgb[1]+.0722*rgb[2];
     return rgb.map(channel=>light+(channel-light)*(restored ? 1.15 : .55));
   }
