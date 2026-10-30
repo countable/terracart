@@ -978,20 +978,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "hedgerow",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "The hedged lane",
-              "variant": "hedgerow"
-            }
-          ]
-        },
-        {
           "kind": "grove_shrine",
           "x": 801.5,
           "y": 787.5,
@@ -1048,6 +1034,17 @@
           "_street": "hedgerow",
           "_ix": 100,
           "_iy": 113,
+          "_streetArt": "clipped"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "hedge_2622_5615_100_115",
+          "_street": "hedgerow",
+          "_ix": 100,
+          "_iy": 115,
           "_streetArt": "clipped"
         },
         {
@@ -2869,20 +2866,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "overgrown",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Gone to seed",
-              "variant": "overgrown"
-            }
-          ]
-        },
-        {
           "kind": "tree",
           "x": 703.5,
           "y": 794.5,
@@ -3739,20 +3722,6 @@
       "lengthM": 215.60000000000014,
       "lampSpacingM": 66.66666666666667,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "orchard",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Orchard Lane",
-              "variant": "orchard"
-            }
-          ]
-        },
         {
           "kind": "tree",
           "x": 696.5,
@@ -5153,20 +5122,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "pilgrim",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Pilgrim's Way",
-              "variant": "pilgrim"
-            }
-          ]
-        },
-        {
           "kind": "waystone",
           "x": 864.5,
           "y": 801.5,
@@ -5363,22 +5318,7 @@
       "roadWidthM": 2,
       "lengthM": 107.80000000000003,
       "lampSpacingM": 8.333333333333334,
-      "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "lantern",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Lantern Row",
-              "variant": "lantern"
-            }
-          ]
-        }
-      ],
+      "objects": [],
       "lamps": [
         {
           "tileKey": "14/2622/5615",
@@ -6484,24 +6424,17 @@
       "lampSpacingM": 66.66666666666667,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "burned",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Burned Row",
-              "variant": "burned"
-            }
-          ]
-        },
-        {
           "kind": "stakes",
           "x": 696.5,
           "y": 794.5,
           "id": "stakes_2622_5615_99_113",
+          "_street": "burned"
+        },
+        {
+          "kind": "stakes",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "stakes_2622_5615_100_115",
           "_street": "burned"
         },
         {
@@ -7756,20 +7689,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 16.666666666666668,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "barricade",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "The barricade",
-              "variant": "barricade"
-            }
-          ]
-        },
         {
           "kind": "stakes",
           "x": 773.5,
@@ -9051,20 +8970,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "toadstool",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Toadstool Lane",
-              "variant": "toadstool"
-            }
-          ]
-        },
-        {
           "kind": "chest",
           "x": 906.5,
           "y": 801.5,
@@ -9270,6 +9175,15 @@
           "id": "wp_ts_2622_5615_99_115",
           "_street": "toadstool",
           "_plantArt": "ordinary"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "mushroom_bush",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "wp_ts_2622_5615_100_115",
+          "_street": "toadstool",
+          "_streetArt": "red_mushroom"
         },
         {
           "kind": "wildplant",
@@ -12264,20 +12178,6 @@
       "lampSpacingM": 8.333333333333334,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "promenade",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "The promenade",
-              "variant": "promenade"
-            }
-          ]
-        },
-        {
           "kind": "wildplant",
           "crop": "golden_flower",
           "x": 766.5,
@@ -12840,20 +12740,6 @@
           "_street": "greenway"
         },
         {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "greenway",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "A greenway",
-              "variant": "greenway"
-            }
-          ]
-        },
-        {
           "kind": "wildplant",
           "crop": "white_flower",
           "x": 766.5,
@@ -13181,20 +13067,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 9.523809523809524,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "parkpath",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "The park path",
-              "variant": "parkpath"
-            }
-          ]
-        },
         {
           "kind": "wildplant",
           "crop": "white_flower",
@@ -14780,20 +14652,6 @@
       "lengthM": 215.60000000000014,
       "lampSpacingM": 33.333333333333336,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "snare",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Snare Lane",
-              "variant": "snare"
-            }
-          ]
-        },
         {
           "kind": "chest",
           "x": 801.5,
@@ -16838,20 +16696,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "thorny",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Thorny Way",
-              "variant": "thorny"
-            }
-          ]
-        },
-        {
           "kind": "grove_shrine",
           "x": 801.5,
           "y": 787.5,
@@ -17105,6 +16949,26 @@
           "x": 703.5,
           "y": 787.5,
           "id": "bramble_2622_5615_100_112",
+          "_street": "thorny",
+          "_streetArt": "bramble",
+          "_spawnClass": "streetObstacle"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "bramble_2622_5615_100_115",
+          "_street": "thorny",
+          "_streetArt": "bramble",
+          "_spawnClass": "streetObstacle"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "bramble_2622_5615_100_116",
           "_street": "thorny",
           "_streetArt": "bramble",
           "_spawnClass": "streetObstacle"
@@ -19170,20 +19034,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "goblin_gang",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Goblin Gang Street",
-              "variant": "goblin_gang"
-            }
-          ]
-        },
-        {
           "kind": "chest",
           "x": 717.5,
           "y": 808.5,
@@ -19223,9 +19073,9 @@
         },
         {
           "kind": "chest",
-          "x": 724.5,
-          "y": 808.5,
-          "id": "gang_barrel_2622_5615_103_115",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "gang_barrel_2622_5615_100_116",
           "barrel": true,
           "_street": "goblin_gang",
           "previewContainerFrame": 3
@@ -19504,8 +19354,8 @@
           "kind": "wildplant",
           "crop": "driftwood",
           "x": 703.5,
-          "y": 815.5,
-          "id": "route_goblin_gang_2622_5615_100_116",
+          "y": 808.5,
+          "id": "route_goblin_gang_2622_5615_100_115",
           "_street": "goblin_gang",
           "_streetArt": "plank_fragments"
         },
@@ -19851,20 +19701,6 @@
       "lampSpacingM": 16.666666666666668,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "golden_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Golden Path",
-              "variant": "golden_path"
-            }
-          ]
-        },
-        {
           "kind": "grove_shrine",
           "x": 745.5,
           "y": 794.5,
@@ -19877,6 +19713,11 @@
               "x": 4203817.1,
               "y": 9001646.5,
               "id": "golden_path_coin_2622_5615_107_114"
+            },
+            {
+              "x": 4203824.1,
+              "y": 9001646.5,
+              "id": "golden_path_coin_2622_5615_108_114"
             },
             {
               "x": 4203831.1,
@@ -19958,6 +19799,11 @@
               "x": 4203817.1,
               "y": 9001646.5,
               "id": "golden_path_coin_2622_5615_107_114"
+            },
+            {
+              "x": 4203824.1,
+              "y": 9001646.5,
+              "id": "golden_path_coin_2622_5615_108_114"
             },
             {
               "x": 4203831.1,
@@ -20268,20 +20114,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 16.666666666666668,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "slime_trail",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Slime Trail",
-              "variant": "slime_trail"
-            }
-          ]
-        },
         {
           "kind": "wildplant",
           "crop": "slime_slick",
@@ -21005,20 +20837,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 16.666666666666668,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "spider_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Spider Path",
-              "variant": "spider_path"
-            }
-          ]
-        },
         {
           "kind": "chest",
           "x": 766.5,
@@ -21861,20 +21679,6 @@
       "lampSpacingM": 16.666666666666668,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "poison_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Poison Path",
-              "variant": "poison_path"
-            }
-          ]
-        },
-        {
           "kind": "grove_shrine",
           "x": 752.5,
           "y": 794.5,
@@ -22156,20 +21960,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 16.666666666666668,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "fire_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Fire Path",
-              "variant": "fire_path"
-            }
-          ]
-        },
         {
           "kind": "mineralrock",
           "x": 766.5,
@@ -23322,20 +23112,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "paralysis_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Paralysis Path",
-              "variant": "paralysis_path"
-            }
-          ]
-        },
-        {
           "kind": "grove_shrine",
           "x": 696.5,
           "y": 794.5,
@@ -23566,20 +23342,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 16.666666666666668,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "confusion_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Confusion Path",
-              "variant": "confusion_path"
-            }
-          ]
-        },
         {
           "kind": "grove_shrine",
           "x": 752.5,
@@ -24650,20 +24412,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "berry",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Berry Lane",
-              "variant": "berry"
-            }
-          ]
-        },
-        {
           "kind": "grove_shrine",
           "x": 801.5,
           "y": 801.5,
@@ -24711,6 +24459,14 @@
           "x": 703.5,
           "y": 794.5,
           "id": "wp_berrylane_2622_5615_100_113",
+          "_street": "berry"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "shrub",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "wp_berrylane_2622_5615_100_115",
           "_street": "berry"
         },
         {
@@ -25572,20 +25328,6 @@
       "lengthM": 107.80000000000003,
       "lampSpacingM": 16.666666666666668,
       "objects": [
-        {
-          "kind": "roadsign",
-          "x": 758.0999999996275,
-          "y": 803.9000000003725,
-          "id": "street_sign_2622_5615_108_114",
-          "_street": "berry_trail",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Berry Trail",
-              "variant": "berry_trail"
-            }
-          ]
-        },
         {
           "kind": "wildplant",
           "crop": "shrub",
@@ -27002,20 +26744,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "pottery",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Pottery Road",
-              "variant": "pottery"
-            }
-          ]
-        },
-        {
           "kind": "chest",
           "x": 703.5,
           "y": 801.5,
@@ -27190,6 +26918,16 @@
           "x": 703.5,
           "y": 794.5,
           "id": "pot_2622_5615_100_113",
+          "barrel": true,
+          "barrelStyle": "clay_pot",
+          "_street": "pottery",
+          "previewContainerFrame": 0
+        },
+        {
+          "kind": "chest",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "pot_2622_5615_100_115",
           "barrel": true,
           "barrelStyle": "clay_pot",
           "_street": "pottery",
@@ -28520,7 +28258,7 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Clay pots sit on the road and in two verge rows where space permits."
+      "placement": "Clay pots sit on the road and in two verge rows where space permits. Eligible surface pots have a 20% snake chance."
     },
     {
       "id": "trade",
@@ -29413,20 +29151,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "trade",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Trade Row",
-              "variant": "trade"
-            }
-          ]
-        },
-        {
           "kind": "chest",
           "x": 710.5,
           "y": 794.5,
@@ -29899,6 +29623,17 @@
         },
         {
           "kind": "chest",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "route_trade_2622_5615_100_115",
+          "_street": "trade",
+          "_streetArt": "pottery_stack",
+          "barrel": true,
+          "barrelStyle": "street_decor_pottery_stack",
+          "previewContainerFrame": "__BASE"
+        },
+        {
+          "kind": "chest",
           "x": 717.5,
           "y": 794.5,
           "id": "route_trade_2622_5615_102_113",
@@ -30319,7 +30054,7 @@
         }
       ],
       "slowKinds": [],
-      "placement": "Barrels line both verges with 30% gaps. Two-grunt posts are sampled every 25 m; 67% are occupied."
+      "placement": "Barrels line both verges with 30% gaps. Thief-and-two-grunt posts are sampled every 25 m; 67% are occupied."
     },
     {
       "id": "rocky_path",
@@ -31218,24 +30953,19 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "rocky_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Rocky Road / Path",
-              "variant": "rocky_path"
-            }
-          ]
-        },
-        {
           "kind": "mineralrock",
           "x": 696.5,
           "y": 808.5,
           "id": "route_rocky_path_2622_5615_99_115",
+          "_street": "rocky_path",
+          "requiredTier": 1,
+          "yieldTier": 1
+        },
+        {
+          "kind": "mineralrock",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "route_rocky_path_2622_5615_100_115",
           "_street": "rocky_path",
           "requiredTier": 1,
           "yieldTier": 1
@@ -32626,20 +32356,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "grassy_lane",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Grassy Lane",
-              "variant": "grassy_lane"
-            }
-          ]
-        },
-        {
           "kind": "chest",
           "x": 913.5,
           "y": 794.5,
@@ -32703,6 +32419,22 @@
           "x": 703.5,
           "y": 794.5,
           "id": "route_grassy_lane_2622_5615_100_113",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "route_grassy_lane_2622_5615_100_115",
+          "_street": "grassy_lane"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "longgrass",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "route_grassy_lane_2622_5615_100_116",
           "_street": "grassy_lane"
         },
         {
@@ -33639,15 +33371,6 @@
           "x": 703.5,
           "y": 787.5,
           "id": "route_grassy_lane_2622_5615_100_112",
-          "_street": "grassy_lane",
-          "_streetArt": "grass_clump"
-        },
-        {
-          "kind": "wildplant",
-          "crop": "longgrass",
-          "x": 703.5,
-          "y": 815.5,
-          "id": "route_grassy_lane_2622_5615_100_116",
           "_street": "grassy_lane",
           "_streetArt": "grass_clump"
         },
@@ -34741,24 +34464,20 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "old_growth_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Old Growth Path",
-              "variant": "old_growth_path"
-            }
-          ]
-        },
-        {
           "kind": "tree",
           "x": 703.5,
           "y": 794.5,
           "id": "route_old_growth_path_2622_5615_100_113",
+          "_street": "old_growth_path",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "variant": 3
+        },
+        {
+          "kind": "tree",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "route_old_growth_path_2622_5615_100_115",
           "_street": "old_growth_path",
           "species": "maple",
           "treeSpeciesFixed": true,
@@ -36288,20 +36007,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "haunted_forest_path",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Haunt",
-              "variant": "haunted_forest_path"
-            }
-          ]
-        },
-        {
           "kind": "ground_hole",
           "x": 731.5,
           "y": 801.5,
@@ -36330,6 +36035,17 @@
           "x": 703.5,
           "y": 794.5,
           "id": "route_haunted_forest_path_2622_5615_100_113",
+          "_street": "haunted_forest_path",
+          "species": "maple",
+          "treeSpeciesFixed": true,
+          "variant": 3,
+          "_objectArt": "dead_tree"
+        },
+        {
+          "kind": "tree",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "route_haunted_forest_path_2622_5615_100_115",
           "_street": "haunted_forest_path",
           "species": "maple",
           "treeSpeciesFixed": true,
@@ -37735,20 +37451,6 @@
       "lampSpacingM": 33.333333333333336,
       "objects": [
         {
-          "kind": "roadsign",
-          "x": 704.2000000001863,
-          "y": 805.6500000003725,
-          "id": "street_sign_2622_5615_100_115",
-          "_street": "way_of_variety",
-          "directions": [
-            {
-              "direction": "East",
-              "title": "Way of Variety",
-              "variant": "way_of_variety"
-            }
-          ]
-        },
-        {
           "kind": "mineralrock",
           "x": 696.5,
           "y": 794.5,
@@ -38140,17 +37842,6 @@
         },
         {
           "kind": "chest",
-          "x": 703.5,
-          "y": 815.5,
-          "id": "route_way_of_variety_2622_5615_100_116",
-          "_street": "way_of_variety",
-          "_streetArt": "pottery_stack",
-          "barrel": true,
-          "barrelStyle": "street_decor_pottery_stack",
-          "previewContainerFrame": "__BASE"
-        },
-        {
-          "kind": "chest",
           "x": 710.5,
           "y": 787.5,
           "id": "route_way_of_variety_2622_5615_101_112",
@@ -38395,6 +38086,22 @@
           "x": 703.5,
           "y": 801.5,
           "id": "route_way_of_variety_2622_5615_100_114",
+          "_street": "way_of_variety"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "rubble",
+          "x": 703.5,
+          "y": 808.5,
+          "id": "route_way_of_variety_2622_5615_100_115",
+          "_street": "way_of_variety"
+        },
+        {
+          "kind": "wildplant",
+          "crop": "flint",
+          "x": 703.5,
+          "y": 815.5,
+          "id": "route_way_of_variety_2622_5615_100_116",
           "_street": "way_of_variety"
         },
         {

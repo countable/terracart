@@ -829,9 +829,9 @@
     assert.eq(old.bookshopId, 'n');
   });
 
-  test('chest themes: the Book is in every tier-2 roll at the owner\'s share', () => {
+  test('chest themes: the Book is in every ordinary tier-2 roll at the owner\'s share', () => {
     assert.eq(ChestThemes.BOOK_T2_SHARE, 20);
-    for (const theme of Object.keys(ChestThemes.themes)) {
+    for (const theme of Object.keys(ChestThemes.themes).filter(id => !ChestThemes.themes[id].cache)) {
       for (const depth of [0, 1]) {
         const w = ChestThemes.weights(theme, 2, { depth, tier: 2 });
         assert.inRange(Object.values(w).reduce((a, b) => a + b, 0), 99.999, 100.001, `${theme} d${depth} conserves`);
@@ -843,6 +843,13 @@
       // a tome only from T3), a row without gets plainBook (the Book always).
       assert.eq(ChestThemes.eligible('books', 2, { theme }).join(), 'book', `${theme}: the Book, not a tome`);
       for (const t of [1, 2, 3, 5]) assert.eq(ChestThemes.eligible('plainBook', t, { theme }).join(), 'book', `${theme}: plainBook at T${t}`);
+    }
+    for (const [theme, definition] of Object.entries(ChestThemes.themes).filter(([, row]) => row.cache)) {
+      for (const tier of [1, 2, 3]) for (const depth of [0, 1]) {
+        const weights = ChestThemes.weights(theme, tier, { tier: 2, depth });
+        assert.eq(JSON.stringify(weights), JSON.stringify(definition.weights), `${theme} keeps its dedicated cache roll`);
+        assert.falsy(weights.plainBook, `${theme} receives no injected Book lane`);
+      }
     }
     assert.eq(ChestThemes.weights('food', 2, { tier: 2 }).plainBook, ChestThemes.BOOK_T2_SHARE, 'a row without a book lane gets the plain Book');
     assert.eq(ChestThemes.weights('worship', 2, { tier: 2 }).books, ChestThemes.BOOK_T2_SHARE, 'a row with one is topped up');

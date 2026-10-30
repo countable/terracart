@@ -288,13 +288,15 @@
       }
       return entry;
     };
-    const a=make(), first=generate(a).filter(c=>c.kind==='snake'), second=generate(make()).filter(c=>c.kind==='snake');
+    const varietySnake=c=>c.kind==='snake'&&c._habitatSpawn?.key==='street:way_of_variety';
+    const a=make(), first=generate(a).filter(varietySnake), second=generate(make()).filter(varietySnake);
     assert.eq(first.length,3,'three safe corridor slots per tile');
     assert.eq(signature(first),signature(second),'stable snake identities and positions');
     for(const c of first){const i=Math.floor(c.y/10)*64+Math.floor(c.x/10);assert.eq(a.streetArea[i],1,'inside winning corridor');}
     const row=EnemyRoster.ROWS.find(r=>r.id==='snake');
     assert.falsy(row.boss);assert.falsy(row.untargetable);assert.eq(row.movement.pattern,'pursue');
-    assert.eq(generate(fixture()).filter(c=>c.kind==='snake').length,0,'no ordinary land snake spillover');
+    assert.eq(generate(fixture()).filter(varietySnake).length,0,'no Variety-owned snake outside its corridor');
+    assert.includes(row.surface.biomes,'GRASS','the corridor uses the shared native snake');
   });
 
 })();

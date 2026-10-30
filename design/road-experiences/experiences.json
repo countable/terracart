@@ -38,6 +38,10 @@
       {
         "text": "Plant guards and a wild-boar encounter interrupt the woodland walk; some streets also have a bear.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed seed cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -63,6 +67,10 @@
       {
         "text": "Farmer-goblin guards make some harvesting stops contested.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed fruit cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -88,6 +96,10 @@
       {
         "text": "The completed set records its reward, so the same puzzle cannot be farmed repeatedly.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed sacred cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -320,9 +332,9 @@
   {
     "id": "goblin_gang",
     "feeling": "You have walked into someone else\u2019s territory.",
-    "arrival": "Barrel stacks and grouped goblins signal occupied ground rather than an isolated encounter.",
+    "arrival": "Barrel stacks and grouped goblins guard the road; red barrels offer a dangerous opening.",
     "art": [
-      "Make existing barrel stacks the landmark for each gang.",
+      "Red explosive barrels punctuate the wooden stacks.",
       "Keep goblin silhouettes visible around the stacks.",
       "Use dusty ground and plank fragments to connect each group without adding new fortifications."
     ],
@@ -333,6 +345,10 @@
       },
       {
         "text": "Each cluster combines goblin guards with up to five barrels.",
+        "status": "existing"
+      },
+      {
+        "text": "Red barrels always explode; 10% of ordinary barrels do too. Tap to start a flashing five-second fuse, then a one-cell blast, burning and ground fire.",
         "status": "existing"
       }
     ],
@@ -403,12 +419,16 @@
     ],
     "mechanics": [
       {
-        "text": "Lasting webs occupy 35% of eligible samples and paralyse grounded actors.",
+        "text": "Permanent webs occur on 35% of eligible path samples and 20% of eligible verge cells. Contact paralyses grounded actors.",
         "status": "existing"
       },
       {
         "text": "A section has one two-spider garrison.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed supply cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -484,6 +504,10 @@
       {
         "text": "A creeping-vine colony grows from a roadside seed; tendrils sting on contact.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed magic-consumable cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -509,6 +533,10 @@
       {
         "text": "The daily lantern shrine boosts light for five minutes; it does not cure confusion.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed magic-consumable cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -524,7 +552,8 @@
     "art": [
       "Use the existing plain, fruiting and poison-berry bush silhouettes; keep plain bushes dominant.",
       "Keep thorns sparse and omit yellow flowers so fruit and movement remain the strongest signals.",
-      "Use the existing warm lamp glow to reveal gaps between bushes."
+      "Use the existing warm lamp glow to reveal gaps between bushes.",
+      "Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden; no yellow flowers."
     ],
     "mechanics": [
       {
@@ -549,11 +578,12 @@
     "art": [
       "Use denser existing berry-bush art than Berry Lane, with a few poison bushes and brambles.",
       "Keep the bear readable through breaks in the bushes rather than adding new scenery.",
-      "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour."
+      "Retain the narrow path silhouette so approaching the fruit feels like a deliberate detour.",
+      "Two bush rows on each side: 48% plain, 25% berry, 15% poison, 10% thorn and 2% golden; no yellow flowers."
     ],
     "mechanics": [
       {
-        "text": "The trail uses a fruit-heavy bush mix and adds one large forest-bear encounter where a legal seat exists.",
+        "text": "The trail shares Berry Lane\u2019s bush mix and adds one large forest-bear encounter where a legal seat exists.",
         "status": "existing"
       },
       {
@@ -584,6 +614,10 @@
       {
         "text": "Road pots and two verge rows create repeated optional stops; occupied seats leave gaps.",
         "status": "existing"
+      },
+      {
+        "text": "Eligible surface pots have a stable 20% chance of releasing a snake when smashed.",
+        "status": "existing"
       }
     ],
     "adjectives": [
@@ -595,19 +629,19 @@
   {
     "id": "trade",
     "feeling": "Useful supplies are close at hand, but someone is already scavenging them.",
-    "arrival": "Rows of barrels make the rewards obvious; pairs of goblin grunts turn browsing into a tactical choice.",
+    "arrival": "Rows of barrels offer supplies; a thief and two goblin grunts contest each occupied post.",
     "art": [
       "Use existing wooden barrels and their broken states as the route's main visual rhythm.",
       "Keep hanging lantern posts and warm light around the barrel rows.",
-      "Leave readable gaps between barrels so both members of a grunt pair can be spotted."
+      "Leave readable gaps around the thief and goblin pair."
     ],
     "mechanics": [
       {
-        "text": "Barrels use existing container loot and smashing interactions.",
+        "text": "Most barrels yield normal container loot; 10% instead start a five-second explosive fuse when tapped.",
         "status": "existing"
       },
       {
-        "text": "Eligible roadside posts can hold two goblin grunts, with gaps between encounters.",
+        "text": "Each occupied roadside post holds a thief and two goblin grunts.",
         "status": "existing"
       }
     ],
@@ -619,7 +653,7 @@
   },
   {
     "id": "rocky_path",
-    "feeling": "A practical gathering route where useful stone is always underfoot.",
+    "feeling": "Useful stone rewards a careful walker on ground that can give way.",
     "arrival": "Common rocks, flint and rubble extend onto the route itself and stop at the first verge row.",
     "art": [
       "Use only the existing common-rock, flint and rubble forms; omit outer decorative rock types.",
@@ -634,12 +668,16 @@
       {
         "text": "Finds can occupy the road and first verge row; blocked seats do not push them farther outward.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Stepping on an eligible cave-in seed has an 8% chance to start a 2\u20135-cell collapse. Cracks warn for five seconds before permanent holes open; the static preview shows intact ground."
       }
     ],
     "adjectives": [
-      "Practical",
       "Rugged",
-      "Productive"
+      "Unstable",
+      "Tense"
     ]
   },
   {
@@ -684,6 +722,10 @@
       {
         "text": "Small mushrooms are pickable, while the existing medium mushroom clusters yield wood and mushroom when chopped.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Concealed forage cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -703,12 +745,24 @@
     ],
     "mechanics": [
       {
-        "text": "The route is marked as a haunting habitat and participates in the shared haunting rules.",
+        "text": "After dark, eligible unlit spots can raise 1\u20133 ghosts per attempt every 4\u20136 minutes. Tapping a headstone has a 1-in-3 chance to raise a ghost at any hour.",
         "status": "existing"
       },
       {
         "text": "Dead-tree finds and mushrooms retain ordinary chopping and picking interactions.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Permanent maws occur about every 70 m where safe placement permits. Stepping into one drops a grounded player one level."
+      },
+      {
+        "status": "existing",
+        "text": "About one-third of graves raise one ghost when approached within one cell. Each approach trigger fires once per save; flying players do not trigger it."
+      },
+      {
+        "status": "existing",
+        "text": "Concealed occult cache, with its own themed T1\u2013T3 loot roll."
       }
     ],
     "adjectives": [
@@ -734,6 +788,10 @@
       {
         "text": "Each find keeps its normal picking, chopping, smashing or mining interaction; the crop plants are harvestable wild plants, not timed farm plots.",
         "status": "existing"
+      },
+      {
+        "status": "existing",
+        "text": "Up to three small snakes inhabit the tile\u2019s eligible Variety corridor. Decorated verge rows fill every available cell."
       }
     ],
     "adjectives": [
@@ -753,7 +811,7 @@
     ],
     "mechanics": [
       {
-        "text": "The terrain pass creates water pools beside the road, up to three cells outward.",
+        "text": "Rocky ground with water pools extends up to three cells beside the road.",
         "status": "existing"
       },
       {
